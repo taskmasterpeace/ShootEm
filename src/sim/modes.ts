@@ -1,6 +1,6 @@
 import { TEAM_NAMES } from './data';
 import type { GameMap } from './map';
-import type { FlagState, ModeId, ModeState, Team } from './types';
+import { isZed, type FlagState, type ModeId, type ModeState, type Team, type ZedKind } from './types';
 import type { World } from './world';
 
 const MATCH_TIME = 15 * 60;
@@ -43,6 +43,13 @@ export function initMode(id: ModeId, map: GameMap, minutes?: number): ModeState 
       m.target = 0;
       m.timeLeft = Infinity;
       break;
+    case 'horde':
+      m.wave = 0;          // repurposed: intensity level shown on the HUD
+      m.zombiesLeft = 0;
+      m.nextWaveAt = 3;    // first spawn
+      m.target = 0;
+      m.timeLeft = Infinity;
+      break;
   }
   return m;
 }
@@ -63,6 +70,7 @@ export function stepMode(w: World, dt: number) {
     case 'koth': stepKoth(w, dt); break;
     case 'conquest': stepConquest(w, dt); break;
     case 'survival': stepSurvival(w, dt); break;
+    case 'horde': stepHorde(w, dt); break;
   }
 }
 
@@ -219,9 +227,7 @@ function stepSurvival(w: World, dt: number) {
     return;
   }
 
-  const zombies = [...w.soldiers.values()].filter(
-    (s) => s.alive && (s.kind === 'zombie' || s.kind === 'spitter' || s.kind === 'brute'),
-  );
+  const zombies = [...w.soldiers.values()].filter((s) => s.alive && isZed(s.kind));
   m.zombiesLeft = zombies.length;
 
   if (zombies.length === 0) {
@@ -236,9 +242,7 @@ function stepSurvival(w: World, dt: number) {
       for (let i = 0; i < count; i++) {
         const sp = w.map.zombieSpawns[w.rng.int(0, w.map.zombieSpawns.length - 1)];
         const jitter = { x: sp.x + w.rng.range(-2, 2), y: 0, z: sp.z + w.rng.range(-2, 2) };
-        const roll = w.rng.next();
-        const kind = wave >= 3 && roll < 0.12 ? 'brute' : wave >= 2 && roll < 0.35 ? 'spitter' : 'zombie';
-        const z = w.addZombie(kind, jitter);
+        const z = w.addZombie(rollZedKind(w, wave), jitter);
         // waves scale hp
         z.hp *= 1 + wave * 0.12;
         z.maxHp = z.hp;
@@ -249,4 +253,54 @@ function stepSurvival(w: World, dt: number) {
     }
   }
   void humansAlive;
+}
+
+/** Special-zombie table. `tier` = wave number (Survival) or intensity level (Horde). */
+function rollZedKind(w: World, tier: number): ZedKind {
+  const roll = w.rng.next();
+  if (roll < 0.1) return tier >= 3 ? 'brute' : 'zombie';
+  if (roll < 0.19) return tier >= 2 ? 'bomber' : 'zombie';
+  if (roll < 0.25) return tier >= 2 ? 'sprinter' : 'zombie'; // rare — the one you hear before you see
+  if (roll < 0.45) return tier >= 2 ? 'spitter' : 'zombie';
+  return 'zombie';
+}
+
+// ---------- Endless Horde ----------
+
+function stepHorde(w: World, dt: number) {
+  const m = w.mode;
+  const anyLiving = w.humansAndBots().some((s) => s.alive);
+  if (!anyLiving) {
+    endMatch(w, 1);
+    const mins = Math.floor(w.time / 60);
+    const secs = Math.floor(w.time % 60);
+    w.emit({ type: 'announce', text: `Overrun — survived ${mins}:${String(secs).padStart(2, '0')}`, big: true });
+    return;
+  }
+
+  const zombies = [...w.soldiers.values()].filter((s) => s.alive && isZed(s.kind));
+  m.zombiesLeft = zombies.length;
+  m.scores[0] = w.humansAndBots().reduce((a, s) => a + s.kills, 0); // squad kill count
+  const intensity = 1 + Math.floor(w.time / 30); // ramps every 30s
+  if (intensity !== m.wave) {
+    m.wave = intensity;
+    if (intensity > 1) w.emit({ type: 'wave_start', text: `INTENSITY ${intensity}`, big: true });
+  }
+
+  // population target grows with time; difficulty scales it
+  const diffMul = w.opts.difficulty === 'recruit' ? 0.7 : w.opts.difficulty === 'elite' ? 1.35 : 1;
+  const targetPop = Math.min(8 + intensity * 3, 48) * diffMul;
+
+  if (zombies.length < targetPop && w.time >= (m.nextWaveAt ?? 0)) {
+    // spawn cadence accelerates from 1.6s down to 0.4s
+    m.nextWaveAt = w.time + Math.max(0.4, 1.6 - w.time / 150);
+    const burst = w.rng.int(1, Math.min(3, intensity));
+    for (let i = 0; i < burst; i++) {
+      const sp = w.map.zombieSpawns[w.rng.int(0, w.map.zombieSpawns.length - 1)];
+      const jitter = { x: sp.x + w.rng.range(-2, 2), y: 0, z: sp.z + w.rng.range(-2, 2) };
+      const z = w.addZombie(rollZedKind(w, intensity), jitter);
+      z.hp *= 1 + (intensity - 1) * 0.08;
+      z.maxHp = z.hp;
+    }
+  }
 }

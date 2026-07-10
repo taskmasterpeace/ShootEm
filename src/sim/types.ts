@@ -1,6 +1,6 @@
 export type Team = 0 | 1; // 0 = Titan (amber), 1 = Collective (cyan). Survival: all players team 0.
 
-export type ModeId = 'tdm' | 'ctf' | 'koth' | 'conquest' | 'survival';
+export type ModeId = 'tdm' | 'ctf' | 'koth' | 'conquest' | 'survival' | 'horde';
 
 export type ClassId = 'infantry' | 'heavy' | 'jump' | 'engineer' | 'medic' | 'infiltrator';
 
@@ -81,7 +81,13 @@ export interface Vec3 {
   z: number;
 }
 
-export type SoldierKind = 'human' | 'bot' | 'zombie' | 'spitter' | 'brute';
+export type SoldierKind = 'human' | 'bot' | 'zombie' | 'spitter' | 'brute' | 'sprinter' | 'bomber';
+
+export type ZedKind = 'zombie' | 'spitter' | 'brute' | 'sprinter' | 'bomber';
+
+export function isZed(k: SoldierKind): k is ZedKind {
+  return k !== 'human' && k !== 'bot';
+}
 
 export interface Soldier {
   id: number;
@@ -231,10 +237,15 @@ export interface ModeState {
   // conquest
   points?: ControlPoint[];
   tickets?: [number, number];
-  // survival
+  // survival / horde
   wave?: number;
   zombiesLeft?: number;
   nextWaveAt?: number;
+}
+
+/** Modes where all players share team 0 against the undead. */
+export function isCoopMode(id: ModeId): boolean {
+  return id === 'survival' || id === 'horde';
 }
 
 export interface PlayerCmd {

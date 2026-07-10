@@ -1,9 +1,11 @@
 import { CLASSES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { GRID, T_WATER, TILE, WORLD, blocksShot, generateMap, isBlocked, losClear, tileAt, type GameMap } from './map';
 import { Rng } from './rng';
-import type {
-  ClassId, Mine, ModeId, ModeState, Pickup, PlayerCmd, Projectile, SimEvent,
-  Soldier, SoldierKind, Team, Turret, Vec3, Vehicle, VehicleKind, WeaponId,
+import {
+  isCoopMode, isZed,
+  type ClassId, type Mine, type ModeId, type ModeState, type Pickup, type PlayerCmd,
+  type Projectile, type SimEvent, type Soldier, type SoldierKind, type Team,
+  type Turret, type Vec3, type Vehicle, type VehicleKind, type WeaponId, type ZedKind,
 } from './types';
 import { stepMode, initMode } from './modes';
 import { stepBot, stepZombie } from './bots';
@@ -53,8 +55,8 @@ export class World {
     this.rng = new Rng(opts.seed ^ 0xbeef);
     this.map = generateMap(opts.seed, opts.mode);
     this.mode = initMode(opts.mode, this.map, opts.matchMinutes);
-    // vehicles on pads (no vehicles in survival — infantry holdout)
-    if (opts.mode !== 'survival') {
+    // vehicles on pads (no vehicles in co-op zombie modes — infantry holdout)
+    if (!isCoopMode(opts.mode)) {
       for (const pad of this.map.vehiclePads) this.spawnVehicle(pad.kind, pad.team, pad.pos);
     }
     for (const p of this.map.pickups) {
@@ -95,10 +97,10 @@ export class World {
     return s;
   }
 
-  addZombie(kind: 'zombie' | 'spitter' | 'brute', pos: Vec3): Soldier {
+  addZombie(kind: ZedKind, pos: Vec3): Soldier {
     const st = ZOMBIE_STATS[kind];
     const s: Soldier = {
-      id: this.id(), kind, name: kind === 'brute' ? 'Brute' : kind === 'spitter' ? 'Spitter' : 'Zombie',
+      id: this.id(), kind, name: kind.charAt(0).toUpperCase() + kind.slice(1),
       team: 1, classId: 'infantry',
       pos: { ...pos }, vel: { x: 0, y: 0, z: 0 }, yaw: 0,
       hp: st.hp, maxHp: st.hp, energy: 0, alive: true, respawnAt: 0,
@@ -429,7 +431,7 @@ export class World {
 
   stepVehicle(v: Vehicle, cmds: Map<number, PlayerCmd>, dt: number) {
     if (!v.alive) {
-      if (this.time >= v.respawnAt && this.opts.mode !== 'survival' && !this.mode.over) {
+      if (this.time >= v.respawnAt && !isCoopMode(this.opts.mode) && !this.mode.over) {
         const def = VEHICLES[v.kind];
         v.alive = true; v.hp = def.hp; v.maxHp = def.hp;
         v.pos = { ...v.padPos }; v.vel = { x: 0, y: 0, z: 0 };
@@ -677,12 +679,14 @@ export class World {
       victim.hp = 0;
       victim.alive = false;
       victim.deaths++;
-      victim.respawnAt = this.time + (victim.kind === 'human' || victim.kind === 'bot' ? RESPAWN_DELAY : 2);
+      victim.respawnAt = this.time + (isZed(victim.kind) ? 2 : RESPAWN_DELAY);
       const attacker = this.soldiers.get(attackerId);
       if (attacker && attacker.id !== victim.id) {
         attacker.kills++;
-        attacker.score += victim.kind === 'brute' ? 50 : victim.kind === 'spitter' ? 15 : 10;
+        attacker.score += isZed(victim.kind) ? ZOMBIE_STATS[victim.kind].score : 10;
       }
+      // bombers go out with a bang — hurts whoever is close on the other team
+      if (victim.kind === 'bomber') this.bomberDetonate(victim);
       this.emit({
         type: 'death', pos: { ...victim.pos }, soldierId: victim.id,
         killerName: attacker && attacker.id !== victim.id ? attacker.name : undefined,
@@ -761,7 +765,7 @@ export class World {
         continue;
       }
       for (const s of this.soldiers.values()) {
-        if (!s.alive || s.kind === 'zombie' || s.kind === 'spitter' || s.kind === 'brute' || s.vehicleId >= 0) continue;
+        if (!s.alive || isZed(s.kind) || s.vehicleId >= 0) continue;
         if (Math.hypot(s.pos.x - pk.pos.x, s.pos.z - pk.pos.z) < 1.6) {
           let used = false;
           if (pk.type === 'medkit' && s.hp < s.maxHp) { s.hp = Math.min(s.maxHp, s.hp + 50); used = true; }
@@ -793,6 +797,12 @@ export class World {
         }
       }
     }
+  }
+
+  /** Bomber blast: on death or on reaching a victim. */
+  bomberDetonate(bomber: Soldier) {
+    const blast = { ...WEAPONS.gl, id: 'gl' as WeaponId, damage: 35, splash: 4.5, splashDamage: 55 };
+    this.explode(bomber.pos, blast as (typeof WEAPONS)[WeaponId], bomber.id, bomber.team);
   }
 
   fireZombieSpit(s: Soldier, target: Soldier) {

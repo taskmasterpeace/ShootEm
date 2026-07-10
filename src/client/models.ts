@@ -25,15 +25,19 @@ const cyl = (rt: number, rb: number, h: number, m: THREE.Material, seg = 10) => 
 /** Low-poly soldier. Root faces +X (yaw 0). */
 export function buildSoldier(team: Team, classId: ClassId, kind: SoldierKind): THREE.Group {
   const g = new THREE.Group();
-  const isZed = kind === 'zombie' || kind === 'spitter' || kind === 'brute';
+  const isZed = kind !== 'human' && kind !== 'bot';
   const teamCol = isZed
-    ? (kind === 'brute' ? 0x5a7a3a : kind === 'spitter' ? 0x7a9a4a : 0x6b8f4e)
+    ? (kind === 'brute' ? 0x5a7a3a
+      : kind === 'spitter' ? 0x7a9a4a
+      : kind === 'sprinter' ? 0xb9503a
+      : kind === 'bomber' ? 0x8fbf2a
+      : 0x6b8f4e)
     : TEAM_COLORS[team];
-  const skin = isZed ? 0x8fa86a : 0xd9b38c;
-  const armor = mat(isZed ? 0x3d4a2e : team === 0 ? 0x8a6c34 : 0x33708a, { rough: 0.85 });
+  const skin = isZed ? (kind === 'sprinter' ? 0xb07050 : 0x8fa86a) : 0xd9b38c;
+  const armor = mat(isZed ? (kind === 'sprinter' ? 0x5a3226 : 0x3d4a2e) : team === 0 ? 0x8a6c34 : 0x33708a, { rough: 0.85 });
   const accent = mat(teamCol, { emissive: isZed ? 0 : teamCol });
 
-  const scale = kind === 'brute' ? 1.65 : 1;
+  const scale = kind === 'brute' ? 1.65 : kind === 'bomber' ? 1.25 : kind === 'sprinter' ? 0.9 : 1;
 
   // torso
   const torso = box(0.55, 0.7, 0.8, armor);
@@ -90,6 +94,24 @@ export function buildSoldier(team: Team, classId: ClassId, kind: SoldierKind): T
     const armR = armL.clone();
     armR.position.z = -0.3;
     g.add(armL, armR);
+    if (kind === 'bomber') {
+      // bloated glowing belly — shoot it before it reaches you
+      const belly = new THREE.Mesh(
+        new THREE.SphereGeometry(0.5, 10, 8),
+        mat(0x9adf3a, { emissive: 0x9adf3a, rough: 0.5 }),
+      );
+      belly.position.set(0.18, 0.95, 0);
+      belly.castShadow = true;
+      g.add(belly);
+    }
+    if (kind === 'sprinter') {
+      // hunched forward posture
+      g.rotation.z = 0;
+      const spine = box(0.5, 0.14, 0.14, mat(0x7a3a2a));
+      spine.position.set(-0.15, 1.5, 0);
+      spine.rotation.z = -0.5;
+      g.add(spine);
+    }
   }
   g.scale.setScalar(scale);
   return g;

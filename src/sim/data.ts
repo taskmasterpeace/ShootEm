@@ -86,6 +86,8 @@ export const ZOMBIE_STATS = {
   zombie: { hp: 60, speed: 8.5, weapon: 'zombie_claw' as WeaponId, score: 10 },
   spitter: { hp: 45, speed: 7.5, weapon: 'spitter_acid' as WeaponId, score: 15 },
   brute: { hp: 320, speed: 6, weapon: 'zombie_claw' as WeaponId, score: 50 },
+  sprinter: { hp: 40, speed: 15.5, weapon: 'zombie_claw' as WeaponId, score: 20 },
+  bomber: { hp: 90, speed: 6.5, weapon: 'zombie_claw' as WeaponId, score: 25 },
 };
 
 export const MODE_INFO: Record<string, { name: string; desc: string; icon: string }> = {
@@ -94,4 +96,5 @@ export const MODE_INFO: Record<string, { name: string; desc: string; icon: strin
   koth: { name: 'King of the Hill', desc: 'Hold the hill for 120 total seconds.', icon: '⛰️' },
   conquest: { name: 'Conquest', desc: 'Hold control points A/B/C. First to 500 tickets.', icon: '🎯' },
   survival: { name: 'Zombie Survival', desc: 'Co-op vs escalating undead waves.', icon: '🧟' },
+  horde: { name: 'Endless Horde', desc: 'No waves, no breaks — the dead never stop coming.', icon: '🩸' },
 };

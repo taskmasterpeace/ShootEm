@@ -59,7 +59,18 @@ Hold **TAB** for kills / deaths / score by team. Score counts kills, flag caps, 
 | 🚩 CTF | 3 captures | You can only score while **your own flag is home**. Killing a carrier drops the flag; defenders touch it to return it. Carriers can ride vehicles. |
 | ⛰️ KOTH | Hold the hill 120s total | Contested hill (both teams inside) pauses the clock. |
 | 🎯 Conquest | 500 tickets | Stand inside A/B/C rings to capture. More points = faster tickets. B (center) is the bloodbath — engineers should fortify it. |
-| 🧟 Survival | Outlast waves | Co-op. Wave *n* has 6+3n zombies that get tougher. Spitters (ranged acid) arrive wave 2, Brutes (300+ HP) wave 3. Ends when the whole squad is down. |
+| 🧟 Survival | Outlast waves | Co-op. Wave *n* has 6+3n zombies that get tougher. Specials mix in from wave 2. Ends when the whole squad is down. |
+| 🩸 Endless Horde | Survive as long as you can | Co-op, no wave breaks — spawning is continuous and the **intensity ramps every 30 seconds** (population and spawn rate keep climbing). Score = squad kills + time survived. |
+
+### Know the undead
+
+| Zombie | HP | Threat |
+|---|---|---|
+| Shambler | 60 | The mass. Slow, relentless, arrives in crowds. |
+| Spitter | 45 | Ranged acid lobber — kites away when you close in. Kill first. |
+| Brute | 320 | Walking wall. Feed it autocannon or railgun, not SMG fire. |
+| **Sprinter** *(rare)* | 40 | Nearly twice your run speed. By the time you hear about it, it's on you — hip-fire immediately. |
+| **Bomber** | 90 | Bloated, glowing belly. Charges to point-blank and **detonates** — and it still explodes when killed, so drop it at range. |
 
 ![Conquest point](screenshots/conquest-point.jpg)
 *Holding point B with a sentry turret placed on the ring. The white ring turns your team's color when captured.*

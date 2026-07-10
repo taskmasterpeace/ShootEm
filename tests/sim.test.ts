@@ -223,6 +223,81 @@ describe('game modes', () => {
   });
 });
 
+describe('endless horde', () => {
+  it('spawns continuously without wave breaks and ramps intensity', () => {
+    const w = new World({ seed: 42, mode: 'horde' });
+    const a = w.addSoldier('A', 'heavy', 0, 'human');
+    a.pos = { x: 0, y: 0, z: 0 };
+    const keepAlive = () => { a.hp = a.maxHp; }; // survive for observation
+    let seenCounts: number[] = [];
+    for (let i = 0; i < 60 * 40; i++) {
+      keepAlive();
+      w.step(1 / 60, new Map());
+      if (i % 300 === 0) seenCounts.push(w.mode.zombiesLeft ?? 0);
+    }
+    // zombies present well before any "wave clear" could happen, and population grows
+    expect(Math.max(...seenCounts)).toBeGreaterThan(5);
+    expect(w.mode.wave).toBeGreaterThanOrEqual(2); // intensity ramped at 30s
+    const zeds = [...w.soldiers.values()].filter((s) => s.alive && s.kind !== 'human');
+    expect(zeds.length).toBeGreaterThan(0);
+  });
+
+  it('rolls special zombies including rare sprinters at higher intensity', () => {
+    const w = new World({ seed: 1234, mode: 'horde' });
+    const a = w.addSoldier('A', 'heavy', 0, 'human');
+    a.pos = { x: 0, y: 0, z: 0 };
+    const kinds = new Set<string>();
+    for (let i = 0; i < 60 * 120; i++) {
+      a.hp = a.maxHp;
+      w.step(1 / 60, new Map());
+      for (const s of w.soldiers.values()) {
+        if (s.kind !== 'human' && s.kind !== 'bot') {
+          kinds.add(s.kind);
+          if (s.alive && i % 12 === 0) w.damageSoldier(s, 9999, a.id, 'ar606'); // keep the meat grinder turning
+        }
+      }
+      if (kinds.has('sprinter') && kinds.has('bomber') && kinds.has('brute') && kinds.has('spitter')) break;
+    }
+    expect(kinds.has('sprinter')).toBe(true);
+    expect(kinds.has('bomber')).toBe(true);
+  });
+
+  it('sprinters are much faster than shamblers', () => {
+    const w = new World({ seed: 42, mode: 'horde' });
+    const a = w.addSoldier('A', 'infantry', 0, 'human');
+    a.pos = { x: 0, y: 0, z: 0 };
+    const sp = w.map.zombieSpawns[0]; // guaranteed-open ground
+    const shambler = w.addZombie('zombie', { ...sp });
+    const sprinter = w.addZombie('sprinter', { ...sp });
+    run(w, new Map(), 2);
+    const dShambler = Math.hypot(shambler.pos.x - sp.x, shambler.pos.z - sp.z);
+    const dSprinter = Math.hypot(sprinter.pos.x - sp.x, sprinter.pos.z - sp.z);
+    expect(dShambler).toBeGreaterThan(3);
+    expect(dSprinter).toBeGreaterThan(dShambler * 1.4);
+  });
+
+  it('bombers explode on death and damage nearby players', () => {
+    const w = new World({ seed: 42, mode: 'horde' });
+    const a = w.addSoldier('A', 'infantry', 0, 'human');
+    const bomber = w.addZombie('bomber', { x: 2, y: 0, z: 0 });
+    a.pos = { x: 0, y: 0, z: 0 };
+    w.takeEvents();
+    w.damageSoldier(bomber, 9999, a.id, 'ar606');
+    expect(bomber.alive).toBe(false);
+    const events = w.takeEvents();
+    expect(events.some((e) => e.type === 'explosion')).toBe(true);
+    expect(a.hp).toBeLessThan(a.maxHp); // stood too close to the blast
+  });
+
+  it('ends when the whole squad is down', () => {
+    const w = new World({ seed: 42, mode: 'horde' });
+    const a = w.addSoldier('A', 'infantry', 0, 'human');
+    w.damageSoldier(a, 9999, a.id, 'ar606');
+    w.step(1 / 60, new Map());
+    expect(w.mode.over).toBe(true);
+  });
+});
+
 describe('bots', () => {
   it('bot teams fight and score kills over time', () => {
     const w = new World({ seed: 1337, mode: 'tdm' });

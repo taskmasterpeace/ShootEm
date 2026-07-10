@@ -126,6 +126,14 @@ export class Hud {
                  <div class="obj-chip neutral">${m.zombiesLeft ?? 0} left</div>
                  <div class="obj-chip t1">☠ ${local.kills}</div>`;
         break;
+      case 'horde': {
+        const t = world.time;
+        const clock = `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+        chips = `<div class="obj-chip t0">🕐 ${clock}</div>
+                 <div class="obj-chip neutral">INTENSITY ${m.wave ?? 1}</div>
+                 <div class="obj-chip t1">☠ ${fmt(m.scores[0])} · ${m.zombiesLeft ?? 0} up</div>`;
+        break;
+      }
     }
     bar.innerHTML = chips;
     $('mode-status').textContent = MODE_INFO[m.id].name;
@@ -169,7 +177,11 @@ export class Hud {
     for (const s of world.soldiers.values()) {
       if (!s.alive || s.id === local.id) continue;
       const zed = s.kind !== 'human' && s.kind !== 'bot';
-      if (zed) { dot(s.pos.x, s.pos.z, '#8fce5a', 2); continue; }
+      if (zed) {
+        const c = s.kind === 'sprinter' ? '#e06a50' : s.kind === 'bomber' ? '#b7e34a' : '#8fce5a';
+        dot(s.pos.x, s.pos.z, c, s.kind === 'brute' ? 3 : 2);
+        continue;
+      }
       if (s.cloaked && s.team !== local.team) continue;
       dot(s.pos.x, s.pos.z, s.team === 0 ? '#e8a33d' : '#3dbde8');
     }
@@ -197,7 +209,7 @@ export class Hud {
       `<tr class="${s.id === localId ? 'me' : ''}"><td>${s.name}</td><td>${CLASSES[s.classId].name}</td><td>${s.kills}</td><td>${s.deaths}</td><td>${Math.floor(s.score)}</td></tr>`;
     let html = `<h2>${MODE_INFO[m.id].name}${m.over ? ` — ${m.winner === -1 ? 'Draw' : TEAM_NAMES[m.winner as Team] + ' wins'}` : ''}</h2><table>
       <tr><th>Callsign</th><th>Class</th><th>K</th><th>D</th><th>Score</th></tr>`;
-    if (m.id === 'survival') {
+    if (m.id === 'survival' || m.id === 'horde') {
       html += soldiers.map(row).join('');
     } else {
       for (const team of [0, 1] as Team[]) {

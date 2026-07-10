@@ -7,7 +7,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { World } from '../sim/world';
 import { takeSnapshot } from '../sim/snapshot';
-import type { ClassId, ModeId, PlayerCmd } from '../sim/types';
+import { isCoopMode, type ClassId, type ModeId, type PlayerCmd } from '../sim/types';
 
 const PORT = Number(process.argv[2] ?? process.env.PORT ?? 3401);
 const TICK = 1 / 30;
@@ -15,7 +15,7 @@ const SNAP_EVERY = 2; // 15Hz snapshots
 
 const BOT_NAMES = ['Vex', 'Talon', 'Havoc', 'Rook', 'Cinder', 'Drifter', 'Onyx', 'Piston', 'Gault', 'Merc', 'Static', 'Bishop', 'Fang', 'Widow', 'Jinx'];
 const CLASS_POOL: ClassId[] = ['infantry', 'infantry', 'heavy', 'jump', 'engineer', 'medic', 'infiltrator'];
-const MODES: ModeId[] = ['tdm', 'ctf', 'koth', 'conquest', 'survival'];
+const MODES: ModeId[] = ['tdm', 'ctf', 'koth', 'conquest', 'survival', 'horde'];
 
 interface Client {
   ws: WebSocket;
@@ -33,7 +33,7 @@ class Room {
     const seed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
     this.world = new World({ seed, mode });
     let n = 0;
-    if (mode === 'survival') {
+    if (isCoopMode(mode)) {
       for (let i = 0; i < 3; i++) this.world.addSoldier(BOT_NAMES[n++], CLASS_POOL[i % CLASS_POOL.length], 0, 'bot');
     } else {
       for (let i = 0; i < 6; i++) this.world.addSoldier(BOT_NAMES[n++], CLASS_POOL[i % CLASS_POOL.length], 0, 'bot');
@@ -47,7 +47,7 @@ class Room {
     // balance teams by live player+bot count
     const counts: [number, number] = [0, 0];
     for (const s of this.world.humansAndBots()) counts[s.team]++;
-    const team = this.mode === 'survival' ? 0 : counts[0] <= counts[1] ? 0 : 1;
+    const team = isCoopMode(this.mode) ? 0 : counts[0] <= counts[1] ? 0 : 1;
     const soldier = this.world.addSoldier(name.slice(0, 16) || 'Recruit', classId, team, 'human');
     const client: Client = { ws, soldierId: soldier.id, cmd: null };
     this.clients.add(client);
@@ -85,7 +85,7 @@ class Room {
     const old = this.world;
     this.world = new World({ seed, mode: this.mode });
     let n = 0;
-    if (this.mode === 'survival') {
+    if (isCoopMode(this.mode)) {
       for (let i = 0; i < 3; i++) this.world.addSoldier(BOT_NAMES[n++], CLASS_POOL[i % CLASS_POOL.length], 0, 'bot');
     } else {
       for (let i = 0; i < 6; i++) this.world.addSoldier(BOT_NAMES[n++], CLASS_POOL[i % CLASS_POOL.length], 0, 'bot');
@@ -96,7 +96,7 @@ class Room {
       const oldSoldier = old.soldiers.get(c.soldierId);
       const counts: [number, number] = [0, 0];
       for (const s of this.world.humansAndBots()) counts[s.team]++;
-      const team = this.mode === 'survival' ? 0 : counts[0] <= counts[1] ? 0 : 1;
+      const team = isCoopMode(this.mode) ? 0 : counts[0] <= counts[1] ? 0 : 1;
       const soldier = this.world.addSoldier(oldSoldier?.name ?? 'Recruit', oldSoldier?.classId ?? 'infantry', team as 0 | 1, 'human');
       c.soldierId = soldier.id;
       c.cmd = null;

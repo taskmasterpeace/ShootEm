@@ -1,5 +1,5 @@
 import { CLASSES, MODE_INFO } from './sim/data';
-import type { ClassId, ModeId, PlayerCmd } from './sim/types';
+import { isCoopMode, type ClassId, type ModeId, type PlayerCmd } from './sim/types';
 import { World, type Difficulty } from './sim/world';
 import { audio } from './client/audio';
 import { Hud } from './client/hud';
@@ -135,7 +135,7 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
   const names = [...BOT_NAMES].sort(() => Math.random() - 0.5);
   let n = 0;
   const wrap = (i: number) => names[i % names.length];
-  if (selectedMode === 'survival') {
+  if (isCoopMode(selectedMode)) {
     for (let i = 0; i < Math.min(botsPerTeam, 5); i++) world.addSoldier(wrap(n++), classPool[i % classPool.length], 0, 'bot');
   } else {
     for (let i = 0; i < botsPerTeam; i++) world.addSoldier(wrap(n++), classPool[i % classPool.length], 0, 'bot');

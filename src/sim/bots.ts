@@ -122,7 +122,8 @@ function objectiveFor(w: World, s: Soldier): Vec3 {
       }
       return best.pos;
     }
-    case 'survival': {
+    case 'survival':
+    case 'horde': {
       // hold near squad center
       const allies = w.humansAndBots().filter((x) => x.alive);
       if (!allies.length) return w.map.hillPos;
@@ -291,8 +292,18 @@ export function stepZombie(w: World, s: Soldier, dt: number) {
   if (!best) return;
 
   const isSpitter = s.kind === 'spitter';
-  const speed = s.kind === 'brute' ? 6 : isSpitter ? 7.5 : 8.5 + (s.id % 5) * 0.35;
+  const speed =
+    s.kind === 'brute' ? 6 :
+    s.kind === 'bomber' ? 6.5 :
+    s.kind === 'sprinter' ? 15 + (s.id % 3) * 0.6 : // rare and terrifying
+    isSpitter ? 7.5 : 8.5 + (s.id % 5) * 0.35;
   s.yaw = Math.atan2(best.pos.z - s.pos.z, best.pos.x - s.pos.x);
+
+  // bombers charge to point-blank and detonate
+  if (s.kind === 'bomber' && bestD < 2.4) {
+    w.damageSoldier(s, s.hp + 1, s.id, 'gl'); // suicide → bomberDetonate fires in the death path
+    return;
+  }
 
   // spitters keep distance and spit; others close to melee
   const wdef = WEAPONS[s.weapons[0]];
