@@ -11,6 +11,7 @@ const $ = (id: string) => document.getElementById(id)!;
 
 const CLASS_ICONS: Record<ClassId, string> = {
   infantry: '🎖️', heavy: '💥', jump: '🚀', engineer: '🔧', medic: '⚕️', infiltrator: '👁️',
+  pathfinder: '🌀', ghost: '📡',
 };
 
 const BOT_NAMES = [
@@ -131,7 +132,7 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
   const me = world.addSoldier(name, selectedClass, 0, 'human');
 
   // populate bots
-  const classPool: ClassId[] = ['infantry', 'infantry', 'heavy', 'jump', 'engineer', 'medic', 'infiltrator'];
+  const classPool: ClassId[] = ['infantry', 'infantry', 'heavy', 'jump', 'engineer', 'medic', 'infiltrator', 'pathfinder', 'ghost'];
   const names = [...BOT_NAMES].sort(() => Math.random() - 0.5);
   let n = 0;
   const wrap = (i: number) => names[i % names.length];

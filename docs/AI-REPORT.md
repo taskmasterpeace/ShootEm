@@ -50,7 +50,7 @@ A bot on foot with an objective **more than 45 units away** will mount an empty 
 
 ## Zombies (Survival)
 
-Zombies run a separate, simpler brain: beeline to the nearest living soldier, BFS around walls only when sight is blocked, melee on contact. **Spitters kite** — they retreat below 14 units and lob acid from range. Each zombie gets a per-ID speed jitter so hordes smear into a wave instead of marching in lockstep. Wave *n* spawns 6+3n zombies at map-edge points with +12% HP per wave; Spitters mix in from wave 2, Brutes from wave 3.
+Zombies run a separate, simpler brain: beeline to the nearest living soldier, BFS around walls only when sight is blocked, melee on contact. **Spitters kite** — they retreat below 14 units and lob acid from range. Each zombie gets a per-ID speed jitter so hordes smear into a wave instead of marching in lockstep. **Phase Stalkers** skip pathfinding entirely: every 3.5s they teleport up to 9 units toward their target — walls included — with a wall-rejection scan so they never materialize inside geometry. Wave *n* spawns 6+3n zombies at map-edge points with +12% HP per wave; Spitters mix in from wave 2, Brutes from wave 3.
 
 ## Where it could go next
 

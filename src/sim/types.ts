@@ -2,7 +2,7 @@ export type Team = 0 | 1; // 0 = Titan (amber), 1 = Collective (cyan). Survival:
 
 export type ModeId = 'tdm' | 'ctf' | 'koth' | 'conquest' | 'survival' | 'horde' | 'safehouse';
 
-export type ClassId = 'infantry' | 'heavy' | 'jump' | 'engineer' | 'medic' | 'infiltrator';
+export type ClassId = 'infantry' | 'heavy' | 'jump' | 'engineer' | 'medic' | 'infiltrator' | 'pathfinder' | 'ghost';
 
 export type WeaponId =
   | 'ar606'      // Maklov AR-606 assault rifle
@@ -17,6 +17,10 @@ export type WeaponId =
   | 'pistol'     // P9 sidearm
   | 'repair'     // engineer repair gun
   | 'medibeam'   // medic heal beam
+  | 'impulse'    // Pathfinder disc cannon — big knockback
+  | 'emp'        // Ghost EMP grenade
+  | 'target_beacon'   // lobbed recon ping beacon
+  | 'orbital_beacon'  // lobbed orbital-strike designator (pickup only)
   | 'buggy_mg' | 'tank_cannon' | 'apc_mg' | 'skiff_plasma' | 'turret_mg'
   | 'zombie_claw' | 'spitter_acid';
 
@@ -45,6 +49,8 @@ export interface WeaponDef {
   arc: boolean;
   /** heals instead of hurts (repair/medibeam) */
   heals: boolean;
+  /** shove applied to victims (impulse cannon) */
+  knockback: number;
   sound: string;
   tracer: 'bullet' | 'shell' | 'rocket' | 'plasma' | 'rail' | 'flame' | 'beam' | 'acid' | 'none';
 }
@@ -57,7 +63,7 @@ export interface ClassDef {
   speed: number; // units/s
   primary: WeaponId;
   secondary: WeaponId;
-  ability: 'grenade' | 'jetpack' | 'turret' | 'heal' | 'cloak';
+  ability: 'grenade' | 'jetpack' | 'turret' | 'heal' | 'cloak' | 'warp' | 'drone' | 'shield';
   abilityName: string;
   color: number;
 }
@@ -81,11 +87,11 @@ export interface Vec3 {
   z: number;
 }
 
-export type SoldierKind = 'human' | 'bot' | 'zombie' | 'spitter' | 'brute' | 'sprinter' | 'bomber' | 'scientist';
+export type SoldierKind = 'human' | 'bot' | 'zombie' | 'spitter' | 'brute' | 'sprinter' | 'bomber' | 'stalker' | 'scientist';
 
-export type ZedKind = 'zombie' | 'spitter' | 'brute' | 'sprinter' | 'bomber';
+export type ZedKind = 'zombie' | 'spitter' | 'brute' | 'sprinter' | 'bomber' | 'stalker';
 
-const ZED_KINDS: ReadonlySet<string> = new Set(['zombie', 'spitter', 'brute', 'sprinter', 'bomber']);
+const ZED_KINDS: ReadonlySet<string> = new Set(['zombie', 'spitter', 'brute', 'sprinter', 'bomber', 'stalker']);
 
 export function isZed(k: SoldierKind): k is ZedKind {
   return ZED_KINDS.has(k);
@@ -122,6 +128,11 @@ export interface Soldier {
   score: number;
   carryingFlag: Team | -1;
   nextAbilityAt: number;
+  // sci-fi kit
+  pushX: number;      // knockback impulse, decays
+  pushZ: number;
+  nextWarpAt: number; // shared cooldown for warps/gates/lifts (stalkers: blink timer)
+  orbitals: number;   // orbital-strike beacons held (pickup)
   // bot brain scratch
   botGoal?: Vec3 | null;
   botRepathAt?: number;
@@ -144,6 +155,7 @@ export interface Vehicle {
   alive: boolean;
   respawnAt: number;
   padPos: Vec3;
+  stunnedUntil: number; // EMP
 }
 
 export interface Turret {
@@ -172,9 +184,27 @@ export interface Projectile {
 
 export interface Pickup {
   id: number;
-  type: 'medkit' | 'ammo' | 'flamer' | 'energy';
+  type: 'medkit' | 'ammo' | 'flamer' | 'energy' | 'orbital';
   pos: Vec3;
   respawnAt: number; // 0 = available
+  oneShot?: boolean; // supply-pod loot vanishes after use
+}
+
+export type GadgetType = 'warpA' | 'warpB' | 'target_beacon' | 'orbital' | 'shield' | 'drone' | 'supply_pod';
+
+/** Deployed sci-fi tech: beacons, domes, drones, pods. */
+export interface Gadget {
+  id: number;
+  type: GadgetType;
+  team: Team;
+  ownerId: number;
+  pos: Vec3;
+  hp: number;
+  maxHp: number;
+  bornAt: number;
+  expiresAt: number;  // Infinity = permanent until destroyed
+  anchor?: Vec3;      // drone orbit center
+  phase?: number;     // drone orbit angle
 }
 
 export interface Mine {
@@ -210,7 +240,9 @@ export interface SimEvent {
     | 'flag_taken' | 'flag_dropped' | 'flag_returned' | 'flag_captured'
     | 'point_captured' | 'wave_start' | 'vehicle_enter' | 'vehicle_exit'
     | 'vehicle_destroyed' | 'turret_built' | 'heal' | 'jetpack' | 'cloak'
-    | 'announce' | 'match_over' | 'mine_planted';
+    | 'announce' | 'match_over' | 'mine_planted'
+    | 'warp' | 'blink' | 'emp' | 'orbital_strike' | 'gravlift'
+    | 'beacon_planted' | 'gadget_destroyed' | 'pod_incoming' | 'pod_landed';
   pos?: Vec3;
   weapon?: WeaponId;
   soldierId?: number;

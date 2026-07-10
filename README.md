@@ -1,10 +1,10 @@
 # ⚔️ War World
 
-**A modern, browser-native reimagining of [Infantry Online](https://github.com/InfantryOnline/Infantry-Online-Server)** — the classic 1998 top-down multiplayer shooter — rebuilt from scratch in TypeScript + Three.js with vehicles, seven game modes, six combat classes, bots, and LAN multiplayer.
+**A modern, browser-native reimagining of [Infantry Online](https://github.com/InfantryOnline/Infantry-Online-Server)** — the classic 1998 top-down multiplayer shooter — rebuilt from scratch in TypeScript + Three.js with vehicles, seven game modes, eight combat classes, Tribes-style warp tech, bots, and LAN multiplayer.
 
 No install, no launcher, no plugins. `npm run dev`, open a browser, deploy.
 
-![modes](https://img.shields.io/badge/modes-7-e8a33d) ![classes](https://img.shields.io/badge/classes-6-3dbde8) ![vehicles](https://img.shields.io/badge/vehicles-4%20%2B%20sentries-8fb98a) ![license](https://img.shields.io/badge/license-MIT-blue)
+![modes](https://img.shields.io/badge/modes-7-e8a33d) ![classes](https://img.shields.io/badge/classes-8-3dbde8) ![vehicles](https://img.shields.io/badge/vehicles-4%20%2B%20sentries-8fb98a) ![license](https://img.shields.io/badge/license-MIT-blue)
 
 ## Quick start
 
@@ -25,7 +25,7 @@ Then enter `ws://<host-ip>:3401` in the Multiplayer field on the menu. One room 
 
 ```bash
 npm run build        # typecheck + production bundle → dist/
-npm test             # 20 sim tests (combat, modes, vehicles, bots, netcode)
+npm test             # 42 sim tests (combat, modes, vehicles, bots, warp tech, netcode)
 npm run sounds       # regenerate the CC0 sound pack from source
 ```
 
@@ -36,9 +36,9 @@ npm run sounds       # regenerate the CC0 sound pack from source
 | WASD | Move (drive/steer in vehicles) |
 | Mouse | Aim · left-click fire |
 | Space | Jetpack (Jump Trooper) / hop |
-| E | Enter / exit vehicle |
-| Q | Class ability (cloak, sentry, self-stim…) |
-| G | Frag grenade (Engineer: plant mine) |
+| E | Enter/exit vehicle · use warp beacon · escort Dr. Voss |
+| Q | Class ability (cloak, sentry, warp beacon, drone, shield dome…) |
+| G | Frag grenade (Engineer: mine · Pathfinder: targeting beacon · Ghost: EMP · orbital designator if held) |
 | R | Reload · 1-3 weapon slots · TAB scoreboard |
 
 ## Game modes
@@ -63,8 +63,22 @@ npm run sounds       # regenerate the CC0 sound pack from source
 | Combat Engineer | 110 | CAW-8 Shotgun + Repair Gun | Builds sentry turrets, plants mines |
 | Field Medic | 100 | K6 SMG + Medi-Beam | Heals squad, self-stim |
 | Infiltrator | 80 | RG-2 Railgun + P9 | Cloaking field |
+| Pathfinder | 85 | Impulse Cannon (knockback) + P9 | **Warp beacon pair** (Q), targeting beacons (G), fastest on foot |
+| Ghost | 90 | Kamenel Plasma + P9 | **Recon drone** (Q) marks enemies through walls, EMP charges (G) |
 
-Plus battlefield pickups: medkits, ammo crates, energy cells, and the F-3 Flamer.
+Plus battlefield pickups: medkits, ammo crates, energy cells, the F-3 Flamer, and **orbital strike designators**.
+
+## Field tech (the Tribes homage)
+
+- **Warp Beacons** — Pathfinders plant an ALPHA/BETA pair; any teammate presses E on one to teleport to the other. Beacons are destroyable (150 HP).
+- **Jump Gates** — paired glowing arches on battlefield maps; walk in, come out the other side (4s cooldown).
+- **Grav-Lifts** — step on a pad, get flung ballistically toward midfield.
+- **Targeting Beacon** — lobbed; pings every enemy within 25 units onto your minimap for 15s (cloaks included).
+- **Orbital Strike** — pickup-only designator: throw it, 3 seconds of klaxon, then a beam annihilates the area. The beacon can be shot before it fires.
+- **Shield Dome** — Heavy's deployable bubble (400 HP, 30s) that eats enemy projectiles.
+- **EMP Charge** — Ghost's lobbed charge: stalls vehicles 4s, blinds turrets 5s, strips cloak and energy.
+- **Supply Pods** — every 90s a pod screams down from orbit with one-shot loot, sometimes an orbital designator.
+- **Phase Stalker** — the undead answer to all of it: a rare zombie that blinks through walls toward prey.
 
 ## Vehicles
 
@@ -104,7 +118,7 @@ The sim is deterministic and shared verbatim by the offline game, the client's d
 
 ## Sounds
 
-All 36 sound effects are **synthesized from scratch** by [`tools/gen-sounds.mjs`](tools/gen-sounds.mjs) (noise bursts, filtered sweeps, arpeggio stingers — no samples) and dedicated to the **public domain (CC0 1.0)**. See [public/audio/LICENSE-CC0.txt](public/audio/LICENSE-CC0.txt).
+All 43 sound effects are **synthesized from scratch** by [`tools/gen-sounds.mjs`](tools/gen-sounds.mjs) (noise bursts, filtered sweeps, arpeggio stingers — no samples) and dedicated to the **public domain (CC0 1.0)**. See [public/audio/LICENSE-CC0.txt](public/audio/LICENSE-CC0.txt).
 
 ## Lineage
 

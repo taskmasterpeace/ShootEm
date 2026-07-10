@@ -254,6 +254,23 @@ function buildTrooper(team: Team, classId: ClassId): THREE.Group {
     bandolier.rotation.x = 0.5;
     torso.add(bandolier);
   }
+  if (classId === 'pathfinder') {
+    // beacon rack: two warp pylons on the back
+    for (const side of [1, -1]) {
+      const pylon = cyl(0.05, 0.07, 0.4, mat(0x5ac8b0, { emissive: 0x2e8a76, metal: 0.4 }), 6);
+      pylon.position.set(-0.44, 0.42, side * 0.14);
+      torso.add(pylon);
+    }
+  }
+  if (classId === 'ghost') {
+    // sensor mast + shoulder dish
+    const mast = cyl(0.02, 0.02, 0.7, dark, 4);
+    mast.position.set(-0.4, 0.7, -0.15);
+    torso.add(mast);
+    const dish = cyl(0.1, 0.02, 0.06, mat(0x7a90a8, { emissive: 0x4a6078, metal: 0.5 }), 8);
+    dish.position.set(-0.4, 1.06, -0.15);
+    torso.add(dish);
+  }
   // shoulder pads — team ID
   for (const side of [1, -1]) {
     const pad = box(0.24, 0.12, 0.2, armor);
@@ -355,9 +372,9 @@ function buildTrooper(team: Team, classId: ClassId): THREE.Group {
 
 function buildZombie(kind: SoldierKind): THREE.Group {
   const g = new THREE.Group();
-  const scale = kind === 'brute' ? 1.65 : kind === 'bomber' ? 1.2 : kind === 'sprinter' ? 0.92 : 1;
-  const skinCol = kind === 'sprinter' ? 0xb07050 : kind === 'bomber' ? 0x97b26a : 0x8fa86a;
-  const ragCol = kind === 'sprinter' ? 0x53291f : 0x3d4a2e;
+  const scale = kind === 'brute' ? 1.65 : kind === 'bomber' ? 1.2 : kind === 'sprinter' ? 0.92 : kind === 'stalker' ? 1.05 : 1;
+  const skinCol = kind === 'sprinter' ? 0xb07050 : kind === 'bomber' ? 0x97b26a : kind === 'stalker' ? 0x4a3d5c : 0x8fa86a;
+  const ragCol = kind === 'sprinter' ? 0x53291f : kind === 'stalker' ? 0x241c30 : 0x3d4a2e;
   const skin = mat(skinCol, { rough: 0.9 });
   const rags = mat(ragCol, { rough: 0.98 });
   const dark = mat(0x22261c, { rough: 0.95 });
@@ -446,10 +463,23 @@ function buildZombie(kind: SoldierKind): THREE.Group {
   const jaw = box(0.1, 0.08, 0.2, dark);
   jaw.position.set(0.12, 0.0, 0);
   headGrp.add(jaw);
+  const eyeCol = kind === 'stalker' ? 0xaa55ff : 0xcc3322;
   for (const side of [1, -1]) {
-    const eye = box(0.05, 0.05, 0.06, mat(0xcc3322, { emissive: 0xcc3322 }));
+    const eye = box(0.05, 0.05, 0.06, mat(eyeCol, { emissive: eyeCol }));
     eye.position.set(0.14, 0.16, side * 0.08);
     headGrp.add(eye);
+  }
+  if (kind === 'stalker') {
+    // phase shroud: tattered hood + drifting wisps
+    const hood = box(0.34, 0.24, 0.34, mat(0x1a1424, { rough: 0.98 }));
+    hood.position.y = 0.26;
+    headGrp.add(hood);
+    for (const side of [1, -1]) {
+      const wisp = box(0.05, 0.4, 0.05, mat(0x6a4d9c, { emissive: 0x442d77 }));
+      wisp.position.set(-0.25, 0.95, side * 0.3);
+      wisp.rotation.x = side * 0.3;
+      g.add(wisp);
+    }
   }
 
   // sprinters run low
@@ -653,6 +683,145 @@ export function buildVehicle(kind: VehicleKind, team: Team): THREE.Group {
   }
   g.add(turret);
   g.userData.wheels = wheels;
+  return g;
+}
+
+// ---------------------------------------------------------------------------
+// Sci-fi gadgets
+// ---------------------------------------------------------------------------
+
+export function buildGadget(type: string, team: Team): THREE.Group {
+  const g = new THREE.Group();
+  const teamCol = TEAM_COLORS[team];
+  const glow = mat(teamCol, { emissive: teamCol });
+  const dark = mat(0x2a2a26, { metal: 0.5, rough: 0.4 });
+
+  switch (type) {
+    case 'warpA':
+    case 'warpB': {
+      // tripod pylon with a floating ring
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2;
+        const leg = box(0.07, 0.7, 0.07, dark);
+        leg.position.set(Math.cos(a) * 0.4, 0.32, Math.sin(a) * 0.4);
+        leg.rotation.x = Math.sin(a) * 0.4;
+        leg.rotation.z = -Math.cos(a) * 0.4;
+        g.add(leg);
+      }
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.07, 8, 24), glow);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = 1.1;
+      ring.name = 'spin';
+      g.add(ring);
+      const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.22),
+        mat(type === 'warpA' ? 0xffffff : 0x222222, { emissive: type === 'warpA' ? 0xffffff : teamCol }));
+      core.position.y = 1.1;
+      g.add(core);
+      break;
+    }
+    case 'target_beacon': {
+      const base = cyl(0.25, 0.35, 0.25, dark, 8);
+      base.position.y = 0.12;
+      g.add(base);
+      const mast = cyl(0.03, 0.03, 0.9, dark, 6);
+      mast.position.y = 0.7;
+      g.add(mast);
+      const dish = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), mat(0xff5040, { emissive: 0xff5040 }));
+      dish.position.y = 1.2;
+      dish.name = 'pulse';
+      g.add(dish);
+      break;
+    }
+    case 'orbital': {
+      const canister = cyl(0.3, 0.36, 0.6, mat(0x8a2020, { metal: 0.4, rough: 0.5 }), 10);
+      canister.position.y = 0.3;
+      g.add(canister);
+      const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), mat(0xff2020, { emissive: 0xff2020 }));
+      lamp.position.y = 0.72;
+      lamp.name = 'pulse';
+      g.add(lamp);
+      break;
+    }
+    case 'shield': {
+      const emitter = cyl(0.35, 0.5, 0.5, dark, 8);
+      emitter.position.y = 0.25;
+      g.add(emitter);
+      const dome = new THREE.Mesh(
+        new THREE.SphereGeometry(4, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+        new THREE.MeshStandardMaterial({
+          color: teamCol, transparent: true, opacity: 0.16,
+          emissive: teamCol, emissiveIntensity: 0.35, side: THREE.DoubleSide, depthWrite: false,
+        }),
+      );
+      dome.name = 'dome';
+      g.add(dome);
+      break;
+    }
+    case 'drone': {
+      const body = box(0.5, 0.16, 0.5, dark);
+      g.add(body);
+      for (const [dx, dz] of [[0.32, 0.32], [0.32, -0.32], [-0.32, 0.32], [-0.32, -0.32]]) {
+        const rotor = cyl(0.16, 0.16, 0.03, mat(0x3a3f44, { metal: 0.5, rough: 0.3 }), 8);
+        rotor.position.set(dx, 0.1, dz);
+        rotor.name = 'rotor';
+        g.add(rotor);
+      }
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), glow);
+      eye.position.set(0.26, -0.05, 0);
+      g.add(eye);
+      break;
+    }
+    case 'supply_pod': {
+      const capsule = cyl(0.7, 0.9, 1.8, mat(0x6a6f5a, { metal: 0.45, rough: 0.4 }), 10);
+      capsule.position.y = 0.9;
+      g.add(capsule);
+      const stripe = cyl(0.92, 0.92, 0.18, mat(0xe8a33d, { emissive: 0xe8a33d }), 10);
+      stripe.position.y = 0.5;
+      g.add(stripe);
+      break;
+    }
+  }
+  return g;
+}
+
+/** Jump gate: a glowing arch. */
+export function buildGate(): THREE.Group {
+  const g = new THREE.Group();
+  const frame = mat(0x3a3f44, { metal: 0.6, rough: 0.3 });
+  const portal = new THREE.Mesh(
+    new THREE.TorusGeometry(1.6, 0.16, 10, 28),
+    mat(0x66e8ff, { emissive: 0x44ccee }),
+  );
+  portal.position.y = 1.9;
+  portal.name = 'spin';
+  g.add(portal);
+  const film = new THREE.Mesh(
+    new THREE.CircleGeometry(1.4, 24),
+    new THREE.MeshStandardMaterial({
+      color: 0x66e8ff, emissive: 0x44ccee, emissiveIntensity: 0.5,
+      transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false,
+    }),
+  );
+  film.position.y = 1.9;
+  g.add(film);
+  for (const side of [1, -1]) {
+    const post = box(0.3, 2.2, 0.3, frame);
+    post.position.set(0, 1.1, side * 1.8);
+    g.add(post);
+  }
+  return g;
+}
+
+/** Grav-lift pad. */
+export function buildPad(): THREE.Group {
+  const g = new THREE.Group();
+  const disc = cyl(1.3, 1.5, 0.18, mat(0x30363c, { metal: 0.5, rough: 0.4 }), 16);
+  disc.position.y = 0.09;
+  g.add(disc);
+  const lens = cyl(1.0, 1.0, 0.1, mat(0x9a66ff, { emissive: 0x7744ee }), 16);
+  lens.position.y = 0.2;
+  lens.name = 'pulse';
+  g.add(lens);
   return g;
 }
 

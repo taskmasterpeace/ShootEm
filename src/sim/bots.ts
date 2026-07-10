@@ -376,6 +376,7 @@ export function stepZombie(w: World, s: Soldier, dt: number) {
     s.kind === 'brute' ? 6 :
     s.kind === 'bomber' ? 6.5 :
     s.kind === 'sprinter' ? 15 + (s.id % 3) * 0.6 : // rare and terrifying
+    s.kind === 'stalker' ? 5 :
     isSpitter ? 7.5 : 8.5 + (s.id % 5) * 0.35;
   s.yaw = Math.atan2(best.pos.z - s.pos.z, best.pos.x - s.pos.x);
 
@@ -383,6 +384,28 @@ export function stepZombie(w: World, s: Soldier, dt: number) {
   if (s.kind === 'bomber' && bestD < 2.4) {
     w.damageSoldier(s, s.hp + 1, s.id, 'gl'); // suicide → bomberDetonate fires in the death path
     return;
+  }
+
+  // phase stalkers blink toward their prey — straight through walls
+  if (s.kind === 'stalker' && bestD > 3 && bestD < 30 && w.time >= s.nextWarpAt) {
+    const hop = Math.min(9, bestD - 2.2);
+    const dir = { x: (best.pos.x - s.pos.x) / bestD, z: (best.pos.z - s.pos.z) / bestD };
+    let nx = s.pos.x + dir.x * hop;
+    let nz = s.pos.z + dir.z * hop;
+    // never materialize inside a wall — back off along the blink line
+    for (let back = 0; back < 6 && isBlocked(w.map.grid, nx, nz); back++) {
+      nx -= dir.x * 1.2;
+      nz -= dir.z * 1.2;
+    }
+    if (!isBlocked(w.map.grid, nx, nz)) {
+      w.emit({ type: 'blink', pos: { ...s.pos } });
+      s.pos.x = nx;
+      s.pos.z = nz;
+      s.nextWarpAt = w.time + 3.5;
+      w.emit({ type: 'blink', pos: { ...s.pos }, soldierId: s.id });
+    } else {
+      s.nextWarpAt = w.time + 1; // try again shortly
+    }
   }
 
   // spitters keep distance and spit; others close to melee

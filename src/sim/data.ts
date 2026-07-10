@@ -12,6 +12,7 @@ const W = (w: Partial<WeaponDef> & Pick<WeaponDef, 'id' | 'name' | 'damage' | 'r
   splashDamage: 0,
   arc: false,
   heals: false,
+  knockback: 0,
   sound: 'rifle',
   tracer: 'bullet',
   ...w,
@@ -30,6 +31,10 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
   pistol: W({ id: 'pistol', name: 'P9 Sidearm', damage: 12, rof: 4.5, speed: 100, spread: 0.02, clip: 12, reloadTime: 1.1, reserve: 96, sound: 'pistol' }),
   repair: W({ id: 'repair', name: 'Repair Gun', damage: 30, rof: 4, speed: 200, spread: 0, clip: Infinity, reloadTime: 0, reserve: Infinity, range: 12, heals: true, sound: 'repair', tracer: 'beam' }),
   medibeam: W({ id: 'medibeam', name: 'Medi-Beam', damage: 22, rof: 4, speed: 200, spread: 0, clip: Infinity, reloadTime: 0, reserve: Infinity, range: 14, heals: true, sound: 'heal', tracer: 'beam' }),
+  impulse: W({ id: 'impulse', name: 'Impulse Cannon', damage: 30, rof: 1.5, speed: 55, spread: 0.008, clip: 8, reloadTime: 2, reserve: 64, range: 60, splash: 2.8, splashDamage: 18, knockback: 17, sound: 'impulse', tracer: 'rail' }),
+  emp: W({ id: 'emp', name: 'EMP Charge', damage: 0, rof: 0.8, speed: 30, clip: 1, reserve: 0, range: 40, arc: true, sound: 'thump', tracer: 'plasma' }),
+  target_beacon: W({ id: 'target_beacon', name: 'Targeting Beacon', damage: 0, rof: 0.8, speed: 28, clip: 1, reserve: 0, range: 40, arc: true, sound: 'thump', tracer: 'shell' }),
+  orbital_beacon: W({ id: 'orbital_beacon', name: 'Orbital Designator', damage: 0, rof: 0.5, speed: 26, clip: 1, reserve: 0, range: 38, arc: true, sound: 'thump', tracer: 'rocket' }),
   buggy_mg: W({ id: 'buggy_mg', name: 'Buggy MG', damage: 11, rof: 10, speed: 110, spread: 0.045, clip: Infinity, reserve: Infinity, sound: 'smg' }),
   tank_cannon: W({ id: 'tank_cannon', name: '120mm Cannon', damage: 110, rof: 0.5, speed: 70, spread: 0.004, clip: Infinity, reserve: Infinity, range: 90, splash: 5.5, splashDamage: 60, sound: 'cannon', tracer: 'rocket' }),
   apc_mg: W({ id: 'apc_mg', name: 'APC MG', damage: 12, rof: 8, speed: 105, spread: 0.04, clip: Infinity, reserve: Infinity, sound: 'autocannon' }),
@@ -46,9 +51,9 @@ export const CLASSES: Record<ClassId, ClassDef> = {
     ability: 'grenade', abilityName: 'Frag Grenade', color: 0xc9a86a,
   },
   heavy: {
-    id: 'heavy', name: 'Heavy Weapons', desc: 'Slow but devastating. Autocannon + missiles.',
+    id: 'heavy', name: 'Heavy Weapons', desc: 'Slow but devastating. Autocannon, missiles, shield dome.',
     hp: 145, speed: 8.2, primary: 'ac_mk2', secondary: 'mml',
-    ability: 'grenade', abilityName: 'Frag Grenade', color: 0xb0623a,
+    ability: 'shield', abilityName: 'Shield Dome (Q)', color: 0xb0623a,
   },
   jump: {
     id: 'jump', name: 'Jump Trooper', desc: 'Jetpack mobility. SMG skirmisher.',
@@ -70,6 +75,16 @@ export const CLASSES: Record<ClassId, ClassDef> = {
     hp: 80, speed: 11, primary: 'rg2', secondary: 'pistol',
     ability: 'cloak', abilityName: 'Cloak (Q)', color: 0x8a7fb9,
   },
+  pathfinder: {
+    id: 'pathfinder', name: 'Pathfinder', desc: 'Warp beacon pair + knockback impulse cannon. Fastest boots in the war.',
+    hp: 85, speed: 12.5, primary: 'impulse', secondary: 'pistol',
+    ability: 'warp', abilityName: 'Warp Beacon (Q) / Target Beacon (G)', color: 0x5ac8b0,
+  },
+  ghost: {
+    id: 'ghost', name: 'Ghost', desc: 'Recon drone marks enemies through walls. EMP charges stall vehicles.',
+    hp: 90, speed: 11, primary: 'plasma', secondary: 'pistol',
+    ability: 'drone', abilityName: 'Recon Drone (Q) / EMP (G)', color: 0x7a90a8,
+  },
 };
 
 export const VEHICLES: Record<VehicleKind, VehicleDef> = {
@@ -88,6 +103,7 @@ export const ZOMBIE_STATS = {
   brute: { hp: 320, speed: 6, weapon: 'zombie_claw' as WeaponId, score: 50 },
   sprinter: { hp: 40, speed: 15.5, weapon: 'zombie_claw' as WeaponId, score: 20 },
   bomber: { hp: 90, speed: 6.5, weapon: 'zombie_claw' as WeaponId, score: 25 },
+  stalker: { hp: 70, speed: 5, weapon: 'zombie_claw' as WeaponId, score: 35 },
 };
 
 export const MODE_INFO: Record<string, { name: string; desc: string; icon: string }> = {

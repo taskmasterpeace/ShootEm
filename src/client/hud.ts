@@ -185,6 +185,22 @@ export class Hud {
       ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fill();
     };
+    // map tech: gates + lift pads
+    for (const gate of world.map.gates) {
+      for (const end of [gate.a, gate.b]) dot(end.x, end.z, '#66e8ff', 3);
+    }
+    for (const pad of world.map.pads) dot(pad.pos.x, pad.pos.z, '#9a66ff', 2.5);
+
+    // deployed gadgets
+    for (const g of world.gadgets.values()) {
+      const mine = g.team === local.team;
+      if (g.type === 'warpA' || g.type === 'warpB') dot(g.pos.x, g.pos.z, mine ? '#7dffdc' : '#ff8866', 3);
+      else if (g.type === 'drone') dot(g.pos.x, g.pos.z, mine ? '#c8e8ff' : '#ffb0a0', 2);
+      else if (g.type === 'orbital') dot(g.pos.x, g.pos.z, '#ff3020', 4);
+      else if (g.type === 'supply_pod') dot(g.pos.x, g.pos.z, '#ffd870', 4);
+      else if (g.type === 'shield') dot(g.pos.x, g.pos.z, mine ? '#e8a33d' : '#3dbde8', 3.5);
+    }
+
     // objectives
     const m = world.mode;
     if (m.hillPos) dot(m.hillPos.x, m.hillPos.z, m.hillHolder === -1 ? '#ffffff' : m.hillHolder === 0 ? '#e8a33d' : '#3dbde8', 5);
@@ -199,12 +215,21 @@ export class Hud {
         continue;
       }
       const zed = s.kind !== 'human' && s.kind !== 'bot';
+      const pinged = world.pinged.has(s.id) && s.team !== local.team;
+      if (pinged) {
+        // targeting ring: revealed by beacon/drone, cloak or not
+        const [px, py] = toMap(s.pos.x, s.pos.z);
+        ctx.strokeStyle = '#ff5040';
+        ctx.beginPath();
+        ctx.arc(px, py, 5, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       if (zed) {
-        const c = s.kind === 'sprinter' ? '#e06a50' : s.kind === 'bomber' ? '#b7e34a' : '#8fce5a';
+        const c = s.kind === 'sprinter' ? '#e06a50' : s.kind === 'bomber' ? '#b7e34a' : s.kind === 'stalker' ? '#b070ff' : '#8fce5a';
         dot(s.pos.x, s.pos.z, c, s.kind === 'brute' ? 3 : 2);
         continue;
       }
-      if (s.cloaked && s.team !== local.team) continue;
+      if (s.cloaked && s.team !== local.team && !pinged) continue;
       dot(s.pos.x, s.pos.z, s.team === 0 ? '#e8a33d' : '#3dbde8');
     }
     for (const v of world.vehicles.values()) {
@@ -260,7 +285,7 @@ export class Hud {
       if (e.type === 'hit' && e.soldierId === localId) this.flashHitmarker();
       if ((e.type === 'announce' || e.type === 'flag_taken' || e.type === 'flag_captured' ||
            e.type === 'flag_returned' || e.type === 'point_captured' || e.type === 'wave_start' ||
-           e.type === 'match_over') && e.text) {
+           e.type === 'match_over' || e.type === 'pod_incoming' || e.type === 'beacon_planted') && e.text) {
         this.announce(e.text, !!e.big, now);
       }
     }

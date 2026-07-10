@@ -5,7 +5,7 @@ import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
 import type { World } from '../sim/world';
 import { audio, type SoundName } from './audio';
 import { Particles, FlashLights } from './effects';
-import { buildFlag, buildPickup, buildProp, buildSoldier, buildTurretMesh, buildVehicle } from './models';
+import { buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp, buildSoldier, buildTurretMesh, buildVehicle } from './models';
 
 const TRACER_COLORS: Record<string, number> = {
   bullet: 0xffd890, shell: 0xffb060, rocket: 0xff8840, plasma: 0x60c8ff,
@@ -29,6 +29,9 @@ export class Renderer {
   private projMeshes = new Map<number, THREE.Mesh>();
   private pickupMeshes = new Map<number, THREE.Group>();
   private mineMeshes = new Map<number, THREE.Mesh>();
+  private gadgetMeshes = new Map<number, THREE.Group>();
+  private spinners: THREE.Object3D[] = [];
+  private beams: { mesh: THREE.Mesh; until: number }[] = [];
   private flagMeshes: THREE.Group[] = [];
   private cpRings: THREE.Mesh[] = [];
   private hillRing: THREE.Mesh | null = null;
@@ -167,6 +170,22 @@ export class Renderer {
       ring.rotation.x = -Math.PI / 2;
       ring.position.set(pad.pos.x, 0.03, pad.pos.z);
       this.scene.add(ring);
+    }
+
+    // jump gates + grav-lift pads
+    for (const gate of world.map.gates) {
+      for (const end of [gate.a, gate.b]) {
+        const arch = buildGate();
+        arch.position.set(end.x, 0, end.z);
+        this.scene.add(arch);
+        const spin = arch.getObjectByName('spin');
+        if (spin) this.spinners.push(spin);
+      }
+    }
+    for (const pad of world.map.pads) {
+      const disc = buildPad();
+      disc.position.set(pad.pos.x, 0, pad.pos.z);
+      this.scene.add(disc);
     }
 
     // mode objective markers
@@ -374,6 +393,50 @@ export class Renderer {
       }
     }
 
+    // gadgets: beacons, domes, drones, pods
+    for (const g of world.gadgets.values()) {
+      let mesh = this.gadgetMeshes.get(g.id);
+      if (!mesh) {
+        mesh = buildGadget(g.type, g.team);
+        this.scene.add(mesh);
+        this.gadgetMeshes.set(g.id, mesh);
+      }
+      mesh.position.set(g.pos.x, g.type === 'drone' || g.type === 'supply_pod' ? g.pos.y : 0, g.pos.z);
+      const spin = mesh.getObjectByName('spin');
+      if (spin) spin.rotation.z = world.time * 2.2;
+      if (g.type === 'drone') {
+        mesh.rotation.y = -(g.phase ?? 0) - Math.PI / 2;
+        mesh.position.y = g.pos.y + Math.sin(world.time * 4 + g.id) * 0.15;
+      }
+      const pulse = mesh.getObjectByName('pulse') as THREE.Mesh | undefined;
+      const pm = pulse?.material as THREE.MeshStandardMaterial | undefined;
+      if (pm) {
+        // orbital lamp blinks faster as it arms
+        const rate = g.type === 'orbital' ? 4 + (world.time - g.bornAt) * 6 : 3;
+        pm.emissiveIntensity = 0.5 + 0.5 * Math.sin(world.time * rate);
+      }
+    }
+    for (const [id, mesh] of this.gadgetMeshes) {
+      if (!world.gadgets.has(id)) {
+        this.scene.remove(mesh);
+        this.gadgetMeshes.delete(id);
+      }
+    }
+
+    // orbital beams fade out
+    for (let i = this.beams.length - 1; i >= 0; i--) {
+      const b = this.beams[i];
+      const mm = b.mesh.material as THREE.MeshStandardMaterial;
+      mm.opacity = Math.max(0, (b.until - world.time) / 0.9) * 0.85;
+      b.mesh.scale.x = b.mesh.scale.z = 1 + (0.9 - (b.until - world.time)) * 0.6;
+      if (world.time >= b.until) {
+        this.scene.remove(b.mesh);
+        mm.dispose();
+        b.mesh.geometry.dispose();
+        this.beams.splice(i, 1);
+      }
+    }
+
     // flags
     if (world.mode.flags) {
       world.mode.flags.forEach((f, i) => {
@@ -568,6 +631,67 @@ export class Renderer {
             this.particles.emit({ pos: e.pos, count: 80, color: 0xff8030, speed: 16, life: 1, spread: 2, up: 10, gravity: 7 });
             audio.play('explosion_big', { pos: e.pos, volume: 1 });
           }
+          break;
+        case 'warp':
+          if (e.pos) {
+            this.particles.emit({ pos: { ...e.pos, y: 1.2 }, count: 26, color: 0x66e8ff, speed: 5, life: 0.5, spread: 0.6, up: 5, gravity: -3 });
+            audio.play('warp', { pos: e.pos, volume: 0.85 });
+          }
+          break;
+        case 'blink':
+          if (e.pos) {
+            this.particles.emit({ pos: { ...e.pos, y: 1.2 }, count: 18, color: 0x9a55dd, speed: 4, life: 0.45, spread: 0.5, up: 3, gravity: -2 });
+            audio.play('blink', { pos: e.pos, volume: 0.8 });
+          }
+          break;
+        case 'emp':
+          if (e.pos) {
+            this.particles.emit({ pos: { ...e.pos, y: 1 }, count: 50, color: 0x55aaff, speed: 13, life: 0.5, spread: 0.4, up: 2, gravity: 1 });
+            this.flashes.flash(e.pos, 0x66aaff, 55, world.time, 0.25);
+            audio.play('emp_burst', { pos: e.pos, volume: 0.95 });
+          }
+          break;
+        case 'gravlift':
+          if (e.pos) {
+            this.particles.emit({ pos: { ...e.pos, y: 0.4 }, count: 14, color: 0x9a66ff, speed: 3, life: 0.5, spread: 0.8, up: 9, gravity: -2 });
+            audio.play('gravlift', { pos: e.pos, volume: 0.7 });
+          }
+          break;
+        case 'beacon_planted':
+          if (e.pos) {
+            audio.play(e.big ? 'orbital_charge' : 'beacon', { pos: e.pos, volume: e.big ? 1 : 0.7 });
+            this.particles.emit({ pos: { ...e.pos, y: 0.8 }, count: 8, color: e.big ? 0xff4030 : 0xffcf70, speed: 2, life: 0.4, spread: 0.4, up: 3 });
+          }
+          break;
+        case 'orbital_strike': {
+          if (!e.pos) break;
+          const beam = new THREE.Mesh(
+            new THREE.CylinderGeometry(2.2, 2.6, 90, 16, 1, true),
+            new THREE.MeshStandardMaterial({
+              color: 0xffe0b0, emissive: 0xffb050, emissiveIntensity: 2,
+              transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide,
+            }),
+          );
+          beam.position.set(e.pos.x, 45, e.pos.z);
+          this.scene.add(beam);
+          this.beams.push({ mesh: beam, until: world.time + 0.9 });
+          this.particles.emit({ pos: e.pos, count: 120, color: 0xffb050, speed: 20, life: 1.1, spread: 2, up: 14, gravity: 8 });
+          this.flashes.flash(e.pos, 0xffcc66, 140, world.time, 0.4);
+          this.camShake = Math.max(this.camShake, 1.2);
+          audio.play('explosion_big', { pos: e.pos, volume: 1 });
+          break;
+        }
+        case 'pod_incoming':
+          audio.play('thump', { volume: 0.6 });
+          break;
+        case 'pod_landed':
+          if (e.pos) {
+            this.particles.emit({ pos: e.pos, count: 40, color: 0xc8b880, speed: 9, life: 0.8, spread: 1.5, up: 6, gravity: 7 });
+            audio.play('explosion', { pos: e.pos, volume: 0.8 });
+          }
+          break;
+        case 'gadget_destroyed':
+          if (e.pos) this.particles.emit({ pos: { ...e.pos, y: 1 }, count: 14, color: 0x99a0aa, speed: 6, life: 0.5, spread: 0.5, up: 4 });
           break;
         case 'flag_taken': audio.play('flag_taken', { volume: 0.9 }); break;
         case 'flag_captured': audio.play('flag_captured', { volume: 1 }); break;

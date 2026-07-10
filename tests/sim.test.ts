@@ -404,6 +404,152 @@ describe('bots', () => {
   });
 });
 
+describe('sci-fi kit', () => {
+  it('pathfinder plants a warp pair and E teleports between them', () => {
+    const w = new World({ seed: 21, mode: 'tdm' });
+    const p = w.addSoldier('P', 'pathfinder', 0, 'human');
+    p.pos = { x: 0, y: 0, z: 0 };
+    p.energy = 100;
+    w.step(1 / 60, new Map([[p.id, cmd({ ability: true })]])); // plant ALPHA
+    p.pos = { x: 30, y: 0, z: 10 };
+    p.energy = 100;
+    p.nextAbilityAt = 0;
+    w.step(1 / 60, new Map([[p.id, cmd({ ability: true })]])); // plant BETA
+    const types = [...w.gadgets.values()].map((g) => g.type).sort();
+    expect(types).toEqual(['warpA', 'warpB']);
+    // stand on BETA, warp to ALPHA
+    w.step(1 / 60, new Map([[p.id, cmd({ use: true })]]));
+    expect(Math.hypot(p.pos.x - 0, p.pos.z - 0)).toBeLessThan(3);
+  });
+
+  it('jump gates teleport soldiers walking into them', () => {
+    const w = new World({ seed: 21, mode: 'tdm' });
+    expect(w.map.gates.length).toBeGreaterThan(0);
+    const s = w.addSoldier('S', 'infantry', 0, 'human');
+    const gate = w.map.gates[0];
+    s.pos = { ...gate.a };
+    w.step(1 / 60, new Map());
+    expect(Math.hypot(s.pos.x - gate.b.x, s.pos.z - gate.b.z)).toBeLessThan(3);
+  });
+
+  it('grav-lift pads launch soldiers', () => {
+    const w = new World({ seed: 21, mode: 'tdm' });
+    expect(w.map.pads.length).toBeGreaterThan(0);
+    const s = w.addSoldier('S', 'infantry', 0, 'human');
+    const pad = w.map.pads[0];
+    s.pos = { ...pad.pos };
+    w.step(1 / 60, new Map());
+    expect(s.vel.y).toBeGreaterThan(5);
+    expect(Math.hypot(s.pushX, s.pushZ)).toBeGreaterThan(10);
+  });
+
+  it('impulse cannon knocks targets back', () => {
+    const w = new World({ seed: 21, mode: 'tdm' });
+    const p = w.addSoldier('P', 'pathfinder', 0, 'human');
+    const victim = w.addSoldier('V', 'infantry', 1, 'human');
+    p.pos = { x: 0, y: 0, z: 0 };
+    victim.pos = { x: 8, y: 0, z: 0 };
+    const hold = () => { victim.pos.z = 0; }; // keep on the firing line
+    const cmds = new Map([[p.id, cmd({ fire: true, aimYaw: 0 })]]);
+    for (let i = 0; i < 90; i++) { hold(); w.step(1 / 60, cmds); if (victim.pushX > 0) break; }
+    expect(victim.pushX).toBeGreaterThan(5);
+  });
+
+  it('EMP stuns enemy vehicles', () => {
+    const w = new World({ seed: 21, mode: 'tdm' });
+    const g = w.addSoldier('G', 'ghost', 0, 'human');
+    const v = [...w.vehicles.values()].find((x) => x.team === 1)!;
+    g.pos = { x: v.pos.x - 5, y: 0, z: v.pos.z };
+    w.empBlast(v.pos, 0, g.id);
+    expect(v.stunnedUntil).toBeGreaterThan(w.time);
+  });
+
+  it('recon drone pings enemies — even cloaked infiltrators', () => {
+    const w = new World({ seed: 21, mode: 'tdm' });
+    const g = w.addSoldier('G', 'ghost', 0, 'human');
+    const spy = w.addSoldier('S', 'infiltrator', 1, 'human');
+    g.pos = { x: 0, y: 0, z: 0 };
+    g.energy = 100;
+    spy.pos = { x: 5, y: 0, z: 0 };
+    spy.cloaked = true;
+    w.step(1 / 60, new Map([[g.id, cmd({ ability: true })]]));
+    w.step(1 / 60, new Map());
+    expect(w.pinged.has(spy.id)).toBe(true);
+  });
+
+  it('shield dome absorbs enemy projectiles until it breaks', () => {
+    const w = new World({ seed: 21, mode: 'tdm' });
+    const h = w.addSoldier('H', 'heavy', 0, 'human');
+    const shooter = w.addSoldier('E', 'infantry', 1, 'human');
+    h.pos = { x: 0, y: 0, z: 0 };
+    h.energy = 100;
+    w.step(1 / 60, new Map([[h.id, cmd({ ability: true })]])); // raise dome
+    const dome = [...w.gadgets.values()].find((x) => x.type === 'shield')!;
+    expect(dome).toBeTruthy();
+    shooter.pos = { x: 12, y: 0, z: 0 };
+    const hpBefore = h.hp;
+    const domeBefore = dome.hp;
+    const cmds = new Map([[shooter.id, cmd({ fire: true, aimYaw: Math.PI })]]);
+    run(w, cmds, 3);
+    expect(h.hp).toBe(hpBefore);          // trooper untouched inside the dome
+    expect(dome.hp).toBeLessThan(domeBefore); // dome ate the rounds
+  });
+
+  it('orbital designator calls down a devastating strike after 3s', () => {
+    const w = new World({ seed: 21, mode: 'tdm' });
+    const s = w.addSoldier('S', 'infantry', 0, 'human');
+    const victim = w.addSoldier('V', 'heavy', 1, 'human');
+    s.pos = { x: 0, y: 0, z: 0 };
+    s.orbitals = 1;
+    victim.pos = { x: 14, y: 0, z: 0 };
+    w.step(1 / 60, new Map([[s.id, cmd({ grenade: true, aimYaw: 0 })]]));
+    // beacon flies, lands, arms 3s, fires
+    let struck = false;
+    for (let i = 0; i < 60 * 6 && !struck; i++) {
+      victim.pos = { x: 14, y: 0, z: 0 };
+      victim.hp = victim.maxHp;
+      w.step(1 / 60, new Map());
+      for (const e of w.takeEvents()) if (e.type === 'orbital_strike') struck = true;
+      if (struck) break;
+    }
+    expect(struck).toBe(true);
+  });
+
+  it('phase stalkers blink through walls toward prey', () => {
+    const w = new World({ seed: 21, mode: 'horde' });
+    const a = w.addSoldier('A', 'infantry', 0, 'human');
+    a.pos = { ...w.map.hillPos };
+    // stalker on the other side of whatever cover exists, 20 units out
+    const z = w.addZombie('stalker', { x: a.pos.x + 20, y: 0, z: a.pos.z });
+    const d0 = Math.hypot(z.pos.x - a.pos.x, z.pos.z - a.pos.z);
+    let blinked = false;
+    for (let i = 0; i < 60 * 5; i++) {
+      a.hp = a.maxHp;
+      a.pos = { ...w.map.hillPos };
+      w.step(1 / 60, new Map());
+      for (const e of w.takeEvents()) if (e.type === 'blink') blinked = true;
+    }
+    const d1 = Math.hypot(z.pos.x - a.pos.x, z.pos.z - a.pos.z);
+    expect(blinked).toBe(true);
+    expect(d1).toBeLessThan(d0);
+  });
+
+  it('supply pods land and drop one-shot loot', () => {
+    const w = new World({ seed: 21, mode: 'tdm' });
+    const a = w.addSoldier('A', 'infantry', 0, 'human');
+    w.nextPodAt = 0.5;
+    const before = w.pickups.size;
+    let landed = false;
+    for (let i = 0; i < 60 * 5 && !landed; i++) {
+      w.step(1 / 60, new Map());
+      for (const e of w.takeEvents()) if (e.type === 'pod_landed') landed = true;
+    }
+    expect(landed).toBe(true);
+    expect(w.pickups.size).toBe(before + 3);
+    void a;
+  });
+});
+
 describe('snapshot codec', () => {
   it('round-trips world state including Infinity ammo', () => {
     const w = new World({ seed: 5, mode: 'conquest' });

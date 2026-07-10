@@ -1,4 +1,4 @@
-import type { Mine, ModeState, Pickup, Projectile, SimEvent, Soldier, Turret, Vehicle } from './types';
+import type { Gadget, Mine, ModeState, Pickup, Projectile, SimEvent, Soldier, Turret, Vehicle } from './types';
 import type { World } from './world';
 
 /** Wire format: full world snapshot. Fine for LAN play at 15Hz. */
@@ -11,6 +11,8 @@ export interface Snapshot {
   projectiles: Projectile[];
   pickups: Pickup[];
   mines: Mine[];
+  gadgets: Gadget[];
+  pinged: number[];
   events: SimEvent[];
 }
 
@@ -37,6 +39,8 @@ export function takeSnapshot(w: World, events: SimEvent[]): Snapshot {
     projectiles: [...w.projectiles.values()],
     pickups: [...w.pickups.values()],
     mines: [...w.mines.values()],
+    gadgets: [...w.gadgets.values()].map((g) => ({ ...g, hp: encNum(g.hp), maxHp: encNum(g.maxHp), expiresAt: encNum(g.expiresAt) })),
+    pinged: [...w.pinged],
     events,
   };
 }
@@ -69,6 +73,8 @@ export function applySnapshot(w: World, snap: Snapshot) {
   syncMap(w.projectiles, snap.projectiles);
   syncMap(w.pickups, snap.pickups);
   syncMap(w.mines, snap.mines);
+  syncMap(w.gadgets, snap.gadgets.map((g) => ({ ...g, hp: decNum(g.hp), maxHp: decNum(g.maxHp), expiresAt: decNum(g.expiresAt) })));
+  w.pinged = new Set(snap.pinged);
 }
 
 function syncMap<T extends { id: number }>(map: Map<number, T>, arr: T[]) {

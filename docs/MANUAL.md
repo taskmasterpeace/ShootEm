@@ -72,6 +72,7 @@ Hold **TAB** for kills / deaths / score by team. Score counts kills, flag caps, 
 | Brute | 320 | Walking wall. Feed it autocannon or railgun, not SMG fire. |
 | **Sprinter** *(rare)* | 40 | Nearly twice your run speed. By the time you hear about it, it's on you — hip-fire immediately. |
 | **Bomber** | 90 | Bloated, glowing belly. Charges to point-blank and **detonates** — and it still explodes when killed, so drop it at range. |
+| **Phase Stalker** *(rare)* | 70 | Purple shroud, violet eyes. Every 3.5s it **blinks up to 9 units toward you — through walls**. Bunkers don't save you; kill it between blinks. |
 
 ![Conquest point](screenshots/conquest-point.jpg)
 *Holding point B with a sentry turret placed on the ring. The white ring turns your team's color when captured.*
@@ -87,6 +88,8 @@ Hold **TAB** for kills / deaths / score by team. Score counts kills, flag caps, 
 - **Combat Engineer** — Q drops a sentry (80 energy, max 2). Put them on flag stands and control points. G plants proximity mines (vehicle killers — 220 damage). The repair gun fixes vehicles, turrets, and APCs mid-fight.
 - **Field Medic** — Beam heals allies through walls of gunfire; you score 2 points per heal tick. Q is a 45 HP self-stim. Shadow your Heavy.
 - **Infiltrator** — Q cloaks you (invisible to enemies beyond 9 units, turrets ignore you). Firing decloaks. Rail a target, cloak, relocate. 80 HP: never trade shots openly.
+- **Pathfinder** — the Tribes homage. Q plants warp beacons: first press = ALPHA, second = BETA; then any teammate standing on one presses E to teleport to the other. The Impulse Cannon shoves whatever it hits (knock enemies into water, off the hill, out of the flag room). G lobs a targeting beacon that lights enemies up on the minimap for 15s. Fastest class in the game.
+- **Ghost** — Q deploys an orbiting recon drone that marks every enemy within 22 units through walls — cloaked Infiltrators included. G throws an EMP: vehicles stall for 4s, turrets go blind, cloaks drop. The counter-intelligence class.
 
 ## 6. Vehicles
 
@@ -115,3 +118,25 @@ Destroyed vehicles hurt everyone inside and respawn on their pad ~22s later. Eng
 ## 8. Multiplayer
 
 Start a dedicated server (`npm run server`, default port 3401). Every player on the LAN enters `ws://<server-ip>:3401` and picks the same mode to share a room. Bots fill empty slots and matches restart automatically ~12s after they end.
+
+
+## 9. Field tech
+
+![Jump gate](screenshots/jump-gate.jpg)
+*A jump gate on the battlefield with a Pathfinder's warp beacon (amber ring) planted beside it.*
+
+- **Warp Beacons** *(Pathfinder)* — plant ALPHA and BETA with Q, then anyone on your team presses **E** on either to teleport to the other. 3s per-soldier cooldown; the pylons have 150 HP, so hide the exits. Replanting an end moves it.
+- **Jump Gates** — fixed glowing arches (cyan on the minimap). Walk in, come out the twin, 4s cooldown. Fast rotations to midfield.
+- **Grav-Lifts** — violet pads near midfield. Step on and get launched toward the hill — airborne, so low cover won't stop you (walls will).
+- **Targeting Beacon** *(Pathfinder, G)* — reveals all enemies within 25 units on the minimap for 15s, cloaked or not, marked with red rings.
+- **EMP Charge** *(Ghost, G)* — no damage, all disruption: enemy vehicles stall 4s, turrets blind 5s, soldiers lose cloak and energy, drones drop.
+- **Shield Dome** *(Heavy, Q)* — a 400 HP bubble that absorbs enemy fire for up to 30s. Bodies pass through; bullets don't. Anchor a push or shelter Dr. Voss.
+- **Orbital Strike** — found in supply pods (rarely on the field). Throw the designator with **G**: three seconds of klaxon, then a beam erases everything in 7 units. The beacon has 60 HP — shoot it before it fires.
+
+![Orbital strike](screenshots/orbital-strike.jpg)
+*The beam comes down. Note the embers, the blast ring, and everyone who chose to be elsewhere.*
+
+- **Supply Pods** — every ~90 seconds a pod drops from orbit (watch the minimap for the gold marker). One-shot loot: ammo, medkit, and sometimes an orbital designator. Fighting for pods is worth it.
+
+![Phase stalker](screenshots/phase-stalker.jpg)
+*A Phase Stalker mid-hunt. If you can see its eyes, it can reach you in two blinks.*

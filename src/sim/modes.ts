@@ -340,6 +340,7 @@ function rollZedKind(w: World, tier: number): ZedKind {
   if (roll < 0.1) return tier >= 3 ? 'brute' : 'zombie';
   if (roll < 0.19) return tier >= 2 ? 'bomber' : 'zombie';
   if (roll < 0.25) return tier >= 2 ? 'sprinter' : 'zombie'; // rare — the one you hear before you see
+  if (roll < 0.29) return tier >= 3 ? 'stalker' : 'zombie';  // rare — blinks through walls
   if (roll < 0.45) return tier >= 2 ? 'spitter' : 'zombie';
   return 'zombie';
 }

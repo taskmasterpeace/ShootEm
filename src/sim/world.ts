@@ -3,9 +3,10 @@ import { GRID, T_WATER, TILE, WORLD, blocksShot, generateMap, isBlocked, losClea
 import { Rng } from './rng';
 import {
   isCoopMode, isZed,
-  type ClassId, type Mine, type ModeId, type ModeState, type Pickup, type PlayerCmd,
-  type Projectile, type SimEvent, type Soldier, type SoldierKind, type Team,
-  type Turret, type Vec3, type Vehicle, type VehicleKind, type WeaponId, type ZedKind,
+  type ClassId, type Gadget, type GadgetType, type Mine, type ModeId, type ModeState,
+  type Pickup, type PlayerCmd, type Projectile, type SimEvent, type Soldier,
+  type SoldierKind, type Team, type Turret, type Vec3, type Vehicle, type VehicleKind,
+  type WeaponId, type ZedKind,
 } from './types';
 import { stepMode, initMode } from './modes';
 import { stepBot, stepScientist, stepZombie } from './bots';
@@ -48,6 +49,10 @@ export class World {
   projectiles = new Map<number, Projectile>();
   pickups = new Map<number, Pickup>();
   mines = new Map<number, Mine>();
+  gadgets = new Map<number, Gadget>();
+  /** soldier ids currently revealed by targeting beacons / recon drones */
+  pinged = new Set<number>();
+  nextPodAt = 75;
   events: SimEvent[] = [];
   private nextId = 1;
 
@@ -95,6 +100,7 @@ export class World {
       grenades: classId === 'infantry' ? 4 : classId === 'engineer' ? 3 : 2,
       nextGrenadeAt: 0, cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
+      pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
     this.soldiers.set(s.id, s);
@@ -112,6 +118,7 @@ export class World {
       reloadUntil: 0, nextFireAt: 0, grenades: 0, nextGrenadeAt: 0,
       cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
+      pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
     this.soldiers.set(s.id, s);
@@ -129,6 +136,7 @@ export class World {
       reloadUntil: 0, nextFireAt: 0, grenades: 0, nextGrenadeAt: 0,
       cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
+      pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
     this.soldiers.set(s.id, s);
@@ -165,6 +173,7 @@ export class World {
       hp: def.hp, maxHp: def.hp,
       seats: new Array(def.seats).fill(-1),
       nextFireAt: 0, alive: true, respawnAt: 0, padPos: { ...padPos },
+      stunnedUntil: 0,
     };
     this.vehicles.set(v.id, v);
     return v;
@@ -221,6 +230,181 @@ export class World {
     this.stepProjectiles(dt);
     this.stepMines(dt);
     this.stepPickups(dt);
+    this.stepGadgets(dt);
+    this.stepGatesAndLifts();
+    this.stepSupplyPods();
+  }
+
+  // ---------- jump gates & grav-lifts ----------
+
+  stepGatesAndLifts() {
+    for (const s of this.soldiers.values()) {
+      if (!s.alive || s.vehicleId >= 0 || (s.kind !== 'human' && s.kind !== 'bot')) continue;
+      if (this.time < s.nextWarpAt) continue;
+      for (const gate of this.map.gates) {
+        for (const [from, to] of [[gate.a, gate.b], [gate.b, gate.a]] as const) {
+          if (Math.hypot(s.pos.x - from.x, s.pos.z - from.z) < 1.7) {
+            this.emit({ type: 'warp', pos: { ...s.pos } });
+            s.pos = { x: to.x + this.rng.range(-1, 1), y: 0, z: to.z + this.rng.range(-1, 1) };
+            s.nextWarpAt = this.time + 4;
+            this.emit({ type: 'warp', pos: { ...s.pos }, soldierId: s.id });
+            break;
+          }
+        }
+      }
+      for (const pad of this.map.pads) {
+        if (s.pos.y < 0.5 && Math.hypot(s.pos.x - pad.pos.x, s.pos.z - pad.pos.z) < 1.5) {
+          s.vel.y = 13;
+          s.pos.y = 0.6;
+          s.pushX += pad.dir.x * 20;
+          s.pushZ += pad.dir.z * 20;
+          s.nextWarpAt = this.time + 2;
+          this.emit({ type: 'gravlift', pos: { ...pad.pos }, soldierId: s.id });
+        }
+      }
+    }
+  }
+
+  // ---------- supply pods ----------
+
+  stepSupplyPods() {
+    if (this.mode.over || this.time < this.nextPodAt) return;
+    this.nextPodAt = this.time + 90;
+    // find an open tile in the central band
+    for (let tries = 0; tries < 40; tries++) {
+      const x = this.rng.range(-WORLD / 3, WORLD / 3);
+      const z = this.rng.range(-WORLD / 3, WORLD / 3);
+      if (!isBlocked(this.map.grid, x, z) && !isBlocked(this.map.grid, x + 2, z) && !isBlocked(this.map.grid, x - 2, z)) {
+        const g: Gadget = {
+          id: this.id(), type: 'supply_pod', team: 0, ownerId: -1,
+          pos: { x, y: 40, z }, hp: Infinity, maxHp: Infinity,
+          bornAt: this.time, expiresAt: this.time + 2.5, // lands at expiry
+        };
+        this.gadgets.set(g.id, g);
+        this.emit({ type: 'pod_incoming', pos: { x, y: 0, z }, text: 'SUPPLY DROP INBOUND', big: false });
+        return;
+      }
+    }
+  }
+
+  // ---------- gadgets ----------
+
+  spawnGadget(type: GadgetType, team: Team, ownerId: number, pos: Vec3, hp: number, lifetime = Infinity): Gadget {
+    const g: Gadget = {
+      id: this.id(), type, team, ownerId,
+      pos: { x: pos.x, y: 0, z: pos.z }, hp, maxHp: hp,
+      bornAt: this.time, expiresAt: Number.isFinite(lifetime) ? this.time + lifetime : Infinity,
+    };
+    this.gadgets.set(g.id, g);
+    return g;
+  }
+
+  stepGadgets(dt: number) {
+    this.pinged.clear();
+    for (const [id, g] of this.gadgets) {
+      switch (g.type) {
+        case 'target_beacon': {
+          for (const s of this.soldiers.values()) {
+            if (!s.alive || s.team === g.team) continue;
+            if (Math.hypot(s.pos.x - g.pos.x, s.pos.z - g.pos.z) < 25) this.pinged.add(s.id);
+          }
+          break;
+        }
+        case 'drone': {
+          g.phase = (g.phase ?? 0) + dt * 1.1;
+          const anchor = g.anchor ?? g.pos;
+          g.pos.x = anchor.x + Math.cos(g.phase) * 7;
+          g.pos.z = anchor.z + Math.sin(g.phase) * 7;
+          g.pos.y = 2.4;
+          for (const s of this.soldiers.values()) {
+            if (!s.alive || s.team === g.team) continue;
+            if (Math.hypot(s.pos.x - g.pos.x, s.pos.z - g.pos.z) < 22) this.pinged.add(s.id);
+          }
+          break;
+        }
+        case 'orbital': {
+          // 3-second arm, then the sky falls
+          if (this.time >= g.bornAt + 3) {
+            this.emit({ type: 'orbital_strike', pos: { ...g.pos } });
+            const blast = { ...WEAPONS.tank_cannon, id: 'tank_cannon' as WeaponId, damage: 170, splash: 7, splashDamage: 150 };
+            this.explode(g.pos, blast as (typeof WEAPONS)[WeaponId], g.ownerId, g.team);
+            this.gadgets.delete(id);
+            continue;
+          }
+          break;
+        }
+        case 'supply_pod': {
+          // falling
+          const k = Math.min(1, (this.time - g.bornAt) / 2.5);
+          g.pos.y = 40 * (1 - k * k);
+          if (this.time >= g.expiresAt) {
+            this.emit({ type: 'pod_landed', pos: { ...g.pos } });
+            this.emit({ type: 'explosion', pos: { ...g.pos }, weapon: 'gl' });
+            const loot: Pickup['type'][] = ['ammo', 'medkit', this.rng.next() < 0.4 ? 'orbital' : 'flamer'];
+            loot.forEach((type, i) => {
+              const a = (i / loot.length) * Math.PI * 2;
+              const pk: Pickup = {
+                id: this.id(), type,
+                pos: { x: g.pos.x + Math.cos(a) * 1.8, y: 0, z: g.pos.z + Math.sin(a) * 1.8 },
+                respawnAt: 0, oneShot: true,
+              };
+              this.pickups.set(pk.id, pk);
+            });
+            this.gadgets.delete(id);
+            continue;
+          }
+          break;
+        }
+      }
+      if (this.time >= g.expiresAt && g.type !== 'supply_pod') {
+        this.gadgets.delete(id);
+      }
+    }
+  }
+
+  /** E near a friendly warp beacon with a living partner: blink to the other end. */
+  tryWarpBeacon(s: Soldier): boolean {
+    if (this.time < s.nextWarpAt) return false;
+    for (const g of this.gadgets.values()) {
+      if ((g.type !== 'warpA' && g.type !== 'warpB') || g.team !== s.team) continue;
+      if (Math.hypot(g.pos.x - s.pos.x, g.pos.z - s.pos.z) > 2.4) continue;
+      const partnerType = g.type === 'warpA' ? 'warpB' : 'warpA';
+      const partner = [...this.gadgets.values()].find((o) => o.type === partnerType && o.ownerId === g.ownerId);
+      if (!partner) return false;
+      this.emit({ type: 'warp', pos: { ...s.pos } });
+      s.pos = { x: partner.pos.x + this.rng.range(-1, 1), y: 0, z: partner.pos.z + this.rng.range(-1, 1) };
+      s.nextWarpAt = this.time + 3;
+      this.emit({ type: 'warp', pos: { ...s.pos }, soldierId: s.id });
+      return true;
+    }
+    return false;
+  }
+
+  /** EMP burst: stalls machines, strips cloak and energy. No direct damage. */
+  empBlast(pos: Vec3, team: Team, ownerId: number) {
+    this.emit({ type: 'emp', pos: { ...pos } });
+    for (const v of this.vehicles.values()) {
+      if (!v.alive || v.team === team) continue;
+      if (Math.hypot(v.pos.x - pos.x, v.pos.z - pos.z) < 8) v.stunnedUntil = this.time + 4;
+    }
+    for (const t of this.turrets.values()) {
+      if (!t.alive || t.team === team) continue;
+      if (Math.hypot(t.pos.x - pos.x, t.pos.z - pos.z) < 8) t.nextFireAt = Math.max(t.nextFireAt, this.time + 5);
+    }
+    for (const s of this.soldiers.values()) {
+      if (!s.alive || s.team === team) continue;
+      if (Math.hypot(s.pos.x - pos.x, s.pos.z - pos.z) < 8) {
+        s.cloaked = false;
+        s.energy = 0;
+      }
+    }
+    for (const [gid, g] of this.gadgets) {
+      if (g.team === team) continue;
+      if (Math.hypot(g.pos.x - pos.x, g.pos.z - pos.z) < 8) {
+        if (g.type === 'drone') { this.gadgets.delete(gid); this.emit({ type: 'gadget_destroyed', pos: g.pos }); }
+        if (g.type === 'shield') { g.hp -= 150; if (g.hp <= 0) { this.gadgets.delete(gid); this.emit({ type: 'gadget_destroyed', pos: g.pos }); } }
+      }
+    }
   }
 
   // ---------- soldiers ----------
@@ -239,6 +423,8 @@ export class World {
     if (cmd.use) {
       if (this.opts.mode === 'safehouse' && this.toggleEscort(s)) {
         // E next to the scientist toggles escort instead of vehicle entry
+      } else if (this.tryWarpBeacon(s)) {
+        // E on a warp beacon teleports to its twin
       } else {
         this.tryEnterVehicle(s);
       }
@@ -307,6 +493,44 @@ export class World {
       this.emit({ type: 'heal', pos: s.pos, soldierId: s.id });
     }
 
+    // pathfinder plants warp beacons (alternating ends of the pair)
+    if (cmd.ability && c.ability === 'warp' && this.time >= s.nextAbilityAt && s.energy >= 50) {
+      const mineA = [...this.gadgets.values()].find((g) => g.type === 'warpA' && g.ownerId === s.id);
+      const mineB = [...this.gadgets.values()].find((g) => g.type === 'warpB' && g.ownerId === s.id);
+      const next: GadgetType = !mineA ? 'warpA' : !mineB ? 'warpB' : 'warpA';
+      // replanting an end moves it
+      const existing = next === 'warpA' ? mineA : mineB;
+      if (existing) this.gadgets.delete(existing.id);
+      if (!isBlocked(this.map.grid, s.pos.x, s.pos.z)) {
+        const g = this.spawnGadget(next, s.team, s.id, s.pos, 150);
+        s.energy -= 50;
+        s.nextAbilityAt = this.time + 1;
+        this.emit({ type: 'beacon_planted', pos: g.pos, soldierId: s.id, text: next === 'warpA' ? 'Warp ALPHA planted' : 'Warp BETA planted' });
+      }
+    }
+
+    // ghost deploys a recon drone
+    if (cmd.ability && c.ability === 'drone' && this.time >= s.nextAbilityAt && s.energy >= 70) {
+      const existing = [...this.gadgets.values()].find((g) => g.type === 'drone' && g.ownerId === s.id);
+      if (existing) this.gadgets.delete(existing.id);
+      const g = this.spawnGadget('drone', s.team, s.id, s.pos, 80);
+      g.anchor = { ...s.pos };
+      g.phase = this.rng.range(0, Math.PI * 2);
+      s.energy -= 70;
+      s.nextAbilityAt = this.time + 2;
+      this.emit({ type: 'beacon_planted', pos: g.pos, soldierId: s.id, text: 'Recon drone deployed' });
+    }
+
+    // heavy raises a shield dome
+    if (cmd.ability && c.ability === 'shield' && this.time >= s.nextAbilityAt && s.energy >= 80) {
+      const existing = [...this.gadgets.values()].find((g) => g.type === 'shield' && g.ownerId === s.id);
+      if (existing) this.gadgets.delete(existing.id);
+      this.spawnGadget('shield', s.team, s.id, s.pos, 400, 30);
+      s.energy -= 80;
+      s.nextAbilityAt = this.time + 3;
+      this.emit({ type: 'beacon_planted', pos: s.pos, soldierId: s.id, text: 'Shield dome raised' });
+    }
+
     // engineer builds a sentry
     if (cmd.ability && c.ability === 'turret' && this.time >= s.nextAbilityAt && s.energy >= 80) {
       const mine = [...this.turrets.values()].filter((t) => t.alive && t.ownerId === s.id);
@@ -326,9 +550,25 @@ export class World {
       }
     }
 
-    // grenade / engineer mine
+    // grenade key: orbital designator > class special > frag
     if (cmd.grenade && this.time >= s.nextGrenadeAt) {
-      if (c.ability === 'turret') {
+      if (s.orbitals > 0) {
+        s.orbitals--;
+        s.nextGrenadeAt = this.time + 1.5;
+        this.throwProjectile(s, 'orbital_beacon', 1.4, 26, true);
+        this.emit({ type: 'shot', pos: s.pos, weapon: 'orbital_beacon', soldierId: s.id });
+        if (s.cloaked) s.cloaked = false;
+      } else if (c.ability === 'warp' && s.grenades > 0) {
+        s.grenades--;
+        s.nextGrenadeAt = this.time + 1.5;
+        this.throwProjectile(s, 'target_beacon', 1.4, 28, true);
+        this.emit({ type: 'shot', pos: s.pos, weapon: 'target_beacon', soldierId: s.id });
+      } else if (c.ability === 'drone' && s.grenades > 0) {
+        s.grenades--;
+        s.nextGrenadeAt = this.time + 1.5;
+        this.throwProjectile(s, 'emp', 1.4, 30, true);
+        this.emit({ type: 'shot', pos: s.pos, weapon: 'emp', soldierId: s.id });
+      } else if (c.ability === 'turret') {
         const mines = [...this.mines.values()].filter((m) => m.ownerId === s.id);
         if (mines.length < 3 && s.grenades > 0) {
           s.grenades--;
@@ -409,8 +649,16 @@ export class World {
       s.pos.y = Math.max(0, s.pos.y + s.vel.y * dt);
       if (s.pos.y === 0) s.vel.y = 0;
     }
-    const nx = s.pos.x + s.vel.x * dt;
-    const nz = s.pos.z + s.vel.z * dt;
+    // knockback impulse decays fast
+    if (s.pushX !== 0 || s.pushZ !== 0) {
+      const decay = Math.exp(-5 * dt);
+      s.pushX *= decay;
+      s.pushZ *= decay;
+      if (Math.abs(s.pushX) < 0.05) s.pushX = 0;
+      if (Math.abs(s.pushZ) < 0.05) s.pushZ = 0;
+    }
+    const nx = s.pos.x + (s.vel.x + s.pushX) * dt;
+    const nz = s.pos.z + (s.vel.z + s.pushZ) * dt;
     const airborne = s.pos.y > 1.5; // jetpackers clear low cover but not walls
     const blockedX = airborne
       ? tileAt(this.map.grid, nx, s.pos.z) === 1
@@ -472,7 +720,8 @@ export class World {
     const driverId = v.seats[0];
     const driver = driverId >= 0 ? this.soldiers.get(driverId) : undefined;
     let throttle = 0, turn = 0, fire = false;
-    if (driver && driver.alive) {
+    const stunned = this.time < v.stunnedUntil;
+    if (driver && driver.alive && !stunned) {
       const cmd = cmds.get(driver.id) ?? (driver.kind === 'bot' ? stepBot(this, driver, dt) : undefined);
       if (cmd) {
         throttle = -cmd.moveZ; // W = forward
@@ -567,6 +816,26 @@ export class World {
 
   // ---------- projectiles ----------
 
+  /** Special payloads detonate into effects instead of damage. */
+  private detonatePayload(p: Projectile): boolean {
+    switch (p.weapon) {
+      case 'emp':
+        this.empBlast(p.pos, p.team, p.ownerId);
+        return true;
+      case 'target_beacon':
+        this.spawnGadget('target_beacon', p.team, p.ownerId, p.pos, 60, 15);
+        this.emit({ type: 'beacon_planted', pos: { ...p.pos }, text: 'Targeting beacon active' });
+        return true;
+      case 'orbital_beacon': {
+        this.spawnGadget('orbital', p.team, p.ownerId, p.pos, 60);
+        this.emit({ type: 'beacon_planted', pos: { ...p.pos }, text: 'ORBITAL STRIKE INBOUND', big: true });
+        return true;
+      }
+      default:
+        return false;
+    }
+  }
+
   stepProjectiles(dt: number) {
     for (const [id, p] of this.projectiles) {
       const def = WEAPONS[p.weapon];
@@ -577,9 +846,29 @@ export class World {
 
       let dead = false;
 
+      // enemy shield domes swallow projectiles
+      if (!def.heals) {
+        for (const [gid, g] of this.gadgets) {
+          if (g.type !== 'shield' || g.team === p.team) continue;
+          if (p.pos.y < 4.5 && Math.hypot(g.pos.x - p.pos.x, g.pos.z - p.pos.z) < 4) {
+            g.hp -= def.damage + def.splashDamage * 0.5;
+            this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon });
+            if (g.hp <= 0) {
+              this.gadgets.delete(gid);
+              this.emit({ type: 'gadget_destroyed', pos: g.pos });
+              this.emit({ type: 'explosion', pos: { ...g.pos }, weapon: 'gl' });
+            }
+            dead = true;
+            break;
+          }
+        }
+        if (dead) { this.projectiles.delete(id); continue; }
+      }
+
       // hit terrain
       if (p.pos.y <= 0 || blocksShot(this.map.grid, p.pos.x, p.pos.z, Math.max(p.pos.y, 0))) {
-        if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team);
+        if (this.detonatePayload(p)) { /* payload delivered */ }
+        else if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team);
         else if (def.tracer !== 'beam') this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon });
         dead = true;
       }
@@ -594,6 +883,13 @@ export class World {
           const dy = (s.pos.y + 1.2) - p.pos.y;
           if (Math.abs(dy) > 1.8) continue;
           if (Math.hypot(s.pos.x - p.pos.x, s.pos.z - p.pos.z) < 0.9) {
+            if (this.detonatePayload(p)) { dead = true; break; }
+            if (def.knockback > 0) {
+              const kl = Math.hypot(p.vel.x, p.vel.z) || 1;
+              s.pushX += (p.vel.x / kl) * def.knockback;
+              s.pushZ += (p.vel.z / kl) * def.knockback;
+              if (s.pos.y < 0.2) s.vel.y = Math.max(s.vel.y, def.knockback * 0.35);
+            }
             if (def.heals) {
               if (s.hp < s.maxHp) {
                 s.hp = Math.min(s.maxHp, s.hp + def.damage);
@@ -662,8 +958,29 @@ export class World {
         }
       }
 
+      // hit destructible gadgets (drones, beacons)
+      if (!dead && !def.heals) {
+        for (const [gid, g] of this.gadgets) {
+          if (g.team === p.team || g.type === 'shield' || g.type === 'supply_pod' || !Number.isFinite(g.hp)) continue;
+          const gy = g.type === 'drone' ? g.pos.y : 0.8;
+          if (Math.abs(p.pos.y - gy) > 1.4) continue;
+          if (Math.hypot(g.pos.x - p.pos.x, g.pos.z - p.pos.z) < 1.2) {
+            g.hp -= def.damage;
+            this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, soldierId: p.ownerId });
+            if (g.hp <= 0) {
+              this.gadgets.delete(gid);
+              this.emit({ type: 'gadget_destroyed', pos: g.pos });
+              this.emit({ type: 'explosion', pos: { ...g.pos }, weapon: 'gl' });
+            }
+            dead = true;
+            break;
+          }
+        }
+      }
+
       if (dead || this.time - p.bornAt > p.ttl) {
-        if (!dead && def.splash > 0 && p.arc) this.explode(p.pos, def, p.ownerId, p.team); // grenades detonate on timeout
+        if (!dead && this.detonatePayload(p)) { /* payload delivered at end of arc */ }
+        else if (!dead && def.splash > 0 && p.arc) this.explode(p.pos, def, p.ownerId, p.team); // grenades detonate on timeout
         this.projectiles.delete(id);
       }
     }
@@ -679,6 +996,12 @@ export class World {
         const isSelf = s.id === ownerId;
         if (!isSelf && s.team === team) continue; // no friendly splash, self-damage yes
         const dmg = (def.splashDamage + (d < 1 ? def.damage : 0)) * (1 - d / def.splash) * (isSelf ? 0.6 : 1);
+        if (def.knockback > 0) {
+          const dl = Math.max(d, 0.5);
+          s.pushX += ((s.pos.x - pos.x) / dl) * def.knockback * (1 - d / def.splash);
+          s.pushZ += ((s.pos.z - pos.z) / dl) * def.knockback * (1 - d / def.splash);
+          if (s.pos.y < 0.2) s.vel.y = Math.max(s.vel.y, def.knockback * 0.3);
+        }
         this.damageSoldier(s, dmg, ownerId, def.id);
       }
     }
@@ -805,6 +1128,7 @@ export class World {
             }
             used = true;
           }
+          if (pk.type === 'orbital') { s.orbitals++; used = true; }
           if (pk.type === 'flamer') {
             if (!s.weapons.includes('flamer')) {
               s.weapons.push('flamer');
@@ -818,7 +1142,8 @@ export class World {
             used = true;
           }
           if (used) {
-            pk.respawnAt = this.time + PICKUP_RESPAWN;
+            if (pk.oneShot) this.pickups.delete(pk.id);
+            else pk.respawnAt = this.time + PICKUP_RESPAWN;
             this.emit({ type: 'pickup', pos: pk.pos, soldierId: s.id });
             break;
           }

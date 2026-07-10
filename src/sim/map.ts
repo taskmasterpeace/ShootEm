@@ -48,6 +48,10 @@ export interface GameMap {
   zombieSpawns: Vec3[];
   /** safehouse mode: the neighborhood's searchable houses */
   houses: House[];
+  /** paired jump-gate teleporters (battlefield maps) */
+  gates: { a: Vec3; b: Vec3 }[];
+  /** grav-lift launch pads: step on, get flung along dir */
+  pads: { pos: Vec3; dir: { x: number; z: number } }[];
 }
 
 export function tileAt(grid: Uint8Array, x: number, z: number): number {
@@ -257,7 +261,32 @@ export function generateMap(seed: number, mode: ModeId): GameMap {
     }
   }
 
-  return { seed, grid, basePos, spawns, flagPos, hillPos, controlPoints, vehiclePads, pickups, props, zombieSpawns, houses: [] };
+  // jump gates: each base's flank warps to its own midfield approach (mirrored)
+  const gates: GameMap['gates'] = [];
+  for (const side of [0, 1]) {
+    const [btx, btz] = baseT[side];
+    const fwd = side === 0 ? 1 : -1;
+    const aT: [number, number] = [btx + fwd * 3, btz - 10];
+    const bT: [number, number] = [half - fwd * 14, btz - 18];
+    clearArea(grid, aT[0], aT[1], 2);
+    clearArea(grid, bT[0], bT[1], 2);
+    gates.push({ a: tileToWorld(aT[0], aT[1]), b: tileToWorld(bT[0], bT[1]) });
+  }
+
+  // grav-lift pads: mirrored midfield launchers aimed at the hill
+  const pads: GameMap['pads'] = [];
+  for (const [ptx, ptz] of [[half - 16, half - 14], [half - 16, half + 14]] as const) {
+    for (const mirror of [0, 1]) {
+      const tx = mirror ? GRID - 1 - ptx : ptx;
+      clearArea(grid, tx, ptz, 1);
+      const w = tileToWorld(tx, ptz);
+      const dx = hillPos.x - w.x, dz = hillPos.z - w.z;
+      const dl = Math.hypot(dx, dz) || 1;
+      pads.push({ pos: w, dir: { x: dx / dl, z: dz / dl } });
+    }
+  }
+
+  return { seed, grid, basePos, spawns, flagPos, hillPos, controlPoints, vehiclePads, pickups, props, zombieSpawns, houses: [], gates, pads };
 }
 
 /**
@@ -388,5 +417,6 @@ function generateNeighborhood(seed: number): GameMap {
     ],
     vehiclePads: [],
     pickups, props, zombieSpawns, houses,
+    gates: [], pads: [],
   };
 }

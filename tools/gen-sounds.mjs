@@ -335,6 +335,62 @@ writeWav('wave_start', (() => {
 })());
 writeWav('victory', stinger([523, 659, 784, 1047, 784, 1047, 1319], 'triangle', 0.15, 4));
 writeWav('defeat', stinger([392, 349, 311, 262], 'saw', 0.22, 4));
+// ---- sci-fi kit ----
+writeWav('impulse', (() => { // disc launcher: hollow punch + ring
+  let b = buf(0.45);
+  addTone(b, { freq: 320, freqEnd: 90, amp: 0.9, decay: 12, shape: 'square' });
+  addTone(b, { freq: 1400, freqEnd: 700, amp: 0.35, decay: 18 });
+  addNoise(b, { amp: 0.4, decay: 22 });
+  return drive(lowpass(b, 3200), 1.8);
+})());
+
+writeWav('warp', (() => { // teleport: rising shimmer + zap
+  let b = buf(0.75);
+  addTone(b, { freq: 220, freqEnd: 1760, amp: 0.55, decay: 4, shape: 'triangle', dur: 0.4 });
+  addTone(b, { freq: 440, freqEnd: 3520, amp: 0.3, decay: 5, dur: 0.4 });
+  addNoise(b, { amp: 0.45, decay: 14, start: 0.32 });
+  addTone(b, { freq: 1200, freqEnd: 200, amp: 0.4, decay: 9, start: 0.35 });
+  return b;
+})());
+
+writeWav('blink', (() => { // stalker phase: reversed-feeling dark shimmer
+  let b = buf(0.5);
+  addTone(b, { freq: 900, freqEnd: 110, amp: 0.6, decay: 6, shape: 'saw' });
+  addTone(b, { freq: 1350, freqEnd: 160, amp: 0.3, decay: 7, shape: 'triangle' });
+  addNoise(b, { amp: 0.25, decay: 10 });
+  return lowpass(b, 2400);
+})());
+
+writeWav('emp_burst', (() => { // crackling electric thump
+  let b = buf(0.9);
+  addTone(b, { freq: 70, freqEnd: 30, amp: 1.1, decay: 6 });
+  for (let i = 0; i < 9; i++) addNoise(b, { amp: 0.5, decay: 60, start: 0.02 + i * 0.07 });
+  addTone(b, { freq: 2200, freqEnd: 300, amp: 0.35, decay: 5, shape: 'square' });
+  return drive(lowpass(b, 4200), 2);
+})());
+
+writeWav('gravlift', (() => { // launch: springy rising whoosh
+  let b = buf(0.6);
+  addTone(b, { freq: 150, freqEnd: 900, amp: 0.6, decay: 4, shape: 'triangle', dur: 0.35 });
+  addNoise(b, { amp: 0.4, decay: 5 });
+  return lowpass(b, 2600);
+})());
+
+writeWav('beacon', (() => { // deploy ping
+  let b = buf(0.5);
+  addTone(b, { freq: 1180, amp: 0.5, decay: 10, dur: 0.12, shape: 'sine' });
+  addTone(b, { freq: 1760, amp: 0.35, decay: 9, start: 0.16, dur: 0.12 });
+  return b;
+})());
+
+writeWav('orbital_charge', (() => { // 3s of dread
+  let b = buf(2.9);
+  addTone(b, { freq: 55, freqEnd: 110, amp: 0.5, decay: 0.2, shape: 'saw', dur: 2.8 });
+  addTone(b, { freq: 440, freqEnd: 1760, amp: 0.25, decay: 0.4, shape: 'sine', dur: 2.8 });
+  for (let i = 0; i < 6; i++) addTone(b, { freq: 1200 + i * 150, amp: 0.2, decay: 14, start: 0.4 * i, dur: 0.1, shape: 'square' });
+  return lowpass(b, 3000);
+})());
+
 writeWav('ui_click', (() => {
   let b = buf(0.08);
   addTone(b, { freq: 900, amp: 0.5, decay: 60, shape: 'triangle' });
