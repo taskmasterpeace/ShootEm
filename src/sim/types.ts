@@ -1,6 +1,6 @@
 export type Team = 0 | 1; // 0 = Titan (amber), 1 = Collective (cyan). Survival: all players team 0.
 
-export type ModeId = 'tdm' | 'ctf' | 'koth' | 'conquest' | 'survival' | 'horde';
+export type ModeId = 'tdm' | 'ctf' | 'koth' | 'conquest' | 'survival' | 'horde' | 'safehouse';
 
 export type ClassId = 'infantry' | 'heavy' | 'jump' | 'engineer' | 'medic' | 'infiltrator';
 
@@ -81,12 +81,14 @@ export interface Vec3 {
   z: number;
 }
 
-export type SoldierKind = 'human' | 'bot' | 'zombie' | 'spitter' | 'brute' | 'sprinter' | 'bomber';
+export type SoldierKind = 'human' | 'bot' | 'zombie' | 'spitter' | 'brute' | 'sprinter' | 'bomber' | 'scientist';
 
 export type ZedKind = 'zombie' | 'spitter' | 'brute' | 'sprinter' | 'bomber';
 
+const ZED_KINDS: ReadonlySet<string> = new Set(['zombie', 'spitter', 'brute', 'sprinter', 'bomber']);
+
 export function isZed(k: SoldierKind): k is ZedKind {
-  return k !== 'human' && k !== 'bot';
+  return ZED_KINDS.has(k);
 }
 
 export interface Soldier {
@@ -237,15 +239,19 @@ export interface ModeState {
   // conquest
   points?: ControlPoint[];
   tickets?: [number, number];
-  // survival / horde
+  // survival / horde / safehouse
   wave?: number;
   zombiesLeft?: number;
   nextWaveAt?: number;
+  // safehouse
+  scientistId?: number;
+  alertUntil?: number;
+  alert?: boolean;
 }
 
 /** Modes where all players share team 0 against the undead. */
 export function isCoopMode(id: ModeId): boolean {
-  return id === 'survival' || id === 'horde';
+  return id === 'survival' || id === 'horde' || id === 'safehouse';
 }
 
 export interface PlayerCmd {

@@ -131,6 +131,14 @@ function objectiveFor(w: World, s: Soldier): Vec3 {
       const cz = allies.reduce((a, x) => a + x.pos.z, 0) / allies.length;
       return { x: cx, y: 0, z: cz };
     }
+    case 'safehouse': {
+      // form a perimeter around the scientist's position
+      const sci = m.scientistId !== undefined ? w.soldiers.get(m.scientistId) : undefined;
+      if (!sci || !sci.alive) return w.map.basePos[0];
+      const a = (s.id % 8) * (Math.PI / 4);
+      const r = 5 + (s.id % 3) * 2.5;
+      return { x: sci.pos.x + Math.cos(a) * r, y: 0, z: sci.pos.z + Math.sin(a) * r };
+    }
     default: // tdm — hunt toward enemy side / last seen action
       return { x: enemyBase.x * 0.4 + w.map.hillPos.x * 0.6, y: 0, z: enemyBase.z * 0.4 };
   }
@@ -278,6 +286,37 @@ function leadYaw(from: Vec3, target: Soldier, projSpeed: number): number {
   return Math.atan2(pz - from.z, px - from.x);
 }
 
+// ---------- the scientist ----------
+
+export function stepScientist(w: World, s: Soldier, dt: number) {
+  const leaderId = s.botTargetId ?? -1;
+  const leader = leaderId >= 0 ? w.soldiers.get(leaderId) : undefined;
+  if (leader && leader.alive && leader.vehicleId < 0) {
+    const d = Math.hypot(leader.pos.x - s.pos.x, leader.pos.z - s.pos.z);
+    if (d > 2.2) {
+      const step = losClear(w.map.grid, s.pos, leader.pos, 0.6)
+        ? leader.pos
+        : (pathStep(w, s.pos, leader.pos) ?? leader.pos);
+      const dx = step.x - s.pos.x, dz = step.z - s.pos.z;
+      const dl = Math.hypot(dx, dz) || 1;
+      const speed = d > 8 ? 10 : 8.5; // hustles to keep up
+      s.yaw = Math.atan2(dz, dx);
+      s.vel.x = (dx / dl) * speed;
+      s.vel.z = (dz / dl) * speed;
+    } else {
+      s.vel.x = 0;
+      s.vel.z = 0;
+    }
+  } else {
+    if (leader && !leader.alive) s.botTargetId = -1; // escort went down — stay put
+    s.vel.x = 0;
+    s.vel.z = 0;
+    // nervous glance around while hiding
+    s.yaw += Math.sin(w.time * 0.7 + s.id) * 0.01;
+  }
+  w.stepSoldierPhysics(s, dt);
+}
+
 // ---------- zombies ----------
 
 export function stepZombie(w: World, s: Soldier, dt: number) {
@@ -289,6 +328,47 @@ export function stepZombie(w: World, s: Soldier, dt: number) {
     const d = Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z);
     if (d < bestD) { best = e; bestD = d; }
   }
+
+  // safehouse: the horde hunts the scientist
+  if (w.mode.id === 'safehouse') {
+    const sci = w.mode.scientistId !== undefined ? w.soldiers.get(w.mode.scientistId) : undefined;
+    const alert = !!w.mode.alert;
+    if (sci?.alive) {
+      const dSci = Math.hypot(sci.pos.x - s.pos.x, sci.pos.z - s.pos.z);
+      if (alert) {
+        // the horde knows where he is — converge, unless a defender is right in the way
+        if (!best || bestD > 6) { best = sci; bestD = dSci; }
+      } else if (dSci < 12) {
+        // stumbled close — investigate him directly
+        best = sci;
+        bestD = dSci;
+      } else if (!best || bestD > 28) {
+        // no target: search the neighborhood house by house
+        if (!s.botGoal || w.time >= (s.botRepathAt ?? 0) ||
+            Math.hypot(s.botGoal.x - s.pos.x, s.botGoal.z - s.pos.z) < 4) {
+          const house = w.map.houses[Math.floor(w.rng.next() * w.map.houses.length)];
+          if (house) {
+            s.botRepathAt = w.time + 6 + w.rng.next() * 4;
+            s.botGoal = { ...house.center };
+          }
+        }
+        if (s.botGoal) {
+          const step = losClear(w.map.grid, s.pos, s.botGoal, 0.6)
+            ? s.botGoal
+            : (pathStep(w, s.pos, s.botGoal) ?? s.botGoal);
+          const dx = step.x - s.pos.x, dz = step.z - s.pos.z;
+          const dl = Math.hypot(dx, dz) || 1;
+          const speed = s.kind === 'sprinter' ? 12 : 7;
+          s.yaw = Math.atan2(dz, dx);
+          s.vel.x = (dx / dl) * speed;
+          s.vel.z = (dz / dl) * speed;
+          w.stepSoldierPhysics(s, dt);
+          return;
+        }
+      }
+    }
+  }
+
   if (!best) return;
 
   const isSpitter = s.kind === 'spitter';

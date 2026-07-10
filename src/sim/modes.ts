@@ -1,5 +1,5 @@
 import { TEAM_NAMES } from './data';
-import type { GameMap } from './map';
+import { losClear, type GameMap } from './map';
 import { isZed, type FlagState, type ModeId, type ModeState, type Team, type ZedKind } from './types';
 import type { World } from './world';
 
@@ -50,6 +50,15 @@ export function initMode(id: ModeId, map: GameMap, minutes?: number): ModeState 
       m.target = 0;
       m.timeLeft = Infinity;
       break;
+    case 'safehouse':
+      m.timeLeft = 5 * 60; // evac countdown — reaching zero is the WIN
+      m.wave = 0;
+      m.zombiesLeft = 0;
+      m.nextWaveAt = 6;
+      m.target = 0;
+      m.alertUntil = 0;
+      m.alert = false;
+      break;
   }
   return m;
 }
@@ -60,7 +69,13 @@ export function stepMode(w: World, dt: number) {
     m.timeLeft -= dt;
     if (m.timeLeft <= 0) {
       m.timeLeft = 0;
-      endMatch(w, m.scores[0] === m.scores[1] ? -1 : m.scores[0] > m.scores[1] ? 0 : 1);
+      if (m.id === 'safehouse') {
+        // surviving to the end of the countdown IS the victory
+        endMatch(w, 0);
+        w.emit({ type: 'announce', text: 'EVAC ARRIVED — DR. VOSS IS SAFE', big: true });
+      } else {
+        endMatch(w, m.scores[0] === m.scores[1] ? -1 : m.scores[0] > m.scores[1] ? 0 : 1);
+      }
       return;
     }
   }
@@ -71,6 +86,7 @@ export function stepMode(w: World, dt: number) {
     case 'conquest': stepConquest(w, dt); break;
     case 'survival': stepSurvival(w, dt); break;
     case 'horde': stepHorde(w, dt); break;
+    case 'safehouse': stepSafehouse(w, dt); break;
   }
 }
 
@@ -253,6 +269,69 @@ function stepSurvival(w: World, dt: number) {
     }
   }
   void humansAlive;
+}
+
+// ---------- Protect the Scientist ----------
+
+const ALERT_MEMORY = 12;   // seconds the horde remembers a sighting
+const SIGHT_RANGE = 9;     // how close a zombie must get to spot him
+
+function stepSafehouse(w: World, dt: number) {
+  const m = w.mode;
+  const sci = m.scientistId !== undefined ? w.soldiers.get(m.scientistId) : undefined;
+
+  // loss conditions
+  if (!sci || !sci.alive) {
+    endMatch(w, 1);
+    w.emit({ type: 'announce', text: 'DR. VOSS IS DEAD — MISSION FAILED', big: true });
+    return;
+  }
+  if (!w.humansAndBots().some((s) => s.alive)) {
+    endMatch(w, 1);
+    w.emit({ type: 'announce', text: 'SQUAD WIPED — THE HORDE TAKES THE SCIENTIST', big: true });
+    return;
+  }
+
+  const zombies = [...w.soldiers.values()].filter((s) => s.alive && isZed(s.kind));
+  m.zombiesLeft = zombies.length;
+  m.scores[0] = w.humansAndBots().reduce((a, s) => a + s.kills, 0);
+
+  // the hunt: any zombie that gets eyes on the scientist refreshes the alert
+  for (const z of zombies) {
+    const d = Math.hypot(z.pos.x - sci.pos.x, z.pos.z - sci.pos.z);
+    if (d < SIGHT_RANGE && losClear(w.map.grid, { ...z.pos, y: 1.2 }, { ...sci.pos, y: 1.2 })) {
+      m.alertUntil = w.time + ALERT_MEMORY;
+      break;
+    }
+  }
+  const alertNow = (m.alertUntil ?? 0) > w.time;
+  if (alertNow && !m.alert) {
+    w.emit({ type: 'wave_start', text: 'THE HORDE FOUND HIM — DEFEND!', big: true });
+  } else if (!alertNow && m.alert) {
+    w.emit({ type: 'announce', text: 'The horde lost the trail — relocate Dr. Voss (E to escort)' });
+  }
+  m.alert = alertNow;
+
+  // pressure ramps toward evac: quiet start, overrun finish
+  const elapsed = 5 * 60 - m.timeLeft;
+  const intensity = 1 + Math.floor(elapsed / 45);
+  if (intensity !== m.wave) {
+    m.wave = intensity;
+    if (intensity > 1) w.emit({ type: 'announce', text: `The horde grows (intensity ${intensity})` });
+  }
+  const diffMul = w.opts.difficulty === 'recruit' ? 0.7 : w.opts.difficulty === 'elite' ? 1.3 : 1;
+  const targetPop = Math.min(5 + intensity * 3, 42) * diffMul * (alertNow ? 1.25 : 1);
+
+  if (zombies.length < targetPop && w.time >= (m.nextWaveAt ?? 0)) {
+    m.nextWaveAt = w.time + Math.max(0.5, 2.2 - elapsed / 130);
+    const burst = w.rng.int(1, Math.min(3, intensity));
+    for (let i = 0; i < burst; i++) {
+      const sp = w.map.zombieSpawns[w.rng.int(0, w.map.zombieSpawns.length - 1)];
+      const z = w.addZombie(rollZedKind(w, intensity), { x: sp.x + w.rng.range(-2, 2), y: 0, z: sp.z + w.rng.range(-2, 2) });
+      z.hp *= 1 + (intensity - 1) * 0.07;
+      z.maxHp = z.hp;
+    }
+  }
 }
 
 /** Special-zombie table. `tier` = wave number (Survival) or intensity level (Horde). */

@@ -15,7 +15,7 @@ const SNAP_EVERY = 2; // 15Hz snapshots
 
 const BOT_NAMES = ['Vex', 'Talon', 'Havoc', 'Rook', 'Cinder', 'Drifter', 'Onyx', 'Piston', 'Gault', 'Merc', 'Static', 'Bishop', 'Fang', 'Widow', 'Jinx'];
 const CLASS_POOL: ClassId[] = ['infantry', 'infantry', 'heavy', 'jump', 'engineer', 'medic', 'infiltrator'];
-const MODES: ModeId[] = ['tdm', 'ctf', 'koth', 'conquest', 'survival', 'horde'];
+const MODES: ModeId[] = ['tdm', 'ctf', 'koth', 'conquest', 'survival', 'horde', 'safehouse'];
 
 interface Client {
   ws: WebSocket;

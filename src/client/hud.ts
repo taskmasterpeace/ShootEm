@@ -62,20 +62,27 @@ export class Hud {
       $('respawn-timer').textContent = world.mode.over ? '' : `Respawning in ${t.toFixed(1)}s`;
     } else ro.classList.add('hidden');
 
-    // vehicle hint
+    // context hint: vehicles, or the scientist escort in safehouse
     const hint = $('vehicle-hint');
-    let nearVehicle = false;
+    let showHint = false;
     if (s.alive && !inVehicle) {
       for (const v of world.vehicles.values()) {
         if (!v.alive || v.team !== s.team || !v.seats.includes(-1)) continue;
         if (Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z) < VEHICLES[v.kind].radius + 2.2) {
           hint.textContent = `[E] Enter ${VEHICLES[v.kind].name}`;
-          nearVehicle = true;
+          showHint = true;
           break;
         }
       }
+      if (!showHint && world.mode.id === 'safehouse' && world.mode.scientistId !== undefined) {
+        const sci = world.soldiers.get(world.mode.scientistId);
+        if (sci?.alive && Math.hypot(sci.pos.x - s.pos.x, sci.pos.z - s.pos.z) < 3.2) {
+          hint.textContent = sci.botTargetId === s.id ? '[E] Tell Dr. Voss to hide here' : '[E] Escort Dr. Voss';
+          showHint = true;
+        }
+      }
     }
-    hint.classList.toggle('hidden', !nearVehicle);
+    hint.classList.toggle('hidden', !showHint);
 
     this.updateObjectives(world, s);
     this.updateMinimap(world, s);
@@ -134,6 +141,16 @@ export class Hud {
                  <div class="obj-chip t1">☠ ${fmt(m.scores[0])} · ${m.zombiesLeft ?? 0} up</div>`;
         break;
       }
+      case 'safehouse': {
+        const sci = m.scientistId !== undefined ? world.soldiers.get(m.scientistId) : undefined;
+        const status = m.alert
+          ? '<div class="obj-chip t1">⚠ FOUND — DEFEND</div>'
+          : '<div class="obj-chip t0">HIDDEN</div>';
+        chips = `<div class="obj-chip t0">🧪 ${sci ? Math.ceil(sci.hp) : 0} HP</div>
+                 ${status}
+                 <div class="obj-chip neutral">☠ ${fmt(m.scores[0])} · ${m.zombiesLeft ?? 0} up</div>`;
+        break;
+      }
     }
     bar.innerHTML = chips;
     $('mode-status').textContent = MODE_INFO[m.id].name;
@@ -176,6 +193,11 @@ export class Hud {
     // entities
     for (const s of world.soldiers.values()) {
       if (!s.alive || s.id === local.id) continue;
+      if (s.kind === 'scientist') {
+        dot(s.pos.x, s.pos.z, '#f4ffd8', 4.5);
+        dot(s.pos.x, s.pos.z, '#5aa845', 2.5);
+        continue;
+      }
       const zed = s.kind !== 'human' && s.kind !== 'bot';
       if (zed) {
         const c = s.kind === 'sprinter' ? '#e06a50' : s.kind === 'bomber' ? '#b7e34a' : '#8fce5a';
@@ -209,7 +231,7 @@ export class Hud {
       `<tr class="${s.id === localId ? 'me' : ''}"><td>${s.name}</td><td>${CLASSES[s.classId].name}</td><td>${s.kills}</td><td>${s.deaths}</td><td>${Math.floor(s.score)}</td></tr>`;
     let html = `<h2>${MODE_INFO[m.id].name}${m.over ? ` — ${m.winner === -1 ? 'Draw' : TEAM_NAMES[m.winner as Team] + ' wins'}` : ''}</h2><table>
       <tr><th>Callsign</th><th>Class</th><th>K</th><th>D</th><th>Score</th></tr>`;
-    if (m.id === 'survival' || m.id === 'horde') {
+    if (m.id === 'survival' || m.id === 'horde' || m.id === 'safehouse') {
       html += soldiers.map(row).join('');
     } else {
       for (const team of [0, 1] as Team[]) {

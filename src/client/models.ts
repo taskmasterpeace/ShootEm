@@ -36,8 +36,86 @@ const limb = (w: number, h: number, d: number, m: THREE.Material) => {
 // ---------------------------------------------------------------------------
 
 export function buildSoldier(team: Team, classId: ClassId, kind: SoldierKind): THREE.Group {
+  if (kind === 'scientist') return buildScientist();
   const isZed = kind !== 'human' && kind !== 'bot';
   return isZed ? buildZombie(kind) : buildTrooper(team, classId);
+}
+
+/** Dr. Voss: lab coat, spectacles, no weapon. The whole point of safehouse mode. */
+function buildScientist(): THREE.Group {
+  const g = new THREE.Group();
+  const coat = mat(0xe4e2d8, { rough: 0.9 });
+  const slacks = mat(0x4a4a52, { rough: 0.9 });
+  const skin = mat(0xd0a67e, { rough: 0.8 });
+  const dark = mat(0x26241f, { rough: 0.8 });
+
+  for (const side of [1, -1]) {
+    const hip = new THREE.Group();
+    hip.name = side === 1 ? 'legL' : 'legR';
+    hip.position.set(0, 0.96, side * 0.13);
+    hip.add(limb(0.18, 0.44, 0.19, slacks));
+    const knee = new THREE.Group();
+    knee.name = side === 1 ? 'shinL' : 'shinR';
+    knee.position.y = -0.44;
+    knee.add(limb(0.15, 0.42, 0.16, slacks));
+    const shoe = box(0.28, 0.1, 0.16, dark);
+    shoe.position.set(0.05, -0.45, 0);
+    knee.add(shoe);
+    hip.add(knee);
+    g.add(hip);
+  }
+
+  const torso = new THREE.Group();
+  torso.name = 'torso';
+  torso.position.y = 0.98;
+  g.add(torso);
+  const chest = box(0.46, 0.52, 0.6, coat);
+  chest.position.y = 0.28;
+  torso.add(chest);
+  // coat tails
+  const tail = box(0.4, 0.3, 0.62, coat);
+  tail.position.set(-0.06, -0.1, 0);
+  torso.add(tail);
+  // clipboard under one arm
+  const clipboard = box(0.04, 0.26, 0.2, mat(0xc8a86a, { rough: 0.9 }));
+  clipboard.position.set(0.2, 0.24, 0.34);
+  torso.add(clipboard);
+
+  // arms hang at his sides (he's not a fighter)
+  for (const side of [1, -1]) {
+    const shoulder = new THREE.Group();
+    shoulder.name = side === 1 ? 'armL' : 'armR';
+    shoulder.position.set(0, 1.48, side * 0.3);
+    shoulder.add(limb(0.13, 0.32, 0.13, coat));
+    const elbow = new THREE.Group();
+    elbow.position.y = -0.32;
+    elbow.add(limb(0.11, 0.28, 0.11, coat));
+    const hand = box(0.09, 0.09, 0.09, skin);
+    hand.position.y = -0.3;
+    elbow.add(hand);
+    elbow.rotation.z = -0.15;
+    shoulder.add(elbow);
+    shoulder.rotation.z = side === 1 ? 0.08 : -0.05;
+    g.add(shoulder);
+  }
+
+  const headGrp = new THREE.Group();
+  headGrp.name = 'head';
+  headGrp.position.y = 1.62;
+  g.add(headGrp);
+  const face = box(0.26, 0.28, 0.28, skin);
+  face.position.y = 0.14;
+  headGrp.add(face);
+  const hair = box(0.24, 0.08, 0.3, mat(0xbfbfb8, { rough: 0.95 })); // gray hair
+  hair.position.y = 0.3;
+  headGrp.add(hair);
+  // spectacles
+  for (const side of [1, -1]) {
+    const lens = box(0.03, 0.08, 0.09, mat(0x333333, { rough: 0.3, metal: 0.5 }));
+    lens.position.set(0.15, 0.16, side * 0.07);
+    headGrp.add(lens);
+  }
+  return g;
 }
 
 function buildRifle(classId: ClassId): THREE.Group {

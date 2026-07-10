@@ -8,7 +8,7 @@ import {
   type Turret, type Vec3, type Vehicle, type VehicleKind, type WeaponId, type ZedKind,
 } from './types';
 import { stepMode, initMode } from './modes';
-import { stepBot, stepZombie } from './bots';
+import { stepBot, stepScientist, stepZombie } from './bots';
 
 const GRAVITY = 22;
 const RESPAWN_DELAY = 4;
@@ -59,6 +59,11 @@ export class World {
     if (!isCoopMode(opts.mode)) {
       for (const pad of this.map.vehiclePads) this.spawnVehicle(pad.kind, pad.team, pad.pos);
     }
+    if (opts.mode === 'safehouse' && this.map.houses.length) {
+      const house = this.map.houses[this.rng.int(0, this.map.houses.length - 1)];
+      const sci = this.addScientist(house.center);
+      this.mode.scientistId = sci.id;
+    }
     for (const p of this.map.pickups) {
       this.pickups.set(this.nextId, { id: this.nextId, type: p.type, pos: { ...p.pos }, respawnAt: 0 });
       this.nextId++;
@@ -94,6 +99,22 @@ export class World {
     };
     this.soldiers.set(s.id, s);
     this.spawn(s);
+    return s;
+  }
+
+  /** The VIP. Unarmed, doesn't respawn — the safehouse match ends when he dies. */
+  addScientist(pos: Vec3): Soldier {
+    const s: Soldier = {
+      id: this.id(), kind: 'scientist', name: 'Dr. Voss', team: 0, classId: 'medic',
+      pos: { ...pos }, vel: { x: 0, y: 0, z: 0 }, yaw: 0,
+      hp: 160, maxHp: 160, energy: 0, alive: true, respawnAt: 0,
+      weaponIdx: 0, weapons: ['pistol'], clip: [0], reserve: [0],
+      reloadUntil: 0, nextFireAt: 0, grenades: 0, nextGrenadeAt: 0,
+      cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
+      kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
+      botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
+    };
+    this.soldiers.set(s.id, s);
     return s;
   }
 
@@ -182,7 +203,8 @@ export class World {
       let cmd = cmds.get(s.id);
       if (!cmd) {
         if (s.kind === 'bot') cmd = stepBot(this, s, dt);
-        else if (s.kind !== 'human') { stepZombie(this, s, dt); continue; }
+        else if (s.kind === 'scientist') { stepScientist(this, s, dt); continue; }
+        else if (isZed(s.kind)) { stepZombie(this, s, dt); continue; }
         else cmd = null as unknown as PlayerCmd;
       }
       if (cmd) this.applyCmd(s, cmd, dt);
@@ -214,7 +236,13 @@ export class World {
       return;
     }
 
-    if (cmd.use) this.tryEnterVehicle(s);
+    if (cmd.use) {
+      if (this.opts.mode === 'safehouse' && this.toggleEscort(s)) {
+        // E next to the scientist toggles escort instead of vehicle entry
+      } else {
+        this.tryEnterVehicle(s);
+      }
+    }
 
     // weapon switching
     if (cmd.weaponSlot >= 0 && cmd.weaponSlot < s.weapons.length && cmd.weaponSlot !== s.weaponIdx) {
@@ -797,6 +825,21 @@ export class World {
         }
       }
     }
+  }
+
+  /** E near the scientist: he follows you; E again: he holds position where he stands. */
+  toggleEscort(s: Soldier): boolean {
+    const sci = this.mode.scientistId !== undefined ? this.soldiers.get(this.mode.scientistId) : undefined;
+    if (!sci || !sci.alive) return false;
+    if (Math.hypot(sci.pos.x - s.pos.x, sci.pos.z - s.pos.z) > 3.2) return false;
+    if (sci.botTargetId === s.id) {
+      sci.botTargetId = -1;
+      this.emit({ type: 'announce', text: 'Dr. Voss is holding position' });
+    } else {
+      sci.botTargetId = s.id;
+      this.emit({ type: 'announce', text: `Dr. Voss is following ${s.name}` });
+    }
+    return true;
   }
 
   /** Bomber blast: on death or on reaching a victim. */

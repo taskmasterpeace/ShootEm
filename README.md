@@ -1,10 +1,10 @@
 # ⚔️ War World
 
-**A modern, browser-native reimagining of [Infantry Online](https://github.com/InfantryOnline/Infantry-Online-Server)** — the classic 1998 top-down multiplayer shooter — rebuilt from scratch in TypeScript + Three.js with vehicles, six game modes, six combat classes, bots, and LAN multiplayer.
+**A modern, browser-native reimagining of [Infantry Online](https://github.com/InfantryOnline/Infantry-Online-Server)** — the classic 1998 top-down multiplayer shooter — rebuilt from scratch in TypeScript + Three.js with vehicles, seven game modes, six combat classes, bots, and LAN multiplayer.
 
 No install, no launcher, no plugins. `npm run dev`, open a browser, deploy.
 
-![modes](https://img.shields.io/badge/modes-6-e8a33d) ![classes](https://img.shields.io/badge/classes-6-3dbde8) ![vehicles](https://img.shields.io/badge/vehicles-4%20%2B%20sentries-8fb98a) ![license](https://img.shields.io/badge/license-MIT-blue)
+![modes](https://img.shields.io/badge/modes-7-e8a33d) ![classes](https://img.shields.io/badge/classes-6-3dbde8) ![vehicles](https://img.shields.io/badge/vehicles-4%20%2B%20sentries-8fb98a) ![license](https://img.shields.io/badge/license-MIT-blue)
 
 ## Quick start
 
@@ -51,6 +51,7 @@ npm run sounds       # regenerate the CC0 sound pack from source
 | 🎯 **Conquest** | Hold control points A/B/C to drain tickets — first to 500 |
 | 🧟 **Zombie Survival** | Co-op vs escalating waves (specials mix in from wave 2) |
 | 🩸 **Endless Horde** | No waves, no breaks — continuous spawning that ramps every 30s until the squad falls |
+| 🧪 **Protect the Scientist** | A suburban neighborhood map. The horde searches house to house for Dr. Voss — hide him (E to escort/relocate), defend when they find him, survive the 5-minute evac countdown |
 
 ## Classes
 

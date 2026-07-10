@@ -230,7 +230,7 @@ export class Renderer {
         );
         this.scene.add(mesh);
         this.soldierMeshes.set(s.id, mesh);
-        if (s.kind === 'bot' || s.kind === 'human') {
+        if (s.kind === 'bot' || s.kind === 'human' || s.kind === 'scientist') {
           const tag = this.makeNameSprite(s.name, s.team);
           tag.position.y = 2.6;
           mesh.add(tag);
@@ -423,7 +423,7 @@ export class Renderer {
   private animateSoldier(mesh: THREE.Group, s: Soldier, world: World) {
     const j = mesh.userData.joints as Record<string, THREE.Object3D | undefined>;
     const t = world.time;
-    const zed = s.kind !== 'human' && s.kind !== 'bot';
+    const zed = s.kind !== 'human' && s.kind !== 'bot' && s.kind !== 'scientist';
     const speed = Math.hypot(s.vel.x, s.vel.z);
     const moving = speed > 0.6;
 

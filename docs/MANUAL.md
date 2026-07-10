@@ -61,6 +61,7 @@ Hold **TAB** for kills / deaths / score by team. Score counts kills, flag caps, 
 | 🎯 Conquest | 500 tickets | Stand inside A/B/C rings to capture. More points = faster tickets. B (center) is the bloodbath — engineers should fortify it. |
 | 🧟 Survival | Outlast waves | Co-op. Wave *n* has 6+3n zombies that get tougher. Specials mix in from wave 2. Ends when the whole squad is down. |
 | 🩸 Endless Horde | Survive as long as you can | Co-op, no wave breaks — spawning is continuous and the **intensity ramps every 30 seconds** (population and spawn rate keep climbing). Score = squad kills + time survived. |
+| 🧪 Protect the Scientist | Keep Dr. Voss alive until evac (5:00) | Suburban neighborhood map. He hides in one of ~12 houses; the horde **searches house to house**. When a zombie sees him the whole horde converges (**FOUND — DEFEND**). Kill every witness and the trail goes cold after 12s — then press **E** next to him to escort him to a new hiding spot. He dies, you lose. |
 
 ### Know the undead
 

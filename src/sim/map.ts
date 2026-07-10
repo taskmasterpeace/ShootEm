@@ -28,6 +28,12 @@ export interface PickupSpawn {
   pos: Vec3;
 }
 
+export interface House {
+  id: number;
+  center: Vec3;
+  door: Vec3;
+}
+
 export interface GameMap {
   seed: number;
   grid: Uint8Array; // GRID*GRID
@@ -40,6 +46,8 @@ export interface GameMap {
   pickups: PickupSpawn[];
   props: PropSpec[];
   zombieSpawns: Vec3[];
+  /** safehouse mode: the neighborhood's searchable houses */
+  houses: House[];
 }
 
 export function tileAt(grid: Uint8Array, x: number, z: number): number {
@@ -89,8 +97,9 @@ function clearArea(grid: Uint8Array, cx: number, cz: number, r: number) {
     for (let x = cx - r; x <= cx + r; x++) setTile(grid, x, z, T_OPEN);
 }
 
-/** Generates a symmetric battlefield. Team 0 base west, team 1 base east. */
+/** Generates a symmetric battlefield — or a suburban neighborhood for safehouse mode. */
 export function generateMap(seed: number, mode: ModeId): GameMap {
+  if (mode === 'safehouse') return generateNeighborhood(seed);
   const rng = new Rng(seed);
   const grid = new Uint8Array(GRID * GRID);
   const props: PropSpec[] = [];
@@ -248,5 +257,136 @@ export function generateMap(seed: number, mode: ModeId): GameMap {
     }
   }
 
-  return { seed, grid, basePos, spawns, flagPos, hillPos, controlPoints, vehiclePads, pickups, props, zombieSpawns };
+  return { seed, grid, basePos, spawns, flagPos, hillPos, controlPoints, vehiclePads, pickups, props, zombieSpawns, houses: [] };
+}
+
+/**
+ * Safehouse neighborhood: a 4×3 grid of walled houses along streets, a
+ * command post at the south edge, yards with fences and trees. Houses have a
+ * street-facing front door (and sometimes a back door) so the horde can get in.
+ */
+function generateNeighborhood(seed: number): GameMap {
+  const rng = new Rng(seed);
+  const grid = new Uint8Array(GRID * GRID);
+  const props: PropSpec[] = [];
+  const houses: House[] = [];
+  const pickups: PickupSpawn[] = [];
+
+  for (let i = 0; i < GRID; i++) {
+    grid[i] = T_WALL;
+    grid[(GRID - 1) * GRID + i] = T_WALL;
+    grid[i * GRID] = T_WALL;
+    grid[i * GRID + GRID - 1] = T_WALL;
+  }
+
+  // 4 columns × 3 rows of lots; streets between them stay open
+  const cols = 4, rows = 3;
+  const lotW = 22, lotH = 26;
+  const originX = 6, originZ = 8;
+  let houseId = 0;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const lx = originX + c * lotW;
+      const lz = originZ + r * lotH;
+      // house footprint inside the lot
+      const hw = rng.int(9, 11);
+      const hh = rng.int(7, 8);
+      const hx = lx + rng.int(3, lotW - hw - 3);
+      const hz = lz + rng.int(4, lotH - hh - 8);
+      // walls
+      for (let x = hx; x < hx + hw; x++) {
+        setTile(grid, x, hz, T_WALL);
+        setTile(grid, x, hz + hh - 1, T_WALL);
+      }
+      for (let z = hz; z < hz + hh; z++) {
+        setTile(grid, hx, z, T_WALL);
+        setTile(grid, hx + hw - 1, z, T_WALL);
+      }
+      // front door: 2-tile gap on the south wall (faces the street below)
+      const doorX = hx + rng.int(2, hw - 4);
+      setTile(grid, doorX, hz + hh - 1, T_OPEN);
+      setTile(grid, doorX + 1, hz + hh - 1, T_OPEN);
+      const door = tileToWorld(doorX, hz + hh - 1);
+      // sometimes a back door
+      if (rng.next() < 0.55) {
+        const backX = hx + rng.int(2, hw - 4);
+        setTile(grid, backX, hz, T_OPEN);
+        setTile(grid, backX + 1, hz, T_OPEN);
+      }
+      // interior room divider with a doorway
+      if (hw >= 10) {
+        const divX = hx + Math.floor(hw / 2);
+        for (let z = hz + 1; z < hz + hh - 1; z++) {
+          if (z !== hz + Math.floor(hh / 2)) setTile(grid, divX, z, T_WALL);
+        }
+      }
+      const center = tileToWorld(hx + Math.floor(hw / 2) - 1, hz + Math.floor(hh / 2));
+      houses.push({ id: houseId++, center, door });
+
+      // yard dressing: fence stubs + crates + a tree
+      if (rng.next() < 0.6) {
+        const fz = hz + hh + 1;
+        for (let x = hx - 1; x < hx + Math.floor(hw / 2); x++) setTile(grid, x, fz, T_COVER);
+      }
+      if (rng.next() < 0.7) {
+        const cxT = hx + hw + 1, czT = hz + rng.int(0, hh - 1);
+        setTile(grid, cxT, czT, T_COVER);
+        props.push({ type: 'crate', pos: tileToWorld(cxT, czT), scale: 1, rot: rng.range(0, Math.PI) });
+      }
+      const tx = lx + rng.int(0, 2), tz = lz + rng.int(0, 3);
+      if (grid[tz * GRID + tx] === T_OPEN) {
+        setTile(grid, tx, tz, T_WALL);
+        props.push({ type: 'tree', pos: tileToWorld(tx, tz), scale: rng.range(0.8, 1.3), rot: rng.range(0, Math.PI * 2) });
+      }
+      // some houses stock a pickup
+      if (rng.next() < 0.5) {
+        pickups.push({ type: rng.next() < 0.5 ? 'medkit' : 'ammo', pos: { ...center, x: center.x + 2 } });
+      }
+    }
+  }
+
+  // command post: south edge center clearing
+  const cpTx = GRID / 2, cpTz = GRID - 8;
+  clearArea(grid, cpTx, cpTz, 6);
+  const basePos: [Vec3, Vec3] = [tileToWorld(cpTx, cpTz), tileToWorld(GRID / 2, 6)];
+  props.push({ type: 'bunker', pos: tileToWorld(cpTx - 4, cpTz), scale: 1, rot: -Math.PI / 2 });
+  const spawns: [Vec3[], Vec3[]] = [[], []];
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    spawns[0].push(tileToWorld(cpTx + Math.round(Math.cos(a) * 3), cpTz + Math.round(Math.sin(a) * 3)));
+    spawns[1].push(tileToWorld(GRID / 2 + Math.round(Math.cos(a) * 3), 6));
+  }
+
+  // street-corner supply drops
+  const cornerTypes: PickupSpawn['type'][] = ['medkit', 'ammo', 'energy', 'flamer'];
+  for (let i = 0; i < 6; i++) {
+    const tx = originX + rng.int(0, cols - 1) * lotW + lotW - 2;
+    const tz = originZ + rng.int(0, rows - 1) * lotH + lotH + 1;
+    if (grid[Math.min(tz, GRID - 2) * GRID + tx] === T_OPEN) {
+      pickups.push({ type: cornerTypes[i % cornerTypes.length], pos: tileToWorld(tx, Math.min(tz, GRID - 2)) });
+    }
+  }
+
+  const zombieSpawns: Vec3[] = [];
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    const tx = Math.round(GRID / 2 + Math.cos(a) * (GRID / 2 - 6));
+    const tz = Math.round(GRID / 2 + Math.sin(a) * (GRID / 2 - 6));
+    clearArea(grid, tx, tz, 1);
+    zombieSpawns.push(tileToWorld(tx, tz));
+  }
+
+  const hillPos = tileToWorld(GRID / 2, GRID / 2);
+  return {
+    seed, grid, basePos, spawns,
+    flagPos: [basePos[0], basePos[1]],
+    hillPos,
+    controlPoints: [
+      { name: 'A', pos: tileToWorld(GRID / 2 - 20, GRID / 2) },
+      { name: 'B', pos: hillPos },
+      { name: 'C', pos: tileToWorld(GRID / 2 + 20, GRID / 2) },
+    ],
+    vehiclePads: [],
+    pickups, props, zombieSpawns, houses,
+  };
 }

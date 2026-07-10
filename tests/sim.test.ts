@@ -298,6 +298,90 @@ describe('endless horde', () => {
   });
 });
 
+describe('protect the scientist (safehouse)', () => {
+  it('generates a neighborhood with houses whose doors and centers are walkable', () => {
+    const m = generateMap(77, 'safehouse');
+    expect(m.houses.length).toBeGreaterThanOrEqual(10);
+    for (const h of m.houses) {
+      expect(isBlocked(m.grid, h.center.x, h.center.z)).toBe(false);
+      expect(isBlocked(m.grid, h.door.x, h.door.z)).toBe(false);
+    }
+    expect(m.vehiclePads.length).toBe(0); // infantry only
+  });
+
+  it('hides the scientist in a house at match start', () => {
+    const w = new World({ seed: 9, mode: 'safehouse' });
+    const sci = w.soldiers.get(w.mode.scientistId!)!;
+    expect(sci.kind).toBe('scientist');
+    expect(sci.alive).toBe(true);
+    const inAHouse = w.map.houses.some((h) => Math.hypot(h.center.x - sci.pos.x, h.center.z - sci.pos.z) < 2);
+    expect(inAHouse).toBe(true);
+  });
+
+  it('raises the alert when a zombie gets eyes on him, and decays it after the memory window', () => {
+    const w = new World({ seed: 9, mode: 'safehouse' });
+    const a = w.addSoldier('A', 'heavy', 0, 'human');
+    a.pos = { ...w.map.basePos[0] };
+    const sci = w.soldiers.get(w.mode.scientistId!)!;
+    const z = w.addZombie('zombie', { x: sci.pos.x + 3, y: 0, z: sci.pos.z });
+    w.step(1 / 60, new Map());
+    expect(w.mode.alert).toBe(true);
+    // kill the witness; the trail should go cold after ~12s
+    w.damageSoldier(z, 9999, a.id, 'ar606');
+    run(w, new Map(), 13);
+    expect(w.mode.alert).toBe(false);
+  });
+
+  it('the horde converges on the scientist while alerted', () => {
+    const w = new World({ seed: 9, mode: 'safehouse' });
+    const a = w.addSoldier('A', 'heavy', 0, 'human');
+    a.pos = { ...w.map.basePos[0] };
+    const sci = w.soldiers.get(w.mode.scientistId!)!;
+    w.mode.alertUntil = 9999; // force the alert
+    const z = w.addZombie('zombie', { x: sci.pos.x + 25, y: 0, z: sci.pos.z + 25 });
+    const d0 = Math.hypot(z.pos.x - sci.pos.x, z.pos.z - sci.pos.z);
+    run(w, new Map(), 4);
+    if (z.alive) {
+      const d1 = Math.hypot(z.pos.x - sci.pos.x, z.pos.z - sci.pos.z);
+      expect(d1).toBeLessThan(d0);
+    }
+  });
+
+  it('E toggles escort and the scientist follows', () => {
+    const w = new World({ seed: 9, mode: 'safehouse' });
+    const a = w.addSoldier('A', 'infantry', 0, 'human');
+    const sci = w.soldiers.get(w.mode.scientistId!)!;
+    a.pos = { x: sci.pos.x + 1.5, y: 0, z: sci.pos.z };
+    w.step(1 / 60, new Map([[a.id, cmd({ use: true })]]));
+    expect(sci.botTargetId).toBe(a.id);
+    // walk away; he should trail along
+    a.pos = { x: sci.pos.x + 12, y: 0, z: sci.pos.z };
+    const before = { ...sci.pos };
+    run(w, new Map(), 2);
+    const moved = Math.hypot(sci.pos.x - before.x, sci.pos.z - before.z);
+    expect(moved).toBeGreaterThan(3);
+  });
+
+  it('scientist death ends the match as a loss', () => {
+    const w = new World({ seed: 9, mode: 'safehouse' });
+    w.addSoldier('A', 'infantry', 0, 'human');
+    const sci = w.soldiers.get(w.mode.scientistId!)!;
+    w.damageSoldier(sci, 9999, sci.id, 'zombie_claw');
+    w.step(1 / 60, new Map());
+    expect(w.mode.over).toBe(true);
+    expect(w.mode.winner).toBe(1);
+  });
+
+  it('surviving the evac countdown wins the match', () => {
+    const w = new World({ seed: 9, mode: 'safehouse' });
+    w.addSoldier('A', 'infantry', 0, 'human');
+    w.mode.timeLeft = 0.05;
+    run(w, new Map(), 0.2);
+    expect(w.mode.over).toBe(true);
+    expect(w.mode.winner).toBe(0);
+  });
+});
+
 describe('bots', () => {
   it('bot teams fight and score kills over time', () => {
     const w = new World({ seed: 1337, mode: 'tdm' });
