@@ -17,11 +17,22 @@ const JET_DRAIN = 30;
 const JET_THRUST = 9.5;
 const PICKUP_RESPAWN = 18;
 
+export type Difficulty = 'recruit' | 'veteran' | 'elite';
+
 export interface WorldOptions {
   seed: number;
   mode: ModeId;
   botsPerTeam?: number;
+  difficulty?: Difficulty;
+  matchMinutes?: number;
 }
+
+/** Bot aim-error multiplier per difficulty. */
+export const DIFFICULTY_AIM: Record<Difficulty, number> = {
+  recruit: 1.9,
+  veteran: 1,
+  elite: 0.45,
+};
 
 export class World {
   time = 0;
@@ -41,7 +52,7 @@ export class World {
   constructor(public opts: WorldOptions) {
     this.rng = new Rng(opts.seed ^ 0xbeef);
     this.map = generateMap(opts.seed, opts.mode);
-    this.mode = initMode(opts.mode, this.map);
+    this.mode = initMode(opts.mode, this.map, opts.matchMinutes);
     // vehicles on pads (no vehicles in survival — infantry holdout)
     if (opts.mode !== 'survival') {
       for (const pad of this.map.vehiclePads) this.spawnVehicle(pad.kind, pad.team, pad.pos);

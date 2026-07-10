@@ -1,7 +1,7 @@
 import { CLASSES, VEHICLES, WEAPONS } from './data';
 import { GRID, T_OPEN, TILE, WORLD, isBlocked, losClear } from './map';
 import type { PlayerCmd, Soldier, Team, Vec3 } from './types';
-import type { World } from './world';
+import { DIFFICULTY_AIM, type World } from './world';
 
 const noCmd = (): PlayerCmd => ({
   moveX: 0, moveZ: 0, aimYaw: 0, fire: false, altFire: false, jump: false,
@@ -214,7 +214,8 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     else if (s.classId === 'medic') cmd.weaponSlot = 0;
     else if (s.classId === 'engineer') cmd.weaponSlot = 0;
 
-    const aimErr = (w.rng.next() - 0.5) * (s.kind === 'zombie' ? 0.2 : 0.055) * (d / 18 + 0.6);
+    const aimErr = (w.rng.next() - 0.5) * (s.kind === 'zombie' ? 0.2 : 0.055) * (d / 18 + 0.6)
+      * DIFFICULTY_AIM[w.opts.difficulty ?? 'veteran'];
     cmd.aimYaw = leadYaw(s.pos, target, wdef.speed) + aimErr;
     if (d < wdef.range * 0.95) cmd.fire = true;
 

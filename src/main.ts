@@ -1,6 +1,6 @@
 import { CLASSES, MODE_INFO } from './sim/data';
 import type { ClassId, ModeId, PlayerCmd } from './sim/types';
-import { World } from './sim/world';
+import { World, type Difficulty } from './sim/world';
 import { audio } from './client/audio';
 import { Hud } from './client/hud';
 import { Input } from './client/input';
@@ -21,7 +21,37 @@ const BOT_NAMES = [
 
 let selectedMode: ModeId = 'ctf';
 let selectedClass: ClassId = 'infantry';
+let difficulty: Difficulty = 'veteran';
+let botsPerTeam = 7;
+let matchMinutes = 15;
 let running = false;
+
+function wireSetupControls() {
+  const wirePills = (rootId: string, onPick: (v: string) => void) => {
+    const root = $(rootId);
+    root.querySelectorAll<HTMLButtonElement>('.pill').forEach((btn) => {
+      btn.onclick = () => {
+        audio.play('ui_click');
+        root.querySelectorAll('.pill').forEach((b) => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        onPick(btn.dataset.v!);
+      };
+    });
+  };
+  wirePills('difficulty-select', (v) => { difficulty = v as Difficulty; });
+  wirePills('length-select', (v) => { matchMinutes = parseInt(v); });
+  const count = $('bots-count');
+  $('bots-minus').onclick = () => {
+    botsPerTeam = Math.max(0, botsPerTeam - 1);
+    count.textContent = String(botsPerTeam);
+    audio.play('ui_click');
+  };
+  $('bots-plus').onclick = () => {
+    botsPerTeam = Math.min(12, botsPerTeam + 1);
+    count.textContent = String(botsPerTeam);
+    audio.play('ui_click');
+  };
+}
 
 function buildMenu() {
   const modeRow = $('mode-select');
@@ -97,18 +127,19 @@ async function startGame() {
 
 function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, endGame: () => void) {
   const seed = (Math.random() * 0xffffffff) >>> 0;
-  const world = new World({ seed, mode: selectedMode });
+  const world = new World({ seed, mode: selectedMode, difficulty, botsPerTeam, matchMinutes });
   const me = world.addSoldier(name, selectedClass, 0, 'human');
 
   // populate bots
   const classPool: ClassId[] = ['infantry', 'infantry', 'heavy', 'jump', 'engineer', 'medic', 'infiltrator'];
   const names = [...BOT_NAMES].sort(() => Math.random() - 0.5);
   let n = 0;
+  const wrap = (i: number) => names[i % names.length];
   if (selectedMode === 'survival') {
-    for (let i = 0; i < 3; i++) world.addSoldier(names[n++], classPool[i % classPool.length], 0, 'bot');
+    for (let i = 0; i < Math.min(botsPerTeam, 5); i++) world.addSoldier(wrap(n++), classPool[i % classPool.length], 0, 'bot');
   } else {
-    for (let i = 0; i < 7; i++) world.addSoldier(names[n++], classPool[i % classPool.length], 0, 'bot');
-    for (let i = 0; i < 8; i++) world.addSoldier(names[n++], classPool[(i + 3) % classPool.length], 1, 'bot');
+    for (let i = 0; i < botsPerTeam; i++) world.addSoldier(wrap(n++), classPool[i % classPool.length], 0, 'bot');
+    for (let i = 0; i < botsPerTeam + 1; i++) world.addSoldier(wrap(n++), classPool[(i + 3) % classPool.length], 1, 'bot');
   }
 
   renderer.buildStaticWorld(world);
@@ -148,6 +179,7 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
 }
 
 buildMenu();
+wireSetupControls();
 $('deploy-btn').addEventListener('click', () => { startGame(); });
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !running && !$('menu').classList.contains('hidden')) startGame();

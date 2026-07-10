@@ -75,6 +75,13 @@ Plus battlefield pickups: medkits, ammo crates, energy cells, and the F-3 Flamer
 
 Vehicles spawn on team pads and respawn 22s after destruction. Engineers can repair them.
 
+## Docs
+
+- **[Field Manual](docs/MANUAL.md)** — how to play, HUD guide, class doctrine, vehicle guide, field tips (with live screenshots)
+- **[AI Report](docs/AI-REPORT.md)** — how the bots perceive, path, fight, drive, and swarm
+- **[Mobile Feasibility](docs/MOBILE-FEASIBILITY.md)** — runs in a phone browser today; what touch controls would take
+- Screenshots regenerate with `node tools/capture-screenshots.mjs` while the dev server runs
+
 ## Architecture
 
 ```

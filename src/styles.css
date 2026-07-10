@@ -72,6 +72,33 @@ html, body {
 .select-card .icon { font-size: 1.6rem; }
 .select-card .name { font-weight: 600; margin: 0.35rem 0 0.15rem; font-size: 0.95rem; letter-spacing: -0.01em; }
 .select-card .desc { color: var(--muted); font-size: 0.78rem; line-height: 1.35; }
+.setup-row { display: flex; gap: 2rem; flex-wrap: wrap; align-items: flex-end; }
+.setup-block label {
+  display: block; font-size: 0.72rem; font-weight: 600; color: var(--muted);
+  margin-bottom: 0.45rem; letter-spacing: 0.05em; text-transform: uppercase;
+}
+.pill-row { display: flex; gap: 0.5rem; }
+.pill {
+  background: var(--card); border: 1px solid var(--border); color: var(--text);
+  border-radius: 999px; padding: 0.45rem 0.95rem; font: 500 0.82rem var(--font);
+  cursor: pointer; transition: border-color 0.2s, background 0.2s, transform 0.15s;
+}
+.pill:hover { background: var(--card-hover); transform: translateY(-1px); }
+.pill.selected { border-color: var(--accent); background: oklch(0.26 0.05 75 / 0.55); box-shadow: 0 0 0 1px var(--accent); }
+.stepper {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 0.2rem;
+}
+.stepper button {
+  width: 2rem; height: 2rem; border: none; border-radius: 999px;
+  background: transparent; color: var(--text); font: 600 1.1rem var(--font);
+  cursor: pointer; transition: background 0.2s;
+}
+.stepper button:hover { background: var(--card-hover); }
+.stepper span {
+  min-width: 2.2rem; text-align: center; font-weight: 700;
+  font-variant-numeric: tabular-nums; color: var(--accent); font-size: 1rem;
+}
 #deploy-btn {
   margin-top: 0.5rem;
   background: linear-gradient(135deg, var(--accent), var(--accent-strong));

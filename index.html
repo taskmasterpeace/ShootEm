@@ -58,6 +58,35 @@
           <h3>Class</h3>
           <div id="class-select" class="card-row"></div>
         </div>
+        <div class="menu-section">
+          <h3>Match Setup <span class="opt">(offline matches)</span></h3>
+          <div class="setup-row">
+            <div class="setup-block">
+              <label>Bot difficulty</label>
+              <div id="difficulty-select" class="pill-row">
+                <button class="pill" data-v="recruit">🐣 Recruit</button>
+                <button class="pill selected" data-v="veteran">🎖️ Veteran</button>
+                <button class="pill" data-v="elite">💀 Elite</button>
+              </div>
+            </div>
+            <div class="setup-block">
+              <label>Bots per team</label>
+              <div class="stepper">
+                <button id="bots-minus" aria-label="fewer bots">−</button>
+                <span id="bots-count">7</span>
+                <button id="bots-plus" aria-label="more bots">+</button>
+              </div>
+            </div>
+            <div class="setup-block">
+              <label>Match length</label>
+              <div id="length-select" class="pill-row">
+                <button class="pill" data-v="10">10 min</button>
+                <button class="pill selected" data-v="15">15 min</button>
+                <button class="pill" data-v="20">20 min</button>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="menu-section" id="mp-section">
           <h3>Multiplayer <span class="opt">(optional — leave blank to fight bots offline)</span></h3>
           <input id="server-url" type="text" placeholder="ws://192.168.1.217:3401" />

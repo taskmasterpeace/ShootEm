@@ -5,9 +5,9 @@ import type { World } from './world';
 
 const MATCH_TIME = 15 * 60;
 
-export function initMode(id: ModeId, map: GameMap): ModeState {
+export function initMode(id: ModeId, map: GameMap, minutes?: number): ModeState {
   const m: ModeState = {
-    id, timeLeft: MATCH_TIME, scores: [0, 0], target: 0, over: false, winner: -1,
+    id, timeLeft: (minutes ?? 15) * 60 || MATCH_TIME, scores: [0, 0], target: 0, over: false, winner: -1,
   };
   switch (id) {
     case 'tdm':
