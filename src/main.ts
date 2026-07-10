@@ -144,7 +144,7 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
 
   renderer.buildStaticWorld(world);
   hud.announce(MODE_INFO[selectedMode].name.toUpperCase(), true, 0);
-  (window as unknown as Record<string, unknown>).__ww = { world, me }; // debug/testing handle
+  (window as unknown as Record<string, unknown>).__ww = { world, me, renderer }; // debug/testing handle
 
   const FIXED = 1 / 60;
   let acc = 0;

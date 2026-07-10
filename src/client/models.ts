@@ -21,228 +21,593 @@ const cyl = (rt: number, rb: number, h: number, m: THREE.Material, seg = 10) => 
   mesh.castShadow = true;
   return mesh;
 };
+/** Box with its origin at the TOP — rotate to swing like a limb from its joint. */
+const limb = (w: number, h: number, d: number, m: THREE.Material) => {
+  const geo = new THREE.BoxGeometry(w, h, d);
+  geo.translate(0, -h / 2, 0);
+  const mesh = new THREE.Mesh(geo, m);
+  mesh.castShadow = true;
+  return mesh;
+};
 
-/** Low-poly soldier. Root faces +X (yaw 0). */
+// ---------------------------------------------------------------------------
+// Soldiers. Root faces +X (yaw 0). Jointed hierarchy — the renderer animates
+// hips/legs/shins/arms/gun by name.
+// ---------------------------------------------------------------------------
+
 export function buildSoldier(team: Team, classId: ClassId, kind: SoldierKind): THREE.Group {
-  const g = new THREE.Group();
   const isZed = kind !== 'human' && kind !== 'bot';
-  const teamCol = isZed
-    ? (kind === 'brute' ? 0x5a7a3a
-      : kind === 'spitter' ? 0x7a9a4a
-      : kind === 'sprinter' ? 0xb9503a
-      : kind === 'bomber' ? 0x8fbf2a
-      : 0x6b8f4e)
-    : TEAM_COLORS[team];
-  const skin = isZed ? (kind === 'sprinter' ? 0xb07050 : 0x8fa86a) : 0xd9b38c;
-  const armor = mat(isZed ? (kind === 'sprinter' ? 0x5a3226 : 0x3d4a2e) : team === 0 ? 0x8a6c34 : 0x33708a, { rough: 0.85 });
-  const accent = mat(teamCol, { emissive: isZed ? 0 : teamCol });
+  return isZed ? buildZombie(kind) : buildTrooper(team, classId);
+}
 
-  const scale = kind === 'brute' ? 1.65 : kind === 'bomber' ? 1.25 : kind === 'sprinter' ? 0.9 : 1;
+function buildRifle(classId: ClassId): THREE.Group {
+  const gun = new THREE.Group();
+  gun.name = 'gun';
+  const gunmetal = mat(0x23231f, { metal: 0.55, rough: 0.35 });
+  const furniture = mat(0x3a352b, { rough: 0.7 });
+  const heavy = classId === 'heavy';
+  const sniper = classId === 'infiltrator';
 
-  // torso
-  const torso = box(0.55, 0.7, 0.8, armor);
-  torso.position.y = 1.05;
+  const rw = heavy ? 0.85 : sniper ? 0.75 : 0.68; // receiver length
+  const rh = heavy ? 0.17 : 0.11;
+  const receiver = box(rw, rh, heavy ? 0.13 : 0.09, gunmetal);
+  gun.add(receiver);
+  const barrel = box(sniper ? 0.62 : heavy ? 0.35 : 0.42, 0.055, 0.055, gunmetal);
+  barrel.position.set(rw / 2 + barrel.geometry.parameters.width / 2 - 0.02, heavy ? 0.03 : 0.015, 0);
+  gun.add(barrel);
+  const stock = box(0.2, 0.13, 0.07, furniture);
+  stock.position.set(-rw / 2 - 0.08, -0.02, 0);
+  gun.add(stock);
+  const mag = box(0.08, 0.18, 0.06, furniture);
+  mag.position.set(0.05, -rh / 2 - 0.08, 0);
+  mag.rotation.z = 0.25;
+  gun.add(mag);
+  const grip = box(0.06, 0.12, 0.06, furniture);
+  grip.position.set(-0.15, -rh / 2 - 0.05, 0);
+  gun.add(grip);
+  if (heavy) {
+    const drum = cyl(0.09, 0.09, 0.1, furniture, 10);
+    drum.rotation.x = Math.PI / 2;
+    drum.position.set(0.12, -0.14, 0);
+    gun.add(drum);
+    const brake = box(0.08, 0.09, 0.09, gunmetal);
+    brake.position.set(rw / 2 + 0.32, 0.03, 0);
+    gun.add(brake);
+  }
+  if (sniper) {
+    const scope = cyl(0.035, 0.035, 0.2, gunmetal, 8);
+    scope.rotation.z = Math.PI / 2;
+    scope.position.set(0.05, rh / 2 + 0.05, 0);
+    gun.add(scope);
+    const lens = cyl(0.03, 0.03, 0.01, mat(0x66ccff, { emissive: 0x3388cc }), 8);
+    lens.rotation.z = Math.PI / 2;
+    lens.position.set(0.155, rh / 2 + 0.05, 0);
+    gun.add(lens);
+  }
+  return gun;
+}
+
+function buildTrooper(team: Team, classId: ClassId): THREE.Group {
+  const g = new THREE.Group();
+  const teamCol = TEAM_COLORS[team];
+  const inf = classId === 'infiltrator';
+
+  // palette: military fatigues + darker armor, team color only as trim
+  const uniformCol = inf ? 0x2e2c33 : team === 0 ? 0x6b5c38 : 0x3a5a66;
+  const armorCol = inf ? 0x1e1d24 : team === 0 ? 0x4e4228 : 0x27414c;
+  const uniform = mat(uniformCol, { rough: 0.9 });
+  const armor = mat(armorCol, { rough: 0.7, metal: 0.2 });
+  const dark = mat(0x26241f, { rough: 0.8 });
+  const skin = mat(0xd0a67e, { rough: 0.8 });
+  const trim = mat(teamCol, { emissive: teamCol });
+
+  // ---- legs (jointed: thigh → shin+boot) ----
+  for (const side of [1, -1]) {
+    const hip = new THREE.Group();
+    hip.name = side === 1 ? 'legL' : 'legR';
+    hip.position.set(0, 0.96, side * 0.15);
+    const thigh = limb(0.21, 0.44, 0.22, uniform);
+    hip.add(thigh);
+    const knee = new THREE.Group();
+    knee.name = side === 1 ? 'shinL' : 'shinR';
+    knee.position.y = -0.44;
+    const shin = limb(0.17, 0.42, 0.18, uniform);
+    knee.add(shin);
+    const boot = box(0.32, 0.12, 0.19, dark);
+    boot.position.set(0.06, -0.46, 0);
+    knee.add(boot);
+    hip.add(knee);
+    g.add(hip);
+  }
+
+  // ---- torso ----
+  const torso = new THREE.Group();
+  torso.name = 'torso';
+  torso.position.y = 0.98;
   g.add(torso);
-  // team stripe / shoulder pads
-  const padL = box(0.2, 0.18, 0.24, accent);
-  padL.position.set(0, 1.35, 0.45);
-  const padR = padL.clone();
-  padR.position.z = -0.45;
-  g.add(padL, padR);
-  // head
-  const head = box(0.38, 0.36, 0.38, mat(skin));
-  head.position.y = 1.62;
-  g.add(head);
-  const visor = box(0.12, 0.12, 0.3, isZed ? mat(0xcc3333, { emissive: 0xcc3333 }) : mat(0x222222, { rough: 0.3, metal: 0.6 }));
-  visor.position.set(0.18, 1.64, 0);
-  g.add(visor);
-  // legs
-  const legL = box(0.22, 0.7, 0.24, mat(0x3a3a34));
-  legL.position.set(0, 0.35, 0.18);
-  const legR = legL.clone();
-  legR.position.z = -0.18;
-  legL.name = 'legL';
-  legR.name = 'legR';
-  g.add(legL, legR);
-  // arms + gun
-  if (!isZed) {
-    const gun = box(0.9, 0.14, 0.14, mat(0x2b2b28, { metal: 0.5, rough: 0.4 }));
-    gun.position.set(0.55, 1.15, 0.12);
-    gun.name = 'gun';
-    g.add(gun);
-    if (classId === 'jump') {
-      const pack = box(0.25, 0.5, 0.5, mat(0x555a60, { metal: 0.4 }));
-      pack.position.set(-0.4, 1.1, 0);
-      g.add(pack);
-      const nozL = cyl(0.06, 0.09, 0.2, mat(0x333, { metal: 0.6 }));
-      nozL.position.set(-0.4, 0.8, 0.16);
-      const nozR = nozL.clone();
-      nozR.position.z = -0.16;
-      g.add(nozL, nozR);
-    }
-    if (classId === 'medic') {
-      const cross = box(0.06, 0.3, 0.1, mat(0xffffff, { emissive: 0xffffff }));
-      const cross2 = box(0.06, 0.1, 0.3, mat(0xffffff, { emissive: 0xffffff }));
-      cross.position.set(-0.31, 1.1, 0);
-      cross2.position.set(-0.31, 1.1, 0);
-      g.add(cross, cross2);
-    }
-  } else {
-    // claw arms reaching forward
-    const armL = box(0.7, 0.16, 0.16, mat(skin));
-    armL.position.set(0.35, 1.2, 0.3);
-    const armR = armL.clone();
-    armR.position.z = -0.3;
-    g.add(armL, armR);
-    if (kind === 'bomber') {
-      // bloated glowing belly — shoot it before it reaches you
-      const belly = new THREE.Mesh(
-        new THREE.SphereGeometry(0.5, 10, 8),
-        mat(0x9adf3a, { emissive: 0x9adf3a, rough: 0.5 }),
-      );
-      belly.position.set(0.18, 0.95, 0);
-      belly.castShadow = true;
-      g.add(belly);
-    }
-    if (kind === 'sprinter') {
-      // hunched forward posture
-      g.rotation.z = 0;
-      const spine = box(0.5, 0.14, 0.14, mat(0x7a3a2a));
-      spine.position.set(-0.15, 1.5, 0);
-      spine.rotation.z = -0.5;
-      g.add(spine);
+  const chest = box(0.5, 0.52, 0.66, uniform);
+  chest.position.y = 0.28;
+  torso.add(chest);
+  const belt = box(0.52, 0.09, 0.68, dark);
+  belt.position.y = 0.02;
+  torso.add(belt);
+  // armor plate carrier + pouches
+  const plate = box(0.14, 0.4, 0.5, armor);
+  plate.position.set(0.26, 0.3, 0);
+  torso.add(plate);
+  for (const pz of [-0.15, 0.02, 0.19]) {
+    const pouch = box(0.08, 0.13, 0.12, dark);
+    pouch.position.set(0.3, 0.1, pz);
+    torso.add(pouch);
+  }
+  // back gear
+  const pack = box(0.2, 0.34, 0.44, classId === 'medic' ? mat(0xd8d8d2, { rough: 0.8 }) : armor);
+  pack.position.set(-0.32, 0.3, 0);
+  torso.add(pack);
+  if (classId === 'medic') {
+    const crossV = box(0.05, 0.22, 0.07, mat(0xd8453a, { emissive: 0xd8453a }));
+    const crossH = box(0.05, 0.07, 0.22, mat(0xd8453a, { emissive: 0xd8453a }));
+    crossV.position.set(-0.44, 0.3, 0);
+    crossH.position.set(-0.44, 0.3, 0);
+    torso.add(crossV, crossH);
+  }
+  if (classId === 'engineer') {
+    const wrench = box(0.06, 0.3, 0.08, mat(0xb8b0a0, { metal: 0.7, rough: 0.3 }));
+    wrench.position.set(-0.45, 0.28, 0.12);
+    wrench.rotation.x = 0.3;
+    torso.add(wrench);
+  }
+  if (classId === 'jump') {
+    const packL = cyl(0.09, 0.11, 0.42, mat(0x555a60, { metal: 0.5, rough: 0.4 }), 8);
+    packL.position.set(-0.38, 0.3, 0.13);
+    const packR = packL.clone();
+    packR.position.z = -0.13;
+    torso.add(packL, packR);
+    for (const side of [1, -1]) {
+      const nozzle = cyl(0.05, 0.08, 0.1, dark, 8);
+      nozzle.position.set(-0.38, 0.03, side * 0.13);
+      torso.add(nozzle);
     }
   }
+  if (classId === 'heavy') {
+    // ammo belt across the chest
+    const bandolier = box(0.08, 0.5, 0.1, dark);
+    bandolier.position.set(0.28, 0.28, 0.1);
+    bandolier.rotation.x = 0.5;
+    torso.add(bandolier);
+  }
+  // shoulder pads — team ID
+  for (const side of [1, -1]) {
+    const pad = box(0.24, 0.12, 0.2, armor);
+    pad.position.set(0, 0.56, side * 0.38);
+    torso.add(pad);
+    const stripe = box(0.25, 0.04, 0.21, trim);
+    stripe.position.set(0, 0.63, side * 0.38);
+    torso.add(stripe);
+  }
+
+  // ---- arms: posed holding the rifle two-handed ----
+  const armMat = uniform;
+  const gloveMat = dark;
+  // trigger arm (right, -Z side): straight forward to the grip
+  const armR = new THREE.Group();
+  armR.name = 'armR';
+  armR.position.set(0.05, 1.5, -0.34);
+  const upperR = limb(0.15, 0.3, 0.15, armMat);
+  armR.add(upperR);
+  const foreR = new THREE.Group();
+  foreR.position.y = -0.3;
+  const lowerR = limb(0.12, 0.28, 0.12, armMat);
+  foreR.add(lowerR);
+  const handR = box(0.1, 0.1, 0.1, gloveMat);
+  handR.position.y = -0.32;
+  foreR.add(handR);
+  foreR.rotation.z = -1.15; // forearm reaches forward
+  armR.add(foreR);
+  armR.rotation.z = -0.5;
+  g.add(armR);
+  // support arm (left, +Z): reaches across to the foregrip
+  const armL = new THREE.Group();
+  armL.name = 'armL';
+  armL.position.set(0.05, 1.5, 0.34);
+  const upperL = limb(0.15, 0.3, 0.15, armMat);
+  armL.add(upperL);
+  const foreL = new THREE.Group();
+  foreL.position.y = -0.3;
+  const lowerL = limb(0.12, 0.28, 0.12, armMat);
+  foreL.add(lowerL);
+  const handL = box(0.1, 0.1, 0.1, gloveMat);
+  handL.position.y = -0.32;
+  foreL.add(handL);
+  foreL.rotation.z = -1.3;
+  foreL.rotation.x = -0.55; // pull inward toward the barrel line
+  armL.add(foreL);
+  armL.rotation.z = -0.75;
+  armL.rotation.x = -0.35;
+  g.add(armL);
+
+  // ---- head ----
+  const headGrp = new THREE.Group();
+  headGrp.name = 'head';
+  headGrp.position.y = 1.62;
+  g.add(headGrp);
+  const neck = cyl(0.08, 0.09, 0.1, skin, 8);
+  neck.position.y = -0.04;
+  headGrp.add(neck);
+  const face = box(0.26, 0.26, 0.28, skin);
+  face.position.y = 0.14;
+  headGrp.add(face);
+  if (inf) {
+    // hooded infiltrator with glowing goggles
+    const hood = box(0.34, 0.3, 0.36, mat(0x1c1a22, { rough: 0.95 }));
+    hood.position.y = 0.2;
+    headGrp.add(hood);
+    for (const side of [1, -1]) {
+      const eye = box(0.05, 0.05, 0.08, mat(teamCol, { emissive: teamCol }));
+      eye.position.set(0.17, 0.16, side * 0.07);
+      headGrp.add(eye);
+    }
+  } else {
+    const visorStrip = box(0.06, 0.07, 0.24, mat(0x141414, { rough: 0.25, metal: 0.65 }));
+    visorStrip.position.set(0.15, 0.17, 0);
+    headGrp.add(visorStrip);
+    const helmet = box(0.36, 0.18, 0.4, armor);
+    helmet.position.y = 0.32;
+    headGrp.add(helmet);
+    const brim = box(0.44, 0.05, 0.44, armor);
+    brim.position.set(0.02, 0.24, 0);
+    headGrp.add(brim);
+    const band = box(0.37, 0.05, 0.41, trim);
+    band.position.y = 0.27;
+    headGrp.add(band);
+  }
+
+  // ---- rifle, carried at the shoulder line ----
+  const gun = buildRifle(classId);
+  gun.position.set(0.42, 1.28, -0.16);
+  gun.userData.baseX = gun.position.x;
+  g.add(gun);
+
+  return g;
+}
+
+// ---------------------------------------------------------------------------
+// The undead
+// ---------------------------------------------------------------------------
+
+function buildZombie(kind: SoldierKind): THREE.Group {
+  const g = new THREE.Group();
+  const scale = kind === 'brute' ? 1.65 : kind === 'bomber' ? 1.2 : kind === 'sprinter' ? 0.92 : 1;
+  const skinCol = kind === 'sprinter' ? 0xb07050 : kind === 'bomber' ? 0x97b26a : 0x8fa86a;
+  const ragCol = kind === 'sprinter' ? 0x53291f : 0x3d4a2e;
+  const skin = mat(skinCol, { rough: 0.9 });
+  const rags = mat(ragCol, { rough: 0.98 });
+  const dark = mat(0x22261c, { rough: 0.95 });
+
+  // legs (jointed like troopers so the shamble reads)
+  for (const side of [1, -1]) {
+    const hip = new THREE.Group();
+    hip.name = side === 1 ? 'legL' : 'legR';
+    hip.position.set(0, 0.92, side * 0.15);
+    hip.add(limb(0.2, 0.44, 0.2, rags));
+    const knee = new THREE.Group();
+    knee.name = side === 1 ? 'shinL' : 'shinR';
+    knee.position.y = -0.44;
+    knee.add(limb(0.16, 0.42, 0.16, skin));
+    const foot = box(0.26, 0.1, 0.16, dark);
+    foot.position.set(0.05, -0.45, 0);
+    knee.add(foot);
+    hip.add(knee);
+    g.add(hip);
+  }
+
+  // torso — torn shirt, hunched
+  const torso = new THREE.Group();
+  torso.name = 'torso';
+  torso.position.y = 0.94;
+  g.add(torso);
+  const chestW = kind === 'brute' ? 0.72 : 0.5;
+  const chest = box(0.46, 0.5, chestW, rags);
+  chest.position.y = 0.27;
+  torso.add(chest);
+  const gutRip = box(0.1, 0.2, chestW * 0.5, skin); // exposed midriff
+  gutRip.position.set(0.2, 0.1, 0.05);
+  torso.add(gutRip);
+  if (kind === 'brute') {
+    for (const side of [1, -1]) {
+      const hump = box(0.4, 0.28, 0.26, skin);
+      hump.position.set(-0.05, 0.55, side * 0.32);
+      torso.add(hump);
+    }
+  }
+  if (kind === 'bomber') {
+    const belly = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 10), mat(0x9adf3a, { emissive: 0x9adf3a, rough: 0.45 }));
+    belly.position.set(0.22, 0.12, 0);
+    belly.castShadow = true;
+    belly.name = 'belly';
+    torso.add(belly);
+  }
+  if (kind === 'spitter') {
+    const sac = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), mat(0xa0e040, { emissive: 0x7fae2a, rough: 0.5 }));
+    sac.position.set(0.16, 0.52, 0);
+    torso.add(sac);
+  }
+
+  // arms — reaching, asymmetric
+  for (const side of [1, -1]) {
+    const shoulder = new THREE.Group();
+    shoulder.name = side === 1 ? 'armL' : 'armR';
+    shoulder.position.set(0.02, 1.44, side * (kind === 'brute' ? 0.44 : 0.32));
+    const upper = limb(0.13, 0.3, 0.13, kind === 'brute' ? skin : rags);
+    shoulder.add(upper);
+    const elbow = new THREE.Group();
+    elbow.position.y = -0.3;
+    elbow.add(limb(0.11, 0.3, 0.11, skin));
+    // claws
+    for (const c of [-0.03, 0.03]) {
+      const claw = box(0.1, 0.04, 0.03, dark);
+      claw.position.set(0.05, -0.32, c);
+      elbow.add(claw);
+    }
+    elbow.rotation.z = -0.25;
+    shoulder.add(elbow);
+    // reach forward, one arm higher than the other
+    shoulder.rotation.z = side === 1 ? -1.35 : -1.05;
+    g.add(shoulder);
+  }
+
+  // head — bare, tilted, glowing eyes
+  const headGrp = new THREE.Group();
+  headGrp.name = 'head';
+  headGrp.position.y = 1.56;
+  headGrp.rotation.x = kind === 'sprinter' ? 0 : 0.18; // sickly tilt
+  g.add(headGrp);
+  const skull = box(0.28, 0.28, kind === 'brute' ? 0.26 : 0.3, skin);
+  skull.position.y = 0.12;
+  headGrp.add(skull);
+  const jaw = box(0.1, 0.08, 0.2, dark);
+  jaw.position.set(0.12, 0.0, 0);
+  headGrp.add(jaw);
+  for (const side of [1, -1]) {
+    const eye = box(0.05, 0.05, 0.06, mat(0xcc3322, { emissive: 0xcc3322 }));
+    eye.position.set(0.14, 0.16, side * 0.08);
+    headGrp.add(eye);
+  }
+
+  // sprinters run low
+  if (kind === 'sprinter') {
+    torso.rotation.z = -0.35;
+    headGrp.position.x = 0.18;
+    headGrp.position.y = 1.42;
+  }
+
   g.scale.setScalar(scale);
   return g;
 }
 
-/** Vehicles face +X. */
+// ---------------------------------------------------------------------------
+// Vehicles. Face +X. Wheels live in named axle groups so the renderer can
+// spin them; the turret barrel sits in 'gunRecoil' for firing kick.
+// ---------------------------------------------------------------------------
+
 export function buildVehicle(kind: VehicleKind, team: Team): THREE.Group {
   const g = new THREE.Group();
   const teamCol = TEAM_COLORS[team];
-  const body = mat(team === 0 ? 0x7a6030 : 0x2f6478, { rough: 0.6, metal: 0.35 });
+  const body = mat(team === 0 ? 0x74602f : 0x2f6478, { rough: 0.55, metal: 0.35 });
+  const bodyDark = mat(team === 0 ? 0x57481f : 0x224b5c, { rough: 0.6, metal: 0.3 });
   const dark = mat(0x24241f, { rough: 0.5, metal: 0.4 });
   const glow = mat(teamCol, { emissive: teamCol });
 
+  const wheels: THREE.Group[] = [];
+  const addWheel = (x: number, z: number, r: number, w: number) => {
+    const axle = new THREE.Group();
+    axle.position.set(x, r, z);
+    const tire = cyl(r, r, w, dark, 12);
+    tire.rotation.x = Math.PI / 2;
+    axle.add(tire);
+    const hub = cyl(r * 0.45, r * 0.45, w + 0.02, mat(0x55554a, { metal: 0.6, rough: 0.3 }), 8);
+    hub.rotation.x = Math.PI / 2;
+    axle.add(hub);
+    g.add(axle);
+    wheels.push(axle);
+  };
+
   const turret = new THREE.Group();
   turret.name = 'turret';
+  const recoil = new THREE.Group();
+  recoil.name = 'gunRecoil';
+  turret.add(recoil);
 
   switch (kind) {
     case 'buggy': {
-      const hull = box(2.6, 0.6, 1.6, body);
-      hull.position.y = 0.75;
+      const hull = box(2.5, 0.5, 1.5, body);
+      hull.position.y = 0.8;
       g.add(hull);
-      const cab = box(1.1, 0.5, 1.3, dark);
-      cab.position.set(-0.3, 1.25, 0);
-      g.add(cab);
-      for (const [x, z] of [[0.9, 0.85], [0.9, -0.85], [-0.9, 0.85], [-0.9, -0.85]]) {
-        const wheel = cyl(0.42, 0.42, 0.3, dark, 12);
-        wheel.rotation.x = Math.PI / 2;
-        wheel.position.set(x, 0.42, z);
-        g.add(wheel);
+      const nose = box(0.7, 0.34, 1.3, bodyDark);
+      nose.position.set(1.5, 0.72, 0);
+      g.add(nose);
+      // roll cage
+      for (const [x1, z1] of [[0.5, 0.6], [0.5, -0.6], [-0.7, 0.6], [-0.7, -0.6]] as const) {
+        const bar = cyl(0.04, 0.04, 0.75, dark, 6);
+        bar.position.set(x1, 1.35, z1);
+        g.add(bar);
       }
-      const gun = box(1.2, 0.12, 0.12, dark);
-      gun.position.set(0.6, 0.25, 0);
-      turret.add(gun);
-      turret.position.set(-0.3, 1.6, 0);
+      const roof = box(1.5, 0.06, 1.35, dark);
+      roof.position.set(-0.1, 1.75, 0);
+      g.add(roof);
+      const seat = box(0.5, 0.4, 0.9, mat(0x35322a, { rough: 0.95 }));
+      seat.position.set(-0.45, 1.1, 0);
+      g.add(seat);
+      addWheel(0.95, 0.85, 0.4, 0.28);
+      addWheel(0.95, -0.85, 0.4, 0.28);
+      addWheel(-0.85, 0.85, 0.4, 0.28);
+      addWheel(-0.85, -0.85, 0.4, 0.28);
+      const stripe = box(2.52, 0.06, 0.3, glow);
+      stripe.position.set(0, 1.08, 0);
+      g.add(stripe);
+      const gun = box(1.1, 0.1, 0.1, dark);
+      gun.position.set(0.55, 0.05, 0);
+      recoil.add(gun);
+      turret.position.set(-0.1, 1.82, 0);
       break;
     }
     case 'tank': {
-      const hull = box(4, 0.9, 2.6, body);
-      hull.position.y = 0.85;
+      const hull = box(3.9, 0.7, 2.4, body);
+      hull.position.y = 0.95;
       g.add(hull);
+      // sloped glacis
+      const glacis = box(0.9, 0.66, 2.4, bodyDark);
+      glacis.position.set(2.05, 0.82, 0);
+      glacis.rotation.z = 0.42;
+      g.add(glacis);
+      const rear = box(0.5, 0.55, 2.3, bodyDark);
+      rear.position.set(-2.0, 0.9, 0);
+      rear.rotation.z = -0.3;
+      g.add(rear);
       for (const side of [1, -1]) {
-        const tread = box(4.2, 0.7, 0.55, dark);
-        tread.position.set(0, 0.45, side * 1.35);
+        const tread = box(4.3, 0.75, 0.6, dark);
+        tread.position.set(0, 0.45, side * 1.38);
         g.add(tread);
+        const fender = box(4.35, 0.08, 0.65, bodyDark);
+        fender.position.set(0, 0.87, side * 1.38);
+        g.add(fender);
+        // road wheels peeking under the tread line
+        for (const wx of [-1.5, -0.75, 0, 0.75, 1.5]) {
+          const rw = cyl(0.26, 0.26, 0.5, mat(0x1a1a16, { rough: 0.6 }), 10);
+          rw.rotation.x = Math.PI / 2;
+          rw.position.set(wx, 0.28, side * 1.38);
+          g.add(rw);
+        }
       }
-      const dome = box(1.7, 0.65, 1.6, body);
-      dome.position.y = 0.35;
+      // turret
+      const dome = box(1.7, 0.55, 1.5, body);
+      dome.position.y = 0.32;
       turret.add(dome);
-      const barrel = cyl(0.12, 0.15, 2.6, dark, 8);
+      const domeTop = box(1.1, 0.22, 1.0, bodyDark);
+      domeTop.position.y = 0.68;
+      turret.add(domeTop);
+      const hatch = cyl(0.22, 0.22, 0.1, dark, 10);
+      hatch.position.set(-0.2, 0.83, 0.25);
+      turret.add(hatch);
+      const barrel = cyl(0.09, 0.12, 2.5, dark, 10);
       barrel.rotation.z = -Math.PI / 2;
-      barrel.position.set(1.9, 0.4, 0);
-      turret.add(barrel);
+      barrel.position.set(1.95, 0.35, 0);
+      recoil.add(barrel);
+      const muzzle = cyl(0.14, 0.14, 0.3, dark, 10);
+      muzzle.rotation.z = -Math.PI / 2;
+      muzzle.position.set(3.1, 0.35, 0);
+      recoil.add(muzzle);
+      const antenna = cyl(0.015, 0.015, 0.9, dark, 4);
+      antenna.position.set(-0.7, 1.2, -0.55);
+      turret.add(antenna);
+      const stripe = box(0.7, 0.08, 1.52, glow);
+      stripe.position.set(-0.75, 0.62, 0);
+      turret.add(stripe);
       turret.position.set(-0.2, 1.35, 0);
-      const stripe = box(0.8, 0.1, 2.62, glow);
-      stripe.position.set(-1.4, 1.32, 0);
-      g.add(stripe);
       break;
     }
     case 'apc': {
-      const hull = box(3.6, 1.3, 2.2, body);
-      hull.position.y = 1.1;
+      const hull = box(3.4, 1.15, 2.1, body);
+      hull.position.y = 1.15;
       g.add(hull);
-      const nose = box(0.8, 0.9, 2.2, body);
-      nose.position.set(2.05, 0.9, 0);
-      nose.rotation.z = 0.3;
+      const nose = box(1.0, 0.9, 2.1, bodyDark);
+      nose.position.set(2.0, 0.95, 0);
+      nose.rotation.z = 0.35;
       g.add(nose);
-      for (const [x] of [[1.3], [0], [-1.3]]) {
-        for (const side of [1, -1]) {
-          const wheel = cyl(0.5, 0.5, 0.35, dark, 12);
-          wheel.rotation.x = Math.PI / 2;
-          wheel.position.set(x, 0.5, side * 1.15);
-          g.add(wheel);
-        }
+      const cabin = box(1.6, 0.4, 1.7, bodyDark);
+      cabin.position.set(-0.4, 1.9, 0);
+      g.add(cabin);
+      // side hatches + vision slits
+      for (const side of [1, -1]) {
+        const hatch = box(0.7, 0.6, 0.06, bodyDark);
+        hatch.position.set(-0.6, 1.1, side * 1.06);
+        g.add(hatch);
+        const slit = box(1.6, 0.08, 0.04, mat(0x101010, { rough: 0.3 }));
+        slit.position.set(0.6, 1.5, side * 1.06);
+        g.add(slit);
       }
-      const beacon = box(0.5, 0.15, 0.5, glow);
-      beacon.position.set(-1.2, 1.85, 0);
+      addWheel(1.25, 1.08, 0.46, 0.32);
+      addWheel(1.25, -1.08, 0.46, 0.32);
+      addWheel(0, 1.08, 0.46, 0.32);
+      addWheel(0, -1.08, 0.46, 0.32);
+      addWheel(-1.25, 1.08, 0.46, 0.32);
+      addWheel(-1.25, -1.08, 0.46, 0.32);
+      const beacon = box(0.4, 0.12, 0.4, glow);
+      beacon.position.set(-1.3, 1.95, 0);
       g.add(beacon);
-      const gun = box(1.1, 0.12, 0.12, dark);
-      gun.position.set(0.55, 0.2, 0);
-      turret.add(gun);
-      turret.position.set(0.6, 1.95, 0);
+      const gun = box(1.0, 0.1, 0.1, dark);
+      gun.position.set(0.5, 0.1, 0);
+      recoil.add(gun);
+      const shield = box(0.08, 0.3, 0.5, bodyDark);
+      shield.position.set(0.25, 0.12, 0);
+      recoil.add(shield);
+      turret.position.set(0.5, 2.15, 0);
       break;
     }
     case 'skiff': {
-      const hull = box(2.4, 0.35, 1.1, body);
+      const hull = box(2.3, 0.3, 1.05, body);
       hull.position.y = 0.95;
       g.add(hull);
-      const fin = box(0.7, 0.55, 0.12, mat(0x2b2b28));
-      fin.position.set(-1, 1.35, 0);
+      const canopy = box(0.9, 0.22, 0.7, mat(0x18242a, { rough: 0.25, metal: 0.6 }));
+      canopy.position.set(0.45, 1.18, 0);
+      g.add(canopy);
+      const fin = box(0.65, 0.55, 0.1, bodyDark);
+      fin.position.set(-1.0, 1.35, 0);
+      fin.rotation.z = 0.25;
       g.add(fin);
       for (const side of [1, -1]) {
-        const pod = cyl(0.2, 0.28, 0.9, dark, 8);
+        const pod = cyl(0.18, 0.26, 0.95, dark, 10);
         pod.rotation.z = Math.PI / 2;
-        pod.position.set(-0.2, 0.8, side * 0.75);
+        pod.position.set(-0.15, 0.82, side * 0.72);
         g.add(pod);
-        const glowRing = cyl(0.16, 0.16, 0.06, glow, 8);
-        glowRing.rotation.z = Math.PI / 2;
-        glowRing.position.set(-0.68, 0.8, side * 0.75);
-        g.add(glowRing);
+        const ring = cyl(0.15, 0.15, 0.05, glow, 10);
+        ring.rotation.z = Math.PI / 2;
+        ring.position.set(-0.66, 0.82, side * 0.72);
+        ring.name = side === 1 ? 'thrustL' : 'thrustR';
+        g.add(ring);
       }
-      const gun = box(0.9, 0.1, 0.1, dark);
-      gun.position.set(0.45, 0.1, 0);
-      turret.add(gun);
-      turret.position.set(0.5, 1.2, 0);
+      const gun = box(0.85, 0.09, 0.09, dark);
+      gun.position.set(0.42, 0.05, 0);
+      recoil.add(gun);
+      turret.position.set(0.5, 1.28, 0);
       break;
     }
   }
   g.add(turret);
+  g.userData.wheels = wheels;
   return g;
 }
 
 export function buildTurretMesh(team: Team): THREE.Group {
   const g = new THREE.Group();
   const teamCol = TEAM_COLORS[team];
-  const base = cyl(0.5, 0.7, 0.5, mat(0x3a3a34, { metal: 0.4 }));
-  base.position.y = 0.25;
-  g.add(base);
-  const post = cyl(0.14, 0.14, 0.9, mat(0x4a4a42));
-  post.position.y = 0.9;
+  const legMat = mat(0x3a3a34, { metal: 0.4 });
+  // tripod legs
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2;
+    const leg = box(0.08, 0.55, 0.08, legMat);
+    leg.position.set(Math.cos(a) * 0.32, 0.26, Math.sin(a) * 0.32);
+    leg.rotation.x = Math.sin(a) * 0.35;
+    leg.rotation.z = -Math.cos(a) * 0.35;
+    g.add(leg);
+  }
+  const post = cyl(0.1, 0.12, 0.7, mat(0x4a4a42));
+  post.position.y = 0.85;
   g.add(post);
   const head = new THREE.Group();
   head.name = 'head';
-  const headBox = box(0.6, 0.4, 0.5, mat(0x50554a, { metal: 0.3 }));
+  const headBox = box(0.55, 0.36, 0.44, mat(0x50554a, { metal: 0.3 }));
   head.add(headBox);
-  const barrel = box(0.8, 0.1, 0.1, mat(0x24241f, { metal: 0.5 }));
-  barrel.position.x = 0.6;
-  head.add(barrel);
-  const eye = box(0.1, 0.1, 0.2, mat(teamCol, { emissive: teamCol }));
-  eye.position.set(0.31, 0.12, 0);
+  const barrelL = box(0.7, 0.07, 0.07, mat(0x24241f, { metal: 0.5 }));
+  barrelL.position.set(0.55, 0.06, 0.08);
+  const barrelR = barrelL.clone();
+  barrelR.position.z = -0.08;
+  head.add(barrelL, barrelR);
+  const eye = box(0.09, 0.09, 0.18, mat(teamCol, { emissive: teamCol }));
+  eye.position.set(0.29, 0.12, 0);
+  eye.name = 'eye';
   head.add(eye);
-  head.position.y = 1.5;
+  head.position.y = 1.32;
   g.add(head);
   return g;
 }
@@ -303,7 +668,10 @@ export function buildProp(type: string, scale: number): THREE.Object3D {
       const crown = new THREE.Mesh(new THREE.ConeGeometry(1.5 * scale, 3 * scale, 7), mat(0x40613c, { rough: 0.9 }));
       crown.position.y = 3.4 * scale;
       crown.castShadow = true;
-      g.add(trunk, crown);
+      const crown2 = new THREE.Mesh(new THREE.ConeGeometry(1.1 * scale, 2.2 * scale, 7), mat(0x4a6f44, { rough: 0.9 }));
+      crown2.position.y = 4.3 * scale;
+      crown2.castShadow = true;
+      g.add(trunk, crown, crown2);
       return g;
     }
     case 'crate': {

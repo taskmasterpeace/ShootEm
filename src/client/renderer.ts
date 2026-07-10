@@ -23,6 +23,8 @@ export class Renderer {
 
   private soldierMeshes = new Map<number, THREE.Group>();
   private vehicleMeshes = new Map<number, THREE.Group>();
+  private recoilAt = new Map<number, number>();     // soldier id → time of last shot
+  private vehRecoilAt = new Map<number, number>();  // vehicle id → time of last shot
   private turretMeshes = new Map<number, THREE.Group>();
   private projMeshes = new Map<number, THREE.Mesh>();
   private pickupMeshes = new Map<number, THREE.Group>();
@@ -221,6 +223,11 @@ export class Renderer {
       let mesh = this.soldierMeshes.get(s.id);
       if (!mesh) {
         mesh = buildSoldier(s.team, s.classId, s.kind);
+        // cache the animation joints — getObjectByName every frame is wasteful
+        mesh.userData.joints = Object.fromEntries(
+          ['legL', 'legR', 'shinL', 'shinR', 'armL', 'armR', 'head', 'torso', 'gun', 'belly']
+            .map((n) => [n, mesh!.getObjectByName(n)]),
+        );
         this.scene.add(mesh);
         this.soldierMeshes.set(s.id, mesh);
         if (s.kind === 'bot' || s.kind === 'human') {
@@ -231,30 +238,14 @@ export class Renderer {
         }
       }
       const inVehicle = s.vehicleId >= 0;
-      mesh.visible = s.alive && !inVehicle && !(s.cloaked && s.team !== localTeam && s.id !== localId);
+      const corpse = !s.alive && world.time < s.respawnAt - 0.02;
+      mesh.visible = (s.alive || corpse) && !inVehicle && !(s.cloaked && s.team !== localTeam && s.id !== localId);
       if (!mesh.visible) continue;
       const tag = this.nameSprites.get(s.id);
-      if (tag) tag.visible = s.id !== localId;
+      if (tag) tag.visible = s.id !== localId && s.alive;
       mesh.position.set(s.pos.x, s.pos.y, s.pos.z);
       mesh.rotation.y = -s.yaw; // sim yaw is math-angle on XZ; three rotates opposite
-      // cloak shimmer for allies/self
-      const cloakAlpha = s.cloaked ? 0.3 : 1;
-      mesh.traverse((o) => {
-        const mm = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
-        if (mm && 'opacity' in mm) {
-          mm.transparent = cloakAlpha < 1;
-          mm.opacity = cloakAlpha;
-        }
-      });
-      // walk cycle
-      const speed = Math.hypot(s.vel.x, s.vel.z);
-      const legL = mesh.getObjectByName('legL');
-      const legR = mesh.getObjectByName('legR');
-      if (legL && legR) {
-        const swing = speed > 0.5 ? Math.sin(world.time * 11) * 0.5 : 0;
-        legL.rotation.z = swing;
-        legR.rotation.z = -swing;
-      }
+      this.animateSoldier(mesh, s, world);
     }
     for (const [id, mesh] of this.soldierMeshes) {
       if (!world.soldiers.has(id)) {
@@ -278,6 +269,27 @@ export class Renderer {
       mesh.rotation.y = -v.yaw;
       const turret = mesh.getObjectByName('turret');
       if (turret) turret.rotation.y = -(v.turretYaw - v.yaw);
+      // wheels roll with signed ground speed
+      const wheels = mesh.userData.wheels as THREE.Group[] | undefined;
+      if (wheels?.length) {
+        const fwdSpeed = Math.cos(v.yaw) * v.vel.x + Math.sin(v.yaw) * v.vel.z;
+        for (const axle of wheels) axle.rotation.z -= (fwdSpeed * dt) / 0.42;
+      }
+      // mounted-gun recoil
+      const gunRecoil = mesh.getObjectByName('gunRecoil');
+      if (gunRecoil) {
+        const shotAt = this.vehRecoilAt.get(v.id) ?? -1;
+        const kick = Math.max(0, 1 - (world.time - shotAt) / (v.kind === 'tank' ? 0.35 : 0.12));
+        gunRecoil.position.x = -kick * (v.kind === 'tank' ? 0.4 : 0.15);
+      }
+      // skiff thruster glow pulse
+      if (v.kind === 'skiff') {
+        for (const name of ['thrustL', 'thrustR']) {
+          const ring = mesh.getObjectByName(name) as THREE.Mesh | undefined;
+          const rm = ring?.material as THREE.MeshStandardMaterial | undefined;
+          if (rm) rm.emissiveIntensity = 0.7 + Math.sin(world.time * 9 + v.id) * 0.3;
+        }
+      }
     }
 
     // turrets
@@ -291,6 +303,9 @@ export class Renderer {
       }
       const head = mesh.getObjectByName('head');
       if (head) head.rotation.y = -t.yaw;
+      const eye = mesh.getObjectByName('eye') as THREE.Mesh | undefined;
+      const em = eye?.material as THREE.MeshStandardMaterial | undefined;
+      if (em) em.emissiveIntensity = 0.55 + Math.sin(world.time * 4 + t.id) * 0.45;
     }
     for (const [id, mesh] of this.turretMeshes) {
       if (!world.turrets.has(id)) {
@@ -385,7 +400,7 @@ export class Renderer {
     // camera follow
     if (local) {
       const inVehicle = local.vehicleId >= 0;
-      const dist = inVehicle ? 40 : 30;
+      const dist = (window as unknown as { __camDist?: number }).__camDist ?? (inVehicle ? 40 : 30);
       const target = new THREE.Vector3(local.pos.x, 0, local.pos.z);
       const desired = new THREE.Vector3(local.pos.x, dist, local.pos.z + dist * 0.55);
       this.camPos.lerp(desired, 1 - Math.pow(0.001, dt));
@@ -404,6 +419,92 @@ export class Renderer {
     this.renderer.render(this.scene, this.camera);
   }
 
+  /** Skeletal-ish animation driven straight from sim state. */
+  private animateSoldier(mesh: THREE.Group, s: Soldier, world: World) {
+    const j = mesh.userData.joints as Record<string, THREE.Object3D | undefined>;
+    const t = world.time;
+    const zed = s.kind !== 'human' && s.kind !== 'bot';
+    const speed = Math.hypot(s.vel.x, s.vel.z);
+    const moving = speed > 0.6;
+
+    // ---- death: keel over and fade out ----
+    let alpha = s.cloaked ? 0.3 : 1;
+    if (!s.alive) {
+      const deathTime = s.respawnAt - (zed ? 2 : 4); // matches sim respawn delays
+      const k = Math.min(1, Math.max(0, (t - deathTime) / 0.45));
+      mesh.rotation.z = -1.5 * k * k;
+      mesh.position.y = 0.12 * k;
+      alpha = Math.min(1, Math.max(0.05, (s.respawnAt - t) / 0.8));
+      this.setAlpha(mesh, alpha);
+      return;
+    }
+
+    // ---- gait ----
+    const gaitRate = zed
+      ? s.kind === 'sprinter' ? 15 : s.kind === 'brute' ? 4.5 : 6
+      : 5.5 + speed * 0.75;
+    const phase = t * gaitRate + (s.id % 9) * 0.77;
+    const stride = moving
+      ? (s.kind === 'brute' ? 0.75 : s.kind === 'sprinter' ? 0.9 : 0.55) * Math.min(1, speed / 5 + 0.35)
+      : 0;
+    const swing = Math.sin(phase) * stride;
+    const airborne = s.pos.y > 0.6;
+
+    if (j.legL && j.legR && j.shinL && j.shinR) {
+      if (airborne) {
+        // jetpack tuck
+        j.legL.rotation.z = 0.55;
+        j.legR.rotation.z = 0.3;
+        j.shinL.rotation.z = -0.9;
+        j.shinR.rotation.z = -0.7;
+      } else {
+        j.legL.rotation.z = swing;
+        j.legR.rotation.z = -swing;
+        j.shinL.rotation.z = stride ? -Math.max(0, Math.sin(phase + 0.5)) * 1.0 : 0;
+        j.shinR.rotation.z = stride ? -Math.max(0, -Math.sin(phase + 0.5)) * 1.0 : 0;
+      }
+    }
+
+    // body: bob while moving, breathe while idle, lean into the run
+    const bob = moving ? Math.abs(Math.sin(phase)) * 0.055 : Math.sin(t * 1.8 + s.id) * 0.012;
+    mesh.position.y = s.pos.y + bob;
+    const lean = airborne ? -0.3 : -Math.min(speed / 14, 1) * (zed ? 0.18 : 0.09);
+    mesh.rotation.z = lean + (s.kind === 'sprinter' ? -0.18 : 0);
+
+    if (zed) {
+      // undead: reaching arms sway, head lolls, brutes lumber
+      const sway = s.kind === 'brute' ? 0.35 : 0.16;
+      if (j.armL) j.armL.rotation.z = (s.kind === 'sprinter' ? -2.2 : -1.35) + Math.sin(phase * 0.55) * sway;
+      if (j.armR) j.armR.rotation.z = (s.kind === 'sprinter' ? -2.0 : -1.05) + Math.cos(phase * 0.5) * sway;
+      if (j.head) j.head.rotation.z = Math.sin(phase * 0.45) * 0.12;
+      if (j.torso) j.torso.rotation.x = Math.sin(phase * 0.5) * (s.kind === 'brute' ? 0.1 : 0.07);
+      if (j.belly) {
+        const pulse = 1 + Math.sin(t * 6) * 0.06;
+        j.belly.scale.setScalar(pulse);
+      }
+    } else if (j.gun) {
+      // rifle recoil kick
+      const shotAt = this.recoilAt.get(s.id) ?? -1;
+      const kick = Math.max(0, 1 - (t - shotAt) / 0.09);
+      j.gun.position.x = (j.gun.userData.baseX ?? 0.42) - kick * 0.11;
+      if (j.torso) j.torso.rotation.z = -kick * 0.05;
+    }
+
+    this.setAlpha(mesh, alpha);
+  }
+
+  private setAlpha(mesh: THREE.Group, alpha: number) {
+    if (mesh.userData.lastAlpha === alpha) return; // skip the traverse when nothing changed
+    mesh.userData.lastAlpha = alpha;
+    mesh.traverse((o) => {
+      const mm = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
+      if (mm && 'opacity' in mm) {
+        mm.transparent = alpha < 1;
+        mm.opacity = alpha;
+      }
+    });
+  }
+
   /** Turn sim events into sound + particles. Returns events for the HUD layer too. */
   applyEvents(events: SimEvent[], world: World, localId: number) {
     for (const e of events) {
@@ -411,6 +512,12 @@ export class Renderer {
         case 'shot': {
           if (!e.pos || !e.weapon) break;
           const def = WEAPONS[e.weapon];
+          // recoil bookkeeping for the animator
+          if (e.soldierId !== undefined) {
+            const shooter = world.soldiers.get(e.soldierId);
+            if (shooter && shooter.vehicleId >= 0) this.vehRecoilAt.set(shooter.vehicleId, world.time);
+            else this.recoilAt.set(e.soldierId, world.time);
+          }
           audio.play(def.sound as SoundName, { pos: e.pos, volume: 0.7 });
           if (def.tracer !== 'beam' && def.tracer !== 'none') {
             this.particles.emit({ pos: e.pos, count: 3, color: 0xffcc66, speed: 3, life: 0.12, spread: 0.3, up: 1, size: 0.3 });
