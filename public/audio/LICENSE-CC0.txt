@@ -1,0 +1,8 @@
+War World Sound Pack
+====================
+All .wav files in this directory were procedurally synthesized for War World
+(no recordings or third-party samples were used) and are dedicated to the
+public domain under CC0 1.0 Universal:
+https://creativecommons.org/publicdomain/zero/1.0/
+
+You may copy, modify, and use them for any purpose without attribution.
