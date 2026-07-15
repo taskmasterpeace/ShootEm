@@ -48,7 +48,7 @@ export const SOUND_SPECS = {
   death_ghost:        { cat: 'deaths', desc: 'Ghost death — grunt + comms static cutting out', dur: 0.8 },
 
   // ---- movement / gear ----
-  jetpack:      { cat: 'movement', desc: 'Jetpack thrust — hissing rocket exhaust burst', dur: 0.6 },
+  jetpack:      { cat: 'movement', desc: 'Jetpack thrust burst — strong roaring rocket exhaust with a sharp pressurized hiss, punchy and full, close and loud', dur: 0.5 },
   cloak:        { cat: 'movement', desc: 'Cloak toggle — shimmering phase whoosh', dur: 0.6 },
   reload:       { cat: 'movement', desc: 'Reload — mag out, mag in, bolt charge', dur: 0.8 },
   pickup:       { cat: 'movement', desc: 'Pickup — short bright positive collect blip', dur: 0.5 },

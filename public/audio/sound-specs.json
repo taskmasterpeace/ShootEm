@@ -185,8 +185,8 @@
     {
       "name": "jetpack",
       "cat": "movement",
-      "desc": "Jetpack thrust — hissing rocket exhaust burst",
-      "dur": 0.6
+      "desc": "Jetpack thrust burst — strong roaring rocket exhaust with a sharp pressurized hiss, punchy and full, close and loud",
+      "dur": 0.5
     },
     {
       "name": "cloak",
