@@ -1,6 +1,6 @@
 import type { Vec3 } from '../sim/types';
 
-const SOUND_NAMES = [
+export const SOUND_NAMES = [
   'rifle', 'smg', 'pistol', 'shotgun', 'autocannon', 'rail', 'rocket', 'thump',
   'cannon', 'plasma', 'flame', 'repair', 'heal', 'claw', 'acid',
   'hit', 'hitmarker', 'explosion', 'explosion_big', 'death',
@@ -11,11 +11,85 @@ const SOUND_NAMES = [
 ] as const;
 export type SoundName = (typeof SOUND_NAMES)[number];
 
+// ---------------------------------------------------------------------------
+// Sound Lab persistence: per-sound volume/pitch prefs live in localStorage;
+// user-supplied replacement sounds live in IndexedDB (too big for LS).
+// The harness edits these; the game honors them on every launch.
+// ---------------------------------------------------------------------------
+
+export interface SoundPref { vol?: number; rate?: number }
+
+const PREF_KEY = 'ww_sound_prefs';
+const IDB_NAME = 'ww_sounds';
+const IDB_STORE = 'custom';
+
+function loadPrefs(): Record<string, SoundPref> {
+  try {
+    return JSON.parse(localStorage.getItem(PREF_KEY) ?? '{}') as Record<string, SoundPref>;
+  } catch {
+    return {};
+  }
+}
+
+function openDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbGetAll(): Promise<Map<string, ArrayBuffer>> {
+  const out = new Map<string, ArrayBuffer>();
+  try {
+    const db = await openDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const store = tx.objectStore(IDB_STORE);
+      const keysReq = store.getAllKeys();
+      const valsReq = store.getAll();
+      tx.oncomplete = () => {
+        (keysReq.result as string[]).forEach((k, i) => out.set(k, valsReq.result[i] as ArrayBuffer));
+        resolve();
+      };
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  } catch { /* no custom sounds — fine */ }
+  return out;
+}
+
+async function idbPut(name: string, buf: ArrayBuffer): Promise<void> {
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(buf, name);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+}
+
+async function idbDelete(name: string): Promise<void> {
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).delete(name);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+}
+
 /** Positional audio: volume/pan derived from listener distance. */
 export class AudioEngine {
   private ctx: AudioContext | null = null;
   private buffers = new Map<string, AudioBuffer>();
+  private stock = new Map<string, AudioBuffer>();   // untouched originals
+  private custom = new Set<string>();               // names carrying user sounds
   private master: GainNode | null = null;
+  private prefs: Record<string, SoundPref> = loadPrefs();
   listener: Vec3 = { x: 0, y: 0, z: 0 };
   private lastPlayed = new Map<string, number>();
 
@@ -30,16 +104,65 @@ export class AudioEngine {
         try {
           const res = await fetch(`/audio/${name}.wav`);
           const arr = await res.arrayBuffer();
-          this.buffers.set(name, await this.ctx!.decodeAudioData(arr));
+          const buf = await this.ctx!.decodeAudioData(arr);
+          this.stock.set(name, buf);
+          this.buffers.set(name, buf);
         } catch {
           // missing sound is non-fatal
         }
       }),
     );
+    // user-supplied sounds from the harness Sound Lab override stock
+    const customs = await idbGetAll();
+    for (const [name, raw] of customs) {
+      try {
+        this.buffers.set(name, await this.ctx.decodeAudioData(raw.slice(0)));
+        this.custom.add(name);
+      } catch { /* undecodable upload — stock stands */ }
+    }
   }
 
   resume() {
     this.ctx?.resume();
+  }
+
+  // ---- Sound Lab API (driven from the harness) ----
+
+  /** Per-sound user volume (0–2) and pitch (0.5–2), both default 1. Persisted. */
+  getPref(name: SoundName): Required<SoundPref> {
+    const p = this.prefs[name] ?? {};
+    return { vol: p.vol ?? 1, rate: p.rate ?? 1 };
+  }
+
+  setPref(name: SoundName, pref: SoundPref) {
+    this.prefs[name] = { ...this.prefs[name], ...pref };
+    localStorage.setItem(PREF_KEY, JSON.stringify(this.prefs));
+  }
+
+  hasCustom(name: SoundName): boolean {
+    return this.custom.has(name);
+  }
+
+  /** Replace a sound with the user's own audio file. Persisted in IndexedDB. */
+  async setCustom(name: SoundName, raw: ArrayBuffer): Promise<boolean> {
+    if (!this.ctx) return false;
+    try {
+      const buf = await this.ctx.decodeAudioData(raw.slice(0));
+      await idbPut(name, raw);
+      this.buffers.set(name, buf);
+      this.custom.add(name);
+      return true;
+    } catch {
+      return false; // not decodable audio
+    }
+  }
+
+  /** Back to the stock CC0 sound. */
+  async clearCustom(name: SoundName) {
+    await idbDelete(name);
+    this.custom.delete(name);
+    const stock = this.stock.get(name);
+    if (stock) this.buffers.set(name, stock);
   }
 
   play(name: SoundName, opts: { pos?: Vec3; volume?: number; rate?: number } = {}) {
@@ -53,7 +176,8 @@ export class AudioEngine {
     if (now - last < 0.03) return;
     this.lastPlayed.set(name, now);
 
-    let vol = opts.volume ?? 1;
+    const pref = this.getPref(name);
+    let vol = (opts.volume ?? 1) * pref.vol;
     let pan = 0;
     if (opts.pos) {
       const dx = opts.pos.x - this.listener.x;
@@ -66,7 +190,7 @@ export class AudioEngine {
     }
     const src = this.ctx.createBufferSource();
     src.buffer = buf;
-    src.playbackRate.value = (opts.rate ?? 1) * (0.94 + Math.random() * 0.12);
+    src.playbackRate.value = (opts.rate ?? 1) * pref.rate * (0.94 + Math.random() * 0.12);
     const g = this.ctx.createGain();
     g.gain.value = vol;
     const p = this.ctx.createStereoPanner();

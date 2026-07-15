@@ -7,9 +7,19 @@ export class Input {
   private raycaster = new THREE.Raycaster();
   private groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1); // y = 1 aim plane
   scoreboardHeld = false;
+  /** camera distance — mouse wheel zooms between CAM_MIN and CAM_MAX */
+  camDist = 30;
   private oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1 };
 
+  static readonly CAM_MIN = 16;
+  static readonly CAM_MAX = 55;
+
   constructor(private canvas: HTMLCanvasElement) {
+    // mouse wheel: see further (out) or fight closer (in)
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      this.camDist = Math.max(Input.CAM_MIN, Math.min(Input.CAM_MAX, this.camDist + Math.sign(e.deltaY) * 3));
+    }, { passive: false });
     window.addEventListener('keydown', (e) => {
       // typing in chat (or any text field) must not move the soldier
       if ((e.target as HTMLElement)?.tagName === 'INPUT') { this.keys.clear(); return; }

@@ -239,15 +239,20 @@ describe('the new machines', () => {
     expect(s.hp).toBeGreaterThan(30);
   });
 
-  it('the flyer soars straight over walls', () => {
+  it('the flyer spools its rotors before liftoff, then soars over walls', () => {
     const w = new World({ seed: 42, mode: 'tdm' });
     const fly = [...w.vehicles.values()].find((v) => v.kind === 'flyer' && v.team === 0)!;
     const d = w.addSoldier('D', 'infantry', 0, 'human');
     d.pos = { ...fly.pos };
     w.step(1 / 60, new Map([[d.id, cmd({ use: true })]]));
+    expect(d.vehicleId).toBe(fly.id);
+    // boarding starts the spool — the bird is pinned to the pad until it ends
+    expect(fly.spoolUntil).toBeGreaterThan(w.time);
     fly.yaw = 0;
     const startX = fly.pos.x;
-    run(w, new Map([[d.id, cmd({ moveZ: -1 })]]), 6);
+    run(w, new Map([[d.id, cmd({ moveZ: -1 })]]), 2); // still spooling (2.5s)
+    expect(Math.abs(fly.pos.x - startX)).toBeLessThan(0.01);
+    run(w, new Map([[d.id, cmd({ moveZ: -1 })]]), 5); // airborne now
     expect(fly.pos.x).toBeGreaterThan(startX + 30); // nothing stopped it
   });
 
@@ -385,6 +390,44 @@ describe('recon and battlefield fields', () => {
     tank1.seats[ecmSeat] = jammer.id; jammer.vehicleId = tank1.id; jammer.seat = ecmSeat;
     run(w, new Map([[foe.id, cmd()]]), 0.2);
     expect(w.pinged.has(foe.id)).toBe(false);
+  });
+});
+
+describe('trophies — the post-match honors ledger', () => {
+  it('tracks the longest kill shot distance', () => {
+    const w = new World({ seed: 21, mode: 'tdm' });
+    const sniper = w.addSoldier('S', 'infiltrator', 0, 'human');
+    const far = w.addSoldier('F', 'infantry', 1, 'human');
+    sniper.pos = { x: 0, y: 0, z: 0 };
+    far.pos = { x: 72, y: 0, z: 0 };
+    w.damageSoldier(far, 9999, sniper.id, 'rg2');
+    expect(sniper.longestKill).toBeCloseTo(72, 0);
+    // a closer kill doesn't shrink the record
+    const near = w.addSoldier('N', 'infantry', 1, 'human');
+    near.pos = { x: 5, y: 0, z: 0 };
+    w.damageSoldier(near, 9999, sniper.id, 'rg2');
+    expect(sniper.longestKill).toBeCloseTo(72, 0);
+  });
+
+  it('tracks vehicle kills and healing given', () => {
+    const w = new World({ seed: 21, mode: 'tdm' });
+    const ace = w.addSoldier('A', 'heavy', 0, 'human');
+    const v = [...w.vehicles.values()].find((x) => x.team === 1)!;
+    w.damageVehicle(v, 99999, ace.id, 'mml');
+    expect(ace.vehicleKills).toBe(1);
+
+    // medic beams a wounded ally back up — healGiven accumulates what landed
+    const medic = w.addSoldier('M', 'medic', 0, 'human');
+    const hurt = w.addSoldier('H', 'infantry', 0, 'human');
+    medic.pos = { x: 0, y: 0, z: 0 };
+    hurt.pos = { x: 5, y: 0, z: 0 };
+    hurt.hp = 40;
+    medic.weaponIdx = 1; // medibeam
+    let ticks = 0;
+    while (medic.healGiven === 0 && ticks++ < 300) {
+      w.step(1 / 60, new Map([[medic.id, cmd({ fire: true, aimYaw: 0 })], [hurt.id, cmd()]]));
+    }
+    expect(medic.healGiven).toBeGreaterThan(0);
   });
 });
 

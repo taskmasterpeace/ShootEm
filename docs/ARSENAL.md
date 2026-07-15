@@ -126,6 +126,25 @@ Everything above announces itself visually:
   cooldowns (mechanic/hacking kit), spent state (medikit), and the psi
   scanner flashes teal when it finds someone.
 
+## Post-match honors
+
+The sim keeps a trophy ledger — longest kill distance, vehicles wrecked, hit
+points healed — and the final scoreboard crowns 🏆 MVP, 💀 Top Gun,
+🎯 Longest Shot, ⚕️ Combat Medic, and 💥 Tank Buster.
+
+## Camera & controls
+
+Mouse wheel zooms 16–55u; the camera leads toward where you're aiming so you
+see the fight ahead, not the ground behind you. Flyers spool their rotors for
+2.5s before liftoff — plan your exits.
+
+## The Sound Lab
+
+The harness (`/harness.html`) carries a Sound Lab: audition all 43 CC0
+sounds, set per-sound volume and pitch (saved), or **replace any sound with
+your own audio file** (wav/mp3/ogg — stored in your browser). The game honors
+every change on every launch; ↺ restores stock.
+
 ## Environments — the war scales the solar system
 
 | Theme | Gravity | Character |

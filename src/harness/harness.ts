@@ -8,6 +8,7 @@ import {
   buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp,
   buildSoldier, buildTurretMesh, buildVehicle,
 } from '../client/models';
+import { SOUND_NAMES, audio, type SoundName } from '../client/audio';
 import { THEME_PALETTES } from '../client/renderer';
 import { World } from '../sim/world';
 
@@ -386,11 +387,11 @@ function loadEnvironment(mode: ModeId, seed: number, theme: ThemeId) {
   ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true;
   envGroup.add(ground);
 
-  // walls + cover (skip prop-covered tiles as the game does)
+  // walls + cover — exclusion radii match actual prop footprints (see renderer)
   const propTiles = new Set<string>();
   for (const p of world.map.props) {
     const tx = Math.floor((p.pos.x + WORLD / 2) / TILE), tz = Math.floor((p.pos.z + WORLD / 2) / TILE);
-    const r = p.type === 'rock' ? 2 : p.type === 'bunker' ? 3 : 1;
+    const r = p.type === 'rock' ? Math.max(1, Math.round(p.scale / 1.6)) : 0;
     for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) propTiles.add(`${tx + dx},${tz + dz}`);
   }
   const walls: [number, number][] = [], covers: [number, number][] = [];
@@ -542,6 +543,80 @@ let combatRange = 14;
 rangeSlider.oninput = () => { combatRange = Number(rangeSlider.value); $('range-val').textContent = String(combatRange); };
 $('combat-fire').onclick = () => fireCombat(combatWeapon.value as WeaponId, combatRange);
 
+// ---------------------------------------------------------------------------
+// Sound Lab — audition, tune, and replace every sound in the game.
+// Volume/pitch prefs persist in localStorage; uploaded sounds in IndexedDB.
+// The game's AudioEngine reads both on every launch.
+// ---------------------------------------------------------------------------
+$('snd-init').onclick = async () => {
+  const btn = $('snd-init') as HTMLButtonElement;
+  btn.textContent = 'Loading sounds…';
+  btn.disabled = true;
+  await audio.init();
+  audio.resume();
+  btn.style.display = 'none';
+  buildSoundLab();
+};
+
+function buildSoundLab() {
+  const list = $('sound-list');
+  list.classList.add('ready');
+  list.innerHTML = '';
+  for (const name of SOUND_NAMES) {
+    const row = document.createElement('div');
+    row.className = `snd-row${audio.hasCustom(name) ? ' custom' : ''}`;
+    const pref = audio.getPref(name);
+    row.innerHTML = `
+      <button class="snd-play" title="play">▶</button>
+      <span class="snd-name" title="${name}">${name}</span>
+      <input type="range" class="vol" min="0" max="2" step="0.05" value="${pref.vol}" title="volume ×${pref.vol.toFixed(2)}">
+      <input type="range" class="rate" min="0.5" max="2" step="0.05" value="${pref.rate}" title="pitch ×${pref.rate.toFixed(2)}">
+      <button class="snd-upload" title="replace with your own sound file">📁</button>
+      <button class="snd-reset" title="restore stock sound + settings">↺</button>
+    `;
+    const play = () => audio.play(name, { volume: 1 });
+    (row.querySelector('.snd-play') as HTMLButtonElement).onclick = play;
+    const vol = row.querySelector('.vol') as HTMLInputElement;
+    vol.oninput = () => {
+      audio.setPref(name, { vol: Number(vol.value) });
+      vol.title = `volume ×${Number(vol.value).toFixed(2)}`;
+    };
+    vol.onchange = play; // hear the new level when you let go
+    const rate = row.querySelector('.rate') as HTMLInputElement;
+    rate.oninput = () => {
+      audio.setPref(name, { rate: Number(rate.value) });
+      rate.title = `pitch ×${Number(rate.value).toFixed(2)}`;
+    };
+    rate.onchange = play;
+    (row.querySelector('.snd-upload') as HTMLButtonElement).onclick = () => {
+      const picker = document.createElement('input');
+      picker.type = 'file';
+      picker.accept = 'audio/*,.wav,.mp3,.ogg';
+      picker.onchange = async () => {
+        const file = picker.files?.[0];
+        if (!file) return;
+        const ok = await audio.setCustom(name, await file.arrayBuffer());
+        if (ok) {
+          row.classList.add('custom');
+          audio.play(name, { volume: 1 });
+        } else {
+          alert(`Couldn't decode "${file.name}" as audio.`);
+        }
+      };
+      picker.click();
+    };
+    (row.querySelector('.snd-reset') as HTMLButtonElement).onclick = async () => {
+      await audio.clearCustom(name);
+      audio.setPref(name, { vol: 1, rate: 1 });
+      row.classList.remove('custom');
+      vol.value = '1';
+      rate.value = '1';
+      audio.play(name, { volume: 1 });
+    };
+    list.appendChild(row);
+  }
+}
+
 // environment
 const envModeSel = $<HTMLSelectElement>('env-mode');
 for (const id of Object.keys(MODE_INFO) as ModeId[]) {
@@ -592,7 +667,7 @@ function armDirs() {
   }
   return out;
 }
-(window as unknown as Record<string, unknown>).__h = { THREE, scene, stage, current, poseSoldierJoints, armDirs };
+(window as unknown as Record<string, unknown>).__h = { THREE, scene, stage, current, poseSoldierJoints, armDirs, audio };
 
 function frame(now: number) {
   const dt = Math.min(0.05, (now - last) / 1000);

@@ -422,13 +422,38 @@ export class Hud {
     ctx.stroke();
   }
 
+  /** Post-match honors, computed straight from the trophy ledger. */
+  private renderTrophies(world: World): string {
+    const pool = world.humansAndBots();
+    if (!pool.length) return '';
+    const best = <K extends 'score' | 'kills' | 'longestKill' | 'healGiven' | 'vehicleKills'>(key: K) =>
+      [...pool].sort((a, b) => (b[key] as number) - (a[key] as number))[0];
+    const awards: { icon: string; title: string; s: Soldier; detail: string }[] = [];
+    const mvp = best('score');
+    if (mvp.score > 0) awards.push({ icon: '🏆', title: 'MVP', s: mvp, detail: `${Math.floor(mvp.score)} score` });
+    const gun = best('kills');
+    if (gun.kills > 0) awards.push({ icon: '💀', title: 'Top Gun', s: gun, detail: `${gun.kills} kills` });
+    const marksman = best('longestKill');
+    if (marksman.longestKill > 0) awards.push({ icon: '🎯', title: 'Longest Shot', s: marksman, detail: `${marksman.longestKill.toFixed(1)}u` });
+    const medic = best('healGiven');
+    if (medic.healGiven > 0) awards.push({ icon: '⚕️', title: 'Combat Medic', s: medic, detail: `${Math.round(medic.healGiven)} healed` });
+    const buster = best('vehicleKills');
+    if (buster.vehicleKills > 0) awards.push({ icon: '💥', title: 'Tank Buster', s: buster, detail: `${buster.vehicleKills} wrecks` });
+    if (!awards.length) return '';
+    return `<div class="trophy-row">${awards.map((a) =>
+      `<div class="trophy"><div class="t-icon">${a.icon}</div><div class="t-title">${a.title}</div><div class="t-name t${a.s.team}">${a.s.name}</div><div class="t-detail">${a.detail}</div></div>`,
+    ).join('')}</div>`;
+  }
+
   private renderScoreboard(world: World, localId: number) {
     const sb = $('scoreboard');
     const m = world.mode;
     const soldiers = world.humansAndBots().sort((a, b) => b.score - a.score || b.kills - a.kills);
     const row = (s: Soldier) =>
       `<tr class="${s.id === localId ? 'me' : ''}"><td>${s.name}</td><td>${CLASSES[s.classId].name}</td><td>${s.kills}</td><td>${s.deaths}</td><td>${Math.floor(s.score)}</td></tr>`;
-    let html = `<h2>${MODE_INFO[m.id].name}${m.over ? ` — ${m.winner === -1 ? 'Draw' : TEAM_NAMES[m.winner as Team] + ' wins'}` : ''}</h2><table>
+    let html = `<h2>${MODE_INFO[m.id].name}${m.over ? ` — ${m.winner === -1 ? 'Draw' : TEAM_NAMES[m.winner as Team] + ' wins'}` : ''}</h2>`;
+    if (m.over) html += this.renderTrophies(world); // the honors roll
+    html += `<table>
       <tr><th>Callsign</th><th>Class</th><th>K</th><th>D</th><th>Score</th></tr>`;
     if (m.id === 'survival' || m.id === 'horde' || m.id === 'safehouse') {
       html += soldiers.map(row).join('');

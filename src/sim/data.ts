@@ -120,7 +120,7 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
   flyer: {
     kind: 'flyer', name: 'Kestrel Gunship', hp: 200, speed: 24, turnRate: 2.8,
     weapon: 'flyer_plasma', seats: 2, mobileSpawn: false, radius: 1.6,
-    hover: true, flies: true, systemHp: 22,
+    hover: true, flies: true, systemHp: 22, liftoffTime: 2.5,
   },
   transport: {
     kind: 'transport', name: 'Atlas Transport', hp: 520, speed: 12, turnRate: 1.6,

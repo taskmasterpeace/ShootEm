@@ -150,6 +150,7 @@ export class World {
       grenades: classId === 'infantry' ? 4 : classId === 'engineer' ? 3 : 2,
       nextGrenadeAt: 0, cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
+      longestKill: 0, vehicleKills: 0, healGiven: 0,
       pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0,
       equipment: (loadout?.equipment ?? []).filter((id) => EQUIPMENT[id]).slice(0, 2),
       medikitReady: true, nextPsiAt: 0, nextRepairAt: 0,
@@ -170,6 +171,7 @@ export class World {
       reloadUntil: 0, nextFireAt: 0, grenades: 0, nextGrenadeAt: 0,
       cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
+      longestKill: 0, vehicleKills: 0, healGiven: 0,
       pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0,
       equipment: [], medikitReady: false, nextPsiAt: 0, nextRepairAt: 0,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
@@ -189,6 +191,7 @@ export class World {
       reloadUntil: 0, nextFireAt: 0, grenades: 0, nextGrenadeAt: 0,
       cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
+      longestKill: 0, vehicleKills: 0, healGiven: 0,
       pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0,
       equipment: [], medikitReady: false, nextPsiAt: 0, nextRepairAt: 0,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
@@ -243,7 +246,7 @@ export class World {
       seats: new Array(def.seats).fill(-1),
       nextFireAt: 0, alive: true, respawnAt: 0, padPos: { ...padPos },
       stunnedUntil: 0,
-      systems: this.freshSystems(kind), nextDigAt: 0, nextHealAt: 0,
+      systems: this.freshSystems(kind), nextDigAt: 0, nextHealAt: 0, spoolUntil: 0,
     };
     this.vehicles.set(v.id, v);
     return v;
@@ -903,6 +906,12 @@ export class World {
           s.seat = seat;
           s.enteredVehicleAt = this.time;
           s.cloaked = false;
+          // a pilot taking the stick starts the rotor spool — no liftoff until it's done
+          const lift = VEHICLES[v.kind].liftoffTime;
+          if (seat === 0 && lift) {
+            v.spoolUntil = this.time + lift;
+            this.emit({ type: 'announce', text: `${VEHICLES[v.kind].name}: rotors spooling…` });
+          }
           if (s.carryingFlag >= 0) return; // flag carriers may ride — mode handles flag pos
           this.emit({ type: 'vehicle_enter', pos: v.pos, soldierId: s.id });
           return;
@@ -987,8 +996,9 @@ export class World {
       if (s && c?.use && this.time - s.enteredVehicleAt > 0.3) this.exitVehicle(s, v);
     }
 
-    // ---- movement (emplacements never move) ----
-    if (!def.immobile) {
+    // ---- movement (emplacements never move; spooling flyers sit tight) ----
+    const spooling = !!def.liftoffTime && this.time < v.spoolUntil;
+    if (!def.immobile && !spooling) {
       // dead engine limps at 35% throttle response
       const engineMult = v.systems.engine > 0 ? 1 : 0.35;
       v.yaw += turn * def.turnRate * dt * (throttle < 0 ? -1 : 1);
@@ -1213,9 +1223,13 @@ export class World {
             }
             if (def.heals) {
               if (s.hp < s.maxHp) {
-                s.hp = Math.min(s.maxHp, s.hp + def.damage);
+                const healed = Math.min(s.maxHp - s.hp, def.damage);
+                s.hp += healed;
                 const healer = this.soldiers.get(p.ownerId);
-                if (healer) healer.score += 2;
+                if (healer) {
+                  healer.score += 2;
+                  healer.healGiven += healed; // trophy ledger
+                }
                 this.emit({ type: 'heal', pos: s.pos, soldierId: s.id });
               } else continue; // beam passes through full-health allies
             } else if (def.splash > 0) {
@@ -1362,6 +1376,9 @@ export class World {
       if (attacker && attacker.id !== victim.id) {
         attacker.kills++;
         attacker.score += isZed(victim.kind) ? ZOMBIE_STATS[victim.kind].score : 10;
+        // trophy ledger: how far did that shot travel?
+        const range = Math.hypot(victim.pos.x - attacker.pos.x, victim.pos.z - attacker.pos.z);
+        if (range > attacker.longestKill) attacker.longestKill = Math.round(range * 10) / 10;
       }
       // bombers go out with a bang — hurts whoever is close on the other team
       if (victim.kind === 'bomber') this.bomberDetonate(victim);
@@ -1408,7 +1425,10 @@ export class World {
       }
       v.seats.fill(-1);
       const attacker = this.soldiers.get(attackerId);
-      if (attacker && attacker.team !== v.team) attacker.score += 25;
+      if (attacker && attacker.team !== v.team) {
+        attacker.score += 25;
+        attacker.vehicleKills++; // trophy ledger
+      }
     }
   }
 

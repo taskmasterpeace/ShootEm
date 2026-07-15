@@ -334,3 +334,17 @@ html, body {
 .eq-chip.flash {
   border-color: oklch(0.8 0.13 180); box-shadow: 0 0 10px oklch(0.7 0.13 180 / 0.7);
 }
+
+/* ============ POST-MATCH TROPHIES ============ */
+.trophy-row { display: flex; gap: 0.6rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.trophy {
+  flex: 1; min-width: 6.5rem; text-align: center;
+  background: oklch(0.22 0.035 75 / 0.6); border: 1px solid oklch(0.45 0.08 75 / 0.6);
+  border-radius: var(--radius); padding: 0.6rem 0.4rem;
+}
+.trophy .t-icon { font-size: 1.5rem; line-height: 1.2; }
+.trophy .t-title { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); margin-top: 0.15rem; }
+.trophy .t-name { font-weight: 600; font-size: 0.85rem; margin-top: 0.1rem; }
+.trophy .t-name.t0 { color: var(--team0); }
+.trophy .t-name.t1 { color: var(--team1); }
+.trophy .t-detail { color: var(--muted); font-size: 0.7rem; font-variant-numeric: tabular-nums; }

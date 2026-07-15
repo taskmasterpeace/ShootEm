@@ -1283,9 +1283,11 @@ export function buildPickup(type: string): THREE.Group {
 export function buildProp(type: string, scale: number): THREE.Object3D {
   switch (type) {
     case 'rock': {
-      const geo = new THREE.IcosahedronGeometry(scale, 0);
+      // radius covers the full collision disc (round(scale/1.6) tiles ≈
+      // scale×1.25 world units) so what blocks you is what you see
+      const geo = new THREE.IcosahedronGeometry(scale * 1.3, 0);
       const mesh = new THREE.Mesh(geo, mat(0x6e685c, { rough: 0.95 }));
-      mesh.position.y = scale * 0.4;
+      mesh.position.y = scale * 0.45;
       mesh.castShadow = true;
       return mesh;
     }

@@ -119,6 +119,7 @@ export class NetGame {
       this.pendingEvents = [];
       renderer.applyEvents(events, world, this.myId);
       hud.applyEvents(events, world, this.myId, world.time);
+      renderer.camDist = input.camDist;
       renderer.update(world, this.myId, dt, hud.getWaypoints());
       if (me) hud.update(world, this.myId, input.scoreboardHeld, world.time);
 

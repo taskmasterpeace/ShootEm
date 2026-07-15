@@ -83,6 +83,9 @@ export class Renderer {
   flashes: FlashLights;
   camPos = new THREE.Vector3();
   camShake = 0;
+  /** wheel-zoom distance, fed by Input each frame */
+  camDist = 30;
+  private lookAhead = new THREE.Vector3();
 
   private soldierMeshes = new Map<number, THREE.Group>();
   private vehicleMeshes = new Map<number, THREE.Group>();
@@ -112,6 +115,7 @@ export class Renderer {
   private ecmRings = new Map<number, THREE.Mesh>();         // crewed ECM jam-radius rings
   private nextSmokeAt = new Map<number, number>();          // vehicle id → next damage-smoke puff
   private wpPillars: THREE.Mesh[] = [];                     // pooled waypoint light pillars
+  private flyerAlt = new Map<number, number>();             // smoothed flyer altitude per id
 
   /** Red chevron sprite texture for revealed-enemy markers (built once). */
   private getPingTexture(): THREE.Texture {
@@ -221,12 +225,17 @@ export class Renderer {
     ground.receiveShadow = true;
     this.scene.add(ground);
 
-    // walls as instanced boxes — skip tiles covered by props (rocks/trees render themselves)
+    // Walls as instanced boxes — skip ONLY the tiles a prop's own footprint
+    // blocks (the prop mesh renders there instead). Radii must match the map
+    // generator exactly: over-excluding hides REAL walls and leaves invisible
+    // collision — the classic "invisible wall" bug this replaced. Rocks block
+    // a disc of radius round(scale/1.6) tiles; trees/crates block just their
+    // tile; bunkers sit on cleared ground and block nothing of their own.
     const propTiles = new Set<string>();
     for (const p of world.map.props) {
       const tx = Math.floor((p.pos.x + WORLD / 2) / TILE);
       const tz = Math.floor((p.pos.z + WORLD / 2) / TILE);
-      const r = p.type === 'rock' ? 2 : p.type === 'bunker' ? 3 : 1;
+      const r = p.type === 'rock' ? Math.max(1, Math.round(p.scale / 1.6)) : 0;
       for (let dz = -r; dz <= r; dz++)
         for (let dx = -r; dx <= r; dx++) propTiles.add(`${tx + dx},${tz + dz}`);
     }
@@ -398,20 +407,30 @@ export class Renderer {
       // open vehicles show their rider only while someone's actually aboard
       const rider = mesh.getObjectByName('rider');
       if (rider) rider.visible = v.seats[0] >= 0;
-      const hoverBob =
+      let hoverBob =
         v.kind === 'skiff' ? Math.sin(world.time * 3 + v.id) * 0.15 + 0.3 :
         v.kind === 'hoverboard' ? Math.sin(world.time * 4 + v.id) * 0.1 + 0.25 :
-        v.kind === 'flyer' ? Math.sin(world.time * 2.2 + v.id) * 0.25 + 2.2 : // gunships ride high
         0;
-      mesh.position.set(v.pos.x, hoverBob, v.pos.z);
-      mesh.rotation.y = -v.yaw;
-      // flyer rotors always turn; tunneler drill grinds while moving
+      // flyers earn their altitude: parked on skids, rotors spool with a
+      // pilot aboard, then the bird climbs to cruise height
       if (v.kind === 'flyer') {
+        const lift = VEHICLES.flyer.liftoffTime ?? 2.5;
+        const hasPilot = v.seats[0] >= 0;
+        const spoolLeft = Math.max(0, (v.spoolUntil ?? 0) - world.time);
+        const k = hasPilot ? 1 - Math.min(1, spoolLeft / lift) : 0;
+        const target = 0.3 + k * (1.9 + Math.sin(world.time * 2.2 + v.id) * 0.25 * k);
+        const prev = this.flyerAlt.get(v.id) ?? 0.3;
+        const alt = prev + (target - prev) * Math.min(1, dt * 2.2);
+        this.flyerAlt.set(v.id, alt);
+        hoverBob = alt;
+        // rotors wind from idle tick-over to a full blur as the spool completes
         for (const rn of ['rotorL', 'rotorR']) {
           const rotor = mesh.getObjectByName(rn);
-          if (rotor) rotor.rotation.y = world.time * 18 + v.id;
+          if (rotor) rotor.rotation.y += dt * (1.5 + (hasPilot ? k * 17 : 0));
         }
       }
+      mesh.position.set(v.pos.x, hoverBob, v.pos.z);
+      mesh.rotation.y = -v.yaw;
       if (v.kind === 'tunneler') {
         const drill = mesh.getObjectByName('drill');
         const vSpeed = Math.hypot(v.vel.x, v.vel.z);
@@ -763,12 +782,20 @@ export class Renderer {
       });
     }
 
-    // camera follow
+    // camera follow: wheel-zoomable, and it leads toward where you're aiming —
+    // you see more of the fight ahead and less of the ground behind you
     if (local) {
       const inVehicle = local.vehicleId >= 0;
-      const dist = (window as unknown as { __camDist?: number }).__camDist ?? (inVehicle ? 40 : 30);
-      const target = new THREE.Vector3(local.pos.x, 0, local.pos.z);
-      const desired = new THREE.Vector3(local.pos.x, dist, local.pos.z + dist * 0.55);
+      const dist = (window as unknown as { __camDist?: number }).__camDist
+        ?? this.camDist * (inVehicle ? 1.25 : 1);
+      const lead = dist * 0.32; // how far the view shifts toward your facing
+      this.lookAhead.lerp(
+        new THREE.Vector3(Math.cos(local.yaw) * lead, 0, Math.sin(local.yaw) * lead),
+        1 - Math.pow(0.005, dt), // eases so flick-aims don't yank the world
+      );
+      const target = new THREE.Vector3(
+        local.pos.x + this.lookAhead.x, 0, local.pos.z + this.lookAhead.z);
+      const desired = new THREE.Vector3(target.x, dist, target.z + dist * 0.55);
       this.camPos.lerp(desired, 1 - Math.pow(0.001, dt));
       if (this.camShake > 0) {
         this.camPos.x += (Math.random() - 0.5) * this.camShake;

@@ -263,7 +263,7 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
 
   renderer.buildStaticWorld(world);
   hud.announce(MODE_INFO[selectedMode].name.toUpperCase(), true, 0);
-  (window as unknown as Record<string, unknown>).__ww = { world, me, renderer, hud }; // debug/testing handle
+  (window as unknown as Record<string, unknown>).__ww = { world, me, renderer, hud, input }; // debug/testing handle
 
   const FIXED = 1 / 60;
   let acc = 0;
@@ -285,6 +285,7 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     const events = world.takeEvents();
     renderer.applyEvents(events, world, me.id);
     hud.applyEvents(events, world, me.id, world.time);
+    renderer.camDist = input.camDist;
     renderer.update(world, me.id, dt, hud.getWaypoints());
     hud.update(world, me.id, input.scoreboardHeld, world.time);
 

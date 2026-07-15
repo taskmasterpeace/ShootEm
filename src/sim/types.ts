@@ -102,6 +102,8 @@ export interface VehicleDef {
   hover?: boolean;
   /** passes over walls and cover entirely (flyer) */
   flies?: boolean;
+  /** rotor spool-up: seconds between the pilot boarding and liftoff (1–5s by airframe) */
+  liftoffTime?: number;
   /** grinds T_WALL tiles into open ground as it moves (tunneler) */
   digs?: boolean;
   /** heals friendly soldiers within this radius (ambulance) */
@@ -165,6 +167,13 @@ export interface Soldier {
   score: number;
   carryingFlag: Team | -1;
   nextAbilityAt: number;
+  // trophy ledger — feeds the post-match awards
+  /** farthest kill, in world units */
+  longestKill: number;
+  /** vehicles destroyed */
+  vehicleKills: number;
+  /** hit points healed into allies */
+  healGiven: number;
   // sci-fi kit
   pushX: number;      // knockback impulse, decays
   pushZ: number;
@@ -207,6 +216,8 @@ export interface Vehicle {
   nextDigAt: number;
   /** ambulance: next heal pulse */
   nextHealAt: number;
+  /** flyer: sim time the rotors finish spooling — airborne (and mobile) after this */
+  spoolUntil: number;
 }
 
 export interface Turret {
