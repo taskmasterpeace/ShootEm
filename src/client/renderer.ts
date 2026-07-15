@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
 import { GRID, T_COVER, T_WALL, T_WATER, TILE, WORLD } from '../sim/map';
 import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
-import type { World } from '../sim/world';
+import { HAND_FRAG_REACH, type World } from '../sim/world';
 import { audio, type SoundName } from './audio';
 import { Particles, FlashLights } from './effects';
 import { JOINT_NAMES, isUndead, poseSoldierJoints, type GaitState } from './animation';
@@ -131,6 +131,8 @@ export class Renderer {
   private ecmRings = new Map<number, THREE.Mesh>();         // crewed ECM jam-radius rings
   private nextSmokeAt = new Map<number, number>();          // vehicle id → next damage-smoke puff
   private wpPillars: THREE.Mesh[] = [];                     // pooled waypoint light pillars
+  private nadeArc: THREE.Line | null = null;                // grenade-throw preview: dashed arc…
+  private nadeRing: THREE.Mesh | null = null;               // …and the landing/splash ring
   private flyerAlt = new Map<number, number>();             // smoothed flyer altitude per id
   private frameDt = 1 / 60;                                 // dt of the current update()
   private deathFall = new Map<number, { x: number; z: number }>(); // ragdoll tip dir per id
@@ -1014,6 +1016,61 @@ export class Renderer {
         return g;
       }
     }
+  }
+
+  /** Grenade-throw preview while G is held: the sim's exact arc (same math as
+   *  throwProjectile) to the cursor, clamped to max reach, plus a splash ring
+   *  on the landing point. Pass aim=null to hide. */
+  setGrenadePreview(world: World, s: Soldier | undefined, aim: { x: number; z: number } | null) {
+    if (!s || !aim || !s.alive) {
+      if (this.nadeArc) { this.nadeArc.visible = false; this.nadeRing!.visible = false; }
+      return;
+    }
+    const N = 24;
+    if (!this.nadeArc) {
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
+      this.nadeArc = new THREE.Line(geo, new THREE.LineDashedMaterial({
+        color: 0xf5b21a, dashSize: 0.7, gapSize: 0.45, transparent: true, opacity: 0.95, depthWrite: false,
+      }));
+      this.nadeArc.frustumCulled = false;
+      this.scene.add(this.nadeArc);
+      this.nadeRing = new THREE.Mesh(
+        new THREE.RingGeometry(4.55, 5, 40),
+        new THREE.MeshBasicMaterial({ color: 0xf5b21a, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false }),
+      );
+      this.nadeRing.rotation.x = -Math.PI / 2;
+      this.scene.add(this.nadeRing);
+    }
+    const dx = aim.x - s.pos.x, dz = aim.z - s.pos.z;
+    const reach = Math.max(4, Math.min(Math.hypot(dx, dz), HAND_FRAG_REACH));
+    const yaw = Math.atan2(dz, dx);
+    // mirror throwProjectile: vy chosen so the frag lands after `reach` horizontal;
+    // short lobs keep the vy floor and slow the toss instead (same as the sim)
+    let speed = 16;
+    const muzzleY = 1.4, gArc = world.gravity * 0.7;
+    let t = reach / speed;
+    let vy = 0.5 * gArc * t - muzzleY / t;
+    if (vy < 2) {
+      vy = 2;
+      t = (vy + Math.sqrt(vy * vy + 2 * gArc * muzzleY)) / gArc;
+      speed = reach / t;
+    }
+    const sx = s.pos.x + Math.cos(yaw) * 0.8, sz = s.pos.z + Math.sin(yaw) * 0.8;
+    const pos = (this.nadeArc.geometry.getAttribute('position') as THREE.BufferAttribute);
+    for (let i = 0; i < N; i++) {
+      const tt = (i / (N - 1)) * t;
+      pos.setXYZ(i,
+        sx + Math.cos(yaw) * speed * tt,
+        Math.max(0.06, s.pos.y + muzzleY + vy * tt - 0.5 * gArc * tt * tt),
+        sz + Math.sin(yaw) * speed * tt);
+    }
+    pos.needsUpdate = true;
+    this.nadeArc.geometry.computeBoundingSphere();
+    this.nadeArc.computeLineDistances();
+    this.nadeArc.visible = true;
+    this.nadeRing!.position.set(sx + Math.cos(yaw) * speed * t, 0.06, sz + Math.sin(yaw) * speed * t);
+    this.nadeRing!.visible = true;
   }
 
   private setAlpha(mesh: THREE.Group, alpha: number) {

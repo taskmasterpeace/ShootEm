@@ -377,4 +377,7 @@ export interface PlayerCmd {
   reload: boolean;
   grenade: boolean;
   weaponSlot: number; // -1 = no change
+  /** cursor distance from the soldier — thrown items (frag, beacon, charge)
+   *  land here, clamped to each item's max reach. Optional for old clients. */
+  aimDist?: number;
 }

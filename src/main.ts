@@ -307,6 +307,8 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     if (!replaying) renderer.applyEvents(events, world, me.id);
     renderer.replayView = replaying;
     renderer.camDist = input.camDist;
+    // grenade throw preview: hold G → arc + landing ring at the cursor
+    renderer.setGrenadePreview(world, me, !replaying && input.grenadeAiming ? input.aimPoint(renderer.camera) : null);
     renderer.update(renderWorld, me.id, dt, hud.getWaypoints());
     hud.update(world, me.id, input.scoreboardHeld, world.time);
 

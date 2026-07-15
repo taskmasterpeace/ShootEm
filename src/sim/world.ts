@@ -19,6 +19,8 @@ const CLOAK_DRAIN = 11;
 const JET_DRAIN = 30;
 const JET_THRUST = 9.5;
 const PICKUP_RESPAWN = 18;
+/** max hand-frag throw — the HUD arc and the sim clamp share this */
+export const HAND_FRAG_REACH = 22;
 
 export type Difficulty = 'recruit' | 'veteran' | 'elite';
 
@@ -709,18 +711,21 @@ export class World {
       }
     }
 
-    // grenade key: orbital designator > demolition kit > class special > frag
+    // grenade key: orbital designator > demolition kit > class special > frag.
+    // Every thrown item is cursor-targeted: it lands at cmd.aimDist, clamped
+    // to the item's max reach (proven top-down mechanic — throw at the cursor).
     if (cmd.grenade && this.time >= s.nextGrenadeAt) {
+      const reachTo = (max: number) => Math.max(4, Math.min(cmd.aimDist ?? max, max));
       if (s.orbitals > 0) {
         s.orbitals--;
         s.nextGrenadeAt = this.time + 1.5;
-        this.throwProjectile(s, 'orbital_beacon', 1.4, 26, true);
+        this.throwProjectile(s, 'orbital_beacon', 1.4, 26, true, reachTo(WEAPONS.orbital_beacon.range));
         this.emit({ type: 'shot', pos: s.pos, weapon: 'orbital_beacon', soldierId: s.id });
         if (s.cloaked) s.cloaked = false;
       } else if (this.hasEquip(s, 'demoCharge') && s.grenades > 0) {
         s.grenades--;
         s.nextGrenadeAt = this.time + 2.5;
-        this.throwProjectile(s, 'demo_charge', 1.0, 12, true);
+        this.throwProjectile(s, 'demo_charge', 1.0, 12, true, reachTo(WEAPONS.demo_charge.range));
         this.emit({ type: 'shot', pos: s.pos, weapon: 'demo_charge', soldierId: s.id });
         if (s.cloaked) s.cloaked = false;
       } else if (this.hasEquip(s, 'deployCamera')) {
@@ -734,12 +739,12 @@ export class World {
       } else if (c.ability === 'warp' && s.grenades > 0) {
         s.grenades--;
         s.nextGrenadeAt = this.time + 1.5;
-        this.throwProjectile(s, 'target_beacon', 1.4, 28, true);
+        this.throwProjectile(s, 'target_beacon', 1.4, 28, true, reachTo(WEAPONS.target_beacon.range));
         this.emit({ type: 'shot', pos: s.pos, weapon: 'target_beacon', soldierId: s.id });
       } else if (c.ability === 'drone' && s.grenades > 0) {
         s.grenades--;
         s.nextGrenadeAt = this.time + 1.5;
-        this.throwProjectile(s, 'emp', 1.4, 30, true);
+        this.throwProjectile(s, 'emp', 1.4, 30, true, reachTo(WEAPONS.emp.range));
         this.emit({ type: 'shot', pos: s.pos, weapon: 'emp', soldierId: s.id });
       } else if (c.ability === 'turret') {
         const mines = [...this.mines.values()].filter((m) => m.ownerId === s.id);
@@ -753,8 +758,8 @@ export class World {
       } else if (s.grenades > 0) {
         s.grenades--;
         s.nextGrenadeAt = this.time + 1.2;
-        // hand-thrown frag: a short panic toss (~22u), not the full GL-40 lob
-        this.throwProjectile(s, 'gl', 1.4, 16, true, 22);
+        // hand-thrown frag: lands on the cursor, max ~22u (not the full GL-40 lob)
+        this.throwProjectile(s, 'gl', 1.4, 16, true, reachTo(HAND_FRAG_REACH));
         this.emit({ type: 'shot', pos: s.pos, weapon: 'gl', soldierId: s.id });
         if (s.cloaked) { s.cloaked = false; }
       }
@@ -816,7 +821,14 @@ export class World {
     if (arc) {
       const gArc = this.gravity * 0.7;
       const t = reach / Math.max(speed, 1);
-      vy = Math.max(2, 0.5 * gArc * t - muzzleY / t);
+      vy = 0.5 * gArc * t - muzzleY / t;
+      if (vy < 2) {
+        // short lob: forcing the vy floor would overshoot — keep the floor and
+        // slow the toss so it still lands exactly at `reach` (cursor-accurate)
+        vy = 2;
+        const tLand = (vy + Math.sqrt(vy * vy + 2 * gArc * muzzleY)) / gArc;
+        speed = reach / tLand;
+      }
     }
     const p: Projectile = {
       id: this.id(), weapon: wid, ownerId: s.id, team: s.team,

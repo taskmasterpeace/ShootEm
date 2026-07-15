@@ -111,6 +111,44 @@ describe('range: role bands are sane', () => {
   });
 });
 
+describe('grenade: cursor-targeted throw (cmd.aimDist)', () => {
+  /** Throw one frag with the given aimDist and return how far it flew (+X lane). */
+  function fragLanding(aimDist?: number): number {
+    const w = new World({ seed: 5, mode: 'tdm' });
+    for (let z = 1; z < GRID - 1; z++) for (let x = 1; x < GRID - 1; x++) w.map.grid[z * GRID + x] = 0;
+    const s = w.addSoldier('S', 'infantry', 0, 'human');
+    s.pos = { x: 0, y: 0, z: 0 };
+    s.yaw = 0;
+    w.step(1 / 60, new Map([[s.id, cmd({ grenade: true, aimDist })]]));
+    let max = 0;
+    for (let i = 0; i < 60 * 4; i++) {
+      for (const p of w.projectiles.values()) if (p.weapon === 'gl') max = Math.max(max, p.pos.x);
+      w.step(1 / 60, new Map());
+    }
+    return max;
+  }
+
+  it('lands the frag at the commanded distance', () => {
+    const at10 = fragLanding(10);
+    const at18 = fragLanding(18);
+    expect(Math.abs(at10 - 10), `aimed 10, landed ${at10.toFixed(1)}`).toBeLessThan(3);
+    expect(Math.abs(at18 - 18), `aimed 18, landed ${at18.toFixed(1)}`).toBeLessThan(3);
+    expect(at18).toBeGreaterThan(at10 + 4); // distance control is real
+  });
+
+  it('clamps a far cursor to the max hand-frag reach', () => {
+    const far = fragLanding(60);
+    expect(far, `aimed 60, landed ${far.toFixed(1)}`).toBeLessThan(27);
+    expect(far).toBeGreaterThan(17);
+  });
+
+  it('never lands at your own feet — short throws floor at ~4u', () => {
+    const point = fragLanding(0.5);
+    expect(point, `aimed 0.5, landed ${point.toFixed(1)}`).toBeGreaterThan(2.5);
+    expect(point).toBeLessThan(9);
+  });
+});
+
 describe('range: low-gravity worlds still land arcs at range', () => {
   it('a mortar on Europa (9 m/s²) reaches its range, not double', () => {
     const wid = famRep('mortar');

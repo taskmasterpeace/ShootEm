@@ -274,8 +274,11 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
       }
     }
 
-    // grenades at clusters
-    if (d > 8 && d < 24 && s.grenades > 0 && w.rng.next() < 0.006) cmd.grenade = true;
+    // grenades at clusters — cursor-targeted like players: land it ON the enemy
+    if (d > 8 && d < 24 && s.grenades > 0 && w.rng.next() < 0.006) {
+      cmd.grenade = true;
+      cmd.aimDist = d;
+    }
 
     // jump troopers hop in fights
     if (cls.ability === 'jetpack' && s.energy > 40 && w.rng.next() < 0.02) cmd.jump = true;

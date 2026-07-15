@@ -130,6 +130,8 @@ export class NetGame {
       if (!replaying) renderer.applyEvents(events, world, this.myId);
       renderer.replayView = replaying;
       renderer.camDist = input.camDist;
+      // grenade throw preview: hold G → arc + landing ring at the cursor
+      renderer.setGrenadePreview(world, me, !replaying && input.grenadeAiming ? input.aimPoint(renderer.camera) : null);
       renderer.update(cut.renderWorld, this.myId, dt, hud.getWaypoints());
       if (me) hud.update(world, this.myId, input.scoreboardHeld, world.time);
 

@@ -9,6 +9,8 @@ export class Input {
   scoreboardHeld = false;
   /** camera distance — mouse wheel zooms between CAM_MIN and CAM_MAX */
   camDist = 30;
+  /** G held: aiming a throw — the HUD draws the arc; release throws to cursor */
+  grenadeAiming = false;
   private oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1 };
 
   static readonly CAM_MIN = 16;
@@ -27,7 +29,7 @@ export class Input {
       const k = e.key.toLowerCase();
       this.keys.add(k);
       if (k === 'r') this.oneShot.reload = true;
-      if (k === 'g') this.oneShot.grenade = true;
+      if (k === 'g') this.grenadeAiming = true; // hold to aim — throw on release
       if (k === 'q') this.oneShot.ability = true;
       if (k === 'e') this.oneShot.use = true;
       if (k >= '1' && k <= '3') this.oneShot.weaponSlot = parseInt(k) - 1;
@@ -37,9 +39,10 @@ export class Input {
       if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
       const k = e.key.toLowerCase();
       this.keys.delete(k);
+      if (k === 'g' && this.grenadeAiming) { this.grenadeAiming = false; this.oneShot.grenade = true; }
       if (k === 'tab') this.scoreboardHeld = false;
     });
-    window.addEventListener('blur', () => this.keys.clear());
+    window.addEventListener('blur', () => { this.keys.clear(); this.grenadeAiming = false; });
     canvas.addEventListener('mousemove', (e) => {
       this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
       this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -70,11 +73,15 @@ export class Input {
     if (this.keys.has('d')) moveX += 1;
 
     let aimYaw = local.yaw;
+    let aimDist = 12;
     const aim = this.aimPoint(camera);
-    if (aim) aimYaw = Math.atan2(aim.z - local.pos.z, aim.x - local.pos.x);
+    if (aim) {
+      aimYaw = Math.atan2(aim.z - local.pos.z, aim.x - local.pos.x);
+      aimDist = Math.hypot(aim.x - local.pos.x, aim.z - local.pos.z);
+    }
 
     const cmd: PlayerCmd = {
-      moveX, moveZ, aimYaw,
+      moveX, moveZ, aimYaw, aimDist,
       fire: this.mouse.down,
       altFire: this.mouse.rightDown,
       jump: this.keys.has(' '),
