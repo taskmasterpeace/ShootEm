@@ -11,6 +11,8 @@ export class Input {
 
   constructor(private canvas: HTMLCanvasElement) {
     window.addEventListener('keydown', (e) => {
+      // typing in chat (or any text field) must not move the soldier
+      if ((e.target as HTMLElement)?.tagName === 'INPUT') { this.keys.clear(); return; }
       if (e.repeat) return;
       const k = e.key.toLowerCase();
       this.keys.add(k);
@@ -22,6 +24,7 @@ export class Input {
       if (k === 'tab') { this.scoreboardHeld = true; e.preventDefault(); }
     });
     window.addEventListener('keyup', (e) => {
+      if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
       const k = e.key.toLowerCase();
       this.keys.delete(k);
       if (k === 'tab') this.scoreboardHeld = false;

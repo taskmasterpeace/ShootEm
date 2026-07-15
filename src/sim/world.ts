@@ -1,17 +1,17 @@
-import { CLASSES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
-import { GRID, T_WATER, TILE, WORLD, blocksShot, generateMap, isBlocked, losClear, tileAt, type GameMap } from './map';
+import { CLASSES, EQUIPMENT, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
+import { CLASS_ARMORY, familyWeapons } from './arsenal';
+import { GRID, T_COVER, T_OPEN, T_WALL, T_WATER, TILE, WORLD, blocksShot, generateMap, isBlocked, losClear, tileAt, type GameMap } from './map';
 import { Rng } from './rng';
 import {
-  isCoopMode, isZed,
+  SYSTEM_IDS, isCoopMode, isZed,
   type ClassId, type Gadget, type GadgetType, type Mine, type ModeId, type ModeState,
   type Pickup, type PlayerCmd, type Projectile, type SimEvent, type Soldier,
-  type SoldierKind, type Team, type Turret, type Vec3, type Vehicle, type VehicleKind,
-  type WeaponId, type ZedKind,
+  type SoldierKind, type SystemId, type Team, type ThemeId, type Turret, type Vec3,
+  type Vehicle, type VehicleKind, type VehicleSystems, type WeaponId, type ZedKind,
 } from './types';
 import { stepMode, initMode } from './modes';
 import { stepBot, stepScientist, stepZombie } from './bots';
 
-const GRAVITY = 22;
 const RESPAWN_DELAY = 4;
 const VEHICLE_RESPAWN = 22;
 const ENERGY_REGEN = 14;
@@ -28,6 +28,15 @@ export interface WorldOptions {
   botsPerTeam?: number;
   difficulty?: Difficulty;
   matchMinutes?: number;
+  /** battlefield environment — drives map flavor and gravity */
+  theme?: ThemeId;
+}
+
+/** Custom deploy loadout: armory weapons + up to two equipment picks. */
+export interface Loadout {
+  primary?: WeaponId;
+  secondary?: WeaponId;
+  equipment?: string[];
 }
 
 /** Bot aim-error multiplier per difficulty. */
@@ -43,6 +52,8 @@ export class World {
   map: GameMap;
   mode: ModeState;
   rng: Rng;
+  /** gravity for this battlefield — Europa and Triton fight in low-g */
+  gravity: number;
   soldiers = new Map<number, Soldier>();
   vehicles = new Map<number, Vehicle>();
   turrets = new Map<number, Turret>();
@@ -50,19 +61,26 @@ export class World {
   pickups = new Map<number, Pickup>();
   mines = new Map<number, Mine>();
   gadgets = new Map<number, Gadget>();
-  /** soldier ids currently revealed by targeting beacons / recon drones */
+  /** soldier ids currently revealed by targeting beacons / drones / sensors / psi */
   pinged = new Set<number>();
+  /** soldier ids currently hidden inside smoke fields */
+  smoked = new Set<number>();
+  /** tile indices the tunneler has ground to rubble (replicated to clients) */
+  dug: number[] = [];
   nextPodAt = 75;
   events: SimEvent[] = [];
   private nextId = 1;
 
   constructor(public opts: WorldOptions) {
     this.rng = new Rng(opts.seed ^ 0xbeef);
-    this.map = generateMap(opts.seed, opts.mode);
+    this.map = generateMap(opts.seed, opts.mode, opts.theme ?? 'savanna');
+    this.gravity = THEMES[this.map.theme].gravity;
     this.mode = initMode(opts.mode, this.map, opts.matchMinutes);
-    // vehicles on pads (no vehicles in co-op zombie modes — infantry holdout)
-    if (!isCoopMode(opts.mode)) {
-      for (const pad of this.map.vehiclePads) this.spawnVehicle(pad.kind, pad.team, pad.pos);
+    // vehicles on pads. Co-op zombie modes field only squad support —
+    // the ambulance and the emplacement guns — no armor column.
+    for (const pad of this.map.vehiclePads) {
+      if (isCoopMode(opts.mode) && pad.kind !== 'ambulance' && pad.kind !== 'emplacement') continue;
+      this.spawnVehicle(pad.kind, pad.team, pad.pos);
     }
     if (opts.mode === 'safehouse' && this.map.houses.length) {
       const house = this.map.houses[this.rng.int(0, this.map.houses.length - 1)];
@@ -73,6 +91,29 @@ export class World {
       this.pickups.set(this.nextId, { id: this.nextId, type: p.type, pos: { ...p.pos }, respawnAt: 0 });
       this.nextId++;
     }
+  }
+
+  /** Does this soldier carry the given equipment effect? */
+  hasEquip(s: Soldier, key: keyof (typeof EQUIPMENT)[string]): boolean {
+    for (const id of s.equipment) {
+      const e = EQUIPMENT[id];
+      if (e && e[key]) return true;
+    }
+    return false;
+  }
+
+  /** Grind a wall/cover tile to open ground (tunneler). */
+  digTile(tx: number, tz: number) {
+    if (tx < 1 || tz < 1 || tx >= GRID - 1 || tz >= GRID - 1) return; // border holds
+    const idx = tz * GRID + tx;
+    const t = this.map.grid[idx];
+    if (t !== T_WALL && t !== T_COVER) return;
+    this.map.grid[idx] = T_OPEN;
+    this.dug.push(idx);
+    this.emit({
+      type: 'dig', tile: idx,
+      pos: { x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 },
+    });
   }
 
   id(): number { return this.nextId++; }
@@ -87,20 +128,31 @@ export class World {
 
   // ---------- population ----------
 
-  addSoldier(name: string, classId: ClassId, team: Team, kind: SoldierKind): Soldier {
+  addSoldier(name: string, classId: ClassId, team: Team, kind: SoldierKind, loadout?: Loadout): Soldier {
     const c = CLASSES[classId];
+    // bots draw varied primaries from the class armory; humans pass a loadout
+    let primary = loadout?.primary && WEAPONS[loadout.primary] ? loadout.primary : c.primary;
+    const secondary = loadout?.secondary && WEAPONS[loadout.secondary] ? loadout.secondary : c.secondary;
+    if (kind === 'bot' && !loadout?.primary && this.rng.next() < 0.55) {
+      const fams = CLASS_ARMORY[classId];
+      const fam = fams[this.rng.int(0, fams.length - 1)];
+      const pool = familyWeapons(WEAPONS, fam);
+      if (pool.length) primary = pool[this.rng.int(0, pool.length - 1)].id;
+    }
     const s: Soldier = {
       id: this.id(), kind, name, team, classId,
       pos: { x: 0, y: 0, z: 0 }, vel: { x: 0, y: 0, z: 0 }, yaw: 0,
       hp: c.hp, maxHp: c.hp, energy: 100, alive: false, respawnAt: 0,
-      weaponIdx: 0, weapons: [c.primary, c.secondary],
-      clip: [WEAPONS[c.primary].clip, WEAPONS[c.secondary].clip],
-      reserve: [WEAPONS[c.primary].reserve, WEAPONS[c.secondary].reserve],
+      weaponIdx: 0, weapons: [primary, secondary],
+      clip: [WEAPONS[primary].clip, WEAPONS[secondary].clip],
+      reserve: [WEAPONS[primary].reserve, WEAPONS[secondary].reserve],
       reloadUntil: 0, nextFireAt: 0,
       grenades: classId === 'infantry' ? 4 : classId === 'engineer' ? 3 : 2,
       nextGrenadeAt: 0, cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
       pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0,
+      equipment: (loadout?.equipment ?? []).filter((id) => EQUIPMENT[id]).slice(0, 2),
+      medikitReady: true, nextPsiAt: 0, nextRepairAt: 0,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
     this.soldiers.set(s.id, s);
@@ -119,6 +171,7 @@ export class World {
       cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
       pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0,
+      equipment: [], medikitReady: false, nextPsiAt: 0, nextRepairAt: 0,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
     this.soldiers.set(s.id, s);
@@ -137,6 +190,7 @@ export class World {
       cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
       pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0,
+      equipment: [], medikitReady: false, nextPsiAt: 0, nextRepairAt: 0,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
     this.soldiers.set(s.id, s);
@@ -145,23 +199,38 @@ export class World {
 
   spawn(s: Soldier) {
     const c = CLASSES[s.classId];
-    s.hp = c.hp; s.maxHp = c.hp; s.energy = 100;
+    // armor equipment raises max hp
+    let hpBonus = 0;
+    for (const id of s.equipment) hpBonus += EQUIPMENT[id]?.hpBonus ?? 0;
+    s.hp = c.hp + hpBonus; s.maxHp = c.hp + hpBonus; s.energy = 100;
     s.alive = true; s.cloaked = false; s.vehicleId = -1; s.seat = -1;
     s.carryingFlag = -1;
     s.weaponIdx = 0;
-    s.weapons = [c.primary, c.secondary];
-    s.clip = [WEAPONS[c.primary].clip, WEAPONS[c.secondary].clip];
-    s.reserve = [WEAPONS[c.primary].reserve, WEAPONS[c.secondary].reserve];
-    s.grenades = s.classId === 'infantry' ? 4 : s.classId === 'engineer' ? 3 : 2;
-    // APC mobile spawn takes priority when deep in a match
-    const apc = [...this.vehicles.values()].find(
-      (v) => v.alive && v.kind === 'apc' && v.team === s.team && VEHICLES.apc.mobileSpawn && v.seats.some((id) => id >= 0),
+    // keep the soldier's chosen armory loadout across respawns
+    const primary = s.weapons[0] && WEAPONS[s.weapons[0]] ? s.weapons[0] : c.primary;
+    const secondary = s.weapons[1] && WEAPONS[s.weapons[1]] ? s.weapons[1] : c.secondary;
+    s.weapons = [primary, secondary];
+    s.clip = [WEAPONS[primary].clip, WEAPONS[secondary].clip];
+    s.reserve = [WEAPONS[primary].reserve, WEAPONS[secondary].reserve];
+    s.grenades = this.hasEquip(s, 'demoCharge') ? 3 : s.classId === 'infantry' ? 4 : s.classId === 'engineer' ? 3 : 2;
+    s.medikitReady = true;
+    // mobile spawn: a crewed APC or transport with a LIVE comms system
+    const mobile = [...this.vehicles.values()].find(
+      (v) => v.alive && v.team === s.team && VEHICLES[v.kind].mobileSpawn &&
+        v.systems.comms > 0 && v.seats.some((id) => id >= 0),
     );
     const spawnList = this.map.spawns[s.team];
-    const base = apc && this.rng.next() < 0.5 ? apc.pos : spawnList[this.rng.int(0, spawnList.length - 1)];
+    const base = mobile && this.rng.next() < 0.5 ? mobile.pos : spawnList[this.rng.int(0, spawnList.length - 1)];
     s.pos = { x: base.x + this.rng.range(-1.5, 1.5), y: 0, z: base.z + this.rng.range(-1.5, 1.5) };
     s.vel = { x: 0, y: 0, z: 0 };
     this.emit({ type: 'respawn', pos: s.pos, soldierId: s.id });
+  }
+
+  private freshSystems(kind: VehicleKind): VehicleSystems {
+    const hp = VEHICLES[kind].systemHp ?? 60;
+    const out = {} as VehicleSystems;
+    for (const id of SYSTEM_IDS) out[id] = hp;
+    return out;
   }
 
   spawnVehicle(kind: VehicleKind, team: Team, padPos: Vec3): Vehicle {
@@ -174,6 +243,7 @@ export class World {
       seats: new Array(def.seats).fill(-1),
       nextFireAt: 0, alive: true, respawnAt: 0, padPos: { ...padPos },
       stunnedUntil: 0,
+      systems: this.freshSystems(kind), nextDigAt: 0, nextHealAt: 0,
     };
     this.vehicles.set(v.id, v);
     return v;
@@ -203,6 +273,12 @@ export class World {
     }
     if (!this.mode.over) stepMode(this, dt);
 
+    // recon state rebuilds every tick: pings accumulate from beacons, drones,
+    // cameras, crewed sensor stations, and psi scanners; then smoke fields,
+    // stealth suits, and crewed ECM stations strip entries back out.
+    this.pinged.clear();
+    this.smoked.clear();
+
     for (const s of this.soldiers.values()) {
       if (!s.alive) {
         if (s.kind !== 'human' && s.kind !== 'bot') continue; // dead zombies removed elsewhere
@@ -217,6 +293,7 @@ export class World {
         else cmd = null as unknown as PlayerCmd;
       }
       if (cmd) this.applyCmd(s, cmd, dt);
+      this.stepEquipment(s);
       this.stepSoldierPhysics(s, dt);
     }
 
@@ -233,6 +310,53 @@ export class World {
     this.stepGadgets(dt);
     this.stepGatesAndLifts();
     this.stepSupplyPods();
+    this.applyReconCountermeasures();
+  }
+
+  /** Equipment that runs on its own clock: the psi scanner's pulse. */
+  private stepEquipment(s: Soldier) {
+    if (s.kind !== 'human' && s.kind !== 'bot') return;
+    if (this.hasEquip(s, 'psiScan') && this.time >= s.nextPsiAt) {
+      s.nextPsiAt = this.time + 8;
+      // ping the nearest living enemy that is NOT already visible to us
+      let best: Soldier | null = null, bestD = 60;
+      for (const e of this.soldiers.values()) {
+        if (!e.alive || e.team === s.team || this.pinged.has(e.id)) continue;
+        const d = Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z);
+        if (d < bestD && !losClear(this.map.grid, { ...s.pos, y: 1.4 }, { ...e.pos, y: 1.4 })) {
+          best = e; bestD = d;
+        }
+      }
+      if (best) {
+        this.pinged.add(best.id);
+        this.emit({ type: 'psi_ping', pos: { ...best.pos }, soldierId: s.id });
+      }
+    }
+  }
+
+  /** Strip pings from stealth suits, smoke fields, and crewed ECM bubbles. */
+  private applyReconCountermeasures() {
+    if (this.pinged.size === 0) return;
+    // crewed, live ECM stations project a 14u jamming bubble
+    const jammers: { pos: Vec3; team: Team }[] = [];
+    for (const v of this.vehicles.values()) {
+      if (!v.alive || v.systems.ecm <= 0) continue;
+      const crew = VEHICLES[v.kind].crew;
+      if (!crew) continue;
+      const ecmSeat = 1 + crew.indexOf('ecm');
+      if (ecmSeat > 0 && v.seats[ecmSeat] >= 0) jammers.push({ pos: v.pos, team: v.team });
+    }
+    for (const id of [...this.pinged]) {
+      const s = this.soldiers.get(id);
+      if (!s) { this.pinged.delete(id); continue; }
+      if (this.smoked.has(id) || this.hasEquip(s, 'pingProof')) { this.pinged.delete(id); continue; }
+      for (const j of jammers) {
+        if (j.team === s.team && Math.hypot(s.pos.x - j.pos.x, s.pos.z - j.pos.z) < 14) {
+          this.pinged.delete(id);
+          break;
+        }
+      }
+    }
   }
 
   // ---------- jump gates & grav-lifts ----------
@@ -300,13 +424,39 @@ export class World {
   }
 
   stepGadgets(dt: number) {
-    this.pinged.clear();
     for (const [id, g] of this.gadgets) {
       switch (g.type) {
         case 'target_beacon': {
           for (const s of this.soldiers.values()) {
             if (!s.alive || s.team === g.team) continue;
             if (Math.hypot(s.pos.x - g.pos.x, s.pos.z - g.pos.z) < 25) this.pinged.add(s.id);
+          }
+          break;
+        }
+        case 'camera': {
+          // deployable spy camera: pings enemies it can actually see
+          for (const s of this.soldiers.values()) {
+            if (!s.alive || s.team === g.team) continue;
+            const d = Math.hypot(s.pos.x - g.pos.x, s.pos.z - g.pos.z);
+            if (d < 20 && losClear(this.map.grid, { ...g.pos, y: 1.6 }, { ...s.pos, y: 1.2 })) this.pinged.add(s.id);
+          }
+          break;
+        }
+        case 'smoke_field': {
+          // soldiers inside are hidden from minimap and pings
+          for (const s of this.soldiers.values()) {
+            if (!s.alive) continue;
+            if (Math.hypot(s.pos.x - g.pos.x, s.pos.z - g.pos.z) < 5) this.smoked.add(s.id);
+          }
+          break;
+        }
+        case 'fire_field': {
+          // phosphorus: burns enemies standing in it
+          for (const s of this.soldiers.values()) {
+            if (!s.alive || s.team === g.team || s.vehicleId >= 0) continue;
+            if (Math.hypot(s.pos.x - g.pos.x, s.pos.z - g.pos.z) < 4) {
+              this.damageSoldier(s, 12 * dt, g.ownerId, 'flamer');
+            }
           }
           break;
         }
@@ -425,6 +575,8 @@ export class World {
         // E next to the scientist toggles escort instead of vehicle entry
       } else if (this.tryWarpBeacon(s)) {
         // E on a warp beacon teleports to its twin
+      } else if (this.tryFieldKit(s)) {
+        // E with a mechanic kit repairs; with a hacking kit converts a sentry
       } else {
         this.tryEnterVehicle(s);
       }
@@ -452,10 +604,14 @@ export class World {
       s.reloadUntil = 0;
     }
 
-    // movement intent
+    // movement intent (armor weighs you down)
     const c = CLASSES[s.classId];
     let speed = c.speed;
     if (s.cloaked) speed *= 0.8;
+    for (const eid of s.equipment) {
+      const e = EQUIPMENT[eid];
+      if (e?.speedMult) speed *= e.speedMult;
+    }
     const mx = cmd.moveX, mz = cmd.moveZ;
     const len = Math.hypot(mx, mz) || 1;
     s.vel.x = (mx / len) * speed;
@@ -550,7 +706,7 @@ export class World {
       }
     }
 
-    // grenade key: orbital designator > class special > frag
+    // grenade key: orbital designator > demolition kit > class special > frag
     if (cmd.grenade && this.time >= s.nextGrenadeAt) {
       if (s.orbitals > 0) {
         s.orbitals--;
@@ -558,6 +714,20 @@ export class World {
         this.throwProjectile(s, 'orbital_beacon', 1.4, 26, true);
         this.emit({ type: 'shot', pos: s.pos, weapon: 'orbital_beacon', soldierId: s.id });
         if (s.cloaked) s.cloaked = false;
+      } else if (this.hasEquip(s, 'demoCharge') && s.grenades > 0) {
+        s.grenades--;
+        s.nextGrenadeAt = this.time + 2.5;
+        this.throwProjectile(s, 'demo_charge', 1.0, 12, true);
+        this.emit({ type: 'shot', pos: s.pos, weapon: 'demo_charge', soldierId: s.id });
+        if (s.cloaked) s.cloaked = false;
+      } else if (this.hasEquip(s, 'deployCamera')) {
+        // spy camera: planted at your feet, feeds the team (2 active max)
+        const mine = [...this.gadgets.values()].filter((g) => g.type === 'camera' && g.ownerId === s.id);
+        if (mine.length < 2 && !isBlocked(this.map.grid, s.pos.x, s.pos.z)) {
+          this.spawnGadget('camera', s.team, s.id, s.pos, 50);
+          s.nextGrenadeAt = this.time + 1.5;
+          this.emit({ type: 'beacon_planted', pos: { ...s.pos }, soldierId: s.id, text: 'Spy camera planted' });
+        }
       } else if (c.ability === 'warp' && s.grenades > 0) {
         s.grenades--;
         s.nextGrenadeAt = this.time + 1.5;
@@ -643,9 +813,9 @@ export class World {
       if (v) { s.pos.x = v.pos.x; s.pos.z = v.pos.z; s.pos.y = 0; }
       return;
     }
-    // gravity + vertical
+    // gravity + vertical (theme gravity: Europa jumps are glorious)
     if (s.pos.y > 0 || s.vel.y > 0) {
-      s.vel.y -= GRAVITY * dt;
+      s.vel.y -= this.gravity * dt;
       s.pos.y = Math.max(0, s.pos.y + s.vel.y * dt);
       if (s.pos.y === 0) s.vel.y = 0;
     }
@@ -670,6 +840,53 @@ export class World {
     if (!blockedZ) s.pos.z = nz;
     s.pos.x = Math.max(-WORLD / 2 + 2, Math.min(WORLD / 2 - 2, s.pos.x));
     s.pos.z = Math.max(-WORLD / 2 + 2, Math.min(WORLD / 2 - 2, s.pos.z));
+  }
+
+  /**
+   * E with a field kit: mechanic kit repairs the nearest damaged friendly
+   * vehicle/turret (+120, 10s cooldown); hacking kit converts an enemy sentry.
+   */
+  tryFieldKit(s: Soldier): boolean {
+    if (this.time < s.nextRepairAt) return false;
+    if (this.hasEquip(s, 'fieldRepair')) {
+      for (const v of this.vehicles.values()) {
+        if (!v.alive || v.team !== s.team || v.hp >= v.maxHp) continue;
+        if (Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z) < VEHICLES[v.kind].radius + 2.5) {
+          v.hp = Math.min(v.maxHp, v.hp + 120);
+          // a field patch also braces the weakest subsystem
+          let weakest: SystemId = 'engine';
+          for (const id of SYSTEM_IDS) if (v.systems[id] < v.systems[weakest]) weakest = id;
+          v.systems[weakest] = Math.min(VEHICLES[v.kind].systemHp ?? 60, v.systems[weakest] + 60);
+          s.nextRepairAt = this.time + 10;
+          this.emit({ type: 'heal', pos: v.pos });
+          this.emit({ type: 'announce', text: `${s.name} patched the ${VEHICLES[v.kind].name}` });
+          return true;
+        }
+      }
+      for (const t of this.turrets.values()) {
+        if (!t.alive || t.team !== s.team || t.hp >= t.maxHp) continue;
+        if (Math.hypot(t.pos.x - s.pos.x, t.pos.z - s.pos.z) < 3) {
+          t.hp = Math.min(t.maxHp, t.hp + 120);
+          s.nextRepairAt = this.time + 10;
+          this.emit({ type: 'heal', pos: t.pos });
+          return true;
+        }
+      }
+    }
+    if (this.hasEquip(s, 'hackKit')) {
+      for (const t of this.turrets.values()) {
+        if (!t.alive || t.team === s.team) continue;
+        if (Math.hypot(t.pos.x - s.pos.x, t.pos.z - s.pos.z) < 3) {
+          t.team = s.team;
+          t.ownerId = s.id;
+          s.nextRepairAt = this.time + 10;
+          s.score += 15;
+          this.emit({ type: 'hacked', pos: { ...t.pos }, soldierId: s.id, text: `${s.name} hacked a sentry!` });
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   // ---------- vehicles ----------
@@ -705,14 +922,28 @@ export class World {
     this.emit({ type: 'vehicle_exit', pos: s.pos, soldierId: s.id });
   }
 
+  /** Which soldier mans a named crew station right now (seat order: driver, then def.crew). */
+  crewAt(v: Vehicle, station: 'gunner' | 'sensors' | 'ecm' | 'comms'): Soldier | undefined {
+    const crew = VEHICLES[v.kind].crew;
+    if (!crew) return undefined;
+    const i = crew.indexOf(station);
+    if (i < 0) return undefined;
+    const sid = v.seats[1 + i];
+    return sid >= 0 ? this.soldiers.get(sid) : undefined;
+  }
+
   stepVehicle(v: Vehicle, cmds: Map<number, PlayerCmd>, dt: number) {
     if (!v.alive) {
-      if (this.time >= v.respawnAt && !isCoopMode(this.opts.mode) && !this.mode.over) {
+      if (this.time >= v.respawnAt && !this.mode.over) {
+        // co-op support vehicles respawn too; battle vehicles only outside co-op
+        const support = v.kind === 'ambulance' || v.kind === 'emplacement';
+        if (isCoopMode(this.opts.mode) && !support) return;
         const def = VEHICLES[v.kind];
         v.alive = true; v.hp = def.hp; v.maxHp = def.hp;
         v.pos = { ...v.padPos }; v.vel = { x: 0, y: 0, z: 0 };
         v.yaw = v.team === 0 ? 0 : Math.PI;
         v.seats.fill(-1);
+        v.systems = this.freshSystems(v.kind);
       }
       return;
     }
@@ -721,67 +952,145 @@ export class World {
     const driver = driverId >= 0 ? this.soldiers.get(driverId) : undefined;
     let throttle = 0, turn = 0, fire = false;
     const stunned = this.time < v.stunnedUntil;
-    if (driver && driver.alive && !stunned) {
-      const cmd = cmds.get(driver.id) ?? (driver.kind === 'bot' ? stepBot(this, driver, dt) : undefined);
-      if (cmd) {
-        throttle = -cmd.moveZ; // W = forward
-        turn = cmd.moveX;
-        fire = cmd.fire;
-        v.turretYaw = cmd.aimYaw;
-        if (cmd.use && this.time - driver.enteredVehicleAt > 0.3) this.exitVehicle(driver, v);
-      }
-    } else {
-      // friction to a stop
-      throttle = 0;
+    const driverCmd = driver && driver.alive
+      ? (cmds.get(driver.id) ?? (driver.kind === 'bot' ? stepBot(this, driver, dt) : undefined))
+      : undefined;
+    if (driverCmd && !stunned) {
+      throttle = -driverCmd.moveZ; // W = forward
+      turn = driverCmd.moveX;
+      fire = driverCmd.fire;
+      v.turretYaw = driverCmd.aimYaw;
+      if (driverCmd.use && driver && this.time - driver.enteredVehicleAt > 0.3) this.exitVehicle(driver, v);
     }
 
-    v.yaw += turn * def.turnRate * dt * (throttle < 0 ? -1 : 1);
-    const targetSpeed = throttle * def.speed * (throttle < 0 ? 0.5 : 1);
-    const accel = 18;
-    const curSpeed = Math.cos(v.yaw) * v.vel.x + Math.sin(v.yaw) * v.vel.z;
-    const newSpeed = curSpeed + Math.max(-accel * dt, Math.min(accel * dt, targetSpeed - curSpeed));
-    v.vel.x = Math.cos(v.yaw) * newSpeed;
-    v.vel.z = Math.sin(v.yaw) * newSpeed;
+    // a manned gunner station overrides the driver's trigger (transport)
+    const gunner = this.crewAt(v, 'gunner');
+    if (gunner?.alive && !stunned) {
+      const gCmd = cmds.get(gunner.id);
+      if (gCmd) {
+        fire = gCmd.fire;
+        v.turretYaw = gCmd.aimYaw;
+        if (gCmd.use && this.time - gunner.enteredVehicleAt > 0.3) this.exitVehicle(gunner, v);
+      } else if (gunner.kind === 'bot') {
+        // bot gunners track the nearest visible enemy
+        const tgt = this.nearestEnemyInRange(v.pos, v.team, WEAPONS[def.weapon]?.range ?? 40);
+        if (tgt) { v.turretYaw = Math.atan2(tgt.pos.z - v.pos.z, tgt.pos.x - v.pos.x); fire = true; }
+      }
+    }
 
-    const hover = v.kind === 'skiff';
-    const nx = v.pos.x + v.vel.x * dt;
-    const nz = v.pos.z + v.vel.z * dt;
-    const r = def.radius;
-    const clearAt = (x: number, z: number) =>
-      !isBlocked(this.map.grid, x + r, z, hover) && !isBlocked(this.map.grid, x - r, z, hover) &&
-      !isBlocked(this.map.grid, x, z + r, hover) && !isBlocked(this.map.grid, x, z - r, hover);
-    if (clearAt(nx, v.pos.z)) v.pos.x = nx; else v.vel.x = 0;
-    if (clearAt(v.pos.x, nz)) v.pos.z = nz; else v.vel.z = 0;
-    v.pos.x = Math.max(-WORLD / 2 + 3, Math.min(WORLD / 2 - 3, v.pos.x));
-    v.pos.z = Math.max(-WORLD / 2 + 3, Math.min(WORLD / 2 - 3, v.pos.z));
+    // passengers may bail with E (any seat beyond driver/gunner)
+    for (let i = 1; i < v.seats.length; i++) {
+      const sid = v.seats[i];
+      if (sid < 0 || sid === gunner?.id) continue;
+      const s = this.soldiers.get(sid);
+      const c = s ? cmds.get(sid) : undefined;
+      if (s && c?.use && this.time - s.enteredVehicleAt > 0.3) this.exitVehicle(s, v);
+    }
 
-    // run over enemies (tanks/buggies at speed)
+    // ---- movement (emplacements never move) ----
+    if (!def.immobile) {
+      // dead engine limps at 35% throttle response
+      const engineMult = v.systems.engine > 0 ? 1 : 0.35;
+      v.yaw += turn * def.turnRate * dt * (throttle < 0 ? -1 : 1);
+      const targetSpeed = throttle * def.speed * engineMult * (throttle < 0 ? 0.5 : 1);
+      const accel = 18;
+      const curSpeed = Math.cos(v.yaw) * v.vel.x + Math.sin(v.yaw) * v.vel.z;
+      const newSpeed = curSpeed + Math.max(-accel * dt, Math.min(accel * dt, targetSpeed - curSpeed));
+      v.vel.x = Math.cos(v.yaw) * newSpeed;
+      v.vel.z = Math.sin(v.yaw) * newSpeed;
+
+      const nx = v.pos.x + v.vel.x * dt;
+      const nz = v.pos.z + v.vel.z * dt;
+      const r = def.radius;
+      if (def.flies) {
+        // flyers soar over everything — only the map border stops them
+        v.pos.x = nx;
+        v.pos.z = nz;
+      } else {
+        // tunneler grinds the wall ahead into rubble instead of stopping
+        if (def.digs && Math.abs(throttle) > 0.1 && this.time >= v.nextDigAt) {
+          const aheadX = v.pos.x + Math.cos(v.yaw) * (r + TILE * 0.6) * Math.sign(throttle);
+          const aheadZ = v.pos.z + Math.sin(v.yaw) * (r + TILE * 0.6) * Math.sign(throttle);
+          const t = tileAt(this.map.grid, aheadX, aheadZ);
+          if (t === T_WALL || t === T_COVER) {
+            v.nextDigAt = this.time + 0.55; // grinding is slow, loud work
+            this.digTile(Math.floor((aheadX + WORLD / 2) / TILE), Math.floor((aheadZ + WORLD / 2) / TILE));
+          }
+        }
+        const hover = !!def.hover;
+        const clearAt = (x: number, z: number) =>
+          !isBlocked(this.map.grid, x + r, z, hover) && !isBlocked(this.map.grid, x - r, z, hover) &&
+          !isBlocked(this.map.grid, x, z + r, hover) && !isBlocked(this.map.grid, x, z - r, hover);
+        if (clearAt(nx, v.pos.z)) v.pos.x = nx; else v.vel.x = 0;
+        if (clearAt(v.pos.x, nz)) v.pos.z = nz; else v.vel.z = 0;
+      }
+      v.pos.x = Math.max(-WORLD / 2 + 3, Math.min(WORLD / 2 - 3, v.pos.x));
+      v.pos.z = Math.max(-WORLD / 2 + 3, Math.min(WORLD / 2 - 3, v.pos.z));
+    } else {
+      v.vel.x = 0; v.vel.z = 0;
+      if (driverCmd) v.turretYaw = driverCmd.aimYaw;
+    }
+
+    // ---- run over enemies (ground vehicles at speed) ----
     const speedNow = Math.hypot(v.vel.x, v.vel.z);
-    if (speedNow > 6 && driver) {
+    if (speedNow > 6 && driver && !def.flies) {
       for (const s of this.soldiers.values()) {
         if (!s.alive || s.team === v.team || s.vehicleId >= 0 || s.pos.y > 1.5) continue;
-        if (Math.hypot(s.pos.x - v.pos.x, s.pos.z - v.pos.z) < r + 0.7) {
+        if (Math.hypot(s.pos.x - v.pos.x, s.pos.z - v.pos.z) < def.radius + 0.7) {
           this.damageSoldier(s, 60 * dt * speedNow * 0.4 + 25, driverId, 'tank_cannon');
         }
       }
     }
 
-    // fire mounted weapon
-    if (fire && driver && this.time >= v.nextFireAt) {
+    // ---- ambulance: heal pulse to nearby friendlies and passengers ----
+    if (def.healRadius && this.time >= v.nextHealAt && !stunned) {
+      v.nextHealAt = this.time + 1;
+      for (const s of this.soldiers.values()) {
+        if (!s.alive || s.team !== v.team || s.hp >= s.maxHp) continue;
+        const aboard = s.vehicleId === v.id;
+        if (aboard || Math.hypot(s.pos.x - v.pos.x, s.pos.z - v.pos.z) < def.healRadius) {
+          s.hp = Math.min(s.maxHp, s.hp + (def.healRate ?? 8) * (aboard ? 1.6 : 1));
+          if (this.tick % 2 === 0) this.emit({ type: 'heal', pos: s.pos, soldierId: s.id });
+        }
+      }
+    }
+
+    // ---- crewed sensor station: rolling radar pings ----
+    const sensorOp = this.crewAt(v, 'sensors');
+    if (sensorOp?.alive && v.systems.sensors > 0 && !stunned) {
+      for (const s of this.soldiers.values()) {
+        if (!s.alive || s.team === v.team) continue;
+        if (Math.hypot(s.pos.x - v.pos.x, s.pos.z - v.pos.z) < 28) this.pinged.add(s.id);
+      }
+    }
+
+    // ---- fire mounted weapon (needs a live weapon system and a gun) ----
+    const shooter = gunner?.alive ? gunner : driver;
+    if (fire && shooter && def.weapon && v.systems.weapon > 0 && this.time >= v.nextFireAt && !stunned) {
       const wdef = WEAPONS[def.weapon];
       v.nextFireAt = this.time + 1 / wdef.rof;
       const spread = (this.rng.next() - 0.5) * 2 * wdef.spread;
       const yaw = v.turretYaw + spread;
-      const muzzle = r + 0.8;
+      const muzzle = def.radius + 0.8;
       const p: Projectile = {
-        id: this.id(), weapon: def.weapon, ownerId: driver.id, team: v.team,
+        id: this.id(), weapon: def.weapon, ownerId: shooter.id, team: v.team,
         pos: { x: v.pos.x + Math.cos(yaw) * muzzle, y: 1.8, z: v.pos.z + Math.sin(yaw) * muzzle },
         vel: { x: Math.cos(yaw) * wdef.speed, y: 0, z: Math.sin(yaw) * wdef.speed },
         bornAt: this.time, ttl: wdef.range / wdef.speed, arc: false,
       };
       this.projectiles.set(p.id, p);
-      this.emit({ type: 'shot', pos: { ...p.pos }, weapon: def.weapon, soldierId: driver.id });
+      this.emit({ type: 'shot', pos: { ...p.pos }, weapon: def.weapon, soldierId: shooter.id });
     }
+  }
+
+  private nearestEnemyInRange(pos: Vec3, team: Team, range: number): Soldier | null {
+    let best: Soldier | null = null, bestD = range;
+    for (const s of this.soldiers.values()) {
+      if (!s.alive || s.team === team || s.vehicleId >= 0 || (s.cloaked && !this.pinged.has(s.id))) continue;
+      const d = Math.hypot(s.pos.x - pos.x, s.pos.z - pos.z);
+      if (d < bestD && losClear(this.map.grid, { ...pos, y: 1.6 }, { ...s.pos, y: 1.2 })) { best = s; bestD = d; }
+    }
+    return best;
   }
 
   // ---------- turrets ----------
@@ -818,6 +1127,18 @@ export class World {
 
   /** Special payloads detonate into effects instead of damage. */
   private detonatePayload(p: Projectile): boolean {
+    // generated arsenal payloads (smoke / phosphorus launchers)
+    const payload = WEAPONS[p.weapon]?.payload;
+    if (payload === 'smoke') {
+      this.spawnGadget('smoke_field', p.team, p.ownerId, p.pos, Infinity, 12);
+      this.emit({ type: 'beacon_planted', pos: { ...p.pos }, text: 'Smoke deployed' });
+      return true;
+    }
+    if (payload === 'fire') {
+      this.spawnGadget('fire_field', p.team, p.ownerId, p.pos, Infinity, 10);
+      this.emit({ type: 'explosion', pos: { ...p.pos }, weapon: 'flamer' });
+      return true;
+    }
     switch (p.weapon) {
       case 'emp':
         this.empBlast(p.pos, p.team, p.ownerId);
@@ -839,7 +1160,7 @@ export class World {
   stepProjectiles(dt: number) {
     for (const [id, p] of this.projectiles) {
       const def = WEAPONS[p.weapon];
-      if (p.arc) p.vel.y -= GRAVITY * 0.7 * dt;
+      if (p.arc) p.vel.y -= this.gravity * 0.7 * dt;
       p.pos.x += p.vel.x * dt;
       p.pos.y += p.vel.y * dt;
       p.pos.z += p.vel.z * dt;
@@ -884,7 +1205,7 @@ export class World {
           if (Math.abs(dy) > 1.8) continue;
           if (Math.hypot(s.pos.x - p.pos.x, s.pos.z - p.pos.z) < 0.9) {
             if (this.detonatePayload(p)) { dead = true; break; }
-            if (def.knockback > 0) {
+            if (def.knockback > 0 && !this.hasEquip(s, 'noKnockback')) {
               const kl = Math.hypot(p.vel.x, p.vel.z) || 1;
               s.pushX += (p.vel.x / kl) * def.knockback;
               s.pushZ += (p.vel.z / kl) * def.knockback;
@@ -996,7 +1317,7 @@ export class World {
         const isSelf = s.id === ownerId;
         if (!isSelf && s.team === team) continue; // no friendly splash, self-damage yes
         const dmg = (def.splashDamage + (d < 1 ? def.damage : 0)) * (1 - d / def.splash) * (isSelf ? 0.6 : 1);
-        if (def.knockback > 0) {
+        if (def.knockback > 0 && !this.hasEquip(s, 'noKnockback')) {
           const dl = Math.max(d, 0.5);
           s.pushX += ((s.pos.x - pos.x) / dl) * def.knockback * (1 - d / def.splash);
           s.pushZ += ((s.pos.z - pos.z) / dl) * def.knockback * (1 - d / def.splash);
@@ -1026,6 +1347,12 @@ export class World {
     if (!victim.alive || dmg <= 0) return;
     victim.hp -= dmg;
     if (victim.cloaked) victim.cloaked = false;
+    // combat medikit auto-triggers once per life below 25%
+    if (victim.hp > 0 && victim.medikitReady && victim.hp < victim.maxHp * 0.25 && this.hasEquip(victim, 'autoMedikit')) {
+      victim.medikitReady = false;
+      victim.hp = Math.min(victim.maxHp, victim.hp + 45);
+      this.emit({ type: 'heal', pos: victim.pos, soldierId: victim.id });
+    }
     if (victim.hp <= 0) {
       victim.hp = 0;
       victim.alive = false;
@@ -1050,7 +1377,20 @@ export class World {
 
   damageVehicle(v: Vehicle, dmg: number, attackerId: number, weapon: WeaponId) {
     if (!v.alive || dmg <= 0) return;
-    v.hp -= dmg;
+    // 65% of every hit goes to the hull; 35% chews into a random subsystem —
+    // tanks get damaged in all sorts of ways before they die.
+    const sysShare = dmg * 0.35;
+    v.hp -= dmg - sysShare;
+    const sys = SYSTEM_IDS[this.rng.int(0, SYSTEM_IDS.length - 1)];
+    if (v.systems[sys] > 0) {
+      v.systems[sys] -= sysShare;
+      if (v.systems[sys] <= 0) {
+        v.systems[sys] = 0;
+        this.emit({ type: 'system_damaged', pos: { ...v.pos }, system: sys, text: `${VEHICLES[v.kind].name}: ${sys.toUpperCase()} destroyed` });
+      }
+    } else {
+      v.hp -= sysShare; // already-dead system passes damage to the hull
+    }
     if (v.hp <= 0) {
       v.hp = 0;
       v.alive = false;

@@ -1,16 +1,77 @@
-import { CLASSES, MODE_INFO, TEAM_NAMES, VEHICLES, WEAPONS } from '../sim/data';
-import { GRID, T_WALL, WORLD } from '../sim/map';
+import { CLASSES, EQUIPMENT, MODE_INFO, TEAM_NAMES, VEHICLES, WEAPONS } from '../sim/data';
+import { GRID, T_WALL, WORLD, losClear } from '../sim/map';
 import type { SimEvent, Soldier, Team } from '../sim/types';
 import type { World } from '../sim/world';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
+/** A tactical-system waypoint drawn on the whole team's minimap. */
+interface Waypoint { x: number; z: number; until: number; by: string }
+
 export class Hud {
   private killfeedEl = $('killfeed');
   private announceEl = $('announce');
   private announceUntil = 0;
-  private minimapCtx = ($('minimap') as HTMLCanvasElement).getContext('2d')!;
+  private minimapEl = $('minimap') as HTMLCanvasElement;
+  private minimapCtx = this.minimapEl.getContext('2d')!;
   private mapBg: HTMLCanvasElement | null = null;
+  private waypoints: Waypoint[] = [];
+  private lastTime = 0;
+  /** set true when the local player carries the Tactical System */
+  waypointsEnabled = false;
+  /** multiplayer relays placed waypoints to teammates */
+  onWaypoint: (x: number, z: number) => void = () => {};
+
+  // ---- visual feedback layers (created dynamically) ----
+  private vignette = document.createElement('div');
+  private sysPips = document.createElement('div');
+  private equipRow = document.createElement('div');
+  private reloadBar = document.createElement('div');
+  private lastHp = -1;
+  private wasAlive = false;
+  private psiFlashUntil = 0;
+  private equipSig = '';
+
+  constructor() {
+    // tactical system: click the minimap to drop a team waypoint
+    this.minimapEl.addEventListener('click', (e) => {
+      if (!this.waypointsEnabled) return;
+      const rect = this.minimapEl.getBoundingClientRect();
+      const S = this.minimapEl.width;
+      const mx = ((e.clientX - rect.left) / rect.width) * S;
+      const mz = ((e.clientY - rect.top) / rect.height) * S;
+      const wx = (mx / S) * WORLD - WORLD / 2;
+      const wz = (mz / S) * WORLD - WORLD / 2;
+      this.addWaypoint(wx, wz, 'you');
+      this.onWaypoint(wx, wz);
+    });
+
+    // damage/heal vignette overlay
+    this.vignette.id = 'dmg-vignette';
+    $('hud').appendChild(this.vignette);
+    // vehicle subsystem pips + reload progress live in the weapon block
+    this.sysPips.id = 'sys-pips';
+    this.reloadBar.id = 'reload-bar';
+    this.reloadBar.innerHTML = '<div id="reload-fill"></div>';
+    const wb = $('weapon-block');
+    wb.appendChild(this.reloadBar);
+    wb.appendChild(this.sysPips);
+    // equipment status icons next to the vitals
+    this.equipRow.id = 'equip-status';
+    $('hud-bottom-left').appendChild(this.equipRow);
+  }
+
+  /** Live waypoints for the renderer's light pillars. */
+  getWaypoints(): Waypoint[] { return this.waypoints; }
+
+  addWaypoint(x: number, z: number, by: string) {
+    this.waypoints.push({ x, z, until: this.lastTime + 25, by });
+    if (this.waypoints.length > 8) this.waypoints.shift();
+  }
+
+  private hasEquip(s: Soldier, key: 'headcam' | 'seeCloaked' | 'seeMines' | 'waypoints'): boolean {
+    return s.equipment?.some((id) => EQUIPMENT[id]?.[key]) ?? false;
+  }
 
   show() { $('hud').classList.remove('hidden'); }
   hide() { $('hud').classList.add('hidden'); $('scoreboard').classList.add('hidden'); }
@@ -27,6 +88,16 @@ export class Hud {
     hpFill.classList.toggle('low', s.hp < s.maxHp * 0.35);
     $('en-fill').style.width = `${s.energy}%`;
 
+    // damage / heal vignette: the screen itself tells you what just happened
+    if (s.alive && this.wasAlive && this.lastHp >= 0) {
+      if (s.hp < this.lastHp - 0.5) this.flashVignette('hurt', Math.min(0.6, (this.lastHp - s.hp) / 40 + 0.2));
+      else if (s.hp > this.lastHp + 3) this.flashVignette('heal', 0.3);
+    }
+    this.lastHp = s.hp;
+    this.wasAlive = s.alive;
+
+    this.updateEquipStatus(s, world.time);
+
     // weapon / vehicle line
     const inVehicle = s.vehicleId >= 0;
     if (inVehicle) {
@@ -34,22 +105,46 @@ export class Hud {
       if (v) {
         $('weapon-name').textContent = VEHICLES[v.kind].name;
         const ammoEl = $('ammo-count');
-        ammoEl.classList.remove('reloading');
+        ammoEl.classList.remove('reloading', 'low-ammo', 'no-ammo');
         ammoEl.textContent = `${Math.ceil(v.hp)} ARMOR`;
-        $('ability-hint').textContent = s.seat === 0 ? 'E exit · W/S drive · A/D steer' : 'E exit (passenger)';
+        this.reloadBar.style.display = 'none';
+        // crew position
+        const crew = VEHICLES[v.kind].crew;
+        let role = s.seat === 0 ? 'DRIVER · W/S drive · A/D steer' : 'PASSENGER';
+        if (crew && s.seat >= 1 && s.seat <= crew.length) role = crew[s.seat - 1].toUpperCase() + ' STATION';
+        $('ability-hint').textContent = `${role} · E exit`;
+        // per-system damage record as pips: ENG WPN SEN ECM COM
+        const max = VEHICLES[v.kind].systemHp ?? 60;
+        this.sysPips.style.display = 'flex';
+        this.sysPips.innerHTML = (['engine', 'weapon', 'sensors', 'ecm', 'comms'] as const).map((id) => {
+          const hp = v.systems?.[id] ?? max;
+          const state = hp <= 0 ? 'dead' : hp < max * 0.4 ? 'hurt' : 'ok';
+          return `<span class="pip ${state}">${id.slice(0, 3).toUpperCase()}</span>`;
+        }).join('');
       }
     } else {
+      this.sysPips.style.display = 'none';
       const def = WEAPONS[s.weapons[s.weaponIdx]];
       $('weapon-name').textContent = def.name;
       const ammoEl = $('ammo-count');
       if (s.reloadUntil > 0) {
         ammoEl.textContent = 'RELOADING';
         ammoEl.classList.add('reloading');
+        ammoEl.classList.remove('low-ammo', 'no-ammo');
+        // reload progress bar fills toward ready
+        this.reloadBar.style.display = 'block';
+        const k = Math.min(1, Math.max(0, 1 - (s.reloadUntil - world.time) / def.reloadTime));
+        ($('reload-fill')).style.width = `${k * 100}%`;
       } else {
         ammoEl.classList.remove('reloading');
-        const clip = Number.isFinite(s.clip[s.weaponIdx]) ? s.clip[s.weaponIdx] : '∞';
+        this.reloadBar.style.display = 'none';
+        const clipN = s.clip[s.weaponIdx];
+        const clip = Number.isFinite(clipN) ? clipN : '∞';
         const res = Number.isFinite(s.reserve[s.weaponIdx]) ? s.reserve[s.weaponIdx] : '∞';
         ammoEl.textContent = `${clip} / ${res}`;
+        // the counter itself warns you before the click of an empty mag
+        ammoEl.classList.toggle('no-ammo', Number.isFinite(clipN) && clipN === 0);
+        ammoEl.classList.toggle('low-ammo', Number.isFinite(clipN) && clipN > 0 && clipN <= def.clip * 0.25);
       }
       $('ability-hint').textContent = `${CLASSES[s.classId].abilityName} · ${s.grenades} ${s.classId === 'engineer' ? 'mines' : 'frags'}`;
     }
@@ -189,7 +284,7 @@ export class Hud {
     for (const gate of world.map.gates) {
       for (const end of [gate.a, gate.b]) dot(end.x, end.z, '#66e8ff', 3);
     }
-    for (const pad of world.map.pads) dot(pad.pos.x, pad.pos.z, '#9a66ff', 2.5);
+    for (const pad of world.map.pads) dot(pad.pos.x, pad.pos.z, '#30d0c0', 2.5);
 
     // deployed gadgets
     for (const g of world.gadgets.values()) {
@@ -206,6 +301,33 @@ export class Hud {
     if (m.hillPos) dot(m.hillPos.x, m.hillPos.z, m.hillHolder === -1 ? '#ffffff' : m.hillHolder === 0 ? '#e8a33d' : '#3dbde8', 5);
     if (m.points) for (const p of m.points) dot(p.pos.x, p.pos.z, p.owner === -1 ? '#ffffff' : p.owner === 0 ? '#e8a33d' : '#3dbde8', 4.5);
     if (m.flags) for (const f of m.flags) dot(f.pos.x, f.pos.z, f.team === 0 ? '#e8a33d' : '#3dbde8', 4);
+
+    // ---- advanced line of sight ----
+    // You see what YOU can see. A head cam network adds everything your
+    // teammates can see. Pings (beacons, drones, sensor crews, psi) mark
+    // anyone. Smoke hides. IR goggles expose nearby cloaks.
+    const hasHeadcam = this.hasEquip(local, 'headcam');
+    const hasIR = this.hasEquip(local, 'seeCloaked');
+    const grid = world.map.grid;
+    const mates: Soldier[] = [];
+    if (hasHeadcam) {
+      for (const x of world.soldiers.values()) {
+        if (x.alive && x.team === local.team && x.id !== local.id && (x.kind === 'human' || x.kind === 'bot')) mates.push(x);
+      }
+    }
+    const eyeSees = (from: Soldier, s: Soldier, range: number) => {
+      const d = Math.hypot(s.pos.x - from.pos.x, s.pos.z - from.pos.z);
+      return d < range && losClear(grid, { ...from.pos, y: 1.4 }, { ...s.pos, y: 1.4 });
+    };
+    const seesEnemy = (s: Soldier): boolean => {
+      if (world.smoked.has(s.id)) return Math.hypot(s.pos.x - local.pos.x, s.pos.z - local.pos.z) < 8;
+      if (world.pinged.has(s.id)) return true;
+      if (s.cloaked) return hasIR && Math.hypot(s.pos.x - local.pos.x, s.pos.z - local.pos.z) < 30;
+      if (eyeSees(local, s, 55)) return true;
+      for (const mate of mates) if (eyeSees(mate, s, 50)) return true;
+      return false;
+    };
+
     // entities
     for (const s of world.soldiers.values()) {
       if (!s.alive || s.id === local.id) continue;
@@ -217,7 +339,7 @@ export class Hud {
       const zed = s.kind !== 'human' && s.kind !== 'bot';
       const pinged = world.pinged.has(s.id) && s.team !== local.team;
       if (pinged) {
-        // targeting ring: revealed by beacon/drone, cloak or not
+        // targeting ring: revealed by beacon/drone/sensors/psi, cloak or not
         const [px, py] = toMap(s.pos.x, s.pos.z);
         ctx.strokeStyle = '#ff5040';
         ctx.beginPath();
@@ -225,16 +347,68 @@ export class Hud {
         ctx.stroke();
       }
       if (zed) {
-        const c = s.kind === 'sprinter' ? '#e06a50' : s.kind === 'bomber' ? '#b7e34a' : s.kind === 'stalker' ? '#b070ff' : '#8fce5a';
+        // the horde always reads on co-op radar — it's how squads survive
+        const c = s.kind === 'sprinter' ? '#e06a50' : s.kind === 'bomber' ? '#b7e34a' : s.kind === 'stalker' ? '#3fe0c8' : '#8fce5a';
         dot(s.pos.x, s.pos.z, c, s.kind === 'brute' ? 3 : 2);
         continue;
       }
-      if (s.cloaked && s.team !== local.team && !pinged) continue;
+      if (s.team !== local.team) {
+        if (!seesEnemy(s)) continue;
+        if (s.cloaked && hasIR) {
+          // IR ghost outline rather than a solid contact
+          const [px, py] = toMap(s.pos.x, s.pos.z);
+          ctx.strokeStyle = '#b8ffe8';
+          ctx.beginPath();
+          ctx.arc(px, py, 3, 0, Math.PI * 2);
+          ctx.stroke();
+          continue;
+        }
+      } else if (world.smoked.has(s.id)) {
+        continue; // even friendlies vanish in smoke
+      }
       dot(s.pos.x, s.pos.z, s.team === 0 ? '#e8a33d' : '#3dbde8');
     }
+
+    // vehicles: friendlies always; enemies when seen, or when their ECM is slagged
     for (const v of world.vehicles.values()) {
-      if (v.alive) dot(v.pos.x, v.pos.z, v.team === 0 ? '#c8882d' : '#2d9dc8', 3.5);
+      if (!v.alive) continue;
+      if (v.team !== local.team) {
+        const ecmDead = v.systems && v.systems.ecm <= 0;
+        const d = Math.hypot(v.pos.x - local.pos.x, v.pos.z - local.pos.z);
+        const seen = (d < 60 && losClear(grid, { ...local.pos, y: 1.4 }, { ...v.pos, y: 1.8 })) ||
+          mates.some((mt) => Math.hypot(v.pos.x - mt.pos.x, v.pos.z - mt.pos.z) < 55 &&
+            losClear(grid, { ...mt.pos, y: 1.4 }, { ...v.pos, y: 1.8 }));
+        if (!ecmDead && !seen) continue;
+      }
+      dot(v.pos.x, v.pos.z, v.team === 0 ? '#c8882d' : '#2d9dc8', 3.5);
     }
+
+    // mine detector: enemy mines read as hollow red squares
+    if (this.hasEquip(local, 'seeMines')) {
+      for (const mine of world.mines.values()) {
+        if (mine.team === local.team) continue;
+        const [px, py] = toMap(mine.pos.x, mine.pos.z);
+        ctx.strokeStyle = '#ff5040';
+        ctx.strokeRect(px - 3, py - 3, 6, 6);
+      }
+    }
+
+    // tactical-system waypoints (diamonds, numbered)
+    this.waypoints = this.waypoints.filter((wp) => wp.until > world.time);
+    this.waypoints.forEach((wp, i) => {
+      const [px, py] = toMap(wp.x, wp.z);
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(Math.PI / 4);
+      ctx.strokeStyle = '#ffe08a';
+      ctx.lineWidth = 1.6;
+      ctx.strokeRect(-4, -4, 8, 8);
+      ctx.restore();
+      ctx.fillStyle = '#ffe08a';
+      ctx.font = '9px Inter, sans-serif';
+      ctx.fillText(String(i + 1), px + 6, py - 5);
+    });
+    this.lastTime = world.time;
     // local player: white with facing tick
     const [lx, ly] = toMap(local.pos.x, local.pos.z);
     ctx.fillStyle = '#ffffff';
@@ -283,9 +457,11 @@ export class Hud {
         setTimeout(() => entry.remove(), 6000);
       }
       if (e.type === 'hit' && e.soldierId === localId) this.flashHitmarker();
+      if (e.type === 'psi_ping' && e.soldierId === localId) this.psiFlashUntil = now + 1;
       if ((e.type === 'announce' || e.type === 'flag_taken' || e.type === 'flag_captured' ||
            e.type === 'flag_returned' || e.type === 'point_captured' || e.type === 'wave_start' ||
-           e.type === 'match_over' || e.type === 'pod_incoming' || e.type === 'beacon_planted') && e.text) {
+           e.type === 'match_over' || e.type === 'pod_incoming' || e.type === 'beacon_planted' ||
+           e.type === 'system_damaged' || e.type === 'hacked') && e.text) {
         this.announce(e.text, !!e.big, now);
       }
     }
@@ -297,6 +473,45 @@ export class Hud {
     el.classList.remove('show');
     void el.offsetWidth; // restart animation
     el.classList.add('show');
+  }
+
+  /** Red edge-glow when hurt, green when healed — snaps in, fades out. */
+  private flashVignette(kind: 'hurt' | 'heal', strength: number) {
+    const v = this.vignette;
+    v.classList.remove('hurt', 'heal');
+    v.classList.add(kind);
+    v.style.transition = 'none';        // appear instantly…
+    v.style.opacity = String(strength);
+    void v.offsetWidth;                 // commit the jump
+    v.style.transition = 'opacity 0.55s ease-out';
+    v.style.opacity = '0';              // …then bleed away
+  }
+
+  /** Equipment icons with live cooldown/ready states. */
+  private updateEquipStatus(s: Soldier, time: number) {
+    const sig = s.equipment.join(',');
+    if (sig !== this.equipSig) {
+      this.equipSig = sig;
+      this.equipRow.innerHTML = s.equipment
+        .map((id) => {
+          const eq = EQUIPMENT[id];
+          return eq ? `<span class="eq-chip" data-eq="${id}" title="${eq.name}">${eq.icon}</span>` : '';
+        })
+        .join('');
+    }
+    for (const chip of this.equipRow.querySelectorAll<HTMLElement>('.eq-chip')) {
+      const id = chip.dataset.eq!;
+      let cooling = false;
+      let label = '';
+      if ((id === 'repair_kit' || id === 'hacking_kit') && time < s.nextRepairAt) {
+        cooling = true;
+        label = String(Math.ceil(s.nextRepairAt - time));
+      }
+      if (id === 'medikit' && !s.medikitReady) cooling = true;
+      if (id === 'psi_scanner') chip.classList.toggle('flash', time < this.psiFlashUntil);
+      chip.classList.toggle('cooling', cooling);
+      chip.dataset.cd = label;
+    }
   }
 
   announce(text: string, big: boolean, now: number) {

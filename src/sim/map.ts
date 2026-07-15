@@ -1,5 +1,6 @@
 import { Rng } from './rng';
-import type { ModeId, Team, Vec3, VehicleKind } from './types';
+import { THEMES } from './data';
+import type { ModeId, Team, ThemeId, Vec3, VehicleKind } from './types';
 
 export const TILE = 2;          // world units per tile
 export const GRID = 100;        // tiles per side
@@ -36,6 +37,7 @@ export interface House {
 
 export interface GameMap {
   seed: number;
+  theme: ThemeId;
   grid: Uint8Array; // GRID*GRID
   basePos: [Vec3, Vec3];
   spawns: [Vec3[], Vec3[]];
@@ -102,11 +104,12 @@ function clearArea(grid: Uint8Array, cx: number, cz: number, r: number) {
 }
 
 /** Generates a symmetric battlefield — or a suburban neighborhood for safehouse mode. */
-export function generateMap(seed: number, mode: ModeId): GameMap {
+export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savanna'): GameMap {
   if (mode === 'safehouse') return generateNeighborhood(seed);
   const rng = new Rng(seed);
   const grid = new Uint8Array(GRID * GRID);
   const props: PropSpec[] = [];
+  const gen = THEMES[theme].gen;
 
   // Border walls
   for (let i = 0; i < GRID; i++) {
@@ -117,22 +120,40 @@ export function generateMap(seed: number, mode: ModeId): GameMap {
   }
 
   // Scatter obstacles mirrored across the vertical center line for fairness.
+  // The mix is the environment: starship corridors, asteroid galleries,
+  // Europa pools, Triton crevasses, or the classic savanna field.
   const half = GRID / 2;
-  const blobCount = 46;
-  for (let b = 0; b < blobCount; b++) {
+  // thresholds: below wall→wall seg, below cover→crates, below rock→rock blob, else water
+  const MIX: Record<typeof gen, { wall: number; cover: number; rock: number; blobs: number; wallLen: [number, number] }> = {
+    field:     { wall: 0.38, cover: 0.72, rock: 0.86, blobs: 46, wallLen: [3, 8] },
+    corridors: { wall: 0.60, cover: 0.95, rock: 0.95, blobs: 60, wallLen: [6, 16] },
+    rocks:     { wall: 0.15, cover: 0.40, rock: 0.97, blobs: 52, wallLen: [3, 6] },
+    ocean:     { wall: 0.28, cover: 0.52, rock: 0.68, blobs: 48, wallLen: [3, 7] },
+    ice:       { wall: 0.22, cover: 0.50, rock: 0.78, blobs: 48, wallLen: [3, 7] },
+  };
+  const mix = MIX[gen];
+  for (let b = 0; b < mix.blobs; b++) {
     const tx = rng.int(6, half - 3);
     const tz = rng.int(6, GRID - 7);
     const kind = rng.next();
     const mirror = (x: number) => GRID - 1 - x;
-    if (kind < 0.38) {
-      // wall segment
-      const len = rng.int(3, 8);
+    if (kind < mix.wall) {
+      // wall segment (starship corridors run long and orthogonal)
+      const len = rng.int(mix.wallLen[0], mix.wallLen[1]);
       const horiz = rng.next() < 0.5;
       for (let i = 0; i < len; i++) {
         setTile(grid, tx + (horiz ? i : 0), tz + (horiz ? 0 : i), T_WALL);
         setTile(grid, mirror(tx + (horiz ? i : 0)), tz + (horiz ? 0 : i), T_WALL);
       }
-    } else if (kind < 0.72) {
+      // corridor junctions: an L-elbow half the time
+      if (gen === 'corridors' && rng.next() < 0.5) {
+        const el = rng.int(3, 7);
+        for (let i = 0; i < el; i++) {
+          setTile(grid, tx + (horiz ? len - 1 : i), tz + (horiz ? i : len - 1), T_WALL);
+          setTile(grid, mirror(tx + (horiz ? len - 1 : i)), tz + (horiz ? i : len - 1), T_WALL);
+        }
+      }
+    } else if (kind < mix.cover) {
       // cover cluster
       const n = rng.int(2, 5);
       for (let i = 0; i < n; i++) {
@@ -143,8 +164,8 @@ export function generateMap(seed: number, mode: ModeId): GameMap {
         props.push({ type: 'crate', pos: w, scale: 1, rot: rng.range(0, Math.PI) });
         props.push({ type: 'crate', pos: tileToWorld(mirror(tx + ox), tz + oz), scale: 1, rot: rng.range(0, Math.PI) });
       }
-    } else if (kind < 0.86) {
-      // rock blob (wall tiles, rendered as rocks)
+    } else if (kind < mix.rock) {
+      // rock blob (wall tiles, rendered as rocks — ice boulders on Triton)
       const r = rng.int(1, 2);
       for (let z = -r; z <= r; z++)
         for (let x = -r; x <= r; x++)
@@ -156,8 +177,9 @@ export function generateMap(seed: number, mode: ModeId): GameMap {
       props.push({ type: 'rock', pos: w, scale: r * 1.6, rot: rng.range(0, Math.PI * 2) });
       props.push({ type: 'rock', pos: tileToWorld(mirror(tx), tz), scale: r * 1.6, rot: rng.range(0, Math.PI * 2) });
     } else {
-      // pond
-      const r = rng.int(2, 3);
+      // water: savanna ponds, Europa pools, Triton crevasses (none on starships)
+      if (gen === 'corridors') continue;
+      const r = gen === 'ocean' ? rng.int(2, 4) : rng.int(2, 3);
       for (let z = -r; z <= r; z++)
         for (let x = -r; x <= r; x++)
           if (x * x + z * z <= r * r) {
@@ -211,18 +233,26 @@ export function generateMap(seed: number, mode: ModeId): GameMap {
 
   const flagPos: [Vec3, Vec3] = [basePos[0], basePos[1]];
 
-  // Vehicle pads flanking each base
+  // Vehicle pads flanking each base — the full motor pool
   const vehiclePads: VehiclePad[] = [];
-  const padKinds: VehicleKind[] = ['buggy', 'tank', 'apc', 'skiff'];
+  const padKinds: VehicleKind[] = ['buggy', 'tank', 'apc', 'skiff', 'bike', 'flyer', 'transport', 'ambulance', 'tunneler', 'hoverboard'];
   for (let side = 0 as Team; side < 2; side++) {
     const [btx, btz] = baseT[side];
     const fwd = side === 0 ? 1 : -1;
-    const padOffsets = [[fwd * 9, -9], [fwd * 9, 9], [fwd * 12, -3], [fwd * 12, 3]];
+    const padOffsets = [
+      [fwd * 9, -9], [fwd * 9, 9], [fwd * 12, -3], [fwd * 12, 3],
+      [fwd * 6, -12], [fwd * 6, 12], [fwd * 15, -8], [fwd * 15, 8],
+      [fwd * 12, -12], [fwd * 12, 12],
+    ];
     padKinds.forEach((kind, i) => {
       const [ox, oz] = padOffsets[i];
       clearArea(grid, btx + ox, btz + oz, 2);
       vehiclePads.push({ kind, team: side as Team, pos: tileToWorld(btx + ox, btz + oz) });
     });
+    // one Bulwark emplacement gun guarding each team's midfield approach
+    const ex = btx + fwd * 22, ez = btz + (side === 0 ? -14 : 14);
+    clearArea(grid, ex, ez, 2);
+    vehiclePads.push({ kind: 'emplacement', team: side as Team, pos: tileToWorld(ex, ez) });
   }
 
   // Pickups sprinkled around midfield, mirrored
@@ -246,17 +276,19 @@ export function generateMap(seed: number, mode: ModeId): GameMap {
     zombieSpawns.push(tileToWorld(tx, tz));
   }
 
-  // Decorative trees on open tiles
-  for (let i = 0; i < 40; i++) {
-    const tx = rng.int(4, GRID - 5), tz = rng.int(4, GRID - 5);
-    if (grid[tz * GRID + tx] === T_OPEN) {
-      const w = tileToWorld(tx, tz);
-      const far = Math.hypot(w.x - basePos[0].x, w.z - basePos[0].z) > 20 &&
-                  Math.hypot(w.x - basePos[1].x, w.z - basePos[1].z) > 20 &&
-                  Math.hypot(w.x - hillPos.x, w.z - hillPos.z) > 14;
-      if (far) {
-        setTile(grid, tx, tz, T_WALL);
-        props.push({ type: 'tree', pos: w, scale: rng.range(0.8, 1.4), rot: rng.range(0, Math.PI * 2) });
+  // Decorative trees on open tiles — Terra only; nothing grows off-world
+  if (theme === 'savanna' || theme === 'titan') {
+    for (let i = 0; i < (theme === 'titan' ? 14 : 40); i++) {
+      const tx = rng.int(4, GRID - 5), tz = rng.int(4, GRID - 5);
+      if (grid[tz * GRID + tx] === T_OPEN) {
+        const w = tileToWorld(tx, tz);
+        const far = Math.hypot(w.x - basePos[0].x, w.z - basePos[0].z) > 20 &&
+                    Math.hypot(w.x - basePos[1].x, w.z - basePos[1].z) > 20 &&
+                    Math.hypot(w.x - hillPos.x, w.z - hillPos.z) > 14;
+        if (far) {
+          setTile(grid, tx, tz, T_WALL);
+          props.push({ type: 'tree', pos: w, scale: rng.range(0.8, 1.4), rot: rng.range(0, Math.PI * 2) });
+        }
       }
     }
   }
@@ -286,7 +318,7 @@ export function generateMap(seed: number, mode: ModeId): GameMap {
     }
   }
 
-  return { seed, grid, basePos, spawns, flagPos, hillPos, controlPoints, vehiclePads, pickups, props, zombieSpawns, houses: [], gates, pads };
+  return { seed, theme, grid, basePos, spawns, flagPos, hillPos, controlPoints, vehiclePads, pickups, props, zombieSpawns, houses: [], gates, pads };
 }
 
 /**
@@ -406,8 +438,18 @@ function generateNeighborhood(seed: number): GameMap {
   }
 
   const hillPos = tileToWorld(GRID / 2, GRID / 2);
+
+  // squad support at the command post: a field ambulance + two emplacement guns
+  const vehiclePads: VehiclePad[] = [];
+  clearArea(grid, cpTx - 8, cpTz, 2);
+  vehiclePads.push({ kind: 'ambulance', team: 0, pos: tileToWorld(cpTx - 8, cpTz) });
+  for (const side of [-1, 1]) {
+    clearArea(grid, cpTx + side * 10, cpTz - 6, 2);
+    vehiclePads.push({ kind: 'emplacement', team: 0, pos: tileToWorld(cpTx + side * 10, cpTz - 6) });
+  }
+
   return {
-    seed, grid, basePos, spawns,
+    seed, theme: 'savanna', grid, basePos, spawns,
     flagPos: [basePos[0], basePos[1]],
     hillPos,
     controlPoints: [
@@ -415,7 +457,7 @@ function generateNeighborhood(seed: number): GameMap {
       { name: 'B', pos: hillPos },
       { name: 'C', pos: tileToWorld(GRID / 2 + 20, GRID / 2) },
     ],
-    vehiclePads: [],
+    vehiclePads,
     pickups, props, zombieSpawns, houses,
     gates: [], pads: [],
   };

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { TEAM_COLORS } from '../sim/data';
+import { zombieArmRest } from './animation';
 import type { ClassId, SoldierKind, Team, VehicleKind } from '../sim/types';
 
 const mat = (color: number, opts: { metal?: number; rough?: number; emissive?: number } = {}) =>
@@ -373,8 +374,8 @@ function buildTrooper(team: Team, classId: ClassId): THREE.Group {
 function buildZombie(kind: SoldierKind): THREE.Group {
   const g = new THREE.Group();
   const scale = kind === 'brute' ? 1.65 : kind === 'bomber' ? 1.2 : kind === 'sprinter' ? 0.92 : kind === 'stalker' ? 1.05 : 1;
-  const skinCol = kind === 'sprinter' ? 0xb07050 : kind === 'bomber' ? 0x97b26a : kind === 'stalker' ? 0x4a3d5c : 0x8fa86a;
-  const ragCol = kind === 'sprinter' ? 0x53291f : kind === 'stalker' ? 0x241c30 : 0x3d4a2e;
+  const skinCol = kind === 'sprinter' ? 0xb07050 : kind === 'bomber' ? 0x97b26a : kind === 'stalker' ? 0x3d4a48 : 0x8fa86a;
+  const ragCol = kind === 'sprinter' ? 0x53291f : kind === 'stalker' ? 0x1c2622 : 0x3d4a2e;
   const skin = mat(skinCol, { rough: 0.9 });
   const rags = mat(ragCol, { rough: 0.98 });
   const dark = mat(0x22261c, { rough: 0.95 });
@@ -446,8 +447,9 @@ function buildZombie(kind: SoldierKind): THREE.Group {
     }
     elbow.rotation.z = -0.25;
     shoulder.add(elbow);
-    // reach forward, one arm higher than the other
-    shoulder.rotation.z = side === 1 ? -1.35 : -1.05;
+    // reach FORWARD (+X) at the prey, one arm higher than the other.
+    // Shared with the runtime animator so the rest pose and the sway agree.
+    shoulder.rotation.z = zombieArmRest(kind, side === 1);
     g.add(shoulder);
   }
 
@@ -463,19 +465,19 @@ function buildZombie(kind: SoldierKind): THREE.Group {
   const jaw = box(0.1, 0.08, 0.2, dark);
   jaw.position.set(0.12, 0.0, 0);
   headGrp.add(jaw);
-  const eyeCol = kind === 'stalker' ? 0xaa55ff : 0xcc3322;
+  const eyeCol = kind === 'stalker' ? 0x3fe0c8 : 0xcc3322; // stalker: spectral teal (no purple)
   for (const side of [1, -1]) {
     const eye = box(0.05, 0.05, 0.06, mat(eyeCol, { emissive: eyeCol }));
     eye.position.set(0.14, 0.16, side * 0.08);
     headGrp.add(eye);
   }
   if (kind === 'stalker') {
-    // phase shroud: tattered hood + drifting wisps
-    const hood = box(0.34, 0.24, 0.34, mat(0x1a1424, { rough: 0.98 }));
+    // phase shroud: tattered hood + drifting wisps (spectral teal — no purple)
+    const hood = box(0.34, 0.24, 0.34, mat(0x14201e, { rough: 0.98 }));
     hood.position.y = 0.26;
     headGrp.add(hood);
     for (const side of [1, -1]) {
-      const wisp = box(0.05, 0.4, 0.05, mat(0x6a4d9c, { emissive: 0x442d77 }));
+      const wisp = box(0.05, 0.4, 0.05, mat(0x3aa892, { emissive: 0x1f6a5c }));
       wisp.position.set(-0.25, 0.95, side * 0.3);
       wisp.rotation.x = side * 0.3;
       g.add(wisp);
@@ -496,7 +498,83 @@ function buildZombie(kind: SoldierKind): THREE.Group {
 // ---------------------------------------------------------------------------
 // Vehicles. Face +X. Wheels live in named axle groups so the renderer can
 // spin them; the turret barrel sits in 'gunRecoil' for firing kick.
+// Open vehicles (bike, hoverboard) carry a 'rider' figure the renderer shows
+// only while the driver seat is occupied — no more haunted ghost-rides.
 // ---------------------------------------------------------------------------
+
+/** A compact posed rider for open vehicles. Named 'rider' for the renderer. */
+function buildRider(team: Team, pose: 'surf' | 'straddle'): THREE.Group {
+  const rider = new THREE.Group();
+  rider.name = 'rider';
+  const uniform = mat(team === 0 ? 0x6b5c38 : 0x3a5a66, { rough: 0.9 });
+  const armor = mat(team === 0 ? 0x4e4228 : 0x27414c, { rough: 0.7, metal: 0.2 });
+  const dark = mat(0x26241f, { rough: 0.8 });
+  const trim = mat(TEAM_COLORS[team], { emissive: TEAM_COLORS[team] });
+
+  const torso = box(0.34, 0.44, 0.4, uniform);
+  const head = box(0.24, 0.24, 0.26, armor);
+  const band = box(0.25, 0.05, 0.27, trim);
+
+  if (pose === 'surf') {
+    // feet spread along the deck, knees bent, arms out for balance
+    rider.position.set(0, 0.51, 0);
+    for (const [x, lean] of [[0.38, -0.25], [-0.34, 0.3]] as const) {
+      const leg = box(0.14, 0.5, 0.15, uniform);
+      leg.position.set(x, 0.24, 0);
+      leg.rotation.z = lean;
+      rider.add(leg);
+      const boot = box(0.3, 0.09, 0.16, dark);
+      boot.position.set(x, 0.05, 0);
+      rider.add(boot);
+    }
+    torso.position.set(0.02, 0.68, 0);
+    torso.rotation.z = -0.18; // leaning into the ride
+    rider.add(torso);
+    for (const side of [1, -1]) {
+      // arms thrown wide for balance — the classic surf silhouette
+      const arm = box(0.11, 0.11, 0.52, uniform);
+      arm.position.set(0.04, 0.86, side * 0.45);
+      arm.rotation.x = side * -0.35; // slight upward sweep
+      rider.add(arm);
+      const glove = box(0.1, 0.1, 0.1, mat(0x26241f, { rough: 0.8 }));
+      glove.position.set(0.04, 0.94, side * 0.68);
+      rider.add(glove);
+    }
+    head.position.set(0.08, 1.05, 0);
+    rider.add(head);
+    band.position.set(0.08, 1.14, 0);
+    rider.add(band);
+  } else {
+    // straddling the saddle, crouched over the handlebars
+    rider.position.set(-0.35, 0.95, 0);
+    for (const side of [1, -1]) {
+      const thigh = box(0.4, 0.14, 0.13, uniform);
+      thigh.position.set(0.1, 0.05, side * 0.24);
+      thigh.rotation.y = side * -0.15;
+      rider.add(thigh);
+      const shin = box(0.13, 0.4, 0.12, uniform);
+      shin.position.set(0.28, -0.18, side * 0.3);
+      rider.add(shin);
+      const boot = box(0.26, 0.08, 0.13, dark);
+      boot.position.set(0.32, -0.4, side * 0.3);
+      rider.add(boot);
+    }
+    torso.position.set(0.28, 0.32, 0);
+    torso.rotation.z = -0.85; // hunched racing tuck
+    rider.add(torso);
+    for (const side of [1, -1]) {
+      const arm = box(0.48, 0.11, 0.11, uniform);
+      arm.position.set(0.62, 0.38, side * 0.2);
+      arm.rotation.z = -0.35;
+      rider.add(arm);
+    }
+    head.position.set(0.62, 0.56, 0);
+    rider.add(head);
+    band.position.set(0.62, 0.66, 0);
+    rider.add(band);
+  }
+  return rider;
+}
 
 export function buildVehicle(kind: VehicleKind, team: Team): THREE.Group {
   const g = new THREE.Group();
@@ -680,6 +758,247 @@ export function buildVehicle(kind: VehicleKind, team: Team): THREE.Group {
       turret.position.set(0.5, 1.28, 0);
       break;
     }
+    case 'hoverboard': {
+      // low, sleek deck with a glowing underside
+      const deck = box(1.6, 0.12, 0.55, body);
+      deck.position.y = 0.45;
+      g.add(deck);
+      const nose = box(0.35, 0.1, 0.4, bodyDark);
+      nose.position.set(0.9, 0.47, 0);
+      nose.rotation.z = 0.12;
+      g.add(nose);
+      const underglow = box(1.3, 0.05, 0.4, glow);
+      underglow.position.y = 0.36;
+      underglow.name = 'thrustL';
+      g.add(underglow);
+      for (const x of [0.5, -0.5]) {
+        const pod = cyl(0.1, 0.14, 0.14, dark, 8);
+        pod.position.set(x, 0.32, 0);
+        g.add(pod);
+      }
+      // the rider (renderer shows it only while someone's aboard):
+      // surf stance — feet apart along the deck, knees bent, leaning in
+      g.add(buildRider(team, 'surf'));
+      break;
+    }
+    case 'bike': {
+      // recon bike: two fat wheels, low saddle, front MG
+      const frame = box(1.9, 0.3, 0.4, body);
+      frame.position.y = 0.75;
+      g.add(frame);
+      const tank = box(0.6, 0.28, 0.42, bodyDark);
+      tank.position.set(0.25, 0.98, 0);
+      g.add(tank);
+      const saddle = box(0.55, 0.12, 0.4, mat(0x2a2622, { rough: 0.95 }));
+      saddle.position.set(-0.45, 0.99, 0);
+      g.add(saddle);
+      const bars = box(0.08, 0.3, 0.7, dark);
+      bars.position.set(0.75, 1.1, 0);
+      g.add(bars);
+      addWheel(0.85, 0, 0.42, 0.3);
+      addWheel(-0.75, 0, 0.42, 0.3);
+      const stripe = box(1.9, 0.05, 0.15, glow);
+      stripe.position.set(0, 0.92, 0);
+      g.add(stripe);
+      const gun = box(0.8, 0.08, 0.08, dark);
+      gun.position.set(0.4, 0.02, 0);
+      recoil.add(gun);
+      turret.position.set(0.9, 0.95, 0);
+      // the rider, crouched over the tank (renderer toggles with occupancy)
+      g.add(buildRider(team, 'straddle'));
+      break;
+    }
+    case 'flyer': {
+      // gunship: lifted hull, canted rotor pods, weapons chin
+      const hull = box(2.4, 0.55, 1.1, body);
+      hull.position.y = 1.6;
+      g.add(hull);
+      const canopy = box(0.7, 0.35, 0.8, mat(0x18242a, { rough: 0.25, metal: 0.6 }));
+      canopy.position.set(1.05, 1.85, 0);
+      g.add(canopy);
+      const tail = box(1.1, 0.25, 0.3, bodyDark);
+      tail.position.set(-1.6, 1.75, 0);
+      g.add(tail);
+      const tailFin = box(0.35, 0.6, 0.08, bodyDark);
+      tailFin.position.set(-2.05, 2.05, 0);
+      g.add(tailFin);
+      for (const side of [1, -1]) {
+        const boom = box(0.25, 0.12, 0.9, dark);
+        boom.position.set(0.1, 1.95, side * 1.0);
+        g.add(boom);
+        const rotor = cyl(0.65, 0.65, 0.06, mat(0x30363c, { metal: 0.5, rough: 0.35 }), 12);
+        rotor.position.set(0.1, 2.1, side * 1.35);
+        rotor.name = side === 1 ? 'rotorL' : 'rotorR';
+        g.add(rotor);
+        const ring = cyl(0.68, 0.68, 0.05, glow, 12);
+        ring.position.set(0.1, 2.02, side * 1.35);
+        g.add(ring);
+      }
+      const chin = box(0.9, 0.12, 0.12, dark);
+      chin.position.set(0.45, 0.0, 0);
+      recoil.add(chin);
+      turret.position.set(0.9, 1.3, 0);
+      break;
+    }
+    case 'transport': {
+      // long crew hull with sensor mast, ECM fins, comms dish — a rolling ops center
+      const hull = box(4.2, 1.3, 2.2, body);
+      hull.position.y = 1.25;
+      g.add(hull);
+      const cab = box(0.9, 0.9, 2.0, bodyDark);
+      cab.position.set(2.3, 1.1, 0);
+      g.add(cab);
+      const winshield = box(0.15, 0.4, 1.6, mat(0x101820, { rough: 0.3, metal: 0.5 }));
+      winshield.position.set(2.75, 1.45, 0);
+      g.add(winshield);
+      // crew station humps along the spine
+      for (const [x, name] of [[0.9, 'sensors'], [-0.3, 'ecm'], [-1.5, 'comms']] as const) {
+        const pod = box(0.8, 0.35, 1.6, bodyDark);
+        pod.position.set(x, 2.05, 0);
+        g.add(pod);
+        void name;
+      }
+      // sensor mast
+      const mast = cyl(0.04, 0.04, 1.4, dark, 6);
+      mast.position.set(0.9, 3.0, 0.6);
+      g.add(mast);
+      const radar = box(0.5, 0.08, 0.18, glow);
+      radar.position.set(0.9, 3.7, 0.6);
+      radar.name = 'spin';
+      g.add(radar);
+      // ECM fins
+      for (const side of [1, -1]) {
+        const fin = box(0.5, 0.5, 0.06, mat(0x3a4a52, { metal: 0.5, rough: 0.4 }));
+        fin.position.set(-0.3, 2.5, side * 0.5);
+        fin.rotation.x = side * 0.35;
+        g.add(fin);
+      }
+      // comms dish
+      const dish = cyl(0.35, 0.08, 0.2, mat(0xd8d8d0, { metal: 0.6, rough: 0.3 }), 10);
+      dish.position.set(-1.5, 2.55, -0.4);
+      dish.rotation.z = 0.6;
+      g.add(dish);
+      addWheel(1.6, 1.15, 0.5, 0.35);
+      addWheel(1.6, -1.15, 0.5, 0.35);
+      addWheel(0.2, 1.15, 0.5, 0.35);
+      addWheel(0.2, -1.15, 0.5, 0.35);
+      addWheel(-1.4, 1.15, 0.5, 0.35);
+      addWheel(-1.4, -1.15, 0.5, 0.35);
+      const beacon = box(0.5, 0.1, 0.5, glow);
+      beacon.position.set(-2.0, 2.0, 0);
+      g.add(beacon);
+      const gun = box(0.9, 0.09, 0.09, dark);
+      gun.position.set(0.45, 0.08, 0);
+      recoil.add(gun);
+      turret.position.set(1.6, 2.15, 0);
+      break;
+    }
+    case 'ambulance': {
+      // boxy medical van — white body, red cross, light bar
+      const white = mat(0xe8e6e0, { rough: 0.6 });
+      const hull = box(3.0, 1.4, 1.9, white);
+      hull.position.y = 1.2;
+      g.add(hull);
+      const cab = box(0.8, 0.8, 1.8, mat(0xd8d6d0, { rough: 0.55 }));
+      cab.position.set(1.75, 0.95, 0);
+      g.add(cab);
+      // red crosses both sides + roof
+      for (const side of [1, -1]) {
+        const cv = box(0.06, 0.7, 0.22, mat(0xd8453a, { emissive: 0xd8453a }));
+        cv.position.set(-0.2, 1.35, side * 0.97);
+        const ch = box(0.06, 0.22, 0.7, mat(0xd8453a, { emissive: 0xd8453a }));
+        ch.position.set(-0.2, 1.35, side * 0.97);
+        g.add(cv, ch);
+      }
+      const lightbar = box(0.5, 0.12, 1.2, mat(0xd8453a, { emissive: 0xff5040 }));
+      lightbar.position.set(1.4, 2.0, 0);
+      lightbar.name = 'pulse';
+      g.add(lightbar);
+      // heal aura: a soft green ring on the ground showing the actual radius
+      const aura = new THREE.Mesh(
+        new THREE.RingGeometry(6.4, 7, 40),
+        new THREE.MeshBasicMaterial({ color: 0x5aff8a, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false }),
+      );
+      aura.rotation.x = -Math.PI / 2;
+      aura.position.y = 0.06;
+      aura.name = 'healRing';
+      g.add(aura);
+      addWheel(1.15, 1.0, 0.42, 0.3);
+      addWheel(1.15, -1.0, 0.42, 0.3);
+      addWheel(-1.05, 1.0, 0.42, 0.3);
+      addWheel(-1.05, -1.0, 0.42, 0.3);
+      break;
+    }
+    case 'tunneler': {
+      // tracked grinder with a huge rotating drill cone
+      const hull = box(3.2, 1.3, 2.2, bodyDark);
+      hull.position.y = 1.15;
+      g.add(hull);
+      const spine = box(2.4, 0.4, 1.4, body);
+      spine.position.y = 1.95;
+      g.add(spine);
+      // the whole cutting head lives in one named group so it grinds as a unit
+      const drillGrp = new THREE.Group();
+      drillGrp.name = 'drill';
+      drillGrp.position.set(2.4, 1.1, 0);
+      const drillCone = new THREE.Mesh(
+        new THREE.ConeGeometry(1.1, 1.8, 12),
+        mat(0x8a8578, { metal: 0.7, rough: 0.35 }),
+      );
+      drillCone.rotation.z = -Math.PI / 2;
+      drillCone.castShadow = true;
+      drillGrp.add(drillCone);
+      // teeth spiral down the cone — they spin with it
+      for (let i = 0; i < 6; i++) {
+        const tooth = box(0.4, 0.12, 0.12, dark);
+        const a = (i / 6) * Math.PI * 2;
+        const along = -0.35 + (i % 3) * 0.35; // toward the tip
+        const r = 0.75 - (i % 3) * 0.22;      // cone narrows
+        tooth.position.set(along, Math.sin(a) * r, Math.cos(a) * r);
+        drillGrp.add(tooth);
+      }
+      g.add(drillGrp);
+      for (const side of [1, -1]) {
+        const tread = box(3.4, 0.9, 0.55, dark);
+        tread.position.set(-0.2, 0.5, side * 1.25);
+        g.add(tread);
+      }
+      const warn = box(0.8, 0.1, 0.8, mat(0xe8a33d, { emissive: 0xe8a33d }));
+      warn.position.set(-1.2, 1.85, 0);
+      warn.name = 'pulse';
+      g.add(warn);
+      break;
+    }
+    case 'emplacement': {
+      // sandbagged static gun: hexagonal base, shield plates, long barrel
+      const base = cyl(1.5, 1.7, 0.5, mat(0x6a6353, { rough: 0.95 }), 6);
+      base.position.y = 0.25;
+      g.add(base);
+      const mount = cyl(0.4, 0.5, 0.7, dark, 8);
+      mount.position.y = 0.8;
+      g.add(mount);
+      const shieldL = box(0.1, 0.8, 1.0, bodyDark);
+      shieldL.position.set(0.5, 1.3, 0.55);
+      shieldL.rotation.y = -0.3;
+      turret.add(shieldL);
+      const shieldR = shieldL.clone();
+      shieldR.position.z = -0.55;
+      shieldR.rotation.y = 0.3;
+      turret.add(shieldR);
+      const breech = box(0.9, 0.4, 0.4, body);
+      breech.position.set(0.1, 0.15, 0);
+      turret.add(breech);
+      const barrel = cyl(0.08, 0.11, 2.0, dark, 10);
+      barrel.rotation.z = -Math.PI / 2;
+      barrel.position.set(1.4, 0.2, 0);
+      recoil.add(barrel);
+      const muzzle = cyl(0.13, 0.13, 0.25, dark, 10);
+      muzzle.rotation.z = -Math.PI / 2;
+      muzzle.position.set(2.3, 0.2, 0);
+      recoil.add(muzzle);
+      turret.position.set(0, 1.15, 0);
+      break;
+    }
   }
   g.add(turret);
   g.userData.wheels = wheels;
@@ -780,6 +1099,68 @@ export function buildGadget(type: string, team: Team): THREE.Group {
       g.add(stripe);
       break;
     }
+    case 'camera': {
+      // spy camera on a tripod mast — small but findable (and shootable)
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2;
+        const leg = box(0.05, 0.5, 0.05, dark);
+        leg.position.set(Math.cos(a) * 0.22, 0.24, Math.sin(a) * 0.22);
+        leg.rotation.x = Math.sin(a) * 0.35;
+        leg.rotation.z = -Math.cos(a) * 0.35;
+        g.add(leg);
+      }
+      const mast = cyl(0.05, 0.07, 1.2, dark, 6);
+      mast.position.y = 1.0;
+      g.add(mast);
+      const headGrp = new THREE.Group();
+      headGrp.name = 'camHead'; // slow pan — it's watching
+      headGrp.position.y = 1.7;
+      const head = box(0.34, 0.22, 0.22, dark);
+      headGrp.add(head);
+      const lens = box(0.1, 0.12, 0.12, glow);
+      lens.position.set(0.2, 0, 0);
+      headGrp.add(lens);
+      g.add(headGrp);
+      const blink = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 5), mat(0xff4030, { emissive: 0xff4030 }));
+      blink.position.set(0, 1.86, 0);
+      blink.name = 'pulse';
+      g.add(blink);
+      break;
+    }
+    case 'smoke_field': {
+      // billowing gray puffs
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2;
+        const puff = new THREE.Mesh(
+          new THREE.SphereGeometry(1.6 + (i % 2) * 0.7, 10, 8),
+          new THREE.MeshStandardMaterial({ color: 0x9aa0a6, transparent: true, opacity: 0.45, roughness: 1, depthWrite: false }),
+        );
+        puff.position.set(Math.cos(a) * 1.6, 1.2 + (i % 3) * 0.7, Math.sin(a) * 1.6);
+        puff.name = 'puff';
+        g.add(puff);
+      }
+      break;
+    }
+    case 'fire_field': {
+      // low licking phosphorus flames
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        const flame = new THREE.Mesh(
+          new THREE.ConeGeometry(0.35, 1.1 + (i % 2) * 0.5, 6),
+          mat(0xff8c30, { emissive: 0xff6a18, rough: 0.6 }),
+        );
+        flame.position.set(Math.cos(a) * 2.2, 0.5, Math.sin(a) * 2.2);
+        flame.name = 'flame';
+        g.add(flame);
+      }
+      const emberGlow = cyl(3.6, 3.6, 0.06, new THREE.MeshStandardMaterial({
+        color: 0xff5010, emissive: 0xff4808, emissiveIntensity: 0.8,
+        transparent: true, opacity: 0.4, depthWrite: false,
+      }) as THREE.Material, 16);
+      emberGlow.position.y = 0.04;
+      g.add(emberGlow);
+      break;
+    }
   }
   return g;
 }
@@ -818,7 +1199,7 @@ export function buildPad(): THREE.Group {
   const disc = cyl(1.3, 1.5, 0.18, mat(0x30363c, { metal: 0.5, rough: 0.4 }), 16);
   disc.position.y = 0.09;
   g.add(disc);
-  const lens = cyl(1.0, 1.0, 0.1, mat(0x9a66ff, { emissive: 0x7744ee }), 16);
+  const lens = cyl(1.0, 1.0, 0.1, mat(0x30d0c0, { emissive: 0x18a894 }), 16); // grav-lift energy: teal (no purple)
   lens.position.y = 0.2;
   lens.name = 'pulse';
   g.add(lens);

@@ -2,29 +2,34 @@ export type Team = 0 | 1; // 0 = Titan (amber), 1 = Collective (cyan). Survival:
 
 export type ModeId = 'tdm' | 'ctf' | 'koth' | 'conquest' | 'survival' | 'horde' | 'safehouse';
 
+/** Battlefield environments — the war spans the solar system. */
+export type ThemeId = 'savanna' | 'starship' | 'asteroid' | 'europa' | 'titan' | 'triton';
+
 export type ClassId = 'infantry' | 'heavy' | 'jump' | 'engineer' | 'medic' | 'infiltrator' | 'pathfinder' | 'ghost';
 
-export type WeaponId =
-  | 'ar606'      // Maklov AR-606 assault rifle
-  | 'kuchler'    // Kuchler K6 SMG
-  | 'caw'        // CAW-8 combat shotgun
-  | 'rg2'        // RG-2 railgun
-  | 'ac_mk2'     // AC-Mk2 autocannon
-  | 'mml'        // micro-missile launcher
-  | 'gl'         // grenade launcher
-  | 'plasma'     // Kamenel plasma repeater
-  | 'flamer'     // F-3 flamer (pickup)
-  | 'pistol'     // P9 sidearm
-  | 'repair'     // engineer repair gun
-  | 'medibeam'   // medic heal beam
-  | 'impulse'    // Pathfinder disc cannon — big knockback
-  | 'emp'        // Ghost EMP grenade
-  | 'target_beacon'   // lobbed recon ping beacon
-  | 'orbital_beacon'  // lobbed orbital-strike designator (pickup only)
-  | 'buggy_mg' | 'tank_cannon' | 'apc_mg' | 'skiff_plasma' | 'turret_mg'
-  | 'zombie_claw' | 'spitter_acid';
+/**
+ * Weapon ids are open strings: the hand-tuned core set (ar606, kuchler, caw,
+ * rg2, ac_mk2, mml, gl, plasma, flamer, pistol, repair, medibeam, impulse,
+ * emp, target_beacon, orbital_beacon, vehicle/turret/zombie weapons) plus the
+ * generated arsenal in arsenal.ts (200+ ids like 'laser_maklov_2'). Table
+ * integrity is enforced by tests, not the type system.
+ */
+export type WeaponId = string;
 
-export type VehicleKind = 'buggy' | 'tank' | 'apc' | 'skiff';
+export type VehicleKind =
+  | 'buggy' | 'tank' | 'apc' | 'skiff'
+  | 'hoverboard'   // one-trooper personal hover deck — fast, fragile, unarmed
+  | 'bike'         // recon bike — fastest ground vehicle, light MG
+  | 'flyer'        // gunship flyer — soars over walls, plasma
+  | 'transport'    // crewed transport craft — sensors/ECM/comms stations + 4 passengers
+  | 'ambulance'    // field ambulance — heals soldiers around it, 2 stretcher seats
+  | 'tunneler'     // tunneling machine — grinds through walls, glacially slow
+  | 'emplacement'; // static emplacement gun — manned artillery, does not move
+
+/** Damageable vehicle subsystems. Crew stations correspond to the last three. */
+export type SystemId = 'engine' | 'weapon' | 'sensors' | 'ecm' | 'comms';
+
+export const SYSTEM_IDS: readonly SystemId[] = ['engine', 'weapon', 'sensors', 'ecm', 'comms'];
 
 export interface WeaponDef {
   id: WeaponId;
@@ -53,7 +58,19 @@ export interface WeaponDef {
   knockback: number;
   sound: string;
   tracer: 'bullet' | 'shell' | 'rocket' | 'plasma' | 'rail' | 'flame' | 'beam' | 'acid' | 'none';
+  /** arsenal family this weapon belongs to ('rifle', 'laser', 'mortar', …) */
+  family?: WeaponFamily;
+  /** Mk tier within the family (1..3) — drives the stat curve */
+  tier?: number;
+  /** special detonation instead of damage: emp burst, beacons, smoke/fire fields */
+  payload?: 'emp' | 'target_beacon' | 'orbital' | 'smoke' | 'fire';
 }
+
+/** The arsenal's weapon families — Infantry Online's armory, rebuilt. */
+export type WeaponFamily =
+  | 'pistol' | 'rifle' | 'carbine' | 'smg' | 'shotgun' | 'slugger' | 'laser'
+  | 'lmg' | 'hmg' | 'at_rocket' | 'ap_rocket' | 'mortar' | 'artillery'
+  | 'scatter' | 'sonic' | 'flamethrower' | 'grenade' | 'special';
 
 export interface ClassDef {
   id: ClassId;
@@ -74,12 +91,32 @@ export interface VehicleDef {
   hp: number;
   speed: number;
   turnRate: number; // rad/s
+  /** '' = unarmed (hoverboard, ambulance, tunneler) */
   weapon: WeaponId;
+  /** total seats = 1 driver + crew.length stations + passengers */
   seats: number;
-  /** APC acts as mobile spawn for its team */
+  /** APC/transport acts as mobile spawn for its team (needs live comms) */
   mobileSpawn: boolean;
   radius: number;
+  /** crosses water (skiff, hoverboard, flyer) */
+  hover?: boolean;
+  /** passes over walls and cover entirely (flyer) */
+  flies?: boolean;
+  /** grinds T_WALL tiles into open ground as it moves (tunneler) */
+  digs?: boolean;
+  /** heals friendly soldiers within this radius (ambulance) */
+  healRadius?: number;
+  healRate?: number;
+  /** crew stations after the driver seat, in seat order */
+  crew?: readonly ('gunner' | 'sensors' | 'ecm' | 'comms')[];
+  /** hp per damageable subsystem */
+  systemHp?: number;
+  /** cannot move at all (emplacement gun) */
+  immobile?: boolean;
 }
+
+/** Per-subsystem damage record: hp remaining for each SystemId. */
+export type VehicleSystems = Record<SystemId, number>;
 
 export interface Vec3 {
   x: number;
@@ -133,6 +170,14 @@ export interface Soldier {
   pushZ: number;
   nextWarpAt: number; // shared cooldown for warps/gates/lifts (stalkers: blink timer)
   orbitals: number;   // orbital-strike beacons held (pickup)
+  /** equipped gear ids (see EQUIPMENT in data.ts) — chosen at deploy, max 2 */
+  equipment: string[];
+  /** medikit auto-trigger armed (once per life) */
+  medikitReady: boolean;
+  /** psi-scanner next pulse */
+  nextPsiAt: number;
+  /** repair-kit next use */
+  nextRepairAt: number;
   // bot brain scratch
   botGoal?: Vec3 | null;
   botRepathAt?: number;
@@ -150,12 +195,18 @@ export interface Vehicle {
   turretYaw: number;
   hp: number;
   maxHp: number;
-  seats: number[]; // soldier ids, -1 empty; [0] = driver
+  seats: number[]; // soldier ids, -1 empty; [0] = driver, then crew stations, then passengers
   nextFireAt: number;
   alive: boolean;
   respawnAt: number;
   padPos: Vec3;
   stunnedUntil: number; // EMP
+  /** subsystem hp — every crew position/system has its own damage record */
+  systems: VehicleSystems;
+  /** tunneler: sim time it may next grind a wall tile */
+  nextDigAt: number;
+  /** ambulance: next heal pulse */
+  nextHealAt: number;
 }
 
 export interface Turret {
@@ -190,7 +241,11 @@ export interface Pickup {
   oneShot?: boolean; // supply-pod loot vanishes after use
 }
 
-export type GadgetType = 'warpA' | 'warpB' | 'target_beacon' | 'orbital' | 'shield' | 'drone' | 'supply_pod';
+export type GadgetType =
+  | 'warpA' | 'warpB' | 'target_beacon' | 'orbital' | 'shield' | 'drone' | 'supply_pod'
+  | 'camera'       // deployable spy camera — pings enemies in view for its team
+  | 'smoke_field'  // smoke cloud — hides soldiers inside from minimap + pings
+  | 'fire_field';  // phosphorus burn — damage over time to enemies inside
 
 /** Deployed sci-fi tech: beacons, domes, drones, pods. */
 export interface Gadget {
@@ -242,7 +297,11 @@ export interface SimEvent {
     | 'vehicle_destroyed' | 'turret_built' | 'heal' | 'jetpack' | 'cloak'
     | 'announce' | 'match_over' | 'mine_planted'
     | 'warp' | 'blink' | 'emp' | 'orbital_strike' | 'gravlift'
-    | 'beacon_planted' | 'gadget_destroyed' | 'pod_incoming' | 'pod_landed';
+    | 'beacon_planted' | 'gadget_destroyed' | 'pod_incoming' | 'pod_landed'
+    | 'dig'            // tunneler ground a wall tile to rubble
+    | 'system_damaged' // a vehicle subsystem went down
+    | 'hacked'         // hacking kit converted an enemy turret
+    | 'psi_ping';      // psi scanner found someone (HUD flashes the icon)
   pos?: Vec3;
   weapon?: WeaponId;
   soldierId?: number;
@@ -253,6 +312,10 @@ export interface SimEvent {
   team?: Team;
   text?: string;
   big?: boolean;
+  /** which subsystem for 'system_damaged' */
+  system?: SystemId;
+  /** grid tile index for 'dig' */
+  tile?: number;
 }
 
 export interface ModeState {

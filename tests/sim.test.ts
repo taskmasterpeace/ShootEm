@@ -115,7 +115,7 @@ describe('combat', () => {
 describe('vehicles', () => {
   it('spawns vehicles on pads and lets soldiers drive them', () => {
     const w = new World({ seed: 42, mode: 'tdm' });
-    expect(w.vehicles.size).toBe(8); // 4 kinds × 2 teams
+    expect(w.vehicles.size).toBe(22); // 10 motor-pool kinds + 1 emplacement, × 2 teams
     const s = w.addSoldier('D', 'infantry', 0, 'human');
     const v = [...w.vehicles.values()].find((x) => x.team === 0 && x.kind === 'buggy')!;
     s.pos = { ...v.pos };
@@ -306,7 +306,9 @@ describe('protect the scientist (safehouse)', () => {
       expect(isBlocked(m.grid, h.center.x, h.center.z)).toBe(false);
       expect(isBlocked(m.grid, h.door.x, h.door.z)).toBe(false);
     }
-    expect(m.vehiclePads.length).toBe(0); // infantry only
+    // squad support only: one ambulance + two emplacement guns at the command post
+    expect(m.vehiclePads.length).toBe(3);
+    expect(m.vehiclePads.every((p) => p.kind === 'ambulance' || p.kind === 'emplacement')).toBe(true);
   });
 
   it('hides the scientist in a house at match start', () => {

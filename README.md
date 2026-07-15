@@ -1,10 +1,10 @@
 # ⚔️ War World
 
-**A modern, browser-native reimagining of [Infantry Online](https://github.com/InfantryOnline/Infantry-Online-Server)** — the classic 1998 top-down multiplayer shooter — rebuilt from scratch in TypeScript + Three.js with vehicles, seven game modes, eight combat classes, Tribes-style warp tech, bots, and LAN multiplayer.
+**A modern, browser-native reimagining of [Infantry Online](https://github.com/InfantryOnline/Infantry-Online-Server)** — the classic 1998 top-down multiplayer shooter — rebuilt from scratch in TypeScript + Three.js with a **200+ weapon armory**, **11 vehicles including multi-crew platforms with per-system damage**, seven game modes, eight combat classes, six solar-system battlefields, comms channels with offline mail, Tribes-style warp tech, bots, and LAN multiplayer.
 
 No install, no launcher, no plugins. `npm run dev`, open a browser, deploy.
 
-![modes](https://img.shields.io/badge/modes-7-e8a33d) ![classes](https://img.shields.io/badge/classes-8-3dbde8) ![vehicles](https://img.shields.io/badge/vehicles-4%20%2B%20sentries-8fb98a) ![license](https://img.shields.io/badge/license-MIT-blue)
+![modes](https://img.shields.io/badge/modes-7-e8a33d) ![classes](https://img.shields.io/badge/classes-8-3dbde8) ![weapons](https://img.shields.io/badge/weapons-200%2B-d8453a) ![vehicles](https://img.shields.io/badge/vehicles-11%20%2B%20sentries-8fb98a) ![worlds](https://img.shields.io/badge/environments-6-66e8ff) ![license](https://img.shields.io/badge/license-MIT-blue)
 
 ![Orbital strike](docs/screenshots/orbital-strike.jpg)
 *An orbital strike lands midfield — three seconds after the designator hits the dirt.*
@@ -39,7 +39,7 @@ Then enter `ws://<host-ip>:3401` in the Multiplayer field on the menu. One room 
 
 ```bash
 npm run build        # typecheck + production bundle → dist/
-npm test             # 42 sim tests (combat, modes, vehicles, bots, warp tech, netcode)
+npm test             # 68 sim tests (combat, modes, crew vehicles, arsenal balance, equipment, recon, environments, netcode)
 npm run sounds       # regenerate the CC0 sound pack from source
 ```
 
@@ -94,16 +94,57 @@ Plus battlefield pickups: medkits, ammo crates, energy cells, the F-3 Flamer, an
 - **Supply Pods** — every 90s a pod screams down from orbit with one-shot loot, sometimes an orbital designator.
 - **Phase Stalker** — the undead answer to all of it: a rare zombie that blinks through walls toward prey.
 
+## The Armory — 200+ weapons
+
+Sixteen families — lasers, pistols, rifles, carbines, SMGs, slug throwers,
+shotguns, scatter packs, LMGs/HMGs, AT & AP rockets, mortars, field-gun
+artillery, sonic cannons, flamethrowers, and frag/**smoke**/**phosphorus**
+grenade launchers — across four manufacturers and three marks, all
+hand-balanced and test-enforced. Pick yours in the menu's **Armory**; bots
+draw from the same racks. Full catalog: **[docs/ARSENAL.md](docs/ARSENAL.md)**.
+
 ## Vehicles
 
-| Vehicle | Armor | Role |
-|---|---|---|
-| Scout Buggy | 220 | Fast harassment, mounted MG |
-| Ares Battle Tank | 650 | 120mm splash cannon |
-| Bastion APC | 450 | 4 seats, **mobile spawn point** for its team |
-| Wraith Skiff | 160 | Hover — crosses water, plasma repeater |
+| Vehicle | Armor | Seats | Role |
+|---|---|---|---|
+| Scout Buggy | 220 | 2 | Fast harassment, mounted MG |
+| Ares Battle Tank | 650 | 8 | 120mm cannon · sensors/ECM/comms crew stations · 4 passenger benches |
+| Bastion APC | 450 | 4 | **Mobile spawn point** (while its comms live) |
+| Wraith Skiff | 160 | 1 | Hover — crosses water, plasma repeater |
+| Jackal Recon Bike | 130 | 1 | Fastest wheels in the war, light MG |
+| Halo Hoverboard | 70 | 1 | Personal hover deck — unarmed, absurd |
+| Kestrel Gunship | 200 | 2 | **Flies over walls**, plasma battery |
+| Atlas Transport | 520 | 9 | Gunner/sensors/ECM/comms stations + 4 passengers, mobile spawn |
+| Mercy Field Ambulance | 300 | 3 | Heals every friendly around it |
+| Mole Tunneling Machine | 700 | 2 | **Grinds walls into open ground** |
+| Bulwark Emplacement | 380 | 1 | Static manned artillery at each midfield |
 
-Vehicles spawn on team pads and respawn 22s after destruction. Engineers can repair them.
+Every vehicle carries five damageable subsystems — **engine, weapon, sensors,
+ECM, comms** — each with its own hit points and its own failure mode: engines
+limp, guns jam, sensors go dark, ECM-dead vehicles glow on enemy radar,
+comms-dead transports stop spawning reinforcements. Man the stations: a
+crewed sensor seat is a rolling radar; a crewed ECM seat jams enemy pings.
+Vehicles spawn on team pads and respawn 22s after destruction. Engineers
+(and the Mechanic Kit) repair them.
+
+## Comms, equipment & advanced line of sight
+
+- **Comms** — Enter to chat, custom channels (`/join`), Tab to cycle, F1–F8
+  macros, and `/msg <player>` **stores mail delivered next time they deploy**.
+- **Equipment** — pick two at deploy: ballistic vest, power armor, stealth
+  suit, IR/UV goggles, mine detector, mechanic kit, combat medikit, head cam
+  network, tactical waypoints, psi scanner, demolition kit, hacking kit, spy
+  camera.
+- **Advanced LOS** — the minimap is fog-of-war: you see what you (and, with a
+  head cam network, your teammates) actually see, plus beacon/drone/camera/
+  sensor-crew/psi pings. Smoke blinds it; ECM crews jam it.
+
+## Environments — the war scales the solar system
+
+Terra savanna · **starship boarding corridors** · a **hollowed asteroid** ·
+the **ocean floor of Europa** (9 m/s² — jumps float) · **Titan's methane
+haze** · **Triton's nitrogen ice**. Each is a distinct generator mix, palette,
+fog, and gravity; the dedicated server rotates them per match.
 
 ## Coming soon
 
@@ -129,8 +170,10 @@ Have an idea? The sim is one folder of plain TypeScript with no engine lock-in �
 ## Docs
 
 - **[Field Manual](docs/MANUAL.md)** — how to play, HUD guide, class doctrine, vehicle guide, field tips (with live screenshots)
+- **[The Arsenal](docs/ARSENAL.md)** — all 200+ weapons, 11 vehicles, crew stations, equipment, comms, LOS, environments
 - **[AI Report](docs/AI-REPORT.md)** — how the bots perceive, path, fight, drive, and swarm
 - **[Mobile Feasibility](docs/MOBILE-FEASIBILITY.md)** — runs in a phone browser today; what touch controls would take
+- **[Model Harness](docs/HARNESS.md)** — a dev inspector for every procedural model, the physics, and combat (`/harness.html` in `npm run dev`)
 - Screenshots regenerate with `node tools/capture-screenshots.mjs` while the dev server runs
 
 ## Architecture

@@ -157,7 +157,7 @@ html, body {
 .bar-fill.hp.low { background: linear-gradient(90deg, var(--danger), oklch(0.68 0.2 45)); }
 .bar-fill.en { background: linear-gradient(90deg, oklch(0.65 0.14 250), oklch(0.75 0.13 220)); width: 100%; }
 
-#hud-bottom-right { position: absolute; right: 1.25rem; bottom: 15.5rem; }
+#hud-bottom-right { position: absolute; right: 1.25rem; bottom: 17.5rem; }
 #weapon-block {
   background: oklch(0.18 0.02 80 / 0.75); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 0.8rem 1rem; min-width: 12rem; text-align: right; backdrop-filter: blur(6px);
@@ -217,3 +217,120 @@ html, body {
 #scoreboard .team-head.t0 td { color: var(--team0); }
 #scoreboard .team-head.t1 td { color: var(--team1); }
 #scoreboard .me td { background: oklch(0.24 0.04 75 / 0.5); }
+
+/* ============ COMMS (chat channels · macros · mail) ============ */
+#chat {
+  position: absolute; left: 1rem; bottom: 8.5rem; z-index: 12;
+  width: min(26rem, 40vw);
+  display: flex; flex-direction: column; gap: 0.3rem;
+  pointer-events: none;
+}
+#chat-log {
+  max-height: 11rem; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 2px;
+  font-size: 0.78rem; line-height: 1.35;
+  scrollbar-width: none;
+}
+.chat-line {
+  background: oklch(0.14 0.015 80 / 0.72);
+  border-radius: 0.35rem; padding: 0.15rem 0.5rem;
+  width: fit-content; max-width: 100%;
+  text-shadow: 0 1px 3px oklch(0 0 0 / 0.7);
+  transition: opacity 0.8s;
+}
+.chat-line.old { opacity: 0.25; }
+#chat.open .chat-line.old { opacity: 1; }
+.chat-line .ch { color: var(--accent); font-weight: 600; }
+.chat-line .from { color: var(--team1); font-weight: 600; }
+.chat-line.sys .txt { color: var(--muted); font-style: italic; }
+#chat-entry {
+  display: none; align-items: center; gap: 0.4rem;
+  pointer-events: auto;
+}
+#chat.open #chat-entry { display: flex; }
+#chat-channel { color: var(--accent); font-weight: 700; font-size: 0.8rem; }
+#chat-input {
+  flex: 1; background: oklch(0.16 0.02 80 / 0.92); border: 1px solid var(--border);
+  color: var(--text); border-radius: 0.45rem; padding: 0.35rem 0.6rem;
+  font-family: var(--font); font-size: 0.8rem; outline: none;
+}
+#chat-input:focus { border-color: var(--accent); }
+
+/* ============ ARMORY + EQUIPMENT (menu) ============ */
+.armory-select {
+  background: var(--card); border: 1px solid var(--border); color: var(--text);
+  border-radius: var(--radius); padding: 0.5rem 0.7rem; font-family: var(--font);
+  font-size: 0.82rem; min-width: 15rem; max-width: 20rem;
+}
+.armory-select:focus { border-color: var(--accent); outline: none; }
+.armory-select optgroup { color: var(--accent); font-style: normal; }
+.weapon-stats { color: var(--muted); font-size: 0.72rem; line-height: 1.5; min-width: 12rem; font-variant-numeric: tabular-nums; }
+.equip-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+.equip-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 0.55rem 0.7rem; width: 11.4rem; cursor: pointer; transition: 0.15s;
+  user-select: none;
+}
+.equip-card:hover { background: var(--card-hover); border-color: var(--accent); }
+.equip-card.selected { border-color: var(--accent); background: oklch(0.26 0.05 75 / 0.6); }
+.equip-card.locked { opacity: 0.45; cursor: not-allowed; }
+.equip-card .eq-name { font-weight: 600; font-size: 0.8rem; }
+.equip-card .eq-name .ico { margin-right: 0.3rem; }
+.equip-card .eq-desc { color: var(--muted); font-size: 0.68rem; margin-top: 0.15rem; line-height: 1.35; }
+
+/* ============ VISUAL FEEDBACK ============ */
+/* damage / heal vignette — the screen edge glows red or green, then fades */
+#dmg-vignette {
+  position: absolute; inset: 0; z-index: 5; pointer-events: none;
+  opacity: 0; transition: opacity 0.55s ease-out;
+}
+#dmg-vignette.hurt { box-shadow: inset 0 0 120px 40px oklch(0.5 0.21 25 / 0.85); }
+#dmg-vignette.heal { box-shadow: inset 0 0 110px 30px oklch(0.65 0.17 145 / 0.7); }
+
+/* reload progress bar under the ammo counter */
+#reload-bar {
+  display: none; width: 100%; height: 4px; margin-top: 0.3rem;
+  background: oklch(0.25 0.02 80); border-radius: 2px; overflow: hidden;
+}
+#reload-fill { height: 100%; width: 0%; background: var(--accent); border-radius: 2px; }
+
+/* ammo counter warns before the empty click */
+#ammo-count.low-ammo { color: var(--accent); }
+#ammo-count.no-ammo { color: var(--danger); animation: ammo-blink 0.7s infinite; }
+@keyframes ammo-blink { 50% { opacity: 0.35; } }
+
+/* vehicle subsystem pips: every station's damage record at a glance */
+#sys-pips { display: none; gap: 0.3rem; margin-top: 0.35rem; justify-content: flex-end; }
+#sys-pips .pip {
+  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.04em;
+  padding: 0.14rem 0.32rem; border-radius: 0.3rem;
+  background: oklch(0.3 0.06 145 / 0.5); color: oklch(0.8 0.14 145);
+  border: 1px solid oklch(0.45 0.1 145 / 0.6);
+}
+#sys-pips .pip.hurt {
+  background: oklch(0.32 0.08 75 / 0.55); color: var(--accent);
+  border-color: oklch(0.55 0.12 75 / 0.7);
+}
+#sys-pips .pip.dead {
+  background: oklch(0.3 0.1 25 / 0.6); color: oklch(0.72 0.19 25);
+  border-color: oklch(0.5 0.15 25 / 0.8);
+  animation: ammo-blink 1.1s infinite;
+}
+
+/* equipment status chips with cooldown states */
+#equip-status { display: flex; gap: 0.4rem; margin-top: 0.5rem; }
+.eq-chip {
+  position: relative; font-size: 1.05rem; line-height: 1;
+  background: oklch(0.18 0.02 80 / 0.85); border: 1px solid var(--border);
+  border-radius: 0.45rem; padding: 0.3rem 0.4rem; user-select: none;
+}
+.eq-chip.cooling { opacity: 0.38; filter: grayscale(0.8); }
+.eq-chip.cooling::after {
+  content: attr(data-cd);
+  position: absolute; right: -0.2rem; bottom: -0.35rem;
+  font-size: 0.6rem; font-weight: 700; color: var(--text);
+  text-shadow: 0 1px 3px oklch(0 0 0);
+}
+.eq-chip.flash {
+  border-color: oklch(0.8 0.13 180); box-shadow: 0 0 10px oklch(0.7 0.13 180 / 0.7);
+}

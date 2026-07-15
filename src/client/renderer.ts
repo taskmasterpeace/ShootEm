@@ -5,11 +5,74 @@ import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
 import type { World } from '../sim/world';
 import { audio, type SoundName } from './audio';
 import { Particles, FlashLights } from './effects';
+import { JOINT_NAMES, isUndead, poseSoldierJoints } from './animation';
 import { buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp, buildSoldier, buildTurretMesh, buildVehicle } from './models';
 
 const TRACER_COLORS: Record<string, number> = {
   bullet: 0xffd890, shell: 0xffb060, rocket: 0xff8840, plasma: 0x60c8ff,
-  rail: 0xb090ff, flame: 0xff7020, beam: 0x70ffb0, acid: 0xa0e040, none: 0,
+  rail: 0x8fd0ff, flame: 0xff7020, beam: 0x70ffb0, acid: 0xa0e040, none: 0,
+};
+
+/** Environment palettes — sky, fog, terrain, and architecture per theme. */
+export interface ThemePalette {
+  sky: number;
+  fog: number;
+  fogNear: number;
+  fogFar: number;
+  sun: number;
+  sunIntensity: number;
+  hemiSky: number;
+  hemiGround: number;
+  wall: number;
+  cover: number;
+  /** ground painter: open tile rgb from noise r; water tile rgb */
+  open: (r: number) => string;
+  water: (r: number) => string;
+}
+
+export const THEME_PALETTES: Record<string, ThemePalette> = {
+  savanna: {
+    sky: 0xa8bccc, fog: 0xb8c4cc, fogNear: 90, fogFar: 240,
+    sun: 0xffe8c0, sunIntensity: 1.6, hemiSky: 0xcfe0ee, hemiGround: 0x5a5648,
+    wall: 0x74705f, cover: 0x8a7a54,
+    open: (r) => { const g = 96 + r * 26; return r > 0.82 ? `rgb(${g + 18}, ${g - 4}, ${52 + r * 12})` : `rgb(${g - 18}, ${g}, ${54 + r * 14})`; },
+    water: (r) => `rgb(${40 + r * 10}, ${88 + r * 12}, ${110 + r * 14})`,
+  },
+  starship: {
+    sky: 0x05070d, fog: 0x0a0e16, fogNear: 110, fogFar: 300,
+    sun: 0xcfe2ff, sunIntensity: 1.1, hemiSky: 0x8fa5c0, hemiGround: 0x1c2028,
+    wall: 0x4a5260, cover: 0x39404c,
+    open: (r) => { const g = 52 + r * 14 + (r > 0.9 ? 22 : 0); return `rgb(${g}, ${g + 3}, ${g + 8})`; }, // deck plate
+    water: (r) => `rgb(${20 + r * 8}, ${60 + r * 10}, ${70 + r * 10})`, // coolant sump
+  },
+  asteroid: {
+    sky: 0x070808, fog: 0x141210, fogNear: 70, fogFar: 210,
+    sun: 0xfff2d8, sunIntensity: 1.9, hemiSky: 0x6a6458, hemiGround: 0x201c16,
+    wall: 0x5c5348, cover: 0x4c443a,
+    open: (r) => { const g = 62 + r * 22; return `rgb(${g + 8}, ${g}, ${g - 10})`; }, // regolith
+    water: (r) => `rgb(${30 + r * 8}, ${34 + r * 8}, ${40 + r * 10})`, // tar pool
+  },
+  europa: {
+    sky: 0x08202e, fog: 0x0e2c3e, fogNear: 55, fogFar: 160,
+    sun: 0x9fd8e8, sunIntensity: 1.0, hemiSky: 0x5a90a8, hemiGround: 0x0e2028,
+    wall: 0x8fb2c0, cover: 0x6a92a2,
+    open: (r) => { const g = 120 + r * 24; return `rgb(${g - 40}, ${g - 8}, ${g + 10})`; }, // pale seabed
+    water: (r) => `rgb(${20 + r * 10}, ${120 + r * 30}, ${150 + r * 30})`, // glowing vents
+  },
+  titan: {
+    sky: 0xc08240, fog: 0xb87e42, fogNear: 40, fogFar: 130,
+    sun: 0xffb060, sunIntensity: 1.3, hemiSky: 0xd8a068, hemiGround: 0x5a4428,
+    wall: 0x7a5c3a, cover: 0x6a5232,
+    open: (r) => { const g = 105 + r * 26; return `rgb(${g + 20}, ${g - 20}, ${44 + r * 10})`; }, // methane dunes
+    water: (r) => `rgb(${50 + r * 8}, ${38 + r * 8}, ${24 + r * 6})`, // methane lake
+  },
+  triton: {
+    sky: 0x10161e, fog: 0x1a2430, fogNear: 60, fogFar: 190,
+    sun: 0xd8e8f8, sunIntensity: 0.9, hemiSky: 0x7a90a8, hemiGround: 0x141c24,
+    wall: 0xb8ccd8, cover: 0x8aa2b2,
+    open: (r) => { const g = 150 + r * 30; return `rgb(${g - 24}, ${g - 8}, ${g + 4})`; }, // nitrogen ice
+    water: (r) => `rgb(${16 + r * 6}, ${34 + r * 10}, ${52 + r * 12})`, // crevasse deep
+  },
 };
 
 export class Renderer {
@@ -36,6 +99,53 @@ export class Renderer {
   private cpRings: THREE.Mesh[] = [];
   private hillRing: THREE.Mesh | null = null;
   private nameSprites = new Map<number, THREE.Sprite>();
+  // tunneler support: map tile index → wall/cover instance so digs collapse visually
+  private wallInst: THREE.InstancedMesh | null = null;
+  private coverInst: THREE.InstancedMesh | null = null;
+  private wallInstanceByTile = new Map<number, number>();
+  private coverInstanceByTile = new Map<number, number>();
+  // ---- visual feedback state ----
+  private pingMarkers = new Map<number, THREE.Sprite>();   // revealed enemies get a chevron
+  private pingTexture: THREE.Texture | null = null;
+  private sweepRings: { mesh: THREE.Mesh; born: number }[] = []; // sensor-station radar pulses
+  private nextSweepAt = new Map<number, number>();          // vehicle id → next sweep time
+  private ecmRings = new Map<number, THREE.Mesh>();         // crewed ECM jam-radius rings
+  private nextSmokeAt = new Map<number, number>();          // vehicle id → next damage-smoke puff
+  private wpPillars: THREE.Mesh[] = [];                     // pooled waypoint light pillars
+
+  /** Red chevron sprite texture for revealed-enemy markers (built once). */
+  private getPingTexture(): THREE.Texture {
+    if (this.pingTexture) return this.pingTexture;
+    const cvs = document.createElement('canvas');
+    cvs.width = cvs.height = 64;
+    const ctx = cvs.getContext('2d')!;
+    ctx.fillStyle = '#ff4638';
+    ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(10, 12); ctx.lineTo(54, 12); ctx.lineTo(32, 46); ctx.closePath();
+    ctx.stroke();
+    ctx.fill();
+    const tex = new THREE.CanvasTexture(cvs);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    this.pingTexture = tex;
+    return tex;
+  }
+
+  /** Hide the wall/cover instance on a dug tile (scale to zero). */
+  collapseTile(tileIdx: number) {
+    const zero = new THREE.Matrix4().makeScale(0.0001, 0.0001, 0.0001);
+    const wi = this.wallInstanceByTile.get(tileIdx);
+    if (wi !== undefined && this.wallInst) {
+      this.wallInst.setMatrixAt(wi, zero);
+      this.wallInst.instanceMatrix.needsUpdate = true;
+    }
+    const ci = this.coverInstanceByTile.get(tileIdx);
+    if (ci !== undefined && this.coverInst) {
+      this.coverInst.setMatrixAt(ci, zero);
+      this.coverInst.instanceMatrix.needsUpdate = true;
+    }
+  }
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -57,10 +167,15 @@ export class Renderer {
   }
 
   buildStaticWorld(world: World) {
+    const pal = THEME_PALETTES[world.map.theme] ?? THEME_PALETTES.savanna;
+    // sky + atmosphere per environment
+    this.scene.fog = new THREE.Fog(pal.fog, pal.fogNear, pal.fogFar);
+    this.scene.background = new THREE.Color(pal.sky);
+
     // lights
-    const hemi = new THREE.HemisphereLight(0xcfe0ee, 0x5a5648, 0.85);
+    const hemi = new THREE.HemisphereLight(pal.hemiSky, pal.hemiGround, 0.85);
     this.scene.add(hemi);
-    const sun = new THREE.DirectionalLight(0xffe8c0, 1.6);
+    const sun = new THREE.DirectionalLight(pal.sun, pal.sunIntensity);
     sun.position.set(60, 90, 30);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -80,15 +195,7 @@ export class Renderer {
         const t = world.map.grid[z * GRID + x];
         const n = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453;
         const r = n - Math.floor(n);
-        if (t === T_WATER) {
-          ctx.fillStyle = `rgb(${40 + r * 10}, ${88 + r * 12}, ${110 + r * 14})`;
-        } else {
-          // dry savanna grass with patches
-          const g = 96 + r * 26;
-          ctx.fillStyle = r > 0.82
-            ? `rgb(${g + 18}, ${g - 4}, ${52 + r * 12})`
-            : `rgb(${g - 18}, ${g}, ${54 + r * 14})`;
-        }
+        ctx.fillStyle = t === T_WATER ? pal.water(r) : pal.open(r);
         ctx.fillRect(x * px, z * px, px + 1, px + 1);
       }
     }
@@ -132,7 +239,7 @@ export class Renderer {
         if (t === T_COVER && !propTiles.has(`${x},${z}`)) coverTiles.push([x, z]);
       }
     }
-    const wallMat = new THREE.MeshStandardMaterial({ color: 0x74705f, roughness: 0.9 });
+    const wallMat = new THREE.MeshStandardMaterial({ color: pal.wall, roughness: 0.9 });
     const wallInst = new THREE.InstancedMesh(new THREE.BoxGeometry(TILE, 4, TILE), wallMat, wallTiles.length);
     wallInst.castShadow = true;
     wallInst.receiveShadow = true;
@@ -140,17 +247,23 @@ export class Renderer {
     wallTiles.forEach(([x, z], i) => {
       m4.setPosition((x + 0.5) * TILE - WORLD / 2, 2, (z + 0.5) * TILE - WORLD / 2);
       wallInst.setMatrixAt(i, m4);
+      this.wallInstanceByTile.set(z * GRID + x, i); // so the tunneler can grind it away
     });
     this.scene.add(wallInst);
+    this.wallInst = wallInst;
 
-    const coverMat = new THREE.MeshStandardMaterial({ color: 0x8a7a54, roughness: 0.9 });
+    const coverMat = new THREE.MeshStandardMaterial({ color: pal.cover, roughness: 0.9 });
     const coverInst = new THREE.InstancedMesh(new THREE.BoxGeometry(TILE * 0.95, 1.2, TILE * 0.95), coverMat, Math.max(coverTiles.length, 1));
     coverInst.castShadow = true;
     coverTiles.forEach(([x, z], i) => {
       m4.setPosition((x + 0.5) * TILE - WORLD / 2, 0.6, (z + 0.5) * TILE - WORLD / 2);
       coverInst.setMatrixAt(i, m4);
+      this.coverInstanceByTile.set(z * GRID + x, i);
     });
     this.scene.add(coverInst);
+    this.coverInst = coverInst;
+    // walls the sim already dug (mid-match join) come down immediately
+    for (const idx of world.dug) this.collapseTile(idx);
 
     // props
     for (const p of world.map.props) {
@@ -233,7 +346,7 @@ export class Renderer {
   }
 
   /** Sync all dynamic entities to the sim state, advance FX. */
-  update(world: World, localId: number, dt: number) {
+  update(world: World, localId: number, dt: number, waypoints?: { x: number; z: number; until: number }[]) {
     const local = world.soldiers.get(localId);
     const localTeam = local?.team ?? 0;
 
@@ -244,8 +357,7 @@ export class Renderer {
         mesh = buildSoldier(s.team, s.classId, s.kind);
         // cache the animation joints — getObjectByName every frame is wasteful
         mesh.userData.joints = Object.fromEntries(
-          ['legL', 'legR', 'shinL', 'shinR', 'armL', 'armR', 'head', 'torso', 'gun', 'belly']
-            .map((n) => [n, mesh!.getObjectByName(n)]),
+          JOINT_NAMES.map((n) => [n, mesh!.getObjectByName(n)]),
         );
         this.scene.add(mesh);
         this.soldierMeshes.set(s.id, mesh);
@@ -283,9 +395,99 @@ export class Renderer {
       }
       mesh.visible = v.alive;
       if (!v.alive) continue;
-      const hoverBob = v.kind === 'skiff' ? Math.sin(world.time * 3 + v.id) * 0.15 + 0.3 : 0;
+      // open vehicles show their rider only while someone's actually aboard
+      const rider = mesh.getObjectByName('rider');
+      if (rider) rider.visible = v.seats[0] >= 0;
+      const hoverBob =
+        v.kind === 'skiff' ? Math.sin(world.time * 3 + v.id) * 0.15 + 0.3 :
+        v.kind === 'hoverboard' ? Math.sin(world.time * 4 + v.id) * 0.1 + 0.25 :
+        v.kind === 'flyer' ? Math.sin(world.time * 2.2 + v.id) * 0.25 + 2.2 : // gunships ride high
+        0;
       mesh.position.set(v.pos.x, hoverBob, v.pos.z);
       mesh.rotation.y = -v.yaw;
+      // flyer rotors always turn; tunneler drill grinds while moving
+      if (v.kind === 'flyer') {
+        for (const rn of ['rotorL', 'rotorR']) {
+          const rotor = mesh.getObjectByName(rn);
+          if (rotor) rotor.rotation.y = world.time * 18 + v.id;
+        }
+      }
+      if (v.kind === 'tunneler') {
+        const drill = mesh.getObjectByName('drill');
+        const vSpeed = Math.hypot(v.vel.x, v.vel.z);
+        if (drill) drill.rotation.x += dt * (2 + vSpeed * 3);
+      }
+      // ambulance lightbar + tunneler warning lamp pulse
+      const vPulse = mesh.getObjectByName('pulse') as THREE.Mesh | undefined;
+      const vpm = vPulse?.material as THREE.MeshStandardMaterial | undefined;
+      if (vpm) vpm.emissiveIntensity = 0.6 + 0.4 * Math.sin(world.time * 6 + v.id);
+      // transport radar bar sweeps
+      const radar = mesh.getObjectByName('spin');
+      if (radar) radar.rotation.y = world.time * 2.5;
+      // ambulance heal aura breathes so the radius reads at a glance
+      const healRing = mesh.getObjectByName('healRing') as THREE.Mesh | undefined;
+      if (healRing) {
+        const hm = healRing.material as THREE.MeshBasicMaterial;
+        hm.opacity = 0.18 + 0.14 * Math.sin(world.time * 2.5);
+        healRing.rotation.z = world.time * 0.4;
+      }
+
+      // ---- crew-station feedback ----
+      // a crewed, live sensor station sends visible radar sweeps
+      const sensorOp = world.crewAt(v, 'sensors');
+      if (sensorOp?.alive && v.systems.sensors > 0) {
+        if (world.time >= (this.nextSweepAt.get(v.id) ?? 0)) {
+          this.nextSweepAt.set(v.id, world.time + 2);
+          const ring = new THREE.Mesh(
+            new THREE.RingGeometry(0.92, 1.0, 40),
+            new THREE.MeshBasicMaterial({
+              color: TEAM_COLORS[v.team], transparent: true, opacity: 0.55,
+              side: THREE.DoubleSide, depthWrite: false,
+            }),
+          );
+          ring.rotation.x = -Math.PI / 2;
+          ring.position.set(v.pos.x, 0.15, v.pos.z);
+          this.scene.add(ring);
+          this.sweepRings.push({ mesh: ring, born: world.time });
+        }
+      }
+      // a crewed, live ECM station shows its 14u jamming footprint
+      const ecmOp = world.crewAt(v, 'ecm');
+      const jamming = !!ecmOp?.alive && v.systems.ecm > 0;
+      let ecmRing = this.ecmRings.get(v.id);
+      if (jamming && !ecmRing) {
+        ecmRing = new THREE.Mesh(
+          new THREE.RingGeometry(13.4, 14, 48),
+          new THREE.MeshBasicMaterial({
+            color: 0x66e8ff, transparent: true, opacity: 0.18,
+            side: THREE.DoubleSide, depthWrite: false,
+          }),
+        );
+        ecmRing.rotation.x = -Math.PI / 2;
+        this.scene.add(ecmRing);
+        this.ecmRings.set(v.id, ecmRing);
+      }
+      if (ecmRing) {
+        ecmRing.visible = jamming;
+        if (jamming) {
+          ecmRing.position.set(v.pos.x, 0.12, v.pos.z);
+          (ecmRing.material as THREE.MeshBasicMaterial).opacity = 0.12 + 0.08 * Math.sin(world.time * 3 + v.id);
+        }
+      }
+
+      // ---- battle damage: dead systems smoke, dying hulls burn ----
+      const sysDead = v.systems && (v.systems.engine <= 0 || v.systems.weapon <= 0 ||
+        v.systems.sensors <= 0 || v.systems.ecm <= 0 || v.systems.comms <= 0);
+      const burning = v.hp < v.maxHp * 0.35;
+      if ((sysDead || burning) && world.time >= (this.nextSmokeAt.get(v.id) ?? 0)) {
+        this.nextSmokeAt.set(v.id, world.time + (burning ? 0.18 : 0.4));
+        const at = { x: v.pos.x, y: hoverBob + 1.6, z: v.pos.z };
+        if (sysDead) this.particles.emit({ pos: at, count: 2, color: 0x5a5a5a, speed: 1.2, life: 1.4, spread: 0.7, up: 2.5, gravity: -1.5, size: 0.6 });
+        if (burning) {
+          this.particles.emit({ pos: at, count: 2, color: 0xff8030, speed: 1.5, life: 0.5, spread: 0.5, up: 3 });
+          this.particles.emit({ pos: at, count: 1, color: 0x333333, speed: 1, life: 1.8, spread: 0.5, up: 3, gravity: -2, size: 0.8 });
+        }
+      }
       const turret = mesh.getObjectByName('turret');
       if (turret) turret.rotation.y = -(v.turretYaw - v.yaw);
       // wheels roll with signed ground speed
@@ -404,6 +606,26 @@ export class Renderer {
       mesh.position.set(g.pos.x, g.type === 'drone' || g.type === 'supply_pod' ? g.pos.y : 0, g.pos.z);
       const spin = mesh.getObjectByName('spin');
       if (spin) spin.rotation.z = world.time * 2.2;
+      // spy cameras pan back and forth, watching
+      const camHead = mesh.getObjectByName('camHead');
+      if (camHead) camHead.rotation.y = Math.sin(world.time * 0.7 + g.id) * 0.9;
+      // smoke drifts and thins as it expires; phosphorus flames flicker
+      if (g.type === 'smoke_field') {
+        mesh.rotation.y = world.time * 0.35;
+        const life = Math.min(1, Math.max(0, (g.expiresAt - world.time) / 3));
+        for (const c of mesh.children) {
+          if (c.name !== 'puff') continue;
+          const mm = (c as THREE.Mesh).material as THREE.MeshStandardMaterial;
+          mm.opacity = 0.45 * life;
+          c.position.y += dt * 0.25;
+        }
+      } else if (g.type === 'fire_field') {
+        for (let ci = 0; ci < mesh.children.length; ci++) {
+          const c = mesh.children[ci];
+          if (c.name !== 'flame') continue;
+          c.scale.y = 0.8 + 0.4 * Math.sin(world.time * 9 + ci * 1.7);
+        }
+      }
       if (g.type === 'drone') {
         mesh.rotation.y = -(g.phase ?? 0) - Math.PI / 2;
         mesh.position.y = g.pos.y + Math.sin(world.time * 4 + g.id) * 0.15;
@@ -448,6 +670,87 @@ export class Renderer {
       });
     }
 
+    // ---- sensor sweeps expand and fade ----
+    for (let i = this.sweepRings.length - 1; i >= 0; i--) {
+      const sw = this.sweepRings[i];
+      const age = world.time - sw.born;
+      const k = age / 1.6; // reaches full 28u sensor radius as it dies
+      sw.mesh.scale.setScalar(1 + k * 27);
+      (sw.mesh.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 0.55 * (1 - k));
+      if (k >= 1) {
+        this.scene.remove(sw.mesh);
+        sw.mesh.geometry.dispose();
+        (sw.mesh.material as THREE.Material).dispose();
+        this.sweepRings.splice(i, 1);
+      }
+    }
+    // drop ECM rings whose vehicles died or despawned
+    for (const [vid, ring] of this.ecmRings) {
+      const v = world.vehicles.get(vid);
+      if (!v || !v.alive) {
+        this.scene.remove(ring);
+        ring.geometry.dispose();
+        (ring.material as THREE.Material).dispose();
+        this.ecmRings.delete(vid);
+      }
+    }
+
+    // ---- revealed enemies wear a red chevron (visible through walls) ----
+    for (const s of world.soldiers.values()) {
+      const revealed = s.alive && s.team !== localTeam && world.pinged.has(s.id);
+      let marker = this.pingMarkers.get(s.id);
+      if (revealed && !marker) {
+        marker = new THREE.Sprite(new THREE.SpriteMaterial({
+          map: this.getPingTexture(), transparent: true, depthTest: false, depthWrite: false,
+        }));
+        marker.scale.set(0.9, 0.9, 1);
+        marker.renderOrder = 998;
+        this.scene.add(marker);
+        this.pingMarkers.set(s.id, marker);
+      }
+      if (marker) {
+        marker.visible = revealed;
+        if (revealed) {
+          marker.position.set(s.pos.x, s.pos.y + 2.6 + Math.sin(world.time * 4) * 0.12, s.pos.z);
+          marker.material.opacity = 0.75 + 0.25 * Math.sin(world.time * 5);
+        }
+      }
+    }
+    for (const [id, marker] of this.pingMarkers) {
+      if (!world.soldiers.has(id)) {
+        this.scene.remove(marker);
+        marker.material.dispose();
+        this.pingMarkers.delete(id);
+      }
+    }
+
+    // ---- tactical waypoints: amber light pillars on the field ----
+    if (waypoints) {
+      for (let i = 0; i < Math.min(waypoints.length, 8); i++) {
+        let pillar = this.wpPillars[i];
+        if (!pillar) {
+          pillar = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.35, 0.5, 9, 10, 1, true),
+            new THREE.MeshBasicMaterial({
+              color: 0xffd870, transparent: true, opacity: 0.4,
+              side: THREE.DoubleSide, depthWrite: false,
+            }),
+          );
+          this.scene.add(pillar);
+          this.wpPillars[i] = pillar;
+        }
+        const wp = waypoints[i];
+        const left = wp.until - world.time;
+        pillar.visible = left > 0;
+        pillar.position.set(wp.x, 4.5, wp.z);
+        (pillar.material as THREE.MeshBasicMaterial).opacity =
+          Math.min(0.42, Math.max(0.08, left / 10)) * (0.8 + 0.2 * Math.sin(world.time * 3 + i));
+      }
+      for (let i = waypoints.length; i < this.wpPillars.length; i++) {
+        if (this.wpPillars[i]) this.wpPillars[i].visible = false;
+      }
+    }
+
     // objective ring colors
     if (this.hillRing && world.mode.hillHolder !== undefined) {
       const h = world.mode.hillHolder;
@@ -486,7 +789,7 @@ export class Renderer {
   private animateSoldier(mesh: THREE.Group, s: Soldier, world: World) {
     const j = mesh.userData.joints as Record<string, THREE.Object3D | undefined>;
     const t = world.time;
-    const zed = s.kind !== 'human' && s.kind !== 'bot' && s.kind !== 'scientist';
+    const zed = isUndead(s.kind);
     const speed = Math.hypot(s.vel.x, s.vel.z);
     const moving = speed > 0.6;
 
@@ -502,31 +805,9 @@ export class Renderer {
       return;
     }
 
-    // ---- gait ----
-    const gaitRate = zed
-      ? s.kind === 'sprinter' ? 15 : s.kind === 'brute' ? 4.5 : 6
-      : 5.5 + speed * 0.75;
-    const phase = t * gaitRate + (s.id % 9) * 0.77;
-    const stride = moving
-      ? (s.kind === 'brute' ? 0.75 : s.kind === 'sprinter' ? 0.9 : 0.55) * Math.min(1, speed / 5 + 0.35)
-      : 0;
-    const swing = Math.sin(phase) * stride;
+    // ---- gait + undead reach (shared verbatim with the model harness) ----
     const airborne = s.pos.y > 0.6;
-
-    if (j.legL && j.legR && j.shinL && j.shinR) {
-      if (airborne) {
-        // jetpack tuck
-        j.legL.rotation.z = 0.55;
-        j.legR.rotation.z = 0.3;
-        j.shinL.rotation.z = -0.9;
-        j.shinR.rotation.z = -0.7;
-      } else {
-        j.legL.rotation.z = swing;
-        j.legR.rotation.z = -swing;
-        j.shinL.rotation.z = stride ? -Math.max(0, Math.sin(phase + 0.5)) * 1.0 : 0;
-        j.shinR.rotation.z = stride ? -Math.max(0, -Math.sin(phase + 0.5)) * 1.0 : 0;
-      }
-    }
+    const { phase } = poseSoldierJoints(j, { kind: s.kind, time: t, id: s.id, speed, airborne });
 
     // body: bob while moving, breathe while idle, lean into the run
     const bob = moving ? Math.abs(Math.sin(phase)) * 0.055 : Math.sin(t * 1.8 + s.id) * 0.012;
@@ -534,19 +815,8 @@ export class Renderer {
     const lean = airborne ? -0.3 : -Math.min(speed / 14, 1) * (zed ? 0.18 : 0.09);
     mesh.rotation.z = lean + (s.kind === 'sprinter' ? -0.18 : 0);
 
-    if (zed) {
-      // undead: reaching arms sway, head lolls, brutes lumber
-      const sway = s.kind === 'brute' ? 0.35 : 0.16;
-      if (j.armL) j.armL.rotation.z = (s.kind === 'sprinter' ? -2.2 : -1.35) + Math.sin(phase * 0.55) * sway;
-      if (j.armR) j.armR.rotation.z = (s.kind === 'sprinter' ? -2.0 : -1.05) + Math.cos(phase * 0.5) * sway;
-      if (j.head) j.head.rotation.z = Math.sin(phase * 0.45) * 0.12;
-      if (j.torso) j.torso.rotation.x = Math.sin(phase * 0.5) * (s.kind === 'brute' ? 0.1 : 0.07);
-      if (j.belly) {
-        const pulse = 1 + Math.sin(t * 6) * 0.06;
-        j.belly.scale.setScalar(pulse);
-      }
-    } else if (j.gun) {
-      // rifle recoil kick
+    // rifle recoil kick for the living gunners (undead reach lives in the shared pose)
+    if (!zed && j.gun) {
       const shotAt = this.recoilAt.get(s.id) ?? -1;
       const kick = Math.max(0, 1 - (t - shotAt) / 0.09);
       j.gun.position.x = (j.gun.userData.baseX ?? 0.42) - kick * 0.11;
@@ -640,7 +910,7 @@ export class Renderer {
           break;
         case 'blink':
           if (e.pos) {
-            this.particles.emit({ pos: { ...e.pos, y: 1.2 }, count: 18, color: 0x9a55dd, speed: 4, life: 0.45, spread: 0.5, up: 3, gravity: -2 });
+            this.particles.emit({ pos: { ...e.pos, y: 1.2 }, count: 18, color: 0x3fe0c8, speed: 4, life: 0.45, spread: 0.5, up: 3, gravity: -2 });
             audio.play('blink', { pos: e.pos, volume: 0.8 });
           }
           break;
@@ -653,7 +923,7 @@ export class Renderer {
           break;
         case 'gravlift':
           if (e.pos) {
-            this.particles.emit({ pos: { ...e.pos, y: 0.4 }, count: 14, color: 0x9a66ff, speed: 3, life: 0.5, spread: 0.8, up: 9, gravity: -2 });
+            this.particles.emit({ pos: { ...e.pos, y: 0.4 }, count: 14, color: 0x40d8c0, speed: 3, life: 0.5, spread: 0.8, up: 9, gravity: -2 });
             audio.play('gravlift', { pos: e.pos, volume: 0.7 });
           }
           break;
@@ -692,6 +962,33 @@ export class Renderer {
           break;
         case 'gadget_destroyed':
           if (e.pos) this.particles.emit({ pos: { ...e.pos, y: 1 }, count: 14, color: 0x99a0aa, speed: 6, life: 0.5, spread: 0.5, up: 4 });
+          break;
+        case 'dig':
+          // the tunneler ground a wall to rubble — drop the instance, kick up dust
+          if (e.tile !== undefined) this.collapseTile(e.tile);
+          if (e.pos) {
+            this.particles.emit({ pos: { ...e.pos, y: 1.5 }, count: 26, color: 0x8a7f6a, speed: 5, life: 0.8, spread: 1.2, up: 4, gravity: 6 });
+            audio.play('explosion', { pos: e.pos, volume: 0.5 });
+          }
+          break;
+        case 'system_damaged':
+          if (e.pos) {
+            this.particles.emit({ pos: { ...e.pos, y: 1.6 }, count: 18, color: 0xffc040, speed: 7, life: 0.5, spread: 0.6, up: 4 });
+            audio.play('emp_burst', { pos: e.pos, volume: 0.5 });
+          }
+          break;
+        case 'hacked':
+          if (e.pos) {
+            this.particles.emit({ pos: { ...e.pos, y: 1.2 }, count: 22, color: 0x60ff90, speed: 4, life: 0.6, spread: 0.5, up: 3, gravity: -1 });
+            audio.play('cloak', { pos: e.pos, volume: 0.8 });
+          }
+          break;
+        case 'psi_ping':
+          // your scanner found someone: a teal flare where they are
+          if (e.pos && e.soldierId === localId) {
+            this.particles.emit({ pos: { ...e.pos, y: 1.6 }, count: 12, color: 0x3fe0c8, speed: 2.5, life: 0.7, spread: 0.4, up: 3, gravity: -2 });
+            audio.play('beacon', { volume: 0.5 });
+          }
           break;
         case 'flag_taken': audio.play('flag_taken', { volume: 0.9 }); break;
         case 'flag_captured': audio.play('flag_captured', { volume: 1 }); break;

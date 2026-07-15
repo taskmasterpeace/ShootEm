@@ -1,7 +1,9 @@
-import { CLASSES, MODE_INFO } from './sim/data';
-import { isCoopMode, type ClassId, type ModeId, type PlayerCmd } from './sim/types';
-import { World, type Difficulty } from './sim/world';
+import { CLASSES, EQUIPMENT, MODE_INFO, THEMES, WEAPONS } from './sim/data';
+import { CLASS_ARMORY, familyWeapons } from './sim/arsenal';
+import { isCoopMode, type ClassId, type ModeId, type PlayerCmd, type ThemeId, type WeaponFamily } from './sim/types';
+import { World, type Difficulty, type Loadout } from './sim/world';
 import { audio } from './client/audio';
+import { Chat } from './client/chat';
 import { Hud } from './client/hud';
 import { Input } from './client/input';
 import { Renderer } from './client/renderer';
@@ -22,10 +24,100 @@ const BOT_NAMES = [
 
 let selectedMode: ModeId = 'ctf';
 let selectedClass: ClassId = 'infantry';
+let selectedTheme: ThemeId = 'savanna';
+let selectedEquipment: string[] = [];
 let difficulty: Difficulty = 'veteran';
 let botsPerTeam = 7;
 let matchMinutes = 15;
 let running = false;
+
+/** The player's armory picks (empty string = class issue weapon). */
+function currentLoadout(): Loadout {
+  const primary = ($('primary-select') as HTMLSelectElement).value;
+  const secondary = ($('secondary-select') as HTMLSelectElement).value;
+  return {
+    primary: primary || undefined,
+    secondary: secondary || undefined,
+    equipment: [...selectedEquipment],
+  };
+}
+
+/** Rebuild the armory selects for the chosen class. */
+function buildArmoryMenu() {
+  const primarySel = $('primary-select') as HTMLSelectElement;
+  const secondarySel = $('secondary-select') as HTMLSelectElement;
+  const cls = CLASSES[selectedClass];
+
+  primarySel.innerHTML = '';
+  const issue = document.createElement('option');
+  issue.value = '';
+  issue.textContent = `Issue: ${WEAPONS[cls.primary].name}`;
+  primarySel.appendChild(issue);
+  for (const fam of CLASS_ARMORY[selectedClass]) {
+    const group = document.createElement('optgroup');
+    group.label = fam.replace('_', '-').toUpperCase();
+    for (const w of familyWeapons(WEAPONS, fam as WeaponFamily)) {
+      const o = document.createElement('option');
+      o.value = w.id;
+      o.textContent = w.name;
+      group.appendChild(o);
+    }
+    primarySel.appendChild(group);
+  }
+
+  secondarySel.innerHTML = '';
+  const issue2 = document.createElement('option');
+  issue2.value = '';
+  issue2.textContent = `Issue: ${WEAPONS[cls.secondary].name}`;
+  secondarySel.appendChild(issue2);
+  for (const w of familyWeapons(WEAPONS, 'pistol')) {
+    const o = document.createElement('option');
+    o.value = w.id;
+    o.textContent = w.name;
+    secondarySel.appendChild(o);
+  }
+
+  const stats = $('weapon-stats');
+  const renderStats = () => {
+    const id = primarySel.value || cls.primary;
+    const w = WEAPONS[id];
+    if (!w) { stats.textContent = ''; return; }
+    const dps = Math.round(w.damage * w.pellets * w.rof);
+    stats.innerHTML = `<b>${w.name}</b><br>DMG ${w.damage}${w.pellets > 1 ? `×${w.pellets}` : ''} · ROF ${w.rof}/s · DPS ~${dps}<br>RANGE ${w.range} · CLIP ${Number.isFinite(w.clip) ? w.clip : '∞'}${w.splash ? ` · SPLASH ${w.splash}` : ''}`;
+  };
+  primarySel.onchange = renderStats;
+  renderStats();
+}
+
+/** Equipment grid: pick two. */
+function buildEquipmentMenu() {
+  const row = $('equip-select');
+  row.innerHTML = '';
+  for (const eq of Object.values(EQUIPMENT)) {
+    const card = document.createElement('div');
+    card.className = 'equip-card';
+    card.innerHTML = `<div class="eq-name"><span class="ico">${eq.icon}</span>${eq.name}</div><div class="eq-desc">${eq.desc}</div>`;
+    const sync = () => {
+      card.classList.toggle('selected', selectedEquipment.includes(eq.id));
+      card.classList.toggle('locked', !selectedEquipment.includes(eq.id) && selectedEquipment.length >= 2);
+    };
+    card.onclick = () => {
+      audio.play('ui_click');
+      if (selectedEquipment.includes(eq.id)) {
+        selectedEquipment = selectedEquipment.filter((x) => x !== eq.id);
+      } else if (selectedEquipment.length < 2) {
+        selectedEquipment.push(eq.id);
+      }
+      row.querySelectorAll('.equip-card').forEach((c, i) => {
+        const id = Object.values(EQUIPMENT)[i].id;
+        c.classList.toggle('selected', selectedEquipment.includes(id));
+        c.classList.toggle('locked', !selectedEquipment.includes(id) && selectedEquipment.length >= 2);
+      });
+    };
+    sync();
+    row.appendChild(card);
+  }
+}
 
 function wireSetupControls() {
   const wirePills = (rootId: string, onPick: (v: string) => void) => {
@@ -82,9 +174,30 @@ function buildMenu() {
       audio.play('ui_click');
       classRow.querySelectorAll('.select-card').forEach((el) => el.classList.remove('selected'));
       card.classList.add('selected');
+      buildArmoryMenu(); // armory families follow the class
     };
     classRow.appendChild(card);
   });
+
+  // environments: the war scales the solar system
+  const themeRow = $('theme-select');
+  themeRow.innerHTML = '';
+  (Object.keys(THEMES) as ThemeId[]).forEach((id) => {
+    const t = THEMES[id];
+    const card = document.createElement('div');
+    card.className = `select-card${id === selectedTheme ? ' selected' : ''}`;
+    card.innerHTML = `<div class="icon">${t.icon}</div><div class="name">${t.name}</div><div class="desc">${t.desc}${t.gravity < 22 ? ` Low-g: ${t.gravity} m/s².` : ''}</div>`;
+    card.onclick = () => {
+      selectedTheme = id;
+      audio.play('ui_click');
+      themeRow.querySelectorAll('.select-card').forEach((el) => el.classList.remove('selected'));
+      card.classList.add('selected');
+    };
+    themeRow.appendChild(card);
+  });
+
+  buildArmoryMenu();
+  buildEquipmentMenu();
 }
 
 async function startGame() {
@@ -101,18 +214,23 @@ async function startGame() {
   const renderer = new Renderer(canvas);
   const hud = new Hud();
   const input = new Input(canvas);
+  const chat = new Chat(name);
   hud.show();
+  chat.show();
+  hud.waypointsEnabled = selectedEquipment.some((id) => EQUIPMENT[id]?.waypoints);
+  chat.deliverMail(); // stored messages arrive the moment you deploy
 
   const endGame = () => {
     running = false;
     hud.hide();
+    chat.hide();
     $('menu').classList.remove('hidden');
     window.location.reload(); // clean slate: disposes scene, sockets, listeners
   };
 
   if (serverUrl) {
     // ---- multiplayer ----
-    const net = new NetGame(serverUrl, name, selectedClass, selectedMode);
+    const net = new NetGame(serverUrl, name, selectedClass, selectedMode, currentLoadout(), chat, hud);
     try {
       await net.connect();
     } catch {
@@ -128,8 +246,8 @@ async function startGame() {
 
 function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, endGame: () => void) {
   const seed = (Math.random() * 0xffffffff) >>> 0;
-  const world = new World({ seed, mode: selectedMode, difficulty, botsPerTeam, matchMinutes });
-  const me = world.addSoldier(name, selectedClass, 0, 'human');
+  const world = new World({ seed, mode: selectedMode, difficulty, botsPerTeam, matchMinutes, theme: selectedTheme });
+  const me = world.addSoldier(name, selectedClass, 0, 'human', currentLoadout());
 
   // populate bots
   const classPool: ClassId[] = ['infantry', 'infantry', 'heavy', 'jump', 'engineer', 'medic', 'infiltrator', 'pathfinder', 'ghost'];
@@ -145,7 +263,7 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
 
   renderer.buildStaticWorld(world);
   hud.announce(MODE_INFO[selectedMode].name.toUpperCase(), true, 0);
-  (window as unknown as Record<string, unknown>).__ww = { world, me, renderer }; // debug/testing handle
+  (window as unknown as Record<string, unknown>).__ww = { world, me, renderer, hud }; // debug/testing handle
 
   const FIXED = 1 / 60;
   let acc = 0;
@@ -167,7 +285,7 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     const events = world.takeEvents();
     renderer.applyEvents(events, world, me.id);
     hud.applyEvents(events, world, me.id, world.time);
-    renderer.update(world, me.id, dt);
+    renderer.update(world, me.id, dt, hud.getWaypoints());
     hud.update(world, me.id, input.scoreboardHeld, world.time);
 
     if (world.mode.over) {

@@ -1,13 +1,17 @@
 import { MODE_INFO } from '../sim/data';
 import { applySnapshot, type Snapshot } from '../sim/snapshot';
-import type { ClassId, ModeId, PlayerCmd } from '../sim/types';
-import { World } from '../sim/world';
+import type { ClassId, ModeId, PlayerCmd, ThemeId } from '../sim/types';
+import { World, type Loadout } from '../sim/world';
+import type { Chat } from './chat';
 import type { Hud } from './hud';
 import type { Input } from './input';
 import type { Renderer } from './renderer';
 
-interface WelcomeMsg { t: 'welcome'; id: number; seed: number; mode: ModeId; }
+interface WelcomeMsg { t: 'welcome'; id: number; seed: number; mode: ModeId; theme?: ThemeId; }
 interface SnapMsg { t: 'snap'; snap: Snapshot; }
+interface ChatMsgWire { t: 'chat'; channel: string; from: string; fromTeam: number; text: string; }
+interface MailMsgWire { t: 'mail'; items: { from: string; text: string; at: number }[]; }
+interface WpMsgWire { t: 'wp'; x: number; z: number; by: string; }
 
 /** Multiplayer client: authoritative server snapshots + local dead-reckoning between them. */
 export class NetGame {
@@ -21,6 +25,9 @@ export class NetGame {
     private name: string,
     private classId: ClassId,
     private mode: ModeId,
+    private loadout: Loadout,
+    private chat: Chat,
+    private hud: Hud,
   ) {}
 
   connect(): Promise<void> {
@@ -28,25 +35,45 @@ export class NetGame {
       this.ws = new WebSocket(this.url);
       const timeout = setTimeout(() => { this.ws.close(); reject(new Error('timeout')); }, 5000);
       this.ws.onopen = () => {
-        this.ws.send(JSON.stringify({ t: 'join', name: this.name, classId: this.classId, mode: this.mode }));
+        this.ws.send(JSON.stringify({ t: 'join', name: this.name, classId: this.classId, mode: this.mode, loadout: this.loadout }));
       };
       this.ws.onerror = () => { clearTimeout(timeout); reject(new Error('ws error')); };
       this.ws.onmessage = (ev) => {
-        const msg = JSON.parse(ev.data as string) as WelcomeMsg | SnapMsg;
+        const msg = JSON.parse(ev.data as string) as WelcomeMsg | SnapMsg | ChatMsgWire | MailMsgWire | WpMsgWire;
         if (msg.t === 'welcome') {
           clearTimeout(timeout);
           this.myId = msg.id;
-          this.world = new World({ seed: msg.seed, mode: msg.mode });
+          this.world = new World({ seed: msg.seed, mode: msg.mode, theme: msg.theme });
           this.world.puppet = true;
           // clear locally-generated entities — server state is the truth
           this.world.soldiers.clear();
           this.world.vehicles.clear();
           this.world.pickups.clear();
           this.world.takeEvents();
+          // comms flow through the server once online
+          this.chat.onSend = (m) => {
+            if (this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify({ t: 'chat', channel: m.channel, text: m.text }));
+          };
+          this.chat.onMail = (to, text) => {
+            if (this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify({ t: 'mail', to, text }));
+            this.chat.push({ channel: 'SYS', from: '', text: `Message stored for ${to} on the server.`, system: true });
+          };
+          this.hud.onWaypoint = (x, z) => {
+            if (this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify({ t: 'wp', x, z }));
+          };
           resolve();
         } else if (msg.t === 'snap' && this.world) {
           applySnapshot(this.world, msg.snap);
           this.pendingEvents.push(...msg.snap.events);
+        } else if (msg.t === 'chat' && this.world) {
+          // TEAM channel only reaches teammates; customs reach subscribers
+          const me = this.world.soldiers.get(this.myId);
+          if (msg.channel === 'TEAM' && me && msg.fromTeam !== me.team) return;
+          if (this.chat.subscribed(msg.channel)) this.chat.push({ channel: msg.channel, from: msg.from, text: msg.text });
+        } else if (msg.t === 'mail') {
+          this.chat.deliverServerMail(msg.items);
+        } else if (msg.t === 'wp') {
+          this.hud.addWaypoint(msg.x, msg.z, msg.by);
         }
       };
     });
@@ -92,7 +119,7 @@ export class NetGame {
       this.pendingEvents = [];
       renderer.applyEvents(events, world, this.myId);
       hud.applyEvents(events, world, this.myId, world.time);
-      renderer.update(world, this.myId, dt);
+      renderer.update(world, this.myId, dt, hud.getWaypoints());
       if (me) hud.update(world, this.myId, input.scoreboardHeld, world.time);
 
       if (world.mode.over) {

@@ -155,6 +155,23 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
   if (s.vehicleId >= 0) {
     const v = w.vehicles.get(s.vehicleId);
     if (!v || !v.alive) return cmd;
+    const vdef = VEHICLES[v.kind];
+    const wdef = vdef.weapon ? WEAPONS[vdef.weapon] : undefined;
+
+    // manning an emplacement gun: hold, traverse, fire; walk away if it's quiet
+    if (vdef.immobile) {
+      const target = wdef ? findTarget(w, s, wdef.range) : null;
+      if (target && wdef) {
+        s.botRepathAt = w.time + 8;
+        cmd.aimYaw = leadYaw(v.pos, target, wdef.speed) + (w.rng.next() - 0.5) * 0.04;
+        cmd.fire = true;
+      } else if (w.time >= (s.botRepathAt ?? 0)) {
+        cmd.use = true; // bored — back to the war
+      }
+      return cmd;
+    }
+
+    // unarmed utility rides (ambulance/tunneler/hoverboard): drive to objective, hop out
     const goal = objectiveFor(w, s);
     const dGoal = Math.hypot(goal.x - v.pos.x, goal.z - v.pos.z);
     if (dGoal < 14 && v.kind !== 'tank') { cmd.use = true; return cmd; } // disembark near objective
@@ -164,18 +181,22 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     while (dy < -Math.PI) dy += Math.PI * 2;
     cmd.moveX = Math.max(-1, Math.min(1, dy * 2));
     cmd.moveZ = Math.abs(dy) < 1.1 ? -1 : -0.25; // forward
-    const target = findTarget(w, s, WEAPONS[VEHICLES[v.kind].weapon].range);
-    if (target) {
-      const lead = leadYaw(v.pos, target, WEAPONS[VEHICLES[v.kind].weapon].speed);
-      cmd.aimYaw = lead + (w.rng.next() - 0.5) * 0.05;
-      cmd.fire = true;
+    if (wdef) {
+      const target = findTarget(w, s, wdef.range);
+      if (target) {
+        const lead = leadYaw(v.pos, target, wdef.speed);
+        cmd.aimYaw = lead + (w.rng.next() - 0.5) * 0.05;
+        cmd.fire = true;
+      } else {
+        cmd.aimYaw = v.yaw;
+        const ev = enemyVehicleNear(w, s, wdef.range);
+        if (ev) {
+          cmd.aimYaw = Math.atan2(ev.pos.z - v.pos.z, ev.pos.x - v.pos.x);
+          cmd.fire = true;
+        }
+      }
     } else {
       cmd.aimYaw = v.yaw;
-      const ev = enemyVehicleNear(w, s, WEAPONS[VEHICLES[v.kind].weapon].range);
-      if (ev) {
-        cmd.aimYaw = Math.atan2(ev.pos.z - v.pos.z, ev.pos.x - v.pos.x);
-        cmd.fire = true;
-      }
     }
     return cmd;
   }
@@ -184,11 +205,19 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
   const goal = objectiveFor(w, s);
   const dGoal = Math.hypot(goal.x - s.pos.x, goal.z - s.pos.z);
 
-  // --- consider grabbing a vehicle for long trips (not in survival) ---
+  // --- consider grabbing an ARMED vehicle for long trips (not in survival) ---
   if (!target && dGoal > 45 && w.opts.mode !== 'survival' && w.rng.next() < 0.02) {
     for (const v of w.vehicles.values()) {
       if (!v.alive || v.team !== s.team || v.seats[0] >= 0) continue;
+      if (!VEHICLES[v.kind].weapon || VEHICLES[v.kind].immobile) continue; // bots skip utility rides
       if (Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z) < 10) { cmd.use = true; break; }
+    }
+  }
+  // --- man an empty emplacement gun when enemies are pressing ---
+  if (target && w.rng.next() < 0.01) {
+    for (const v of w.vehicles.values()) {
+      if (!v.alive || v.team !== s.team || !VEHICLES[v.kind].immobile || v.seats[0] >= 0) continue;
+      if (Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z) < 6) { cmd.use = true; break; }
     }
   }
 

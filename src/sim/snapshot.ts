@@ -1,3 +1,4 @@
+import { T_OPEN } from './map';
 import type { Gadget, Mine, ModeState, Pickup, Projectile, SimEvent, Soldier, Turret, Vehicle } from './types';
 import type { World } from './world';
 
@@ -13,6 +14,10 @@ export interface Snapshot {
   mines: Mine[];
   gadgets: Gadget[];
   pinged: number[];
+  /** soldier ids hidden in smoke */
+  smoked: number[];
+  /** tile indices the tunneler has ground open (cumulative) */
+  dug: number[];
   events: SimEvent[];
 }
 
@@ -41,6 +46,8 @@ export function takeSnapshot(w: World, events: SimEvent[]): Snapshot {
     mines: [...w.mines.values()],
     gadgets: [...w.gadgets.values()].map((g) => ({ ...g, hp: encNum(g.hp), maxHp: encNum(g.maxHp), expiresAt: encNum(g.expiresAt) })),
     pinged: [...w.pinged],
+    smoked: [...w.smoked],
+    dug: w.dug,
     events,
   };
 }
@@ -75,6 +82,12 @@ export function applySnapshot(w: World, snap: Snapshot) {
   syncMap(w.mines, snap.mines);
   syncMap(w.gadgets, snap.gadgets.map((g) => ({ ...g, hp: decNum(g.hp), maxHp: decNum(g.maxHp), expiresAt: decNum(g.expiresAt) })));
   w.pinged = new Set(snap.pinged);
+  w.smoked = new Set(snap.smoked ?? []);
+  // tunneler damage is cumulative — grind the puppet's grid to match
+  if (snap.dug && snap.dug.length !== w.dug.length) {
+    for (const idx of snap.dug) w.map.grid[idx] = T_OPEN;
+    w.dug = [...snap.dug];
+  }
 }
 
 function syncMap<T extends { id: number }>(map: Map<number, T>, arr: T[]) {
