@@ -5,7 +5,7 @@ import { World, type Loadout } from '../sim/world';
 import type { Chat } from './chat';
 import type { Hud } from './hud';
 import type { Input } from './input';
-import { MATCH_LINGER_NET_MS, ReplayDirector } from './replay';
+import { KILLCAM_CAM, MATCH_LINGER_NET_MS, ReplayDirector } from './replay';
 import type { Renderer } from './renderer';
 
 interface WelcomeMsg { t: 'welcome'; id: number; seed: number; mode: ModeId; theme?: ThemeId; }
@@ -129,7 +129,8 @@ export class NetGame {
       }
       if (!replaying) renderer.applyEvents(events, world, this.myId);
       renderer.replayView = replaying;
-      renderer.camDist = input.camDist;
+      // killcam pulls in tight on the fight; otherwise the player's wheel zoom
+      renderer.camDist = replaying && this.director?.killcamActive ? KILLCAM_CAM : input.camDist;
       // grenade throw preview: hold G → arc + landing ring at the cursor
       renderer.setGrenadePreview(world, me, !replaying && input.grenadeAiming ? input.aimPoint(renderer.camera) : null);
       renderer.update(cut.renderWorld, this.myId, dt, hud.getWaypoints());

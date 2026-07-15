@@ -8,7 +8,7 @@ import { Hud } from './client/hud';
 import { Input } from './client/input';
 import { Renderer } from './client/renderer';
 import { NetGame } from './client/net';
-import { MATCH_LINGER_LOCAL_MS, ReplayDirector } from './client/replay';
+import { KILLCAM_CAM, MATCH_LINGER_LOCAL_MS, ReplayDirector } from './client/replay';
 
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -306,7 +306,8 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     // getting present-time explosions would show phantom battles
     if (!replaying) renderer.applyEvents(events, world, me.id);
     renderer.replayView = replaying;
-    renderer.camDist = input.camDist;
+    // killcam pulls in tight on the fight; otherwise the player's wheel zoom
+    renderer.camDist = replaying && director.killcamActive ? KILLCAM_CAM : input.camDist;
     // grenade throw preview: hold G → arc + landing ring at the cursor
     renderer.setGrenadePreview(world, me, !replaying && input.grenadeAiming ? input.aimPoint(renderer.camera) : null);
     renderer.update(renderWorld, me.id, dt, hud.getWaypoints());

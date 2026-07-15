@@ -14,9 +14,14 @@ const EMPTY_CMDS = new Map<number, PlayerCmd>();
 
 export const REPLAY_HZ = 10;       // snapshot cadence
 export const REPLAY_KEEP_S = 14;   // ring depth in seconds
-/** Killcam length: must fit inside RESPAWN_DELAY (4s in world.ts) with room
- *  to spare, or the respawn cuts playback before the kill is ever shown. */
-export const KILLCAM_S = 3.4;
+/** Killcam footage length. Played in SLOW MOTION (KILLCAM_SPEED), so the
+ *  realtime viewing window is KILLCAM_S / KILLCAM_SPEED — that must fit inside
+ *  RESPAWN_DELAY (4s in world.ts) with room to spare, or the respawn cuts
+ *  playback before the kill is ever shown. 1.8s / 0.5 = 3.6s of viewing. */
+export const KILLCAM_S = 1.8;
+export const KILLCAM_SPEED = 0.5;
+/** Killcam camera: pulled in tight on the fight instead of the player's zoom. */
+export const KILLCAM_CAM = 14;
 export const HIGHLIGHTS_S = 10;
 
 /** Post-match linger before returning to the menu. The multiplayer client
@@ -62,6 +67,8 @@ export class ReplayPlayer {
   active = false;
   label = '';
   loop = false;
+  /** playback rate — 1 realtime, <1 slow motion (the killcam runs at 0.5×) */
+  speed = 1;
   private frames: ReplayFrame[] = [];
   private idx = 0;
   private clock = 0; // playback time, in recorded-world seconds
@@ -70,11 +77,12 @@ export class ReplayPlayer {
     this.world = createPuppetWorld(seed, mode, theme);
   }
 
-  start(frames: ReplayFrame[], label: string, loop = false) {
+  start(frames: ReplayFrame[], label: string, loop = false, speed = 1) {
     if (frames.length < 2) return; // nothing worth replaying
     this.frames = frames;
     this.label = label;
     this.loop = loop;
+    this.speed = speed;
     this.idx = 0;
     this.clock = frames[0].t;
     this.active = true;
@@ -100,7 +108,8 @@ export class ReplayPlayer {
    *  they land ~0.13s apart, and assuming 0.1 played footage fast). */
   tick(dt: number): boolean {
     if (!this.active) return false;
-    this.clock += dt;
+    const rdt = dt * this.speed; // slow motion scales the whole puppet world
+    this.clock += rdt;
     while (this.idx + 1 < this.frames.length && this.frames[this.idx + 1].t <= this.clock) {
       this.apply(this.idx + 1);
     }
@@ -113,7 +122,7 @@ export class ReplayPlayer {
       this.apply(0);
     }
     // dead-reckon between snapshots so motion stays smooth
-    this.world.step(dt, EMPTY_CMDS);
+    this.world.step(rdt, EMPTY_CMDS);
     return true;
   }
 }
@@ -137,6 +146,11 @@ export class ReplayDirector {
     return this.player.active && this.player.loop;
   }
 
+  /** True while the slow-mo killcam plays — the caller pulls the camera in tight. */
+  get killcamActive(): boolean {
+    return this.player.active && !this.player.loop;
+  }
+
   /**
    * Call once per frame after the live world has stepped. Returns the world
    * to render and the banner text (null = hide). While highlights roll, the
@@ -146,9 +160,9 @@ export class ReplayDirector {
     const me = world.soldiers.get(meId);
     if (!this.highlightsRolling) this.recorder.record(world);
 
-    // killcam: your final seconds while the respawn timer runs
+    // killcam: your final seconds in slow motion while the respawn timer runs
     if (me && !me.alive && this.wasAlive && !world.mode.over && this.recorder.depth > 2) {
-      this.player.start(this.recorder.clip(KILLCAM_S), '☠ Killcam');
+      this.player.start(this.recorder.clip(KILLCAM_S), '☠ Killcam', false, KILLCAM_SPEED);
     }
     if (me && me.alive && !this.wasAlive && !this.player.loop) {
       this.player.stop();
