@@ -19,6 +19,7 @@ All captured from live matches (regenerate any time with `node tools/capture-scr
 | <img src="docs/screenshots/tank-assault.jpg" width="100%" /><br>**Ares Battle Tank** — 650 armor, 120mm cannon | <img src="docs/screenshots/jump-gate.jpg" width="100%" /><br>**Jump gate + warp beacon** — Tribes-style teleport tech |
 | <img src="docs/screenshots/zombie-survival.jpg" width="100%" /><br>**Zombie Survival** — squad holds a bunker gate | <img src="docs/screenshots/phase-stalker.jpg" width="100%" /><br>**Phase Stalker** — blinks through walls at you |
 | <img src="docs/screenshots/conquest-point.jpg" width="100%" /><br>**Conquest** — sentry fortifying point B | <img src="docs/screenshots/scoreboard.jpg" width="100%" /><br>**Scoreboard** — kills, deaths, score by team |
+| <img src="docs/screenshots/weapon-rounds.jpg" width="100%" /><br>**Distinct rounds** — rocket, plasma, rail, slug, acid all read differently | <img src="docs/screenshots/ragdolls.jpg" width="100%" /><br>**Ragdoll deaths** — bodies tip and go limp toward the killing blow |
 
 ## Quick start
 
@@ -196,7 +197,7 @@ The sim is deterministic and shared verbatim by the offline game, the client's d
 
 ## Sounds
 
-All 43 sound effects are **synthesized from scratch** by [`tools/gen-sounds.mjs`](tools/gen-sounds.mjs) (noise bursts, filtered sweeps, arpeggio stingers — no samples) and dedicated to the **public domain (CC0 1.0)**. See [public/audio/LICENSE-CC0.txt](public/audio/LICENSE-CC0.txt).
+All 53 sound effects are **synthesized from scratch** by [`tools/gen-sounds.mjs`](tools/gen-sounds.mjs) (layered attack transients, noise cracks, filtered sweeps, arpeggio stingers — no samples) and dedicated to the **public domain (CC0 1.0)**. Each of the eight classes has its own death cry, pitched and gear-signed to that soldier. See [public/audio/LICENSE-CC0.txt](public/audio/LICENSE-CC0.txt).
 
 ## Lineage
 

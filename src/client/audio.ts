@@ -9,6 +9,9 @@ export const SOUND_NAMES = [
   'wave_start', 'victory', 'defeat', 'ui_click', 'spawn',
   'impulse', 'warp', 'blink', 'emp_burst', 'gravlift', 'beacon', 'orbital_charge',
   'footstep', 'growl',
+  // per-class death cries (see tools/gen-sounds.mjs)
+  'death_infantry', 'death_heavy', 'death_jump', 'death_engineer',
+  'death_medic', 'death_infiltrator', 'death_pathfinder', 'death_ghost',
 ] as const;
 export type SoundName = (typeof SOUND_NAMES)[number];
 

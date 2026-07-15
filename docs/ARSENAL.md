@@ -160,7 +160,7 @@ see the fight ahead, not the ground behind you. Flyers spool their rotors for
 
 ## The Sound Lab
 
-The harness (`/harness.html`) carries a Sound Lab: audition all 43 CC0
+The harness (`/harness.html`) carries a Sound Lab: audition all 53 CC0
 sounds, set per-sound volume and pitch (saved), or **replace any sound with
 your own audio file** (wav/mp3/ogg — stored in your browser). The game honors
 every change on every launch; ↺ restores stock.

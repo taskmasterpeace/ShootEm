@@ -1399,12 +1399,22 @@ export class World {
       }
       // bombers go out with a bang — hurts whoever is close on the other team
       if (victim.kind === 'bomber') this.bomberDetonate(victim);
+      // ragdoll fall direction: away from the killing blow (or the victim's own
+      // facing for suicides / environment kills)
+      let fx = Math.cos(victim.yaw), fz = Math.sin(victim.yaw);
+      if (attacker && attacker.id !== victim.id) {
+        const dx = victim.pos.x - attacker.pos.x, dz = victim.pos.z - attacker.pos.z;
+        const d = Math.hypot(dx, dz) || 1;
+        fx = dx / d; fz = dz / d;
+      }
       this.emit({
         type: 'death', pos: { ...victim.pos }, soldierId: victim.id,
         killerName: attacker && attacker.id !== victim.id ? attacker.name : undefined,
         victimName: victim.name,
         killerTeam: attacker?.team,
         weaponName: WEAPONS[weapon]?.name,
+        classId: victim.kind === 'human' || victim.kind === 'bot' ? victim.classId : undefined,
+        fallX: fx, fallZ: fz,
       });
     }
   }

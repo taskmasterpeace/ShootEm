@@ -327,6 +327,11 @@ export interface SimEvent {
   system?: SystemId;
   /** grid tile index for 'dig' */
   tile?: number;
+  /** victim's class on 'death' (human/bot only) — picks the class death cry */
+  classId?: ClassId;
+  /** normalized fall direction on 'death' — the ragdoll tips this way */
+  fallX?: number;
+  fallZ?: number;
 }
 
 export interface ModeState {

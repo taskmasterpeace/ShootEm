@@ -86,6 +86,56 @@ function drive(b, gain) {
   return b;
 }
 
+// sharp attack transient — the crack that makes a gunshot read as a gunshot
+function addClick(b, { amp = 1, dur = 0.005, freq = 3200 } = {}) {
+  const s1 = Math.min(b.length, Math.floor(dur * SR));
+  for (let i = 0; i < s1; i++) {
+    const env = 1 - i / s1;
+    b[i] += (nrand() * 0.55 + Math.sin((2 * Math.PI * freq * i) / SR) * 0.45) * amp * env * env;
+  }
+  return b;
+}
+
+// mix one buffer into another at a start time
+function mix(dst, src, { gain = 1, start = 0 } = {}) {
+  const s0 = Math.floor(start * SR);
+  for (let i = 0; i < src.length && s0 + i < dst.length; i++) dst[s0 + i] += src[i] * gain;
+  return dst;
+}
+
+// cheap ambience tail: a few decaying delayed copies add size (explosions)
+function tail(b, { delay = 0.06, feedback = 0.4, taps = 3 } = {}) {
+  const d = Math.max(1, Math.floor(delay * SR));
+  const out = b.slice();
+  for (let tp = 1; tp <= taps; tp++) {
+    const g = Math.pow(feedback, tp);
+    const off = d * tp;
+    for (let i = 0; i + off < b.length; i++) out[i + off] += b[i] * g;
+  }
+  return out;
+}
+
+// layered gunshot: attack click + noise crack (body) + pitched-down thud (punch)
+function gunshot({ dur = 0.28, clickAmp = 1, clickFreq = 3500, crackAmp = 1, crackDecay = 30,
+  thudFreq = 210, thudEnd = 60, thudAmp = 0.8, thudDecay = 22, lp = 5200, driveAmt = 2.2 } = {}) {
+  const b = buf(dur);
+  addClick(b, { amp: clickAmp, freq: clickFreq });
+  addNoise(b, { amp: crackAmp, decay: crackDecay });
+  addTone(b, { freq: thudFreq, freqEnd: thudEnd, amp: thudAmp, decay: thudDecay });
+  return drive(lowpass(b, lp), driveAmt);
+}
+
+// a class death cry: a pained grunt (pitch = the voice) + a per-class gear
+// signature, so you can hear WHO went down.
+function classDeath({ hi, lo, amp = 0.7, shape = 'saw', dur = 0.7, gear }) {
+  const b = buf(dur);
+  addTone(b, { freq: hi, freqEnd: lo, amp, decay: 5, shape });
+  addTone(b, { freq: hi * 1.5, freqEnd: lo * 1.5, amp: amp * 0.28, decay: 6 }); // formant
+  addNoise(b, { amp: 0.18, decay: 7 }); // breath
+  if (gear) gear(b);
+  return lowpass(b, 2400);
+}
+
 function normalize(b, peak = 0.9) {
   let max = 0;
   for (const v of b) max = Math.max(max, Math.abs(v));
@@ -112,55 +162,38 @@ function writeWav(name, b) {
 
 console.log('Generating War World CC0 sound pack →', OUT);
 
-// gunshots: noise crack + low thud
-writeWav('rifle', (() => {
-  let b = buf(0.3);
-  addNoise(b, { amp: 1, decay: 30 });
-  addTone(b, { freq: 220, freqEnd: 60, amp: 0.8, decay: 22 });
-  return drive(lowpass(b, 5200), 2.2);
+// gunshots: layered attack click + noise crack + pitched-down thud
+writeWav('rifle', gunshot({ dur: 0.3, clickFreq: 4200, crackDecay: 30, thudFreq: 220, thudAmp: 0.8, lp: 5600, driveAmt: 2.4 }));
+writeWav('smg', gunshot({ dur: 0.15, clickFreq: 5200, crackAmp: 0.95, crackDecay: 52, thudFreq: 340, thudAmp: 0.5, lp: 7000, driveAmt: 2 }));
+writeWav('pistol', gunshot({ dur: 0.2, clickFreq: 4600, crackDecay: 42, thudFreq: 280, thudAmp: 0.6, lp: 5000, driveAmt: 1.9 }));
+writeWav('shotgun', (() => { // heavy boom: click + long low body + shot spray
+  let b = gunshot({ dur: 0.5, clickAmp: 1.2, clickFreq: 2400, crackAmp: 1.2, crackDecay: 13, thudFreq: 125, thudAmp: 1, thudDecay: 11, lp: 3400, driveAmt: 2.6 });
+  addNoise(b, { amp: 0.4, decay: 22, start: 0.02 }); // pellet hiss
+  return b;
+})());
+writeWav('autocannon', (() => { // mechanical heavy cannon
+  let b = gunshot({ dur: 0.28, clickAmp: 1.1, clickFreq: 2600, crackAmp: 1.05, crackDecay: 22, thudFreq: 150, thudAmp: 1, thudDecay: 17, lp: 3000, driveAmt: 2.5 });
+  addTone(b, { freq: 300, freqEnd: 120, amp: 0.3, decay: 30, shape: 'square' }); // action clank
+  return b;
 })());
 
-writeWav('smg', (() => {
-  let b = buf(0.18);
-  addNoise(b, { amp: 1, decay: 46 });
-  addTone(b, { freq: 320, freqEnd: 90, amp: 0.6, decay: 34 });
-  return drive(lowpass(b, 6400), 2);
-})());
-
-writeWav('pistol', (() => {
-  let b = buf(0.22);
-  addNoise(b, { amp: 0.9, decay: 40 });
-  addTone(b, { freq: 260, freqEnd: 80, amp: 0.7, decay: 30 });
-  return drive(lowpass(b, 4800), 1.8);
-})());
-
-writeWav('shotgun', (() => {
-  let b = buf(0.5);
-  addNoise(b, { amp: 1.2, decay: 14 });
-  addTone(b, { freq: 130, freqEnd: 45, amp: 1, decay: 12 });
-  return drive(lowpass(b, 3400), 2.6);
-})());
-
-writeWav('autocannon', (() => {
-  let b = buf(0.26);
-  addNoise(b, { amp: 1, decay: 24 });
-  addTone(b, { freq: 160, freqEnd: 50, amp: 1, decay: 18 });
-  return drive(lowpass(b, 3000), 2.4);
-})());
-
-writeWav('rail', (() => {
+writeWav('rail', (() => { // electric snap → descending zap tail
   let b = buf(0.7);
-  addTone(b, { freq: 2400, freqEnd: 240, amp: 0.9, decay: 7, shape: 'saw' });
-  addTone(b, { freq: 1200, freqEnd: 90, amp: 0.6, decay: 9 });
-  addNoise(b, { amp: 0.5, decay: 18 });
-  return drive(highpass(b, 300), 1.6);
+  addClick(b, { amp: 1, freq: 6000 });
+  addTone(b, { freq: 2600, freqEnd: 240, amp: 0.9, decay: 7, shape: 'saw' });
+  addTone(b, { freq: 1300, freqEnd: 90, amp: 0.55, decay: 9 });
+  addTone(b, { freq: 60, freqEnd: 40, amp: 0.5, decay: 10, shape: 'sine' }); // recoil thud
+  addNoise(b, { amp: 0.45, decay: 20 });
+  return drive(highpass(b, 220), 1.7);
 })());
 
-writeWav('rocket', (() => {
-  let b = buf(0.9);
-  addNoise(b, { amp: 0.9, decay: 3.2 });
-  addTone(b, { freq: 90, freqEnd: 55, amp: 0.5, decay: 3, shape: 'saw' });
-  return lowpass(b, 1800);
+writeWav('rocket', (() => { // ignition whoosh + rumbling motor
+  let b = buf(0.95);
+  addClick(b, { amp: 0.8, freq: 1600 });
+  addNoise(b, { amp: 0.95, decay: 3 });
+  addTone(b, { freq: 95, freqEnd: 50, amp: 0.55, decay: 2.6, shape: 'saw' });
+  addTone(b, { freq: 190, freqEnd: 110, amp: 0.3, decay: 3, shape: 'saw' }); // motor harmonic
+  return lowpass(b, 2000);
 })());
 
 writeWav('thump', (() => { // grenade launcher
@@ -170,18 +203,23 @@ writeWav('thump', (() => { // grenade launcher
   return lowpass(b, 900);
 })());
 
-writeWav('cannon', (() => {
+writeWav('cannon', (() => { // 120mm: crack → deep boom → tail
   let b = buf(1.1);
+  addClick(b, { amp: 1.3, freq: 1800 });
   addNoise(b, { amp: 1.3, decay: 6 });
-  addTone(b, { freq: 70, freqEnd: 28, amp: 1.3, decay: 4.5 });
-  return drive(lowpass(b, 1500), 3);
+  addTone(b, { freq: 72, freqEnd: 28, amp: 1.3, decay: 4.5 });
+  addTone(b, { freq: 40, freqEnd: 20, amp: 1.2, decay: 3, shape: 'sine' }); // sub
+  return tail(drive(lowpass(b, 1600), 3), { delay: 0.07, feedback: 0.3, taps: 2 });
 })());
 
-writeWav('plasma', (() => {
+writeWav('plasma', (() => { // ring-modulated energy bolt
   let b = buf(0.32);
+  addClick(b, { amp: 0.5, freq: 2600 });
   addTone(b, { freq: 880, freqEnd: 320, amp: 0.8, decay: 12, shape: 'square' });
   addTone(b, { freq: 1320, freqEnd: 480, amp: 0.4, decay: 16 });
-  return lowpass(b, 5200);
+  // ring mod for a synthetic 'zwip'
+  for (let i = 0; i < b.length; i++) b[i] *= 0.7 + 0.3 * Math.sin((2 * Math.PI * 140 * i) / SR);
+  return lowpass(b, 5400);
 })());
 
 writeWav('flame', (() => {
@@ -219,9 +257,10 @@ writeWav('acid', (() => {
 })());
 
 // impacts & explosions
-writeWav('hit', (() => {
+writeWav('hit', (() => { // flesh/armor thwack
   let b = buf(0.12);
-  addNoise(b, { amp: 0.9, decay: 60 });
+  addClick(b, { amp: 0.7, freq: 2400 });
+  addNoise(b, { amp: 0.85, decay: 60 });
   addTone(b, { freq: 400, freqEnd: 180, amp: 0.4, decay: 45 });
   return lowpass(b, 4200);
 })());
@@ -229,30 +268,63 @@ writeWav('hit', (() => {
 writeWav('hitmarker', (() => {
   let b = buf(0.09);
   addTone(b, { freq: 1600, amp: 0.6, decay: 55, shape: 'triangle' });
+  addTone(b, { freq: 2400, amp: 0.3, decay: 60, shape: 'triangle' });
   return b;
 })());
 
-writeWav('explosion', (() => {
-  let b = buf(1.5);
-  addNoise(b, { amp: 1.4, decay: 4 });
-  addTone(b, { freq: 60, freqEnd: 24, amp: 1.5, decay: 2.8 });
-  return drive(lowpass(b, 900), 3.2);
+writeWav('explosion', (() => { // crack → body → sub → debris crackle → tail
+  let b = buf(1.6);
+  addClick(b, { amp: 1, freq: 1400 });
+  addNoise(b, { amp: 1.4, decay: 4.5 });
+  addTone(b, { freq: 90, freqEnd: 26, amp: 1.4, decay: 3 });
+  addTone(b, { freq: 46, freqEnd: 20, amp: 1.6, decay: 2, shape: 'sine' }); // sub-bass
+  for (let i = 0; i < 9; i++) addNoise(b, { amp: 0.28, decay: 42, start: 0.09 + i * 0.05 }); // debris
+  return tail(drive(lowpass(b, 1000), 3.2), { delay: 0.08, feedback: 0.32 });
 })());
 
-writeWav('explosion_big', (() => {
-  let b = buf(2.4);
+writeWav('explosion_big', (() => { // deeper, longer, more debris + a second concussion
+  let b = buf(2.6);
+  addClick(b, { amp: 1.3, freq: 1000 });
   addNoise(b, { amp: 1.5, decay: 2.4 });
-  addTone(b, { freq: 50, freqEnd: 18, amp: 1.8, decay: 1.6 });
-  addNoise(b, { amp: 0.5, decay: 5, start: 0.25 });
-  return drive(lowpass(b, 700), 3.6);
+  addTone(b, { freq: 52, freqEnd: 18, amp: 1.8, decay: 1.6 });
+  addTone(b, { freq: 34, freqEnd: 16, amp: 1.7, decay: 1.2, shape: 'sine' }); // deep sub
+  addNoise(b, { amp: 0.55, decay: 4, start: 0.22 }); // second concussion
+  for (let i = 0; i < 14; i++) addNoise(b, { amp: 0.3, decay: 30, start: 0.15 + i * 0.06 }); // rubble
+  return tail(drive(lowpass(b, 760), 3.6), { delay: 0.11, feedback: 0.38, taps: 4 });
 })());
 
-writeWav('death', (() => {
-  let b = buf(0.6);
-  addTone(b, { freq: 300, freqEnd: 80, amp: 0.7, decay: 5, shape: 'saw' });
-  addNoise(b, { amp: 0.35, decay: 8 });
-  return lowpass(b, 1400);
-})());
+// generic death (zombies / fallback) — a pained gurgle
+writeWav('death', classDeath({ hi: 300, lo: 80, amp: 0.7, shape: 'saw', dur: 0.6 }));
+
+// ---- per-class death cries: each voice + gear signature is distinct ----
+writeWav('death_infantry', classDeath({ hi: 210, lo: 85, gear: (b) => { // grunt + gear rattle
+  addNoise(b, { amp: 0.25, decay: 40, start: 0.28 }); addNoise(b, { amp: 0.2, decay: 45, start: 0.4 });
+} }));
+writeWav('death_heavy', classDeath({ hi: 128, lo: 46, amp: 0.9, dur: 0.85, gear: (b) => { // deep groan + armor clang
+  addTone(b, { freq: 180, freqEnd: 70, amp: 0.5, decay: 6, start: 0.32, shape: 'square' });
+  addNoise(b, { amp: 0.45, decay: 24, start: 0.34 });
+} }));
+writeWav('death_jump', classDeath({ hi: 330, lo: 150, shape: 'triangle', dur: 0.65, gear: (b) => { // yelp + jetpack sputter dying
+  for (let i = 0; i < 4; i++) addNoise(b, { amp: 0.3, decay: 8, start: 0.2 + i * 0.09 });
+} }));
+writeWav('death_engineer', classDeath({ hi: 200, lo: 92, gear: (b) => { // grunt + dropped-tool clatter
+  addTone(b, { freq: 1200, amp: 0.35, decay: 40, start: 0.3, dur: 0.05, shape: 'square' });
+  addTone(b, { freq: 800, amp: 0.3, decay: 45, start: 0.42, dur: 0.05, shape: 'square' });
+} }));
+writeWav('death_medic', classDeath({ hi: 250, lo: 105, dur: 0.75, gear: (b) => { // gasp + medi-tone failing
+  addTone(b, { freq: 930, freqEnd: 300, amp: 0.4, decay: 4, start: 0.28, shape: 'triangle' });
+} }));
+writeWav('death_infiltrator', classDeath({ hi: 380, lo: 165, dur: 0.55, gear: (b) => { // sharp gasp + cloak fizzle
+  addTone(b, { freq: 1200, freqEnd: 300, amp: 0.4, decay: 7, start: 0.22, shape: 'triangle' });
+} }));
+writeWav('death_pathfinder', classDeath({ hi: 350, lo: 155, dur: 0.6, gear: (b) => { // cry + warp zip snapping out
+  addTone(b, { freq: 220, freqEnd: 1500, amp: 0.35, decay: 9, start: 0.24, shape: 'triangle', dur: 0.12 });
+} }));
+writeWav('death_ghost', classDeath({ hi: 220, lo: 95, gear: (b) => { // grunt + comms static cutting out
+  let s = buf(0.35); addNoise(s, { amp: 0.5, decay: 10 }); s = highpass(s, 1800);
+  mix(b, s, { gain: 0.5, start: 0.26 });
+  addTone(b, { freq: 1400, amp: 0.25, decay: 30, start: 0.3, dur: 0.05, shape: 'square' });
+} }));
 
 // movement / gear
 writeWav('jetpack', (() => {

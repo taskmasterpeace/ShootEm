@@ -14,6 +14,16 @@ const TRACER_COLORS: Record<string, number> = {
   rail: 0x8fd0ff, flame: 0xff7020, beam: 0x70ffb0, acid: 0xa0e040, none: 0,
 };
 
+// ---- ragdoll ----
+/** Joints the ragdoll goes limp on (all swing on local Z). */
+const RAG_JOINTS = ['legL', 'legR', 'shinL', 'shinR', 'armL', 'armR', 'head', 'torso'] as const;
+interface RagState { t0: number; pitch: number; roll: number; cap: Record<string, number>; seed: number }
+/** Overshoot-and-settle ease — gives limbs a floppy, physical follow-through. */
+function easeOutBack(x: number): number {
+  const c1 = 1.70158, c3 = c1 + 1;
+  return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+}
+
 /** Environment palettes — sky, fog, terrain, and architecture per theme. */
 export interface ThemePalette {
   sky: number;
@@ -98,7 +108,7 @@ export class Renderer {
   private recoilAt = new Map<number, number>();     // soldier id → time of last shot
   private vehRecoilAt = new Map<number, number>();  // vehicle id → time of last shot
   private turretMeshes = new Map<number, THREE.Group>();
-  private projMeshes = new Map<number, THREE.Mesh>();
+  private projMeshes = new Map<number, THREE.Object3D>();
   private pickupMeshes = new Map<number, THREE.Group>();
   private mineMeshes = new Map<number, THREE.Mesh>();
   private gadgetMeshes = new Map<number, THREE.Group>();
@@ -123,6 +133,7 @@ export class Renderer {
   private wpPillars: THREE.Mesh[] = [];                     // pooled waypoint light pillars
   private flyerAlt = new Map<number, number>();             // smoothed flyer altitude per id
   private frameDt = 1 / 60;                                 // dt of the current update()
+  private deathFall = new Map<number, { x: number; z: number }>(); // ragdoll tip dir per id
 
   /** Red chevron sprite texture for revealed-enemy markers (built once). */
   private getPingTexture(): THREE.Texture {
@@ -582,26 +593,40 @@ export class Renderer {
       let mesh = this.projMeshes.get(p.id);
       if (!mesh) {
         const def = WEAPONS[p.weapon];
-        const color = TRACER_COLORS[def.tracer] || 0xffcc88;
         if (def.tracer === 'none') continue;
-        const big = def.tracer === 'rocket' || def.tracer === 'shell';
-        mesh = new THREE.Mesh(
-          new THREE.BoxGeometry(big ? 0.5 : 0.9, 0.08, 0.08),
-          new THREE.MeshBasicMaterial({ color }),
-        );
+        mesh = this.makeProjectile(def.tracer, TRACER_COLORS[def.tracer] || 0xffcc88);
+        mesh.userData.tracer = def.tracer;
         this.scene.add(mesh);
         this.projMeshes.set(p.id, mesh);
       }
       mesh.visible = true; // may have been hidden during a replay swap
       mesh.position.set(p.pos.x, p.pos.y, p.pos.z);
       mesh.rotation.y = -Math.atan2(p.vel.z, p.vel.x);
+      // per-round motion + flight trails make each family read distinctly
+      const tr = mesh.userData.tracer as string;
+      if (tr === 'shell') mesh.rotation.x += dt * 22; // tumbling shell
+      else if (tr === 'rocket') {
+        this.particles.emit({ pos: { x: p.pos.x, y: p.pos.y, z: p.pos.z }, count: 1, color: 0x552e18, speed: 1, life: 0.5, spread: 0.15, up: 0, gravity: -1.5, size: 0.5 });
+        this.particles.emit({ pos: { x: p.pos.x, y: p.pos.y, z: p.pos.z }, count: 1, color: 0xff8c30, speed: 1.5, life: 0.14, spread: 0.1, up: 0, size: 0.35 });
+      } else if (tr === 'plasma') {
+        const halo = mesh.getObjectByName('halo');
+        if (halo) halo.scale.setScalar(0.9 + Math.sin(world.time * 30 + p.id) * 0.2);
+        this.particles.emit({ pos: { x: p.pos.x, y: p.pos.y, z: p.pos.z }, count: 1, color: 0x60c8ff, speed: 0.5, life: 0.2, spread: 0.08, up: 0, size: 0.22 });
+      } else if (tr === 'flame') {
+        this.particles.emit({ pos: { x: p.pos.x, y: p.pos.y, z: p.pos.z }, count: 2, color: 0xff7020, speed: 1, life: 0.25, spread: 0.4, up: 1, size: 0.4 });
+      } else if (tr === 'acid') {
+        this.particles.emit({ pos: { x: p.pos.x, y: p.pos.y, z: p.pos.z }, count: 1, color: 0xa0e040, speed: 0.4, life: 0.3, spread: 0.1, up: -1, gravity: 3, size: 0.2 });
+      }
     }
     for (const [id, mesh] of this.projMeshes) {
       if (!world.projectiles.has(id)) {
         if (this.replayView) { mesh.visible = false; continue; }
         this.scene.remove(mesh);
-        (mesh.material as THREE.Material).dispose();
-        mesh.geometry.dispose();
+        mesh.traverse((o) => {
+          const m = o as THREE.Mesh;
+          if (m.geometry) m.geometry.dispose();
+          (m.material as THREE.Material | undefined)?.dispose();
+        });
         this.projMeshes.delete(id);
       }
     }
@@ -851,16 +876,54 @@ export class Renderer {
     const speed = Math.hypot(s.vel.x, s.vel.z);
     const moving = speed > 0.6;
 
-    // ---- death: keel over and fade out ----
+    // ---- death: ragdoll collapse + fade out ----
     let alpha = s.cloaked ? 0.3 : 1;
     if (!s.alive) {
-      const deathTime = s.respawnAt - (zed ? 2 : 4); // matches sim respawn delays
-      const k = Math.min(1, Math.max(0, (t - deathTime) / 0.45));
-      mesh.rotation.z = -1.5 * k * k;
-      mesh.position.y = 0.12 * k;
+      // capture the pose + fall direction the instant the body first goes down
+      let rag = mesh.userData.rag as RagState | undefined;
+      if (!rag) {
+        const fall = this.deathFall.get(s.id) ?? { x: Math.cos(s.yaw), z: Math.sin(s.yaw) };
+        const fwd = fall.x * Math.cos(s.yaw) + fall.z * Math.sin(s.yaw);   // tip pitch (local Z)
+        const side = -fall.x * Math.sin(s.yaw) + fall.z * Math.cos(s.yaw); // tip roll (local X)
+        const cap: Record<string, number> = {};
+        for (const n of RAG_JOINTS) { const o = j[n]; if (o) cap[n] = o.rotation.z; }
+        rag = mesh.userData.rag = { t0: t, pitch: -fwd * 1.45, roll: side * 1.2, cap, seed: hash01(s.id) };
+      }
+      const k = Math.min(1, Math.max(0, (t - rag.t0) / 0.55));
+      const settle = 1 - (1 - k) * (1 - k);          // body tip eases flat, no ground clip
+      const flop = easeOutBack(k);                   // limbs overshoot then settle — floppy
+      // the whole body topples the way the shot pushed it, with a brief hop.
+      // sim physics stop for corpses, so an airborne kill (jump trooper) keeps
+      // its death-height — settle it down to the ground as it goes limp.
+      mesh.rotation.z = rag.pitch * settle;
+      mesh.rotation.x = rag.roll * settle;
+      mesh.position.y = s.pos.y * (1 - settle) + 0.12 * Math.sin(k * Math.PI);
+      // limbs go limp toward a slack, per-body-varied pose
+      const v = (rag.seed - 0.5) * 0.7;
+      const limp: Record<string, number> = {
+        legL: 0.45 + v, legR: -0.55 - v, shinL: -1.35, shinR: -1.05,
+        armL: -2.2 + v, armR: -1.7 - v, head: 0.5 * rag.seed, torso: 0.2,
+      };
+      for (const n of RAG_JOINTS) {
+        const o = j[n];
+        if (o && rag.cap[n] !== undefined) o.rotation.z = rag.cap[n] + (limp[n] - rag.cap[n]) * flop;
+      }
+      if (j.head) j.head.rotation.x = 0.45 * flop;
+      if (j.torso) j.torso.rotation.x = 0.3 * flop;
       alpha = Math.min(1, Math.max(0.05, (s.respawnAt - t) / 0.8));
       this.setAlpha(mesh, alpha);
       return;
+    }
+    // alive again: clear ragdoll state and undo the slump. For the living,
+    // poseSoldierJoints only re-poses legs/shins, so the arms, head, and torso
+    // the ragdoll bent must be restored here or a respawned body keeps the flop.
+    const priorRag = mesh.userData.rag as RagState | undefined;
+    if (priorRag) {
+      mesh.userData.rag = undefined;
+      mesh.rotation.x = 0;
+      for (const n of RAG_JOINTS) { const o = j[n]; if (o && priorRag.cap[n] !== undefined) o.rotation.z = priorRag.cap[n]; }
+      if (j.head) j.head.rotation.x = 0;
+      if (j.torso) j.torso.rotation.x = 0;
     }
 
     // ---- gait + undead reach (shared verbatim with the model harness) ----
@@ -900,6 +963,55 @@ export class Renderer {
     }
 
     this.setAlpha(mesh, alpha);
+  }
+
+  /** A distinct in-flight round per tracer family — you can tell a rocket from
+   *  a plasma bolt from a rail lance at a glance. Long axis is local +X (the
+   *  update loop yaws each round to face its velocity). */
+  private makeProjectile(tracer: string, color: number): THREE.Object3D {
+    const solid = (geo: THREE.BufferGeometry, c: number) =>
+      new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: c }));
+    const glow = (geo: THREE.BufferGeometry, c: number, op = 0.5) =>
+      new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false }));
+    switch (tracer) {
+      case 'rocket': { // missile: metal body + bright nose + exhaust glow (trail added in flight)
+        const g = new THREE.Group();
+        const body = solid(new THREE.CylinderGeometry(0.11, 0.13, 0.5, 7), 0x55504a);
+        body.rotation.z = Math.PI / 2; g.add(body);
+        const nose = solid(new THREE.ConeGeometry(0.11, 0.24, 7), color);
+        nose.rotation.z = -Math.PI / 2; nose.position.x = 0.35; g.add(nose);
+        const exhaust = glow(new THREE.SphereGeometry(0.26, 8, 6), 0xffb050, 0.6);
+        exhaust.position.x = -0.32; g.add(exhaust);
+        return g;
+      }
+      case 'plasma': { // pulsing energy orb with an additive halo
+        const g = new THREE.Group();
+        g.add(solid(new THREE.SphereGeometry(0.16, 10, 8), color));
+        const halo = glow(new THREE.SphereGeometry(0.34, 10, 8), color, 0.45);
+        halo.name = 'halo'; g.add(halo);
+        return g;
+      }
+      case 'rail': { // bright hypervelocity lance + faint sheath
+        const g = new THREE.Group();
+        g.add(solid(new THREE.BoxGeometry(2.6, 0.05, 0.05), 0xffffff));
+        g.add(glow(new THREE.BoxGeometry(2.8, 0.16, 0.16), color, 0.4));
+        return g;
+      }
+      case 'shell': // stubby tumbling slug
+        return solid(new THREE.BoxGeometry(0.34, 0.16, 0.16), color);
+      case 'acid': // wet green glob
+        return solid(new THREE.SphereGeometry(0.18, 8, 6), color);
+      case 'flame': // flickering ember (fire trail added in flight)
+        return glow(new THREE.SphereGeometry(0.22, 7, 5), color, 0.85);
+      case 'beam': // short healing streak
+        return solid(new THREE.BoxGeometry(1.4, 0.05, 0.05), color);
+      default: { // bullet: crisp tracer streak with a soft glow
+        const g = new THREE.Group();
+        g.add(solid(new THREE.BoxGeometry(0.9, 0.05, 0.05), color));
+        g.add(glow(new THREE.BoxGeometry(1.1, 0.12, 0.12), color, 0.3));
+        return g;
+      }
+    }
   }
 
   private setAlpha(mesh: THREE.Group, alpha: number) {
@@ -956,7 +1068,13 @@ export class Renderer {
         case 'death':
           if (e.pos) {
             this.particles.emit({ pos: { ...e.pos, y: 1 }, count: 22, color: 0xa03030, speed: 5, life: 0.6, spread: 0.5, up: 4 });
-            audio.play('death', { pos: e.pos, volume: 0.8 });
+            // each class has its own death cry; zombies/scientist use the generic
+            const cry = e.classId ? (`death_${e.classId}` as SoundName) : 'death';
+            audio.play(cry, { pos: e.pos, volume: 0.85 });
+          }
+          // hand the ragdoll its fall direction (away from the killing shot)
+          if (e.soldierId !== undefined && e.fallX !== undefined) {
+            this.deathFall.set(e.soldierId, { x: e.fallX, z: e.fallZ ?? 0 });
           }
           break;
         case 'heal':
