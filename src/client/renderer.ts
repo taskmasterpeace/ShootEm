@@ -1041,7 +1041,10 @@ export class Renderer {
             if (shooter && shooter.vehicleId >= 0) this.vehRecoilAt.set(shooter.vehicleId, world.time);
             else this.recoilAt.set(e.soldierId, world.time);
           }
-          audio.play(def.sound as SoundName, { pos: e.pos, volume: 0.7 });
+          // rifle has two takes — alternate at random so sustained fire varies
+          let shotSnd = def.sound as SoundName;
+          if (shotSnd === 'rifle' && Math.random() < 0.5) shotSnd = 'rifle2';
+          audio.play(shotSnd, { pos: e.pos, volume: 0.7 });
           if (def.tracer !== 'beam' && def.tracer !== 'none') {
             this.particles.emit({ pos: e.pos, count: 3, color: 0xffcc66, speed: 3, life: 0.12, spread: 0.3, up: 1, size: 0.3 });
           }

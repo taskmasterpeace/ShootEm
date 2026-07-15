@@ -164,6 +164,7 @@ console.log('Generating War World CC0 sound pack →', OUT);
 
 // gunshots: layered attack click + noise crack + pitched-down thud
 writeWav('rifle', gunshot({ dur: 0.3, clickFreq: 4200, crackDecay: 30, thudFreq: 220, thudAmp: 0.8, lp: 5600, driveAmt: 2.4 }));
+writeWav('rifle2', gunshot({ dur: 0.3, clickFreq: 3900, crackDecay: 27, thudFreq: 200, thudAmp: 0.85, lp: 5400, driveAmt: 2.5 })); // 2nd take → firing variety
 writeWav('smg', gunshot({ dur: 0.15, clickFreq: 5200, crackAmp: 0.95, crackDecay: 52, thudFreq: 340, thudAmp: 0.5, lp: 7000, driveAmt: 2 }));
 writeWav('pistol', gunshot({ dur: 0.2, clickFreq: 4600, crackDecay: 42, thudFreq: 280, thudAmp: 0.6, lp: 5000, driveAmt: 1.9 }));
 writeWav('shotgun', (() => { // heavy boom: click + long low body + shot spray

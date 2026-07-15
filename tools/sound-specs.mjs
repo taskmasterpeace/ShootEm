@@ -14,6 +14,7 @@
 export const SOUND_SPECS = {
   // ---- weapons ----
   rifle:        { cat: 'weapons', desc: 'Single dry assault-rifle shot — sharp, punchy crack', dur: 0.6 },
+  rifle2:       { cat: 'weapons', desc: 'Assault-rifle shot (variation 2) — alternated with rifle for firing variety', dur: 0.6 },
   smg:          { cat: 'weapons', desc: 'ONE single submachine-gun shot — a single round, snappy, not a burst or full-auto', dur: 0.4 },
   pistol:       { cat: 'weapons', desc: 'Single handgun gunshot — tight metallic crack with a hint of slide clack, close and dry', dur: 0.5 },
   shotgun:      { cat: 'weapons', desc: 'Pump shotgun — deep boom blast, then a pump-action rack cocking the next shell (cha-chunk)', dur: 0.95 },

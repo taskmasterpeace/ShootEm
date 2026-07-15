@@ -1,7 +1,7 @@
 import type { Vec3 } from '../sim/types';
 
 export const SOUND_NAMES = [
-  'rifle', 'smg', 'pistol', 'shotgun', 'autocannon', 'rail', 'rocket', 'thump',
+  'rifle', 'rifle2', 'smg', 'pistol', 'shotgun', 'autocannon', 'rail', 'rocket', 'thump',
   'cannon', 'plasma', 'flame', 'repair', 'heal', 'claw', 'acid',
   'hit', 'hitmarker', 'explosion', 'explosion_big', 'death',
   'jetpack', 'cloak', 'reload', 'pickup', 'engine', 'mine_plant', 'turret_built',

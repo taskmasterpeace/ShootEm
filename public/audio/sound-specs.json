@@ -15,6 +15,12 @@
       "dur": 0.6
     },
     {
+      "name": "rifle2",
+      "cat": "weapons",
+      "desc": "Assault-rifle shot (variation 2) — alternated with rifle for firing variety",
+      "dur": 0.6
+    },
+    {
       "name": "smg",
       "cat": "weapons",
       "desc": "ONE single submachine-gun shot — a single round, snappy, not a burst or full-auto",
