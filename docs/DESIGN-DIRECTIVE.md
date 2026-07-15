@@ -319,6 +319,69 @@ the shared global war.
 
 ---
 
+## 10. Screens — inventory & redo priority
+
+Every player-facing screen, ranked worst-first. The combat sim outclasses the
+menus around it; for a paid product the storefront has to match the game.
+
+| # | Screen | Score | Verdict |
+|---|---|---|---|
+| 1 | Deployment / selection menu | 35% | **Redo — the big one** |
+| 2 | Map setup | 0% | Doesn't exist — build the map generator here |
+| 3 | Settings | 0% | Doesn't exist — mandatory for a paid product |
+| 4 | Post-match / scoreboard | 45% | Redo second — it's a plain HTML table |
+| 5 | Multiplayer connect | 25% | A raw `ws://` text box inside the menu |
+| 6 | Respawn / K.I.A. + killcam | 55% | Bare "K.I.A." text; small polish pass |
+| 7 | Chat / comms | 70% | Works, needs styling pass only |
+| 8 | Combat HUD | 85% | Fine — killfeed, vignettes, equip chips all good |
+| 9 | Harness + Sound Lab (dev tools) | 90% | Internal, done |
+
+### 10.1 Why the deployment screen scores 35%
+
+It's one endless vertical scroll of eight stacked sections — and the worst part
+is the Armory: **200+ weapons in two native `<select>` dropdowns.** That's a
+spreadsheet, not an armory. Classes are emoji + text cards with no soldier
+preview — even though the game already has full 3D soldier models and the
+harness literally renders them spinning on a turntable. All the ingredients
+for a great screen exist; they're just not used here.
+
+### 10.2 The redo — a tabbed flow
+
+`DEPLOY | CLASS | ARMORY | MAP` (+ a reserved `BARRACKS` slot, see 10.3):
+
+- **Class tab:** live 3D soldier preview (reuse the harness turntable), gear
+  list, class stats.
+- **Armory tab:** browsable weapon cards with stat bars (DMG / ROF / RANGE)
+  instead of dropdowns, filtered by family.
+- **Map tab:** the map generator — cheap to build, because `generateMap(seed)`
+  is already deterministic and the minimap renderer already draws top-down
+  maps. Seed field + 🎲 reroll + live minimap preview + theme/mode pickers.
+  Pick the battlefield you like *before* deploying.
+- **Deploy tab:** summary card + match setup + the DEPLOY button.
+
+### 10.3 Billing readiness — the two hard gaps
+
+Since the plan is to charge: **Settings (0%)** and **accounts/identity** are
+the non-negotiables people expect from a paid game.
+
+- Settings needs volume / video / keybind display at minimum — the per-sound
+  volume persistence already exists, it just has no player-facing screen.
+- The redesigned menu should **reserve a Barracks/Record tab slot** — that's
+  where the service record, medals, and (eventually) purchases live, so the
+  tab architecture anticipates it now instead of being rebuilt later.
+
+### 10.4 Recommended order
+
+1. **Deployment screen rebuild** (tabbed, 3D class preview + armory cards +
+   map generator tab) — the storefront. Build the tab shell + map tab first
+   (fast, immediately visible), then class preview and armory cards.
+2. **Post-match AAR screen** — the trophies roll deserves better than a table,
+   and it's where the Record/Journal retention systems (§3) plug in.
+3. **Settings screen** — small but required.
+4. **Respawn/killcam + chat polish** — quick pass, same visual language.
+
+---
+
 ## Appendix A — Field status
 
 - ✅ **Cursor-targeted throws shipped** (`b722960`): hold-G arc + landing ring,
