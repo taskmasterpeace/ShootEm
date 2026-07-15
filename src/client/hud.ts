@@ -33,6 +33,12 @@ export class Hud {
   private equipSig = '';
 
   constructor() {
+    // M toggles the minimap between compact and the large tactical view
+    window.addEventListener('keydown', (e) => {
+      if ((e.target as HTMLElement)?.tagName === 'INPUT' || e.repeat) return;
+      if (e.key.toLowerCase() === 'm') this.minimapEl.classList.toggle('large');
+    });
+
     // tactical system: click the minimap to drop a team waypoint
     this.minimapEl.addEventListener('click', (e) => {
       if (!this.waypointsEnabled) return;
@@ -258,6 +264,8 @@ export class Hud {
   private updateMinimap(world: World, local: Soldier) {
     const ctx = this.minimapCtx;
     const S = 220;
+    // canvas is 440×440 rendered in 220-space at 2× — crisp at both map sizes
+    ctx.setTransform(2, 0, 0, 2, 0, 0);
     if (!this.mapBg) {
       this.mapBg = document.createElement('canvas');
       this.mapBg.width = this.mapBg.height = S;

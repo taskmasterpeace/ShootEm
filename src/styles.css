@@ -169,9 +169,12 @@ html, body {
 
 #minimap {
   position: absolute; right: 1.25rem; bottom: 1.25rem;
+  width: 264px; height: 264px; /* M toggles the large tactical view */
   border: 1px solid var(--border); border-radius: var(--radius);
   background: oklch(0.14 0.015 80 / 0.85);
+  transition: width 0.15s ease, height 0.15s ease;
 }
+#minimap.large { width: 430px; height: 430px; }
 
 #hitmarker {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);

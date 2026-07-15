@@ -168,14 +168,24 @@ export class StaticOverlay {
       return;
     }
     this.canvas.style.display = 'block';
-    this.canvas.style.opacity = String(Math.min(1, this.intensity));
+    this.canvas.style.opacity = String(Math.min(1, this.intensity * 1.15));
     const d = this.buf.data;
-    const density = 0.25 + this.intensity * 0.65;
+    // density climbs to a near-total whiteout — at the edge of control range
+    // you genuinely CANNOT see the battlefield anymore. Turn back or lose it.
+    const density = 0.2 + this.intensity * 0.8;
+    const blind = this.intensity > 0.72; // final stretch: snow crushes the feed
+    // screen-blend twinkles over the scene; the blind zone goes opaque
+    this.canvas.style.mixBlendMode = blind ? 'normal' : 'screen';
     for (let i = 0; i < d.length; i += 4) {
       if (Math.random() < density) {
         const v = 120 + ((Math.random() * 135) | 0); // bright snow pops over any scene
         d[i] = v; d[i + 1] = v; d[i + 2] = v;
-        d[i + 3] = 235;
+        d[i + 3] = blind ? 255 : 235;
+      } else if (blind) {
+        // in the blind zone even the "gaps" are grey mush, not game
+        const v = 40 + ((Math.random() * 70) | 0);
+        d[i] = v; d[i + 1] = v; d[i + 2] = v;
+        d[i + 3] = 210;
       } else {
         d[i + 3] = 0;
       }

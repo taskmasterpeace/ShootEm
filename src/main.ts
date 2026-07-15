@@ -320,7 +320,7 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
 
     // FPV drone feed: noise rises as the signal drops; disconnect = full burst
     const fpv = world.getPilotedDrone(me.id);
-    staticFx.set(fpv ? Math.pow(1 - (fpv.signal ?? 1), 1.6) : 0);
+    staticFx.set(fpv ? Math.pow(1 - (fpv.signal ?? 1), 1.15) : 0);
     if (fpv && (fpv.signal ?? 1) < 0.45 && world.time > nextStaticAt) {
       audio.play('drone_static', { volume: 0.25 + (1 - (fpv.signal ?? 1)) * 0.6 });
       nextStaticAt = world.time + 0.75;

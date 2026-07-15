@@ -1,13 +1,22 @@
 # ⚔️ War World
 
-**A modern, browser-native reimagining of [Infantry Online](https://github.com/InfantryOnline/Infantry-Online-Server)** — the classic 1998 top-down multiplayer shooter — rebuilt from scratch in TypeScript + Three.js with a **200+ weapon armory**, **11 vehicles including multi-crew platforms with per-system damage**, seven game modes, eight combat classes, six solar-system battlefields, comms channels with offline mail, Tribes-style warp tech, bots, and LAN multiplayer.
+**A modern, browser-native reimagining of [Infantry Online](https://github.com/InfantryOnline/Infantry-Online-Server)** — the classic 1998 top-down multiplayer shooter — rebuilt from scratch in TypeScript + Three.js with a **200+ weapon armory**, **11 vehicles including multi-crew platforms with per-system damage**, seven game modes, eight combat classes, six battlefield environments, flyable **FPV recon drones**, comms channels with offline mail, Tribes-style warp tech, bots, and LAN multiplayer.
 
 No install, no launcher, no plugins. `npm run dev`, open a browser, deploy.
 
-![modes](https://img.shields.io/badge/modes-7-e8a33d) ![classes](https://img.shields.io/badge/classes-8-3dbde8) ![weapons](https://img.shields.io/badge/weapons-200%2B-d8453a) ![vehicles](https://img.shields.io/badge/vehicles-11%20%2B%20sentries-8fb98a) ![worlds](https://img.shields.io/badge/environments-6-66e8ff) ![license](https://img.shields.io/badge/license-MIT-blue)
+![modes](https://img.shields.io/badge/modes-7-e8a33d) ![classes](https://img.shields.io/badge/classes-8-3dbde8) ![weapons](https://img.shields.io/badge/weapons-200%2B-d8453a) ![vehicles](https://img.shields.io/badge/vehicles-11%20%2B%20sentries-8fb98a) ![worlds](https://img.shields.io/badge/environments-6-66e8ff) ![tests](https://img.shields.io/badge/sim%20tests-176-8fb98a) ![license](https://img.shields.io/badge/license-MIT-blue)
 
 ![Orbital strike](docs/screenshots/orbital-strike.jpg)
 *An orbital strike lands midfield — three seconds after the designator hits the dirt.*
+
+## Fresh off the front
+
+- 🛸 **Personal FPV drones** — as the Ghost, press Q and *fly* the drone yourself while your body kneels at the controller. Fly too far and static floods the feed until the link cuts and it tumbles out of the sky. EMP, gunfire, and a dead battery end the flight the same way.
+- 🎯 **Cursor-targeted grenades** — hold G for the live flight arc and splash ring, release to land the frag exactly there. Verified accurate to 0.09 units.
+- 🎬 **Cinematic killcam** — your final seconds replayed in slow motion with the camera pulled in tight on the fight.
+- 💥 **Ragdoll deaths & distinct rounds** — bodies tip toward the killing blow and go limp; rockets, plasma, rail, slugs, and acid all read differently in flight.
+- 🔊 **AI-generated sound pack** — 58 sounds with per-class death cries, rifle and zombie-growl round-robin variety, and an in-browser [Sound Lab](#sounds) to rate and replace any of them.
+- 🧭 **Where it's all going:** the [Design Directive](docs/DESIGN-DIRECTIVE.md) — factions, a living campaign, service records, and command with teeth.
 
 ## Screenshots
 
@@ -41,20 +50,23 @@ Then enter `ws://<host-ip>:3401` in the Multiplayer field on the menu. One room 
 
 ```bash
 npm run build        # typecheck + production bundle → dist/
-npm test             # 68 sim tests (combat, modes, crew vehicles, arsenal balance, equipment, recon, environments, netcode)
-npm run sounds       # regenerate the CC0 sound pack from source
+npm test             # 176 sim tests (combat, modes, vehicles, arsenal balance, ranges, drones, visuals, netcode)
+npm run sounds       # regenerate the CC0 synth sound pack from source
 ```
+
+Dev extras while `npm run dev` is up: the **[model & physics harness](docs/HARNESS.md)** at `/harness.html` and the **Sound Lab & Review** at `/sound-review.html`.
 
 ## Controls
 
 | Input | Action |
 |---|---|
-| WASD | Move (drive/steer in vehicles) |
-| Mouse | Aim · left-click fire |
+| WASD | Move (drive/steer in vehicles · **fly your FPV drone** while linked) |
+| Mouse | Aim · left-click fire · **wheel zooms the camera** |
 | Space | Jetpack (Jump Trooper) / hop |
 | E | Enter/exit vehicle · use warp beacon · escort Dr. Voss |
-| Q | Class ability (cloak, sentry, warp beacon, drone, shield dome…) |
-| G | Frag grenade (Engineer: mine · Pathfinder: targeting beacon · Ghost: EMP · orbital designator if held) |
+| Q | Class ability (cloak, sentry, warp beacons, shield dome · **Ghost: deploy/cut the FPV drone**) |
+| G *(hold)* | **Aim a throw — arc + landing ring at your cursor — release to send it** (frag · Engineer: mine · Pathfinder: targeting beacon · Ghost: EMP · orbital designator if held) |
+| M | Toggle the large tactical minimap |
 | R | Reload · 1-3 weapon slots · TAB scoreboard |
 
 ## Game modes
@@ -80,7 +92,7 @@ npm run sounds       # regenerate the CC0 sound pack from source
 | Field Medic | 100 | K6 SMG + Medi-Beam | Heals squad, self-stim |
 | Infiltrator | 80 | RG-2 Railgun + P9 | Cloaking field |
 | Pathfinder | 85 | Impulse Cannon (knockback) + P9 | **Warp beacon pair** (Q), targeting beacons (G), fastest on foot |
-| Ghost | 90 | Kamenel Plasma + P9 | **Recon drone** (Q) marks enemies through walls, EMP charges (G) |
+| Ghost | 90 | Kamenel Plasma + P9 | **FPV drone** (Q) — you fly it, it spots for the team; EMP charges (G) |
 
 Plus battlefield pickups: medkits, ammo crates, energy cells, the F-3 Flamer, and **orbital strike designators**.
 
@@ -92,7 +104,8 @@ Plus battlefield pickups: medkits, ammo crates, energy cells, the F-3 Flamer, an
 - **Targeting Beacon** — lobbed; pings every enemy within 25 units onto your minimap for 15s (cloaks included).
 - **Orbital Strike** — pickup-only designator: throw it, 3 seconds of klaxon, then a beam annihilates the area. The beacon can be shot before it fires.
 - **Shield Dome** — Heavy's deployable bubble (400 HP, 30s) that eats enemy projectiles.
-- **EMP Charge** — Ghost's lobbed charge: stalls vehicles 4s, blinds turrets 5s, strips cloak and energy.
+- **FPV Recon Drone** — the Ghost flies it in first person while their body kneels defenseless. ~55-unit control range: the further it flies, the more static drowns the feed, until the link cuts and the drone tumbles out of the sky. EMP jams it; bullets wing it.
+- **EMP Charge** — Ghost's lobbed charge: stalls vehicles 4s, blinds turrets 5s, strips cloak and energy — and knocks enemy drones out of the air.
 - **Supply Pods** — every 90s a pod screams down from orbit with one-shot loot, sometimes an orbital designator.
 - **Phase Stalker** — the undead answer to all of it: a rare zombie that blinks through walls toward prey.
 
@@ -185,7 +198,7 @@ Have an idea? The sim is one folder of plain TypeScript with no engine lock-in �
 src/
   sim/        deterministic simulation — zero DOM/Three imports, runs anywhere
     world.ts    entities, physics, combat, damage, vehicles, turrets, mines
-    modes.ts    the five game-mode rulesets
+    modes.ts    the seven game-mode rulesets
     bots.ts     BFS pathfinding + combat AI + zombie hordes
     map.ts      seeded symmetric map generator (same seed ⇒ same map)
     snapshot.ts wire codec (server-authoritative full snapshots)
@@ -199,7 +212,7 @@ The sim is deterministic and shared verbatim by the offline game, the client's d
 
 ## Sounds
 
-The game ships **53 sound effects**, one per event, each of the eight classes with its own death cry. Two interchangeable packs feed the same slots:
+The game ships **58 sound effects** — one per event, per-class death cries, and round-robin variety for rifle shots and zombie growls. Two interchangeable packs feed the same slots:
 
 - **ElevenLabs pack (shipped):** generated via ElevenLabs text-to-sound-effects — one tuned prompt per sound in [`tools/sound-specs.mjs`](tools/sound-specs.mjs), rendered by [`tools/gen-sounds-ai.mjs`](tools/gen-sounds-ai.mjs). Licensed under ElevenLabs' terms — **not CC0** (see [public/audio/LICENSE.txt](public/audio/LICENSE.txt)).
 - **CC0 synth pack:** `npm run sounds` ([`tools/gen-sounds.mjs`](tools/gen-sounds.mjs)) regenerates a fully procedural, public-domain (CC0 1.0) pack — no samples, no external services — overwriting the directory. See [public/audio/LICENSE-CC0.txt](public/audio/LICENSE-CC0.txt).
@@ -212,4 +225,4 @@ War World is an original homage to *Infantry Online* (Sony Online Entertainment,
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Audio is CC0.
+MIT — see [LICENSE](LICENSE). Audio licensing is per-pack — see [Sounds](#sounds).
