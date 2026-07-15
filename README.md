@@ -6,6 +6,20 @@ No install, no launcher, no plugins. `npm run dev`, open a browser, deploy.
 
 ![modes](https://img.shields.io/badge/modes-7-e8a33d) ![classes](https://img.shields.io/badge/classes-8-3dbde8) ![vehicles](https://img.shields.io/badge/vehicles-4%20%2B%20sentries-8fb98a) ![license](https://img.shields.io/badge/license-MIT-blue)
 
+![Orbital strike](docs/screenshots/orbital-strike.jpg)
+*An orbital strike lands midfield — three seconds after the designator hits the dirt.*
+
+## Screenshots
+
+All captured from live matches (regenerate any time with `node tools/capture-screenshots.mjs`).
+
+| | |
+|:--:|:--:|
+| <img src="docs/screenshots/menu.jpg" width="100%" /><br>**Deployment** — 7 modes, 8 classes, match setup | <img src="docs/screenshots/ctf-firefight.jpg" width="100%" /><br>**Capture the Flag** — tracers both ways, 10 HP left |
+| <img src="docs/screenshots/tank-assault.jpg" width="100%" /><br>**Ares Battle Tank** — 650 armor, 120mm cannon | <img src="docs/screenshots/jump-gate.jpg" width="100%" /><br>**Jump gate + warp beacon** — Tribes-style teleport tech |
+| <img src="docs/screenshots/zombie-survival.jpg" width="100%" /><br>**Zombie Survival** — squad holds a bunker gate | <img src="docs/screenshots/phase-stalker.jpg" width="100%" /><br>**Phase Stalker** — blinks through walls at you |
+| <img src="docs/screenshots/conquest-point.jpg" width="100%" /><br>**Conquest** — sentry fortifying point B | <img src="docs/screenshots/scoreboard.jpg" width="100%" /><br>**Scoreboard** — kills, deaths, score by team |
+
 ## Quick start
 
 ```bash
@@ -90,6 +104,27 @@ Plus battlefield pickups: medkits, ammo crates, energy cells, the F-3 Flamer, an
 | Wraith Skiff | 160 | Hover — crosses water, plasma repeater |
 
 Vehicles spawn on team pads and respawn 22s after destruction. Engineers can repair them.
+
+## Coming soon
+
+Everything above is built and playable today. These are **planned, not shipped** — roughly in the order they'd land:
+
+#### 📱 Phone play
+The game already loads and renders on any phone browser — the gap is input. Virtual twin-stick touch controls (left thumb moves, right thumb aims and fires, tap-buttons for E/Q/G/R) plug straight into the existing command struct without touching the simulation. Plus a mobile quality tier and a PWA manifest so "Add to Home Screen" gives a full-screen, icon-launched game. **No app store, ever.** See the [mobile assessment](docs/MOBILE-FEASIBILITY.md) for the full breakdown.
+
+#### 🌐 Play from anywhere
+The dedicated server is a plain WebSocket. Fronting it with a tunnel (`wss://`) and serving the static build turns LAN play into internet play — no port forwarding, no launcher.
+
+#### 🧠 Smarter squads
+From the [AI report's](docs/AI-REPORT.md) own to-do list: dedicated defenders vs. runners in CTF, sound-event memory ("shots behind me" → investigate), utility scoring to replace the if/else objective chain, and bot chatter in the killfeed.
+
+#### 🗺️ More battlefield
+Hand-authorable maps alongside the seeded generator, a proper map editor, and new vehicles (dropship insertions, a walker).
+
+#### 📈 Persistence
+Match history, per-class stats, and a personal shipping log of your best games — currently everything evaporates when the match ends.
+
+Have an idea? The sim is one folder of plain TypeScript with no engine lock-in — new weapons and modes are usually a single table entry plus a rules function.
 
 ## Docs
 
