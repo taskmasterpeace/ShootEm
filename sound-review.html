@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>War World — Sound Review</title>
+<style>
+  :root {
+    --bg:#14100b; --panel:#1d1811; --panel2:#262017; --line:#3a3020;
+    --text:#efe6d6; --muted:#a99a80; --accent:#f5b21a; --accent-dim:#7a5c14;
+    --up:#6fcf5f; --down:#ff5a4d; --warn:#e8a33d;
+    --radius:10px;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif; font-size:14px;
+    line-height:1.45; letter-spacing:-0.006em;
+  }
+  a { color:var(--accent); }
+  code { font-family:ui-monospace,Menlo,Consolas,monospace; background:var(--panel2); padding:1px 5px; border-radius:5px; font-size:12px; }
+
+  header {
+    position:sticky; top:0; z-index:5; background:rgba(20,16,11,0.92); backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line); padding:14px 20px 12px;
+  }
+  h1 { margin:0 0 2px; font-size:19px; font-weight:700; letter-spacing:-0.02em; }
+  h1 .dim { color:var(--muted); font-weight:500; }
+  .sub { color:var(--muted); font-size:12.5px; margin:0 0 10px; }
+  .bar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  .stats { display:flex; gap:6px; }
+  .pill { padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; border:1px solid var(--line); background:var(--panel2); }
+  .pill.up { color:var(--up); border-color:#2f5a2a; }
+  .pill.down { color:var(--down); border-color:#5a2a26; }
+  .pill.un { color:var(--muted); }
+  .spacer { flex:1; }
+  input[type=search], select {
+    background:var(--panel2); border:1px solid var(--line); color:var(--text);
+    border-radius:8px; padding:7px 10px; font-size:13px; font-family:inherit;
+  }
+  input[type=search] { min-width:180px; }
+  button {
+    background:var(--panel2); border:1px solid var(--line); color:var(--text);
+    border-radius:8px; padding:7px 12px; font-size:13px; font-weight:600; cursor:pointer;
+    font-family:inherit; transition:background .15s,border-color .15s,transform .05s;
+  }
+  button:hover { border-color:var(--accent-dim); }
+  button:active { transform:translateY(1px); }
+  button.primary { background:var(--accent); color:#1a1204; border-color:var(--accent); }
+  button.danger:hover { border-color:var(--down); color:var(--down); }
+
+  main { padding:16px 20px 80px; max-width:1080px; margin:0 auto; }
+  .cat { margin:22px 0 8px; font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); font-weight:700; display:flex; gap:8px; align-items:center; }
+  .cat .count { color:var(--accent-dim); font-weight:600; }
+
+  .row {
+    display:grid; grid-template-columns:150px 1fr auto 220px; gap:14px; align-items:center;
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    padding:10px 12px; margin-bottom:8px;
+  }
+  .row.miss { opacity:0.55; }
+  .row.down { border-color:#4a2420; }
+  .row.up { border-color:#2c4a27; }
+
+  .wavewrap { display:flex; align-items:center; gap:8px; }
+  .play {
+    width:34px; height:34px; flex:none; border-radius:8px; border:1px solid var(--line);
+    background:var(--panel2); color:var(--accent); font-size:13px; display:grid; place-items:center; cursor:pointer;
+  }
+  .play:hover { border-color:var(--accent); }
+  canvas.wave { width:100px; height:38px; display:block; border-radius:5px; background:#0f0c08; cursor:pointer; }
+
+  .meta .name { font-weight:700; font-size:14px; letter-spacing:-0.01em; }
+  .meta .name .cat-chip { font-size:10px; font-weight:600; color:var(--muted); background:var(--panel2); border:1px solid var(--line); border-radius:6px; padding:1px 6px; margin-left:7px; text-transform:capitalize; vertical-align:middle; }
+  .meta .desc { color:var(--muted); font-size:12.5px; margin-top:2px; }
+  .lenbars { margin-top:6px; display:grid; grid-template-columns:52px 1fr; gap:6px 8px; align-items:center; max-width:340px; }
+  .lenbars .lbl { font-size:10.5px; color:var(--muted); }
+  .track { height:6px; background:var(--panel2); border-radius:3px; overflow:hidden; }
+  .track > i { display:block; height:100%; border-radius:3px; }
+  .track.tgt > i { background:var(--accent-dim); }
+  .track.act > i { background:var(--accent); }
+  .track.act.bad > i { background:var(--warn); }
+  .lenread { font-size:11px; color:var(--muted); margin-top:3px; }
+  .lenread b.ok { color:var(--up); } .lenread b.bad { color:var(--warn); } .lenread b.miss { color:var(--down); }
+
+  .verdict { display:flex; gap:6px; }
+  .vbtn { width:40px; height:36px; font-size:16px; border-radius:8px; }
+  .vbtn.up.on { background:#20361c; border-color:var(--up); }
+  .vbtn.down.on { background:#3a1c19; border-color:var(--down); }
+
+  textarea.notes {
+    width:100%; min-height:52px; resize:vertical; background:var(--panel2); border:1px solid var(--line);
+    color:var(--text); border-radius:8px; padding:7px 9px; font-size:12px; font-family:inherit;
+  }
+  textarea.notes::placeholder { color:#6f6350; }
+
+  dialog {
+    background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:12px;
+    padding:0; max-width:640px; width:92vw;
+  }
+  dialog::backdrop { background:rgba(0,0,0,0.6); }
+  .dlg-h { padding:14px 16px; border-bottom:1px solid var(--line); font-weight:700; display:flex; justify-content:space-between; align-items:center; }
+  .dlg-b { padding:14px 16px; }
+  .dlg-b textarea { width:100%; min-height:220px; background:var(--panel2); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:10px; font-family:ui-monospace,Consolas,monospace; font-size:12px; }
+  .dlg-b p { color:var(--muted); font-size:12.5px; margin:0 0 10px; }
+  .dlg-f { padding:12px 16px; border-top:1px solid var(--line); display:flex; gap:8px; justify-content:flex-end; }
+
+  @media (max-width:820px) {
+    .row { grid-template-columns:1fr; }
+    .verdict { justify-content:flex-start; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>🔊 Sound Review <span class="dim">— War World</span></h1>
+  <p class="sub">Play each sound, compare it to what it's <em>meant</em> to be, and 👍 / 👎 it. Add notes for anything that misses — 👎 sounds get regenerated. Ratings save in this browser.</p>
+  <div class="bar">
+    <div class="stats">
+      <span class="pill up" id="s-up">👍 0</span>
+      <span class="pill down" id="s-down">👎 0</span>
+      <span class="pill un" id="s-un">• 0 unrated</span>
+    </div>
+    <div class="spacer"></div>
+    <input type="search" id="search" placeholder="filter by name / description…" />
+    <select id="filter">
+      <option value="all">All</option>
+      <option value="unrated">Unrated only</option>
+      <option value="down">👎 only</option>
+      <option value="up">👍 only</option>
+      <option value="badlen">Length off</option>
+    </select>
+    <button id="export" class="primary">Export 👎 list</button>
+    <button id="reset" class="danger">Reset</button>
+  </div>
+</header>
+<main id="main"><p style="color:var(--muted)">Loading sounds…</p></main>
+
+<dialog id="dlg">
+  <div class="dlg-h"><span>Review export</span><button id="dlg-x">✕</button></div>
+  <div class="dlg-b">
+    <p id="dlg-cmd"></p>
+    <textarea id="dlg-json" readonly></textarea>
+  </div>
+  <div class="dlg-f">
+    <button id="dlg-copy" class="primary">Copy JSON</button>
+    <button id="dlg-copycmd">Copy regenerate command</button>
+  </div>
+</dialog>
+
+<script>
+const LS = 'ww_sound_verdicts_v1';
+const TOL = 0.45;            // actual length within ±45% of target = ok
+const MAXLEN = 3.0;         // seconds mapped to a full-width length bar
+const state = JSON.parse(localStorage.getItem(LS) || '{}');
+const save = () => localStorage.setItem(LS, JSON.stringify(state));
+
+let ctx;
+const buffers = new Map();   // name -> AudioBuffer | 'missing'
+let curSource = null;
+
+function ac() { ctx ||= new (window.AudioContext || window.webkitAudioContext)(); return ctx; }
+
+async function loadBuffer(name) {
+  try {
+    const res = await fetch(`/audio/${name}.wav`, { cache: 'no-store' });
+    if (!res.ok) throw 0;
+    const buf = await ac().decodeAudioData(await res.arrayBuffer());
+    buffers.set(name, buf);
+    return buf;
+  } catch { buffers.set(name, 'missing'); return 'missing'; }
+}
+
+function drawWave(canvas, buf, playhead) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  const g = canvas.getContext('2d'); g.scale(dpr, dpr);
+  g.clearRect(0, 0, w, h);
+  if (!buf || buf === 'missing') { g.fillStyle = '#5a2a26'; g.fillRect(0, h/2 - 1, w, 2); return; }
+  const data = buf.getChannelData(0);
+  const step = Math.max(1, Math.floor(data.length / w));
+  g.fillStyle = '#f5b21a';
+  for (let x = 0; x < w; x++) {
+    let min = 1, max = -1;
+    for (let i = 0; i < step; i++) { const v = data[x*step + i] || 0; if (v < min) min = v; if (v > max) max = v; }
+    const y1 = (1 - (max+1)/2) * h, y2 = (1 - (min+1)/2) * h;
+    g.fillRect(x, y1, 1, Math.max(1, y2 - y1));
+  }
+  if (playhead != null) { g.fillStyle = '#efe6d6'; g.fillRect(playhead * w, 0, 1.5, h); }
+}
+
+function play(name, canvas, buf) {
+  if (!buf || buf === 'missing') return;
+  ac().resume();
+  if (curSource) { try { curSource.stop(); } catch {} }
+  const src = ac().createBufferSource(); src.buffer = buf;
+  const g = ac().createGain(); g.gain.value = 0.85;
+  src.connect(g).connect(ac().destination);
+  src.start(); curSource = src;
+  const t0 = ac().currentTime, dur = buf.duration;
+  (function frame() {
+    if (curSource !== src) { drawWave(canvas, buf); return; }
+    const k = (ac().currentTime - t0) / dur;
+    if (k >= 1) { drawWave(canvas, buf); return; }
+    drawWave(canvas, buf, k); requestAnimationFrame(frame);
+  })();
+  src.onended = () => { if (curSource === src) { curSource = null; drawWave(canvas, buf); } };
+}
+
+function fmt(s) { return s == null ? '—' : `${s.toFixed(2)}s`; }
+
+function refreshStats(specs) {
+  let up = 0, down = 0;
+  for (const s of specs) { const v = state[s.name]?.v; if (v === 'up') up++; else if (v === 'down') down++; }
+  document.getElementById('s-up').textContent = `👍 ${up}`;
+  document.getElementById('s-down').textContent = `👎 ${down}`;
+  document.getElementById('s-un').textContent = `• ${specs.length - up - down} unrated`;
+}
+
+async function main() {
+  const data = await (await fetch('/audio/sound-specs.json', { cache: 'no-store' })).json();
+  const { categories, sounds } = data;
+  const main = document.getElementById('main'); main.innerHTML = '';
+  const rows = new Map();
+
+  for (const catKey of Object.keys(categories)) {
+    const inCat = sounds.filter((s) => s.cat === catKey);
+    if (!inCat.length) continue;
+    const h = document.createElement('div'); h.className = 'cat';
+    h.innerHTML = `${categories[catKey]} <span class="count">${inCat.length}</span>`;
+    main.appendChild(h);
+
+    for (const spec of inCat) {
+      const row = document.createElement('div'); row.className = 'row miss';
+      row.dataset.name = spec.name; row.dataset.cat = catKey;
+      row.innerHTML = `
+        <div class="wavewrap">
+          <div class="play" title="play">▶</div>
+          <canvas class="wave"></canvas>
+        </div>
+        <div class="meta">
+          <div class="name">${spec.name}<span class="cat-chip">${catKey}</span></div>
+          <div class="desc">${spec.desc}</div>
+          <div class="lenbars">
+            <span class="lbl">target</span><div class="track tgt"><i></i></div>
+            <span class="lbl">actual</span><div class="track act"><i></i></div>
+          </div>
+          <div class="lenread"></div>
+        </div>
+        <div class="verdict">
+          <button class="vbtn up" title="sounds right">👍</button>
+          <button class="vbtn down" title="misses — regenerate">👎</button>
+        </div>
+        <textarea class="notes" placeholder="notes — what's off, what it should sound like…"></textarea>`;
+      main.appendChild(row);
+      rows.set(spec.name, { row, spec });
+
+      // restore saved verdict + notes
+      const st = state[spec.name] || {};
+      const notes = row.querySelector('.notes'); notes.value = st.notes || '';
+      const setV = (v) => {
+        state[spec.name] = { ...(state[spec.name] || {}), v };
+        row.classList.toggle('up', v === 'up'); row.classList.toggle('down', v === 'down');
+        row.querySelector('.vbtn.up').classList.toggle('on', v === 'up');
+        row.querySelector('.vbtn.down').classList.toggle('on', v === 'down');
+        save(); refreshStats(sounds); applyFilter();
+      };
+      if (st.v) setV(st.v);
+      row.querySelector('.vbtn.up').onclick = () => setV(state[spec.name]?.v === 'up' ? null : 'up');
+      row.querySelector('.vbtn.down').onclick = () => setV(state[spec.name]?.v === 'down' ? null : 'down');
+      let t; notes.oninput = () => { clearTimeout(t); t = setTimeout(() => { state[spec.name] = { ...(state[spec.name] || {}), notes: notes.value }; save(); }, 300); };
+
+      // target length bar
+      row.querySelector('.track.tgt > i').style.width = `${Math.min(1, spec.dur / MAXLEN) * 100}%`;
+    }
+  }
+
+  refreshStats(sounds);
+
+  // lazy-decode with a small concurrency pool, then paint waveform + length
+  const queue = [...rows.values()];
+  const worker = async () => {
+    while (queue.length) {
+      const { row, spec } = queue.shift();
+      const buf = await loadBuffer(spec.name);
+      const canvas = row.querySelector('canvas');
+      const play$ = row.querySelector('.play');
+      const read = row.querySelector('.lenread');
+      const actI = row.querySelector('.track.act > i');
+      if (buf === 'missing') {
+        read.innerHTML = `<b class="miss">not generated yet</b> · target ${fmt(spec.dur)}`;
+        play$.style.opacity = 0.4; drawWave(canvas, 'missing');
+        continue;
+      }
+      row.classList.remove('miss');
+      drawWave(canvas, buf);
+      const actual = buf.duration;
+      const off = Math.abs(actual - spec.dur) / spec.dur;
+      const bad = off > TOL;
+      actI.parentElement.classList.toggle('bad', bad);
+      actI.style.width = `${Math.min(1, actual / MAXLEN) * 100}%`;
+      read.innerHTML = `actual <b class="${bad ? 'bad' : 'ok'}">${fmt(actual)}</b> · target ${fmt(spec.dur)}${bad ? ` <span style="color:var(--warn)">(${actual > spec.dur ? 'long' : 'short'})</span>` : ''}`;
+      row.dataset.badlen = bad ? '1' : '';
+      const go = () => play(spec.name, canvas, buf);
+      play$.onclick = go; canvas.onclick = go;
+    }
+  };
+  await Promise.all(Array.from({ length: 6 }, worker));
+
+  // filters
+  const search = document.getElementById('search'), filter = document.getElementById('filter');
+  window.applyFilter = () => {
+    const q = search.value.trim().toLowerCase(), f = filter.value;
+    for (const { row, spec } of rows.values()) {
+      const v = state[spec.name]?.v || null;
+      let show = !q || spec.name.includes(q) || spec.desc.toLowerCase().includes(q);
+      if (show && f === 'unrated') show = !v;
+      if (show && f === 'down') show = v === 'down';
+      if (show && f === 'up') show = v === 'up';
+      if (show && f === 'badlen') show = row.dataset.badlen === '1';
+      row.style.display = show ? '' : 'none';
+    }
+    // hide empty category headers
+    document.querySelectorAll('.cat').forEach((h) => {
+      let n = h.nextElementSibling, any = false;
+      while (n && n.classList.contains('row')) { if (n.style.display !== 'none') any = true; n = n.nextElementSibling; }
+      h.style.display = any ? '' : 'none';
+    });
+  };
+  search.oninput = applyFilter; filter.onchange = applyFilter;
+
+  // export
+  const buildExport = () => {
+    const up = [], down = [], unrated = [], notes = {};
+    for (const s of sounds) {
+      const st = state[s.name] || {}; if (st.notes) notes[s.name] = st.notes;
+      if (st.v === 'up') up.push(s.name); else if (st.v === 'down') down.push(s.name); else unrated.push(s.name);
+    }
+    const cmd = down.length ? `node tools/gen-sounds-ai.mjs --only ${down.join(',')}` : '(nothing marked 👎)';
+    return { obj: { reviewedAt: new Date().toISOString(), up, down, unrated, notes, regenerateCommand: cmd }, cmd };
+  };
+  const dlg = document.getElementById('dlg');
+  document.getElementById('export').onclick = () => {
+    const { obj, cmd } = buildExport();
+    document.getElementById('dlg-json').value = JSON.stringify(obj, null, 2);
+    document.getElementById('dlg-cmd').innerHTML = obj.down.length
+      ? `Regenerate the ${obj.down.length} 👎 sound(s):<br><code>${cmd}</code>`
+      : `Nothing marked 👎 yet — thumbs-down the misses first.`;
+    dlg.showModal();
+  };
+  document.getElementById('dlg-x').onclick = () => dlg.close();
+  document.getElementById('dlg-copy').onclick = () => navigator.clipboard.writeText(document.getElementById('dlg-json').value);
+  document.getElementById('dlg-copycmd').onclick = () => navigator.clipboard.writeText(buildExport().cmd);
+  document.getElementById('reset').onclick = () => {
+    if (!confirm('Clear all ratings and notes?')) return;
+    for (const k of Object.keys(state)) delete state[k]; save();
+    for (const { row } of rows.values()) {
+      row.classList.remove('up', 'down'); row.querySelector('.notes').value = '';
+      row.querySelector('.vbtn.up').classList.remove('on'); row.querySelector('.vbtn.down').classList.remove('on');
+    }
+    refreshStats(sounds); applyFilter();
+  };
+}
+main();
+</script>
+</body>
+</html>
