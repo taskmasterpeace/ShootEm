@@ -15,8 +15,8 @@ export const SOUND_SPECS = {
   // ---- weapons ----
   rifle:        { cat: 'weapons', desc: 'Single dry assault-rifle shot — sharp, punchy crack', dur: 0.6 },
   smg:          { cat: 'weapons', desc: 'ONE single submachine-gun shot — a single round, snappy, not a burst or full-auto', dur: 0.4 },
-  pistol:       { cat: 'weapons', desc: 'Single sharp pistol pop', dur: 0.5 },
-  shotgun:      { cat: 'weapons', desc: 'Shotgun blast — deep boom with pellet spray', dur: 0.7 },
+  pistol:       { cat: 'weapons', desc: 'Single handgun gunshot — tight metallic crack with a hint of slide clack, close and dry', dur: 0.5 },
+  shotgun:      { cat: 'weapons', desc: 'Pump shotgun — deep boom blast, then a pump-action rack cocking the next shell (cha-chunk)', dur: 0.95 },
   autocannon:   { cat: 'weapons', desc: 'Heavy autocannon — mechanical metallic boom', dur: 0.6 },
   rail:         { cat: 'weapons', desc: 'Railgun — electric snap into a descending energy zap', dur: 0.9 },
   rocket:       { cat: 'weapons', desc: 'Rocket launch — ignition whoosh with a deep motor rumble', dur: 1.2 },
@@ -56,6 +56,8 @@ export const SOUND_SPECS = {
   turret_built: { cat: 'movement', desc: 'Turret deploy — unfolding servo whir and lock', dur: 0.8 },
   footstep:     { cat: 'movement', desc: 'Single boot footstep on dirt', dur: 0.5 },
   growl:        { cat: 'movement', desc: 'Zombie growl — low guttural snarl', dur: 0.7 },
+  growl2:       { cat: 'movement', desc: 'Zombie growl (variation 2) — different throat, wetter snarl', dur: 0.7 },
+  growl3:       { cat: 'movement', desc: 'Zombie growl (variation 3) — higher, rasping moan', dur: 0.7 },
 
   // ---- abilities / sci-fi tech ----
   impulse:        { cat: 'tech', desc: 'Impulse cannon — deep pulsing knockback whump', dur: 0.6 },

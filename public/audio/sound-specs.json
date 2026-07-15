@@ -23,14 +23,14 @@
     {
       "name": "pistol",
       "cat": "weapons",
-      "desc": "Single sharp pistol pop",
+      "desc": "Single handgun gunshot — tight metallic crack with a hint of slide clack, close and dry",
       "dur": 0.5
     },
     {
       "name": "shotgun",
       "cat": "weapons",
-      "desc": "Shotgun blast — deep boom with pellet spray",
-      "dur": 0.7
+      "desc": "Pump shotgun — deep boom blast, then a pump-action rack cocking the next shell (cha-chunk)",
+      "dur": 0.95
     },
     {
       "name": "autocannon",
@@ -228,6 +228,18 @@
       "name": "growl",
       "cat": "movement",
       "desc": "Zombie growl — low guttural snarl",
+      "dur": 0.7
+    },
+    {
+      "name": "growl2",
+      "cat": "movement",
+      "desc": "Zombie growl (variation 2) — different throat, wetter snarl",
+      "dur": 0.7
+    },
+    {
+      "name": "growl3",
+      "cat": "movement",
+      "desc": "Zombie growl (variation 3) — higher, rasping moan",
       "dur": 0.7
     },
     {

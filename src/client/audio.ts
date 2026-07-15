@@ -8,7 +8,7 @@ export const SOUND_NAMES = [
   'flag_taken', 'flag_captured', 'flag_returned', 'point_captured',
   'wave_start', 'victory', 'defeat', 'ui_click', 'spawn',
   'impulse', 'warp', 'blink', 'emp_burst', 'gravlift', 'beacon', 'orbital_charge',
-  'footstep', 'growl',
+  'footstep', 'growl', 'growl2', 'growl3', // extra growls → random zombie variety
   // per-class death cries (see tools/gen-sounds.mjs)
   'death_infantry', 'death_heavy', 'death_jump', 'death_engineer',
   'death_medic', 'death_infiltrator', 'death_pathfinder', 'death_ghost',

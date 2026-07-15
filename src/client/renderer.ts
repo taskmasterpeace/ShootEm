@@ -944,7 +944,9 @@ export class Renderer {
         audio.play('footstep', { pos: s.pos, volume: zed ? 0.25 : 0.35, rate: zed ? 0.8 : 1 });
       }
       if (markers.growl && hash01(s.id * 13.37 + markers.phase) < 0.4) {
-        audio.play('growl', { pos: s.pos, volume: 0.5, rate: s.kind === 'brute' ? 0.7 : s.kind === 'sprinter' ? 1.25 : 1 });
+        // three growl takes, chosen per-growl so a horde sounds like many throats
+        const growl = (['growl', 'growl2', 'growl3'] as const)[Math.floor(hash01(s.id * 7.13 + markers.phase * 2.9) * 3)];
+        audio.play(growl, { pos: s.pos, volume: 0.5, rate: s.kind === 'brute' ? 0.7 : s.kind === 'sprinter' ? 1.25 : 1 });
       }
     }
 
