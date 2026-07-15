@@ -114,6 +114,43 @@ ownership, gates which maps/modes are live, escalates difficulty, and scars
 maps permanently — a bridge you blow stays blown. You log in to "the Eastern
 Front fell overnight," not a map list.
 
+### 3.1 The Personal Armory — bring what's yours
+
+Weapons stop being menu options and become **possessions**. Your armory is
+the collection you've earned across your career — and you can bring anything
+you own into any deployment:
+
+- **You own weapons, not loadouts.** Earn them by use, campaign progress, and
+  prototype field trials (§6). Your dossier lists them like a gun locker —
+  with each weapon's own service history (kills, longest hit, tours carried).
+- **Class = role, armory = collection.** Every class keeps its *signature*
+  ability and gear (the Ghost's drone, the Engineer's turrets) — but the
+  **primary slot opens to your personal armory**, gated only by weight class
+  (an Infiltrator can't lug an autocannon). Your Ghost with the shotgun you've
+  carried for three tours *is* a story.
+- **Nothing here is purchasable** (§11.3). The armory is biography — a rack of
+  weapons that says where you've been.
+
+### 3.2 Qualification — train before you deploy, one shot on The Wall
+
+You don't get handed a class. You **qualify** for it — real militaries do
+exactly this, and it makes every class feel earned:
+
+- **Each class has a training course** — a solo qualification run in that
+  class's craft: the Medic's revive-under-fire drill, the Ghost's drone
+  slalom, the Engineer's breach-and-build, the Heavy's live-fire lane.
+  Pass it to deploy as that class. (Infantry is basic training — everyone
+  starts qualified.)
+- **One attempt counts — forever.** You can practice the course any time,
+  but your **first scored run** is your permanent qualification score. That
+  score goes on **The Wall** — the standing leaderboard every player sees —
+  and stamps your dossier: *"Qualified Expert, 96th percentile, first
+  attempt."* One shot is what makes the number mean something.
+- **Scores feed the Record:** qualification tiers (Marksman / Sharpshooter /
+  Expert) are real military grades, shown as ribbons on your soldier (§3
+  System A). Re-runs can unlock *practice* bragging rights, but The Wall
+  never forgets your first.
+
 ---
 
 ## 4. Blast physics & the grenade — combat feel
@@ -145,6 +182,27 @@ The proven top-down mechanic, live in the game now:
   demo charge, warp beacon, EMP. **Bots too** — their frags land ON you now.
 - Still to add from this section: **cooking** (fuse burns while held),
   **bounces** (bank through doorways), **throwback/dive-on** heroics.
+
+### 4.3 Down, not out — drag, revive, bleed out
+
+Death gets a middle state. Take lethal damage and you go **down** instead of
+straight to the respawn timer:
+
+- **Downed:** you're on the ground, bleeding out on a timer. You can hold on
+  for help, crawl a few meters, or **give up** and take the respawn.
+- **The drag:** any teammate can grab your collar and **haul you behind
+  cover** — the medic revives you there. Dragging a wounded soldier (or a
+  wounded K9, §5.3) out of a firefight is the single most story-generating
+  act we can add; it's a Journal entry and a medal category by itself.
+- **What it buys:** medics matter, squads stick together, and firefights get
+  a second act — "hold on, I'm coming to you."
+
+> **Honest prerequisite — the maps are too small for this today.** On a
+> 200-unit map with our current lethality, everything dies within sight of
+> everything; a downed state just becomes a slower death. Revive gameplay
+> needs **bigger maps** (300–400 units), travel time, and cover density so
+> reaching a downed teammate is a *decision*, not a formality. Scale the maps
+> (§8.4) first or alongside — this mechanic ships with them, not before.
 
 ---
 
@@ -365,6 +423,36 @@ spread on the campaign map and threaten *both* coalitions. It stays canon, it
 feeds the campaign, and it's the one theatre where the flags fight together.
 The classic zombie mode stays as an off-canon arcade toggle for fun.
 
+### 8.4 Structures grow up — roofs, windows, sightlines ⚠️ *decide before more maps*
+
+An honest audit of today's battlefields: maps are wide-open, **no structure
+has a roof**, and walls have **no windows** — a "building" is a floor plan you
+stand inside with the sky overhead. Before we build the ten fronts (§8.2),
+settle the third dimension:
+
+- **Roofs — the cutaway rule.** The proven top-down answer (Diablo, Foxhole):
+  structures get real roofs that **fade to cutaway when you (or your view)
+  are inside**. Outside, a building is a solid object that blocks sight —
+  which instantly fixes half the "wide-open map" feeling, because you can no
+  longer see through architecture. Roofs also create a new tactical layer:
+  jet-suits and drones can *overfly* what infantry must breach.
+- **Windows — a wall tile that shoots but doesn't walk.** Add a window tile
+  variant: blocks movement, allows fire and sight at standing height (the
+  engine already does per-height occlusion — cover blocks below 1.2, walls
+  below 4; a window blocks 0–1.0 and above 2.2, leaving a firing slit).
+  Suddenly buildings are *positions* — defenders shoot out, attackers frag
+  through (§4.2's bounce throws pay off here), and the Breacher makes doors
+  where there were none.
+- **Visibility is the real currency.** With roofs + windows + bigger maps
+  (§4.3), sightlines become designed instead of accidental: streets are
+  corridors, windows are angles, roofs are denial. That's what turns "wide
+  open map stuff" into terrain that reads like the fronts in §8.2.
+
+**Recommendation:** decide now, build with the map-scale pass — cutaway roofs
+and window tiles are renderer + one tile type, not an engine rewrite. Every
+map built before this decision will need rework after it; none of the ten
+fronts should be authored until this lands.
+
 ---
 
 ## 9. Build order
@@ -503,7 +591,13 @@ doesn't exist.
   immunity) — explosives just don't use it yet. §4.1 is data + tuning.
 - ✅ **Water & neighborhood** already in the engine (water tiles, safehouse
   houses).
-- ✅ **Audio:** 56-sound ElevenLabs pack, loudness-leveled, rifle & growl
+- ✅ **Audio:** 58-sound ElevenLabs pack, loudness-leveled, rifle & growl
   variety, review/replace tooling (`/sound-review.html`).
+- ✅ **FPV drones shipped** (`880dbf4` + `14dc09b`): pilotable, blinding
+  static leash, crash-out, 176 tests green.
 - ⚠️ **Decide:** faction names/doctrines (§1) are placeholders — rename at
   will; keep the enlistment/tour mechanics.
+- ⚠️ **Decide:** roofs + window tiles (§8.4) — settle before authoring any of
+  the ten fronts; every map built earlier gets reworked after.
+- ⚠️ **Decide:** map scale (300–400u) — prerequisite for down/drag/revive
+  (§4.3); ties to the same map pass as §8.4.
