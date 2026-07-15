@@ -171,6 +171,7 @@ Have an idea? The sim is one folder of plain TypeScript with no engine lock-in �
 
 ## Docs
 
+- **[Design Directive](docs/DESIGN-DIRECTIVE.md)** — where the game is going: factions, the living war, command, blast physics, the Prototype Program
 - **[Field Manual](docs/MANUAL.md)** — how to play, HUD guide, class doctrine, vehicle guide, field tips (with live screenshots)
 - **[The Arsenal](docs/ARSENAL.md)** — all 200+ weapons, 11 vehicles, crew stations, equipment, comms, LOS, environments
 - **[AI Report](docs/AI-REPORT.md)** — how the bots perceive, path, fight, drive, and swarm
