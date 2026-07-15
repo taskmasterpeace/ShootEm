@@ -438,35 +438,54 @@ spread on the campaign map and threaten *both* coalitions. It stays canon, it
 feeds the campaign, and it's the one theatre where the flags fight together.
 The classic zombie mode stays as an off-canon arcade toggle for fun.
 
-### 8.4 Structures grow up — roofs, windows, sightlines ⚠️ *decide before more maps*
+### 8.4 Structures grow up — roofs, slits, sightlines ✅ *decided — build before more maps*
 
 An honest audit of today's battlefields: maps are wide-open, **no structure
-has a roof**, and walls have **no windows** — a "building" is a floor plan you
-stand inside with the sky overhead. Before we build the ten fronts (§8.2),
-settle the third dimension:
+has a roof**, and walls have **no openings** — a "building" is a floor plan you
+stand inside with the sky overhead. The plan, engine-checked (house footprints
+and per-height shot occlusion already exist):
 
-- **Roofs — the cutaway rule.** The proven top-down answer (Diablo, Foxhole):
-  structures get real roofs that **fade to cutaway when you (or your view)
-  are inside**. Outside, a building is a solid object that blocks sight —
-  which instantly fixes half the "wide-open map" feeling, because you can no
-  longer see through architecture. Roofs also create a new tactical layer:
-  jet-suits and drones can *overfly* what infantry must breach.
-- **Windows — a wall tile that shoots but doesn't walk.** Add a window tile
-  variant: blocks movement, allows fire and sight at standing height (the
-  engine already does per-height occlusion — cover blocks below 1.2, walls
-  below 4; a window blocks 0–1.0 and above 2.2, leaving a firing slit).
-  Suddenly buildings are *positions* — defenders shoot out, attackers frag
-  through (§4.2's bounce throws pay off here), and the Breacher makes doors
-  where there were none.
-- **Visibility is the real currency.** With roofs + windows + bigger maps
-  (§4.3), sightlines become designed instead of accidental: streets are
-  corridors, windows are angles, roofs are denial. That's what turns "wide
-  open map stuff" into terrain that reads like the fronts in §8.2.
+- **Firing slits, not windows.** A new `T_SLIT` tile: blocks movement always,
+  blocks fire and sight everywhere **except a 1.2–1.8 height band** — muzzle
+  height is 1.4, so standing soldiers shoot through it. The visual is the
+  design: **two stacked wall boxes with a gap** — the gap *is* the slit, no
+  textures needed, the geometry tells the truth. Defenders shoot out,
+  attackers only get in on the slit's line, and a well-lobbed frag can sail
+  through the band. One tile type + one line in `blocksShot`.
+- **Roofs — the cutaway rule, phase 1 visual-only.** Every building gets one
+  flat roof mesh at wall height. **When you (or your drone/camera focus) are
+  inside, that building's roof fades to cutaway** — the proven Diablo/Foxhole
+  pattern. Outside, the roof is opaque, so **enemies inside are genuinely
+  concealed until you breach** — buildings finally block *knowledge*, not
+  just movement. Cost: one mesh per footprint + a point-in-rect check.
+- **Not yet: walkable roofs.** Standing on top means a second height layer in
+  the sim (pathfinding, LOS, fall) — real engine work. Phase 1 roofs are
+  concealment; jet-suits and drones *overfly*, infantry *breaches*. Rooftop
+  fighting is a Phase 2 with its own decision.
+- **Visibility is the real currency.** Roofs + slits + bigger maps (§4.3)
+  make sightlines designed instead of accidental: streets are corridors,
+  slits are angles, roofs are denial.
 
-**Recommendation:** decide now, build with the map-scale pass — cutaway roofs
-and window tiles are renderer + one tile type, not an engine rewrite. Every
-map built before this decision will need rework after it; none of the ten
-fronts should be authored until this lands.
+**Sequencing:** slits + cutaway roofs land first, then the ten fronts get
+authored against real building tech at the new map scale. **No new maps until
+then** — nothing gets built twice.
+
+### 8.5 The Scar — the theater map
+
+The campaign has a face: **THE SCAR — persistent war map**, one painted
+theater showing all ten fronts with the campaign-effect legend (destroyed ·
+blocked route · open route · persistent fire · rubble cover · flooded ·
+frozen). *Every battle leaves a mark. The world remembers.*
+
+- **It's the front-selection screen** (§10's MAP tab grows into it): players
+  open the theater, see the state of the war, and deploy to a front.
+- **Markers are live overlays, not baked pixels:** we render front markers
+  and scar icons on top of the art from campaign state — the Refinery's
+  persistent-fire icon burns only while that scar is active; routes flip
+  blocked/open as the war moves. (This also covers any stray dots in the
+  source art — our overlay owns the surface.)
+- The Scar is the visual identity of System C: when players say "check the
+  Scar," the campaign has won.
 
 ---
 
@@ -612,7 +631,10 @@ doesn't exist.
   static leash, crash-out, 176 tests green.
 - ⚠️ **Decide:** faction names/doctrines (§1) are placeholders — rename at
   will; keep the enlistment/tour mechanics.
-- ⚠️ **Decide:** roofs + window tiles (§8.4) — settle before authoring any of
-  the ten fronts; every map built earlier gets reworked after.
+- ✅ **Decided:** roofs + firing slits (§8.4) — cutaway roofs (visual-only
+  phase 1) + `T_SLIT` tile; build before authoring any of the ten fronts.
+- ✅ **The Scar exists** (§8.5) — the painted theater map with all ten fronts
+  and the campaign-effect legend; becomes the front-selection screen with
+  live marker overlays. Awaiting the hi-res export.
 - ⚠️ **Decide:** map scale (300–400u) — prerequisite for down/drag/revive
-  (§4.3); ties to the same map pass as §8.4.
+  (§4.3); ships in the same map pass as §8.4.
