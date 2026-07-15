@@ -445,6 +445,54 @@ the non-negotiables people expect from a paid game.
 
 ---
 
+## 11. Going online — hosting, mobile, money
+
+### 11.1 Hosting — three stages, no rewrites
+
+The path from "LAN with friends" to "the global war" is three stages, and no
+stage throws away the previous one's work:
+
+| Stage | Client | Server | Cost | What you get |
+|---|---|---|---|---|
+| **1** | Free HTTPS static host | Your PC, through a **cloudflared tunnel** as `wss://` | **$0** | Friends play from anywhere — whenever you're hosting |
+| **2** | Same client, untouched | Small always-on VM (e.g. Fly.io) | ~$5–10/mo | The war is up 24/7, host or not |
+| **3** | Same client | + accounts, campaign & dossier state server-side | TBD | The shared global war — **this IS Slice 4 (§9)** |
+
+**Two hard rules:**
+
+1. **`wss://` everywhere.** Browsers block insecure WebSockets from HTTPS
+   pages, and phones are always HTTPS — a bare `ws://` endpoint locks out
+   every mobile player and most desktop ones. The tunnel gives you TLS for
+   free at Stage 1; never ship a plain-`ws://` code path.
+2. **One process = one war.** The server is single-process and that's fine
+   for dozens of players. Don't shard, cluster, or "scale" anything before
+   Stage 3 — the money and the complexity both belong there.
+
+### 11.2 Mobile — ships with the menu rebuild
+
+Touch controls (virtual twin-stick), the mobile quality tier, and the PWA
+manifest ship **together with the deployment-screen rebuild (§10)** — not
+after it. The new tabbed menu gets designed **thumb-first once**, instead of
+being styled for desktop and restyled for phones twice. The sim already runs
+on phones; input and menu ergonomics are the whole gap.
+
+### 11.3 Money — what's for sale and what never is
+
+**Never for sale:** medals, rank, journal entries, prototype access — anything
+that **signals skill or history**. Pillar 9 is the law here: *respect is
+earned, not bought.* The moment a medal can be purchased, every medal on every
+soldier becomes meaningless.
+
+**For sale:** the game itself, **buy-once** — and at most *identity flavor*
+(unit patches, weapon paint) that signals **taste, not achievement**.
+
+**The boundary:** accounts (Stage 3) are the paywall line — nothing is charged
+before they exist. And **Settings plus the rebuilt menu (§10) are table
+stakes** before charging anyone: you don't sell a game whose options screen
+doesn't exist.
+
+---
+
 ## Appendix A — Field status
 
 - ✅ **Cursor-targeted throws shipped** (`b722960`): hold-G arc + landing ring,
