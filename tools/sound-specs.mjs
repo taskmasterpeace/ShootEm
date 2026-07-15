@@ -14,7 +14,7 @@
 export const SOUND_SPECS = {
   // ---- weapons ----
   rifle:        { cat: 'weapons', desc: 'Single dry assault-rifle shot — sharp, punchy crack', dur: 0.6 },
-  smg:          { cat: 'weapons', desc: 'Fast, snappy submachine-gun shot', dur: 0.5 },
+  smg:          { cat: 'weapons', desc: 'ONE single submachine-gun shot — a single round, snappy, not a burst or full-auto', dur: 0.4 },
   pistol:       { cat: 'weapons', desc: 'Single sharp pistol pop', dur: 0.5 },
   shotgun:      { cat: 'weapons', desc: 'Shotgun blast — deep boom with pellet spray', dur: 0.7 },
   autocannon:   { cat: 'weapons', desc: 'Heavy autocannon — mechanical metallic boom', dur: 0.6 },
@@ -34,7 +34,7 @@ export const SOUND_SPECS = {
   hitmarker:      { cat: 'impacts', desc: 'UI hit tick — crisp confirmation blip', dur: 0.5 },
   explosion:      { cat: 'impacts', desc: 'Explosion — sharp crack then rumbling debris', dur: 1.6 },
   explosion_big:  { cat: 'impacts', desc: 'Huge explosion — deep concussion, long collapse', dur: 2.6 },
-  death:          { cat: 'impacts', desc: 'Generic death — guttural pained gurgle (zombies / fallback)', dur: 0.7 },
+  death:          { cat: 'impacts', desc: 'Generic death — higher-pitched pained cry and gurgle, fading out (zombies / fallback)', dur: 0.7 },
 
   // ---- per-class human death cries ----
   death_infantry:     { cat: 'deaths', desc: 'Infantry death — short pained male grunt + gear rattle', dur: 0.8 },

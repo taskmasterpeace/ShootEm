@@ -5,3 +5,7 @@ dist/
 
 # playwright-mcp screenshot scratch
 .playwright-mcp/
+
+# ElevenLabs A/B/C sound candidates — working artifacts for the review page;
+# the chosen ones get baked into public/audio/*.wav via tools/apply-picks.mjs
+public/audio/variants/

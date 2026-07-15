@@ -17,8 +17,8 @@
     {
       "name": "smg",
       "cat": "weapons",
-      "desc": "Fast, snappy submachine-gun shot",
-      "dur": 0.5
+      "desc": "ONE single submachine-gun shot — a single round, snappy, not a burst or full-auto",
+      "dur": 0.4
     },
     {
       "name": "pistol",
@@ -125,7 +125,7 @@
     {
       "name": "death",
       "cat": "impacts",
-      "desc": "Generic death — guttural pained gurgle (zombies / fallback)",
+      "desc": "Generic death — higher-pitched pained cry and gurgle, fading out (zombies / fallback)",
       "dur": 0.7
     },
     {

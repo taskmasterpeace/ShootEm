@@ -56,30 +56,36 @@ function loadKey() {
   return null;
 }
 
+const OUTV = join(OUT, 'variants');
+
 function ffmpegToWav(mp3Path, wavPath) {
-  // mono, 44.1 kHz, PCM 16-bit, normalized to about -1 dBFS
+  // crop leading + trailing silence, then mono / 44.1 kHz / normalized to ~-1 dBFS.
+  // silenceremove trims the dead air ElevenLabs pads around a one-shot; the reverse
+  // pair does the tail. -50 dB peak threshold keeps the real attack + decay.
+  const crop = 'silenceremove=start_periods=1:start_threshold=-50dB:detection=peak'
+    + ',areverse,silenceremove=start_periods=1:start_threshold=-50dB:detection=peak,areverse';
   execFileSync('ffmpeg', [
     '-y', '-i', mp3Path,
     '-ac', '1', '-ar', '44100',
-    '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11,alimiter=limit=0.9',
+    '-af', `${crop},loudnorm=I=-16:TP=-1.5:LRA=11,alimiter=limit=0.9`,
     '-c:a', 'pcm_s16le', wavPath,
   ], { stdio: 'ignore' });
 }
 
-async function generate(name, key, keepMp3) {
+async function generate(name, key, { keepMp3 = false, outWav, influence = 0.5, tag = name } = {}) {
   const res = await fetch(ENDPOINT, {
     method: 'POST',
     headers: { 'xi-api-key': key, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       text: promptFor(name),
       duration_seconds: Math.max(0.5, Math.min(22, durFor(name))),
-      prompt_influence: 0.5,
+      prompt_influence: influence,
     }),
   });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}: ${(await res.text()).slice(0, 200)}`);
-  const mp3 = join(TMP, `${name}.mp3`);
+  const mp3 = join(TMP, `${tag}.mp3`);
   writeFileSync(mp3, Buffer.from(await res.arrayBuffer()));
-  ffmpegToWav(mp3, join(OUT, `${name}.wav`));
+  ffmpegToWav(mp3, outWav ?? join(OUT, `${name}.wav`));
   if (!keepMp3) rmSync(mp3, { force: true });
 }
 
@@ -92,6 +98,7 @@ async function main() {
   }
   const onlyArg = args[args.indexOf('--only') + 1];
   const keepMp3 = args.includes('--keep-mp3');
+  const variants = args.includes('--variants') ? Math.max(1, Number(args[args.indexOf('--variants') + 1]) || 3) : 1;
   const names = args.includes('--only')
     ? onlyArg.split(',').map((s) => s.trim()).filter(Boolean)
     : Object.keys(SOUND_SPECS);
@@ -101,18 +108,43 @@ async function main() {
 
   const key = loadKey();
   if (!key) {
-    console.error('ELEVENLABS_API_KEY not found. Put it in D:/git/mkm/ad-lab/.env (ELEVENLABS_API_KEY=sk_...) or set the env var.');
+    console.error('ELEVENLABS_API_KEY not found. Put it in an .env of ad-lab / directors-palette-v2 / yourehired (ELEVENLABS_API_KEY=sk_...) or set the env var.');
     process.exit(1);
   }
   mkdirSync(TMP, { recursive: true });
   mkdirSync(OUT, { recursive: true });
+
+  if (variants > 1) {
+    // A/B/C candidates per sound → public/audio/variants/<name>-<i>.wav (live wavs untouched)
+    mkdirSync(OUTV, { recursive: true });
+    const manifestPath = join(OUTV, 'manifest.json');
+    let manifest = {};
+    try { manifest = JSON.parse(readFileSync(manifestPath, 'utf8')); } catch { /* fresh */ }
+    const influences = [0.35, 0.55, 0.75]; // spread the takes so they actually differ
+    console.log(`Generating ${variants} variant(s) each for ${names.length} sound(s) → ${OUTV}`);
+    let ok = 0;
+    for (const name of names) {
+      const made = [];
+      for (let i = 1; i <= variants; i++) {
+        try {
+          process.stdout.write(`  ${name} v${i} … `);
+          await generate(name, key, { keepMp3, outWav: join(OUTV, `${name}-${i}.wav`), influence: influences[(i - 1) % influences.length], tag: `${name}-${i}` });
+          console.log('ok'); made.push(i); ok++;
+        } catch (e) { console.log('FAILED —', e.message); }
+      }
+      if (made.length) manifest[name] = made.length;
+    }
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+    console.log(`\nDone: ${ok} variant file(s). Manifest → ${manifestPath}`);
+    return;
+  }
 
   console.log(`Generating ${names.length} sound(s) via ElevenLabs → ${OUT}`);
   let ok = 0;
   for (const name of names) {
     try {
       process.stdout.write(`  ${name} … `);
-      await generate(name, key, keepMp3);
+      await generate(name, key, { keepMp3 });
       console.log('ok');
       ok++;
     } catch (e) {
