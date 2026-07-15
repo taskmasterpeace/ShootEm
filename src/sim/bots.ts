@@ -1,6 +1,6 @@
 import { CLASSES, VEHICLES, WEAPONS } from './data';
 import { GRID, T_OPEN, TILE, WORLD, isBlocked, losClear } from './map';
-import type { PlayerCmd, Soldier, Team, Vec3 } from './types';
+import type { PlayerCmd, Soldier, Vec3 } from './types';
 import { DIFFICULTY_AIM, type World } from './world';
 
 const noCmd = (): PlayerCmd => ({
@@ -146,7 +146,7 @@ function objectiveFor(w: World, s: Soldier): Vec3 {
 
 // ---------- main bot brain ----------
 
-export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
+export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
   const cmd = noCmd();
   cmd.aimYaw = s.yaw;
   const cls = CLASSES[s.classId];

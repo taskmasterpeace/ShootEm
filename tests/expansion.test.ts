@@ -9,6 +9,7 @@ import { T_OPEN, T_WATER, generateMap, losClear } from '../src/sim/map';
 import { applySnapshot, takeSnapshot } from '../src/sim/snapshot';
 import { SYSTEM_IDS, type ClassId, type PlayerCmd, type WeaponFamily } from '../src/sim/types';
 import { World } from '../src/sim/world';
+import { KILLCAM_S, REPLAY_KEEP_S, ReplayPlayer, ReplayRecorder } from '../src/client/replay';
 
 const cmd = (over: Partial<PlayerCmd> = {}): PlayerCmd => ({
   moveX: 0, moveZ: 0, aimYaw: 0, fire: false, altFire: false, jump: false,
@@ -431,15 +432,129 @@ describe('trophies — the post-match honors ledger', () => {
   });
 });
 
-describe('environments — the war scales the solar system', () => {
-  it('every theme generates deterministically with its own mix', () => {
-    for (const theme of Object.keys(THEMES) as (keyof typeof THEMES)[]) {
-      const a = generateMap(777, 'tdm', theme);
-      const b = generateMap(777, 'tdm', theme);
-      expect(a.grid).toEqual(b.grid);
-      expect(a.theme).toBe(theme);
+describe('replays — killcam and match highlights', () => {
+  it('the recorder keeps a bounded ring and clips the last N seconds', () => {
+    const w = new World({ seed: 8, mode: 'tdm' });
+    w.addSoldier('A', 'infantry', 0, 'human');
+    const rec = new ReplayRecorder();
+    for (let i = 0; i < 60 * 20; i++) { // 20 sim-seconds
+      w.step(1 / 60, new Map());
+      rec.record(w);
     }
-    // starship corridors have no open water
+    expect(rec.depth).toBeLessThanOrEqual(REPLAY_KEEP_S + 0.2); // ring bounded
+    const clip = rec.clip(5);
+    expect(clip.length).toBeGreaterThanOrEqual(40); // ~10Hz × 5s
+    expect(clip.length).toBeLessThanOrEqual(55);
+    // frames carry their recording timestamps for honest pacing
+    expect(clip[clip.length - 1].t - clip[0].t).toBeGreaterThan(4);
+  });
+
+  it('playback reproduces recorded positions and paces on recorded time', () => {
+    const w = new World({ seed: 8, mode: 'tdm' });
+    const s = w.addSoldier('A', 'infantry', 0, 'human');
+    s.pos = { ...w.map.hillPos }; // open ground — nothing to march into
+    const rec = new ReplayRecorder();
+    // march east for 4 seconds, recording
+    for (let i = 0; i < 60 * 4; i++) {
+      w.step(1 / 60, new Map([[s.id, cmd({ moveX: 1 })]]));
+      rec.record(w);
+    }
+    const liveEndX = s.pos.x;
+    const clip = rec.clip(4);
+    const clipSpan = clip[clip.length - 1].t - clip[0].t;
+    const player = new ReplayPlayer(8, 'tdm', undefined);
+    player.start(clip, 'test');
+    expect(player.active).toBe(true);
+    // early in playback the soldier is WEST of where he ended up
+    player.tick(0.2);
+    const early = player.world.soldiers.get(s.id)!.pos.x;
+    expect(early).toBeLessThan(liveEndX - 5);
+    // playback honors recorded time: after span seconds it ends, not before
+    let played = 0.2;
+    let guard = 0;
+    while (player.tick(0.1) && guard++ < 200) played += 0.1;
+    expect(played).toBeGreaterThan(clipSpan * 0.8); // no fast-forwarding
+    const finalX = player.world.soldiers.get(s.id)!.pos.x;
+    expect(Math.abs(finalX - liveEndX)).toBeLessThan(2.5);
+    expect(player.active).toBe(false); // non-looping clip ends
+  });
+
+  it('looping highlights wrap around without corrupting the recorded clip', () => {
+    const w = new World({ seed: 8, mode: 'tdm' });
+    const s = w.addSoldier('A', 'infantry', 0, 'human');
+    s.pos = { ...w.map.hillPos };
+    const rec = new ReplayRecorder();
+    for (let i = 0; i < 60 * 3; i++) {
+      w.step(1 / 60, new Map([[s.id, cmd({ moveX: 1 })]]));
+      rec.record(w);
+    }
+    const clip = rec.clip(3);
+    const frame0X = clip[0].snap.soldiers.find((x) => x.id === s.id)!.pos.x;
+    const player = new ReplayPlayer(8, 'tdm', undefined);
+    player.start(clip, 'loop', true);
+    for (let i = 0; i < 100; i++) player.tick(0.1); // ~3 passes through the clip
+    expect(player.active).toBe(true); // still rolling
+    // the ring frames must be byte-identical after playback — the puppet's
+    // dead-reckoning must never write back into the recording
+    const frame0XAfter = clip[0].snap.soldiers.find((x) => x.id === s.id)!.pos.x;
+    expect(frame0XAfter).toBe(frame0X);
+  });
+
+  it('the killcam clip fits inside the respawn window', () => {
+    // RESPAWN_DELAY is 4s — a longer clip would be cut before the kill shows
+    expect(KILLCAM_S).toBeLessThan(4);
+  });
+});
+
+describe('performance and boundaries', () => {
+  it('a full 30-combatant battle sims well under the frame budget', () => {
+    const w = new World({ seed: 77, mode: 'tdm', botsPerTeam: 15 });
+    const pool: ClassId[] = ['infantry', 'heavy', 'jump', 'engineer', 'medic', 'infiltrator', 'pathfinder', 'ghost'];
+    for (let i = 0; i < 15; i++) w.addSoldier(`A${i}`, pool[i % pool.length], 0, 'bot');
+    for (let i = 0; i < 15; i++) w.addSoldier(`B${i}`, pool[i % pool.length], 1, 'bot');
+    run(w, new Map(), 2); // warm up — bots path, fights start
+    const t0 = performance.now();
+    const TICKS = 600; // 10 sim-seconds
+    for (let i = 0; i < TICKS; i++) w.step(1 / 60, new Map());
+    const msPerTick = (performance.now() - t0) / TICKS;
+    // 60Hz gives 16.6ms/frame for sim + render; the sim alone must stay tiny
+    expect(msPerTick, `${msPerTick.toFixed(2)}ms/tick`).toBeLessThan(8);
+  });
+
+  it('nothing escapes the world: soldiers and vehicles stay in bounds under force', () => {
+    const w = new World({ seed: 77, mode: 'tdm' });
+    const s = w.addSoldier('Runner', 'pathfinder', 0, 'human');
+    s.pos = { x: -95, y: 0, z: -95 };
+    s.pushX = -500; s.pushZ = -500; // absurd knockback toward the corner
+    run(w, new Map([[s.id, cmd({ moveX: -1, moveZ: -1 })]]), 3);
+    expect(Math.abs(s.pos.x)).toBeLessThanOrEqual(98);
+    expect(Math.abs(s.pos.z)).toBeLessThanOrEqual(98);
+    const v = [...w.vehicles.values()].find((x) => x.kind === 'flyer' && x.team === 0)!;
+    const d = w.addSoldier('Pilot', 'infantry', 0, 'human');
+    d.pos = { ...v.pos };
+    w.step(1 / 60, new Map([[d.id, cmd({ use: true })]]));
+    v.spoolUntil = 0; // skip the spool for the boundary check
+    v.yaw = Math.PI; // fly at the west border
+    run(w, new Map([[d.id, cmd({ moveZ: -1 })]]), 12);
+    expect(Math.abs(v.pos.x)).toBeLessThanOrEqual(97);
+    expect(Math.abs(v.pos.z)).toBeLessThanOrEqual(97);
+  });
+
+  it('projectiles expire instead of leaking (ttl or terrain, never forever)', () => {
+    const w = new World({ seed: 77, mode: 'tdm' });
+    const s = w.addSoldier('Gunner', 'infiltrator', 0, 'human');
+    s.pos = { ...w.map.hillPos };
+    // rail shots at nothing, toward the border
+    for (let i = 0; i < 10; i++) w.step(1 / 60, new Map([[s.id, cmd({ fire: true, aimYaw: 0 })]]));
+    expect(w.projectiles.size).toBeGreaterThan(0);
+    run(w, new Map(), 4); // far beyond any weapon ttl
+    expect(w.projectiles.size).toBe(0);
+  });
+});
+
+describe('environments — the war scales the solar system', () => {
+  // (per-theme determinism lives in tests/visual.test.ts — one home)
+  it('starship corridors are sealed: no open water on a spaceship', () => {
     const ship = generateMap(777, 'tdm', 'starship');
     expect([...ship.grid].filter((t) => t === T_WATER).length).toBe(0);
   });

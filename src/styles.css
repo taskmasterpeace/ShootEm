@@ -348,3 +348,15 @@ html, body {
 .trophy .t-name.t0 { color: var(--team0); }
 .trophy .t-name.t1 { color: var(--team1); }
 .trophy .t-detail { color: var(--muted); font-size: 0.7rem; font-variant-numeric: tabular-nums; }
+
+/* ============ REPLAY / KILLCAM ============ */
+#replay-banner {
+  position: absolute; top: 4.4rem; left: 50%; transform: translateX(-50%);
+  z-index: 14; pointer-events: none;
+  background: oklch(0.16 0.02 80 / 0.85); border: 1px solid var(--accent);
+  border-radius: var(--radius); padding: 0.4rem 1.2rem;
+  font-weight: 700; letter-spacing: 0.14em; color: var(--accent);
+  text-transform: uppercase; font-size: 0.85rem;
+  animation: replay-pulse 1.6s ease-in-out infinite;
+}
+@keyframes replay-pulse { 50% { opacity: 0.55; } }

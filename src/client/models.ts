@@ -922,6 +922,7 @@ export function buildVehicle(kind: VehicleKind, team: Team): THREE.Group {
       aura.rotation.x = -Math.PI / 2;
       aura.position.y = 0.06;
       aura.name = 'healRing';
+      aura.userData.aura = true; // ground-radius overlay, not hull — tests and tools filter on this
       g.add(aura);
       addWheel(1.15, 1.0, 0.42, 0.3);
       addWheel(1.15, -1.0, 0.42, 0.3);
@@ -1283,11 +1284,15 @@ export function buildPickup(type: string): THREE.Group {
 export function buildProp(type: string, scale: number): THREE.Object3D {
   switch (type) {
     case 'rock': {
-      // radius covers the full collision disc (round(scale/1.6) tiles ≈
-      // scale×1.25 world units) so what blocks you is what you see
-      const geo = new THREE.IcosahedronGeometry(scale * 1.3, 0);
+      // The collision footprint is a tile-quantized PLUS shape (map.ts rock
+      // blobs: r=round(scale/1.6) tiles on the axes, less on diagonals), so
+      // no sphere matches it exactly. ×1.45 is the compromise: it closes most
+      // of the axis-direction invisible-wall gap (the reported bug) while
+      // keeping the diagonal overhang — where the mesh pokes past collision —
+      // under one world unit.
+      const geo = new THREE.IcosahedronGeometry(scale * 1.45, 0);
       const mesh = new THREE.Mesh(geo, mat(0x6e685c, { rough: 0.95 }));
-      mesh.position.y = scale * 0.45;
+      mesh.position.y = scale * 0.5;
       mesh.castShadow = true;
       return mesh;
     }

@@ -8,6 +8,7 @@ export const SOUND_NAMES = [
   'flag_taken', 'flag_captured', 'flag_returned', 'point_captured',
   'wave_start', 'victory', 'defeat', 'ui_click', 'spawn',
   'impulse', 'warp', 'blink', 'emp_burst', 'gravlift', 'beacon', 'orbital_charge',
+  'footstep', 'growl',
 ] as const;
 export type SoundName = (typeof SOUND_NAMES)[number];
 

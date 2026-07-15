@@ -1,6 +1,6 @@
 import { CLASSES, EQUIPMENT, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
-import { GRID, T_COVER, T_OPEN, T_WALL, T_WATER, TILE, WORLD, blocksShot, generateMap, isBlocked, losClear, tileAt, type GameMap } from './map';
+import { GRID, T_COVER, T_OPEN, T_WALL, TILE, WORLD, blocksShot, generateMap, isBlocked, losClear, tileAt, type GameMap } from './map';
 import { Rng } from './rng';
 import {
   SYSTEM_IDS, isCoopMode, isZed,
@@ -534,7 +534,7 @@ export class World {
   }
 
   /** EMP burst: stalls machines, strips cloak and energy. No direct damage. */
-  empBlast(pos: Vec3, team: Team, ownerId: number) {
+  empBlast(pos: Vec3, team: Team, _ownerId: number) {
     this.emit({ type: 'emp', pos: { ...pos } });
     for (const v of this.vehicles.values()) {
       if (!v.alive || v.team === team) continue;
@@ -1105,7 +1105,7 @@ export class World {
 
   // ---------- turrets ----------
 
-  stepTurret(t: Turret, dt: number) {
+  stepTurret(t: Turret, _dt: number) {
     if (!t.alive) return;
     const def = WEAPONS.turret_mg;
     let best: Soldier | null = null;
@@ -1444,7 +1444,7 @@ export class World {
 
   // ---------- mines & pickups ----------
 
-  stepMines(dt: number) {
+  stepMines(_dt: number) {
     for (const [id, m] of this.mines) {
       if (this.time < m.armedAt) continue;
       for (const s of this.soldiers.values()) {
@@ -1469,7 +1469,7 @@ export class World {
     }
   }
 
-  stepPickups(dt: number) {
+  stepPickups(_dt: number) {
     for (const pk of this.pickups.values()) {
       if (pk.respawnAt > 0) {
         if (this.time >= pk.respawnAt) pk.respawnAt = 0;

@@ -1,10 +1,11 @@
 import { MODE_INFO } from '../sim/data';
-import { applySnapshot, type Snapshot } from '../sim/snapshot';
+import { applySnapshot, createPuppetWorld, type Snapshot } from '../sim/snapshot';
 import type { ClassId, ModeId, PlayerCmd, ThemeId } from '../sim/types';
 import { World, type Loadout } from '../sim/world';
 import type { Chat } from './chat';
 import type { Hud } from './hud';
 import type { Input } from './input';
+import { MATCH_LINGER_NET_MS, ReplayDirector } from './replay';
 import type { Renderer } from './renderer';
 
 interface WelcomeMsg { t: 'welcome'; id: number; seed: number; mode: ModeId; theme?: ThemeId; }
@@ -18,6 +19,7 @@ export class NetGame {
   private ws!: WebSocket;
   private myId = -1;
   private world: World | null = null;
+  private director: ReplayDirector | null = null;
   private pendingEvents: Snapshot['events'] = [];
 
   constructor(
@@ -43,13 +45,9 @@ export class NetGame {
         if (msg.t === 'welcome') {
           clearTimeout(timeout);
           this.myId = msg.id;
-          this.world = new World({ seed: msg.seed, mode: msg.mode, theme: msg.theme });
-          this.world.puppet = true;
-          // clear locally-generated entities — server state is the truth
-          this.world.soldiers.clear();
-          this.world.vehicles.clear();
-          this.world.pickups.clear();
-          this.world.takeEvents();
+          // puppet world: server state is the truth
+          this.world = createPuppetWorld(msg.seed, msg.mode, msg.theme);
+          this.director = new ReplayDirector(msg.seed, msg.mode, msg.theme);
           // comms flow through the server once online
           this.chat.onSend = (m) => {
             if (this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify({ t: 'chat', channel: m.channel, text: m.text }));
@@ -117,15 +115,28 @@ export class NetGame {
 
       const events = this.pendingEvents;
       this.pendingEvents = [];
-      renderer.applyEvents(events, world, this.myId);
       hud.applyEvents(events, world, this.myId, world.time);
+
+      // killcam + match highlights, same director as offline play
+      const banner = document.getElementById('replay-banner');
+      const cut = this.director
+        ? this.director.update(world, this.myId, dt)
+        : { renderWorld: world, banner: null };
+      const replaying = cut.renderWorld !== world;
+      if (banner) {
+        banner.classList.toggle('hidden', !cut.banner);
+        if (cut.banner) banner.textContent = cut.banner;
+      }
+      if (!replaying) renderer.applyEvents(events, world, this.myId);
+      renderer.replayView = replaying;
       renderer.camDist = input.camDist;
-      renderer.update(world, this.myId, dt, hud.getWaypoints());
+      renderer.update(cut.renderWorld, this.myId, dt, hud.getWaypoints());
       if (me) hud.update(world, this.myId, input.scoreboardHeld, world.time);
 
+      // exit before the SERVER restarts its room (12s after the whistle)
       if (world.mode.over) {
         if (!overAt) overAt = now;
-        else if (now - overAt > 9000) { stopped = true; this.ws.close(); endGame(); return; }
+        else if (now - overAt > MATCH_LINGER_NET_MS) { stopped = true; this.ws.close(); endGame(); return; }
       }
       requestAnimationFrame(frame);
     };

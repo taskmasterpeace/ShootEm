@@ -402,6 +402,21 @@ writeWav('spawn', (() => {
   return b;
 })());
 
+writeWav('footstep', (() => { // soft boot scuff — synced to the walk cycle
+  let b = buf(0.09);
+  addNoise(b, { amp: 0.35, decay: 45 });
+  addTone(b, { freq: 110, freqEnd: 70, amp: 0.25, decay: 40, shape: 'sine' });
+  return lowpass(b, 900);
+})());
+
+writeWav('growl', (() => { // undead rasp — marks the reach animation
+  let b = buf(0.5);
+  addTone(b, { freq: 70, freqEnd: 52, amp: 0.4, decay: 4, shape: 'saw', dur: 0.45 });
+  addTone(b, { freq: 140, freqEnd: 95, amp: 0.2, decay: 5, shape: 'square', dur: 0.4 });
+  addNoise(b, { amp: 0.18, decay: 5, dur: 0.45 });
+  return lowpass(b, 700);
+})());
+
 writeFileSync(join(OUT, 'LICENSE-CC0.txt'),
 `War World Sound Pack
 ====================

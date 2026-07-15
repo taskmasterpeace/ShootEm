@@ -3,12 +3,12 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CLASSES, MODE_INFO, TEAM_COLORS, THEMES, WEAPONS } from '../sim/data';
 import { GRID, T_COVER, T_WALL, T_WATER, TILE, WORLD } from '../sim/map';
 import type { ClassId, ModeId, SoldierKind, Team, ThemeId, WeaponId, ZedKind } from '../sim/types';
-import { JOINT_NAMES, isUndead, poseSoldierJoints, type Joints } from '../client/animation';
+import { JOINT_NAMES, poseSoldierJoints, type GaitState, type Joints } from '../client/animation';
 import {
   buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp,
   buildSoldier, buildTurretMesh, buildVehicle,
 } from '../client/models';
-import { SOUND_NAMES, audio, type SoundName } from '../client/audio';
+import { SOUND_NAMES, audio } from '../client/audio';
 import { THEME_PALETTES } from '../client/renderer';
 import { World } from '../sim/world';
 
@@ -96,6 +96,8 @@ const current: Current = { root: null, label: '—', isSoldier: false, kind: 'zo
 
 let physY = 0, physV = 0, physActive = false; // stage vertical physics
 let animTime = 0;
+let audioReady = false;        // Sound Lab enabled → markers are audible
+const stageGait: GaitState = {}; // continuous gait phase for the staged model
 
 // projectiles / tracers / floating text live here and tick each frame
 interface Proj { mesh: THREE.Mesh; vel: THREE.Vector3; arc: boolean; life: number; trail: THREE.Vector3[]; line: THREE.Line; }
@@ -164,6 +166,8 @@ function showModel(build: () => THREE.Object3D, label: string, opts: { soldier?:
   current.isSoldier = !!opts.soldier;
   current.kind = opts.kind ?? 'zombie';
   current.id = 3;
+  stageGait.phase = undefined; // fresh gait accumulator per model
+  stageGait.swayPhase = undefined;
   current.joints = Object.fromEntries(JOINT_NAMES.map((n) => [n, root.getObjectByName(n)]));
   // snapshot the built rest pose so we can restore it when animation is off
   current.rest = new Map();
@@ -554,6 +558,7 @@ $('snd-init').onclick = async () => {
   btn.disabled = true;
   await audio.init();
   audio.resume();
+  audioReady = true;
   btn.style.display = 'none';
   buildSoundLab();
 };
@@ -678,13 +683,20 @@ function frame(now: number) {
   fpsAcc += dt; fpsFrames++;
   if (fpsAcc >= 0.5) { fps = fpsFrames / fpsAcc; fpsAcc = 0; fpsFrames = 0; $('ro-fps').textContent = fps.toFixed(0); }
 
-  // soldier animation (shared with the game renderer)
+  // soldier animation (shared with the game renderer, markers included)
   if (current.isSoldier && current.root && !envMode) {
     if (opt.anim) {
-      poseSoldierJoints(current.joints, {
+      const markers = poseSoldierJoints(current.joints, {
         kind: current.kind, time: animTime, id: current.id,
         speed: opt.speed, airborne: opt.airborne,
+        dt, state: stageGait,
       });
+      // with the Sound Lab enabled, the stage plays its animation markers —
+      // audition footsteps and growls exactly as the game fires them
+      if (audioReady) {
+        if (markers.footstep) audio.play('footstep', { volume: 0.6 });
+        if (markers.growl) audio.play('growl', { volume: 0.6 });
+      }
       // arrows/markers track the moving joints — throttled so we don't rebuild
       // canvas sprites every single frame
       if (opt.armvec || opt.joints) {

@@ -1,6 +1,6 @@
 import { TEAM_NAMES } from './data';
 import { losClear, type GameMap } from './map';
-import { isZed, type FlagState, type ModeId, type ModeState, type Team, type ZedKind } from './types';
+import { isZed, type ModeId, type ModeState, type Team, type ZedKind } from './types';
 import type { World } from './world';
 
 const MATCH_TIME = 15 * 60;
@@ -114,7 +114,7 @@ function stepTdm(w: World) {
 
 // ---------- CTF ----------
 
-function stepCtf(w: World, dt: number) {
+function stepCtf(w: World, _dt: number) {
   const m = w.mode;
   for (const flag of m.flags!) {
     const enemyTeam = (1 - flag.team) as Team;
@@ -233,7 +233,7 @@ function stepConquest(w: World, dt: number) {
 
 // ---------- Survival ----------
 
-function stepSurvival(w: World, dt: number) {
+function stepSurvival(w: World, _dt: number) {
   const m = w.mode;
   const humansAlive = w.humansAndBots().some((s) => s.alive || s.kind === 'human');
   const anyLiving = w.humansAndBots().some((s) => s.alive);
@@ -276,7 +276,7 @@ function stepSurvival(w: World, dt: number) {
 const ALERT_MEMORY = 12;   // seconds the horde remembers a sighting
 const SIGHT_RANGE = 9;     // how close a zombie must get to spot him
 
-function stepSafehouse(w: World, dt: number) {
+function stepSafehouse(w: World, _dt: number) {
   const m = w.mode;
   const sci = m.scientistId !== undefined ? w.soldiers.get(m.scientistId) : undefined;
 
@@ -347,7 +347,7 @@ function rollZedKind(w: World, tier: number): ZedKind {
 
 // ---------- Endless Horde ----------
 
-function stepHorde(w: World, dt: number) {
+function stepHorde(w: World, _dt: number) {
   const m = w.mode;
   const anyLiving = w.humansAndBots().some((s) => s.alive);
   if (!anyLiving) {

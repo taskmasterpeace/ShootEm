@@ -1,6 +1,22 @@
 import { T_OPEN } from './map';
-import type { Gadget, Mine, ModeState, Pickup, Projectile, SimEvent, Soldier, Turret, Vehicle } from './types';
-import type { World } from './world';
+import type { Gadget, Mine, ModeId, ModeState, Pickup, Projectile, SimEvent, Soldier, ThemeId, Turret, Vehicle } from './types';
+import { World } from './world';
+
+/**
+ * A puppet world renders authoritative snapshots without simulating: same
+ * seed/mode/theme (identical map), locally-generated entities cleared so
+ * applySnapshot is the only source of truth. Used by the multiplayer client
+ * and the replay player — one recipe, one home.
+ */
+export function createPuppetWorld(seed: number, mode: ModeId, theme: ThemeId | undefined): World {
+  const w = new World({ seed, mode, theme });
+  w.puppet = true;
+  w.soldiers.clear();
+  w.vehicles.clear();
+  w.pickups.clear();
+  w.takeEvents();
+  return w;
+}
 
 /** Wire format: full world snapshot. Fine for LAN play at 15Hz. */
 export interface Snapshot {
@@ -22,7 +38,7 @@ export interface Snapshot {
 }
 
 const stripBot = (s: Soldier): Soldier => {
-  const { botGoal, botRepathAt, botTargetId, botStrafeDir, ...rest } = s;
+  const { botGoal: _bg, botRepathAt: _br, botTargetId: _bt, botStrafeDir: _bs, ...rest } = s;
   return rest as Soldier;
 };
 

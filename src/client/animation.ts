@@ -36,6 +36,22 @@ export function zombieArmRest(kind: SoldierKind, isLeft: boolean): number {
   return isLeft ? 1.5 : 1.2;
 }
 
+/** The zombie reach sways at this fraction of the gait rate — the growl marker rides its crest. */
+export const REACH_SWAY_RATE = 0.55;
+
+/**
+ * Continuous gait accumulator. Absolute-time phase (t × rate) is fine for
+ * posing, but rate depends on speed — so any speed change (cloak, armor,
+ * strafing jitter) multiplied by elapsed time teleports the phase, and
+ * anything keyed to phase crossings (footsteps) fires spuriously. Callers
+ * that want animation MARKERS pass one of these per body; phase then
+ * integrates rate×dt and survives speed changes and render-world swaps.
+ */
+export interface GaitState {
+  phase?: number;
+  swayPhase?: number;
+}
+
 export interface GaitInput {
   kind: SoldierKind;
   /** world/sim time in seconds */
@@ -46,12 +62,20 @@ export interface GaitInput {
   speed: number;
   /** true when off the ground (jetpack tuck) */
   airborne: boolean;
+  /** frame delta — required for continuous phase + markers */
+  dt?: number;
+  /** persistent per-body accumulator — required for markers */
+  state?: GaitState;
 }
 
 export interface GaitPose {
   /** the gait phase this frame — the caller reuses it for body bob */
   phase: number;
   moving: boolean;
+  /** a boot hit the ground this frame (sin(phase) zero-crossing while moving) */
+  footstep: boolean;
+  /** an undead reach-sway cycle crested this frame — growl cue */
+  growl: boolean;
 }
 
 /**
@@ -61,14 +85,36 @@ export interface GaitPose {
  * (bob + lean) and any weapon recoil, which need renderer-only state.
  */
 export function poseSoldierJoints(j: Joints, inp: GaitInput): GaitPose {
-  const { time: t, id, speed, airborne, kind } = inp;
+  const { time: t, id, speed, airborne, kind, dt, state } = inp;
   const zed = isUndead(kind);
   const moving = speed > 0.6;
 
   const gaitRate = zed
     ? kind === 'sprinter' ? 15 : kind === 'brute' ? 4.5 : 6
     : 5.5 + speed * 0.75;
-  const phase = t * gaitRate + (id % 9) * 0.77;
+
+  // phase: integrated when the caller keeps state (markers), absolute otherwise
+  let phase: number;
+  let footstep = false;
+  let growl = false;
+  if (state && dt !== undefined) {
+    const seeded = state.phase !== undefined;
+    const prev = state.phase ?? t * gaitRate + (id % 9) * 0.77;
+    phase = prev + (seeded ? gaitRate * dt : 0);
+    state.phase = phase;
+    // footfalls land on the half-cycles of the leg swing
+    footstep = seeded && moving && !airborne &&
+      Math.floor(phase / Math.PI) !== Math.floor(prev / Math.PI);
+    if (zed) {
+      const sPrev = state.swayPhase ?? phase * REACH_SWAY_RATE;
+      const sway = sPrev + (seeded ? gaitRate * REACH_SWAY_RATE * dt : 0);
+      state.swayPhase = sway;
+      growl = seeded &&
+        Math.floor(sway / (Math.PI * 2)) !== Math.floor(sPrev / (Math.PI * 2));
+    }
+  } else {
+    phase = t * gaitRate + (id % 9) * 0.77;
+  }
   const stride = moving
     ? (kind === 'brute' ? 0.75 : kind === 'sprinter' ? 0.9 : 0.55) * Math.min(1, speed / 5 + 0.35)
     : 0;
@@ -92,12 +138,12 @@ export function poseSoldierJoints(j: Joints, inp: GaitInput): GaitPose {
   if (zed) {
     // undead: reaching arms sway forward, head lolls, brutes lumber, bellies pulse
     const sway = kind === 'brute' ? 0.35 : 0.16;
-    if (j.armL) j.armL.rotation.z = zombieArmRest(kind, true) + Math.sin(phase * 0.55) * sway;
+    if (j.armL) j.armL.rotation.z = zombieArmRest(kind, true) + Math.sin(phase * REACH_SWAY_RATE) * sway;
     if (j.armR) j.armR.rotation.z = zombieArmRest(kind, false) + Math.cos(phase * 0.5) * sway;
     if (j.head) j.head.rotation.z = Math.sin(phase * 0.45) * 0.12;
     if (j.torso) j.torso.rotation.x = Math.sin(phase * 0.5) * (kind === 'brute' ? 0.1 : 0.07);
     if (j.belly) j.belly.scale.setScalar(1 + Math.sin(t * 6) * 0.06);
   }
 
-  return { phase, moving };
+  return { phase, moving, footstep, growl };
 }

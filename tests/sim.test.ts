@@ -229,7 +229,7 @@ describe('endless horde', () => {
     const a = w.addSoldier('A', 'heavy', 0, 'human');
     a.pos = { x: 0, y: 0, z: 0 };
     const keepAlive = () => { a.hp = a.maxHp; }; // survive for observation
-    let seenCounts: number[] = [];
+    const seenCounts: number[] = [];
     for (let i = 0; i < 60 * 40; i++) {
       keepAlive();
       w.step(1 / 60, new Map());

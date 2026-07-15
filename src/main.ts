@@ -8,6 +8,7 @@ import { Hud } from './client/hud';
 import { Input } from './client/input';
 import { Renderer } from './client/renderer';
 import { NetGame } from './client/net';
+import { MATCH_LINGER_LOCAL_MS, ReplayDirector } from './client/replay';
 
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -249,6 +250,14 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
   const world = new World({ seed, mode: selectedMode, difficulty, botsPerTeam, matchMinutes, theme: selectedTheme });
   const me = world.addSoldier(name, selectedClass, 0, 'human', currentLoadout());
 
+  // replays: the director runs the killcam + match-highlights state machine
+  const director = new ReplayDirector(seed, selectedMode, selectedTheme);
+  const banner = $('replay-banner');
+  const setBanner = (text: string | null) => {
+    banner.classList.toggle('hidden', !text);
+    if (text) banner.textContent = text;
+  };
+
   // populate bots
   const classPool: ClassId[] = ['infantry', 'infantry', 'heavy', 'jump', 'engineer', 'medic', 'infiltrator', 'pathfinder', 'ghost'];
   const names = [...BOT_NAMES].sort(() => Math.random() - 0.5);
@@ -263,7 +272,7 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
 
   renderer.buildStaticWorld(world);
   hud.announce(MODE_INFO[selectedMode].name.toUpperCase(), true, 0);
-  (window as unknown as Record<string, unknown>).__ww = { world, me, renderer, hud, input }; // debug/testing handle
+  (window as unknown as Record<string, unknown>).__ww = { world, me, renderer, hud, input, recorder: director.recorder, replay: director.player, director }; // debug/testing handle
 
   const FIXED = 1 / 60;
   let acc = 0;
@@ -275,23 +284,36 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     if (!running) return;
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
-    acc += dt;
-    while (acc >= FIXED) {
-      acc -= FIXED;
-      cmds.clear();
-      if (me.alive || me.vehicleId >= 0) cmds.set(me.id, input.buildCmd(me, renderer.camera));
-      world.step(FIXED, cmds);
+
+    // once highlights roll the live match is over and hidden — stop simming
+    // it (no invisible battles burning CPU, no ghost VFX, no stray inputs)
+    if (!director.highlightsRolling) {
+      acc += dt;
+      while (acc >= FIXED) {
+        acc -= FIXED;
+        cmds.clear();
+        if (me.alive || me.vehicleId >= 0) cmds.set(me.id, input.buildCmd(me, renderer.camera));
+        world.step(FIXED, cmds);
+      }
     }
     const events = world.takeEvents();
-    renderer.applyEvents(events, world, me.id);
-    hud.applyEvents(events, world, me.id, world.time);
+    hud.applyEvents(events, world, me.id, world.time); // killfeed stays live
+
+    const { renderWorld, banner: bannerText } = director.update(world, me.id, dt);
+    const replaying = renderWorld !== world;
+    setBanner(bannerText);
+    // live-world VFX/sounds only belong on the live view — a replay scene
+    // getting present-time explosions would show phantom battles
+    if (!replaying) renderer.applyEvents(events, world, me.id);
+    renderer.replayView = replaying;
     renderer.camDist = input.camDist;
-    renderer.update(world, me.id, dt, hud.getWaypoints());
+    renderer.update(renderWorld, me.id, dt, hud.getWaypoints());
     hud.update(world, me.id, input.scoreboardHeld, world.time);
 
+    // linger after the whistle: trophies + looping highlights deserve a look
     if (world.mode.over) {
       if (!overAt) overAt = now;
-      else if (now - overAt > 9000) { endGame(); return; }
+      else if (now - overAt > MATCH_LINGER_LOCAL_MS) { endGame(); return; }
     }
     requestAnimationFrame(frame);
   }

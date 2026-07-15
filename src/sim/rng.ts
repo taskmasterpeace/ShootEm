@@ -1,3 +1,9 @@
+/** Stateless deterministic hash → [0,1). One home for the sin-fract trick. */
+export function hash01(n: number): number {
+  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+
 /** Deterministic seeded RNG (mulberry32) so client and server generate identical maps. */
 export class Rng {
   private s: number;

@@ -5,7 +5,8 @@ import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
 import type { World } from '../sim/world';
 import { audio, type SoundName } from './audio';
 import { Particles, FlashLights } from './effects';
-import { JOINT_NAMES, isUndead, poseSoldierJoints } from './animation';
+import { JOINT_NAMES, isUndead, poseSoldierJoints, type GaitState } from './animation';
+import { hash01 } from '../sim/rng';
 import { buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp, buildSoldier, buildTurretMesh, buildVehicle } from './models';
 
 const TRACER_COLORS: Record<string, number> = {
@@ -85,6 +86,11 @@ export class Renderer {
   camShake = 0;
   /** wheel-zoom distance, fed by Input each frame */
   camDist = 30;
+  /** true while a killcam/highlights puppet world is being rendered —
+   *  mutes animation-marker audio, freezes the listener, hides live-time
+   *  overlays, and switches entity cleanup from delete to hide (the live
+   *  and replay rosters differ; deleting would thrash meshes every swap) */
+  replayView = false;
   private lookAhead = new THREE.Vector3();
 
   private soldierMeshes = new Map<number, THREE.Group>();
@@ -116,6 +122,7 @@ export class Renderer {
   private nextSmokeAt = new Map<number, number>();          // vehicle id → next damage-smoke puff
   private wpPillars: THREE.Mesh[] = [];                     // pooled waypoint light pillars
   private flyerAlt = new Map<number, number>();             // smoothed flyer altitude per id
+  private frameDt = 1 / 60;                                 // dt of the current update()
 
   /** Red chevron sprite texture for revealed-enemy markers (built once). */
   private getPingTexture(): THREE.Texture {
@@ -358,6 +365,7 @@ export class Renderer {
   update(world: World, localId: number, dt: number, waypoints?: { x: number; z: number; until: number }[]) {
     const local = world.soldiers.get(localId);
     const localTeam = local?.team ?? 0;
+    this.frameDt = dt;
 
     // soldiers
     for (const s of world.soldiers.values()) {
@@ -389,7 +397,22 @@ export class Renderer {
     }
     for (const [id, mesh] of this.soldierMeshes) {
       if (!world.soldiers.has(id)) {
+        // during a replay the live/puppet rosters differ — hide, don't
+        // delete, or every swap thrashes (and leaks) dozens of meshes
+        if (this.replayView) { mesh.visible = false; continue; }
         this.scene.remove(mesh);
+        mesh.traverse((o) => {
+          const m = o as THREE.Mesh;
+          if (m.geometry) m.geometry.dispose();
+          const mm = m.material as THREE.Material | undefined;
+          mm?.dispose();
+        });
+        const tag = this.nameSprites.get(id);
+        if (tag) {
+          tag.material.map?.dispose();
+          tag.material.dispose();
+          this.nameSprites.delete(id);
+        }
         this.soldierMeshes.delete(id);
       }
     }
@@ -569,11 +592,13 @@ export class Renderer {
         this.scene.add(mesh);
         this.projMeshes.set(p.id, mesh);
       }
+      mesh.visible = true; // may have been hidden during a replay swap
       mesh.position.set(p.pos.x, p.pos.y, p.pos.z);
       mesh.rotation.y = -Math.atan2(p.vel.z, p.vel.x);
     }
     for (const [id, mesh] of this.projMeshes) {
       if (!world.projectiles.has(id)) {
+        if (this.replayView) { mesh.visible = false; continue; }
         this.scene.remove(mesh);
         (mesh.material as THREE.Material).dispose();
         mesh.geometry.dispose();
@@ -664,12 +689,13 @@ export class Renderer {
       }
     }
 
-    // orbital beams fade out
+    // orbital beams fade out (k clamped: replay clocks run behind live time)
     for (let i = this.beams.length - 1; i >= 0; i--) {
       const b = this.beams[i];
       const mm = b.mesh.material as THREE.MeshStandardMaterial;
-      mm.opacity = Math.max(0, (b.until - world.time) / 0.9) * 0.85;
-      b.mesh.scale.x = b.mesh.scale.z = 1 + (0.9 - (b.until - world.time)) * 0.6;
+      const k = Math.min(1, Math.max(0, (b.until - world.time) / 0.9));
+      mm.opacity = k * 0.85;
+      b.mesh.scale.x = b.mesh.scale.z = 1 + (1 - k) * 0.6;
       if (world.time >= b.until) {
         this.scene.remove(b.mesh);
         mm.dispose();
@@ -689,13 +715,13 @@ export class Renderer {
       });
     }
 
-    // ---- sensor sweeps expand and fade ----
+    // ---- sensor sweeps expand and fade (k clamped for replay clocks) ----
     for (let i = this.sweepRings.length - 1; i >= 0; i--) {
       const sw = this.sweepRings[i];
       const age = world.time - sw.born;
-      const k = age / 1.6; // reaches full 28u sensor radius as it dies
+      const k = Math.min(1, Math.max(0, age / 1.6)); // full 28u radius as it dies
       sw.mesh.scale.setScalar(1 + k * 27);
-      (sw.mesh.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 0.55 * (1 - k));
+      (sw.mesh.material as THREE.MeshBasicMaterial).opacity = 0.55 * (1 - k);
       if (k >= 1) {
         this.scene.remove(sw.mesh);
         sw.mesh.geometry.dispose();
@@ -744,7 +770,10 @@ export class Renderer {
     }
 
     // ---- tactical waypoints: amber light pillars on the field ----
-    if (waypoints) {
+    // (live-time overlays don't belong in a replayed scene)
+    if (this.replayView) {
+      for (const pillar of this.wpPillars) if (pillar) pillar.visible = false;
+    } else if (waypoints) {
       for (let i = 0; i < Math.min(waypoints.length, 8); i++) {
         let pillar = this.wpPillars[i];
         if (!pillar) {
@@ -804,7 +833,9 @@ export class Renderer {
       }
       this.camera.position.copy(this.camPos);
       this.camera.lookAt(target);
-      audio.listener = { x: local.pos.x, y: 0, z: local.pos.z };
+      // replays must not drag the audio listener to your PAST position —
+      // any remaining live sounds (UI, killfeed) stay panned to the present
+      if (!this.replayView) audio.listener = { x: local.pos.x, y: 0, z: local.pos.z };
     }
 
     this.particles.update(dt);
@@ -834,7 +865,25 @@ export class Renderer {
 
     // ---- gait + undead reach (shared verbatim with the model harness) ----
     const airborne = s.pos.y > 0.6;
-    const { phase } = poseSoldierJoints(j, { kind: s.kind, time: t, id: s.id, speed, airborne });
+    const gaitState = (mesh.userData.gait ??= {}) as GaitState;
+    const markers = poseSoldierJoints(j, {
+      kind: s.kind, time: t, id: s.id, speed, airborne,
+      dt: this.frameDt, state: gaitState,
+    });
+    const { phase } = markers;
+
+    // ---- synchronized animation markers ----
+    // the animation module integrates a continuous per-body phase (robust to
+    // speed changes and render-world swaps) and reports the exact frames a
+    // boot lands or an undead reach crests; replays stay silent
+    if (!this.replayView) {
+      if (markers.footstep) {
+        audio.play('footstep', { pos: s.pos, volume: zed ? 0.25 : 0.35, rate: zed ? 0.8 : 1 });
+      }
+      if (markers.growl && hash01(s.id * 13.37 + markers.phase) < 0.4) {
+        audio.play('growl', { pos: s.pos, volume: 0.5, rate: s.kind === 'brute' ? 0.7 : s.kind === 'sprinter' ? 1.25 : 1 });
+      }
+    }
 
     // body: bob while moving, breathe while idle, lean into the run
     const bob = moving ? Math.abs(Math.sin(phase)) * 0.055 : Math.sin(t * 1.8 + s.id) * 0.012;
