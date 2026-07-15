@@ -58,21 +58,21 @@ const F = (
 
 /** The sixteen generated families — every category from the classic armory. */
 export const FAMILIES: FamilySpec[] = [
-  F('pistol',       'Pistol',        'P',  { damage: 12, rof: 4.5, speed: 100, spread: 0.02, clip: 12, reloadTime: 1.1, reserve: 96, range: 45, sound: 'pistol' }),
-  F('rifle',        'Rifle',         'R',  { damage: 13, rof: 7.5, speed: 110, spread: 0.025, clip: 30, reserve: 240, range: 60 }),
-  F('carbine',      'Carbine',       'C',  { damage: 11, rof: 9, speed: 105, spread: 0.03, clip: 26, reloadTime: 1.4, reserve: 208, range: 50 }),
-  F('smg',          'SMG',           'K',  { damage: 9, rof: 12, speed: 95, spread: 0.05, clip: 40, reloadTime: 1.3, reserve: 240, range: 38, sound: 'smg' }),
+  F('pistol',       'Pistol',        'P',  { damage: 12, rof: 4.5, speed: 100, spread: 0.02, clip: 12, reloadTime: 1.1, reserve: 96, range: 44, sound: 'pistol' }),
+  F('rifle',        'Rifle',         'R',  { damage: 13, rof: 7.5, speed: 110, spread: 0.025, clip: 30, reserve: 240, range: 66 }),
+  F('carbine',      'Carbine',       'C',  { damage: 11, rof: 9, speed: 105, spread: 0.03, clip: 26, reloadTime: 1.4, reserve: 208, range: 52 }),
+  F('smg',          'SMG',           'K',  { damage: 9, rof: 12, speed: 95, spread: 0.05, clip: 40, reloadTime: 1.3, reserve: 240, range: 40, sound: 'smg' }),
   F('shotgun',      'Shotgun',       'SG', { damage: 9, rof: 1.4, pellets: 8, speed: 80, spread: 0.11, clip: 6, reloadTime: 2.2, reserve: 60, range: 26, sound: 'shotgun', tracer: 'shell' }),
-  F('slugger',      'Slug Thrower',  'ST', { damage: 34, rof: 1.8, speed: 85, spread: 0.015, clip: 8, reloadTime: 2.0, reserve: 64, range: 55, sound: 'shotgun', tracer: 'shell' }),
-  F('laser',        'Laser',         'L',  { damage: 30, rof: 2.2, speed: 300, spread: 0.003, clip: 8, reloadTime: 1.8, reserve: 64, range: 90, sound: 'rail', tracer: 'rail' }),
-  F('lmg',          'Light MG',      'LM', { damage: 11, rof: 9.5, speed: 105, spread: 0.045, clip: 75, reloadTime: 3.2, reserve: 375, range: 55, sound: 'autocannon' }),
-  F('hmg',          'Heavy MG',      'HM', { damage: 15, rof: 7, speed: 105, spread: 0.05, clip: 90, reloadTime: 3.8, reserve: 360, range: 60, sound: 'autocannon' }),
-  F('at_rocket',    'AT Rocket',     'AT', { damage: 90, rof: 0.6, speed: 40, spread: 0.008, clip: 1, reloadTime: 3.0, reserve: 12, range: 85, splash: 3, splashDamage: 40, sound: 'rocket', tracer: 'rocket' }),
-  F('ap_rocket',    'AP Rocket',     'AP', { damage: 40, rof: 0.9, speed: 44, spread: 0.012, clip: 3, reloadTime: 2.6, reserve: 18, range: 70, splash: 5, splashDamage: 50, sound: 'rocket', tracer: 'rocket' }),
-  F('mortar',       'Mortar',        'M',  { damage: 50, rof: 0.7, speed: 30, arc: true, clip: 4, reloadTime: 2.8, reserve: 24, range: 70, splash: 5.5, splashDamage: 55, sound: 'thump', tracer: 'shell' }),
-  F('artillery',    'Field Gun',     'FG', { damage: 80, rof: 0.35, speed: 38, arc: true, clip: 2, reloadTime: 4.5, reserve: 16, range: 110, splash: 7, splashDamage: 70, sound: 'cannon', tracer: 'rocket' }),
+  F('slugger',      'Slug Thrower',  'ST', { damage: 34, rof: 1.8, speed: 85, spread: 0.015, clip: 8, reloadTime: 2.0, reserve: 64, range: 58, sound: 'shotgun', tracer: 'shell' }),
+  F('laser',        'Laser',         'L',  { damage: 30, rof: 2.2, speed: 300, spread: 0.003, clip: 8, reloadTime: 1.8, reserve: 64, range: 96, sound: 'rail', tracer: 'rail' }),
+  F('lmg',          'Light MG',      'LM', { damage: 11, rof: 9.5, speed: 105, spread: 0.045, clip: 75, reloadTime: 3.2, reserve: 375, range: 54, sound: 'autocannon' }),
+  F('hmg',          'Heavy MG',      'HM', { damage: 15, rof: 7, speed: 105, spread: 0.05, clip: 90, reloadTime: 3.8, reserve: 360, range: 64, sound: 'autocannon' }),
+  F('at_rocket',    'AT Rocket',     'AT', { damage: 90, rof: 0.6, speed: 40, spread: 0.008, clip: 1, reloadTime: 3.0, reserve: 12, range: 88, splash: 3, splashDamage: 40, sound: 'rocket', tracer: 'rocket' }),
+  F('ap_rocket',    'AP Rocket',     'AP', { damage: 40, rof: 0.9, speed: 44, spread: 0.012, clip: 3, reloadTime: 2.6, reserve: 18, range: 72, splash: 5, splashDamage: 50, sound: 'rocket', tracer: 'rocket' }),
+  F('mortar',       'Mortar',        'M',  { damage: 50, rof: 0.7, speed: 30, arc: true, clip: 4, reloadTime: 2.8, reserve: 24, range: 72, splash: 5.5, splashDamage: 55, sound: 'thump', tracer: 'shell' }),
+  F('artillery',    'Field Gun',     'FG', { damage: 80, rof: 0.35, speed: 38, arc: true, clip: 2, reloadTime: 4.5, reserve: 16, range: 105, splash: 7, splashDamage: 70, sound: 'cannon', tracer: 'rocket' }),
   F('scatter',      'Scatter Pack',  'SP', { damage: 7, rof: 1.6, pellets: 12, speed: 70, spread: 0.2, clip: 5, reloadTime: 2.4, reserve: 40, range: 22, sound: 'shotgun', tracer: 'shell' }),
-  F('sonic',        'Sonic Cannon',  'SC', { damage: 18, rof: 3, speed: 60, spread: 0.01, clip: 12, reloadTime: 2.0, reserve: 72, range: 40, knockback: 8, sound: 'impulse', tracer: 'rail' }),
+  F('sonic',        'Sonic Cannon',  'SC', { damage: 18, rof: 3, speed: 60, spread: 0.01, clip: 12, reloadTime: 2.0, reserve: 72, range: 44, knockback: 8, sound: 'impulse', tracer: 'rail' }),
   F('flamethrower', 'Flamethrower',  'FT', { damage: 7, rof: 14, speed: 28, spread: 0.12, clip: 100, reloadTime: 2.5, reserve: 200, range: 16, sound: 'flame', tracer: 'flame' }),
 ];
 
@@ -134,7 +134,7 @@ export function buildArsenal(): Record<WeaponId, WeaponDef> {
         damage: Math.round(nk.damage * tier.dmg),
         rof: 1.1, speed: 34, spread: 0.015 * tier.spread, pellets: 1,
         clip: 4 + tier.mk, reloadTime: 2.4 * tier.reload, reserve: Math.round(24 * tier.reserve),
-        range: 55, splash: nk.splash, splashDamage: Math.round(nk.splashDamage * tier.dmg),
+        range: 44, splash: nk.splash, splashDamage: Math.round(nk.splashDamage * tier.dmg),
         arc: true, heals: false, knockback: 0,
         sound: 'thump', tracer: 'shell', payload: nk.payload,
       };

@@ -753,7 +753,8 @@ export class World {
       } else if (s.grenades > 0) {
         s.grenades--;
         s.nextGrenadeAt = this.time + 1.2;
-        this.throwProjectile(s, 'gl', 1.4, 16, true);
+        // hand-thrown frag: a short panic toss (~22u), not the full GL-40 lob
+        this.throwProjectile(s, 'gl', 1.4, 16, true, 22);
         this.emit({ type: 'shot', pos: s.pos, weapon: 'gl', soldierId: s.id });
         if (s.cloaked) { s.cloaked = false; }
       }
@@ -797,15 +798,31 @@ export class World {
     }
   }
 
-  throwProjectile(s: Soldier, wid: WeaponId, muzzleY: number, speed: number, arc: boolean) {
+  /**
+   * Fire a projectile. `reach` is the intended max distance (defaults to the
+   * weapon's range); for arcs it drives the launch angle so the shot actually
+   * LANDS at that distance instead of a fixed short ballistic. A caller can
+   * pass a shorter reach for a soft toss (e.g. the hand-thrown frag).
+   */
+  throwProjectile(s: Soldier, wid: WeaponId, muzzleY: number, speed: number, arc: boolean, reach = WEAPONS[wid].range) {
     const def = WEAPONS[wid];
     const spread = (this.rng.next() - 0.5) * 2 * def.spread;
     const yaw = s.yaw + spread;
+    // Arc launch: pick vy so the shell returns to the ground exactly when it
+    // has travelled `reach` horizontally. Flight time t = reach/speed; solving
+    // muzzleY + vy·t − ½·g·t² = 0 gives vy = ½·g·t − muzzleY/t. Uses the live
+    // (per-theme) gravity, so low-g worlds lob correctly too.
+    let vy = 0;
+    if (arc) {
+      const gArc = this.gravity * 0.7;
+      const t = reach / Math.max(speed, 1);
+      vy = Math.max(2, 0.5 * gArc * t - muzzleY / t);
+    }
     const p: Projectile = {
       id: this.id(), weapon: wid, ownerId: s.id, team: s.team,
       pos: { x: s.pos.x + Math.cos(yaw) * 0.8, y: s.pos.y + muzzleY, z: s.pos.z + Math.sin(yaw) * 0.8 },
-      vel: { x: Math.cos(yaw) * speed, y: arc ? 7 : 0, z: Math.sin(yaw) * speed },
-      bornAt: this.time, ttl: def.range / Math.max(speed, 1) + (arc ? 1.2 : 0), arc,
+      vel: { x: Math.cos(yaw) * speed, y: vy, z: Math.sin(yaw) * speed },
+      bornAt: this.time, ttl: reach / Math.max(speed, 1) + (arc ? 1.4 : 0), arc,
     };
     this.projectiles.set(p.id, p);
   }

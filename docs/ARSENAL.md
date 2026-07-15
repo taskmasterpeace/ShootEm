@@ -39,6 +39,26 @@ varied primaries from the same lists, so no two matches sound alike.
 Balance is enforced by tests: no generated weapon exceeds ~260 burst DPS, 130
 range, or a 5s reload (`tests/expansion.test.ts`).
 
+### Range = literal reach
+
+Every weapon's **`range` is the exact distance its shot travels** — direct-fire
+rounds are culled at `range`, and **arc weapons (grenades, mortars, artillery)
+are launched at an angle that lands them at `range`** rather than a fixed short
+ballistic. Ranges are tuned to the 200-unit battlefield in role bands, playtest-validated
+against 660+ bot-match kills, and locked by `tests/range.test.ts`:
+
+| Band | Reach | Families |
+|---|---|---|
+| CQC | 16–27 | flamethrower, scatter, shotgun |
+| Short | 40–46 | SMG, pistol/sidearm |
+| Mid | 50–66 | carbine, sonic, plasma, impulse, LMG, autocannon, slugger, rifle |
+| Long | 64–96 | HMG, AP/AT rockets, micro-missiles, mortar, laser, tank cannon |
+| Sniper/arty | 105–125 | field-gun artillery, RG-2 railgun |
+
+Bots acquire targets out to their weapon's reach, so a railgun infiltrator
+genuinely snipes and a shotgun engineer must close — the tuned distances show
+up in real firefights.
+
 ## Vehicles (11)
 
 | Vehicle | Armor | Seats | Role |

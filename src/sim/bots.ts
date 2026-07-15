@@ -201,7 +201,11 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
     return cmd;
   }
 
-  const target = findTarget(w, s, 42);
+  // acquire out to the equipped weapon's reach (bounded) so snipers/lasers
+  // actually engage long and every weapon's max distance shows in real play;
+  // a 42u floor keeps close-quarters classes aggressive
+  const acqRange = Math.max(42, Math.min(WEAPONS[s.weapons[s.weaponIdx]].range * 0.95, 95));
+  const target = findTarget(w, s, acqRange);
   const goal = objectiveFor(w, s);
   const dGoal = Math.hypot(goal.x - s.pos.x, goal.z - s.pos.z);
 
