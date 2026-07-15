@@ -114,22 +114,37 @@ ownership, gates which maps/modes are live, escalates difficulty, and scars
 maps permanently — a bridge you blow stays blown. You log in to "the Eastern
 Front fell overnight," not a map list.
 
-### 3.1 The Personal Armory — bring what's yours
+### 3.1 The Kit — personal gear & operational gear
 
-Weapons stop being menu options and become **possessions**. Your armory is
-the collection you've earned across your career — and you can bring anything
-you own into any deployment:
+Every soldier carries out of **two lockers**, and the distinction is the whole
+design:
 
-- **You own weapons, not loadouts.** Earn them by use, campaign progress, and
-  prototype field trials (§6). Your dossier lists them like a gun locker —
-  with each weapon's own service history (kills, longest hit, tours carried).
-- **Class = role, armory = collection.** Every class keeps its *signature*
-  ability and gear (the Ghost's drone, the Engineer's turrets) — but the
-  **primary slot opens to your personal armory**, gated only by weight class
-  (an Infiltrator can't lug an autocannon). Your Ghost with the shotgun you've
-  carried for three tours *is* a story.
-- **Nothing here is purchasable** (§11.3). The armory is biography — a rack of
-  weapons that says where you've been.
+**Personal gear — what you OWN.** Earned by use, campaign progress, and
+prototype field trials (§6); follows you across classes, matches, and tours.
+
+- **You own weapons, not loadouts.** Your dossier lists them like a gun
+  locker — each weapon with its own service history (kills, longest hit,
+  tours carried).
+- **Bring what's yours to any deployment:** the primary slot opens to your
+  personal armory, gated only by weight class (an Infiltrator can't lug an
+  autocannon). Your Ghost with the shotgun you've carried three tours *is* a
+  story.
+- **Never purchasable** (§11.3). Personal gear is biography.
+
+**Operational gear — what the army ISSUES.** Assigned per deployment; it goes
+back in the cage when the op ends.
+
+- **Class signature kit:** the Ghost's FPV drone, the Engineer's turrets and
+  mines, the Medic's medi-beam — the *role*, and it stays with the role.
+- **Equipment picks** (vest, goggles, demo kit…) and **mission issue** —
+  breaching charges for Breach & Clear, MANPADS for Air Interdiction, flares
+  for pilots: the mission (§8.1) decides what's in the crate.
+- **Prototypes are operational by definition** (§6): field-trial loans from
+  the program, one per squad, returned — or lost, and that's a Journal entry.
+
+**Why the split matters:** personal gear makes you *you*; operational gear
+makes the mission *the mission*. Progression lives in the first, balance
+lives in the second — and nothing in either is for sale.
 
 ### 3.2 Qualification — train before you deploy, one shot on The Wall
 
