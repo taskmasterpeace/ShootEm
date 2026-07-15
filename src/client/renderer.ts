@@ -677,6 +677,17 @@ export class Renderer {
       mesh.position.set(g.pos.x, g.type === 'drone' || g.type === 'supply_pod' ? g.pos.y : 0, g.pos.z);
       const spin = mesh.getObjectByName('spin');
       if (spin) spin.rotation.z = world.time * 2.2;
+      // FPV drones face their heading; a dead-stick drone tumbles as it falls
+      if (g.type === 'drone') {
+        if (g.crashing) {
+          mesh.rotation.x += dt * 9;
+          mesh.rotation.z += dt * 6.5;
+        } else {
+          mesh.rotation.x = 0;
+          mesh.rotation.z = 0;
+          if (g.yaw !== undefined) mesh.rotation.y = -g.yaw;
+        }
+      }
       // spy cameras pan back and forth, watching
       const camHead = mesh.getObjectByName('camHead');
       if (camHead) camHead.rotation.y = Math.sin(world.time * 0.7 + g.id) * 0.9;
@@ -839,18 +850,22 @@ export class Renderer {
     }
 
     // camera follow: wheel-zoomable, and it leads toward where you're aiming —
-    // you see more of the fight ahead and less of the ground behind you
+    // you see more of the fight ahead and less of the ground behind you.
+    // Flying an FPV drone hands the camera to the drone: you ARE the feed.
     if (local) {
+      const fpv = world.getPilotedDrone(localId);
+      const focusPos = fpv ? fpv.pos : local.pos;
+      const focusYaw = fpv ? (fpv.yaw ?? local.yaw) : local.yaw;
       const inVehicle = local.vehicleId >= 0;
       const dist = (window as unknown as { __camDist?: number }).__camDist
-        ?? this.camDist * (inVehicle ? 1.25 : 1);
+        ?? this.camDist * (inVehicle ? 1.25 : 1) * (fpv ? 0.75 : 1);
       const lead = dist * 0.32; // how far the view shifts toward your facing
       this.lookAhead.lerp(
-        new THREE.Vector3(Math.cos(local.yaw) * lead, 0, Math.sin(local.yaw) * lead),
+        new THREE.Vector3(Math.cos(focusYaw) * lead, 0, Math.sin(focusYaw) * lead),
         1 - Math.pow(0.005, dt), // eases so flick-aims don't yank the world
       );
       const target = new THREE.Vector3(
-        local.pos.x + this.lookAhead.x, 0, local.pos.z + this.lookAhead.z);
+        focusPos.x + this.lookAhead.x, 0, focusPos.z + this.lookAhead.z);
       const desired = new THREE.Vector3(target.x, dist, target.z + dist * 0.55);
       this.camPos.lerp(desired, 1 - Math.pow(0.001, dt));
       if (this.camShake > 0) {
@@ -1218,6 +1233,14 @@ export class Renderer {
           break;
         case 'gadget_destroyed':
           if (e.pos) this.particles.emit({ pos: { ...e.pos, y: 1 }, count: 14, color: 0x99a0aa, speed: 6, life: 0.5, spread: 0.5, up: 4 });
+          break;
+        case 'drone_crash':
+          // an FPV drone hit the dirt: dust, plastic shards, rotor bits
+          if (e.pos) {
+            this.particles.emit({ pos: { ...e.pos, y: 0.4 }, count: 18, color: 0x8a7f6a, speed: 5, life: 0.7, spread: 0.8, up: 3, gravity: 7 });
+            this.particles.emit({ pos: { ...e.pos, y: 0.4 }, count: 10, color: 0x3a3f46, speed: 7, life: 0.5, spread: 0.4, up: 4, gravity: 9 });
+            audio.play('drone_crash', { pos: e.pos, volume: 0.9 });
+          }
           break;
         case 'dig':
           // the tunneler ground a wall to rubble — drop the instance, kick up dust

@@ -464,6 +464,22 @@ writeWav('orbital_charge', (() => { // 3s of dread
   return lowpass(b, 3000);
 })());
 
+writeWav('drone_static', (() => { // control link breaking up
+  let b = buf(0.6);
+  for (let i = 0; i < 6; i++) addNoise(b, { amp: 0.55, decay: 26, start: i * 0.09, dur: 0.07 });
+  addTone(b, { freq: 2400, amp: 0.12, decay: 6, shape: 'square', dur: 0.55 });
+  return highpass(b, 1400);
+})());
+
+writeWav('drone_crash', (() => { // rotor snap, plastic thud, debris
+  let b = buf(0.7);
+  addTone(b, { freq: 900, freqEnd: 120, amp: 0.5, decay: 18, dur: 0.12, shape: 'square' }); // rotor dying
+  addNoise(b, { amp: 0.8, decay: 30, start: 0.12 });                                        // impact crack
+  addTone(b, { freq: 150, freqEnd: 60, amp: 0.7, decay: 16, start: 0.12 });                 // thud
+  for (let i = 0; i < 4; i++) addNoise(b, { amp: 0.2, decay: 45, start: 0.24 + i * 0.09, dur: 0.05 }); // debris
+  return lowpass(b, 4200);
+})());
+
 writeWav('ui_click', (() => {
   let b = buf(0.08);
   addTone(b, { freq: 900, amp: 0.5, decay: 60, shape: 'triangle' });

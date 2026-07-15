@@ -199,11 +199,21 @@ pairing** — take the K9 option and the dog deploys with you:
 - **Doctrine fit:** K9s are a Concord signature (§1) — the human-and-animal
   army against the Pact's machines. Dog vs robot-dog is a fight we want.
 
-### 5.4 Drones & ground robots — *proposed*
+### 5.4 Drones & ground robots — *first slice SHIPPED*
 All fielded today: ISR quadcopters, strike drones, loitering munitions
 (Switchblade), UGVs (Ripsaw/THeMIS, robot dogs). These are **the Meridian
 Pact's doctrine** and the visible reward of §6 — hold the right fronts and your
 faction's machines roll onto the field.
+
+**✅ Personal FPV drones — SHIPPED.** The Ghost/EW operator's Q now deploys a
+drone the player *flies*: the body kneels at the controller (defenseless —
+that's the risk), the camera becomes the drone's feed, and it spots enemies
+for the team. The control link is the leash: fly past ~55u and **static floods
+the feed until the link drops and the drone tumbles out of the sky and breaks
+on the dirt** — same fate from enemy EMP, gunfire, a drained battery, or the
+operator going down. Strategically this is the Pact doctrine made playable,
+and the EW-vs-drone duel (jam it, shoot it, hunt the kneeling pilot) is the
+predator/prey loop in miniature. Bots keep the auto-orbit version.
 
 ### 5.5 The bird — *proposed, honest assessment*
 "How useful would a bird be?" — more than it sounds, and it's real: Dutch

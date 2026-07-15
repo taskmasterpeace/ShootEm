@@ -121,3 +121,74 @@ export class FlashLights {
     }
   }
 }
+
+/**
+ * Fullscreen analog-static overlay for the FPV drone feed. Intensity 0 = off;
+ * as the control link degrades the noise builds, and a lost link slams it to
+ * full for a beat (the "disconnected" moment) before it fades.
+ */
+export class StaticOverlay {
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+  private buf: ImageData;
+  private intensity = 0;
+  private target = 0;
+  private flashUntil = 0;
+
+  constructor() {
+    this.canvas = document.createElement('canvas');
+    this.canvas.width = 192;
+    this.canvas.height = 108;
+    Object.assign(this.canvas.style, {
+      position: 'fixed', inset: '0', width: '100vw', height: '100vh',
+      pointerEvents: 'none', zIndex: '40', display: 'none',
+      imageRendering: 'pixelated', mixBlendMode: 'screen',
+    } as Partial<CSSStyleDeclaration>);
+    document.body.appendChild(this.canvas);
+    this.ctx = this.canvas.getContext('2d')!;
+    this.buf = this.ctx.createImageData(192, 108);
+  }
+
+  /** Ambient noise level for this frame (0..1) — from the drone's signal. */
+  set(target: number) {
+    this.target = Math.max(0, Math.min(1, target));
+  }
+
+  /** Link lost: full-screen static burst that decays over `seconds`. */
+  flash(seconds = 0.55) {
+    this.flashUntil = performance.now() + seconds * 1000;
+  }
+
+  update() {
+    const flashing = performance.now() < this.flashUntil;
+    const want = flashing ? 1 : this.target;
+    this.intensity += (want - this.intensity) * (flashing ? 0.6 : 0.18);
+    if (this.intensity < 0.02) {
+      if (this.canvas.style.display !== 'none') this.canvas.style.display = 'none';
+      return;
+    }
+    this.canvas.style.display = 'block';
+    this.canvas.style.opacity = String(Math.min(1, this.intensity));
+    const d = this.buf.data;
+    const density = 0.25 + this.intensity * 0.65;
+    for (let i = 0; i < d.length; i += 4) {
+      if (Math.random() < density) {
+        const v = 120 + ((Math.random() * 135) | 0); // bright snow pops over any scene
+        d[i] = v; d[i + 1] = v; d[i + 2] = v;
+        d[i + 3] = 235;
+      } else {
+        d[i + 3] = 0;
+      }
+    }
+    // rolling horizontal dropout bands sell the analog feel
+    const t = performance.now();
+    for (let b = 0; b < 3; b++) {
+      const band = (((t * (0.09 + b * 0.05)) | 0) + b * 37) % 108;
+      for (let x = 0; x < 192; x++) {
+        const i = (band * 192 + x) * 4;
+        d[i] = d[i + 1] = d[i + 2] = 255; d[i + 3] = 210;
+      }
+    }
+    this.ctx.putImageData(this.buf, 0, 0);
+  }
+}

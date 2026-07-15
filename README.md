@@ -20,7 +20,7 @@ All captured from live matches (regenerate any time with `node tools/capture-scr
 | <img src="docs/screenshots/zombie-survival.jpg" width="100%" /><br>**Zombie Survival** — squad holds a bunker gate | <img src="docs/screenshots/phase-stalker.jpg" width="100%" /><br>**Phase Stalker** — blinks through walls at you |
 | <img src="docs/screenshots/conquest-point.jpg" width="100%" /><br>**Conquest** — sentry fortifying point B | <img src="docs/screenshots/scoreboard.jpg" width="100%" /><br>**Scoreboard** — kills, deaths, score by team |
 | <img src="docs/screenshots/weapon-rounds.jpg" width="100%" /><br>**Distinct rounds** — rocket, plasma, rail, slug, acid all read differently | <img src="docs/screenshots/ragdolls.jpg" width="100%" /><br>**Ragdoll deaths** — bodies tip and go limp toward the killing blow |
-| <img src="docs/screenshots/grenade-aim.jpg" width="100%" /><br>**Cursor-targeted throws** — hold G for the arc, release to land it on the ring | |
+| <img src="docs/screenshots/grenade-aim.jpg" width="100%" /><br>**Cursor-targeted throws** — hold G for the arc, release to land it on the ring | <img src="docs/screenshots/drone-static.jpg" width="100%" /><br>**FPV drone at the edge of its range** — fly it too far and the feed dies in static |
 
 ## Quick start
 

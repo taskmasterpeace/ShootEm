@@ -21,6 +21,9 @@ const JET_THRUST = 9.5;
 const PICKUP_RESPAWN = 18;
 /** max hand-frag throw — the HUD arc and the sim clamp share this */
 export const HAND_FRAG_REACH = 22;
+/** FPV drone control range — signal (and the static on your feed) scales with
+ *  distance from the operator's body; past this the link drops and it crashes */
+export const DRONE_RANGE = 55;
 
 export type Difficulty = 'recruit' | 'veteran' | 'elite';
 
@@ -466,6 +469,37 @@ export class World {
           break;
         }
         case 'drone': {
+          if (g.crashing) {
+            // link lost: the drone tumbles out of the sky and breaks on the dirt
+            g.vy = (g.vy ?? 0) - this.gravity * 1.4 * dt;
+            g.pos.y += g.vy * dt;
+            g.pos.x += (g.vel?.x ?? 0) * 0.35 * dt; // dead stick drifts a little
+            g.pos.z += (g.vel?.z ?? 0) * 0.35 * dt;
+            if (g.pos.y <= 0.15) {
+              this.emit({ type: 'drone_crash', pos: { ...g.pos, y: 0 } });
+              this.gadgets.delete(id);
+              continue;
+            }
+            break;
+          }
+          if (g.piloted) {
+            // FPV: flown by its owner (applyCmd writes vel/yaw). Flies over
+            // everything; the control link is the leash.
+            const owner = this.soldiers.get(g.ownerId);
+            if (!owner || !owner.alive) { this.crashDrone(g); break; } // operator down → dead stick
+            g.pos.x = Math.max(-WORLD / 2 + 2, Math.min(WORLD / 2 - 2, g.pos.x + (g.vel?.x ?? 0) * dt));
+            g.pos.z = Math.max(-WORLD / 2 + 2, Math.min(WORLD / 2 - 2, g.pos.z + (g.vel?.z ?? 0) * dt));
+            g.pos.y = 2.6;
+            const d = Math.hypot(g.pos.x - owner.pos.x, g.pos.z - owner.pos.z);
+            g.signal = Math.max(0, Math.min(1, 1 - d / DRONE_RANGE));
+            if (g.signal <= 0) { this.crashDrone(g); break; } // out of range: static → gone
+            for (const s of this.soldiers.values()) {
+              if (!s.alive || s.team === g.team) continue;
+              if (Math.hypot(s.pos.x - g.pos.x, s.pos.z - g.pos.z) < 18) this.pinged.add(s.id);
+            }
+            break;
+          }
+          // bot drones: the classic auto-orbit
           g.phase = (g.phase ?? 0) + dt * 1.1;
           const anchor = g.anchor ?? g.pos;
           g.pos.x = anchor.x + Math.cos(g.phase) * 7;
@@ -536,8 +570,29 @@ export class World {
   }
 
   /** EMP burst: stalls machines, strips cloak and energy. No direct damage. */
+  /** The FPV drone this soldier is currently flying (crashing ones don't count). */
+  getPilotedDrone(ownerId: number): Gadget | undefined {
+    for (const g of this.gadgets.values()) {
+      if (g.type === 'drone' && g.piloted && g.ownerId === ownerId && !g.crashing) return g;
+    }
+    return undefined;
+  }
+
+  /** Link lost (range, EMP, gunfire, battery, owner down) — the drone falls. */
+  crashDrone(g: Gadget) {
+    if (g.crashing) return;
+    g.crashing = true;
+    g.signal = 0;
+    g.vy = 1.2; // a last dying pop of lift, then gravity wins
+  }
+
   empBlast(pos: Vec3, team: Team, _ownerId: number) {
     this.emit({ type: 'emp', pos: { ...pos } });
+    // EMP is the counter-drone weapon: any enemy drone in the burst loses link
+    for (const g of this.gadgets.values()) {
+      if (g.type !== 'drone' || g.team === team) continue;
+      if (Math.hypot(g.pos.x - pos.x, g.pos.z - pos.z) < 10) this.crashDrone(g);
+    }
     for (const v of this.vehicles.values()) {
       if (!v.alive || v.team === team) continue;
       if (Math.hypot(v.pos.x - pos.x, v.pos.z - pos.z) < 8) v.stunnedUntil = this.time + 4;
@@ -572,6 +627,30 @@ export class World {
       const v = this.vehicles.get(s.vehicleId);
       if (!v || !v.alive) { s.vehicleId = -1; s.seat = -1; return; }
       if (cmd.use && this.time - s.enteredVehicleAt > 0.3) this.exitVehicle(s, v);
+      return;
+    }
+
+    // flying an FPV drone: the body kneels at the controller — cmd steers the
+    // DRONE, and the soldier can't move, shoot, or throw until the link ends
+    const fpv = this.getPilotedDrone(s.id);
+    if (fpv) {
+      if (cmd.ability && this.time >= s.nextAbilityAt) {
+        // Q again: cut the link cleanly — the drone powers down and drops
+        this.crashDrone(fpv);
+        s.nextAbilityAt = this.time + 1.5;
+      } else {
+        fpv.yaw = cmd.aimYaw;
+        const len = Math.hypot(cmd.moveX, cmd.moveZ);
+        const spd = 13;
+        fpv.vel = len > 0.1
+          ? { x: (cmd.moveX / len) * spd, z: (cmd.moveZ / len) * spd }
+          : { x: 0, z: 0 };
+        // the link burns battery; a drained operator loses the drone
+        s.energy -= 4 * dt;
+        if (s.energy <= 0) { s.energy = 0; this.crashDrone(fpv); }
+      }
+      s.vel.x = 0;
+      s.vel.z = 0;
       return;
     }
 
@@ -674,12 +753,21 @@ export class World {
     if (cmd.ability && c.ability === 'drone' && this.time >= s.nextAbilityAt && s.energy >= 70) {
       const existing = [...this.gadgets.values()].find((g) => g.type === 'drone' && g.ownerId === s.id);
       if (existing) this.gadgets.delete(existing.id);
-      const g = this.spawnGadget('drone', s.team, s.id, s.pos, 80);
-      g.anchor = { ...s.pos };
-      g.phase = this.rng.range(0, Math.PI * 2);
+      const piloted = s.kind === 'human'; // humans fly FPV; bots keep the auto-orbit
+      const g = this.spawnGadget('drone', s.team, s.id, s.pos, piloted ? 12 : 80);
+      if (piloted) {
+        g.piloted = true;
+        g.pos.y = 2.6;
+        g.vel = { x: 0, z: 0 };
+        g.yaw = s.yaw;
+        g.signal = 1;
+      } else {
+        g.anchor = { ...s.pos };
+        g.phase = this.rng.range(0, Math.PI * 2);
+      }
       s.energy -= 70;
       s.nextAbilityAt = this.time + 2;
-      this.emit({ type: 'beacon_planted', pos: g.pos, soldierId: s.id, text: 'Recon drone deployed' });
+      this.emit({ type: 'beacon_planted', pos: g.pos, soldierId: s.id, text: piloted ? 'FPV drone airborne' : 'Recon drone deployed' });
     }
 
     // heavy raises a shield dome
@@ -1206,10 +1294,21 @@ export class World {
 
       let dead = false;
 
-      // enemy shield domes swallow projectiles
+      // enemy shield domes swallow projectiles; FPV drones can be shot down
       if (!def.heals) {
         for (const [gid, g] of this.gadgets) {
-          if (g.type !== 'shield' || g.team === p.team) continue;
+          if (g.team === p.team) continue;
+          if (g.type === 'drone' && g.piloted && !g.crashing) {
+            if (Math.abs(p.pos.y - g.pos.y) < 1.6 && Math.hypot(g.pos.x - p.pos.x, g.pos.z - p.pos.z) < 1.2) {
+              g.hp -= def.damage;
+              this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, soldierId: p.ownerId });
+              if (g.hp <= 0) this.crashDrone(g); // winged — it tumbles, no puff
+              dead = true;
+              break;
+            }
+            continue;
+          }
+          if (g.type !== 'shield') continue;
           if (p.pos.y < 4.5 && Math.hypot(g.pos.x - p.pos.x, g.pos.z - p.pos.z) < 4) {
             g.hp -= def.damage + def.splashDamage * 0.5;
             this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon });

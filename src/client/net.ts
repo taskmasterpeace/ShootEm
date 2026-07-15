@@ -2,7 +2,9 @@ import { MODE_INFO } from '../sim/data';
 import { applySnapshot, createPuppetWorld, type Snapshot } from '../sim/snapshot';
 import type { ClassId, ModeId, PlayerCmd, ThemeId } from '../sim/types';
 import { World, type Loadout } from '../sim/world';
+import { audio } from './audio';
 import type { Chat } from './chat';
+import { StaticOverlay } from './effects';
 import type { Hud } from './hud';
 import type { Input } from './input';
 import { KILLCAM_CAM, MATCH_LINGER_NET_MS, ReplayDirector } from './replay';
@@ -93,6 +95,10 @@ export class NetGame {
     };
 
     const cmds = new Map<number, PlayerCmd>();
+    // FPV drone feed: static builds as the link degrades; bursts on disconnect
+    const staticFx = new StaticOverlay();
+    let hadDrone = false;
+    let nextStaticAt = 0;
     const frame = (now: number) => {
       if (stopped) return;
       const dt = Math.min(0.1, (now - last) / 1000);
@@ -135,6 +141,17 @@ export class NetGame {
       renderer.setGrenadePreview(world, me, !replaying && input.grenadeAiming ? input.aimPoint(renderer.camera) : null);
       renderer.update(cut.renderWorld, this.myId, dt, hud.getWaypoints());
       if (me) hud.update(world, this.myId, input.scoreboardHeld, world.time);
+
+      // FPV drone feed: noise rises as the signal drops; disconnect = full burst
+      const fpv = world.getPilotedDrone(this.myId);
+      staticFx.set(fpv ? Math.pow(1 - (fpv.signal ?? 1), 1.6) : 0);
+      if (fpv && (fpv.signal ?? 1) < 0.45 && world.time > nextStaticAt) {
+        audio.play('drone_static', { volume: 0.25 + (1 - (fpv.signal ?? 1)) * 0.6 });
+        nextStaticAt = world.time + 0.75;
+      }
+      if (hadDrone && !fpv) { staticFx.flash(0.6); audio.play('drone_static', { volume: 0.9 }); }
+      hadDrone = !!fpv;
+      staticFx.update();
 
       // exit before the SERVER restarts its room (12s after the whistle)
       if (world.mode.over) {

@@ -291,6 +291,18 @@
       "dur": 1.2
     },
     {
+      "name": "drone_static",
+      "cat": "tech",
+      "desc": "Radio static burst — harsh white-noise crackle, a control link breaking up",
+      "dur": 0.6
+    },
+    {
+      "name": "drone_crash",
+      "cat": "tech",
+      "desc": "Small quadcopter drone crashing to the ground — rotor snap, plastic thud, debris scatter",
+      "dur": 0.7
+    },
+    {
       "name": "flag_taken",
       "cat": "ui",
       "desc": "Flag stolen — tense short alarm stinger",

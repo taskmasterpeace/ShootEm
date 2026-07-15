@@ -4,6 +4,7 @@ import { isCoopMode, type ClassId, type ModeId, type PlayerCmd, type ThemeId, ty
 import { World, type Difficulty, type Loadout } from './sim/world';
 import { audio } from './client/audio';
 import { Chat } from './client/chat';
+import { StaticOverlay } from './client/effects';
 import { Hud } from './client/hud';
 import { Input } from './client/input';
 import { Renderer } from './client/renderer';
@@ -279,6 +280,10 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
   let last = performance.now();
   let overAt = 0;
   const cmds = new Map<number, PlayerCmd>();
+  // FPV drone feed: static builds as the link degrades; bursts on disconnect
+  const staticFx = new StaticOverlay();
+  let hadDrone = false;
+  let nextStaticAt = 0;
 
   function frame(now: number) {
     if (!running) return;
@@ -312,6 +317,17 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     renderer.setGrenadePreview(world, me, !replaying && input.grenadeAiming ? input.aimPoint(renderer.camera) : null);
     renderer.update(renderWorld, me.id, dt, hud.getWaypoints());
     hud.update(world, me.id, input.scoreboardHeld, world.time);
+
+    // FPV drone feed: noise rises as the signal drops; disconnect = full burst
+    const fpv = world.getPilotedDrone(me.id);
+    staticFx.set(fpv ? Math.pow(1 - (fpv.signal ?? 1), 1.6) : 0);
+    if (fpv && (fpv.signal ?? 1) < 0.45 && world.time > nextStaticAt) {
+      audio.play('drone_static', { volume: 0.25 + (1 - (fpv.signal ?? 1)) * 0.6 });
+      nextStaticAt = world.time + 0.75;
+    }
+    if (hadDrone && !fpv) { staticFx.flash(0.6); audio.play('drone_static', { volume: 0.9 }); }
+    hadDrone = !!fpv;
+    staticFx.update();
 
     // linger after the whistle: trophies + looping highlights deserve a look
     if (world.mode.over) {

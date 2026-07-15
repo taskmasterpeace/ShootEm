@@ -68,6 +68,8 @@ export const SOUND_SPECS = {
   gravlift:       { cat: 'tech', desc: 'Grav lift — rising anti-gravity whoosh', dur: 0.6 },
   beacon:         { cat: 'tech', desc: 'Beacon deploy — soft electronic ping and hum', dur: 0.6 },
   orbital_charge: { cat: 'tech', desc: 'Orbital strike charge — ominous rising energy hum', dur: 1.2 },
+  drone_static:   { cat: 'tech', desc: 'Radio static burst — harsh white-noise crackle, a control link breaking up', dur: 0.6 },
+  drone_crash:    { cat: 'tech', desc: 'Small quadcopter drone crashing to the ground — rotor snap, plastic thud, debris scatter', dur: 0.7 },
 
   // ---- objective / UI / match flow (stingers) ----
   flag_taken:      { cat: 'ui', desc: 'Flag stolen — tense short alarm stinger', dur: 0.7 },

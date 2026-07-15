@@ -271,6 +271,15 @@ export interface Gadget {
   expiresAt: number;  // Infinity = permanent until destroyed
   anchor?: Vec3;      // drone orbit center
   phase?: number;     // drone orbit angle
+  /** FPV drone: steered by its owner (humans); bots keep the auto-orbit */
+  piloted?: boolean;
+  vel?: { x: number; z: number };
+  yaw?: number;
+  /** control-link strength 0..1 — drops with distance; the client draws static */
+  signal?: number;
+  /** link lost (range/EMP/gunfire) — the drone is falling out of the sky */
+  crashing?: boolean;
+  vy?: number;
 }
 
 export interface Mine {
@@ -309,6 +318,7 @@ export interface SimEvent {
     | 'announce' | 'match_over' | 'mine_planted'
     | 'warp' | 'blink' | 'emp' | 'orbital_strike' | 'gravlift'
     | 'beacon_planted' | 'gadget_destroyed' | 'pod_incoming' | 'pod_landed'
+    | 'drone_crash'    // an FPV drone lost link and hit the ground
     | 'dig'            // tunneler ground a wall tile to rubble
     | 'system_damaged' // a vehicle subsystem went down
     | 'hacked'         // hacking kit converted an enemy turret
