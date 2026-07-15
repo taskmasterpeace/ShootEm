@@ -1,0 +1,20 @@
+War World Sound Pack
+====================
+The .wav files shipped in this directory were generated with ElevenLabs'
+text-to-sound-effects service (see tools/gen-sounds-ai.mjs and
+tools/sound-specs.mjs for the prompts). They are used under the ElevenLabs
+Terms of Service — https://elevenlabs.io/terms — per the generating account's
+plan. They are NOT public-domain / CC0. Check your ElevenLabs plan's usage
+rights before redistributing.
+
+CC0 alternative
+---------------
+A fully procedural, CC0-licensed pack (no recordings, no third-party samples,
+no external services) can be regenerated at any time with:
+
+    npm run sounds        # tools/gen-sounds.mjs → overwrites this directory
+
+That synthesized pack is dedicated to the public domain under CC0 1.0
+(https://creativecommons.org/publicdomain/zero/1.0/) — see LICENSE-CC0.txt,
+which applies to the synthesized output of `npm run sounds`, not to the
+ElevenLabs files currently in this directory.

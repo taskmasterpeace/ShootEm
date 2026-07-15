@@ -197,7 +197,12 @@ The sim is deterministic and shared verbatim by the offline game, the client's d
 
 ## Sounds
 
-All 53 sound effects are **synthesized from scratch** by [`tools/gen-sounds.mjs`](tools/gen-sounds.mjs) (layered attack transients, noise cracks, filtered sweeps, arpeggio stingers — no samples) and dedicated to the **public domain (CC0 1.0)**. Each of the eight classes has its own death cry, pitched and gear-signed to that soldier. See [public/audio/LICENSE-CC0.txt](public/audio/LICENSE-CC0.txt).
+The game ships **53 sound effects**, one per event, each of the eight classes with its own death cry. Two interchangeable packs feed the same slots:
+
+- **ElevenLabs pack (shipped):** generated via ElevenLabs text-to-sound-effects — one tuned prompt per sound in [`tools/sound-specs.mjs`](tools/sound-specs.mjs), rendered by [`tools/gen-sounds-ai.mjs`](tools/gen-sounds-ai.mjs). Licensed under ElevenLabs' terms — **not CC0** (see [public/audio/LICENSE.txt](public/audio/LICENSE.txt)).
+- **CC0 synth pack:** `npm run sounds` ([`tools/gen-sounds.mjs`](tools/gen-sounds.mjs)) regenerates a fully procedural, public-domain (CC0 1.0) pack — no samples, no external services — overwriting the directory. See [public/audio/LICENSE-CC0.txt](public/audio/LICENSE-CC0.txt).
+
+Audition, rate (👍/👎), tune, and replace any sound in the **Sound Lab & Review** (`/sound-review.html`, linked from the model harness).
 
 ## Lineage
 

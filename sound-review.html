@@ -3,119 +3,96 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>War World — Sound Review</title>
+<title>War World — Sound Lab &amp; Review</title>
 <style>
   :root {
     --bg:#14100b; --panel:#1d1811; --panel2:#262017; --line:#3a3020;
-    --text:#efe6d6; --muted:#a99a80; --accent:#f5b21a; --accent-dim:#7a5c14;
-    --up:#6fcf5f; --down:#ff5a4d; --warn:#e8a33d;
-    --radius:10px;
+    --text:#efe6d6; --muted:#a99a80; --accent:#f5b21a; --accent-dim:#7a5c14; --cyan:#4fd0e0;
+    --up:#6fcf5f; --down:#ff5a4d; --warn:#e8a33d; --good:#6fcf5f; --radius:10px;
   }
   * { box-sizing:border-box; }
-  body {
-    margin:0; background:var(--bg); color:var(--text);
+  body { margin:0; background:var(--bg); color:var(--text);
     font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif; font-size:14px;
-    line-height:1.45; letter-spacing:-0.006em;
-  }
-  a { color:var(--accent); }
+    line-height:1.45; letter-spacing:-0.006em; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
   code { font-family:ui-monospace,Menlo,Consolas,monospace; background:var(--panel2); padding:1px 5px; border-radius:5px; font-size:12px; }
 
-  header {
-    position:sticky; top:0; z-index:5; background:rgba(20,16,11,0.92); backdrop-filter:blur(8px);
-    border-bottom:1px solid var(--line); padding:14px 20px 12px;
-  }
+  header { position:sticky; top:0; z-index:5; background:rgba(20,16,11,0.94); backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line); padding:12px 20px 11px; }
   h1 { margin:0 0 2px; font-size:19px; font-weight:700; letter-spacing:-0.02em; }
   h1 .dim { color:var(--muted); font-weight:500; }
-  .sub { color:var(--muted); font-size:12.5px; margin:0 0 10px; }
+  .sub { color:var(--muted); font-size:12.5px; margin:0 0 9px; }
+  .sub a { font-weight:600; }
   .bar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
   .stats { display:flex; gap:6px; }
   .pill { padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; border:1px solid var(--line); background:var(--panel2); }
-  .pill.up { color:var(--up); border-color:#2f5a2a; }
-  .pill.down { color:var(--down); border-color:#5a2a26; }
-  .pill.un { color:var(--muted); }
+  .pill.up { color:var(--up); border-color:#2f5a2a; } .pill.down { color:var(--down); border-color:#5a2a26; } .pill.un { color:var(--muted); }
   .spacer { flex:1; }
-  input[type=search], select {
-    background:var(--panel2); border:1px solid var(--line); color:var(--text);
-    border-radius:8px; padding:7px 10px; font-size:13px; font-family:inherit;
-  }
-  input[type=search] { min-width:180px; }
-  button {
-    background:var(--panel2); border:1px solid var(--line); color:var(--text);
-    border-radius:8px; padding:7px 12px; font-size:13px; font-weight:600; cursor:pointer;
-    font-family:inherit; transition:background .15s,border-color .15s,transform .05s;
-  }
-  button:hover { border-color:var(--accent-dim); }
-  button:active { transform:translateY(1px); }
+  input[type=search], select { background:var(--panel2); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:7px 10px; font-size:13px; font-family:inherit; }
+  input[type=search] { min-width:170px; }
+  button { background:var(--panel2); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:7px 12px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; transition:background .15s,border-color .15s,transform .05s; }
+  button:hover { border-color:var(--accent-dim); } button:active { transform:translateY(1px); }
   button.primary { background:var(--accent); color:#1a1204; border-color:var(--accent); }
   button.danger:hover { border-color:var(--down); color:var(--down); }
 
-  main { padding:16px 20px 80px; max-width:1080px; margin:0 auto; }
-  .cat { margin:22px 0 8px; font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); font-weight:700; display:flex; gap:8px; align-items:center; }
+  #gate { display:grid; place-items:center; padding:60px 20px; }
+  #gate button { font-size:15px; padding:12px 22px; }
+
+  main { padding:14px 20px 90px; max-width:1180px; margin:0 auto; }
+  .cat { margin:20px 0 8px; font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); font-weight:700; display:flex; gap:8px; align-items:center; }
   .cat .count { color:var(--accent-dim); font-weight:600; }
 
-  .row {
-    display:grid; grid-template-columns:150px 1fr auto 220px; gap:14px; align-items:center;
-    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
-    padding:10px 12px; margin-bottom:8px;
-  }
-  .row.miss { opacity:0.55; }
-  .row.down { border-color:#4a2420; }
-  .row.up { border-color:#2c4a27; }
+  .row { display:grid; grid-template-columns:150px minmax(0,1fr) 150px auto 190px; gap:14px; align-items:center;
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:10px 12px; margin-bottom:8px; }
+  .row.miss { opacity:0.55; } .row.down { border-color:#4a2420; } .row.up { border-color:#2c4a27; }
+  .row.custom { box-shadow:inset 3px 0 0 var(--good); }
 
   .wavewrap { display:flex; align-items:center; gap:8px; }
-  .play {
-    width:34px; height:34px; flex:none; border-radius:8px; border:1px solid var(--line);
-    background:var(--panel2); color:var(--accent); font-size:13px; display:grid; place-items:center; cursor:pointer;
-  }
+  .play { width:34px; height:34px; flex:none; border-radius:8px; border:1px solid var(--line); background:var(--panel2); color:var(--accent); font-size:13px; display:grid; place-items:center; cursor:pointer; }
   .play:hover { border-color:var(--accent); }
   canvas.wave { width:100px; height:38px; display:block; border-radius:5px; background:#0f0c08; cursor:pointer; }
 
   .meta .name { font-weight:700; font-size:14px; letter-spacing:-0.01em; }
   .meta .name .cat-chip { font-size:10px; font-weight:600; color:var(--muted); background:var(--panel2); border:1px solid var(--line); border-radius:6px; padding:1px 6px; margin-left:7px; text-transform:capitalize; vertical-align:middle; }
+  .meta .name .cust { font-size:10px; font-weight:700; color:var(--good); margin-left:6px; }
   .meta .desc { color:var(--muted); font-size:12.5px; margin-top:2px; }
-  .lenbars { margin-top:6px; display:grid; grid-template-columns:52px 1fr; gap:6px 8px; align-items:center; max-width:340px; }
-  .lenbars .lbl { font-size:10.5px; color:var(--muted); }
-  .track { height:6px; background:var(--panel2); border-radius:3px; overflow:hidden; }
-  .track > i { display:block; height:100%; border-radius:3px; }
-  .track.tgt > i { background:var(--accent-dim); }
-  .track.act > i { background:var(--accent); }
-  .track.act.bad > i { background:var(--warn); }
-  .lenread { font-size:11px; color:var(--muted); margin-top:3px; }
+  .lenread { font-size:11px; color:var(--muted); margin-top:4px; }
   .lenread b.ok { color:var(--up); } .lenread b.bad { color:var(--warn); } .lenread b.miss { color:var(--down); }
+  .track { display:inline-block; width:120px; height:5px; background:var(--panel2); border-radius:3px; overflow:hidden; vertical-align:middle; margin-left:6px; position:relative; }
+  .track > i { position:absolute; left:0; top:0; height:100%; background:var(--accent); } .track.bad > i { background:var(--warn); }
+  .track > u { position:absolute; top:-2px; width:2px; height:9px; background:var(--accent-dim); } /* target marker */
+
+  .ctrls { display:flex; flex-direction:column; gap:6px; }
+  .crow { display:flex; align-items:center; gap:7px; }
+  .crow label { font-size:10px; color:var(--muted); width:26px; flex:none; }
+  .crow input[type=range] { width:100%; accent-color:var(--accent); height:3px; }
+  .crow input[type=range].rate { accent-color:var(--cyan); }
+  .cbtns { display:flex; gap:6px; }
+  .iconbtn { flex:1; height:30px; padding:0; font-size:14px; }
+  .iconbtn.up-file:hover { border-color:var(--accent); }
 
   .verdict { display:flex; gap:6px; }
   .vbtn { width:40px; height:36px; font-size:16px; border-radius:8px; }
-  .vbtn.up.on { background:#20361c; border-color:var(--up); }
-  .vbtn.down.on { background:#3a1c19; border-color:var(--down); }
+  .vbtn.up.on { background:#20361c; border-color:var(--up); } .vbtn.down.on { background:#3a1c19; border-color:var(--down); }
 
-  textarea.notes {
-    width:100%; min-height:52px; resize:vertical; background:var(--panel2); border:1px solid var(--line);
-    color:var(--text); border-radius:8px; padding:7px 9px; font-size:12px; font-family:inherit;
-  }
+  textarea.notes { width:100%; min-height:52px; resize:vertical; background:var(--panel2); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:7px 9px; font-size:12px; font-family:inherit; }
   textarea.notes::placeholder { color:#6f6350; }
 
-  dialog {
-    background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:12px;
-    padding:0; max-width:640px; width:92vw;
-  }
+  dialog { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:12px; padding:0; max-width:640px; width:92vw; }
   dialog::backdrop { background:rgba(0,0,0,0.6); }
   .dlg-h { padding:14px 16px; border-bottom:1px solid var(--line); font-weight:700; display:flex; justify-content:space-between; align-items:center; }
-  .dlg-b { padding:14px 16px; }
+  .dlg-b { padding:14px 16px; } .dlg-b p { color:var(--muted); font-size:12.5px; margin:0 0 10px; }
   .dlg-b textarea { width:100%; min-height:220px; background:var(--panel2); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:10px; font-family:ui-monospace,Consolas,monospace; font-size:12px; }
-  .dlg-b p { color:var(--muted); font-size:12.5px; margin:0 0 10px; }
   .dlg-f { padding:12px 16px; border-top:1px solid var(--line); display:flex; gap:8px; justify-content:flex-end; }
 
-  @media (max-width:820px) {
-    .row { grid-template-columns:1fr; }
-    .verdict { justify-content:flex-start; }
-  }
+  @media (max-width:900px) { .row { grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
 <header>
-  <h1>🔊 Sound Review <span class="dim">— War World</span></h1>
-  <p class="sub">Play each sound, compare it to what it's <em>meant</em> to be, and 👍 / 👎 it. Add notes for anything that misses — 👎 sounds get regenerated. Ratings save in this browser.</p>
-  <div class="bar">
+  <h1>🔊 Sound Lab &amp; Review <span class="dim">— War World</span></h1>
+  <p class="sub">Play, judge, and <em>replace</em> every sound. 👍 / 👎 each one, drop notes on the misses, and Export the 👎 list to regenerate. &nbsp;·&nbsp; <a href="/harness.html">◂ Model harness</a> &nbsp; <a href="/">Game ▸</a></p>
+  <div class="bar" id="controls" style="display:none">
     <div class="stats">
       <span class="pill up" id="s-up">👍 0</span>
       <span class="pill down" id="s-down">👎 0</span>
@@ -128,58 +105,38 @@
       <option value="unrated">Unrated only</option>
       <option value="down">👎 only</option>
       <option value="up">👍 only</option>
+      <option value="custom">Replaced only</option>
       <option value="badlen">Length off</option>
     </select>
     <button id="export" class="primary">Export 👎 list</button>
-    <button id="reset" class="danger">Reset</button>
+    <button id="reset" class="danger">Reset ratings</button>
   </div>
 </header>
-<main id="main"><p style="color:var(--muted)">Loading sounds…</p></main>
+
+<div id="gate"><button id="enable" class="primary">▶ Enable audio &amp; load sounds</button></div>
+<main id="main" style="display:none"></main>
 
 <dialog id="dlg">
   <div class="dlg-h"><span>Review export</span><button id="dlg-x">✕</button></div>
-  <div class="dlg-b">
-    <p id="dlg-cmd"></p>
-    <textarea id="dlg-json" readonly></textarea>
-  </div>
-  <div class="dlg-f">
-    <button id="dlg-copy" class="primary">Copy JSON</button>
-    <button id="dlg-copycmd">Copy regenerate command</button>
-  </div>
+  <div class="dlg-b"><p id="dlg-cmd"></p><textarea id="dlg-json" readonly></textarea></div>
+  <div class="dlg-f"><button id="dlg-copy" class="primary">Copy JSON</button><button id="dlg-copycmd">Copy regenerate command</button></div>
 </dialog>
 
-<script>
+<script type="module">
+import { audio, SOUND_NAMES } from '/src/client/audio.ts';
+
 const LS = 'ww_sound_verdicts_v1';
-const TOL = 0.45;            // actual length within ±45% of target = ok
-const MAXLEN = 3.0;         // seconds mapped to a full-width length bar
+const TOL = 0.45, MAXLEN = 3.0;
 const state = JSON.parse(localStorage.getItem(LS) || '{}');
 const save = () => localStorage.setItem(LS, JSON.stringify(state));
-
-let ctx;
-const buffers = new Map();   // name -> AudioBuffer | 'missing'
-let curSource = null;
-
-function ac() { ctx ||= new (window.AudioContext || window.webkitAudioContext)(); return ctx; }
-
-async function loadBuffer(name) {
-  try {
-    const res = await fetch(`/audio/${name}.wav`, { cache: 'no-store' });
-    if (!res.ok) throw 0;
-    const buf = await ac().decodeAudioData(await res.arrayBuffer());
-    buffers.set(name, buf);
-    return buf;
-  } catch { buffers.set(name, 'missing'); return 'missing'; }
-}
+let specByName = {}, categories = {}, allSpecs = [];
 
 function drawWave(canvas, buf, playhead) {
-  const dpr = window.devicePixelRatio || 1;
-  const w = canvas.clientWidth, h = canvas.clientHeight;
+  const dpr = window.devicePixelRatio || 1, w = canvas.clientWidth, h = canvas.clientHeight;
   canvas.width = w * dpr; canvas.height = h * dpr;
-  const g = canvas.getContext('2d'); g.scale(dpr, dpr);
-  g.clearRect(0, 0, w, h);
-  if (!buf || buf === 'missing') { g.fillStyle = '#5a2a26'; g.fillRect(0, h/2 - 1, w, 2); return; }
-  const data = buf.getChannelData(0);
-  const step = Math.max(1, Math.floor(data.length / w));
+  const g = canvas.getContext('2d'); g.scale(dpr, dpr); g.clearRect(0, 0, w, h);
+  if (!buf) { g.fillStyle = '#5a2a26'; g.fillRect(0, h/2 - 1, w, 2); return; }
+  const data = buf.getChannelData(0), step = Math.max(1, Math.floor(data.length / w));
   g.fillStyle = '#f5b21a';
   for (let x = 0; x < w; x++) {
     let min = 1, max = -1;
@@ -190,138 +147,148 @@ function drawWave(canvas, buf, playhead) {
   if (playhead != null) { g.fillStyle = '#efe6d6'; g.fillRect(playhead * w, 0, 1.5, h); }
 }
 
-function play(name, canvas, buf) {
-  if (!buf || buf === 'missing') return;
-  ac().resume();
-  if (curSource) { try { curSource.stop(); } catch {} }
-  const src = ac().createBufferSource(); src.buffer = buf;
-  const g = ac().createGain(); g.gain.value = 0.85;
-  src.connect(g).connect(ac().destination);
-  src.start(); curSource = src;
-  const t0 = ac().currentTime, dur = buf.duration;
-  (function frame() {
-    if (curSource !== src) { drawWave(canvas, buf); return; }
-    const k = (ac().currentTime - t0) / dur;
+function playAnim(name, canvas) {
+  const buf = audio.getBuffer(name); if (!buf) return;
+  audio.resume(); audio.play(name, { volume: 1 });
+  const start = performance.now(), dur = buf.duration * 1000;
+  (function frame(t) {
+    const k = (performance.now() - start) / dur;
     if (k >= 1) { drawWave(canvas, buf); return; }
     drawWave(canvas, buf, k); requestAnimationFrame(frame);
   })();
-  src.onended = () => { if (curSource === src) { curSource = null; drawWave(canvas, buf); } };
 }
 
-function fmt(s) { return s == null ? '—' : `${s.toFixed(2)}s`; }
+const fmt = (s) => s == null ? '—' : `${s.toFixed(2)}s`;
 
-function refreshStats(specs) {
+function refreshStats() {
   let up = 0, down = 0;
-  for (const s of specs) { const v = state[s.name]?.v; if (v === 'up') up++; else if (v === 'down') down++; }
-  document.getElementById('s-up').textContent = `👍 ${up}`;
-  document.getElementById('s-down').textContent = `👎 ${down}`;
-  document.getElementById('s-un').textContent = `• ${specs.length - up - down} unrated`;
+  for (const n of SOUND_NAMES) { const v = state[n]?.v; if (v === 'up') up++; else if (v === 'down') down++; }
+  s_up.textContent = `👍 ${up}`; s_down.textContent = `👎 ${down}`; s_un.textContent = `• ${SOUND_NAMES.length - up - down} unrated`;
 }
+const $ = (id) => document.getElementById(id);
+const s_up = $('s-up'), s_down = $('s-down'), s_un = $('s-un');
 
-async function main() {
-  const data = await (await fetch('/audio/sound-specs.json', { cache: 'no-store' })).json();
-  const { categories, sounds } = data;
-  const main = document.getElementById('main'); main.innerHTML = '';
+function build() {
+  const main = $('main'); main.innerHTML = '';
   const rows = new Map();
+  const cats = Object.keys(categories).length ? Object.keys(categories) : ['all'];
+  const catOrder = cats.filter((c) => SOUND_NAMES.some((n) => (specByName[n]?.cat || 'all') === c));
 
-  for (const catKey of Object.keys(categories)) {
-    const inCat = sounds.filter((s) => s.cat === catKey);
-    if (!inCat.length) continue;
+  for (const catKey of catOrder) {
+    const names = SOUND_NAMES.filter((n) => (specByName[n]?.cat || 'all') === catKey);
+    if (!names.length) continue;
     const h = document.createElement('div'); h.className = 'cat';
-    h.innerHTML = `${categories[catKey]} <span class="count">${inCat.length}</span>`;
+    h.innerHTML = `${categories[catKey] || catKey} <span class="count">${names.length}</span>`;
     main.appendChild(h);
 
-    for (const spec of inCat) {
-      const row = document.createElement('div'); row.className = 'row miss';
-      row.dataset.name = spec.name; row.dataset.cat = catKey;
-      row.innerHTML = `
-        <div class="wavewrap">
-          <div class="play" title="play">▶</div>
-          <canvas class="wave"></canvas>
-        </div>
-        <div class="meta">
-          <div class="name">${spec.name}<span class="cat-chip">${catKey}</span></div>
-          <div class="desc">${spec.desc}</div>
-          <div class="lenbars">
-            <span class="lbl">target</span><div class="track tgt"><i></i></div>
-            <span class="lbl">actual</span><div class="track act"><i></i></div>
-          </div>
-          <div class="lenread"></div>
-        </div>
-        <div class="verdict">
-          <button class="vbtn up" title="sounds right">👍</button>
-          <button class="vbtn down" title="misses — regenerate">👎</button>
-        </div>
-        <textarea class="notes" placeholder="notes — what's off, what it should sound like…"></textarea>`;
-      main.appendChild(row);
-      rows.set(spec.name, { row, spec });
+    for (const name of names) {
+      const spec = specByName[name] || { desc: '', dur: null, cat: catKey };
+      const buf = audio.getBuffer(name);
+      const actual = buf?.duration ?? null;
+      const off = actual != null && spec.dur ? Math.abs(actual - spec.dur) / spec.dur : 0;
+      const bad = off > TOL;
+      const pref = audio.getPref(name), isCustom = audio.hasCustom(name);
 
-      // restore saved verdict + notes
-      const st = state[spec.name] || {};
-      const notes = row.querySelector('.notes'); notes.value = st.notes || '';
+      const row = document.createElement('div');
+      row.className = `row${buf ? '' : ' miss'}${isCustom ? ' custom' : ''}`;
+      row.dataset.name = name; row.dataset.cat = catKey; row.dataset.badlen = bad ? '1' : '';
+      row.innerHTML = `
+        <div class="wavewrap"><div class="play" title="play">▶</div><canvas class="wave"></canvas></div>
+        <div class="meta">
+          <div class="name">${name}<span class="cat-chip">${catKey}</span><span class="cust" style="${isCustom ? '' : 'display:none'}">● replaced</span></div>
+          <div class="desc">${spec.desc || '—'}</div>
+          <div class="lenread">${buf
+            ? `len <b class="${bad ? 'bad' : 'ok'}">${fmt(actual)}</b> / target ${fmt(spec.dur)}<span class="track ${bad ? 'bad' : ''}"><i></i><u></u></span>`
+            : `<b class="miss">not generated</b> · target ${fmt(spec.dur)}`}</div>
+        </div>
+        <div class="ctrls">
+          <div class="crow"><label>vol</label><input type="range" class="vol" min="0" max="2" step="0.05" value="${pref.vol}"></div>
+          <div class="crow"><label>pitch</label><input type="range" class="rate" min="0.5" max="2" step="0.05" value="${pref.rate}"></div>
+          <div class="cbtns"><button class="iconbtn up-file" title="replace with your own file">📁 replace</button><button class="iconbtn reset" title="restore stock + settings">↺</button></div>
+        </div>
+        <div class="verdict"><button class="vbtn up" title="sounds right">👍</button><button class="vbtn down" title="misses — regenerate">👎</button></div>
+        <textarea class="notes" placeholder="notes — what's off…"></textarea>`;
+      main.appendChild(row); rows.set(name, row);
+
+      const canvas = row.querySelector('canvas');
+      requestAnimationFrame(() => drawWave(canvas, buf));
+      if (buf && spec.dur) {
+        const track = row.querySelector('.track > i'), tgt = row.querySelector('.track > u');
+        if (track) track.style.width = `${Math.min(1, actual / MAXLEN) * 100}%`;
+        if (tgt) tgt.style.left = `${Math.min(1, spec.dur / MAXLEN) * 100}%`;
+      }
+      const go = () => playAnim(name, canvas);
+      row.querySelector('.play').onclick = go; canvas.onclick = go;
+
+      // volume / pitch → game prefs (same store the game reads)
+      const vol = row.querySelector('.vol'), rate = row.querySelector('.rate');
+      vol.oninput = () => audio.setPref(name, { vol: +vol.value });
+      vol.onchange = () => audio.play(name, { volume: 1 });
+      rate.oninput = () => audio.setPref(name, { rate: +rate.value });
+      rate.onchange = () => audio.play(name, { volume: 1 });
+
+      // replace / restore (persist to IndexedDB — the game honors it)
+      row.querySelector('.up-file').onclick = () => {
+        const pick = document.createElement('input'); pick.type = 'file'; pick.accept = 'audio/*,.wav,.mp3,.ogg';
+        pick.onchange = async () => {
+          const f = pick.files?.[0]; if (!f) return;
+          const ok = await audio.setCustom(name, await f.arrayBuffer());
+          if (!ok) { alert(`Couldn't decode "${f.name}" as audio.`); return; }
+          row.classList.add('custom'); row.querySelector('.cust').style.display = '';
+          const nb = audio.getBuffer(name); drawWave(canvas, nb); audio.play(name, { volume: 1 });
+          updateLen(row, name, nb);
+        };
+        pick.click();
+      };
+      row.querySelector('.reset').onclick = async () => {
+        await audio.clearCustom(name); audio.setPref(name, { vol: 1, rate: 1 });
+        row.classList.remove('custom'); row.querySelector('.cust').style.display = 'none';
+        vol.value = '1'; rate.value = '1';
+        const nb = audio.getBuffer(name); drawWave(canvas, nb); updateLen(row, name, nb); audio.play(name, { volume: 1 });
+      };
+
+      // verdict + notes
+      const st = state[name] || {}; row.querySelector('.notes').value = st.notes || '';
       const setV = (v) => {
-        state[spec.name] = { ...(state[spec.name] || {}), v };
+        state[name] = { ...(state[name] || {}), v };
         row.classList.toggle('up', v === 'up'); row.classList.toggle('down', v === 'down');
         row.querySelector('.vbtn.up').classList.toggle('on', v === 'up');
         row.querySelector('.vbtn.down').classList.toggle('on', v === 'down');
-        save(); refreshStats(sounds); applyFilter();
+        save(); refreshStats(); applyFilter();
       };
       if (st.v) setV(st.v);
-      row.querySelector('.vbtn.up').onclick = () => setV(state[spec.name]?.v === 'up' ? null : 'up');
-      row.querySelector('.vbtn.down').onclick = () => setV(state[spec.name]?.v === 'down' ? null : 'down');
-      let t; notes.oninput = () => { clearTimeout(t); t = setTimeout(() => { state[spec.name] = { ...(state[spec.name] || {}), notes: notes.value }; save(); }, 300); };
-
-      // target length bar
-      row.querySelector('.track.tgt > i').style.width = `${Math.min(1, spec.dur / MAXLEN) * 100}%`;
+      row.querySelector('.vbtn.up').onclick = () => setV(state[name]?.v === 'up' ? null : 'up');
+      row.querySelector('.vbtn.down').onclick = () => setV(state[name]?.v === 'down' ? null : 'down');
+      const notes = row.querySelector('.notes'); let t;
+      notes.oninput = () => { clearTimeout(t); t = setTimeout(() => { state[name] = { ...(state[name] || {}), notes: notes.value }; save(); }, 300); };
     }
   }
+  return rows;
+}
 
-  refreshStats(sounds);
+function updateLen(row, name, buf) {
+  const spec = specByName[name] || {}; const actual = buf?.duration ?? null;
+  const bad = actual != null && spec.dur ? Math.abs(actual - spec.dur) / spec.dur > TOL : false;
+  row.dataset.badlen = bad ? '1' : '';
+  const lr = row.querySelector('.lenread');
+  lr.innerHTML = buf ? `len <b class="${bad ? 'bad' : 'ok'}">${fmt(actual)}</b> / target ${fmt(spec.dur)}<span class="track ${bad ? 'bad' : ''}"><i style="width:${Math.min(1, actual/MAXLEN)*100}%"></i><u style="left:${Math.min(1, (spec.dur||0)/MAXLEN)*100}%"></u></span>` : `<b class="miss">not generated</b>`;
+}
 
-  // lazy-decode with a small concurrency pool, then paint waveform + length
-  const queue = [...rows.values()];
-  const worker = async () => {
-    while (queue.length) {
-      const { row, spec } = queue.shift();
-      const buf = await loadBuffer(spec.name);
-      const canvas = row.querySelector('canvas');
-      const play$ = row.querySelector('.play');
-      const read = row.querySelector('.lenread');
-      const actI = row.querySelector('.track.act > i');
-      if (buf === 'missing') {
-        read.innerHTML = `<b class="miss">not generated yet</b> · target ${fmt(spec.dur)}`;
-        play$.style.opacity = 0.4; drawWave(canvas, 'missing');
-        continue;
-      }
-      row.classList.remove('miss');
-      drawWave(canvas, buf);
-      const actual = buf.duration;
-      const off = Math.abs(actual - spec.dur) / spec.dur;
-      const bad = off > TOL;
-      actI.parentElement.classList.toggle('bad', bad);
-      actI.style.width = `${Math.min(1, actual / MAXLEN) * 100}%`;
-      read.innerHTML = `actual <b class="${bad ? 'bad' : 'ok'}">${fmt(actual)}</b> · target ${fmt(spec.dur)}${bad ? ` <span style="color:var(--warn)">(${actual > spec.dur ? 'long' : 'short'})</span>` : ''}`;
-      row.dataset.badlen = bad ? '1' : '';
-      const go = () => play(spec.name, canvas, buf);
-      play$.onclick = go; canvas.onclick = go;
-    }
-  };
-  await Promise.all(Array.from({ length: 6 }, worker));
-
-  // filters
-  const search = document.getElementById('search'), filter = document.getElementById('filter');
-  window.applyFilter = () => {
+let applyFilter = () => {};
+function wireControls(rows) {
+  const search = $('search'), filter = $('filter');
+  applyFilter = () => {
     const q = search.value.trim().toLowerCase(), f = filter.value;
-    for (const { row, spec } of rows.values()) {
-      const v = state[spec.name]?.v || null;
-      let show = !q || spec.name.includes(q) || spec.desc.toLowerCase().includes(q);
+    for (const [name, row] of rows) {
+      const spec = specByName[name] || {}, v = state[name]?.v || null;
+      let show = !q || name.includes(q) || (spec.desc || '').toLowerCase().includes(q);
       if (show && f === 'unrated') show = !v;
       if (show && f === 'down') show = v === 'down';
       if (show && f === 'up') show = v === 'up';
+      if (show && f === 'custom') show = row.classList.contains('custom');
       if (show && f === 'badlen') show = row.dataset.badlen === '1';
       row.style.display = show ? '' : 'none';
     }
-    // hide empty category headers
     document.querySelectorAll('.cat').forEach((h) => {
       let n = h.nextElementSibling, any = false;
       while (n && n.classList.contains('row')) { if (n.style.display !== 'none') any = true; n = n.nextElementSibling; }
@@ -330,39 +297,43 @@ async function main() {
   };
   search.oninput = applyFilter; filter.onchange = applyFilter;
 
-  // export
   const buildExport = () => {
     const up = [], down = [], unrated = [], notes = {};
-    for (const s of sounds) {
-      const st = state[s.name] || {}; if (st.notes) notes[s.name] = st.notes;
-      if (st.v === 'up') up.push(s.name); else if (st.v === 'down') down.push(s.name); else unrated.push(s.name);
+    for (const n of SOUND_NAMES) {
+      const st = state[n] || {}; if (st.notes) notes[n] = st.notes;
+      if (st.v === 'up') up.push(n); else if (st.v === 'down') down.push(n); else unrated.push(n);
     }
     const cmd = down.length ? `node tools/gen-sounds-ai.mjs --only ${down.join(',')}` : '(nothing marked 👎)';
-    return { obj: { reviewedAt: new Date().toISOString(), up, down, unrated, notes, regenerateCommand: cmd }, cmd };
+    return { obj: { reviewedAt: new Date().toISOString(), up, down, unrated, notes, regenerateCommand: cmd }, cmd, down };
   };
-  const dlg = document.getElementById('dlg');
-  document.getElementById('export').onclick = () => {
-    const { obj, cmd } = buildExport();
-    document.getElementById('dlg-json').value = JSON.stringify(obj, null, 2);
-    document.getElementById('dlg-cmd').innerHTML = obj.down.length
-      ? `Regenerate the ${obj.down.length} 👎 sound(s):<br><code>${cmd}</code>`
-      : `Nothing marked 👎 yet — thumbs-down the misses first.`;
+  const dlg = $('dlg');
+  $('export').onclick = () => {
+    const { obj, cmd, down } = buildExport();
+    $('dlg-json').value = JSON.stringify(obj, null, 2);
+    $('dlg-cmd').innerHTML = down.length ? `Regenerate the ${down.length} 👎 sound(s):<br><code>${cmd}</code>` : `Nothing marked 👎 yet — thumbs-down the misses first.`;
     dlg.showModal();
   };
-  document.getElementById('dlg-x').onclick = () => dlg.close();
-  document.getElementById('dlg-copy').onclick = () => navigator.clipboard.writeText(document.getElementById('dlg-json').value);
-  document.getElementById('dlg-copycmd').onclick = () => navigator.clipboard.writeText(buildExport().cmd);
-  document.getElementById('reset').onclick = () => {
-    if (!confirm('Clear all ratings and notes?')) return;
+  $('dlg-x').onclick = () => dlg.close();
+  $('dlg-copy').onclick = () => navigator.clipboard.writeText($('dlg-json').value);
+  $('dlg-copycmd').onclick = () => navigator.clipboard.writeText(buildExport().cmd);
+  $('reset').onclick = () => {
+    if (!confirm('Clear all ratings and notes? (Does not touch replaced sounds.)')) return;
     for (const k of Object.keys(state)) delete state[k]; save();
-    for (const { row } of rows.values()) {
-      row.classList.remove('up', 'down'); row.querySelector('.notes').value = '';
-      row.querySelector('.vbtn.up').classList.remove('on'); row.querySelector('.vbtn.down').classList.remove('on');
-    }
-    refreshStats(sounds); applyFilter();
+    for (const [, row] of rows) { row.classList.remove('up', 'down'); row.querySelector('.notes').value = '';
+      row.querySelector('.vbtn.up').classList.remove('on'); row.querySelector('.vbtn.down').classList.remove('on'); }
+    refreshStats(); applyFilter();
   };
 }
-main();
+
+async function start() {
+  $('gate').style.display = 'none';
+  const enable = $('enable'); enable.textContent = 'Loading…';
+  try { const d = await (await fetch('/audio/sound-specs.json', { cache: 'no-store' })).json(); categories = d.categories; allSpecs = d.sounds; specByName = Object.fromEntries(d.sounds.map((s) => [s.name, s])); } catch {}
+  await audio.init(); audio.resume();
+  $('controls').style.display = ''; $('main').style.display = '';
+  const rows = build(); refreshStats(); wireControls(rows);
+}
+$('enable').onclick = start;
 </script>
 </body>
 </html>

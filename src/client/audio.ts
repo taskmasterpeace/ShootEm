@@ -147,6 +147,12 @@ export class AudioEngine {
     return this.custom.has(name);
   }
 
+  /** The decoded buffer currently bound to a sound (stock or user replacement).
+   *  Lets tools draw its waveform and read its real length. */
+  getBuffer(name: SoundName): AudioBuffer | undefined {
+    return this.buffers.get(name);
+  }
+
   /** Replace a sound with the user's own audio file. Persisted in IndexedDB. */
   async setCustom(name: SoundName, raw: ArrayBuffer): Promise<boolean> {
     if (!this.ctx) return false;

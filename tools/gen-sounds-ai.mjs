@@ -42,8 +42,13 @@ const durFor = (name) => SOUND_SPECS[name].dur;
 
 function loadKey() {
   if (process.env.ELEVENLABS_API_KEY) return process.env.ELEVENLABS_API_KEY.trim();
-  // fall back to the ad-lab project's .env
-  for (const p of ['D:/git/mkm/ad-lab/.env', 'D:/git/mkm/ad-lab/.env.local']) {
+  // fall back to a real key in any of the user's projects
+  const files = [
+    'D:/git/mkm/ad-lab/.env', 'D:/git/mkm/ad-lab/.env.local',
+    'D:/git/directors-palette-v2/.env.local', 'D:/git/directors-palette-v2/.env',
+    'D:/git/yourehired/.env.local', 'D:/git/yourehired/.env',
+  ];
+  for (const p of files) {
     if (!existsSync(p)) continue;
     const m = readFileSync(p, 'utf8').match(/^\s*ELEVENLABS_API_KEY\s*=\s*(.+?)\s*$/m);
     if (m && !/your_.*_here/.test(m[1])) return m[1].replace(/^["']|["']$/g, '');
