@@ -182,16 +182,45 @@ Shallow: everyone knows something's coming. Deep: nothing — but you're slow
 and blind. **The trade is the fun.** Counter-tunnel seismic sensors are real;
 so is the drama of the ground opening up behind your lines.
 
-### 5.3 Working dogs — *proposed*
-A real capability that earns its slot as the **counter to stealth**: a Malinois
-K9 that sniffs out camouflaged operators and explosives and marks them. Fast,
-fragile, pack logic — reuses the existing chase AI.
+### 5.3 Military working dogs — *committed, build*
+A real capability that earns its slot as the **counter to stealth**, and the
+most beloved unit we can ship. The K9 (a Malinois) comes as a **handler
+pairing** — take the K9 option and the dog deploys with you:
+
+- **Detection:** sniffs out camouflaged/signature-reduced operators and
+  planted explosives in a radius, marking them for the team — the grounded
+  answer to the camo classes and mines.
+- **Chase & takedown:** send the dog — fast, fragile, staggers a fleeing
+  target long enough for the squad to close. Reuses the existing chase AI.
+- **It has a name and a record.** The dog earns Journal entries and its own
+  service history ("Rex — 3 tours, 41 finds, wounded twice"). When a K9 goes
+  down and the handler carries it to the ambulance, that's the clip of the
+  match. Dogs are how you make players *feel* things.
+- **Doctrine fit:** K9s are a Concord signature (§1) — the human-and-animal
+  army against the Pact's machines. Dog vs robot-dog is a fight we want.
 
 ### 5.4 Drones & ground robots — *proposed*
 All fielded today: ISR quadcopters, strike drones, loitering munitions
 (Switchblade), UGVs (Ripsaw/THeMIS, robot dogs). These are **the Meridian
 Pact's doctrine** and the visible reward of §6 — hold the right fronts and your
 faction's machines roll onto the field.
+
+### 5.5 The bird — *proposed, honest assessment*
+"How useful would a bird be?" — more than it sounds, and it's real: Dutch
+police trained **eagles to intercept quadcopters**, and hand-launched
+bird-sized ISR drones (RQ-11 Raven) are standard issue. Two grounded takes:
+
+- **The falcon (counter-drone):** a trained raptor that dives the Pact's ISR
+  quadcopters and rips them out of the sky. Niche — but it's the *organic
+  counter* to drone doctrine, it's dramatic, and nobody else's war game has
+  it. Pairs with the K9 as Concord's living-army identity.
+- **The Raven (ISR mini-drone):** hand-thrown, bird-sized, silent-ish scout —
+  effectively the "bird" as advanced tech, and nearly free to build (it's a
+  small flying camera reusing drone logic).
+
+**Verdict:** utility is moderate, memorability is huge. Ship the falcon as a
+counter-drone specialist option once drones (§5.4) exist to counter; the
+Raven can ride along with the EW/recon kit almost immediately.
 
 ---
 
@@ -276,24 +305,48 @@ its result feeds a front.
 | Counter-Battery | Find and kill the guns shelling the front | recon drone, self-propelled artillery |
 | Field Trial | Escort a prototype to the front — or steal the enemy's (§6) | whatever the program issues |
 
-### 8.2 Terrain
-Design maps as named fronts, several built to change with campaign state. Real
-theatres, standard gravity:
+### 8.2 The maps — ten named fronts, in full
 
-- **Bridge Delta** — river chokepoint; blow the span and it *stays* blown,
-  rerouting the next battle.
-- **Fort Raven** — entrenched strongpoint siege; home of the Iron Defender medal.
-- **Eastern Plains** — open farmland, armor country, long tank/ATGM duels.
-- **The City** — dense urban, room-to-room, rubble that persists.
-- **Highland Pass** · **Blacksite (Arctic)** · **Refinery** · **The Port** ·
-  **Airbase** · **The Mine** — the breacher's map.
+Maps are not backdrops. Every map is a **named front in the war** with four
+required properties:
 
-**Water & boats:** water tiles already exist in the engine (the skiff crosses
-them). Verdict: **one assault boat + one amphibious mission (The Port)** — not
-a naval layer. Big-water combat is a different game.
+1. **Readable from the top-down camera** — clear lanes and landmarks, no maze
+   soup.
+2. **A signature moment** — the thing players tell stories about.
+3. **A persistent scar** — how campaign state permanently rewrites it.
+4. **A doctrine lean** — some ground favors Concord armor, some favors Pact
+   drones, so the campaign tug-of-war has texture.
 
-**The neighborhood already exists:** safehouse mode's searchable houses are the
-"maze of rooms" — reuse for Breach & Clear and grenade-bounce gameplay.
+| # | Front | Ground | Modes | Stars | The scar (persists) |
+|---|---|---|---|---|---|
+| 1 | **Bridge Delta** | River crossing: main span, rail bridge, one shallow ford | Armored Push, Convoy, CTF | MBT, breacher, boat | Blown spans stay blown — the ford becomes the only crossing |
+| 2 | **Fort Raven** | Hilltop strongpoint: trench rings, bunkers, inner keep | Siege (atk/def), KOTH | Breacher, artillery, engineer | Each siege leaves breached walls & rubble ramps — new entrances accumulate |
+| 3 | **Eastern Plains** | Open farmland: hedgerows, silos, shallow ridges | Conquest, Counter-Battery | MBT, IFV, recon drone, SP artillery | Burned fields lose concealment; wrecks become the new cover |
+| 4 | **The City** | Dense blocks, rooftops, sewers — reuses the house generator | Breach & Clear, TDM, quarantine | K9, UGV, engineer, jet-suit | Collapsed buildings reroute streets for the rest of the campaign |
+| 5 | **Highland Pass** | Alpine switchbacks, one road, cliffs, avalanche zones | Convoy, Air Interdiction | Helo, SAM, MANPADS, transport | Avalanches close routes — and open new ones |
+| 6 | **Blacksite (Arctic)** | Polar research station, whiteout weather, frozen lanes | Night ops, Extraction, infiltration | Infiltrator, K9, EW | Storms freeze/thaw water lanes between battles |
+| 7 | **Refinery** | Petrochemical maze: catwalks, tank farms, flare stacks | Conquest, sabotage | Engineer, WP/flame, drone | Destroyed storage tanks burn for the rest of the campaign — area denial |
+| 8 | **The Port** | Container terminal + moored cargo ship + offshore platform | Amphibious assault, Extraction, boarding | Assault boat, helo, jet-suit | Sunken cranes and hulls change the boat lanes |
+| 9 | **Airbase** | Runway, hangars, tower, revetments, SAM ring | Air Interdiction, prototype raid | Everything that flies, SPAAG | Cratered runway grounds that faction's air support until repaired — a campaign-level effect |
+| 10 | **The Mine** | Open pit + underground galleries + bunker complex | Breach & Clear, quarantine | Breacher, K9, UGV | Collapsed galleries close routes; the breacher opens new ones — the map is literally rewritable |
+
+**Signature moments, one per front:** holding Bridge Delta's span under
+artillery (1) · the last stand on Fort Raven's inner keep (2) · a 60-unit
+tank duel broken by a treeline ATGM ambush (3) · a K9 clearing an apartment
+stack room by room (4) · a MANPADS ambush on a helo threading the pass (5) ·
+thermal-camo operators vs K9 sweeps in a whiteout (6) · a thermobaric chain
+reaction walking down the tank farm (7) · the assault-boat run under fire
+onto the pier (8) · stealing a prototype out of a hangar with the runway
+burning (9) · the breacher surfacing *inside* the enemy bunker (10).
+
+**Engine reuse — these are cheaper than they look:** the house generator
+(safehouse mode) builds The City's blocks; water tiles already exist for
+Bridge Delta and The Port; the generator is seed-deterministic, so the §10 map
+tab lets players preview any front before deploying.
+
+**Water & boats verdict:** one assault boat + the amphibious missions on The
+Port and Bridge Delta — not a naval layer. Big-water combat is a different
+game.
 
 ### 8.3 The outbreak, grounded
 Zombies can't be grounded — so reframe the PvE horde as a **CBRN/bioweapon
