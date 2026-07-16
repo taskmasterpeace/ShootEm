@@ -214,6 +214,8 @@ export interface Vehicle {
   systems: VehicleSystems;
   /** tunneler: sim time it may next grind a wall tile */
   nextDigAt: number;
+  /** tunneler: running deep — silent and off-minimap, but slower and unable to dig */
+  burrowed?: boolean;
   /** ambulance: next heal pulse */
   nextHealAt: number;
   /** flyer: sim time the rotors finish spooling — airborne (and mobile) after this */

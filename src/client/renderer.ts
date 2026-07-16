@@ -130,6 +130,7 @@ export class Renderer {
   private nextSweepAt = new Map<number, number>();          // vehicle id → next sweep time
   private ecmRings = new Map<number, THREE.Mesh>();         // crewed ECM jam-radius rings
   private nextSmokeAt = new Map<number, number>();          // vehicle id → next damage-smoke puff
+  private nextMoundAt = new Map<number, number>();          // vehicle id → next burrow dirt-mound puff
   private wpPillars: THREE.Mesh[] = [];                     // pooled waypoint light pillars
   private nadeArc: THREE.Line | null = null;                // grenade-throw preview: dashed arc…
   private nadeRing: THREE.Mesh | null = null;               // …and the landing/splash ring
@@ -471,6 +472,15 @@ export class Renderer {
         const drill = mesh.getObjectByName('drill');
         const vSpeed = Math.hypot(v.vel.x, v.vel.z);
         if (drill) drill.rotation.x += dt * (2 + vSpeed * 3);
+        // deep runs sink the hull out of sight; both teams only see churned earth
+        const sink = (mesh.userData.sink as number | undefined) ?? 0;
+        const nextSink = sink + ((v.burrowed ? -1.6 : 0) - sink) * Math.min(1, dt * 3);
+        mesh.userData.sink = nextSink;
+        mesh.position.y = nextSink;
+        if (v.burrowed && vSpeed > 0.5 && world.time >= (this.nextMoundAt.get(v.id) ?? 0)) {
+          this.nextMoundAt.set(v.id, world.time + 0.16);
+          this.particles.emit({ pos: { x: v.pos.x, y: 0.15, z: v.pos.z }, count: 3, color: 0x6b5636, speed: 1.2, life: 0.9, spread: 1.3, up: 1.8, gravity: 5, size: 0.5 });
+        }
       }
       // ambulance lightbar + tunneler warning lamp pulse
       const vPulse = mesh.getObjectByName('pulse') as THREE.Mesh | undefined;
@@ -1242,14 +1252,22 @@ export class Renderer {
             audio.play('drone_crash', { pos: e.pos, volume: 0.9 });
           }
           break;
-        case 'dig':
+        case 'dig': {
           // the tunneler ground a wall to rubble — drop the instance, kick up dust
           if (e.tile !== undefined) this.collapseTile(e.tile);
           if (e.pos) {
             this.particles.emit({ pos: { ...e.pos, y: 1.5 }, count: 26, color: 0x8a7f6a, speed: 5, life: 0.8, spread: 1.2, up: 4, gravity: 6 });
-            audio.play('explosion', { pos: e.pos, volume: 0.5 });
+            // slowed autocannon reads as teeth chewing rock, not a blast
+            audio.play('autocannon', { pos: e.pos, rate: 0.6, volume: 0.55 });
+            // anyone standing close feels the grind through their boots
+            const local = world.soldiers.get(localId);
+            if (local) {
+              const d = Math.hypot(e.pos.x - local.pos.x, e.pos.z - local.pos.z);
+              if (d < 24) this.camShake = Math.max(this.camShake, 0.45 * (1 - d / 24));
+            }
           }
           break;
+        }
         case 'system_damaged':
           if (e.pos) {
             this.particles.emit({ pos: { ...e.pos, y: 1.6 }, count: 18, color: 0xffc040, speed: 7, life: 0.5, spread: 0.6, up: 4 });

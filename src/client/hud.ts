@@ -381,6 +381,7 @@ export class Hud {
     for (const v of world.vehicles.values()) {
       if (!v.alive) continue;
       if (v.team !== local.team) {
+        if (v.burrowed) continue; // a deep breacher is under the war — no sensor reads it
         const ecmDead = v.systems && v.systems.ecm <= 0;
         const d = Math.hypot(v.pos.x - local.pos.x, v.pos.z - local.pos.z);
         const seen = (d < 60 && losClear(grid, { ...local.pos, y: 1.4 }, { ...v.pos, y: 1.8 })) ||
@@ -388,7 +389,9 @@ export class Hud {
             losClear(grid, { ...mt.pos, y: 1.4 }, { ...v.pos, y: 1.8 }));
         if (!ecmDead && !seen) continue;
       }
-      dot(v.pos.x, v.pos.z, v.team === 0 ? '#c8882d' : '#2d9dc8', 3.5);
+      // friendly burrowed breachers read dimmed — the team knows, the enemy doesn't
+      const dim = v.burrowed ? 'aa' : '';
+      dot(v.pos.x, v.pos.z, (v.team === 0 ? '#c8882d' : '#2d9dc8') + dim, 3.5);
     }
 
     // mine detector: enemy mines read as hollow red squares

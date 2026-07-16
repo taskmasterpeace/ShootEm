@@ -627,6 +627,16 @@ export class World {
       const v = this.vehicles.get(s.vehicleId);
       if (!v || !v.alive) { s.vehicleId = -1; s.seat = -1; return; }
       if (cmd.use && this.time - s.enteredVehicleAt > 0.3) this.exitVehicle(s, v);
+      // breacher depth toggle: deep is silent and passes under walls, but
+      // crawls and can't dig — surfacing is where the grinding happens
+      if (cmd.ability && s.seat === 0 && VEHICLES[v.kind].digs && this.time >= s.nextAbilityAt) {
+        v.burrowed = !v.burrowed;
+        s.nextAbilityAt = this.time + 1.5;
+        this.emit({
+          type: 'beacon_planted', pos: { ...v.pos }, soldierId: s.id,
+          text: v.burrowed ? 'Breacher DIVING' : 'Breacher SURFACING',
+        });
+      }
       return;
     }
 
@@ -1070,6 +1080,7 @@ export class World {
         v.yaw = v.team === 0 ? 0 : Math.PI;
         v.seats.fill(-1);
         v.systems = this.freshSystems(v.kind);
+        v.burrowed = false; // wrecks come back surfaced
       }
       return;
     }
@@ -1118,8 +1129,10 @@ export class World {
     if (!def.immobile && !spooling) {
       // dead engine limps at 35% throttle response
       const engineMult = v.systems.engine > 0 ? 1 : 0.35;
+      // a deep breacher shoves through packed earth — half pace
+      const depthMult = def.digs && v.burrowed ? 0.5 : 1;
       v.yaw += turn * def.turnRate * dt * (throttle < 0 ? -1 : 1);
-      const targetSpeed = throttle * def.speed * engineMult * (throttle < 0 ? 0.5 : 1);
+      const targetSpeed = throttle * def.speed * engineMult * depthMult * (throttle < 0 ? 0.5 : 1);
       const accel = 18;
       const curSpeed = Math.cos(v.yaw) * v.vel.x + Math.sin(v.yaw) * v.vel.z;
       const newSpeed = curSpeed + Math.max(-accel * dt, Math.min(accel * dt, targetSpeed - curSpeed));
@@ -1129,8 +1142,9 @@ export class World {
       const nx = v.pos.x + v.vel.x * dt;
       const nz = v.pos.z + v.vel.z * dt;
       const r = def.radius;
-      if (def.flies) {
-        // flyers soar over everything — only the map border stops them
+      if (def.flies || (def.digs && v.burrowed)) {
+        // flyers soar over everything; a deep breacher passes UNDER it all —
+        // walls, cover, even water. Only the map border stops either.
         v.pos.x = nx;
         v.pos.z = nz;
       } else {
@@ -1140,7 +1154,7 @@ export class World {
           const aheadZ = v.pos.z + Math.sin(v.yaw) * (r + TILE * 0.6) * Math.sign(throttle);
           const t = tileAt(this.map.grid, aheadX, aheadZ);
           if (t === T_WALL || t === T_COVER) {
-            v.nextDigAt = this.time + 0.55; // grinding is slow, loud work
+            v.nextDigAt = this.time + 0.35; // loud, hungry surface work
             this.digTile(Math.floor((aheadX + WORLD / 2) / TILE), Math.floor((aheadZ + WORLD / 2) / TILE));
           }
         }
