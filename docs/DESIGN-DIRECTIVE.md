@@ -315,7 +315,7 @@ The proven top-down mechanic, live in the game now:
 - Still to add from this section: **cooking** (fuse burns while held),
   **bounces** (bank through doorways), **throwback/dive-on** heroics.
 
-### 4.3 Down, not out — drag, revive, bleed out
+### 4.3 Down, not out — drag, revive, bleed out ✅ SHIPPED (`1c959c5`)
 
 Death gets a middle state. Take lethal damage and you go **down** instead of
 straight to the respawn timer:
@@ -372,7 +372,7 @@ Shallow: everyone knows something's coming. Deep: nothing — but you're slow
 and blind. **The trade is the fun.** Counter-tunnel seismic sensors are real;
 so is the drama of the ground opening up behind your lines.
 
-### 5.3 Military working dogs — *committed, build*
+### 5.3 Military working dogs ✅ SHIPPED (`4764ae5`) — Havoc and Grit are on the field
 A real capability that earns its slot as the **counter to stealth**, and the
 most beloved unit we can ship. The K9 (a Malinois) comes as a **handler
 pairing** — take the K9 option and the dog deploys with you:
@@ -544,7 +544,7 @@ points at it:
   cover it *strides into*, and — when they arrive — the Iron Eaters (§20),
   who will regard it as a delicacy.
 
-### 8.1a Requisition — what happens to the truck when YOU die
+### 8.1a Requisition — what happens to the truck when YOU die ✅ SHIPPED (`246aa60`)
 
 The rule that makes vehicles feel OWNED instead of printed. You signed the
 hull out of the motor pool; the manifest doesn't care that you got shot.
@@ -770,7 +770,7 @@ should be a combat variable — real armies plan around mud season.
   The scar modifiers (§8.5 v1) already imagined this ("frozen = slick
   handling"); this section names the general mechanism.
 
-### 8.7 The jump vocabulary — obstacles as verbs
+### 8.7 The jump vocabulary — obstacles as verbs ✅ CLIMB SHIPPED (`420d5ac`)
 
 We already have jumping (Space: hop/jetpack). What we don't have is **height-
 aware obstacles** — today every blocker blocks absolutely, so jumping is
@@ -1087,7 +1087,7 @@ Three rules, in leverage order:
 online it only mutates the puppet world the next snapshot overwrites — but
 strip or guard it in production builds regardless.)*
 
-### 11.5 The War Room — the operator's surface (decided, scoped)
+### 11.5 The War Room — the operator's surface ✅ SHIPPED (observe+administrate+nudge; the pacing slot stays reserved)
 
 When the war runs 24/7 (Stage 2+), the admin doesn't join a match to check on
 it — they **log into the War Room**, a web console beside the game:
@@ -1635,7 +1635,7 @@ hand — is deliberately **not specified yet**; the acts themselves are canon.)*
 
 ---
 
-## 21. The Reprint — why dying doesn't end you
+## 21. The Reprint — why dying doesn't end you ✅ v1 SHIPPED (`dc3f9ca`: REPRINTED + the clone bay)
 
 The fiction that makes respawning HONEST instead of ignored. Enlistment in
 either army includes the imprint: a full neural record, refreshed at every
@@ -1709,6 +1709,14 @@ economy, safehouse mode) — new fiction over existing iron, the house rule.
   55→80, and the drifting cloud deck at altitude.
 - ✅ **§19.1 light cone shipped** (`f902bdc`) — see §19.1. Tracking Optics and
   the 360 Sensor Helmet open the §19.2 counter-economy.
+- ✅ **The seven-agent wave landed** (same day): §21 Reprint v1 (`dc3f9ca`),
+  §8.1a Requisition law (`246aa60`), §4.3 down/drag/revive + the OVERKILL
+  rule (`1c959c5` — damage 25+ past lethal skips the crawl), §8.7 CLIMB
+  barricades (`420d5ac`), §5.3 military dogs (`4764ae5` — THE NOSE pings
+  cloaked stalkers; the §19.2 K9 promise is live), the melee feel pass
+  (`34040a1` — windup/arc/lunge/stagger; the §20.4 monster prerequisite is
+  PAID), and the §11.5 War Room (warroom.html + /warroom/status + /warroom/cmd,
+  pacing panel deliberately empty). 365 tests across 34 files.
 
 - ✅ **Cursor-targeted throws shipped** (`b722960`): hold-G arc + landing ring,
   0.09u landing accuracy, all throwables + bots, 170 tests green.
