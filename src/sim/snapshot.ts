@@ -1,4 +1,4 @@
-import { T_OPEN } from './map';
+import { T_OPEN, losClear } from './map';
 import type { Gadget, Mine, ModeId, ModeState, Pickup, Projectile, SimEvent, Soldier, ThemeId, Turret, Vehicle } from './types';
 import { World } from './world';
 
@@ -66,6 +66,47 @@ export function takeSnapshot(w: World, events: SimEvent[]): Snapshot {
     dug: w.dug,
     events,
   };
+}
+
+// ---------------------------------------------------------------------------
+// 68A — interest-managed snapshots. Sending hidden enemy positions to every
+// client is an architecture defect, not a future anti-cheat problem: cull
+// each client's snapshot to what that player could plausibly PERCEIVE. The
+// perception rules mirror the HUD's minimap (and become §19's light cone).
+// No wss:// endpoint goes public without this.
+// ---------------------------------------------------------------------------
+
+const PERCEIVE_RANGE = 65;
+
+/** Build the per-viewer variant of a full snapshot. Pure — safe per client. */
+export function cullSnapshotFor(w: World, snap: Snapshot, viewerId: number): Snapshot {
+  const viewer = w.soldiers.get(viewerId);
+  if (!viewer) return snap; // spectators see the war whole (admin surface)
+  const team = viewer.team;
+
+  // friendly eyes: every living soldier on the viewer's team
+  const eyes = [...w.soldiers.values()].filter((s) => s.alive && s.team === team);
+  const seesPoint = (x: number, z: number, y = 1.4) =>
+    eyes.some((e) =>
+      Math.hypot(x - e.pos.x, z - e.pos.z) < PERCEIVE_RANGE &&
+      losClear(w.map.grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x, y, z }));
+
+  const soldiers = snap.soldiers.filter((s) => {
+    if (s.team === team) return true;
+    if (s.cloaked && !w.pinged.has(s.id)) return false;      // cloak is TRUE now
+    if (s.carryingFlag !== -1) return true;                   // objective intel is public
+    return w.pinged.has(s.id) || seesPoint(s.pos.x, s.pos.z);
+  });
+  const vehicles = snap.vehicles.filter((v) => {
+    if (v.team === team) return true;
+    if (v.burrowed) return false;                             // deep is TRULY deep
+    const ecmDead = v.systems && v.systems.ecm <= 0;          // dead ECM broadcasts you
+    return ecmDead || seesPoint(v.pos.x, v.pos.z, 1.8);
+  });
+  // enemy mines are invisible without a detector on YOUR kit — now on the wire too
+  const hasDetector = viewer.equipment.includes('mine_detector');
+  const mines = snap.mines.filter((m) => m.team === team || hasDetector);
+  return { ...snap, soldiers, vehicles, mines };
 }
 
 /** Overwrite a puppet world's dynamic state from an authoritative snapshot. */

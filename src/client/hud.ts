@@ -298,6 +298,17 @@ export class Hud {
       ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fill();
     };
+    // §18 second channel: hostiles read by SHAPE, not hue alone — triangles
+    const tri = (wx: number, wz: number, color: string, r = 3) => {
+      const [x, y] = toMap(wx, wz);
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(x, y - r);
+      ctx.lineTo(x + r * 0.9, y + r * 0.75);
+      ctx.lineTo(x - r * 0.9, y + r * 0.75);
+      ctx.closePath();
+      ctx.fill();
+    };
     // map tech: gates + lift pads
     for (const gate of world.map.gates) {
       for (const end of [gate.a, gate.b]) dot(end.x, end.z, '#66e8ff', 3);
@@ -384,7 +395,8 @@ export class Hud {
       } else if (world.smoked.has(s.id)) {
         continue; // even friendlies vanish in smoke
       }
-      dot(s.pos.x, s.pos.z, s.team === 0 ? '#e8a33d' : '#3dbde8');
+      if (s.team === local.team) dot(s.pos.x, s.pos.z, s.team === 0 ? '#e8a33d' : '#3dbde8');
+      else tri(s.pos.x, s.pos.z, s.team === 0 ? '#e8a33d' : '#3dbde8'); // hostile = triangle
     }
 
     // vehicles: friendlies always; enemies when seen, or when their ECM is slagged
@@ -401,7 +413,8 @@ export class Hud {
       }
       // friendly burrowed breachers read dimmed — the team knows, the enemy doesn't
       const dim = v.burrowed ? 'aa' : '';
-      dot(v.pos.x, v.pos.z, (v.team === 0 ? '#c8882d' : '#2d9dc8') + dim, 3.5);
+      if (v.team === local.team) dot(v.pos.x, v.pos.z, (v.team === 0 ? '#c8882d' : '#2d9dc8') + dim, 3.5);
+      else tri(v.pos.x, v.pos.z, (v.team === 0 ? '#c8882d' : '#2d9dc8') + dim, 4.2); // hostile = triangle
     }
 
     // mine detector: enemy mines read as hollow red squares

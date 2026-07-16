@@ -5,6 +5,7 @@ import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
 import { HAND_FRAG_REACH, type World } from '../sim/world';
 import { audio, type SoundName } from './audio';
 import { BIOME_AUDIO } from './soundscape';
+import { settings } from './settings';
 import { Particles, FlashLights } from './effects';
 import { JOINT_NAMES, isUndead, poseSoldierJoints, type GaitState } from './animation';
 import { hash01 } from '../sim/rng';
@@ -146,6 +147,7 @@ export class Renderer {
    *  shrink — at command height the disc IS the soldier (RTS strategic icons) */
   private blipMats: [THREE.MeshBasicMaterial, THREE.MeshBasicMaterial] | null = null;
   private blipGeo: THREE.CircleGeometry | null = null;
+  private blipRingGeo: THREE.RingGeometry | null = null;
   private blips = new Map<number, THREE.Mesh>();
   private nadeArc: THREE.Line | null = null;                // grenade-throw preview: dashed arc…
   private nadeRing: THREE.Mesh | null = null;               // …and the landing/splash ring
@@ -461,6 +463,7 @@ export class Renderer {
     const blipAlpha = Math.min(0.8, Math.max(0, (this.viewDist - 34) / 14));
     if (!this.blipMats) {
       this.blipGeo = new THREE.CircleGeometry(0.85, 24);
+      this.blipRingGeo = new THREE.RingGeometry(0.5, 0.9, 24); // hostiles: ring, not disc (§18)
       this.blipMats = [0, 1].map((t) => new THREE.MeshBasicMaterial({
         color: TEAM_COLORS[t], transparent: true, opacity: 0, depthWrite: false,
       })) as [THREE.MeshBasicMaterial, THREE.MeshBasicMaterial];
@@ -505,7 +508,9 @@ export class Renderer {
       if (s.kind === 'bot' || s.kind === 'human' || s.kind === 'scientist') {
         let blip = this.blips.get(s.id);
         if (!blip) {
-          blip = new THREE.Mesh(this.blipGeo!, this.blipMats![s.team]);
+          // §18 second channel at command height too: hostiles ring, friends disc
+          const hostile = s.team !== localTeam;
+          blip = new THREE.Mesh(hostile ? this.blipRingGeo! : this.blipGeo!, this.blipMats![s.team]);
           blip.rotation.x = -Math.PI / 2;
           blip.position.y = 0.06;
           mesh.add(blip);
@@ -1078,6 +1083,7 @@ export class Renderer {
       const desired = new THREE.Vector3(target.x, dist, target.z + dist * 0.55);
       this.viewDist = dist; // overhead UI scales against the height actually flown
       this.camPos.lerp(desired, 1 - Math.pow(0.001, dt));
+      if (settings.reducedMotion) this.camShake = 0; // §18 comfort valve
       if (this.camShake > 0) {
         this.camPos.x += (Math.random() - 0.5) * this.camShake;
         this.camPos.z += (Math.random() - 0.5) * this.camShake;

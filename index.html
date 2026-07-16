@@ -115,7 +115,7 @@
               <label>Bots per team</label>
               <div class="stepper">
                 <button id="bots-minus" aria-label="fewer bots">−</button>
-                <span id="bots-count">7</span>
+                <span id="bots-count">12</span>
                 <button id="bots-plus" aria-label="more bots">+</button>
               </div>
             </div>
@@ -126,6 +126,21 @@
                 <button class="pill selected" data-v="15">15 min</button>
                 <button class="pill" data-v="20">20 min</button>
               </div>
+            </div>
+          </div>
+        </div>
+        <div class="menu-section">
+          <h3>Settings</h3>
+          <div class="setup-row">
+            <div class="setup-block">
+              <label>Master volume <span id="vol-val">50%</span></label>
+              <input type="range" id="set-volume" min="0" max="100" step="5" value="50" style="width:180px; accent-color: var(--accent)">
+            </div>
+            <div class="setup-block">
+              <label>Comfort</label>
+              <label style="display:flex;align-items:center;gap:0.5rem;text-transform:none;font-size:0.85rem;cursor:pointer">
+                <input type="checkbox" id="set-reduced" style="accent-color:var(--accent);width:1rem;height:1rem"> Reduced motion (caps shake &amp; whiteout)
+              </label>
             </div>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { Vec3 } from '../sim/types';
+import { settings } from './settings';
 
 const MAX_PARTICLES = 3000;
 
@@ -151,7 +152,9 @@ export class StaticOverlay {
 
   /** Ambient noise level for this frame (0..1) — from the drone's signal. */
   set(target: number) {
-    this.target = Math.max(0, Math.min(1, target));
+    // §18 comfort valve: reduced motion keeps the static readable, never blinding
+    const cap = settings.reducedMotion ? 0.45 : 1;
+    this.target = Math.max(0, Math.min(cap, target));
   }
 
   /** Link lost: full-screen static burst that decays over `seconds`. */

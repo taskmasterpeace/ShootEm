@@ -6,7 +6,7 @@
  */
 import { WebSocketServer, WebSocket } from 'ws';
 import { World, type Loadout } from '../sim/world';
-import { takeSnapshot } from '../sim/snapshot';
+import { cullSnapshotFor, takeSnapshot } from '../sim/snapshot';
 import { isCoopMode, type ClassId, type ModeId, type PlayerCmd, type ThemeId } from '../sim/types';
 
 const PORT = Number(process.argv[2] ?? process.env.PORT ?? 3401);
@@ -147,9 +147,12 @@ class Room {
     this.world.step(TICK, cmds);
     this.tickCount++;
     if (this.tickCount % SNAP_EVERY === 0) {
-      const snap = JSON.stringify({ t: 'snap', snap: takeSnapshot(this.world, this.world.takeEvents()) });
+      // 68A: one authoritative snapshot, CULLED PER CLIENT — nobody's wire
+      // carries an enemy they couldn't perceive. ESP reads static.
+      const base = takeSnapshot(this.world, this.world.takeEvents());
       for (const c of this.clients) {
-        if (c.ws.readyState === WebSocket.OPEN) c.ws.send(snap);
+        if (c.ws.readyState !== WebSocket.OPEN) continue;
+        c.ws.send(JSON.stringify({ t: 'snap', snap: cullSnapshotFor(this.world, base, c.soldierId) }));
       }
     }
     // restart finished matches after a break

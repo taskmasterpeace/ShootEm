@@ -101,13 +101,20 @@ export class AudioEngine {
   private master: GainNode | null = null;
   private prefs: Record<string, SoundPref> = loadPrefs();
   listener: Vec3 = { x: 0, y: 0, z: 0 };
+  private masterVolume = 0.5;
+
+  /** Settings screen: master volume, applied live and at init. */
+  setMasterVolume(v: number) {
+    this.masterVolume = Math.max(0, Math.min(1, v));
+    if (this.master) this.master.gain.value = this.masterVolume;
+  }
   private lastPlayed = new Map<string, number>();
 
   async init() {
     if (this.ctx) return;
     this.ctx = new AudioContext();
     this.master = this.ctx.createGain();
-    this.master.gain.value = 0.5;
+    this.master.gain.value = this.masterVolume;
     this.master.connect(this.ctx.destination);
     await Promise.all(
       SOUND_NAMES.map(async (name) => {

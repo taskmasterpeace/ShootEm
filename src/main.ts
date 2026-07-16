@@ -13,6 +13,7 @@ import { KILLCAM_CAM, MATCH_LINGER_LOCAL_MS, ReplayDirector } from './client/rep
 import { MatchTracker, RANKS, loadDossier, rankFor, saveDossier, type Dossier } from './client/record';
 import { FRONTS, SCAR_TEXT, applyResult, bandOf, loadCampaign, saveCampaign, simulateTimeSkip, type Campaign } from './client/campaign';
 import { RangeCourse, gradeFor, loadWall } from './client/range';
+import { loadSettings, saveSettings, settings } from './client/settings';
 
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -580,6 +581,25 @@ void initCampaign();
 buildMenu();
 wireSetupControls();
 wireMenuTabs();
+
+// settings (§18/§10.3): volume + comfort, persisted, applied live
+loadSettings();
+audio.setMasterVolume(settings.masterVolume);
+{
+  const vol = $('set-volume') as HTMLInputElement;
+  const volVal = $('vol-val');
+  vol.value = String(Math.round(settings.masterVolume * 100));
+  volVal.textContent = `${vol.value}%`;
+  vol.oninput = () => {
+    settings.masterVolume = Number(vol.value) / 100;
+    volVal.textContent = `${vol.value}%`;
+    audio.setMasterVolume(settings.masterVolume);
+    saveSettings();
+  };
+  const rm = $('set-reduced') as HTMLInputElement;
+  rm.checked = settings.reducedMotion;
+  rm.onchange = () => { settings.reducedMotion = rm.checked; saveSettings(); };
+}
 $('deploy-btn').addEventListener('click', () => { activeFrontId = null; startGame(); });
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !running && !$('menu').classList.contains('hidden')) startGame();
