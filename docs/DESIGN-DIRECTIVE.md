@@ -166,6 +166,80 @@ exactly this, and it makes every class feel earned:
   System A). Re-runs can unlock *practice* bragging rights, but The Wall
   never forgets your first.
 
+### 3.3 The Proving Grounds — your own patch of the war
+
+Every soldier gets a **personal training ground**: a solo instance that is
+part firing range, part gadget sandbox, part qualification hall. It answers
+three needs with one place:
+
+- **Test anything, free.** Every weapon in your armory, every equipment pick,
+  every gadget — live on firing lanes with target dummies, a vehicle pad row,
+  and a building mock-up. No cooldown pressure, no cost, no judgment. (The
+  dev harness already has the pieces: target-dummy combat sandbox, vehicle
+  gallery, physics drills — the Proving Grounds is the *player-facing* cut of
+  it.)
+- **Home of the qualification courses (§3.2).** Each class's course is a
+  wing of the grounds. Walk to the Medic wing, step on the start plate, run
+  the drill. Practice runs are unlimited and marked PRACTICE; your first
+  *scored* run is forever, and it posts to The Wall.
+- **The tech testbed.** New mechanics land here first — cutaway roofs and
+  firing slits (§8.4) debut in the building mock-up, blast knockback on the
+  range, the breacher pit for depth drills. Players stress-test our features
+  by playing with them, before those features reach the fronts.
+
+**v1 scope (honest):** one new mode id (`range`), a small hand-tuned map
+(reusing safehouse-house + harness pieces), infantry course + two class
+courses, dummy targets that report score. Solo only. The Wall is a local
+leaderboard until Stage 3 accounts make it global.
+
+### 3.4 Building the Record — the Dossier file (Slice 1 plan)
+
+The concrete plan for System A + B. **No backend, ships offline, and every
+later system (§3.1–3.3, §6, §7) reads from it.**
+
+**The store.** One versioned JSON document — the **Dossier** — persisted
+locally (IndexedDB), shaped for Stage-3 server sync from day one:
+
+```
+dossier v1 {
+  soldier:   { callsign, created, rankPoints, rank }
+  tours:     [{ faction, season, startedAt }]
+  lifetime:  { perClass: {kills, deaths, time, wins},
+               perWeapon: {kills, longestHit, toursCarried} }
+  armory:    [ ownedWeaponIds ]            // §3.1 personal gear
+  quals:     { classId: {score, percentile, firstAttemptAt} }  // §3.2
+  medals:    [{ id, earnedAt, matchRef }]
+  journal:   [{ template, params, at, replayRef? }]
+}
+```
+
+**The pipeline.** A new `src/client/record.ts` consumes the SAME event
+stream the HUD already reads (kills, captures, deaths, heals, holds — all
+with class/weapon attached). During the match it folds events into deltas;
+at match end (and checkpointed every 30s against crashes) it merges deltas
+into the Dossier. The sim is untouched — this is presentation-side, which is
+why it ships fast.
+
+**Medals v1** (all computable from events we already emit): First Blood ·
+Marksman (longest hit thresholds) · Iron Defender (point-hold time) · Tank
+Killer (3 vehicles / match) · Purple Heart (survive under 10 HP) · Medic's
+Cross (heal totals) · Grenadier (multi-kill with one frag) · Drone Ace
+(spots leading to kills) · Campaign ribbons per tour.
+
+**Journal v1:** template entries mined from the event log at match end —
+*"Held POINT for M minutes against N attackers"*, *"Avenged TEAMMATE"*,
+*"First to down a VEHICLE this campaign"* — each linked to its replay clip
+reference where the recorder has one.
+
+**Surfaces v1:** a **Barracks** screen from the menu (the dossier: rank,
+medals, armory, quals, journal feed) + a post-match "career" pane showing
+what this match added. The §10 menu rebuild reserves the Barracks tab; v1
+can ship as a plain screen before the rebuild lands.
+
+**Explicitly deferred:** accounts, server sync, anti-cheat on The Wall —
+all Stage 3 (§11.1). The file format is versioned so nothing migrates
+painfully.
+
 ---
 
 ## 4. Blast physics & the grenade — combat feel
@@ -490,6 +564,42 @@ frozen). *Every battle leaves a mark. The world remembers.*
   lets you drop the art in and drag all ten markers into position; it exports
   `scar-markers.json` (normalized 0–1 coordinates) that the Scar screen reads.
 
+**Making the Scar live — the v1 plan (no new maps required).** The art and
+markers are in the repo (`public/scar-map.png`, `public/scar-markers.json`)
+but nothing reads them yet. The unlock: **the Scar doesn't have to wait for
+the ten authored fronts** — each front maps to an *existing* generator
+recipe today, and upgrades to its authored map later without touching the
+screen:
+
+| Front | v1 recipe (exists today) |
+|---|---|
+| Bridge Delta | savanna + water-heavy seed, CTF |
+| Fort Raven | corridors gen, KOTH |
+| Eastern Plains | field gen, Conquest |
+| The City | neighborhood/houses gen, TDM |
+| Highland Pass | rocks gen, Convoy-style CTF |
+| Blacksite | triton/ice gen, night vibe, TDM |
+| Refinery | starship/industrial gen, Conquest |
+| The Port | ocean gen, CTF |
+| Airbase | field gen + pads, Conquest |
+| The Mine | asteroid gen, breacher-friendly TDM |
+
+1. **Campaign state file** (`ww_campaign` local, Stage-3 syncable):
+   `{ season, fronts: { id: { control: -100..100, scars: [], lastBattleAt } } }`.
+2. **Results move fronts:** finish a match deployed at front F → win shifts
+   `control` toward your faction (±8 by default, mode-weighted); crossing
+   thresholds flips ownership and fires a Journal/dispatch entry.
+3. **Scars v1 as modifiers on existing generators:** persistent-fire = fire
+   fields seeded near the middle; frozen = ice palette + slick handling;
+   rubble = extra cover density; flooded = more water tiles; blocked/open
+   route = spawn-lane bias. Cheap, real, and visible.
+4. **The screen:** a menu tab rendering `scar-map.png`, markers at the
+   authored coordinates, control/scars as live overlays; click a front →
+   deploy into its recipe with its scar modifiers.
+
+This turns the painting into the game's front door in one slice — and every
+later map upgrade just swaps a recipe.
+
 ---
 
 ## 9. Build order
@@ -499,9 +609,11 @@ the shared global war.
 
 | Phase | What ships | Why now | State |
 |---|---|---|---|
-| This week | ~~Cursor-targeted grenade throw~~ ✅ (`b722960`) · Blast knockback (§4.1) · Breacher feel + depth-stealth (§5.2) · SAM/MANPADS loop (§5.1) | Combat feel — visible in the first minute of play | in progress |
-| Slice 1 | The Record + War Journal, on the existing event stream | Offline, no backend, reuses awards + replays — biggest emotion, smallest build | spec ready |
-| Slice 2 | Factions + Living Campaign (local): enlistment, fronts, missions, Prototype Program | Turns matches into a war with a flag on it | proposed |
+| This week | ~~Cursor-targeted grenades~~ ✅ · ~~FPV drones~~ ✅ · Blast knockback (§4.1) · Breacher depth-stealth (§5.2) · MANPADS loop (§5.1) | Combat feel — visible in the first minute of play | **in build (parallel agents)** |
+| Slice 1 | **The Dossier** (§3.4): record.ts pipeline, medals v1, journal v1, Barracks screen | Offline, no backend, reuses awards + replays — biggest emotion, smallest build; everything else reads from it | **planned in full — next up** |
+| Slice 1.5 | **The Scar goes live** (§8.5 v1 plan): campaign file, fronts→existing recipes, scar modifiers, the screen | The painting becomes the front door — no new maps required | planned in full |
+| Slice 1.6 | **The Proving Grounds** (§3.3): range mode, gadget sandbox, first qualification courses + local Wall | The training/testing home; also the §8.4 roofs/slits testbed | planned |
+| Slice 2 | Factions + full Living Campaign: enlistment, tours, missions, Prototype Program | Turns matches into a war with a flag on it | proposed |
 | Slice 3 | Command: officer choices, named operations, relief of command, devolution | Needs ranks (Slice 1) + campaign (Slice 2) to mean anything | proposed |
 | Slice 4 | Lift campaign + dossiers to a shared backend | The true global war — same state, now shared | later |
 
