@@ -10,6 +10,10 @@ export function initMode(id: ModeId, map: GameMap, minutes?: number): ModeState 
     id, timeLeft: (minutes ?? 15) * 60 || MATCH_TIME, scores: [0, 0], target: 0, over: false, winner: -1,
   };
   switch (id) {
+    case 'range':
+      // the Proving Grounds never end — you leave when you're done
+      m.timeLeft = Infinity;
+      break;
     case 'tdm':
       m.target = 50;
       break;
@@ -87,6 +91,7 @@ export function stepMode(w: World, dt: number) {
     case 'survival': stepSurvival(w, dt); break;
     case 'horde': stepHorde(w, dt); break;
     case 'safehouse': stepSafehouse(w, dt); break;
+    case 'range': break; // no clock, no whistle — just the work
   }
 }
 

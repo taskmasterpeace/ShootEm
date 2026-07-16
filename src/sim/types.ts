@@ -1,6 +1,6 @@
 export type Team = 0 | 1; // 0 = Titan (amber), 1 = Collective (cyan). Survival: all players team 0.
 
-export type ModeId = 'tdm' | 'ctf' | 'koth' | 'conquest' | 'survival' | 'horde' | 'safehouse';
+export type ModeId = 'tdm' | 'ctf' | 'koth' | 'conquest' | 'survival' | 'horde' | 'safehouse' | 'range';
 
 /** Battlefield environments — the war spans the solar system. */
 export type ThemeId = 'savanna' | 'starship' | 'asteroid' | 'europa' | 'titan' | 'triton';
@@ -192,6 +192,8 @@ export interface Soldier {
   /** spawn protection (55B): immune until this sim time, capped ~5s — broken
    *  the instant the soldier takes any hostile action */
   protectedUntil: number;
+  /** Proving Grounds target dummy — stands there, takes it, never acts */
+  dummy?: boolean;
   /** who last killed this soldier (-1 = nobody/self/environment) — the killcam
    *  frames the duel between victim and killer instead of just the corpse */
   lastKillerId: number;

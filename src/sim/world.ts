@@ -329,12 +329,12 @@ export class World {
     for (const s of this.soldiers.values()) {
       if (!s.alive) {
         if (s.kind !== 'human' && s.kind !== 'bot') continue; // dead zombies removed elsewhere
-        if (this.time >= s.respawnAt && !this.mode.over) this.spawn(s);
+        if (this.time >= s.respawnAt && !this.mode.over && !s.dummy) this.spawn(s); // downed range targets STAY down
         continue;
       }
       let cmd = cmds.get(s.id);
       if (!cmd) {
-        if (s.kind === 'bot') cmd = stepBot(this, s, dt);
+        if (s.kind === 'bot' && !s.dummy) cmd = stepBot(this, s, dt); // dummies stand and take it
         else if (s.kind === 'scientist') { stepScientist(this, s, dt); continue; }
         else if (isZed(s.kind)) { stepZombie(this, s, dt); continue; }
         else cmd = null as unknown as PlayerCmd;

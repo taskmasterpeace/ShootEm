@@ -12,6 +12,7 @@ import { NetGame } from './client/net';
 import { KILLCAM_CAM, MATCH_LINGER_LOCAL_MS, ReplayDirector } from './client/replay';
 import { MatchTracker, RANKS, loadDossier, rankFor, saveDossier, type Dossier } from './client/record';
 import { FRONTS, SCAR_TEXT, applyResult, bandOf, loadCampaign, saveCampaign, simulateTimeSkip, type Campaign } from './client/campaign';
+import { RangeCourse, gradeFor, loadWall } from './client/range';
 
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -287,6 +288,11 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
   applyScarMods(world, activeFrontId); // §8.5: the front's wound shapes the field
   // the Record (§3.4): fold this match into the dossier as it happens
   const tracker = dossier ? new MatchTracker(dossier, name, selectedClass, selectedMode, seed) : null;
+  // the Proving Grounds (§3.3): stage the course; 18B decided practice vs official
+  const course = selectedMode === 'range'
+    ? new RangeCourse(rangeOfficial, name, dossier, (t, big) => hud.announce(t, !!big, 0))
+    : null;
+  rangeOfficial = false; // one-shot flag — consumed by this deploy
 
   // replays: the director runs the killcam + match-highlights state machine
   const director = new ReplayDirector(seed, selectedMode, selectedTheme);
@@ -304,7 +310,9 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
   // 32B: bots FILL to the team-size target (default 12v12; co-op 4-6).
   // Heavy bots carry MANPADS (49A) so the anti-air duel exists in bot wars.
   const botLoadout = (cls: ClassId) => (cls === 'heavy' ? { equipment: ['manpads'] } : undefined);
-  if (isCoopMode(selectedMode)) {
+  if (selectedMode === 'range') {
+    // the Proving Grounds are YOURS alone (§3.3) — no bots, just the work
+  } else if (isCoopMode(selectedMode)) {
     for (let i = 0; i < Math.min(botsPerTeam, 5); i++) {
       const cls = classPool[i % classPool.length];
       world.addSoldier(wrap(n++), cls, 0, 'bot', botLoadout(cls));
@@ -321,6 +329,7 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
   }
 
   renderer.buildStaticWorld(world);
+  course?.begin(world, me.id);
   hud.announce(MODE_INFO[selectedMode].name.toUpperCase(), true, 0);
   (window as unknown as Record<string, unknown>).__ww = { world, me, renderer, hud, input, recorder: director.recorder, replay: director.player, director }; // debug/testing handle
 
@@ -354,6 +363,7 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     hud.applyEvents(events, world, me.id, world.time); // killfeed stays live
     tracker?.applyEvents(events, world, me.id);
     tracker?.update(world, me.id, dt);
+    course?.update(world, dt);
     if (world.mode.over && tracker) {
       void tracker.finalize(world, me.id).then((sum) => {
         if (!sum) return;
@@ -414,6 +424,7 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
 // The Dossier (§3.4) + the menu tab shell (6B): Deploy | Barracks | Map.
 // ---------------------------------------------------------------------------
 let dossier: Dossier | null = null;
+let rangeOfficial = false; // 18B: set ONLY by the explicit confirm
 
 function renderBarracks() {
   const root = $('barracks-root');
@@ -450,10 +461,35 @@ function renderBarracks() {
       </div>
       <div class="bk-card"><h4>By class</h4>${classRows}</div>
       <div class="bk-card"><h4>Gun locker — service history</h4>${weaponRows}</div>
-      <div class="bk-card"><h4>Qualifications</h4><p class="bk-empty">No qualifications on record — the Proving Grounds await.</p></div>
+      <div class="bk-card"><h4>Qualifications — the Proving Grounds</h4>${(() => {
+        const q = d.quals.infantry;
+        const wall = loadWall();
+        const top = wall.slice(0, 5).map((w, i) =>
+          `<div class="bk-stat-row"><span>#${i + 1} ${w.callsign}${w.official ? '' : ' <em style=\"opacity:0.6\">(practice)</em>'}</span><b>${w.score}</b></div>`).join('');
+        return `${q
+          ? `<p style="margin-bottom:0.4rem">🎖 <b>Infantry — ${q.grade}</b> · ${q.score} pts · ${q.percentile}th percentile<br><span class="bk-empty">official attempt, ${new Date(q.firstAttemptAt).toLocaleDateString()} — the Wall never forgets your first</span></p>`
+          : '<p class="bk-empty" style="margin-bottom:0.4rem">Infantry course: unqualified. Practice free — the official run is one shot, forever (18B).</p>'}
+        <div style="display:flex; gap:0.4rem; margin:0.4rem 0 0.6rem">
+          <button class="pill" id="pg-practice">🎯 Practice run</button>
+          ${q ? '' : '<button class="pill" id="pg-official" style="border-color:var(--accent);color:var(--accent)">⚠ Official attempt</button>'}
+        </div>
+        ${top ? `<h4 style="margin-top:0.5rem">The Wall (local)</h4>${top}` : ''}`;
+      })()}</div>
     </div>
     <div class="bk-card" style="margin-bottom:0.75rem"><h4>Decorations (${d.medals.length})</h4>${medals}</div>
     <div class="bk-card"><h4>War journal</h4>${journal}</div>`;
+  const practice = root.querySelector<HTMLButtonElement>('#pg-practice');
+  if (practice) practice.onclick = () => {
+    activeFrontId = null; rangeOfficial = false; selectedMode = 'range'; startGame();
+  };
+  const official = root.querySelector<HTMLButtonElement>('#pg-official');
+  if (official) official.onclick = () => {
+    // 18B: a permanent score is only meaningful when knowingly accepted
+    const warning = 'OFFICIAL QUALIFICATION ATTEMPT\n\nThis one counts — forever. Your score and percentile go on The Wall and in your dossier, permanently. Practice runs are unlimited; official is one shot.\n\nReady?';
+    if (confirm(warning)) {
+      activeFrontId = null; rangeOfficial = true; selectedMode = 'range'; startGame();
+    }
+  };
 }
 
 function wireMenuTabs() {
