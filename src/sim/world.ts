@@ -11,7 +11,7 @@ import {
 } from './types';
 import { stepMode, initMode } from './modes';
 import { stepBot, stepScientist, stepZombie } from './bots';
-import { PERCEIVE_RANGE, perceivesNow } from './perception';
+import { PERCEIVE_RANGE, perceivesNow, type SeenMark } from './perception';
 import { THEME_WEATHER, airGrounded, moveMult, visionMult, weatherAnnounce, type WeatherState } from './weather';
 
 const RESPAWN_DELAY = 4;
@@ -83,11 +83,11 @@ export class World {
   gadgets = new Map<number, Gadget>();
   /** soldier ids currently revealed by targeting beacons / drones / sensors / psi */
   pinged = new Set<number>();
-  /** per-team memory: when team T last perceived enemy soldier id. Stamped
-   *  every tick by updateLastSeen; the wire culler (68A) and the renderer's
-   *  roof cutaway both read it, and SEEN_LINGER turns it into the 1–3s
-   *  "he just broke line of sight" trail. */
-  lastSeen: [Map<number, number>, Map<number, number>] = [new Map(), new Map()];
+  /** per-team memory: when team T last perceived enemy soldier id, and WHERE
+   *  (§19.1 ghosts freeze at the spot you lost them). Stamped every tick by
+   *  updateLastSeen; the wire culler (68A) and the renderer's roof cutaway
+   *  both read it, and SEEN_LINGER turns it into the 1.5–3s trail. */
+  lastSeen: [Map<number, SeenMark>, Map<number, SeenMark>] = [new Map(), new Map()];
   /** RG-2 tag darts: soldier id → time the pin burns out (re-pings each tick) */
   tagged = new Map<number, number>();
   /** §8.8 the sky: every front rolls weather from its theme's menu. Starts
@@ -447,7 +447,9 @@ export class World {
       for (const s of this.soldiers.values()) {
         if (s.team === team) continue;
         if (!s.alive) { this.lastSeen[team].delete(s.id); continue; }
-        if (perceivesNow(this.map.grid, eyes, this.pinged, s, range)) this.lastSeen[team].set(s.id, this.time);
+        if (perceivesNow(this.map.grid, eyes, this.pinged, s, range)) {
+          this.lastSeen[team].set(s.id, { t: this.time, x: s.pos.x, z: s.pos.z });
+        }
       }
     }
   }

@@ -4,12 +4,25 @@
 // can see, or the screen lies: the wire says "enemy at the window" while the
 // roof hides him, and the player swears the house was empty. These rules ARE
 // the agreement, imported by both sides.
+//
+// §19.1 THE CONE, THE RING, AND THE DARK (decided, v1 = the LIGHT cone):
+// each friendly eye sees a ~130° cone in its facing out to the vision budget,
+// plus a short all-around ring — footsteps-close presence. Beyond both, an
+// enemy simply isn't on your wire. No wall-shadow pass: losClear keeps
+// governing what it already governs. Flanking, ambush, and checking corners
+// all come back the moment sight has a shape.
 // ---------------------------------------------------------------------------
 import { losClear } from './map';
 import type { Soldier, Team } from './types';
 
-/** How far friendly eyes reach (mirrors the minimap; becomes §19's cone). */
+/** How far friendly eyes reach (mirrors the minimap; §8.8 weather taxes it). */
 export const PERCEIVE_RANGE = 65;
+
+/** The ~130° cone: half-angle in radians around the eye's facing. */
+export const CONE_HALF = 1.15;
+
+/** The ring: footsteps-close presence all around, cone or no cone. */
+export const RING = 9;
 
 /** Once seen, an enemy stays on your screen this long after line of sight
  *  breaks — the "he just ducked behind the wall" trail. Decided (§19):
@@ -17,18 +30,35 @@ export const PERCEIVE_RANGE = 65;
 export const SEEN_LINGER = 1.5;
 export const SEEN_LINGER_GEARED = 3;
 
+/** One team's memory of one enemy: when last perceived, and WHERE — the
+ *  ghost freezes at the spot you lost them, never trailing their live path. */
+export interface SeenMark { t: number; x: number; z: number }
+
+/** Can this single eye see the point? Ring first (the 360 sensor helmet
+ *  doubles it — the paranoid pick, §19.2), then the facing cone. */
+function eyeSees(e: Soldier, x: number, z: number, range: number): boolean {
+  const d = Math.hypot(x - e.pos.x, z - e.pos.z);
+  if (d < (e.equipment.includes('sensor_360') ? RING * 2 : RING)) return true;
+  if (d >= range) return false;
+  let diff = Math.abs(Math.atan2(z - e.pos.z, x - e.pos.x) - e.yaw) % (Math.PI * 2);
+  if (diff > Math.PI) diff = Math.PI * 2 - diff;
+  return diff <= CONE_HALF;
+}
+
 /** Can this set of friendly eyes perceive enemy soldier `s` RIGHT NOW?
  *  `range` is the live vision budget — weather (§8.8) taxes it. */
 export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<number>, s: Soldier, range = PERCEIVE_RANGE): boolean {
   if (s.cloaked && !pinged.has(s.id)) return false;   // cloak is TRUE
   if (s.carryingFlag !== -1) return true;             // objective intel is public
-  // the SKYLINE rule (§8.4): above the ground walls you're against the sky
+  // the SKYLINE rule (§8.4): above the ground walls you're against the sky —
+  // a silhouette registers even in your periphery, so no cone check here
   if (s.pos.y > 3 && eyes.some((e) => Math.hypot(s.pos.x - e.pos.x, s.pos.z - e.pos.z) < range)) return true;
   if (pinged.has(s.id)) return true;
-  // window truth: losClear marches at eye height 1.4 — inside the T_SLIT
-  // firing band — so a defender framed in an open window is genuinely seen
+  // cone + ring, then the window truth: losClear marches at eye height 1.4 —
+  // inside the T_SLIT firing band — so a defender framed in glass is SEEN,
+  // and a stalker behind your back past the ring is NOT
   return eyes.some((e) =>
-    Math.hypot(s.pos.x - e.pos.x, s.pos.z - e.pos.z) < range &&
+    eyeSees(e, s.pos.x, s.pos.z, range) &&
     losClear(grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x: s.pos.x, y: 1.4, z: s.pos.z }));
 }
 
@@ -37,10 +67,10 @@ export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<numb
  *  mid-linger cuts the trail instantly (cloak stays TRUE). `linger` is
  *  per-viewer: tracking gear buys SEEN_LINGER_GEARED (§19.2). */
 export function seenRecently(
-  lastSeen: [Map<number, number>, Map<number, number>],
+  lastSeen: [Map<number, SeenMark>, Map<number, SeenMark>],
   pinged: Set<number>, team: Team, s: Soldier, now: number, linger = SEEN_LINGER,
 ): boolean {
   if (s.cloaked && !pinged.has(s.id)) return false;
-  const t = lastSeen[team].get(s.id);
-  return t !== undefined && now - t <= linger;
+  const m = lastSeen[team].get(s.id);
+  return m !== undefined && now - m.t <= linger;
 }

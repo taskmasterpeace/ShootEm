@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
 import { F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt } from '../sim/map';
-import { SEEN_LINGER, SEEN_LINGER_GEARED, seenRecently } from '../sim/perception';
+import { SEEN_LINGER, SEEN_LINGER_GEARED, seenRecently, type SeenMark } from '../sim/perception';
 import type { WeatherKind } from '../sim/weather';
 import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
 import { HAND_FRAG_REACH, type World } from '../sim/world';
@@ -1015,7 +1015,24 @@ export class Renderer {
       }
       const inVehicle = s.vehicleId >= 0;
       const corpse = !s.alive && world.time < s.respawnAt - 0.02;
-      mesh.visible = (s.alive || corpse) && !inVehicle && !(s.cloaked && s.team !== localTeam && s.id !== localId);
+      // §19.1 the DARK: in local worlds every soldier exists in memory — the
+      // cone decides which ENEMIES actually draw. The sim's lastSeen trail
+      // already encodes every rule (cone+ring, skyline, ping, flag, cloak):
+      // a fresh mark = live pose; a linger mark = a ghost FROZEN where you
+      // lost them; nothing = not drawn. Puppets skip this — the server's
+      // cull already decided, and its ghosts arrive pre-frozen.
+      let ghost: SeenMark | undefined;
+      let dark = false;
+      if (!world.puppet && local && s.team !== localTeam && s.alive && !inVehicle) {
+        const mark = world.lastSeen[localTeam].get(s.id);
+        const fresh = mark !== undefined && world.time - mark.t < 0.07;
+        if (!fresh) {
+          const linger = local.equipment.includes('tracking_optics') ? SEEN_LINGER_GEARED : SEEN_LINGER;
+          if (mark && world.time - mark.t <= linger && !(s.cloaked && !world.pinged.has(s.id))) ghost = mark;
+          else dark = true;
+        }
+      }
+      mesh.visible = (s.alive || corpse) && !inVehicle && !dark && !(s.cloaked && s.team !== localTeam && s.id !== localId);
       if (!mesh.visible) continue;
       // squad-only overhead: name + vitals circles. Enemy plates were clutter
       // AND free intel — enemies now read as silhouettes and team color.
@@ -1073,7 +1090,8 @@ export class Renderer {
           }
         }
       }
-      mesh.position.set(s.pos.x, s.pos.y, s.pos.z);
+      // a ghost holds the spot you lost them — never their live path
+      mesh.position.set(ghost?.x ?? s.pos.x, s.pos.y, ghost?.z ?? s.pos.z);
       // in the water: waders splash at boot height, swimmers sink to the neck
       {
         const wt = world.map.grid[Math.floor((s.pos.z + WORLD / 2) / TILE) * GRID + Math.floor((s.pos.x + WORLD / 2) / TILE)];

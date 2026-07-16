@@ -24,7 +24,7 @@ const at = (t: number) => (t + 0.5) * TILE - WORLD / 2; // tile center → world
 function staged() {
   const w = new World({ seed: 21, mode: 'tdm' });
   for (let tz = 46; tz <= 54; tz++)
-    for (let tx = 44; tx <= 60; tx++) w.map.grid[tz * GRID + tx] = T_OPEN;
+    for (let tx = 36; tx <= 60; tx++) w.map.grid[tz * GRID + tx] = T_OPEN;
   for (let tz = 46; tz <= 54; tz++) w.map.grid[tz * GRID + 52] = T_WALL;
   const me = w.addSoldier('Viewer', 'infantry', 0, 'human');
   me.pos = { x: at(48), y: 0, z: at(50) };
@@ -42,6 +42,44 @@ describe('the window truth', () => {
     expect(onWire(w, me.id, foe.id)).toBe(false);           // solid wall: unseen
     w.map.grid[50 * GRID + 52] = T_SLIT;                    // put a window in it
     expect(onWire(w, me.id, foe.id)).toBe(true);            // framed in the glass
+  });
+});
+
+describe('the cone, the ring, and the dark (§19.1)', () => {
+  it('the cone has a back: an enemy behind you is in the dark — until you turn', () => {
+    const { w, me, foe } = staged();
+    foe.pos = { x: at(42), y: 0, z: at(50) }; // 18u BEHIND a viewer facing +x
+    expect(onWire(w, me.id, foe.id)).toBe(false);
+    me.yaw = Math.PI; // about face
+    expect(onWire(w, me.id, foe.id)).toBe(true);
+  });
+
+  it('the ring senses the creep: footsteps-close presence needs no facing', () => {
+    const { w, me, foe } = staged();
+    foe.pos = { x: at(48) - 7, y: 0, z: at(50) }; // 7u behind — inside the ring
+    expect(onWire(w, me.id, foe.id)).toBe(true);
+  });
+
+  it('the 360 sensor helmet doubles the ring — the paranoid pick', () => {
+    const { w, me, foe } = staged();
+    foe.pos = { x: at(48) - 14, y: 0, z: at(50) }; // 14u behind: past the ring…
+    expect(onWire(w, me.id, foe.id)).toBe(false);
+    me.equipment = ['sensor_360'];                 // …unless you wear the helmet
+    expect(onWire(w, me.id, foe.id)).toBe(true);
+  });
+
+  it('ghosts freeze where you lost them — never trailing the live path', () => {
+    const { w, me, foe } = staged();
+    const seenAt = { x: at(50), z: at(50) };
+    foe.pos = { x: seenAt.x, y: 0, z: seenAt.z }; // in the cone, in the open
+    w.step(1 / 60, new Map());                    // trail stamped with POSITION
+    foe.pos = { x: at(42), y: 0, z: at(46) };     // he sprints into your blind arc
+    w.step(1 / 60, new Map());
+    const snap = cullSnapshotFor(w, takeSnapshot(w, []), me.id);
+    const ghost = snap.soldiers.find((s) => s.id === foe.id)!;
+    expect(ghost).toBeDefined();                  // linger keeps him on the wire…
+    expect(ghost.pos.x).toBeCloseTo(seenAt.x, 1); // …frozen at the seen spot
+    expect(ghost.pos.z).toBeCloseTo(seenAt.z, 1);
   });
 });
 

@@ -114,13 +114,23 @@ export function cullSnapshotFor(w: World, snap: Snapshot, viewerId: number): Sna
       Math.hypot(x - e.pos.x, z - e.pos.z) < range &&
       losClear(w.map.grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x, y, z }));
 
-  const soldiers = snap.soldiers.filter((s) => {
-    if (s.team === team) return true;
-    if (!s.alive) return seesPoint(s.pos.x, s.pos.z); // corpses: where eyes rest
-    // trail first (stamped this tick — cheap map lookup, carries the linger);
-    // live fallback keeps the cull correct standalone (tests, spectate joins)
-    return seenRecently(w.lastSeen, w.pinged, team, s, snap.time, linger)
+  const soldiers = snap.soldiers.flatMap((s) => {
+    if (s.team === team) return [s];
+    if (s.cloaked && !w.pinged.has(s.id)) return []; // cloak is TRUE — even mid-linger
+    if (!s.alive) return seesPoint(s.pos.x, s.pos.z) ? [s] : []; // corpses: where eyes rest
+    // seen RIGHT NOW → live position on the wire. "Now" means THIS tick's
+    // stamp exactly — a one-tick-old mark is already a ghost, or a mover
+    // would leak live coordinates through the linger window.
+    const mark = w.lastSeen[team].get(s.id);
+    const freshNow = (mark !== undefined && snap.time - mark.t < 0.001)
       || perceivesNow(w.map.grid, eyes, w.pinged, s, range);
+    if (freshNow) return [s];
+    // §19.1 GHOSTS: within the linger you get the spot you LOST them —
+    // frozen — never their live path behind the wall. Re-acquired = live.
+    if (seenRecently(w.lastSeen, w.pinged, team, s, snap.time, linger) && mark) {
+      return [{ ...s, pos: { ...s.pos, x: mark.x, z: mark.z } }];
+    }
+    return [];
   });
   const vehicles = snap.vehicles.filter((v) => {
     if (v.team === team) return true;

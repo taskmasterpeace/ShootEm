@@ -254,6 +254,8 @@ export interface EquipDef {
   seeCloaked?: boolean;
   /** §19.2: seen enemies linger SEEN_LINGER_GEARED instead of SEEN_LINGER */
   tracker?: boolean;
+  /** §19.2: the awareness ring doubles — no cone extension (360 helmet) */
+  sensor360?: boolean;
   /** enemy mines appear on your minimap (mine detector) */
   seeMines?: boolean;
   /** E repairs a damaged friendly vehicle/turret, on cooldown (repair kit) */
@@ -282,6 +284,7 @@ export const EQUIPMENT: Record<string, EquipDef> = {
   stealth_suit: { id: 'stealth_suit', name: 'Stealth Suit', desc: 'Beacons and drones cannot ping you.', icon: '🥷', pingProof: true },
   ir_goggles: { id: 'ir_goggles', name: 'IR/UV Goggles', desc: 'Cloaked enemies appear on your minimap.', icon: '🥽', seeCloaked: true },
   tracking_optics: { id: 'tracking_optics', name: 'Tracking Optics', desc: 'Enemies you spot stay visible 3s after breaking line of sight (instead of 1.5s).', icon: '👁️', tracker: true },
+  sensor_360: { id: 'sensor_360', name: '360 Sensor Helmet', desc: 'Your awareness ring reaches twice as far, all around. You cannot be crept on — the paranoid pick.', icon: '📿', sensor360: true },
   mine_detector: { id: 'mine_detector', name: 'Mine Detector', desc: 'Enemy mines appear on your minimap.', icon: '📡', seeMines: true },
   repair_kit: { id: 'repair_kit', name: 'Mechanic Kit', desc: 'E repairs a damaged friendly vehicle or turret (+120, 10s cooldown).', icon: '🔧', fieldRepair: true },
   medikit: { id: 'medikit', name: 'Combat Medikit', desc: 'Auto-heals +45 HP once per life when you drop below 25%.', icon: '💉', autoMedikit: true },
