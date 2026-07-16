@@ -179,6 +179,7 @@ export interface Soldier {
   pushZ: number;
   nextWarpAt: number; // shared cooldown for warps/gates/lifts (stalkers: blink timer)
   orbitals: number;   // orbital-strike beacons held (pickup)
+  manpads: number;    // shoulder-fired SAM rounds left this life (manpads equipment)
   /** equipped gear ids (see EQUIPMENT in data.ts) — chosen at deploy, max 2 */
   equipment: string[];
   /** medikit auto-trigger armed (once per life) */
@@ -218,6 +219,8 @@ export interface Vehicle {
   burrowed?: boolean;
   /** ambulance: next heal pulse */
   nextHealAt: number;
+  /** flyer: IR decoy flares left this life (heat-seeker counter) */
+  flares: number;
   /** flyer: sim time the rotors finish spooling — airborne (and mobile) after this */
   spoolUntil: number;
 }
@@ -244,6 +247,10 @@ export interface Projectile {
   bornAt: number;
   ttl: number;
   arc: boolean;
+  /** heat-seeker: vehicle this missile is steering toward */
+  homingVehicleId?: number;
+  /** heat-seeker: flare gadget that seduced it off the aircraft */
+  homingFlareId?: number;
 }
 
 export interface Pickup {
@@ -258,7 +265,8 @@ export type GadgetType =
   | 'warpA' | 'warpB' | 'target_beacon' | 'orbital' | 'shield' | 'drone' | 'supply_pod'
   | 'camera'       // deployable spy camera — pings enemies in view for its team
   | 'smoke_field'  // smoke cloud — hides soldiers inside from minimap + pings
-  | 'fire_field';  // phosphorus burn — damage over time to enemies inside
+  | 'fire_field'   // phosphorus burn — damage over time to enemies inside
+  | 'flare';       // burning IR decoy dropped by a flyer — seduces heat-seekers
 
 /** Deployed sci-fi tech: beacons, domes, drones, pods. */
 export interface Gadget {

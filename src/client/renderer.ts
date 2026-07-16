@@ -132,6 +132,7 @@ export class Renderer {
   private nextSmokeAt = new Map<number, number>();          // vehicle id → next damage-smoke puff
   private nextMoundAt = new Map<number, number>();          // vehicle id → next burrow dirt-mound puff
   private wpPillars: THREE.Mesh[] = [];                     // pooled waypoint light pillars
+  private nextLockToneAt = 0;                               // missile-lock warning throttle
   private nadeArc: THREE.Line | null = null;                // grenade-throw preview: dashed arc…
   private nadeRing: THREE.Mesh | null = null;               // …and the landing/splash ring
   private flyerAlt = new Map<number, number>();             // smoothed flyer altitude per id
@@ -717,6 +718,14 @@ export class Renderer {
           if (c.name !== 'flame') continue;
           c.scale.y = 0.8 + 0.4 * Math.sin(world.time * 9 + ci * 1.7);
         }
+      } else if (g.type === 'flare') {
+        // decoy sun: sinks slowly, sputters a stream of falling sparks
+        const y = Math.max(0.4, 2.4 - (world.time - g.bornAt) * 0.55);
+        for (const c of mesh.children) c.position.y = y;
+        this.particles.emit({
+          pos: { x: g.pos.x, y, z: g.pos.z }, count: 1, color: 0xffa030,
+          speed: 1.5, life: 0.45, spread: 0.25, up: 1.2, gravity: 5, size: 0.25,
+        });
       }
       if (g.type === 'drone') {
         mesh.rotation.y = -(g.phase ?? 0) - Math.PI / 2;
@@ -857,6 +866,17 @@ export class Renderer {
         const ring = this.cpRings[i];
         if (ring) (ring.material as THREE.MeshBasicMaterial).color.setHex(cp.owner === -1 ? 0xffffff : TEAM_COLORS[cp.owner]);
       });
+    }
+
+    // missile-lock warning: a heat-seeker is homing on YOUR aircraft
+    if (local && local.vehicleId >= 0 && world.time >= this.nextLockToneAt) {
+      for (const p of world.projectiles.values()) {
+        if (p.homingVehicleId === local.vehicleId) {
+          this.nextLockToneAt = world.time + 0.6;
+          audio.play('beacon', { volume: 0.35 });
+          break;
+        }
+      }
     }
 
     // camera follow: wheel-zoomable, and it leads toward where you're aiming —

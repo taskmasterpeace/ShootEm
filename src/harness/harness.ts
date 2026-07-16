@@ -498,7 +498,7 @@ structGrid.appendChild(chip('lift pad', '', () => showModel(() => buildPad(), 'G
 
 // gadgets / pickups / props
 const gadgetGrid = $('gadget-grid');
-for (const g of ['warpA', 'warpB', 'target_beacon', 'orbital', 'shield', 'drone', 'supply_pod', 'camera', 'smoke_field', 'fire_field'] as const)
+for (const g of ['warpA', 'warpB', 'target_beacon', 'orbital', 'shield', 'drone', 'supply_pod', 'camera', 'smoke_field', 'fire_field', 'flare'] as const)
   gadgetGrid.appendChild(chip(g.replace('_', ' '), '', () => showModel(() => buildGadget(g, team), `Gadget · ${g}`)));
 const pickupGrid = $('pickup-grid');
 for (const p of ['medkit', 'ammo', 'energy', 'flamer'] as const)

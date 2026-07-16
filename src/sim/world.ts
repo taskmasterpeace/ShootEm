@@ -1,4 +1,4 @@
-import { CLASSES, EQUIPMENT, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
+import { CLASSES, EQUIPMENT, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
 import { GRID, T_COVER, T_OPEN, T_WALL, TILE, WORLD, blocksShot, generateMap, isBlocked, losClear, tileAt, type GameMap } from './map';
 import { Rng } from './rng';
@@ -19,6 +19,16 @@ const CLOAK_DRAIN = 11;
 const JET_DRAIN = 30;
 const JET_THRUST = 9.5;
 const PICKUP_RESPAWN = 18;
+
+// ---- anti-air: MANPADS vs flyer ----
+const MANPADS_ROUNDS = 2;    // missiles per life
+const FLARES_PER_LIFE = 3;   // decoys per flyer life
+const SAM_LOCK_RANGE = 70;
+const SAM_LOCK_CONE = 0.61;  // ~35° either side of facing
+const SAM_TURN_RATE = 2.6;   // rad/s — tracks a turning flyer, loses a straight one
+const SAM_CRUISE_ALT = 4.05; // just above the 4u walls so terrain can't eat the chase
+const SAM_DIVE_ALT = 2.6;    // terminal dive under the 3u vehicle-hit ceiling
+const FLARE_PULL_RADIUS = 18;
 /** max hand-frag throw — the HUD arc and the sim clamp share this */
 export const HAND_FRAG_REACH = 22;
 /** FPV drone control range — signal (and the static on your feed) scales with
@@ -156,7 +166,7 @@ export class World {
       nextGrenadeAt: 0, cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
       longestKill: 0, vehicleKills: 0, healGiven: 0,
-      pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0,
+      pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0,
       equipment: (loadout?.equipment ?? []).filter((id) => EQUIPMENT[id]).slice(0, 2),
       medikitReady: true, nextPsiAt: 0, nextRepairAt: 0,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
@@ -177,7 +187,7 @@ export class World {
       cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
       longestKill: 0, vehicleKills: 0, healGiven: 0,
-      pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0,
+      pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0,
       equipment: [], medikitReady: false, nextPsiAt: 0, nextRepairAt: 0,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
@@ -197,7 +207,7 @@ export class World {
       cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
       longestKill: 0, vehicleKills: 0, healGiven: 0,
-      pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0,
+      pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0,
       equipment: [], medikitReady: false, nextPsiAt: 0, nextRepairAt: 0,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
@@ -221,6 +231,7 @@ export class World {
     s.clip = [WEAPONS[primary].clip, WEAPONS[secondary].clip];
     s.reserve = [WEAPONS[primary].reserve, WEAPONS[secondary].reserve];
     s.grenades = this.hasEquip(s, 'demoCharge') ? 3 : s.classId === 'infantry' ? 4 : s.classId === 'engineer' ? 3 : 2;
+    s.manpads = this.hasEquip(s, 'samLauncher') ? MANPADS_ROUNDS : 0;
     s.medikitReady = true;
     // mobile spawn: a crewed APC or transport with a LIVE comms system
     const mobile = [...this.vehicles.values()].find(
@@ -252,6 +263,7 @@ export class World {
       nextFireAt: 0, alive: true, respawnAt: 0, padPos: { ...padPos },
       stunnedUntil: 0,
       systems: this.freshSystems(kind), nextDigAt: 0, nextHealAt: 0, spoolUntil: 0,
+      flares: FLARES_PER_LIFE,
     };
     this.vehicles.set(v.id, v);
     return v;
@@ -637,6 +649,15 @@ export class World {
           text: v.burrowed ? 'Breacher DIVING' : 'Breacher SURFACING',
         });
       }
+      // flyer pilots pop IR flares with the grenade key — the heat-seeker counter
+      if (cmd.grenade && s.seat === 0 && VEHICLES[v.kind].flies && v.flares > 0 && this.time >= s.nextGrenadeAt) {
+        v.flares--;
+        s.nextGrenadeAt = this.time + 1;
+        const g = this.spawnGadget('flare', v.team, s.id, {
+          x: v.pos.x - Math.cos(v.yaw) * 3, y: 0, z: v.pos.z - Math.sin(v.yaw) * 3,
+        }, 1, 3.5);
+        this.emit({ type: 'beacon_planted', pos: { ...g.pos }, soldierId: s.id, text: 'FLARES!' });
+      }
       return;
     }
 
@@ -814,11 +835,18 @@ export class World {
     // to the item's max reach (proven top-down mechanic — throw at the cursor).
     if (cmd.grenade && this.time >= s.nextGrenadeAt) {
       const reachTo = (max: number) => Math.max(4, Math.min(cmd.aimDist ?? max, max));
+      // manpads only claims the key while an aircraft is locked — no lock, no wasted round
+      const samTarget = s.manpads > 0 && this.hasEquip(s, 'samLauncher') ? this.samLockTarget(s) : null;
       if (s.orbitals > 0) {
         s.orbitals--;
         s.nextGrenadeAt = this.time + 1.5;
         this.throwProjectile(s, 'orbital_beacon', 1.4, 26, true, reachTo(WEAPONS.orbital_beacon.range));
         this.emit({ type: 'shot', pos: s.pos, weapon: 'orbital_beacon', soldierId: s.id });
+        if (s.cloaked) s.cloaked = false;
+      } else if (samTarget) {
+        s.manpads--;
+        s.nextGrenadeAt = this.time + 1.5;
+        this.fireSamMissile(s, samTarget);
         if (s.cloaked) s.cloaked = false;
       } else if (this.hasEquip(s, 'demoCharge') && s.grenades > 0) {
         s.grenades--;
@@ -935,6 +963,96 @@ export class World {
       bornAt: this.time, ttl: reach / Math.max(speed, 1) + (arc ? 1.4 : 0), arc,
     };
     this.projectiles.set(p.id, p);
+  }
+
+  // ---------- anti-air ----------
+
+  /** A flyer with a pilot aboard counts as airborne; an empty one is parked on its pad. */
+  vehicleAirborne(v: Vehicle): boolean {
+    return v.alive && !!VEHICLES[v.kind].flies && v.seats[0] >= 0;
+  }
+
+  /** Nearest airborne enemy aircraft inside the launcher's IR cone. */
+  samLockTarget(s: Soldier): Vehicle | null {
+    let best: Vehicle | null = null, bestD = SAM_LOCK_RANGE;
+    for (const v of this.vehicles.values()) {
+      if (v.team === s.team || !this.vehicleAirborne(v)) continue;
+      const d = Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z);
+      if (d >= bestD) continue;
+      let da = Math.atan2(v.pos.z - s.pos.z, v.pos.x - s.pos.x) - s.yaw;
+      da = Math.atan2(Math.sin(da), Math.cos(da));
+      if (Math.abs(da) <= SAM_LOCK_CONE) { best = v; bestD = d; }
+    }
+    return best;
+  }
+
+  /**
+   * Send the bird. Speed derives from the flyer's top speed at launch —
+   * SAM_SPEED_RATIO keeps it ~8% slower, so straight flight always escapes.
+   */
+  fireSamMissile(s: Soldier, target: Vehicle) {
+    const def = WEAPONS.sam_missile;
+    const speed = VEHICLES.flyer.speed * SAM_SPEED_RATIO;
+    const yaw = Math.atan2(target.pos.z - s.pos.z, target.pos.x - s.pos.x);
+    const p: Projectile = {
+      id: this.id(), weapon: 'sam_missile', ownerId: s.id, team: s.team,
+      pos: { x: s.pos.x + Math.cos(yaw) * 0.8, y: s.pos.y + 1.6, z: s.pos.z + Math.sin(yaw) * 0.8 },
+      vel: { x: Math.cos(yaw) * speed, y: 0, z: Math.sin(yaw) * speed },
+      bornAt: this.time, ttl: def.range / speed, arc: false,
+      homingVehicleId: target.id,
+    };
+    this.projectiles.set(p.id, p);
+    this.emit({ type: 'shot', pos: { ...p.pos }, weapon: 'sam_missile', soldierId: s.id });
+  }
+
+  /**
+   * Heat-seeker guidance. The missile is slightly SLOWER than its prey, so the
+   * duel is pure geometry: straight flight opens the gap, any turn lets the
+   * limited turn rate cut the corner. Flares seduce it off the aircraft; a
+   * dead or landed target leaves it flying dumb until ttl. Returns true when
+   * the missile detonated on a decoy and is spent.
+   */
+  private steerMissile(p: Projectile, dt: number): boolean {
+    // a burning flare inside pull radius steals the lock
+    if (p.homingFlareId === undefined && p.homingVehicleId !== undefined) {
+      for (const g of this.gadgets.values()) {
+        if (g.type !== 'flare' || g.team === p.team) continue;
+        if (Math.hypot(g.pos.x - p.pos.x, g.pos.z - p.pos.z) < FLARE_PULL_RADIUS) {
+          p.homingFlareId = g.id;
+          p.homingVehicleId = undefined;
+          break;
+        }
+      }
+    }
+    let tx: number, tz: number;
+    if (p.homingFlareId !== undefined) {
+      const flare = this.gadgets.get(p.homingFlareId);
+      if (!flare) { p.homingFlareId = undefined; return false; } // burnt out — fly dumb
+      if (Math.hypot(flare.pos.x - p.pos.x, flare.pos.z - p.pos.z) < 2) {
+        this.explode(flare.pos, WEAPONS.sam_missile, p.ownerId, p.team); // eats the decoy
+        return true;
+      }
+      tx = flare.pos.x; tz = flare.pos.z;
+    } else if (p.homingVehicleId !== undefined) {
+      const v = this.vehicles.get(p.homingVehicleId);
+      if (!v || !this.vehicleAirborne(v)) { p.homingVehicleId = undefined; return false; } // target gone — fly dumb
+      tx = v.pos.x; tz = v.pos.z;
+    } else {
+      return false;
+    }
+    const speed = Math.hypot(p.vel.x, p.vel.z) || 1;
+    const cur = Math.atan2(p.vel.z, p.vel.x);
+    let da = Math.atan2(tz - p.pos.z, tx - p.pos.x) - cur;
+    da = Math.atan2(Math.sin(da), Math.cos(da));
+    const maxTurn = SAM_TURN_RATE * dt;
+    const yaw = cur + Math.max(-maxTurn, Math.min(maxTurn, da));
+    p.vel.x = Math.cos(yaw) * speed;
+    p.vel.z = Math.sin(yaw) * speed;
+    // cruise above the walls, dive under the vehicle-hit ceiling on final approach
+    const wantY = Math.hypot(tx - p.pos.x, tz - p.pos.z) < 8 ? SAM_DIVE_ALT : SAM_CRUISE_ALT;
+    p.pos.y += (wantY - p.pos.y) * Math.min(1, 8 * dt);
+    p.vel.y = 0;
+    return false;
   }
 
   stepSoldierPhysics(s: Soldier, dt: number) {
@@ -1081,6 +1199,7 @@ export class World {
         v.seats.fill(-1);
         v.systems = this.freshSystems(v.kind);
         v.burrowed = false; // wrecks come back surfaced
+        v.flares = FLARES_PER_LIFE;
       }
       return;
     }
@@ -1301,6 +1420,11 @@ export class World {
   stepProjectiles(dt: number) {
     for (const [id, p] of this.projectiles) {
       const def = WEAPONS[p.weapon];
+      // heat-seekers steer before they move; true = spent on a flare
+      if ((p.homingVehicleId !== undefined || p.homingFlareId !== undefined) && this.steerMissile(p, dt)) {
+        this.projectiles.delete(id);
+        continue;
+      }
       if (p.arc) p.vel.y -= this.gravity * 0.7 * dt;
       p.pos.x += p.vel.x * dt;
       p.pos.y += p.vel.y * dt;

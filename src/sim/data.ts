@@ -143,6 +143,23 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// Anti-air. Lives below VEHICLES because the missile's speed is DERIVED from
+// the Kestrel's top speed: ~8% slower, so a pilot who holds a straight sprint
+// just barely outruns it, while one who panics and turns bleeds the gap away
+// and gets caught. That ratio IS the predator/prey loop — never hardcode it.
+// ---------------------------------------------------------------------------
+
+/** heat-seeker top speed as a fraction of the flyer's — it always loses a drag race */
+export const SAM_SPEED_RATIO = 0.92;
+
+WEAPONS.sam_missile = W({
+  id: 'sam_missile', name: 'Peregrine SAM', damage: 120, rof: 0.7,
+  speed: VEHICLES.flyer.speed * SAM_SPEED_RATIO, spread: 0,
+  clip: 1, reserve: 0, range: 140, splash: 3, splashDamage: 60,
+  sound: 'rocket', tracer: 'rocket',
+});
+
 export const TEAM_NAMES = ['Titan Coalition', 'The Collective'] as const;
 export const TEAM_COLORS = [0xe8a33d, 0x3dbde8] as const; // amber vs cyan
 
@@ -199,6 +216,8 @@ export interface EquipDef {
   psiScan?: boolean;
   /** G plants a DX-9 demolition charge instead of a frag */
   demoCharge?: boolean;
+  /** G fires a heat-seeking missile at a locked enemy aircraft (2 per life) */
+  samLauncher?: boolean;
   /** E on an enemy sentry turret converts it to your team (hacking kit) */
   hackKit?: boolean;
   /** G plants a spy camera that feeds enemy positions to your team */
@@ -217,6 +236,7 @@ export const EQUIPMENT: Record<string, EquipDef> = {
   tac_system: { id: 'tac_system', name: 'Tactical System', desc: 'Click the minimap to drop waypoints your team sees.', icon: '🗺️', waypoints: true },
   psi_scanner: { id: 'psi_scanner', name: 'Psi Scanner', desc: 'Pings the nearest hidden enemy every 8 seconds.', icon: '🔮', psiScan: true },
   demo_kit: { id: 'demo_kit', name: 'Demolition Kit', desc: 'G plants a DX-9 demolition charge (3 per life).', icon: '🧨', demoCharge: true },
+  manpads: { id: 'manpads', name: 'MANPADS', desc: 'Shoulder-fired IR missile: G locks the nearest enemy aircraft in your facing cone and fires (2 per life).', icon: '🚀', samLauncher: true },
   hacking_kit: { id: 'hacking_kit', name: 'Hacking Kit', desc: 'E converts an enemy sentry turret to your side.', icon: '💻', hackKit: true },
   spy_camera: { id: 'spy_camera', name: 'Spy Camera', desc: 'G plants a camera that feeds enemy positions to your team (2 per life).', icon: '📷', deployCamera: true },
 };

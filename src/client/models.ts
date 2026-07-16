@@ -1128,6 +1128,24 @@ export function buildGadget(type: string, team: Team): THREE.Group {
       g.add(blink);
       break;
     }
+    case 'flare': {
+      // burning IR decoy — a tiny blinding sun that sinks as it burns
+      const core = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), mat(0xfff2c0, { emissive: 0xffd070 }));
+      core.name = 'pulse';
+      core.position.y = 2.4;
+      g.add(core);
+      const halo = new THREE.Mesh(
+        new THREE.SphereGeometry(0.55, 10, 8),
+        new THREE.MeshStandardMaterial({
+          color: 0xffa030, emissive: 0xff8020, emissiveIntensity: 1.2,
+          transparent: true, opacity: 0.35, depthWrite: false,
+        }),
+      );
+      halo.name = 'halo';
+      halo.position.y = 2.4;
+      g.add(halo);
+      break;
+    }
     case 'smoke_field': {
       // billowing gray puffs
       for (let i = 0; i < 5; i++) {
