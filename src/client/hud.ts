@@ -162,7 +162,12 @@ export class Hud {
         ammoEl.classList.toggle('no-ammo', Number.isFinite(clipN) && clipN === 0);
         ammoEl.classList.toggle('low-ammo', Number.isFinite(clipN) && clipN > 0 && clipN <= def.clip * 0.25);
       }
-      $('ability-hint').textContent = `${CLASSES[s.classId].abilityName} · ${s.grenades} ${s.classId === 'engineer' ? 'mines' : 'frags'}`;
+      // secondary fire (right mouse) rides the weapon in hand — show its tank
+      const alt = def.alt;
+      const altTxt = !alt ? ''
+        : alt.kind === 'overcharge' ? ' · RMB overcharge'
+        : ` · RMB ${alt.kind} ×${s.altAmmo}`;
+      $('ability-hint').textContent = `${CLASSES[s.classId].abilityName} · ${s.grenades} ${s.classId === 'engineer' ? 'mines' : 'frags'}${altTxt}`;
     }
 
     // respawn overlay

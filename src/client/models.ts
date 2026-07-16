@@ -1303,6 +1303,25 @@ export function buildGadget(type: string, team: Team): THREE.Group {
       g.add(core);
       break;
     }
+    case 'skitter': {
+      // GL-40 alt-fire: a demolition charge on six legs, mid-sprint
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.32, 8, 6), dark);
+      body.scale.y = 0.6;
+      body.position.y = 0.28;
+      g.add(body);
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 5), glow);
+      eye.position.set(0.28, 0.3, 0); // forward — it LOOKS at its victim
+      g.add(eye);
+      for (let i = 0; i < 6; i++) {
+        const side = i % 2 === 0 ? 1 : -1;
+        const leg = box(0.05, 0.32, 0.05, dark);
+        leg.position.set((Math.floor(i / 2) - 1) * 0.22, 0.14, side * 0.3);
+        leg.rotation.x = side * 0.7;
+        leg.name = 'leg';
+        g.add(leg);
+      }
+      break;
+    }
     case 'target_beacon': {
       const base = cyl(0.25, 0.35, 0.25, dark, 8);
       base.position.y = 0.12;

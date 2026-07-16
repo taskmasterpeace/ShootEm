@@ -66,6 +66,19 @@ export interface WeaponDef {
   tier?: number;
   /** special detonation instead of damage: emp burst, beacons, smoke/fire fields */
   payload?: 'emp' | 'target_beacon' | 'orbital' | 'smoke' | 'fire';
+  /** landing this projectile pins the victim on every enemy screen for 5s (tag dart) */
+  tagsTarget?: boolean;
+  /** SECONDARY FIRE (right mouse) — the under-barrel surprise:
+   *  burst = flame burp · skitter = charge on legs · tag = pin dart ·
+   *  overcharge = dump `cells` clip rounds into one big shot */
+  alt?: {
+    kind: 'burst' | 'skitter' | 'tag' | 'overcharge';
+    /** shots per life (ammo crates restock); overcharge ignores this and spends clip */
+    ammo: number;
+    cooldown: number;
+    /** overcharge: clip rounds one alt shot costs */
+    cells?: number;
+  };
 }
 
 /** The arsenal's weapon families — Infantry Online's armory, rebuilt. */
@@ -164,6 +177,11 @@ export interface Soldier {
   reserve: number[];
   reloadUntil: number;
   nextFireAt: number;
+  /** SECONDARY FIRE (right mouse): shots left in the primary's under-barrel */
+  altAmmo: number;
+  nextAltAt: number;
+  /** under-barrel flame burst keeps spewing until this clock */
+  altBurstUntil: number;
   grenades: number;
   nextGrenadeAt: number;
   cloaked: boolean;
@@ -293,6 +311,7 @@ export interface Pickup {
 
 export type GadgetType =
   | 'warpA' | 'warpB' | 'target_beacon' | 'orbital' | 'shield' | 'drone' | 'supply_pod'
+  | 'skitter'      // GL-40 alt-fire: a charge on legs that runs at the nearest enemy
   | 'camera'       // deployable spy camera — pings enemies in view for its team
   | 'smoke_field'  // smoke cloud — hides soldiers inside from minimap + pings
   | 'fire_field'   // phosphorus burn — damage over time to enemies inside

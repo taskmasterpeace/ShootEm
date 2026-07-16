@@ -198,6 +198,10 @@
     #weditor .ed-actions { display: flex; gap: 6px; margin-top: 10px; }
     #weditor .ed-actions button { flex: 1; }
     #fire-lane-hint { font-size: 10.5px; color: var(--muted); padding: 5px 14px; border-top: 1px solid var(--line); background: var(--panel); }
+    .mini-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 6px; }
+    .mini-table th { font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; padding: 3px 4px; border-bottom: 1px solid var(--line); }
+    .mini-table td { padding: 3px 4px; text-align: center; border-bottom: 1px solid color-mix(in oklab, var(--line) 45%, transparent); font-variant-numeric: tabular-nums; }
+    .mini-table tbody tr:hover { background: color-mix(in oklab, var(--panel) 60%, #fff 4%); }
   </style>
 </head>
 <body data-mode="stage">
@@ -394,6 +398,14 @@
         <button class="btn-wide primary" id="env-load">Load battlefield</button>
         <button class="btn-wide" id="env-clear">Back to model stage</button>
         <div class="hint">Orbit to inspect walls, cover, props, gates &amp; lift pads.</div>
+      </div>
+    </div>
+
+    <div class="sec" data-sec="terrain" data-modes="world stage">
+      <h2>Terrain Truth</h2>
+      <div class="sec-body">
+        <div class="hint">What the ground DOES — every value below is read <b>live from the sim's own tables</b> (map.ts), so this card cannot go stale. Sight is sampled through <code>blocksShot</code> at real heights; the drill column is the sim's actual <code>DRILL_EATS</code> menu.</div>
+        <div id="terrain-tables"></div>
       </div>
     </div>
 

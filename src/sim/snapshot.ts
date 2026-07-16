@@ -1,4 +1,5 @@
 import { T_OPEN, losClear } from './map';
+import { PERCEIVE_RANGE, perceivesNow, seenRecently } from './perception';
 import type { Gadget, Mine, ModeId, ModeState, Pickup, Projectile, SimEvent, Soldier, ThemeId, Turret, Vehicle } from './types';
 import { World } from './world';
 
@@ -90,15 +91,16 @@ export function takeSnapshot(w: World, events: SimEvent[]): Snapshot {
 // No wss:// endpoint goes public without this.
 // ---------------------------------------------------------------------------
 
-const PERCEIVE_RANGE = 65;
-
 /** Build the per-viewer variant of a full snapshot. Pure — safe per client. */
 export function cullSnapshotFor(w: World, snap: Snapshot, viewerId: number): Snapshot {
   const viewer = w.soldiers.get(viewerId);
   if (!viewer) return snap; // spectators see the war whole (admin surface)
   const team = viewer.team;
 
-  // friendly eyes: every living soldier on the viewer's team
+  // friendly eyes: still needed for corpses and vehicles. LIVE enemy soldiers
+  // ride the per-tick lastSeen trail the sim stamps (perception.ts): perceived
+  // now — cloak, flag, skyline, ping, window LOS — or within SEEN_LINGER of
+  // breaking line of sight, so a target never blinks out at the window's edge.
   const eyes = [...w.soldiers.values()].filter((s) => s.alive && s.team === team);
   const seesPoint = (x: number, z: number, y = 1.4) =>
     eyes.some((e) =>
@@ -107,13 +109,11 @@ export function cullSnapshotFor(w: World, snap: Snapshot, viewerId: number): Sna
 
   const soldiers = snap.soldiers.filter((s) => {
     if (s.team === team) return true;
-    if (s.cloaked && !w.pinged.has(s.id)) return false;      // cloak is TRUE now
-    if (s.carryingFlag !== -1) return true;                   // objective intel is public
-    // the SKYLINE rule (§8.4): a soldier up on the second storey is
-    // silhouetted against the sky — ground walls don't hide someone
-    // standing above them (and their muzzle already clears those walls)
-    if (s.pos.y > 3 && eyes.some((e) => Math.hypot(s.pos.x - e.pos.x, s.pos.z - e.pos.z) < PERCEIVE_RANGE)) return true;
-    return w.pinged.has(s.id) || seesPoint(s.pos.x, s.pos.z);
+    if (!s.alive) return seesPoint(s.pos.x, s.pos.z); // corpses: where eyes rest
+    // trail first (stamped this tick — cheap map lookup, carries the linger);
+    // live fallback keeps the cull correct standalone (tests, spectate joins)
+    return seenRecently(w.lastSeen, w.pinged, team, s, snap.time)
+      || perceivesNow(w.map.grid, eyes, w.pinged, s);
   });
   const vehicles = snap.vehicles.filter((v) => {
     if (v.team === team) return true;

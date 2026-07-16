@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
 import { F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt } from '../sim/map';
+import { seenRecently } from '../sim/perception';
 import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
 import { HAND_FRAG_REACH, type World } from '../sim/world';
 import { audio, type SoundName } from './audio';
@@ -726,14 +727,37 @@ export class Renderer {
       d.mesh.position.z += (tz - d.mesh.position.z) * Math.min(1, dt * 10);
     }
 
+    // §8.4 phase 3 — the WINDOW TRUTH: an enemy you legitimately perceive
+    // (window LOS, ping, skyline, or the SEEN_LINGER trail) must never hide
+    // under an opaque lid — "I looked in the open window and the house lied."
+    // Puppet worlds trust the wire (the server culled to what we may see);
+    // local worlds ask the sim's lastSeen trail directly.
+    const revealRoof = new Set<number>();   // house idx: seen hostile on its top floor
+    const revealUpper = new Set<number>();  // 2-storey house idx: seen hostile downstairs
+    {
+      const focus = world.soldiers.get(localId);
+      if (focus) {
+        for (const s of world.soldiers.values()) {
+          if (!s.alive || s.team === focus.team || s.vehicleId >= 0) continue;
+          if (!world.puppet && !seenRecently(world.lastSeen, world.pinged, focus.team, s, world.time)) continue;
+          const hIdx = houseAt(world.map.houses, s.pos.x, s.pos.z);
+          if (hIdx < 0) continue;
+          const topFloor = world.map.houses[hIdx].floors === 2 ? 1 : 0;
+          if ((s.floor ?? 0) >= topFloor) revealRoof.add(hIdx);
+          else revealUpper.add(hIdx);
+        }
+      }
+    }
+
     // second-storey shells: fade when the focus stands on the ground floor
-    // INSIDE that house (you need to see your own room, not their ceiling);
-    // solid otherwise — upstairs enemies stay concealed from the street
+    // INSIDE that house (you need to see your own room, not their ceiling) —
+    // or when a hostile you've genuinely seen is holed up down there
     if (this.uppers.length) {
       const focus = world.soldiers.get(localId);
       for (const u of this.uppers) {
-        const inThis = focus && focus.floor === 0 &&
-          houseAt(world.map.houses, focus.pos.x, focus.pos.z) === world.map.houses.indexOf(u.house as typeof world.map.houses[number]);
+        const uIdx = world.map.houses.indexOf(u.house as typeof world.map.houses[number]);
+        const inThis = (focus && focus.floor === 0 &&
+          houseAt(world.map.houses, focus.pos.x, focus.pos.z) === uIdx) || revealUpper.has(uIdx);
         const target = inThis ? 0.13 : 0.97;
         for (const m of u.mats) {
           m.opacity += (target - m.opacity) * Math.min(1, dt * 8);
@@ -752,7 +776,7 @@ export class Renderer {
       const inHouse = focus ? houseAt(world.map.houses, focus.pos.x, focus.pos.z) : -1;
       for (const r of this.roofs) {
         const hIdx = world.map.houses.indexOf(r.house as typeof world.map.houses[number]);
-        let open = hIdx === inHouse;
+        let open = hIdx === inHouse || revealRoof.has(hIdx);
         if (!open && focus) {
           const h = r.house;
           const x0 = h.tx * TILE - WORLD / 2, z0 = h.tz * TILE - WORLD / 2;
@@ -1186,6 +1210,14 @@ export class Renderer {
           mesh.rotation.x = 0;
           mesh.rotation.z = 0;
           if (g.yaw !== undefined) mesh.rotation.y = -g.yaw;
+        }
+      }
+      if (g.type === 'skitter') {
+        if (g.yaw !== undefined) mesh.rotation.y = -g.yaw;
+        // six legs scurrying — alternating strokes, fast and wrong-looking
+        let k = 0;
+        for (const c of mesh.children) {
+          if (c.name === 'leg') c.rotation.x = (k++ % 2 ? 1 : -1) * Math.sin(world.time * 26 + k) * 0.7;
         }
       }
       // spy cameras pan back and forth, watching

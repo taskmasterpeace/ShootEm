@@ -22,6 +22,12 @@ export const T_LADDER = 8;     // ladder foot — walkable ground; E climbs to t
 export const T_DEEP = 9;       // deep water: soldiers SWIM (slow, no shooting);
                                // only hover craft and boats cross; wheels drown
 
+/** What the breacher's drill grinds to rubble — the ONE authoritative menu,
+ *  shared by the sim (digTile + drill face) and the harness Terrain tab.
+ *  Not on the menu: METAL (sparks, zero progress), water (nothing to eat),
+ *  ladders, open ground, and the map border. */
+export const DRILL_EATS: ReadonlySet<number> = new Set([T_WALL, T_COVER, T_SLIT, T_DOOR, T_DOOR_OPEN]);
+
 // ---- the SURFACE layer (§8.6): what the ground IS, orthogonal to blocking ----
 export const S_DIRT = 0;   // bare rock/dirt — the neutral surface
 export const S_GRASS = 1;  // savanna fields

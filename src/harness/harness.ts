@@ -2,7 +2,12 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CLASSES, MODE_INFO, TEAM_COLORS, THEMES, WEAPONS } from '../sim/data';
 import { FAMILIES } from '../sim/arsenal';
-import { GRID, T_COVER, T_WALL, T_WATER, TILE, WORLD } from '../sim/map';
+import {
+  DRILL_EATS, GRID, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS,
+  S_DIRT, S_GRASS, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET,
+  T_COVER, T_DEEP, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER,
+  TILE, WORLD, blocksShot, isBlocked,
+} from '../sim/map';
 import { BUILDINGS, generateHouse, type BuildingDef, type DynHouseType } from '../sim/buildings';
 import { Rng } from '../sim/rng';
 import type { ClassId, ModeId, SoldierKind, Team, ThemeId, WeaponDef, WeaponFamily, WeaponId, ZedKind } from '../sim/types';
@@ -756,6 +761,7 @@ const COLS: Col[] = [
   { key: 'splash', label: 'SPL', get: (id) => WEAPONS[id].splash },
   { key: 'knockback', label: 'KB', get: (id) => WEAPONS[id].knockback },
   { key: 'tracer', label: 'ROUND', get: (id) => WEAPONS[id].tracer },
+  { key: 'alt', label: 'ALT (RMB)', get: (id) => WEAPONS[id].alt?.kind ?? '' },
 ];
 const colBy = Object.fromEntries(COLS.map((c) => [c.key, c]));
 
@@ -970,6 +976,76 @@ $<HTMLInputElement>('arsenal-search').oninput = () => renderTable();
 
 buildFamChips();
 selectWeapon('ar606');
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Terrain Truth — what the ground does, read LIVE from the sim's own tables.
+// Sight/walk cells are sampled through the real blocksShot/isBlocked at real
+// heights on a scratch grid, and the drill column is the sim's DRILL_EATS —
+// this card is incapable of drifting from the game.
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const host = $('terrain-tables');
+  // scratch grid: one tile of each type under the probe point
+  const scratch = new Uint8Array(GRID * GRID);
+  const px = (50 + 0.5) * TILE - WORLD / 2, pz = (50 + 0.5) * TILE - WORLD / 2;
+  const probe = (t: number) => {
+    scratch[50 * GRID + 50] = t;
+    return {
+      walk: !isBlocked(scratch, px, pz),
+      eye: !blocksShot(scratch, px, pz, 1.4),   // the window band — soldier eyes/muzzle
+      high: !blocksShot(scratch, px, pz, 2.5),  // above the band, below wall tops
+      sky: !blocksShot(scratch, px, pz, 5),     // second-storey / skyline height
+    };
+  };
+  const TILES: [number, string, string][] = [
+    [T_OPEN, 'Open ground', 'the neutral tile'],
+    [T_WALL, 'Wall', '4u tall; the drill’s favorite meal'],
+    [T_COVER, 'Low cover', 'crates/sandbags — shoot over, not through'],
+    [T_SLIT, 'Window slit', 'sight & fire pass ONLY in the 1.2–1.8 eye band'],
+    [T_DOOR, 'Door (closed)', 'E opens; stops rounds and eyes'],
+    [T_DOOR_OPEN, 'Door (open)', 'a doorway — walk and shoot through'],
+    [T_METAL, 'Metal wall', 'the drill screams and sparks — ZERO progress'],
+    [T_LADDER, 'Ladder foot', 'E climbs to the second storey'],
+    [T_WATER, 'Shallow water', 'everyone wades (slow); wheels ford'],
+    [T_DEEP, 'Deep water', 'soldiers swim (no shooting); boats/hover only'],
+  ];
+  const y = (ok: boolean) => ok ? '<span style="color:#7fc97f">✔</span>' : '<span style="color:#e05555">✘</span>';
+  const drill = (t: number) => DRILL_EATS.has(t) ? '🍽 eats' : t === T_METAL ? '⚡ sparks' : '—';
+  let html = `<table class="mini-table"><thead><tr>
+    <th style="text-align:left">Tile</th><th title="soldier boots">walk</th>
+    <th title="sight/fire at eye height 1.4">eye 1.4</th>
+    <th title="sight/fire at 2.5 — above the window band">2.5</th>
+    <th title="sight/fire at second-storey height">5.0</th>
+    <th title="what the breacher's drill does to it">drill</th></tr></thead><tbody>`;
+  for (const [t, name, note] of TILES) {
+    const p = probe(t);
+    html += `<tr title="${note}"><td style="text-align:left">${name}</td>
+      <td>${y(p.walk)}</td><td>${y(p.eye)}</td><td>${y(p.high)}</td><td>${y(p.sky)}</td>
+      <td>${drill(t)}</td></tr>`;
+  }
+  html += '</tbody></table>';
+
+  // the SURFACE layer (§8.6): what the ground IS, orthogonal to blocking
+  const SURFACES: [number, string, string][] = [
+    [S_DIRT, 'Dirt/rock', 'the neutral surface'],
+    [S_GRASS, 'Grass', 'savanna fields'],
+    [S_ICE, 'Ice', 'triton — slick under wheels'],
+    [S_GRIT, 'Colony grit', 'titan — drags everything'],
+    [S_PLATE, 'Deck plate', 'starship floors — wheels love it'],
+    [S_WET, 'Wet floor', 'europa dome'],
+    [S_MUD, 'Mud', 'water margins — wheels hate it'],
+  ];
+  const mult = (v: number) => v === 1 ? '1' : `<b>${v}</b>`;
+  html += `<div class="hint" style="margin-top:8px">Surface speed multipliers (§8.6) — boots/striders · wheels · tracks. Hover ignores all of it.</div>
+    <table class="mini-table"><thead><tr><th style="text-align:left">Surface</th><th>🥾</th><th>🛞</th><th>⛓</th></tr></thead><tbody>`;
+  for (const [sf, name, note] of SURFACES) {
+    html += `<tr title="${note}"><td style="text-align:left">${name}</td>
+      <td>${mult(SURF_SOLDIER[sf] ?? 1)}</td><td>${mult(SURF_WHEELS[sf] ?? 1)}</td><td>${mult(SURF_TRACKS[sf] ?? 1)}</td></tr>`;
+  }
+  html += `</tbody></table>
+    <div class="hint" style="margin-top:8px">Second storey: upstairs walls block 4–8u; upper windows fire in the 5.2–5.8 band; step onto VOID and you fall. The skyline rule: anything standing above 3u is silhouetted — ground walls don't hide it.</div>`;
+  host.innerHTML = html;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Biome Audio — the soundscape designation table, auditionable in place.

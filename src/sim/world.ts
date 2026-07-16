@@ -1,6 +1,6 @@
 import { CLASSES, EQUIPMENT, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
-import { F2_VOID, F2_WELL, GRID, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
+import { DRILL_EATS, F2_VOID, F2_WELL, GRID, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
 import { Rng } from './rng';
 import {
   SYSTEM_IDS, isCoopMode, isZed,
@@ -11,6 +11,7 @@ import {
 } from './types';
 import { stepMode, initMode } from './modes';
 import { stepBot, stepScientist, stepZombie } from './bots';
+import { perceivesNow } from './perception';
 
 const RESPAWN_DELAY = 4;
 const VEHICLE_RESPAWN = 22;
@@ -81,6 +82,13 @@ export class World {
   gadgets = new Map<number, Gadget>();
   /** soldier ids currently revealed by targeting beacons / drones / sensors / psi */
   pinged = new Set<number>();
+  /** per-team memory: when team T last perceived enemy soldier id. Stamped
+   *  every tick by updateLastSeen; the wire culler (68A) and the renderer's
+   *  roof cutaway both read it, and SEEN_LINGER turns it into the 1–3s
+   *  "he just broke line of sight" trail. */
+  lastSeen: [Map<number, number>, Map<number, number>] = [new Map(), new Map()];
+  /** RG-2 tag darts: soldier id → time the pin burns out (re-pings each tick) */
+  tagged = new Map<number, number>();
   /** soldier ids currently hidden inside smoke fields */
   smoked = new Set<number>();
   /** tile indices the tunneler has ground to rubble (replicated to clients) */
@@ -156,7 +164,8 @@ export class World {
     const t = this.map.grid[idx];
     // structure is dinner: walls, cover, slits, doors. METAL is not (sparks
     // handled at the drill face); water and open ground have nothing to eat.
-    if (t !== T_WALL && t !== T_COVER && t !== T_SLIT && t !== T_DOOR && t !== T_DOOR_OPEN) return;
+    // The menu is DRILL_EATS in map.ts — one list, shared with the harness.
+    if (!DRILL_EATS.has(t)) return;
     this.map.grid[idx] = T_OPEN;
     this.dug.push(idx);
     this.emit({
@@ -196,6 +205,7 @@ export class World {
       clip: [WEAPONS[primary].clip, WEAPONS[secondary].clip],
       reserve: [WEAPONS[primary].reserve, WEAPONS[secondary].reserve],
       reloadUntil: 0, nextFireAt: 0,
+      altAmmo: WEAPONS[primary].alt?.ammo ?? 0, nextAltAt: 0, altBurstUntil: 0,
       grenades: classId === 'infantry' ? 4 : classId === 'engineer' ? 3 : 2,
       nextGrenadeAt: 0, cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
@@ -220,6 +230,7 @@ export class World {
       hp: 160, maxHp: 160, energy: 0, alive: true, respawnAt: 0,
       weaponIdx: 0, weapons: ['pistol'], clip: [0], reserve: [0],
       reloadUntil: 0, nextFireAt: 0, grenades: 0, nextGrenadeAt: 0,
+      altAmmo: 0, nextAltAt: 0, altBurstUntil: 0,
       cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
       longestKill: 0, vehicleKills: 0, healGiven: 0,
@@ -241,6 +252,7 @@ export class World {
       hp: st.hp, maxHp: st.hp, energy: 0, alive: true, respawnAt: 0,
       weaponIdx: 0, weapons: [st.weapon], clip: [Infinity], reserve: [Infinity],
       reloadUntil: 0, nextFireAt: 0, grenades: 0, nextGrenadeAt: 0,
+      altAmmo: 0, nextAltAt: 0, altBurstUntil: 0,
       cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
       longestKill: 0, vehicleKills: 0, healGiven: 0,
@@ -393,7 +405,29 @@ export class World {
     this.stepGadgets(dt);
     this.stepGatesAndLifts();
     this.stepSupplyPods();
+    // RG-2 tag darts: a pinned soldier stays lit until the dart burns out —
+    // merged before countermeasures so a stealth suit still beats the pin
+    for (const [id, until] of this.tagged) {
+      const t = this.soldiers.get(id);
+      if (this.time >= until || !t || !t.alive) this.tagged.delete(id);
+      else this.pinged.add(id);
+    }
     this.applyReconCountermeasures();
+    this.updateLastSeen();
+  }
+
+  /** Stamp what each team can see this tick. Death wipes the trail — a corpse
+   *  is not a track, and a respawn must never leak its new position. */
+  private updateLastSeen() {
+    for (const team of [0, 1] as Team[]) {
+      const eyes: Soldier[] = [];
+      for (const e of this.soldiers.values()) if (e.alive && e.team === team) eyes.push(e);
+      for (const s of this.soldiers.values()) {
+        if (s.team === team) continue;
+        if (!s.alive) { this.lastSeen[team].delete(s.id); continue; }
+        if (perceivesNow(this.map.grid, eyes, this.pinged, s)) this.lastSeen[team].set(s.id, this.time);
+      }
+    }
   }
 
   /** Equipment that runs on its own clock: the psi scanner's pulse. */
@@ -509,6 +543,34 @@ export class World {
   stepGadgets(dt: number) {
     for (const [id, g] of this.gadgets) {
       switch (g.type) {
+        case 'skitter': {
+          // THE SKITTER: a demolition charge on six legs. It sprints at the
+          // nearest grounded enemy — shoot it before it reaches you, or it
+          // reaches you. Walls stop it like they stop boots; it can't climb.
+          let tgt: Soldier | undefined; let td = 28;
+          for (const e of this.soldiers.values()) {
+            if (!e.alive || e.team === g.team || e.pos.y > 3 || e.vehicleId >= 0) continue;
+            const d = Math.hypot(e.pos.x - g.pos.x, e.pos.z - g.pos.z);
+            if (d < td) { td = d; tgt = e; }
+          }
+          if (tgt) g.yaw = Math.atan2(tgt.pos.z - g.pos.z, tgt.pos.x - g.pos.x);
+          const sp = 8.5; // faster than boots, slower than bullets
+          const nx = g.pos.x + Math.cos(g.yaw ?? 0) * sp * dt;
+          const nz = g.pos.z + Math.sin(g.yaw ?? 0) * sp * dt;
+          if (!isBlocked(this.map.grid, nx, g.pos.z)) g.pos.x = nx; // slide along walls
+          if (!isBlocked(this.map.grid, g.pos.x, nz)) g.pos.z = nz;
+          if (tgt && td < 1.3) {
+            this.explode({ ...g.pos, y: 0.4 }, WEAPONS.skitter_bang, g.ownerId, g.team);
+            this.gadgets.delete(id);
+            this.emit({ type: 'gadget_destroyed', pos: g.pos });
+            continue;
+          }
+          if (this.time >= g.expiresAt || g.hp <= 0) {
+            this.gadgets.delete(id);
+            this.emit({ type: 'gadget_destroyed', pos: g.pos });
+          }
+          continue;
+        }
         case 'target_beacon': {
           for (const s of this.soldiers.values()) {
             if (!s.alive || s.team === g.team) continue;
@@ -687,6 +749,7 @@ export class World {
       if (g.team === team) continue;
       if (Math.hypot(g.pos.x - pos.x, g.pos.z - pos.z) < 8) {
         if (g.type === 'drone') { this.gadgets.delete(gid); this.emit({ type: 'gadget_destroyed', pos: g.pos }); }
+        if (g.type === 'skitter') { this.gadgets.delete(gid); this.emit({ type: 'gadget_destroyed', pos: g.pos }); } // EMP fries the legs
         if (g.type === 'shield') { g.hp -= 150; if (g.hp <= 0) { this.gadgets.delete(gid); this.emit({ type: 'gadget_destroyed', pos: g.pos }); } }
       }
     }
@@ -981,6 +1044,61 @@ export class World {
       } else if (s.reserve[s.weaponIdx] > 0) {
         s.reloadUntil = this.time + def.reloadTime;
         this.emit({ type: 'reload', pos: s.pos, soldierId: s.id });
+      }
+    }
+
+    // SECONDARY FIRE (right mouse): the under-barrel surprise. It rides the
+    // weapon in hand — holster the weapon and the surprise holsters too.
+    if (cmd.altFire && !swimming && def.alt && this.time >= s.nextAltAt) {
+      this.fireAltWeapon(s, def.alt);
+    }
+    // an under-barrel flame burst keeps spewing while its clock runs
+    if (s.altBurstUntil > this.time && !swimming) {
+      this.throwProjectile(s, 'flamer', 1.3, WEAPONS.flamer.speed, false);
+    }
+  }
+
+  /** SECONDARY FIRE: four personalities, one button.
+   *  burst      — under-barrel flame burp (AR-606): 0.55s of fire, 3 canisters a life
+   *  skitter    — a charge on legs that RUNS at the nearest enemy (GL-40):
+   *               shoot it before it reaches you, or it reaches you
+   *  tag        — a dart that pins its victim on every enemy screen (RG-2)
+   *  overcharge — six cells become one ugly orb (Kamenel plasma): costs clip, not alt ammo */
+  fireAltWeapon(s: Soldier, alt: NonNullable<(typeof WEAPONS)[WeaponId]['alt']>) {
+    if (alt.kind === 'overcharge') {
+      const cells = alt.cells ?? 6;
+      if (s.clip[s.weaponIdx] < cells) return;
+      if (Number.isFinite(s.clip[s.weaponIdx])) s.clip[s.weaponIdx] -= cells;
+    } else {
+      if (s.altAmmo <= 0) return;
+      s.altAmmo--;
+    }
+    s.nextAltAt = this.time + alt.cooldown;
+    s.protectedUntil = 0; // hostile action ends spawn protection (55B)
+    if (s.cloaked) s.cloaked = false;
+    const muzzle = { ...s.pos, y: s.pos.y + 1.4 };
+    switch (alt.kind) {
+      case 'burst':
+        s.altBurstUntil = this.time + 0.55;
+        this.emit({ type: 'shot', pos: muzzle, weapon: 'flamer', soldierId: s.id });
+        break;
+      case 'tag':
+        this.throwProjectile(s, 'tag_dart', 1.4, WEAPONS.tag_dart.speed, false);
+        this.emit({ type: 'shot', pos: muzzle, weapon: 'tag_dart', soldierId: s.id });
+        break;
+      case 'overcharge':
+        this.throwProjectile(s, 'plasma_orb', 1.4, WEAPONS.plasma_orb.speed, false);
+        this.emit({ type: 'shot', pos: muzzle, weapon: 'plasma_orb', soldierId: s.id });
+        break;
+      case 'skitter': {
+        const g: Gadget = {
+          id: this.id(), type: 'skitter', team: s.team, ownerId: s.id,
+          pos: { x: s.pos.x + Math.cos(s.yaw) * 1.2, y: 0, z: s.pos.z + Math.sin(s.yaw) * 1.2 },
+          hp: 30, maxHp: 30, bornAt: this.time, expiresAt: this.time + 10, yaw: s.yaw,
+        };
+        this.gadgets.set(g.id, g);
+        this.emit({ type: 'shot', pos: { ...s.pos }, weapon: 'gl', soldierId: s.id });
+        break;
       }
     }
   }
@@ -1466,7 +1584,7 @@ export class World {
           const aheadX = v.pos.x + Math.cos(v.yaw) * (r + TILE * 0.6) * Math.sign(throttle);
           const aheadZ = v.pos.z + Math.sin(v.yaw) * (r + TILE * 0.6) * Math.sign(throttle);
           const t = tileAt(this.map.grid, aheadX, aheadZ);
-          if (t === T_WALL || t === T_COVER || t === T_SLIT || t === T_DOOR || t === T_DOOR_OPEN) {
+          if (DRILL_EATS.has(t)) {
             // structure is dinner — walls, cover, slits, doors all grind
             v.nextDigAt = this.time + 0.35; // loud, hungry surface work
             this.digTile(Math.floor((aheadX + WORLD / 2) / TILE), Math.floor((aheadZ + WORLD / 2) / TILE));
@@ -1643,6 +1761,21 @@ export class World {
       if (!def.heals) {
         for (const [gid, g] of this.gadgets) {
           if (g.team === p.team) continue;
+          // skitters are shootable: killing one with gunfire is a clean
+          // defusal — it pops with no blast (the reward for good aim)
+          if (g.type === 'skitter') {
+            if (p.pos.y < 2.2 && Math.hypot(g.pos.x - p.pos.x, g.pos.z - p.pos.z) < 0.9) {
+              g.hp -= def.damage;
+              this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, soldierId: p.ownerId });
+              if (g.hp <= 0) {
+                this.gadgets.delete(gid);
+                this.emit({ type: 'gadget_destroyed', pos: g.pos });
+              }
+              dead = true;
+              break;
+            }
+            continue;
+          }
           if (g.type === 'drone' && g.piloted && !g.crashing) {
             if (Math.abs(p.pos.y - g.pos.y) < 1.6 && Math.hypot(g.pos.x - p.pos.x, g.pos.z - p.pos.z) < 1.2) {
               g.hp -= def.damage;
@@ -1711,6 +1844,12 @@ export class World {
             } else {
               this.damageSoldier(s, def.damage, p.ownerId, p.weapon);
               this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, soldierId: p.ownerId });
+            }
+            // the RG-2 tag dart: sting like a bee, then GLOW — pinned on
+            // every enemy screen until the dart burns out (stealth suit wins)
+            if (def.tagsTarget && !friendly) {
+              this.tagged.set(s.id, this.time + 5);
+              this.emit({ type: 'psi_ping', pos: { ...s.pos }, soldierId: p.ownerId });
             }
             dead = true;
             break;
@@ -2003,6 +2142,9 @@ export class World {
               const def = WEAPONS[s.weapons[i]];
               if (Number.isFinite(def.reserve)) s.reserve[i] = def.reserve;
             }
+            // a crate restocks the under-barrel too
+            const priAlt = WEAPONS[s.weapons[0]]?.alt;
+            if (priAlt && priAlt.ammo > 0) s.altAmmo = priAlt.ammo;
             used = true;
           }
           if (pk.type === 'orbital') { s.orbitals++; used = true; }
