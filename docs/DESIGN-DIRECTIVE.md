@@ -1708,6 +1708,33 @@ hand — is deliberately **not specified yet**; the acts themselves are canon.)*
 
 ---
 
+### Implementation status — the 7A freeze, SHIPPED
+
+The frozen scope of the next three slices is implemented and live:
+
+- ✅ **Slice 1 — the Dossier** (`249a637`): record.ts pipeline (IndexedDB
+  dossier v1, 30s checkpoints, idempotent finalize), medals v1 (8), journal
+  v1, the 14-grade rank ladder, the 6B menu tab shell (Deploy | Barracks |
+  Map), the Barracks screen, and the post-match career pane.
+- ✅ **Slice 1.5 — the Scar live** (`1f34b24`): ten fronts on existing
+  recipes, banded weighted control (22B), scars as real match modifiers
+  (fire fields, rubble stamps), the Morning Dispatch, the honest simulated
+  time-skip (27B), and the theater map as the deploy screen.
+- ✅ **Slice 1.6 — the Proving Grounds** (`57d2fd9`): the range mode, dummy
+  targets that stay down, the clocked infantry course, practice/official
+  split with the explicit 18B confirm, permanent quals, the local Wall.
+- ✅ **Bot parity phase 1** (`488e2a9`, 49A): bots fire MANPADS, work the
+  breacher's depth, and fly recon drones. 12v12 fill + join/leave rebalance
+  (32B) local and server. Spawn protection + enemy-aware spawn picks (55B).
+- ✅ **Trust prerequisite** (`14a97e6`, 68A): per-client interest-managed
+  snapshots — cloak/burrow/mines are true on the wire, flag carriers public.
+- ✅ **Accessibility table stakes** (`14a97e6`, §18): Settings (master
+  volume, reduced motion, persisted) and the always-on second channel —
+  hostiles are triangles/rings by SHAPE on minimap and field blips.
+
+236 tests green across 19 suites. Still open from the freeze: keybind
+remap (§18), revive/drag bot parity (rides §4.3), music beds (assets).
+
 ## Appendix B — Decision register
 
 The locked product decisions, in one place. Reopening any of these requires a
