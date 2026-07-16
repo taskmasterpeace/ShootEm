@@ -1101,8 +1101,14 @@ no comfort valve. Four gaps, one layer.
 
 - ✅ **Cursor-targeted throws shipped** (`b722960`): hold-G arc + landing ring,
   0.09u landing accuracy, all throwables + bots, 170 tests green.
-- ✅ **Invisible walls verified fixed:** live-map probe — all solid tiles
-  rendered or prop-covered; 0 invisible, 0-by-construction across every theme.
+- ✅ **Invisible walls PERMANENTLY fixed** (single source of truth): the
+  generator records exactly which tiles each prop's mesh stands in for
+  (`map.propCovered`), prunes claims later stamps overwrite, and the renderer
+  skips that set and nothing else — footprint re-derivation (the root of every
+  recurrence) is structurally gone. Unknown future tile types render as walls
+  and warn instead of going invisible. Guarded by `tests/walls.test.ts`
+  (35 maps across all themes; mutation-tested — a planted orphan claim fails
+  the suite) and live-probed: 764 blocked tiles, 0 without a visual owner.
 - ✅ **Knockback pipeline exists** in the sim (blast shove, airborne pop, armor
   immunity) — explosives just don't use it yet. §4.1 is data + tuning.
 - ✅ **Water & neighborhood** already in the engine (water tiles, safehouse

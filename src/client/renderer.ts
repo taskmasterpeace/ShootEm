@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
-import { GRID, T_COVER, T_WALL, T_WATER, TILE, WORLD } from '../sim/map';
+import { GRID, T_COVER, T_OPEN, T_WALL, T_WATER, TILE, WORLD } from '../sim/map';
 import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
 import { HAND_FRAG_REACH, type World } from '../sim/world';
 import { audio, type SoundName } from './audio';
@@ -260,27 +260,32 @@ export class Renderer {
     ground.receiveShadow = true;
     this.scene.add(ground);
 
-    // Walls as instanced boxes — skip ONLY the tiles a prop's own footprint
-    // blocks (the prop mesh renders there instead). Radii must match the map
-    // generator exactly: over-excluding hides REAL walls and leaves invisible
-    // collision — the classic "invisible wall" bug this replaced. Rocks block
-    // a disc of radius round(scale/1.6) tiles; trees/crates block just their
-    // tile; bunkers sit on cleared ground and block nothing of their own.
-    const propTiles = new Set<string>();
-    for (const p of world.map.props) {
-      const tx = Math.floor((p.pos.x + WORLD / 2) / TILE);
-      const tz = Math.floor((p.pos.z + WORLD / 2) / TILE);
-      const r = p.type === 'rock' ? Math.max(1, Math.round(p.scale / 1.6)) : 0;
-      for (let dz = -r; dz <= r; dz++)
-        for (let dx = -r; dx <= r; dx++) propTiles.add(`${tx + dx},${tz + dz}`);
-    }
+    // Walls as instanced boxes. The generator records EXACTLY which tiles a
+    // prop's mesh stands in for (map.propCovered) — the renderer skips that
+    // set and nothing else. No footprint math here, ever: re-deriving radii
+    // is how every invisible-wall bug was born. Any blocking tile the set
+    // doesn't claim gets a box — including tile types this code has never
+    // heard of (future T_SLIT etc.), which render as walls and warn instead
+    // of becoming invisible collision. Guarded by tests/walls.test.ts.
+    const covered = new Set(world.map.propCovered);
     const wallTiles: [number, number][] = [];
     const coverTiles: [number, number][] = [];
+    let unknownWarned = false;
     for (let z = 0; z < GRID; z++) {
       for (let x = 0; x < GRID; x++) {
-        const t = world.map.grid[z * GRID + x];
-        if (t === T_WALL && !propTiles.has(`${x},${z}`)) wallTiles.push([x, z]);
-        if (t === T_COVER && !propTiles.has(`${x},${z}`)) coverTiles.push([x, z]);
+        const idx = z * GRID + x;
+        const t = world.map.grid[idx];
+        if (t === T_OPEN || t === T_WATER || covered.has(idx)) continue;
+        if (t === T_COVER) {
+          coverTiles.push([x, z]);
+        } else {
+          // T_WALL — and any unknown blocking type, visible by construction
+          if (t !== T_WALL && !unknownWarned) {
+            unknownWarned = true;
+            console.warn(`renderer: unknown blocking tile type ${t} — rendered as wall; teach the renderer about it`);
+          }
+          wallTiles.push([x, z]);
+        }
       }
     }
     const wallMat = new THREE.MeshStandardMaterial({ color: pal.wall, roughness: 0.9 });

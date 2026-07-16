@@ -54,6 +54,13 @@ export interface GameMap {
   gates: { a: Vec3; b: Vec3 }[];
   /** grav-lift launch pads: step on, get flung along dir */
   pads: { pos: Vec3; dir: { x: number; z: number } }[];
+  /** SINGLE SOURCE OF TRUTH for prop-rendered collision: tile indices whose
+   *  blocking geometry is visually owned by a prop (rock disc, tree trunk,
+   *  crate). The generator records these AT THE STAMP SITE and prunes any
+   *  claim a later stamp overwrote. The renderer skips EXACTLY this set and
+   *  never re-derives footprints — the drift that caused every invisible-wall
+   *  bug is structurally impossible. Guarded by tests/walls.test.ts. */
+  propCovered: number[];
 }
 
 export function tileAt(grid: Uint8Array, x: number, z: number): number {
@@ -94,6 +101,24 @@ function setTile(grid: Uint8Array, tx: number, tz: number, v: number) {
   grid[tz * GRID + tx] = v;
 }
 
+/** A prop-owned tile claim: the prop's mesh visually stands in for this
+ *  tile's collision box. Recorded at the stamp site; pruned if a later stamp
+ *  overwrites the value (the prop no longer owns what's there). */
+interface TileClaim { idx: number; t: number }
+
+/** Stamp a blocking tile a prop will render, and record the claim. Mirrors
+ *  setTile's bounds guard exactly — a skipped write is a skipped claim. */
+function claimTile(grid: Uint8Array, claims: TileClaim[], tx: number, tz: number, v: number) {
+  if (tx < 1 || tz < 1 || tx >= GRID - 1 || tz >= GRID - 1) return;
+  grid[tz * GRID + tx] = v;
+  claims.push({ idx: tz * GRID + tx, t: v });
+}
+
+/** Claims that survived every later stamp — deduped, ready for the map. */
+function settleClaims(grid: Uint8Array, claims: TileClaim[]): number[] {
+  return [...new Set(claims.filter((c) => grid[c.idx] === c.t).map((c) => c.idx))];
+}
+
 function tileToWorld(tx: number, tz: number): Vec3 {
   return { x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 };
 }
@@ -109,6 +134,7 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
   const rng = new Rng(seed);
   const grid = new Uint8Array(GRID * GRID);
   const props: PropSpec[] = [];
+  const claims: TileClaim[] = []; // prop-covered tiles, recorded where stamped
   const gen = THEMES[theme].gen;
 
   // Border walls
@@ -158,8 +184,8 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
       const n = rng.int(2, 5);
       for (let i = 0; i < n; i++) {
         const ox = rng.int(-2, 2), oz = rng.int(-2, 2);
-        setTile(grid, tx + ox, tz + oz, T_COVER);
-        setTile(grid, mirror(tx + ox), tz + oz, T_COVER);
+        claimTile(grid, claims, tx + ox, tz + oz, T_COVER);
+        claimTile(grid, claims, mirror(tx + ox), tz + oz, T_COVER);
         const w = tileToWorld(tx + ox, tz + oz);
         props.push({ type: 'crate', pos: w, scale: 1, rot: rng.range(0, Math.PI) });
         props.push({ type: 'crate', pos: tileToWorld(mirror(tx + ox), tz + oz), scale: 1, rot: rng.range(0, Math.PI) });
@@ -170,8 +196,8 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
       for (let z = -r; z <= r; z++)
         for (let x = -r; x <= r; x++)
           if (x * x + z * z <= r * r) {
-            setTile(grid, tx + x, tz + z, T_WALL);
-            setTile(grid, mirror(tx + x), tz + z, T_WALL);
+            claimTile(grid, claims, tx + x, tz + z, T_WALL);
+            claimTile(grid, claims, mirror(tx + x), tz + z, T_WALL);
           }
       const w = tileToWorld(tx, tz);
       props.push({ type: 'rock', pos: w, scale: r * 1.6, rot: rng.range(0, Math.PI * 2) });
@@ -286,7 +312,7 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
                     Math.hypot(w.x - basePos[1].x, w.z - basePos[1].z) > 20 &&
                     Math.hypot(w.x - hillPos.x, w.z - hillPos.z) > 14;
         if (far) {
-          setTile(grid, tx, tz, T_WALL);
+          claimTile(grid, claims, tx, tz, T_WALL);
           props.push({ type: 'tree', pos: w, scale: rng.range(0.8, 1.4), rot: rng.range(0, Math.PI * 2) });
         }
       }
@@ -318,7 +344,7 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
     }
   }
 
-  return { seed, theme, grid, basePos, spawns, flagPos, hillPos, controlPoints, vehiclePads, pickups, props, zombieSpawns, houses: [], gates, pads };
+  return { seed, theme, grid, basePos, spawns, flagPos, hillPos, controlPoints, vehiclePads, pickups, props, zombieSpawns, houses: [], gates, pads, propCovered: settleClaims(grid, claims) };
 }
 
 /**
@@ -330,6 +356,7 @@ function generateNeighborhood(seed: number): GameMap {
   const rng = new Rng(seed);
   const grid = new Uint8Array(GRID * GRID);
   const props: PropSpec[] = [];
+  const claims: TileClaim[] = []; // prop-covered tiles, recorded where stamped
   const houses: House[] = [];
   const pickups: PickupSpawn[] = [];
 
@@ -391,12 +418,12 @@ function generateNeighborhood(seed: number): GameMap {
       }
       if (rng.next() < 0.7) {
         const cxT = hx + hw + 1, czT = hz + rng.int(0, hh - 1);
-        setTile(grid, cxT, czT, T_COVER);
+        claimTile(grid, claims, cxT, czT, T_COVER);
         props.push({ type: 'crate', pos: tileToWorld(cxT, czT), scale: 1, rot: rng.range(0, Math.PI) });
       }
       const tx = lx + rng.int(0, 2), tz = lz + rng.int(0, 3);
       if (grid[tz * GRID + tx] === T_OPEN) {
-        setTile(grid, tx, tz, T_WALL);
+        claimTile(grid, claims, tx, tz, T_WALL);
         props.push({ type: 'tree', pos: tileToWorld(tx, tz), scale: rng.range(0.8, 1.3), rot: rng.range(0, Math.PI * 2) });
       }
       // some houses stock a pickup
@@ -460,5 +487,6 @@ function generateNeighborhood(seed: number): GameMap {
     vehiclePads,
     pickups, props, zombieSpawns, houses,
     gates: [], pads: [],
+    propCovered: settleClaims(grid, claims),
   };
 }
