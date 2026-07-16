@@ -252,7 +252,7 @@ Explosions should move people. Today they only subtract HP.
 > artillery all set knockback to zero. This is a data + tuning pass, not an
 > engine build.
 
-### 4.1 Blast knockback — *build next*
+### 4.1 Blast knockback — ✅ SHIPPED (`d50374f`)
 - **Every splash weapon shoves.** Frag ~12, GL ~10, rocket ~14, tank cannon
   ~18, artillery ~22 — scaled by distance from center, capped so it's drama,
   not pinball.
@@ -297,7 +297,7 @@ straight to the respawn timer:
 
 ## 5. Combat systems on the table
 
-### 5.1 Anti-air — aircraft must sweat — *build next*
+### 5.1 Anti-air — aircraft must sweat — ✅ MANPADS + flares SHIPPED (`92df4a8`); SPAAG & SAM sites open
 Flyers currently soar untouchable. Add the predator/prey loop: **MANPADS**
 (shoulder-fired IR missile), a vehicle **SPAAG/SAM**, and radar **SAM sites** —
 guided missiles with a lock-on tone. Aircraft counter with **flares**,
@@ -309,7 +309,7 @@ guided missiles with a lock-on tone. Aircraft counter with **flares**,
 > and it closes. Skillful to fly, heroic to shoot down. Escape is a margin, not
 > a guarantee; that margin is the whole game.
 
-### 5.2 The Breacher — depth is stealth — *build next*
+### 5.2 The Breacher — depth is stealth — ✅ SHIPPED (`1384a68`)
 It *does* grind walls already; it just doesn't feel like it. Grounded model: an
 **armored breaching vehicle** (think the armored D9). First pass: spinning
 cutter, looping grind, faster chew, screen-shake, IED clearing.
@@ -609,7 +609,7 @@ the shared global war.
 
 | Phase | What ships | Why now | State |
 |---|---|---|---|
-| This week | ~~Cursor-targeted grenades~~ ✅ · ~~FPV drones~~ ✅ · Blast knockback (§4.1) · Breacher depth-stealth (§5.2) · MANPADS loop (§5.1) | Combat feel — visible in the first minute of play | **in build (parallel agents)** |
+| This week | ~~Cursor-targeted grenades~~ ✅ · ~~FPV drones~~ ✅ · ~~Blast knockback (§4.1)~~ ✅ · ~~Breacher depth-stealth (§5.2)~~ ✅ · ~~MANPADS loop (§5.1)~~ ✅ · ~~killcam duel framing~~ ✅ · ~~armor pool + overhead layer (§10.5)~~ ✅ | Combat feel — visible in the first minute of play | **shipped** |
 | Slice 1 | **The Dossier** (§3.4): record.ts pipeline, medals v1, journal v1, Barracks screen | Offline, no backend, reuses awards + replays — biggest emotion, smallest build; everything else reads from it | **planned in full — next up** |
 | Slice 1.5 | **The Scar goes live** (§8.5 v1 plan): campaign file, fronts→existing recipes, scar modifiers, the screen | The painting becomes the front door — no new maps required | planned in full |
 | Slice 1.6 | **The Proving Grounds** (§3.3): range mode, gadget sandbox, first qualification courses + local Wall | The training/testing home; also the §8.4 roofs/slits testbed | planned |
@@ -695,6 +695,44 @@ the non-negotiables people expect from a paid game.
    and it's where the Record/Journal retention systems (§3) plug in.
 3. **Settings screen** — small but required.
 4. **Respawn/killcam + chat polish** — quick pass, same visual language.
+
+### 10.5 The overhead layer — semantic zoom ✅ *shipped, phase 2 proposed*
+
+The rule that governs everything drawn over a soldier's head: **when you zoom
+out, the world shrinks — the information must not.** Names and meters are
+instruments, not props; anything that exists to be *read* holds constant
+screen size across the whole 16–55 zoom range.
+
+**Shipped (`9c1f2ee` + `e3b5bc9`):**
+
+- **Squad-only overhead.** Name tags are teammates-only — enemy plates were
+  clutter *and* free intel; enemies read as silhouettes and team color. Tags
+  are crisp outlined text (the old blurred shadow read as a black plate over
+  the character's head).
+- **The vitals circles.** Under each teammate's name: a health ring that
+  walks green → amber → red, and a steel armor ring beside it when they carry
+  plate. Glance at the squad, know who's hurt and whose plate is gone.
+- **Constant screen size.** Tags and circles scale with the camera height
+  actually flown (killcam duels included), exactly canceling distance —
+  identical legibility at 16 and 55, clamped so nothing balloons up close.
+- **Far-zoom blips.** Past mid-zoom the *models* are the illegible thing, so
+  a team-colored ground disc fades in under every soldier (~34→48, capped
+  0.8) and scales with zoom. At command height the disc IS the soldier — the
+  RTS strategic-icon rule (don't shrink the tank, swap in the icon).
+- **The model is never inflated.** The soldier mesh stays true-scale at every
+  zoom — growing it would lie about aim, cover, and splash. Findability comes
+  from the marker layer, honesty stays in the world.
+
+The result is **semantic zoom**: zoomed in you see soldiers; zoomed out you
+see *units*; the transition is a crossfade, not a mode switch.
+
+**Phase 2 — tactical map mode (decide with the §10 rebuild):** at max zoom
+the field and the minimap now carry similar information. The candidate move:
+lean all the way in — max zoom becomes a *command view* (bigger blips,
+objective callouts drawn on the field, squad orders clickable) and the
+minimap recedes or disappears. That's also where §18's colorblind work bites
+hardest: the blips are pure hue today, so the second channel (shape/icon per
+team) should land here.
 
 ---
 
@@ -1073,6 +1111,19 @@ no comfort valve. Four gaps, one layer.
   variety, review/replace tooling (`/sound-review.html`).
 - ✅ **FPV drones shipped** (`880dbf4` + `14dc09b`): pilotable, blinding
   static leash, crash-out, 176 tests green.
+- ✅ **Combat-feel trio shipped:** blast knockback (`d50374f`), breacher
+  depth-stealth (`1384a68`), MANPADS vs Kestrel with flares (`92df4a8`) —
+  each with tests, all live-verified in the shipped bundle.
+- ✅ **Killcam duel framing shipped** (`311bb66`): the top-down killcam frames
+  victim + killer at midpoint, marks the killer with a pulsing ring, and
+  names the shot with range ("Killed by Grit · 50u"). Replicates online.
+- ✅ **Armor is a real pool now** (`9c1f2ee`): vest/power armor issue PLATE
+  that absorbs before hp and never heals back; reissued on respawn. Same
+  totals as the old maxHp bonus — balance unchanged, presentation honest.
+  Prototype shields (§6) later = the third pool that *recharges*.
+- ✅ **Overhead layer / semantic zoom shipped** (`9c1f2ee` + `e3b5bc9`, §10.5):
+  squad-only crisp name tags, vitals circles (health + armor rings),
+  constant-screen-size scaling across zoom, far-zoom team blips.
 - ⚠️ **Decide:** faction names/doctrines (§1) are placeholders — rename at
   will; keep the enlistment/tour mechanics.
 - ✅ **Decided:** roofs + firing slits (§8.4) — cutaway roofs (visual-only
