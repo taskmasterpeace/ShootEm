@@ -44,6 +44,35 @@ From the tool's maiden run (2× tdm, 12v12):
 | **TDM hits 50 kills in ~1 sim-min** | lethality very high for the mode target at 12v12 | raise tdm target to ~75 for 12v12, or that's the intended bloodbath — decide by feel |
 | medic/infiltrator low K/D, high win% | support correlates with winning — GOOD signal | none — this is the design working |
 
+## 2.5 The doctrine pass — findings closed (2026-07-16)
+
+The bot overhaul (`DOCTRINE` table in `bots.ts` + the arc-weapon aimDist fix)
+re-ran the loop. 10× tdm, 12v12, veteran:
+
+| Class | before K/D | after K/D | note |
+|---|---|---|---|
+| jump | **0.47–0.74** | **0.96** | the finding above is CLOSED — the fix was capability, not stats: arc weapons now land at `aimDist` (they always lobbed to max range), so the GL-40 mid-range game exists; jump shells while closing, SMGs inside 24u |
+| heavy | 1.47 (outlier) | 1.30 | anchor doctrine — holds 26u, no chasing |
+| infantry / pathfinder / ghost | 0.83–1.30 | 1.01–1.23 | tight frontline band |
+| infiltrator | 0.75 | 1.54 | now an actual marksman (aim 0.6→0.8 was needed — 0.6 hit K/D 2.5) |
+| medic | 0.68 / 39% win | 0.60 / **57% win** | fewer kills, more wins — support judged by win-correlation, per §3 |
+| engineer | 1.23 | 0.63–0.96 (noisy) | shotgun standoff 8u; sentry kills under-credit him — watch |
+
+Also fixed by the pass: a whole tdm match once went **0–0** because the
+shared hunt point landed inside a building and `pathStep` gave up — the
+planner now spirals to the nearest walkable tile, and doors are passable
+to it (humans open, monsters break).
+
+**Known issue, measured and filed: CTF is a 0–0 stalemate** (pre-dates the
+overhaul — verified via stash A/B). Probes: with everyone flag-hunting,
+nobody touches either flag in 6 min; with class-shaped roles (fast classes
+raid, armor guards, rest mid) raiders reach **5.7u** from the flag but die
+to the guard wall (21 deaths each); two wolf-pack rally designs simmed
+WORSE (raiders died assembling). A lone unopposed raider captures in 11s —
+the mechanism is fine. The stalemate is symmetric-armies-one-lane; the fix
+is map lanes and/or vehicle raids, not brain tweaks. Roles + escort +
+carrier-runs kept (strictly better); rest filed as follow-up.
+
 ## 3. Acceptance bands (v1 — tighten with data)
 
 - **Class K/D** within ±35% of the mean *for frontline classes*

@@ -31,6 +31,9 @@ const SAM_DIVE_ALT = 2.6;    // terminal dive under the 3u vehicle-hit ceiling
 const FLARE_PULL_RADIUS = 18;
 /** max hand-frag throw — the HUD arc and the sim clamp share this */
 export const HAND_FRAG_REACH = 22;
+/** structural hp of a door: ~11 walker claws (a lone walker bangs for ~9s,
+ *  a pack of three is in within ~4), 3 brute swings, 1 tank shell, 2 GL-40s */
+export const DOOR_HP = 150;
 /** FPV drone control range — signal (and the static on your feed) scales with
  *  distance from the operator's body; past this the link drops and it crashes */
 export const DRONE_RANGE = 55;
@@ -115,6 +118,35 @@ export class World {
       if (e && e[key]) return true;
     }
     return false;
+  }
+
+  /** structural hit points of every door that has taken damage but not broken */
+  doorHp = new Map<number, number>();
+
+  /**
+   * Doors take STRUCTURAL damage — zombie claws, brute fists, explosions.
+   * A broken door is gone for the match: the tile is ground open and rides
+   * the dug list, so the break replicates exactly like tunneler damage.
+   * Returns true when this hit was the one that broke it.
+   */
+  damageDoor(idx: number, dmg: number, byId = -1): boolean {
+    const t = this.map.grid[idx];
+    if ((t !== T_DOOR && t !== T_DOOR_OPEN) || dmg <= 0) return false;
+    const tx = idx % GRID, tz = (idx / GRID) | 0;
+    const pos = { x: (tx + 0.5) * TILE - WORLD / 2, y: 1, z: (tz + 0.5) * TILE - WORLD / 2 };
+    const hp = (this.doorHp.get(idx) ?? DOOR_HP) - dmg;
+    if (hp > 0) {
+      this.doorHp.set(idx, hp);
+      this.emit({ type: 'doorhit', tile: idx, pos, soldierId: byId >= 0 ? byId : undefined });
+      return false;
+    }
+    this.doorHp.delete(idx);
+    const dc = this.doorChanges.indexOf(idx);
+    if (dc >= 0) this.doorChanges.splice(dc, 1); // not a door anymore — dug owns it now
+    this.map.grid[idx] = T_OPEN;
+    this.dug.push(idx);
+    this.emit({ type: 'dig', tile: idx, pos });
+    return true;
   }
 
   /** Grind a wall/cover tile to open ground (tunneler). */
@@ -938,7 +970,7 @@ export class World {
     if (cmd.fire && s.reloadUntil === 0 && this.time >= s.nextFireAt) {
       if (s.clip[s.weaponIdx] > 0) {
         s.protectedUntil = 0; // hostile action ends spawn protection (55B)
-        this.fireSoldierWeapon(s, wid, def);
+        this.fireSoldierWeapon(s, wid, def, cmd.aimDist);
       } else if (s.reserve[s.weaponIdx] > 0) {
         s.reloadUntil = this.time + def.reloadTime;
         this.emit({ type: 'reload', pos: s.pos, soldierId: s.id });
@@ -946,7 +978,7 @@ export class World {
     }
   }
 
-  fireSoldierWeapon(s: Soldier, wid: WeaponId, def = WEAPONS[wid]) {
+  fireSoldierWeapon(s: Soldier, wid: WeaponId, def = WEAPONS[wid], aimDist?: number) {
     s.nextFireAt = this.time + 1 / def.rof;
     if (Number.isFinite(s.clip[s.weaponIdx])) s.clip[s.weaponIdx]--;
     if (s.cloaked) s.cloaked = false;
@@ -955,8 +987,12 @@ export class World {
       this.meleeAttack(s, def);
       return;
     }
+    // arc weapons are cursor-targeted like every thrown item: the shell LANDS
+    // at aimDist instead of always lobbing to max range. (This is what made
+    // the GL-40 unusable at anything but exactly 46u.)
+    const reach = def.arc ? Math.max(6, Math.min(aimDist ?? def.range, def.range)) : def.range;
     for (let p = 0; p < def.pellets; p++) {
-      this.throwProjectile(s, wid, 1.4, def.speed, def.arc);
+      this.throwProjectile(s, wid, 1.4, def.speed, def.arc, reach);
     }
     this.emit({ type: 'shot', pos: { ...s.pos, y: s.pos.y + 1.4 }, weapon: wid, soldierId: s.id });
   }
@@ -1712,6 +1748,24 @@ export class World {
       if (!t.alive || t.team === team) continue;
       const d = Math.hypot(t.pos.x - pos.x, t.pos.z - pos.z);
       if (d < def.splash + 1) this.damageTurret(t, def.splashDamage * (1 - d / (def.splash + 1)));
+    }
+    // doors in the blast take demolition damage — grenades, tank shells, and
+    // bomber zeds are all door keys, just louder ones than E
+    if (def.splash > 0 && def.splashDamage > 0) {
+      const r = Math.ceil(def.splash / TILE) + 1;
+      const ctx = Math.floor((pos.x + WORLD / 2) / TILE), ctz = Math.floor((pos.z + WORLD / 2) / TILE);
+      for (let tz = Math.max(1, ctz - r); tz <= Math.min(GRID - 2, ctz + r); tz++) {
+        for (let tx = Math.max(1, ctx - r); tx <= Math.min(GRID - 2, ctx + r); tx++) {
+          const idx = tz * GRID + tx;
+          const g = this.map.grid[idx];
+          if (g !== T_DOOR && g !== T_DOOR_OPEN) continue;
+          const d = Math.hypot((tx + 0.5) * TILE - WORLD / 2 - pos.x, (tz + 0.5) * TILE - WORLD / 2 - pos.z);
+          if (d < def.splash + TILE * 0.5) {
+            // ×1.5: dumb wood takes a blast worse than a dodging soldier does
+            this.damageDoor(idx, (def.splashDamage + def.damage * 0.5) * 1.5 * (1 - d / (def.splash + TILE)), ownerId);
+          }
+        }
+      }
     }
     if (owner) { /* no-op: kill credit handled in damage fns */ }
   }

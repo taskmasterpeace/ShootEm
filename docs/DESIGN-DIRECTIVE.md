@@ -1673,6 +1673,19 @@ hand — is deliberately **not specified yet**; the acts themselves are canon.)*
   door-opening bots ride the next 49A pass. Fixed en route: bot path
   smoothing used a SHOT ray that flew over water (four bots once pinned at
   a pond in front of a base gate — now a walkability ray).
+- ✅ **The bot-doctrine pass shipped** (`DOCTRINE` in `bots.ts`): every
+  class fights by its own doctrine (standoff, chase-or-anchor, retreat
+  threshold, strafe, flank, marksmanship) — heavies anchor at 26u,
+  jump troopers skirmish at 9u, infiltrators snipe from 50u, and HUMANS
+  retreat when mauled (zeds never do — that's the species line). Door IQ:
+  doors are passable to the path planner; human bots press E, the horde
+  breaks them down (DOOR_HP 150 — a lone walker bangs ~10s, a brute 3
+  swings, a bomber IS a breaching charge, blasts breach ×1.5). Arc weapons
+  are cursor-targeted (land at aimDist) for players AND bots — this alone
+  took jump-trooper K/D from 0.47 to 0.96. CTF got class-shaped roles
+  (fast classes raid, armor guards home, carriers RUN, teammates escort);
+  its remaining 0–0 stalemate is measured, understood (one-lane symmetric
+  armies), and filed in BALANCE-PLAN §2.5.
 - ⛔ **Explicitly NOT in this document (user's call): the Director.** The
   pacing/orchestration system is deferred — §20.5 names the acts but not
   their conductor. Revisit later.

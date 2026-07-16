@@ -1,6 +1,6 @@
 import { CLASSES, VEHICLES, WEAPONS } from './data';
-import { GRID, T_OPEN, TILE, WORLD, isBlocked, losClear } from './map';
-import type { PlayerCmd, Soldier, Vec3 } from './types';
+import { GRID, T_DOOR, T_DOOR_OPEN, T_OPEN, TILE, WORLD, isBlocked, losClear } from './map';
+import type { ClassId, PlayerCmd, Soldier, Vec3 } from './types';
 import { DIFFICULTY_AIM, type World } from './world';
 
 const noCmd = (): PlayerCmd => ({
@@ -17,10 +17,31 @@ const toWorld = (t: number) => (t + 0.5) * TILE - WORLD / 2;
 function pathStep(w: World, from: Vec3, to: Vec3): Vec3 | null {
   const grid = w.map.grid;
   const sx = toTile(from.x), sz = toTile(from.z);
-  const gx = toTile(to.x), gz = toTile(to.z);
+  let gx = toTile(to.x), gz = toTile(to.z);
   if (sx === gx && sz === gz) return null;
-  const open = (x: number, z: number) => x >= 0 && z >= 0 && x < GRID && z < GRID && grid[z * GRID + x] === T_OPEN;
-  if (!open(gx, gz)) return null;
+  // doors are PASSABLE to the planner: humans open them, monsters break them.
+  // The walkability ray below still treats a closed door as solid, so the
+  // smoothed path delivers the bot TO the door, where its hands take over.
+  const open = (x: number, z: number) => {
+    if (x < 0 || z < 0 || x >= GRID || z >= GRID) return false;
+    const t = grid[z * GRID + x];
+    return t === T_OPEN || t === T_DOOR || t === T_DOOR_OPEN;
+  };
+  if (!open(gx, gz)) {
+    // the objective landed inside a structure (buildings stamp everywhere
+    // now) — spiral out to the nearest walkable tile instead of giving up.
+    // Giving up here is how a whole match once ended 0–0.
+    let found = false;
+    outer: for (let r = 1; r <= 4; r++) {
+      for (let dz = -r; dz <= r; dz++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+          if (open(gx + dx, gz + dz)) { gx += dx; gz += dz; found = true; break outer; }
+        }
+      }
+    }
+    if (!found) return null;
+  }
 
   const prev = new Int32Array(GRID * GRID).fill(-1);
   const q = new Int32Array(GRID * GRID);
@@ -108,6 +129,15 @@ function enemyVehicleNear(w: World, s: Soldier, maxRange: number) {
 
 // ---------- objective selection per mode ----------
 
+/** CTF roles are CLASS-shaped: fast boots raid, armor guards, the rest
+ *  pressure mid. (Role-by-id gave us a medic "raider" who never left spawn
+ *  and a heavy who died 18 times crossing mid.) */
+const raidsFlags = (s: Soldier) =>
+  s.classId === 'jump' || s.classId === 'pathfinder' || s.classId === 'infiltrator' ||
+  ((s.classId === 'infantry' || s.classId === 'ghost') && s.id % 2 === 0);
+const guardsHome = (s: Soldier) =>
+  (s.classId === 'heavy' || s.classId === 'engineer') && s.id % 2 === 0;
+
 function objectiveFor(w: World, s: Soldier): Vec3 {
   const m = w.mode;
   const enemyBase = w.map.basePos[1 - s.team];
@@ -117,9 +147,20 @@ function objectiveFor(w: World, s: Soldier): Vec3 {
       const ownFlag = m.flags![s.team];
       if (s.carryingFlag >= 0) return w.map.basePos[s.team]; // bring it home
       if (!ownFlag.atHome && ownFlag.carrierId < 0) return ownFlag.pos; // return ours
-      if (enemyFlag.carrierId === -1) return enemyFlag.pos; // go steal
-      // escort/hunt: their flag is being carried by teammate — push mid
-      return w.map.hillPos;
+      // a teammate is running it home — ESCORT the runner, don't sightsee mid.
+      // (Bodyguards are why captures happen at all in 12v12.)
+      const carrier = enemyFlag.carrierId >= 0 ? w.soldiers.get(enemyFlag.carrierId) : undefined;
+      if (carrier?.alive) return carrier.pos;
+      // fast classes raid straight in. (Two rally/wolf-pack designs were
+      // simmed and made it WORSE — raiders died assembling. Direct raids at
+      // least reach the doorstep; the rest of CTF's stalemate is a map/lane
+      // problem, measured and filed, not a brain bug.)
+      if (raidsFlags(s)) return enemyFlag.pos;
+      if (guardsHome(s)) { // armor orbits the flag stand (engineers seed sentries there)
+        const a = (s.id % 8) * (Math.PI / 4);
+        return { x: ownFlag.pos.x + Math.cos(a) * 6, y: 0, z: ownFlag.pos.z + Math.sin(a) * 6 };
+      }
+      return w.map.hillPos; // the rest pressure mid
     }
     case 'koth':
       return m.hillPos!;
@@ -154,6 +195,50 @@ function objectiveFor(w: World, s: Soldier): Vec3 {
     default: // tdm — hunt toward enemy side / last seen action
       return { x: enemyBase.x * 0.4 + w.map.hillPos.x * 0.6, y: 0, z: enemyBase.z * 0.4 };
   }
+}
+
+// ---------- per-class doctrine ----------
+// Every class fights like ITSELF: skirmishers close, anchors hold, marksmen
+// keep the whole street between them and trouble. Humans are more capable
+// than the horde in one specific way — they value their own lives (retreat).
+
+interface Doctrine {
+  /** the range this class wants to fight at */
+  standoff: number;
+  /** push toward a visible enemy when outside the band? anchors don't */
+  chase: boolean;
+  /** below this hp fraction the bot breaks contact — zeds never do */
+  retreat: number;
+  /** strafe-dance intensity while in the band */
+  strafe: number;
+  /** lateral bias while closing — flankers curve in, line troops walk straight */
+  flank: number;
+  /** aim-error multiplier: <1 marksman, >1 sprayer */
+  aim: number;
+}
+
+export const DOCTRINE: Record<ClassId, Doctrine> = {
+  infantry:    { standoff: 17, chase: true,  retreat: 0.22, strafe: 0.85, flank: 0.25, aim: 0.95 },
+  heavy:       { standoff: 26, chase: false, retreat: 0.12, strafe: 0.45, flank: 0,    aim: 1.15 },
+  jump:        { standoff: 9,  chase: true,  retreat: 0.28, strafe: 1.1,  flank: 0.35, aim: 1.0  },
+  engineer:    { standoff: 8,  chase: true,  retreat: 0.3,  strafe: 0.7,  flank: 0.1,  aim: 1.0  }, // a shotgunner's office is point blank
+  medic:       { standoff: 18, chase: false, retreat: 0.4,  strafe: 0.8,  flank: 0,    aim: 1.1  },
+  infiltrator: { standoff: 50, chase: false, retreat: 0.5,  strafe: 0.35, flank: 0.4,  aim: 0.8  },
+  pathfinder:  { standoff: 13, chase: true,  retreat: 0.3,  strafe: 1.0,  flank: 0.7,  aim: 1.0  },
+  ghost:       { standoff: 28, chase: false, retreat: 0.35, strafe: 0.6,  flank: 0.3,  aim: 0.9  },
+};
+
+/** Grid index of a CLOSED door within arm's reach along a heading, or -1. */
+function doorAhead(w: World, pos: Vec3, yaw: number): number {
+  for (const reach of [TILE * 0.6, TILE * 1.3]) {
+    const x = pos.x + Math.cos(yaw) * reach;
+    const z = pos.z + Math.sin(yaw) * reach;
+    const tx = Math.floor((x + WORLD / 2) / TILE);
+    const tz = Math.floor((z + WORLD / 2) / TILE);
+    if (tx < 1 || tz < 1 || tx >= GRID - 1 || tz >= GRID - 1) continue;
+    if (w.map.grid[tz * GRID + tx] === T_DOOR) return tz * GRID + tx;
+  }
+  return -1;
 }
 
 // ---------- main bot brain ----------
@@ -252,7 +337,8 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
     Math.hypot((s.botGoal?.x ?? 0) - s.pos.x, (s.botGoal?.z ?? 0) - s.pos.z) < 3;
   if (wantRepath) {
     s.botRepathAt = w.time + 0.9 + w.rng.next() * 0.7;
-    const dest = target && w.mode.id === 'tdm'
+    // chasers hunt the target in tdm; anchors keep walking their objective
+    const dest = target && w.mode.id === 'tdm' && DOCTRINE[s.classId].chase
       ? target.pos
       : goal;
     const wp = pathStep(w, s.pos, dest);
@@ -268,32 +354,59 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
     mvz = dz / dl;
   }
 
-  // --- combat ---
+  // --- combat: fight the way your class fights ---
   if (target) {
     const d = Math.hypot(target.pos.x - s.pos.x, target.pos.z - s.pos.z);
     const wdef = WEAPONS[s.weapons[s.weaponIdx]];
+    const doc = DOCTRINE[s.classId];
 
     // pick sensible weapon slot
     if (s.classId === 'heavy') cmd.weaponSlot = d > 25 || target.vehicleId >= 0 ? 1 : 0;
     else if (s.classId === 'medic') cmd.weaponSlot = 0;
     else if (s.classId === 'engineer') cmd.weaponSlot = 0;
+    else if (s.classId === 'jump') cmd.weaponSlot = d > 24 ? 1 : 0; // shell them while closing, SMG inside
 
     const aimErr = (w.rng.next() - 0.5) * (s.kind === 'zombie' ? 0.2 : 0.055) * (d / 18 + 0.6)
-      * DIFFICULTY_AIM[w.opts.difficulty ?? 'veteran'];
+      * DIFFICULTY_AIM[w.opts.difficulty ?? 'veteran'] * doc.aim;
     cmd.aimYaw = leadYaw(s.pos, target, wdef.speed) + aimErr;
     if (d < wdef.range * 0.95) cmd.fire = true;
+    if (wdef.arc) cmd.aimDist = d; // lob shells ON the target, not past it
 
-    // hold position vs close targets, strafe-dance
-    if (d < 22) {
-      if (w.rng.next() < 0.02) s.botStrafeDir = (s.botStrafeDir ?? 1) * -1;
-      const perp = cmd.aimYaw + Math.PI / 2;
-      mvx = Math.cos(perp) * (s.botStrafeDir ?? 1) * 0.8 + mvx * 0.3;
-      mvz = Math.sin(perp) * (s.botStrafeDir ?? 1) * 0.8 + mvz * 0.3;
-      // heavies and infiltrators back off, zombies never do
-      if (d < 8 && (s.classId === 'heavy' || s.classId === 'infiltrator')) {
-        mvx -= Math.cos(cmd.aimYaw) * 0.7;
-        mvz -= Math.sin(cmd.aimYaw) * 0.7;
+    const toT = Math.atan2(target.pos.z - s.pos.z, target.pos.x - s.pos.x);
+    // committed runners: the flag carrier, and CTF raiders on approach. One
+    // job: run. Fire over the shoulder, don't stop to duel — dead runners
+    // score nothing. (They still fight anyone inside 12u blocking the lane.)
+    const committed = s.carryingFlag >= 0 ||
+      (w.mode.id === 'ctf' && raidsFlags(s) && d > 12);
+    if (committed) {
+      // keep the objective movement computed above
+    } else if (s.hp < s.maxHp * doc.retreat) {
+      // capability, not courage: break contact toward home, guns still up.
+      // This is the line between a human and a zed — zeds never step back.
+      const base = w.map.basePos[s.team];
+      mvx = -Math.cos(toT) * 1.2 + (base.x - s.pos.x) * 0.015;
+      mvz = -Math.sin(toT) * 1.2 + (base.z - s.pos.z) * 0.015;
+      if (cls.ability === 'jetpack' && s.energy > 40) cmd.jump = true; // burn out of there
+    } else if (d > doc.standoff * 1.3) {
+      // hunting is a TDM luxury: in objective modes, chasing kills across
+      // the map is exactly how both teams forget the flags exist
+      if (doc.chase && w.mode.id === 'tdm') {
+        // close with a flanker's curve — straight lines are for the brave and brief
+        const side = (s.id % 2 ? 1 : -1) * doc.flank;
+        mvx = Math.cos(toT) + Math.cos(toT + Math.PI / 2) * side;
+        mvz = Math.sin(toT) + Math.sin(toT + Math.PI / 2) * side;
       }
+      // anchors keep walking the objective and shoot what shows itself
+    } else if (d < doc.standoff * 0.55) {
+      // inside the class's comfort band — give ground, guns up
+      mvx = -Math.cos(toT) * 0.9;
+      mvz = -Math.sin(toT) * 0.9;
+    } else {
+      // in the band: strafe-dance, a toe still pointed at the objective
+      if (w.rng.next() < 0.02) s.botStrafeDir = (s.botStrafeDir ?? 1) * -1;
+      const perp = toT + Math.PI / 2;
+      mvx = Math.cos(perp) * (s.botStrafeDir ?? 1) * doc.strafe + mvx * 0.25;
+      mvz = Math.sin(perp) * (s.botStrafeDir ?? 1) * doc.strafe + mvz * 0.25;
     }
 
     // grenades at clusters — cursor-targeted like players: land it ON the enemy
@@ -348,6 +461,22 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
       cmd.aimYaw = Math.atan2(fly.pos.z - s.pos.z, fly.pos.x - s.pos.x);
       cmd.grenade = true;
       cmd.fire = false;
+    }
+  }
+
+  // door IQ: a closed door on the walking line is a handle, not a wall.
+  // Humans OPEN doors — that one verb is half the capability gap between a
+  // soldier and the horde (which has to break them down). No door-fiddling
+  // mid-firefight; the fight owns the hands.
+  if (!target && (mvx !== 0 || mvz !== 0) && w.time >= (s.botUseAt ?? 0)) {
+    const idx = doorAhead(w, s.pos, Math.atan2(mvz, mvx));
+    if (idx >= 0) {
+      cmd.aimYaw = Math.atan2(
+        toWorld((idx / GRID) | 0) - s.pos.z,
+        toWorld(idx % GRID) - s.pos.x,
+      );
+      cmd.use = true;
+      s.botUseAt = w.time + 0.8;
     }
   }
 
@@ -440,6 +569,17 @@ export function stepZombie(w: World, s: Soldier, dt: number) {
           s.yaw = Math.atan2(dz, dx);
           s.vel.x = (dx / dl) * speed;
           s.vel.z = (dz / dl) * speed;
+          // searching house to house means going THROUGH the front door
+          const dIdx = doorAhead(w, s.pos, s.yaw);
+          if (dIdx >= 0) {
+            s.vel.x = 0;
+            s.vel.z = 0;
+            if (w.time >= s.nextFireAt) {
+              const wd = WEAPONS[s.weapons[0]];
+              s.nextFireAt = w.time + 1 / wd.rof;
+              w.damageDoor(dIdx, wd.damage * (s.kind === 'brute' ? 5 : 1), s.id);
+            }
+          }
           w.stepSoldierPhysics(s, dt);
           return;
         }
@@ -486,9 +626,10 @@ export function stepZombie(w: World, s: Soldier, dt: number) {
     }
   }
 
-  // spitters keep distance and spit; others close to melee
+  // spitters keep distance and spit — but only with a sightline; a spitter
+  // staring at a closed door falls through to the melee path and claws it
   const wdef = WEAPONS[s.weapons[0]];
-  if (isSpitter && bestD < 24) {
+  if (isSpitter && bestD < 24 && losClear(w.map.grid, { ...s.pos, y: 1.2 }, { ...best.pos, y: 1.2 })) {
     if (bestD < 14) {
       // back away
       s.vel.x = -Math.cos(s.yaw) * speed * 0.7;
@@ -509,6 +650,28 @@ export function stepZombie(w: World, s: Soldier, dt: number) {
     const dl = Math.hypot(dx, dz) || 1;
     s.vel.x = (dx / dl) * speed;
     s.vel.z = (dz / dl) * speed;
+    // a closed door between the dead and dinner: BREAK IT DOWN. The horde
+    // has no hands for handles — brutes swing like battering rams, bombers
+    // simply detonate, walkers claw the wood until it gives.
+    const doorIdx = doorAhead(w, s.pos, Math.atan2(s.vel.z, s.vel.x));
+    if (doorIdx >= 0) {
+      if (s.kind === 'bomber') {
+        // the bomber IS a breaching charge: pressed against the wood, the
+        // blast takes the whole door with it — one bang, one open house
+        w.damageDoor(doorIdx, 999, s.id);
+        w.damageSoldier(s, s.hp + 1, s.id, 'gl'); // suicide → blast hits the room
+        return;
+      }
+      s.vel.x = 0;
+      s.vel.z = 0;
+      s.yaw = Math.atan2(toWorld((doorIdx / GRID) | 0) - s.pos.z, toWorld(doorIdx % GRID) - s.pos.x);
+      if (w.time >= s.nextFireAt) {
+        s.nextFireAt = w.time + 1 / wdef.rof;
+        w.damageDoor(doorIdx, wdef.damage * (s.kind === 'brute' ? 5 : 1), s.id);
+      }
+      w.stepSoldierPhysics(s, dt);
+      return;
+    }
     if (bestD < wdef.range + 0.5 && w.time >= s.nextFireAt) {
       s.nextFireAt = w.time + 1 / wdef.rof;
       w.damageSoldier(best, wdef.damage, s.id, wdef.id);

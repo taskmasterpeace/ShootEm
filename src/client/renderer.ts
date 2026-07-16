@@ -545,9 +545,15 @@ export class Renderer {
       audio.loop(amb.ambience, amb.ambVol);
     }
 
-    // doors track the sim: open slides the slab to the jamb, closed refills
+    // doors track the sim: open slides the slab to the jamb, closed refills.
+    // A tile that stopped being a door got broken down — the slab is gone.
     for (const d of this.doors) {
-      const open = world.map.grid[d.idx] === T_DOOR_OPEN;
+      const t = world.map.grid[d.idx];
+      if (t !== T_DOOR && t !== T_DOOR_OPEN) {
+        d.mesh.visible = false;
+        continue;
+      }
+      const open = t === T_DOOR_OPEN;
       const off = open ? TILE * 0.82 : 0;
       const tx = d.base.x + (d.spansX ? off : 0);
       const tz = d.base.z + (d.spansX ? 0 : off);
@@ -1589,6 +1595,16 @@ export class Renderer {
             audio.play('hit', { pos: e.pos, volume: 0.55, rate: 1.6 });
           }
           break;
+        case 'doorhit': {
+          // something is banging on a door — splinters fly, wood thuds
+          if (e.pos) {
+            this.particles.emit({ pos: { ...e.pos, y: 1.2 }, count: 8, color: 0x8a5a2a, speed: 4, life: 0.45, spread: 0.7, up: 2.5, gravity: 8 });
+            if (!audio.play('door', { pos: e.pos, volume: 0.5, rate: 1.7 })) {
+              audio.play('thump', { pos: e.pos, volume: 0.4, rate: 1.4 });
+            }
+          }
+          break;
+        }
         case 'dig': {
           // the tunneler ground a wall to rubble — drop the instance, kick up dust
           if (e.tile !== undefined) this.collapseTile(e.tile);

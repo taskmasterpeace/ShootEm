@@ -210,6 +210,8 @@ export interface Soldier {
   botRepathAt?: number;
   botTargetId?: number;
   botStrafeDir?: number;
+  /** next sim time this bot may press E (one polite press, not a woodpecker) */
+  botUseAt?: number;
 }
 
 export interface Vehicle {
@@ -349,6 +351,7 @@ export interface SimEvent {
     | 'dig'            // tunneler ground a wall tile to rubble
     | 'system_damaged' // a vehicle subsystem went down
     | 'door'           // a door swung (open or shut) — E did it
+    | 'doorhit'        // something is BANGING on a door — claws, blasts
     | 'sparks'         // the breacher's drill met METAL — sparks, no progress
     | 'hacked'         // hacking kit converted an enemy turret
     | 'psi_ping';      // psi scanner found someone (HUD flashes the icon)
