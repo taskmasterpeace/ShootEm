@@ -142,6 +142,65 @@ export function checkSeasonEnd(c: Campaign, now = Date.now()): Armistice | null 
   return { winner, season, frontsHeld: held[winner] };
 }
 
+// ---------------------------------------------------------------------------
+// §11.5 NUDGE — the operator's hand on the map. Pure helpers (no DOM, no
+// storage) so the War Room server can drive the SAME math a real result uses.
+// §16's audit rule applies to admins too: every line below is loud about who
+// moved the map — the journal never launders a decree into a battle.
+// ---------------------------------------------------------------------------
+
+/** the operator's thumb has a weight limit: one nudge tips a front ±10 at most */
+export const NUDGE_LIMIT = 10;
+
+/**
+ * Tip a front by decree. Same rails, same band math, same scar logic as
+ * applyResult — but every dispatch line is prefixed OPERATOR, and a nudge
+ * never touches lastBattleAt or ends a season (the Armistice is a rite for
+ * real battles; checkSeasonEnd is deliberately NOT called here).
+ * Returns the dispatch lines written ([] for an unknown front or zero delta).
+ */
+export function applyNudge(c: Campaign, frontId: string, delta: number, now = Date.now()): string[] {
+  const def = FRONTS.find((f) => f.id === frontId);
+  const st = c.fronts[frontId];
+  const d = Math.max(-NUDGE_LIMIT, Math.min(NUDGE_LIMIT, delta));
+  if (!def || !st || !d) return [];
+  const before = bandOf(st.control);
+  st.control = Math.max(-100, Math.min(100, Math.round((st.control + d) * 10) / 10));
+  const after = bandOf(st.control);
+  const lines: string[] = [
+    `OPERATOR: command tipped ${def.name} ${d > 0 ? '+' : ''}${d} — the map moved by decree.`,
+  ];
+  if (after !== before) {
+    lines.push(after === 'contested'
+      ? `OPERATOR: ${def.name} has fallen CONTESTED — by order, not by battle.`
+      : `OPERATOR: ${def.name} is now ${after === 'coalition' ? 'United Front' : 'Collective'} ground — so says command.`);
+  }
+  const deep = Math.abs(st.control) >= SCAR_EDGE;
+  if (deep && !st.scarActive) {
+    st.scarActive = true;
+    lines.push(`OPERATOR: ${def.name} carries a scar now: ${SCAR_TEXT[def.scar]}.`);
+  } else if (!deep && st.scarActive && after === 'contested') {
+    st.scarActive = false;
+    lines.push(`OPERATOR: the decree churned ${def.name} back to raw ground — its scar fades.`);
+  }
+  for (const text of lines) c.dispatch.unshift({ text, at: now, simulated: false });
+  if (c.dispatch.length > 60) c.dispatch.length = 60;
+  return lines;
+}
+
+/**
+ * §11.5 — stage and name an operation: a line of operator intent in the
+ * Journal. It moves no control; it tells the theatre what command is
+ * planning, signed OPERATOR like every other act of the admin's hand.
+ */
+export function stageOperation(c: Campaign, name: string, note = '', now = Date.now()): string {
+  const codename = (name.trim().toUpperCase().slice(0, 24) || 'UNNAMED').replace(/\s+/g, ' ');
+  const text = `OPERATOR: Operation ${codename} is staged${note.trim() ? ` — ${note.trim().slice(0, 120)}` : ''}.`;
+  c.dispatch.unshift({ text, at: now, simulated: false });
+  if (c.dispatch.length > 60) c.dispatch.length = 60;
+  return text;
+}
+
 export const SCAR_TEXT: Record<FrontDef['scar'], string> = {
   fire: 'persistent fires burn the middle ground',
   rubble: 'collapsed cover litters the field',

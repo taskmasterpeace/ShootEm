@@ -12,3 +12,6 @@ public/audio/variants/
 
 # agent worktrees + local claude state
 .claude/
+
+# §11.5 the server's theatre file — the War Room's campaign state, per machine
+.warroom-campaign.json

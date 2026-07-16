@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>War World — War Room</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎖️</text></svg>" />
+  <style>
+    /* §11.5 The War Room — the operator's surface. Same military terminal the
+       harness speaks: dark steel, amber command, cyan telemetry. NO PURPLE. */
+    :root {
+      --bg: #14171b;
+      --panel: #1b1f26;
+      --panel-2: #232833;
+      --line: #333b47;
+      --ink: #e7ecf2;
+      --muted: #93a0b0;
+      --amber: #e8a33d;
+      --cyan: #3dbde8;
+      --good: #6fcf72;
+      --bad: #e8635a;
+      --radius: 8px;
+      --mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); }
+    body { padding: 0 0 40px; font-size: 13px; }
+
+    /* ── Top bar: identity, server link state, key ─────────────────────── */
+    #topbar {
+      position: sticky; top: 0; z-index: 10; height: 50px;
+      display: flex; align-items: center; gap: 14px; padding: 0 16px;
+      background: color-mix(in srgb, var(--panel) 94%, transparent);
+      backdrop-filter: blur(8px); border-bottom: 1px solid var(--line);
+    }
+    .brand { display: flex; align-items: baseline; gap: 8px; }
+    .brand h1 { font-size: 15px; margin: 0; letter-spacing: -0.02em; font-weight: 700; }
+    .brand h1 span { color: var(--amber); }
+    .brand .tag { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    .tool-link { text-decoration: none; color: var(--muted); font-size: 12px; border: 1px solid var(--line);
+      padding: 5px 10px; border-radius: 6px; }
+    .tool-link:hover { color: var(--amber); border-color: var(--amber); }
+    #linkbox { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    #linkbox label { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    #linkbox input {
+      background: var(--panel-2); border: 1px solid var(--line); color: var(--ink);
+      border-radius: 6px; padding: 5px 7px; font-size: 12px; font-family: var(--mono);
+    }
+    #srv-addr { width: 150px; }
+    #srv-key { width: 100px; }
+    #link-lamp {
+      display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600;
+      padding: 4px 9px; border-radius: 20px; border: 1px solid var(--line); color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap;
+    }
+    #link-lamp::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+    #link-lamp.up { color: var(--good); border-color: color-mix(in srgb, var(--good) 50%, var(--line)); }
+    #link-lamp.up::before { background: var(--good); box-shadow: 0 0 6px var(--good); }
+    #link-lamp.down { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 50%, var(--line)); }
+    #link-lamp.down::before { background: var(--bad); }
+
+    /* ── The four panels ───────────────────────────────────────────────── */
+    #board {
+      display: grid; gap: 12px; padding: 14px 16px; max-width: 1500px; margin: 0 auto;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    @media (max-width: 980px) { #board { grid-template-columns: 1fr; } }
+    .panel { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); overflow: hidden; }
+    .panel > h2 {
+      margin: 0; padding: 9px 12px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-weight: 600; background: var(--panel-2); border-bottom: 1px solid var(--line);
+      display: flex; justify-content: space-between; align-items: baseline;
+    }
+    .panel > h2 .sub { font-size: 10px; letter-spacing: 0.04em; text-transform: none; font-weight: 500; }
+    .panel-body { padding: 11px 12px; display: flex; flex-direction: column; gap: 9px; }
+
+    .offline {
+      border: 1px dashed color-mix(in srgb, var(--bad) 55%, var(--line));
+      color: var(--bad); border-radius: 6px; padding: 14px 12px; text-align: center;
+      font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .offline small { display: block; margin-top: 5px; color: var(--muted); font-weight: 400;
+      letter-spacing: 0; text-transform: none; }
+
+    /* numerals everywhere read like instruments */
+    .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+    /* ── OBSERVE: the Scar ─────────────────────────────────────────────── */
+    #season-line { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+    #season-line .season { color: var(--amber); font-weight: 700; font-size: 14px; letter-spacing: -0.01em; }
+    #season-line .hold { font-size: 11.5px; color: var(--muted); }
+    #season-line .hold b { color: var(--ink); font-family: var(--mono); }
+    #standing-bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; border: 1px solid var(--line); }
+    #standing-bar .uf { background: var(--amber); }
+    #standing-bar .con { background: #39414d; }
+    #standing-bar .col { background: var(--cyan); }
+    .front-row {
+      display: grid; grid-template-columns: 118px 1fr 52px 86px; gap: 8px; align-items: center;
+      padding: 3px 0; font-size: 12px;
+    }
+    .front-row .fname { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .front-row .fname small { color: var(--muted); font-weight: 400; margin-left: 4px; }
+    .ctrl-track { position: relative; height: 12px; background: #12161c; border: 1px solid var(--line); border-radius: 6px; }
+    .ctrl-track::after { content: ''; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--line); }
+    .ctrl-fill { position: absolute; top: 2px; bottom: 2px; border-radius: 3px; }
+    .ctrl-fill.uf { background: var(--amber); }
+    .ctrl-fill.col { background: var(--cyan); }
+    .ctrl-val { text-align: right; font-size: 11.5px; color: var(--ink); }
+    .band-chip {
+      font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      text-align: center; padding: 2px 4px; border-radius: 4px; border: 1px solid var(--line);
+      color: var(--muted); white-space: nowrap;
+    }
+    .band-chip.coalition { color: var(--amber); border-color: var(--amber); background: #33291b; }
+    .band-chip.collective { color: var(--cyan); border-color: var(--cyan); background: #182833; }
+    .band-chip.scarred::after { content: ' ✚'; color: var(--bad); }
+
+    /* ── OBSERVE: live battles + ADMINISTRATE ──────────────────────────── */
+    .room-card { border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); padding: 8px 10px;
+      display: flex; flex-direction: column; gap: 7px; }
+    .room-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+    .room-head .rmode { color: var(--amber); font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .room-head .rfront { color: var(--muted); font-size: 11px; }
+    .room-head .rclock { margin-left: auto; font-size: 12px; color: var(--cyan); }
+    .room-stats { display: flex; gap: 14px; font-size: 11.5px; color: var(--muted); flex-wrap: wrap; }
+    .room-stats b { color: var(--ink); font-family: var(--mono); font-variant-numeric: tabular-nums; }
+    .room-stats .s0 b { color: var(--amber); }
+    .room-stats .s1 b { color: var(--cyan); }
+    .roster { font-size: 11px; color: var(--muted); }
+    .roster b { color: var(--ink); font-weight: 600; }
+    .room-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    button.act {
+      appearance: none; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+      padding: 5px 9px; border-radius: 6px; font-size: 11px; cursor: pointer; transition: 0.12s; font-family: inherit;
+      font-weight: 600;
+    }
+    button.act:hover { border-color: var(--amber); color: var(--amber); }
+    button.act.danger:hover { border-color: var(--bad); color: var(--bad); }
+    .room-actions input {
+      background: var(--panel); border: 1px solid var(--line); color: var(--ink);
+      border-radius: 6px; padding: 5px 7px; font-size: 11px; font-family: inherit; width: 110px;
+    }
+
+    /* ── NUDGE ─────────────────────────────────────────────────────────── */
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field label { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .field select, .field input {
+      background: var(--panel-2); border: 1px solid var(--line); color: var(--ink);
+      border-radius: 6px; padding: 6px 8px; font-size: 12px; font-family: inherit; width: 100%;
+    }
+    .row { display: flex; gap: 8px; align-items: flex-end; }
+    .row > .field { flex: 1; }
+    button.big {
+      appearance: none; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink);
+      padding: 7px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; font-family: inherit; font-weight: 700;
+      white-space: nowrap;
+    }
+    button.big.uf:hover { border-color: var(--amber); color: var(--amber); }
+    button.big.col:hover { border-color: var(--cyan); color: var(--cyan); }
+    button.big.primary { background: #33291b; border-color: var(--amber); color: var(--amber); }
+    button.big.primary:hover { filter: brightness(1.15); }
+    .hint { font-size: 10.5px; color: var(--muted); line-height: 1.45; }
+
+    #journal { display: flex; flex-direction: column; gap: 3px; max-height: 240px; overflow-y: auto; }
+    #journal::-webkit-scrollbar { width: 8px; }
+    #journal::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+    .disp { font-size: 11.5px; padding: 4px 7px; border-left: 2px solid var(--line); background: #171b21; border-radius: 0 4px 4px 0; }
+    .disp .when { color: var(--muted); font-family: var(--mono); font-size: 10px; margin-right: 6px; }
+    .disp.operator { border-left-color: var(--amber); }
+    .disp.operator .txt { color: var(--amber); }
+    .disp.simulated .txt { color: var(--muted); font-style: italic; }
+
+    #cmd-wire { font-family: var(--mono); font-size: 11px; color: var(--muted); min-height: 15px; }
+    #cmd-wire.ok { color: var(--good); }
+    #cmd-wire.err { color: var(--bad); }
+
+    /* ── THE RESERVED SLOT — deliberately empty, deliberately visible ──── */
+    .panel.reserved { opacity: 0.55; border-style: dashed; }
+    .panel.reserved .panel-body {
+      min-height: 180px; display: flex; align-items: center; justify-content: center; text-align: center;
+    }
+    .panel.reserved .panel-body p { color: var(--muted); font-size: 12px; margin: 0; letter-spacing: 0.02em; }
+
+    footer { text-align: center; color: var(--muted); font-size: 10.5px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div id="topbar">
+    <div class="brand">
+      <h1>WAR<span>WORLD</span></h1>
+      <span class="tag">War Room · operator console</span>
+    </div>
+    <a class="tool-link" href="/harness.html">🔧 Harness</a>
+    <a class="tool-link" href="/">▶ The Game</a>
+    <div id="linkbox">
+      <label>Server</label>
+      <input type="text" id="srv-addr" value="" placeholder="localhost:3401" />
+      <label>Key</label>
+      <input type="password" id="srv-key" value="" placeholder="dev-key" />
+      <span id="link-lamp">Linking…</span>
+    </div>
+  </div>
+
+  <div id="board">
+    <!-- OBSERVE 1/2: the Scar at a glance -->
+    <section class="panel">
+      <h2>The Scar — theatre standing <span class="sub num" id="scar-stamp"></span></h2>
+      <div class="panel-body" id="scar-body">
+        <div class="offline">Server offline<small>Start it with <code>npm run server</code> — the Scar reads from the live status endpoint.</small></div>
+      </div>
+    </section>
+
+    <!-- OBSERVE 2/2 + ADMINISTRATE: live battles with the boring tools attached -->
+    <section class="panel">
+      <h2>Live battles — administrate <span class="sub">end · broadcast · restart · kick</span></h2>
+      <div class="panel-body" id="rooms-body">
+        <div class="offline">Server offline<small>Rooms appear here the moment a soldier connects.</small></div>
+      </div>
+    </section>
+
+    <!-- NUDGE: the operator's hand on the map, audited in the journal -->
+    <section class="panel">
+      <h2>Nudge the campaign <span class="sub">every act signed OPERATOR in the dispatch (§16)</span></h2>
+      <div class="panel-body">
+        <div class="row">
+          <div class="field">
+            <label>Front</label>
+            <select id="nudge-front"></select>
+          </div>
+          <button class="big col" id="nudge-minus">−10 Collective</button>
+          <button class="big uf" id="nudge-plus">+10 United Front</button>
+        </div>
+        <div class="row">
+          <div class="field" style="flex:0 0 34%">
+            <label>Operation codename</label>
+            <input type="text" id="op-name" maxlength="24" placeholder="EMBER LATCH" />
+          </div>
+          <div class="field">
+            <label>Note (optional)</label>
+            <input type="text" id="op-note" maxlength="120" placeholder="what command intends" />
+          </div>
+          <button class="big primary" id="op-stage">Stage operation</button>
+        </div>
+        <div id="cmd-wire"></div>
+        <div class="field">
+          <label>Morning dispatch — the journal</label>
+          <div id="journal"><div class="hint">The dispatch arrives with the server link.</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- THE RESERVED SLOT: §11.5 scoped it out ON PURPOSE. Do not design it here. -->
+    <section class="panel reserved" aria-disabled="true">
+      <h2>Pacing &amp; Orchestration — reserved</h2>
+      <div class="panel-body">
+        <p>This conversation is deliberately deferred.</p>
+      </div>
+    </section>
+  </div>
+
+  <footer>polls <span class="num">/warroom/status</span> every <span class="num">5s</span> · commands via <span class="num">POST /warroom/cmd</span></footer>
+
+  <script type="module" src="/src/warroom/warroom.ts"></script>
+</body>
+</html>

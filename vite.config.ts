@@ -21,6 +21,8 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html'),
         // the model / physics / combat debug harness (dev tool, /harness.html)
         harness: resolve(__dirname, 'harness.html'),
+        // §11.5 the War Room — the operator's console (/warroom.html)
+        warroom: resolve(__dirname, 'warroom.html'),
       },
     },
   },
