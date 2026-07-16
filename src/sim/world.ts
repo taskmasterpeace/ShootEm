@@ -317,6 +317,8 @@ export class World {
     s.pos = { x: base.x + this.rng.range(-1.5, 1.5), y: 0, z: base.z + this.rng.range(-1.5, 1.5) };
     s.vel = { x: 0, y: 0, z: 0 };
     // spawn protection (55B): holds until the first hostile action, 5s cap.
+    // §21 The Reprint: the shimmer IS calibration — a fresh sleeve syncing up,
+    // the printer finishing its work. Same numbers, honest fiction.
     // Arms on MID-MATCH respawns only — the match-start deployment is deep in
     // friendly ground and needs none. The undead get none either: a horde
     // that can't be shot walking in is no horde.

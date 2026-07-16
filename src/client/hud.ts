@@ -541,6 +541,13 @@ export class Hud {
         setTimeout(() => entry.remove(), 6000);
       }
       if (e.type === 'hit' && e.soldierId === localId) this.flashHitmarker();
+      // §21 The Reprint: the announcer's one word when the printer finishes.
+      // Local human only (localId is always this client's human; bots get no
+      // ceremony), and never the match-start deployment — your first walk to
+      // the front isn't a reprint, it's an enlistment.
+      if (e.type === 'respawn' && e.soldierId === localId && world.time > 1) {
+        this.announce('REPRINTED', false, now);
+      }
       if (e.type === 'psi_ping' && e.soldierId === localId) this.psiFlashUntil = now + 1;
       if ((e.type === 'announce' || e.type === 'flag_taken' || e.type === 'flag_captured' ||
            e.type === 'flag_returned' || e.type === 'point_captured' || e.type === 'wave_start' ||

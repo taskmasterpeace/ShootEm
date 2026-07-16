@@ -218,7 +218,7 @@ describe('visual: pickups', () => {
 // ---- 7. props: 4 types, rocks cover their collision (4 cases) --------------
 
 describe('visual: props', () => {
-  it.each(['rock', 'tree', 'crate', 'bunker'])('%s prop builds visibly', (type) => {
+  it.each(['rock', 'tree', 'crate', 'bunker', 'clone_bay'])('%s prop builds visibly', (type) => {
     const p = buildProp(type, 1.6);
     expect(Math.max(...bbox(p).toArray())).toBeGreaterThan(0.5);
     if (type === 'rock') {
@@ -297,7 +297,7 @@ describe('visual: no purple, ever', () => {
       assertNoPurple(buildGadget(t, 0), t);
     }
     for (const p of ['medkit', 'ammo', 'energy', 'flamer']) assertNoPurple(buildPickup(p), p);
-    for (const p of ['rock', 'tree', 'crate', 'bunker']) assertNoPurple(buildProp(p, 1.2), p);
+    for (const p of ['rock', 'tree', 'crate', 'bunker', 'clone_bay']) assertNoPurple(buildProp(p, 1.2), p);
     assertNoPurple(buildTurretMesh(0), 'turret');
     assertNoPurple(buildGate(), 'gate');
     assertNoPurple(buildPad(), 'pad');

@@ -25,10 +25,11 @@ const tileCenter = (idx: number) => ({
 
 /** How far from a prop's center its mesh visually reaches, per type.
  *  rock: its stamped disc (scale = r·1.6 by generator contract) plus
- *  half-tile slop; tree/crate: their own tile; bunker claims nothing. */
+ *  half-tile slop; tree/crate/clone_bay: their own tile; bunker claims
+ *  nothing. The clone bay (§21) stands dead-center on its one claimed tile. */
 const visualReach = (type: string, scale: number) =>
   type === 'rock' ? (scale / 1.6) * TILE + TILE * 0.5 :
-  type === 'tree' || type === 'crate' ? TILE * 0.75 : 0;
+  type === 'tree' || type === 'crate' || type === 'clone_bay' ? TILE * 0.75 : 0;
 
 const allMaps = () => {
   const maps = [];

@@ -1628,6 +1628,32 @@ export function buildProp(type: string, scale: number): THREE.Object3D {
       g.add(wall, roof);
       return g;
     }
+    case 'clone_bay': {
+      // §21 The Reprint: the machine you come back from. A glass pod on a
+      // steel collar, ~3u tall. PropSpec carries no team, so the core glows
+      // neutral printer-amber — the bay serves whoever's base it stands in.
+      // NO purple, ever.
+      const g = new THREE.Group();
+      const collar = cyl(1.0, 1.15, 0.3, mat(0x3a3f3c, { metal: 0.55, rough: 0.4 }), 12);
+      collar.position.y = 0.15;
+      const core = cyl(0.3, 0.3, 1.9, mat(0xf0b040, { emissive: 0xd88a18 }), 8);
+      core.position.y = 1.35;
+      core.name = 'core';
+      // the glass is hand-rolled (not cyl()): transparent, no depth write, no
+      // cast shadow — a pod that shades its own printer floor reads as solid
+      const glass = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.78, 0.78, 2.3, 12, 1, true),
+        new THREE.MeshStandardMaterial({
+          color: 0xbfe3e8, transparent: true, opacity: 0.22,
+          roughness: 0.12, metalness: 0.1, depthWrite: false, side: THREE.DoubleSide,
+        }),
+      );
+      glass.position.y = 1.55;
+      const cap = cyl(0.95, 0.8, 0.35, mat(0x3a3f3c, { metal: 0.55, rough: 0.4 }), 12);
+      cap.position.y = 2.85;
+      g.add(collar, core, glass, cap);
+      return g;
+    }
     default:
       return new THREE.Group();
   }

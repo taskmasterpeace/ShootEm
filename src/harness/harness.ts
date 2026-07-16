@@ -518,7 +518,7 @@ const pickupGrid = $('pickup-grid');
 for (const p of ['medkit', 'ammo', 'energy', 'flamer'] as const)
   pickupGrid.appendChild(chip(p, '', () => showModel(() => buildPickup(p), `Pickup · ${p}`)));
 const propGrid = $('prop-grid');
-for (const p of ['rock', 'tree', 'crate', 'bunker'] as const)
+for (const p of ['rock', 'tree', 'crate', 'bunker', 'clone_bay'] as const)
   propGrid.appendChild(chip(p, '', () => showModel(() => buildProp(p, 1.2), `Prop · ${p}`)));
 
 // inspect toggles

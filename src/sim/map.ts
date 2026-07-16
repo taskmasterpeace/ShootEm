@@ -62,7 +62,7 @@ export function houseAt(houses: House[], x: number, z: number): number {
 }
 
 export interface PropSpec {
-  type: 'rock' | 'bunker' | 'crate' | 'tree' | 'ruin';
+  type: 'rock' | 'bunker' | 'crate' | 'tree' | 'ruin' | 'clone_bay';
   pos: Vec3;
   scale: number;
   rot: number;
@@ -360,6 +360,13 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
       setTile(grid, btx + i, btz + 6, i % 3 === 0 ? T_OPEN : T_WALL);
     }
     props.push({ type: 'bunker', pos: tileToWorld(btx - open * 4, btz), scale: 1, rot: side === 0 ? 0 : Math.PI });
+    // §21 The Reprint: the clone bay — the machine you come back from. ONE
+    // glass pod per base, one tile off the spawn ring, so every fresh sleeve
+    // walks past its own printer on the way to the front. It claims its tile
+    // like every prop (the invisible-wall law, tests/walls.test.ts): T_COVER,
+    // because armored glass stops boots and bullets but not eyes.
+    claimTile(grid, claims, btx, btz + 4, T_COVER);
+    props.push({ type: 'clone_bay', pos: tileToWorld(btx, btz + 4), scale: 1, rot: side === 0 ? 0 : Math.PI });
   }
 
   // Center clearings for objectives
