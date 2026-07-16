@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
-import { F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt } from '../sim/map';
+import { F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt } from '../sim/map';
 import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
 import { HAND_FRAG_REACH, type World } from '../sim/world';
 import { audio, type SoundName } from './audio';
@@ -141,7 +141,7 @@ export class Renderer {
   killcamFocusId = -1;
   private killerRing: THREE.Mesh | null = null;             // pulsing marker over the killer
   /** cutaway roofs (§8.4): fade when the viewed soldier stands beneath one */
-  private roofs: { mesh: THREE.Mesh; house: { tx: number; tz: number; tw: number; th: number } }[] = [];
+  private roofs: { group: THREE.Group; mats: THREE.MeshStandardMaterial[]; house: { tx: number; tz: number; tw: number; th: number } }[] = [];
   /** second-storey shells (walls + floor slab) per two-storey house — faded
    *  like roofs when the focus stands on the ground floor beneath them */
   private uppers: { group: THREE.Group; house: { tx: number; tz: number; tw: number; th: number }; mats: THREE.MeshStandardMaterial[] }[] = [];
@@ -245,10 +245,14 @@ export class Renderer {
         const t = world.map.grid[z * GRID + x];
         const n = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453;
         const r = n - Math.floor(n);
-        ctx.fillStyle = t === T_WATER ? pal.water(r) : pal.open(r);
+        ctx.fillStyle = t === T_WATER || t === T_DEEP ? pal.water(r) : pal.open(r);
+        if (t === T_DEEP) {
+          // deep channel: the same water, drowned darker
+          ctx.fillStyle = pal.water(r).replace(/\d+/g, (n) => String(Math.round(Number(n) * 0.55)));
+        }
         ctx.fillRect(x * px, z * px, px + 1, px + 1);
         // §8.6 surface tints: the ground SHOWS what it does to your boots
-        if (t !== T_WATER) {
+        if (t !== T_WATER && t !== T_DEEP) {
           const sf = world.map.surface[z * GRID + x];
           const tint = sf === S_MUD ? 'rgba(62,44,26,0.55)'
             : sf === S_ICE ? 'rgba(190,220,235,0.28)'
@@ -301,7 +305,7 @@ export class Renderer {
       for (let x = 0; x < GRID; x++) {
         const idx = z * GRID + x;
         const t = world.map.grid[idx];
-        if (t === T_OPEN || t === T_WATER || t === T_LADDER || covered.has(idx)) continue;
+        if (t === T_OPEN || t === T_WATER || t === T_DEEP || t === T_LADDER || covered.has(idx)) continue;
         if (t === T_COVER) {
           coverTiles.push([x, z]);
         } else if (t === T_SLIT) {
@@ -474,18 +478,90 @@ export class Renderer {
     // cutaway when you (or the killcam's subject) are under it. Fading
     // transparents need depthWrite OFF and a late renderOrder or the walls
     // beneath sort wrong (the classic three.js trap).
-    for (const r of this.roofs) { this.scene.remove(r.mesh); r.mesh.geometry.dispose(); (r.mesh.material as THREE.Material).dispose(); }
+    for (const r of this.roofs) { this.scene.remove(r.group); r.group.traverse((o) => (o as THREE.Mesh).geometry?.dispose()); r.mats.forEach((m) => m.dispose()); }
     this.roofs = [];
     for (const h of world.map.houses) {
-      const w = h.tw * TILE, d = h.th * TILE;
-      const mat = new THREE.MeshStandardMaterial({ color: pal.wall, roughness: 0.85, transparent: true, opacity: 0.97 });
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, 0.3, d), mat);
-      const roofY = (h as { floors?: number }).floors === 2 ? 8.15 : 4.15;
-      mesh.position.set((h.tx + h.tw / 2) * TILE - WORLD / 2, roofY, (h.tz + h.th / 2) * TILE - WORLD / 2);
-      mesh.castShadow = true;
-      mesh.renderOrder = 3;
-      this.scene.add(mesh);
-      this.roofs.push({ mesh, house: h });
+      const style = h.roof ?? 'flat';
+      if (style === 'none') continue; // a shelled ruin is open to the sky
+      const roofY = h.floors === 2 ? 8.15 : 4.15;
+      const group = new THREE.Group();
+      const rmat = new THREE.MeshStandardMaterial({
+        color: style === 'gable' ? 0x7a5a40 : pal.wall,
+        roughness: 0.85, transparent: true, opacity: 0.97,
+      });
+      const mats = [rmat];
+      const cx = (h.tx + h.tw / 2) * TILE - WORLD / 2;
+      const cz = (h.tz + h.th / 2) * TILE - WORLD / 2;
+      const covered = (rx: number, rz: number) =>
+        !h.maskRows || ((h.maskRows[rz] ?? 0) & (1 << rx)) !== 0;
+      if (style === 'gable') {
+        // a REAL pitched roof: two sloped planes to a ridge + gable end caps.
+        // Ridge runs along the longer axis; rise scales with the short span.
+        const alongX = h.tw >= h.th;
+        const spanW = (alongX ? h.th : h.tw) * TILE;   // slope direction
+        const spanL = (alongX ? h.tw : h.th) * TILE;   // ridge direction
+        const rise = Math.min(2.2, spanW * 0.22);
+        const slopeLen = Math.hypot(spanW / 2, rise) + 0.15;
+        for (const side of [1, -1]) {
+          const slope = new THREE.Mesh(new THREE.BoxGeometry(spanL + 0.2, 0.22, slopeLen), rmat);
+          slope.position.set(0, rise / 2, side * spanW / 4);
+          slope.rotation.x = side * Math.atan2(rise, spanW / 2);
+          if (!alongX) { slope.rotation.y = Math.PI / 2; slope.position.set(side * spanW / 4, rise / 2, 0); slope.rotation.x = 0; slope.rotation.z = -side * Math.atan2(rise, spanW / 2); }
+          slope.castShadow = true;
+          group.add(slope);
+        }
+        // gable end caps: triangular prisms via cylinder(3) is ugly — two
+        // thin boxes stacked in a wedge read cleanly at our tile scale
+        for (const end of [1, -1]) {
+          const cap = new THREE.Mesh(new THREE.BoxGeometry(0.24, rise * 0.85, spanW * 0.55), rmat);
+          if (alongX) cap.position.set(end * (spanL / 2 - 0.12), rise * 0.4, 0);
+          else { cap.rotation.y = Math.PI / 2; cap.position.set(0, rise * 0.4, end * (spanL / 2 - 0.12)); }
+          group.add(cap);
+        }
+        group.position.set(cx, roofY, cz);
+      } else {
+        // footprint-true flat lid: one slab PER COVERED TILE — an L-shaped
+        // house gets an L-shaped roof, full stop
+        for (let rz = 0; rz < h.th; rz++) {
+          for (let rx = 0; rx < h.tw; rx++) {
+            if (!covered(rx, rz)) continue;
+            const slab = new THREE.Mesh(new THREE.BoxGeometry(TILE, 0.3, TILE), rmat);
+            slab.position.set((h.tx + rx + 0.5) * TILE - WORLD / 2 - cx, 0, (h.tz + rz + 0.5) * TILE - WORLD / 2 - cz);
+            slab.castShadow = true;
+            group.add(slab);
+          }
+        }
+        if (style === 'parapet') {
+          // commercial: a raised lip around the rect edge
+          for (const [px, pz, pw, pd] of [
+            [0, -h.th * TILE / 2 + TILE * 0.15, h.tw * TILE, 0.3],
+            [0, h.th * TILE / 2 - TILE * 0.15, h.tw * TILE, 0.3],
+            [-h.tw * TILE / 2 + TILE * 0.15, 0, 0.3, h.th * TILE],
+            [h.tw * TILE / 2 - TILE * 0.15, 0, 0.3, h.th * TILE],
+          ] as const) {
+            const lip = new THREE.Mesh(new THREE.BoxGeometry(pw, 0.55, pd), rmat);
+            lip.position.set(px, 0.35, pz);
+            group.add(lip);
+          }
+        } else if (style === 'vents') {
+          // industry: rooftop vents + a skylight strip
+          const vmat = new THREE.MeshStandardMaterial({ color: 0x9aa3ad, metalness: 0.7, roughness: 0.4, transparent: true, opacity: 0.97 });
+          mats.push(vmat);
+          for (let i = 0; i < Math.max(2, Math.floor(h.tw / 5)); i++) {
+            const vent = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.8, 1.1), vmat);
+            vent.position.set((i - Math.floor(h.tw / 10)) * 4.5, 0.55, (i % 2 ? 1 : -1) * h.th * TILE * 0.18);
+            group.add(vent);
+          }
+          const sky = new THREE.Mesh(new THREE.BoxGeometry(h.tw * TILE * 0.5, 0.18, 1.2), vmat);
+          sky.position.set(0, 0.32, 0);
+          group.add(sky);
+        }
+        group.position.set(cx, roofY, cz);
+      }
+      group.renderOrder = 3;
+      group.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) m.castShadow = true; });
+      this.scene.add(group);
+      this.roofs.push({ group, mats, house: h });
     }
 
     // walls the sim already dug (mid-match join) come down immediately
@@ -669,10 +745,9 @@ export class Renderer {
     if (this.roofs.length) {
       const focus = world.soldiers.get(localId);
       const inHouse = focus ? houseAt(world.map.houses, focus.pos.x, focus.pos.z) : -1;
-      for (let i = 0; i < this.roofs.length; i++) {
-        const r = this.roofs[i];
-        const m = r.mesh.material as THREE.MeshStandardMaterial;
-        let open = i === inHouse;
+      for (const r of this.roofs) {
+        const hIdx = world.map.houses.indexOf(r.house as typeof world.map.houses[number]);
+        let open = hIdx === inHouse;
         if (!open && focus) {
           const h = r.house;
           const x0 = h.tx * TILE - WORLD / 2, z0 = h.tz * TILE - WORLD / 2;
@@ -681,8 +756,10 @@ export class Renderer {
           open = dx * dx + dz * dz < 4.5 * 4.5;
         }
         const target = open ? 0.12 : 0.97;
-        m.opacity += (target - m.opacity) * Math.min(1, dt * 8);
-        m.depthWrite = m.opacity > 0.9; // fading lids must not write depth
+        for (const m of r.mats) {
+          m.opacity += (target - m.opacity) * Math.min(1, dt * 8);
+          m.depthWrite = m.opacity > 0.9; // fading lids must not write depth
+        }
       }
     }
 
@@ -775,6 +852,21 @@ export class Renderer {
         }
       }
       mesh.position.set(s.pos.x, s.pos.y, s.pos.z);
+      // in the water: waders splash at boot height, swimmers sink to the neck
+      {
+        const wt = world.map.grid[Math.floor((s.pos.z + WORLD / 2) / TILE) * GRID + Math.floor((s.pos.x + WORLD / 2) / TILE)];
+        if (wt === T_DEEP && s.pos.y < 0.5) {
+          mesh.position.y -= 0.95 - Math.sin(world.time * 2.2 + s.id) * 0.06; // swimming: chin on the waterline
+          if ((s.vel.x !== 0 || s.vel.z !== 0) && Math.random() < 0.15) {
+            this.particles.emit({ pos: { x: s.pos.x, y: 0.15, z: s.pos.z }, count: 2, color: 0xbfe2ec, speed: 1.5, life: 0.4, spread: 0.5, up: 1.5, gravity: 5 });
+          }
+        } else if (wt === T_WATER && s.pos.y < 0.5) {
+          mesh.position.y -= 0.28; // wading: shins under
+          if ((s.vel.x !== 0 || s.vel.z !== 0) && Math.random() < 0.08) {
+            this.particles.emit({ pos: { x: s.pos.x, y: 0.1, z: s.pos.z }, count: 1, color: 0xbfe2ec, speed: 1.2, life: 0.3, spread: 0.4, up: 1.2, gravity: 5 });
+          }
+        }
+      }
       mesh.rotation.y = -s.yaw; // sim yaw is math-angle on XZ; three rotates opposite
       this.animateSoldier(mesh, s, world);
     }
@@ -825,6 +917,7 @@ export class Renderer {
       if (rider) rider.visible = v.seats[0] >= 0;
       let hoverBob =
         v.kind === 'skiff' ? Math.sin(world.time * 3 + v.id) * 0.15 + 0.3 :
+        v.kind === 'boat' ? Math.sin(world.time * 2.1 + v.id) * 0.08 + 0.05 :
         v.kind === 'hoverboard' ? Math.sin(world.time * 4 + v.id) * 0.1 + 0.25 :
         0;
       // flyers earn their altitude: parked on skids, rotors spool with a

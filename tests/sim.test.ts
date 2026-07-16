@@ -146,16 +146,15 @@ describe('vehicles', () => {
     expect(Math.hypot(v.pos.x - v.padPos.x, v.pos.z - v.padPos.z)).toBeLessThan(1);
   });
 
-  it('tank cannot cross water but skiff can', () => {
+  it('DEEP water blocks the tank; shallow fords; the skiff skims both', () => {
     expect(VEHICLES.skiff.speed).toBeGreaterThan(VEHICLES.tank.speed); // sanity
-    const w = new World({ seed: 42, mode: 'tdm' });
-    // direct grid check: water blocks ground, not hover
-    const m = w.map;
-    let waterTile: { x: number; z: number } | null = null;
-    for (let z = -95; z < 95 && !waterTile; z += 0.5)
-      for (let x = -95; x < 95 && !waterTile; x += 0.5)
-        if (isBlocked(m.grid, x, z, false) && !isBlocked(m.grid, x, z, true)) waterTile = { x, z };
-    expect(waterTile).not.toBeNull(); // maps contain water hover vehicles can cross
+    // europa fronts raise the moat — guaranteed deep water hover can cross
+    const m = generateMap(42, 'tdm', 'europa');
+    let deepTile: { x: number; z: number } | null = null;
+    for (let z = -95; z < 95 && !deepTile; z += 0.5)
+      for (let x = -95; x < 95 && !deepTile; x += 0.5)
+        if (isBlocked(m.grid, x, z, false) && !isBlocked(m.grid, x, z, true)) deepTile = { x, z };
+    expect(deepTile).not.toBeNull(); // ground drowns where hover skims
   });
 });
 

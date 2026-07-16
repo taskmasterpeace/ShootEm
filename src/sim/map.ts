@@ -10,7 +10,7 @@ export const WORLD = TILE * GRID; // 200 units square, centered on origin
 export const T_OPEN = 0;
 export const T_WALL = 1;   // tall — blocks movement, bullets, sight
 export const T_COVER = 2;  // low crate/sandbag — blocks movement, not railgun sight... (blocks projectiles too, simple)
-export const T_WATER = 3;  // impassable to soldiers, hover skiff can cross
+export const T_WATER = 3;  // SHALLOW water: everyone wades (slow); wheels ford
 export const T_SLIT = 4;   // firing slit (§8.4): blocks movement ALWAYS; blocks
                            // fire/sight everywhere EXCEPT the 1.2–1.8 height band
 export const T_DOOR = 5;       // closed door — blocks movement + sight; E opens it
@@ -19,6 +19,8 @@ export const T_METAL = 7;      // metal wall — blocks like a wall, and the bre
                                // CANNOT grind it: the drill just throws sparks
 export const T_LADDER = 8;     // ladder foot — walkable ground; E climbs to the
                                // second storey (the grid2 layer, §8.4 Phase-2)
+export const T_DEEP = 9;       // deep water: soldiers SWIM (slow, no shooting);
+                               // only hover craft and boats cross; wheels drown
 
 // ---- the SURFACE layer (§8.6): what the ground IS, orthogonal to blocking ----
 export const S_DIRT = 0;   // bare rock/dirt — the neutral surface
@@ -79,6 +81,12 @@ export interface House {
   tx: number; tz: number; tw: number; th: number;
   /** 2 = has a second storey (roof sits at 8, not 4) */
   floors?: number;
+  /** roof style, decided by the building's kind — gable for whole-rect
+   *  houses, parapet lips for commercial, vents for industry, none on ruins */
+  roof?: 'gable' | 'flat' | 'parapet' | 'vents' | 'none';
+  /** footprint bitmask per stencil row (bit x = tile tx+x is covered) — the
+   *  roof is shaped by the FOOTPRINT, not the bounding rect */
+  maskRows?: number[];
 }
 
 export interface GameMap {
@@ -123,7 +131,8 @@ export function tileAt(grid: Uint8Array, x: number, z: number): number {
 
 export function isBlocked(grid: Uint8Array, x: number, z: number, hover = false): boolean {
   const t = tileAt(grid, x, z);
-  if (t === T_WATER) return !hover;
+  if (t === T_WATER) return false;   // shallow: wadeable by everyone (slowly)
+  if (t === T_DEEP) return !hover;   // deep: hover only — soldiers SWIM via their own physics
   // slits and CLOSED doors block movement always; open doors are a doorway
   return t === T_WALL || t === T_COVER || t === T_SLIT || t === T_DOOR || t === T_METAL;
 }
@@ -288,13 +297,32 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
     } else {
       // water: savanna ponds, Europa pools, Triton crevasses (none on starships)
       if (gen === 'corridors') continue;
-      const r = gen === 'ocean' ? rng.int(2, 4) : rng.int(2, 3);
+      const r = gen === 'ocean' ? rng.int(3, 4) : rng.int(2, 3);
       for (let z = -r; z <= r; z++)
         for (let x = -r; x <= r; x++)
           if (x * x + z * z <= r * r) {
-            setTile(grid, tx + x, tz + z, T_WATER);
-            setTile(grid, mirror(tx + x), tz + z, T_WATER);
+            // deep core, shallow rim: you can wade the edge of any pond, but
+            // the middle is a SWIM — slow, defenseless, and worth avoiding
+            const deep = x * x + z * z <= (r - 1.4) * (r - 1.4);
+            setTile(grid, tx + x, tz + z, deep ? T_DEEP : T_WATER);
+            setTile(grid, mirror(tx + x), tz + z, deep ? T_DEEP : T_WATER);
           }
+    }
+  }
+
+  // THE MOAT (ocean worlds): a ring lake around the center island — deep
+  // water in the channel (swim: slow, defenseless), shallow banks, and two
+  // shallow FORD causeways north and south. KOTH becomes king of the
+  // island; gunboats own the channel; fords are the infantry chokepoints.
+  if (gen === 'ocean') {
+    for (let z = 0; z < GRID; z++) {
+      for (let x = 0; x < GRID; x++) {
+        const d = Math.hypot(x - half + 0.5, z - half + 0.5);
+        if (d < 7 || d > 15) continue;
+        const ford = Math.abs(x - half + 0.5) <= 1.2; // the north/south causeways
+        const deep = !ford && d > 8.2 && d < 13.8;
+        setTile(grid, x, z, deep ? T_DEEP : T_WATER);
+      }
     }
   }
 
@@ -306,7 +334,7 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
   const houses: House[] = [];
   const buildCtx = { grid, grid2, props, pickups, houses, claims, rng };
   placeBuildings(buildCtx, 3, [
-    { tx: half, tz: half, r: 12 },            // the hill
+    { tx: half, tz: half, r: gen === 'ocean' ? 18 : 12 }, // the hill (+ the moat)
     { tx: half - 22, tz: half - 22, r: 8 },   // CP A clearing
     { tx: half + 22, tz: half + 22, r: 8 },   // CP C clearing
   ]);
@@ -378,11 +406,22 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
     vehiclePads.push({ kind: 'emplacement', team: side as Team, pos: tileToWorld(ex, ez) });
   }
 
+  // gunboats moor on the SHALLOW inner bank beside the causeways — where
+  // wading bots actually pass within boarding reach (a pad out in the deep
+  // channel is a boat nobody can walk to)
+  if (gen === 'ocean') {
+    // ring radius 7.9 — inside the SHALLOW band (7.0–8.2), beside a causeway
+    vehiclePads.push({ kind: 'boat', team: 0, pos: tileToWorld(half - 3, half - 8) });
+    vehiclePads.push({ kind: 'boat', team: 1, pos: tileToWorld(half + 2, half + 7) });
+  }
+
   // Pickups sprinkled around midfield, mirrored
   const pickTypes: PickupSpawn['type'][] = ['medkit', 'ammo', 'energy', 'medkit', 'ammo', 'flamer'];
   pickTypes.forEach((type, i) => {
     const tz = 12 + Math.floor((i / pickTypes.length) * (GRID - 24)) + rng.int(-4, 4);
-    const tx = half + rng.int(-16, 16);
+    let tx = half + rng.int(-16, 16);
+    // ocean worlds: never drop a supply crate INTO the moat
+    if (gen === 'ocean' && Math.hypot(tx - half, tz - half) < 17) tx = tx < half ? half - 20 : half + 20;
     clearArea(grid, tx, tz, 1);
     pickups.push({ type, pos: tileToWorld(tx, tz) });
     pickups.push({ type, pos: tileToWorld(GRID - 1 - tx, tz) });

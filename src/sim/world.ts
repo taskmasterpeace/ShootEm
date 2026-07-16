@@ -1,6 +1,6 @@
 import { CLASSES, EQUIPMENT, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
-import { F2_VOID, F2_WELL, GRID, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
+import { F2_VOID, F2_WELL, GRID, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
 import { Rng } from './rng';
 import {
   SYSTEM_IDS, isCoopMode, isZed,
@@ -757,6 +757,9 @@ export class World {
       return;
     }
 
+    // deep water takes both your hands: no shooting, no throwing, no jumping
+    const swimming = tileAt(this.map.grid, s.pos.x, s.pos.z) === T_DEEP;
+
     if (cmd.use) {
       if (this.opts.mode === 'safehouse' && this.toggleEscort(s)) {
         // E next to the scientist toggles escort instead of vehicle entry
@@ -809,7 +812,7 @@ export class World {
     s.vel.z = (mz / len) * speed;
 
     // jetpack (jump troopers) / hop for everyone
-    if (cmd.jump) {
+    if (cmd.jump && !swimming) {
       if (c.ability === 'jetpack' && s.energy > 1) {
         s.vel.y = JET_THRUST;
         s.energy = Math.max(0, s.energy - JET_DRAIN * dt);
@@ -909,7 +912,7 @@ export class World {
     // grenade key: orbital designator > demolition kit > class special > frag.
     // Every thrown item is cursor-targeted: it lands at cmd.aimDist, clamped
     // to the item's max reach (proven top-down mechanic — throw at the cursor).
-    if (cmd.grenade && this.time >= s.nextGrenadeAt) {
+    if (cmd.grenade && !swimming && this.time >= s.nextGrenadeAt) {
       const reachTo = (max: number) => Math.max(4, Math.min(cmd.aimDist ?? max, max));
       const grenadeGateBefore = s.nextGrenadeAt; // any branch that acts moves this
       // manpads only claims the key while an aircraft is locked — no lock, no wasted round
@@ -970,8 +973,8 @@ export class World {
       if (s.nextGrenadeAt !== grenadeGateBefore) s.protectedUntil = 0;
     }
 
-    // firing
-    if (cmd.fire && s.reloadUntil === 0 && this.time >= s.nextFireAt) {
+    // firing — unless you are SWIMMING
+    if (cmd.fire && !swimming && s.reloadUntil === 0 && this.time >= s.nextFireAt) {
       if (s.clip[s.weaponIdx] > 0) {
         s.protectedUntil = 0; // hostile action ends spawn protection (55B)
         this.fireSoldierWeapon(s, wid, def, cmd.aimDist);
@@ -1186,18 +1189,27 @@ export class World {
       if (Math.abs(s.pushX) < 0.05) s.pushX = 0;
       if (Math.abs(s.pushZ) < 0.05) s.pushZ = 0;
     }
-    const nx = s.pos.x + (s.vel.x + s.pushX) * dt;
-    const nz = s.pos.z + (s.vel.z + s.pushZ) * dt;
+    // water drags EVERYONE the same way — players, bots, the horde: wading
+    // is slow, swimming is slower (and swimming means no trigger finger)
+    const tHere = tileAt(this.map.grid, s.pos.x, s.pos.z);
+    const waterMult = tHere === T_DEEP ? 0.38 : tHere === T_WATER ? 0.55 : 1;
+    const nx = s.pos.x + (s.vel.x + s.pushX) * waterMult * dt;
+    const nz = s.pos.z + (s.vel.z + s.pushZ) * waterMult * dt;
     // §8.7 the HOP verb: past ~0.9u of air a soldier clears LOW COVER — a
     // running hop (apex ~1.1) vaults sandbags and crates. Walls, slits, and
     // water stay absolute: the jump vocabulary's WALL tier belongs to nobody.
     const airborne = s.pos.y > 0.9;
     const blocksAir = (x: number, z: number) => {
       const t = tileAt(this.map.grid, x, z);
-      return t === T_WALL || t === T_SLIT || t === T_WATER;
+      return t === T_WALL || t === T_SLIT || t === T_DEEP;
     };
-    const blockedX = airborne ? blocksAir(nx, s.pos.z) : isBlocked(this.map.grid, nx, s.pos.z);
-    const blockedZ = airborne ? blocksAir(s.pos.x, nz) : isBlocked(this.map.grid, s.pos.x, nz);
+    const groundBlocked = (x: number, z: number) => {
+      const t = tileAt(this.map.grid, x, z);
+      if (t === T_DEEP || t === T_WATER) return false; // wade in, swim deeper
+      return isBlocked(this.map.grid, x, z);
+    };
+    const blockedX = airborne ? blocksAir(nx, s.pos.z) : groundBlocked(nx, s.pos.z);
+    const blockedZ = airborne ? blocksAir(s.pos.x, nz) : groundBlocked(s.pos.x, nz);
     if (!blockedX) s.pos.x = nx;
     if (!blockedZ) s.pos.z = nz;
     s.pos.x = Math.max(-WORLD / 2 + 2, Math.min(WORLD / 2 - 2, s.pos.x));
@@ -1440,7 +1452,9 @@ export class World {
 
       const nx = v.pos.x + v.vel.x * dt;
       const nz = v.pos.z + v.vel.z * dt;
-      const r = def.radius;
+      // boats are flat-bottomed: a shallow DRAFT (smaller collision probe)
+      // lets the hull hug banks and moor beside causeways without pinning
+      const r = def.boat ? def.radius * 0.55 : def.radius;
       if (def.flies || (def.digs && v.burrowed)) {
         // flyers soar over everything; a deep breacher passes UNDER it all —
         // walls, cover, even water. Only the map border stops either.
@@ -1464,9 +1478,12 @@ export class World {
         }
         const hover = !!def.hover;
         // striders (mech) step OVER low cover — only walls and water stop legs
-        const blockedAt = def.strider
-          ? (x: number, z: number) => { const t = tileAt(this.map.grid, x, z); return t === T_WALL || t === T_WATER; }
-          : (x: number, z: number) => isBlocked(this.map.grid, x, z, hover);
+        const blockedAt = def.boat
+          // boats live ON the water: every land tile is their wall
+          ? (x: number, z: number) => { const t = tileAt(this.map.grid, x, z); return t !== T_WATER && t !== T_DEEP; }
+          : def.strider
+            ? (x: number, z: number) => { const t = tileAt(this.map.grid, x, z); return t === T_WALL || t === T_DEEP; }
+            : (x: number, z: number) => isBlocked(this.map.grid, x, z, hover);
         const clearAt = (x: number, z: number) =>
           !blockedAt(x + r, z) && !blockedAt(x - r, z) &&
           !blockedAt(x, z + r) && !blockedAt(x, z - r);

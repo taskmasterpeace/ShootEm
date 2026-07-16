@@ -1717,6 +1717,23 @@ hand — is deliberately **not specified yet**; the acts themselves are canon.)*
   rounds, pathfinder pylons, ghost mast, infantry frags). Faction
   distinction is TEST-ENFORCED: skin vs sealed, box helm vs dome, and the
   Collective must out-glow the Front.
+- ✅ **The waterline + the districts shipped**: water split into SHALLOW
+  (everyone wades, slow; wheels ford; bots path through — fords are routes)
+  and DEEP (you SWIM: 0.38x speed, no shooting, no throwing, no jumping;
+  wheels drown, hover skims). Ponds grew deep cores; europa fronts raise
+  **THE MOAT** — a ring lake around the center island with two shallow
+  causeways and a **Pike Gunboat** per team (water-locked, shallow draft,
+  deck MG, 3 seats). Bot boat doctrine: boat-curious bots board a free
+  Pike (even mid-fight when adjacent), PATROL the ring with the gun
+  talking, and beach it after twelve quiet seconds. Buildings gained two
+  new grammars — **commercial** (storefront with a glass front, market
+  hall with stall rows, office block with a corridor spine that sometimes
+  rises two storeys) and **industrial** (factory with machine bays and
+  truck doors, freight depot with rack rows) — metal shells on industry,
+  every layout grown, none repeating. And ROOFS TELL THE TRUTH: gabled
+  ridges on whole-rect houses, footprint-true flat lids on L-shapes,
+  parapet lips on commerce, vent-and-skylight tops on industry, and NO
+  roof on a shelled ruin.
 - ⛔ **Explicitly NOT in this document (user's call): the Director.** The
   pacing/orchestration system is deferred — §20.5 names the acts but not
   their conductor. Revisit later.

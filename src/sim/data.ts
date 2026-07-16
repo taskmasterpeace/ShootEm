@@ -45,6 +45,7 @@ const CORE_WEAPONS: Record<WeaponId, WeaponDef> = {
   // the stomp: not a gun — an AoE ground slam resolved through explode().
   // The knockback IS the weapon; the damage is a bruise, not a kill.
   mech_stomp: W({ id: 'mech_stomp', name: 'Seismic Stomp', damage: 0, rof: 1, speed: 1, clip: Infinity, reserve: Infinity, range: 5, splash: 4.5, splashDamage: 35, knockback: 16, sound: 'thump', tracer: 'none' }),
+  boat_mg: W({ id: 'boat_mg', name: 'Pike Deck MG', damage: 12, rof: 9, speed: 105, spread: 0.04, clip: Infinity, reserve: Infinity, range: 56, sound: 'autocannon' }),
   apc_mg: W({ id: 'apc_mg', name: 'APC MG', damage: 12, rof: 8, speed: 105, spread: 0.04, clip: Infinity, reserve: Infinity, range: 55, sound: 'autocannon' }),
   skiff_plasma: W({ id: 'skiff_plasma', name: 'Skiff Plasma', damage: 18, rof: 7, speed: 65, spread: 0.02, clip: Infinity, reserve: Infinity, range: 50, sound: 'plasma', tracer: 'plasma' }),
   turret_mg: W({ id: 'turret_mg', name: 'Sentry MG', damage: 10, rof: 5, speed: 100, spread: 0.03, clip: Infinity, reserve: Infinity, range: 38, sound: 'smg' }),
@@ -146,6 +147,15 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
     kind: 'emplacement', name: 'Bulwark Emplacement', hp: 380, speed: 0, turnRate: 0,
     weapon: 'emplacement_gun', seats: 1, mobileSpawn: false, radius: 1.6,
     immobile: true, systemHp: 40,
+  },
+  // The Pike: the moat's landlord. Fast and mean ON the water, useless off
+  // it — a water-locked weapons platform with a bench for two marines who
+  // can shoot from the deck. Counters swimmers utterly (they can't shoot
+  // back); loses to shore rockets it can't chase inland.
+  boat: {
+    kind: 'boat', name: 'Pike Gunboat', hp: 260, speed: 21, turnRate: 2.6,
+    weapon: 'boat_mg', seats: 3, mobileSpawn: false, radius: 1.8,
+    boat: true, systemHp: 28,
   },
   // The Goliath: the walking middle ground. Slower than a tank in a straight
   // line but pivots like a soldier, and its LEGS are the point — low cover

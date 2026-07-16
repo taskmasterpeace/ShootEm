@@ -546,9 +546,14 @@ describe('performance and boundaries', () => {
     const w = new World({ seed: 77, mode: 'tdm' });
     const s = w.addSoldier('Gunner', 'infiltrator', 0, 'human');
     s.pos = { ...w.map.hillPos };
-    // rail shots at nothing, toward the border
-    for (let i = 0; i < 10; i++) w.step(1 / 60, new Map([[s.id, cmd({ fire: true, aimYaw: 0 })]]));
-    expect(w.projectiles.size).toBeGreaterThan(0);
+    // rail shots at nothing, toward the border — some may hit buildings
+    // early (the map grows structures now), so track the high-water mark
+    let seen = 0;
+    for (let i = 0; i < 10; i++) {
+      w.step(1 / 60, new Map([[s.id, cmd({ fire: true, aimYaw: 0 })]]));
+      seen = Math.max(seen, w.projectiles.size);
+    }
+    expect(seen).toBeGreaterThan(0);
     run(w, new Map(), 4); // far beyond any weapon ttl
     expect(w.projectiles.size).toBe(0);
   });

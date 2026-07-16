@@ -25,7 +25,8 @@ export type VehicleKind =
   | 'ambulance'    // field ambulance — heals soldiers around it, 2 stretcher seats
   | 'tunneler'     // tunneling machine — grinds through walls, glacially slow
   | 'emplacement'  // static emplacement gun — manned artillery, does not move
-  | 'mech';        // bipedal assault walker — strides over low cover, stomps
+  | 'mech'         // bipedal assault walker — strides over low cover, stomps
+  | 'boat';        // river gunboat — water-locked, fast on the channel, MG
 
 /** Damageable vehicle subsystems. Crew stations correspond to the last three. */
 export type SystemId = 'engine' | 'weapon' | 'sensors' | 'ecm' | 'comms';
@@ -120,6 +121,8 @@ export interface VehicleDef {
   systemHp?: number;
   /** cannot move at all (emplacement gun) */
   immobile?: boolean;
+  /** water-locked: moves ONLY on water tiles — land is its wall (gunboat) */
+  boat?: boolean;
 }
 
 /** Per-subsystem damage record: hp remaining for each SystemId. */

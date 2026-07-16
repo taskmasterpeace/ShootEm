@@ -763,6 +763,39 @@ export function buildVehicle(kind: VehicleKind, team: Team): THREE.Group {
   turret.add(recoil);
 
   switch (kind) {
+    case 'boat': {
+      // the Pike: a flat-bottomed river gunboat — bow wedge, low freeboard,
+      // wheelhouse aft, deck MG forward. Sits low; the water does the rest.
+      const hull = box(3.4, 0.55, 1.7, body);
+      hull.position.y = 0.45;
+      g.add(hull);
+      const bow = box(0.9, 0.45, 1.2, bodyDark);
+      bow.position.set(1.95, 0.42, 0);
+      bow.rotation.z = -0.18;
+      g.add(bow);
+      const gunwaleL = box(3.2, 0.22, 0.12, bodyDark);
+      gunwaleL.position.set(0, 0.82, 0.8);
+      const gunwaleR = gunwaleL.clone();
+      gunwaleR.position.z = -0.8;
+      g.add(gunwaleL, gunwaleR);
+      const house = box(0.9, 0.7, 1.1, bodyDark);
+      house.position.set(-1.05, 1.05, 0);
+      g.add(house);
+      const glass = box(0.08, 0.28, 0.9, mat(0x9fd8e8, { rough: 0.2, metal: 0.4 }));
+      glass.position.set(-0.58, 1.2, 0);
+      g.add(glass);
+      const stripe = box(3.42, 0.07, 0.3, glow);
+      stripe.position.set(0, 0.74, 0);
+      g.add(stripe);
+      const outboard = box(0.35, 0.55, 0.5, dark);
+      outboard.position.set(-1.85, 0.55, 0);
+      g.add(outboard);
+      const gun = box(1.0, 0.1, 0.1, dark);
+      gun.position.set(0.5, 0.05, 0);
+      recoil.add(gun);
+      turret.position.set(0.7, 0.95, 0);
+      break;
+    }
     case 'buggy': {
       const hull = box(2.5, 0.5, 1.5, body);
       hull.position.y = 0.8;

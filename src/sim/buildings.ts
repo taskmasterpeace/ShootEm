@@ -24,7 +24,7 @@ import type { Rng } from './rng';
 export interface BuildingDef {
   id: string;
   name: string;
-  kind: 'house' | 'industrial' | 'military' | 'ruin';
+  kind: 'house' | 'commercial' | 'industrial' | 'military' | 'ruin';
   /** 1 = single storey; 2 = the §8.4 Phase-2 experiment — rows2 rides above */
   floors: 1 | 2;
   rows: string[];
@@ -347,6 +347,150 @@ function growHouse(rng: Rng, type: DynHouseType): BuildingDef {
   };
 }
 
+// ---------------------------------------------------------------------------
+// The districts — COMMERCIAL and INDUSTRIAL buildings, grown with their own
+// grammars (a shop is not a house with a sign; a factory is not a big shop):
+//   storefront — glass front (window row), counter, back room, rear door
+//   market     — one open hall, stall rows with shopping aisles
+//   office     — corridor spine, small rooms both sides; sometimes two floors
+//   factory    — metal shell, machine blocks in bays, wide doors both ends
+//   depot_hall — metal, long rack rows with forklift aisles, loading doors
+// ---------------------------------------------------------------------------
+
+export type DistrictType = 'storefront' | 'market' | 'office' | 'factory' | 'depot_hall';
+
+export function generateDistrict(rng: Rng, type: DistrictType): BuildingDef {
+  for (let tries = 0; ; tries++) {
+    const def = growDistrict(rng, type);
+    if (tries >= 4 || stencilConnected(def)) return def;
+  }
+}
+
+function growDistrict(rng: Rng, type: DistrictType): BuildingDef {
+  const commercial = type === 'storefront' || type === 'market' || type === 'office';
+  const wall = commercial ? '#' : 'M';
+  const spec: Record<DistrictType, { w: [number, number]; h: [number, number]; name: string }> = {
+    storefront: { w: [8, 11], h: [7, 9], name: 'Storefront' },
+    market:     { w: [13, 17], h: [9, 11], name: 'Market Hall' },
+    office:     { w: [12, 16], h: [9, 11], name: 'Office Block' },
+    factory:    { w: [14, 18], h: [10, 12], name: 'Factory' },
+    depot_hall: { w: [13, 17], h: [9, 11], name: 'Freight Depot' },
+  };
+  const w = rng.int(spec[type].w[0], spec[type].w[1]);
+  const h = rng.int(spec[type].h[0], spec[type].h[1]);
+  const g: string[][] = [];
+  for (let z = 0; z < h; z++) {
+    g.push([]);
+    for (let x = 0; x < w; x++) g[z].push(z === 0 || z === h - 1 || x === 0 || x === w - 1 ? wall : '.');
+  }
+  let rows2: string[] | undefined;
+  let floors: 1 | 2 = 1;
+
+  if (type === 'storefront') {
+    // the GLASS FRONT: the whole south wall is window slits around the door
+    for (let x = 1; x < w - 1; x++) g[h - 1][x] = 'S';
+    // the counter: a crate line two tiles in from the front, with a gap
+    const gap = rng.int(1, w - 3);
+    for (let x = 1; x < w - 1; x++) if (Math.abs(x - gap) > 0) g[h - 3][x] = 'C';
+    // back room with a connecting door + rear exit
+    for (let x = 1; x < w - 1; x++) g[2][x] = '#';
+    g[2][rng.int(1, w - 2)] = 'D';
+    g[0][rng.int(1, w - 2)] = 'D';
+    g[1][rng.int(1, w - 2)] = 'P'; // the stockroom holds the goods
+  } else if (type === 'market') {
+    // stall rows with aisles — an open fighting hall full of hard cover
+    for (let z = 2; z < h - 2; z += 2) {
+      for (let x = 2; x < w - 2; x++) {
+        if ((x - 2) % 4 === 3) continue; // shopping aisles cut the rows
+        g[z][x] = 'C';
+      }
+    }
+    g[Math.floor(h / 2)][Math.floor(w / 2)] = 'P';
+    // windows on the long sides, wide doors at both gables — market day
+    for (let z = 2; z < h - 2; z += 3) { g[z][0] = 'S'; g[z][w - 1] = 'S'; }
+    const mmid = Math.floor(w / 2);
+    g[h - 1][mmid - 1] = 'D'; g[h - 1][mmid] = 'D';
+    g[0][rng.int(2, w - 3)] = 'D';
+  } else if (type === 'office') {
+    // corridor spine with small rooms both sides
+    const zc = Math.floor(h / 2);
+    for (let x = 1; x < w - 1; x++) { g[zc - 1][x] = '#'; g[zc + 1][x] = '#'; }
+    let x0 = 1;
+    while (x0 < w - 1) {
+      const rw = Math.min(rng.int(3, 4), w - 1 - x0);
+      if (rw < 2) break;
+      if (x0 + rw < w - 1) {
+        for (let z = 1; z < zc - 1; z++) g[z][x0 + rw] = '#';
+        for (let z = zc + 2; z < h - 1; z++) g[z][x0 + rw] = '#';
+      }
+      g[zc - 1][x0 + rng.int(0, rw - 1)] = 'D';
+      g[zc + 1][x0 + rng.int(0, rw - 1)] = 'D';
+      x0 += rw + 1;
+    }
+    // corridor exits both ends
+    g[zc][0] = 'D';
+    g[zc][w - 1] = 'D';
+    for (let x = 2; x < w - 2; x += 3) { g[0][x] = 'S'; g[h - 1][x] = 'S'; }
+    g[1][1] = 'C';
+    g[h - 2][w - 2] = 'P';
+    // some office blocks rise a storey — the corridor stairwell gets a ladder
+    if (rng.next() < 0.4) {
+      g[zc][Math.floor(w / 2)] = 'L';
+      const u: string[][] = [];
+      for (let z = 0; z < h; z++) {
+        u.push([]);
+        for (let x = 0; x < w; x++) u[z].push(z === 0 || z === h - 1 || x === 0 || x === w - 1 ? '#' : '.');
+      }
+      for (let x = 2; x < w - 2; x += 3) { u[0][x] = 'S'; u[h - 1][x] = 'S'; }
+      for (let z = 2; z < h - 2; z += 3) { u[z][0] = 'S'; u[z][w - 1] = 'S'; }
+      u[zc][Math.floor(w / 2)] = 'L';
+      rows2 = u.map((r) => r.join(''));
+      floors = 2;
+    }
+  } else if (type === 'factory') {
+    // machine bays: 2x2 blocks of machinery down the floor, wide lanes
+    for (let z = 2; z < h - 3; z += 3) {
+      for (let x = 2; x < w - 3; x += 4) {
+        g[z][x] = 'C'; g[z][x + 1] = 'C';
+        g[z + 1][x] = 'C'; g[z + 1][x + 1] = 'C';
+      }
+    }
+    // wide doors both ends (trucks drive through)
+    const mid = Math.floor(w / 2);
+    g[h - 1][mid - 1] = 'D'; g[h - 1][mid] = 'D'; g[h - 1][mid + 1] = 'D';
+    g[0][mid] = 'D'; g[0][mid + 1] = 'D';
+    for (let z = 2; z < h - 2; z += 3) { g[z][0] = 'S'; g[z][w - 1] = 'S'; }
+    g[1][1] = 'P';
+  } else {
+    // depot_hall: long rack rows with forklift aisles
+    for (let z = 2; z < h - 2; z++) {
+      if ((z - 2) % 3 === 2) continue; // cross aisles
+      for (let x = 2; x < w - 2; x += 3) { g[z][x] = 'C'; }
+    }
+    const mid = Math.floor(w / 2);
+    g[h - 1][mid] = 'D'; g[h - 1][mid + 1] = 'D';
+    g[0][rng.int(2, w - 3)] = 'D';
+    for (let z = 3; z < h - 3; z += 4) { g[z][0] = 'S'; g[z][w - 1] = 'S'; }
+    g[Math.floor(h / 2)][Math.floor(w / 2) + 1] = 'P';
+  }
+
+  // clear cover that seals a doorway (a stall in front of the door is a wall)
+  for (let z = 1; z < h - 1; z++) {
+    for (let x = 1; x < w - 1; x++) {
+      if (g[z][x] !== 'C') continue;
+      const nearD = g[z - 1][x] === 'D' || g[z + 1][x] === 'D' || g[z][x - 1] === 'D' || g[z][x + 1] === 'D';
+      if (nearD) g[z][x] = '.';
+    }
+  }
+
+  return {
+    id: `dyn_${type}`, name: spec[type].name,
+    kind: commercial ? 'commercial' : 'industrial', floors,
+    rows: g.map((r) => r.join('')),
+    ...(rows2 ? { rows2 } : {}),
+  };
+}
+
 /** Every open-floor cell reachable from the front door? (No sealed rooms —
  *  the generator's contract, enforced again by the test suite.) */
 export function stencilConnected(def: BuildingDef): boolean {
@@ -456,12 +600,30 @@ export function stampBuilding(ctx: StampCtx, def: BuildingDef, tx: number, tz: n
   }
   const center = interior ?? { x: tx + Math.floor(w / 2), z: tz + Math.floor(h / 2) };
   const door = frontDoor ?? { x: tx + Math.floor(w / 2), z: tz + h - 1 };
+  // the roof is shaped by the FOOTPRINT and styled by the KIND — a shelled
+  // ruin does not get a pristine lid, and an L-house roof follows the L
+  const maskRows: number[] = [];
+  let fullRect = true;
+  for (let rz = 0; rz < h; rz++) {
+    let bits = 0;
+    for (let rx = 0; rx < w; rx++) {
+      if (((def.rows[rz] ?? '')[rx] ?? ' ') !== ' ') bits |= 1 << rx;
+      else fullRect = false;
+    }
+    maskRows.push(bits);
+  }
+  const roof: House['roof'] =
+    def.kind === 'ruin' ? 'none'
+    : def.kind === 'commercial' ? 'parapet'
+    : def.kind === 'industrial' || def.kind === 'military' ? 'vents'
+    : fullRect ? 'gable' : 'flat';
   ctx.houses.push({
     id: ctx.houses.length,
     center: tileToWorld(center.x, center.z),
     door: tileToWorld(door.x, door.z),
     tx, tz, tw: w, th: h,
     floors: def.floors,
+    roof, maskRows,
   });
   return true;
 }
@@ -486,11 +648,16 @@ export function placeBuildings(ctx: StampCtx, pairs: number, avoid: AvoidZone[])
   let attempts = 0;
   while (done < pairs && attempts < 120) {
     attempts++;
-    // a good share of the housing stock is GROWN, not picked: dynamic
-    // interiors mean no two fronts share a floor plan
-    const def = ctx.rng.next() < 0.4
+    // most of the stock is GROWN, not picked — houses, shops, and industry
+    // each with their own floor-plan grammar: no two fronts share a layout
+    const roll = ctx.rng.next();
+    const def = roll < 0.35
       ? generateHouse(ctx.rng, (['manor', 'bungalow', 'hall_house'] as const)[ctx.rng.int(0, 2)])
-      : BUILDINGS[ctx.rng.int(0, BUILDINGS.length - 1)];
+      : roll < 0.55
+        ? generateDistrict(ctx.rng, (['storefront', 'market', 'office'] as const)[ctx.rng.int(0, 2)])
+        : roll < 0.7
+          ? generateDistrict(ctx.rng, (['factory', 'depot_hall'] as const)[ctx.rng.int(0, 1)])
+          : BUILDINGS[ctx.rng.int(0, BUILDINGS.length - 1)];
     const h = def.rows.length;
     const w = Math.max(...def.rows.map((r) => r.length));
     const tx = ctx.rng.int(22, 45 - w);

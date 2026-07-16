@@ -1,5 +1,5 @@
 import { CLASSES, VEHICLES, WEAPONS } from './data';
-import { GRID, T_DOOR, T_DOOR_OPEN, T_OPEN, TILE, WORLD, isBlocked, losClear } from './map';
+import { GRID, T_DOOR, T_DOOR_OPEN, T_LADDER, T_OPEN, T_WATER, TILE, WORLD, isBlocked, losClear } from './map';
 import type { ClassId, PlayerCmd, Soldier, Vec3 } from './types';
 import { DIFFICULTY_AIM, type World } from './world';
 
@@ -20,12 +20,14 @@ function pathStep(w: World, from: Vec3, to: Vec3): Vec3 | null {
   let gx = toTile(to.x), gz = toTile(to.z);
   if (sx === gx && sz === gz) return null;
   // doors are PASSABLE to the planner: humans open them, monsters break them.
+  // SHALLOW water is passable too — fords are routes now, not walls. DEEP
+  // water stays off the menu: a swimming bot can't shoot back.
   // The walkability ray below still treats a closed door as solid, so the
   // smoothed path delivers the bot TO the door, where its hands take over.
   const open = (x: number, z: number) => {
     if (x < 0 || z < 0 || x >= GRID || z >= GRID) return false;
     const t = grid[z * GRID + x];
-    return t === T_OPEN || t === T_DOOR || t === T_DOOR_OPEN;
+    return t === T_OPEN || t === T_DOOR || t === T_DOOR_OPEN || t === T_WATER || t === T_LADDER;
   };
   if (!open(gx, gz)) {
     // the objective landed inside a structure (buildings stamp everywhere
@@ -302,6 +304,33 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
       return cmd;
     }
 
+    // the Pike PATROLS: a boat can rarely reach a land objective, so it owns
+    // the water instead — circle the ring with the deck gun talking, and
+    // beach it only when the war goes quiet for a while
+    if (vdef.boat) {
+      const target = wdef ? findTarget(w, s, wdef.range) : null;
+      if (target && wdef) {
+        s.botRepathAt = w.time + 12; // engaged — stay aboard
+        cmd.aimYaw = leadYaw(v.pos, target, wdef.speed) + (w.rng.next() - 0.5) * 0.05;
+        cmd.fire = true;
+      } else if (w.time >= Math.max(s.botRepathAt ?? 0, s.enteredVehicleAt + 12)) {
+        cmd.use = true; // twelve quiet seconds aboard — step off at the bank
+        return cmd;
+      }
+      // steer at a point further around the ring (the moat is a circle;
+      // circling is ALWAYS a legal boat move on the maps boats spawn on)
+      const ang = Math.atan2(v.pos.z, v.pos.x) + 0.55;
+      const px = Math.cos(ang) * 33, pz = Math.sin(ang) * 33;
+      const wantBow = Math.atan2(pz - v.pos.z, px - v.pos.x);
+      let dyb = wantBow - v.yaw;
+      while (dyb > Math.PI) dyb -= Math.PI * 2;
+      while (dyb < -Math.PI) dyb += Math.PI * 2;
+      cmd.moveX = Math.max(-1, Math.min(1, dyb * 2));
+      cmd.moveZ = Math.abs(dyb) < 1.1 ? -1 : -0.25;
+      if (!target) cmd.aimYaw = v.yaw;
+      return cmd;
+    }
+
     // unarmed utility rides (ambulance/tunneler/hoverboard): drive to objective, hop out
     const goal = objectiveFor(w, s);
     const dGoal = Math.hypot(goal.x - v.pos.x, goal.z - v.pos.z);
@@ -394,6 +423,18 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
     for (const v of w.vehicles.values()) {
       if (!v.alive || v.team !== s.team || !VEHICLES[v.kind].immobile || v.seats[0] >= 0) continue;
       if (Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z) < 6) { cmd.use = true; break; }
+    }
+  }
+  // --- a free gunboat at the bank is a fire platform: boat-curious bots
+  // (a third of the roster) detour a few steps and climb in. Adjacent to
+  // the hull they'll board even mid-fight — 260hp and a deck MG beat
+  // standing in the shallows arguing ---
+  if (s.id % 3 === 0) {
+    for (const v of w.vehicles.values()) {
+      if (!v.alive || v.team !== s.team || v.seats[0] >= 0 || !VEHICLES[v.kind].boat) continue;
+      const d = Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z);
+      if (d < VEHICLES[v.kind].radius + 2) { cmd.use = true; break; }
+      if (!target && d < 15) { s.botGoal = { x: v.pos.x, y: 0, z: v.pos.z }; s.botRepathAt = w.time + 0.5; break; }
     }
   }
 
