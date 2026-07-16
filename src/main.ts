@@ -11,6 +11,7 @@ import { Renderer } from './client/renderer';
 import { NetGame } from './client/net';
 import { KILLCAM_CAM, MATCH_LINGER_LOCAL_MS, ReplayDirector } from './client/replay';
 import { MatchTracker, RANKS, loadDossier, rankFor, saveDossier, type Dossier } from './client/record';
+import { FRONTS, SCAR_TEXT, applyResult, bandOf, loadCampaign, saveCampaign, simulateTimeSkip, type Campaign } from './client/campaign';
 
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -247,10 +248,43 @@ async function startGame() {
   startLocal(renderer, hud, input, name, endGame);
 }
 
+/** The front the player deployed to from the Scar (null = free play). */
+let activeFrontId: string | null = null;
+
+/** Scar modifiers v1 (§8.5): the front's wound shapes the battlefield. */
+function applyScarMods(world: World, frontId: string | null) {
+  if (!frontId || !campaign) return;
+  const def = FRONTS.find((f) => f.id === frontId);
+  const st = campaign.fronts[frontId];
+  if (!def || !st?.scarActive) return;
+  if (def.scar === 'fire') {
+    // persistent fires seeded around the middle ground
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2;
+      world.spawnGadget('fire_field', i % 2 as 0 | 1, -1, {
+        x: world.map.hillPos.x + Math.cos(a) * 14, y: 0, z: world.map.hillPos.z + Math.sin(a) * 14,
+      }, 50, 9999);
+    }
+  } else if (def.scar === 'rubble') {
+    // collapsed cover litters the approaches — stamped straight into the grid
+    // BEFORE the renderer builds, so the boxes are real and rendered
+    const g = world.map.grid;
+    const GRID_N = 100;
+    let h = 0x9e3779b9 ^ world.opts.seed;
+    for (let i = 0; i < 26; i++) {
+      h ^= h << 13; h >>>= 0; h ^= h >> 17; h ^= h << 5; h >>>= 0;
+      const tx = 20 + (h % 60), tz = 20 + ((h >> 8) % 60);
+      if (g[tz * GRID_N + tx] === 0) g[tz * GRID_N + tx] = 2; // T_OPEN -> T_COVER
+    }
+  }
+  // 'frozen' / 'flooded' / 'blocked' arrive with the surface layer (§8.6)
+}
+
 function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, endGame: () => void) {
   const seed = (Math.random() * 0xffffffff) >>> 0;
   const world = new World({ seed, mode: selectedMode, difficulty, botsPerTeam, matchMinutes, theme: selectedTheme });
   const me = world.addSoldier(name, selectedClass, 0, 'human', currentLoadout());
+  applyScarMods(world, activeFrontId); // §8.5: the front's wound shapes the field
   // the Record (§3.4): fold this match into the dossier as it happens
   const tracker = dossier ? new MatchTracker(dossier, name, selectedClass, selectedMode, seed) : null;
 
@@ -324,6 +358,12 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
       void tracker.finalize(world, me.id).then((sum) => {
         if (!sum) return;
         renderBarracks(); // the record just grew
+        // the Living Campaign: this battle moves its front (22B)
+        if (activeFrontId && campaign) {
+          applyResult(campaign, activeFrontId, sum.won);
+          saveCampaign(campaign);
+          renderScarMap();
+        }
         hud.careerHtml = `<div id="career-pane"><h3>Career — what this match added</h3>
           <div class="cp-row"><span>+${sum.rankPointsGained} rank pts</span>
           <span>${sum.rankBefore === sum.rankAfter ? sum.rankAfter : `${sum.rankBefore} → <b>${sum.rankAfter}</b> ▲`}</span>
@@ -425,6 +465,7 @@ function wireMenuTabs() {
       $(`tab-${pane}`).classList.toggle('hidden', pane !== t.dataset.tab);
     }
     if (t.dataset.tab === 'barracks') renderBarracks();
+    if (t.dataset.tab === 'map') renderScarMap();
   });
 }
 
@@ -432,10 +473,78 @@ void loadDossier((($('player-name') as HTMLInputElement)?.value || 'Recruit').sl
   .then((d) => { dossier = d; renderBarracks(); void saveDossier(d); });
 void RANKS; // ladder is part of the public record API
 
+// ---------------------------------------------------------------------------
+// The Scar (§8.5): the theater map IS the front-selection screen. Markers are
+// live overlays on the painted art; control moves with your battles (22B);
+// absence is simulated honestly on launch (27B).
+// ---------------------------------------------------------------------------
+let campaign: Campaign | null = null;
+let scarMarkers: Record<string, { n: number; name: string; x: number; y: number }> | null = null;
+
+async function initCampaign() {
+  campaign = loadCampaign();
+  simulateTimeSkip(campaign);
+  saveCampaign(campaign); // always: the absence clock starts at first boot
+  try {
+    scarMarkers = (await (await fetch('/scar-markers.json')).json()).fronts;
+  } catch { scarMarkers = null; }
+  renderScarMap();
+}
+
+function renderScarMap() {
+  const root = $('map-root');
+  if (!campaign) return;
+  const c = campaign;
+  const markers = FRONTS.map((f) => {
+    const m = scarMarkers?.[f.id];
+    const st = c.fronts[f.id];
+    if (!m || !st) return '';
+    const band = bandOf(st.control);
+    const tip = `${f.name} — control ${st.control > 0 ? '+' : ''}${st.control}` +
+      `${st.scarActive ? ` · ${SCAR_TEXT[f.scar]}` : ''}`;
+    return `<button class="scar-marker band-${band}${activeFrontId === f.id ? ' sel' : ''}"
+      style="left:${(m.x * 100).toFixed(2)}%; top:${(m.y * 100).toFixed(2)}%"
+      data-front="${f.id}" title="${tip}"><span>${m.n}</span></button>`;
+  }).join('');
+  const sel = activeFrontId ? FRONTS.find((f) => f.id === activeFrontId) : null;
+  const selSt = sel ? c.fronts[sel.id] : null;
+  const selHtml = sel && selSt
+    ? `<b style="font-size:1.05rem">${sel.name}</b>
+       <p style="color:var(--muted);font-size:0.8rem;margin:0.3rem 0">${sel.mode.toUpperCase()} · ${sel.theme} · control <b>${selSt.control > 0 ? '+' : ''}${selSt.control}</b> (${bandOf(selSt.control)})</p>
+       ${selSt.scarActive ? `<p style="font-size:0.8rem;color:var(--danger)">⚑ ${SCAR_TEXT[sel.scar]}</p>` : ''}
+       <button id="front-deploy">⚔ DEPLOY — ${sel.name.toUpperCase()}</button>`
+    : '<p class="bk-empty">Select a front on the theater map. Your battles move its control.</p>';
+  const dispatch = c.dispatch.slice(0, 10).map((d) =>
+    `<li>${d.simulated ? '<em style="color:var(--muted)">(simulated)</em> ' : ''}${d.text}<span class="when">${new Date(d.at).toLocaleString()}</span></li>`).join('')
+    || '<li class="bk-empty" style="border:none">No dispatches yet — the war awaits its first battle.</li>';
+  root.innerHTML = `
+    <div id="scar-layout">
+      <div id="scar-wrap"><img src="/scar-map.png" alt="THE SCAR — theater map" draggable="false" />${markers}</div>
+      <div id="scar-side">
+        <div class="bk-card">${selHtml}</div>
+        <div class="bk-card"><h4>Morning dispatch</h4><ul class="bk-journal">${dispatch}</ul></div>
+      </div>
+    </div>`;
+  root.querySelectorAll<HTMLButtonElement>('.scar-marker').forEach((btn) => {
+    btn.onclick = () => {
+      audio.play('ui_click');
+      const f = FRONTS.find((x) => x.id === btn.dataset.front)!;
+      activeFrontId = f.id;
+      selectedMode = f.mode;
+      selectedTheme = f.theme;
+      renderScarMap();
+    };
+  });
+  const dep = root.querySelector<HTMLButtonElement>('#front-deploy');
+  if (dep) dep.onclick = () => { startGame(); };
+}
+
+void initCampaign();
+
 buildMenu();
 wireSetupControls();
 wireMenuTabs();
-$('deploy-btn').addEventListener('click', () => { startGame(); });
+$('deploy-btn').addEventListener('click', () => { activeFrontId = null; startGame(); });
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !running && !$('menu').classList.contains('hidden')) startGame();
 });

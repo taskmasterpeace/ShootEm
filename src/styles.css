@@ -414,3 +414,28 @@ html, body {
 }
 #career-pane h3 { margin: 0 0 0.4rem; font-size: 0.75rem; letter-spacing: 0.07em; text-transform: uppercase; color: var(--accent); }
 #career-pane .cp-row { display: flex; gap: 1.1rem; flex-wrap: wrap; }
+
+/* ── THE SCAR: the theater map is the front door (§8.5) ─────────────────── */
+#scar-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr); gap: 0.9rem; }
+#scar-wrap { position: relative; border: 1px solid var(--border); border-radius: 0.625rem; overflow: hidden; }
+#scar-wrap img { display: block; width: 100%; height: auto; user-select: none; }
+.scar-marker {
+  position: absolute; transform: translate(-50%, -50%);
+  width: 2rem; height: 2rem; border-radius: 50%;
+  border: 2px solid var(--muted); background: oklch(0.18 0.02 80 / 0.82);
+  color: var(--text); font: 700 0.85rem var(--font); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: 0.15s;
+}
+.scar-marker:hover { transform: translate(-50%, -50%) scale(1.18); }
+.scar-marker.band-coalition { border-color: var(--team0); color: var(--team0); box-shadow: 0 0 10px oklch(0.75 0.16 75 / 0.5); }
+.scar-marker.band-collective { border-color: var(--team1); color: var(--team1); box-shadow: 0 0 10px oklch(0.72 0.14 220 / 0.5); }
+.scar-marker.sel { background: var(--accent); color: oklch(0.15 0.03 80); border-color: var(--accent); }
+#scar-side { display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; }
+#front-deploy {
+  margin-top: 0.6rem; width: 100%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  color: oklch(0.15 0.03 80); border: none; border-radius: 0.625rem;
+  font: 700 0.9rem var(--font); letter-spacing: 0.08em; padding: 0.7rem; cursor: pointer;
+}
+#front-deploy:hover { transform: translateY(-1px); }
+@media (max-width: 900px) { #scar-layout { grid-template-columns: 1fr; } }
