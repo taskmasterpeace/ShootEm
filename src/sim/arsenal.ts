@@ -67,10 +67,10 @@ export const FAMILIES: FamilySpec[] = [
   F('laser',        'Laser',         'L',  { damage: 30, rof: 2.2, speed: 300, spread: 0.003, clip: 8, reloadTime: 1.8, reserve: 64, range: 96, sound: 'rail', tracer: 'rail' }),
   F('lmg',          'Light MG',      'LM', { damage: 11, rof: 9.5, speed: 105, spread: 0.045, clip: 75, reloadTime: 3.2, reserve: 375, range: 54, sound: 'autocannon' }),
   F('hmg',          'Heavy MG',      'HM', { damage: 15, rof: 7, speed: 105, spread: 0.05, clip: 90, reloadTime: 3.8, reserve: 360, range: 64, sound: 'autocannon' }),
-  F('at_rocket',    'AT Rocket',     'AT', { damage: 90, rof: 0.6, speed: 40, spread: 0.008, clip: 1, reloadTime: 3.0, reserve: 12, range: 88, splash: 3, splashDamage: 40, sound: 'rocket', tracer: 'rocket' }),
-  F('ap_rocket',    'AP Rocket',     'AP', { damage: 40, rof: 0.9, speed: 44, spread: 0.012, clip: 3, reloadTime: 2.6, reserve: 18, range: 72, splash: 5, splashDamage: 50, sound: 'rocket', tracer: 'rocket' }),
-  F('mortar',       'Mortar',        'M',  { damage: 50, rof: 0.7, speed: 30, arc: true, clip: 4, reloadTime: 2.8, reserve: 24, range: 72, splash: 5.5, splashDamage: 55, sound: 'thump', tracer: 'shell' }),
-  F('artillery',    'Field Gun',     'FG', { damage: 80, rof: 0.35, speed: 38, arc: true, clip: 2, reloadTime: 4.5, reserve: 16, range: 105, splash: 7, splashDamage: 70, sound: 'cannon', tracer: 'rocket' }),
+  F('at_rocket',    'AT Rocket',     'AT', { damage: 90, rof: 0.6, speed: 40, spread: 0.008, clip: 1, reloadTime: 3.0, reserve: 12, range: 88, splash: 3, splashDamage: 40, knockback: 14, sound: 'rocket', tracer: 'rocket' }),
+  F('ap_rocket',    'AP Rocket',     'AP', { damage: 40, rof: 0.9, speed: 44, spread: 0.012, clip: 3, reloadTime: 2.6, reserve: 18, range: 72, splash: 5, splashDamage: 50, knockback: 14, sound: 'rocket', tracer: 'rocket' }),
+  F('mortar',       'Mortar',        'M',  { damage: 50, rof: 0.7, speed: 30, arc: true, clip: 4, reloadTime: 2.8, reserve: 24, range: 72, splash: 5.5, splashDamage: 55, knockback: 14, sound: 'thump', tracer: 'shell' }),
+  F('artillery',    'Field Gun',     'FG', { damage: 80, rof: 0.35, speed: 38, arc: true, clip: 2, reloadTime: 4.5, reserve: 16, range: 105, splash: 7, splashDamage: 70, knockback: 20, sound: 'cannon', tracer: 'rocket' }),
   F('scatter',      'Scatter Pack',  'SP', { damage: 7, rof: 1.6, pellets: 12, speed: 70, spread: 0.2, clip: 5, reloadTime: 2.4, reserve: 40, range: 22, sound: 'shotgun', tracer: 'shell' }),
   F('sonic',        'Sonic Cannon',  'SC', { damage: 18, rof: 3, speed: 60, spread: 0.01, clip: 12, reloadTime: 2.0, reserve: 72, range: 44, knockback: 8, sound: 'impulse', tracer: 'rail' }),
   F('flamethrower', 'Flamethrower',  'FT', { damage: 7, rof: 14, speed: 28, spread: 0.12, clip: 100, reloadTime: 2.5, reserve: 200, range: 16, sound: 'flame', tracer: 'flame' }),
@@ -119,10 +119,12 @@ export function buildArsenal(): Record<WeaponId, WeaponDef> {
   });
 
   // ---- grenade family: frag / smoke / phosphorus launchers, three marks each ----
+  // only frag rounds shove: smoke is concealment, phosphorus delivers a fire
+  // field — neither is a concussive blast
   const nadeKinds = [
-    { key: 'frag', label: 'Frag Launcher', payload: undefined, splash: 5, splashDamage: 50, damage: 55 },
-    { key: 'smoke', label: 'Smoke Launcher', payload: 'smoke' as const, splash: 0, splashDamage: 0, damage: 0 },
-    { key: 'wp', label: 'Phosphorus Launcher', payload: 'fire' as const, splash: 0, splashDamage: 0, damage: 4 },
+    { key: 'frag', label: 'Frag Launcher', payload: undefined, splash: 5, splashDamage: 50, damage: 55, knockback: 10 },
+    { key: 'smoke', label: 'Smoke Launcher', payload: 'smoke' as const, splash: 0, splashDamage: 0, damage: 0, knockback: 0 },
+    { key: 'wp', label: 'Phosphorus Launcher', payload: 'fire' as const, splash: 0, splashDamage: 0, damage: 4, knockback: 0 },
   ];
   for (const nk of nadeKinds) {
     for (const tier of TIERS) {
@@ -135,7 +137,8 @@ export function buildArsenal(): Record<WeaponId, WeaponDef> {
         rof: 1.1, speed: 34, spread: 0.015 * tier.spread, pellets: 1,
         clip: 4 + tier.mk, reloadTime: 2.4 * tier.reload, reserve: Math.round(24 * tier.reserve),
         range: 44, splash: nk.splash, splashDamage: Math.round(nk.splashDamage * tier.dmg),
-        arc: true, heals: false, knockback: 0,
+        arc: true, heals: false,
+        knockback: nk.knockback ? Math.round(nk.knockback * tier.dmg * 10) / 10 : 0,
         sound: 'thump', tracer: 'shell', payload: nk.payload,
       };
     }
@@ -146,13 +149,13 @@ export function buildArsenal(): Record<WeaponId, WeaponDef> {
     id: 'demo_charge', name: 'DX-9 Demolition Charge', family: 'special', tier: 3,
     damage: 120, rof: 0.25, speed: 12, spread: 0, pellets: 1, clip: 1, reloadTime: 5,
     reserve: 3, range: 10, splash: 8, splashDamage: 140, arc: true, heals: false,
-    knockback: 14, sound: 'thump', tracer: 'shell',
+    knockback: 16, sound: 'thump', tracer: 'shell',
   };
   out.emplacement_gun = {
     id: 'emplacement_gun', name: 'Bulwark Emplacement Gun', family: 'special', tier: 3,
     damage: 55, rof: 1.6, speed: 90, spread: 0.01, pellets: 1, clip: Infinity, reloadTime: 0,
     reserve: Infinity, range: 95, splash: 3.5, splashDamage: 35, arc: false, heals: false,
-    knockback: 0, sound: 'cannon', tracer: 'shell',
+    knockback: 10, sound: 'cannon', tracer: 'shell',
   };
   out.bike_mg = {
     id: 'bike_mg', name: 'Bike MG', family: 'special', tier: 1,

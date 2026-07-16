@@ -1,7 +1,13 @@
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config'; // vite's defineConfig + the `test` key
 import { resolve } from 'node:path';
 
 export default defineConfig({
+  // vitest: only the repo's own suite — agent worktrees under .claude/ carry
+  // their own copies of the tests and must not pollute the gate counts
+  test: {
+    include: ['tests/**/*.test.ts'],
+    exclude: ['**/node_modules/**', '.claude/**'],
+  },
   server: {
     port: 3400,
     strictPort: true,

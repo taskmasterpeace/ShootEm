@@ -1463,7 +1463,10 @@ export class World {
           const dl = Math.max(d, 0.5);
           s.pushX += ((s.pos.x - pos.x) / dl) * def.knockback * (1 - d / def.splash);
           s.pushZ += ((s.pos.z - pos.z) / dl) * def.knockback * (1 - d / def.splash);
-          if (s.pos.y < 0.2) s.vel.y = Math.max(s.vel.y, def.knockback * 0.3);
+          // vertical pop capped at 6: artillery-class knockback (20+) would
+          // otherwise launch soldiers into low-g orbit — the horizontal shove
+          // carries the drama, the hop just sells the blast
+          if (s.pos.y < 0.2) s.vel.y = Math.max(s.vel.y, Math.min(def.knockback * 0.3, 6));
         }
         this.damageSoldier(s, dmg, ownerId, def.id);
       }
