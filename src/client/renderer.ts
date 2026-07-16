@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
-import { F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt } from '../sim/map';
+import { CLIMB_H, F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt } from '../sim/map';
 import { SEEN_LINGER, SEEN_LINGER_GEARED, seenRecently, type SeenMark } from '../sim/perception';
 import type { WeatherKind } from '../sim/weather';
 import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
@@ -125,8 +125,11 @@ export class Renderer {
   // tunneler support: map tile index → wall/cover instance so digs collapse visually
   private wallInst: THREE.InstancedMesh | null = null;
   private coverInst: THREE.InstancedMesh | null = null;
+  private climbInst: THREE.InstancedMesh | null = null;      // §8.7 barricade bodies
+  private climbLipInst: THREE.InstancedMesh | null = null;   // ...and their grab-lips
   private wallInstanceByTile = new Map<number, number>();
   private coverInstanceByTile = new Map<number, number>();
+  private climbInstanceByTile = new Map<number, number>();
   // ---- visual feedback state ----
   private pingMarkers = new Map<number, THREE.Sprite>();   // revealed enemies get a chevron
   private pingTexture: THREE.Texture | null = null;
@@ -211,6 +214,16 @@ export class Renderer {
     if (ci !== undefined && this.coverInst) {
       this.coverInst.setMatrixAt(ci, zero);
       this.coverInst.instanceMatrix.needsUpdate = true;
+    }
+    // barricades are drill food too (§8.7 + DRILL_EATS): body and lip go together
+    const bi = this.climbInstanceByTile.get(tileIdx);
+    if (bi !== undefined && this.climbInst) {
+      this.climbInst.setMatrixAt(bi, zero);
+      this.climbInst.instanceMatrix.needsUpdate = true;
+      if (this.climbLipInst) {
+        this.climbLipInst.setMatrixAt(bi, zero);
+        this.climbLipInst.instanceMatrix.needsUpdate = true;
+      }
     }
   }
 
@@ -489,6 +502,7 @@ export class Renderer {
     const covered = new Set(world.map.propCovered);
     const wallTiles: [number, number][] = [];
     const coverTiles: [number, number][] = [];
+    const climbTiles: [number, number][] = [];
     const slitTiles: [number, number][] = [];
     const metalTiles: [number, number][] = [];
     const doorTiles: [number, number][] = [];
@@ -501,6 +515,8 @@ export class Renderer {
         if (t === T_OPEN || t === T_WATER || t === T_DEEP || t === T_LADDER || covered.has(idx)) continue;
         if (t === T_COVER) {
           coverTiles.push([x, z]);
+        } else if (t === T_CLIMB) {
+          climbTiles.push([x, z]);
         } else if (t === T_SLIT) {
           slitTiles.push([x, z]);
         } else if (t === T_METAL) {
@@ -540,6 +556,29 @@ export class Renderer {
     });
     this.scene.add(coverInst);
     this.coverInst = coverInst;
+
+    // §8.7 CLIMB barricades: 2.5u container walls a shade lighter than the
+    // theme's masonry, wearing a wider grab-lip at the top — the lip IS the
+    // word "climbable" written in geometry. Jump troopers jet over; everyone
+    // else reads the ledge and walks around (or brings the breacher).
+    const climbColor = new THREE.Color(pal.wall).lerp(new THREE.Color(0xd8cfba), 0.28);
+    const climbMat = new THREE.MeshStandardMaterial({ color: climbColor, roughness: 0.85 });
+    const climbInst = new THREE.InstancedMesh(new THREE.BoxGeometry(TILE, CLIMB_H, TILE), climbMat, Math.max(climbTiles.length, 1));
+    climbInst.castShadow = climbInst.receiveShadow = true;
+    const lipColor = new THREE.Color(pal.wall).lerp(new THREE.Color(0xe8e0cc), 0.45);
+    const lipMat = new THREE.MeshStandardMaterial({ color: lipColor, roughness: 0.7 });
+    const climbLipInst = new THREE.InstancedMesh(new THREE.BoxGeometry(TILE * 1.16, 0.18, TILE * 1.16), lipMat, Math.max(climbTiles.length, 1));
+    climbLipInst.castShadow = true;
+    climbTiles.forEach(([x, z], i) => {
+      m4.setPosition((x + 0.5) * TILE - WORLD / 2, CLIMB_H / 2, (z + 0.5) * TILE - WORLD / 2);
+      climbInst.setMatrixAt(i, m4);
+      m4.setPosition((x + 0.5) * TILE - WORLD / 2, CLIMB_H - 0.09, (z + 0.5) * TILE - WORLD / 2);
+      climbLipInst.setMatrixAt(i, m4);
+      this.climbInstanceByTile.set(z * GRID + x, i); // drill food — collapses like walls
+    });
+    this.scene.add(climbInst, climbLipInst);
+    this.climbInst = climbInst;
+    this.climbLipInst = climbLipInst;
 
     // §8.4 firing slits: two stacked boxes with a gap at 1.2–1.8 — the
     // geometry tells the truth, no textures needed. Defenders shoot out.

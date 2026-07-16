@@ -3,9 +3,9 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CLASSES, MODE_INFO, TEAM_COLORS, THEMES, WEAPONS } from '../sim/data';
 import { FAMILIES } from '../sim/arsenal';
 import {
-  DRILL_EATS, GRID, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS,
+  CLIMB_H, DRILL_EATS, GRID, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS,
   S_DIRT, S_GRASS, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET,
-  T_COVER, T_DEEP, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER,
+  T_CLIMB, T_COVER, T_DEEP, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER,
   TILE, WORLD, blocksShot, isBlocked,
 } from '../sim/map';
 import { BUILDINGS, generateHouse, type BuildingDef, type DynHouseType } from '../sim/buildings';
@@ -412,11 +412,12 @@ function loadEnvironment(mode: ModeId, seed: number, theme: ThemeId) {
     const r = p.type === 'rock' ? Math.max(1, Math.round(p.scale / 1.6)) : 0;
     for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) propTiles.add(`${tx + dx},${tz + dz}`);
   }
-  const walls: [number, number][] = [], covers: [number, number][] = [];
+  const walls: [number, number][] = [], covers: [number, number][] = [], climbs: [number, number][] = [];
   for (let z = 0; z < GRID; z++) for (let x = 0; x < GRID; x++) {
     const t = world.map.grid[z * GRID + x];
     if (t === T_WALL && !propTiles.has(`${x},${z}`)) walls.push([x, z]);
     if (t === T_COVER && !propTiles.has(`${x},${z}`)) covers.push([x, z]);
+    if (t === T_CLIMB) climbs.push([x, z]); // §8.7 barricades — sampled live, like everything here
   }
   const m4 = new THREE.Matrix4();
   const wallInst = new THREE.InstancedMesh(new THREE.BoxGeometry(TILE, 4, TILE), new THREE.MeshStandardMaterial({ color: pal.wall, roughness: 0.9 }), walls.length);
@@ -427,6 +428,21 @@ function loadEnvironment(mode: ModeId, seed: number, theme: ThemeId) {
   coverInst.castShadow = true;
   covers.forEach(([x, z], i) => { m4.setPosition((x + 0.5) * TILE - WORLD / 2, 0.6, (z + 0.5) * TILE - WORLD / 2); coverInst.setMatrixAt(i, m4); });
   envGroup.add(coverInst);
+  // §8.7 CLIMB barricades — same look as the game renderer: 2.5u body a shade
+  // lighter than masonry, plus the wider grab-lip that says "climbable"
+  const climbColor = new THREE.Color(pal.wall).lerp(new THREE.Color(0xd8cfba), 0.28);
+  const climbInst = new THREE.InstancedMesh(new THREE.BoxGeometry(TILE, CLIMB_H, TILE), new THREE.MeshStandardMaterial({ color: climbColor, roughness: 0.85 }), Math.max(climbs.length, 1));
+  climbInst.castShadow = climbInst.receiveShadow = true;
+  const lipColor = new THREE.Color(pal.wall).lerp(new THREE.Color(0xe8e0cc), 0.45);
+  const climbLip = new THREE.InstancedMesh(new THREE.BoxGeometry(TILE * 1.16, 0.18, TILE * 1.16), new THREE.MeshStandardMaterial({ color: lipColor, roughness: 0.7 }), Math.max(climbs.length, 1));
+  climbLip.castShadow = true;
+  climbs.forEach(([x, z], i) => {
+    m4.setPosition((x + 0.5) * TILE - WORLD / 2, CLIMB_H / 2, (z + 0.5) * TILE - WORLD / 2);
+    climbInst.setMatrixAt(i, m4);
+    m4.setPosition((x + 0.5) * TILE - WORLD / 2, CLIMB_H - 0.09, (z + 0.5) * TILE - WORLD / 2);
+    climbLip.setMatrixAt(i, m4);
+  });
+  envGroup.add(climbInst, climbLip);
 
   for (const p of world.map.props) {
     if (p.type === 'crate') continue;
@@ -1005,6 +1021,7 @@ selectWeapon('ar606');
     [T_DOOR, 'Door (closed)', 'E opens; stops rounds and eyes'],
     [T_DOOR_OPEN, 'Door (open)', 'a doorway — walk and shoot through'],
     [T_METAL, 'Metal wall', 'the drill screams and sparks — ZERO progress'],
+    [T_CLIMB, 'Climb barricade', '2.5u — jump troopers jet over it; everyone else walks around (§8.7)'],
     [T_LADDER, 'Ladder foot', 'E climbs to the second storey'],
     [T_WATER, 'Shallow water', 'everyone wades (slow); wheels ford'],
     [T_DEEP, 'Deep water', 'soldiers swim (no shooting); boats/hover only'],

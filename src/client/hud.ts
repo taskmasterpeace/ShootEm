@@ -1,5 +1,5 @@
 import { CLASSES, EQUIPMENT, MODE_INFO, TEAM_NAMES, VEHICLES, WEAPONS } from '../sim/data';
-import { GRID, T_WALL, WORLD, losClear, houseAt } from '../sim/map';
+import { GRID, T_CLIMB, T_WALL, WORLD, losClear, houseAt } from '../sim/map';
 import type { SimEvent, Soldier, Team } from '../sim/types';
 import type { World } from '../sim/world';
 
@@ -296,11 +296,16 @@ export class Hud {
       const b = this.mapBg.getContext('2d')!;
       b.fillStyle = 'rgba(20, 22, 18, 0.9)';
       b.fillRect(0, 0, S, S);
-      b.fillStyle = 'rgba(150, 145, 120, 0.55)';
       const px = S / GRID;
+      // walls solid, CLIMB barricades (§8.7) fainter — the minimap tells a
+      // jump trooper where the flank routes are at a glance
       for (let z = 0; z < GRID; z++)
-        for (let x = 0; x < GRID; x++)
-          if (world.map.grid[z * GRID + x] === T_WALL) b.fillRect(x * px, z * px, px, px);
+        for (let x = 0; x < GRID; x++) {
+          const t = world.map.grid[z * GRID + x];
+          if (t !== T_WALL && t !== T_CLIMB) continue;
+          b.fillStyle = t === T_WALL ? 'rgba(150, 145, 120, 0.55)' : 'rgba(150, 145, 120, 0.3)';
+          b.fillRect(x * px, z * px, px, px);
+        }
     }
     ctx.clearRect(0, 0, S, S);
     ctx.drawImage(this.mapBg, 0, 0);

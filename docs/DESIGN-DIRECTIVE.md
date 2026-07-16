@@ -797,7 +797,14 @@ whole new alphabet:
 - **Bootcamp teaches it** (§14): the vault, the climb, and "you can't jump a
   wall" are lesson one of movement school.
 
-### 8.8 Weather — the sky is a combat variable (proposed)
+### 8.8 Weather — the sky is a combat variable ✅ SHIPPED (`df871c2`)
+
+> **Shipped:** per-theme weather menus (no snow in the desert, nothing indoors),
+> deterministic fronts on their own clock, snapshot replication, the vision-budget
+> tax through perception.ts, locomotion drag per drivetrain, air grounding,
+> rain/snow/dust particles + fog/night grades + storm lightning, the zoom cap,
+> the HUD chip, and the announcer dispatch. Officer-aimed weather and the sound
+> radii ride their own systems later; the table below remains the target sheet.
 
 Each front carries a weather state — rolled by the campaign, aimed by
 officers, escalated by scars. Weather is a *modifier set*, not a mode:
@@ -1422,7 +1429,14 @@ Today the top-down camera is omniscient: everyone on screen is visible to
 you, which quietly deletes half of infantry combat — flanking, ambush,
 stealth, *checking corners*. Give sight a shape and all of it comes back.
 
-### 19.1 The cone, the ring, and the dark
+### 19.1 The cone, the ring, and the dark ✅ v1 SHIPPED (`f902bdc`)
+
+> **Shipped:** the ~130° light cone + 9u ring in perception.ts (one function,
+> both consumers — server cull and local renderer); ghosts FREEZE at last-seen
+> coordinates on the wire (no live-path leak); linger 1.5s base / 3s with
+> Tracking Optics; the 360 Sensor Helmet (§19.2's first item). Weather (§8.8)
+> taxes the same budget. Still open: bots adopting the cone (next bot-parity
+> pass), the cone-dim ground overlay, ADS narrowing, sound smudges.
 
 - **You see a cone** (~130°) in your facing, out to your vision range — full
   color, full detail. **You sense a ring** (~9u) all around — footsteps-close
@@ -1682,6 +1696,19 @@ Each pitch reuses shipped systems (cloak, dogs, neighborhoods, wreck
 economy, safehouse mode) — new fiction over existing iron, the house rule.
 
 ## Appendix A — Field status
+
+- ✅ **The window truth + secondary fires shipped** (`6917ccf`): perception
+  unified in `src/sim/perception.ts` (wire cull + minimap + roof reveal share
+  one set of eyes); window slits pass perception at eye height; seen-linger
+  trail; roof/upper shells open over legitimately-seen hostiles. Right-mouse
+  secondary fires on the core four: AR-606 under-barrel flame burp, GL-40
+  skitter (a shootable charge on legs), RG-2 tag dart, plasma overcharge.
+  Terrain Truth panel in the harness reads live from the sim's own tables.
+- ✅ **Weather §8.8 shipped** (`df871c2`) — see §8.8. Plus: PS/Xbox gamepad
+  support (standard-mapping twin-stick), icons on all 230+ weapons, max zoom
+  55→80, and the drifting cloud deck at altitude.
+- ✅ **§19.1 light cone shipped** (`f902bdc`) — see §19.1. Tracking Optics and
+  the 360 Sensor Helmet open the §19.2 counter-economy.
 
 - ✅ **Cursor-targeted throws shipped** (`b722960`): hold-G arc + landing ring,
   0.09u landing accuracy, all throwables + bots, 170 tests green.

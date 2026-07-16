@@ -1,5 +1,5 @@
 import { CLASSES, VEHICLES, WEAPONS } from './data';
-import { GRID, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_OPEN, T_WATER, TILE, WORLD, isBlocked, losClear } from './map';
+import { GRID, T_CLIMB, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_OPEN, T_WATER, TILE, WORLD, isBlocked, losClear, tileAt } from './map';
 import type { ClassId, PlayerCmd, Soldier, Vec3 } from './types';
 import { DIFFICULTY_AIM, type World } from './world';
 
@@ -20,7 +20,7 @@ const bfsPrev = new Int32Array(GRID * GRID);
 const bfsQ = new Int32Array(GRID * GRID);
 
 /** BFS from start tile to goal tile; returns the next reachable waypoint (LOS-smoothed) or null. */
-function pathStep(w: World, from: Vec3, to: Vec3): Vec3 | null {
+function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false): Vec3 | null {
   const grid = w.map.grid;
   const sx = toTile(from.x), sz = toTile(from.z);
   let gx = toTile(to.x), gz = toTile(to.z);
@@ -28,12 +28,15 @@ function pathStep(w: World, from: Vec3, to: Vec3): Vec3 | null {
   // doors are PASSABLE to the planner: humans open them, monsters break them.
   // SHALLOW water is passable too — fords are routes now, not walls. DEEP
   // water stays off the menu: a swimming bot can't shoot back.
+  // §8.7: CLIMB barricades join the menu for jump troopers ONLY (canClimb) —
+  // their jet is the door key; to everyone else a 2.5u wall is a wall.
   // The walkability ray below still treats a closed door as solid, so the
-  // smoothed path delivers the bot TO the door, where its hands take over.
+  // smoothed path delivers the bot TO the door, where its hands take over
+  // (and delivers a jump trooper TO the barricade, where climb IQ burns).
   const open = (x: number, z: number) => {
     if (x < 0 || z < 0 || x >= GRID || z >= GRID) return false;
     const t = grid[z * GRID + x];
-    return t === T_OPEN || t === T_DOOR || t === T_DOOR_OPEN || t === T_WATER || t === T_LADDER;
+    return t === T_OPEN || t === T_DOOR || t === T_DOOR_OPEN || t === T_WATER || t === T_LADDER || (canClimb && t === T_CLIMB);
   };
   if (!open(gx, gz)) {
     // the objective landed inside a structure (buildings stamp everywhere
@@ -303,6 +306,21 @@ function nearestCover(w: World, pos: Vec3, range: number): Vec3 | null {
   return best;
 }
 
+/** §8.7: is there a CLIMB barricade on the walking line? Probes far enough
+ *  out that a jump trooper can light the jet BEFORE the wall arrives — the
+ *  jet climbs ~9.5u/s, so one tile of warning buys the 2.5u lip easily. */
+function climbAhead(w: World, pos: Vec3, yaw: number): boolean {
+  for (const reach of [TILE * 0.7, TILE * 1.5]) {
+    const x = pos.x + Math.cos(yaw) * reach;
+    const z = pos.z + Math.sin(yaw) * reach;
+    const tx = Math.floor((x + WORLD / 2) / TILE);
+    const tz = Math.floor((z + WORLD / 2) / TILE);
+    if (tx < 1 || tz < 1 || tx >= GRID - 1 || tz >= GRID - 1) continue;
+    if (w.map.grid[tz * GRID + tx] === T_CLIMB) return true;
+  }
+  return false;
+}
+
 // ---------- main bot brain ----------
 
 export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
@@ -527,7 +545,7 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
     const dest = rideDest ?? (target && w.mode.id === 'tdm' && DOCTRINE[s.classId].chase
       ? target.pos
       : goal);
-    const wp = pathStep(w, s.pos, dest);
+    const wp = pathStep(w, s.pos, dest, s.classId === 'jump');
     s.botGoal = wp ?? { x: dest.x, y: 0, z: dest.z };
   }
 
@@ -692,6 +710,17 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
       );
       cmd.use = true;
       s.botUseAt = w.time + 0.8;
+    }
+  }
+
+  // climb IQ (§8.7): a CLIMB barricade on the walking line isn't a wall to a
+  // jump trooper — it's a ramp with attitude. See it coming, light the jet,
+  // and keep burning until the boots are past the lip (the pathfinder only
+  // routes THROUGH barricades for this class, so the cue always comes).
+  if (s.classId === 'jump' && (mvx !== 0 || mvz !== 0)) {
+    if (climbAhead(w, s.pos, Math.atan2(mvz, mvx)) ||
+        (s.pos.y > 0.2 && tileAt(w.map.grid, s.pos.x, s.pos.z) === T_CLIMB)) {
+      cmd.jump = true;
     }
   }
 

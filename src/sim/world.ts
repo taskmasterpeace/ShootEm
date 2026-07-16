@@ -1,6 +1,6 @@
 import { CLASSES, EQUIPMENT, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
-import { DRILL_EATS, F2_VOID, F2_WELL, GRID, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
+import { CLIMB_H, DRILL_EATS, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
 import { Rng } from './rng';
 import {
   SYSTEM_IDS, isCoopMode, isZed,
@@ -180,9 +180,9 @@ export class World {
     if (tx < 1 || tz < 1 || tx >= GRID - 1 || tz >= GRID - 1) return; // border holds
     const idx = tz * GRID + tx;
     const t = this.map.grid[idx];
-    // structure is dinner: walls, cover, slits, doors. METAL is not (sparks
-    // handled at the drill face); water and open ground have nothing to eat.
-    // The menu is DRILL_EATS in map.ts — one list, shared with the harness.
+    // structure is dinner: walls, cover, slits, doors, climb barricades —
+    // the DRILL_EATS menu (map.ts, shared with the harness). METAL is not
+    // (sparks handled at the drill face); water and open ground have nothing to eat.
     if (!DRILL_EATS.has(t)) return;
     this.map.grid[idx] = T_OPEN;
     this.dug.push(idx);
@@ -1383,13 +1383,17 @@ export class World {
     const waterMult = tHere === T_DEEP ? 0.38 : tHere === T_WATER ? 0.55 : 1;
     const nx = s.pos.x + (s.vel.x + s.pushX) * waterMult * dt;
     const nz = s.pos.z + (s.vel.z + s.pushZ) * waterMult * dt;
-    // §8.7 the HOP verb: past ~0.9u of air a soldier clears LOW COVER — a
-    // running hop (apex ~1.1) vaults sandbags and crates. Walls, slits, and
-    // water stay absolute: the jump vocabulary's WALL tier belongs to nobody.
+    // §8.7 the jump vocabulary: every barrier is a HEIGHT, and your boots
+    // are either above it or they aren't. Past ~0.9u of air a soldier clears
+    // LOW COVER — a running hop (apex ~1.1) vaults sandbags and crates. A
+    // CLIMB barricade (2.5u) needs a jump trooper's jet: above the lip you
+    // pass, below it you bounce. Walls, metal, slits, and deep water stay
+    // absolute — the WALL tier belongs to nobody on foot.
     const airborne = s.pos.y > 0.9;
     const blocksAir = (x: number, z: number) => {
       const t = tileAt(this.map.grid, x, z);
-      return t === T_WALL || t === T_SLIT || t === T_DEEP;
+      if (t === T_CLIMB) return s.pos.y <= CLIMB_H;
+      return t === T_WALL || t === T_SLIT || t === T_METAL || t === T_DEEP;
     };
     const groundBlocked = (x: number, z: number) => {
       const t = tileAt(this.map.grid, x, z);
@@ -1814,7 +1818,7 @@ export class World {
           const aheadZ = v.pos.z + Math.sin(v.yaw) * (r + TILE * 0.6) * Math.sign(throttle);
           const t = tileAt(this.map.grid, aheadX, aheadZ);
           if (DRILL_EATS.has(t)) {
-            // structure is dinner — walls, cover, slits, doors all grind
+            // structure is dinner — walls, cover, slits, doors, barricades all grind
             v.nextDigAt = this.time + 0.35; // loud, hungry surface work
             this.digTile(Math.floor((aheadX + WORLD / 2) / TILE), Math.floor((aheadZ + WORLD / 2) / TILE));
           } else if (t === T_METAL) {
@@ -1829,7 +1833,10 @@ export class World {
           // boats live ON the water: every land tile is their wall
           ? (x: number, z: number) => { const t = tileAt(this.map.grid, x, z); return t !== T_WATER && t !== T_DEEP; }
           : def.strider
-            ? (x: number, z: number) => { const t = tileAt(this.map.grid, x, z); return t === T_WALL || t === T_DEEP; }
+            // legs step over HOP-tier cover, but the CLIMB and WALL tiers
+            // (§8.7) are taller than a mech's stride — barricades, walls,
+            // metal, and slits all say no
+            ? (x: number, z: number) => { const t = tileAt(this.map.grid, x, z); return t === T_WALL || t === T_METAL || t === T_SLIT || t === T_CLIMB || t === T_DEEP; }
             : (x: number, z: number) => isBlocked(this.map.grid, x, z, hover);
         const clearAt = (x: number, z: number) =>
           !blockedAt(x + r, z) && !blockedAt(x - r, z) &&

@@ -12,7 +12,7 @@
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
 import { THEMES } from '../src/sim/data';
-import { GRID, T_COVER, T_DEEP, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, generateMap } from '../src/sim/map';
+import { GRID, T_CLIMB, T_COVER, T_DEEP, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, generateMap } from '../src/sim/map';
 import type { ThemeId } from '../src/sim/types';
 
 const SEEDS = [1, 7, 42, 1234, 987654];
@@ -61,7 +61,7 @@ describe('invisible walls: the render-coverage invariant', () => {
   });
 
   it('the grid speaks only known tile types — new types must enroll here AND in the renderer', () => {
-    const known = new Set([T_OPEN, T_WALL, T_COVER, T_WATER, T_DEEP, T_SLIT, T_DOOR, T_DOOR_OPEN, T_METAL, T_LADDER]); // slits: stacked boxes · doors: live slabs · metal: steel instancing · ladders: rail+rung mesh (walkable ground)
+    const known = new Set([T_OPEN, T_WALL, T_COVER, T_WATER, T_DEEP, T_SLIT, T_DOOR, T_DOOR_OPEN, T_METAL, T_LADDER, T_CLIMB]); // slits: stacked boxes · doors: live slabs · metal: steel instancing · ladders: rail+rung mesh (walkable ground) · climb: 2.5u barricade with grab-lip
     for (const m of allMaps()) {
       for (let i = 0; i < m.grid.length; i++) {
         if (!known.has(m.grid[i])) {

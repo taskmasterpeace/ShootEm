@@ -21,6 +21,22 @@ export const T_LADDER = 8;     // ladder foot — walkable ground; E climbs to t
                                // second storey (the grid2 layer, §8.4 Phase-2)
 export const T_DEEP = 9;       // deep water: soldiers SWIM (slow, no shooting);
                                // only hover craft and boats cross; wheels drown
+export const T_CLIMB = 10;     // §8.7 CLIMB tier: a 2.5u container wall/barricade.
+                               // Blocks boots and blocks fire below the lip — but a
+                               // jump trooper's jet carries OVER it. Hop can't (apex
+                               // ~1.1); nobody hops a 4u wall. Obstacles as verbs.
+
+/** §8.7 heights, one place: what each tier stops below. HOP-tier cover at
+ *  1.2, CLIMB barricades at 2.5, WALL at 4 — the tiers separate cleanly:
+ *  a running hop (~1.1) clears cover only; a jetpack climbs past 2.5. */
+export const COVER_H = 1.2;
+export const CLIMB_H = 2.5;
+export const WALL_H = 4;
+
+/** What the breacher's drill can chew: structure is dinner — walls, cover,
+ *  slits, doors, CLIMB barricades. METAL is not (the drill face throws
+ *  sparks); water and open ground have nothing to eat. */
+export const DRILL_EATS = new Set<number>([T_WALL, T_COVER, T_SLIT, T_DOOR, T_DOOR_OPEN, T_CLIMB]);
 
 /** What the breacher's drill grinds to rubble — the ONE authoritative menu,
  *  shared by the sim (digTile + drill face) and the harness Terrain tab.
@@ -139,18 +155,21 @@ export function isBlocked(grid: Uint8Array, x: number, z: number, hover = false)
   const t = tileAt(grid, x, z);
   if (t === T_WATER) return false;   // shallow: wadeable by everyone (slowly)
   if (t === T_DEEP) return !hover;   // deep: hover only — soldiers SWIM via their own physics
-  // slits and CLOSED doors block movement always; open doors are a doorway
-  return t === T_WALL || t === T_COVER || t === T_SLIT || t === T_DOOR || t === T_METAL;
+  // slits and CLOSED doors block movement always; open doors are a doorway.
+  // CLIMB barricades block GROUND movement like walls — clearing one is the
+  // airborne y-band's job (world.ts knows your apex; this function doesn't).
+  return t === T_WALL || t === T_COVER || t === T_SLIT || t === T_DOOR || t === T_METAL || t === T_CLIMB;
 }
 
 /** Blocks projectiles/sight: walls always; cover and water never (shots fly over). */
 export function blocksShot(grid: Uint8Array, x: number, z: number, y: number): boolean {
   const t = tileAt(grid, x, z);
-  if (t === T_WALL) return y < 4;      // walls are 4 units tall
-  if (t === T_COVER) return y < 1.2;   // low cover
+  if (t === T_WALL) return y < WALL_H;   // walls are 4 units tall
+  if (t === T_COVER) return y < COVER_H; // low cover
   if (t === T_SLIT) return !(y >= 1.2 && y <= 1.8); // the firing band — muzzle height passes
-  if (t === T_DOOR) return y < 2.2;    // a closed door stops rounds and eyes
-  if (t === T_METAL) return y < 4;     // metal walls are walls
+  if (t === T_DOOR) return y < 2.2;      // a closed door stops rounds and eyes
+  if (t === T_METAL) return y < WALL_H;  // metal walls are walls
+  if (t === T_CLIMB) return y < CLIMB_H; // §8.7: rounds clear the lip at 2.5
   return false;
 }
 
@@ -262,19 +281,29 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
     const kind = rng.next();
     const mirror = (x: number) => GRID - 1 - x;
     if (kind < mix.wall) {
-      // wall segment (starship corridors run long and orthogonal)
+      // wall segment (starship corridors run long and orthogonal).
+      // §8.7: about a quarter of the scatter runs go up as CLIMB barricades —
+      // container walls at 2.5u that jump troopers jet over for real flank
+      // routes. The decision reuses the `kind` roll already in hand (uniform
+      // on [0, mix.wall) here, so /mix.wall is uniform on [0,1)) — ZERO extra
+      // rng draws, so every shipped layout survives tile-for-tile; only the
+      // heights change. Mirrored like everything else, and never structural:
+      // bases and buildings stamp AFTER this loop and overwrite whatever we
+      // lay here, so no perimeter ever goes soft.
       const len = rng.int(mix.wallLen[0], mix.wallLen[1]);
       const horiz = rng.next() < 0.5;
+      const seg = kind / mix.wall < 0.25 ? T_CLIMB : T_WALL;
       for (let i = 0; i < len; i++) {
-        setTile(grid, tx + (horiz ? i : 0), tz + (horiz ? 0 : i), T_WALL);
-        setTile(grid, mirror(tx + (horiz ? i : 0)), tz + (horiz ? 0 : i), T_WALL);
+        setTile(grid, tx + (horiz ? i : 0), tz + (horiz ? 0 : i), seg);
+        setTile(grid, mirror(tx + (horiz ? i : 0)), tz + (horiz ? 0 : i), seg);
       }
-      // corridor junctions: an L-elbow half the time
+      // corridor junctions: an L-elbow half the time (same stock as the run —
+      // a barrier that changes height mid-corner reads as a glitch, not a wall)
       if (gen === 'corridors' && rng.next() < 0.5) {
         const el = rng.int(3, 7);
         for (let i = 0; i < el; i++) {
-          setTile(grid, tx + (horiz ? len - 1 : i), tz + (horiz ? i : len - 1), T_WALL);
-          setTile(grid, mirror(tx + (horiz ? len - 1 : i)), tz + (horiz ? i : len - 1), T_WALL);
+          setTile(grid, tx + (horiz ? len - 1 : i), tz + (horiz ? i : len - 1), seg);
+          setTile(grid, mirror(tx + (horiz ? len - 1 : i)), tz + (horiz ? i : len - 1), seg);
         }
       }
     } else if (kind < mix.cover) {
