@@ -141,6 +141,13 @@ back in the cage when the op ends.
   for pilots: the mission (§8.1) decides what's in the crate.
 - **Prototypes are operational by definition** (§6): field-trial loans from
   the program, one per squad, returned — or lost, and that's a Journal entry.
+- **Vehicle hardpoints — decided (operational requisition).** Upgrades to
+  the motor pool are fits, not property: flare pods (shipped, §5.1), ECM,
+  cage armor vs rockets, mine flails, dozer blades — **requisitioned per
+  deployment with faction War Materiel (§17)**. Your vehicle *service
+  history* gates which fits you may draw (qualified crews get the good
+  hardpoints), but history never raises raw stats — access is earned, the
+  fit is issued, and nothing personal makes your tank hit harder (§11.3).
 
 **Why the split matters:** personal gear makes you *you*; operational gear
 makes the mission *the mission*. Progression lives in the first, balance
@@ -941,6 +948,27 @@ Three rules, in leverage order:
 online it only mutates the puppet world the next snapshot overwrites — but
 strip or guard it in production builds regardless.)*
 
+### 11.5 The War Room — the operator's surface (decided, scoped)
+
+When the war runs 24/7 (Stage 2+), the admin doesn't join a match to check on
+it — they **log into the War Room**, a web console beside the game:
+
+- **Observe:** the Scar live (every front's control %, owner, active scars,
+  momentum), battles in progress (front, mode, humans vs bots, score), and
+  the season standing — *who is winning the war*, at a glance.
+- **Administrate:** freeze/end a match, kick/ban, server broadcast, restart
+  a room — the boring tools that keep a live service alive.
+- **Nudge the campaign:** tip a front's control, stage or name an operation,
+  flip a scar — the operator's hand on the map, logged to the Journal like
+  any other act of command (§16's audit rule applies to admins too).
+- **Doubles as the spectator surface:** the same read-only view is the
+  broadcast/caster screen, free.
+
+**Scoped by decision:** the War Room ships *observe + administrate + nudge*.
+A fourth panel — pacing and orchestration of the war's events — has a
+**reserved empty slot and no design**: that conversation (see Appendix A) is
+deliberately deferred.
+
 ---
 
 ## 12. The war is mostly bots — population & bot doctrine
@@ -1167,6 +1195,13 @@ flair** (§11.3 — taste, never power), and a **prestige** loop at the ceiling
 (reset the number, keep the record, earn a mark) so the 500-hour player still
 has a next thing. None of it sells power; all of it signals history.
 
+- **Rust is biography, never decay — decided.** A class unplayed for ~a
+  season gets a **rusty** tag in the dossier: zero stat loss, ever (Tarkov
+  tried real decay; players hate being punished for vacations). Instead your
+  first match back runs a *"knocking the rust off"* arc — a small warm-up XP
+  bonus and a returning-soldier ribbon. The record says you were away and
+  says you came back; both are story.
+
 **B. The session reward loop.** Every match ends owing you something concrete
 beyond the scoreboard: dossier deltas (§3.4), campaign movement (§8.5), and a
 short end-of-match "what you earned" beat on the AAR screen (§10.4). The loop is
@@ -1185,6 +1220,10 @@ Materiel**:
 - **The rule: a faction can go broke.** Overspend and the pool dries up, forcing
   officers to prioritise. **Scarcity is what makes officer decisions (§7.1)
   actual decisions** instead of free clicks.
+- **Vehicle hardpoints (§3.1) are the ledger's standing sink:** every fitted
+  flare pod, ECM set, and cage-armor kit is Materiel spent — a mechanized
+  faction runs richer *and* burns hotter, which is exactly the tension the
+  Iron Eaters (§20) then feed on.
 
 > **Honest scope.** The ledger is a few counters on the campaign file (§8.5) —
 > cheap. Prestige and mastery flair are cosmetic and trickle in. The point is to
@@ -1403,6 +1442,15 @@ swarm as ONE controllable tide, the Ravager as a siege role. The open
 question is feel: monsters must be *fun to pilot for 90 seconds*, not a
 second career.
 
+**Versus — the mode (decided).** Monsters enter through a **dedicated versus
+mode**: humans defend an objective, a monster TEAM of players hunts them —
+the full L4D-versus shape, not a death-swap gimmick. Eyes open about the
+cost: versus is a real mode with real balance work (monster team sizes,
+respawn cadence, objective tuning) and its own population needs — which the
+bot doctrine (§12) answers on both sides: **bots can play monsters too**, so
+the mode works at any human count. It ships with Act II (§20.5), because the
+Infected roster is five control mappings on creatures that already exist.
+
 **The melee feel pass (prerequisite):** close combat today is a range check.
 For infected play (and against it) melee needs **commitment** — a lunge with
 a windup, a visible hit arc, a beat of recovery. Zombies got us to "close";
@@ -1492,9 +1540,13 @@ hand — is deliberately **not specified yet**; the acts themselves are canon.)*
 - ⛔ **Explicitly NOT in this document (user's call): the Director.** The
   pacing/orchestration system is deferred — §20.5 names the acts but not
   their conductor. Revisit later.
-- ⚠️ **Bounced back for decision:** vehicle upgrades (operational requisition
-  vs personal progression), skill-rust ("use it or lose it"), the War Room
-  admin console's timing.
+- ✅ **Four decisions landed (post-pitch Q&A):** skill rust = **biography,
+  never decay** (§17.A — rusty tag + knocking-the-rust-off arc, zero stat
+  loss); vehicle upgrades = **operational requisition** (§3.1 hardpoints,
+  Materiel-funded, history gates access, never raw stats); the **War Room
+  ships scoped** (§11.5 — observe/administrate/nudge; the pacing panel slot
+  stays empty); playable monsters enter via a **dedicated versus mode**
+  (§20.4 — bots fill both sides).
 - ⚠️ **Decide:** faction names/doctrines (§1) are placeholders — rename at
   will; keep the enlistment/tour mechanics.
 - ✅ **Decided:** roofs + firing slits (§8.4) — cutaway roofs (visual-only
