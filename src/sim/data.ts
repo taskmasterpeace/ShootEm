@@ -176,7 +176,7 @@ WEAPONS.sam_missile = W({
   sound: 'rocket', tracer: 'rocket',
 });
 
-export const TEAM_NAMES = ['Titan Coalition', 'The Collective'] as const;
+export const TEAM_NAMES = ['The United Front', 'The Collective'] as const;
 export const TEAM_COLORS = [0xe8a33d, 0x3dbde8] as const; // amber vs cyan
 
 export const ZOMBIE_STATS = {

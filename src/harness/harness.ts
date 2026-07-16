@@ -311,7 +311,7 @@ function clearDummy() { if (dummy) { stage.remove(dummy); disposeGroup(dummy); d
 
 function ensureShooter() {
   if (!current.isSoldier) {
-    showModel(() => buildSoldier(0, 'infantry', 'bot'), 'Infantry · Titan (shooter)', { soldier: true, kind: 'bot' });
+    showModel(() => buildSoldier(0, 'infantry', 'bot'), 'Infantry · United Front (shooter)', { soldier: true, kind: 'bot' });
   }
 }
 
@@ -484,7 +484,7 @@ $('team-toggle').querySelectorAll<HTMLButtonElement>('button').forEach((b) => {
 });
 $('spawn-trooper').onclick = () => {
   const cid = classSel.value as ClassId;
-  showModel(() => buildSoldier(team, cid, 'bot'), `${CLASSES[cid].name} · ${team === 0 ? 'Titan' : 'Collective'}`, { soldier: true, kind: 'bot' });
+  showModel(() => buildSoldier(team, cid, 'bot'), `${CLASSES[cid].name} · ${team === 0 ? 'United Front' : 'Collective'}`, { soldier: true, kind: 'bot' });
 };
 $('spawn-scientist').onclick = () => showModel(() => buildSoldier(0, 'infantry', 'scientist'), 'Dr. Voss (scientist)', { soldier: true, kind: 'scientist' });
 

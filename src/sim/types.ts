@@ -1,4 +1,4 @@
-export type Team = 0 | 1; // 0 = Titan (amber), 1 = Collective (cyan). Survival: all players team 0.
+export type Team = 0 | 1; // 0 = United Front (amber), 1 = Collective (cyan). Survival: all players team 0.
 
 export type ModeId = 'tdm' | 'ctf' | 'koth' | 'conquest' | 'survival' | 'horde' | 'safehouse' | 'range';
 

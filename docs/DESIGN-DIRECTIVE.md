@@ -37,7 +37,7 @@ team is solving: **how does every match permanently matter?**
 The unanswered foundational question. Today "red vs blue" is assigned per match
 and means nothing. The fix: **you don't pick a team. You enlist.**
 
-| | **The Titan Coalition** | **The Collective** |
+| | **The United Front** | **The Collective** |
 |---|---|---|
 | Doctrine | Combined arms — armor columns, artillery superiority, air cavalry, K9s | Asymmetric & unmanned — drone swarms, EW, loitering munitions, raiding |
 | Wins by | Mass and discipline | Precision and denial |
@@ -45,14 +45,14 @@ and means nothing. The fix: **you don't pick a team. You enlist.**
 | Tech lead | EM-gun line first | Drone program first |
 
 **Names LOCKED (decision 1B):** the shipped game already calls them the
-**Titan Coalition** (amber) and **The Collective** (cyan) on every
+**The United Front** (amber) and **The Collective** (cyan) on every
 scoreboard, killfeed, and team chip — the directive now matches the code.
 The warm-amber *human* army against the cold-cyan *machine* doctrine is the
 identity; no rename pass will ever be needed because nothing was ever
 shipped under another name.
 
 **Asymmetry LOCKED (decision 2B):** factions differ in **early access,
-signature assets, and operational options** (the Coalition fields K9s and
+signature assets, and operational options** (the United Front fields K9s and
 falcons first, the Collective fields swarms and UGVs first) — but counters
 are shared and tech *crosses over* eventually. No hard-split rosters: full
 asymmetry multiplies balance, content, bot-AI, and onboarding costs for a
@@ -70,7 +70,7 @@ team of this size.
 - **Doctrine is real:** your faction's tech tree, vehicle skins, and unlocked
   prototypes differ.
 - **Defection is allowed between tours — and it's recorded.** "Two tours
-  Coalition, then crossed to the Collective" is a story your dossier tells forever.
+  the United Front, then crossed to the Collective" is a story your dossier tells forever.
 - **The outbreak (§8.3) belongs to no one.** Quarantine ops are a joint task
   force — the one place both flags fight side by side; your containment record
   credits your faction.
@@ -391,7 +391,7 @@ pairing** — take the K9 option and the dog deploys with you:
   service history ("Rex — 3 tours, 41 finds, wounded twice"). When a K9 goes
   down and the handler carries it to the ambulance, that's the clip of the
   match. Dogs are how you make players *feel* things.
-- **Doctrine fit:** K9s are a Coalition signature (§1) — the human-and-animal
+- **Doctrine fit:** K9s are a United Front signature (§1) — the human-and-animal
   army against the Collective's machines. Dog vs robot-dog is a fight we want.
 
 ### 5.4 Drones & ground robots — *first slice SHIPPED*
@@ -418,7 +418,7 @@ bird-sized ISR drones (RQ-11 Raven) are standard issue. Two grounded takes:
 - **The falcon (counter-drone):** a trained raptor that dives the Collective's ISR
   quadcopters and rips them out of the sky. Niche — but it's the *organic
   counter* to drone doctrine, it's dramatic, and nobody else's war game has
-  it. Pairs with the K9 as the Coalition's living-army identity.
+  it. Pairs with the K9 as the United Front's living-army identity.
 - **The Raven (ISR mini-drone):** hand-thrown, bird-sized, silent-ish scout —
   effectively the "bird" as advanced tech, and nearly free to build (it's a
   small flying camera reusing drone logic).
@@ -445,7 +445,7 @@ be earned, escorted, and kept alive.
 - **Prototypes are rare by design:** limited field-trial issue — one EM rifle
   per squad, one jet-suit per operation. Losing one is a Journal entry. Using
   one well is a medal.
-- **Doctrine forks the tree (§1):** the Coalition unlocks the EM-gun line first;
+- **Doctrine forks the tree (§1):** the United Front unlocks the EM-gun line first;
   the Collective unlocks the swarm line first. The war decides who gets the future.
 
 > *Standard issue is real. The future is a reward.*
@@ -560,7 +560,7 @@ required properties:
    soup.
 2. **A signature moment** — the thing players tell stories about.
 3. **A persistent scar** — how campaign state permanently rewrites it.
-4. **A doctrine lean** — some ground favors Coalition armor, some favors Collective
+4. **A doctrine lean** — some ground favors United Front armor, some favors Collective
    drones, so the campaign tug-of-war has texture.
 
 | # | Front | Ground | Modes | Stars | The scar (persists) |
@@ -1476,7 +1476,7 @@ assemble**. Where the Outbreak (§8.3) eats flesh, the Iron Eaters eat metal:
 
 | Threat | Devours | Feared most by |
 |---|---|---|
-| The Outbreak | flesh | the human army (Coalition doctrine) |
+| The Outbreak | flesh | the human army (United Front doctrine) |
 | **The Iron Eaters** | metal | the machine army (Collective doctrine) |
 
 Each faction's greatest strength is exactly what its nightmare eats. That
@@ -1674,7 +1674,7 @@ hand — is deliberately **not specified yet**; the acts themselves are canon.)*
   stays empty); playable monsters enter via a **dedicated versus mode**
   (§20.4 — bots fill both sides).
 - ✅ **Decided (1B):** faction names locked to the code's shipped names — the
-  **Titan Coalition** (amber) vs **The Collective** (cyan). Zero rename work:
+  **The United Front** (amber) vs **The Collective** (cyan). Zero rename work:
   nothing ever shipped under another name.
 - ✅ **Decided:** roofs + firing slits (§8.4) — cutaway roofs (visual-only
   phase 1) + `T_SLIT` tile; build before authoring any of the ten fronts.
@@ -1746,7 +1746,7 @@ the range and in playtests, not in this document.
 
 | # | Decision | Locked choice |
 |---|---|---|
-| 1B | Faction names | **Titan Coalition** (amber) vs **The Collective** (cyan) — the code's shipped names; the directive aligned to the game (§1) |
+| 1B | Faction names | **The United Front** (amber) vs **The Collective** (cyan) — the code's shipped names; the directive aligned to the game (§1) |
 | 2B | Faction asymmetry | Early access + signature assets + operational options differ; counters shared; tech crosses over. No hard-split rosters (§1) |
 | 4A | What is a tour | One tour = one campaign season — enlistment, history, defection, rewards share one clock (§1/§13) |
 | 6B | Menu placement | Tab shell + Map/Barracks slots ship alongside Slice 1; polish in Slice 1.5 (§9) |

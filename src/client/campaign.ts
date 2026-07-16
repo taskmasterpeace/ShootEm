@@ -95,7 +95,7 @@ export function applyResult(c: Campaign, frontId: string, won: boolean | null, n
   if (after !== before) {
     lines.push(after === 'contested'
       ? `${def.name} has fallen CONTESTED — the line is moving.`
-      : `${def.name} is now ${after === 'coalition' ? 'Coalition' : 'Collective'} ground.`);
+      : `${def.name} is now ${after === 'coalition' ? 'United Front' : 'Collective'} ground.`);
   }
   const deep = Math.abs(st.control) >= SCAR_EDGE;
   if (deep && !st.scarActive) {
@@ -132,7 +132,7 @@ export function checkSeasonEnd(c: Campaign, now = Date.now()): Armistice | null 
     : held.collective >= SEASON_FRONTS_TO_WIN ? 'collective' : null;
   if (!winner) return null;
   const season = c.season;
-  const name = winner === 'coalition' ? 'the Titan Coalition' : 'The Collective';
+  const name = winner === 'coalition' ? 'The United Front' : 'The Collective';
   c.dispatch.unshift(
     { text: `ARMISTICE — Season ${season} is over. ${name} takes the war, holding ${held[winner]} of ten fronts. The theatre resets; the record remains.`, at: now, simulated: false },
   );
@@ -178,7 +178,7 @@ export function simulateTimeSkip(c: Campaign, now = Date.now()): string[] {
       st.control = Math.max(-100, Math.min(100, Math.round((st.control + drift) * 10) / 10));
       const after = bandOf(st.control);
       if (after !== before) {
-        lines.push(`While you were gone (simulated): ${f.name} ${after === 'contested' ? 'fell contested' : `went ${after === 'coalition' ? 'Coalition' : 'Collective'}`}.`);
+        lines.push(`While you were gone (simulated): ${f.name} ${after === 'contested' ? 'fell contested' : `went ${after === 'coalition' ? 'United Front' : 'Collective'}`}.`);
       }
     }
   }

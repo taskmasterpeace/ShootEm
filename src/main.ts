@@ -375,7 +375,7 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
           // §13 (decided): a REAL battle can close the season — the Armistice
           const armistice = checkSeasonEnd(campaign);
           if (armistice && dossier) {
-            const winnerName = armistice.winner === 'coalition' ? 'the Titan Coalition' : 'The Collective';
+            const winnerName = armistice.winner === 'coalition' ? 'The United Front' : 'The Collective';
             dossier.journal.unshift({
               text: `ARMISTICE — Season ${armistice.season} ended with ${winnerName} holding ${armistice.frontsHeld} of ten fronts. I was there when the war closed.`,
               at: Date.now(), matchRef: `season:${armistice.season}`,

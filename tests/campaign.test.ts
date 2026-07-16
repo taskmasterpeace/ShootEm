@@ -37,7 +37,7 @@ describe('the Living Campaign', () => {
     let flipped = false, scarred = false;
     for (let i = 0; i < 20; i++) {
       const lines = applyResult(c, 'refinery', true, 1000);
-      if (lines.some((l) => l.includes('Coalition ground'))) flipped = true;
+      if (lines.some((l) => l.includes('United Front ground'))) flipped = true;
       if (lines.some((l) => l.includes('scar'))) scarred = true;
     }
     expect(flipped).toBe(true);
