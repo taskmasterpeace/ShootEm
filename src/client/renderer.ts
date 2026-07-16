@@ -366,19 +366,60 @@ export class Renderer {
   }
 
   private makeNameSprite(name: string, team: Team): THREE.Sprite {
+    // crisp outlined text — the old blurred shadow read as a black plate
+    // floating over the character's head
     const cvs = document.createElement('canvas');
     cvs.width = 256; cvs.height = 48;
     const ctx = cvs.getContext('2d')!;
-    ctx.font = '600 26px Inter, system-ui, sans-serif';
+    ctx.font = '700 27px Inter, system-ui, sans-serif';
     ctx.textAlign = 'center';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+    ctx.lineWidth = 5;
+    ctx.strokeText(name, 128, 32);
     ctx.fillStyle = team === 0 ? '#e8a33d' : '#3dbde8';
-    ctx.shadowColor = 'rgba(0,0,0,0.8)';
-    ctx.shadowBlur = 6;
     ctx.fillText(name, 128, 32);
     const tex = new THREE.CanvasTexture(cvs);
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-    sprite.scale.set(5.5, 1.05, 1);
+    sprite.scale.set(3.4, 0.64, 1);
     return sprite;
+  }
+
+  /** Squadmate vitals at a glance: two circles over each teammate — health
+   *  and, when they carry plate, armor. Redrawn only when a value bucket
+   *  changes; enemies get nothing (their state is yours to find out). */
+  private statusArcs = new Map<number, { sprite: THREE.Sprite; ctx: CanvasRenderingContext2D; tex: THREE.CanvasTexture; key: string }>();
+
+  private drawStatusArcs(ctx: CanvasRenderingContext2D, hpFrac: number, arFrac: number, hasArmor: boolean) {
+    ctx.clearRect(0, 0, 96, 48);
+    const ring = (cx: number, frac: number, color: string) => {
+      ctx.lineWidth = 7;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = 'rgba(0,0,0,0.45)'; // track
+      ctx.beginPath(); ctx.arc(cx, 24, 17, 0, Math.PI * 2); ctx.stroke();
+      if (frac > 0.004) {
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+        ctx.arc(cx, 24, 17, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac);
+        ctx.stroke();
+      }
+    };
+    if (hasArmor) {
+      ring(26, hpFrac, hpFrac < 0.35 ? '#e05252' : hpFrac < 0.7 ? '#e0b352' : '#7fd45c');
+      ring(70, arFrac, '#9fc3d8'); // steel — the plate circle
+    } else {
+      ring(48, hpFrac, hpFrac < 0.35 ? '#e05252' : hpFrac < 0.7 ? '#e0b352' : '#7fd45c');
+    }
+  }
+
+  private makeStatusSprite(): { sprite: THREE.Sprite; ctx: CanvasRenderingContext2D; tex: THREE.CanvasTexture } {
+    const cvs = document.createElement('canvas');
+    cvs.width = 96; cvs.height = 48;
+    const ctx = cvs.getContext('2d')!;
+    const tex = new THREE.CanvasTexture(cvs);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    sprite.scale.set(1.7, 0.85, 1);
+    return { sprite, ctx, tex };
   }
 
   /** Sync all dynamic entities to the sim state, advance FX. */
@@ -398,19 +439,47 @@ export class Renderer {
         );
         this.scene.add(mesh);
         this.soldierMeshes.set(s.id, mesh);
-        if (s.kind === 'bot' || s.kind === 'human' || s.kind === 'scientist') {
-          const tag = this.makeNameSprite(s.name, s.team);
-          tag.position.y = 2.6;
-          mesh.add(tag);
-          this.nameSprites.set(s.id, tag);
-        }
       }
       const inVehicle = s.vehicleId >= 0;
       const corpse = !s.alive && world.time < s.respawnAt - 0.02;
       mesh.visible = (s.alive || corpse) && !inVehicle && !(s.cloaked && s.team !== localTeam && s.id !== localId);
       if (!mesh.visible) continue;
-      const tag = this.nameSprites.get(s.id);
-      if (tag) tag.visible = s.id !== localId && s.alive;
+      // squad-only overhead: name + vitals circles. Enemy plates were clutter
+      // AND free intel — enemies now read as silhouettes and team color.
+      const squad = !!local && s.id !== localId && s.alive &&
+        (s.team === localTeam || s.kind === 'scientist') &&
+        (s.kind === 'bot' || s.kind === 'human' || s.kind === 'scientist');
+      let tag = this.nameSprites.get(s.id);
+      if (squad && !tag) {
+        tag = this.makeNameSprite(s.name, s.team);
+        tag.position.y = 3.05;
+        mesh.add(tag);
+        this.nameSprites.set(s.id, tag);
+      }
+      if (tag) tag.visible = squad;
+      let arcs = this.statusArcs.get(s.id);
+      if (squad && !arcs) {
+        const made = this.makeStatusSprite();
+        made.sprite.position.y = 2.45;
+        mesh.add(made.sprite);
+        arcs = { ...made, key: '' };
+        this.statusArcs.set(s.id, arcs);
+      }
+      if (arcs) {
+        arcs.sprite.visible = squad;
+        if (squad) {
+          const hasArmor = (s.maxArmor ?? 0) > 0;
+          const hpFrac = Math.max(0, Math.min(1, s.hp / s.maxHp));
+          const arFrac = hasArmor ? Math.max(0, Math.min(1, s.armor / s.maxArmor)) : 0;
+          // redraw only when a 5% bucket moves — canvases are not free
+          const key = `${Math.round(hpFrac * 20)}:${Math.round(arFrac * 20)}:${hasArmor}`;
+          if (key !== arcs.key) {
+            arcs.key = key;
+            this.drawStatusArcs(arcs.ctx, hpFrac, arFrac, hasArmor);
+            arcs.tex.needsUpdate = true;
+          }
+        }
+      }
       mesh.position.set(s.pos.x, s.pos.y, s.pos.z);
       mesh.rotation.y = -s.yaw; // sim yaw is math-angle on XZ; three rotates opposite
       this.animateSoldier(mesh, s, world);
@@ -432,6 +501,12 @@ export class Renderer {
           tag.material.map?.dispose();
           tag.material.dispose();
           this.nameSprites.delete(id);
+        }
+        const arcs = this.statusArcs.get(id);
+        if (arcs) {
+          arcs.tex.dispose();
+          arcs.sprite.material.dispose();
+          this.statusArcs.delete(id);
         }
         this.soldierMeshes.delete(id);
       }

@@ -180,6 +180,10 @@ export interface Soldier {
   nextWarpAt: number; // shared cooldown for warps/gates/lifts (stalkers: blink timer)
   orbitals: number;   // orbital-strike beacons held (pickup)
   manpads: number;    // shoulder-fired SAM rounds left this life (manpads equipment)
+  /** issued plate — absorbs damage before hp and does NOT heal back; restored
+   *  on respawn. Granted by armor equipment (vest +25, power armor +60). */
+  armor: number;
+  maxArmor: number;
   /** who last killed this soldier (-1 = nobody/self/environment) — the killcam
    *  frames the duel between victim and killer instead of just the corpse */
   lastKillerId: number;

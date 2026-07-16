@@ -283,12 +283,14 @@ describe('the new machines', () => {
 describe('equipment', () => {
   const world = () => new World({ seed: 21, mode: 'tdm' });
 
-  it('armor raises hp; equipment table is sane', () => {
+  it('armor equipment issues plate — a separate pool, hp stays class base', () => {
     const w = world();
     const vest = w.addSoldier('V', 'infantry', 0, 'human', { equipment: ['armor_vest'] });
-    expect(vest.maxHp).toBe(CLASSES.infantry.hp + 25);
+    expect(vest.maxHp).toBe(CLASSES.infantry.hp);
+    expect(vest.maxArmor).toBe(25);
     const tank = w.addSoldier('P', 'infantry', 0, 'human', { equipment: ['power_armor'] });
-    expect(tank.maxHp).toBe(CLASSES.infantry.hp + 60);
+    expect(tank.maxHp).toBe(CLASSES.infantry.hp);
+    expect(tank.maxArmor).toBe(60);
     expect(Object.keys(EQUIPMENT).length).toBeGreaterThanOrEqual(12);
   });
 

@@ -167,6 +167,7 @@ export class World {
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
       longestKill: 0, vehicleKills: 0, healGiven: 0,
       pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0, lastKillerId: -1,
+      armor: 0, maxArmor: 0,
       equipment: (loadout?.equipment ?? []).filter((id) => EQUIPMENT[id]).slice(0, 2),
       medikitReady: true, nextPsiAt: 0, nextRepairAt: 0,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
@@ -188,6 +189,7 @@ export class World {
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
       longestKill: 0, vehicleKills: 0, healGiven: 0,
       pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0, lastKillerId: -1,
+      armor: 0, maxArmor: 0,
       equipment: [], medikitReady: false, nextPsiAt: 0, nextRepairAt: 0,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
@@ -208,6 +210,7 @@ export class World {
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
       longestKill: 0, vehicleKills: 0, healGiven: 0,
       pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0, lastKillerId: -1,
+      armor: 0, maxArmor: 0,
       equipment: [], medikitReady: false, nextPsiAt: 0, nextRepairAt: 0,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
@@ -217,10 +220,12 @@ export class World {
 
   spawn(s: Soldier) {
     const c = CLASSES[s.classId];
-    // armor equipment raises max hp
-    let hpBonus = 0;
-    for (const id of s.equipment) hpBonus += EQUIPMENT[id]?.hpBonus ?? 0;
-    s.hp = c.hp + hpBonus; s.maxHp = c.hp + hpBonus; s.energy = 100;
+    // armor equipment issues PLATE — a separate pool that absorbs damage
+    // before hp and never heals back (medics fix flesh, not ceramic).
+    // Total effective pool is unchanged from the old maxHp bonus.
+    let plate = 0;
+    for (const id of s.equipment) plate += EQUIPMENT[id]?.hpBonus ?? 0;
+    s.hp = c.hp; s.maxHp = c.hp; s.armor = plate; s.maxArmor = plate; s.energy = 100;
     s.alive = true; s.cloaked = false; s.vehicleId = -1; s.seat = -1;
     s.carryingFlag = -1;
     s.weaponIdx = 0;
@@ -1628,8 +1633,15 @@ export class World {
 
   damageSoldier(victim: Soldier, dmg: number, attackerId: number, weapon: WeaponId) {
     if (!victim.alive || dmg <= 0) return;
-    victim.hp -= dmg;
     if (victim.cloaked) victim.cloaked = false;
+    // issued plate takes the hit first; whatever punches through reaches flesh
+    if (victim.armor > 0) {
+      const absorbed = Math.min(victim.armor, dmg);
+      victim.armor -= absorbed;
+      dmg -= absorbed;
+      if (dmg <= 0) return; // the plate held
+    }
+    victim.hp -= dmg;
     // combat medikit auto-triggers once per life below 25%
     if (victim.hp > 0 && victim.medikitReady && victim.hp < victim.maxHp * 0.25 && this.hasEquip(victim, 'autoMedikit')) {
       victim.medikitReady = false;

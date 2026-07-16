@@ -147,14 +147,22 @@ html, body {
 #hud-bottom-left { position: absolute; left: 1.25rem; bottom: 1.25rem; }
 #health-block {
   background: oklch(0.18 0.02 80 / 0.75); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 0.8rem 1rem; width: 15rem; backdrop-filter: blur(6px);
+  border-radius: var(--radius); padding: 0.9rem 1.1rem; width: 19rem; backdrop-filter: blur(6px);
 }
-.bar-label { font-size: 0.72rem; font-weight: 600; color: var(--muted); margin-bottom: 0.25rem; letter-spacing: 0.05em; }
-.bar-label.energy { margin-top: 0.5rem; }
+.bar-label { font-size: 0.72rem; font-weight: 600; color: var(--muted); margin-bottom: 0.3rem; letter-spacing: 0.05em; display: flex; align-items: baseline; gap: 0.35rem; }
+.bar-label.energy { margin-top: 0.55rem; }
+.bar-label.armor { margin-top: 0.55rem; }
+/* the number you glance at under fire — big, colored, unmissable */
+#hp-num { font-size: 1.7rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; color: oklch(0.78 0.17 130); }
+#hp-num.low { color: var(--danger); }
+#ar-num { font-size: 1.05rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; color: oklch(0.78 0.05 225); }
 .bar { height: 0.55rem; background: oklch(0.13 0.015 80); border-radius: 999px; overflow: hidden; }
+.bar.hp-bar { height: 1rem; }
+.bar.armor-bar { height: 0.65rem; }
 .bar-fill { height: 100%; border-radius: 999px; transition: width 0.15s ease-out; }
 .bar-fill.hp { background: linear-gradient(90deg, var(--ok), oklch(0.78 0.17 130)); width: 100%; }
 .bar-fill.hp.low { background: linear-gradient(90deg, var(--danger), oklch(0.68 0.2 45)); }
+.bar-fill.ar { background: linear-gradient(90deg, oklch(0.62 0.06 235), oklch(0.78 0.05 220)); width: 100%; }
 .bar-fill.en { background: linear-gradient(90deg, oklch(0.65 0.14 250), oklch(0.75 0.13 220)); width: 100%; }
 
 #hud-bottom-right { position: absolute; right: 1.25rem; bottom: 17.5rem; }

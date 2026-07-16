@@ -87,12 +87,22 @@ export class Hud {
     if (!s) return;
 
     // vitals
-    $('hp-num').textContent = String(Math.ceil(s.hp));
+    const hpNum = $('hp-num');
+    hpNum.textContent = String(Math.ceil(s.hp));
+    hpNum.classList.toggle('low', s.hp < s.maxHp * 0.35);
     $('en-num').textContent = String(Math.floor(s.energy));
     const hpFill = $('hp-fill');
     hpFill.style.width = `${(s.hp / s.maxHp) * 100}%`;
     hpFill.classList.toggle('low', s.hp < s.maxHp * 0.35);
     $('en-fill').style.width = `${s.energy}%`;
+    // issued plate: its own bar, shown only when this life carries any
+    const hasPlate = (s.maxArmor ?? 0) > 0;
+    $('ar-label').classList.toggle('hidden', !hasPlate);
+    $('ar-bar').classList.toggle('hidden', !hasPlate);
+    if (hasPlate) {
+      $('ar-num').textContent = String(Math.ceil(s.armor));
+      $('ar-fill').style.width = `${(s.armor / s.maxArmor) * 100}%`;
+    }
 
     // damage / heal vignette: the screen itself tells you what just happened
     if (s.alive && this.wasAlive && this.lastHp >= 0) {
