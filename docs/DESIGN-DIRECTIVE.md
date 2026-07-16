@@ -489,6 +489,33 @@ its result feeds a front.
 | Counter-Battery | Find and kill the guns shelling the front | recon drone, self-propelled artillery |
 | Field Trial | Escort a prototype to the front — or steal the enemy's (§6) | whatever the program issues |
 
+**✅ The Goliath Assault Walker — SHIPPED.** The motor pool's twelfth hull and
+its first legs. The design is the *walking middle ground*, and every stat
+points at it:
+
+- **The legs are the mechanic:** low cover that walls off every wheeled and
+  tracked hull is a stair step to the Goliath (`strider`) — it walks straight
+  over sandbag lines, crate yards, and trench lips. The first vehicle that
+  uses infantry routes.
+- **Balance slot (relational, test-enforced):** hp **480** between APC (450)
+  and tank (650) · straight-line speed **9** — slowest armed ground unit ·
+  turn rate **2.4** — best heavy pivot in the pool (walkers turn in place;
+  the tank's 1.5 doesn't). You out-rotate armor and out-climb it; it outruns
+  and outguns you.
+- **The GAU-9 arm cannon:** 22 dmg × 4/s (88 sustained dps) with a light
+  1.2u splash — strong against flesh in the open, mediocre against armor.
+  **The tank stays armor king;** the Goliath is infantry support that terrain
+  can't stop.
+- **The Seismic Stomp** (ability, 6s cooldown): an AoE ground slam through
+  the shipped knockback pipeline — 16 knockback + a 35-splash bruise scatters
+  whoever crowds the legs. A panic button, not a strategy.
+- **Fiction slot:** walkers aren't fielded hardware (§2) — the Goliath is the
+  **Prototype Program's first walker** (§6). v1 parks on a pad like the rest;
+  when factions land, it graduates to field-trial issue.
+- **What kills it:** AT rockets, the tank it can't outgun, massed fire from
+  cover it *strides into*, and — when they arrive — the Iron Eaters (§20),
+  who will regard it as a delicacy.
+
 ### 8.2 The maps — ten named fronts, in full
 
 > **The map PLAN now lives in its own document — [`docs/MAP-STRATEGY.md`](MAP-STRATEGY.md):**
@@ -1538,6 +1565,12 @@ hand — is deliberately **not specified yet**; the acts themselves are canon.)*
   footstep slots + per-theme ambience beds, designation table, loop bus,
   fallback chain, harness Biome Audio panel, generation specs. Assets fill
   via the existing ElevenLabs run.
+- ✅ **The Goliath Assault Walker shipped** (§8.1): strider legs (crosses the
+  cover that stops wheels and tracks), Seismic Stomp on the knockback
+  pipeline, GAU-9 anti-infantry cannon, biped model with driven walk cycle,
+  one per team on every battlefield. Balance is relational and test-enforced
+  (hp between APC and tank, slowest armed hull, best heavy pivot). Live-
+  verified striding a cover line and stomping in the shipped bundle.
 - ⚠️ **Decide:** terrain surface layer (§8.6) and the jump vocabulary (§8.7)
   ship with the §8.4 map pass — same grid work, do them together.
 - ⚠️ **Decide:** §19 vision cones are the same work item as §11.4

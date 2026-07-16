@@ -495,7 +495,7 @@ for (const k of ZEDS) zedGrid.appendChild(chip(k, 'zed', () => showModel(() => b
 
 // vehicles + structures — the full motor pool
 const vehGrid = $('veh-grid');
-const VEH_KINDS = ['buggy', 'tank', 'apc', 'skiff', 'hoverboard', 'bike', 'flyer', 'transport', 'ambulance', 'tunneler', 'emplacement'] as const;
+const VEH_KINDS = ['buggy', 'tank', 'apc', 'skiff', 'hoverboard', 'bike', 'flyer', 'transport', 'ambulance', 'tunneler', 'emplacement', 'mech'] as const;
 for (const v of VEH_KINDS) vehGrid.appendChild(chip(v, '', () => showModel(() => buildVehicle(v, team), `Vehicle · ${v}`)));
 const structGrid = $('struct-grid');
 structGrid.appendChild(chip('turret', '', () => showModel(() => buildTurretMesh(team), 'Sentry turret')));

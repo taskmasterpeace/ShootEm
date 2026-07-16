@@ -24,7 +24,8 @@ export type VehicleKind =
   | 'transport'    // crewed transport craft — sensors/ECM/comms stations + 4 passengers
   | 'ambulance'    // field ambulance — heals soldiers around it, 2 stretcher seats
   | 'tunneler'     // tunneling machine — grinds through walls, glacially slow
-  | 'emplacement'; // static emplacement gun — manned artillery, does not move
+  | 'emplacement'  // static emplacement gun — manned artillery, does not move
+  | 'mech';        // bipedal assault walker — strides over low cover, stomps
 
 /** Damageable vehicle subsystems. Crew stations correspond to the last three. */
 export type SystemId = 'engine' | 'weapon' | 'sensors' | 'ecm' | 'comms';
@@ -106,6 +107,10 @@ export interface VehicleDef {
   liftoffTime?: number;
   /** grinds T_WALL tiles into open ground as it moves (tunneler) */
   digs?: boolean;
+  /** legs step over low cover — T_COVER doesn't block it; walls/water do (mech) */
+  strider?: boolean;
+  /** ability key slams the ground: AoE knockback + damage around the hull (mech) */
+  stomps?: boolean;
   /** heals friendly soldiers within this radius (ambulance) */
   healRadius?: number;
   healRate?: number;

@@ -117,6 +117,7 @@ const VEHICLE_PARTS: Record<VehicleKind, string[]> = {
   ambulance: ['pulse', 'healRing'],
   tunneler: ['drill', 'pulse'],
   emplacement: ['turret', 'gunRecoil'],
+  mech: ['legL', 'legR', 'turret', 'gunRecoil', 'pulse'],
 };
 
 describe('visual: vehicles', () => {

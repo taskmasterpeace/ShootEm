@@ -115,7 +115,7 @@ describe('combat', () => {
 describe('vehicles', () => {
   it('spawns vehicles on pads and lets soldiers drive them', () => {
     const w = new World({ seed: 42, mode: 'tdm' });
-    expect(w.vehicles.size).toBe(22); // 10 motor-pool kinds + 1 emplacement, × 2 teams
+    expect(w.vehicles.size).toBe(24); // 11 motor-pool kinds (incl. the mech) + 1 emplacement, × 2 teams
     const s = w.addSoldier('D', 'infantry', 0, 'human');
     const v = [...w.vehicles.values()].find((x) => x.team === 0 && x.kind === 'buggy')!;
     s.pos = { ...v.pos };

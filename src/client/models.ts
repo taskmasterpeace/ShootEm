@@ -970,6 +970,79 @@ export function buildVehicle(kind: VehicleKind, team: Team): THREE.Group {
       g.add(warn);
       break;
     }
+    case 'mech': {
+      // Goliath Assault Walker: a bipedal weapons platform. Tall, wide-stanced,
+      // reads as LEGS from the top-down camera — the legs are the mechanic.
+      // Hip groups are named legL/legR; the renderer swings them with speed.
+      const mkLeg = (side: 1 | -1): THREE.Group => {
+        const hip = new THREE.Group();
+        hip.name = side === 1 ? 'legL' : 'legR';
+        hip.position.set(0, 1.75, side * 0.62);
+        const thigh = box(0.42, 0.85, 0.34, bodyDark);
+        thigh.position.y = -0.42;
+        hip.add(thigh);
+        const knee = cyl(0.2, 0.2, 0.4, dark, 8);
+        knee.rotation.x = Math.PI / 2;
+        knee.position.y = -0.9;
+        hip.add(knee);
+        const shin = box(0.3, 0.75, 0.26, body);
+        shin.position.set(0.08, -1.3, 0);
+        hip.add(shin);
+        const foot = box(0.85, 0.18, 0.5, dark);
+        foot.position.set(0.18, -1.68, 0);
+        hip.add(foot);
+        return hip;
+      };
+      g.add(mkLeg(1), mkLeg(-1));
+      // pelvis + torso
+      const pelvis = box(0.9, 0.45, 1.1, dark);
+      pelvis.position.y = 1.8;
+      g.add(pelvis);
+      const torso = box(1.7, 0.85, 1.5, body);
+      torso.position.y = 2.45;
+      g.add(torso);
+      const plate = box(0.5, 0.6, 1.2, bodyDark); // chest glacis
+      plate.position.set(0.95, 2.4, 0);
+      plate.rotation.z = 0.25;
+      g.add(plate);
+      // cockpit canopy — the pilot sits where you'd expect the head
+      const canopy = box(0.55, 0.32, 0.7, mat(0x1c2a30, { metal: 0.2, rough: 0.15 }));
+      canopy.position.set(0.62, 2.95, 0);
+      g.add(canopy);
+      // left shoulder: missile pod (dressing — the promise of a refit, §3.1)
+      const pod = box(0.7, 0.5, 0.55, bodyDark);
+      pod.position.set(-0.35, 3.05, 0.75);
+      g.add(pod);
+      // four launch tubes on the pod's forward face (pod-local coordinates)
+      for (let i = 0; i < 4; i++) {
+        const tube = cyl(0.07, 0.07, 0.2, dark, 8);
+        tube.rotation.z = Math.PI / 2;
+        tube.position.set(0.32, i < 2 ? 0.12 : -0.12, i % 2 ? 0.14 : -0.14);
+        pod.add(tube);
+      }
+      // right arm: the GAU-9, mounted on the turret so aim + recoil work
+      const shoulder = box(0.5, 0.5, 0.45, dark);
+      shoulder.position.set(0, 0.55, -0.95);
+      turret.add(shoulder);
+      const barrel = cyl(0.09, 0.12, 1.7, dark, 10);
+      barrel.rotation.z = -Math.PI / 2;
+      barrel.position.set(1.15, 0.5, -0.95);
+      recoil.add(barrel);
+      const brake = cyl(0.15, 0.15, 0.3, mat(0x55554a, { metal: 0.6, rough: 0.3 }), 8);
+      brake.rotation.z = -Math.PI / 2;
+      brake.position.set(2.05, 0.5, -0.95);
+      recoil.add(brake);
+      turret.position.set(0, 2.45, 0);
+      // antenna + warning lamp — every War World heavy carries its pulse
+      const mast = cyl(0.025, 0.025, 0.8, dark, 6);
+      mast.position.set(-0.7, 3.3, -0.5);
+      g.add(mast);
+      const lamp = box(0.16, 0.1, 0.16, mat(0xe8a33d, { emissive: 0xe8a33d }));
+      lamp.position.set(-0.7, 3.72, -0.5);
+      lamp.name = 'pulse';
+      g.add(lamp);
+      break;
+    }
     case 'emplacement': {
       // sandbagged static gun: hexagonal base, shield plates, long barrel
       const base = cyl(1.5, 1.7, 0.5, mat(0x6a6353, { rough: 0.95 }), 6);

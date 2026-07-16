@@ -1,6 +1,6 @@
 import { CLASSES, EQUIPMENT, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
-import { GRID, T_COVER, T_OPEN, T_WALL, TILE, WORLD, blocksShot, generateMap, isBlocked, losClear, tileAt, type GameMap } from './map';
+import { GRID, T_COVER, T_OPEN, T_WALL, T_WATER, TILE, WORLD, blocksShot, generateMap, isBlocked, losClear, tileAt, type GameMap } from './map';
 import { Rng } from './rng';
 import {
   SYSTEM_IDS, isCoopMode, isZed,
@@ -654,6 +654,14 @@ export class World {
           text: v.burrowed ? 'Breacher DIVING' : 'Breacher SURFACING',
         });
       }
+      // mech stomp: the ability key slams the ground — an AoE shove that
+      // scatters whoever crowded the walker's legs. 6s of cooldown keeps it
+      // a panic button, not a strategy.
+      if (cmd.ability && s.seat === 0 && VEHICLES[v.kind].stomps && this.time >= s.nextAbilityAt) {
+        s.nextAbilityAt = this.time + 6;
+        this.explode({ ...v.pos }, WEAPONS.mech_stomp, s.id, v.team);
+        this.emit({ type: 'shot', pos: { ...v.pos }, weapon: 'mech_stomp', soldierId: s.id });
+      }
       // flyer pilots pop IR flares with the grenade key — the heat-seeker counter
       if (cmd.grenade && s.seat === 0 && VEHICLES[v.kind].flies && v.flares > 0 && this.time >= s.nextGrenadeAt) {
         v.flares--;
@@ -1283,9 +1291,13 @@ export class World {
           }
         }
         const hover = !!def.hover;
+        // striders (mech) step OVER low cover — only walls and water stop legs
+        const blockedAt = def.strider
+          ? (x: number, z: number) => { const t = tileAt(this.map.grid, x, z); return t === T_WALL || t === T_WATER; }
+          : (x: number, z: number) => isBlocked(this.map.grid, x, z, hover);
         const clearAt = (x: number, z: number) =>
-          !isBlocked(this.map.grid, x + r, z, hover) && !isBlocked(this.map.grid, x - r, z, hover) &&
-          !isBlocked(this.map.grid, x, z + r, hover) && !isBlocked(this.map.grid, x, z - r, hover);
+          !blockedAt(x + r, z) && !blockedAt(x - r, z) &&
+          !blockedAt(x, z + r) && !blockedAt(x, z - r);
         if (clearAt(nx, v.pos.z)) v.pos.x = nx; else v.vel.x = 0;
         if (clearAt(v.pos.x, nz)) v.pos.z = nz; else v.vel.z = 0;
       }

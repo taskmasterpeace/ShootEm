@@ -261,7 +261,7 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
 
   // Vehicle pads flanking each base — the full motor pool
   const vehiclePads: VehiclePad[] = [];
-  const padKinds: VehicleKind[] = ['buggy', 'tank', 'apc', 'skiff', 'bike', 'flyer', 'transport', 'ambulance', 'tunneler', 'hoverboard'];
+  const padKinds: VehicleKind[] = ['buggy', 'tank', 'apc', 'skiff', 'bike', 'flyer', 'transport', 'ambulance', 'tunneler', 'hoverboard', 'mech'];
   for (let side = 0 as Team; side < 2; side++) {
     const [btx, btz] = baseT[side];
     const fwd = side === 0 ? 1 : -1;
@@ -269,6 +269,7 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
       [fwd * 9, -9], [fwd * 9, 9], [fwd * 12, -3], [fwd * 12, 3],
       [fwd * 6, -12], [fwd * 6, 12], [fwd * 15, -8], [fwd * 15, 8],
       [fwd * 12, -12], [fwd * 12, 12],
+      [fwd * 16, 4], // mech — off the center row so it doesn't park in the main firing lane
     ];
     padKinds.forEach((kind, i) => {
       const [ox, oz] = padOffsets[i];

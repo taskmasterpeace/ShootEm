@@ -39,6 +39,12 @@ const CORE_WEAPONS: Record<WeaponId, WeaponDef> = {
   orbital_beacon: W({ id: 'orbital_beacon', name: 'Orbital Designator', damage: 0, rof: 0.5, speed: 26, clip: 1, reserve: 0, range: 42, arc: true, sound: 'thump', tracer: 'rocket' }),
   buggy_mg: W({ id: 'buggy_mg', name: 'Buggy MG', damage: 11, rof: 10, speed: 110, spread: 0.045, clip: Infinity, reserve: Infinity, range: 52, sound: 'smg' }),
   tank_cannon: W({ id: 'tank_cannon', name: '120mm Cannon', damage: 110, rof: 0.5, speed: 70, spread: 0.004, clip: Infinity, reserve: Infinity, range: 94, splash: 5.5, splashDamage: 60, knockback: 18, sound: 'cannon', tracer: 'rocket' }),
+  // the Goliath's arm gun: sustained anti-infantry fire with a light splash —
+  // strong vs flesh in the open, mediocre vs armor. The tank stays armor king.
+  mech_autocannon: W({ id: 'mech_autocannon', name: 'GAU-9 Arm Cannon', damage: 22, rof: 4, speed: 100, spread: 0.025, clip: Infinity, reserve: Infinity, range: 68, splash: 1.2, splashDamage: 8, knockback: 2, sound: 'autocannon', tracer: 'shell' }),
+  // the stomp: not a gun — an AoE ground slam resolved through explode().
+  // The knockback IS the weapon; the damage is a bruise, not a kill.
+  mech_stomp: W({ id: 'mech_stomp', name: 'Seismic Stomp', damage: 0, rof: 1, speed: 1, clip: Infinity, reserve: Infinity, range: 5, splash: 4.5, splashDamage: 35, knockback: 16, sound: 'thump', tracer: 'none' }),
   apc_mg: W({ id: 'apc_mg', name: 'APC MG', damage: 12, rof: 8, speed: 105, spread: 0.04, clip: Infinity, reserve: Infinity, range: 55, sound: 'autocannon' }),
   skiff_plasma: W({ id: 'skiff_plasma', name: 'Skiff Plasma', damage: 18, rof: 7, speed: 65, spread: 0.02, clip: Infinity, reserve: Infinity, range: 50, sound: 'plasma', tracer: 'plasma' }),
   turret_mg: W({ id: 'turret_mg', name: 'Sentry MG', damage: 10, rof: 5, speed: 100, spread: 0.03, clip: Infinity, reserve: Infinity, range: 38, sound: 'smg' }),
@@ -140,6 +146,16 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
     kind: 'emplacement', name: 'Bulwark Emplacement', hp: 380, speed: 0, turnRate: 0,
     weapon: 'emplacement_gun', seats: 1, mobileSpawn: false, radius: 1.6,
     immobile: true, systemHp: 40,
+  },
+  // The Goliath: the walking middle ground. Slower than a tank in a straight
+  // line but pivots like a soldier, and its LEGS are the point — low cover
+  // that walls off every wheeled and tracked hull is a stair step to it.
+  // Balance slot: hp between APC and tank, worst straight-line speed of the
+  // armed ground pool, best heavy-class turn rate, anti-infantry gun.
+  mech: {
+    kind: 'mech', name: 'Goliath Assault Walker', hp: 480, speed: 9, turnRate: 2.4,
+    weapon: 'mech_autocannon', seats: 2, mobileSpawn: false, radius: 1.9,
+    strider: true, stomps: true, systemHp: 48,
   },
 };
 

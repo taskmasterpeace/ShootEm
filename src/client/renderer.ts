@@ -611,6 +611,19 @@ export class Renderer {
       }
       mesh.position.set(v.pos.x, hoverBob, v.pos.z);
       mesh.rotation.y = -v.yaw;
+      if (v.kind === 'mech') {
+        // the walk cycle: hips scissor with ground speed, planted when still
+        const vSpeed = Math.hypot(v.vel.x, v.vel.z);
+        const ph = ((mesh.userData.stride as number | undefined) ?? 0) + dt * (1.5 + vSpeed * 1.6);
+        mesh.userData.stride = ph;
+        const swing = Math.min(1, vSpeed / 3) * 0.5;
+        const legL = mesh.getObjectByName('legL');
+        const legR = mesh.getObjectByName('legR');
+        if (legL && legR) {
+          legL.rotation.z = Math.sin(ph) * swing;
+          legR.rotation.z = -Math.sin(ph) * swing;
+        }
+      }
       if (v.kind === 'tunneler') {
         const drill = mesh.getObjectByName('drill');
         const vSpeed = Math.hypot(v.vel.x, v.vel.z);
