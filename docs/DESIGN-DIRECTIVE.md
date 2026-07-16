@@ -1698,6 +1698,25 @@ hand — is deliberately **not specified yet**; the acts themselves are canon.)*
   must pound through (door_hit / door_break sounds + splinter VFX shipped —
   the siege is now audible). No two fronts share a floor plan; connectivity
   is generator-guaranteed and test-enforced.
+- ✅ **The second storey shipped as a working experiment (§8.4 Phase-2)**:
+  a grid2 tile layer (floor/wall/window/well), T_LADDER + E to climb,
+  Soldier.floor, edge-falls, y-band ballistics (upstairs muzzles clear
+  ground walls; upper windows fire in the 5.2–5.8 band), the skyline rule
+  in the 68A cull, and ~45% of grown manors sprouting a walled loft. The
+  harness gained a **Building Lab** tab — grow any blueprint from a seed,
+  toggle storeys/roof, read the ASCII floor plan. Bots and zeds stay
+  ground-floor citizens for now (their pathfinding ignores grid2) —
+  upstairs is human terrain until the next bot pass.
+- ✅ **The trooper models got their faction identities**: one shared rig,
+  two armies. The United Front reads as WORN MILITARY — olive fatigues,
+  layered angular plates, combat helmet with rails, an exposed human chin,
+  amber trim. The Collective reads as SYNTHETIC — graphite bodysuit,
+  smooth blue-steel shell, a sealed glowing dome (no skin anywhere), cyan
+  glow seams down the limbs and sternum. Class gear on both (medic cross,
+  jump thrusters + fins, engineer toolbelt, heavy bandolier with visible
+  rounds, pathfinder pylons, ghost mast, infantry frags). Faction
+  distinction is TEST-ENFORCED: skin vs sealed, box helm vs dome, and the
+  Collective must out-glow the Front.
 - ⛔ **Explicitly NOT in this document (user's call): the Director.** The
   pacing/orchestration system is deferred — §20.5 names the acts but not
   their conductor. Revisit later.

@@ -76,6 +76,55 @@ describe('visual: troopers', () => {
   });
 });
 
+// ---- 1b. faction identity: the two armies must READ differently -----------
+
+describe('visual: faction identity', () => {
+  const SKIN = 0xd0a67e;
+  const hasSkin = (root: THREE.Object3D) => {
+    let found = false;
+    root.traverse((o) => {
+      const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
+      if (m?.color && (m.color.getHex() === SKIN)) found = true;
+    });
+    return found;
+  };
+  const emissiveCount = (root: THREE.Object3D) => {
+    let n = 0;
+    root.traverse((o) => {
+      const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
+      if (m?.emissive && m.emissive.getHex() !== 0) n++;
+    });
+    return n;
+  };
+  const hasSphere = (root: THREE.Object3D) => {
+    let found = false;
+    root.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh && m.geometry?.type === 'SphereGeometry') found = true;
+    });
+    return found;
+  };
+
+  it('the United Front shows a human face; the Collective is SEALED', () => {
+    for (const c of ['infantry', 'heavy', 'medic', 'engineer'] as ClassId[]) {
+      expect(hasSkin(buildSoldier(0, c, 'bot')), `UF ${c} has skin`).toBe(true);
+      expect(hasSkin(buildSoldier(1, c, 'bot')), `Collective ${c} shows NO skin`).toBe(false);
+    }
+  });
+
+  it('the Collective wears the dome (sphere helm); the Front wears the box helmet', () => {
+    expect(hasSphere(buildSoldier(1, 'infantry', 'bot'))).toBe(true);
+    expect(hasSphere(buildSoldier(0, 'infantry', 'bot'))).toBe(false);
+  });
+
+  it('both factions carry glowing team accents — the Collective glows MORE', () => {
+    const ufGlow = emissiveCount(buildSoldier(0, 'infantry', 'bot'));
+    const colGlow = emissiveCount(buildSoldier(1, 'infantry', 'bot'));
+    expect(ufGlow).toBeGreaterThanOrEqual(1);
+    expect(colGlow).toBeGreaterThan(ufGlow); // glow lines are their skin
+  });
+});
+
 // ---- 2. the undead: 6 kinds, arms reach FORWARD (6 cases) ------------------
 
 describe('visual: the undead reach forward', () => {
