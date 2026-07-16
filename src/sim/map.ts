@@ -1,5 +1,5 @@
 import { Rng } from './rng';
-import { placeBuildings } from './buildings';
+import { generateHouse, placeBuildings, stampBuilding, type StampCtx } from './buildings';
 import { THEMES } from './data';
 import type { ModeId, Team, ThemeId, Vec3, VehicleKind } from './types';
 
@@ -450,57 +450,26 @@ function generateNeighborhood(seed: number): GameMap {
     grid[i * GRID + GRID - 1] = T_WALL;
   }
 
-  // 4 columns × 3 rows of lots; streets between them stay open
+  // 4 columns × 3 rows of lots; streets between them stay open. Every house
+  // is GROWN by the dynamic-interior system (buildings.ts): real rooms, real
+  // T_DOOR doors the horde has to break down, windows, furniture, loot —
+  // no two neighborhoods share a floor plan.
   const cols = 4, rows = 3;
   const lotW = 22, lotH = 26;
   const originX = 6, originZ = 8;
-  let houseId = 0;
+  const ctx: StampCtx = { grid, props, pickups, houses, claims, rng };
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const lx = originX + c * lotW;
       const lz = originZ + r * lotH;
-      // house footprint inside the lot
-      const hw = rng.int(9, 11);
-      const hh = rng.int(7, 8);
-      const hx = lx + rng.int(3, lotW - hw - 3);
-      const hz = lz + rng.int(4, lotH - hh - 8);
-      // walls
-      for (let x = hx; x < hx + hw; x++) {
-        setTile(grid, x, hz, T_WALL);
-        setTile(grid, x, hz + hh - 1, T_WALL);
-      }
-      for (let z = hz; z < hz + hh; z++) {
-        setTile(grid, hx, z, T_WALL);
-        setTile(grid, hx + hw - 1, z, T_WALL);
-      }
-      // front door: 2-tile gap on the south wall (faces the street below)
-      const doorX = hx + rng.int(2, hw - 4);
-      setTile(grid, doorX, hz + hh - 1, T_OPEN);
-      setTile(grid, doorX + 1, hz + hh - 1, T_OPEN);
-      const door = tileToWorld(doorX, hz + hh - 1);
-      // sometimes a back door
-      if (rng.next() < 0.55) {
-        const backX = hx + rng.int(2, hw - 4);
-        setTile(grid, backX, hz, T_OPEN);
-        setTile(grid, backX + 1, hz, T_OPEN);
-      }
-      // interior room divider with a doorway
-      if (hw >= 10) {
-        const divX = hx + Math.floor(hw / 2);
-        for (let z = hz + 1; z < hz + hh - 1; z++) {
-          if (z !== hz + Math.floor(hh / 2)) setTile(grid, divX, z, T_WALL);
-        }
-      }
-      // window slits on the long walls (every third tile, skipping the door)
-      for (let x = hx + 1; x < hx + hw - 1; x += 3) {
-        if (grid[hz * GRID + x] === T_WALL) setTile(grid, x, hz, T_SLIT);
-        if (x !== doorX && x !== doorX + 1 && grid[(hz + hh - 1) * GRID + x] === T_WALL) setTile(grid, x, hz + hh - 1, T_SLIT);
-      }
-      // the indoors has stuff: a crate of cover inside every house
-      claimTile(grid, claims, hx + 1, hz + 1, T_COVER);
-      props.push({ type: 'crate', pos: tileToWorld(hx + 1, hz + 1), scale: 1, rot: rng.range(0, Math.PI) });
-      const center = tileToWorld(hx + Math.floor(hw / 2) - 1, hz + Math.floor(hh / 2));
-      houses.push({ id: houseId++, center, door, tx: hx, tz: hz, tw: hw, th: hh });
+      const roll = rng.next();
+      const type = roll < 0.55 ? 'bungalow' : roll < 0.85 ? 'hall_house' : 'manor';
+      const def = generateHouse(rng, type);
+      const hh = def.rows.length;
+      const hw = Math.max(...def.rows.map((row) => row.length));
+      const hx = lx + rng.int(1, Math.max(2, lotW - hw - 3));
+      const hz = lz + rng.int(1, Math.max(2, lotH - hh - 8));
+      if (!stampBuilding(ctx, def, hx, hz, houses.length * 2)) continue;
 
       // yard dressing: fence stubs + crates + a tree
       if (rng.next() < 0.6) {
@@ -516,10 +485,6 @@ function generateNeighborhood(seed: number): GameMap {
       if (grid[tz * GRID + tx] === T_OPEN) {
         claimTile(grid, claims, tx, tz, T_WALL);
         props.push({ type: 'tree', pos: tileToWorld(tx, tz), scale: rng.range(0.8, 1.3), rot: rng.range(0, Math.PI * 2) });
-      }
-      // some houses stock a pickup
-      if (rng.next() < 0.5) {
-        pickups.push({ type: rng.next() < 0.5 ? 'medkit' : 'ammo', pos: { ...center, x: center.x + 2 } });
       }
     }
   }

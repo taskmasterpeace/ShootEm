@@ -145,7 +145,7 @@ export class World {
     if (dc >= 0) this.doorChanges.splice(dc, 1); // not a door anymore — dug owns it now
     this.map.grid[idx] = T_OPEN;
     this.dug.push(idx);
-    this.emit({ type: 'dig', tile: idx, pos });
+    this.emit({ type: 'doorbreak', tile: idx, pos }); // wood crash, not rock rubble
     return true;
   }
 

@@ -358,6 +358,7 @@ export interface SimEvent {
     | 'system_damaged' // a vehicle subsystem went down
     | 'door'           // a door swung (open or shut) — E did it
     | 'doorhit'        // something is BANGING on a door — claws, blasts
+    | 'doorbreak'      // a door gave way — splinters, planks, a hole
     | 'sparks'         // the breacher's drill met METAL — sparks, no progress
     | 'hacked'         // hacking kit converted an enemy turret
     | 'psi_ping';      // psi scanner found someone (HUD flashes the icon)

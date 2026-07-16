@@ -56,11 +56,25 @@ slot — second storeys wait on the Phase-2 height decision (DD §8.4).
 Authoring a new building is writing ASCII art; the tests enforce legend
 legality, door presence, and size caps.
 
-## 3. Dynamic houses — the neighborhood requirement
+**Dynamic interiors — SHIPPED on top.** `generateHouse(rng, type)` GROWS
+houses instead of picking them, and emits the same stencil format so the
+whole proven pipeline (stamp, mirror, doors, drills, zeds) applies
+unchanged. Three types, each with its own floor-plan grammar: **manor**
+(big BSP plan — rooms split from rooms, a door in every wall), **bungalow**
+(modest two-or-three-room BSP), **hall house** (a corridor spine with rooms
+hanging off it). Guarantees, test-enforced across 90 layouts: every room
+reachable from the front door (no sealed rooms — the generator re-grows on
+the rare disconnected layout), windows on the exteriors, furniture and loot
+inside, deterministic from the map seed, mirror-safe. ~40% of every battle
+front's building stock is grown; the safehouse neighborhood is now 100%
+grown — with REAL front doors the horde has to break down (200+ door
+poundings and 15–26 breaches per simulated siege).
 
-We already generate houses (safehouse mode: footprints, doors, interior
-dividers, yards). To make **neighborhood maps a family**, the generator
-generalizes:
+## 3. Dynamic houses — the neighborhood requirement (largely SHIPPED)
+
+The dynamic-interior system above delivers most of this: multi-room plans,
+row-scale variety, real doors + window slits, cutaway roofs, yards. What
+remains for family B:
 
 - **Parameterized footprints** — size/shape variety, multi-room plans,
   attached garages; row-houses vs detached lots vs the dense blocks The City

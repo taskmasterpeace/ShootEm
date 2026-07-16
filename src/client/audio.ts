@@ -19,6 +19,8 @@ export const SOUND_NAMES = [
   // per-theme ambience beds (looped low under the match; ducked, never loud)
   'amb_savanna', 'amb_starship', 'amb_asteroid', 'amb_europa', 'amb_titan', 'amb_triton',
   'door', // door swing: creak + latch (E did it)
+  'door_hit', // fist/claw pounding the wood — the siege heartbeat
+  'door_break', // planks give way — the siege payoff
 ] as const;
 export type SoundName = (typeof SOUND_NAMES)[number];
 

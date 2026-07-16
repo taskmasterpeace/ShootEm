@@ -1690,6 +1690,14 @@ hand — is deliberately **not specified yet**; the acts themselves are canon.)*
   in path smoothing, stuck-driver recovery). Bot CTF now produces 13–36
   flag takes and 1–5 captures per match with mixed winners
   (BALANCE-PLAN §2.5 has the full five-cause autopsy).
+- ✅ **The housing pass shipped**: `generateHouse()` grows three dynamic
+  house types (manor / bungalow / hall house) with real rooms, interior
+  doors, windows, and furniture — emitted as stencils so the whole building
+  pipeline applies unchanged. ~40% of battle-front stock is grown; the
+  safehouse neighborhood is 100% grown, with REAL front doors the horde
+  must pound through (door_hit / door_break sounds + splinter VFX shipped —
+  the siege is now audible). No two fronts share a floor plan; connectivity
+  is generator-guaranteed and test-enforced.
 - ⛔ **Explicitly NOT in this document (user's call): the Director.** The
   pacing/orchestration system is deferred — §20.5 names the acts but not
   their conductor. Revisit later.

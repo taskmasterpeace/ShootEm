@@ -172,6 +172,176 @@ export const BUILDINGS: BuildingDef[] = [
 const LEGEND = new Set(['#', 'M', 'S', 'D', '.', ' ', 'C', 'P']);
 export const isLegalStencilChar = (ch: string) => LEGEND.has(ch);
 
+// ---------------------------------------------------------------------------
+// Dynamic interiors — houses GENERATED, not authored, but emitted as the same
+// stencil format the whole pipeline already trusts: stampBuilding stamps them,
+// mirrorDef mirrors them, the legality/connectivity tests police them. Three
+// types, each with its own floor-plan grammar:
+//   manor      — big BSP plan: rooms split from rooms, a door in every wall
+//   bungalow   — modest BSP: two or three rooms
+//   hall_house — a corridor spine with rooms hanging off it, barracks-style
+// ---------------------------------------------------------------------------
+
+export type DynHouseType = 'manor' | 'bungalow' | 'hall_house';
+
+const DYN_SPEC: Record<DynHouseType, {
+  name: string; w: [number, number]; h: [number, number]; splits: number; corridor: boolean; winEvery: number;
+}> = {
+  manor:      { name: 'Manor',      w: [14, 17], h: [10, 12], splits: 3, corridor: false, winEvery: 3 },
+  bungalow:   { name: 'Bungalow',   w: [10, 12], h: [8, 9],   splits: 2, corridor: false, winEvery: 3 },
+  hall_house: { name: 'Hall House', w: [14, 17], h: [7, 8],   splits: 0, corridor: true,  winEvery: 4 },
+};
+
+interface Room { x: number; z: number; w: number; h: number }
+
+/** Generate one dynamic house as a stencil-format BuildingDef. Deterministic
+ *  from the rng, so every client grows the same floor plan from the seed.
+ *  Regrows on the (rare) disconnected layout — the contract is that every
+ *  room is reachable from the front door, and it's re-checked in tests. */
+export function generateHouse(rng: Rng, type: DynHouseType): BuildingDef {
+  for (let tries = 0; ; tries++) {
+    const def = growHouse(rng, type);
+    if (tries >= 4 || stencilConnected(def)) return def;
+  }
+}
+
+function growHouse(rng: Rng, type: DynHouseType): BuildingDef {
+  const spec = DYN_SPEC[type];
+  const w = rng.int(spec.w[0], spec.w[1]);
+  const h = rng.int(spec.h[0], spec.h[1]);
+  const g: string[][] = [];
+  for (let z = 0; z < h; z++) {
+    g.push([]);
+    for (let x = 0; x < w; x++) {
+      g[z].push(z === 0 || z === h - 1 || x === 0 || x === w - 1 ? '#' : '.');
+    }
+  }
+  const rooms: Room[] = [];
+
+  if (spec.corridor) {
+    // corridor spine two rows above the front wall; rooms hang off it
+    const zc = h - 3;
+    for (let x = 1; x < w - 1; x++) g[zc - 1][x] = '#';
+    let x0 = 1;
+    while (x0 < w - 1) {
+      const rw = Math.min(rng.int(4, 5), w - 1 - x0);
+      if (rw < 3) { // absorb the remainder into the previous room
+        for (let z = 1; z < zc - 1; z++) g[z][x0 - 1] = '.';
+        if (rooms.length) rooms[rooms.length - 1].w += rw + 1;
+        break;
+      }
+      if (x0 + rw < w - 1) for (let z = 1; z < zc - 1; z++) g[z][x0 + rw] = '#';
+      g[zc - 1][x0 + rng.int(1, rw - 2)] = 'D'; // every room opens onto the hall
+      rooms.push({ x: x0, z: 1, w: rw, h: zc - 2 });
+      x0 += rw + 1;
+    }
+  } else {
+    // BSP: split the biggest room, wall it, and put a DOOR in every new wall
+    rooms.push({ x: 1, z: 1, w: w - 2, h: h - 2 });
+    for (let i = 0; i < spec.splits; i++) {
+      rooms.sort((a, b) => b.w * b.h - a.w * a.h);
+      const r = rooms[0];
+      const canV = r.w >= 7, canH = r.h >= 7;
+      if (!canV && !canH) break;
+      const vertical = canV && (!canH || r.w >= r.h);
+      rooms.shift();
+      // never wall a cell that touches an existing door — a new partition
+      // grazing an old doorway would seal the room behind it
+      const adjD = (x: number, z: number) =>
+        g[z - 1]?.[x] === 'D' || g[z + 1]?.[x] === 'D' || g[z][x - 1] === 'D' || g[z][x + 1] === 'D';
+      if (vertical) {
+        const wx = r.x + rng.int(3, r.w - 4);
+        for (let z = r.z; z < r.z + r.h; z++) if (g[z][wx] === '.' && !adjD(wx, z)) g[z][wx] = '#';
+        const spots: number[] = [];
+        for (let z = r.z; z < r.z + r.h; z++) if (g[z][wx] === '#' && g[z][wx - 1] === '.' && g[z][wx + 1] === '.') spots.push(z);
+        if (spots.length) g[spots[rng.int(0, spots.length - 1)]][wx] = 'D';
+        rooms.push({ x: r.x, z: r.z, w: wx - r.x, h: r.h });
+        rooms.push({ x: wx + 1, z: r.z, w: r.x + r.w - wx - 1, h: r.h });
+      } else {
+        const wz = r.z + rng.int(3, r.h - 4);
+        for (let x = r.x; x < r.x + r.w; x++) if (g[wz][x] === '.' && !adjD(x, wz)) g[wz][x] = '#';
+        const spots: number[] = [];
+        for (let x = r.x; x < r.x + r.w; x++) if (g[wz][x] === '#' && g[wz - 1][x] === '.' && g[wz + 1][x] === '.') spots.push(x);
+        if (spots.length) g[wz][spots[rng.int(0, spots.length - 1)]] = 'D';
+        rooms.push({ x: r.x, z: r.z, w: r.w, h: wz - r.z });
+        rooms.push({ x: r.x, z: wz + 1, w: r.w, h: r.z + r.h - wz - 1 });
+      }
+    }
+  }
+
+  // the FRONT DOOR: double, on the south wall, opening into open floor
+  const doorSpots: number[] = [];
+  for (let x = 1; x < w - 2; x++) if (g[h - 2][x] === '.' && g[h - 2][x + 1] === '.') doorSpots.push(x);
+  const fd = doorSpots[rng.int(0, doorSpots.length - 1)] ?? Math.floor(w / 2);
+  g[h - 1][fd] = 'D';
+  g[h - 1][fd + 1] = 'D';
+  // sometimes a single back door
+  if (rng.next() < 0.5) {
+    const backSpots: number[] = [];
+    for (let x = 1; x < w - 1; x++) if (g[1][x] === '.') backSpots.push(x);
+    if (backSpots.length) g[0][backSpots[rng.int(0, backSpots.length - 1)]] = 'D';
+  }
+
+  // WINDOWS: slits along every exterior wall, skipping corners and doors
+  for (let x = 1 + (rng.int(0, 1)); x < w - 1; x += spec.winEvery) {
+    if (g[0][x] === '#' && g[1][x] === '.') g[0][x] = 'S';
+    if (g[h - 1][x] === '#' && g[h - 2][x] === '.') g[h - 1][x] = 'S';
+  }
+  for (let z = 1 + (rng.int(0, 1)); z < h - 1; z += spec.winEvery) {
+    if (g[z][0] === '#' && g[z][1] === '.') g[z][0] = 'S';
+    if (g[z][w - 1] === '#' && g[z][w - 2] === '.') g[z][w - 1] = 'S';
+  }
+
+  // FURNITURE: a crate in most rooms (corner-biased), loot in one
+  const finalRooms = rooms.length ? rooms : [{ x: 1, z: 1, w: w - 2, h: h - 2 }];
+  let crates = 0;
+  for (const r of finalRooms) {
+    if (crates >= 5 || rng.next() > 0.8) continue;
+    const cx = rng.next() < 0.5 ? r.x : r.x + r.w - 1;
+    const cz = rng.next() < 0.5 ? r.z : r.z + r.h - 1;
+    if (g[cz]?.[cx] === '.') { g[cz][cx] = 'C'; crates++; }
+  }
+  const loot = finalRooms[rng.int(0, finalRooms.length - 1)];
+  const lx = loot.x + (loot.w >> 1), lz = loot.z + (loot.h >> 1);
+  if (g[lz]?.[lx] === '.') g[lz][lx] = 'P';
+  if (crates === 0 && g[1][1] === '.') g[1][1] = 'C'; // the indoors ALWAYS has stuff
+
+  return {
+    id: `dyn_${type}`, name: spec.name, kind: 'house', floors: 1,
+    rows: g.map((row) => row.join('')),
+  };
+}
+
+/** Every open-floor cell reachable from the front door? (No sealed rooms —
+ *  the generator's contract, enforced again by the test suite.) */
+export function stencilConnected(def: BuildingDef): boolean {
+  const h = def.rows.length;
+  const w = Math.max(...def.rows.map((r) => r.length));
+  const at = (x: number, z: number) => (def.rows[z] ?? '')[x] ?? ' ';
+  const pass = (ch: string) => ch === '.' || ch === 'D' || ch === 'P';
+  // seed from a bottom-row door
+  let sx = -1, sz = -1;
+  for (let z = h - 1; z >= 0 && sx < 0; z--)
+    for (let x = 0; x < w; x++) if (at(x, z) === 'D') { sx = x; sz = z; break; }
+  if (sx < 0) return false;
+  const seen = new Set<number>([sz * w + sx]);
+  const q = [[sx, sz]];
+  while (q.length) {
+    const [x, z] = q.pop()!;
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      const nx = x + dx, nz = z + dz;
+      if (nx < 0 || nz < 0 || nx >= w || nz >= h || seen.has(nz * w + nx)) continue;
+      if (!pass(at(nx, nz))) continue;
+      seen.add(nz * w + nx);
+      q.push([nx, nz]);
+    }
+  }
+  for (let z = 0; z < h; z++)
+    for (let x = 0; x < w; x++)
+      if ((at(x, z) === '.' || at(x, z) === 'P') && !seen.has(z * w + x)) return false;
+  return true;
+}
+
 export interface StampCtx {
   grid: Uint8Array;
   props: PropSpec[];
@@ -194,6 +364,7 @@ export function stampBuilding(ctx: StampCtx, def: BuildingDef, tx: number, tz: n
     for (let x = tx - 1; x <= tx + w; x++) ctx.grid[z * GRID + x] = T_OPEN;
   let seq = pickupSeq;
   let interior: { x: number; z: number } | null = null;
+  let frontDoor: { x: number; z: number } | null = null;
   for (let rz = 0; rz < h; rz++) {
     const row = def.rows[rz];
     for (let rx = 0; rx < w; rx++) {
@@ -204,7 +375,11 @@ export function stampBuilding(ctx: StampCtx, def: BuildingDef, tx: number, tz: n
         case '#': ctx.grid[idx] = T_WALL; break;
         case 'M': ctx.grid[idx] = T_METAL; break;
         case 'S': ctx.grid[idx] = T_SLIT; break;
-        case 'D': ctx.grid[idx] = T_DOOR; break;
+        case 'D':
+          ctx.grid[idx] = T_DOOR;
+          // the LOWEST door is the front door — record where it really is
+          if (!frontDoor || gz >= frontDoor.z) frontDoor = { x: gx, z: gz };
+          break;
         case 'C':
           ctx.grid[idx] = T_COVER;
           ctx.claims.push({ idx, t: T_COVER });
@@ -224,10 +399,11 @@ export function stampBuilding(ctx: StampCtx, def: BuildingDef, tx: number, tz: n
     }
   }
   const center = interior ?? { x: tx + Math.floor(w / 2), z: tz + Math.floor(h / 2) };
+  const door = frontDoor ?? { x: tx + Math.floor(w / 2), z: tz + h - 1 };
   ctx.houses.push({
     id: ctx.houses.length,
     center: tileToWorld(center.x, center.z),
-    door: tileToWorld(tx + Math.floor(w / 2), tz + h - 1),
+    door: tileToWorld(door.x, door.z),
     tx, tz, tw: w, th: h,
   });
   return true;
@@ -252,7 +428,11 @@ export function placeBuildings(ctx: StampCtx, pairs: number, avoid: AvoidZone[])
   let attempts = 0;
   while (done < pairs && attempts < 120) {
     attempts++;
-    const def = BUILDINGS[ctx.rng.int(0, BUILDINGS.length - 1)];
+    // a good share of the housing stock is GROWN, not picked: dynamic
+    // interiors mean no two fronts share a floor plan
+    const def = ctx.rng.next() < 0.4
+      ? generateHouse(ctx.rng, (['manor', 'bungalow', 'hall_house'] as const)[ctx.rng.int(0, 2)])
+      : BUILDINGS[ctx.rng.int(0, BUILDINGS.length - 1)];
     const h = def.rows.length;
     const w = Math.max(...def.rows.map((r) => r.length));
     const tx = ctx.rng.int(22, 45 - w);

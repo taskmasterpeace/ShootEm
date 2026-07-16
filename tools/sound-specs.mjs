@@ -99,6 +99,8 @@ export const SOUND_SPECS = {
 
   // ---- interaction ----
   door:         { cat: 'movement', desc: 'Wooden door swings open with a short creak and a latch click', dur: 0.7 },
+  door_hit:     { cat: 'impacts', desc: 'ONE single heavy fist pound on a solid wooden door — dull wood thud with a slight frame rattle, short', dur: 0.4 },
+  door_break:   { cat: 'impacts', desc: 'Wooden door splintering apart and crashing down — planks cracking, wood debris falling', dur: 1.1 },
 };
 
 export const CATEGORIES = {

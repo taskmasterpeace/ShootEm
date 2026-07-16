@@ -1611,8 +1611,24 @@ export class Renderer {
           // something is banging on a door — splinters fly, wood thuds
           if (e.pos) {
             this.particles.emit({ pos: { ...e.pos, y: 1.2 }, count: 8, color: 0x8a5a2a, speed: 4, life: 0.45, spread: 0.7, up: 2.5, gravity: 8 });
-            if (!audio.play('door', { pos: e.pos, volume: 0.5, rate: 1.7 })) {
+            if (!audio.play('door_hit', { pos: e.pos, volume: 0.65, rate: 0.92 + Math.random() * 0.16 })) {
               audio.play('thump', { pos: e.pos, volume: 0.4, rate: 1.4 });
+            }
+          }
+          break;
+        }
+        case 'doorbreak': {
+          // the door gave way — a plank storm and a wood crash
+          if (e.pos) {
+            this.particles.emit({ pos: { ...e.pos, y: 1.3 }, count: 26, color: 0x8a5a2a, speed: 6, life: 0.8, spread: 1.1, up: 4, gravity: 8 });
+            this.particles.emit({ pos: { ...e.pos, y: 0.8 }, count: 12, color: 0x6b4a2a, speed: 4, life: 0.6, spread: 0.9, up: 3, gravity: 9 });
+            if (!audio.play('door_break', { pos: e.pos, volume: 0.85 })) {
+              audio.play('autocannon', { pos: e.pos, rate: 0.5, volume: 0.6 });
+            }
+            const local = world.soldiers.get(localId);
+            if (local && e.pos) {
+              const d = Math.hypot(e.pos.x - local.pos.x, e.pos.z - local.pos.z);
+              if (d < 18) this.camShake = Math.max(this.camShake, 0.35 * (1 - d / 18));
             }
           }
           break;

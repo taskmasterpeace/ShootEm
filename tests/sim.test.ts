@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CLASSES, VEHICLES, WEAPONS } from '../src/sim/data';
-import { generateMap, isBlocked, losClear } from '../src/sim/map';
+import { GRID, T_DOOR, TILE, WORLD, generateMap, isBlocked, losClear } from '../src/sim/map';
 import { applySnapshot, takeSnapshot } from '../src/sim/snapshot';
 import type { PlayerCmd } from '../src/sim/types';
 import { World } from '../src/sim/world';
@@ -299,12 +299,16 @@ describe('endless horde', () => {
 });
 
 describe('protect the scientist (safehouse)', () => {
-  it('generates a neighborhood with houses whose doors and centers are walkable', () => {
+  it('generates a neighborhood with walkable centers and REAL front doors', () => {
     const m = generateMap(77, 'safehouse');
     expect(m.houses.length).toBeGreaterThanOrEqual(10);
     for (const h of m.houses) {
       expect(isBlocked(m.grid, h.center.x, h.center.z)).toBe(false);
-      expect(isBlocked(m.grid, h.door.x, h.door.z)).toBe(false);
+      // the doorway is a DOOR now (E opens it, the horde breaks it), so the
+      // recorded door position must be an actual door tile — not a wall
+      const tx = Math.floor((h.door.x + WORLD / 2) / TILE);
+      const tz = Math.floor((h.door.z + WORLD / 2) / TILE);
+      expect(m.grid[tz * GRID + tx], `house ${h.id} front door`).toBe(T_DOOR);
     }
     // squad support only: one ambulance + two emplacement guns at the command post
     expect(m.vehiclePads.length).toBe(3);
