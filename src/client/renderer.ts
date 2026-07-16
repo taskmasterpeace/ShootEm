@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
-import { GRID, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt } from '../sim/map';
+import { F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt } from '../sim/map';
 import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
 import { HAND_FRAG_REACH, type World } from '../sim/world';
 import { audio, type SoundName } from './audio';
@@ -142,6 +142,10 @@ export class Renderer {
   private killerRing: THREE.Mesh | null = null;             // pulsing marker over the killer
   /** cutaway roofs (§8.4): fade when the viewed soldier stands beneath one */
   private roofs: { mesh: THREE.Mesh; house: { tx: number; tz: number; tw: number; th: number } }[] = [];
+  /** second-storey shells (walls + floor slab) per two-storey house — faded
+   *  like roofs when the focus stands on the ground floor beneath them */
+  private uppers: { group: THREE.Group; house: { tx: number; tz: number; tw: number; th: number }; mats: THREE.MeshStandardMaterial[] }[] = [];
+  private ladderMeshes: THREE.Group[] = [];
   /** live door slabs — swung by grid state (E toggles it in the sim) */
   private doors: { mesh: THREE.Mesh; idx: number; spansX: boolean; base: THREE.Vector3 }[] = [];
   /** the camera height actually used last frame (killcam duels exceed camDist)
@@ -291,12 +295,13 @@ export class Renderer {
     const slitTiles: [number, number][] = [];
     const metalTiles: [number, number][] = [];
     const doorTiles: [number, number][] = [];
+    const ladderTiles: [number, number][] = [];
     let unknownWarned = false;
     for (let z = 0; z < GRID; z++) {
       for (let x = 0; x < GRID; x++) {
         const idx = z * GRID + x;
         const t = world.map.grid[idx];
-        if (t === T_OPEN || t === T_WATER || covered.has(idx)) continue;
+        if (t === T_OPEN || t === T_WATER || t === T_LADDER || covered.has(idx)) continue;
         if (t === T_COVER) {
           coverTiles.push([x, z]);
         } else if (t === T_SLIT) {
@@ -366,6 +371,84 @@ export class Renderer {
       this.scene.add(metalInst);
     }
 
+    // LADDERS: rails + rungs at every ladder foot — the climb to the storey above
+    for (let z = 0; z < GRID; z++)
+      for (let x = 0; x < GRID; x++)
+        if (world.map.grid[z * GRID + x] === T_LADDER) ladderTiles.push([x, z]);
+    for (const g of this.ladderMeshes) { this.scene.remove(g); g.traverse((o) => (o as THREE.Mesh).geometry?.dispose()); }
+    this.ladderMeshes = [];
+    if (ladderTiles.length) {
+      const railMat = new THREE.MeshStandardMaterial({ color: 0x7a6a4a, roughness: 0.7 });
+      for (const [x, z] of ladderTiles) {
+        const g = new THREE.Group();
+        const wx = (x + 0.5) * TILE - WORLD / 2, wz = (z + 0.5) * TILE - WORLD / 2;
+        for (const side of [-0.45, 0.45]) {
+          const rail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 4.6, 0.12), railMat);
+          rail.position.set(side, 2.3, 0);
+          g.add(rail);
+        }
+        for (let ry = 0.4; ry < 4.4; ry += 0.55) {
+          const rung = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.09, 0.12), railMat);
+          rung.position.set(0, ry, 0);
+          g.add(rung);
+        }
+        g.position.set(wx, 0, wz);
+        // lean the ladder against the nearest solid neighbor
+        const idx = z * GRID + x;
+        const solid = (t: number) => t === T_WALL || t === T_METAL || t === T_SLIT;
+        if (solid(world.map.grid[idx - 1])) g.rotation.y = Math.PI / 2;
+        else if (solid(world.map.grid[idx + 1])) g.rotation.y = -Math.PI / 2;
+        else if (solid(world.map.grid[idx - GRID])) g.rotation.y = 0;
+        else g.rotation.y = Math.PI;
+        g.position.z += Math.cos(g.rotation.y) * -TILE * 0.32;
+        g.position.x += Math.sin(g.rotation.y) * -TILE * 0.32;
+        g.traverse((o) => { (o as THREE.Mesh).castShadow = true; });
+        this.scene.add(g);
+        this.ladderMeshes.push(g);
+      }
+    }
+
+    // THE SECOND STOREY (§8.4 Phase-2): per-house shells built from grid2 —
+    // upper walls at 4..8, window slits with the 5.2–5.8 fire band, and a
+    // floor slab with a hole over the ladder well. Per-house materials so
+    // the cutaway can fade a single building's upstairs.
+    for (const u of this.uppers) { this.scene.remove(u.group); u.group.traverse((o) => { const m = o as THREE.Mesh; m.geometry?.dispose(); }); u.mats.forEach((m) => m.dispose()); }
+    this.uppers = [];
+    for (const h of world.map.houses) {
+      if ((h as { floors?: number }).floors !== 2) continue;
+      const group = new THREE.Group();
+      const matU = new THREE.MeshStandardMaterial({ color: pal.wall, roughness: 0.9, transparent: true, opacity: 0.97 });
+      const matF = new THREE.MeshStandardMaterial({ color: 0x5a5148, roughness: 0.95, transparent: true, opacity: 0.97 });
+      for (let z = h.tz; z < h.tz + h.th; z++) {
+        for (let x = h.tx; x < h.tx + h.tw; x++) {
+          const t2 = world.map.grid2[z * GRID + x];
+          if (t2 === 0 /* F2_VOID */) continue;
+          const wx = (x + 0.5) * TILE - WORLD / 2, wz = (z + 0.5) * TILE - WORLD / 2;
+          if (t2 !== F2_WELL) {
+            const slab = new THREE.Mesh(new THREE.BoxGeometry(TILE, 0.25, TILE), matF);
+            slab.position.set(wx, 4.1, wz);
+            group.add(slab);
+          }
+          if (t2 === F2_WALL) {
+            const wall = new THREE.Mesh(new THREE.BoxGeometry(TILE, 3.75, TILE), matU);
+            wall.position.set(wx, 6.1, wz);
+            wall.castShadow = true;
+            group.add(wall);
+          } else if (t2 === F2_SLIT) {
+            const low = new THREE.Mesh(new THREE.BoxGeometry(TILE, 1.0, TILE), matU);
+            low.position.set(wx, 4.72, wz);
+            const high = new THREE.Mesh(new THREE.BoxGeometry(TILE, 2.2, TILE), matU);
+            high.position.set(wx, 6.9, wz);
+            low.castShadow = high.castShadow = true;
+            group.add(low, high);
+          }
+        }
+      }
+      group.renderOrder = 2;
+      this.scene.add(group);
+      this.uppers.push({ group, house: h, mats: [matU, matF] });
+    }
+
     // DOORS: a slab per doorway that tracks grid state live — closed fills
     // the frame, open swings the slab to the jamb. E is the key.
     for (const d of this.doors) { this.scene.remove(d.mesh); d.mesh.geometry.dispose(); (d.mesh.material as THREE.Material).dispose(); }
@@ -397,7 +480,8 @@ export class Renderer {
       const w = h.tw * TILE, d = h.th * TILE;
       const mat = new THREE.MeshStandardMaterial({ color: pal.wall, roughness: 0.85, transparent: true, opacity: 0.97 });
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, 0.3, d), mat);
-      mesh.position.set((h.tx + h.tw / 2) * TILE - WORLD / 2, 4.15, (h.tz + h.th / 2) * TILE - WORLD / 2);
+      const roofY = (h as { floors?: number }).floors === 2 ? 8.15 : 4.15;
+      mesh.position.set((h.tx + h.tw / 2) * TILE - WORLD / 2, roofY, (h.tz + h.th / 2) * TILE - WORLD / 2);
       mesh.castShadow = true;
       mesh.renderOrder = 3;
       this.scene.add(mesh);
@@ -559,6 +643,22 @@ export class Renderer {
       const tz = d.base.z + (d.spansX ? 0 : off);
       d.mesh.position.x += (tx - d.mesh.position.x) * Math.min(1, dt * 10);
       d.mesh.position.z += (tz - d.mesh.position.z) * Math.min(1, dt * 10);
+    }
+
+    // second-storey shells: fade when the focus stands on the ground floor
+    // INSIDE that house (you need to see your own room, not their ceiling);
+    // solid otherwise — upstairs enemies stay concealed from the street
+    if (this.uppers.length) {
+      const focus = world.soldiers.get(localId);
+      for (const u of this.uppers) {
+        const inThis = focus && focus.floor === 0 &&
+          houseAt(world.map.houses, focus.pos.x, focus.pos.z) === world.map.houses.indexOf(u.house as typeof world.map.houses[number]);
+        const target = inThis ? 0.13 : 0.97;
+        for (const m of u.mats) {
+          m.opacity += (target - m.opacity) * Math.min(1, dt * 8);
+          m.depthWrite = m.opacity > 0.9;
+        }
+      }
     }
 
     // §8.4 cutaway: the roof over YOUR head (or the killcam subject's) opens —
@@ -1614,6 +1714,12 @@ export class Renderer {
             if (!audio.play('door_hit', { pos: e.pos, volume: 0.65, rate: 0.92 + Math.random() * 0.16 })) {
               audio.play('thump', { pos: e.pos, volume: 0.4, rate: 1.4 });
             }
+          }
+          break;
+        }
+        case 'ladder': {
+          if (e.pos && !audio.play('footstep_metal', { pos: e.pos, volume: 0.6, rate: 0.75 })) {
+            audio.play('reload', { pos: e.pos, volume: 0.4, rate: 1.3 });
           }
           break;
         }

@@ -3,6 +3,8 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CLASSES, MODE_INFO, TEAM_COLORS, THEMES, WEAPONS } from '../sim/data';
 import { FAMILIES } from '../sim/arsenal';
 import { GRID, T_COVER, T_WALL, T_WATER, TILE, WORLD } from '../sim/map';
+import { BUILDINGS, generateHouse, type BuildingDef, type DynHouseType } from '../sim/buildings';
+import { Rng } from '../sim/rng';
 import type { ClassId, ModeId, SoldierKind, Team, ThemeId, WeaponDef, WeaponFamily, WeaponId, ZedKind } from '../sim/types';
 import { JOINT_NAMES, poseSoldierJoints, type GaitState, type Joints } from '../client/animation';
 import {
@@ -1118,3 +1120,124 @@ showModel(() => buildSoldier(0, 'infantry', 'zombie'), 'Zombie · zombie', { sol
 $<HTMLInputElement>('opt-armvec').checked = true; opt.armvec = true; rebuildOverlays();
 onResize(); // match the renderer to the canvas's real CSS box
 requestAnimationFrame(frame);
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Building Lab — grow a blueprint from a seed and walk around it. The place
+// to EXPERIMENT with floor plans and the second storey before they ship.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Build a 3D preview straight from a stencil — both storeys, no sim needed. */
+function buildStencilGroup(def: BuildingDef, showUpper: boolean, showRoof: boolean): THREE.Group {
+  const g = new THREE.Group();
+  const h = def.rows.length;
+  const w = Math.max(...def.rows.map((r) => r.length));
+  const ox = (-w * TILE) / 2, oz = (-h * TILE) / 2;
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x8a8378, roughness: 0.9 });
+  const metalMat = new THREE.MeshStandardMaterial({ color: 0x9aa3ad, metalness: 0.75, roughness: 0.35 });
+  const doorMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2a, roughness: 0.8 });
+  const crateMat = new THREE.MeshStandardMaterial({ color: 0x7a6f52, roughness: 0.85 });
+  const railMat = new THREE.MeshStandardMaterial({ color: 0xd9a53f, roughness: 0.6 });
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x5a5148, roughness: 0.95 });
+  const put = (mesh: THREE.Mesh, x: number, y: number, z: number) => {
+    mesh.position.set(ox + (x + 0.5) * TILE, y, oz + (z + 0.5) * TILE);
+    mesh.castShadow = true;
+    g.add(mesh);
+  };
+  for (let z = 0; z < h; z++) {
+    for (let x = 0; x < w; x++) {
+      const ch = (def.rows[z] ?? '')[x] ?? ' ';
+      if (ch === '#') put(new THREE.Mesh(new THREE.BoxGeometry(TILE, 4, TILE), wallMat), x, 2, z);
+      else if (ch === 'M') put(new THREE.Mesh(new THREE.BoxGeometry(TILE, 4, TILE), metalMat), x, 2, z);
+      else if (ch === 'S') {
+        put(new THREE.Mesh(new THREE.BoxGeometry(TILE, 1.2, TILE), wallMat), x, 0.6, z);
+        put(new THREE.Mesh(new THREE.BoxGeometry(TILE, 2.2, TILE), wallMat), x, 2.9, z);
+      } else if (ch === 'D') put(new THREE.Mesh(new THREE.BoxGeometry(TILE, 2.2, 0.35), doorMat), x, 1.1, z);
+      else if (ch === 'C') put(new THREE.Mesh(new THREE.BoxGeometry(TILE * 0.9, 1.2, TILE * 0.9), crateMat), x, 0.6, z);
+      else if (ch === 'L') {
+        for (const side of [-0.45, 0.45]) {
+          const rail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 4.6, 0.12), railMat);
+          rail.position.set(ox + (x + 0.5) * TILE + side, 2.3, oz + (z + 0.5) * TILE);
+          g.add(rail);
+        }
+        for (let ry = 0.4; ry < 4.4; ry += 0.55) {
+          const rung = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.09, 0.12), railMat);
+          rung.position.set(ox + (x + 0.5) * TILE, ry, oz + (z + 0.5) * TILE);
+          g.add(rung);
+        }
+      }
+    }
+  }
+  if (def.rows2 && showUpper) {
+    for (let z = 0; z < def.rows2.length; z++) {
+      for (let x = 0; x < w; x++) {
+        const ch = (def.rows2[z] ?? '')[x] ?? ' ';
+        if (ch === ' ') continue;
+        if (ch !== 'L') put(new THREE.Mesh(new THREE.BoxGeometry(TILE, 0.25, TILE), floorMat), x, 4.1, z);
+        if (ch === '#') put(new THREE.Mesh(new THREE.BoxGeometry(TILE, 3.75, TILE), wallMat), x, 6.1, z);
+        else if (ch === 'S') {
+          put(new THREE.Mesh(new THREE.BoxGeometry(TILE, 1.0, TILE), wallMat), x, 4.72, z);
+          put(new THREE.Mesh(new THREE.BoxGeometry(TILE, 2.2, TILE), wallMat), x, 6.9, z);
+        }
+      }
+    }
+  }
+  if (showRoof) {
+    const roof = new THREE.Mesh(
+      new THREE.BoxGeometry(w * TILE, 0.3, h * TILE),
+      new THREE.MeshStandardMaterial({ color: 0x8a8378, roughness: 0.85, transparent: true, opacity: 0.92 }),
+    );
+    roof.position.set(0, def.floors === 2 ? 8.15 : 4.15, 0);
+    g.add(roof);
+  }
+  return g;
+}
+
+function blDef(): BuildingDef {
+  const typeSel = $<HTMLSelectElement>('bl-type').value;
+  const seed = Number($<HTMLInputElement>('bl-seed').value) || 1;
+  const lib = $<HTMLSelectElement>('bl-lib').value;
+  if (lib) return BUILDINGS.find((b) => b.id === lib)!;
+  if (typeSel === 'manor2') {
+    // reroll until the manor grows its loft (the 45% roll) — capped
+    const rng = new Rng(seed);
+    for (let i = 0; i < 40; i++) {
+      const def = generateHouse(rng, 'manor');
+      if (def.floors === 2) return def;
+    }
+    return generateHouse(new Rng(seed), 'manor');
+  }
+  return generateHouse(new Rng(seed), typeSel as DynHouseType);
+}
+
+function blBuild() {
+  const def = blDef();
+  const showUpper = $<HTMLInputElement>('bl-upper').checked;
+  const showRoof = $<HTMLInputElement>('bl-roof').checked;
+  showModel(() => buildStencilGroup(def, showUpper, showRoof), `${def.name} — ${def.floors === 2 ? 'two storeys' : 'one storey'}`);
+  const nl = String.fromCharCode(10);
+  const ascii = def.rows.join(nl) + (def.rows2 ? nl + '──── upstairs ────' + nl + def.rows2.join(nl) : '');
+  $('bl-ascii').textContent = ascii;
+  const w = Math.max(...def.rows.map((r) => r.length)) * TILE;
+  camera.position.set(w * 0.75, w * 0.85, w * 1.05);
+  controls.target.set(0, 2.5, 0);
+}
+
+{
+  const libSel = $<HTMLSelectElement>('bl-lib');
+  for (const b of BUILDINGS) {
+    const o = document.createElement('option');
+    o.value = b.id;
+    o.textContent = `${b.name} (${b.kind})`;
+    libSel.appendChild(o);
+  }
+  libSel.onchange = blBuild;
+  $<HTMLSelectElement>('bl-type').onchange = () => { libSel.value = ''; blBuild(); };
+  $('bl-build').onclick = blBuild;
+  $('bl-dice').onclick = () => {
+    $<HTMLInputElement>('bl-seed').value = String(1 + Math.floor(Math.random() * 99999));
+    blBuild();
+  };
+  $<HTMLInputElement>('bl-upper').onchange = blBuild;
+  $<HTMLInputElement>('bl-roof').onchange = blBuild;
+}

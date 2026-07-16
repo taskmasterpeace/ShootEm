@@ -17,6 +17,8 @@ export const T_DOOR = 5;       // closed door — blocks movement + sight; E ope
 export const T_DOOR_OPEN = 6;  // open door — walk through, shoot through
 export const T_METAL = 7;      // metal wall — blocks like a wall, and the breacher
                                // CANNOT grind it: the drill just throws sparks
+export const T_LADDER = 8;     // ladder foot — walkable ground; E climbs to the
+                               // second storey (the grid2 layer, §8.4 Phase-2)
 
 // ---- the SURFACE layer (§8.6): what the ground IS, orthogonal to blocking ----
 export const S_DIRT = 0;   // bare rock/dirt — the neutral surface
@@ -75,12 +77,17 @@ export interface House {
   door: Vec3;
   /** footprint in tiles — roofs, concealment, and interior checks key off this */
   tx: number; tz: number; tw: number; th: number;
+  /** 2 = has a second storey (roof sits at 8, not 4) */
+  floors?: number;
 }
 
 export interface GameMap {
   seed: number;
   theme: ThemeId;
   grid: Uint8Array; // GRID*GRID
+  /** the SECOND STOREY (§8.4 Phase-2): F2_* per tile — void unless a
+   *  two-storey building stamped an upper floor here. Static after gen. */
+  grid2: Uint8Array;
   /** the SURFACE layer (§8.6): S_* per tile — movement, sound, and tracks */
   surface: Uint8Array;
   basePos: [Vec3, Vec3];
@@ -132,6 +139,33 @@ export function blocksShot(grid: Uint8Array, x: number, z: number, y: number): b
   return false;
 }
 
+// ---------------------------------------------------------------------------
+// THE SECOND STOREY (§8.4 Phase-2 experiment). A separate tile layer rides
+// above the ground grid: upstairs is where you WALK at y=4 and SHOOT at
+// y≈5.4 — which clears every ground wall for free, because the whole sim
+// already thinks in y-bands. Upstairs soldiers carry `floor: 1`.
+// ---------------------------------------------------------------------------
+export const F2_VOID = 0;   // no floor — step here and you FALL
+export const F2_FLOOR = 1;  // walkable upper floor
+export const F2_WALL = 2;   // upper wall (blocks 4..8)
+export const F2_SLIT = 3;   // upper window — fire band 5.2..5.8 (the sniper nest)
+export const F2_WELL = 4;   // the ladder well: walkable, E descends
+
+/** Upper-layer shot blocking — walls live in the 4..8 band. */
+export function blocksShotUpper(grid2: Uint8Array, x: number, z: number, y: number): boolean {
+  if (y < 4 || y >= 8) return false;
+  const t = tileAt(grid2, x, z);
+  if (t === F2_WALL) return true;
+  if (t === F2_SLIT) return !(y >= 5.2 && y <= 5.8);
+  return false;
+}
+
+/** Is this upper tile standable? (Anything but void — walls stop you first.) */
+export const upperBlocked = (grid2: Uint8Array, x: number, z: number): boolean => {
+  const t = tileAt(grid2, x, z);
+  return t === F2_WALL || t === F2_SLIT;
+};
+
 /** March a ray across the grid; true if line of sight is clear at the given height. */
 export function losClear(grid: Uint8Array, a: Vec3, b: Vec3, y = 1.4): boolean {
   const dx = b.x - a.x, dz = b.z - a.z;
@@ -181,6 +215,7 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
   if (mode === 'safehouse') return generateNeighborhood(seed);
   const rng = new Rng(seed);
   const grid = new Uint8Array(GRID * GRID);
+  const grid2 = new Uint8Array(GRID * GRID); // the second storey — void by default
   const props: PropSpec[] = [];
   const claims: TileClaim[] = []; // prop-covered tiles, recorded where stamped
   const gen = THEMES[theme].gen;
@@ -269,7 +304,7 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
   // Hand-authored templates from the library, procedurally dealt and mirrored
   // for fairness: houses, warehouses, bunkers — doors closed, shelves stocked.
   const houses: House[] = [];
-  const buildCtx = { grid, props, pickups, houses, claims, rng };
+  const buildCtx = { grid, grid2, props, pickups, houses, claims, rng };
   placeBuildings(buildCtx, 3, [
     { tx: half, tz: half, r: 12 },            // the hill
     { tx: half - 22, tz: half - 22, r: 8 },   // CP A clearing
@@ -427,7 +462,7 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
     }
   }
 
-  return { seed, theme, grid, surface, basePos, spawns, flagPos, hillPos, controlPoints, vehiclePads, pickups, props, zombieSpawns, houses, gates, pads, propCovered: settleClaims(grid, claims) };
+  return { seed, theme, grid, grid2, surface, basePos, spawns, flagPos, hillPos, controlPoints, vehiclePads, pickups, props, zombieSpawns, houses, gates, pads, propCovered: settleClaims(grid, claims) };
 }
 
 /**
@@ -438,6 +473,7 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
 function generateNeighborhood(seed: number): GameMap {
   const rng = new Rng(seed);
   const grid = new Uint8Array(GRID * GRID);
+  const grid2 = new Uint8Array(GRID * GRID); // the second storey — void by default
   const props: PropSpec[] = [];
   const claims: TileClaim[] = []; // prop-covered tiles, recorded where stamped
   const houses: House[] = [];
@@ -457,7 +493,7 @@ function generateNeighborhood(seed: number): GameMap {
   const cols = 4, rows = 3;
   const lotW = 22, lotH = 26;
   const originX = 6, originZ = 8;
-  const ctx: StampCtx = { grid, props, pickups, houses, claims, rng };
+  const ctx: StampCtx = { grid, grid2, props, pickups, houses, claims, rng };
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const lx = originX + c * lotW;
@@ -534,7 +570,7 @@ function generateNeighborhood(seed: number): GameMap {
   const surface = new Uint8Array(GRID * GRID);
   surface.fill(S_GRASS);
   return {
-    seed, theme: 'savanna', grid, surface, basePos, spawns,
+    seed, theme: 'savanna', grid, grid2, surface, basePos, spawns,
     flagPos: [basePos[0], basePos[1]],
     hillPos,
     controlPoints: [

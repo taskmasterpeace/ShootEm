@@ -197,6 +197,8 @@ export interface Soldier {
   /** who last killed this soldier (-1 = nobody/self/environment) — the killcam
    *  frames the duel between victim and killer instead of just the corpse */
   lastKillerId: number;
+  /** which storey this soldier stands on: 0 ground, 1 the grid2 layer (§8.4) */
+  floor: number;
   /** equipped gear ids (see EQUIPMENT in data.ts) — chosen at deploy, max 2 */
   equipment: string[];
   /** medikit auto-trigger armed (once per life) */
@@ -359,6 +361,7 @@ export interface SimEvent {
     | 'door'           // a door swung (open or shut) — E did it
     | 'doorhit'        // something is BANGING on a door — claws, blasts
     | 'doorbreak'      // a door gave way — splinters, planks, a hole
+    | 'ladder'         // someone climbed between storeys
     | 'sparks'         // the breacher's drill met METAL — sparks, no progress
     | 'hacked'         // hacking kit converted an enemy turret
     | 'psi_ping';      // psi scanner found someone (HUD flashes the icon)

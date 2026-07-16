@@ -99,6 +99,10 @@ export function cullSnapshotFor(w: World, snap: Snapshot, viewerId: number): Sna
     if (s.team === team) return true;
     if (s.cloaked && !w.pinged.has(s.id)) return false;      // cloak is TRUE now
     if (s.carryingFlag !== -1) return true;                   // objective intel is public
+    // the SKYLINE rule (§8.4): a soldier up on the second storey is
+    // silhouetted against the sky — ground walls don't hide someone
+    // standing above them (and their muzzle already clears those walls)
+    if (s.pos.y > 3 && eyes.some((e) => Math.hypot(s.pos.x - e.pos.x, s.pos.z - e.pos.z) < PERCEIVE_RANGE)) return true;
     return w.pinged.has(s.id) || seesPoint(s.pos.x, s.pos.z);
   });
   const vehicles = snap.vehicles.filter((v) => {

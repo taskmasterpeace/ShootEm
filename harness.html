@@ -208,6 +208,7 @@
       <button class="tab active" data-mode="stage">◈ Stage</button>
       <button class="tab" data-mode="arsenal">🎯 Arsenal Lab</button>
       <button class="tab" data-mode="world">🗺 World</button>
+      <button class="tab" data-mode="building">🏠 Building Lab</button>
     </div>
     <a class="tool-link" href="/sound-review.html">🔊 Sound Lab</a>
     <a class="tool-link" href="/scar-harness.html">🩸 Scar Map</a>
@@ -383,6 +384,34 @@
         <button class="btn-wide primary" id="env-load">Load battlefield</button>
         <button class="btn-wide" id="env-clear">Back to model stage</button>
         <div class="hint">Orbit to inspect walls, cover, props, gates &amp; lift pads.</div>
+      </div>
+    </div>
+
+    <div class="sec" data-sec="building-lab" data-modes="building">
+      <h2>Building Lab</h2>
+      <div class="sec-body">
+        <div class="field">
+          <label>Blueprint</label>
+          <select id="bl-type">
+            <option value="manor">Manor (grown)</option>
+            <option value="manor2" selected>Two-Storey Manor (grown)</option>
+            <option value="bungalow">Bungalow (grown)</option>
+            <option value="hall_house">Hall House (grown)</option>
+          </select>
+        </div>
+        <div class="row">
+          <div class="field" style="flex:1"><label>Seed</label><input type="number" id="bl-seed" value="21"></div>
+          <button class="btn-wide" style="flex:0 0 auto; align-self:flex-end; width:auto; padding:6px 10px" id="bl-dice">🎲</button>
+        </div>
+        <label class="row" style="gap:6px; align-items:center"><input type="checkbox" id="bl-upper" checked> Show second storey</label>
+        <label class="row" style="gap:6px; align-items:center"><input type="checkbox" id="bl-roof"> Show roof</label>
+        <button class="btn-wide primary" id="bl-build">Build it</button>
+        <div class="hint">Ladder foot (gold) climbs to the loft. Doors brown, windows slitted, walls per storey. Library templates load below.</div>
+        <div class="field">
+          <label>Library template</label>
+          <select id="bl-lib"><option value="">— pick one —</option></select>
+        </div>
+        <pre id="bl-ascii" style="font-size:11px; line-height:1.15; background:#12161c; padding:8px; border-radius:6px; overflow:auto; max-height:220px"></pre>
       </div>
     </div>
 

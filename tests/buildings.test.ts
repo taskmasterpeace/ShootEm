@@ -40,7 +40,7 @@ describe('the building library', () => {
   it('stampBuilding writes tiles, claims, loot, and the roof rect', () => {
     const grid = new Uint8Array(GRID * GRID);
     const ctx: import('../src/sim/buildings').StampCtx = {
-      grid, props: [], pickups: [], houses: [], claims: [], rng: new Rng(1),
+      grid, grid2: new Uint8Array(GRID * GRID), props: [], pickups: [], houses: [], claims: [], rng: new Rng(1),
     };
     const warehouse = BUILDINGS.find((b) => b.id === 'warehouse')!;
     expect(stampBuilding(ctx, warehouse, 40, 40)).toBe(true);

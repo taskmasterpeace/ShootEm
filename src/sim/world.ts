@@ -1,6 +1,6 @@
 import { CLASSES, EQUIPMENT, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
-import { GRID, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, generateMap, isBlocked, losClear, surfaceAt, tileAt, type GameMap } from './map';
+import { F2_VOID, F2_WELL, GRID, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
 import { Rng } from './rng';
 import {
   SYSTEM_IDS, isCoopMode, isZed,
@@ -201,6 +201,7 @@ export class World {
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
       longestKill: 0, vehicleKills: 0, healGiven: 0,
       pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0, lastKillerId: -1,
+      floor: 0,
       armor: 0, maxArmor: 0, protectedUntil: 0,
       equipment: (loadout?.equipment ?? []).filter((id) => EQUIPMENT[id]).slice(0, 2),
       medikitReady: true, nextPsiAt: 0, nextRepairAt: 0,
@@ -222,7 +223,7 @@ export class World {
       cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
       longestKill: 0, vehicleKills: 0, healGiven: 0,
-      pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0, lastKillerId: -1,
+      pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0, lastKillerId: -1, floor: 0,
       armor: 0, maxArmor: 0, protectedUntil: 0,
       equipment: [], medikitReady: false, nextPsiAt: 0, nextRepairAt: 0,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
@@ -243,7 +244,7 @@ export class World {
       cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
       longestKill: 0, vehicleKills: 0, healGiven: 0,
-      pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0, lastKillerId: -1,
+      pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0, lastKillerId: -1, floor: 0,
       armor: 0, maxArmor: 0, protectedUntil: 0,
       equipment: [], medikitReady: false, nextPsiAt: 0, nextRepairAt: 0,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
@@ -253,6 +254,7 @@ export class World {
   }
 
   spawn(s: Soldier) {
+    s.floor = 0;
     const c = CLASSES[s.classId];
     // armor equipment issues PLATE — a separate pool that absorbs damage
     // before hp and never heals back (medics fix flesh, not ceramic).
@@ -762,6 +764,8 @@ export class World {
         // E on a warp beacon teleports to its twin
       } else if (this.tryFieldKit(s)) {
         // E with a mechanic kit repairs; with a hacking kit converts a sentry
+      } else if (this.tryLadder(s)) {
+        // E on a ladder climbs between storeys
       } else if (this.tryDoor(s)) {
         // E on a door swings it — the activation key earns its name
       } else {
@@ -1141,6 +1145,33 @@ export class World {
       if (v) { s.pos.x = v.pos.x; s.pos.z = v.pos.z; s.pos.y = 0; }
       return;
     }
+    // THE SECOND STOREY (§8.4 Phase-2): upstairs the ground plane is y=4,
+    // movement is blocked by the grid2 layer, and stepping onto VOID is a
+    // fall — gravity walks you back to the ground floor.
+    if (s.floor === 1) {
+      if (s.pos.y > 4 || s.vel.y > 0) {
+        s.vel.y -= this.gravity * dt;
+        s.pos.y = Math.max(4, s.pos.y + s.vel.y * dt);
+        if (s.pos.y === 4) s.vel.y = 0;
+      } else {
+        s.pos.y = 4;
+      }
+      if (s.pushX !== 0 || s.pushZ !== 0) {
+        const decay = Math.exp(-5 * dt);
+        s.pushX *= decay; s.pushZ *= decay;
+        if (Math.abs(s.pushX) < 0.05) s.pushX = 0;
+        if (Math.abs(s.pushZ) < 0.05) s.pushZ = 0;
+      }
+      const nx = s.pos.x + (s.vel.x + s.pushX) * dt;
+      const nz = s.pos.z + (s.vel.z + s.pushZ) * dt;
+      if (!upperBlocked(this.map.grid2, nx, s.pos.z)) s.pos.x = nx;
+      if (!upperBlocked(this.map.grid2, s.pos.x, nz)) s.pos.z = nz;
+      s.pos.x = Math.max(-WORLD / 2 + 2, Math.min(WORLD / 2 - 2, s.pos.x));
+      s.pos.z = Math.max(-WORLD / 2 + 2, Math.min(WORLD / 2 - 2, s.pos.z));
+      // off the edge? nothing under your boots — down you go
+      if (tileAt(this.map.grid2, s.pos.x, s.pos.z) === F2_VOID) s.floor = 0;
+      return;
+    }
     // gravity + vertical (theme gravity: Europa jumps are glorious)
     if (s.pos.y > 0 || s.vel.y > 0) {
       s.vel.y -= this.gravity * dt;
@@ -1248,6 +1279,38 @@ export class World {
 
   /** door tiles whose state ever changed — replicated so puppets stay true */
   doorChanges: number[] = [];
+
+  /** E on a ladder foot (or the well above it) climbs between storeys. The
+   *  activation key again — same verb as doors and vehicles. */
+  private tryLadder(s: Soldier): boolean {
+    for (const reach of [0, TILE * 0.6]) {
+      const x = s.pos.x + Math.cos(s.yaw) * reach;
+      const z = s.pos.z + Math.sin(s.yaw) * reach;
+      const tx = Math.floor((x + WORLD / 2) / TILE);
+      const tz = Math.floor((z + WORLD / 2) / TILE);
+      if (tx < 1 || tz < 1 || tx >= GRID - 1 || tz >= GRID - 1) continue;
+      const idx = tz * GRID + tx;
+      if (s.floor === 0 && this.map.grid[idx] === T_LADDER && this.map.grid2[idx] === F2_WELL) {
+        s.floor = 1;
+        s.pos.x = (tx + 0.5) * TILE - WORLD / 2;
+        s.pos.z = (tz + 0.5) * TILE - WORLD / 2;
+        s.pos.y = 4;
+        s.vel.y = 0;
+        this.emit({ type: 'ladder', pos: { ...s.pos }, soldierId: s.id });
+        return true;
+      }
+      if (s.floor === 1 && this.map.grid2[idx] === F2_WELL) {
+        s.floor = 0;
+        s.pos.x = (tx + 0.5) * TILE - WORLD / 2;
+        s.pos.z = (tz + 0.5) * TILE - WORLD / 2;
+        s.pos.y = 0;
+        s.vel.y = 0;
+        this.emit({ type: 'ladder', pos: { ...s.pos }, soldierId: s.id });
+        return true;
+      }
+    }
+    return false;
+  }
 
   tryEnterVehicle(s: Soldier) {
     for (const v of this.vehicles.values()) {
@@ -1589,8 +1652,9 @@ export class World {
         if (dead) { this.projectiles.delete(id); continue; }
       }
 
-      // hit terrain
-      if (p.pos.y <= 0 || blocksShot(this.map.grid, p.pos.x, p.pos.z, Math.max(p.pos.y, 0))) {
+      // hit terrain (either storey's walls)
+      if (p.pos.y <= 0 || blocksShot(this.map.grid, p.pos.x, p.pos.z, Math.max(p.pos.y, 0)) ||
+          blocksShotUpper(this.map.grid2, p.pos.x, p.pos.z, p.pos.y)) {
         if (this.detonatePayload(p)) { /* payload delivered */ }
         else if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team);
         else if (def.tracer !== 'beam') this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon });
@@ -1720,6 +1784,7 @@ export class World {
     for (const s of this.soldiers.values()) {
       if (!s.alive || s.vehicleId >= 0) continue;
       if (this.time < s.protectedUntil) continue; // spawn protection: no damage, no shove (55B)
+      if (Math.abs(s.pos.y - pos.y) > 3.4) continue; // the floor slab eats cross-storey blasts
       const d = Math.hypot(s.pos.x - pos.x, s.pos.z - pos.z);
       if (d < def.splash) {
         const isSelf = s.id === ownerId;

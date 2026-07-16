@@ -61,7 +61,7 @@ describe('the dynamic house generator', () => {
     // level the neighborhood, then plant the manor
     for (let z = tz - 6; z < tz + hh + 6; z++)
       for (let x = tx - 6; x < tx + hw + 6; x++) w.map.grid[z * GRID + x] = 0;
-    const ctx: StampCtx = { grid: w.map.grid, props: [], pickups: [], houses: [], claims: [], rng: new Rng(1) };
+    const ctx: StampCtx = { grid: w.map.grid, grid2: w.map.grid2, props: [], pickups: [], houses: [], claims: [], rng: new Rng(1) };
     expect(stampBuilding(ctx, def, tx, tz)).toBe(true);
     // the hill goes in the FARTHEST room cell from the front door (BFS depth
     // through the stencil — the bot must open at least front + interior doors)

@@ -1,5 +1,5 @@
 import type { House, PickupSpawn, PropSpec } from './map';
-import { GRID, T_COVER, T_DOOR, T_METAL, T_OPEN, T_SLIT, T_WALL, TILE, WORLD } from './map';
+import { F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_COVER, T_DOOR, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, TILE, WORLD } from './map';
 import type { Rng } from './rng';
 
 // ---------------------------------------------------------------------------
@@ -14,6 +14,7 @@ import type { Rng } from './rng';
 //   '.' interior    ' ' outside the footprint (nothing stamped)
 //   'C' crate cover (claimed — the crate mesh renders the collision)
 //   'P' pickup on the floor (medkit/ammo alternating)
+//   'L' ladder foot (walkable; E climbs to the rows2 storey above)
 //
 // Second storeys: the format reserves `floors` for the Phase-2 height layer
 // (DD §8.4 decided walkable roofs need their own engine decision) — every
@@ -24,9 +25,12 @@ export interface BuildingDef {
   id: string;
   name: string;
   kind: 'house' | 'industrial' | 'military' | 'ruin';
-  /** reserved for the Phase-2 height layer — always 1 today */
-  floors: 1;
+  /** 1 = single storey; 2 = the §8.4 Phase-2 experiment — rows2 rides above */
+  floors: 1 | 2;
   rows: string[];
+  /** the SECOND STOREY stencil (same width): '#' wall, 'S' window, '.' floor,
+   *  'L' the ladder well (must sit over a ground-floor 'L'), ' ' void */
+  rows2?: string[];
 }
 
 const B = (id: string, name: string, kind: BuildingDef['kind'], rows: string[]): BuildingDef =>
@@ -169,7 +173,7 @@ export const BUILDINGS: BuildingDef[] = [
   ]),
 ];
 
-const LEGEND = new Set(['#', 'M', 'S', 'D', '.', ' ', 'C', 'P']);
+const LEGEND = new Set(['#', 'M', 'S', 'D', '.', ' ', 'C', 'P', 'L']);
 export const isLegalStencilChar = (ch: string) => LEGEND.has(ch);
 
 // ---------------------------------------------------------------------------
@@ -306,9 +310,40 @@ function growHouse(rng: Rng, type: DynHouseType): BuildingDef {
   if (g[lz]?.[lx] === '.') g[lz][lx] = 'P';
   if (crates === 0 && g[1][1] === '.') g[1][1] = 'C'; // the indoors ALWAYS has stuff
 
+  // the SECOND STOREY (§8.4 Phase-2): some manors grow a walled loft above,
+  // reached by a ladder, ringed with upper windows — the sniper nest
+  let rows2: string[] | undefined;
+  let floors: 1 | 2 = 1;
+  if (type === 'manor' && rng.next() < 0.45) {
+    const spots: [number, number][] = [];
+    for (let z = 1; z < h - 1; z++) {
+      for (let x = 1; x < w - 1; x++) {
+        if (g[z][x] !== '.') continue;
+        const wallTouch = g[z - 1][x] === '#' || g[z + 1][x] === '#' || g[z][x - 1] === '#' || g[z][x + 1] === '#';
+        const doorTouch = g[z - 1][x] === 'D' || g[z + 1][x] === 'D' || g[z][x - 1] === 'D' || g[z][x + 1] === 'D';
+        if (wallTouch && !doorTouch) spots.push([x, z]);
+      }
+    }
+    if (spots.length) {
+      const [lx2, lz2] = spots[rng.int(0, spots.length - 1)];
+      g[lz2][lx2] = 'L';
+      const u: string[][] = [];
+      for (let z = 0; z < h; z++) {
+        u.push([]);
+        for (let x = 0; x < w; x++) u[z].push(z === 0 || z === h - 1 || x === 0 || x === w - 1 ? '#' : '.');
+      }
+      for (let x = 2; x < w - 2; x += 3) { u[0][x] = 'S'; u[h - 1][x] = 'S'; }
+      for (let z = 2; z < h - 2; z += 3) { u[z][0] = 'S'; u[z][w - 1] = 'S'; }
+      u[lz2][lx2] = 'L'; // the well, directly over the ladder foot
+      rows2 = u.map((r) => r.join(''));
+      floors = 2;
+    }
+  }
   return {
-    id: `dyn_${type}`, name: spec.name, kind: 'house', floors: 1,
+    id: `dyn_${type}`, name: floors === 2 ? 'Two-Storey Manor' : spec.name,
+    kind: 'house', floors,
     rows: g.map((row) => row.join('')),
+    ...(rows2 ? { rows2 } : {}),
   };
 }
 
@@ -318,7 +353,7 @@ export function stencilConnected(def: BuildingDef): boolean {
   const h = def.rows.length;
   const w = Math.max(...def.rows.map((r) => r.length));
   const at = (x: number, z: number) => (def.rows[z] ?? '')[x] ?? ' ';
-  const pass = (ch: string) => ch === '.' || ch === 'D' || ch === 'P';
+  const pass = (ch: string) => ch === '.' || ch === 'D' || ch === 'P' || ch === 'L';
   // seed from a bottom-row door
   let sx = -1, sz = -1;
   for (let z = h - 1; z >= 0 && sx < 0; z--)
@@ -338,12 +373,14 @@ export function stencilConnected(def: BuildingDef): boolean {
   }
   for (let z = 0; z < h; z++)
     for (let x = 0; x < w; x++)
-      if ((at(x, z) === '.' || at(x, z) === 'P') && !seen.has(z * w + x)) return false;
+      if ((at(x, z) === '.' || at(x, z) === 'P' || at(x, z) === 'L') && !seen.has(z * w + x)) return false;
   return true;
 }
 
 export interface StampCtx {
   grid: Uint8Array;
+  /** the second-storey layer (F2_*) — stamped from rows2 */
+  grid2: Uint8Array;
   props: PropSpec[];
   pickups: PickupSpawn[];
   houses: House[];
@@ -394,7 +431,26 @@ export function stampBuilding(ctx: StampCtx, def: BuildingDef, tx: number, tz: n
           ctx.grid[idx] = T_OPEN;
           if (!interior) interior = { x: gx, z: gz };
           break;
+        case 'L':
+          ctx.grid[idx] = T_LADDER;
+          break;
         default: break; // ' ' — outside the footprint
+      }
+    }
+  }
+  // the second storey: stamp rows2 into the upper layer
+  if (def.rows2) {
+    for (let rz = 0; rz < def.rows2.length; rz++) {
+      const row = def.rows2[rz];
+      for (let rx = 0; rx < w; rx++) {
+        const idx = (tz + rz) * GRID + tx + rx;
+        switch (row[rx] ?? ' ') {
+          case '#': ctx.grid2[idx] = F2_WALL; break;
+          case 'S': ctx.grid2[idx] = F2_SLIT; break;
+          case '.': ctx.grid2[idx] = F2_FLOOR; break;
+          case 'L': ctx.grid2[idx] = F2_WELL; break;
+          default: break;
+        }
       }
     }
   }
@@ -405,6 +461,7 @@ export function stampBuilding(ctx: StampCtx, def: BuildingDef, tx: number, tz: n
     center: tileToWorld(center.x, center.z),
     door: tileToWorld(door.x, door.z),
     tx, tz, tw: w, th: h,
+    floors: def.floors,
   });
   return true;
 }
@@ -412,7 +469,8 @@ export function stampBuilding(ctx: StampCtx, def: BuildingDef, tx: number, tz: n
 /** Horizontal mirror of a template — placed on the far side for fairness. */
 export function mirrorDef(def: BuildingDef): BuildingDef {
   const w = Math.max(...def.rows.map((r) => r.length));
-  return { ...def, rows: def.rows.map((r) => r.padEnd(w, ' ').split('').reverse().join('')) };
+  const flip = (r: string) => r.padEnd(w, ' ').split('').reverse().join('');
+  return { ...def, rows: def.rows.map(flip), rows2: def.rows2?.map(flip) };
 }
 
 export interface AvoidZone { tx: number; tz: number; r: number }
