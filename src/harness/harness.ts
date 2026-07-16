@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CLASSES, MODE_INFO, TEAM_COLORS, THEMES, WEAPONS } from '../sim/data';
+import { FAMILIES } from '../sim/arsenal';
 import { GRID, T_COVER, T_WALL, T_WATER, TILE, WORLD } from '../sim/map';
-import type { ClassId, ModeId, SoldierKind, Team, ThemeId, WeaponId, ZedKind } from '../sim/types';
+import type { ClassId, ModeId, SoldierKind, Team, ThemeId, WeaponDef, WeaponFamily, WeaponId, ZedKind } from '../sim/types';
 import { JOINT_NAMES, poseSoldierJoints, type GaitState, type Joints } from '../client/animation';
 import {
   buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp,
@@ -100,7 +101,12 @@ let audioReady = false;        // Sound Lab enabled → markers are audible
 const stageGait: GaitState = {}; // continuous gait phase for the staged model
 
 // projectiles / tracers / floating text live here and tick each frame
-interface Proj { mesh: THREE.Mesh; vel: THREE.Vector3; arc: boolean; life: number; trail: THREE.Vector3[]; line: THREE.Line; }
+interface Proj {
+  mesh: THREE.Mesh; vel: THREE.Vector3; arc: boolean; life: number;
+  trail: THREE.Vector3[]; line: THREE.Line;
+  /** Arsenal lane: detonate when this X is crossed (shows splash + damage). */
+  detonateX?: number; splash?: number; dmgText?: string; color?: number;
+}
 const projectiles: Proj[] = [];
 interface Fx { obj: THREE.Object3D; life: number; max: number; kind: 'tracer' | 'text'; }
 const fx: Fx[] = [];
@@ -645,17 +651,322 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+// size the renderer to the canvas's ACTUAL CSS box (differs by mode: full
+// screen on Stage/World, a top firing-lane strip in Arsenal). updateStyle=false
+// so three doesn't fight the CSS that positions the canvas per mode.
+function onResize() {
+  const r = canvas.getBoundingClientRect();
+  const w = Math.max(1, r.width), h = Math.max(1, r.height);
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
+  renderer.setSize(w, h, false);
+}
+window.addEventListener('resize', onResize);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main loop.
 // ─────────────────────────────────────────────────────────────────────────────
 let last = performance.now();
 let fps = 0, fpsAcc = 0, fpsFrames = 0, overlayAcc = 0;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Global time scale — slow everything (projectiles, gaits, physics) so a
+// hypervelocity round is legible. The frame loop multiplies dt by this.
+// ═══════════════════════════════════════════════════════════════════════════
+let timeScale = 1;
+let frozen = false;
+const timeSlider = $<HTMLInputElement>('time-scale');
+function setTimeScale(v: number) {
+  timeScale = v; frozen = false;
+  timeSlider.value = String(v);
+  $('time-val').textContent = v.toFixed(2) + '×';
+  $('time-freeze').classList.remove('on');
+}
+timeSlider.oninput = () => setTimeScale(Number(timeSlider.value));
+for (const b of Array.from(document.querySelectorAll<HTMLButtonElement>('.snap[data-time]')))
+  b.onclick = () => setTimeScale(Number(b.dataset.time));
+$('time-freeze').onclick = () => { frozen = !frozen; $('time-freeze').classList.toggle('on', frozen); };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Mode switching — Stage (models) · Arsenal Lab · World (environment).
+// ═══════════════════════════════════════════════════════════════════════════
+const laneGroup = new THREE.Group();
+laneGroup.visible = false;
+scene.add(laneGroup);
+
+function setMode(mode: string) {
+  document.body.dataset.mode = mode;
+  for (const t of Array.from(document.querySelectorAll<HTMLButtonElement>('.tab')))
+    t.classList.toggle('active', t.dataset.mode === mode);
+  const arsenal = mode === 'arsenal';
+  laneGroup.visible = arsenal;
+  stage.visible = !arsenal;
+  overlays.visible = !arsenal;
+  grid.visible = opt.grid && !arsenal && !envMode;
+  worldAxes.visible = opt.axes && !arsenal && !envMode;
+  if (arsenal) {
+    buildLane();
+    camera.position.set(laneRange * 0.5, 9, laneRange * 0.75 + 8);
+    controls.target.set(laneRange * 0.5, 1, 0);
+  } else {
+    camera.position.copy(MODEL_CAM); controls.target.copy(MODEL_TARGET);
+  }
+  requestAnimationFrame(onResize); // let the CSS box settle first
+}
+for (const t of Array.from(document.querySelectorAll<HTMLButtonElement>('.tab')))
+  t.onclick = () => setMode(t.dataset.mode!);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Arsenal Lab — every weapon, side by side, editable, fired down a live lane.
+// ═══════════════════════════════════════════════════════════════════════════
+const ALL_WEAPONS = Object.keys(WEAPONS) as WeaponId[];
+// pristine snapshot for revert + delta export
+const origWeapons: Record<string, WeaponDef> = {};
+for (const id of ALL_WEAPONS) origWeapons[id] = { ...WEAPONS[id] };
+
+const famOf = (id: WeaponId): string => WEAPONS[id].family ?? 'core';
+/** sustained damage/sec ignoring reload — the honest "how hard it hits" number */
+const dpsOf = (id: WeaponId) => {
+  const w = WEAPONS[id];
+  return Math.round((w.heals ? w.damage : w.damage * w.pellets) * w.rof);
+};
+
+let selWeapon: WeaponId = 'ar606';
+let famFilter = 'all';
+let sortKey: string = 'dps';
+let sortDir = -1;
+let laneRange = 40;
+
+// ── the sortable comparison table ──
+interface Col { key: string; label: string; get: (id: WeaponId) => number | string; bar?: boolean; }
+const COLS: Col[] = [
+  { key: 'name', label: 'Weapon', get: (id) => WEAPONS[id].name },
+  { key: 'fam', label: 'Family', get: (id) => famOf(id) },
+  { key: 'tier', label: 'Mk', get: (id) => WEAPONS[id].tier ?? 0 },
+  { key: 'damage', label: 'DMG', get: (id) => WEAPONS[id].damage, bar: true },
+  { key: 'rof', label: 'ROF', get: (id) => WEAPONS[id].rof },
+  { key: 'dps', label: 'DPS', get: (id) => dpsOf(id), bar: true },
+  { key: 'range', label: 'RANGE', get: (id) => WEAPONS[id].range, bar: true },
+  { key: 'speed', label: 'SPEED', get: (id) => WEAPONS[id].speed, bar: true },
+  { key: 'clip', label: 'CLIP', get: (id) => WEAPONS[id].clip },
+  { key: 'reloadTime', label: 'RLD', get: (id) => WEAPONS[id].reloadTime },
+  { key: 'splash', label: 'SPL', get: (id) => WEAPONS[id].splash },
+  { key: 'knockback', label: 'KB', get: (id) => WEAPONS[id].knockback },
+  { key: 'tracer', label: 'ROUND', get: (id) => WEAPONS[id].tracer },
+];
+const colBy = Object.fromEntries(COLS.map((c) => [c.key, c]));
+
+function visibleWeapons(): WeaponId[] {
+  const q = ($<HTMLInputElement>('arsenal-search').value || '').toLowerCase();
+  let list = ALL_WEAPONS.filter((id) => famFilter === 'all' || famOf(id) === famFilter);
+  if (q) list = list.filter((id) => WEAPONS[id].name.toLowerCase().includes(q) || id.includes(q));
+  const g = colBy[sortKey].get;
+  return list.sort((a, b) => {
+    const va = g(a), vb = g(b);
+    if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * sortDir;
+    return String(va).localeCompare(String(vb)) * sortDir;
+  });
+}
+
+function buildFamChips() {
+  const host = $('arsenal-fam');
+  const fams = ['all', 'core', ...FAMILIES.map((f) => f.family)];
+  host.innerHTML = '';
+  for (const f of fams) {
+    const b = document.createElement('button');
+    b.className = 'fam-chip' + (f === famFilter ? ' active' : '');
+    b.textContent = f === 'all' ? 'All' : f;
+    b.onclick = () => { famFilter = f; buildFamChips(); renderTable(); };
+    host.appendChild(b);
+  }
+}
+
+function renderTable() {
+  const list = visibleWeapons();
+  // column maxima for the inline comparison bars
+  const maxes: Record<string, number> = {};
+  for (const c of COLS) if (c.bar) maxes[c.key] = Math.max(1, ...ALL_WEAPONS.map((id) => Number(c.get(id))));
+  const head = '<thead><tr>' + COLS.map((c) =>
+    `<th data-k="${c.key}" class="${c.key === sortKey ? 'sorted' : ''}">${c.label}${c.key === sortKey ? (sortDir < 0 ? ' ▾' : ' ▴') : ''}</th>`).join('') + '</tr></thead>';
+  const rows = list.map((id) => {
+    const edited = COLS.some((c) => typeof origWeapons[id][c.key as keyof WeaponDef] === 'number'
+      && origWeapons[id][c.key as keyof WeaponDef] !== WEAPONS[id][c.key as keyof WeaponDef]);
+    const cells = COLS.map((c) => {
+      const v = c.get(id);
+      if (c.key === 'name') return `<td>${v}</td>`;
+      if (c.key === 'tracer') return `<td><span class="trace-dot" style="background:#${tracerColor(String(v)).toString(16).padStart(6, '0')}"></span> ${v}</td>`;
+      if (c.bar) {
+        const pct = Math.round((Number(v) / maxes[c.key]) * 100);
+        return `<td class="bar-cell"><div class="b" style="width:${pct}%"></div><span>${v}</span></td>`;
+      }
+      return `<td>${v}</td>`;
+    }).join('');
+    return `<tr data-id="${id}" class="${id === selWeapon ? 'sel' : ''} ${edited ? 'edited' : ''}">${cells}</tr>`;
+  }).join('');
+  const table = $<HTMLTableElement>('wtable');
+  table.innerHTML = head + '<tbody>' + rows + '</tbody>';
+  for (const th of Array.from(table.querySelectorAll('th')))
+    (th as HTMLElement).onclick = () => {
+      const k = (th as HTMLElement).dataset.k!;
+      if (k === sortKey) sortDir *= -1; else { sortKey = k; sortDir = k === 'name' || k === 'fam' ? 1 : -1; }
+      renderTable();
+    };
+  for (const tr of Array.from(table.querySelectorAll('tbody tr')))
+    (tr as HTMLElement).onclick = () => selectWeapon((tr as HTMLElement).dataset.id as WeaponId);
+}
+
+// ── the live stat editor ──
+interface EdField { key: keyof WeaponDef; label: string; min: number; max: number; step: number; }
+const ED_FIELDS: EdField[] = [
+  { key: 'damage', label: 'Damage', min: 1, max: 300, step: 1 },
+  { key: 'rof', label: 'ROF', min: 0.2, max: 20, step: 0.1 },
+  { key: 'speed', label: 'Speed', min: 20, max: 400, step: 5 },
+  { key: 'range', label: 'Range', min: 8, max: 160, step: 2 },
+  { key: 'pellets', label: 'Pellets', min: 1, max: 16, step: 1 },
+  { key: 'clip', label: 'Clip', min: 1, max: 120, step: 1 },
+  { key: 'reloadTime', label: 'Reload', min: 0.3, max: 5, step: 0.1 },
+  { key: 'spread', label: 'Spread', min: 0, max: 0.3, step: 0.005 },
+  { key: 'splash', label: 'Splash', min: 0, max: 10, step: 0.5 },
+  { key: 'splashDamage', label: 'Spl.Dmg', min: 0, max: 120, step: 2 },
+  { key: 'knockback', label: 'Knockbk', min: 0, max: 30, step: 0.5 },
+];
+
+function selectWeapon(id: WeaponId) {
+  selWeapon = id;
+  const w = WEAPONS[id];
+  const host = $('weditor');
+  const orig = origWeapons[id];
+  const rows = ED_FIELDS.map((f) => {
+    const v = w[f.key] as number;
+    const dirty = v !== (orig[f.key] as number);
+    return `<div class="ed-row" data-k="${f.key}">
+      <label>${f.label}</label>
+      <input type="range" min="${f.min}" max="${f.max}" step="${f.step}" value="${v}">
+      <span class="ev ${dirty ? 'dirty' : ''}">${f.step < 1 ? v.toFixed(3) : v}</span>
+    </div>`;
+  }).join('');
+  host.innerHTML = `<h3>${w.name}</h3>
+    <div class="wsub">${famOf(id)}${w.tier ? ` · Mk ${w.tier}` : ''} · ${w.tracer} round · id <code>${id}</code></div>
+    ${rows}
+    <div class="ed-actions">
+      <button class="btn-wide primary" id="ed-fire">▶ Fire</button>
+      <button class="btn-wide" id="ed-revert">Revert</button>
+      <button class="btn-wide" id="ed-copy">Copy Δ</button>
+    </div>
+    <div class="hint" id="ed-copied" style="margin-top:6px"></div>`;
+  for (const row of Array.from(host.querySelectorAll('.ed-row'))) {
+    const key = (row as HTMLElement).dataset.k as keyof WeaponDef;
+    const f = ED_FIELDS.find((x) => x.key === key)!;
+    const slider = row.querySelector('input') as HTMLInputElement;
+    const ev = row.querySelector('.ev') as HTMLElement;
+    slider.oninput = () => {
+      const val = Number(slider.value);
+      (WEAPONS[id][key] as number) = val;
+      ev.textContent = f.step < 1 ? val.toFixed(3) : String(val);
+      ev.classList.toggle('dirty', val !== (origWeapons[id][key] as number));
+      renderTable();
+    };
+  }
+  $('ed-fire').onclick = () => fireInLane(id);
+  $('ed-revert').onclick = () => { WEAPONS[id] = { ...origWeapons[id] }; selectWeapon(id); renderTable(); };
+  $('ed-copy').onclick = () => {
+    const diffs = ED_FIELDS.filter((f) => WEAPONS[id][f.key] !== origWeapons[id][f.key])
+      .map((f) => `${f.key}: ${WEAPONS[id][f.key]}  (was ${origWeapons[id][f.key]})`);
+    const text = diffs.length ? `${id} (${WEAPONS[id].name})\n  ${diffs.join('\n  ')}` : `${id}: no changes`;
+    navigator.clipboard?.writeText(text);
+    $('ed-copied').textContent = diffs.length ? `Copied ${diffs.length} change(s) — paste to me.` : 'No changes to copy.';
+  };
+  renderTable();
+}
+
+// ── the firing lane: shooter at origin, dummy at range, distance rings ──
+function buildLane() {
+  for (const c of [...laneGroup.children]) { laneGroup.remove(c); disposeGroup(c); }
+  const shooter = buildSoldier(0, 'infantry', 'bot');
+  shooter.rotation.y = Math.PI / 2; // face +X, down the lane
+  laneGroup.add(shooter);
+  const target = buildSoldier(1, 'infantry', 'zombie');
+  target.position.set(laneRange, 0, 0);
+  target.rotation.y = -Math.PI / 2;
+  laneGroup.add(target);
+  // distance rings + labels every 10u
+  for (let d = 10; d <= laneRange + 0.1; d += 10) {
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.15, 0.28, 32),
+      new THREE.MeshBasicMaterial({ color: 0x3a4657, transparent: true, opacity: 0.8, side: THREE.DoubleSide }),
+    );
+    ring.rotation.x = -Math.PI / 2; ring.position.set(d, 0.02, 0); ring.scale.setScalar(6);
+    laneGroup.add(ring);
+    laneGroup.add(makeLabel(`${d}u`, 0x6a7686, new THREE.Vector3(d, 0.1, 3.4), 0.6));
+  }
+}
+
+function detonate(p: Proj) {
+  const at = p.mesh.position.clone();
+  if (p.splash && p.splash > 0) {
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.1, 0.35, 40),
+      new THREE.MeshBasicMaterial({ color: p.color ?? 0xff8840, transparent: true, opacity: 0.85, side: THREE.DoubleSide }),
+    );
+    ring.rotation.x = -Math.PI / 2; ring.position.set(at.x, 0.05, at.z);
+    ring.scale.setScalar(p.splash * 2.4);
+    laneGroup.add(ring);
+    fx.push({ obj: ring, life: 0.5, max: 0.5, kind: 'tracer' });
+  }
+  const flash = new THREE.PointLight(p.color ?? 0xffcc66, 8, 8);
+  flash.position.copy(at); laneGroup.add(flash);
+  fx.push({ obj: flash, life: 0.16, max: 0.16, kind: 'tracer' });
+  if (p.dmgText) {
+    const lab = makeLabel(p.dmgText, 0xff6a6a, at.clone().add(new THREE.Vector3(0, 1.4, 0)), 0.9);
+    laneGroup.add(lab); fx.push({ obj: lab, life: 1.2, max: 1.2, kind: 'text' });
+  }
+}
+
+function fireInLane(id: WeaponId) {
+  const def = WEAPONS[id];
+  const from = new THREE.Vector3(0.9, 1.35, 0);
+  const to = new THREE.Vector3(laneRange, 1.2, 0);
+  const color = tracerColor(def.tracer === 'none' ? 'bullet' : def.tracer);
+  const dmgText = def.heals ? `+${def.damage}` : `-${def.damage * def.pellets}`;
+  // instant-tracer weapons (rail/beam/plasma, speed >= 200) read as hitscan
+  if (def.speed >= 200) {
+    const len = from.distanceTo(to);
+    const beam = new THREE.Mesh(
+      new THREE.BoxGeometry(len, 0.09, 0.09),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 }),
+    );
+    beam.position.copy(from.clone().add(to).multiplyScalar(0.5));
+    beam.rotation.z = Math.atan2(to.y - from.y, to.x - from.x);
+    laneGroup.add(beam); fx.push({ obj: beam, life: 0.14, max: 0.14, kind: 'tracer' });
+    detonate({ mesh: { position: to } as THREE.Mesh, splash: def.splash, dmgText, color } as Proj);
+    return;
+  }
+  // real velocity — you SEE how fast it flies; slow time to study it
+  const vel = new THREE.Vector3(def.speed, def.arc ? def.speed * 0.5 : 0, 0);
+  const head = new THREE.Mesh(
+    new THREE.BoxGeometry(def.arc ? 0.4 : Math.min(1.4, 0.5 + def.speed / 120), 0.14, 0.14),
+    new THREE.MeshBasicMaterial({ color }),
+  );
+  head.position.copy(from);
+  laneGroup.add(head);
+  const line = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.55 }));
+  laneGroup.add(line);
+  projectiles.push({ mesh: head, vel, arc: def.arc, life: 6, trail: [from.clone()], line,
+    detonateX: laneRange, splash: def.splash, dmgText, color });
+}
+
+// lane range slider
+const laneSlider = $<HTMLInputElement>('lane-range');
+laneSlider.oninput = () => {
+  laneRange = Number(laneSlider.value);
+  $('lane-val').textContent = String(laneRange);
+  if (document.body.dataset.mode === 'arsenal') buildLane();
+};
+$('arsenal-fire').onclick = () => fireInLane(selWeapon);
+$<HTMLInputElement>('arsenal-search').oninput = () => renderTable();
+
+buildFamChips();
+selectWeapon('ar606');
 
 /**
  * Debug handle for the model harness — lets tooling introspect the live scene.
@@ -672,15 +983,21 @@ function armDirs() {
   }
   return out;
 }
-(window as unknown as Record<string, unknown>).__h = { THREE, scene, stage, current, poseSoldierJoints, armDirs, audio };
+(window as unknown as Record<string, unknown>).__h = {
+  THREE, scene, stage, current, poseSoldierJoints, armDirs, audio,
+  WEAPONS, projectiles, laneGroup, fireInLane, setMode,
+  get timeScale() { return timeScale; },
+};
 
 function frame(now: number) {
-  const dt = Math.min(0.05, (now - last) / 1000);
+  const realDt = Math.min(0.05, (now - last) / 1000);
   last = now;
+  // global time scale: slow everything down (or freeze) to study fast rounds
+  const dt = frozen ? 0 : realDt * timeScale;
   animTime += dt;
 
-  // fps
-  fpsAcc += dt; fpsFrames++;
+  // fps (measured on real wall-clock time, not the scaled sim time)
+  fpsAcc += realDt; fpsFrames++;
   if (fpsAcc >= 0.5) { fps = fpsFrames / fpsAcc; fpsAcc = 0; fpsFrames = 0; $('ro-fps').textContent = fps.toFixed(0); }
 
   // soldier animation (shared with the game renderer, markers included)
@@ -728,9 +1045,11 @@ function frame(now: number) {
     if (p.trail.length > 60) p.trail.shift();
     p.line.geometry.setFromPoints(p.trail);
     p.life -= dt;
+    const crossed = p.detonateX !== undefined && p.mesh.position.x >= p.detonateX;
     const grounded = p.mesh.position.y <= 0.02 && p.vel.y < 0;
-    if (p.life <= 0 || grounded || p.mesh.position.length() > 200) {
-      stage.remove(p.mesh); stage.remove(p.line);
+    if (p.life <= 0 || grounded || crossed || p.mesh.position.length() > 300) {
+      if (p.detonateX !== undefined && (crossed || grounded)) detonate(p);
+      (p.mesh.parent ?? stage).remove(p.mesh); (p.line.parent ?? stage).remove(p.line);
       p.mesh.geometry.dispose(); (p.mesh.material as THREE.Material).dispose(); p.line.geometry.dispose();
       projectiles.splice(i, 1);
     }
@@ -745,7 +1064,7 @@ function frame(now: number) {
     else if (f.obj instanceof THREE.Mesh) ((f.obj.material as THREE.MeshBasicMaterial).opacity = k);
     else if (f.obj instanceof THREE.PointLight) f.obj.intensity = 6 * k;
     if (f.life <= 0) {
-      stage.remove(f.obj);
+      (f.obj.parent ?? stage).remove(f.obj);
       if (f.obj instanceof THREE.Mesh) { f.obj.geometry.dispose(); (f.obj.material as THREE.Material).dispose(); }
       fx.splice(i, 1);
     }
@@ -761,4 +1080,5 @@ function frame(now: number) {
 // boot: show a zombie first — it's the model this harness was built to fix.
 showModel(() => buildSoldier(0, 'infantry', 'zombie'), 'Zombie · zombie', { soldier: true, kind: 'zombie' });
 $<HTMLInputElement>('opt-armvec').checked = true; opt.armvec = true; rebuildOverlays();
+onResize(); // match the renderer to the canvas's real CSS box
 requestAnimationFrame(frame);
