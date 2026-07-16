@@ -85,10 +85,16 @@ function pathStep(w: World, from: Vec3, to: Vec3): Vec3 | null {
   // front of a base gate once pinned four bots forever).
   const walkClear = (a: Vec3, bx: number, bz: number): boolean => {
     const dx = bx - a.x, dz = bz - a.z;
-    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / (TILE * 0.5)));
+    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / (TILE * 0.4)));
+    let px = a.x, pz = a.z;
     for (let i = 1; i <= steps; i++) {
       const t = i / steps;
-      if (isBlocked(grid, a.x + dx * t, a.z + dz * t)) return false;
+      const x = a.x + dx * t, z = a.z + dz * t;
+      // the point itself PLUS the two elbows: a sampled diagonal can thread
+      // the exact corner where two walls touch — the physics can't, so bots
+      // aimed through it and sat pinned on the corner forever
+      if (isBlocked(grid, x, z) || isBlocked(grid, px, z) || isBlocked(grid, x, pz)) return false;
+      px = x; pz = z;
     }
     return true;
   };
@@ -136,7 +142,7 @@ const raidsFlags = (s: Soldier) =>
   s.classId === 'jump' || s.classId === 'pathfinder' || s.classId === 'infiltrator' ||
   ((s.classId === 'infantry' || s.classId === 'ghost') && s.id % 2 === 0);
 const guardsHome = (s: Soldier) =>
-  (s.classId === 'heavy' || s.classId === 'engineer') && s.id % 2 === 0;
+  s.classId === 'heavy' && s.id % 2 === 0;
 
 function objectiveFor(w: World, s: Soldier): Vec3 {
   const m = w.mode;
@@ -151,16 +157,44 @@ function objectiveFor(w: World, s: Soldier): Vec3 {
       // (Bodyguards are why captures happen at all in 12v12.)
       const carrier = enemyFlag.carrierId >= 0 ? w.soldiers.get(enemyFlag.carrierId) : undefined;
       if (carrier?.alive) return carrier.pos;
-      // fast classes raid straight in. (Two rally/wolf-pack designs were
-      // simmed and made it WORSE — raiders died assembling. Direct raids at
-      // least reach the doorstep; the rest of CTF's stalemate is a map/lane
-      // problem, measured and filed, not a brain bug.)
-      if (raidsFlags(s)) return enemyFlag.pos;
+      // Everyone who isn't guarding goes FLAG-HUNTING on the wings. CTF has
+      // no mid objective — the old "pressure mid" role fed a grinder in the
+      // middle of the map while both flags gathered dust (probes: 0 flag
+      // events in 6 minutes, ever). Two-leg route: run to a wing waypoint on
+      // the map's edge, THEN cut to the flag. Odd ids take north, even take
+      // south — the raid arrives as two prongs the guard wall can't face at
+      // once, with the escorts (non-raider classes) fighting alongside.
       if (guardsHome(s)) { // armor orbits the flag stand (engineers seed sentries there)
         const a = (s.id % 8) * (Math.PI / 4);
         return { x: ownFlag.pos.x + Math.cos(a) * 6, y: 0, z: ownFlag.pos.z + Math.sin(a) * 6 };
       }
-      return w.map.hillPos; // the rest pressure mid
+      const dFlag = Math.hypot(s.pos.x - enemyFlag.pos.x, s.pos.z - enemyFlag.pos.z);
+      if (dFlag > 70) {
+        const base = w.map.basePos[s.team];
+        const ax = enemyFlag.pos.x - base.x, az = enemyFlag.pos.z - base.z;
+        const al = Math.hypot(ax, az) || 1;
+        // one wing per team, and the offset is relative to the team's OWN
+        // approach axis — which reverses between teams, so a CONSTANT side
+        // puts the armies on opposite world wings and the waves PASS each
+        // other. (side-by-team here double-negated with the axis reversal
+        // and marched both armies onto the SAME wing — the time-lapse showed
+        // every death at (0,90).) Each raid meets only the enemy's guards:
+        // CTF becomes a race.
+        const side = 1;
+        const wing = WORLD * 0.3;
+        const wp = {
+          x: Math.max(-WORLD / 2 + 9, Math.min(WORLD / 2 - 9, (base.x + enemyFlag.pos.x) / 2 - (az / al) * side * wing)),
+          y: 0,
+          z: Math.max(-WORLD / 2 + 9, Math.min(WORLD / 2 - 9, (base.z + enemyFlag.pos.z) / 2 + (ax / al) * side * wing)),
+        };
+        // hand off wing→flag by PROGRESS along the base→flag axis, which
+        // only ever increases as you advance — a distance-to-waypoint test
+        // here made the whole wave orbit the wing forever (step toward the
+        // flag, drift outside the radius, objective flips back; repeat)
+        const prog = ((s.pos.x - base.x) * ax + (s.pos.z - base.z) * az) / (al * al);
+        if (prog < 0.45) return wp;
+      }
+      return enemyFlag.pos;
     }
     case 'koth':
       return m.hillPos!;
@@ -279,7 +313,38 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
       if (!v.burrowed && !contact && dGoal > 30) cmd.ability = true;
       else if (v.burrowed && (contact || dGoal < 18)) cmd.ability = true;
     }
-    if (dGoal < 14 && v.kind !== 'tank') { cmd.use = true; return cmd; } // disembark near objective
+    // disembark near the objective (tank crews stay aboard — except CTF
+    // runners, who need HANDS: a raider sealed in a tank can never grab)
+    const bail = v.kind !== 'tank' || (w.mode.id === 'ctf' && (s.carryingFlag >= 0 || raidsFlags(s)));
+    if (dGoal < 14 && bail) { cmd.use = true; return cmd; }
+    // stuck recovery, judged by NET DISPLACEMENT over 3s windows — never by
+    // speed (a first cut reset on any velocity, so the reverse escape's own
+    // motion cleared the timer and the hull ping-ponged on the wall for a
+    // whole match). Strike one: back out hard. Strike two: ABANDON — a
+    // parked ride is a coffin, not cover.
+    if (w.time >= (s.botMoveCheckAt ?? 0)) {
+      const moved = Math.hypot(v.pos.x - (s.botLastX ?? v.pos.x), v.pos.z - (s.botLastZ ?? v.pos.z));
+      if (s.botLastX !== undefined && moved < 2.5 && dGoal > 16) {
+        if (s.botStuckAt !== undefined) {
+          cmd.use = true; // strike two: get out and walk
+          s.botStuckAt = undefined;
+          s.botLastX = undefined;
+          s.botUseAt = w.time + 10; // and no ride-shopping right away
+          return cmd;
+        }
+        s.botStuckAt = w.time; // strike one: try the reverse escape
+      } else {
+        s.botStuckAt = undefined;
+      }
+      s.botLastX = v.pos.x;
+      s.botLastZ = v.pos.z;
+      s.botMoveCheckAt = w.time + 3;
+    }
+    if (s.botStuckAt !== undefined && w.time - s.botStuckAt < 1.6) {
+      cmd.moveZ = 1; // hard reverse, wheel cranked
+      cmd.moveX = s.id % 2 ? 1 : -1;
+      return cmd;
+    }
     const wantYaw = Math.atan2(goal.z - v.pos.z, goal.x - v.pos.x);
     let dy = wantYaw - v.yaw;
     while (dy > Math.PI) dy -= Math.PI * 2;
@@ -332,15 +397,52 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
     }
   }
 
+  // --- CTF: speed IS the raid plan ---
+  // On foot the crossing takes ~23s of exposure; on a bike it takes 7. A
+  // runner detours to a free fast ride — as a pathfinding DESTINATION, never
+  // a straight-line walk (that once pinned raiders against their own base
+  // wall, reaching for a pad vehicle on the far side of it).
+  let rideDest: Vec3 | null = null;
+  if (w.mode.id === 'ctf' && !target && dGoal > 30 && w.time >= (s.botUseAt ?? 0) &&
+      (s.carryingFlag >= 0 || raidsFlags(s))) {
+    let ridePos: Vec3 | null = null, rideR = 0, rd = 26;
+    for (const v of w.vehicles.values()) {
+      if (!v.alive || v.team !== s.team || v.seats[0] >= 0) continue;
+      const kdef = VEHICLES[v.kind];
+      if (kdef.immobile || kdef.digs || kdef.flies || kdef.speed < 20) continue;
+      const d = Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z);
+      if (d < rd) { ridePos = v.pos; rideR = kdef.radius; rd = d; }
+    }
+    if (ridePos) {
+      if (rd < rideR + 2) cmd.use = true;
+      else rideDest = { x: ridePos.x, y: 0, z: ridePos.z };
+    }
+  }
+
+  // foot stuck check: a bot that hasn't moved in 2.5s with somewhere to be
+  // replans immediately — the elbow-checked walk ray won't re-aim it at the
+  // corner that pinned it
+  if (w.time >= (s.botMoveCheckAt ?? 0)) {
+    const moved = Math.hypot(s.pos.x - (s.botLastX ?? s.pos.x), s.pos.z - (s.botLastZ ?? s.pos.z));
+    if (s.botLastX !== undefined && moved < 1 && dGoal > 6 && !target) {
+      s.botGoal = null;
+      s.botRepathAt = 0;
+    }
+    s.botLastX = s.pos.x;
+    s.botLastZ = s.pos.z;
+    s.botMoveCheckAt = w.time + 2.5;
+  }
+
   // --- movement: repath periodically toward objective (or flank target) ---
   const wantRepath = !s.botGoal || w.time >= (s.botRepathAt ?? 0) ||
     Math.hypot((s.botGoal?.x ?? 0) - s.pos.x, (s.botGoal?.z ?? 0) - s.pos.z) < 3;
   if (wantRepath) {
     s.botRepathAt = w.time + 0.9 + w.rng.next() * 0.7;
-    // chasers hunt the target in tdm; anchors keep walking their objective
-    const dest = target && w.mode.id === 'tdm' && DOCTRINE[s.classId].chase
+    // chasers hunt the target in tdm; anchors keep walking their objective;
+    // a CTF runner with a ride in reach paths to the ride first
+    const dest = rideDest ?? (target && w.mode.id === 'tdm' && DOCTRINE[s.classId].chase
       ? target.pos
-      : goal;
+      : goal);
     const wp = pathStep(w, s.pos, dest);
     s.botGoal = wp ?? { x: dest.x, y: 0, z: dest.z };
   }
@@ -442,7 +544,11 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
     }
     if (s.hp < s.maxHp * 0.5 && s.energy >= 50) cmd.ability = true;
   }
-  if (s.classId === 'infiltrator' && !s.cloaked && !target && s.energy > 70 && w.rng.next() < 0.008) cmd.ability = true;
+  // infiltrators cloak on occasion — but a CTF raider infiltrator cloaks FOR
+  // THE CROSSING: bot eyes can't acquire a cloaked enemy beyond 9u, so the
+  // sneak walks through the guard wall's whole engagement envelope unseen
+  if (s.classId === 'infiltrator' && !s.cloaked && !target && s.energy > 70 &&
+      w.rng.next() < (w.mode.id === 'ctf' && raidsFlags(s) ? 0.06 : 0.008)) cmd.ability = true;
   // ghost bots fly the recon net (49A): deploy the auto-orbit drone when a
   // fight is on and the battery allows — marks enemies for the whole team
   if (s.classId === 'ghost' && s.energy >= 70 && target && w.rng.next() < 0.012) cmd.ability = true;

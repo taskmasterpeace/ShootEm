@@ -1683,9 +1683,13 @@ hand — is deliberately **not specified yet**; the acts themselves are canon.)*
   swings, a bomber IS a breaching charge, blasts breach ×1.5). Arc weapons
   are cursor-targeted (land at aimDist) for players AND bots — this alone
   took jump-trooper K/D from 0.47 to 0.96. CTF got class-shaped roles
-  (fast classes raid, armor guards home, carriers RUN, teammates escort);
-  its remaining 0–0 stalemate is measured, understood (one-lane symmetric
-  armies), and filed in BALANCE-PLAN §2.5.
+  (fast classes raid, armor guards home, carriers RUN, teammates escort) —
+  and its 0–0 stalemate is **BROKEN**: team-split wing routes with a
+  monotonic waypoint handoff, heavies-only home guard, ride-grabbing and
+  cloaked crossings; plus two universal mobility fixes (corner-threading
+  in path smoothing, stuck-driver recovery). Bot CTF now produces 13–36
+  flag takes and 1–5 captures per match with mixed winners
+  (BALANCE-PLAN §2.5 has the full five-cause autopsy).
 - ⛔ **Explicitly NOT in this document (user's call): the Director.** The
   pacing/orchestration system is deferred — §20.5 names the acts but not
   their conductor. Revisit later.

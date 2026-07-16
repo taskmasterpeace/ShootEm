@@ -109,9 +109,36 @@ function doctrine() {
   }
 }
 
+// ── Scenario 4: THE HEIST — does 12v12 CTF produce flag play at all? ─────────
+// Counts every flag event over a full match. A healthy CTF has takes, drops,
+// returns, and the occasional capture; the stalemate had literal zeroes.
+function heist(seed: number, minutes = 8) {
+  const w = new World({ seed, mode: 'ctf', matchMinutes: minutes });
+  // MIRRORED rosters — this scenario measures the MODE's health, so the
+  // teams must be fair (balance-sim keeps the mixed-deal chaos)
+  const classes = ['infantry', 'heavy', 'jump', 'engineer', 'medic', 'infiltrator', 'pathfinder', 'ghost', 'infantry', 'heavy', 'jump', 'engineer'] as const;
+  for (const team of [0, 1] as const) {
+    for (let i = 0; i < 12; i++) w.addSoldier(`B${team}-${i}`, classes[i], team, 'bot');
+  }
+  const counts = new Map<string, number>();
+  const steps = Math.round(minutes * 60 * 60);
+  for (let i = 0; i < steps && !w.mode.over; i++) {
+    w.step(1 / 60, new Map());
+    for (const e of w.takeEvents()) {
+      if (e.type.startsWith('flag')) counts.set(e.type, (counts.get(e.type) ?? 0) + 1);
+    }
+  }
+  const c = (k: string) => counts.get(k) ?? 0;
+  console.log(`heist · seed ${String(seed).padEnd(10)} score ${w.mode.scores[0]}–${w.mode.scores[1]}  ` +
+    `taken ${c('flag_taken')} · dropped ${c('flag_dropped')} · returned ${c('flag_returned')} · captured ${c('flag_captured')}`);
+}
+
 siege(['zombie'], 'lone walker');
 siege(['zombie', 'zombie', 'zombie'], 'walker pack x3');
 siege(['brute'], 'one brute');
 siege(['bomber'], 'one bomber');
 commute();
 doctrine();
+heist(12345);
+heist(2654448106);
+heist(1013916571);

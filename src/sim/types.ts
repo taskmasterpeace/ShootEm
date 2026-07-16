@@ -212,6 +212,12 @@ export interface Soldier {
   botStrafeDir?: number;
   /** next sim time this bot may press E (one polite press, not a woodpecker) */
   botUseAt?: number;
+  /** stuck detection: when this bot's ride stopped making progress */
+  botStuckAt?: number;
+  /** stuck detection: position sampled at the last movement check */
+  botLastX?: number;
+  botLastZ?: number;
+  botMoveCheckAt?: number;
 }
 
 export interface Vehicle {

@@ -63,15 +63,36 @@ shared hunt point landed inside a building and `pathStep` gave up — the
 planner now spirals to the nearest walkable tile, and doors are passable
 to it (humans open, monsters break).
 
-**Known issue, measured and filed: CTF is a 0–0 stalemate** (pre-dates the
-overhaul — verified via stash A/B). Probes: with everyone flag-hunting,
-nobody touches either flag in 6 min; with class-shaped roles (fast classes
-raid, armor guards, rest mid) raiders reach **5.7u** from the flag but die
-to the guard wall (21 deaths each); two wolf-pack rally designs simmed
-WORSE (raiders died assembling). A lone unopposed raider captures in 11s —
-the mechanism is fine. The stalemate is symmetric-armies-one-lane; the fix
-is map lanes and/or vehicle raids, not brain tweaks. Roles + escort +
-carrier-runs kept (strictly better); rest filed as follow-up.
+**CTF stalemate: BROKEN (2026-07-16).** The 0–0 was five stacked causes,
+each found by probe and fixed in order:
+
+1. *One contested lane* — everyone routed shortest-path into a mid
+   grinder. Fix: two-leg **wing routes** (waypoint on the map edge, then
+   cut to the flag), one wing per team so the armies PASS each other.
+2. *A sign bug* — the wing offset is axis-relative and the axis reverses
+   between teams, so side-by-team double-negated and marched both armies
+   onto the SAME wing. A constant side gives opposite world wings.
+3. *A limit cycle* — the wing→flag handoff used distance-to-waypoint;
+   the whole wave orbited the wing forever. Fix: hand off by PROGRESS
+   along the base→flag axis (monotonic — can never flip back).
+4. *No mid role* — CTF has no mid objective; "pressure mid" just fed the
+   grinder. Everyone but the guards flag-hunts on the wing now.
+5. *Respawn geometry* — defenders respawn 4s from their flag; attackers
+   are 25s away. Heavy defense was unbeatable with mirrored teams, so
+   the dedicated guard is **heavies only** (respawners defend anyway).
+
+Plus two universal mobility bugs the long routes exposed: the string-pull
+walk ray could thread the exact corner between two touching walls (bots
+aimed through it and sat pinned — now elbow-checked), and drivers had no
+stuck recovery (a raider spent 355s of a 360s match nose-first against a
+wall — now displacement-judged: reverse out, then abandon the hull).
+
+Bot-lab `heist` (3×8-min, mirrored rosters) before → after: **0 flag
+events, ever** → **13–36 takes, 1–5 captures per match, mixed winners,
+matches ending on the 3-cap**. CTF runners also cloak for the crossing
+(infiltrators) and path to free fast rides (as a pathfinding destination
+— walking straight at a parked bike pinned raiders on their own base
+wall).
 
 ## 3. Acceptance bands (v1 — tighten with data)
 
