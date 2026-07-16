@@ -1,4 +1,4 @@
-# War World — Design Directive 01 (Rev 2)
+# War World — Design Directive 01 (Rev 3)
 
 **From matches to a war.** Every fight permanently matters. Grounded in real,
 near-future military tech — and the exotic gear has to be *earned*.
@@ -617,6 +617,22 @@ the shared global war.
 | Slice 3 | Command: officer choices, named operations, relief of command, devolution | Needs ranks (Slice 1) + campaign (Slice 2) to mean anything | proposed |
 | Slice 4 | Lift campaign + dossiers to a shared backend | The true global war — same state, now shared | later |
 
+### 9.1 Cross-cutting tracks — the things that ride every slice
+
+The Rev-3 additions (§12–§18, §11.4) mostly aren't a *phase* — they're
+disciplines that attach to slices already on the board. Where each lands:
+
+| Section | Where it lands | Note |
+|---|---|---|
+| §12 Bot doctrine | **Every slice.** Ability parity ships with each mechanic (retrofit MANPADS/breacher/drone **now**); match-sizing with the §8.4 map pass; tactical depth alongside Slice 2 | "A toy one-in-sixteen can use" is not done |
+| §11.4 Trust | Interest-managed snapshots at **Stage 1**; aim-refereeing + identity with **Slice 4** — and they **gate charging** for competitive play | The floor beneath §11.3 |
+| §13 Season | **Slice 2** (with the Living Campaign) | Win/loss/reset is the top of §8.5 |
+| §14 Onboarding | Tail of **Slice 1.6** / head of **Slice 2** | Needs Dossier + Proving Grounds first |
+| §15 Squad | Primitives early (**Slice 1.6**, offline = friendly bots); full social system **Slice 2** | Build the container now |
+| §16 Conduct | Guardrails ship **with their features** (spawn protection + FF now/with maps; command cooldowns Slice 3; moderation Slice 2) | Every social verb answers its abuse case in-slice |
+| §17 Progression/economy | Mastery + session loop with **Slice 1** (Dossier); the War Materiel ledger with **Slice 2** | Names the money §6/§7 spend |
+| §18 Sensory/access | Music + ambience early (cheap, high ROI); colorblind + comfort + Settings with the **§10** menu rebuild | Correctness, not polish |
+
 ---
 
 ## 10. Screens — inventory & redo priority
@@ -728,6 +744,319 @@ before they exist. And **Settings plus the rebuilt menu (§10) are table
 stakes** before charging anyone: you don't sell a game whose options screen
 doesn't exist.
 
+### 11.4 Trust & fair play — the anti-cheat floor
+
+The whole game sells one thing: **respect you earn** — one-shot Wall scores
+(§3.2), medals that can't be bought (§11.3), ranked command (§7). As built, all
+of it is forgeable.
+
+> **Intel — server-authoritative, but leaky.** Online, the server holds the
+> real state and clients send only intent (`PlayerCmd`) — good, it contains
+> state-fabrication. But it **broadcasts every soldier's exact position to
+> every client** (cloaked and burrowed included) and **trusts `aimYaw`
+> verbatim**. That's free wall-hack ESP and a trivial, undetectable aimbot with
+> nothing but a WebSocket reader and a command injector. No memory hacking
+> required.
+
+Three rules, in leverage order:
+
+1. **Send only what a player could perceive — interest-managed snapshots.**
+   Cull each client's snapshot to units it can plausibly see (team, LOS +
+   sensor range, pinged). Cloaked/burrowed/deep units never reach the enemy's
+   wire — concealment becomes *true* instead of a rendering hint. This kills
+   ESP and shrinks bandwidth (helps mobile, §11.2). It's a snapshot-layer
+   change, not a sim change, so it can land at **Stage 1** and pays for itself
+   on LAN too.
+2. **The server referees the shot.** Extend the cooldown checks it already does
+   into aim/hit plausibility: rate caps, spread enforced server-side, and a
+   sanity gate on impossible aim (a crosshair that teleports onto every target,
+   180° snaps every shot). The client asks; the server decides and can flag.
+3. **Identity before The Wall.** A one-shot qualification percentile is a claim,
+   and an unauthenticated claim is noise. Until accounts (Stage 3), The Wall is
+   explicitly **local & unranked** and labelled so — a practice board, not a
+   standing. Ranked command and the global Wall ship *with* auth.
+
+> **Rule — the §11.3 law is void if skill can be faked.** "Never sell skill or
+> history" assumes skill and history are *real*. Interest-managed snapshots +
+> server-side aim-refereeing + identity are therefore the **floor beneath
+> charging money** for competitive play, not a later polish pass.
+
+*(The browser client's `window.__ww` debug handle is an offline-only sandbox —
+online it only mutates the puppet world the next snapshot overwrites — but
+strip or guard it in production builds regardless.)*
+
+---
+
+## 12. The war is mostly bots — population & bot doctrine
+
+> **Constraint — face the body count.** For the entire local-first era (Stages
+> 1–2; Slices 1–3), a match is **~1 human among ~15 bots**. The shared war with
+> many humans is Stage 3+. Bots aren't filler. **Bots are the army.** Two
+> consequences the rest of the directive has to own.
+
+> **Intel — the toys are invisible to the force that plays the match.** Bots use
+> **3 of 8 class abilities** (engineer turret, medic heal, infiltrator cloak)
+> and **none of the new kit** — no MANPADS, no breacher burrow, no FPV drone,
+> no pathfinder warp, no orbitals, **no revive**. So the anti-air duel (§5.1),
+> the depth-stealth drama (§5.2), and the drag-your-buddy medal (§4.3) — the
+> emotional centrepieces — do not happen in a match that is mostly bots.
+
+**A. Match sizing is a decision, not an accident.** Today it's an accident of a
+formula (1 human + 7 vs 8 locally; the server hard-codes 6 vs 7 and *ignores*
+the bot slider). Set a target: **competitive fronts ~12 v 12** (humans plus
+bots filling to target), **co-op 4–6**. The bigger maps (§4.3) are sized *to*
+that body count — a front's playable area follows expected population, not the
+reverse; a 400-unit map with 16 bodies is a ghost town. Bots auto-fill to the
+target and **rebalance on join/leave** (neither happens today).
+
+**B. Bots are first-class soldiers — parity ships in the mechanic's own slice.**
+"A toy one-in-sixteen can use" is not *done*. Every mechanic lands with its bot
+behaviour, priority order:
+
+1. **Revive & drag** — bots drag and *are* draggable, or the §4.3 medal never
+   fires in a bot match and medics stay pointless.
+2. **MANPADS** (bots lock and flare), **breacher burrow** (bot tunnelers
+   dive/surface), **FPV/recon drones**, then **pathfinder/ghost/orbital**
+   abilities — the `pathfinder` and `ghost` bots we already spawn are currently
+   ability-inert.
+
+**C. Difficulty must mean tactics, not just aim.** Today the three tiers vary
+**one number** — aim error. Veteran/Elite should also mean *use cover, retreat
+when hurt, focus-fire, coordinate a push* — otherwise "harder" is just
+"snappier headshots," which reads as cheap, not skilled.
+
+**D. Bots carry the war, not just the match.** In the Living Campaign (§8.5),
+bot-heavy matches still move fronts — a faction's bots hold the line while its
+humans sleep. This is §7.3's "who's online" answer one level down: the army
+fights on without you, and the Morning Dispatch reports how the bots did.
+
+> **Honest scope.** Ability *parity* (B) is incremental — ~a day of bot logic
+> per mechanic; retrofit the just-shipped MANPADS/breacher/drone first.
+> Tactical *depth* (C) is a bigger lift — v1 target is parity, v2 is smarts.
+
+> *An army that only fights when you're watching isn't an army. Make the bots
+> carry the war.* — bot design north star
+
+---
+
+## 13. The season — winning, losing, and resetting the war
+
+§8.5 designs how a match moves a front. This is the missing top of the campaign:
+what the war **is across time**. Three unsolved problems every persistent war
+dies on, each with a design.
+
+**A. Snowball & comeback — the losing side needs a war worth fighting.** The
+failure mode is universal (Foxhole, Planetside): one faction takes everything,
+the other logs off.
+
+- **The front line, not the map, is the unit of momentum.** A faction can only
+  push fronts *adjacent* to ground it holds — gains are a moving line, not a
+  sweep. You can't lose all ten at once.
+- **Darkest Hour bonuses.** The trailing faction gets escalating help — more
+  War Materiel per hold (§17), cheaper prototype trials (§6), a home-ground
+  defensive edge on its last fronts. Losing becomes a *rally*, not a spiral.
+- **No total wipe.** Each faction always holds a **capital front** that can be
+  besieged but not captured. The war is won *on points at season end*, never by
+  erasing someone mid-season.
+
+**B. Faction balance — enlistment can't be a trap.** §1 makes enlistment a
+one-way door per tour; if 80% pick one flag, the queue decides the war.
+
+- **The underdog is the better deal:** the outnumbered/losing faction offers
+  more rank progress and richer Journal stakes, so population self-balances
+  toward the fight that needs bodies.
+- **Bots backfill the thin side first** (§12): human imbalance is softened with
+  more and better bots for the outnumbered faction.
+- **Defection stays costly and recorded** (§1): between tours only, stamped in
+  the dossier forever — a valve, not a revolving door.
+
+**C. The season lifecycle — the war has to end so the next can mean something.**
+
+- A **season** is a fixed span (target ~4–6 weeks live; offline, a configurable
+  campaign length). It ends when a faction crosses the **victory threshold**, or
+  the clock expires and points decide.
+- **Season end is the Armistice:** the victors are written into every
+  participant's dossier ("fought for the winners of the Meridian Offensive"),
+  and a new season opens — optionally with the losing doctrine buffed
+  (dynamic-canon catch-up).
+- **Persist vs reset — the clean line:** the **dossier persists** (identity,
+  medals, armory, quals, journal) because that's biography (§3.1). The **war
+  resets** (control, scars, the front line) because that's the map. Your record
+  remembers every season; the theatre starts fresh.
+
+> **Honest scope.** Offline, a "season" is one configurable run of the local
+> `ww_campaign` file (§8.5); win/reset is local logic. Cross-player shared
+> seasons are Stage 3. Darkest-Hour and underdog bonuses are tuning knobs on the
+> control math that already exists — cheap to prototype.
+
+---
+
+## 14. The first hour — onboarding & the new player
+
+§10 fixes the deploy *screen*; nothing designs *moment zero*. Today a newcomer
+lands in a 16-body TDM with 200 weapons in a dropdown and no idea who they're
+fighting or why. For a paid game this is the conversion moment — design the
+funnel.
+
+1. **Enlist, don't configure.** First launch asks one real question: **pick your
+   faction** (§1). Callsign, then straight into a scripted **Basic Training** run
+   in the Proving Grounds (§3.3): move, shoot, throw (the hold-G arc), take a
+   point. Five minutes, hand-held, ending in your Infantry qualification and
+   your first dossier entry. This *is* the infantry course (§3.2) doubling as the
+   tutorial — one build, two jobs.
+2. **First deployment is a soft landing.** The first real match is flagged:
+   a teaching mode (small Conquest or TDM), difficulty pinned to Recruit,
+   **spawn-protected** (§16), a squad of friendly bots that follow you (§12,
+   §15), and a one-line objective callout. No prototype, no vehicle pressure.
+3. **The war reveals itself in layers.** Don't show the whole Scar on day one.
+   After match one: "your fight moved the Eastern Front." After a few: the
+   Barracks, medals, the personal armory. Systems unlock as you meet them, so
+   the 200-weapon armory and the ten-front war arrive as *earned context*, not a
+   wall on the first screen.
+
+> **Constraint — it rides on Slice 1 + 1.6.** FTUE needs the Dossier and the
+> Proving Grounds to exist first, so it's authored at the tail of Slice 1.6 /
+> head of Slice 2 — but it's the thing that makes both *legible* to a stranger.
+
+> *The tutorial is the infantry course is the first medal. One flow, three
+> payoffs.*
+
+---
+
+## 15. The squad — friends, grouping & comms
+
+The directive's best fantasy — drag your buddy out of the fire (§4.3), one
+prototype per squad (§3.1, §6), the squad holds together (§7) — all assume a
+**squad** that isn't designed. Design it, because five other systems lean on it.
+
+- **The squad is 2–4 soldiers** who deploy together, **share a spawn**, and read
+  each other on the HUD (name tags, health, a "downed — help" beacon that pings
+  the squad first, §4.3). **Spawn-on-squadmate** (a living, safe one) is the
+  travel-time answer for bigger maps — you rejoin the fight *near your people*,
+  which is exactly what makes reaching a downed teammate a decision instead of a
+  formality.
+- **Comms without voice, first.** A grounded **comms wheel** ("enemy armor," "on
+  me," "need a medic," "contact — grid") plus **map pings** the squad sees.
+  Voice is a Stage-3 nicety; the wheel and pings carry 90% of coordination and
+  ship now — the ping/waypoint plumbing already exists (tac-system waypoints).
+- **Friends & persistence.** A friends list (callsign-keyed, like the existing
+  chat mailbox) and **named squads that persist across matches** — your
+  fireteam accrues history, and its feats ("Reyes' Rangers — held Bridge Delta
+  twice") are Journal-worthy (§3). Clans/companies are the same idea one size
+  up, deferred to Stage 3.
+- **The squad is the unit of issue.** Prototypes and mission gear written "one
+  per squad" (§3.1, §6) finally have a referent — the squad leader draws it.
+
+> **Constraint — build the container now, fill it later.** The full social
+> system needs humans (Stage 2+), but the *primitives* — squad HUD,
+> spawn-on-mate, comms wheel, pings — should be in the sim/HUD early. Offline,
+> **your friendly bots are your squad**, which also serves §14's first match and
+> §12's bot doctrine. Design the squad as the container today.
+
+---
+
+## 16. Conduct — griefing, moderation & the social dark side
+
+The systems that generate the best stories also hand a bad actor the sharpest
+tools. **Every powerful social verb ships with its abuse case answered in the
+same slice** — guardrails are cheaper built in than bolted on.
+
+- **Spawn protection.** There is none today, and §4.3 adds lethality on bigger,
+  camp-friendly maps. Add a short **post-spawn invulnerability that breaks the
+  instant you fire**, plus enemy-aware spawn selection (never drop a player in an
+  enemy's lap). Standard, cheap, load-bearing.
+- **Friendly fire & the team-kill ladder.** Decide FF per mode (off casual,
+  reduced competitive); repeated team-damage escalates damage-reflect → forgive
+  prompt → auto-kick. **The drag can't become a grief tool** (§4.3): you can't
+  haul an unwilling teammate into danger — the downed player consents, or the
+  drag only ever moves them *toward* friendly cover.
+- **Command is not a troll's throne (§7).** Relief of Command gets a **cooldown
+  and a cost** so it can't be spammed; officer standing orders have guardrails
+  (can't order the faction to abandon every front); devolution (§7.3) routes
+  command past an AFK or abusive officer. And officer power is **audited in the
+  Journal** — grief leaves a permanent, public record, which is itself the
+  deterrent.
+- **The basics.** Text chat gets **mute + report** (Stage 2); **AFK detection**
+  returns idle bodies to bots so a match isn't held hostage; and a flagged or
+  cheated Wall score is **voided, not merely hidden** (ties to §11.4).
+
+> **Honest scope.** Most of this is small and local — spawn protection, FF
+> rules, consent-gated drag, and command cooldowns ship *with* their features.
+> Report/mute/moderation tooling is Stage 2+ with the social layer.
+
+---
+
+## 17. Progression & the faction ledger — the 95% and the economy
+
+Command (§7) is the endgame for a handful of officers; medals and quals (§3) are
+the collection layer. Missing: a mastery ladder for everyone who'll never
+command, a per-match reward loop, and a defined economy for the resources §7
+already spends.
+
+**A. The mastery ladder (the non-officer chase).** Rank gives *command* to a
+few; rank **points** should give *everyone* a legible climb — per-class mastery
+tiers (feeding §3.2 quals), weapon service milestones that unlock **cosmetic-only
+flair** (§11.3 — taste, never power), and a **prestige** loop at the ceiling
+(reset the number, keep the record, earn a mark) so the 500-hour player still
+has a next thing. None of it sells power; all of it signals history.
+
+**B. The session reward loop.** Every match ends owing you something concrete
+beyond the scoreboard: dossier deltas (§3.4), campaign movement (§8.5), and a
+short end-of-match "what you earned" beat on the AAR screen (§10.4). The loop is
+**fight → your record grew → your war moved**, visible every single match.
+
+**C. The faction ledger (the economy §7 spends from).** §7 has officers
+*spending* supply drops, vehicle pools, and prototype trials; §6 banks research —
+but nothing defines the **income**. Model it as one per-faction currency, **War
+Materiel**:
+
+| | Source | Sink |
+|---|---|---|
+| Passive | Holding fronts (trickle, scaled by front value, §8.2) | Darkest-Hour rebates to the underdog (§13) |
+| Active | Winning matches; completed missions (§8.1) | Supply drops, vehicle-pool unlocks, prototype trials (§6) |
+
+- **The rule: a faction can go broke.** Overspend and the pool dries up, forcing
+  officers to prioritise. **Scarcity is what makes officer decisions (§7.1)
+  actual decisions** instead of free clicks.
+
+> **Honest scope.** The ledger is a few counters on the campaign file (§8.5) —
+> cheap. Prestige and mastery flair are cosmetic and trickle in. The point is to
+> **name the economy now** so §6 and §7 aren't spending imaginary money.
+
+---
+
+## 18. The sensory & access layer — music, ambience, accessibility, comfort
+
+The game *feels* great to shoot — rich particles, ragdolls, a slow-mo killcam —
+but it is **silent between gunshots** and **legible only to players who see
+hue**, and it's about to add motion (knockback, screen kick, airborne pops) with
+no comfort valve. Four gaps, one layer.
+
+- **Music — the emotional score (absent).** The audio engine is a pure one-shot
+  SFX player; there is no music at all. Add an **adaptive bed**: a low loop that
+  swells on contact and drops on the lull (drive it off the combat-intensity
+  signal the sim already has — nearby enemies, recent damage), plus **authored
+  stingers** on the beats that matter — deploy, a front falling, the last stand,
+  the Morning Dispatch (§7.3), a medal earned. Cheapest emotional ROI on the
+  board; it just needs a looping music bus beside the SFX player.
+- **Ambience — the soundscape (absent).** One ducked ambient bed per theatre
+  (wind on Highland Pass, refinery hum, distant battle) so the world isn't dead
+  air between shots.
+- **Colorblind & shape-coding (a correctness gap, not polish).** Team identity is
+  **100% hue** — amber vs cyan, and *nothing else* — so a colorblind player can't
+  reliably tell friend from foe. Add a **second channel**: friend/enemy shape or
+  icon differentiation on soldiers and minimap dots (not just color), plus a
+  colorblind palette option. You can't sell a shooter a player can't read.
+- **Comfort & control.** A **reduced-motion** toggle (caps camera shake, softens
+  the airborne pop, tones the drone whiteout) — the §4.1 knockback work hangs its
+  intensity on this switch. Plus **keybind remapping** (hardcoded today) and
+  master + per-bus volume sliders. These live in the **Settings screen (§10.3)**
+  the directive already flags as a billing gate — this section names *what
+  Settings must contain* beyond video and volume.
+
+> *A war you can't hear the weight of, or can't tell your side in, isn't
+> finished — no matter how good the ragdolls are.*
+
 ---
 
 ## Appendix A — Field status
@@ -753,3 +1082,23 @@ doesn't exist.
   live marker overlays. Awaiting the hi-res export.
 - ⚠️ **Decide:** map scale (300–400u) — prerequisite for down/drag/revive
   (§4.3); ships in the same map pass as §8.4.
+- ⚠️ **Decide:** match/population target (§12) — a match is ~1 human + ~15 bots
+  today; the server ignores the bot slider and never rebalances. Sizes the maps.
+- ⚠️ **Risk — trust floor (§11.4):** online snapshots broadcast *every*
+  position (free ESP) and the server trusts `aimYaw` (trivial aimbot).
+  Interest-managed snapshots + server-side aim-refereeing + identity gate
+  charging for competitive play.
+- ⚠️ **Gap — bot parity (§12):** bots use 3/8 class abilities and none of the
+  new kit (MANPADS, burrow, FPV drone, revive). Retrofit parity per mechanic.
+- ⚠️ **Decide:** season win condition + reset cadence (§13) — the campaign has
+  no ending, no comeback, no faction pop-balance as designed.
+- ❌ **Gap — no squad system (§15):** friends, grouping, spawn-on-mate, comms
+  wheel/pings don't exist; several systems (drag, prototype-per-squad) assume it.
+- ❌ **Gap — no music or ambience (§18):** the 58-sound pack is 100% SFX; the
+  audio engine is a one-shot player with no music bus.
+- ❌ **Gap — team identity is hue-only (§18):** amber vs cyan and nothing else —
+  no colorblind palette, no shape/icon coding. A readability/correctness gap.
+- ❌ **Gap — no Settings, no keybind remap, no reduced-motion (§18/§10):** master
+  volume is hardcoded; the knockback/screenshake work has no comfort valve.
+- ❌ **Gap — no spawn protection (§16):** and §4.3 adds lethality on bigger,
+  camp-friendly maps.
