@@ -758,6 +758,25 @@ disciplines that attach to slices already on the board. Where each lands:
 | §17 Progression/economy | Mastery + session loop with **Slice 1** (Dossier); the War Materiel ledger with **Slice 2** | Names the money §6/§7 spend |
 | §18 Sensory/access | Music + ambience early (cheap, high ROI); colorblind + comfort + Settings with the **§10** menu rebuild | Correctness, not polish |
 
+### 9.2 Three.js build support — where the `/threejs-game` skill applies
+
+The team carries a Three.js game-dev skill (quick-reference patterns plus
+deep files: `materials.md`, `cameras.md`, `effects.md`, `lighting.md`, and a
+performance checklist — instancing, LOD, draw-call budgets, texture atlases,
+pixel-ratio caps). **Invoke it at the START of these work items**, ranked by
+where its encoded gotchas save the most real debugging time:
+
+| # | Work item | Why the skill earns its keep there |
+|---|---|---|
+| 1 | **§8.4 cutaway roofs + firing slits** | The single best fit. Cutaway roofs are a classic Three.js trap zone: transparency sorting, `renderOrder`, depth-write on fading materials, per-building opacity transitions *without a material explosion*. These gotchas are exactly what `materials.md` encodes — and §8.4 gates every new map, so debugging time saved here is schedule saved everywhere. |
+| 2 | **§10.2 deploy-screen rebuild** | The 3D class turntable + map-preview tab is greenfield Three.js-in-UI: a second small scene embedded in a menu — its own lighting, staging, resize handling. The harness stage already does all of this (and now pulls `THEME_PALETTES` from the renderer and biome audio from the soundscape module) — the skill's job is helping **extract that stage into a reusable player-facing component** cleanly instead of forking it. |
+| 3 | **§11.2 mobile performance** | The renderer bundle is ~835 KB and phones are the stated next platform. The skill's perf checklist (instancing — walls already use it, extend the discipline; draw-call budgets; material sharing — the blip layer set the pattern; pixel-ratio caps — the harness already clamps to 2; LOD) turns the mobile pass into a checklist walk instead of rediscovery. |
+| 4 | **Killcam phase 2** (hero-orbit + ordnance chase cams, tabled in the §10.5 conversation) | Cinematic camera rigs, orbit framing, and speed-ramping are standard skill territory (`cameras.md`, `animation.md`). The duel-framing killcam shipped; the orbit and missile-chase shots pick up from there. |
+
+**The rule:** these four items don't start with a blank editor — they start
+by loading the skill and its relevant reference file. Everything else in the
+renderer keeps following the codebase's own established patterns first.
+
 ---
 
 ## 10. Screens — inventory & redo priority
