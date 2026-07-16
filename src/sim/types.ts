@@ -226,6 +226,17 @@ export interface Soldier {
   equipment: string[];
   /** medikit auto-trigger armed (once per life) */
   medikitReady: boolean;
+  // §4.3 down-not-out — death's middle state (humans and bots only)
+  /** on the ground bleeding out: alive for mode purposes, out of the fight */
+  downed: boolean;
+  /** sim time the bleed-out clock runs out (0 while upright) */
+  downedUntil: number;
+  /** who put them down — credited with the kill if the clock, not a finisher, ends it */
+  downedBy: number;
+  /** seconds of teammate E-hold accumulated toward a field revive */
+  reviveProgress: number;
+  /** id of the downed teammate this soldier is hauling right now (-1 = none) */
+  draggingId: number;
   /** psi-scanner next pulse */
   nextPsiAt: number;
   /** repair-kit next use */
@@ -399,7 +410,9 @@ export interface SimEvent {
     | 'ladder'         // someone climbed between storeys
     | 'sparks'         // the breacher's drill met METAL — sparks, no progress
     | 'hacked'         // hacking kit converted an enemy turret
-    | 'psi_ping';      // psi scanner found someone (HUD flashes the icon)
+    | 'psi_ping'       // psi scanner found someone (HUD flashes the icon)
+    | 'downed'         // a soldier hit the ground bleeding — not dead yet
+    | 'revived';       // someone got them back on their feet
   pos?: Vec3;
   weapon?: WeaponId;
   soldierId?: number;

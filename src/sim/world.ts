@@ -22,6 +22,14 @@ const HOTWIRE_TIME = 6;      // seconds of E held beside the hull (engineers kno
 const RECOVER_RADIUS = 6;    // park a crewless hull this close to home and the pool re-registers it
 const WRITEOFF_TIME = 180;   // three full minutes abandoned...
 const WRITEOFF_RANGE = 25;   // ...AND this far from its pad = command strikes it from the books
+// §4.3 down-not-out: lethal hits put humans on the ground, not in the grave.
+const DOWNED_HP = 25;       // the bleed pool — finisher damage chews through this
+const BLEEDOUT_TIME = 20;   // seconds a downed soldier can hold on for help
+const DOWNED_CRAWL = 0.25;  // crawl speed as a fraction of class speed
+const REVIVE_CHANNEL = 3;   // seconds a non-medic must hold E to lift someone
+const REVIVE_HP = 0.4;      // revived soldiers stand up grateful, not fresh
+const AID_RANGE = 2;        // how close a helper must be to drag or revive
+const DRAG_OFFSET = 1.2;    // the body trails this far behind the dragger
 const ENERGY_REGEN = 14;
 const CLOAK_DRAIN = 11;
 const JET_DRAIN = 30;
@@ -225,6 +233,7 @@ export class World {
       armor: 0, maxArmor: 0, protectedUntil: 0,
       equipment: (loadout?.equipment ?? []).filter((id) => EQUIPMENT[id]).slice(0, 2),
       medikitReady: true, nextPsiAt: 0, nextRepairAt: 0,
+      downed: false, downedUntil: 0, downedBy: -1, reviveProgress: 0, draggingId: -1,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
     this.soldiers.set(s.id, s);
@@ -247,6 +256,7 @@ export class World {
       pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0, lastKillerId: -1, floor: 0,
       armor: 0, maxArmor: 0, protectedUntil: 0,
       equipment: [], medikitReady: false, nextPsiAt: 0, nextRepairAt: 0,
+      downed: false, downedUntil: 0, downedBy: -1, reviveProgress: 0, draggingId: -1,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
     this.soldiers.set(s.id, s);
@@ -269,6 +279,7 @@ export class World {
       pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0, lastKillerId: -1, floor: 0,
       armor: 0, maxArmor: 0, protectedUntil: 0,
       equipment: [], medikitReady: false, nextPsiAt: 0, nextRepairAt: 0,
+      downed: false, downedUntil: 0, downedBy: -1, reviveProgress: 0, draggingId: -1,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
     this.soldiers.set(s.id, s);
@@ -287,6 +298,9 @@ export class World {
     s.alive = true; s.cloaked = false; s.vehicleId = -1; s.seat = -1;
     s.carryingFlag = -1;
     s.weaponIdx = 0;
+    // a fresh deploy stands upright with the bleed slate wiped
+    s.downed = false; s.downedUntil = 0; s.downedBy = -1;
+    s.reviveProgress = 0; s.draggingId = -1;
     // keep the soldier's chosen armory loadout across respawns
     const primary = s.weapons[0] && WEAPONS[s.weapons[0]] ? s.weapons[0] : c.primary;
     const secondary = s.weapons[1] && WEAPONS[s.weapons[1]] ? s.weapons[1] : c.secondary;
@@ -393,6 +407,12 @@ export class World {
         if (this.time >= s.respawnAt && !this.mode.over && !s.dummy) this.spawn(s); // downed range targets STAY down
         continue;
       }
+      // §4.3: the clock is an enemy too — unhelped, a downed soldier bleeds out
+      if (s.downed && this.time >= s.downedUntil) {
+        this.damageSoldier(s, s.hp + 1, s.downedBy, 'bleedout');
+        continue;
+      }
+      s.draggingId = -1; // the drag grip is re-asserted every tick by the E-hold
       let cmd = cmds.get(s.id);
       if (!cmd) {
         if (s.kind === 'bot' && !s.dummy) cmd = stepBot(this, s, dt); // dummies stand and take it
@@ -403,6 +423,7 @@ export class World {
       if (cmd) this.applyCmd(s, cmd, dt);
       this.stepEquipment(s);
       this.stepSoldierPhysics(s, dt);
+      if (s.draggingId >= 0) this.stepDrag(s); // haul the body after we've moved
     }
 
     // purge removed zombies
@@ -513,7 +534,8 @@ export class World {
 
   stepGatesAndLifts() {
     for (const s of this.soldiers.values()) {
-      if (!s.alive || s.vehicleId >= 0 || (s.kind !== 'human' && s.kind !== 'bot')) continue;
+      // a body being dragged past a gate shouldn't warp away from its rescuer
+      if (!s.alive || s.downed || s.vehicleId >= 0 || (s.kind !== 'human' && s.kind !== 'bot')) continue;
       if (this.time < s.nextWarpAt) continue;
       for (const gate of this.map.gates) {
         for (const [from, to] of [[gate.a, gate.b], [gate.b, gate.a]] as const) {
@@ -793,6 +815,16 @@ export class World {
   applyCmd(s: Soldier, cmd: PlayerCmd, dt: number) {
     s.yaw = cmd.aimYaw;
 
+    // §4.3: downed soldiers crawl — quarter speed, no trigger, no toys, no doors.
+    // Everything below (weapons, abilities, vehicles, E-interactions) is for the upright.
+    if (s.downed) {
+      const crawl = CLASSES[s.classId].speed * DOWNED_CRAWL;
+      const clen = Math.hypot(cmd.moveX, cmd.moveZ) || 1;
+      s.vel.x = (cmd.moveX / clen) * crawl;
+      s.vel.z = (cmd.moveZ / clen) * crawl;
+      return;
+    }
+
     // in a vehicle: driving handled by stepVehicle; handle exit + turret aim + fire
     if (s.vehicleId >= 0) {
       const v = this.vehicles.get(s.vehicleId);
@@ -857,7 +889,10 @@ export class World {
     const swimming = tileAt(this.map.grid, s.pos.x, s.pos.z) === T_DEEP;
 
     if (cmd.use) {
-      if (this.opts.mode === 'safehouse' && this.toggleEscort(s)) {
+      if (this.tryDownedAid(s, cmd, dt)) {
+        // E next to a downed teammate outranks every other door handle:
+        // moving hauls the body with you, standing still channels a revive
+      } else if (this.opts.mode === 'safehouse' && this.toggleEscort(s)) {
         // E next to the scientist toggles escort instead of vehicle entry
       } else if (this.tryWarpBeacon(s)) {
         // E on a warp beacon teleports to its twin
@@ -903,6 +938,7 @@ export class World {
       const e = EQUIPMENT[eid];
       if (e?.speedMult) speed *= e.speedMult;
     }
+    if (s.draggingId >= 0) speed *= 0.5; // hauling a body is slow, honest work
     const mx = cmd.moveX, mz = cmd.moveZ;
     const len = Math.hypot(mx, mz) || 1;
     s.vel.x = (mx / len) * speed;
@@ -1476,6 +1512,83 @@ export class World {
     return false;
   }
 
+  // ---------- §4.3 down-not-out: drag & field revive ----------
+
+  /**
+   * E next to a downed teammate. One key, two verbs: MOVING drags the body
+   * with you (haul them behind cover first), STANDING STILL channels a field
+   * revive — 3 seconds of kneeling in the open, slower and riskier than a
+   * medic's beam, which is exactly why medics matter.
+   */
+  tryDownedAid(s: Soldier, cmd: PlayerCmd, dt: number): boolean {
+    if (s.kind !== 'human' && s.kind !== 'bot') return false;
+    let best: Soldier | null = null;
+    let bestD = AID_RANGE;
+    for (const a of this.soldiers.values()) {
+      if (!a.alive || !a.downed || a.team !== s.team || a.id === s.id) continue;
+      const d = Math.hypot(a.pos.x - s.pos.x, a.pos.z - s.pos.z);
+      if (d < bestD) { best = a; bestD = d; }
+    }
+    if (!best) return false;
+    if (Math.hypot(cmd.moveX, cmd.moveZ) > 0.1) {
+      s.draggingId = best.id; // stepDrag hauls the body after our own physics
+    } else {
+      best.reviveProgress += dt;
+      if (best.reviveProgress >= REVIVE_CHANNEL) this.reviveSoldier(best, s);
+    }
+    return true;
+  }
+
+  /** Haul the grabbed body along — it trails just behind the dragger's heels. */
+  stepDrag(s: Soldier) {
+    const body = this.soldiers.get(s.draggingId);
+    if (!body || !body.alive || !body.downed) { s.draggingId = -1; return; }
+    const sp = Math.hypot(s.vel.x, s.vel.z);
+    if (sp < 0.1) return; // grip held, but nobody's going anywhere
+    const tx = s.pos.x - (s.vel.x / sp) * DRAG_OFFSET;
+    const tz = s.pos.z - (s.vel.z / sp) * DRAG_OFFSET;
+    if (!isBlocked(this.map.grid, tx, tz)) {
+      body.pos.x = tx;
+      body.pos.z = tz;
+    }
+    body.vel.x = 0; // the body is cargo, not a walker
+    body.vel.z = 0;
+  }
+
+  /** §4.3: lethal damage puts a trooper on the ground with a bleed pool and a clock. */
+  downSoldier(victim: Soldier, attackerId: number) {
+    victim.downed = true;
+    victim.hp = DOWNED_HP;
+    victim.downedUntil = this.time + BLEEDOUT_TIME;
+    victim.downedBy = attackerId;
+    victim.reviveProgress = 0;
+    victim.vel.x = 0;
+    victim.vel.z = 0;
+    const attacker = this.soldiers.get(attackerId);
+    this.emit({
+      type: 'downed', pos: { ...victim.pos }, soldierId: victim.id,
+      victimName: victim.name,
+      killerName: attacker && attacker.id !== victim.id ? attacker.name : undefined,
+      killerTeam: attacker?.team,
+    });
+  }
+
+  /** Back on their feet at partial hp — grateful, not fresh. */
+  reviveSoldier(victim: Soldier, reviver?: Soldier) {
+    if (!victim.alive || !victim.downed) return;
+    victim.downed = false;
+    victim.downedUntil = 0;
+    victim.downedBy = -1;
+    victim.reviveProgress = 0;
+    victim.hp = Math.max(1, Math.round(victim.maxHp * REVIVE_HP));
+    if (reviver && reviver.id !== victim.id) reviver.score += 5;
+    this.emit({
+      type: 'revived', pos: { ...victim.pos }, soldierId: victim.id,
+      victimName: victim.name, killerName: reviver?.name,
+      text: reviver ? `${reviver.name} revived ${victim.name}` : undefined,
+    });
+  }
+
   tryEnterVehicle(s: Soldier) {
     for (const v of this.vehicles.values()) {
       if (!v.alive || v.team !== s.team) continue;
@@ -1746,7 +1859,8 @@ export class World {
     if (def.healRadius && this.time >= v.nextHealAt && !stunned) {
       v.nextHealAt = this.time + 1;
       for (const s of this.soldiers.values()) {
-        if (!s.alive || s.team !== v.team || s.hp >= s.maxHp) continue;
+        // downed soldiers need a revive, not a top-up — the pulse skips them
+        if (!s.alive || s.downed || s.team !== v.team || s.hp >= s.maxHp) continue;
         const aboard = s.vehicleId === v.id;
         if (aboard || Math.hypot(s.pos.x - v.pos.x, s.pos.z - v.pos.z) < def.healRadius) {
           s.hp = Math.min(s.maxHp, s.hp + (def.healRate ?? 8) * (aboard ? 1.6 : 1));
@@ -1945,6 +2059,17 @@ export class World {
               if (s.pos.y < 0.2) s.vel.y = Math.max(s.vel.y, def.knockback * 0.35);
             }
             if (def.heals) {
+              if (s.downed) {
+                // §4.3: the medi-beam lifts the fallen — one touch and they're
+                // up at partial hp. Lesser heals pass over a body; they can't
+                // fix "down", only a medic (or three seconds of E) can.
+                if (p.weapon === 'medibeam') {
+                  this.reviveSoldier(s, this.soldiers.get(p.ownerId));
+                  dead = true;
+                  break;
+                }
+                continue;
+              }
               if (s.hp < s.maxHp) {
                 const healed = Math.min(s.maxHp - s.hp, def.damage);
                 s.hp += healed;
@@ -2121,16 +2246,32 @@ export class World {
       if (dmg <= 0) return; // the plate held
     }
     victim.hp -= dmg;
-    // combat medikit auto-triggers once per life below 25%
-    if (victim.hp > 0 && victim.medikitReady && victim.hp < victim.maxHp * 0.25 && this.hasEquip(victim, 'autoMedikit')) {
+    // getting shot interrupts the rescue — the E-channel starts over
+    if (victim.downed) victim.reviveProgress = 0;
+    // combat medikit auto-triggers once per life below 25% — but a stim can't fix "down"
+    if (victim.hp > 0 && !victim.downed && victim.medikitReady && victim.hp < victim.maxHp * 0.25 && this.hasEquip(victim, 'autoMedikit')) {
       victim.medikitReady = false;
       victim.hp = Math.min(victim.maxHp, victim.hp + 45);
       this.emit({ type: 'heal', pos: victim.pos, soldierId: victim.id });
     }
     if (victim.hp <= 0) {
+      // §4.3: humans and bots take a knee before the grave — lethal damage
+      // downs them once. The undead and the scientist die the old way, a
+      // finisher on an already-downed body is final, range dummies just fall
+      // over (they're targets, not casualties), and OVERKILL — damage that
+      // blows well past zero — skips the crawl: a tank shell leaves nothing
+      // to drag to cover.
+      if (!victim.downed && !victim.dummy && victim.hp > -DOWNED_HP &&
+          (victim.kind === 'human' || victim.kind === 'bot')) {
+        this.downSoldier(victim, attackerId);
+        return;
+      }
       victim.hp = 0;
       victim.alive = false;
       victim.deaths++;
+      victim.downed = false; // the middle state ends here — one death, counted once
+      victim.downedUntil = 0;
+      victim.reviveProgress = 0;
       victim.respawnAt = this.time + (isZed(victim.kind) ? 2 : RESPAWN_DELAY);
       const attacker = this.soldiers.get(attackerId);
       // the killcam frames the duel — remember who fired the killing blow
@@ -2248,7 +2389,8 @@ export class World {
         continue;
       }
       for (const s of this.soldiers.values()) {
-        if (!s.alive || isZed(s.kind) || s.vehicleId >= 0) continue;
+        // a downed soldier can't scoop up loot — hands busy holding the wound
+        if (!s.alive || s.downed || isZed(s.kind) || s.vehicleId >= 0) continue;
         if (Math.hypot(s.pos.x - pk.pos.x, s.pos.z - pk.pos.z) < 1.6) {
           let used = false;
           if (pk.type === 'medkit' && s.hp < s.maxHp) { s.hp = Math.min(s.maxHp, s.hp + 50); used = true; }

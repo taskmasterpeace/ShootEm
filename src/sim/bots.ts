@@ -1,5 +1,5 @@
 import { CLASSES, VEHICLES, WEAPONS } from './data';
-import { GRID, T_DOOR, T_DOOR_OPEN, T_LADDER, T_OPEN, T_WATER, TILE, WORLD, isBlocked, losClear } from './map';
+import { GRID, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_OPEN, T_WATER, TILE, WORLD, isBlocked, losClear } from './map';
 import type { ClassId, PlayerCmd, Soldier, Vec3 } from './types';
 import { DIFFICULTY_AIM, type World } from './world';
 
@@ -283,12 +283,49 @@ function doorAhead(w: World, pos: Vec3, yaw: number): number {
   return -1;
 }
 
+/** Nearest cover tile center within `range` units — where a downed bot crawls. */
+function nearestCover(w: World, pos: Vec3, range: number): Vec3 | null {
+  const grid = w.map.grid;
+  const cx = toTile(pos.x), cz = toTile(pos.z);
+  const r = Math.ceil(range / TILE);
+  let best: Vec3 | null = null;
+  let bestD = range;
+  for (let dz = -r; dz <= r; dz++) {
+    for (let dx = -r; dx <= r; dx++) {
+      const tx = cx + dx, tz = cz + dz;
+      if (tx < 0 || tz < 0 || tx >= GRID || tz >= GRID) continue;
+      if (grid[tz * GRID + tx] !== T_COVER) continue;
+      const px = toWorld(tx), pz = toWorld(tz);
+      const d = Math.hypot(px - pos.x, pz - pos.z);
+      if (d < bestD) { best = { x: px, y: 0, z: pz }; bestD = d; }
+    }
+  }
+  return best;
+}
+
 // ---------- main bot brain ----------
 
 export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
   const cmd = noCmd();
   cmd.aimYaw = s.yaw;
   const cls = CLASSES[s.classId];
+
+  // §4.3: a downed bot's whole doctrine shrinks to one word — cover. Crawl to
+  // the nearest cover tile and hug it; failing that, away from the shooter.
+  if (s.downed) {
+    const cover = nearestCover(w, s.pos, 9);
+    const threat = cover ? null : findTarget(w, s, 30);
+    const away = threat ? { x: s.pos.x * 2 - threat.pos.x, y: 0, z: s.pos.z * 2 - threat.pos.z } : null;
+    const dest = cover ?? away;
+    if (dest) {
+      const dx = dest.x - s.pos.x, dz = dest.z - s.pos.z;
+      const dl = Math.hypot(dx, dz) || 1;
+      cmd.moveX = dx / dl;
+      cmd.moveZ = dz / dl;
+      cmd.aimYaw = Math.atan2(dz, dx);
+    }
+    return cmd; // no shooting from the ground — applyCmd wouldn't allow it anyway
+  }
 
   // --- driving a vehicle ---
   if (s.vehicleId >= 0) {
@@ -576,18 +613,43 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
   // --- class abilities ---
   if (s.classId === 'engineer' && !target && s.energy >= 80 && dGoal < 20 && w.rng.next() < 0.01) cmd.ability = true;
   if (s.classId === 'medic') {
-    // heal nearby wounded ally
+    // Decision 49A — nobody bleeds out alone. A downed ally outranks the
+    // merely wounded, and outranks the medic's own firefight: path to the
+    // body and put the beam on it (one touch of medibeam is a revive).
     let wounded: Soldier | null = null;
+    let fallen: Soldier | null = null;
+    let fallenD = 34;
     for (const a of w.soldiers.values()) {
-      if (!a.alive || a.team !== s.team || a.id === s.id || a.hp > a.maxHp * 0.75) continue;
-      if ((a.kind === 'human' || a.kind === 'bot') && Math.hypot(a.pos.x - s.pos.x, a.pos.z - s.pos.z) < 13) { wounded = a; break; }
+      if (!a.alive || a.team !== s.team || a.id === s.id) continue;
+      if (a.kind !== 'human' && a.kind !== 'bot') continue;
+      const d = Math.hypot(a.pos.x - s.pos.x, a.pos.z - s.pos.z);
+      if (a.downed) {
+        if (d < fallenD) { fallen = a; fallenD = d; }
+      } else if (!wounded && a.hp <= a.maxHp * 0.75 && d < 13) {
+        wounded = a;
+      }
     }
-    if (wounded) {
+    const patient = fallen ?? wounded;
+    if (patient) {
       cmd.weaponSlot = 1;
-      cmd.aimYaw = Math.atan2(wounded.pos.z - s.pos.z, wounded.pos.x - s.pos.x);
-      cmd.fire = true;
-      mvx = (wounded.pos.x - s.pos.x) / 10;
-      mvz = (wounded.pos.z - s.pos.z) / 10;
+      const d = Math.hypot(patient.pos.x - s.pos.x, patient.pos.z - s.pos.z);
+      cmd.aimYaw = Math.atan2(patient.pos.z - s.pos.z, patient.pos.x - s.pos.x);
+      if (d < 12 && losClear(w.map.grid, { ...s.pos, y: 1.4 }, { ...patient.pos, y: 1.4 })) {
+        cmd.fire = true;
+        mvx = (patient.pos.x - s.pos.x) / 10;
+        mvz = (patient.pos.z - s.pos.z) / 10;
+      } else {
+        // long haul to a man down: pathfind, don't walk into the wall between
+        if (!s.botGoal || w.time >= (s.botRepathAt ?? 0) ||
+            Math.hypot(s.botGoal.x - s.pos.x, s.botGoal.z - s.pos.z) < 2) {
+          s.botRepathAt = w.time + 0.8;
+          s.botGoal = pathStep(w, s.pos, patient.pos) ?? { ...patient.pos };
+        }
+        const dx = s.botGoal.x - s.pos.x, dz = s.botGoal.z - s.pos.z;
+        const dl = Math.hypot(dx, dz) || 1;
+        mvx = dx / dl;
+        mvz = dz / dl;
+      }
     }
     if (s.hp < s.maxHp * 0.5 && s.energy >= 50) cmd.ability = true;
   }
