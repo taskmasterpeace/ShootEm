@@ -119,6 +119,8 @@ html, body {
 #objective-bar { display: flex; gap: 0.5rem; align-items: center; }
 #mode-status { font-weight: 600; font-size: 0.95rem; text-shadow: 0 1px 4px oklch(0 0 0 / 0.7); }
 #match-timer { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 0.8rem; }
+#weather-chip { color: var(--muted); font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase; }
+#weather-chip.rough { color: #e8b23a; }
 
 .obj-chip {
   background: oklch(0.18 0.02 80 / 0.75); border: 1px solid var(--border);

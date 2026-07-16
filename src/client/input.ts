@@ -14,13 +14,26 @@ export class Input {
   private oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1 };
 
   static readonly CAM_MIN = 16;
-  static readonly CAM_MAX = 55;
+  static readonly CAM_MAX = 80; // command height — semantic zoom keeps it readable
+  /** §8.8: heavy weather closes the long view — set from the sim each frame */
+  weatherZoomCap = Infinity;
+  /** true when a gamepad drove the last command — HUD may swap its prompts */
+  gamepadActive = false;
+  /** gamepad aim direction persists between frames (stick returns to center) */
+  private padAim = { yaw: 0, dist: 12, has: false };
+  private prevPadButtons: boolean[] = [];
+  private padGrenadeAiming = false;
+
+  private clampZoom() {
+    this.camDist = Math.max(Input.CAM_MIN, Math.min(Math.min(Input.CAM_MAX, this.weatherZoomCap), this.camDist));
+  }
 
   constructor(private canvas: HTMLCanvasElement) {
     // mouse wheel: see further (out) or fight closer (in)
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
-      this.camDist = Math.max(Input.CAM_MIN, Math.min(Input.CAM_MAX, this.camDist + Math.sign(e.deltaY) * 3));
+      this.camDist += Math.sign(e.deltaY) * 3;
+      this.clampZoom();
     }, { passive: false });
     window.addEventListener('keydown', (e) => {
       // typing in chat (or any text field) must not move the soldier
@@ -65,6 +78,55 @@ export class Input {
     return this.raycaster.ray.intersectPlane(this.groundPlane, out) ? out : null;
   }
 
+  /** Poll the first connected gamepad (PS/Xbox share the STANDARD mapping):
+   *  left stick moves, right stick aims (twin-stick), RT fires, LT alt-fires,
+   *  A/✕ jumps, X/□ uses, Y/△ ability, B/○ reloads, RB/R1 holds a grenade
+   *  (release throws), LB/L1 cycles weapons, d-pad ◄► picks slots, d-pad ▲▼
+   *  zooms, Back/Share holds the scoreboard. */
+  private pollGamepad(local: Soldier, cmd: PlayerCmd) {
+    const pads = typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : [];
+    const pad = pads && [...pads].find((p) => p && p.mapping === 'standard') || (pads && pads[0]);
+    if (!pad) { this.gamepadActive = false; return; }
+    const dead = (v: number) => (Math.abs(v) < 0.18 ? 0 : v);
+    const btn = (i: number) => !!pad.buttons[i]?.pressed || (pad.buttons[i]?.value ?? 0) > 0.35;
+    const rose = (i: number) => btn(i) && !this.prevPadButtons[i];
+
+    // left stick: movement
+    const mx = dead(pad.axes[0] ?? 0), mz = dead(pad.axes[1] ?? 0);
+    if (mx !== 0 || mz !== 0) { cmd.moveX = mx; cmd.moveZ = mz; this.gamepadActive = true; }
+
+    // right stick: twin-stick aim — the last real deflection persists, so
+    // letting the stick spring back doesn't snap your aim to zero
+    const ax = dead(pad.axes[2] ?? 0), az = dead(pad.axes[3] ?? 0);
+    const mag = Math.hypot(ax, az);
+    if (mag > 0.25) {
+      this.padAim = { yaw: Math.atan2(az, ax), dist: 8 + mag * 30, has: true };
+      this.gamepadActive = true;
+    }
+    if (this.gamepadActive && this.padAim.has) {
+      cmd.aimYaw = this.padAim.yaw;
+      cmd.aimDist = this.padAim.dist;
+    }
+
+    if (btn(7)) { cmd.fire = true; this.gamepadActive = true; }         // RT / R2
+    if (btn(6)) { cmd.altFire = true; this.gamepadActive = true; }      // LT / L2
+    if (btn(0)) cmd.jump = true;                                        // A / ✕
+    if (rose(1)) cmd.reload = true;                                     // B / ○
+    if (rose(2)) cmd.use = true;                                        // X / □
+    if (rose(3)) cmd.ability = true;                                    // Y / △
+    // RB/R1: hold aims the grenade (HUD arc), release lets it fly
+    if (btn(5) && !this.padGrenadeAiming) { this.padGrenadeAiming = true; this.grenadeAiming = true; }
+    if (!btn(5) && this.padGrenadeAiming) { this.padGrenadeAiming = false; this.grenadeAiming = false; cmd.grenade = true; }
+    if (rose(4)) cmd.weaponSlot = (local.weaponIdx + 1) % Math.max(1, local.weapons.length); // LB cycles
+    if (rose(14)) cmd.weaponSlot = 0;                                   // d-pad ◄ primary
+    if (rose(15)) cmd.weaponSlot = 1;                                   // d-pad ► secondary
+    if (btn(12)) { this.camDist -= 24 * (1 / 60); this.clampZoom(); }   // d-pad ▲ zoom in
+    if (btn(13)) { this.camDist += 24 * (1 / 60); this.clampZoom(); }   // d-pad ▼ zoom out
+    this.scoreboardHeld = this.scoreboardHeld || btn(8);                // Back / Share
+
+    this.prevPadButtons = pad.buttons.map((b, i) => btn(i));
+  }
+
   buildCmd(local: Soldier, camera: THREE.Camera): PlayerCmd {
     let moveX = 0, moveZ = 0;
     if (this.keys.has('w')) moveZ -= 1;
@@ -92,6 +154,11 @@ export class Input {
       weaponSlot: this.oneShot.weaponSlot,
     };
     this.oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1 };
+    // any mouse/keyboard input hands the wheel back to the desk
+    if (cmd.moveX || cmd.moveZ || cmd.fire || this.mouse.down) this.gamepadActive = false;
+    this.pollGamepad(local, cmd);
+    // §8.8: a closing sky can shrink an already-wide view
+    this.clampZoom();
     return cmd;
   }
 }

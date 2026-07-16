@@ -748,7 +748,7 @@ let laneRange = 40;
 // ── the sortable comparison table ──
 interface Col { key: string; label: string; get: (id: WeaponId) => number | string; bar?: boolean; }
 const COLS: Col[] = [
-  { key: 'name', label: 'Weapon', get: (id) => WEAPONS[id].name },
+  { key: 'name', label: 'Weapon', get: (id) => `${WEAPONS[id].icon ?? ''} ${WEAPONS[id].name}` },
   { key: 'fam', label: 'Family', get: (id) => famOf(id) },
   { key: 'tier', label: 'Mk', get: (id) => WEAPONS[id].tier ?? 0 },
   { key: 'damage', label: 'DMG', get: (id) => WEAPONS[id].damage, bar: true },

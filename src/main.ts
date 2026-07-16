@@ -2,6 +2,7 @@ import { CLASSES, EQUIPMENT, MODE_INFO, THEMES, WEAPONS } from './sim/data';
 import { CLASS_ARMORY, familyWeapons } from './sim/arsenal';
 import { isCoopMode, type ClassId, type ModeId, type PlayerCmd, type ThemeId, type WeaponFamily } from './sim/types';
 import { World, type Difficulty, type Loadout } from './sim/world';
+import { WEATHER_MODS } from './sim/weather';
 import { audio } from './client/audio';
 import { Chat } from './client/chat';
 import { StaticOverlay } from './client/effects';
@@ -57,7 +58,7 @@ function buildArmoryMenu() {
   primarySel.innerHTML = '';
   const issue = document.createElement('option');
   issue.value = '';
-  issue.textContent = `Issue: ${WEAPONS[cls.primary].name}`;
+  issue.textContent = `Issue: ${WEAPONS[cls.primary].icon ?? ''} ${WEAPONS[cls.primary].name}`;
   primarySel.appendChild(issue);
   for (const fam of CLASS_ARMORY[selectedClass]) {
     const group = document.createElement('optgroup');
@@ -65,7 +66,7 @@ function buildArmoryMenu() {
     for (const w of familyWeapons(WEAPONS, fam as WeaponFamily)) {
       const o = document.createElement('option');
       o.value = w.id;
-      o.textContent = w.name;
+      o.textContent = `${w.icon ?? ''} ${w.name}`;
       group.appendChild(o);
     }
     primarySel.appendChild(group);
@@ -79,7 +80,7 @@ function buildArmoryMenu() {
   for (const w of familyWeapons(WEAPONS, 'pistol')) {
     const o = document.createElement('option');
     o.value = w.id;
-    o.textContent = w.name;
+    o.textContent = `${w.icon ?? ''} ${w.name}`;
     secondarySel.appendChild(o);
   }
 
@@ -424,6 +425,10 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     renderer.killcamFocusId = replaying && director.killcamActive ? director.killerId : -1;
     // grenade throw preview: hold G → arc + landing ring at the cursor
     renderer.setGrenadePreview(world, me, !replaying && input.grenadeAiming ? input.aimPoint(renderer.camera) : null);
+    // §8.8: heavy weather closes the long view — the sky caps the wheel
+    const wxMods = WEATHER_MODS[renderWorld.weather?.kind ?? 'clear'];
+    input.weatherZoomCap = wxMods.zoomCap !== undefined && (renderWorld.weather?.intensity ?? 0) > 0.3
+      ? wxMods.zoomCap : Infinity;
     renderer.update(renderWorld, me.id, dt, hud.getWaypoints());
     hud.update(world, me.id, input.scoreboardHeld, world.time);
 

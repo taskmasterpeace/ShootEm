@@ -141,7 +141,7 @@ export class Hud {
     } else {
       this.sysPips.style.display = 'none';
       const def = WEAPONS[s.weapons[s.weaponIdx]];
-      $('weapon-name').textContent = def.name;
+      $('weapon-name').textContent = `${def.icon ? def.icon + ' ' : ''}${def.name}`;
       const ammoEl = $('ammo-count');
       if (s.reloadUntil > 0) {
         ammoEl.textContent = 'RELOADING';
@@ -270,6 +270,15 @@ export class Hud {
     }
     bar.innerHTML = chips;
     $('mode-status').textContent = MODE_INFO[m.id].name;
+    // §8.8 the sky, on the record — amber when it's costing you something
+    const wx = world.weather;
+    const chip = $('weather-chip');
+    if (!wx || wx.kind === 'clear') { chip.textContent = ''; chip.className = ''; }
+    else {
+      const glyph = { rain: '🌧', storm: '⛈', fog: '🌫', snow: '🌨', dust: '🌪', night: '🌙' }[wx.kind] ?? '';
+      chip.textContent = `${glyph} ${wx.kind}`;
+      chip.className = wx.intensity > 0.6 ? 'rough' : '';
+    }
     const t = m.timeLeft;
     $('match-timer').textContent = Number.isFinite(t)
       ? `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`

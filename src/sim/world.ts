@@ -11,7 +11,8 @@ import {
 } from './types';
 import { stepMode, initMode } from './modes';
 import { stepBot, stepScientist, stepZombie } from './bots';
-import { perceivesNow } from './perception';
+import { PERCEIVE_RANGE, perceivesNow } from './perception';
+import { THEME_WEATHER, airGrounded, moveMult, visionMult, weatherAnnounce, type WeatherState } from './weather';
 
 const RESPAWN_DELAY = 4;
 const VEHICLE_RESPAWN = 22;
@@ -89,6 +90,9 @@ export class World {
   lastSeen: [Map<number, number>, Map<number, number>] = [new Map(), new Map()];
   /** RG-2 tag darts: soldier id → time the pin burns out (re-pings each tick) */
   tagged = new Map<number, number>();
+  /** §8.8 the sky: every front rolls weather from its theme's menu. Starts
+   *  clear; the first front arrives on its own clock. Replicated. */
+  weather: WeatherState = { kind: 'clear', intensity: 0, until: 90 };
   /** soldier ids currently hidden inside smoke fields */
   smoked = new Set<number>();
   /** tile indices the tunneler has ground to rubble (replicated to clients) */
@@ -414,18 +418,36 @@ export class World {
     }
     this.applyReconCountermeasures();
     this.updateLastSeen();
+
+    // §8.8 the sky rolls: weather fronts drift through on their own clock
+    if (this.time >= this.weather.until && !this.puppet) {
+      const menu = THEME_WEATHER[this.map.theme];
+      const kind = menu[this.rng.int(0, menu.length - 1)];
+      this.weather = {
+        kind,
+        intensity: kind === 'clear' ? 0 : 0.5 + this.rng.next() * 0.5,
+        until: this.time + 70 + this.rng.next() * 70,
+      };
+      this.emit({ type: 'announce', text: weatherAnnounce(kind), big: kind !== 'clear' });
+    }
+  }
+
+  /** The live vision budget: PERCEIVE_RANGE taxed by the current sky (§8.8). */
+  perceiveRange(): number {
+    return PERCEIVE_RANGE * visionMult(this.weather);
   }
 
   /** Stamp what each team can see this tick. Death wipes the trail — a corpse
    *  is not a track, and a respawn must never leak its new position. */
   private updateLastSeen() {
+    const range = this.perceiveRange(); // weather taxes everyone's eyes equally
     for (const team of [0, 1] as Team[]) {
       const eyes: Soldier[] = [];
       for (const e of this.soldiers.values()) if (e.alive && e.team === team) eyes.push(e);
       for (const s of this.soldiers.values()) {
         if (s.team === team) continue;
         if (!s.alive) { this.lastSeen[team].delete(s.id); continue; }
-        if (perceivesNow(this.map.grid, eyes, this.pinged, s)) this.lastSeen[team].set(s.id, this.time);
+        if (perceivesNow(this.map.grid, eyes, this.pinged, s, range)) this.lastSeen[team].set(s.id, this.time);
       }
     }
   }
@@ -863,7 +885,8 @@ export class World {
 
     // movement intent (armor weighs you down)
     const c = CLASSES[s.classId];
-    let speed = c.speed * (SURF_SOLDIER[surfaceAt(this.map.surface, s.pos.x, s.pos.z)] ?? 1); // §8.6
+    let speed = c.speed * (SURF_SOLDIER[surfaceAt(this.map.surface, s.pos.x, s.pos.z)] ?? 1) // §8.6
+      * moveMult(this.weather, 'soldier'); // §8.8 snow drags boots
     if (s.cloaked) speed *= 0.8;
     for (const eid of s.equipment) {
       const e = EQUIPMENT[eid];
@@ -1556,10 +1579,14 @@ export class World {
       // §8.6: the ground has a say — hover ignores it, legs read it like boots,
       // tracks shrug at what swallows wheels
       const surf = surfaceAt(this.map.surface, v.pos.x, v.pos.z);
-      const surfMult = def.hover || def.flies ? 1
+      const tracked = v.kind === 'tank' || v.kind === 'apc' || v.kind === 'tunneler';
+      const surfMult = (def.hover || def.flies ? 1
         : def.strider ? (SURF_SOLDIER[surf] ?? 1)
-        : (v.kind === 'tank' || v.kind === 'apc' || v.kind === 'tunneler') ? (SURF_TRACKS[surf] ?? 1)
-        : (SURF_WHEELS[surf] ?? 1);
+        : tracked ? (SURF_TRACKS[surf] ?? 1)
+        : (SURF_WHEELS[surf] ?? 1))
+        // §8.8 weather drags the drivetrain — dust chokes wheels, snow buries them
+        * (def.hover || def.flies ? 1
+          : moveMult(this.weather, def.strider ? 'soldier' : tracked ? 'tracks' : 'wheels'));
       v.yaw += turn * def.turnRate * dt * (throttle < 0 ? -1 : 1);
       const targetSpeed = throttle * def.speed * engineMult * depthMult * surfMult * (throttle < 0 ? 0.5 : 1);
       const accel = 18;
@@ -1573,7 +1600,12 @@ export class World {
       // boats are flat-bottomed: a shallow DRAFT (smaller collision probe)
       // lets the hull hug banks and moor beside causeways without pinning
       const r = def.boat ? def.radius * 0.55 : def.radius;
-      if (def.flies || (def.digs && v.burrowed)) {
+      // §8.8: a real storm grounds flyers — unless the ship is currently OVER
+      // structure, in which case it may keep soaring until it finds clear
+      // ground (never trap a hull inside a wall it legally flew onto)
+      const stormGrounded = def.flies && airGrounded(this.weather) &&
+        !isBlocked(this.map.grid, v.pos.x, v.pos.z, true);
+      if ((def.flies && !stormGrounded) || (def.digs && v.burrowed)) {
         // flyers soar over everything; a deep breacher passes UNDER it all —
         // walls, cover, even water. Only the map border stops either.
         v.pos.x = nx;

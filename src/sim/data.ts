@@ -67,6 +67,19 @@ const CORE_WEAPONS: Record<WeaponId, WeaponDef> = {
  * The full armory: 200+ generated family weapons (see arsenal.ts) with the
  * hand-tuned core set layered on top — core ids always win a collision.
  */
+/** HUD glyphs for the hand-tuned core set (the generated arsenal wears family
+ *  icons from arsenal.ts). '🔫' is the fallback nobody should ever see. */
+const CORE_ICONS: Record<string, string> = {
+  ar606: '🎯', kuchler: '💨', caw: '💥', rg2: '⚡', ac_mk2: '⛓️', mml: '🚀',
+  gl: '🧨', plasma: '🔵', flamer: '🔥', pistol: '🔫', repair: '🔧', medibeam: '💉',
+  impulse: '📢', emp: '📡', target_beacon: '🛰️', orbital_beacon: '☄️',
+  buggy_mg: '⛓️', tank_cannon: '💥', mech_autocannon: '⛓️', mech_stomp: '🦿',
+  boat_mg: '⛓️', apc_mg: '⛓️', skiff_plasma: '🔵', turret_mg: '⛓️',
+  zombie_claw: '🩸', spitter_acid: '🧪', tag_dart: '📍', plasma_orb: '🔵',
+  skitter_bang: '🕷️', sam_missile: '🚀',
+};
+for (const w of Object.values(CORE_WEAPONS)) if (!w.icon) w.icon = CORE_ICONS[w.id] ?? '🔫';
+
 export const WEAPONS: Record<WeaponId, WeaponDef> = { ...buildArsenal(), ...CORE_WEAPONS };
 
 export const CLASSES: Record<ClassId, ClassDef> = {
@@ -239,6 +252,8 @@ export interface EquipDef {
   pingProof?: boolean;
   /** cloaked enemies show as ghost outlines on your minimap (IR goggles) */
   seeCloaked?: boolean;
+  /** §19.2: seen enemies linger SEEN_LINGER_GEARED instead of SEEN_LINGER */
+  tracker?: boolean;
   /** enemy mines appear on your minimap (mine detector) */
   seeMines?: boolean;
   /** E repairs a damaged friendly vehicle/turret, on cooldown (repair kit) */
@@ -266,6 +281,7 @@ export const EQUIPMENT: Record<string, EquipDef> = {
   power_armor: { id: 'power_armor', name: 'Power Armor', desc: '+60 max HP, −15% speed, immune to knockback.', icon: '🛡️', hpBonus: 60, speedMult: 0.85, noKnockback: true },
   stealth_suit: { id: 'stealth_suit', name: 'Stealth Suit', desc: 'Beacons and drones cannot ping you.', icon: '🥷', pingProof: true },
   ir_goggles: { id: 'ir_goggles', name: 'IR/UV Goggles', desc: 'Cloaked enemies appear on your minimap.', icon: '🥽', seeCloaked: true },
+  tracking_optics: { id: 'tracking_optics', name: 'Tracking Optics', desc: 'Enemies you spot stay visible 3s after breaking line of sight (instead of 1.5s).', icon: '👁️', tracker: true },
   mine_detector: { id: 'mine_detector', name: 'Mine Detector', desc: 'Enemy mines appear on your minimap.', icon: '📡', seeMines: true },
   repair_kit: { id: 'repair_kit', name: 'Mechanic Kit', desc: 'E repairs a damaged friendly vehicle or turret (+120, 10s cooldown).', icon: '🔧', fieldRepair: true },
   medikit: { id: 'medikit', name: 'Combat Medikit', desc: 'Auto-heals +45 HP once per life when you drop below 25%.', icon: '💉', autoMedikit: true },

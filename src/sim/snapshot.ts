@@ -1,5 +1,6 @@
 import { T_OPEN, losClear } from './map';
-import { PERCEIVE_RANGE, perceivesNow, seenRecently } from './perception';
+import { SEEN_LINGER, SEEN_LINGER_GEARED, perceivesNow, seenRecently } from './perception';
+import type { WeatherState } from './weather';
 import type { Gadget, Mine, ModeId, ModeState, Pickup, Projectile, SimEvent, Soldier, ThemeId, Turret, Vehicle } from './types';
 import { World } from './world';
 
@@ -38,6 +39,8 @@ export interface Snapshot {
   /** door tiles that ever changed, with their CURRENT state packed in:
    *  idx*2 + (open ? 1 : 0) — cheap, cumulative, order-free */
   doors: number[];
+  /** §8.8 the sky — every client renders the same storm */
+  weather: WeatherState;
   events: SimEvent[];
 }
 
@@ -79,6 +82,7 @@ export function takeSnapshot(w: World, events: SimEvent[]): Snapshot {
     smoked: [...w.smoked],
     dug: w.dug,
     doors: w.doorChanges.map((idx) => idx * 2 + (w.map.grid[idx] === 6 /* T_DOOR_OPEN */ ? 1 : 0)),
+    weather: { ...w.weather },
     events,
   };
 }
@@ -99,12 +103,15 @@ export function cullSnapshotFor(w: World, snap: Snapshot, viewerId: number): Sna
 
   // friendly eyes: still needed for corpses and vehicles. LIVE enemy soldiers
   // ride the per-tick lastSeen trail the sim stamps (perception.ts): perceived
-  // now — cloak, flag, skyline, ping, window LOS — or within SEEN_LINGER of
+  // now — cloak, flag, skyline, ping, window LOS — or within the linger of
   // breaking line of sight, so a target never blinks out at the window's edge.
+  // Weather (§8.8) taxes the range; tracking optics (§19.2) stretch the linger.
+  const range = w.perceiveRange();
+  const linger = viewer.equipment.includes('tracking_optics') ? SEEN_LINGER_GEARED : SEEN_LINGER;
   const eyes = [...w.soldiers.values()].filter((s) => s.alive && s.team === team);
   const seesPoint = (x: number, z: number, y = 1.4) =>
     eyes.some((e) =>
-      Math.hypot(x - e.pos.x, z - e.pos.z) < PERCEIVE_RANGE &&
+      Math.hypot(x - e.pos.x, z - e.pos.z) < range &&
       losClear(w.map.grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x, y, z }));
 
   const soldiers = snap.soldiers.filter((s) => {
@@ -112,8 +119,8 @@ export function cullSnapshotFor(w: World, snap: Snapshot, viewerId: number): Sna
     if (!s.alive) return seesPoint(s.pos.x, s.pos.z); // corpses: where eyes rest
     // trail first (stamped this tick — cheap map lookup, carries the linger);
     // live fallback keeps the cull correct standalone (tests, spectate joins)
-    return seenRecently(w.lastSeen, w.pinged, team, s, snap.time)
-      || perceivesNow(w.map.grid, eyes, w.pinged, s);
+    return seenRecently(w.lastSeen, w.pinged, team, s, snap.time, linger)
+      || perceivesNow(w.map.grid, eyes, w.pinged, s, range);
   });
   const vehicles = snap.vehicles.filter((v) => {
     if (v.team === team) return true;
@@ -158,6 +165,7 @@ export function applySnapshot(w: World, snap: Snapshot) {
   syncMap(w.gadgets, snap.gadgets.map((g) => ({ ...g, hp: decNum(g.hp), maxHp: decNum(g.maxHp), expiresAt: decNum(g.expiresAt) })));
   w.pinged = new Set(snap.pinged);
   w.smoked = new Set(snap.smoked ?? []);
+  if (snap.weather) w.weather = snap.weather;
   // tunneler damage is cumulative — grind the puppet's grid to match
   if (snap.dug && snap.dug.length !== w.dug.length) {
     for (const idx of snap.dug) w.map.grid[idx] = T_OPEN;

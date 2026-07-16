@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
 import { F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt } from '../sim/map';
-import { seenRecently } from '../sim/perception';
+import { SEEN_LINGER, SEEN_LINGER_GEARED, seenRecently } from '../sim/perception';
+import type { WeatherKind } from '../sim/weather';
 import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
 import { HAND_FRAG_REACH, type World } from '../sim/world';
 import { audio, type SoundName } from './audio';
@@ -150,6 +151,18 @@ export class Renderer {
   /** persistent drill debris — capped FIFO so long sieges don't leak */
   private rubble: THREE.Mesh[] = [];
   private rubbleMat?: THREE.MeshStandardMaterial;
+
+  // ---- §8.8 weather + the high sky ----
+  private baseAtmo?: { fogNear: number; fogFar: number; sky: THREE.Color; fogColor: THREE.Color; hemi: number; sun: number };
+  private hemiLight?: THREE.HemisphereLight;
+  private sunLight?: THREE.DirectionalLight;
+  /** drifting cloud deck at altitude — density follows the weather */
+  private clouds: { mesh: THREE.Mesh; drift: number }[] = [];
+  private cloudMat?: THREE.MeshLambertMaterial;
+  /** active precipitation system, rebuilt when the weather kind changes */
+  private precip?: { kind: WeatherKind; obj: THREE.Object3D; pos: Float32Array; n: number };
+  private nextFlashAt = 0;
+  private flashUntil = 0;
   /** live door slabs — swung by grid state (E toggles it in the sim) */
   private doors: { mesh: THREE.Mesh; idx: number; spansX: boolean; base: THREE.Vector3 }[] = [];
   /** the camera height actually used last frame (killcam duels exceed camDist)
@@ -220,16 +233,168 @@ export class Renderer {
     });
   }
 
+  /** §8.8 WEATHER render pass: cloud deck, atmosphere grading, precipitation
+   *  around the camera, storm lightning. Everything lerps back to the theme
+   *  baseline when the sky clears — no state leaks between fronts. */
+  private updateWeather(world: World, dt: number) {
+    if (!this.baseAtmo) return;
+    const w = world.weather ?? { kind: 'clear' as WeatherKind, intensity: 0, until: 0 };
+    const k = w.kind, hard = w.intensity;
+    const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+    // clouds drift forever; the weather decides how heavy the deck hangs
+    const cloudTarget =
+      k === 'clear' ? 0.42 : k === 'night' ? 0.26 : k === 'fog' ? 0.22 :
+      0.55 + 0.3 * hard;
+    if (this.cloudMat) this.cloudMat.opacity += (cloudTarget - this.cloudMat.opacity) * Math.min(1, dt * 1.5);
+    const wrap = WORLD / 2 + 80;
+    for (const c of this.clouds) {
+      c.mesh.position.x += c.drift * dt;
+      c.mesh.position.z += c.drift * 0.3 * dt;
+      if (c.mesh.position.x > wrap) c.mesh.position.x = -wrap;
+      if (c.mesh.position.z > wrap) c.mesh.position.z = -wrap;
+    }
+
+    // atmosphere grading toward the front's mood
+    const fogK: Record<WeatherKind, [number, number]> = {
+      clear: [1, 1], rain: [0.8, 0.72], storm: [0.55, 0.48], fog: [0.3, 0.3],
+      snow: [0.55, 0.5], dust: [0.5, 0.48], night: [0.95, 0.82],
+    };
+    const fog = this.scene.fog as THREE.Fog;
+    fog.near += (this.baseAtmo.fogNear * lerp(1, fogK[k][0], hard) - fog.near) * Math.min(1, dt * 1.2);
+    fog.far += (this.baseAtmo.fogFar * lerp(1, fogK[k][1], hard) - fog.far) * Math.min(1, dt * 1.2);
+
+    const skyMul =
+      k === 'night' ? lerp(1, 0.22, hard) : k === 'storm' ? lerp(1, 0.5, hard) :
+      k === 'dust' ? lerp(1, 0.78, hard) : k === 'fog' ? lerp(1, 0.88, hard) :
+      (k === 'rain' || k === 'snow') ? lerp(1, 0.72, hard) : 1;
+    (this.scene.background as THREE.Color).copy(this.baseAtmo.sky).multiplyScalar(skyMul);
+    fog.color.copy(this.baseAtmo.fogColor).multiplyScalar(skyMul);
+    if (k === 'dust') {
+      (this.scene.background as THREE.Color).lerp(new THREE.Color(0xa9825a), 0.4 * hard);
+      fog.color.lerp(new THREE.Color(0xa9825a), 0.4 * hard);
+    }
+
+    // light: night drops the war into blue-black; a storm flashes back
+    const hemiMul =
+      k === 'night' ? lerp(1, 0.4, hard) : k === 'storm' ? lerp(1, 0.65, hard) :
+      k === 'clear' ? 1 : lerp(1, 0.8, hard);
+    const sunMul = k === 'night' ? lerp(1, 0.22, hard) : k === 'storm' ? lerp(1, 0.55, hard) : hemiMul;
+    let flash = 0;
+    if (k === 'storm' && hard > 0.35) {
+      if (world.time >= this.nextFlashAt) {
+        this.flashUntil = world.time + 0.14;
+        this.nextFlashAt = world.time + 3.5 + Math.random() * 6;
+      }
+      if (world.time < this.flashUntil) flash = 2.4;
+    }
+    if (this.hemiLight) this.hemiLight.intensity = this.baseAtmo.hemi * hemiMul + flash;
+    if (this.sunLight) this.sunLight.intensity = this.baseAtmo.sun * sunMul;
+
+    // precipitation rides the camera — the storm is wherever you look
+    const wantsPrecip = k === 'rain' || k === 'storm' || k === 'snow' || k === 'dust';
+    if (this.precip && (!wantsPrecip || this.precip.kind !== k)) {
+      this.scene.remove(this.precip.obj);
+      ((this.precip.obj as THREE.Points).geometry as THREE.BufferGeometry).dispose();
+      this.precip = undefined;
+    }
+    if (wantsPrecip && !this.precip) this.precip = this.buildPrecip(k);
+    if (this.precip) {
+      this.precip.obj.position.set(this.camera.position.x, 0, this.camera.position.z);
+      const pos = this.precip.pos, n = this.precip.n;
+      if (k === 'rain' || k === 'storm') {
+        const fall = (k === 'storm' ? 64 : 46) * dt;
+        const drift = (k === 'storm' ? 9 : 3.5) * dt;
+        for (let i = 0; i < n; i++) {
+          const j = i * 6;
+          pos[j + 1] -= fall; pos[j + 4] -= fall;
+          pos[j] += drift; pos[j + 3] += drift;
+          if (pos[j + 1] < 0) {
+            const x = (Math.random() - 0.5) * 84, z = (Math.random() - 0.5) * 84, y = 26 + Math.random() * 10;
+            pos[j] = x; pos[j + 1] = y; pos[j + 2] = z;
+            pos[j + 3] = x - (k === 'storm' ? 0.55 : 0.22); pos[j + 4] = y - 1.7; pos[j + 5] = z;
+          }
+        }
+      } else if (k === 'snow') {
+        for (let i = 0; i < n; i++) {
+          const j = i * 3;
+          pos[j + 1] -= 3.2 * dt;
+          pos[j] += Math.sin(world.time * 1.4 + i) * 0.7 * dt;
+          if (pos[j + 1] < 0) {
+            pos[j] = (Math.random() - 0.5) * 84; pos[j + 1] = 22 + Math.random() * 10; pos[j + 2] = (Math.random() - 0.5) * 84;
+          }
+        }
+      } else { // dust: a horizontal river of grit
+        for (let i = 0; i < n; i++) {
+          const j = i * 3;
+          pos[j] += (14 + (i % 7)) * dt;
+          pos[j + 1] += Math.sin(world.time * 2 + i) * 0.4 * dt;
+          if (pos[j] > 46) pos[j] = -46;
+        }
+      }
+      const geo = (this.precip.obj as THREE.Points).geometry as THREE.BufferGeometry;
+      (geo.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;
+      const mat = (this.precip.obj as THREE.Points).material as THREE.PointsMaterial;
+      mat.opacity = (k === 'storm' ? 0.55 : k === 'rain' ? 0.4 : k === 'snow' ? 0.85 : 0.5) * Math.max(0.4, hard);
+    }
+  }
+
+  /** Build one precipitation particle system for the given sky. */
+  private buildPrecip(k: WeatherKind): { kind: WeatherKind; obj: THREE.Object3D; pos: Float32Array; n: number } {
+    if (k === 'rain' || k === 'storm') {
+      const n = k === 'storm' ? 700 : 450;
+      const pos = new Float32Array(n * 6);
+      for (let i = 0; i < n; i++) {
+        const j = i * 6;
+        const x = (Math.random() - 0.5) * 84, z = (Math.random() - 0.5) * 84, y = Math.random() * 34;
+        pos[j] = x; pos[j + 1] = y; pos[j + 2] = z;
+        pos[j + 3] = x - 0.25; pos[j + 4] = y - 1.7; pos[j + 5] = z;
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      const obj = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({
+        color: 0xbcd0e8, transparent: true, opacity: 0.4, depthWrite: false,
+      }));
+      obj.frustumCulled = false;
+      this.scene.add(obj);
+      return { kind: k, obj, pos, n };
+    }
+    const n = k === 'snow' ? 600 : 500;
+    const pos = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      const j = i * 3;
+      pos[j] = (Math.random() - 0.5) * 84;
+      pos[j + 1] = k === 'dust' ? Math.random() * 7 : Math.random() * 30;
+      pos[j + 2] = (Math.random() - 0.5) * 84;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const obj = new THREE.Points(geo, new THREE.PointsMaterial({
+      color: k === 'snow' ? 0xffffff : 0xc09a62, size: k === 'snow' ? 0.4 : 0.32,
+      transparent: true, opacity: k === 'snow' ? 0.85 : 0.5, depthWrite: false, sizeAttenuation: true,
+    }));
+    obj.frustumCulled = false;
+    this.scene.add(obj);
+    return { kind: k, obj, pos, n };
+  }
+
   buildStaticWorld(world: World) {
     const pal = THEME_PALETTES[world.map.theme] ?? THEME_PALETTES.savanna;
-    // sky + atmosphere per environment
+    // sky + atmosphere per environment — kept as MUTABLE baselines so the
+    // weather pass (§8.8) can tax them and always find its way back to clear
     this.scene.fog = new THREE.Fog(pal.fog, pal.fogNear, pal.fogFar);
     this.scene.background = new THREE.Color(pal.sky);
+    this.baseAtmo = {
+      fogNear: pal.fogNear, fogFar: pal.fogFar, sky: new THREE.Color(pal.sky),
+      fogColor: new THREE.Color(pal.fog), hemi: 0.85, sun: pal.sunIntensity,
+    };
 
     // lights
     const hemi = new THREE.HemisphereLight(pal.hemiSky, pal.hemiGround, 0.85);
     this.scene.add(hemi);
+    this.hemiLight = hemi;
     const sun = new THREE.DirectionalLight(pal.sun, pal.sunIntensity);
+    this.sunLight = sun;
     sun.position.set(60, 90, 30);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -238,6 +403,30 @@ export class Renderer {
     sun.shadow.camera.top = S; sun.shadow.camera.bottom = -S;
     sun.shadow.camera.far = 300;
     this.scene.add(sun);
+
+    // THE HIGH SKY: a drifting cloud deck at altitude — you only notice it
+    // zoomed out, which is exactly the point (the battlefield feels HIGH
+    // under it). Density and mood follow the weather pass each frame.
+    for (const c of this.clouds) { this.scene.remove(c.mesh); c.mesh.geometry.dispose(); }
+    this.clouds = [];
+    this.cloudMat?.dispose();
+    this.cloudMat = new THREE.MeshLambertMaterial({
+      color: new THREE.Color(pal.hemiSky).lerp(new THREE.Color(0xffffff), 0.5),
+      transparent: true, opacity: 0.5, depthWrite: false,
+    });
+    const cloudRng = (i: number) => { const n = Math.sin(i * 127.1 + 311.7) * 43758.5453; return n - Math.floor(n); };
+    for (let i = 0; i < 14; i++) {
+      const geo = new THREE.IcosahedronGeometry(1, 0);
+      const m = new THREE.Mesh(geo, this.cloudMat);
+      m.scale.set(9 + cloudRng(i) * 10, 2 + cloudRng(i + 50) * 1.6, 6 + cloudRng(i + 99) * 8);
+      m.position.set((cloudRng(i + 7) - 0.5) * (WORLD + 80), 48 + cloudRng(i + 13) * 20, (cloudRng(i + 31) - 0.5) * (WORLD + 80));
+      m.rotation.y = cloudRng(i + 43) * Math.PI;
+      m.castShadow = false; m.receiveShadow = false;
+      this.scene.add(m);
+      this.clouds.push({ mesh: m, drift: 1.1 + cloudRng(i + 71) * 1.4 });
+    }
+    // weather particles rebuild lazily against the new sky
+    if (this.precip) { this.scene.remove(this.precip.obj); this.precip = undefined; }
 
     // ground: canvas-painted texture from the tile grid
     const cvs = document.createElement('canvas');
@@ -727,6 +916,9 @@ export class Renderer {
       d.mesh.position.z += (tz - d.mesh.position.z) * Math.min(1, dt * 10);
     }
 
+    // §8.8 the sky's turn: clouds drift, weather taxes the atmosphere
+    this.updateWeather(world, dt);
+
     // §8.4 phase 3 — the WINDOW TRUTH: an enemy you legitimately perceive
     // (window LOS, ping, skyline, or the SEEN_LINGER trail) must never hide
     // under an opaque lid — "I looked in the open window and the house lied."
@@ -739,7 +931,8 @@ export class Renderer {
       if (focus) {
         for (const s of world.soldiers.values()) {
           if (!s.alive || s.team === focus.team || s.vehicleId >= 0) continue;
-          if (!world.puppet && !seenRecently(world.lastSeen, world.pinged, focus.team, s, world.time)) continue;
+          if (!world.puppet && !seenRecently(world.lastSeen, world.pinged, focus.team, s, world.time,
+            focus.equipment.includes('tracking_optics') ? SEEN_LINGER_GEARED : SEEN_LINGER)) continue;
           const hIdx = houseAt(world.map.houses, s.pos.x, s.pos.z);
           if (hIdx < 0) continue;
           const topFloor = world.map.houses[hIdx].floors === 2 ? 1 : 0;

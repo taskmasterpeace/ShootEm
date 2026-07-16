@@ -36,6 +36,8 @@ export const SYSTEM_IDS: readonly SystemId[] = ['engine', 'weapon', 'sensors', '
 export interface WeaponDef {
   id: WeaponId;
   name: string;
+  /** HUD/menu glyph — every weapon wears one (family default, core overrides) */
+  icon?: string;
   damage: number;
   /** shots per second */
   rof: number;

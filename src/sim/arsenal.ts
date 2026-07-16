@@ -78,6 +78,14 @@ export const FAMILIES: FamilySpec[] = [
 
 const ROMAN = ['', 'I', 'II', 'III'];
 
+/** One glyph per family — every weapon wears its role on the HUD. */
+export const FAMILY_ICONS: Record<WeaponFamily, string> = {
+  pistol: '🔫', rifle: '🎯', carbine: '🎯', smg: '💨', shotgun: '💥', slugger: '🔩',
+  laser: '🔆', lmg: '⛓️', hmg: '⛓️', at_rocket: '🚀', ap_rocket: '🚀',
+  mortar: '☄️', artillery: '☄️', scatter: '💥', sonic: '📢', flamethrower: '🔥',
+  grenade: '🧨', special: '🧰',
+};
+
 /** Deterministically build the full generated arsenal. */
 export function buildArsenal(): Record<WeaponId, WeaponDef> {
   const out: Record<WeaponId, WeaponDef> = {};
@@ -95,6 +103,7 @@ export function buildArsenal(): Record<WeaponId, WeaponDef> {
         out[id] = {
           id,
           name: `${brand.label} ${f.code}-${tier.mk} ${f.label}`,
+          icon: FAMILY_ICONS[f.family],
           family: f.family,
           tier: tier.mk,
           damage: Math.round(base.damage * brand.dmg * tier.dmg * 10) / 10,
@@ -132,6 +141,7 @@ export function buildArsenal(): Record<WeaponId, WeaponDef> {
       out[id] = {
         id,
         name: `Ordnance Works ${nk.label} Mk ${ROMAN[tier.mk]}`,
+        icon: nk.key === 'smoke' ? '🌫️' : nk.key === 'wp' ? '🔥' : '🧨',
         family: 'grenade', tier: tier.mk,
         damage: Math.round(nk.damage * tier.dmg),
         rof: 1.1, speed: 34, spread: 0.015 * tier.spread, pellets: 1,
@@ -146,13 +156,13 @@ export function buildArsenal(): Record<WeaponId, WeaponDef> {
 
   // ---- specials: demolition charge + the static emplacement gun ----
   out.demo_charge = {
-    id: 'demo_charge', name: 'DX-9 Demolition Charge', family: 'special', tier: 3,
+    id: 'demo_charge', name: 'DX-9 Demolition Charge', icon: '🧨', family: 'special', tier: 3,
     damage: 120, rof: 0.25, speed: 12, spread: 0, pellets: 1, clip: 1, reloadTime: 5,
     reserve: 3, range: 10, splash: 8, splashDamage: 140, arc: true, heals: false,
     knockback: 16, sound: 'thump', tracer: 'shell',
   };
   out.emplacement_gun = {
-    id: 'emplacement_gun', name: 'Bulwark Emplacement Gun', family: 'special', tier: 3,
+    id: 'emplacement_gun', name: 'Bulwark Emplacement Gun', icon: '🧰', family: 'special', tier: 3,
     damage: 55, rof: 1.6, speed: 90, spread: 0.01, pellets: 1, clip: Infinity, reloadTime: 0,
     reserve: Infinity, range: 95, splash: 3.5, splashDamage: 35, arc: false, heals: false,
     knockback: 10, sound: 'cannon', tracer: 'shell',
