@@ -180,6 +180,9 @@ export interface Soldier {
   nextWarpAt: number; // shared cooldown for warps/gates/lifts (stalkers: blink timer)
   orbitals: number;   // orbital-strike beacons held (pickup)
   manpads: number;    // shoulder-fired SAM rounds left this life (manpads equipment)
+  /** who last killed this soldier (-1 = nobody/self/environment) — the killcam
+   *  frames the duel between victim and killer instead of just the corpse */
+  lastKillerId: number;
   /** equipped gear ids (see EQUIPMENT in data.ts) — chosen at deploy, max 2 */
   equipment: string[];
   /** medikit auto-trigger armed (once per life) */

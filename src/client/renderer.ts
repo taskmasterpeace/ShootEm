@@ -133,6 +133,11 @@ export class Renderer {
   private nextMoundAt = new Map<number, number>();          // vehicle id → next burrow dirt-mound puff
   private wpPillars: THREE.Mesh[] = [];                     // pooled waypoint light pillars
   private nextLockToneAt = 0;                               // missile-lock warning throttle
+  /** killcam duel framing: soldier id of the local player's killer (-1 = none).
+   *  Set by the frame loops from the director; the camera frames victim+killer
+   *  together and a red ring marks the killer. */
+  killcamFocusId = -1;
+  private killerRing: THREE.Mesh | null = null;             // pulsing marker over the killer
   private nadeArc: THREE.Line | null = null;                // grenade-throw preview: dashed arc…
   private nadeRing: THREE.Mesh | null = null;               // …and the landing/splash ring
   private flyerAlt = new Map<number, number>();             // smoothed flyer altitude per id
@@ -882,20 +887,44 @@ export class Renderer {
     // camera follow: wheel-zoomable, and it leads toward where you're aiming —
     // you see more of the fight ahead and less of the ground behind you.
     // Flying an FPV drone hands the camera to the drone: you ARE the feed.
+    // killcam duel: frame the victim AND the killer, so every death answers
+    // "where did that come from?" — midpoint camera, zoomed to fit both
+    const killer = this.replayView && this.killcamFocusId >= 0 && local
+      ? world.soldiers.get(this.killcamFocusId) : undefined;
+    const duel = killer && killer.id !== localId ? killer : undefined;
+    if (this.killerRing) {
+      this.killerRing.visible = !!duel;
+      if (duel) {
+        this.killerRing.position.set(duel.pos.x, 0.12, duel.pos.z);
+        const pulse = 1 + 0.18 * Math.sin(world.time * 5);
+        this.killerRing.scale.setScalar(pulse);
+      }
+    } else if (duel) {
+      this.killerRing = this.makeRing(duel.pos, 2.1, 0xff4040, 0.85);
+    }
     if (local) {
       const fpv = world.getPilotedDrone(localId);
       const focusPos = fpv ? fpv.pos : local.pos;
       const focusYaw = fpv ? (fpv.yaw ?? local.yaw) : local.yaw;
       const inVehicle = local.vehicleId >= 0;
-      const dist = (window as unknown as { __camDist?: number }).__camDist
+      let dist = (window as unknown as { __camDist?: number }).__camDist
         ?? this.camDist * (inVehicle ? 1.25 : 1) * (fpv ? 0.75 : 1);
       const lead = dist * 0.32; // how far the view shifts toward your facing
       this.lookAhead.lerp(
-        new THREE.Vector3(Math.cos(focusYaw) * lead, 0, Math.sin(focusYaw) * lead),
+        duel ? new THREE.Vector3(0, 0, 0) // duel view: no aim-lead, hold the pair
+          : new THREE.Vector3(Math.cos(focusYaw) * lead, 0, Math.sin(focusYaw) * lead),
         1 - Math.pow(0.005, dt), // eases so flick-aims don't yank the world
       );
-      const target = new THREE.Vector3(
+      let target = new THREE.Vector3(
         focusPos.x + this.lookAhead.x, 0, focusPos.z + this.lookAhead.z);
+      if (duel) {
+        // midpoint between corpse and killer, pulled out just enough to fit both
+        const sep = Math.hypot(duel.pos.x - local.pos.x, duel.pos.z - local.pos.z);
+        dist = Math.min(46, Math.max(dist, sep * 0.85 + 6));
+        target = new THREE.Vector3(
+          (local.pos.x + duel.pos.x) / 2 + this.lookAhead.x, 0,
+          (local.pos.z + duel.pos.z) / 2 + this.lookAhead.z);
+      }
       const desired = new THREE.Vector3(target.x, dist, target.z + dist * 0.55);
       this.camPos.lerp(desired, 1 - Math.pow(0.001, dt));
       if (this.camShake > 0) {

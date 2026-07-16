@@ -166,7 +166,7 @@ export class World {
       nextGrenadeAt: 0, cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
       longestKill: 0, vehicleKills: 0, healGiven: 0,
-      pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0,
+      pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0, lastKillerId: -1,
       equipment: (loadout?.equipment ?? []).filter((id) => EQUIPMENT[id]).slice(0, 2),
       medikitReady: true, nextPsiAt: 0, nextRepairAt: 0,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
@@ -187,7 +187,7 @@ export class World {
       cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
       longestKill: 0, vehicleKills: 0, healGiven: 0,
-      pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0,
+      pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0, lastKillerId: -1,
       equipment: [], medikitReady: false, nextPsiAt: 0, nextRepairAt: 0,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
@@ -207,7 +207,7 @@ export class World {
       cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
       longestKill: 0, vehicleKills: 0, healGiven: 0,
-      pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0,
+      pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0, lastKillerId: -1,
       equipment: [], medikitReady: false, nextPsiAt: 0, nextRepairAt: 0,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
@@ -1642,6 +1642,8 @@ export class World {
       victim.deaths++;
       victim.respawnAt = this.time + (isZed(victim.kind) ? 2 : RESPAWN_DELAY);
       const attacker = this.soldiers.get(attackerId);
+      // the killcam frames the duel — remember who fired the killing blow
+      victim.lastKillerId = attacker && attacker.id !== victim.id ? attacker.id : -1;
       if (attacker && attacker.id !== victim.id) {
         attacker.kills++;
         attacker.score += isZed(victim.kind) ? ZOMBIE_STATS[victim.kind].score : 10;

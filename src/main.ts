@@ -313,6 +313,8 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     renderer.replayView = replaying;
     // killcam pulls in tight on the fight; otherwise the player's wheel zoom
     renderer.camDist = replaying && director.killcamActive ? KILLCAM_CAM : input.camDist;
+    // duel framing: show the killer, answer "where did that come from?"
+    renderer.killcamFocusId = replaying && director.killcamActive ? director.killerId : -1;
     // grenade throw preview: hold G → arc + landing ring at the cursor
     renderer.setGrenadePreview(world, me, !replaying && input.grenadeAiming ? input.aimPoint(renderer.camera) : null);
     renderer.update(renderWorld, me.id, dt, hud.getWaypoints());

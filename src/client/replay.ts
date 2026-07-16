@@ -136,6 +136,9 @@ export class ReplayDirector {
   readonly recorder = new ReplayRecorder();
   readonly player: ReplayPlayer;
   private wasAlive = true;
+  /** who killed the local player this killcam (-1 = self/environment) — the
+   *  renderer frames the DUEL between the corpse and this soldier */
+  killerId = -1;
 
   constructor(seed: number, mode: ModeId, theme: ThemeId | undefined) {
     this.player = new ReplayPlayer(seed, mode, theme);
@@ -160,9 +163,15 @@ export class ReplayDirector {
     const me = world.soldiers.get(meId);
     if (!this.highlightsRolling) this.recorder.record(world);
 
-    // killcam: your final seconds in slow motion while the respawn timer runs
+    // killcam: your final seconds in slow motion while the respawn timer runs.
+    // It answers the question every death asks — WHERE did that come from? —
+    // by framing you and your killer together and naming them on the banner.
     if (me && !me.alive && this.wasAlive && !world.mode.over && this.recorder.depth > 2) {
-      this.player.start(this.recorder.clip(KILLCAM_S), '☠ Killcam', false, KILLCAM_SPEED);
+      this.killerId = me.lastKillerId;
+      const killer = this.killerId >= 0 ? world.soldiers.get(this.killerId) : undefined;
+      const range = killer ? Math.round(Math.hypot(killer.pos.x - me.pos.x, killer.pos.z - me.pos.z)) : 0;
+      const label = killer ? `☠ Killed by ${killer.name} · ${range}u` : '☠ Killcam';
+      this.player.start(this.recorder.clip(KILLCAM_S), label, false, KILLCAM_SPEED);
     }
     if (me && me.alive && !this.wasAlive && !this.player.loop) {
       this.player.stop();
