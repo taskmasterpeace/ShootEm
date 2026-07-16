@@ -56,6 +56,10 @@ export const SOUND_SPECS = {
   mine_plant:   { cat: 'movement', desc: 'Mine plant — mechanical arming click and beep', dur: 0.5 },
   turret_built: { cat: 'movement', desc: 'Turret deploy — unfolding servo whir and lock', dur: 0.8 },
   footstep:     { cat: 'movement', desc: 'Single boot footstep on dirt', dur: 0.5 },
+  // three universal footstep CANDIDATES — the harness picks the default
+  footstep_a:   { cat: 'movement', desc: 'ONE single crisp boot step on packed dirt — tight, dry, mid-weight', dur: 0.35 },
+  footstep_b:   { cat: 'movement', desc: 'ONE single heavy combat-boot stomp on hard ground — deep, solid thud', dur: 0.35 },
+  footstep_c:   { cat: 'movement', desc: 'ONE single soft tactical boot step — quick light scuff, stealthy', dur: 0.35 },
   growl:        { cat: 'movement', desc: 'Zombie growl — low guttural snarl', dur: 0.7 },
   growl2:       { cat: 'movement', desc: 'Zombie growl (variation 2) — different throat, wetter snarl', dur: 0.7 },
   growl3:       { cat: 'movement', desc: 'Zombie growl (variation 3) — higher, rasping moan', dur: 0.7 },

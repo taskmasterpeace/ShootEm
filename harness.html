@@ -361,6 +361,16 @@
       <div class="sec-body">
         <div class="hint">All 53 sounds. <b>▶</b> auditions · sliders set volume/pitch (saved) · <b>📁</b> replaces a sound with your own file (wav/mp3/ogg, saved in this browser) · <b>↺</b> restores stock. The game honors every change.</div>
         <a class="btn-wide" href="/sound-review.html" style="display:block; text-align:center; text-decoration:none; margin-bottom:6px">🔊 Full Sound Lab &amp; Review — waveforms, 👍/👎, replace ▸</a>
+        <div class="field">
+          <label>Default footstep (the universal 'footstep' slot)</label>
+          <select id="footstep-default">
+            <option value="footstep">Original</option>
+            <option value="footstep_a">A — crisp packed dirt</option>
+            <option value="footstep_b">B — heavy combat stomp</option>
+            <option value="footstep_c">C — soft tactical scuff</option>
+          </select>
+        </div>
+        <button class="btn-wide" id="footstep-try">▶ Play current default</button>
         <button class="btn-wide primary" id="snd-init">Enable audio (quick list)</button>
         <div id="sound-list" class="sound-list"></div>
       </div>

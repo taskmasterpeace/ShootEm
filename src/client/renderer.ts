@@ -146,6 +146,9 @@ export class Renderer {
    *  like roofs when the focus stands on the ground floor beneath them */
   private uppers: { group: THREE.Group; house: { tx: number; tz: number; tw: number; th: number }; mats: THREE.MeshStandardMaterial[] }[] = [];
   private ladderMeshes: THREE.Group[] = [];
+  /** persistent drill debris — capped FIFO so long sieges don't leak */
+  private rubble: THREE.Mesh[] = [];
+  private rubbleMat?: THREE.MeshStandardMaterial;
   /** live door slabs — swung by grid state (E toggles it in the sim) */
   private doors: { mesh: THREE.Mesh; idx: number; spansX: boolean; base: THREE.Vector3 }[] = [];
   /** the camera height actually used last frame (killcam duels exceed camDist)
@@ -381,6 +384,8 @@ export class Renderer {
         if (world.map.grid[z * GRID + x] === T_LADDER) ladderTiles.push([x, z]);
     for (const g of this.ladderMeshes) { this.scene.remove(g); g.traverse((o) => (o as THREE.Mesh).geometry?.dispose()); }
     this.ladderMeshes = [];
+    for (const c of this.rubble) { this.scene.remove(c); c.geometry.dispose(); }
+    this.rubble = [];
     if (ladderTiles.length) {
       const railMat = new THREE.MeshStandardMaterial({ color: 0x7a6a4a, roughness: 0.7 });
       for (const [x, z] of ladderTiles) {
@@ -1833,9 +1838,33 @@ export class Renderer {
           break;
         }
         case 'dig': {
-          // the tunneler ground a wall to rubble — drop the instance, kick up dust
+          // the tunneler ground a wall to rubble — drop the instance, kick up
+          // dust, and LEAVE THE RUBBLE: low-poly chunks stay where the wall
+          // died (walkable debris — the collision is already gone)
           if (e.tile !== undefined) this.collapseTile(e.tile);
           if (e.pos) {
+            for (let ri = 0; ri < 3; ri++) {
+              const sz = 0.35 + Math.random() * 0.5;
+              const chunk = new THREE.Mesh(
+                new THREE.BoxGeometry(sz, sz * 0.6, sz * 0.8),
+                this.rubbleMat ?? (this.rubbleMat = new THREE.MeshStandardMaterial({ color: 0x6f6656, roughness: 0.95 })),
+              );
+              chunk.position.set(
+                e.pos.x + (Math.random() - 0.5) * TILE * 0.8,
+                sz * 0.25,
+                e.pos.z + (Math.random() - 0.5) * TILE * 0.8,
+              );
+              chunk.rotation.set(Math.random() * 0.5, Math.random() * Math.PI, Math.random() * 0.5);
+              chunk.castShadow = true;
+              this.scene.add(chunk);
+              this.rubble.push(chunk);
+            }
+            // cap the debris field — the oldest chunks crumble away
+            while (this.rubble.length > 240) {
+              const old = this.rubble.shift()!;
+              this.scene.remove(old);
+              old.geometry.dispose();
+            }
             this.particles.emit({ pos: { ...e.pos, y: 1.5 }, count: 26, color: 0x8a7f6a, speed: 5, life: 0.8, spread: 1.2, up: 4, gravity: 6 });
             // slowed autocannon reads as teeth chewing rock, not a blast
             audio.play('autocannon', { pos: e.pos, rate: 0.6, volume: 0.55 });

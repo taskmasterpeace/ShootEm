@@ -232,6 +232,24 @@
       "dur": 0.5
     },
     {
+      "name": "footstep_a",
+      "cat": "movement",
+      "desc": "ONE single crisp boot step on packed dirt — tight, dry, mid-weight",
+      "dur": 0.35
+    },
+    {
+      "name": "footstep_b",
+      "cat": "movement",
+      "desc": "ONE single heavy combat-boot stomp on hard ground — deep, solid thud",
+      "dur": 0.35
+    },
+    {
+      "name": "footstep_c",
+      "cat": "movement",
+      "desc": "ONE single soft tactical boot step — quick light scuff, stealthy",
+      "dur": 0.35
+    },
+    {
       "name": "growl",
       "cat": "movement",
       "desc": "Zombie growl — low guttural snarl",

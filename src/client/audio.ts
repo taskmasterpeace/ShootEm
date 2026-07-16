@@ -16,6 +16,9 @@ export const SOUND_NAMES = [
   // per-surface footsteps — biome designation lives in src/client/soundscape.ts;
   // plain 'footstep' is the universal fallback until an asset lands in a slot
   'footstep_grass', 'footstep_metal', 'footstep_rock', 'footstep_ice', 'footstep_grit',
+  // three universal footstep CANDIDATES — the harness Sound Lab picks which
+  // one the plain 'footstep' slot actually plays (persisted per machine)
+  'footstep_a', 'footstep_b', 'footstep_c',
   // per-theme ambience beds (looped low under the match; ducked, never loud)
   'amb_savanna', 'amb_starship', 'amb_asteroid', 'amb_europa', 'amb_titan', 'amb_triton',
   'door', // door swing: creak + latch (E did it)
@@ -194,8 +197,23 @@ export class AudioEngine {
   /** Returns false when the sound couldn't start (no buffer yet, throttled,
    *  out of range) so callers can fall back to another slot — e.g. a missing
    *  footstep_ice falls back to the universal footstep. */
+  /** which candidate the universal 'footstep' slot resolves to */
+  private footstepDefault: SoundName = (() => {
+    try { return (localStorage.getItem('ww_footstep_default') as SoundName) || 'footstep'; }
+    catch { return 'footstep' as SoundName; } // headless test env
+  })();
+
+  /** Harness Sound Lab: swap the universal footstep (a/b/c or the original). */
+  setDefaultFootstep(name: SoundName) {
+    this.footstepDefault = name;
+    try { localStorage.setItem('ww_footstep_default', name); } catch { /* headless */ }
+  }
+
+  getDefaultFootstep(): SoundName { return this.footstepDefault; }
+
   play(name: SoundName, opts: { pos?: Vec3; volume?: number; rate?: number } = {}): boolean {
     if (!this.ctx || !this.master) return false;
+    if (name === 'footstep') name = this.footstepDefault; // the swappable default
     const buf = this.buffers.get(name);
     if (!buf) return false;
 

@@ -1241,3 +1241,19 @@ function blBuild() {
   $<HTMLInputElement>('bl-upper').onchange = blBuild;
   $<HTMLInputElement>('bl-roof').onchange = blBuild;
 }
+
+
+// ── the default-footstep picker: three candidates, one throne ───────────────
+{
+  const sel = $<HTMLSelectElement>('footstep-default');
+  sel.value = audio.getDefaultFootstep();
+  sel.onchange = () => {
+    audio.setDefaultFootstep(sel.value as SoundName);
+    audio.play('footstep');
+  };
+  $('footstep-try').onclick = async () => {
+    await audio.init();
+    audio.resume();
+    audio.play('footstep');
+  };
+}

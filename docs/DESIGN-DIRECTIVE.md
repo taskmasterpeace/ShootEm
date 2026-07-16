@@ -544,6 +544,33 @@ points at it:
   cover it *strides into*, and — when they arrive — the Iron Eaters (§20),
   who will regard it as a delicacy.
 
+### 8.1a Requisition — what happens to the truck when YOU die
+
+The rule that makes vehicles feel OWNED instead of printed. You signed the
+hull out of the motor pool; the manifest doesn't care that you got shot.
+
+- **The hull persists.** When the driver dies, the vehicle stays exactly
+  where it was left — engine ticking, doors open, hull damage intact. (The
+  sim already does this; the directive makes it LAW so no future change
+  "cleans it up.")
+- **Your name stays on the manifest.** A checked-out hull does NOT respawn
+  on its pad until it is *destroyed* or *recovered*. Dying doesn't refill
+  the pool — walking back to your truck is a real decision, and losing it
+  in a stupid place is a real cost.
+- **Anyone on the team can recover it.** Crew an abandoned friendly hull
+  and drive it; park it back on its pad and the pool re-issues it fresh.
+  The killfeed/journal keeps the thread: *"Your Bastion is still out
+  there — grid F4."*
+- **Hotwire (spec, build later):** a hull abandoned 90+ seconds with no
+  living teammate within 40u can be STOLEN by the enemy — E to hotwire,
+  a loud 6-second job (engineers 3s). A stolen hull keeps its faction
+  silhouette but flies the thief's colors on the trim — everyone can read
+  the crime at a glance. This is also how §6 prototype THEFT plays.
+- **The write-off (anti-grief):** a hull that sits untouched for 3 full
+  minutes with nobody from either team near it gets written off by the
+  motor pool — wreck fades, pad timer starts. Nobody gets to drown the
+  team's only tank in the moat and lock the pool for a match.
+
 ### 8.2 The maps — ten named fronts, in full
 
 > **The map PLAN now lives in its own document — [`docs/MAP-STRATEGY.md`](MAP-STRATEGY.md):**
@@ -1593,6 +1620,66 @@ The season (§13) tells its story in acts, and the campaign paces them:
 hand — is deliberately **not specified yet**; the acts themselves are canon.)*
 
 ---
+
+## 21. The Reprint — why dying doesn't end you
+
+The fiction that makes respawning HONEST instead of ignored. Enlistment in
+either army includes the imprint: a full neural record, refreshed at every
+deployment. When you die at the front, the military doesn't mourn you — it
+**reprints** you at base in a fresh sleeve and sends you back out.
+
+**Why this fiction earns its place (it's already half-built):**
+
+- **The Dossier IS the imprint.** The career record, medals, the War
+  Journal (System A/B) — that's the thing that survives death. The body is
+  expendable; the RECORD is you. Every system we shipped for identity
+  doubles as the clone lore's receipts.
+- **The killcam is imprint recovery** — "reviewing your final moments" is
+  literally what the top-down replay already does.
+- **Spawn protection (55B) is calibration** — a fresh sleeve takes a few
+  seconds to sync. The shimmer sound is the printer finishing.
+- **Season reset is a new enlistment contract.** The Armistice ends your
+  tour; the next season, you re-enlist. Rank partially carries (§13) —
+  the imprint remembers even when the war forgets.
+- **The horror hooks:** the infected CANNOT be reprinted — the Outbreak
+  corrupts the imprint itself. That's why the Outbreak is scary in a world
+  where death is a printer queue, why Dr. Voss matters (§8.3), and why the
+  Iron Eaters (§20) collecting WRECKS instead of bodies lands as a mirror:
+  they reprint machines the way the war reprints you.
+
+**Mechanical slice (cheap, v1):** the announcer says **"REPRINTED"** on
+respawn · a clone-bay prop stands in each base (the visual anchor) · the
+death screen line reads *"Imprint secured. Printing…"* over the respawn
+timer · journal entries for deaths write "reprinted at [base]" instead of
+"respawned". No new systems — words and one prop, worth a full act of tone.
+
+## 21.5 Faction pitches — beyond the two armies (open, pick what's dope)
+
+The user's brief: more factions, cloaks, dogs, towns, missions. Pitched
+sharp, none built:
+
+- **THE VEILED** — a whole society under mantles. Refuseniks of both
+  armies who strip cloaking tech from the war and vanished into the towns.
+  You don't fight the Veiled on a front — you fight them in a NEIGHBORHOOD
+  (the grown housing/district maps are their home turf), and you can't see
+  them: everyone's cloaked until they strike. Counterplay is the point —
+  this is the faction that makes the counter-economy (§19.2) sing: **K9
+  hounds (§5.3, committed) smell what eyes can't**, IR goggles, psi
+  scanners, and rain (§8.8) outlining wet mantles. Mission: **The Quiet
+  Town** — sweep a grown neighborhood house by house with dogs, doors, and
+  nerve. Nobody on the street. Every house watching.
+- **THE SALVAGE GUILD** — neutral third party that claims wrecks and
+  abandoned requisitions (§8.1a). Armed like a militia, hostile to looters
+  of "their" salvage, bribable per the faction ledger (§17). They make the
+  battlefield's LEFTOVERS contested space, and they're the natural
+  middlemen for stolen prototypes.
+- **THE CHOIR** — post-Outbreak cultists who believe the infected are
+  saved (their imprints "freed"). Human-smart, zed-adjacent: they run
+  safehouse-mode sieges IN REVERSE — you defend the scientist from people
+  with guns who also brought the horde on leashes.
+
+Each pitch reuses shipped systems (cloak, dogs, neighborhoods, wreck
+economy, safehouse mode) — new fiction over existing iron, the house rule.
 
 ## Appendix A — Field status
 
