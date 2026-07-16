@@ -1,4 +1,4 @@
-# War World — Design Directive 01 (Rev 3)
+# War World — Design Directive 01 (Rev 4)
 
 **From matches to a war.** Every fight permanently matters. Grounded in real,
 near-future military tech — and the exotic gear has to be *earned*.
@@ -337,6 +337,11 @@ pairing** — take the K9 option and the dog deploys with you:
 - **Detection:** sniffs out camouflaged/signature-reduced operators and
   planted explosives in a radius, marking them for the team — the grounded
   answer to the camo classes and mines.
+- **The bark is your sixth sense (§19):** a threat behind you inside the
+  dog's sense radius triggers a directional bark — a growl-vector pointing
+  through your fog of war at the stalker. With vision cones live, the K9 is
+  a living 360 sensor that loves you; no equipment slot can compete with
+  that, and it shouldn't.
 - **Chase & takedown:** send the dog — fast, fragile, staggers a fleeing
   target long enough for the squad to close. Reuses the existing chase AI.
 - **It has a name and a record.** The dog earns Journal entries and its own
@@ -599,6 +604,97 @@ screen:
 
 This turns the painting into the game's front door in one slice — and every
 later map upgrade just swaps a recipe.
+
+---
+
+### 8.6 The ground fights back — terrain types per biome
+
+Today every walkable tile plays identically; only water is special. Terrain
+should be a combat variable — real armies plan around mud season.
+
+- **A SURFACE layer, orthogonal to blocking.** Alongside the collision grid,
+  each tile gets a surface: `grass · mud · sand · ice · snow · road/plate ·
+  marsh · rubble`. Biomes deal from their own deck (savanna: grass/dirt/road;
+  Triton: ice/snow; starship: deck plate; Europa: wet floor/ice), and scars
+  (§8.5) re-deal it — *burned fields turn to ash, floods turn fields to marsh,
+  frost slicks the roads.*
+- **Movement is the payload, and it forks by locomotion:**
+
+  | Surface | Infantry | Wheels | Tracks | Hover |
+  |---|---|---|---|---|
+  | Road/plate | fast | **fastest** | fast | fast |
+  | Grass/dirt | normal | normal | normal | normal |
+  | Sand/grit | −10% | **−30%** | −10% | normal |
+  | Mud/marsh | −20% | **−40%, can bog** | −15% | **normal — hover's moment** |
+  | Ice | slide (momentum carries) | slide hard | −10% | normal |
+  | Snow | −15%, **leaves tracks** | −25% | −15% | normal |
+  | Rubble | −10% | −25% | normal — tracks eat rubble | −15% |
+
+  Suddenly the motor pool is a *choice*: wheels own the roads, tracks own the
+  ruins, hover owns the swamp. Route planning becomes doctrine (§1).
+- **Snow remembers.** Footprints and tire tracks persist for ~a minute —
+  stealth's counter on cold fronts, and the K9's (§5.3) visual cousin. An
+  infiltrator on Triton must *think about the ground*.
+- **Sound is part of the surface** — the footstep designation (§18) keys off
+  this same layer: deck plate betrays you at range, grass whispers, snow is
+  silent but writes a confession. Terrain, audio, and stealth are ONE system.
+- **Engine note:** the surface layer is a second `Uint8Array` next to the
+  grid — generated per biome, serialized like everything else, read by the
+  movement code as a speed multiplier and by the renderer as ground paint.
+  The scar modifiers (§8.5 v1) already imagined this ("frozen = slick
+  handling"); this section names the general mechanism.
+
+### 8.7 The jump vocabulary — obstacles as verbs
+
+We already have jumping (Space: hop/jetpack). What we don't have is **height-
+aware obstacles** — today every blocker blocks absolutely, so jumping is
+travel, not traversal. Formalize three obstacle tiers and map-making gets a
+whole new alphabet:
+
+| Tier | Height | Who crosses | Reads as |
+|---|---|---|---|
+| **HOP** | ~1.2u (cover, sandbags, crates, fences) | any soldier with a running jump | "vault it" |
+| **CLIMB** | ~2–2.5u (barricades, container walls) | jump troopers' jet, breacher, ladders later | "find a way" |
+| **WALL** | 4u (walls, buildings) | nobody on foot — breach, fly, or tunnel | "hard cover" |
+
+- **The mechanic:** blocking becomes height-aware — `isBlocked` learns your
+  current jump apex the way `blocksShot` already knows heights (walls block
+  shots below 4, cover below 1.2 — *the data is literally already there*).
+  A soldier at apex clears T_COVER; a jump trooper clears CLIMB-tier.
+- **What it buys maps (§8.2):** trench lines you vault into but vehicles
+  can't cross · fence-hopped shortcuts through The City's yards · Fort
+  Raven's inner walls CLIMB-tier so jump troopers are the siege's second
+  storey · sandbag fights where both sides can commit over the top.
+- **The chase gets a grammar:** infantry flow over HOP obstacles, vehicles
+  must route around them — infantry escape cavalry through the hedgerows,
+  exactly like real ground.
+- **Bootcamp teaches it** (§14): the vault, the climb, and "you can't jump a
+  wall" are lesson one of movement school.
+
+### 8.8 Weather — the sky is a combat variable (proposed)
+
+Each front carries a weather state — rolled by the campaign, aimed by
+officers, escalated by scars. Weather is a *modifier set*, not a mode:
+
+| Weather | Vision (§19) | Sound (§18) | Movement (§8.6) | Air (§5.1) |
+|---|---|---|---|---|
+| **Clear** | full | full | — | flies |
+| **Rain** | −15% | footsteps masked, gunshots dulled — *infiltrator weather* | mud spreads | flies |
+| **Fog** | cone halved, 360-ring intact | intact — you HEAR what you can't see | — | grounded below X |
+| **Snowstorm** | −40% | muffled | snow rules + fresh tracks fade fast | grounded |
+| **Dust storm** | −30% | −20% | wheels choke | grounded |
+| **Night** | cone −25%, muzzle flashes GLOW | full — sound is king | — | flies; flares matter |
+
+- **Weather grounds aircraft** — the honest counter-air the MANPADS duel
+  (§5.1) wants sometimes: a storm does what missiles can't.
+- **Blacksite's whiteout (§8.2) stops being a skin** and becomes the weather
+  system's flagship; every front inherits the machinery.
+- **The Morning Dispatch reads like a real briefing:** *"Highland Pass:
+  snowstorm, air grounded, convoy fight at ground level."*
+- **Engine note:** one `weather` field on the campaign front + a modifier
+  struct the sim reads (vision radius, sound radius, speed mults, air
+  permission) + a render pass (rain streaks, fog plane, night grade). Ships
+  naturally with §19 since both act through the vision budget.
 
 ---
 
@@ -939,9 +1035,17 @@ funnel.
 1. **Enlist, don't configure.** First launch asks one real question: **pick your
    faction** (§1). Callsign, then straight into a scripted **Basic Training** run
    in the Proving Grounds (§3.3): move, shoot, throw (the hold-G arc), take a
-   point. Five minutes, hand-held, ending in your Infantry qualification and
+   point — plus movement school: the vault and the climb (§8.7), reading the
+   ground (§8.6), and sound discipline (deck plate betrays, snow confesses,
+   §18/§19). Five minutes, hand-held, ending in your Infantry qualification and
    your first dossier entry. This *is* the infantry course (§3.2) doubling as the
    tutorial — one build, two jobs.
+   **Skipping bootcamp costs you a rank.** Basic Training graduates enlist as
+   **Private**; skip it and you deploy as a **Draftee** — one rank below, and
+   the dossier remembers which you were forever. No power difference, pure
+   biography (§11.3-safe): the price of skipping school is that your record
+   says you skipped school. Finish bootcamp later and you promote — but the
+   Draftee start stays in the service history.
 2. **First deployment is a soft landing.** The first real match is flagged:
    a teaching mode (small Conquest or TDM), difficulty pinned to Recruit,
    **spawn-protected** (§16), a squad of friendly bots that follow you (§12,
@@ -1077,9 +1181,15 @@ no comfort valve. Four gaps, one layer.
   stingers** on the beats that matter — deploy, a front falling, the last stand,
   the Morning Dispatch (§7.3), a medal earned. Cheapest emotional ROI on the
   board; it just needs a looping music bus beside the SFX player.
-- **Ambience — the soundscape (absent).** One ducked ambient bed per theatre
-  (wind on Highland Pass, refinery hum, distant battle) so the world isn't dead
-  air between shots.
+- **Ambience — the soundscape (✅ pipeline shipped, assets pending).** One
+  ducked ambient bed per theatre so the world isn't dead air between shots.
+  The **designation system is live** (`371fe9d`): every theme has a named
+  ambience slot + a per-surface footstep slot (`src/client/soundscape.ts`),
+  the engine gained a fading loop bus, footsteps pick the theme's surface and
+  fall back to the universal step until a slot is filled, the harness's
+  **Biome Audio panel** auditions every slot, and `sound-specs.json` carries
+  the generation prompt for each — one ElevenLabs run fills the war with
+  sound.
 - **Colorblind & shape-coding (a correctness gap, not polish).** Team identity is
   **100% hue** — amber vs cyan, and *nothing else* — so a colorblind player can't
   reliably tell friend from foe. Add a **second channel**: friend/enemy shape or
@@ -1094,6 +1204,78 @@ no comfort valve. Four gaps, one layer.
 
 > *A war you can't hear the weight of, or can't tell your side in, isn't
 > finished — no matter how good the ragdolls are.*
+
+---
+
+## 19. Seeing the war — vision cones & the fog of war
+
+Today the top-down camera is omniscient: everyone on screen is visible to
+you, which quietly deletes half of infantry combat — flanking, ambush,
+stealth, *checking corners*. Give sight a shape and all of it comes back.
+
+### 19.1 The cone, the ring, and the dark
+
+- **You see a cone** (~130°) in your facing, out to your vision range — full
+  color, full detail. **You sense a ring** (~9u) all around — footsteps-close
+  presence, rendered but dim. **Beyond both is the dark:** the world dims
+  (ground/walls stay readable — you always know the *terrain*), and enemies
+  there simply aren't drawn.
+- **Ghosts, not teleports.** An enemy who leaves your vision keeps a fading
+  **last-known ghost** for ~2s at the spot you lost them — you watch the
+  memory decay, then they're gone. Re-acquired = snap back to live. (The
+  killcam's "watch them maneuver into the shot" already proved how much story
+  live position data carries; ghosts are that as core gameplay.)
+- **The squad shares eyes** (§15): anything a squadmate sees, you see. The
+  Head Cam Network equipment already promises exactly this on the minimap —
+  it graduates to *field* vision. Drones, spy cams, and beacons become
+  remote eyes with real value.
+- **Aiming narrows you.** ADS-style focus (hold-fire, scoped weapons)
+  lengthens the cone and narrows it — the sniper's tunnel vision is REAL,
+  and flanking a scoped enemy becomes the counter the range deserves.
+
+### 19.2 The counter-economy — gear that buys sight
+
+Vision becomes the war's second currency (the §8.4 audit called it: streets
+are corridors, slits are angles, roofs are denial — now *facing* is too):
+
+- **The 360 sensor helmet** (equipment): full-circle awareness ring at
+  double radius — no cone extension. You can't be crept on, but you gave up
+  a slot for it. The paranoid pick.
+- **The K9 barks at what you can't see** (§5.3 — *the dog we already
+  planned becomes indispensable*): a threat behind you inside the dog's
+  sense radius triggers a **directional bark** — a growl-vector on screen
+  pointing THROUGH your fog at the stalker. The dog is a living 360 sensor
+  that loves you. Nothing else in the game will generate more "good boy"
+  clips.
+- **Sound renders in the dark** (§18 ties in): gunshots, footsteps-by-
+  surface (§8.6), engines — anything audible outside your sight draws a
+  brief directional smudge. Sneaking on deck plate is LOUD; grass is quiet;
+  snow is silent but leaves tracks. Hearing becomes a skill.
+- Existing gear re-prices itself: IR/UV goggles (see cloaked → see *through
+  dark*?), flares/night (§8.8), the falcon's aerial eyes (§5.5), spy
+  cameras. The equipment table finally has a fight to referee.
+
+### 19.3 Honesty — what this costs and where it must live
+
+- **The fog must be TRUE, not cosmetic.** Rendering-only fog is a wallhack
+  invitation (§11.4's exact ESP hole). The vision function (cone + ring +
+  squad-share) is written ONCE in the sim and used twice: the server culls
+  snapshots with it (what you can't see is never on your wire), the client
+  renders with it. §11.4 and §19 are the same work item — build the fog and
+  the anti-cheat comes free, build the anti-cheat and the fog comes free.
+- **Bots must respect it** (§12): bot target acquisition already uses LOS;
+  it adopts the same cone so bots can be flanked, snuck past, and ambushed —
+  which single-handedly makes stealth classes work in bot matches.
+- **Comfort:** the dark is *dim, not black* (top-down needs spatial
+  orientation), the minimap keeps its own rules (§10.5's tactical layer),
+  and the killcam ignores fog (it's a replay of truth).
+- **Phase 1** (client-visual): cone/ring dimming + enemy cull + ghosts +
+  squad share, offline-first where the sim is local anyway. **Phase 2**
+  (server-authoritative): the same function culls the wire — §11.4 Stage 1.
+  The 360 helmet, K9 bark, and sound smudges ride Phase 1.
+
+> *The map shows you the war. The cone shows you YOUR war. The difference
+> between them is fear — and fear is content.*
 
 ---
 
@@ -1130,6 +1312,21 @@ no comfort valve. Four gaps, one layer.
 - ✅ **Overhead layer / semantic zoom shipped** (`9c1f2ee` + `e3b5bc9`, §10.5):
   squad-only crisp name tags, vitals circles (health + armor rings),
   constant-screen-size scaling across zoom, far-zoom team blips.
+- ✅ **Unified harness + Arsenal Lab shipped** (`7abc2f9`): top-nav modes
+  (Stage / Arsenal / World), global time-scale (0.05×–2× + freeze), all 230
+  weapons in one sortable compared table with an 11-slider live editor
+  (mutates the real defs; Copy-Δ to hand tuning back), and a measured firing
+  lane that shows every projectile's real speed, arc, tracer, splash, and
+  damage.
+- ✅ **Biome soundscape pipeline shipped** (`371fe9d`, §18): per-surface
+  footstep slots + per-theme ambience beds, designation table, loop bus,
+  fallback chain, harness Biome Audio panel, generation specs. Assets fill
+  via the existing ElevenLabs run.
+- ⚠️ **Decide:** terrain surface layer (§8.6) and the jump vocabulary (§8.7)
+  ship with the §8.4 map pass — same grid work, do them together.
+- ⚠️ **Decide:** §19 vision cones are the same work item as §11.4
+  interest-managed snapshots — one vision function, two consumers. Sequence
+  them as one.
 - ⚠️ **Decide:** faction names/doctrines (§1) are placeholders — rename at
   will; keep the enlistment/tour mechanics.
 - ✅ **Decided:** roofs + firing slits (§8.4) — cutaway roofs (visual-only
