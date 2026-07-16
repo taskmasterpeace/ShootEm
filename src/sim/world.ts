@@ -1,6 +1,6 @@
 import { CLASSES, EQUIPMENT, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
-import { GRID, T_COVER, T_OPEN, T_WALL, T_WATER, TILE, WORLD, blocksShot, generateMap, isBlocked, losClear, tileAt, type GameMap } from './map';
+import { GRID, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, generateMap, isBlocked, losClear, surfaceAt, tileAt, type GameMap } from './map';
 import { Rng } from './rng';
 import {
   SYSTEM_IDS, isCoopMode, isZed,
@@ -757,7 +757,7 @@ export class World {
 
     // movement intent (armor weighs you down)
     const c = CLASSES[s.classId];
-    let speed = c.speed;
+    let speed = c.speed * (SURF_SOLDIER[surfaceAt(this.map.surface, s.pos.x, s.pos.z)] ?? 1); // §8.6
     if (s.cloaked) speed *= 0.8;
     for (const eid of s.equipment) {
       const e = EQUIPMENT[eid];
@@ -1117,13 +1117,16 @@ export class World {
     }
     const nx = s.pos.x + (s.vel.x + s.pushX) * dt;
     const nz = s.pos.z + (s.vel.z + s.pushZ) * dt;
-    const airborne = s.pos.y > 1.5; // jetpackers clear low cover but not walls
-    const blockedX = airborne
-      ? tileAt(this.map.grid, nx, s.pos.z) === 1
-      : isBlocked(this.map.grid, nx, s.pos.z);
-    const blockedZ = airborne
-      ? tileAt(this.map.grid, s.pos.x, nz) === 1
-      : isBlocked(this.map.grid, s.pos.x, nz);
+    // §8.7 the HOP verb: past ~0.9u of air a soldier clears LOW COVER — a
+    // running hop (apex ~1.1) vaults sandbags and crates. Walls, slits, and
+    // water stay absolute: the jump vocabulary's WALL tier belongs to nobody.
+    const airborne = s.pos.y > 0.9;
+    const blocksAir = (x: number, z: number) => {
+      const t = tileAt(this.map.grid, x, z);
+      return t === T_WALL || t === T_SLIT || t === T_WATER;
+    };
+    const blockedX = airborne ? blocksAir(nx, s.pos.z) : isBlocked(this.map.grid, nx, s.pos.z);
+    const blockedZ = airborne ? blocksAir(s.pos.x, nz) : isBlocked(this.map.grid, s.pos.x, nz);
     if (!blockedX) s.pos.x = nx;
     if (!blockedZ) s.pos.z = nz;
     s.pos.x = Math.max(-WORLD / 2 + 2, Math.min(WORLD / 2 - 2, s.pos.x));
@@ -1290,8 +1293,15 @@ export class World {
       const engineMult = v.systems.engine > 0 ? 1 : 0.35;
       // a deep breacher shoves through packed earth — half pace
       const depthMult = def.digs && v.burrowed ? 0.5 : 1;
+      // §8.6: the ground has a say — hover ignores it, legs read it like boots,
+      // tracks shrug at what swallows wheels
+      const surf = surfaceAt(this.map.surface, v.pos.x, v.pos.z);
+      const surfMult = def.hover || def.flies ? 1
+        : def.strider ? (SURF_SOLDIER[surf] ?? 1)
+        : (v.kind === 'tank' || v.kind === 'apc' || v.kind === 'tunneler') ? (SURF_TRACKS[surf] ?? 1)
+        : (SURF_WHEELS[surf] ?? 1);
       v.yaw += turn * def.turnRate * dt * (throttle < 0 ? -1 : 1);
-      const targetSpeed = throttle * def.speed * engineMult * depthMult * (throttle < 0 ? 0.5 : 1);
+      const targetSpeed = throttle * def.speed * engineMult * depthMult * surfMult * (throttle < 0 ? 0.5 : 1);
       const accel = 18;
       const curSpeed = Math.cos(v.yaw) * v.vel.x + Math.sin(v.yaw) * v.vel.z;
       const newSpeed = curSpeed + Math.max(-accel * dt, Math.min(accel * dt, targetSpeed - curSpeed));

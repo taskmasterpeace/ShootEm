@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildArsenal, CLASS_ARMORY, familyWeapons } from '../src/sim/arsenal';
 import { CLASSES, EQUIPMENT, THEMES, VEHICLES, WEAPONS } from '../src/sim/data';
-import { T_OPEN, T_WATER, generateMap, losClear } from '../src/sim/map';
+import { T_OPEN, T_WATER, TILE, WORLD, generateMap, losClear } from '../src/sim/map';
 import { applySnapshot, takeSnapshot } from '../src/sim/snapshot';
 import { SYSTEM_IDS, type ClassId, type PlayerCmd, type WeaponFamily } from '../src/sim/types';
 import { World } from '../src/sim/world';
@@ -209,7 +209,7 @@ describe('the new machines', () => {
       }
     }
     expect(wallTx).toBeGreaterThan(0);
-    tun.pos = { x: (wallTx + 3.5) * 2 - 100, y: 0, z: (wallTz + 0.5) * 2 - 100 };
+    tun.pos = { x: (wallTx + 3.5) * TILE - WORLD / 2, y: 0, z: (wallTz + 0.5) * TILE - WORLD / 2 };
     tun.yaw = Math.PI; // face -X, straight at the wall
     let dug = false;
     for (let i = 0; i < 60 * 20 && !dug; i++) {
@@ -529,8 +529,8 @@ describe('performance and boundaries', () => {
     s.pos = { x: -95, y: 0, z: -95 };
     s.pushX = -500; s.pushZ = -500; // absurd knockback toward the corner
     run(w, new Map([[s.id, cmd({ moveX: -1, moveZ: -1 })]]), 3);
-    expect(Math.abs(s.pos.x)).toBeLessThanOrEqual(98);
-    expect(Math.abs(s.pos.z)).toBeLessThanOrEqual(98);
+    expect(Math.abs(s.pos.x)).toBeLessThanOrEqual(WORLD / 2);
+    expect(Math.abs(s.pos.z)).toBeLessThanOrEqual(WORLD / 2);
     const v = [...w.vehicles.values()].find((x) => x.kind === 'flyer' && x.team === 0)!;
     const d = w.addSoldier('Pilot', 'infantry', 0, 'human');
     d.pos = { ...v.pos };
@@ -538,8 +538,8 @@ describe('performance and boundaries', () => {
     v.spoolUntil = 0; // skip the spool for the boundary check
     v.yaw = Math.PI; // fly at the west border
     run(w, new Map([[d.id, cmd({ moveZ: -1 })]]), 12);
-    expect(Math.abs(v.pos.x)).toBeLessThanOrEqual(97);
-    expect(Math.abs(v.pos.z)).toBeLessThanOrEqual(97);
+    expect(Math.abs(v.pos.x)).toBeLessThanOrEqual(WORLD / 2 - 2.9);
+    expect(Math.abs(v.pos.z)).toBeLessThanOrEqual(WORLD / 2 - 2.9);
   });
 
   it('projectiles expire instead of leaking (ttl or terrain, never forever)', () => {

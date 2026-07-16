@@ -2,7 +2,7 @@ import { Rng } from './rng';
 import { THEMES } from './data';
 import type { ModeId, Team, ThemeId, Vec3, VehicleKind } from './types';
 
-export const TILE = 2;          // world units per tile
+export const TILE = 3;          // world units per tile (33C: standard fronts ~300u)
 export const GRID = 100;        // tiles per side
 export const WORLD = TILE * GRID; // 200 units square, centered on origin
 
@@ -10,6 +10,41 @@ export const T_OPEN = 0;
 export const T_WALL = 1;   // tall — blocks movement, bullets, sight
 export const T_COVER = 2;  // low crate/sandbag — blocks movement, not railgun sight... (blocks projectiles too, simple)
 export const T_WATER = 3;  // impassable to soldiers, hover skiff can cross
+export const T_SLIT = 4;   // firing slit (§8.4): blocks movement ALWAYS; blocks
+                           // fire/sight everywhere EXCEPT the 1.2–1.8 height band
+
+// ---- the SURFACE layer (§8.6): what the ground IS, orthogonal to blocking ----
+export const S_DIRT = 0;   // bare rock/dirt — the neutral surface
+export const S_GRASS = 1;  // savanna fields
+export const S_ICE = 2;    // triton — slick
+export const S_GRIT = 3;   // titan colony grit
+export const S_PLATE = 4;  // starship deck plate
+export const S_WET = 5;    // europa dome floor
+export const S_MUD = 6;    // water margins — wheels hate it
+
+/** per-surface speed multipliers: soldiers/striders, wheels, tracks (§8.6). Hover ignores. */
+export const SURF_SOLDIER: Record<number, number> = { [S_DIRT]: 1, [S_GRASS]: 1, [S_ICE]: 1, [S_GRIT]: 0.92, [S_PLATE]: 1, [S_WET]: 0.96, [S_MUD]: 0.8 };
+export const SURF_WHEELS: Record<number, number> = { [S_DIRT]: 1, [S_GRASS]: 1, [S_ICE]: 0.85, [S_GRIT]: 0.72, [S_PLATE]: 1.05, [S_WET]: 0.9, [S_MUD]: 0.6 };
+export const SURF_TRACKS: Record<number, number> = { [S_DIRT]: 1, [S_GRASS]: 1, [S_ICE]: 0.9, [S_GRIT]: 0.9, [S_PLATE]: 1, [S_WET]: 0.95, [S_MUD]: 0.85 };
+
+/** surface under a world position */
+export function surfaceAt(surface: Uint8Array, x: number, z: number): number {
+  const tx = Math.floor((x + WORLD / 2) / TILE);
+  const tz = Math.floor((z + WORLD / 2) / TILE);
+  if (tx < 0 || tz < 0 || tx >= GRID || tz >= GRID) return S_DIRT;
+  return surface[tz * GRID + tx];
+}
+
+/** which house (index into map.houses) contains this point, -1 = open sky */
+export function houseAt(houses: House[], x: number, z: number): number {
+  const tx = Math.floor((x + WORLD / 2) / TILE);
+  const tz = Math.floor((z + WORLD / 2) / TILE);
+  for (let i = 0; i < houses.length; i++) {
+    const h = houses[i];
+    if (tx >= h.tx && tx < h.tx + h.tw && tz >= h.tz && tz < h.tz + h.th) return i;
+  }
+  return -1;
+}
 
 export interface PropSpec {
   type: 'rock' | 'bunker' | 'crate' | 'tree' | 'ruin';
@@ -33,12 +68,16 @@ export interface House {
   id: number;
   center: Vec3;
   door: Vec3;
+  /** footprint in tiles — roofs, concealment, and interior checks key off this */
+  tx: number; tz: number; tw: number; th: number;
 }
 
 export interface GameMap {
   seed: number;
   theme: ThemeId;
   grid: Uint8Array; // GRID*GRID
+  /** the SURFACE layer (§8.6): S_* per tile — movement, sound, and tracks */
+  surface: Uint8Array;
   basePos: [Vec3, Vec3];
   spawns: [Vec3[], Vec3[]];
   flagPos: [Vec3, Vec3];
@@ -73,7 +112,7 @@ export function tileAt(grid: Uint8Array, x: number, z: number): number {
 export function isBlocked(grid: Uint8Array, x: number, z: number, hover = false): boolean {
   const t = tileAt(grid, x, z);
   if (t === T_WATER) return !hover;
-  return t === T_WALL || t === T_COVER;
+  return t === T_WALL || t === T_COVER || t === T_SLIT; // slits block movement ALWAYS
 }
 
 /** Blocks projectiles/sight: walls always; cover and water never (shots fly over). */
@@ -81,6 +120,7 @@ export function blocksShot(grid: Uint8Array, x: number, z: number, y: number): b
   const t = tileAt(grid, x, z);
   if (t === T_WALL) return y < 4;      // walls are 4 units tall
   if (t === T_COVER) return y < 1.2;   // low cover
+  if (t === T_SLIT) return !(y >= 1.2 && y <= 1.8); // the firing band — muzzle height passes
   return false;
 }
 
@@ -215,6 +255,36 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
     }
   }
 
+  const pickups: PickupSpawn[] = []; // declared early — huts stock their shelves
+
+  // ---- huts (§8.4 + the ZombsRoyale rule: the indoors has STUFF) ----
+  // Small roofed buildings on every battlefield: slit windows, a door, crates
+  // and a pickup inside. Mirrored pairs keep the front fair.
+  const houses: House[] = [];
+  let houseSeq = 0;
+  const stampHut = (tx: number, tz: number) => {
+    const hw = 7, hh = 5;
+    clearArea(grid, tx + 3, tz + 2, 5);
+    for (let x = tx; x < tx + hw; x++) { setTile(grid, x, tz, T_WALL); setTile(grid, x, tz + hh - 1, T_WALL); }
+    for (let z = tz; z < tz + hh; z++) { setTile(grid, tx, z, T_WALL); setTile(grid, tx + hw - 1, z, T_WALL); }
+    // door: 2 tiles, south wall center
+    setTile(grid, tx + 3, tz + hh - 1, T_OPEN); setTile(grid, tx + 4, tz + hh - 1, T_OPEN);
+    // slit windows: north wall — defenders shoot out at muzzle height
+    setTile(grid, tx + 2, tz, T_SLIT); setTile(grid, tx + 5, tz, T_SLIT);
+    // interior: furniture cover (claimed — the crate mesh renders it) + loot
+    claimTile(grid, claims, tx + 1, tz + 1, T_COVER);
+    props.push({ type: 'crate', pos: tileToWorld(tx + 1, tz + 1), scale: 1, rot: rng.range(0, Math.PI) });
+    claimTile(grid, claims, tx + 5, tz + 3, T_COVER);
+    props.push({ type: 'crate', pos: tileToWorld(tx + 5, tz + 3), scale: 1, rot: rng.range(0, Math.PI) });
+    pickups.push({ type: houseSeq % 2 === 0 ? 'medkit' : 'ammo', pos: tileToWorld(tx + 3, tz + 2) });
+    houses.push({ id: houseSeq++, center: tileToWorld(tx + 3, tz + 2), door: tileToWorld(tx + 3, tz + hh - 1), tx, tz, tw: hw, th: hh });
+  };
+  for (const [hx, hz] of [[half - 10, half - 30], [half - 10, half + 26]] as const) {
+    stampHut(hx, hz);
+    stampHut(GRID - 1 - hx - 6, hz); // mirrored partner (hut is 7 wide)
+  }
+
+
   // Bases: west (team 0) and east (team 1)
   const baseT: [number, number][] = [[10, half], [GRID - 11, half]];
   const basePos: [Vec3, Vec3] = [tileToWorld(baseT[0][0], baseT[0][1]), tileToWorld(baseT[1][0], baseT[1][1])];
@@ -283,7 +353,6 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
   }
 
   // Pickups sprinkled around midfield, mirrored
-  const pickups: PickupSpawn[] = [];
   const pickTypes: PickupSpawn['type'][] = ['medkit', 'ammo', 'energy', 'medkit', 'ammo', 'flamer'];
   pickTypes.forEach((type, i) => {
     const tz = 12 + Math.floor((i / pickTypes.length) * (GRID - 24)) + rng.int(-4, 4);
@@ -301,6 +370,25 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
     const tz = Math.round(half + Math.sin(a) * (half - 6));
     clearArea(grid, tx, tz, 1);
     zombieSpawns.push(tileToWorld(tx, tz));
+  }
+
+  // ---- the SURFACE layer (§8.6): each theme deals its own ground ----
+  const surface = new Uint8Array(GRID * GRID);
+  const baseSurf = gen === 'field' ? (theme === 'titan' ? S_GRIT : S_GRASS)
+    : gen === 'corridors' ? S_PLATE
+    : gen === 'rocks' ? S_DIRT
+    : gen === 'ocean' ? S_WET
+    : S_ICE; // triton
+  surface.fill(baseSurf);
+  // water margins turn to mud (wheels hate it; hover gets its moment)
+  if (gen !== 'ice') {
+    for (let z = 1; z < GRID - 1; z++) for (let x = 1; x < GRID - 1; x++) {
+      if (grid[z * GRID + x] === T_WATER) continue;
+      if (grid[z * GRID + x + 1] === T_WATER || grid[z * GRID + x - 1] === T_WATER ||
+          grid[(z + 1) * GRID + x] === T_WATER || grid[(z - 1) * GRID + x] === T_WATER) {
+        surface[z * GRID + x] = S_MUD;
+      }
+    }
   }
 
   // Decorative trees on open tiles — Terra only; nothing grows off-world
@@ -345,7 +433,7 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
     }
   }
 
-  return { seed, theme, grid, basePos, spawns, flagPos, hillPos, controlPoints, vehiclePads, pickups, props, zombieSpawns, houses: [], gates, pads, propCovered: settleClaims(grid, claims) };
+  return { seed, theme, grid, surface, basePos, spawns, flagPos, hillPos, controlPoints, vehiclePads, pickups, props, zombieSpawns, houses, gates, pads, propCovered: settleClaims(grid, claims) };
 }
 
 /**
@@ -409,8 +497,16 @@ function generateNeighborhood(seed: number): GameMap {
           if (z !== hz + Math.floor(hh / 2)) setTile(grid, divX, z, T_WALL);
         }
       }
+      // window slits on the long walls (every third tile, skipping the door)
+      for (let x = hx + 1; x < hx + hw - 1; x += 3) {
+        if (grid[hz * GRID + x] === T_WALL) setTile(grid, x, hz, T_SLIT);
+        if (x !== doorX && x !== doorX + 1 && grid[(hz + hh - 1) * GRID + x] === T_WALL) setTile(grid, x, hz + hh - 1, T_SLIT);
+      }
+      // the indoors has stuff: a crate of cover inside every house
+      claimTile(grid, claims, hx + 1, hz + 1, T_COVER);
+      props.push({ type: 'crate', pos: tileToWorld(hx + 1, hz + 1), scale: 1, rot: rng.range(0, Math.PI) });
       const center = tileToWorld(hx + Math.floor(hw / 2) - 1, hz + Math.floor(hh / 2));
-      houses.push({ id: houseId++, center, door });
+      houses.push({ id: houseId++, center, door, tx: hx, tz: hz, tw: hw, th: hh });
 
       // yard dressing: fence stubs + crates + a tree
       if (rng.next() < 0.6) {
@@ -476,8 +572,10 @@ function generateNeighborhood(seed: number): GameMap {
     vehiclePads.push({ kind: 'emplacement', team: 0, pos: tileToWorld(cpTx + side * 10, cpTz - 6) });
   }
 
+  const surface = new Uint8Array(GRID * GRID);
+  surface.fill(S_GRASS);
   return {
-    seed, theme: 'savanna', grid, basePos, spawns,
+    seed, theme: 'savanna', grid, surface, basePos, spawns,
     flagPos: [basePos[0], basePos[1]],
     hillPos,
     controlPoints: [

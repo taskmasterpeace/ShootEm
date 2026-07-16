@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
-import { GRID, T_COVER, T_OPEN, T_WALL, T_WATER, TILE, WORLD } from '../sim/map';
+import { GRID, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt } from '../sim/map';
 import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
 import { HAND_FRAG_REACH, type World } from '../sim/world';
 import { audio, type SoundName } from './audio';
@@ -140,6 +140,8 @@ export class Renderer {
    *  together and a red ring marks the killer. */
   killcamFocusId = -1;
   private killerRing: THREE.Mesh | null = null;             // pulsing marker over the killer
+  /** cutaway roofs (§8.4): fade when the viewed soldier stands beneath one */
+  private roofs: { mesh: THREE.Mesh; house: { tx: number; tz: number; tw: number; th: number } }[] = [];
   /** the camera height actually used last frame (killcam duels exceed camDist)
    *  — overhead UI scales against it so names/meters hold constant SCREEN size */
   private viewDist = 30;
@@ -239,6 +241,17 @@ export class Renderer {
         const r = n - Math.floor(n);
         ctx.fillStyle = t === T_WATER ? pal.water(r) : pal.open(r);
         ctx.fillRect(x * px, z * px, px + 1, px + 1);
+        // §8.6 surface tints: the ground SHOWS what it does to your boots
+        if (t !== T_WATER) {
+          const sf = world.map.surface[z * GRID + x];
+          const tint = sf === S_MUD ? 'rgba(62,44,26,0.55)'
+            : sf === S_ICE ? 'rgba(190,220,235,0.28)'
+            : sf === S_PLATE ? 'rgba(120,130,145,0.22)'
+            : sf === S_GRIT ? 'rgba(150,120,70,0.18)'
+            : sf === S_WET ? 'rgba(60,110,120,0.16)'
+            : null;
+          if (tint) { ctx.fillStyle = tint; ctx.fillRect(x * px, z * px, px + 1, px + 1); }
+        }
       }
     }
     // base tint
@@ -273,6 +286,7 @@ export class Renderer {
     const covered = new Set(world.map.propCovered);
     const wallTiles: [number, number][] = [];
     const coverTiles: [number, number][] = [];
+    const slitTiles: [number, number][] = [];
     let unknownWarned = false;
     for (let z = 0; z < GRID; z++) {
       for (let x = 0; x < GRID; x++) {
@@ -281,6 +295,8 @@ export class Renderer {
         if (t === T_OPEN || t === T_WATER || covered.has(idx)) continue;
         if (t === T_COVER) {
           coverTiles.push([x, z]);
+        } else if (t === T_SLIT) {
+          slitTiles.push([x, z]);
         } else {
           // T_WALL — and any unknown blocking type, visible by construction
           if (t !== T_WALL && !unknownWarned) {
@@ -314,6 +330,40 @@ export class Renderer {
     });
     this.scene.add(coverInst);
     this.coverInst = coverInst;
+
+    // §8.4 firing slits: two stacked boxes with a gap at 1.2–1.8 — the
+    // geometry tells the truth, no textures needed. Defenders shoot out.
+    if (slitTiles.length) {
+      const lowInst = new THREE.InstancedMesh(new THREE.BoxGeometry(TILE, 1.2, TILE), wallMat, slitTiles.length);
+      const highInst = new THREE.InstancedMesh(new THREE.BoxGeometry(TILE, 2.2, TILE), wallMat, slitTiles.length);
+      lowInst.castShadow = highInst.castShadow = true;
+      slitTiles.forEach(([x, z], i) => {
+        m4.setPosition((x + 0.5) * TILE - WORLD / 2, 0.6, (z + 0.5) * TILE - WORLD / 2);
+        lowInst.setMatrixAt(i, m4);
+        m4.setPosition((x + 0.5) * TILE - WORLD / 2, 2.9, (z + 0.5) * TILE - WORLD / 2);
+        highInst.setMatrixAt(i, m4);
+      });
+      this.scene.add(lowInst, highInst);
+    }
+
+    // §8.4 cutaway roofs, phase 1: every house gets a lid. Opaque from
+    // outside — the enemy inside is CONCEALED until you breach; fades to
+    // cutaway when you (or the killcam's subject) are under it. Fading
+    // transparents need depthWrite OFF and a late renderOrder or the walls
+    // beneath sort wrong (the classic three.js trap).
+    for (const r of this.roofs) { this.scene.remove(r.mesh); r.mesh.geometry.dispose(); (r.mesh.material as THREE.Material).dispose(); }
+    this.roofs = [];
+    for (const h of world.map.houses) {
+      const w = h.tw * TILE, d = h.th * TILE;
+      const mat = new THREE.MeshStandardMaterial({ color: pal.wall, roughness: 0.85, transparent: true, opacity: 0.97 });
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, 0.3, d), mat);
+      mesh.position.set((h.tx + h.tw / 2) * TILE - WORLD / 2, 4.15, (h.tz + h.th / 2) * TILE - WORLD / 2);
+      mesh.castShadow = true;
+      mesh.renderOrder = 3;
+      this.scene.add(mesh);
+      this.roofs.push({ mesh, house: h });
+    }
+
     // walls the sim already dug (mid-match join) come down immediately
     for (const idx of world.dug) this.collapseTile(idx);
 
@@ -453,6 +503,19 @@ export class Renderer {
         if (other.ambience !== amb.ambience && audio.looping(other.ambience)) audio.stopLoop(other.ambience);
       }
       audio.loop(amb.ambience, amb.ambVol);
+    }
+
+    // §8.4 cutaway: the roof over YOUR head (or the killcam subject's) opens
+    if (this.roofs.length) {
+      const focus = world.soldiers.get(localId);
+      const inHouse = focus ? houseAt(world.map.houses, focus.pos.x, focus.pos.z) : -1;
+      for (let i = 0; i < this.roofs.length; i++) {
+        const r = this.roofs[i];
+        const m = r.mesh.material as THREE.MeshStandardMaterial;
+        const target = i === inHouse ? 0.12 : 0.97;
+        m.opacity += (target - m.opacity) * Math.min(1, dt * 8);
+        m.depthWrite = m.opacity > 0.9; // fading lids must not write depth
+      }
     }
 
     // zoom-adaptive overhead: names/meters are INSTRUMENTS, not props — they

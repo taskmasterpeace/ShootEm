@@ -279,7 +279,21 @@ function applyScarMods(world: World, frontId: string | null) {
       if (g[tz * GRID_N + tx] === 0) g[tz * GRID_N + tx] = 2; // T_OPEN -> T_COVER
     }
   }
-  // 'frozen' / 'flooded' / 'blocked' arrive with the surface layer (§8.6)
+  else if (def.scar === 'frozen') {
+    // the front froze slick: every surface reads ICE (§8.6 movement rules)
+    world.map.surface.fill(2 /* S_ICE */);
+  } else if (def.scar === 'flooded') {
+    // low ground under water: the mud ring around water swells to 3 tiles
+    const g = world.map.grid, sf = world.map.surface, N = 100;
+    for (let z = 3; z < N - 3; z++) for (let x = 3; x < N - 3; x++) {
+      if (g[z * N + x] !== 3 /* T_WATER */) continue;
+      for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
+        const i = (z + dz) * N + (x + dx);
+        if (g[i] === 0 /* T_OPEN */) sf[i] = 6 /* S_MUD */;
+      }
+    }
+  }
+  // 'blocked' (route denial) waits for the arena/authored-front pass
 }
 
 function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, endGame: () => void) {

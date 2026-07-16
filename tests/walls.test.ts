@@ -12,7 +12,7 @@
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
 import { THEMES } from '../src/sim/data';
-import { GRID, T_COVER, T_OPEN, T_WALL, T_WATER, TILE, WORLD, generateMap } from '../src/sim/map';
+import { GRID, T_COVER, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, generateMap } from '../src/sim/map';
 import type { ThemeId } from '../src/sim/types';
 
 const SEEDS = [1, 7, 42, 1234, 987654];
@@ -60,7 +60,7 @@ describe('invisible walls: the render-coverage invariant', () => {
   });
 
   it('the grid speaks only known tile types — new types must enroll here AND in the renderer', () => {
-    const known = new Set([T_OPEN, T_WALL, T_COVER, T_WATER]);
+    const known = new Set([T_OPEN, T_WALL, T_COVER, T_WATER, T_SLIT]); // slits render as two stacked boxes
     for (const m of allMaps()) {
       for (let i = 0; i < m.grid.length; i++) {
         if (!known.has(m.grid[i])) {

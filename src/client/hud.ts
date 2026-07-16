@@ -1,5 +1,5 @@
 import { CLASSES, EQUIPMENT, MODE_INFO, TEAM_NAMES, VEHICLES, WEAPONS } from '../sim/data';
-import { GRID, T_WALL, WORLD, losClear } from '../sim/map';
+import { GRID, T_WALL, WORLD, losClear, houseAt } from '../sim/map';
 import type { SimEvent, Soldier, Team } from '../sim/types';
 import type { World } from '../sim/world';
 
@@ -396,7 +396,14 @@ export class Hud {
         continue; // even friendlies vanish in smoke
       }
       if (s.team === local.team) dot(s.pos.x, s.pos.z, s.team === 0 ? '#e8a33d' : '#3dbde8');
-      else tri(s.pos.x, s.pos.z, s.team === 0 ? '#e8a33d' : '#3dbde8'); // hostile = triangle
+      else {
+        // concealment rule (§8.4/MAP-STRATEGY): an enemy under a roof is OFF
+        // your map unless pinged — or you're inside the same building
+        const eh = houseAt(world.map.houses, s.pos.x, s.pos.z);
+        if (eh >= 0 && !world.pinged.has(s.id) &&
+            eh !== houseAt(world.map.houses, local.pos.x, local.pos.z)) continue;
+        tri(s.pos.x, s.pos.z, s.team === 0 ? '#e8a33d' : '#3dbde8'); // hostile = triangle
+      }
     }
 
     // vehicles: friendlies always; enemies when seen, or when their ECM is slagged
