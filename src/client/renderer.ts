@@ -1145,8 +1145,15 @@ export class Renderer {
     // vehicles
     for (const v of world.vehicles.values()) {
       let mesh = this.vehicleMeshes.get(v.id);
+      // hotwired hulls fly the thief's colors — rebuild the model when the team flips
+      if (mesh && mesh.userData.team !== v.team) {
+        this.scene.remove(mesh);
+        this.vehicleMeshes.delete(v.id);
+        mesh = undefined;
+      }
       if (!mesh) {
         mesh = buildVehicle(v.kind, v.team);
+        mesh.userData.team = v.team;
         this.scene.add(mesh);
         this.vehicleMeshes.set(v.id, mesh);
       }

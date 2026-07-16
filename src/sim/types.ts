@@ -273,6 +273,17 @@ export interface Vehicle {
   flares: number;
   /** flyer: sim time the rotors finish spooling — airborne (and mobile) after this */
   spoolUntil: number;
+  // ---- requisition (§8.1a) — the manifest that makes hulls feel OWNED ----
+  /** soldier id whose name is on the manifest (-1 = still the pad's hull) */
+  requisitionedBy: number;
+  /** index of the home pad in map.vehiclePads (-1 = spawned padless) */
+  padId: number;
+  /** the pad's owning team — a stolen hull is reissued under this flag */
+  padTeam: Team;
+  /** sim time the last crew member stepped out; 0 = never abandoned */
+  abandonedAt: number;
+  /** seconds an enemy thief has held E beside the hull (snaps to 0 if they quit) */
+  hotwireProgress: number;
 }
 
 export interface Turret {

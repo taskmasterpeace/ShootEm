@@ -16,6 +16,12 @@ import { THEME_WEATHER, airGrounded, moveMult, visionMult, weatherAnnounce, type
 
 const RESPAWN_DELAY = 4;
 const VEHICLE_RESPAWN = 22;
+// §8.1a requisition law — you signed the hull out; the manifest doesn't care that you died
+const HOTWIRE_ABANDON = 90;  // an enemy hull must sit crewless this long before it can be stolen
+const HOTWIRE_TIME = 6;      // seconds of E held beside the hull (engineers know the wiring: half)
+const RECOVER_RADIUS = 6;    // park a crewless hull this close to home and the pool re-registers it
+const WRITEOFF_TIME = 180;   // three full minutes abandoned...
+const WRITEOFF_RANGE = 25;   // ...AND this far from its pad = command strikes it from the books
 const ENERGY_REGEN = 14;
 const CLOAK_DRAIN = 11;
 const JET_DRAIN = 30;
@@ -108,10 +114,10 @@ export class World {
     this.mode = initMode(opts.mode, this.map, opts.matchMinutes);
     // vehicles on pads. Co-op zombie modes field only squad support —
     // the ambulance and the emplacement guns — no armor column.
-    for (const pad of this.map.vehiclePads) {
-      if (isCoopMode(opts.mode) && pad.kind !== 'ambulance' && pad.kind !== 'emplacement') continue;
-      this.spawnVehicle(pad.kind, pad.team, pad.pos);
-    }
+    this.map.vehiclePads.forEach((pad, padId) => {
+      if (isCoopMode(opts.mode) && pad.kind !== 'ambulance' && pad.kind !== 'emplacement') return;
+      this.spawnVehicle(pad.kind, pad.team, pad.pos, padId);
+    });
     if (opts.mode === 'safehouse' && this.map.houses.length) {
       const house = this.map.houses[this.rng.int(0, this.map.houses.length - 1)];
       const sci = this.addScientist(house.center);
@@ -333,7 +339,7 @@ export class World {
     return out;
   }
 
-  spawnVehicle(kind: VehicleKind, team: Team, padPos: Vec3): Vehicle {
+  spawnVehicle(kind: VehicleKind, team: Team, padPos: Vec3, padId = -1): Vehicle {
     const def = VEHICLES[kind];
     const v: Vehicle = {
       id: this.id(), kind, team,
@@ -345,6 +351,7 @@ export class World {
       stunnedUntil: 0,
       systems: this.freshSystems(kind), nextDigAt: 0, nextHealAt: 0, spoolUntil: 0,
       flares: FLARES_PER_LIFE,
+      requisitionedBy: -1, padId, padTeam: team, abandonedAt: 0, hotwireProgress: 0,
     };
     this.vehicles.set(v.id, v);
     return v;
@@ -1477,6 +1484,11 @@ export class World {
         const seat = v.seats.indexOf(-1);
         if (seat >= 0) {
           v.seats[seat] = s.id;
+          // first hand on the wheel signs the manifest; any crewing resets the
+          // abandonment clocks — a hull with a live crew is nobody's salvage
+          if (v.requisitionedBy < 0) v.requisitionedBy = s.id;
+          v.abandonedAt = 0;
+          v.hotwireProgress = 0;
           s.vehicleId = v.id;
           s.seat = seat;
           s.enteredVehicleAt = this.time;
@@ -1497,6 +1509,8 @@ export class World {
 
   exitVehicle(s: Soldier, v: Vehicle) {
     v.seats[s.seat] = -1;
+    // last one out starts the abandonment clock — hotwire and write-off run on it
+    if (!v.seats.some((id) => id >= 0)) v.abandonedAt = this.time;
     s.vehicleId = -1;
     s.seat = -1;
     const side = v.yaw + Math.PI / 2;
@@ -1516,6 +1530,67 @@ export class World {
     return sid >= 0 ? this.soldiers.get(sid) : undefined;
   }
 
+  /**
+   * §8.1a requisition law, run each tick on every live, crewless hull:
+   * RECOVERY — parked back at its home pad, the pool re-registers it (manifest cleared).
+   * WRITE-OFF — 3 minutes abandoned AND far from home, command strikes it from the
+   * books and frees the pad to issue a fresh hull after the normal delay.
+   * HOTWIRE — an enemy soldier standing still beside a 90s-abandoned hull with E held
+   * steals it: team flips, hull damage rides along, everyone hears about it.
+   */
+  private stepRequisition(v: Vehicle, cmds: Map<number, PlayerCmd>, dt: number) {
+    if (v.seats.some((id) => id >= 0)) return; // a crewed hull is nobody's salvage
+    const def = VEHICLES[v.kind];
+    const homeDist = Math.hypot(v.pos.x - v.padPos.x, v.pos.z - v.padPos.z);
+
+    // RECOVERED: a friendly hull sitting home with no crew goes back on the books
+    if (v.requisitionedBy >= 0 && v.team === v.padTeam && homeDist < RECOVER_RADIUS) {
+      v.requisitionedBy = -1;
+      v.abandonedAt = 0;
+      v.hotwireProgress = 0;
+      return;
+    }
+
+    const abandonedFor = v.abandonedAt > 0 ? this.time - v.abandonedAt : 0;
+
+    // THE WRITE-OFF: nobody gets to drown the team's only tank and lock the pool
+    if (abandonedFor >= WRITEOFF_TIME && homeDist > WRITEOFF_RANGE) {
+      v.alive = false;
+      v.hp = 0;
+      v.respawnAt = this.time + VEHICLE_RESPAWN;
+      this.emit({ type: 'announce', pos: { ...v.pos }, text: `Command wrote off the ${def.name}` });
+      return;
+    }
+
+    // HOTWIRE: a loud six-second job — three if you know the wiring. Bots don't (v1).
+    if (abandonedFor < HOTWIRE_ABANDON) return;
+    let thief: Soldier | undefined;
+    for (const s of this.soldiers.values()) {
+      if (!s.alive || s.team === v.team || s.kind !== 'human' || s.vehicleId >= 0) continue;
+      const c = cmds.get(s.id);
+      if (!c?.use || c.moveX !== 0 || c.moveZ !== 0) continue; // stand still, hold E
+      if (Math.hypot(s.pos.x - v.pos.x, s.pos.z - v.pos.z) > def.radius + 2.5) continue;
+      if (!thief || (s.classId === 'engineer' && thief.classId !== 'engineer')) thief = s;
+    }
+    if (!thief) {
+      v.hotwireProgress = 0; // walked away mid-job — the wiring snaps back
+      return;
+    }
+    v.hotwireProgress += dt;
+    const need = thief.classId === 'engineer' ? HOTWIRE_TIME / 2 : HOTWIRE_TIME;
+    if (v.hotwireProgress >= need) {
+      v.team = thief.team;          // the hull flies the thief's colors — damage and all
+      v.requisitionedBy = thief.id; // their name on the stolen manifest
+      v.abandonedAt = 0;
+      v.hotwireProgress = 0;
+      thief.score += 25;
+      this.emit({
+        type: 'announce', pos: { ...v.pos }, soldierId: thief.id,
+        text: `${thief.name} hotwired a ${def.name}!`,
+      });
+    }
+  }
+
   stepVehicle(v: Vehicle, cmds: Map<number, PlayerCmd>, dt: number) {
     if (!v.alive) {
       if (this.time >= v.respawnAt && !this.mode.over) {
@@ -1524,6 +1599,9 @@ export class World {
         if (isCoopMode(this.opts.mode) && !support) return;
         const def = VEHICLES[v.kind];
         v.alive = true; v.hp = def.hp; v.maxHp = def.hp;
+        // fresh issue: a clean manifest, and stolen hulls come home under the pad's flag
+        v.team = v.padTeam;
+        v.requisitionedBy = -1; v.abandonedAt = 0; v.hotwireProgress = 0;
         v.pos = { ...v.padPos }; v.vel = { x: 0, y: 0, z: 0 };
         v.yaw = v.team === 0 ? 0 : Math.PI;
         v.seats.fill(-1);
@@ -1533,6 +1611,8 @@ export class World {
       }
       return;
     }
+    this.stepRequisition(v, cmds, dt);
+    if (!v.alive) return; // the write-off can strike a hull mid-step
     const def = VEHICLES[v.kind];
     const driverId = v.seats[0];
     const driver = driverId >= 0 ? this.soldiers.get(driverId) : undefined;
