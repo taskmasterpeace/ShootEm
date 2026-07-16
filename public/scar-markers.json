@@ -1,0 +1,66 @@
+{
+  "map": "the-scar",
+  "version": 1,
+  "fronts": {
+    "bridge_delta": {
+      "n": 1,
+      "name": "Bridge Delta",
+      "x": 0.2553,
+      "y": 0.1799
+    },
+    "fort_raven": {
+      "n": 2,
+      "name": "Fort Raven",
+      "x": 0.4399,
+      "y": 0.1162
+    },
+    "eastern_plains": {
+      "n": 3,
+      "name": "Eastern Plains",
+      "x": 0.53,
+      "y": 0.325
+    },
+    "the_city": {
+      "n": 4,
+      "name": "The City",
+      "x": 0.4521,
+      "y": 0.449
+    },
+    "highland_pass": {
+      "n": 5,
+      "name": "Highland Pass",
+      "x": 0.2296,
+      "y": 0.4847
+    },
+    "blacksite": {
+      "n": 6,
+      "name": "Blacksite (Arctic)",
+      "x": 0.7666,
+      "y": 0.1529
+    },
+    "refinery": {
+      "n": 7,
+      "name": "Refinery",
+      "x": 0.7723,
+      "y": 0.4037
+    },
+    "the_port": {
+      "n": 8,
+      "name": "The Port",
+      "x": 0.73,
+      "y": 0.6
+    },
+    "airbase": {
+      "n": 9,
+      "name": "Airbase",
+      "x": 0.47,
+      "y": 0.67
+    },
+    "the_mine": {
+      "n": 10,
+      "name": "The Mine",
+      "x": 0.2611,
+      "y": 0.7172
+    }
+  }
+}
