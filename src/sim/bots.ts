@@ -237,6 +237,16 @@ function objectiveFor(w: World, s: Soldier): Vec3 {
       const r = 5 + (s.id % 3) * 2.5;
       return { x: sci.pos.x + Math.cos(a) * r, y: 0, z: sci.pos.z + Math.sin(a) * r };
     }
+    case 'paintball': {
+      // §14: the prey runs the tag circuit; the pack converges on the prey
+      const hunted = m.huntedTeam ?? 1;
+      if (s.team === hunted) {
+        const open = m.points?.find((p) => p.owner !== hunted);
+        return open ? open.pos : w.map.basePos[s.team];
+      }
+      const prey = [...w.soldiers.values()].find((e) => e.alive && e.team === hunted && (e.kind === 'human' || e.kind === 'bot'));
+      return prey ? { ...prey.pos } : w.map.hillPos;
+    }
     default: // tdm — hunt toward enemy side / last seen action
       return { x: enemyBase.x * 0.4 + w.map.hillPos.x * 0.6, y: 0, z: enemyBase.z * 0.4 };
   }

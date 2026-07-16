@@ -122,6 +122,32 @@ html, body {
 #weather-chip { color: var(--muted); font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase; }
 #weather-chip.rough { color: #e8b23a; }
 
+/* §14 onboarding — the paintball yard's own door. Amber and paint, no purple. */
+#onboarding { position: fixed; inset: 0; z-index: 60; background: radial-gradient(ellipse at 50% 20%, #1b2026 0%, #101317 70%); overflow-y: auto; }
+#onboarding.hidden { display: none; }
+.ob-wrap { max-width: 46rem; margin: 4vh auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.ob-wrap h1 { font-size: 1.6rem; letter-spacing: -0.02em; color: #e8a33d; margin: 0; }
+.ob-wrap h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0.5rem 0 0; }
+.ob-sub { color: #cfd6de; font-size: 0.95rem; margin: 0; line-height: 1.45; }
+.ob-row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+.ob-card { flex: 1 1 12rem; background: #171c22; border: 1px solid #2b333d; border-radius: 0.625rem; padding: 0.8rem; color: inherit; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 0.3rem; transition: border-color 0.2s, transform 0.2s; }
+.ob-card:hover { border-color: #e8a33d88; transform: translateY(-2px); }
+.ob-card.selected { border-color: #e8a33d; box-shadow: 0 0 0 1px #e8a33d55; }
+.ob-card b { font-size: 0.95rem; }
+.ob-card span { font-size: 0.8rem; color: var(--muted); }
+.ob-card canvas { width: 100%; border-radius: 0.4rem; image-rendering: pixelated; border: 1px solid #2b333d; }
+.ob-icon { font-size: 1.6rem; }
+.ob-go { margin-top: 0.75rem; padding: 0.85rem; font-size: 1.05rem; font-weight: 700; letter-spacing: 0.06em; background: #e8a33d; color: #14171b; border: none; border-radius: 0.625rem; cursor: pointer; transition: filter 0.2s; }
+.ob-go:hover { filter: brightness(1.12); }
+.ob-alt { background: none; border: 1px solid #2b333d; color: var(--muted); padding: 0.55rem; border-radius: 0.625rem; cursor: pointer; }
+.ob-alt:hover { border-color: #e8a33d66; color: #cfd6de; }
+.ob-skip { background: none; border: none; color: #6b7683; font-size: 0.75rem; cursor: pointer; margin-top: 1rem; text-decoration: underline; }
+.ob-profile { background: #171c22; border: 1px solid #2b333d; border-radius: 0.625rem; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.ob-style { font-size: 1.4rem; font-weight: 700; color: #3dbde8; letter-spacing: 0.04em; }
+.ob-class { font-size: 0.95rem; }
+.ob-gear { font-size: 0.85rem; color: #cfd6de; }
+.ob-gear span { color: var(--muted); font-size: 0.8rem; }
+
 .obj-chip {
   background: oklch(0.18 0.02 80 / 0.75); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 0.3rem 0.7rem; font-weight: 600;

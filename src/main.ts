@@ -3,6 +3,7 @@ import { CLASS_ARMORY, familyWeapons } from './sim/arsenal';
 import { isCoopMode, type ClassId, type ModeId, type PlayerCmd, type ThemeId, type WeaponFamily } from './sim/types';
 import { World, type Difficulty, type Loadout } from './sim/world';
 import { WEATHER_MODS } from './sim/weather';
+import { mountOnboarding, onMatchEnd, paintballConfig } from './client/onboarding';
 import { audio } from './client/audio';
 import { Chat } from './client/chat';
 import { StaticOverlay } from './client/effects';
@@ -33,6 +34,8 @@ let selectedMode: ModeId = 'ctf';
 let selectedClass: ClassId = 'infantry';
 let selectedTheme: ThemeId = 'savanna';
 let selectedEquipment: string[] = [];
+/** §14 onboarding: a named paintball field pins the map seed for the match */
+let seedOverride: number | undefined;
 let difficulty: Difficulty = 'veteran';
 let botsPerTeam = 12; // 32B: 12v12 target — bots fill every open position
 let matchMinutes = 15;
@@ -298,12 +301,16 @@ function applyScarMods(world: World, frontId: string | null) {
 }
 
 function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, endGame: () => void) {
-  const seed = (Math.random() * 0xffffffff) >>> 0;
+  const seed = seedOverride ?? (Math.random() * 0xffffffff) >>> 0;
+  seedOverride = undefined;
   const world = new World({ seed, mode: selectedMode, difficulty, botsPerTeam, matchMinutes, theme: selectedTheme });
   const me = world.addSoldier(name, selectedClass, 0, 'human', currentLoadout());
   applyScarMods(world, activeFrontId); // §8.5: the front's wound shapes the field
   // the Record (§3.4): fold this match into the dossier as it happens
-  const tracker = dossier ? new MatchTracker(dossier, name, selectedClass, selectedMode, seed) : null;
+  // the yard stays out of the Record (§14 Q3: one legacy beat per phase —
+  // the dossier starts writing at the first WAR drop, not in the paint)
+  const tracker = dossier && selectedMode !== 'paintball'
+    ? new MatchTracker(dossier, name, selectedClass, selectedMode, seed) : null;
   // the Proving Grounds (§3.3): stage the course; 18B decided practice vs official
   const course = selectedMode === 'range'
     ? new RangeCourse(rangeOfficial, name, dossier, (t, big) => hud.announce(t, !!big, 0))
@@ -332,6 +339,28 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     for (let i = 0; i < Math.min(botsPerTeam, 5); i++) {
       const cls = classPool[i % classPool.length];
       world.addSoldier(wrap(n++), cls, 0, 'bot', botLoadout(cls));
+    }
+  } else if (selectedMode === 'paintball') {
+    // §14 Hunters vs Hunted: the roster IS the asymmetry. Round 1 you hunt
+    // with a pack of two; round 2 you're alone and three markers want you.
+    const pb = paintballConfig();
+    const packSize = 3;
+    if (pb.role === 'hunter') {
+      for (let i = 0; i < packSize - 1; i++) world.addSoldier(wrap(n++), 'infantry', 0, 'bot', { primary: 'marker_blitz' });
+      world.addSoldier(wrap(n++), 'infantry', 1, 'bot', { primary: 'marker_pump' });
+    } else {
+      for (let i = 0; i < packSize; i++) world.addSoldier(wrap(n++), 'infantry', 1, 'bot', { primary: 'marker_blitz' });
+    }
+    // everyone plays paintball RULES: marker only, no sidearm, no frags —
+    // paint is the whole vocabulary of the yard
+    for (const s of world.soldiers.values()) {
+      const marker = s.id === me.id ? pb.marker : s.weapons[0];
+      s.weapons = [marker];
+      s.clip = [WEAPONS[marker].clip];
+      s.reserve = [WEAPONS[marker].reserve];
+      s.weaponIdx = 0;
+      s.grenades = 0;
+      s.equipment = [];
     }
   } else {
     for (let i = 0; i < Math.max(0, botsPerTeam - 1); i++) {
@@ -452,7 +481,11 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
 
     // linger after the whistle: trophies + looping highlights deserve a look
     if (world.mode.over) {
-      if (!overAt) overAt = now;
+      if (!overAt) {
+        overAt = now;
+        // §14: the onboarding machine reads every finished match exactly once
+        onMatchEnd(world, me.id, selectedMode);
+      }
       else if (now - overAt > MATCH_LINGER_LOCAL_MS) { endGame(); return; }
     }
     requestAnimationFrame(frame);
@@ -642,4 +675,19 @@ audio.setMasterVolume(settings.masterVolume);
 $('deploy-btn').addEventListener('click', () => { activeFrontId = null; startGame(); });
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !running && !$('menu').classList.contains('hidden')) startGame();
+});
+
+// §14 THE FIRST HOUR: new recruits skip the menu entirely — boot camp is a
+// paintball match. The overlay drives marker/field pick → skirmishes →
+// profile → first war drop → the path split; veterans never see it again.
+mountOnboarding({
+  launch(cfg) {
+    selectedMode = cfg.mode;
+    selectedTheme = cfg.theme;
+    seedOverride = cfg.seed;
+    if (cfg.classId) selectedClass = cfg.classId;
+    if (cfg.equipment) selectedEquipment = cfg.equipment.filter((id) => EQUIPMENT[id]);
+    activeFrontId = null;
+    startGame();
+  },
 });

@@ -14,6 +14,15 @@ export function initMode(id: ModeId, map: GameMap, minutes?: number): ModeState 
       // the Proving Grounds never end — you leave when you're done
       m.timeLeft = Infinity;
       break;
+    case 'paintball':
+      // §14 decision: rounds are TWO MINUTES — three rounds fit inside seven,
+      // and a new player sees the war before the war bores them
+      m.timeLeft = 120;
+      m.target = 3; // the prey wins by tagging all three points…
+      m.points = map.controlPoints.map((cp, i) => ({
+        id: i, name: cp.name, pos: { ...cp.pos }, owner: -1, progress: 0, radius: 3.5,
+      }));
+      break;
     case 'tdm':
       m.target = 50;
       break;
@@ -77,6 +86,10 @@ export function stepMode(w: World, dt: number) {
         // surviving to the end of the countdown IS the victory
         endMatch(w, 0);
         w.emit({ type: 'announce', text: 'EVAC ARRIVED — DR. VOSS IS SAFE', big: true });
+      } else if (m.id === 'paintball') {
+        // the prey outlived the pack's clock — that IS the win
+        endMatch(w, m.huntedTeam ?? 1);
+        w.emit({ type: 'announce', text: 'TIME — THE PREY SURVIVED', big: true });
       } else {
         endMatch(w, m.scores[0] === m.scores[1] ? -1 : m.scores[0] > m.scores[1] ? 0 : 1);
       }
@@ -91,8 +104,59 @@ export function stepMode(w: World, dt: number) {
     case 'survival': stepSurvival(w, dt); break;
     case 'horde': stepHorde(w, dt); break;
     case 'safehouse': stepSafehouse(w, dt); break;
+    case 'paintball': stepPaintball(w, dt); break;
     case 'range': break; // no clock, no whistle — just the work
   }
+}
+
+// ---------- paintball: hunters vs hunted (§3.3/§14) ----------
+
+/**
+ * The onboarding yard's whole ruleset: one outnumbered prey, one pack.
+ * Splatted players SIT — no respawn inside a round. The prey wins by tagging
+ * all three points or by outliving the clock; the pack wins by painting the
+ * prey out. Which side is "hunted" is read off the roster: the smaller team.
+ */
+function stepPaintball(w: World, dt: number) {
+  const m = w.mode;
+  // the smaller side is the prey — decided once, from the starting roster
+  if (m.huntedTeam === undefined) {
+    const count: [number, number] = [0, 0];
+    for (const s of w.humansAndBots()) count[s.team]++;
+    m.huntedTeam = count[0] <= count[1] ? 0 : 1;
+  }
+  const hunted = m.huntedTeam;
+
+  // paint is final (per round): the splatted watch from the dead-box
+  for (const s of w.humansAndBots()) {
+    if (!s.alive) s.respawnAt = Infinity;
+  }
+
+  // tag points: a live prey standing on an untagged pad claims it in 2s
+  let tags = 0;
+  for (const p of m.points!) {
+    if (p.owner === hunted) { tags++; continue; }
+    const onPad = [...w.soldiers.values()].some((s) =>
+      s.alive && s.team === hunted && Math.hypot(s.pos.x - p.pos.x, s.pos.z - p.pos.z) < p.radius);
+    if (onPad) {
+      p.progress += dt;
+      if (p.progress >= 2) {
+        p.owner = hunted;
+        tags++;
+        w.emit({ type: 'announce', text: `Point ${p.name} TAGGED — ${tags}/3`, big: false });
+      }
+    } else {
+      p.progress = 0; // stepping off resets the spray-down
+    }
+  }
+  m.scores = hunted === 0 ? [tags, 0] : [0, tags];
+
+  const liveHunted = [...w.soldiers.values()].some((s) => s.alive && s.team === hunted && (s.kind === 'human' || s.kind === 'bot'));
+  const liveHunters = [...w.soldiers.values()].some((s) => s.alive && s.team !== hunted && (s.kind === 'human' || s.kind === 'bot'));
+  if (tags >= m.target) endMatch(w, hunted);            // tagged out the yard
+  else if (!liveHunted) endMatch(w, (1 - hunted) as Team); // painted out
+  else if (!liveHunters) endMatch(w, hunted);           // the prey ATE the pack
+  else if (m.timeLeft <= 0) endMatch(w, hunted);        // survived the clock
 }
 
 function endMatch(w: World, winner: Team | -1) {

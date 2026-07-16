@@ -131,7 +131,8 @@ export class World {
   /** RG-2 tag darts: soldier id → time the pin burns out (re-pings each tick) */
   tagged = new Map<number, number>();
   /** §8.8 the sky: every front rolls weather from its theme's menu. Starts
-   *  clear; the first front arrives on its own clock. Replicated. */
+   *  clear; the first front arrives on its own clock. Replicated.
+   *  (The paintball yard is exempt — nobody's first hour gets a whiteout.) */
   weather: WeatherState = { kind: 'clear', intensity: 0, until: 90 };
   /** soldier ids currently hidden inside smoke fields */
   smoked = new Set<number>();
@@ -146,6 +147,7 @@ export class World {
     this.map = generateMap(opts.seed, opts.mode, opts.theme ?? 'savanna');
     this.gravity = THEMES[this.map.theme].gravity;
     this.mode = initMode(opts.mode, this.map, opts.matchMinutes);
+    if (opts.mode === 'paintball') this.weather.until = Infinity; // the yard stays sunny
     // vehicles on pads. Co-op zombie modes field only squad support —
     // the ambulance and the emplacement guns — no armor column.
     this.map.vehiclePads.forEach((pad, padId) => {

@@ -241,8 +241,83 @@ function clearArea(grid: Uint8Array, cx: number, cz: number, r: number) {
 }
 
 /** Generates a symmetric battlefield — or a suburban neighborhood for safehouse mode. */
+/** §3.3/§14 — the named paintball fields. Each is a small sealed arena dealt
+ *  from its own seed, wearing a real theme's palette so the fields feel like
+ *  places, not test boxes. The onboarding picker renders these straight from
+ *  the grid — the map IS its own thumbnail. */
+export const PAINTBALL_FIELDS = [
+  { id: 'kopje', name: 'Kopje Court', theme: 'savanna' as ThemeId, seed: 1101, blurb: 'Rocks and long grass. The classic yard.' },
+  { id: 'deck', name: 'Deck Nine', theme: 'starship' as ThemeId, seed: 2202, blurb: 'Tight corridors on ship plate. Angles everywhere.' },
+  { id: 'grit', name: 'Grit Alley', theme: 'titan' as ThemeId, seed: 3303, blurb: 'Barricade jungle in colony dust. Climbers welcome.' },
+] as const;
+
+/** A paintball field: one small walled arena carved out of a sealed map —
+ *  Brawl-Stars scale, mirrored cover for fairness, three tag points for the
+ *  prey, corner spawns for the pack. Everything outside the fence is wall. */
+export function generatePaintballField(seed: number, theme: ThemeId = 'savanna'): GameMap {
+  const rng = new Rng(seed);
+  const grid = new Uint8Array(GRID * GRID).fill(T_WALL); // sealed world…
+  const grid2 = new Uint8Array(GRID * GRID);
+  const surface = new Uint8Array(GRID * GRID);
+  const A0 = 36, A1 = 64; // …with a 28-tile (84u) arena carved from the center
+  const baseSurf = theme === 'savanna' ? S_GRASS : theme === 'starship' ? S_PLATE
+    : theme === 'titan' ? S_GRIT : theme === 'europa' ? S_WET : theme === 'triton' ? S_ICE : S_DIRT;
+  surface.fill(baseSurf);
+  for (let tz = A0; tz <= A1; tz++)
+    for (let tx = A0; tx <= A1; tx++) grid[tz * GRID + tx] = T_OPEN;
+
+  // mirrored cover: pairs of crates, short wall stubs, and a few CLIMB
+  // barricades — enough angles to teach peeking, never a maze
+  const mid = (A0 + A1) / 2;
+  const stamps = theme === 'starship' ? 16 : 13;
+  for (let i = 0; i < stamps; i++) {
+    const tx = A0 + 2 + rng.int(0, (A1 - A0) / 2 - 3); // west half; east is the mirror
+    const tz = A0 + 2 + rng.int(0, A1 - A0 - 4);
+    const kind = rng.next() < 0.55 ? T_COVER : rng.next() < 0.5 ? T_WALL : T_CLIMB;
+    const len = kind === T_WALL ? rng.int(2, 3) : rng.int(1, 2);
+    const horiz = rng.next() < 0.5;
+    for (let k = 0; k < len; k++) {
+      const x = tx + (horiz ? k : 0), z = tz + (horiz ? 0 : k);
+      if (x <= A0 || x >= A1 || z <= A0 || z >= A1) continue;
+      grid[z * GRID + x] = kind;
+      const mx = A0 + A1 - x; // vertical-line mirror
+      grid[z * GRID + mx] = kind;
+    }
+  }
+  // the center stays honest: a clear lane through the middle for the duel
+  for (let tz = mid - 1; tz <= mid + 1; tz++) grid[tz * GRID + mid] = T_OPEN;
+
+  const P = (tx: number, tz: number): Vec3 => ({ x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 });
+  // three tag points for the prey: center + two mirrored corners
+  const controlPoints = [
+    { name: 'A', pos: P(mid, mid) },
+    { name: 'B', pos: P(A0 + 3, A1 - 3) },
+    { name: 'C', pos: P(A1 - 3, A0 + 3) },
+  ];
+  for (const cp of controlPoints) { // tag pads stand on open paint
+    const tx = Math.floor((cp.pos.x + WORLD / 2) / TILE), tz = Math.floor((cp.pos.z + WORLD / 2) / TILE);
+    grid[tz * GRID + tx] = T_OPEN;
+  }
+  // hunters rally on the west fence, the prey slips in from the east
+  const spawns: [Vec3[], Vec3[]] = [
+    [P(A0 + 1, mid - 2), P(A0 + 1, mid), P(A0 + 1, mid + 2), P(A0 + 2, mid)],
+    [P(A1 - 1, mid - 1), P(A1 - 1, mid + 1)],
+  ];
+  return {
+    seed, theme, grid, grid2, surface,
+    basePos: [P(A0 + 1, mid), P(A1 - 1, mid)],
+    spawns,
+    flagPos: [P(A0 + 2, mid), P(A1 - 2, mid)],
+    hillPos: P(mid, mid),
+    controlPoints,
+    vehiclePads: [], pickups: [], props: [], zombieSpawns: [],
+    houses: [], gates: [], pads: [], propCovered: [],
+  };
+}
+
 export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savanna'): GameMap {
   if (mode === 'safehouse') return generateNeighborhood(seed);
+  if (mode === 'paintball') return generatePaintballField(seed, theme);
   const rng = new Rng(seed);
   const grid = new Uint8Array(GRID * GRID);
   const grid2 = new Uint8Array(GRID * GRID); // the second storey — void by default

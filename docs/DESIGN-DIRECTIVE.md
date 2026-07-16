@@ -1227,44 +1227,63 @@ one-way door per tour; if 80% pick one flag, the queue decides the war.
 
 ---
 
-## 14. The first hour — onboarding & the new player
+## 14. The first hour — onboarding & the new player ✅ v1 SHIPPED
 
-§10 fixes the deploy *screen*; nothing designs *moment zero*. Today a newcomer
-lands in a 16-body TDM with 200 weapons in a dropdown and no idea who they're
-fighting or why. For a paid game this is the conversion moment — design the
-funnel.
+**Boot camp is a paintball match, not a menu.** The shipped flow (the user's
+four-phase skeleton, expanded and built):
 
-1. **Enlist, don't configure.** First launch asks one real question: **pick your
-   faction** (§1). Callsign, then straight into a scripted **Basic Training** run
-   in the Proving Grounds (§3.3): move, shoot, throw (the hold-G arc), take a
-   point — plus movement school: the vault and the climb (§8.7), reading the
-   ground (§8.6), and sound discipline (deck plate betrays, snow confesses,
-   §18/§19). Five minutes, hand-held, ending in your first dossier entry.
-   This *is* the infantry course (§3.2) doubling as the tutorial — one build,
-   two jobs — but the tutorial run is always a **PRACTICE** run: the one-shot
-   *official* attempt (18B) is offered right after, taken only when you say
-   you're ready. No newcomer locks a lifelong score by accident.
-   **Skipping bootcamp costs you a rank.** Basic Training graduates enlist as
-   **Private**; skip it and you deploy as a **Draftee** — one rank below, and
-   the dossier remembers which you were forever. No power difference, pure
-   biography (§11.3-safe): the price of skipping school is that your record
-   says you skipped school. Finish bootcamp later and you promote — but the
-   Draftee start stays in the service history.
-2. **First deployment is a soft landing.** The first real match is flagged:
-   a teaching mode (small Conquest or TDM), difficulty pinned to Recruit,
-   **spawn-protected** (§16), a squad of friendly bots that follow you (§12,
-   §15), and a one-line objective callout. No prototype, no vehicle pressure.
-3. **The war reveals itself in layers.** Don't show the whole Scar on day one.
-   After match one: "your fight moved the Eastern Front." After a few: the
-   Barracks, medals, the personal armory. Systems unlock as you meet them, so
-   the 200-weapon armory and the ten-front war arrive as *earned context*, not a
-   wall on the first screen.
+**Phase 1 — Immediate drop: the Paintball Yard.** First boot skips the menu
+entirely: pick a **marker** (Blitz / Pump / Lobber — volume, aim, or angles)
+and a **field** (three named arenas — Kopje Court, Deck Nine, Grit Alley —
+each a small sealed yard dealt from its own seed, thumbnailed straight from
+its real grid), then play **Hunters vs Hunted**: one outnumbered prey, one
+pack. The prey tags three points or survives the clock; the pack paints them
+out. **One splat and you sit** — paint is final inside a round (marker damage
+rides the §4.3 overkill rule, so nobody crawls in the yard). Round 1 you hunt
+with a pack; round 2 **you are the prey**. You learn move/aim/peek/objective
+by doing, and the yard is quietly profiling you the whole time.
 
-> **Constraint — it rides on Slice 1 + 1.6.** FTUE needs the Dossier and the
-> Proving Grounds to exist first, so it's authored at the tail of Slice 1.6 /
-> head of Slice 2 — but it's the thing that makes both *legible* to a stranger.
+**Phase 2 — The yard reads your file.** After the two skirmishes the profile
+card names your playstyle (THE MARKSMAN, THE RUNNER, THE PHANTOM…) and
+recommends a class — with **one signature piece of that class's gear** issued
+for your first real drop. You're still a Recruit; nothing is permanent.
 
-> *The tutorial is the infantry course is the first medal. One flow, three
+**Phase 3 — First war drop.** Straight into 12v12 Conquest with the
+recommended kit preloaded. The Record starts HERE, not in the paint (§14-Q3).
+
+**Phase 4 — The path split.** After three real matches: **Enlisted** or
+**Officer Candidate School** — responsibility, not power. Earned, because it
+comes after real play.
+
+**The four hard questions — DECIDED:**
+1. **Round length: two minutes.** Three rounds fit inside seven; a new player
+   sees the war before the war bores them. (Enforced in `initMode`.)
+2. **Hating the recommendation costs ONE click, zero matches.** "Not me.
+   Show me everything." drops you into the full menu with nothing pre-picked.
+   The yard suggests; it never sentences.
+3. **Legacy is ONE beat per phase.** The yard stays out of the dossier
+   entirely (no MatchTracker in paintball); the profile card is Phase 2's
+   whole ceremony; the Record's first line lands with the first WAR drop; the
+   Barracks and medals arrive as earned context afterward. Nothing else
+   surfaces in hour one.
+4. **The hierarchy works solo** because the war is mostly bots (§12): bot
+   officers already issue objective orders, following them is tracked, and
+   the OCS path leads to standing orders that outlive a login (§7.3). Squads
+   (§15) deepen it; they are not required for it.
+
+**Still true from the old plan:** skipping boot camp enlists you as a
+**DraFTEE — biography, never power** (one click on the overlay, remembered
+forever); the one-shot official Wall run (18B) is never taken by accident;
+the war reveals itself in layers.
+
+**Engine note (shipped):** mode `paintball` + three `marker_*` weapons +
+`generatePaintballField` (mirrored cover, CLIMB barricades, three tag pads,
+sealed fence) + `PAINTBALL_FIELDS` in `map.ts`; the onboarding driver rides
+localStorage + the end-of-match reload (`src/client/onboarding.ts`), and the
+recommendation heuristics are unit-tested sentences (`recommendClass`). The
+Yard stays in the mode list after graduation — §3.3's arcade is live.
+
+> *The tutorial is a paintball match is a personality test. One flow, three
 > payoffs.*
 
 ---
