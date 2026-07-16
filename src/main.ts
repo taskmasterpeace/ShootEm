@@ -29,7 +29,7 @@ let selectedClass: ClassId = 'infantry';
 let selectedTheme: ThemeId = 'savanna';
 let selectedEquipment: string[] = [];
 let difficulty: Difficulty = 'veteran';
-let botsPerTeam = 7;
+let botsPerTeam = 12; // 32B: 12v12 target — bots fill every open position
 let matchMinutes = 15;
 let running = false;
 
@@ -142,7 +142,7 @@ function wireSetupControls() {
     audio.play('ui_click');
   };
   $('bots-plus').onclick = () => {
-    botsPerTeam = Math.min(12, botsPerTeam + 1);
+    botsPerTeam = Math.min(16, botsPerTeam + 1);
     count.textContent = String(botsPerTeam);
     audio.play('ui_click');
   };
@@ -264,11 +264,23 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
   const names = [...BOT_NAMES].sort(() => Math.random() - 0.5);
   let n = 0;
   const wrap = (i: number) => names[i % names.length];
+  // 32B: bots FILL to the team-size target (default 12v12; co-op 4-6).
+  // Heavy bots carry MANPADS (49A) so the anti-air duel exists in bot wars.
+  const botLoadout = (cls: ClassId) => (cls === 'heavy' ? { equipment: ['manpads'] } : undefined);
   if (isCoopMode(selectedMode)) {
-    for (let i = 0; i < Math.min(botsPerTeam, 5); i++) world.addSoldier(wrap(n++), classPool[i % classPool.length], 0, 'bot');
+    for (let i = 0; i < Math.min(botsPerTeam, 5); i++) {
+      const cls = classPool[i % classPool.length];
+      world.addSoldier(wrap(n++), cls, 0, 'bot', botLoadout(cls));
+    }
   } else {
-    for (let i = 0; i < botsPerTeam; i++) world.addSoldier(wrap(n++), classPool[i % classPool.length], 0, 'bot');
-    for (let i = 0; i < botsPerTeam + 1; i++) world.addSoldier(wrap(n++), classPool[(i + 3) % classPool.length], 1, 'bot');
+    for (let i = 0; i < Math.max(0, botsPerTeam - 1); i++) {
+      const cls = classPool[i % classPool.length];
+      world.addSoldier(wrap(n++), cls, 0, 'bot', botLoadout(cls));
+    }
+    for (let i = 0; i < botsPerTeam; i++) {
+      const cls = classPool[(i + 3) % classPool.length];
+      world.addSoldier(wrap(n++), cls, 1, 'bot', botLoadout(cls));
+    }
   }
 
   renderer.buildStaticWorld(world);

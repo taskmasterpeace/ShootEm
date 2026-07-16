@@ -167,7 +167,7 @@ export class World {
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
       longestKill: 0, vehicleKills: 0, healGiven: 0,
       pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0, lastKillerId: -1,
-      armor: 0, maxArmor: 0,
+      armor: 0, maxArmor: 0, protectedUntil: 0,
       equipment: (loadout?.equipment ?? []).filter((id) => EQUIPMENT[id]).slice(0, 2),
       medikitReady: true, nextPsiAt: 0, nextRepairAt: 0,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
@@ -189,7 +189,7 @@ export class World {
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
       longestKill: 0, vehicleKills: 0, healGiven: 0,
       pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0, lastKillerId: -1,
-      armor: 0, maxArmor: 0,
+      armor: 0, maxArmor: 0, protectedUntil: 0,
       equipment: [], medikitReady: false, nextPsiAt: 0, nextRepairAt: 0,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
@@ -210,7 +210,7 @@ export class World {
       kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
       longestKill: 0, vehicleKills: 0, healGiven: 0,
       pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0, lastKillerId: -1,
-      armor: 0, maxArmor: 0,
+      armor: 0, maxArmor: 0, protectedUntil: 0,
       equipment: [], medikitReady: false, nextPsiAt: 0, nextRepairAt: 0,
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
@@ -243,10 +243,32 @@ export class World {
       (v) => v.alive && v.team === s.team && VEHICLES[v.kind].mobileSpawn &&
         v.systems.comms > 0 && v.seats.some((id) => id >= 0),
     );
+    // enemy-aware spawn selection (55B): of the team's ring points, take the
+    // one farthest from any living enemy — never drop a soldier in a lap.
+    // A small random tiebreak keeps the ring from becoming one hot corner.
+    // Zeds are exempt: the horde pours in anywhere, tactics are for the living.
     const spawnList = this.map.spawns[s.team];
-    const base = mobile && this.rng.next() < 0.5 ? mobile.pos : spawnList[this.rng.int(0, spawnList.length - 1)];
+    let ringPick = spawnList[this.rng.int(0, spawnList.length - 1)];
+    if (!isZed(s.kind)) {
+      let bestScore = -Infinity;
+      for (const p of spawnList) {
+        let nearest = Infinity;
+        for (const e of this.soldiers.values()) {
+          if (!e.alive || e.team === s.team) continue;
+          nearest = Math.min(nearest, Math.hypot(e.pos.x - p.x, e.pos.z - p.z));
+        }
+        const score = Math.min(nearest, 60) + this.rng.range(0, 4);
+        if (score > bestScore) { bestScore = score; ringPick = p; }
+      }
+    }
+    const base = mobile && this.rng.next() < 0.5 ? mobile.pos : ringPick;
     s.pos = { x: base.x + this.rng.range(-1.5, 1.5), y: 0, z: base.z + this.rng.range(-1.5, 1.5) };
     s.vel = { x: 0, y: 0, z: 0 };
+    // spawn protection (55B): holds until the first hostile action, 5s cap.
+    // Arms on MID-MATCH respawns only — the match-start deployment is deep in
+    // friendly ground and needs none. The undead get none either: a horde
+    // that can't be shot walking in is no horde.
+    s.protectedUntil = isZed(s.kind) || this.time < 0.05 ? 0 : this.time + 5;
     this.emit({ type: 'respawn', pos: s.pos, soldierId: s.id });
   }
 
@@ -659,6 +681,7 @@ export class World {
       // a panic button, not a strategy.
       if (cmd.ability && s.seat === 0 && VEHICLES[v.kind].stomps && this.time >= s.nextAbilityAt) {
         s.nextAbilityAt = this.time + 6;
+        s.protectedUntil = 0; // hostile action (55B)
         this.explode({ ...v.pos }, WEAPONS.mech_stomp, s.id, v.team);
         this.emit({ type: 'shot', pos: { ...v.pos }, weapon: 'mech_stomp', soldierId: s.id });
       }
@@ -848,6 +871,7 @@ export class World {
     // to the item's max reach (proven top-down mechanic — throw at the cursor).
     if (cmd.grenade && this.time >= s.nextGrenadeAt) {
       const reachTo = (max: number) => Math.max(4, Math.min(cmd.aimDist ?? max, max));
+      const grenadeGateBefore = s.nextGrenadeAt; // any branch that acts moves this
       // manpads only claims the key while an aircraft is locked — no lock, no wasted round
       const samTarget = s.manpads > 0 && this.hasEquip(s, 'samLauncher') ? this.samLockTarget(s) : null;
       if (s.orbitals > 0) {
@@ -902,11 +926,14 @@ export class World {
         this.emit({ type: 'shot', pos: s.pos, weapon: 'gl', soldierId: s.id });
         if (s.cloaked) { s.cloaked = false; }
       }
+      // any branch that acted is a hostile action — protection ends (55B)
+      if (s.nextGrenadeAt !== grenadeGateBefore) s.protectedUntil = 0;
     }
 
     // firing
     if (cmd.fire && s.reloadUntil === 0 && this.time >= s.nextFireAt) {
       if (s.clip[s.weaponIdx] > 0) {
+        s.protectedUntil = 0; // hostile action ends spawn protection (55B)
         this.fireSoldierWeapon(s, wid, def);
       } else if (s.reserve[s.weaponIdx] > 0) {
         s.reloadUntil = this.time + def.reloadTime;
@@ -1346,6 +1373,7 @@ export class World {
     if (fire && shooter && def.weapon && v.systems.weapon > 0 && this.time >= v.nextFireAt && !stunned) {
       const wdef = WEAPONS[def.weapon];
       v.nextFireAt = this.time + 1 / wdef.rof;
+      shooter.protectedUntil = 0; // hostile action (55B)
       const spread = (this.rng.next() - 0.5) * 2 * wdef.spread;
       const yaw = v.turretYaw + spread;
       const muzzle = def.radius + 0.8;
@@ -1609,6 +1637,7 @@ export class World {
     const owner = this.soldiers.get(ownerId);
     for (const s of this.soldiers.values()) {
       if (!s.alive || s.vehicleId >= 0) continue;
+      if (this.time < s.protectedUntil) continue; // spawn protection: no damage, no shove (55B)
       const d = Math.hypot(s.pos.x - pos.x, s.pos.z - pos.z);
       if (d < def.splash) {
         const isSelf = s.id === ownerId;
@@ -1645,6 +1674,7 @@ export class World {
 
   damageSoldier(victim: Soldier, dmg: number, attackerId: number, weapon: WeaponId) {
     if (!victim.alive || dmg <= 0) return;
+    if (this.time < victim.protectedUntil) return; // spawn protection (55B)
     if (victim.cloaked) victim.cloaked = false;
     // issued plate takes the hit first; whatever punches through reaches flesh
     if (victim.armor > 0) {

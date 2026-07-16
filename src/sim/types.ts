@@ -189,6 +189,9 @@ export interface Soldier {
    *  on respawn. Granted by armor equipment (vest +25, power armor +60). */
   armor: number;
   maxArmor: number;
+  /** spawn protection (55B): immune until this sim time, capped ~5s — broken
+   *  the instant the soldier takes any hostile action */
+  protectedUntil: number;
   /** who last killed this soldier (-1 = nobody/self/environment) — the killcam
    *  frames the duel between victim and killer instead of just the corpse */
   lastKillerId: number;

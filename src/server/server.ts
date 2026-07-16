@@ -38,26 +38,62 @@ class Room {
   private tickCount = 0;
   private interval: ReturnType<typeof setInterval>;
 
+  /** 32B: competitive rooms hold TEAM_TARGET bodies per side, bots filling
+   *  every open position; joins/leaves swap a bot out/in so the war never
+   *  shrinks. Heavy bots carry MANPADS (49A). */
+  static readonly TEAM_TARGET = 12;
+  private botSeq = 0;
+
+  private addBot(team: 0 | 1) {
+    const cls = CLASS_POOL[this.botSeq % CLASS_POOL.length];
+    const name = BOT_NAMES[this.botSeq % BOT_NAMES.length] + (this.botSeq >= BOT_NAMES.length ? `-${Math.floor(this.botSeq / BOT_NAMES.length) + 1}` : '');
+    this.botSeq++;
+    this.world.addSoldier(name, cls, team, 'bot', cls === 'heavy' ? { equipment: ['manpads'] } : undefined);
+  }
+
+  private removeBot(team: 0 | 1): boolean {
+    for (const s of this.world.soldiers.values()) {
+      if (s.kind !== 'bot' || s.team !== team) continue;
+      if (s.vehicleId >= 0) {
+        const v = this.world.vehicles.get(s.vehicleId);
+        if (v && s.seat >= 0) v.seats[s.seat] = -1;
+      }
+      this.world.soldiers.delete(s.id);
+      return true;
+    }
+    return false;
+  }
+
+  private fillBots() {
+    if (isCoopMode(this.mode)) {
+      const bodies = [...this.world.soldiers.values()].filter((s) => s.team === 0 && (s.kind === 'bot' || s.kind === 'human')).length;
+      for (let i = bodies; i < 5; i++) this.addBot(0);
+      return;
+    }
+    for (const team of [0, 1] as const) {
+      const bodies = [...this.world.soldiers.values()].filter((s) => s.team === team && (s.kind === 'bot' || s.kind === 'human')).length;
+      for (let i = bodies; i < Room.TEAM_TARGET; i++) this.addBot(team);
+    }
+  }
+
   constructor(public mode: ModeId) {
     const seed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
     this.theme = THEME_ROTATION[Math.floor(Math.random() * THEME_ROTATION.length)];
     this.world = new World({ seed, mode, theme: this.theme });
-    let n = 0;
-    if (isCoopMode(mode)) {
-      for (let i = 0; i < 3; i++) this.world.addSoldier(BOT_NAMES[n++], CLASS_POOL[i % CLASS_POOL.length], 0, 'bot');
-    } else {
-      for (let i = 0; i < 6; i++) this.world.addSoldier(BOT_NAMES[n++], CLASS_POOL[i % CLASS_POOL.length], 0, 'bot');
-      for (let i = 0; i < 7; i++) this.world.addSoldier(BOT_NAMES[n++], CLASS_POOL[(i + 3) % CLASS_POOL.length], 1, 'bot');
-    }
+    this.fillBots();
     this.interval = setInterval(() => this.tick(), TICK * 1000);
     console.log(`[room:${mode}] created (seed ${seed}, theme ${this.theme})`);
   }
 
   join(ws: WebSocket, name: string, classId: ClassId, loadout?: Loadout): Client {
-    // balance teams by live player+bot count
-    const counts: [number, number] = [0, 0];
-    for (const s of this.world.humansAndBots()) counts[s.team]++;
-    const team = isCoopMode(this.mode) ? 0 : counts[0] <= counts[1] ? 0 : 1;
+    // 32B: balance by HUMAN count, then swap a bot out so the side stays at target
+    const humans: [number, number] = [0, 0];
+    for (const c of this.clients) {
+      const s = this.world.soldiers.get(c.soldierId);
+      if (s) humans[s.team]++;
+    }
+    const team = isCoopMode(this.mode) ? 0 : humans[0] <= humans[1] ? 0 : 1;
+    this.removeBot(team);
     const soldier = this.world.addSoldier(name.slice(0, 16) || 'Recruit', classId, team, 'human', loadout);
     const client: Client = { ws, soldierId: soldier.id, name: soldier.name, cmd: null };
     this.clients.add(client);
@@ -98,7 +134,10 @@ class Room {
 
   leave(client: Client) {
     this.clients.delete(client);
+    const s = this.world.soldiers.get(client.soldierId);
+    const team = s?.team ?? 0;
     this.world.soldiers.delete(client.soldierId);
+    if (!this.world.mode.over) this.addBot(team); // 32B: a bot takes the empty seat
     console.log(`[room:${this.mode}] #${client.soldierId} left (${this.clients.size} online)`);
   }
 
@@ -125,19 +164,15 @@ class Room {
     const old = this.world;
     this.theme = THEME_ROTATION[Math.floor(Math.random() * THEME_ROTATION.length)];
     this.world = new World({ seed, mode: this.mode, theme: this.theme });
-    let n = 0;
-    if (isCoopMode(this.mode)) {
-      for (let i = 0; i < 3; i++) this.world.addSoldier(BOT_NAMES[n++], CLASS_POOL[i % CLASS_POOL.length], 0, 'bot');
-    } else {
-      for (let i = 0; i < 6; i++) this.world.addSoldier(BOT_NAMES[n++], CLASS_POOL[i % CLASS_POOL.length], 0, 'bot');
-      for (let i = 0; i < 7; i++) this.world.addSoldier(BOT_NAMES[n++], CLASS_POOL[(i + 3) % CLASS_POOL.length], 1, 'bot');
-    }
-    // move connected players into the new match
+    this.botSeq = 0;
+    this.fillBots();
+    // move connected players into the new match, each swapping a bot out (32B)
+    const humans: [number, number] = [0, 0];
     for (const c of this.clients) {
       const oldSoldier = old.soldiers.get(c.soldierId);
-      const counts: [number, number] = [0, 0];
-      for (const s of this.world.humansAndBots()) counts[s.team]++;
-      const team = isCoopMode(this.mode) ? 0 : counts[0] <= counts[1] ? 0 : 1;
+      const team = isCoopMode(this.mode) ? 0 : humans[0] <= humans[1] ? 0 : 1;
+      humans[team]++;
+      this.removeBot(team as 0 | 1);
       const soldier = this.world.addSoldier(oldSoldier?.name ?? 'Recruit', oldSoldier?.classId ?? 'infantry', team as 0 | 1, 'human');
       c.soldierId = soldier.id;
       c.cmd = null;

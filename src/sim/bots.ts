@@ -174,6 +174,14 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
     // unarmed utility rides (ambulance/tunneler/hoverboard): drive to objective, hop out
     const goal = objectiveFor(w, s);
     const dGoal = Math.hypot(goal.x - v.pos.x, goal.z - v.pos.z);
+    // breacher depth discipline (49A): run DEEP on the long quiet legs —
+    // silent, off-minimap, under the walls — and SURFACE near the objective
+    // or when contact is close (deep can't dig and crawls)
+    if (vdef.digs) {
+      const contact = findTarget(w, s, 26);
+      if (!v.burrowed && !contact && dGoal > 30) cmd.ability = true;
+      else if (v.burrowed && (contact || dGoal < 18)) cmd.ability = true;
+    }
     if (dGoal < 14 && v.kind !== 'tank') { cmd.use = true; return cmd; } // disembark near objective
     const wantYaw = Math.atan2(goal.z - v.pos.z, goal.x - v.pos.x);
     let dy = wantYaw - v.yaw;
@@ -213,7 +221,9 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
   if (!target && dGoal > 45 && w.opts.mode !== 'survival' && w.rng.next() < 0.02) {
     for (const v of w.vehicles.values()) {
       if (!v.alive || v.team !== s.team || v.seats[0] >= 0) continue;
-      if (!VEHICLES[v.kind].weapon || VEHICLES[v.kind].immobile) continue; // bots skip utility rides
+      const kdef = VEHICLES[v.kind];
+      // armed rides — plus the breacher (49A): its depth run IS its weapon
+      if ((!kdef.weapon && !kdef.digs) || kdef.immobile) continue;
       if (Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z) < 10) { cmd.use = true; break; }
     }
   }
@@ -308,6 +318,26 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
     if (s.hp < s.maxHp * 0.5 && s.energy >= 50) cmd.ability = true;
   }
   if (s.classId === 'infiltrator' && !s.cloaked && !target && s.energy > 70 && w.rng.next() < 0.008) cmd.ability = true;
+  // ghost bots fly the recon net (49A): deploy the auto-orbit drone when a
+  // fight is on and the battery allows — marks enemies for the whole team
+  if (s.classId === 'ghost' && s.energy >= 70 && target && w.rng.next() < 0.012) cmd.ability = true;
+
+  // MANPADS discipline (49A): a bot carrying tubes tracks the sky. An
+  // airborne enemy gunship inside launch range gets the cone — aim at it and
+  // squeeze; the sim's own lock logic decides whether the bird flies.
+  if (s.manpads > 0 && w.time >= s.nextGrenadeAt) {
+    let fly: { pos: Vec3 } | null = null, best = 65;
+    for (const v of w.vehicles.values()) {
+      if (v.team === s.team || !w.vehicleAirborne(v)) continue;
+      const d = Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z);
+      if (d < best) { fly = v; best = d; }
+    }
+    if (fly) {
+      cmd.aimYaw = Math.atan2(fly.pos.z - s.pos.z, fly.pos.x - s.pos.x);
+      cmd.grenade = true;
+      cmd.fire = false;
+    }
+  }
 
   cmd.moveX = Math.max(-1, Math.min(1, mvx));
   cmd.moveZ = Math.max(-1, Math.min(1, mvz));
