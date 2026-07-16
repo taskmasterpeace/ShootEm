@@ -138,6 +138,14 @@ export class Renderer {
    *  together and a red ring marks the killer. */
   killcamFocusId = -1;
   private killerRing: THREE.Mesh | null = null;             // pulsing marker over the killer
+  /** the camera height actually used last frame (killcam duels exceed camDist)
+   *  — overhead UI scales against it so names/meters hold constant SCREEN size */
+  private viewDist = 30;
+  /** far-zoom unit blips: team-colored ground discs that fade in as the models
+   *  shrink — at command height the disc IS the soldier (RTS strategic icons) */
+  private blipMats: [THREE.MeshBasicMaterial, THREE.MeshBasicMaterial] | null = null;
+  private blipGeo: THREE.CircleGeometry | null = null;
+  private blips = new Map<number, THREE.Mesh>();
   private nadeArc: THREE.Line | null = null;                // grenade-throw preview: dashed arc…
   private nadeRing: THREE.Mesh | null = null;               // …and the landing/splash ring
   private flyerAlt = new Map<number, number>();             // smoothed flyer altitude per id
@@ -428,6 +436,21 @@ export class Renderer {
     const localTeam = local?.team ?? 0;
     this.frameDt = dt;
 
+    // zoom-adaptive overhead: names/meters are INSTRUMENTS, not props — they
+    // scale with the camera so they hold constant screen size at every zoom,
+    // and past mid-zoom a team disc fades in under each soldier so the tiny
+    // models stay findable at command height
+    const uiK = Math.min(2.1, Math.max(0.85, this.viewDist / 30));
+    const blipAlpha = Math.min(0.8, Math.max(0, (this.viewDist - 34) / 14));
+    if (!this.blipMats) {
+      this.blipGeo = new THREE.CircleGeometry(0.85, 24);
+      this.blipMats = [0, 1].map((t) => new THREE.MeshBasicMaterial({
+        color: TEAM_COLORS[t], transparent: true, opacity: 0, depthWrite: false,
+      })) as [THREE.MeshBasicMaterial, THREE.MeshBasicMaterial];
+    }
+    this.blipMats[0].opacity = blipAlpha;
+    this.blipMats[1].opacity = blipAlpha;
+
     // soldiers
     for (const s of world.soldiers.values()) {
       let mesh = this.soldierMeshes.get(s.id);
@@ -452,21 +475,39 @@ export class Renderer {
       let tag = this.nameSprites.get(s.id);
       if (squad && !tag) {
         tag = this.makeNameSprite(s.name, s.team);
-        tag.position.y = 3.05;
         mesh.add(tag);
         this.nameSprites.set(s.id, tag);
       }
-      if (tag) tag.visible = squad;
+      if (tag) {
+        tag.visible = squad;
+        // constant screen size: grow with zoom, and climb so the stack never overlaps
+        tag.scale.set(3.4 * uiK, 0.64 * uiK, 1);
+        tag.position.y = 2.55 + 0.85 * uiK;
+      }
+      // far-zoom blip: the disc IS the soldier at command height
+      if (s.kind === 'bot' || s.kind === 'human' || s.kind === 'scientist') {
+        let blip = this.blips.get(s.id);
+        if (!blip) {
+          blip = new THREE.Mesh(this.blipGeo!, this.blipMats![s.team]);
+          blip.rotation.x = -Math.PI / 2;
+          blip.position.y = 0.06;
+          mesh.add(blip);
+          this.blips.set(s.id, blip);
+        }
+        blip.visible = s.alive && blipAlpha > 0.01;
+        blip.scale.setScalar(uiK);
+      }
       let arcs = this.statusArcs.get(s.id);
       if (squad && !arcs) {
         const made = this.makeStatusSprite();
-        made.sprite.position.y = 2.45;
         mesh.add(made.sprite);
         arcs = { ...made, key: '' };
         this.statusArcs.set(s.id, arcs);
       }
       if (arcs) {
         arcs.sprite.visible = squad;
+        arcs.sprite.scale.set(1.7 * uiK, 0.85 * uiK, 1);
+        arcs.sprite.position.y = 1.9 + 0.55 * uiK;
         if (squad) {
           const hasArmor = (s.maxArmor ?? 0) > 0;
           const hpFrac = Math.max(0, Math.min(1, s.hp / s.maxHp));
@@ -489,6 +530,10 @@ export class Renderer {
         // during a replay the live/puppet rosters differ — hide, don't
         // delete, or every swap thrashes (and leaks) dozens of meshes
         if (this.replayView) { mesh.visible = false; continue; }
+        // detach the blip BEFORE the traverse below — its geometry/material
+        // are shared across every soldier and must never be disposed
+        const blip = this.blips.get(id);
+        if (blip) { mesh.remove(blip); this.blips.delete(id); }
         this.scene.remove(mesh);
         mesh.traverse((o) => {
           const m = o as THREE.Mesh;
@@ -1001,6 +1046,7 @@ export class Renderer {
           (local.pos.z + duel.pos.z) / 2 + this.lookAhead.z);
       }
       const desired = new THREE.Vector3(target.x, dist, target.z + dist * 0.55);
+      this.viewDist = dist; // overhead UI scales against the height actually flown
       this.camPos.lerp(desired, 1 - Math.pow(0.001, dt));
       if (this.camShake > 0) {
         this.camPos.x += (Math.random() - 0.5) * this.camShake;
