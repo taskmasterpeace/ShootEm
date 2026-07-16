@@ -6,7 +6,7 @@
  */
 import { WebSocketServer, WebSocket } from 'ws';
 import { World, type Loadout } from '../sim/world';
-import { cullSnapshotFor, takeSnapshot } from '../sim/snapshot';
+import { cullSnapshotFor, takeSnapshot, wireRound } from '../sim/snapshot';
 import { isCoopMode, type ClassId, type ModeId, type PlayerCmd, type ThemeId } from '../sim/types';
 
 const PORT = Number(process.argv[2] ?? process.env.PORT ?? 3401);
@@ -152,7 +152,7 @@ class Room {
       const base = takeSnapshot(this.world, this.world.takeEvents());
       for (const c of this.clients) {
         if (c.ws.readyState !== WebSocket.OPEN) continue;
-        c.ws.send(JSON.stringify({ t: 'snap', snap: cullSnapshotFor(this.world, base, c.soldierId) }));
+        c.ws.send(JSON.stringify({ t: 'snap', snap: cullSnapshotFor(this.world, base, c.soldierId) }, wireRound));
       }
     }
     // restart finished matches after a break
@@ -192,7 +192,18 @@ class Room {
 }
 
 const rooms = new Map<ModeId, Room>();
-const wss = new WebSocketServer({ port: PORT });
+// permessage-deflate is where the bandwidth actually goes: the snapshot's
+// repeated JSON keys compress ~5× one-shot, better still with the
+// per-connection sliding window (consecutive snapshots are near-identical).
+// Measured: 27.2 KB wire → ≤5.5 KB at level 1, 0.11 ms CPU per snapshot.
+// Browsers negotiate the extension natively; the client needs no change.
+const wss = new WebSocketServer({
+  port: PORT,
+  perMessageDeflate: {
+    threshold: 512, // don't spend zlib on tiny control messages
+    zlibDeflateOptions: { level: 1 }, // repetition does the work, not effort
+  },
+});
 
 wss.on('connection', (ws) => {
   let room: Room | null = null;

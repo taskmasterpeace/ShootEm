@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CLASSES, VEHICLES, WEAPONS } from '../src/sim/data';
 import { GRID, T_DOOR, TILE, WORLD, generateMap, isBlocked, losClear } from '../src/sim/map';
-import { applySnapshot, takeSnapshot } from '../src/sim/snapshot';
+import { applySnapshot, takeSnapshot, wireRound } from '../src/sim/snapshot';
 import type { PlayerCmd } from '../src/sim/types';
 import { World } from '../src/sim/world';
 
@@ -572,5 +572,28 @@ describe('snapshot codec', () => {
     expect(medic.reserve[1]).toBe(Infinity);
     expect(w2.time).toBeCloseTo(w.time, 5);
     expect(w2.vehicles.size).toBe(w.vehicles.size);
+  });
+
+  it('survives wire quantization: ints exact, floats within 1mm, Infinity intact', () => {
+    const w = new World({ seed: 5, mode: 'conquest' });
+    w.addSoldier('A', 'medic', 0, 'human');
+    w.addSoldier('B', 'heavy', 1, 'bot');
+    run(w, new Map(), 2);
+    const snap = JSON.parse(JSON.stringify(takeSnapshot(w, []), wireRound));
+
+    const w2 = new World({ seed: 5, mode: 'conquest' });
+    w2.puppet = true;
+    w2.soldiers.clear();
+    applySnapshot(w2, snap);
+    const medic = [...w2.soldiers.values()].find((s) => s.classId === 'medic')!;
+    expect(medic.reserve[1]).toBe(Infinity);
+    for (const s of w.soldiers.values()) {
+      const p = w2.soldiers.get(s.id)!;
+      expect(p.pos.x).toBeCloseTo(s.pos.x, 3);
+      expect(p.pos.z).toBeCloseTo(s.pos.z, 3);
+      expect(p.clip[0]).toBe(s.clip[0]); // ammo counts must never drift
+      expect(p.hp).toBeCloseTo(s.hp, 3);
+    }
+    expect(w2.time).toBeCloseTo(w.time, 3);
   });
 });

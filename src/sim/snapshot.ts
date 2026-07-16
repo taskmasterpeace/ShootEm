@@ -49,6 +49,16 @@ const stripBot = (s: Soldier): Soldier => {
 const encNum = (n: number) => (Number.isFinite(n) ? n : -1);
 const decNum = (n: number) => (n === -1 ? Infinity : n);
 
+/**
+ * Wire quantizer, passed as the JSON.stringify replacer on the snapshot
+ * path. Physics floats carry ~17 digits of noise ("x":-59.201316285043134)
+ * that nothing downstream can perceive; 3 decimals is 1mm of position and
+ * 1ms of time. Quantizing at the stringify boundary — not in takeSnapshot —
+ * keeps the whole-object-spread invariant: new fields still replicate free.
+ */
+export const wireRound = (_k: string, v: unknown): unknown =>
+  typeof v === 'number' && !Number.isInteger(v) ? Math.round(v * 1000) / 1000 : v;
+
 export function takeSnapshot(w: World, events: SimEvent[]): Snapshot {
   return {
     time: w.time,

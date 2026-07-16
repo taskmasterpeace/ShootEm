@@ -13,6 +13,12 @@ const noCmd = (): PlayerCmd => ({
 const toTile = (v: number) => Math.floor((v + WORLD / 2) / TILE);
 const toWorld = (t: number) => (t + 0.5) * TILE - WORLD / 2;
 
+// BFS scratch, reused across repaths. Allocating two GRID²-slot arrays per
+// call was pure GC churn — 24 bots repathing is megabytes/sec of garbage on
+// a low-end machine. Safe to share: pathStep is synchronous and never nests.
+const bfsPrev = new Int32Array(GRID * GRID);
+const bfsQ = new Int32Array(GRID * GRID);
+
 /** BFS from start tile to goal tile; returns the next reachable waypoint (LOS-smoothed) or null. */
 function pathStep(w: World, from: Vec3, to: Vec3): Vec3 | null {
   const grid = w.map.grid;
@@ -45,8 +51,8 @@ function pathStep(w: World, from: Vec3, to: Vec3): Vec3 | null {
     if (!found) return null;
   }
 
-  const prev = new Int32Array(GRID * GRID).fill(-1);
-  const q = new Int32Array(GRID * GRID);
+  const prev = bfsPrev.fill(-1);
+  const q = bfsQ;
   let head = 0, tail = 0;
   const startIdx = sz * GRID + sx;
   q[tail++] = startIdx;
