@@ -561,14 +561,26 @@ export class Renderer {
       d.mesh.position.z += (tz - d.mesh.position.z) * Math.min(1, dt * 10);
     }
 
-    // §8.4 cutaway: the roof over YOUR head (or the killcam subject's) opens
+    // §8.4 cutaway: the roof over YOUR head (or the killcam subject's) opens —
+    // and so does any roof you're standing NEXT TO. The doorway peek: an
+    // attacker one step inside a doorway must never be invisible at melee
+    // range (a zombie under a neighbor's roof once killed a player who never
+    // saw it). Distance is to the house RECT, so long walls peek too.
     if (this.roofs.length) {
       const focus = world.soldiers.get(localId);
       const inHouse = focus ? houseAt(world.map.houses, focus.pos.x, focus.pos.z) : -1;
       for (let i = 0; i < this.roofs.length; i++) {
         const r = this.roofs[i];
         const m = r.mesh.material as THREE.MeshStandardMaterial;
-        const target = i === inHouse ? 0.12 : 0.97;
+        let open = i === inHouse;
+        if (!open && focus) {
+          const h = r.house;
+          const x0 = h.tx * TILE - WORLD / 2, z0 = h.tz * TILE - WORLD / 2;
+          const dx = Math.max(x0 - focus.pos.x, 0, focus.pos.x - (x0 + h.tw * TILE));
+          const dz = Math.max(z0 - focus.pos.z, 0, focus.pos.z - (z0 + h.th * TILE));
+          open = dx * dx + dz * dz < 4.5 * 4.5;
+        }
+        const target = open ? 0.12 : 0.97;
         m.opacity += (target - m.opacity) * Math.min(1, dt * 8);
         m.depthWrite = m.opacity > 0.9; // fading lids must not write depth
       }
