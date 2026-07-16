@@ -4,7 +4,7 @@ import { CLIMB_H, F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_CLIMB, T_DEEP, S_
 import { SEEN_LINGER, SEEN_LINGER_GEARED, seenRecently, type SeenMark } from '../sim/perception';
 import type { WeatherKind } from '../sim/weather';
 import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
-import { HAND_FRAG_REACH, type World } from '../sim/world';
+import { HAND_FRAG_REACH, meleeWindupFor, type World } from '../sim/world';
 import { audio, type SoundName } from './audio';
 import { BIOME_AUDIO } from './soundscape';
 import { settings } from './settings';
@@ -139,6 +139,9 @@ export class Renderer {
   private nextSmokeAt = new Map<number, number>();          // vehicle id → next damage-smoke puff
   private nextMoundAt = new Map<number, number>();          // vehicle id → next burrow dirt-mound puff
   private wpPillars: THREE.Mesh[] = [];                     // pooled waypoint light pillars
+  // melee feel: telegraph windows (arms up) keyed by attacker, and the arc slashes
+  private meleeTelegraphs = new Map<number, { at: number; until: number }>();
+  private slashes: { mesh: THREE.Mesh; until: number }[] = [];
   private nextLockToneAt = 0;                               // missile-lock warning throttle
   /** killcam duel framing: soldier id of the local player's killer (-1 = none).
    *  Set by the frame loops from the director; the camera frames victim+killer
@@ -1178,6 +1181,7 @@ export class Renderer {
           this.statusArcs.delete(id);
         }
         this.soldierMeshes.delete(id);
+        this.meleeTelegraphs.delete(id);
       }
     }
 
@@ -1524,6 +1528,21 @@ export class Renderer {
       }
     }
 
+    // melee claw-arcs sweep outward and vanish fast
+    for (let i = this.slashes.length - 1; i >= 0; i--) {
+      const sl = this.slashes[i];
+      const left = sl.until - world.time;
+      const k = Math.max(0, left / 0.22);
+      (sl.mesh.material as THREE.MeshBasicMaterial).opacity = k * 0.55;
+      sl.mesh.scale.setScalar(1 + (1 - k) * 0.25);
+      if (left <= 0) {
+        this.scene.remove(sl.mesh);
+        sl.mesh.geometry.dispose();
+        (sl.mesh.material as THREE.Material).dispose();
+        this.slashes.splice(i, 1);
+      }
+    }
+
     // orbital beams fade out (k clamped: replay clocks run behind live time)
     for (let i = this.beams.length - 1; i >= 0; i--) {
       const b = this.beams[i];
@@ -1812,6 +1831,25 @@ export class Renderer {
     const lean = airborne ? -0.3 : -Math.min(speed / 14, 1) * (zed ? 0.18 : 0.09);
     mesh.rotation.z = lean + (s.kind === 'sprinter' ? -0.18 : 0);
 
+    // ---- melee telegraph: claws flash UP through the windup, whip DOWN on the
+    // strike. Additive on top of the shared pose, so the shamble keeps playing.
+    // (zed-only: their arm joints are re-posed every frame above, so an additive
+    // offset can't accumulate — living soldiers' arms hold the gun and are not.)
+    const wu = zed ? this.meleeTelegraphs.get(s.id) : undefined;
+    if (wu) {
+      if (t > wu.until + 0.3) {
+        this.meleeTelegraphs.delete(s.id); // window long gone — stop tracking
+      } else if (t >= wu.at && (j.armL || j.armR)) {
+        const raise = Math.min(1, (t - wu.at) / Math.max(wu.until - wu.at, 0.01));
+        // positive z-rotation swings a hanging limb forward/up (see animation.ts)
+        const lift = t < wu.until
+          ? raise * 0.9                                   // wind up: arms climb overhead
+          : -0.7 * Math.max(0, 1 - (t - wu.until) / 0.15); // strike: slash past rest, ease back
+        if (j.armL) j.armL.rotation.z += lift;
+        if (j.armR) j.armR.rotation.z += lift * 0.85;
+      }
+    }
+
     // rifle recoil kick for the living gunners (undead reach lives in the shared pose)
     if (!zed && j.gun) {
       const shotAt = this.recoilAt.get(s.id) ?? -1;
@@ -1959,6 +1997,36 @@ export class Renderer {
           if (def.tracer !== 'beam' && def.tracer !== 'none') {
             this.particles.emit({ pos: e.pos, count: 3, color: 0xffcc66, speed: 3, life: 0.12, spread: 0.3, up: 1, size: 0.3 });
           }
+          // melee strike: a pale claw-arc sweeps the ground where the swing landed
+          if (def.range <= 2.5 && e.soldierId !== undefined) {
+            const attacker = world.soldiers.get(e.soldierId);
+            // the sim locked the swing direction at windup — draw the arc there.
+            // RingGeometry angles live in XY; after the -90° X-flip a geometry
+            // angle θ lands at ground bearing -θ, so bake -yaw into thetaStart.
+            const yaw = attacker ? (attacker.meleeYaw ?? attacker.yaw) : 0;
+            const slash = new THREE.Mesh(
+              new THREE.RingGeometry(0.6, def.range + 0.6, 14, 1, -yaw - Math.PI / 4, Math.PI / 2),
+              new THREE.MeshBasicMaterial({
+                color: 0xffe2c0, transparent: true, opacity: 0.55,
+                side: THREE.DoubleSide, depthWrite: false,
+              }),
+            );
+            slash.rotation.x = -Math.PI / 2;
+            slash.position.set(e.pos.x, 0.25, e.pos.z);
+            this.scene.add(slash);
+            this.slashes.push({ mesh: slash, until: world.time + 0.22 });
+          }
+          break;
+        }
+        case 'melee_windup': {
+          // the telegraph: arms flash up (animateSoldier reads this window)
+          // and a low scrape warns anyone standing in the wedge
+          if (e.soldierId === undefined) break;
+          const attacker = world.soldiers.get(e.soldierId);
+          const rof = e.weapon ? WEAPONS[e.weapon]?.rof ?? 1.2 : 1.2;
+          const windup = Math.min(meleeWindupFor(attacker?.kind ?? 'zombie'), 0.8 / rof);
+          this.meleeTelegraphs.set(e.soldierId, { at: world.time, until: world.time + windup });
+          if (e.pos) audio.play('claw', { pos: e.pos, volume: 0.3 });
           break;
         }
         case 'explosion': {

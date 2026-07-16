@@ -30,6 +30,32 @@ const REVIVE_CHANNEL = 3;   // seconds a non-medic must hold E to lift someone
 const REVIVE_HP = 0.4;      // revived soldiers stand up grateful, not fresh
 const AID_RANGE = 2;        // how close a helper must be to drag or revive
 const DRAG_OFFSET = 1.2;    // the body trails this far behind the dragger
+
+// ---------------------------------------------------------------------------
+// Melee is a swing, not a proximity tax (design directive §20/§8.3): every
+// melee attack runs WINDUP → STRIKE → RECOVER. The windup is carved OUT of
+// the weapon's existing 1/rof interval — nextFireAt is still trigger + 1/rof
+// — so sustained DPS matches the old instant-hit melee exactly; only the
+// FIRST hit arrives WINDUP late, and that latency is the dodge window.
+// ---------------------------------------------------------------------------
+/** seconds a standard zombie telegraphs before the claw lands */
+export const MELEE_WINDUP = 0.25;
+/** 90° front arc — step outside it during the windup and the swing whiffs */
+export const MELEE_ARC = Math.PI / 2;
+/** a swing can connect with at most this many victims */
+export const MELEE_MAX_TARGETS = 2;
+/** melee victims flinch: their next shot is delayed this long */
+export const MELEE_STAGGER = 0.15;
+/** lunge impulse at strike time; push decays at e^-5t so travel ≈ v0/5 = 1.5u */
+export const MELEE_LUNGE = 7.5;
+
+/** Brutes wind up a slow haymaker; sprinters snap; the K9 bites quick. */
+export function meleeWindupFor(kind: SoldierKind): number {
+  if (kind === 'brute') return 0.4;
+  if (kind === 'sprinter') return 0.18;
+  if (kind === 'dog') return 0.2;
+  return MELEE_WINDUP;
+}
 const ENERGY_REGEN = 14;
 const CLOAK_DRAIN = 11;
 const JET_DRAIN = 30;
@@ -234,6 +260,7 @@ export class World {
       equipment: (loadout?.equipment ?? []).filter((id) => EQUIPMENT[id]).slice(0, 2),
       medikitReady: true, nextPsiAt: 0, nextRepairAt: 0,
       downed: false, downedUntil: 0, downedBy: -1, reviveProgress: 0, draggingId: -1,
+      meleeStrikeAt: 0, meleeYaw: 0, meleeWeapon: '',
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
     this.soldiers.set(s.id, s);
@@ -265,6 +292,7 @@ export class World {
       armor: 0, maxArmor: 0, protectedUntil: 0,
       equipment: [], medikitReady: false, nextPsiAt: 0, nextRepairAt: 0,
       downed: false, downedUntil: 0, downedBy: -1, reviveProgress: 0, draggingId: -1,
+      meleeStrikeAt: 0, meleeYaw: 0, meleeWeapon: '',
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
     this.soldiers.set(s.id, s);
@@ -288,6 +316,7 @@ export class World {
       armor: 0, maxArmor: 0, protectedUntil: 0,
       equipment: [], medikitReady: false, nextPsiAt: 0, nextRepairAt: 0,
       downed: false, downedUntil: 0, downedBy: -1, reviveProgress: 0, draggingId: -1,
+      meleeStrikeAt: 0, meleeYaw: 0, meleeWeapon: '',
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
     this.soldiers.set(s.id, s);
@@ -311,6 +340,7 @@ export class World {
       armor: 0, maxArmor: 0, protectedUntil: 0,
       equipment: [], medikitReady: false, nextPsiAt: 0, nextRepairAt: 0,
       downed: false, downedUntil: 0, downedBy: -1, reviveProgress: 0, draggingId: -1,
+      meleeStrikeAt: 0, meleeYaw: 0, meleeWeapon: '',
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
     this.soldiers.set(s.id, s);
@@ -357,6 +387,7 @@ export class World {
     s.grenades = this.hasEquip(s, 'demoCharge') ? 3 : s.classId === 'infantry' ? 4 : s.classId === 'engineer' ? 3 : 2;
     s.manpads = this.hasEquip(s, 'samLauncher') ? MANPADS_ROUNDS : 0;
     s.medikitReady = true;
+    s.meleeStrikeAt = 0; s.meleeWeapon = ''; // no swing survives a respawn
     // mobile spawn: a crewed APC or transport with a LIVE comms system
     const mobile = [...this.vehicles.values()].find(
       (v) => v.alive && v.team === s.team && VEHICLES[v.kind].mobileSpawn &&
@@ -467,6 +498,9 @@ export class World {
         continue;
       }
       s.draggingId = -1; // the drag grip is re-asserted every tick by the E-hold
+      // in-flight melee swings land on schedule, whoever the attacker is —
+      // this runs BEFORE the brains so zombies and dogs resolve too
+      if (s.meleeStrikeAt > 0 && this.time >= s.meleeStrikeAt) this.resolveMeleeStrike(s);
       let cmd = cmds.get(s.id);
       if (!cmd) {
         if (s.kind === 'bot' && !s.dummy) cmd = stepBot(this, s, dt); // dummies stand and take it
@@ -1233,8 +1267,8 @@ export class World {
     if (Number.isFinite(s.clip[s.weaponIdx])) s.clip[s.weaponIdx]--;
     if (s.cloaked) s.cloaked = false;
 
-    if (def.range <= 2.5) { // melee (zombie claws)
-      this.meleeAttack(s, def);
+    if (def.range <= 2.5) { // melee (zombie claws) — starts a swing, not a hit
+      this.startMelee(s, def);
       return;
     }
     // arc weapons are cursor-targeted like every thrown item: the shell LANDS
@@ -1247,15 +1281,60 @@ export class World {
     this.emit({ type: 'shot', pos: { ...s.pos, y: s.pos.y + 1.4 }, weapon: wid, soldierId: s.id });
   }
 
-  meleeAttack(s: Soldier, def: (typeof WEAPONS)[WeaponId]) {
+  /**
+   * WINDUP: the swing starts here and the direction locks NOW. A victim that
+   * steps out of the 90° arc — or out of reach — before the strike lands is
+   * simply not hit. That's the whole point of the telegraph.
+   */
+  startMelee(s: Soldier, def: (typeof WEAPONS)[WeaponId]) {
+    if (s.meleeStrikeAt > 0) return; // one swing in the air at a time
+    s.nextFireAt = this.time + 1 / def.rof; // RECOVER pacing — same cadence as the old instant hit
+    // the telegraph must never eat the whole interval — land before the next trigger
+    const windup = Math.min(meleeWindupFor(s.kind), 0.8 / def.rof);
+    s.meleeStrikeAt = this.time + windup;
+    s.meleeYaw = s.yaw;
+    s.meleeWeapon = def.id;
+    this.emit({ type: 'melee_windup', pos: { ...s.pos }, weapon: def.id, soldierId: s.id });
+  }
+
+  /**
+   * STRIKE: the claw comes down. Arc check runs against where everyone stands
+   * NOW, along the yaw locked at windup — dodges are honored, and up to two
+   * victims in the wedge take the hit. The attacker lunges into the blow.
+   */
+  resolveMeleeStrike(s: Soldier) {
+    const def = WEAPONS[s.meleeWeapon];
+    s.meleeStrikeAt = 0;
+    s.meleeWeapon = '';
+    if (!def || !s.alive) return; // attacker died mid-swing — no ghost claws
+    // the lunge: thrown ~1.5u into the swing via the decaying push impulse
+    s.pushX += Math.cos(s.meleeYaw) * MELEE_LUNGE;
+    s.pushZ += Math.sin(s.meleeYaw) * MELEE_LUNGE;
+    this.emit({ type: 'shot', pos: { ...s.pos }, weapon: def.id, soldierId: s.id });
+    // everyone in the front wedge, nearest first, capped at MELEE_MAX_TARGETS
+    const caught: { victim: Soldier; d: number }[] = [];
     for (const other of this.soldiers.values()) {
       if (!other.alive || other.team === s.team) continue;
-      const d = Math.hypot(other.pos.x - s.pos.x, other.pos.z - s.pos.z);
-      if (d <= def.range + 0.6) {
-        this.damageSoldier(other, def.damage, s.id, def.id);
-        this.emit({ type: 'shot', pos: s.pos, weapon: def.id, soldierId: s.id });
-        return;
-      }
+      const dx = other.pos.x - s.pos.x, dz = other.pos.z - s.pos.z;
+      const d = Math.hypot(dx, dz);
+      if (d > def.range + 0.6) continue;
+      // bearing relative to the LOCKED swing direction, wrapped to [-π, π]
+      const raw = Math.atan2(dz, dx) - s.meleeYaw;
+      const ang = Math.atan2(Math.sin(raw), Math.cos(raw));
+      // point-blank bodies (standing inside the attacker) always count —
+      // the bearing is meaningless noise at zero distance
+      if (Math.abs(ang) > MELEE_ARC / 2 && d > 0.5) continue;
+      caught.push({ victim: other, d });
+    }
+    caught.sort((a, b) => a.d - b.d);
+    for (const { victim, d } of caught.slice(0, MELEE_MAX_TARGETS)) {
+      // hit reaction: the blow staggers their aim and shoves them back a step
+      victim.nextFireAt = Math.max(victim.nextFireAt, this.time + MELEE_STAGGER);
+      const dl = Math.max(d, 0.5);
+      victim.pushX += ((victim.pos.x - s.pos.x) / dl) * 3;
+      victim.pushZ += ((victim.pos.z - s.pos.z) / dl) * 3;
+      this.emit({ type: 'hit', pos: { ...victim.pos, y: 1 }, weapon: def.id, soldierId: s.id });
+      this.damageSoldier(victim, def.damage, s.id, def.id);
     }
   }
 

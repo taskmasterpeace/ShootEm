@@ -821,9 +821,8 @@ export function stepDog(w: World, s: Soldier, dt: number) {
     s.vel.x = (dx / dl) * DOG_STATS.speed;
     s.vel.z = (dz / dl) * DOG_STATS.speed;
     if (bestD < wdef.range + 0.5 && w.time >= s.nextFireAt) {
-      s.nextFireAt = w.time + 1 / wdef.rof;
-      w.damageSoldier(target, wdef.damage, s.id, wdef.id);
-      w.emit({ type: 'shot', pos: s.pos, weapon: wdef.id, soldierId: s.id });
+      // the bite is a swing too — a quick one (0.2s), but dodgeable
+      w.startMelee(s, wdef);
     }
   } else {
     // all quiet (or the kill is done): return to heel off the handler's shoulder
@@ -999,9 +998,9 @@ export function stepZombie(w: World, s: Soldier, dt: number) {
       return;
     }
     if (bestD < wdef.range + 0.5 && w.time >= s.nextFireAt) {
-      s.nextFireAt = w.time + 1 / wdef.rof;
-      w.damageSoldier(best, wdef.damage, s.id, wdef.id);
-      w.emit({ type: 'shot', pos: s.pos, weapon: wdef.id, soldierId: s.id });
+      // claws are a SWING now: windup telegraph → arc strike → recover.
+      // startMelee owns the rof pacing; prey that steps out of the arc is safe.
+      w.startMelee(s, wdef);
     }
   }
   w.stepSoldierPhysics(s, dt);

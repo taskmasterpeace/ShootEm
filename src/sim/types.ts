@@ -243,6 +243,13 @@ export interface Soldier {
   nextPsiAt: number;
   /** repair-kit next use */
   nextRepairAt: number;
+  // melee swing state machine: WINDUP → STRIKE → RECOVER (see world.startMelee)
+  /** sim time the in-flight swing lands; 0 = no swing in the air */
+  meleeStrikeAt: number;
+  /** swing direction, locked at windup start — step out of THIS arc to dodge */
+  meleeYaw: number;
+  /** weapon that will land at strike time ('' when idle) */
+  meleeWeapon: WeaponId;
   // bot brain scratch
   botGoal?: Vec3 | null;
   botRepathAt?: number;
@@ -414,7 +421,8 @@ export interface SimEvent {
     | 'hacked'         // hacking kit converted an enemy turret
     | 'psi_ping'       // psi scanner found someone (HUD flashes the icon)
     | 'downed'         // a soldier hit the ground bleeding — not dead yet
-    | 'revived';       // someone got them back on their feet
+    | 'revived'        // someone got them back on their feet
+    | 'melee_windup';  // a melee swing began — the client telegraphs the strike
   pos?: Vec3;
   weapon?: WeaponId;
   soldierId?: number;
