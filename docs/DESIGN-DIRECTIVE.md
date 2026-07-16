@@ -1,4 +1,4 @@
-# War World — Design Directive 01 (Rev 5)
+# War World — Design Directive 01 (Rev 6)
 
 **From matches to a war.** Every fight permanently matters. Grounded in real,
 near-future military tech — and the exotic gear has to be *earned*.
@@ -37,26 +37,40 @@ team is solving: **how does every match permanently matter?**
 The unanswered foundational question. Today "red vs blue" is assigned per match
 and means nothing. The fix: **you don't pick a team. You enlist.**
 
-| | **The Concord** | **The Meridian Pact** |
+| | **The Titan Coalition** | **The Collective** |
 |---|---|---|
-| Doctrine | Combined arms — armor columns, artillery superiority, air cavalry | Asymmetric & unmanned — drone swarms, EW, loitering munitions, raiding |
+| Doctrine | Combined arms — armor columns, artillery superiority, air cavalry, K9s | Asymmetric & unmanned — drone swarms, EW, loitering munitions, raiding |
 | Wins by | Mass and discipline | Precision and denial |
-| Colors | Steel grey & cyan | Olive & amber |
+| Colors | Gunmetal & **amber** | Steel & **cyan** |
 | Tech lead | EM-gun line first | Drone program first |
 
-*(Names are placeholders — rename at will; keep the structure.)*
+**Names LOCKED (decision 1B):** the shipped game already calls them the
+**Titan Coalition** (amber) and **The Collective** (cyan) on every
+scoreboard, killfeed, and team chip — the directive now matches the code.
+The warm-amber *human* army against the cold-cyan *machine* doctrine is the
+identity; no rename pass will ever be needed because nothing was ever
+shipped under another name.
+
+**Asymmetry LOCKED (decision 2B):** factions differ in **early access,
+signature assets, and operational options** (the Coalition fields K9s and
+falcons first, the Collective fields swarms and UGVs first) — but counters
+are shared and tech *crosses over* eventually. No hard-split rosters: full
+asymmetry multiplies balance, content, bot-AI, and onboarding costs for a
+team of this size.
 
 **How enlistment works**
 
-- **You sign for a tour** — one faction per campaign season. Your record,
-  medals, and journal entries stamp the tour they were earned in.
+- **You sign for a tour — and a tour IS one campaign season (decision 4A).**
+  Enlistment, season history, defection windows, and tour rewards all share
+  one clock. Your record, medals, and journal entries stamp the tour they
+  were earned in.
 - **Every match you play is fought for your faction.** Offline, bots wear both
   flags; you always deploy under yours, and your result moves your faction's
   fronts.
 - **Doctrine is real:** your faction's tech tree, vehicle skins, and unlocked
   prototypes differ.
 - **Defection is allowed between tours — and it's recorded.** "Two tours
-  Concord, then crossed to the Pact" is a story your dossier tells forever.
+  Coalition, then crossed to the Collective" is a story your dossier tells forever.
 - **The outbreak (§8.3) belongs to no one.** Quarantine ops are a joint task
   force — the one place both flags fight side by side; your containment record
   credits your faction.
@@ -163,11 +177,18 @@ exactly this, and it makes every class feel earned:
   slalom, the Engineer's breach-and-build, the Heavy's live-fire lane.
   Pass it to deploy as that class. (Infantry is basic training — everyone
   starts qualified.)
-- **One attempt counts — forever.** You can practice the course any time,
-  but your **first scored run** is your permanent qualification score. That
-  score goes on **The Wall** — the standing leaderboard every player sees —
-  and stamps your dossier: *"Qualified Expert, 96th percentile, first
-  attempt."* One shot is what makes the number mean something.
+- **One attempt counts — forever, and you KNOW when you're taking it
+  (decision 18B).** Practice runs are unlimited and marked PRACTICE. The
+  official run is a separate, **explicitly confirmed** entry — you step to
+  the line, the game asks *"this one counts, forever — ready?"*, and only
+  then does the clock arm. The result records both the fixed grade and the
+  percentile-at-the-time. That score goes on **The Wall** — the standing
+  leaderboard every player sees — and stamps your dossier: *"Qualified
+  Expert, 96th percentile, first attempt."* A permanent score is only
+  meaningful when the player knowingly accepts the attempt — nobody locks a
+  lifelong number by accident, and nobody locks it in the tutorial (§14's
+  Basic Training run is always PRACTICE; the official Infantry attempt is
+  offered right after, ready when you are).
 - **Scores feed the Record:** qualification tiers (Marksman / Sharpshooter /
   Expert) are real military grades, shown as ribbons on your soldier (§3
   System A). Re-runs can unlock *practice* bragging rights, but The Wall
@@ -370,13 +391,13 @@ pairing** — take the K9 option and the dog deploys with you:
   service history ("Rex — 3 tours, 41 finds, wounded twice"). When a K9 goes
   down and the handler carries it to the ambulance, that's the clip of the
   match. Dogs are how you make players *feel* things.
-- **Doctrine fit:** K9s are a Concord signature (§1) — the human-and-animal
-  army against the Pact's machines. Dog vs robot-dog is a fight we want.
+- **Doctrine fit:** K9s are a Coalition signature (§1) — the human-and-animal
+  army against the Collective's machines. Dog vs robot-dog is a fight we want.
 
 ### 5.4 Drones & ground robots — *first slice SHIPPED*
 All fielded today: ISR quadcopters, strike drones, loitering munitions
 (Switchblade), UGVs (Ripsaw/THeMIS, robot dogs). These are **the Meridian
-Pact's doctrine** and the visible reward of §6 — hold the right fronts and your
+Collective's doctrine** and the visible reward of §6 — hold the right fronts and your
 faction's machines roll onto the field.
 
 **✅ Personal FPV drones — SHIPPED.** The Ghost/EW operator's Q now deploys a
@@ -385,7 +406,7 @@ that's the risk), the camera becomes the drone's feed, and it spots enemies
 for the team. The control link is the leash: fly past ~55u and **static floods
 the feed until the link drops and the drone tumbles out of the sky and breaks
 on the dirt** — same fate from enemy EMP, gunfire, a drained battery, or the
-operator going down. Strategically this is the Pact doctrine made playable,
+operator going down. Strategically this is the Collective doctrine made playable,
 and the EW-vs-drone duel (jam it, shoot it, hunt the kneeling pilot) is the
 predator/prey loop in miniature. Bots keep the auto-orbit version.
 
@@ -394,10 +415,10 @@ predator/prey loop in miniature. Bots keep the auto-orbit version.
 police trained **eagles to intercept quadcopters**, and hand-launched
 bird-sized ISR drones (RQ-11 Raven) are standard issue. Two grounded takes:
 
-- **The falcon (counter-drone):** a trained raptor that dives the Pact's ISR
+- **The falcon (counter-drone):** a trained raptor that dives the Collective's ISR
   quadcopters and rips them out of the sky. Niche — but it's the *organic
   counter* to drone doctrine, it's dramatic, and nobody else's war game has
-  it. Pairs with the K9 as Concord's living-army identity.
+  it. Pairs with the K9 as the Coalition's living-army identity.
 - **The Raven (ISR mini-drone):** hand-thrown, bird-sized, silent-ish scout —
   effectively the "bird" as advanced tech, and nearly free to build (it's a
   small flying camera reusing drone logic).
@@ -424,8 +445,8 @@ be earned, escorted, and kept alive.
 - **Prototypes are rare by design:** limited field-trial issue — one EM rifle
   per squad, one jet-suit per operation. Losing one is a Journal entry. Using
   one well is a medal.
-- **Doctrine forks the tree (§1):** Concord unlocks the EM-gun line first; the
-  Pact unlocks the swarm line first. The war decides who gets the future.
+- **Doctrine forks the tree (§1):** the Coalition unlocks the EM-gun line first;
+  the Collective unlocks the swarm line first. The war decides who gets the future.
 
 > *Standard issue is real. The future is a reward.*
 
@@ -436,6 +457,13 @@ be earned, escorted, and kept alive.
 Rank shouldn't be a badge. It should be **decisions**. And the chain of
 command — the thing armies invented because people go missing — is also the
 answer to "who's online?"
+
+**Rank ≠ command — LOCKED (decision 10B).** Rank creates *eligibility*;
+holding command additionally requires a **command qualification** (a §3.2
+course — judged, one-shot scored like the rest) and an **acceptable conduct
+history** (§16's audit trail is the record). Hours played prove endurance,
+not judgment — the largest grinder does not automatically inherit a
+faction's war.
 
 ### 7.1 Officers choose things
 - **Pick the front:** ranking officers choose where the faction attacks next —
@@ -532,7 +560,7 @@ required properties:
    soup.
 2. **A signature moment** — the thing players tell stories about.
 3. **A persistent scar** — how campaign state permanently rewrites it.
-4. **A doctrine lean** — some ground favors Concord armor, some favors Pact
+4. **A doctrine lean** — some ground favors Coalition armor, some favors Collective
    drones, so the campaign tug-of-war has texture.
 
 | # | Front | Ground | Modes | Stars | The scar (persists) |
@@ -601,9 +629,19 @@ and per-height shot occlusion already exist):
   make sightlines designed instead of accidental: streets are corridors,
   slits are angles, roofs are denial.
 
-**Sequencing:** slits + cutaway roofs land first, then the ten fronts get
-authored against real building tech at the new map scale. **No new maps until
-then** — nothing gets built twice.
+**Sequencing — DECIDED (35B): one integrated foundation pass.** Roofs/slits,
+the larger scale, the terrain surface layer (§8.6), and height-aware jump
+obstacles (§8.7) all touch the same grid and the same authoring assumptions —
+they land as **a single map-foundation pass**, not four retrofits. Then the
+ten fronts get authored once, against the finished alphabet. **No new maps
+until the pass lands** — nothing gets built twice.
+
+**Map scale — DECIDED (33C): population-scaled families, not one number.**
+"Bigger" is not a design; scale follows population, mission, and travel
+expectations: **~300–360u for standard 12v12 fronts** (32B), smaller mission
+pockets (arenas, Breach & Clear compounds), and larger corridors only where
+a front's vehicle play earns them (the Plains' tank country, the Pass's
+convoy road). Per-front, tuned — never a global constant.
 
 ### 8.5 The Scar — the theater map
 
@@ -647,9 +685,14 @@ screen:
 
 1. **Campaign state file** (`ww_campaign` local, Stage-3 syncable):
    `{ season, fronts: { id: { control: -100..100, scars: [], lastBattleAt } } }`.
-2. **Results move fronts:** finish a match deployed at front F → win shifts
-   `control` toward your faction (±8 by default, mode-weighted); crossing
-   thresholds flips ownership and fires a Journal/dispatch entry.
+2. **Results move fronts — with BANDS, not a hair-trigger flip (decision
+   22B):** finish a match deployed at front F → win shifts `control` toward
+   your faction, **weighted by mode and by the front's importance** (a
+   Conquest win on the Airbase moves more than a TDM skirmish on the
+   Plains). The −100..+100 value reads out in three bands — **controlled /
+   contested / enemy-controlled** — so ownership changes feel like
+   campaigns, not coin flips, and a single match can never whipsaw a front
+   between owners.
 3. **Scars v1 as modifiers on existing generators:** persistent-fire = fire
    fields seeded near the middle; frozen = ice palette + slick handling;
    rubble = extra cover density; flooded = more water tiles; blocked/open
@@ -768,6 +811,20 @@ the shared global war.
 | Slice 2 | Factions + full Living Campaign: enlistment, tours, missions, Prototype Program | Turns matches into a war with a flag on it | proposed |
 | Slice 3 | Command: officer choices, named operations, relief of command, devolution | Needs ranks (Slice 1) + campaign (Slice 2) to mean anything | proposed |
 | Slice 4 | Lift campaign + dossiers to a shared backend | The true global war — same state, now shared | later |
+
+**Menu placement LOCKED (decision 6B):** the deploy-screen rebuild does not
+wait and does not block. The **tab shell + reserved Map/Barracks slots ship
+alongside Slice 1** (the Dossier needs a Barracks door anyway); visual polish
+lands during Slice 1.5. The storefront and the persistence systems proceed in
+parallel instead of queueing.
+
+**SCOPE FREEZE for the next three slices (decision 7A):** the slices contain
+**the Dossier, the Scar, the Proving Grounds, the essential menu shell, bot
+parity, accessibility table stakes, and the trust prerequisites — and nothing
+else.** No stretch goals, no "it looked cheap" additions (that moves the
+Paintball Yard, Motor Trials, and every §20 system explicitly *after* the
+freeze). The project's biggest threat is not a lack of ideas; it is features
+entering through side doors. This paragraph is the door policy.
 
 ### 9.1 Cross-cutting tracks — the things that ride every slice
 
@@ -969,13 +1026,15 @@ of it is forgeable.
 
 Three rules, in leverage order:
 
-1. **Send only what a player could perceive — interest-managed snapshots.**
-   Cull each client's snapshot to units it can plausibly see (team, LOS +
-   sensor range, pinged). Cloaked/burrowed/deep units never reach the enemy's
-   wire — concealment becomes *true* instead of a rendering hint. This kills
-   ESP and shrinks bandwidth (helps mobile, §11.2). It's a snapshot-layer
-   change, not a sim change, so it can land at **Stage 1** and pays for itself
-   on LAN too.
+1. **Send only what a player could perceive — interest-managed snapshots.
+   DECIDED (68A): this ships BEFORE any internet hosting, period.** Cull each
+   client's snapshot to units it can plausibly see — using the **same
+   perception function as the §19 vision cone** (team, cone + ring, squad
+   share, pinged). Cloaked/burrowed/deep units never reach the enemy's wire —
+   concealment becomes *true* instead of a rendering hint. This kills ESP and
+   shrinks bandwidth (helps mobile, §11.2). Sending hidden enemy positions to
+   every client is not a future anti-cheat problem; it is a present
+   architecture defect, and no `wss://` endpoint goes public while it exists.
 2. **The server referees the shot.** Extend the cooldown checks it already does
    into aim/hit plausibility: rate caps, spread enforced server-side, and a
    sanity gate on impossible aim (a crosshair that teleports onto every target,
@@ -1031,24 +1090,26 @@ deliberately deferred.
 > the depth-stealth drama (§5.2), and the drag-your-buddy medal (§4.3) — the
 > emotional centrepieces — do not happen in a match that is mostly bots.
 
-**A. Match sizing is a decision, not an accident.** Today it's an accident of a
-formula (1 human + 7 vs 8 locally; the server hard-codes 6 vs 7 and *ignores*
-the bot slider). Set a target: **competitive fronts ~12 v 12** (humans plus
-bots filling to target), **co-op 4–6**. The bigger maps (§4.3) are sized *to*
-that body count — a front's playable area follows expected population, not the
-reverse; a 400-unit map with 16 bodies is a ghost town. Bots auto-fill to the
-target and **rebalance on join/leave** (neither happens today).
+**A. Match sizing — DECIDED (32B): 12 v 12 competitive, 4–6 co-op.** Today
+it's an accident of a formula (1 human + 7 vs 8 locally; the server
+hard-codes 6 vs 7 and *ignores* the bot slider). The target is locked:
+**12 v 12 with bots filling every open position**, co-op 4–6 — big enough to
+feel like a battle, small enough that one soldier's actions still matter and
+phones can carry it. Maps are sized *to* that body count (§8.4 / 33C) — a
+front's playable area follows expected population, never the reverse. Bots
+auto-fill to the target and **rebalance on join/leave** (neither happens
+today).
 
-**B. Bots are first-class soldiers — parity ships in the mechanic's own slice.**
-"A toy one-in-sixteen can use" is not *done*. Every mechanic lands with its bot
-behaviour, priority order:
+**B. Bots are first-class soldiers — parity order DECIDED (49A).**
+"A toy one-in-sixteen can use" is not *done*. The retrofit order is locked:
 
-1. **Revive & drag** — bots drag and *are* draggable, or the §4.3 medal never
-   fires in a bot match and medics stay pointless.
-2. **MANPADS** (bots lock and flare), **breacher burrow** (bot tunnelers
-   dive/surface), **FPV/recon drones**, then **pathfinder/ghost/orbital**
-   abilities — the `pathfinder` and `ghost` bots we already spawn are currently
-   ability-inert.
+1. **Now:** MANPADS (bots lock and flare), breacher depth toggle, and
+   FPV/recon drone behavior — the three shipped mechanics bots can't touch.
+2. **With the downed system (§4.3):** revive & drag — bots drag and *are*
+   draggable, or the drag medal never fires in a bot match and medics stay
+   pointless.
+3. **Then:** the remaining class abilities — the `pathfinder` and `ghost`
+   bots we already spawn are currently ability-inert.
 
 **C. Difficulty must mean tactics, not just aim.** Today the three tiers vary
 **one number** — aim error. Veteran/Elite should also mean *use cover, retreat
@@ -1059,6 +1120,14 @@ when hurt, focus-fire, coordinate a push* — otherwise "harder" is just
 bot-heavy matches still move fronts — a faction's bots hold the line while its
 humans sleep. This is §7.3's "who's online" answer one level down: the army
 fights on without you, and the Morning Dispatch reports how the bots did.
+
+- **The offline "overnight" is HONEST (decision 27B):** a local game cannot
+  fight while the program is closed. On launch, the campaign runs a **capped,
+  deterministic time-skip simulation** of the elapsed period and labels every
+  outcome as **simulated bot actions** in the Dispatch — *"while you were
+  gone (simulated): the Collective pushed Bridge Delta to contested."* The
+  emotional promise survives; the game never pretends a nonexistent server
+  was running. (Real overnight war arrives with Stage 2 servers.)
 
 > **Honest scope.** Ability *parity* (B) is incremental — ~a day of bot logic
 > per mechanic; retrofit the just-shipped MANPADS/breacher/drone first.
@@ -1136,9 +1205,11 @@ funnel.
    in the Proving Grounds (§3.3): move, shoot, throw (the hold-G arc), take a
    point — plus movement school: the vault and the climb (§8.7), reading the
    ground (§8.6), and sound discipline (deck plate betrays, snow confesses,
-   §18/§19). Five minutes, hand-held, ending in your Infantry qualification and
-   your first dossier entry. This *is* the infantry course (§3.2) doubling as the
-   tutorial — one build, two jobs.
+   §18/§19). Five minutes, hand-held, ending in your first dossier entry.
+   This *is* the infantry course (§3.2) doubling as the tutorial — one build,
+   two jobs — but the tutorial run is always a **PRACTICE** run: the one-shot
+   *official* attempt (18B) is offered right after, taken only when you say
+   you're ready. No newcomer locks a lifelong score by accident.
    **Skipping bootcamp costs you a rank.** Basic Training graduates enlist as
    **Private**; skip it and you deploy as a **Draftee** — one rank below, and
    the dossier remembers which you were forever. No power difference, pure
@@ -1202,10 +1273,11 @@ The systems that generate the best stories also hand a bad actor the sharpest
 tools. **Every powerful social verb ships with its abuse case answered in the
 same slice** — guardrails are cheaper built in than bolted on.
 
-- **Spawn protection.** There is none today, and §4.3 adds lethality on bigger,
-  camp-friendly maps. Add a short **post-spawn invulnerability that breaks the
-  instant you fire**, plus enemy-aware spawn selection (never drop a player in an
-  enemy's lap). Standard, cheap, load-bearing.
+- **Spawn protection — DECIDED (55B).** There is none today, and §4.3 adds
+  lethality on bigger, camp-friendly maps. The rule: **protection holds until
+  you fire or take any hostile action, hard-capped at ~5 seconds**, combined
+  with **enemy-aware spawn selection** (never drop a player in an enemy's
+  lap). No spawn kills, and no protected player ever shoots first.
 - **Friendly fire & the team-kill ladder.** Decide FF per mode (off casual,
   reduced competitive); repeated team-damage escalates damage-reflect → forgive
   prompt → auto-kick. **The drag can't become a grief tool** (§4.3): you can't
@@ -1404,8 +1476,8 @@ assemble**. Where the Outbreak (§8.3) eats flesh, the Iron Eaters eat metal:
 
 | Threat | Devours | Feared most by |
 |---|---|---|
-| The Outbreak | flesh | the human army (Concord doctrine) |
-| **The Iron Eaters** | metal | the machine army (Pact doctrine) |
+| The Outbreak | flesh | the human army (Coalition doctrine) |
+| **The Iron Eaters** | metal | the machine army (Collective doctrine) |
 
 Each faction's greatest strength is exactly what its nightmare eats. That
 tension is permanent, and it's the spine of the season's story (§13).
@@ -1422,7 +1494,7 @@ learned a body plan*:
 | **Junkhounds** | dog | drone rotors, suspension springs | fast packs; **they jump** (§8.7 HOP and CLIMB tiers — obstacles don't save you); harry and drag |
 | **Weavers** | spider | rebar, cable, plating | junk-metal spiders; climb walls; string salvage-wire between structures; turn buildings into larders |
 | **Ravagers** | tank | dead MBTs and IFVs | siege beasts; your own armor's silhouette, wrong; shrug off small arms |
-| **The swarm** | cloud | corrupted Pact drones | captured drone swarms flying in Iron Eater livery — the Pact's doctrine turned on everyone |
+| **The swarm** | cloud | corrupted Collective drones | captured drone swarms flying in Iron Eater livery — the Collective's doctrine turned on everyone |
 | **The Leviathan** | front-sized | an entire battlefield's wrecks | the Act-III event boss: a walking foundry that eats the front's wreckage and births beasts as it moves. Killing one is a joint operation and a Journal chapter |
 
 **Where they come from is the loop:** Iron Eaters assemble from **wreck
@@ -1586,6 +1658,8 @@ hand — is deliberately **not specified yet**; the acts themselves are canon.)*
 - ✅ **Committed: the Paintball Yard** (§3.3) — Brawl-Stars-scale arcade
   arenas on the jump grammar, splat-out paintball markers, local Wall board.
   Motor Trials proposed but **blocked on a vehicle-handling feel pass**.
+  **Scheduling per the 7A scope freeze:** both sit explicitly *after* the
+  next three slices — committed as design, not as near-term production.
 - 📄 **Map strategy split out** to `docs/MAP-STRATEGY.md` — arena pockets,
   dynamic neighborhoods (generalize the safehouse house generator), the ten
   fronts, and the inside-a-house-means-unseen concealment rule.
@@ -1599,17 +1673,20 @@ hand — is deliberately **not specified yet**; the acts themselves are canon.)*
   ships scoped** (§11.5 — observe/administrate/nudge; the pacing panel slot
   stays empty); playable monsters enter via a **dedicated versus mode**
   (§20.4 — bots fill both sides).
-- ⚠️ **Decide:** faction names/doctrines (§1) are placeholders — rename at
-  will; keep the enlistment/tour mechanics.
+- ✅ **Decided (1B):** faction names locked to the code's shipped names — the
+  **Titan Coalition** (amber) vs **The Collective** (cyan). Zero rename work:
+  nothing ever shipped under another name.
 - ✅ **Decided:** roofs + firing slits (§8.4) — cutaway roofs (visual-only
   phase 1) + `T_SLIT` tile; build before authoring any of the ten fronts.
 - ✅ **The Scar exists** (§8.5) — the painted theater map with all ten fronts
   and the campaign-effect legend; becomes the front-selection screen with
   live marker overlays. Awaiting the hi-res export.
-- ⚠️ **Decide:** map scale (300–400u) — prerequisite for down/drag/revive
-  (§4.3); ships in the same map pass as §8.4.
-- ⚠️ **Decide:** match/population target (§12) — a match is ~1 human + ~15 bots
-  today; the server ignores the bot slider and never rebalances. Sizes the maps.
+- ✅ **Decided (33C/35B):** map scale is population-scaled per family
+  (~300–360u for 12v12 fronts, pockets smaller, vehicle corridors larger),
+  and it ships inside ONE integrated map-foundation pass with roofs/slits,
+  the surface layer, and jump obstacles (§8.4).
+- ✅ **Decided (32B):** match population target is **12v12** (bots fill,
+  rebalance on join/leave), co-op 4–6. Sizes the maps (33C).
 - ⚠️ **Risk — trust floor (§11.4):** online snapshots broadcast *every*
   position (free ESP) and the server trusts `aimYaw` (trivial aimbot).
   Interest-managed snapshots + server-side aim-refereeing + identity gate
@@ -1628,3 +1705,53 @@ hand — is deliberately **not specified yet**; the acts themselves are canon.)*
   volume is hardcoded; the knockback/screenshake work has no comfort valve.
 - ❌ **Gap — no spawn protection (§16):** and §4.3 adds lethality on bigger,
   camp-friendly maps.
+
+---
+
+## Appendix B — Decision register
+
+The locked product decisions, in one place. Reopening any of these requires a
+better argument than the one that closed it. Numerical tuning (exact seconds,
+damage, radii, percentages) is deliberately absent — numbers are decided on
+the range and in playtests, not in this document.
+
+### The 15-decision baseline (adopted)
+
+| # | Decision | Locked choice |
+|---|---|---|
+| 1B | Faction names | **Titan Coalition** (amber) vs **The Collective** (cyan) — the code's shipped names; the directive aligned to the game (§1) |
+| 2B | Faction asymmetry | Early access + signature assets + operational options differ; counters shared; tech crosses over. No hard-split rosters (§1) |
+| 4A | What is a tour | One tour = one campaign season — enlistment, history, defection, rewards share one clock (§1/§13) |
+| 6B | Menu placement | Tab shell + Map/Barracks slots ship alongside Slice 1; polish in Slice 1.5 (§9) |
+| 7A | Scope freeze | Next three slices: Dossier, Scar, Proving Grounds, menu shell, bot parity, accessibility, trust prerequisites — **nothing else** (§9) |
+| 10B | Rank vs command | Rank = eligibility; command needs a qualification + clean conduct history (§7) |
+| 18B | The Wall attempt | Unlimited practice; the official run is explicitly confirmed; grade + percentile recorded; tutorial never locks a score (§3.2/§14) |
+| 22B | Front control | −100..+100 with controlled/contested/enemy bands; mode- and importance-weighted (§8.5) |
+| 27B | Offline overnight | Capped deterministic time-skip on launch, outcomes labeled *simulated* (§12.D) |
+| 32B | Match population | 12v12 competitive (bots fill + rebalance), 4–6 co-op (§12.A) |
+| 33C | Map scale | Population-scaled families: ~300–360u standard fronts, smaller pockets, larger vehicle corridors (§8.4) |
+| 35B | Map foundation | Roofs/slits + scale + surface layer + jump obstacles = ONE integrated pass before any front is authored (§8.4) |
+| 49A | Bot parity order | Now: MANPADS/breacher/drones → with §4.3: revive & drag → then remaining abilities (§12.B) |
+| 55B | Spawn protection | Until first hostile action, capped ~5s, plus enemy-aware spawn selection (§16) |
+| 68A | Snapshot culling | Interest-managed snapshots ship **before any internet hosting**, sharing the §19 perception function (§11.4) |
+
+### Previously settled (do not reopen)
+
+Local-first now, server sync later · two-faction enlistment · personal vs
+operational gear · no permanent raw-stat vehicle upgrades (hardpoints are
+requisitioned, §3.1) · prototypes are operational issue · buy-once, never
+sell skill/history/power · roofs + slits before more named maps · light-cone
+vision v1 (no shadow-casting) · ghost linger gear-gated, 3s cap · dossier
+persists, war resets · skill rust is biography, never decay · War Room =
+observe/administer/nudge (pacing panel slot empty) · Outbreak canon, classic
+zombies off-canon toggle · Iron Eaters + three acts committed · playable
+monsters via dedicated Versus · monsters get no dossier power · `wss://`
+everywhere · one process = one war until Stage 3 · bootcamp skip = Draftee
+rank (biography, no power) · the Director is deliberately absent from this
+document.
+
+### Deliberately deferred
+
+Iron Eater control models and Versus tuning (§20.4) · the Leviathan's
+mechanics · the Director conversation · Stage-3 economy pricing · everything
+numerical.

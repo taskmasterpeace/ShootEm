@@ -71,22 +71,31 @@ The v1 vision cone is the *light* cone (enemy-draw only, no wall-shadow
 pass) — but interiors get the concealment rule from day one because roofs
 already hide them visually and the minimap simply respects it.
 
-## 5. Sequencing
+## 5. Sequencing — updated for the locked decisions (DD Appendix B)
+
+Decision **35B** merges the old phases 2–3: roofs/slits, scale, the surface
+layer, and jump obstacles are **one integrated map-foundation pass** — they
+touch the same grid and authoring assumptions, so splitting them means
+rebuilding maps and movement rules repeatedly.
 
 | Phase | Ships | Unblocks |
 |---|---|---|
-| 1 | **Arena pockets** on today's alphabet + jump tiers (§8.7) | Paintball Yard (§3.3), movement school (§14) |
-| 2 | **Slits + cutaway roofs** (§8.4) + house generator generalization | Neighborhood family, The City prototype |
-| 3 | **Surface layer** (§8.6) + map-scale decision (300–400u) | down/drag/revive (§4.3), weather (§8.8) |
-| 4 | **The ten fronts**, authored against the full alphabet | the Living Campaign's real theatres (§8.2) |
+| 1 | **Jump tiers** (§8.7) + arena-pocket authoring on today's alphabet | movement school (§14); Paintball Yard *design-ready* (production sits post-freeze per 7A) |
+| 2 | **THE FOUNDATION PASS (35B):** slits + cutaway roofs (§8.4) · population-scaled sizes (33C) · surface layer (§8.6) · height-aware obstacles — plus house generator generalization | Neighborhood family, The City prototype, down/drag/revive (§4.3), weather (§8.8) |
+| 3 | **The ten fronts**, authored ONCE against the finished alphabet | the Living Campaign's real theatres (§8.2) |
 
-## 6. Open questions
+## 6. Decisions & remaining questions
 
+**Decided (DD Appendix B):**
+- **Front scale (33C):** population-scaled families — ~300–360u for standard
+  **12v12** fronts (32B), smaller mission pockets, larger vehicle corridors
+  only where a front's vehicle play earns them. Per-front, never global.
+- **Foundation is one pass (35B)** — see sequencing above.
+
+**Still open:**
 - Arena pockets: hand-stamped layouts or a mini-generator with heavy
   constraints? (Lean: hand-stamp the first six — arenas live and die on
   exact geometry.)
 - Neighborhood streets: grid (classic suburbs) vs organic (older towns)?
   Affects readability from the top-down camera.
 - How many arena pockets does the Paintball Yard open with? (Lean: 3.)
-- Front scale: one global 300–400u decision, or per-front sizes tuned to
-  population targets (§12)? (Lean: per-front, sized to the mode.)
