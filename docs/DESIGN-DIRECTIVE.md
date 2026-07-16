@@ -486,6 +486,9 @@ frozen). *Every battle leaves a mark. The world remembers.*
   source art — our overlay owns the surface.)
 - The Scar is the visual identity of System C: when players say "check the
   Scar," the campaign has won.
+- **Placement is author-driven:** the dev **Scar harness** (`/scar-harness.html`)
+  lets you drop the art in and drag all ten markers into position; it exports
+  `scar-markers.json` (normalized 0–1 coordinates) that the Scar screen reads.
 
 ---
 

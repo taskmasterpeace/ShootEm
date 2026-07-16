@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>War World — Scar Harness</title>
+<style>
+  :root {
+    --bg:#14100b; --panel:#1d1811; --panel2:#262017; --line:#3a3020;
+    --text:#efe6d6; --muted:#a99a80; --amber:#f5b21a; --olive:#94a25e; --red:#e2543b; --green:#7fb04a;
+    --mono: ui-monospace, Menlo, Consolas, monospace;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+    font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; font-size:14px; line-height:1.5;
+    display:grid; grid-template-columns:280px 1fr; grid-template-rows:auto 1fr; height:100vh; overflow:hidden; }
+
+  header { grid-column:1/3; display:flex; align-items:center; gap:14px; padding:10px 16px;
+    border-bottom:1px solid var(--line); background:var(--panel); }
+  h1 { margin:0; font-size:16px; font-weight:800; letter-spacing:-0.01em; }
+  h1 .dim { color:var(--muted); font-weight:500; }
+  .spacer { flex:1; }
+  button { background:var(--panel2); border:1px solid var(--line); color:var(--text); border-radius:8px;
+    padding:7px 12px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; }
+  button:hover { border-color:var(--amber); }
+  button.primary { background:var(--amber); color:#1a1204; border-color:var(--amber); }
+  button.danger:hover { border-color:var(--red); color:var(--red); }
+
+  aside { border-right:1px solid var(--line); background:var(--panel); overflow-y:auto; padding:12px; }
+  .hint { font-size:12px; color:var(--muted); margin:0 0 12px; }
+  .front { display:flex; align-items:center; gap:9px; padding:7px 9px; border:1px solid var(--line);
+    border-radius:8px; margin-bottom:6px; cursor:pointer; background:var(--panel2); }
+  .front.active { border-color:var(--amber); }
+  .front .num { width:22px; height:22px; border-radius:50%; display:grid; place-items:center;
+    font-family:var(--mono); font-size:11px; font-weight:700; color:#fff; flex:none;
+    border:2px solid #fff; box-shadow:0 0 0 1.5px rgba(0,0,0,0.55); }
+  .front .nm { font-weight:700; font-size:12.5px; }
+  .front .xy { margin-left:auto; font-family:var(--mono); font-size:10px; color:var(--muted); }
+
+  #stage-wrap { position:relative; overflow:auto; display:grid; place-items:center; background:#0d0b07; }
+  #stage { position:relative; user-select:none; touch-action:none; }
+  #stage img { display:block; max-width:100%; height:auto; pointer-events:none; }
+  #dropzone { border:2px dashed var(--line); border-radius:12px; padding:60px 40px; text-align:center;
+    color:var(--muted); max-width:520px; margin:auto; }
+  #dropzone b { color:var(--amber); }
+  #dropzone.hot { border-color:var(--amber); color:var(--text); }
+
+  .marker { position:absolute; transform:translate(-50%,-50%); cursor:grab; z-index:5; }
+  .marker:active { cursor:grabbing; z-index:9; }
+  .marker .dot { width:30px; height:30px; border-radius:50%; display:grid; place-items:center;
+    font-family:var(--mono); font-weight:800; font-size:13px; color:#fff;
+    border:2.5px solid #fff; box-shadow:0 2px 8px rgba(0,0,0,0.7), 0 0 0 1.5px rgba(0,0,0,0.5); }
+  .marker .tag { position:absolute; left:36px; top:50%; transform:translateY(-50%);
+    background:rgba(16,14,10,0.88); border:1px solid rgba(255,255,255,0.25); border-radius:5px;
+    padding:2px 8px; font-size:11px; font-weight:700; letter-spacing:0.04em; white-space:nowrap;
+    text-transform:uppercase; }
+  .marker.sel .dot { outline:3px solid var(--amber); outline-offset:2px; }
+
+  dialog { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:12px; padding:0; width:min(600px,92vw); }
+  dialog::backdrop { background:rgba(0,0,0,0.6); }
+  .dlg-h { padding:12px 16px; border-bottom:1px solid var(--line); font-weight:700; display:flex; justify-content:space-between; }
+  .dlg-b { padding:14px 16px; }
+  .dlg-b textarea { width:100%; min-height:240px; background:var(--panel2); border:1px solid var(--line);
+    color:var(--text); border-radius:8px; padding:10px; font-family:var(--mono); font-size:12px; }
+  .dlg-f { padding:12px 16px; border-top:1px solid var(--line); display:flex; gap:8px; justify-content:flex-end; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🗺️ Scar Harness <span class="dim">— place the front markers</span></h1>
+  <span class="hint" style="margin:0">drag markers · positions save automatically</span>
+  <div class="spacer"></div>
+  <button id="load-img">Load map image…</button>
+  <button id="export" class="primary">Export positions</button>
+  <button id="reset" class="danger">Reset</button>
+</header>
+
+<aside id="legend"></aside>
+
+<div id="stage-wrap">
+  <div id="stage">
+    <div id="dropzone">
+      <p style="font-size:28px;margin:0 0 8px">🗺️</p>
+      <p><b>Drop THE SCAR map image here</b> (or click "Load map image…").</p>
+      <p>It's stored in this browser only — swap in new art any time.<br>
+      Then drag the ten front markers into position and hit <b>Export</b>.</p>
+    </div>
+  </div>
+</div>
+
+<dialog id="dlg">
+  <div class="dlg-h"><span>Front marker positions</span><button id="dlg-x">✕</button></div>
+  <div class="dlg-b">
+    <p class="hint">Normalized 0–1 coordinates (resolution-independent). Save as <code>public/scar-markers.json</code> — the Scar screen reads this.</p>
+    <textarea id="dlg-json" readonly></textarea>
+  </div>
+  <div class="dlg-f">
+    <button id="dlg-copy" class="primary">Copy JSON</button>
+    <button id="dlg-dl">Download scar-markers.json</button>
+  </div>
+</dialog>
+
+<script>
+// the ten fronts of THE SCAR — colors follow the painted art (no purple: The City runs steel-blue)
+const FRONTS = [
+  { id: 'bridge_delta',   n: 1,  name: 'Bridge Delta',      color: '#2d6fb0', x: 0.26,  y: 0.175 },
+  { id: 'fort_raven',     n: 2,  name: 'Fort Raven',        color: '#c23a2b', x: 0.445, y: 0.115 },
+  { id: 'eastern_plains', n: 3,  name: 'Eastern Plains',    color: '#3f8f3a', x: 0.53,  y: 0.325 },
+  { id: 'the_city',       n: 4,  name: 'The City',          color: '#4a7d8c', x: 0.46,  y: 0.45  },
+  { id: 'highland_pass',  n: 5,  name: 'Highland Pass',     color: '#c9a227', x: 0.23,  y: 0.49  },
+  { id: 'blacksite',      n: 6,  name: 'Blacksite (Arctic)',color: '#1f2e3a', x: 0.77,  y: 0.155 },
+  { id: 'refinery',       n: 7,  name: 'Refinery',          color: '#d07a1f', x: 0.775, y: 0.405 },
+  { id: 'the_port',       n: 8,  name: 'The Port',          color: '#1f7a6e', x: 0.73,  y: 0.60  },
+  { id: 'airbase',        n: 9,  name: 'Airbase',           color: '#39435c', x: 0.47,  y: 0.67  },
+  { id: 'the_mine',       n: 10, name: 'The Mine',          color: '#6b4f2a', x: 0.265, y: 0.72  },
+];
+const LS = 'ww_scar_markers_v1';
+const saved = JSON.parse(localStorage.getItem(LS) || '{}');
+for (const f of FRONTS) if (saved[f.id]) { f.x = saved[f.id].x; f.y = saved[f.id].y; }
+const save = () => localStorage.setItem(LS, JSON.stringify(Object.fromEntries(FRONTS.map(f => [f.id, { x: +f.x.toFixed(4), y: +f.y.toFixed(4) }]))));
+
+// ---- image persistence (IndexedDB — art can be multi-MB) ----
+const idb = () => new Promise((res, rej) => {
+  const r = indexedDB.open('ww_scar', 1);
+  r.onupgradeneeded = () => r.result.createObjectStore('img');
+  r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+});
+async function putImg(blob) { const db = await idb(); await new Promise((res, rej) => { const tx = db.transaction('img', 'readwrite'); tx.objectStore('img').put(blob, 'map'); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); db.close(); }
+async function getImg() { const db = await idb(); const out = await new Promise((res) => { const rq = db.transaction('img').objectStore('img').get('map'); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => res(null); }); db.close(); return out; }
+
+const stage = document.getElementById('stage');
+const dropzone = document.getElementById('dropzone');
+const legend = document.getElementById('legend');
+let selected = null;
+
+function setImage(blob) {
+  dropzone.style.display = 'none';
+  let img = stage.querySelector('img');
+  if (!img) { img = document.createElement('img'); stage.prepend(img); }
+  img.src = URL.createObjectURL(blob);
+  img.onload = layout;
+}
+
+function buildMarkers() {
+  for (const f of FRONTS) {
+    const m = document.createElement('div');
+    m.className = 'marker'; m.id = `mk-${f.id}`;
+    m.innerHTML = `<div class="dot" style="background:${f.color}">${f.n}</div><div class="tag">${f.name}</div>`;
+    stage.appendChild(m);
+    m.addEventListener('pointerdown', (e) => {
+      e.preventDefault(); m.setPointerCapture(e.pointerId);
+      select(f.id);
+      const move = (ev) => {
+        const r = stage.getBoundingClientRect();
+        f.x = Math.max(0.01, Math.min(0.99, (ev.clientX - r.left) / r.width));
+        f.y = Math.max(0.01, Math.min(0.99, (ev.clientY - r.top) / r.height));
+        place(f); coords(f);
+      };
+      const up = () => { m.removeEventListener('pointermove', move); m.removeEventListener('pointerup', up); save(); };
+      m.addEventListener('pointermove', move);
+      m.addEventListener('pointerup', up);
+    });
+  }
+}
+
+function place(f) {
+  const m = document.getElementById(`mk-${f.id}`);
+  m.style.left = (f.x * 100) + '%';
+  m.style.top = (f.y * 100) + '%';
+}
+function layout() { for (const f of FRONTS) place(f); }
+
+function coords(f) {
+  const el = document.getElementById(`xy-${f.id}`);
+  if (el) el.textContent = `${f.x.toFixed(3)} · ${f.y.toFixed(3)}`;
+}
+
+function select(id) {
+  selected = id;
+  document.querySelectorAll('.marker').forEach((m) => m.classList.toggle('sel', m.id === `mk-${id}`));
+  document.querySelectorAll('.front').forEach((c) => c.classList.toggle('active', c.dataset.id === id));
+}
+
+function buildLegend() {
+  legend.innerHTML = '<p class="hint">Click a front to highlight its marker; drag markers on the map. Everything saves as you go.</p>';
+  for (const f of FRONTS) {
+    const c = document.createElement('div');
+    c.className = 'front'; c.dataset.id = f.id;
+    c.innerHTML = `<span class="num" style="background:${f.color}">${f.n}</span><span class="nm">${f.name}</span><span class="xy" id="xy-${f.id}">${f.x.toFixed(3)} · ${f.y.toFixed(3)}</span>`;
+    c.onclick = () => select(f.id);
+    legend.appendChild(c);
+  }
+}
+
+// ---- image loading: drop, paste, or picker ----
+function acceptFile(file) { if (file && file.type.startsWith('image/')) { putImg(file); setImage(file); } }
+window.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('hot'); });
+window.addEventListener('dragleave', () => dropzone.classList.remove('hot'));
+window.addEventListener('drop', (e) => { e.preventDefault(); dropzone.classList.remove('hot'); acceptFile(e.dataTransfer.files[0]); });
+window.addEventListener('paste', (e) => { const it = [...e.clipboardData.items].find(i => i.type.startsWith('image/')); if (it) acceptFile(it.getAsFile()); });
+document.getElementById('load-img').onclick = () => {
+  const p = document.createElement('input'); p.type = 'file'; p.accept = 'image/*';
+  p.onchange = () => acceptFile(p.files[0]); p.click();
+};
+
+// ---- export ----
+const dlg = document.getElementById('dlg');
+const exportJson = () => JSON.stringify({
+  map: 'the-scar', version: 1,
+  fronts: Object.fromEntries(FRONTS.map(f => [f.id, { n: f.n, name: f.name, x: +f.x.toFixed(4), y: +f.y.toFixed(4) }])),
+}, null, 2);
+document.getElementById('export').onclick = () => { document.getElementById('dlg-json').value = exportJson(); dlg.showModal(); };
+document.getElementById('dlg-x').onclick = () => dlg.close();
+document.getElementById('dlg-copy').onclick = () => navigator.clipboard.writeText(exportJson());
+document.getElementById('dlg-dl').onclick = () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([exportJson()], { type: 'application/json' }));
+  a.download = 'scar-markers.json'; a.click();
+};
+document.getElementById('reset').onclick = () => {
+  if (!confirm('Reset all markers to default positions?')) return;
+  localStorage.removeItem(LS); location.reload();
+};
+
+// ---- boot ----
+buildLegend();
+buildMarkers();
+layout();
+getImg().then((blob) => { if (blob) setImage(blob); });
+</script>
+</body>
+</html>
