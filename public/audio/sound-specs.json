@@ -5,223 +5,224 @@
     "deaths": "Per-class death cries",
     "movement": "Movement / gear",
     "tech": "Abilities / sci-fi tech",
-    "ui": "Objective / UI / match"
+    "ui": "Objective / UI / match",
+    "ambience": "Ambience beds (looped)"
   },
   "sounds": [
     {
       "name": "rifle",
       "cat": "weapons",
-      "desc": "Single dry assault-rifle shot — sharp, punchy crack",
+      "desc": "Single dry assault-rifle shot \u2014 sharp, punchy crack",
       "dur": 0.6
     },
     {
       "name": "rifle2",
       "cat": "weapons",
-      "desc": "Assault-rifle shot (variation 2) — alternated with rifle for firing variety",
+      "desc": "Assault-rifle shot (variation 2) \u2014 alternated with rifle for firing variety",
       "dur": 0.6
     },
     {
       "name": "smg",
       "cat": "weapons",
-      "desc": "ONE single submachine-gun shot — a single round, snappy, not a burst or full-auto",
+      "desc": "ONE single submachine-gun shot \u2014 a single round, snappy, not a burst or full-auto",
       "dur": 0.4
     },
     {
       "name": "pistol",
       "cat": "weapons",
-      "desc": "Single handgun gunshot — tight metallic crack with a hint of slide clack, close and dry",
+      "desc": "Single handgun gunshot \u2014 tight metallic crack with a hint of slide clack, close and dry",
       "dur": 0.5
     },
     {
       "name": "shotgun",
       "cat": "weapons",
-      "desc": "Pump shotgun — deep boom blast, then a pump-action rack cocking the next shell (cha-chunk)",
+      "desc": "Pump shotgun \u2014 deep boom blast, then a pump-action rack cocking the next shell (cha-chunk)",
       "dur": 0.95
     },
     {
       "name": "autocannon",
       "cat": "weapons",
-      "desc": "Heavy autocannon — mechanical metallic boom",
+      "desc": "Heavy autocannon \u2014 mechanical metallic boom",
       "dur": 0.6
     },
     {
       "name": "rail",
       "cat": "weapons",
-      "desc": "Railgun — electric snap into a descending energy zap",
+      "desc": "Railgun \u2014 electric snap into a descending energy zap",
       "dur": 0.9
     },
     {
       "name": "rocket",
       "cat": "weapons",
-      "desc": "Rocket launch — ignition whoosh with a deep motor rumble",
+      "desc": "Rocket launch \u2014 ignition whoosh with a deep motor rumble",
       "dur": 1.2
     },
     {
       "name": "thump",
       "cat": "weapons",
-      "desc": "Grenade launcher — hollow low launch pop",
+      "desc": "Grenade launcher \u2014 hollow low launch pop",
       "dur": 0.6
     },
     {
       "name": "cannon",
       "cat": "weapons",
-      "desc": "Tank 120mm — huge crack then deep booming concussion",
+      "desc": "Tank 120mm \u2014 huge crack then deep booming concussion",
       "dur": 1.4
     },
     {
       "name": "plasma",
       "cat": "weapons",
-      "desc": "Plasma bolt — synthetic electric 'zwip'",
+      "desc": "Plasma bolt \u2014 synthetic electric 'zwip'",
       "dur": 0.6
     },
     {
       "name": "flame",
       "cat": "weapons",
-      "desc": "Flamethrower — roaring gas ignition whoosh",
+      "desc": "Flamethrower \u2014 roaring gas ignition whoosh",
       "dur": 0.8
     },
     {
       "name": "acid",
       "cat": "weapons",
-      "desc": "Acid spit — wet gooey organic splat",
+      "desc": "Acid spit \u2014 wet gooey organic splat",
       "dur": 0.6
     },
     {
       "name": "repair",
       "cat": "weapons",
-      "desc": "Repair tool — ratcheting mechanical whir and clank",
+      "desc": "Repair tool \u2014 ratcheting mechanical whir and clank",
       "dur": 0.6
     },
     {
       "name": "heal",
       "cat": "weapons",
-      "desc": "Healing beam — warm rising restorative shimmer",
+      "desc": "Healing beam \u2014 warm rising restorative shimmer",
       "dur": 0.7
     },
     {
       "name": "claw",
       "cat": "weapons",
-      "desc": "Claw swipe — fast whoosh and flesh slash",
+      "desc": "Claw swipe \u2014 fast whoosh and flesh slash",
       "dur": 0.5
     },
     {
       "name": "hit",
       "cat": "impacts",
-      "desc": "Bullet impact on armor — dull dry thwack",
+      "desc": "Bullet impact on armor \u2014 dull dry thwack",
       "dur": 0.5
     },
     {
       "name": "hitmarker",
       "cat": "impacts",
-      "desc": "UI hit tick — crisp confirmation blip",
+      "desc": "UI hit tick \u2014 crisp confirmation blip",
       "dur": 0.5
     },
     {
       "name": "explosion",
       "cat": "impacts",
-      "desc": "Explosion — sharp crack then rumbling debris",
+      "desc": "Explosion \u2014 sharp crack then rumbling debris",
       "dur": 1.6
     },
     {
       "name": "explosion_big",
       "cat": "impacts",
-      "desc": "Huge explosion — deep concussion, long collapse",
+      "desc": "Huge explosion \u2014 deep concussion, long collapse",
       "dur": 2.6
     },
     {
       "name": "death",
       "cat": "impacts",
-      "desc": "Generic death — higher-pitched pained cry and gurgle, fading out (zombies / fallback)",
+      "desc": "Generic death \u2014 higher-pitched pained cry and gurgle, fading out (zombies / fallback)",
       "dur": 0.7
     },
     {
       "name": "death_infantry",
       "cat": "deaths",
-      "desc": "Infantry death — short pained male grunt + gear rattle",
+      "desc": "Infantry death \u2014 short pained male grunt + gear rattle",
       "dur": 0.8
     },
     {
       "name": "death_heavy",
       "cat": "deaths",
-      "desc": "Heavy death — deep pained groan + armor clang",
+      "desc": "Heavy death \u2014 deep pained groan + armor clang",
       "dur": 0.9
     },
     {
       "name": "death_jump",
       "cat": "deaths",
-      "desc": "Jump Trooper death — yelp mid-fall + jetpack sputter",
+      "desc": "Jump Trooper death \u2014 yelp mid-fall + jetpack sputter",
       "dur": 0.7
     },
     {
       "name": "death_engineer",
       "cat": "deaths",
-      "desc": "Engineer death — grunt + tools clattering down",
+      "desc": "Engineer death \u2014 grunt + tools clattering down",
       "dur": 0.8
     },
     {
       "name": "death_medic",
       "cat": "deaths",
-      "desc": "Medic death — gasp + failing medical tone",
+      "desc": "Medic death \u2014 gasp + failing medical tone",
       "dur": 0.8
     },
     {
       "name": "death_infiltrator",
       "cat": "deaths",
-      "desc": "Infiltrator death — sharp gasp + cloak fizzle",
+      "desc": "Infiltrator death \u2014 sharp gasp + cloak fizzle",
       "dur": 0.6
     },
     {
       "name": "death_pathfinder",
       "cat": "deaths",
-      "desc": "Pathfinder death — cry + warp zip snapping out",
+      "desc": "Pathfinder death \u2014 cry + warp zip snapping out",
       "dur": 0.7
     },
     {
       "name": "death_ghost",
       "cat": "deaths",
-      "desc": "Ghost death — grunt + comms static cutting out",
+      "desc": "Ghost death \u2014 grunt + comms static cutting out",
       "dur": 0.8
     },
     {
       "name": "jetpack",
       "cat": "movement",
-      "desc": "Jetpack thrust burst — strong roaring rocket exhaust with a sharp pressurized hiss, punchy and full, close and loud",
+      "desc": "Jetpack thrust burst \u2014 strong roaring rocket exhaust with a sharp pressurized hiss, punchy and full, close and loud",
       "dur": 0.5
     },
     {
       "name": "cloak",
       "cat": "movement",
-      "desc": "Cloak toggle — shimmering phase whoosh",
+      "desc": "Cloak toggle \u2014 shimmering phase whoosh",
       "dur": 0.6
     },
     {
       "name": "reload",
       "cat": "movement",
-      "desc": "Reload — mag out, mag in, bolt charge",
+      "desc": "Reload \u2014 mag out, mag in, bolt charge",
       "dur": 0.8
     },
     {
       "name": "pickup",
       "cat": "movement",
-      "desc": "Pickup — short bright positive collect blip",
+      "desc": "Pickup \u2014 short bright positive collect blip",
       "dur": 0.5
     },
     {
       "name": "engine",
       "cat": "movement",
-      "desc": "Vehicle engine — low diesel idle rumble",
+      "desc": "Vehicle engine \u2014 low diesel idle rumble",
       "dur": 0.7
     },
     {
       "name": "mine_plant",
       "cat": "movement",
-      "desc": "Mine plant — mechanical arming click and beep",
+      "desc": "Mine plant \u2014 mechanical arming click and beep",
       "dur": 0.5
     },
     {
       "name": "turret_built",
       "cat": "movement",
-      "desc": "Turret deploy — unfolding servo whir and lock",
+      "desc": "Turret deploy \u2014 unfolding servo whir and lock",
       "dur": 0.8
     },
     {
@@ -233,128 +234,194 @@
     {
       "name": "growl",
       "cat": "movement",
-      "desc": "Zombie growl — low guttural snarl",
+      "desc": "Zombie growl \u2014 low guttural snarl",
       "dur": 0.7
     },
     {
       "name": "growl2",
       "cat": "movement",
-      "desc": "Zombie growl (variation 2) — different throat, wetter snarl",
+      "desc": "Zombie growl (variation 2) \u2014 different throat, wetter snarl",
       "dur": 0.7
     },
     {
       "name": "growl3",
       "cat": "movement",
-      "desc": "Zombie growl (variation 3) — higher, rasping moan",
+      "desc": "Zombie growl (variation 3) \u2014 higher, rasping moan",
       "dur": 0.7
     },
     {
       "name": "impulse",
       "cat": "tech",
-      "desc": "Impulse cannon — deep pulsing knockback whump",
+      "desc": "Impulse cannon \u2014 deep pulsing knockback whump",
       "dur": 0.6
     },
     {
       "name": "warp",
       "cat": "tech",
-      "desc": "Warp teleport — rising shimmer and pop",
+      "desc": "Warp teleport \u2014 rising shimmer and pop",
       "dur": 0.7
     },
     {
       "name": "blink",
       "cat": "tech",
-      "desc": "Blink — quick phase whoosh",
+      "desc": "Blink \u2014 quick phase whoosh",
       "dur": 0.5
     },
     {
       "name": "emp_burst",
       "cat": "tech",
-      "desc": "EMP burst — electrical crackle and low thump",
+      "desc": "EMP burst \u2014 electrical crackle and low thump",
       "dur": 0.7
     },
     {
       "name": "gravlift",
       "cat": "tech",
-      "desc": "Grav lift — rising anti-gravity whoosh",
+      "desc": "Grav lift \u2014 rising anti-gravity whoosh",
       "dur": 0.6
     },
     {
       "name": "beacon",
       "cat": "tech",
-      "desc": "Beacon deploy — soft electronic ping and hum",
+      "desc": "Beacon deploy \u2014 soft electronic ping and hum",
       "dur": 0.6
     },
     {
       "name": "orbital_charge",
       "cat": "tech",
-      "desc": "Orbital strike charge — ominous rising energy hum",
+      "desc": "Orbital strike charge \u2014 ominous rising energy hum",
       "dur": 1.2
     },
     {
       "name": "drone_static",
       "cat": "tech",
-      "desc": "Radio static burst — harsh white-noise crackle, a control link breaking up",
+      "desc": "Radio static burst \u2014 harsh white-noise crackle, a control link breaking up",
       "dur": 0.6
     },
     {
       "name": "drone_crash",
       "cat": "tech",
-      "desc": "Small quadcopter drone crashing to the ground — rotor snap, plastic thud, debris scatter",
+      "desc": "Small quadcopter drone crashing to the ground \u2014 rotor snap, plastic thud, debris scatter",
       "dur": 0.7
     },
     {
       "name": "flag_taken",
       "cat": "ui",
-      "desc": "Flag stolen — tense short alarm stinger",
+      "desc": "Flag stolen \u2014 tense short alarm stinger",
       "dur": 0.7
     },
     {
       "name": "flag_captured",
       "cat": "ui",
-      "desc": "Flag captured — bright triumphant chime",
+      "desc": "Flag captured \u2014 bright triumphant chime",
       "dur": 1
     },
     {
       "name": "flag_returned",
       "cat": "ui",
-      "desc": "Flag returned — clean neutral chime",
+      "desc": "Flag returned \u2014 clean neutral chime",
       "dur": 0.7
     },
     {
       "name": "point_captured",
       "cat": "ui",
-      "desc": "Point captured — confident synth flourish",
+      "desc": "Point captured \u2014 confident synth flourish",
       "dur": 0.9
     },
     {
       "name": "wave_start",
       "cat": "ui",
-      "desc": "Wave incoming — low horn swell + alarm",
+      "desc": "Wave incoming \u2014 low horn swell + alarm",
       "dur": 1.2
     },
     {
       "name": "victory",
       "cat": "ui",
-      "desc": "Victory — triumphant brass flourish",
+      "desc": "Victory \u2014 triumphant brass flourish",
       "dur": 1.6
     },
     {
       "name": "defeat",
       "cat": "ui",
-      "desc": "Defeat — somber descending tone",
+      "desc": "Defeat \u2014 somber descending tone",
       "dur": 1.6
     },
     {
       "name": "ui_click",
       "cat": "ui",
-      "desc": "Menu click — tiny crisp tick",
+      "desc": "Menu click \u2014 tiny crisp tick",
       "dur": 0.5
     },
     {
       "name": "spawn",
       "cat": "ui",
-      "desc": "Respawn — short rising materialize shimmer",
+      "desc": "Respawn \u2014 short rising materialize shimmer",
       "dur": 0.6
+    },
+    {
+      "name": "footstep_grass",
+      "cat": "movement",
+      "desc": "ONE single boot step on dry grass and dirt \u2014 soft crunch, organic, no reverb",
+      "dur": 0.35
+    },
+    {
+      "name": "footstep_metal",
+      "cat": "movement",
+      "desc": "ONE single boot step on a steel deck plate \u2014 hard metallic clank, short ring",
+      "dur": 0.35
+    },
+    {
+      "name": "footstep_rock",
+      "cat": "movement",
+      "desc": "ONE single boot step on loose mine rubble and gravel \u2014 gritty scrape-crunch",
+      "dur": 0.35
+    },
+    {
+      "name": "footstep_ice",
+      "cat": "movement",
+      "desc": "ONE single boot step on hard ice \u2014 glassy tap with a faint slide squeak",
+      "dur": 0.35
+    },
+    {
+      "name": "footstep_grit",
+      "cat": "movement",
+      "desc": "ONE single boot step on a gritty sand-dusted road \u2014 dry granular crunch",
+      "dur": 0.35
+    },
+    {
+      "name": "amb_savanna",
+      "cat": "ambience",
+      "desc": "Dry savanna wind through grass, distant insects, very sparse far bird \u2014 steady loopable bed, no melody",
+      "dur": 12
+    },
+    {
+      "name": "amb_starship",
+      "cat": "ambience",
+      "desc": "Starship interior hum \u2014 low engine drone, faint ventilation hiss, occasional soft metal tick \u2014 loopable bed",
+      "dur": 12
+    },
+    {
+      "name": "amb_asteroid",
+      "cat": "ambience",
+      "desc": "Deep mine ambience \u2014 cavernous low rumble, distant rock settling, faint machinery echo \u2014 loopable bed",
+      "dur": 12
+    },
+    {
+      "name": "amb_europa",
+      "cat": "ambience",
+      "desc": "Underwater dome ambience \u2014 muffled ocean pressure, slow water movement, deep groaning ice above \u2014 loopable bed",
+      "dur": 12
+    },
+    {
+      "name": "amb_titan",
+      "cat": "ambience",
+      "desc": "Alien colony exterior \u2014 thick methane wind, distant industrial hum, muffled atmosphere \u2014 loopable bed",
+      "dur": 12
+    },
+    {
+      "name": "amb_triton",
+      "cat": "ambience",
+      "desc": "Polar ice station \u2014 thin howling wind, creaking ice sheets, extreme desolate cold \u2014 loopable bed",
+      "dur": 12
     }
   ]
 }

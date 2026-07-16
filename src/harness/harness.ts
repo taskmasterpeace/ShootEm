@@ -9,7 +9,8 @@ import {
   buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp,
   buildSoldier, buildTurretMesh, buildVehicle,
 } from '../client/models';
-import { SOUND_NAMES, audio } from '../client/audio';
+import { SOUND_NAMES, audio, type SoundName } from '../client/audio';
+import { BIOME_AUDIO } from '../client/soundscape';
 import { THEME_PALETTES } from '../client/renderer';
 import { World } from '../sim/world';
 
@@ -967,6 +968,41 @@ $<HTMLInputElement>('arsenal-search').oninput = () => renderTable();
 
 buildFamChips();
 selectWeapon('ar606');
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Biome Audio — the soundscape designation table, auditionable in place.
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const host = $('biome-audio-list');
+  for (const id of Object.keys(BIOME_AUDIO) as ThemeId[]) {
+    const b = BIOME_AUDIO[id];
+    const row = document.createElement('div');
+    row.className = 'snd-row';
+    row.style.gridTemplateColumns = '20px 74px 1fr 20px';
+    const filled = (n: string) => audio.getBuffer(n as SoundName) ? '' : ' style="opacity:0.45" title="slot empty — universal fallback"';
+    row.innerHTML = `
+      <span>${THEMES[id].icon}</span>
+      <span class="snd-name">${id}</span>
+      <span class="hint"${filled(b.footstep)}>${b.surface} · <code>${b.footstep}</code> / <code>${b.ambience}</code></span>
+      <button title="toggle ambience bed">∿</button>`;
+    const [, , , ambBtn] = Array.from(row.children) as HTMLElement[];
+    const stepBtn = document.createElement('button');
+    stepBtn.textContent = '▶'; stepBtn.title = 'audition footstep';
+    row.insertBefore(stepBtn, row.children[3]);
+    row.style.gridTemplateColumns = '20px 74px 1fr 20px 20px';
+    stepBtn.onclick = async () => {
+      if (!audioReady) { await audio.init(); audio.resume(); audioReady = true; }
+      if (!audio.play(b.footstep, { volume: 0.8 })) audio.play('footstep', { volume: 0.8 });
+    };
+    (ambBtn as HTMLButtonElement).onclick = async () => {
+      if (!audioReady) { await audio.init(); audio.resume(); audioReady = true; }
+      if (audio.looping(b.ambience)) { audio.stopLoop(b.ambience); ambBtn.style.color = ''; }
+      else if (audio.loop(b.ambience, b.ambVol * 2)) ambBtn.style.color = 'var(--cyan)';
+      else ambBtn.style.color = 'var(--bad)'; // slot empty — nothing to loop yet
+    };
+    host.appendChild(row);
+  }
+}
 
 /**
  * Debug handle for the model harness — lets tooling introspect the live scene.

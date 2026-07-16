@@ -4,6 +4,7 @@ import { GRID, T_COVER, T_OPEN, T_WALL, T_WATER, TILE, WORLD } from '../sim/map'
 import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
 import { HAND_FRAG_REACH, type World } from '../sim/world';
 import { audio, type SoundName } from './audio';
+import { BIOME_AUDIO } from './soundscape';
 import { Particles, FlashLights } from './effects';
 import { JOINT_NAMES, isUndead, poseSoldierJoints, type GaitState } from './animation';
 import { hash01 } from '../sim/rng';
@@ -440,6 +441,17 @@ export class Renderer {
     const local = world.soldiers.get(localId);
     const localTeam = local?.team ?? 0;
     this.frameDt = dt;
+
+    // ambience: the theme's bed hums low under the match. Self-managing —
+    // retries until the audio context + buffer exist, swaps beds if the
+    // rendered theme changes, and stays silent for unfilled slots.
+    const amb = BIOME_AUDIO[world.map.theme];
+    if (amb && !audio.looping(amb.ambience)) {
+      for (const other of Object.values(BIOME_AUDIO)) {
+        if (other.ambience !== amb.ambience && audio.looping(other.ambience)) audio.stopLoop(other.ambience);
+      }
+      audio.loop(amb.ambience, amb.ambVol);
+    }
 
     // zoom-adaptive overhead: names/meters are INSTRUMENTS, not props — they
     // scale with the camera so they hold constant screen size at every zoom,
@@ -1143,7 +1155,12 @@ export class Renderer {
     // boot lands or an undead reach crests; replays stay silent
     if (!this.replayView) {
       if (markers.footstep) {
-        audio.play('footstep', { pos: s.pos, volume: zed ? 0.25 : 0.35, rate: zed ? 0.8 : 1 });
+        // per-biome surface step (soundscape designation); the universal
+        // footstep covers any slot a designer hasn't filled yet
+        const step = BIOME_AUDIO[world.map.theme]?.footstep;
+        if (!step || !audio.play(step, { pos: s.pos, volume: zed ? 0.25 : 0.35, rate: zed ? 0.8 : 1 })) {
+          audio.play('footstep', { pos: s.pos, volume: zed ? 0.25 : 0.35, rate: zed ? 0.8 : 1 });
+        }
       }
       if (markers.growl && hash01(s.id * 13.37 + markers.phase) < 0.4) {
         // three growl takes, chosen per-growl so a horde sounds like many throats

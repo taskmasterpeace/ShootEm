@@ -13,6 +13,11 @@ export const SOUND_NAMES = [
   // per-class death cries (see tools/gen-sounds.mjs)
   'death_infantry', 'death_heavy', 'death_jump', 'death_engineer',
   'death_medic', 'death_infiltrator', 'death_pathfinder', 'death_ghost',
+  // per-surface footsteps — biome designation lives in src/client/soundscape.ts;
+  // plain 'footstep' is the universal fallback until an asset lands in a slot
+  'footstep_grass', 'footstep_metal', 'footstep_rock', 'footstep_ice', 'footstep_grit',
+  // per-theme ambience beds (looped low under the match; ducked, never loud)
+  'amb_savanna', 'amb_starship', 'amb_asteroid', 'amb_europa', 'amb_titan', 'amb_triton',
 ] as const;
 export type SoundName = (typeof SOUND_NAMES)[number];
 
@@ -176,15 +181,18 @@ export class AudioEngine {
     if (stock) this.buffers.set(name, stock);
   }
 
-  play(name: SoundName, opts: { pos?: Vec3; volume?: number; rate?: number } = {}) {
-    if (!this.ctx || !this.master) return;
+  /** Returns false when the sound couldn't start (no buffer yet, throttled,
+   *  out of range) so callers can fall back to another slot — e.g. a missing
+   *  footstep_ice falls back to the universal footstep. */
+  play(name: SoundName, opts: { pos?: Vec3; volume?: number; rate?: number } = {}): boolean {
+    if (!this.ctx || !this.master) return false;
     const buf = this.buffers.get(name);
-    if (!buf) return;
+    if (!buf) return false;
 
     // throttle identical sounds within 30ms (bot firefights spam hard)
     const now = this.ctx.currentTime;
     const last = this.lastPlayed.get(name) ?? -1;
-    if (now - last < 0.03) return;
+    if (now - last < 0.03) return true; // a copy is already ringing — that counts
     this.lastPlayed.set(name, now);
 
     const pref = this.getPref(name);
@@ -195,7 +203,7 @@ export class AudioEngine {
       const dz = opts.pos.z - this.listener.z;
       const d = Math.hypot(dx, dz);
       const maxD = 85;
-      if (d > maxD) return;
+      if (d > maxD) return false;
       vol *= Math.pow(1 - d / maxD, 1.4);
       pan = Math.max(-0.8, Math.min(0.8, dx / 40));
     }
@@ -208,6 +216,44 @@ export class AudioEngine {
     p.pan.value = pan;
     src.connect(g).connect(p).connect(this.master);
     src.start();
+    return true;
+  }
+
+  // ---- loop bus: ambience beds and other sustained sounds ----
+
+  private loops = new Map<string, { src: AudioBufferSourceNode; gain: GainNode }>();
+
+  /** Start (or keep) a looping bed. Fades in over a second; returns false if
+   *  the buffer isn't loaded yet so callers can retry when assets arrive. */
+  loop(name: SoundName, volume = 0.25): boolean {
+    if (!this.ctx || !this.master) return false;
+    if (this.loops.has(name)) return true;
+    const buf = this.buffers.get(name);
+    if (!buf) return false;
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    const g = this.ctx.createGain();
+    g.gain.value = 0;
+    g.gain.linearRampToValueAtTime(volume * this.getPref(name).vol, this.ctx.currentTime + 1);
+    src.connect(g).connect(this.master);
+    src.start();
+    this.loops.set(name, { src, gain: g });
+    return true;
+  }
+
+  /** Fade a loop out and stop it. */
+  stopLoop(name: SoundName) {
+    const l = this.loops.get(name);
+    if (!l || !this.ctx) return;
+    this.loops.delete(name);
+    l.gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.8);
+    const src = l.src;
+    setTimeout(() => { try { src.stop(); } catch { /* already stopped */ } }, 900);
+  }
+
+  looping(name: SoundName): boolean {
+    return this.loops.has(name);
   }
 }
 
