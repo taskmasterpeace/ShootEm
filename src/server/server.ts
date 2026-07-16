@@ -73,6 +73,11 @@ class Room {
     for (const team of [0, 1] as const) {
       const bodies = [...this.world.soldiers.values()].filter((s) => s.team === team && (s.kind === 'bot' || s.kind === 'human')).length;
       for (let i = bodies; i < Room.TEAM_TARGET; i++) this.addBot(team);
+      // §5.3: each side fields one K9, paired to its first infantry/engineer bot
+      const handler = [...this.world.soldiers.values()].find(
+        (s) => s.kind === 'bot' && s.team === team && (s.classId === 'infantry' || s.classId === 'engineer'),
+      );
+      if (handler) this.world.addDog(handler);
     }
   }
 

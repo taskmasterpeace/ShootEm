@@ -1077,7 +1077,7 @@ export class Renderer {
       // AND free intel — enemies now read as silhouettes and team color.
       const squad = !!local && s.id !== localId && s.alive &&
         (s.team === localTeam || s.kind === 'scientist') &&
-        (s.kind === 'bot' || s.kind === 'human' || s.kind === 'scientist');
+        (s.kind === 'bot' || s.kind === 'human' || s.kind === 'scientist' || s.kind === 'dog');
       let tag = this.nameSprites.get(s.id);
       if (squad && !tag) {
         tag = this.makeNameSprite(s.name, s.team);
@@ -1088,7 +1088,7 @@ export class Renderer {
         tag.visible = squad;
         // constant screen size: grow with zoom, and climb so the stack never overlaps
         tag.scale.set(3.4 * uiK, 0.64 * uiK, 1);
-        tag.position.y = 2.55 + 0.85 * uiK;
+        tag.position.y = (s.kind === 'dog' ? 1.55 : 2.55) + 0.85 * uiK; // the K9 wears its name low
       }
       // far-zoom blip: the disc IS the soldier at command height
       if (s.kind === 'bot' || s.kind === 'human' || s.kind === 'scientist') {

@@ -12,11 +12,12 @@ export type Joints = Record<string, THREE.Object3D | undefined>;
 /** The named joints the animator drives. Cache these once per mesh. */
 export const JOINT_NAMES = [
   'legL', 'legR', 'shinL', 'shinR', 'armL', 'armR', 'head', 'torso', 'gun', 'belly',
+  'legFL', 'legFR', 'legRL', 'legRR', 'tail', // the K9's quadruped set
 ] as const;
 
 /** The undead kinds that shamble and reach (everything that isn't a person). */
 export function isUndead(kind: SoldierKind): boolean {
-  return kind !== 'human' && kind !== 'bot' && kind !== 'scientist';
+  return kind !== 'human' && kind !== 'bot' && kind !== 'scientist' && kind !== 'dog';
 }
 
 /**
@@ -88,6 +89,23 @@ export function poseSoldierJoints(j: Joints, inp: GaitInput): GaitPose {
   const { time: t, id, speed, airborne, kind, dt, state } = inp;
   const zed = isUndead(kind);
   const moving = speed > 0.6;
+
+  if (kind === 'dog') {
+    // K9 trot: diagonal pairs (FL+RR vs FR+RL) swing in anti-phase, driven by
+    // ground speed. The tail keeps its own metronome — quick when working,
+    // lazy at heel — and the head drops into the run like it means it.
+    const phase = t * (4 + speed * 0.9) + (id % 9) * 0.77;
+    const stride = moving ? 0.55 * Math.min(1, speed / 8 + 0.3) : 0;
+    const swing = Math.sin(phase) * stride;
+    if (j.legFL) j.legFL.rotation.z = swing;
+    if (j.legRR) j.legRR.rotation.z = swing;
+    if (j.legFR) j.legFR.rotation.z = -swing;
+    if (j.legRL) j.legRL.rotation.z = -swing;
+    if (j.tail) j.tail.rotation.x = Math.sin(t * (moving ? 9 : 3) + id) * 0.35;
+    if (j.head) j.head.rotation.z = moving ? -0.12 : Math.sin(t * 1.5 + id) * 0.08;
+    // paws are quiet — no footstep cue, and dogs don't growl (they bark on events)
+    return { phase, moving, footstep: false, growl: false };
+  }
 
   const gaitRate = zed
     ? kind === 'sprinter' ? 15 : kind === 'brute' ? 4.5 : 6

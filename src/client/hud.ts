@@ -384,7 +384,7 @@ export class Hud {
         dot(s.pos.x, s.pos.z, '#5aa845', 2.5);
         continue;
       }
-      const zed = s.kind !== 'human' && s.kind !== 'bot';
+      const zed = s.kind !== 'human' && s.kind !== 'bot' && s.kind !== 'dog'; // dogs read as soldiers, not horde
       const pinged = world.pinged.has(s.id) && s.team !== local.team;
       if (pinged) {
         // targeting ring: revealed by beacon/drone/sensors/psi, cloak or not

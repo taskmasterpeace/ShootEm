@@ -56,6 +56,7 @@ const CORE_WEAPONS: Record<WeaponId, WeaponDef> = {
   skiff_plasma: W({ id: 'skiff_plasma', name: 'Skiff Plasma', damage: 18, rof: 7, speed: 65, spread: 0.02, clip: Infinity, reserve: Infinity, range: 50, sound: 'plasma', tracer: 'plasma' }),
   turret_mg: W({ id: 'turret_mg', name: 'Sentry MG', damage: 10, rof: 5, speed: 100, spread: 0.03, clip: Infinity, reserve: Infinity, range: 38, sound: 'smg' }),
   zombie_claw: W({ id: 'zombie_claw', name: 'Claws', damage: 14, rof: 1.2, speed: 20, spread: 0, clip: Infinity, reserve: Infinity, range: 2.2, sound: 'claw', tracer: 'none' }),
+  dog_bite: W({ id: 'dog_bite', name: 'K9 Bite', damage: 16, rof: 1.6, speed: 20, spread: 0, clip: Infinity, reserve: Infinity, range: 2.0, sound: 'claw', tracer: 'none', icon: '🐕' }),
   // ---- alt-fire internals (never drawn from the armory; fired by fireAltWeapon) ----
   tag_dart: W({ id: 'tag_dart', name: 'Tag Dart', damage: 4, rof: 1, speed: 160, spread: 0.002, clip: 1, reserve: 0, range: 100, sound: 'rail', tracer: 'rail', tagsTarget: true }),
   plasma_orb: W({ id: 'plasma_orb', name: 'Plasma Overcharge', damage: 60, rof: 1, speed: 40, spread: 0.004, clip: 1, reserve: 0, range: 54, splash: 3.5, splashDamage: 40, knockback: 8, sound: 'plasma', tracer: 'plasma' }),
@@ -220,6 +221,21 @@ export const ZOMBIE_STATS = {
   bomber: { hp: 90, speed: 6.5, weapon: 'zombie_claw' as WeaponId, score: 25 },
   stalker: { hp: 70, speed: 5, weapon: 'zombie_claw' as WeaponId, score: 35 },
 };
+
+// §5.3 Military working dogs — the K9 is a handler pairing: fast, fragile,
+// bite-only, and the grounded counter to stealth. Cloak fools optics; it does
+// not fool a nose. One dog per team for now, handled by a bot.
+export const DOG_STATS = {
+  hp: 60,
+  speed: 16.8,           // ~1.6× an infantryman — nobody outruns the dog
+  weapon: 'dog_bite' as WeaponId,
+  heelDist: 4,           // trailing distance off the handler's shoulder
+  guardRadius: 18,       // threats to the handler inside this get the teeth
+  noseRadius: 10,        // THE NOSE: everything in here is pinged, cloaked or not
+};
+
+/** Service names for the kennel. Every K9 deserves a real one. */
+export const DOG_NAMES = ['Rex', 'Ajax', 'Bruno', 'Sable', 'Grit', 'Valkyrie', 'Koda', 'Havoc'] as const;
 
 export const MODE_INFO: Record<string, { name: string; desc: string; icon: string }> = {
   tdm: { name: 'Team Deathmatch', desc: 'First team to 50 kills. Straight firefight.', icon: '💀' },

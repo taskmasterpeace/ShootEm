@@ -1,4 +1,4 @@
-import { CLASSES, VEHICLES, WEAPONS } from './data';
+import { CLASSES, DOG_STATS, VEHICLES, WEAPONS } from './data';
 import { GRID, T_CLIMB, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_OPEN, T_WATER, TILE, WORLD, isBlocked, losClear, tileAt } from './map';
 import type { ClassId, PlayerCmd, Soldier, Vec3 } from './types';
 import { DIFFICULTY_AIM, type World } from './world';
@@ -764,6 +764,88 @@ export function stepScientist(w: World, s: Soldier, dt: number) {
     s.vel.z = 0;
     // nervous glance around while hiding
     s.yaw += Math.sin(w.time * 0.7 + s.id) * 0.01;
+  }
+  w.stepSoldierPhysics(s, dt);
+}
+
+// ---------- military working dogs (§5.3) ----------
+
+/**
+ * The K9 brain. A dog is a handler pairing: heel when it's quiet, take down
+ * whatever presses the handler, and above all — THE NOSE. Cloak fools optics;
+ * it does not fool a dog. That nose is the whole reason the kennel earned a
+ * slot in this war: with a K9 on the field, stealth has to sweat.
+ */
+export function stepDog(w: World, s: Soldier, dt: number) {
+  const handler = w.soldiers.get(s.ownerId);
+
+  // THE NOSE: everyone hostile inside the radius gets marked for the team,
+  // camouflaged or not — same channel the spy cameras feed (world.pinged).
+  for (const e of w.soldiers.values()) {
+    if (!e.alive || e.team === s.team) continue;
+    if (Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z) < DOG_STATS.noseRadius) w.pinged.add(e.id);
+  }
+
+  // handler down: hold right here until they're back — good dogs don't wander
+  if (!handler || !handler.alive) {
+    s.vel.x = 0;
+    s.vel.z = 0;
+    s.yaw += Math.sin(w.time * 1.3 + s.id) * 0.02; // ears up, scanning
+    w.stepSoldierPhysics(s, dt);
+    return;
+  }
+
+  // threat check: anything hostile pressing the handler inside the guard radius.
+  // Beyond the nose a cloaked infiltrator still needs a scent (a live ping).
+  let target: Soldier | null = null;
+  let bestD = Infinity;
+  for (const e of w.soldiers.values()) {
+    if (!e.alive || e.team === s.team || e.vehicleId >= 0 || e.kind === 'scientist') continue;
+    if (Math.hypot(e.pos.x - handler.pos.x, e.pos.z - handler.pos.z) > DOG_STATS.guardRadius) continue;
+    const d = Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z);
+    if (e.cloaked && d > DOG_STATS.noseRadius && !w.pinged.has(e.id)) continue;
+    if (d < bestD) { target = e; bestD = d; }
+  }
+
+  const wdef = WEAPONS[s.weapons[0]];
+  if (target) {
+    // chase & takedown — the horde's pathing, so walls don't save anyone
+    if (!s.botGoal || w.time >= (s.botRepathAt ?? 0)) {
+      s.botRepathAt = w.time + 0.5;
+      const clear = losClear(w.map.grid, s.pos, target.pos, 0.6);
+      s.botGoal = clear ? { ...target.pos } : (pathStep(w, s.pos, target.pos) ?? { ...target.pos });
+    }
+    const dx = s.botGoal.x - s.pos.x, dz = s.botGoal.z - s.pos.z;
+    const dl = Math.hypot(dx, dz) || 1;
+    s.yaw = Math.atan2(target.pos.z - s.pos.z, target.pos.x - s.pos.x);
+    s.vel.x = (dx / dl) * DOG_STATS.speed;
+    s.vel.z = (dz / dl) * DOG_STATS.speed;
+    if (bestD < wdef.range + 0.5 && w.time >= s.nextFireAt) {
+      s.nextFireAt = w.time + 1 / wdef.rof;
+      w.damageSoldier(target, wdef.damage, s.id, wdef.id);
+      w.emit({ type: 'shot', pos: s.pos, weapon: wdef.id, soldierId: s.id });
+    }
+  } else {
+    // all quiet (or the kill is done): return to heel off the handler's shoulder
+    const dH = Math.hypot(handler.pos.x - s.pos.x, handler.pos.z - s.pos.z);
+    if (dH > DOG_STATS.heelDist) {
+      if (!s.botGoal || w.time >= (s.botRepathAt ?? 0) ||
+          Math.hypot(s.botGoal.x - s.pos.x, s.botGoal.z - s.pos.z) < 1.5) {
+        s.botRepathAt = w.time + 0.6;
+        const clear = losClear(w.map.grid, s.pos, handler.pos, 0.6);
+        s.botGoal = clear ? { ...handler.pos } : (pathStep(w, s.pos, handler.pos) ?? { ...handler.pos });
+      }
+      const dx = s.botGoal.x - s.pos.x, dz = s.botGoal.z - s.pos.z;
+      const dl = Math.hypot(dx, dz) || 1;
+      const trot = dH > 10 ? DOG_STATS.speed : DOG_STATS.speed * 0.7; // close the gap, then fall in
+      s.yaw = Math.atan2(dz, dx);
+      s.vel.x = (dx / dl) * trot;
+      s.vel.z = (dz / dl) * trot;
+    } else {
+      s.vel.x = 0;
+      s.vel.z = 0;
+      s.yaw = handler.yaw; // at heel, watching the handler's arc
+    }
   }
   w.stepSoldierPhysics(s, dt);
 }

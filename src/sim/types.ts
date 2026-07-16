@@ -149,7 +149,7 @@ export interface Vec3 {
   z: number;
 }
 
-export type SoldierKind = 'human' | 'bot' | 'zombie' | 'spitter' | 'brute' | 'sprinter' | 'bomber' | 'stalker' | 'scientist';
+export type SoldierKind = 'human' | 'bot' | 'dog' | 'zombie' | 'spitter' | 'brute' | 'sprinter' | 'bomber' | 'stalker' | 'scientist';
 
 export type ZedKind = 'zombie' | 'spitter' | 'brute' | 'sprinter' | 'bomber' | 'stalker';
 
@@ -195,6 +195,8 @@ export interface Soldier {
   score: number;
   carryingFlag: Team | -1;
   nextAbilityAt: number;
+  /** K9 handler pairing — the dog's handler id. -1 for everyone who isn't a dog. */
+  ownerId: number;
   // trophy ledger — feeds the post-match awards
   /** farthest kill, in world units */
   longestKill: number;

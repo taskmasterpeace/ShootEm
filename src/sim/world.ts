@@ -1,4 +1,4 @@
-import { CLASSES, EQUIPMENT, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
+import { CLASSES, DOG_NAMES, DOG_STATS, EQUIPMENT, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
 import { CLIMB_H, DRILL_EATS, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
 import { Rng } from './rng';
@@ -10,7 +10,7 @@ import {
   type Vehicle, type VehicleKind, type VehicleSystems, type WeaponId, type ZedKind,
 } from './types';
 import { stepMode, initMode } from './modes';
-import { stepBot, stepScientist, stepZombie } from './bots';
+import { stepBot, stepDog, stepScientist, stepZombie } from './bots';
 import { PERCEIVE_RANGE, perceivesNow, type SeenMark } from './perception';
 import { THEME_WEATHER, airGrounded, moveMult, visionMult, weatherAnnounce, type WeatherState } from './weather';
 
@@ -226,7 +226,7 @@ export class World {
       altAmmo: WEAPONS[primary].alt?.ammo ?? 0, nextAltAt: 0, altBurstUntil: 0,
       grenades: classId === 'infantry' ? 4 : classId === 'engineer' ? 3 : 2,
       nextGrenadeAt: 0, cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
-      kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
+      kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0, ownerId: -1,
       longestKill: 0, vehicleKills: 0, healGiven: 0,
       pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0, lastKillerId: -1,
       floor: 0,
@@ -241,6 +241,37 @@ export class World {
     return s;
   }
 
+  /**
+   * §5.3 Military working dogs. One K9 per team, paired to a handler — the
+   * dog deploys at their side and redeploys with them for the whole match.
+   */
+  addDog(handler: Soldier): Soldier {
+    for (const other of this.soldiers.values()) {
+      if (other.kind === 'dog' && other.team === handler.team) return other; // the kennel issues one per side
+    }
+    const s: Soldier = {
+      id: this.id(), kind: 'dog', name: DOG_NAMES[this.rng.int(0, DOG_NAMES.length - 1)],
+      team: handler.team, classId: 'infantry',
+      pos: { x: handler.pos.x + this.rng.range(-1.5, 1.5), y: 0, z: handler.pos.z + this.rng.range(-1.5, 1.5) },
+      vel: { x: 0, y: 0, z: 0 }, yaw: handler.yaw,
+      hp: DOG_STATS.hp, maxHp: DOG_STATS.hp, energy: 0, alive: true, respawnAt: 0,
+      weaponIdx: 0, weapons: [DOG_STATS.weapon], clip: [Infinity], reserve: [Infinity],
+      reloadUntil: 0, nextFireAt: 0, grenades: 0, nextGrenadeAt: 0,
+      altAmmo: 0, nextAltAt: 0, altBurstUntil: 0,
+      cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
+      kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0, ownerId: handler.id,
+      longestKill: 0, vehicleKills: 0, healGiven: 0,
+      pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0, lastKillerId: -1, floor: 0,
+      armor: 0, maxArmor: 0, protectedUntil: 0,
+      equipment: [], medikitReady: false, nextPsiAt: 0, nextRepairAt: 0,
+      downed: false, downedUntil: 0, downedBy: -1, reviveProgress: 0, draggingId: -1,
+      botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
+    };
+    this.soldiers.set(s.id, s);
+    this.emit({ type: 'respawn', pos: s.pos, soldierId: s.id });
+    return s;
+  }
+
   /** The VIP. Unarmed, doesn't respawn — the safehouse match ends when he dies. */
   addScientist(pos: Vec3): Soldier {
     const s: Soldier = {
@@ -251,7 +282,7 @@ export class World {
       reloadUntil: 0, nextFireAt: 0, grenades: 0, nextGrenadeAt: 0,
       altAmmo: 0, nextAltAt: 0, altBurstUntil: 0,
       cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
-      kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
+      kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0, ownerId: -1,
       longestKill: 0, vehicleKills: 0, healGiven: 0,
       pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0, lastKillerId: -1, floor: 0,
       armor: 0, maxArmor: 0, protectedUntil: 0,
@@ -274,7 +305,7 @@ export class World {
       reloadUntil: 0, nextFireAt: 0, grenades: 0, nextGrenadeAt: 0,
       altAmmo: 0, nextAltAt: 0, altBurstUntil: 0,
       cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
-      kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0,
+      kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0, ownerId: -1,
       longestKill: 0, vehicleKills: 0, healGiven: 0,
       pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0, lastKillerId: -1, floor: 0,
       armor: 0, maxArmor: 0, protectedUntil: 0,
@@ -288,6 +319,22 @@ export class World {
 
   spawn(s: Soldier) {
     s.floor = 0;
+    // K9s don't draw from the armory or the spawn queue like people do —
+    // they redeploy at their handler's side with the same teeth as before.
+    if (s.kind === 'dog') {
+      s.hp = DOG_STATS.hp; s.maxHp = DOG_STATS.hp;
+      s.alive = true; s.cloaked = false; s.vehicleId = -1; s.seat = -1;
+      s.carryingFlag = -1; s.weaponIdx = 0;
+      s.downed = false; s.downedUntil = 0; s.downedBy = -1;
+      s.reviveProgress = 0; s.draggingId = -1;
+      const handler = this.soldiers.get(s.ownerId);
+      const spawnList = this.map.spawns[s.team];
+      const base = handler?.alive ? handler.pos : spawnList[this.rng.int(0, spawnList.length - 1)];
+      s.pos = { x: base.x + this.rng.range(-1.5, 1.5), y: 0, z: base.z + this.rng.range(-1.5, 1.5) };
+      s.vel = { x: 0, y: 0, z: 0 };
+      this.emit({ type: 'respawn', pos: s.pos, soldierId: s.id });
+      return;
+    }
     const c = CLASSES[s.classId];
     // armor equipment issues PLATE — a separate pool that absorbs damage
     // before hp and never heals back (medics fix flesh, not ceramic).
@@ -403,6 +450,13 @@ export class World {
 
     for (const s of this.soldiers.values()) {
       if (!s.alive) {
+        if (s.kind === 'dog') {
+          // K9s redeploy with their handler's wave — never before the handler is back up
+          const handler = this.soldiers.get(s.ownerId);
+          if (!handler) { this.soldiers.delete(s.id); continue; } // handler left the war; the dog goes home
+          if (handler.alive && this.time >= s.respawnAt && !this.mode.over) this.spawn(s);
+          continue;
+        }
         if (s.kind !== 'human' && s.kind !== 'bot') continue; // dead zombies removed elsewhere
         if (this.time >= s.respawnAt && !this.mode.over && !s.dummy) this.spawn(s); // downed range targets STAY down
         continue;
@@ -417,6 +471,7 @@ export class World {
       if (!cmd) {
         if (s.kind === 'bot' && !s.dummy) cmd = stepBot(this, s, dt); // dummies stand and take it
         else if (s.kind === 'scientist') { stepScientist(this, s, dt); continue; }
+        else if (s.kind === 'dog') { stepDog(this, s, dt); continue; }
         else if (isZed(s.kind)) { stepZombie(this, s, dt); continue; }
         else cmd = null as unknown as PlayerCmd;
       }
@@ -426,9 +481,9 @@ export class World {
       if (s.draggingId >= 0) this.stepDrag(s); // haul the body after we've moved
     }
 
-    // purge removed zombies
+    // purge removed zombies (dogs are soldiers — they wait for their respawn, not the bin)
     for (const [id, s] of this.soldiers) {
-      if (!s.alive && s.kind !== 'human' && s.kind !== 'bot' && this.time > s.respawnAt) this.soldiers.delete(id);
+      if (!s.alive && s.kind !== 'human' && s.kind !== 'bot' && s.kind !== 'dog' && this.time > s.respawnAt) this.soldiers.delete(id);
     }
 
     for (const v of this.vehicles.values()) this.stepVehicle(v, cmds, dt);
@@ -2396,8 +2451,8 @@ export class World {
         continue;
       }
       for (const s of this.soldiers.values()) {
-        // a downed soldier can't scoop up loot — hands busy holding the wound
-        if (!s.alive || s.downed || isZed(s.kind) || s.vehicleId >= 0) continue;
+        // a downed soldier can't scoop up loot — and dogs have no pockets
+        if (!s.alive || s.downed || isZed(s.kind) || s.kind === 'dog' || s.vehicleId >= 0) continue;
         if (Math.hypot(s.pos.x - pk.pos.x, s.pos.z - pk.pos.z) < 1.6) {
           let used = false;
           if (pk.type === 'medkit' && s.hp < s.maxHp) { s.hp = Math.min(s.maxHp, s.hp + 50); used = true; }

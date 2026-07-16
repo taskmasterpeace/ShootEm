@@ -38,8 +38,98 @@ const limb = (w: number, h: number, d: number, m: THREE.Material) => {
 
 export function buildSoldier(team: Team, classId: ClassId, kind: SoldierKind): THREE.Group {
   if (kind === 'scientist') return buildScientist();
+  if (kind === 'dog') return buildDog(team);
   const isZed = kind !== 'human' && kind !== 'bot';
   return isZed ? buildZombie(kind) : buildTrooper(team, classId);
+}
+
+/**
+ * §5.3 Military working dog — a German-Shepherd silhouette on four named leg
+ * joints (legFL/FR/RL/RR) so the trot cycle can swing them, plus a tail and a
+ * team-colored K9 harness so you know whose dog is eating your infiltrator.
+ * Root faces +X like every soldier.
+ */
+function buildDog(team: Team): THREE.Group {
+  const g = new THREE.Group();
+  const teamCol = TEAM_COLORS[team];
+  const coat = mat(0x8a6b42, { rough: 0.95 });   // tan working coat
+  const saddle = mat(0x2b2620, { rough: 0.95 }); // black saddle + mask
+  const dark = mat(0x1c1915, { rough: 0.9 });
+  const vest = mat(0x3a3630, { rough: 0.7 });
+  const trim = mat(teamCol, { emissive: teamCol });
+
+  // ---- body: deep chest forward, hips a touch lower (the shepherd slope) ----
+  const torso = new THREE.Group();
+  torso.name = 'torso';
+  torso.position.y = 0.62;
+  g.add(torso);
+  const chest = box(0.5, 0.34, 0.3, coat);
+  chest.position.set(0.18, 0.04, 0);
+  torso.add(chest);
+  const hind = box(0.42, 0.3, 0.27, coat);
+  hind.position.set(-0.22, -0.02, 0);
+  hind.rotation.z = -0.08; // sloped croup
+  torso.add(hind);
+  const back = box(0.55, 0.08, 0.31, saddle); // the black saddle marking
+  back.position.set(0, 0.18, 0);
+  torso.add(back);
+  // K9 service harness: vest wrap over the shoulders + team stripe
+  const wrap = box(0.26, 0.4, 0.36, vest);
+  wrap.position.set(0.16, 0.02, 0);
+  torso.add(wrap);
+  const stripe = box(0.27, 0.09, 0.37, trim);
+  stripe.position.set(0.16, 0.1, 0);
+  torso.add(stripe);
+
+  // ---- head: skull, dark snout, pricked ears ----
+  const headGrp = new THREE.Group();
+  headGrp.name = 'head';
+  headGrp.position.set(0.48, 0.86, 0);
+  g.add(headGrp);
+  const neck = box(0.2, 0.26, 0.18, coat);
+  neck.position.set(-0.1, -0.14, 0);
+  neck.rotation.z = 0.5;
+  headGrp.add(neck);
+  const skull = box(0.24, 0.2, 0.2, coat);
+  headGrp.add(skull);
+  const snout = box(0.2, 0.12, 0.12, saddle);
+  snout.position.set(0.2, -0.03, 0);
+  headGrp.add(snout);
+  const nose = box(0.05, 0.06, 0.07, dark);
+  nose.position.set(0.31, -0.01, 0);
+  headGrp.add(nose);
+  for (const side of [1, -1]) {
+    const ear = box(0.06, 0.14, 0.07, saddle);
+    ear.position.set(-0.06, 0.16, side * 0.07);
+    ear.rotation.x = side * -0.12;
+    headGrp.add(ear);
+  }
+
+  // ---- four legs, named so the renderer can drive the trot ----
+  const legSpots: [string, number, number][] = [
+    ['legFL', 0.32, 0.12], ['legFR', 0.32, -0.12],
+    ['legRL', -0.3, 0.12], ['legRR', -0.3, -0.12],
+  ];
+  for (const [name, lx, lz] of legSpots) {
+    const hip = new THREE.Group();
+    hip.name = name;
+    hip.position.set(lx, 0.52, lz);
+    hip.add(limb(0.1, 0.46, 0.1, coat));
+    const paw = box(0.14, 0.07, 0.1, dark);
+    paw.position.set(0.03, -0.46, 0);
+    hip.add(paw);
+    g.add(hip);
+  }
+
+  // ---- tail: swept back and down, wagged by the animator ----
+  const tail = new THREE.Group();
+  tail.name = 'tail';
+  tail.position.set(-0.42, 0.68, 0);
+  tail.add(limb(0.08, 0.34, 0.08, saddle));
+  tail.rotation.z = -0.9;
+  g.add(tail);
+
+  return g;
 }
 
 /** Dr. Voss: lab coat, spectacles, no weapon. The whole point of safehouse mode. */

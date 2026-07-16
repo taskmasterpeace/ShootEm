@@ -342,6 +342,13 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
       const cls = classPool[(i + 3) % classPool.length];
       world.addSoldier(wrap(n++), cls, 1, 'bot', botLoadout(cls));
     }
+    // §5.3: each side fields one K9, paired to its first infantry/engineer bot
+    for (const team of [0, 1] as const) {
+      const handler = [...world.soldiers.values()].find(
+        (s) => s.kind === 'bot' && s.team === team && (s.classId === 'infantry' || s.classId === 'engineer'),
+      );
+      if (handler) world.addDog(handler);
+    }
   }
 
   renderer.buildStaticWorld(world);
