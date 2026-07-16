@@ -1,4 +1,4 @@
-# War World — Design Directive 01 (Rev 4)
+# War World — Design Directive 01 (Rev 5)
 
 **From matches to a war.** Every fight permanently matters. Grounded in real,
 near-future military tech — and the exotic gear has to be *earned*.
@@ -186,11 +186,26 @@ three needs with one place:
   firing slits (§8.4) debut in the building mock-up, blast knockback on the
   range, the breacher pit for depth drills. Players stress-test our features
   by playing with them, before those features reach the fronts.
+- **The Paintball Yard — the arcade wing.** Small **Brawl-Stars-scale arena
+  pockets** (~40–60u, mirrored, readable at a glance) built almost entirely
+  from the jump vocabulary (§8.7): low walls you vault, barriers you can't,
+  one or two sightline blocks. **Paintball markers** — full gunplay feel,
+  zero damage: a hit is a *splat-out* and a 3-second bench. It's where you
+  taste weapons risk-free with STAKES (a local Wall board per arena), where
+  new players learn movement without dying for it (§14), and where the jump
+  grammar gets stress-tested before it ships to real maps. Off-canon, no
+  dossier weight — the rec yard behind the barracks.
+- **Motor Trials (proposed, honest):** time-trial circuits for the motor
+  pool. *Blocked on feel:* today's vehicles steer by tank-style turn rate —
+  fine for combat, dull for racing. Trials ship **after a vehicle-handling
+  feel pass** (grip, drift, momentum), not before; a bad race is worse than
+  no race.
 
 **v1 scope (honest):** one new mode id (`range`), a small hand-tuned map
 (reusing safehouse-house + harness pieces), infantry course + two class
 courses, dummy targets that report score. Solo only. The Wall is a local
-leaderboard until Stage 3 accounts make it global.
+leaderboard until Stage 3 accounts make it global. The Paintball Yard is the
+v1 *stretch goal*; Motor Trials wait for the handling pass.
 
 ### 3.4 Building the Record — the Dossier file (Slice 1 plan)
 
@@ -468,6 +483,13 @@ its result feeds a front.
 | Field Trial | Escort a prototype to the front — or steal the enemy's (§6) | whatever the program issues |
 
 ### 8.2 The maps — ten named fronts, in full
+
+> **The map PLAN now lives in its own document — [`docs/MAP-STRATEGY.md`](MAP-STRATEGY.md):**
+> map families (arena/paintball pockets, dynamic neighborhoods, the ten
+> fronts, Proving Grounds wings), the dynamic-house requirement, the
+> concealment rule (inside a house = unseen, §19), and build sequencing.
+> This section stays the canonical *front roster*; the strategy doc owns
+> *how we get there*.
 
 Maps are not backdrops. Every map is a **named front in the war** with four
 required properties:
@@ -1017,6 +1039,9 @@ one-way door per tour; if 80% pick one flag, the queue decides the war.
   medals, armory, quals, journal) because that's biography (§3.1). The **war
   resets** (control, scars, the front line) because that's the map. Your record
   remembers every season; the theatre starts fresh.
+- **The season tells its story in three acts** — war, outbreak, Iron Eaters —
+  with a faction-choice finale. The acts are canon; see **§20.5** for the
+  ladder. (What *paces* them is deliberately unspecified for now.)
 
 > **Honest scope.** Offline, a "season" is one configurable run of the local
 > `ww_campaign` file (§8.5); win/reset is local logic. Cross-player shared
@@ -1220,11 +1245,17 @@ stealth, *checking corners*. Give sight a shape and all of it comes back.
   presence, rendered but dim. **Beyond both is the dark:** the world dims
   (ground/walls stay readable — you always know the *terrain*), and enemies
   there simply aren't drawn.
-- **Ghosts, not teleports.** An enemy who leaves your vision keeps a fading
-  **last-known ghost** for ~2s at the spot you lost them — you watch the
-  memory decay, then they're gone. Re-acquired = snap back to live. (The
-  killcam's "watch them maneuver into the shot" already proved how much story
-  live position data carries; ghosts are that as core gameplay.)
+- **v1 is the LIGHT cone — decided.** No wall-shadowing, no shadow-casting
+  pass: the cone only decides **which enemies draw**. Terrain always renders;
+  the existing losClear rules keep governing what they already govern. The
+  full occluded fog is a maybe-later — the light cone delivers ~90% of the
+  fear for ~10% of the work.
+- **Ghosts, not teleports — and the memory is GATED.** An enemy who leaves
+  your vision keeps a fading **last-known ghost** at the spot you lost them —
+  base linger ~1.5s, and gear/skill can buy more, **hard-capped at 3s**
+  (tracker optics, the 360 helmet's rear memory — §19.2: how long your
+  mind's eye holds a contact is itself a piece of kit). Re-acquired = snap
+  back to live.
 - **The squad shares eyes** (§15): anything a squadmate sees, you see. The
   Head Cam Network equipment already promises exactly this on the minimap —
   it graduates to *field* vision. Drones, spy cams, and beacons become
@@ -1279,6 +1310,124 @@ are corridors, slits are angles, roofs are denial — now *facing* is too):
 
 ---
 
+## 20. The Iron Eaters — the war's third act
+
+The third force, committed. Rogue **self-replicating nanite munitions** from a
+downed prototype munitions platform — the war's own hubris (§6, Dr. Voss's
+program) made them. They don't shoot much. They **corrode, consume, and
+assemble**. Where the Outbreak (§8.3) eats flesh, the Iron Eaters eat metal:
+
+| Threat | Devours | Feared most by |
+|---|---|---|
+| The Outbreak | flesh | the human army (Concord doctrine) |
+| **The Iron Eaters** | metal | the machine army (Pact doctrine) |
+
+Each faction's greatest strength is exactly what its nightmare eats. That
+tension is permanent, and it's the spine of the season's story (§13).
+
+### 20.1 The bestiary — junk given hunger
+
+They are **metallic beasts assembled from battlefield scrap** — not robots,
+not vehicles: wreckage that stood up. Every silhouette reads as *junk that
+learned a body plan*:
+
+| Beast | Scale | Built from | Behavior |
+|---|---|---|---|
+| **Scrap-rats** | rodent | shell casings, servos | swarm; gnaw parked vehicles; flow through gaps nothing else fits; individually trivial, collectively a plague |
+| **Junkhounds** | dog | drone rotors, suspension springs | fast packs; **they jump** (§8.7 HOP and CLIMB tiers — obstacles don't save you); harry and drag |
+| **Weavers** | spider | rebar, cable, plating | junk-metal spiders; climb walls; string salvage-wire between structures; turn buildings into larders |
+| **Ravagers** | tank | dead MBTs and IFVs | siege beasts; your own armor's silhouette, wrong; shrug off small arms |
+| **The swarm** | cloud | corrupted Pact drones | captured drone swarms flying in Iron Eater livery — the Pact's doctrine turned on everyone |
+| **The Leviathan** | front-sized | an entire battlefield's wrecks | the Act-III event boss: a walking foundry that eats the front's wreckage and births beasts as it moves. Killing one is a joint operation and a Journal chapter |
+
+**Where they come from is the loop:** Iron Eaters assemble from **wreck
+fields**. Every burned-out tank a battle leaves behind (§8.5 scars) is raw
+material — a front that hosted heavy armor combat *breeds* them. Fight a
+mechanized war today, face what it fed tomorrow.
+
+### 20.2 Durability doctrine — you have to KEEP shooting
+
+Iron Eaters don't have health bars so much as **stages**. Sustained fire
+sheds them apart:
+
+1. **Plated** — scrap armor sloughs off under fire, piece by visible piece
+   (the damage is *readable*: they molt).
+2. **Exposed** — the glowing nanite frame shows; damage now counts double,
+   but the beast gets *faster and angrier*.
+3. **Collapse** — it comes apart into inert junk… which a living Eater can
+   later re-eat unless burned.
+
+Small arms alone means a LONG fight — the soldiers have to keep shooting,
+together. **Fire, EMP, and demolition skip stages** (flame fuses the frame,
+EMP staggers the swarm-logic, a demo charge is a stage in a box). The
+Engineer's kit and the flamethrower become front-line answers, and the
+machine army learns what infantry always knew: volume of fire is a virtue.
+
+*(Engine honesty: staged shedding is the vehicle subsystem-damage model
+reskinned; conversion reuses existing vehicle meshes + a rust material; the
+counters all already exist. The bestiary is mostly models + AI, not systems.)*
+
+### 20.3 Corrosion & conversion — your machines betray you
+
+Any machine an Eater closes with starts a **rust meter**. Unchecked: subsystems
+fail one by one (the model exists), then the vehicle **converts** — same
+silhouette, grey-pitted, hunting its old crew. A Mechanic Kit scrubs early
+rust; fire sterilizes; abandoning the vehicle and killing it yourself is the
+last honest option. **The more you mechanize, the more you feed them.**
+
+### 20.4 Playable monsters — the other side of the fun
+
+When the escalation acts (§20.5) put monsters on a front, **players can BE
+them**. The design law of monster play: **short, punchy, disposable lives —
+menace without biography.** Monsters never touch the dossier's power (§11.3);
+they're a costume the war lends you, and the fun is the *verbs*.
+
+**The Infected (playable Outbreak):** not shambling zombies — the infected
+run. Every debuff they inflict **telegraphs itself on the victim's screen**
+(you always know WHY you're missing):
+
+| Infected | The verbs |
+|---|---|
+| **Runner** | sprint; **pounce** that clears HOP obstacles and pins a soldier for a beat — the pack's opener |
+| **Spitter** | lobbed acid glob: pool denial + on hit, **corrosion DoT that sways your aim and softly blurs the screen edges** — the blur IS the telegraph; also strips vehicle plating |
+| **Brute** | a charging shove (the knockback pipeline, reversed) that scatters a firing line and cracks cover to rubble |
+| **Bomber** | the volunteer bomb: sprint, hiss, detonate — trade your life for their formation |
+| **Stalker** | short phase-cloak and a backstab pin; the reason the K9's bark (§5.3) and the 360 helmet (§19.2) earn their keep |
+
+*(All five already exist as AI kinds — playable versions are a control
+mapping and one active ability each, not new creatures.)*
+
+**Playable Iron Eaters (directional — control model to be figured):**
+Junkhound pack-play (you are the alpha, the pack follows), the Scrap-rat
+swarm as ONE controllable tide, the Ravager as a siege role. The open
+question is feel: monsters must be *fun to pilot for 90 seconds*, not a
+second career.
+
+**The melee feel pass (prerequisite):** close combat today is a range check.
+For infected play (and against it) melee needs **commitment** — a lunge with
+a windup, a visible hit arc, a beat of recovery. Zombies got us to "close";
+playable monsters need "close" to feel like teeth.
+
+### 20.5 The escalation ladder — the season in three acts
+
+The season (§13) tells its story in acts, and the campaign paces them:
+
+- **Act I — The War.** Human vs human. Doctrine, skill, territory. Clean.
+- **Act II — The Outbreak.** The plague flares on contaminated fronts
+  (§8.3); quarantine ops open; the flags fight side by side for the first
+  time.
+- **Act III — The Iron Eaters.** When the war is at its most mechanized —
+  prototypes fielded, fronts littered with wrecks — the technology wakes up
+  hungry. Machine-heavy fronts breed beasts; the Leviathan walks.
+- **The finale:** the factions choose, front by front — keep killing each
+  other, or hold the joint line. Either way the season's Armistice (§13.C)
+  writes what they chose into every dossier.
+
+*(What paces the acts — automated director, officer votes, or the operator's
+hand — is deliberately **not specified yet**; the acts themselves are canon.)*
+
+---
+
 ## Appendix A — Field status
 
 - ✅ **Cursor-targeted throws shipped** (`b722960`): hold-G arc + landing ring,
@@ -1326,7 +1475,26 @@ are corridors, slits are angles, roofs are denial — now *facing* is too):
   ship with the §8.4 map pass — same grid work, do them together.
 - ⚠️ **Decide:** §19 vision cones are the same work item as §11.4
   interest-managed snapshots — one vision function, two consumers. Sequence
-  them as one.
+  them as one. **Decided since:** v1 is the *light* cone (enemy-draw only, no
+  wall-shadow pass); ghost linger base ~1.5s, gear-gated, hard cap 3s.
+- ✅ **Committed: the Iron Eaters (§20)** — junk-metal bestiary (rat → hound →
+  weaver → ravager → Leviathan), staged shed-to-kill durability, wreck-field
+  breeding, rust/conversion, playable monsters (Infected roster with
+  telegraphed debuffs; Iron Eater control model open), and the season's
+  three-act escalation (§20.5). The melee feel pass is the prerequisite for
+  monster play.
+- ✅ **Committed: the Paintball Yard** (§3.3) — Brawl-Stars-scale arcade
+  arenas on the jump grammar, splat-out paintball markers, local Wall board.
+  Motor Trials proposed but **blocked on a vehicle-handling feel pass**.
+- 📄 **Map strategy split out** to `docs/MAP-STRATEGY.md` — arena pockets,
+  dynamic neighborhoods (generalize the safehouse house generator), the ten
+  fronts, and the inside-a-house-means-unseen concealment rule.
+- ⛔ **Explicitly NOT in this document (user's call): the Director.** The
+  pacing/orchestration system is deferred — §20.5 names the acts but not
+  their conductor. Revisit later.
+- ⚠️ **Bounced back for decision:** vehicle upgrades (operational requisition
+  vs personal progression), skill-rust ("use it or lose it"), the War Room
+  admin console's timing.
 - ⚠️ **Decide:** faction names/doctrines (§1) are placeholders — rename at
   will; keep the enlistment/tour mechanics.
 - ✅ **Decided:** roofs + firing slits (§8.4) — cutaway roofs (visual-only
