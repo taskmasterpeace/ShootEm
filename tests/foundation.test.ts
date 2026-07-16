@@ -102,23 +102,28 @@ describe('the map-foundation pass (35B)', () => {
     expect(inMud).toBeLessThan(onGrass * 0.9);
   });
 
-  it('every battlefield fields huts with STUFF inside (ZombsRoyale rule)', () => {
+  it('every battlefield deals buildings from the library, with STUFF inside', () => {
     for (const seed of [7, 42]) {
       const m = generateMap(seed, 'tdm', 'savanna');
-      expect(m.houses.length).toBeGreaterThanOrEqual(4);
+      expect(m.houses.length).toBeGreaterThanOrEqual(6); // 3 mirrored pairs
+      let mapSlits = 0;
       for (const h of m.houses) {
-        // walls carry at least one slit window
-        let slits = 0, interiorCover = 0, interiorPickup = 0;
+        let interiorCover = 0, interiorPickup = 0;
         for (let z = h.tz; z < h.tz + h.th; z++)
           for (let x = h.tx; x < h.tx + h.tw; x++) {
-            if (m.grid[z * GRID + x] === T_SLIT) slits++;
+            if (m.grid[z * GRID + x] === T_SLIT) mapSlits++;
             if (m.grid[z * GRID + x] === T_COVER && m.propCovered.includes(z * GRID + x)) interiorCover++;
           }
         for (const p of m.pickups) {
           if (houseAt(m.houses, p.pos.x, p.pos.z) === m.houses.indexOf(h)) interiorPickup++;
         }
-        expect(slits).toBeGreaterThanOrEqual(1);
         expect(interiorCover + interiorPickup).toBeGreaterThanOrEqual(1); // the indoors has stuff
+      }
+      // mirrored fairness: every building rect has a twin across the center line
+      for (const h of m.houses) {
+        const twin = m.houses.some((o) => o !== h && o.tz === h.tz && o.tw === h.tw && o.th === h.th &&
+          o.tx === GRID - 1 - h.tx - h.tw);
+        expect(twin, `building at (${h.tx},${h.tz}) has no mirror twin`).toBe(true);
       }
       // houseAt: center hits, open field misses
       expect(houseAt(m.houses, m.houses[0].center.x, m.houses[0].center.z)).toBe(0);

@@ -18,6 +18,7 @@ export const SOUND_NAMES = [
   'footstep_grass', 'footstep_metal', 'footstep_rock', 'footstep_ice', 'footstep_grit',
   // per-theme ambience beds (looped low under the match; ducked, never loud)
   'amb_savanna', 'amb_starship', 'amb_asteroid', 'amb_europa', 'amb_titan', 'amb_triton',
+  'door', // door swing: creak + latch (E did it)
 ] as const;
 export type SoundName = (typeof SOUND_NAMES)[number];
 

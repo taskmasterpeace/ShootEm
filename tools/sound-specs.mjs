@@ -96,6 +96,9 @@ export const SOUND_SPECS = {
   amb_europa:   { cat: 'ambience', desc: 'Underwater dome ambience — muffled ocean pressure, slow water movement, deep groaning ice above', dur: 12 },
   amb_titan:    { cat: 'ambience', desc: 'Alien colony exterior — thick methane wind, distant industrial hum, muffled heavy atmosphere', dur: 12 },
   amb_triton:   { cat: 'ambience', desc: 'Polar ice station — thin howling wind, creaking ice sheets, desolate extreme cold', dur: 12 },
+
+  // ---- interaction ----
+  door:         { cat: 'movement', desc: 'Wooden door swings open with a short creak and a latch click', dur: 0.7 },
 };
 
 export const CATEGORIES = {

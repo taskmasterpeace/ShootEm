@@ -422,6 +422,12 @@
       "cat": "ambience",
       "desc": "Polar ice station — thin howling wind, creaking ice sheets, desolate extreme cold",
       "dur": 12
+    },
+    {
+      "name": "door",
+      "cat": "movement",
+      "desc": "Wooden door swings open with a short creak and a latch click",
+      "dur": 0.7
     }
   ]
 }

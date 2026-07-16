@@ -42,6 +42,20 @@ Maps are sentences in a small alphabet, and the alphabet is nearly complete:
 B can ship on today's alphabet; family C waits for slits + roofs + surfaces
 + the 300–400u scale decision.
 
+## 2.5 The building library — SHIPPED
+
+`src/sim/buildings.ts`: **20 hand-authored stencil templates** (10 houses +
+10 industrial/military structures), procedurally dealt onto every generated
+front as mirrored pairs. The stencil legend is the whole authoring surface:
+walls, METAL walls (undrillable — the breacher sparks off them), firing
+slits, DOORS (closed; **E opens them** — grid state, replicated like digs),
+interior crate cover (claimed), and floor loot. Every template registers a
+roof rect, so cutaway + concealment come free. `floors: 1` is a reserved
+slot — second storeys wait on the Phase-2 height decision (DD §8.4).
+
+Authoring a new building is writing ASCII art; the tests enforce legend
+legality, door presence, and size caps.
+
 ## 3. Dynamic houses — the neighborhood requirement
 
 We already generate houses (safehouse mode: footprints, doors, interior

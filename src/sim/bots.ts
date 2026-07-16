@@ -58,11 +58,23 @@ function pathStep(w: World, from: Vec3, to: Vec3): Vec3 | null {
     cur = prev[cur];
   }
   path.reverse();
-  // LOS smoothing: take the farthest path node we can walk straight to
+  // WALK smoothing: take the farthest path node we can walk straight to.
+  // This must be a walkability ray, not losClear — a shot ray flies over
+  // water and open doors of thought that boots cannot cross (the pond in
+  // front of a base gate once pinned four bots forever).
+  const walkClear = (a: Vec3, bx: number, bz: number): boolean => {
+    const dx = bx - a.x, dz = bz - a.z;
+    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / (TILE * 0.5)));
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      if (isBlocked(grid, a.x + dx * t, a.z + dz * t)) return false;
+    }
+    return true;
+  };
   let target = path[0];
   for (let i = Math.min(path.length - 1, 24); i > 0; i--) {
     const px = toWorld(path[i] % GRID), pz = toWorld((path[i] / GRID) | 0);
-    if (losClear(grid, from, { x: px, y: 0, z: pz }, 0.6)) { target = path[i]; break; }
+    if (walkClear(from, px, pz)) { target = path[i]; break; }
   }
   return { x: toWorld(target % GRID), y: 0, z: toWorld((target / GRID) | 0) };
 }

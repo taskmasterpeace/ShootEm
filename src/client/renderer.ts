@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
-import { GRID, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt } from '../sim/map';
+import { GRID, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt } from '../sim/map';
 import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
 import { HAND_FRAG_REACH, type World } from '../sim/world';
 import { audio, type SoundName } from './audio';
@@ -142,6 +142,8 @@ export class Renderer {
   private killerRing: THREE.Mesh | null = null;             // pulsing marker over the killer
   /** cutaway roofs (§8.4): fade when the viewed soldier stands beneath one */
   private roofs: { mesh: THREE.Mesh; house: { tx: number; tz: number; tw: number; th: number } }[] = [];
+  /** live door slabs — swung by grid state (E toggles it in the sim) */
+  private doors: { mesh: THREE.Mesh; idx: number; spansX: boolean; base: THREE.Vector3 }[] = [];
   /** the camera height actually used last frame (killcam duels exceed camDist)
    *  — overhead UI scales against it so names/meters hold constant SCREEN size */
   private viewDist = 30;
@@ -287,6 +289,8 @@ export class Renderer {
     const wallTiles: [number, number][] = [];
     const coverTiles: [number, number][] = [];
     const slitTiles: [number, number][] = [];
+    const metalTiles: [number, number][] = [];
+    const doorTiles: [number, number][] = [];
     let unknownWarned = false;
     for (let z = 0; z < GRID; z++) {
       for (let x = 0; x < GRID; x++) {
@@ -297,6 +301,10 @@ export class Renderer {
           coverTiles.push([x, z]);
         } else if (t === T_SLIT) {
           slitTiles.push([x, z]);
+        } else if (t === T_METAL) {
+          metalTiles.push([x, z]);
+        } else if (t === T_DOOR || t === T_DOOR_OPEN) {
+          doorTiles.push([x, z]);
         } else {
           // T_WALL — and any unknown blocking type, visible by construction
           if (t !== T_WALL && !unknownWarned) {
@@ -344,6 +352,38 @@ export class Renderer {
         highInst.setMatrixAt(i, m4);
       });
       this.scene.add(lowInst, highInst);
+    }
+
+    // METAL walls: the breacher's nemesis — steel sheen, same silhouette
+    if (metalTiles.length) {
+      const metalMat = new THREE.MeshStandardMaterial({ color: 0x9aa3ad, metalness: 0.75, roughness: 0.35 });
+      const metalInst = new THREE.InstancedMesh(new THREE.BoxGeometry(TILE, 4, TILE), metalMat, metalTiles.length);
+      metalInst.castShadow = metalInst.receiveShadow = true;
+      metalTiles.forEach(([x, z], i) => {
+        m4.setPosition((x + 0.5) * TILE - WORLD / 2, 2, (z + 0.5) * TILE - WORLD / 2);
+        metalInst.setMatrixAt(i, m4);
+      });
+      this.scene.add(metalInst);
+    }
+
+    // DOORS: a slab per doorway that tracks grid state live — closed fills
+    // the frame, open swings the slab to the jamb. E is the key.
+    for (const d of this.doors) { this.scene.remove(d.mesh); d.mesh.geometry.dispose(); (d.mesh.material as THREE.Material).dispose(); }
+    this.doors = [];
+    const doorMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2a, roughness: 0.8 });
+    for (const [x, z] of doorTiles) {
+      const idx = z * GRID + x;
+      // orientation: neighbors solid left/right => the door spans X
+      const solid = (t: number) => t === T_WALL || t === T_METAL || t === T_SLIT || t === T_DOOR || t === T_DOOR_OPEN;
+      const spansX = solid(world.map.grid[idx - 1]) || solid(world.map.grid[idx + 1]);
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(spansX ? TILE : 0.35, 2.2, spansX ? 0.35 : TILE),
+        doorMat.clone(),
+      );
+      mesh.position.set((x + 0.5) * TILE - WORLD / 2, 1.1, (z + 0.5) * TILE - WORLD / 2);
+      mesh.castShadow = true;
+      this.scene.add(mesh);
+      this.doors.push({ mesh, idx, spansX, base: mesh.position.clone() });
     }
 
     // §8.4 cutaway roofs, phase 1: every house gets a lid. Opaque from
@@ -503,6 +543,16 @@ export class Renderer {
         if (other.ambience !== amb.ambience && audio.looping(other.ambience)) audio.stopLoop(other.ambience);
       }
       audio.loop(amb.ambience, amb.ambVol);
+    }
+
+    // doors track the sim: open slides the slab to the jamb, closed refills
+    for (const d of this.doors) {
+      const open = world.map.grid[d.idx] === T_DOOR_OPEN;
+      const off = open ? TILE * 0.82 : 0;
+      const tx = d.base.x + (d.spansX ? off : 0);
+      const tz = d.base.z + (d.spansX ? 0 : off);
+      d.mesh.position.x += (tx - d.mesh.position.x) * Math.min(1, dt * 10);
+      d.mesh.position.z += (tz - d.mesh.position.z) * Math.min(1, dt * 10);
     }
 
     // §8.4 cutaway: the roof over YOUR head (or the killcam subject's) opens
@@ -1524,6 +1574,19 @@ export class Renderer {
             this.particles.emit({ pos: { ...e.pos, y: 0.4 }, count: 18, color: 0x8a7f6a, speed: 5, life: 0.7, spread: 0.8, up: 3, gravity: 7 });
             this.particles.emit({ pos: { ...e.pos, y: 0.4 }, count: 10, color: 0x3a3f46, speed: 7, life: 0.5, spread: 0.4, up: 4, gravity: 9 });
             audio.play('drone_crash', { pos: e.pos, volume: 0.9 });
+          }
+          break;
+        case 'door':
+          if (e.pos) {
+            if (!audio.play('door', { pos: e.pos, volume: 0.7 })) audio.play('reload', { pos: e.pos, volume: 0.4, rate: 0.7 });
+          }
+          break;
+        case 'sparks':
+          if (e.pos) {
+            // the drill met metal: white-hot spray, zero progress
+            this.particles.emit({ pos: e.pos, count: 16, color: 0xffe9a0, speed: 7, life: 0.35, spread: 0.4, up: 3, gravity: 9, size: 0.22 });
+            this.particles.emit({ pos: e.pos, count: 6, color: 0xffffff, speed: 9, life: 0.2, spread: 0.3, up: 2, gravity: 9, size: 0.16 });
+            audio.play('hit', { pos: e.pos, volume: 0.55, rate: 1.6 });
           }
           break;
         case 'dig': {

@@ -1,6 +1,6 @@
 import { CLASSES, EQUIPMENT, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
-import { GRID, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, generateMap, isBlocked, losClear, surfaceAt, tileAt, type GameMap } from './map';
+import { GRID, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, generateMap, isBlocked, losClear, surfaceAt, tileAt, type GameMap } from './map';
 import { Rng } from './rng';
 import {
   SYSTEM_IDS, isCoopMode, isZed,
@@ -122,7 +122,9 @@ export class World {
     if (tx < 1 || tz < 1 || tx >= GRID - 1 || tz >= GRID - 1) return; // border holds
     const idx = tz * GRID + tx;
     const t = this.map.grid[idx];
-    if (t !== T_WALL && t !== T_COVER) return;
+    // structure is dinner: walls, cover, slits, doors. METAL is not (sparks
+    // handled at the drill face); water and open ground have nothing to eat.
+    if (t !== T_WALL && t !== T_COVER && t !== T_SLIT && t !== T_DOOR && t !== T_DOOR_OPEN) return;
     this.map.grid[idx] = T_OPEN;
     this.dug.push(idx);
     this.emit({
@@ -728,6 +730,8 @@ export class World {
         // E on a warp beacon teleports to its twin
       } else if (this.tryFieldKit(s)) {
         // E with a mechanic kit repairs; with a hacking kit converts a sentry
+      } else if (this.tryDoor(s)) {
+        // E on a door swings it — the activation key earns its name
       } else {
         this.tryEnterVehicle(s);
       }
@@ -1182,6 +1186,33 @@ export class World {
 
   // ---------- vehicles ----------
 
+  /** E on a door (ahead, within arm's reach) swings it open or shut. Doors
+   *  are GRID state, so the change replicates exactly like the tunneler's
+   *  digs — every client's map agrees. */
+  private tryDoor(s: Soldier): boolean {
+    for (const reach of [TILE * 0.6, TILE * 1.3]) {
+      const x = s.pos.x + Math.cos(s.yaw) * reach;
+      const z = s.pos.z + Math.sin(s.yaw) * reach;
+      const tx = Math.floor((x + WORLD / 2) / TILE);
+      const tz = Math.floor((z + WORLD / 2) / TILE);
+      if (tx < 1 || tz < 1 || tx >= GRID - 1 || tz >= GRID - 1) continue;
+      const idx = tz * GRID + tx;
+      const t = this.map.grid[idx];
+      if (t !== T_DOOR && t !== T_DOOR_OPEN) continue;
+      this.map.grid[idx] = t === T_DOOR ? T_DOOR_OPEN : T_DOOR;
+      if (this.doorChanges.indexOf(idx) < 0) this.doorChanges.push(idx);
+      this.emit({
+        type: 'door', tile: idx, soldierId: s.id,
+        pos: { x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 },
+      });
+      return true;
+    }
+    return false;
+  }
+
+  /** door tiles whose state ever changed — replicated so puppets stay true */
+  doorChanges: number[] = [];
+
   tryEnterVehicle(s: Soldier) {
     for (const v of this.vehicles.values()) {
       if (!v.alive || v.team !== s.team) continue;
@@ -1322,9 +1353,14 @@ export class World {
           const aheadX = v.pos.x + Math.cos(v.yaw) * (r + TILE * 0.6) * Math.sign(throttle);
           const aheadZ = v.pos.z + Math.sin(v.yaw) * (r + TILE * 0.6) * Math.sign(throttle);
           const t = tileAt(this.map.grid, aheadX, aheadZ);
-          if (t === T_WALL || t === T_COVER) {
+          if (t === T_WALL || t === T_COVER || t === T_SLIT || t === T_DOOR || t === T_DOOR_OPEN) {
+            // structure is dinner — walls, cover, slits, doors all grind
             v.nextDigAt = this.time + 0.35; // loud, hungry surface work
             this.digTile(Math.floor((aheadX + WORLD / 2) / TILE), Math.floor((aheadZ + WORLD / 2) / TILE));
+          } else if (t === T_METAL) {
+            // metal says no: the drill screams and throws sparks, zero progress
+            v.nextDigAt = this.time + 0.35;
+            this.emit({ type: 'sparks', pos: { x: aheadX, y: 1.2, z: aheadZ } });
           }
         }
         const hover = !!def.hover;

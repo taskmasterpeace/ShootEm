@@ -1663,6 +1663,16 @@ hand — is deliberately **not specified yet**; the acts themselves are canon.)*
 - 📄 **Map strategy split out** to `docs/MAP-STRATEGY.md` — arena pockets,
   dynamic neighborhoods (generalize the safehouse house generator), the ten
   fronts, and the inside-a-house-means-unseen concealment rule.
+- ✅ **The building library + dynamic structures shipped** (`buildings.ts`):
+  20 stencil templates (10 houses + 10 structures) procedurally dealt as
+  mirrored pairs on every front; DOORS with the E activation key (grid
+  state, replicated); METAL walls the breacher cannot grind — it throws
+  sparks instead; interiors stocked (ZombsRoyale rule). Second storeys are
+  a reserved template slot pending the §8.4 Phase-2 height decision. Bots
+  treat closed doors as walls for now (they fight outside; humans breach) —
+  door-opening bots ride the next 49A pass. Fixed en route: bot path
+  smoothing used a SHOT ray that flew over water (four bots once pinned at
+  a pond in front of a base gate — now a walkability ray).
 - ⛔ **Explicitly NOT in this document (user's call): the Director.** The
   pacing/orchestration system is deferred — §20.5 names the acts but not
   their conductor. Revisit later.

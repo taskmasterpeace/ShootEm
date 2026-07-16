@@ -34,6 +34,9 @@ export interface Snapshot {
   smoked: number[];
   /** tile indices the tunneler has ground open (cumulative) */
   dug: number[];
+  /** door tiles that ever changed, with their CURRENT state packed in:
+   *  idx*2 + (open ? 1 : 0) — cheap, cumulative, order-free */
+  doors: number[];
   events: SimEvent[];
 }
 
@@ -64,6 +67,7 @@ export function takeSnapshot(w: World, events: SimEvent[]): Snapshot {
     pinged: [...w.pinged],
     smoked: [...w.smoked],
     dug: w.dug,
+    doors: w.doorChanges.map((idx) => idx * 2 + (w.map.grid[idx] === 6 /* T_DOOR_OPEN */ ? 1 : 0)),
     events,
   };
 }
@@ -144,6 +148,15 @@ export function applySnapshot(w: World, snap: Snapshot) {
   if (snap.dug && snap.dug.length !== w.dug.length) {
     for (const idx of snap.dug) w.map.grid[idx] = T_OPEN;
     w.dug = [...snap.dug];
+  }
+  // doors: set every changed door to its authoritative state
+  if (snap.doors) {
+    for (const packed of snap.doors) {
+      const idx = packed >> 1;
+      if (w.map.grid[idx] === 5 || w.map.grid[idx] === 6) {
+        w.map.grid[idx] = (packed & 1) ? 6 : 5; // T_DOOR_OPEN : T_DOOR
+      }
+    }
   }
 }
 

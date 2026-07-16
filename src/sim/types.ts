@@ -348,6 +348,8 @@ export interface SimEvent {
     | 'drone_crash'    // an FPV drone lost link and hit the ground
     | 'dig'            // tunneler ground a wall tile to rubble
     | 'system_damaged' // a vehicle subsystem went down
+    | 'door'           // a door swung (open or shut) — E did it
+    | 'sparks'         // the breacher's drill met METAL — sparks, no progress
     | 'hacked'         // hacking kit converted an enemy turret
     | 'psi_ping';      // psi scanner found someone (HUD flashes the icon)
   pos?: Vec3;

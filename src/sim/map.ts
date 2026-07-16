@@ -1,4 +1,5 @@
 import { Rng } from './rng';
+import { placeBuildings } from './buildings';
 import { THEMES } from './data';
 import type { ModeId, Team, ThemeId, Vec3, VehicleKind } from './types';
 
@@ -12,6 +13,10 @@ export const T_COVER = 2;  // low crate/sandbag — blocks movement, not railgun
 export const T_WATER = 3;  // impassable to soldiers, hover skiff can cross
 export const T_SLIT = 4;   // firing slit (§8.4): blocks movement ALWAYS; blocks
                            // fire/sight everywhere EXCEPT the 1.2–1.8 height band
+export const T_DOOR = 5;       // closed door — blocks movement + sight; E opens it
+export const T_DOOR_OPEN = 6;  // open door — walk through, shoot through
+export const T_METAL = 7;      // metal wall — blocks like a wall, and the breacher
+                               // CANNOT grind it: the drill just throws sparks
 
 // ---- the SURFACE layer (§8.6): what the ground IS, orthogonal to blocking ----
 export const S_DIRT = 0;   // bare rock/dirt — the neutral surface
@@ -112,7 +117,8 @@ export function tileAt(grid: Uint8Array, x: number, z: number): number {
 export function isBlocked(grid: Uint8Array, x: number, z: number, hover = false): boolean {
   const t = tileAt(grid, x, z);
   if (t === T_WATER) return !hover;
-  return t === T_WALL || t === T_COVER || t === T_SLIT; // slits block movement ALWAYS
+  // slits and CLOSED doors block movement always; open doors are a doorway
+  return t === T_WALL || t === T_COVER || t === T_SLIT || t === T_DOOR || t === T_METAL;
 }
 
 /** Blocks projectiles/sight: walls always; cover and water never (shots fly over). */
@@ -121,6 +127,8 @@ export function blocksShot(grid: Uint8Array, x: number, z: number, y: number): b
   if (t === T_WALL) return y < 4;      // walls are 4 units tall
   if (t === T_COVER) return y < 1.2;   // low cover
   if (t === T_SLIT) return !(y >= 1.2 && y <= 1.8); // the firing band — muzzle height passes
+  if (t === T_DOOR) return y < 2.2;    // a closed door stops rounds and eyes
+  if (t === T_METAL) return y < 4;     // metal walls are walls
   return false;
 }
 
@@ -144,7 +152,7 @@ function setTile(grid: Uint8Array, tx: number, tz: number, v: number) {
 /** A prop-owned tile claim: the prop's mesh visually stands in for this
  *  tile's collision box. Recorded at the stamp site; pruned if a later stamp
  *  overwrites the value (the prop no longer owns what's there). */
-interface TileClaim { idx: number; t: number }
+export interface TileClaim { idx: number; t: number }
 
 /** Stamp a blocking tile a prop will render, and record the claim. Mirrors
  *  setTile's bounds guard exactly — a skipped write is a skipped claim. */
@@ -257,33 +265,16 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
 
   const pickups: PickupSpawn[] = []; // declared early — huts stock their shelves
 
-  // ---- huts (§8.4 + the ZombsRoyale rule: the indoors has STUFF) ----
-  // Small roofed buildings on every battlefield: slit windows, a door, crates
-  // and a pickup inside. Mirrored pairs keep the front fair.
+  // ---- the building stock (§8.4 + the ZombsRoyale rule: indoors has STUFF).
+  // Hand-authored templates from the library, procedurally dealt and mirrored
+  // for fairness: houses, warehouses, bunkers — doors closed, shelves stocked.
   const houses: House[] = [];
-  let houseSeq = 0;
-  const stampHut = (tx: number, tz: number) => {
-    const hw = 7, hh = 5;
-    clearArea(grid, tx + 3, tz + 2, 5);
-    for (let x = tx; x < tx + hw; x++) { setTile(grid, x, tz, T_WALL); setTile(grid, x, tz + hh - 1, T_WALL); }
-    for (let z = tz; z < tz + hh; z++) { setTile(grid, tx, z, T_WALL); setTile(grid, tx + hw - 1, z, T_WALL); }
-    // door: 2 tiles, south wall center
-    setTile(grid, tx + 3, tz + hh - 1, T_OPEN); setTile(grid, tx + 4, tz + hh - 1, T_OPEN);
-    // slit windows: north wall — defenders shoot out at muzzle height
-    setTile(grid, tx + 2, tz, T_SLIT); setTile(grid, tx + 5, tz, T_SLIT);
-    // interior: furniture cover (claimed — the crate mesh renders it) + loot
-    claimTile(grid, claims, tx + 1, tz + 1, T_COVER);
-    props.push({ type: 'crate', pos: tileToWorld(tx + 1, tz + 1), scale: 1, rot: rng.range(0, Math.PI) });
-    claimTile(grid, claims, tx + 5, tz + 3, T_COVER);
-    props.push({ type: 'crate', pos: tileToWorld(tx + 5, tz + 3), scale: 1, rot: rng.range(0, Math.PI) });
-    pickups.push({ type: houseSeq % 2 === 0 ? 'medkit' : 'ammo', pos: tileToWorld(tx + 3, tz + 2) });
-    houses.push({ id: houseSeq++, center: tileToWorld(tx + 3, tz + 2), door: tileToWorld(tx + 3, tz + hh - 1), tx, tz, tw: hw, th: hh });
-  };
-  for (const [hx, hz] of [[half - 10, half - 30], [half - 10, half + 26]] as const) {
-    stampHut(hx, hz);
-    stampHut(GRID - 1 - hx - 6, hz); // mirrored partner (hut is 7 wide)
-  }
-
+  const buildCtx = { grid, props, pickups, houses, claims, rng };
+  placeBuildings(buildCtx, 3, [
+    { tx: half, tz: half, r: 12 },            // the hill
+    { tx: half - 22, tz: half - 22, r: 8 },   // CP A clearing
+    { tx: half + 22, tz: half + 22, r: 8 },   // CP C clearing
+  ]);
 
   // Bases: west (team 0) and east (team 1)
   const baseT: [number, number][] = [[10, half], [GRID - 11, half]];
@@ -397,9 +388,12 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
       const tx = rng.int(4, GRID - 5), tz = rng.int(4, GRID - 5);
       if (grid[tz * GRID + tx] === T_OPEN) {
         const w = tileToWorld(tx, tz);
-        const far = Math.hypot(w.x - basePos[0].x, w.z - basePos[0].z) > 20 &&
-                    Math.hypot(w.x - basePos[1].x, w.z - basePos[1].z) > 20 &&
-                    Math.hypot(w.x - hillPos.x, w.z - hillPos.z) > 14;
+        // exclusion radii are TILE-SCALED: the base structure spans ~7 tiles,
+        // so a fixed world-unit radius shrinks when the map grows (a 300u map
+        // once grew a tree IN the base gate and walled a whole team in)
+        const far = Math.hypot(w.x - basePos[0].x, w.z - basePos[0].z) > TILE * 10 &&
+                    Math.hypot(w.x - basePos[1].x, w.z - basePos[1].z) > TILE * 10 &&
+                    Math.hypot(w.x - hillPos.x, w.z - hillPos.z) > TILE * 7;
         if (far) {
           claimTile(grid, claims, tx, tz, T_WALL);
           props.push({ type: 'tree', pos: w, scale: rng.range(0.8, 1.4), rot: rng.range(0, Math.PI * 2) });
