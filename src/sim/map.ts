@@ -33,16 +33,12 @@ export const COVER_H = 1.2;
 export const CLIMB_H = 2.5;
 export const WALL_H = 4;
 
-/** What the breacher's drill can chew: structure is dinner — walls, cover,
- *  slits, doors, CLIMB barricades. METAL is not (the drill face throws
- *  sparks); water and open ground have nothing to eat. */
-export const DRILL_EATS = new Set<number>([T_WALL, T_COVER, T_SLIT, T_DOOR, T_DOOR_OPEN, T_CLIMB]);
-
 /** What the breacher's drill grinds to rubble — the ONE authoritative menu,
  *  shared by the sim (digTile + drill face) and the harness Terrain tab.
- *  Not on the menu: METAL (sparks, zero progress), water (nothing to eat),
+ *  Structure is dinner: walls, cover, slits, doors, CLIMB barricades. Not
+ *  on the menu: METAL (sparks, zero progress), water (nothing to eat),
  *  ladders, open ground, and the map border. */
-export const DRILL_EATS: ReadonlySet<number> = new Set([T_WALL, T_COVER, T_SLIT, T_DOOR, T_DOOR_OPEN]);
+export const DRILL_EATS: ReadonlySet<number> = new Set([T_WALL, T_COVER, T_SLIT, T_DOOR, T_DOOR_OPEN, T_CLIMB]);
 
 // ---- the SURFACE layer (§8.6): what the ground IS, orthogonal to blocking ----
 export const S_DIRT = 0;   // bare rock/dirt — the neutral surface
