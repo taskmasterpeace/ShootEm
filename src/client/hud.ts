@@ -485,9 +485,13 @@ export class Hud {
       }
     }
     html += '</table>';
+    if (m.over && this.careerHtml) html += this.careerHtml; // §3.4: what this match added
     if (m.over) html += `<p style="margin-top:1rem;color:var(--muted)">Returning to menu…</p>`;
     sb.innerHTML = html;
   }
+
+  /** Post-match career pane (the Record, §3.4) — set by the match tracker. */
+  careerHtml = '';
 
   applyEvents(events: SimEvent[], world: World, localId: number, now: number) {
     for (const e of events) {

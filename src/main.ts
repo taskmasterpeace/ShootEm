@@ -10,6 +10,7 @@ import { Input } from './client/input';
 import { Renderer } from './client/renderer';
 import { NetGame } from './client/net';
 import { KILLCAM_CAM, MATCH_LINGER_LOCAL_MS, ReplayDirector } from './client/replay';
+import { MatchTracker, RANKS, loadDossier, rankFor, saveDossier, type Dossier } from './client/record';
 
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -250,6 +251,8 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
   const seed = (Math.random() * 0xffffffff) >>> 0;
   const world = new World({ seed, mode: selectedMode, difficulty, botsPerTeam, matchMinutes, theme: selectedTheme });
   const me = world.addSoldier(name, selectedClass, 0, 'human', currentLoadout());
+  // the Record (§3.4): fold this match into the dossier as it happens
+  const tracker = dossier ? new MatchTracker(dossier, name, selectedClass, selectedMode, seed) : null;
 
   // replays: the director runs the killcam + match-highlights state machine
   const director = new ReplayDirector(seed, selectedMode, selectedTheme);
@@ -315,6 +318,20 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     }
     const events = world.takeEvents();
     hud.applyEvents(events, world, me.id, world.time); // killfeed stays live
+    tracker?.applyEvents(events, world, me.id);
+    tracker?.update(world, me.id, dt);
+    if (world.mode.over && tracker) {
+      void tracker.finalize(world, me.id).then((sum) => {
+        if (!sum) return;
+        renderBarracks(); // the record just grew
+        hud.careerHtml = `<div id="career-pane"><h3>Career — what this match added</h3>
+          <div class="cp-row"><span>+${sum.rankPointsGained} rank pts</span>
+          <span>${sum.rankBefore === sum.rankAfter ? sum.rankAfter : `${sum.rankBefore} → <b>${sum.rankAfter}</b> ▲`}</span>
+          <span>${sum.kills} kills · ${sum.deaths} deaths</span></div>
+          ${sum.medals.length ? `<div class="cp-row" style="margin-top:0.4rem">${sum.medals.map((m) => `<span class="bk-medal">${m.icon} ${m.name}</span>`).join('')}</div>` : ''}
+          ${sum.journal.length ? `<p style="margin-top:0.5rem;color:var(--muted)">📖 ${sum.journal[0].text}</p>` : ''}</div>`;
+      });
+    }
 
     const { renderWorld, banner: bannerText } = director.update(world, me.id, dt);
     const replaying = renderWorld !== world;
@@ -353,8 +370,71 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
   requestAnimationFrame(frame);
 }
 
+// ---------------------------------------------------------------------------
+// The Dossier (§3.4) + the menu tab shell (6B): Deploy | Barracks | Map.
+// ---------------------------------------------------------------------------
+let dossier: Dossier | null = null;
+
+function renderBarracks() {
+  const root = $('barracks-root');
+  if (!dossier) { root.innerHTML = '<p class="bk-empty">No record on file yet.</p>'; return; }
+  const d = dossier;
+  const rank = rankFor(d.soldier.rankPoints);
+  const nextTxt = rank.next !== null ? `${d.soldier.rankPoints} / ${rank.next} pts to next grade` : `${d.soldier.rankPoints} pts — top of the ladder`;
+  const classRows = Object.entries(d.lifetime.perClass).map(([id, r]) =>
+    `<div class="bk-stat-row"><span>${id}</span><b>${r.kills} K · ${r.deaths} D · ${r.wins}/${r.matches} won</b></div>`).join('') ||
+    '<p class="bk-empty">No deployments yet.</p>';
+  const weaponRows = Object.entries(d.lifetime.perWeapon)
+    .sort((x, y) => y[1].kills - x[1].kills).slice(0, 8).map(([w, r]) =>
+      `<div class="bk-stat-row"><span>${w}</span><b>${r.kills} kills · best ${r.longestHit}u</b></div>`).join('') ||
+    '<p class="bk-empty">The armory awaits its first story.</p>';
+  const medals = d.medals.length
+    ? d.medals.slice(-24).reverse().map((m) => `<span class="bk-medal" title="${new Date(m.earnedAt).toLocaleDateString()}">${m.icon} ${m.name}</span>`).join('')
+    : '<p class="bk-empty">No decorations yet — they are earned, never bought.</p>';
+  const journal = d.journal.length
+    ? `<ul class="bk-journal">${d.journal.slice(0, 25).map((j) =>
+        `<li>${j.text}<span class="when">${new Date(j.at).toLocaleString()}</span></li>`).join('')}</ul>`
+    : '<p class="bk-empty">The journal opens with your first battle.</p>';
+  root.innerHTML = `
+    <div class="bk-head">
+      <span class="bk-callsign">${d.soldier.callsign}</span>
+      <span class="bk-rank">${rank.name}</span>
+      <span class="bk-next">${nextTxt}</span>
+    </div>
+    <div class="bk-grid">
+      <div class="bk-card"><h4>Service record</h4>
+        <div class="bk-stat-row"><span>Matches</span><b>${d.lifetime.matches}</b></div>
+        <div class="bk-stat-row"><span>Wins</span><b>${d.lifetime.wins}</b></div>
+        <div class="bk-stat-row"><span>Kills / Deaths</span><b>${d.lifetime.kills} / ${d.lifetime.deaths}</b></div>
+        <div class="bk-stat-row"><span>Score</span><b>${d.lifetime.score}</b></div>
+      </div>
+      <div class="bk-card"><h4>By class</h4>${classRows}</div>
+      <div class="bk-card"><h4>Gun locker — service history</h4>${weaponRows}</div>
+      <div class="bk-card"><h4>Qualifications</h4><p class="bk-empty">No qualifications on record — the Proving Grounds await.</p></div>
+    </div>
+    <div class="bk-card" style="margin-bottom:0.75rem"><h4>Decorations (${d.medals.length})</h4>${medals}</div>
+    <div class="bk-card"><h4>War journal</h4>${journal}</div>`;
+}
+
+function wireMenuTabs() {
+  const tabs = document.querySelectorAll<HTMLButtonElement>('#menu-tabs .mtab');
+  tabs.forEach((t) => t.onclick = () => {
+    audio.play('ui_click');
+    tabs.forEach((x) => x.classList.toggle('active', x === t));
+    for (const pane of ['deploy', 'barracks', 'map']) {
+      $(`tab-${pane}`).classList.toggle('hidden', pane !== t.dataset.tab);
+    }
+    if (t.dataset.tab === 'barracks') renderBarracks();
+  });
+}
+
+void loadDossier((($('player-name') as HTMLInputElement)?.value || 'Recruit').slice(0, 16))
+  .then((d) => { dossier = d; renderBarracks(); void saveDossier(d); });
+void RANKS; // ladder is part of the public record API
+
 buildMenu();
 wireSetupControls();
+wireMenuTabs();
 $('deploy-btn').addEventListener('click', () => { startGame(); });
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !running && !$('menu').classList.contains('hidden')) startGame();

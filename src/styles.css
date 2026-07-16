@@ -371,3 +371,46 @@ html, body {
   animation: replay-pulse 1.6s ease-in-out infinite;
 }
 @keyframes replay-pulse { 50% { opacity: 0.55; } }
+
+/* ── menu tab shell (6B): Deploy | Barracks | Map(reserved) ─────────────── */
+#menu-tabs {
+  display: flex; gap: 0.4rem; margin: 0.75rem 0 1.1rem;
+  border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;
+}
+.mtab {
+  appearance: none; border: 1px solid transparent; background: transparent;
+  color: var(--muted); font: inherit; font-weight: 700; letter-spacing: 0.04em;
+  font-size: 0.85rem; padding: 0.5rem 1.1rem; border-radius: 0.625rem; cursor: pointer;
+  transition: 0.15s;
+}
+.mtab:hover { color: var(--ink, #e7ecf2); background: oklch(0.22 0.015 80); }
+.mtab.active { color: var(--accent); border-color: var(--accent); background: oklch(0.24 0.03 70 / 0.5); }
+.menu-tabpane.hidden { display: none; }
+
+/* ── Barracks: the dossier on a wall ────────────────────────────────────── */
+.bk-head { display: flex; align-items: baseline; gap: 0.8rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.bk-head .bk-callsign { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em; }
+.bk-head .bk-rank { color: var(--accent); font-weight: 700; }
+.bk-head .bk-next { color: var(--muted); font-size: 0.8rem; }
+.bk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+.bk-card {
+  background: oklch(0.2 0.012 80); border: 1px solid var(--border);
+  border-radius: 0.625rem; padding: 0.9rem 1rem;
+}
+.bk-card h4 { margin: 0 0 0.55rem; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
+.bk-stat-row { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 0.12rem 0; }
+.bk-stat-row b { font-variant-numeric: tabular-nums; }
+.bk-medal { display: inline-flex; align-items: center; gap: 0.4rem; background: oklch(0.24 0.03 70 / 0.5);
+  border: 1px solid var(--border); border-radius: 999px; padding: 0.25rem 0.7rem; margin: 0.15rem; font-size: 0.8rem; }
+.bk-journal { list-style: none; margin: 0; padding: 0; max-height: 300px; overflow-y: auto; }
+.bk-journal li { padding: 0.45rem 0; border-bottom: 1px solid oklch(0.24 0.015 80); font-size: 0.85rem; line-height: 1.4; }
+.bk-journal li .when { color: var(--muted); font-size: 0.72rem; display: block; }
+.bk-empty { color: var(--muted); font-size: 0.85rem; }
+
+/* ── post-match career pane: what this match added ──────────────────────── */
+#career-pane {
+  margin-top: 0.9rem; padding: 0.8rem 1rem; border: 1px solid var(--accent);
+  border-radius: 0.625rem; background: oklch(0.22 0.03 70 / 0.45); font-size: 0.85rem;
+}
+#career-pane h3 { margin: 0 0 0.4rem; font-size: 0.75rem; letter-spacing: 0.07em; text-transform: uppercase; color: var(--accent); }
+#career-pane .cp-row { display: flex; gap: 1.1rem; flex-wrap: wrap; }
