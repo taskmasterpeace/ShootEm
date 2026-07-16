@@ -11,7 +11,7 @@ import { Renderer } from './client/renderer';
 import { NetGame } from './client/net';
 import { KILLCAM_CAM, MATCH_LINGER_LOCAL_MS, ReplayDirector } from './client/replay';
 import { MatchTracker, RANKS, loadDossier, rankFor, saveDossier, type Dossier } from './client/record';
-import { FRONTS, SCAR_TEXT, applyResult, bandOf, loadCampaign, saveCampaign, simulateTimeSkip, type Campaign } from './client/campaign';
+import { FRONTS, SCAR_TEXT, applyResult, bandOf, checkSeasonEnd, loadCampaign, saveCampaign, simulateTimeSkip, type Campaign } from './client/campaign';
 import { RangeCourse, gradeFor, loadWall } from './client/range';
 import { loadSettings, saveSettings, settings } from './client/settings';
 
@@ -372,6 +372,19 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
         // the Living Campaign: this battle moves its front (22B)
         if (activeFrontId && campaign) {
           applyResult(campaign, activeFrontId, sum.won);
+          // §13 (decided): a REAL battle can close the season — the Armistice
+          const armistice = checkSeasonEnd(campaign);
+          if (armistice && dossier) {
+            const winnerName = armistice.winner === 'coalition' ? 'the Titan Coalition' : 'The Collective';
+            dossier.journal.unshift({
+              text: `ARMISTICE — Season ${armistice.season} ended with ${winnerName} holding ${armistice.frontsHeld} of ten fronts. I was there when the war closed.`,
+              at: Date.now(), matchRef: `season:${armistice.season}`,
+            });
+            // a tour IS one season (4A): the next tour opens with the new season
+            dossier.tours.push({ faction: 0, season: campaign.season, startedAt: Date.now() });
+            void saveDossier(dossier);
+            hud.careerHtml += `<div id="career-pane" style="margin-top:0.5rem"><h3>ARMISTICE</h3><p>Season ${armistice.season} is over — ${winnerName} takes the war. The theatre resets; your record remains.</p></div>`;
+          }
           saveCampaign(campaign);
           renderScarMap();
         }

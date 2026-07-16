@@ -81,6 +81,21 @@ export const SOUND_SPECS = {
   defeat:          { cat: 'ui', desc: 'Defeat — somber descending tone', dur: 1.6 },
   ui_click:        { cat: 'ui', desc: 'Menu click — tiny crisp tick', dur: 0.5 },
   spawn:           { cat: 'ui', desc: 'Respawn — short rising materialize shimmer', dur: 0.6 },
+
+  // ---- per-surface footsteps (biome designation: src/client/soundscape.ts) ----
+  footstep_grass: { cat: 'movement', desc: 'ONE single boot step on dry grass and dirt — soft organic crunch', dur: 0.35 },
+  footstep_metal: { cat: 'movement', desc: 'ONE single boot step on a steel deck plate — hard metallic clank, short ring', dur: 0.35 },
+  footstep_rock:  { cat: 'movement', desc: 'ONE single boot step on loose mine rubble and gravel — gritty scrape-crunch', dur: 0.35 },
+  footstep_ice:   { cat: 'movement', desc: 'ONE single boot step on hard ice — glassy tap with a faint slide squeak', dur: 0.35 },
+  footstep_grit:  { cat: 'movement', desc: 'ONE single boot step on a gritty sand-dusted road — dry granular crunch', dur: 0.35 },
+
+  // ---- per-theme ambience beds (looped low under the match) ----
+  amb_savanna:  { cat: 'ambience', desc: 'Dry savanna wind through grass, distant insects, very sparse far bird — steady atmosphere bed, no melody', dur: 12 },
+  amb_starship: { cat: 'ambience', desc: 'Starship interior hum — low engine drone, faint ventilation hiss, occasional soft metal tick', dur: 12 },
+  amb_asteroid: { cat: 'ambience', desc: 'Deep mine ambience — cavernous low rumble, distant rock settling, faint machinery echo', dur: 12 },
+  amb_europa:   { cat: 'ambience', desc: 'Underwater dome ambience — muffled ocean pressure, slow water movement, deep groaning ice above', dur: 12 },
+  amb_titan:    { cat: 'ambience', desc: 'Alien colony exterior — thick methane wind, distant industrial hum, muffled heavy atmosphere', dur: 12 },
+  amb_triton:   { cat: 'ambience', desc: 'Polar ice station — thin howling wind, creaking ice sheets, desolate extreme cold', dur: 12 },
 };
 
 export const CATEGORIES = {
@@ -90,6 +105,7 @@ export const CATEGORIES = {
   movement: 'Movement / gear',
   tech: 'Abilities / sci-fi tech',
   ui: 'Objective / UI / match',
+  ambience: 'Ambience beds (looped)',
 };
 
 // run directly → emit the browser copy

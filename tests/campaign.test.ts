@@ -4,7 +4,8 @@
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
 import {
-  BAND_EDGE, FRONTS, applyResult, bandOf, freshCampaign, simulateTimeSkip,
+  BAND_EDGE, FRONTS, SEASON_FRONTS_TO_WIN, applyResult, bandOf, checkSeasonEnd,
+  freshCampaign, simulateTimeSkip,
 } from '../src/client/campaign';
 
 describe('the Living Campaign', () => {
@@ -52,6 +53,30 @@ describe('the Living Campaign', () => {
     }
     expect(cleared).toBe(true);
     expect(c.fronts.refinery.scarActive).toBe(false);
+  });
+
+  it('the Armistice: six held fronts end the season, the theatre resets (§13)', () => {
+    const c = freshCampaign(1000);
+    // push five fronts deep coalition — not enough
+    const five = FRONTS.slice(0, 5);
+    for (const f of five) for (let i = 0; i < 8; i++) applyResult(c, f.id, true, 1000);
+    expect(checkSeasonEnd(c, 1000)).toBeNull();
+    expect(c.season).toBe(1);
+    // the sixth front closes the war
+    for (let i = 0; i < 8; i++) applyResult(c, FRONTS[5].id, true, 1000);
+    const a = checkSeasonEnd(c, 1000)!;
+    expect(a).not.toBeNull();
+    expect(a.winner).toBe('coalition');
+    expect(a.frontsHeld).toBeGreaterThanOrEqual(SEASON_FRONTS_TO_WIN);
+    expect(a.season).toBe(1);
+    // the dossier persists, the WAR resets
+    expect(c.season).toBe(2);
+    for (const f of FRONTS) {
+      expect(c.fronts[f.id].control).toBe(0);
+      expect(c.fronts[f.id].scarActive).toBe(false);
+    }
+    expect(c.dispatch[0].text).toContain('ARMISTICE');
+    expect(c.dispatch[0].simulated).toBe(false);
   });
 
   it('the time-skip is deterministic, capped, and labeled simulated (27B)', () => {

@@ -110,6 +110,38 @@ export function applyResult(c: Campaign, frontId: string, won: boolean | null, n
   return lines;
 }
 
+/** Season victory (§13, decided: points threshold): hold this many of the
+ *  ten fronts in your band and the war is yours. */
+export const SEASON_FRONTS_TO_WIN = 6;
+
+export interface Armistice { winner: Exclude<Band, 'contested'>; season: number; frontsHeld: number }
+
+/**
+ * The Armistice check — run after REAL battles only (a simulated overnight
+ * never ends a war; finales belong to the player). If a faction holds
+ * SEASON_FRONTS_TO_WIN fronts, the season closes: dispatch written, theatre
+ * reset, season number advanced. The dossier persists; the war resets (§13).
+ */
+export function checkSeasonEnd(c: Campaign, now = Date.now()): Armistice | null {
+  const held = { coalition: 0, collective: 0 };
+  for (const f of FRONTS) {
+    const b = bandOf(c.fronts[f.id].control);
+    if (b !== 'contested') held[b]++;
+  }
+  const winner = held.coalition >= SEASON_FRONTS_TO_WIN ? 'coalition'
+    : held.collective >= SEASON_FRONTS_TO_WIN ? 'collective' : null;
+  if (!winner) return null;
+  const season = c.season;
+  const name = winner === 'coalition' ? 'the Titan Coalition' : 'The Collective';
+  c.dispatch.unshift(
+    { text: `ARMISTICE — Season ${season} is over. ${name} takes the war, holding ${held[winner]} of ten fronts. The theatre resets; the record remains.`, at: now, simulated: false },
+  );
+  if (c.dispatch.length > 60) c.dispatch.length = 60;
+  for (const f of FRONTS) c.fronts[f.id] = { control: 0, scarActive: false, lastBattleAt: 0 };
+  c.season = season + 1;
+  return { winner, season, frontsHeld: held[winner] };
+}
+
 export const SCAR_TEXT: Record<FrontDef['scar'], string> = {
   fire: 'persistent fires burn the middle ground',
   rubble: 'collapsed cover litters the field',

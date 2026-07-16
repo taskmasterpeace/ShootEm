@@ -35,7 +35,9 @@ const ENDPOINT = 'https://api.elevenlabs.io/v1/sound-generation';
 // generation prompt = the shared human intent + a dry, one-shot suffix so the
 // model doesn't add reverb tails or music beds.
 const SUFFIX = 'dry, close-mic, one-shot, no reverb tail';
-const promptFor = (name) => `${SOUND_SPECS[name].desc}, ${SUFFIX}`;
+// ambience beds are the opposite of a one-shot: steady, loopable atmosphere
+const AMB_SUFFIX = 'seamless looping ambient bed, steady consistent level, no melody, no sudden events';
+const promptFor = (name) => `${SOUND_SPECS[name].desc}, ${SOUND_SPECS[name].cat === 'ambience' ? AMB_SUFFIX : SUFFIX}`;
 const durFor = (name) => SOUND_SPECS[name].dur;
 
 // ---------------------------------------------------------------------------
