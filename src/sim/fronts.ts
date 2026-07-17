@@ -1622,77 +1622,119 @@ const TOWER: BuildingDef = {
   ],
 };
 
-function airbase(seed: number): GameMap {
+function airbase(seed: number, size: MapSize = 'large'): GameMap {
+  const box = boxFor(size);
   const d = draft(seed, T_OPEN, S_GRASS);
   const { grid, surface, props, claims } = d;
   const ctx = ctxOf(d);
+  const L = {
+    large: {
+      runway: [46, 53] as [number, number], taxi: [40, 41] as [number, number],
+      taxiLinks: [[30, 42], [68, 42]] as [number, number][],
+      hangars: [[20, 24], [44, 24], [68, 24]] as [number, number][],
+      tower: [58, 33] as [number, number], revetXs: [24, 40, 56, 72], revetZ: [61, 66] as [number, number],
+      fuel: [[70, 72], [74, 74], [70, 77]] as [number, number][],
+      fuelPad: [66, 69, 78, 81] as [number, number, number, number],
+      radar: [18, 72] as [number, number] | null, guard: [22, 74] as [number, number] | null,
+      boneyard: [[78, 14, 0.8], [84, 18, 2.2], [80, 22, 4.1]] as [number, number, number][],
+      bases: [[10, 72], [GRID - 11, 28]] as [[number, number], [number, number]],
+      sams: [[24, 63], [72, 63]] as [[number, number], [number, number]],
+      pickups: [[36, 44, 'ammo'], [36, 58, 'medkit'], [44, 70, 'energy']] as [number, number, PickupSpawn['type']][],
+    },
+    standard: {
+      runway: [42, 49] as [number, number], taxi: [36, 37] as [number, number],
+      taxiLinks: [[30, 38], [66, 38]] as [number, number][],
+      hangars: [[20, 18], [44, 18], [66, 18]] as [number, number][],
+      tower: [54, 26] as [number, number], revetXs: [24, 40, 56, 70], revetZ: [54, 59] as [number, number],
+      fuel: [[66, 64], [70, 66], [66, 69]] as [number, number][],
+      fuelPad: [62, 61, 74, 73] as [number, number, number, number],
+      radar: [16, 64] as [number, number] | null, guard: [20, 66] as [number, number] | null,
+      boneyard: [[70, 12, 0.8], [76, 14, 2.2], [72, 24, 4.1]] as [number, number, number][],
+      bases: [[19, 62], [GRID - 20, 32]] as [[number, number], [number, number]],
+      sams: [[24, 53], [68, 53]] as [[number, number], [number, number]],
+      pickups: [[34, 40, 'ammo'], [34, 54, 'medkit'], [44, 62, 'energy']] as [number, number, PickupSpawn['type']][],
+    },
+    small: {
+      runway: [40, 47] as [number, number], taxi: [34, 35] as [number, number],
+      taxiLinks: [[34, 36], [62, 36]] as [number, number][],
+      hangars: [[26, 22], [50, 22]] as [number, number][],
+      tower: [58, 28] as [number, number], revetXs: [28, 44, 60], revetZ: [52, 57] as [number, number],
+      fuel: [[62, 56], [66, 58]] as [number, number][],
+      fuelPad: [60, 53, 68, 62] as [number, number, number, number],
+      radar: [24, 58] as [number, number] | null, guard: [26, 60] as [number, number] | null,
+      boneyard: [[68, 24, 0.8], [72, 28, 2.2]] as [number, number, number][],
+      bases: [[29, 58], [GRID - 30, 36]] as [[number, number], [number, number]],
+      sams: [[26, 51], [64, 51]] as [[number, number], [number, number]],
+      pickups: [[36, 38, 'ammo'], [36, 50, 'medkit'], [44, 56, 'energy']] as [number, number, PickupSpawn['type']][],
+    },
+  }[size];
 
   // THE RUNWAY: eight tiles of plate, end to end. No cover. That's the point.
-  rectSurf(surface, 8, 46, 91, 53, S_PLATE);
+  rectSurf(surface, box.x0 + 8, L.runway[0], box.x1 - 8, L.runway[1], S_PLATE);
   // taxiway north, with two connectors
-  rectSurf(surface, 16, 40, 83, 41, S_PLATE);
-  rectSurf(surface, 30, 42, 31, 45, S_PLATE);
-  rectSurf(surface, 68, 42, 69, 45, S_PLATE);
+  rectSurf(surface, box.x0 + 12, L.taxi[0], box.x1 - 12, L.taxi[1], S_PLATE);
+  for (const [lx, lz] of L.taxiLinks) rectSurf(surface, lx, lz, lx + 1, L.runway[0] - 1, S_PLATE);
 
-  // HANGAR ROW: three sheds north of the taxiway — the prototype lives here
-  stampBuilding(ctx, HANGAR, 20, 24, 0);
-  stampBuilding(ctx, HANGAR, 44, 24, 2);
-  stampBuilding(ctx, HANGAR, 68, 24, 4);
+  // HANGAR ROW: sheds north of the taxiway — the prototype lives here
+  for (const [hx, hz] of L.hangars) stampBuilding(ctx, HANGAR, hx, hz, hx + hz);
 
   // THE TOWER: mid-field north, watching every inch of plate
-  stampBuilding(ctx, TOWER, 58, 33, 6);
+  stampBuilding(ctx, TOWER, L.tower[0], L.tower[1], 6);
 
-  // REVETMENTS: four C-berms south of the runway sheltering the ready line
-  for (const rx of [24, 40, 56, 72]) {
-    for (let x = rx - 3; x <= rx + 3; x++) set(grid, x, 66, T_COVER);
-    for (let z = 61; z <= 66; z++) { set(grid, rx - 3, z, T_COVER); set(grid, rx + 3, z, T_COVER); }
+  // REVETMENTS: C-berms south of the runway sheltering the ready line
+  for (const rx of L.revetXs) {
+    for (let x = rx - 3; x <= rx + 3; x++) set(grid, x, L.revetZ[1], T_COVER);
+    for (let z = L.revetZ[0]; z <= L.revetZ[1]; z++) { set(grid, rx - 3, z, T_COVER); set(grid, rx + 3, z, T_COVER); }
   }
 
   // FUEL FARM: south of the revetment line, inside CP reach
-  for (const [sx, sz] of [[70, 72], [74, 74], [70, 77]] as const) {
+  for (const [sx, sz] of L.fuel) {
     claim(grid, claims, sx, sz, T_WALL);
     props.push({ type: 'silo', pos: tw(sx, sz), scale: 1.6, rot: 0 });
   }
-  rectSurf(surface, 66, 69, 78, 81, S_DIRT);
+  rectSurf(surface, ...L.fuelPad, S_DIRT);
 
   // radar mast + its guard shack, south-west
-  claim(grid, claims, 18, 72, T_WALL);
-  props.push({ type: 'flare_stack', pos: tw(18, 72), scale: 1, rot: 0 });
-  stampBuilding(ctx, byId('guard_post'), 22, 74, 8);
+  if (L.radar) {
+    claim(grid, claims, L.radar[0], L.radar[1], T_WALL);
+    props.push({ type: 'flare_stack', pos: tw(...L.radar), scale: 1, rot: 0 });
+  }
+  if (L.guard) stampBuilding(ctx, byId('guard_post'), L.guard[0], L.guard[1], 8);
 
   // THE BONEYARD: gutted airframes in the north-east grass — the war's been
   // here before, and the wrecks are the only cover on that approach
-  for (const [wx, wz, r] of [[78, 14, 0.8], [84, 18, 2.2], [80, 22, 4.1]] as const) {
+  for (const [wx, wz, r] of L.boneyard) {
     claim(grid, claims, wx, wz, T_COVER);
     props.push({ type: 'wreck', pos: tw(wx, wz), scale: 1.2, rot: r });
   }
 
-  // bases sit OFF the strip, diagonal — the atlas caught the runway running
-  // straight through both spawn pockets. Now every route to the far
-  // objectives crosses the open plate, which is the whole front.
-  stampBase(grid, claims, props, d.vehiclePads, 0, 10, 72, ['flyer', 'flyer', 'tank', 'transport', 'ambulance']);
-  stampBase(grid, claims, props, d.vehiclePads, 1, GRID - 11, 28, ['flyer', 'flyer', 'tank', 'transport', 'ambulance']);
+  // bases sit OFF the strip, diagonal — every route to the far objectives
+  // crosses the open plate, which is the whole front
+  stampBase(grid, claims, props, d.vehiclePads, 0, L.bases[0][0], L.bases[0][1], ['flyer', 'flyer', 'tank', 'transport', 'ambulance']);
+  stampBase(grid, claims, props, d.vehiclePads, 1, L.bases[1][0], L.bases[1][1], ['flyer', 'flyer', 'tank', 'transport', 'ambulance']);
   // the SAM ring: one emplacement in a forward revetment each
-  d.vehiclePads.push({ kind: 'emplacement', team: 0, pos: tw(24, 63) });
-  d.vehiclePads.push({ kind: 'emplacement', team: 1, pos: tw(72, 63) });
+  d.vehiclePads.push({ kind: 'emplacement', team: 0, pos: tw(...L.sams[0]) });
+  d.vehiclePads.push({ kind: 'emplacement', team: 1, pos: tw(...L.sams[1]) });
 
-  dealPickups(d, [[36, 44, 'ammo'], [36, 58, 'medkit'], [44, 70, 'energy']]);
+  dealPickups(d, L.pickups);
+  sealOutside(grid, box);
   sealRim(grid);
 
+  const midRun = Math.floor((L.runway[0] + L.runway[1]) / 2);
   return {
     seed, theme: 'savanna', grid, grid2: d.grid2, surface,
-    basePos: [tw(10, 72), tw(GRID - 11, 28)],
-    spawns: [spawnRing(10, 72), spawnRing(GRID - 11, 28)],
-    flagPos: [tw(10, 72), tw(GRID - 11, 28)],
-    hillPos: tw(50, 49), // KOTH on the centerline — sprint, hold, pray
+    basePos: [tw(...L.bases[0]), tw(...L.bases[1])],
+    spawns: [spawnRing(...L.bases[0]), spawnRing(...L.bases[1])],
+    flagPos: [tw(...L.bases[0]), tw(...L.bases[1])],
+    hillPos: tw(50, midRun), // KOTH on the centerline — sprint, hold, pray
     controlPoints: [
       // rotationally paired around the strip — conquest stays fair from
       // diagonal bases: A is NW, C is its 180° twin SE, B is the plate
-      { name: 'HANGAR ROW', pos: tw(30, 28) },
-      { name: 'THE RUNWAY', pos: tw(50, 49) },
-      { name: 'FUEL FARM', pos: tw(70, 72) },
+      { name: 'HANGAR ROW', pos: tw(L.hangars[0][0] + 6, L.hangars[0][1] + 4) },
+      { name: 'THE RUNWAY', pos: tw(50, midRun) },
+      { name: 'FUEL FARM', pos: tw(L.fuel[0][0], L.fuel[0][1]) },
     ],
-    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid),
+    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid, box),
     houses: d.houses, gates: [], pads: [], propCovered: settle(grid, claims),
   };
 }
