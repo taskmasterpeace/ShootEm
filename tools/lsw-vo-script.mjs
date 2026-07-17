@@ -96,6 +96,12 @@ export const CAST = {
     persona: 'Eclipse, a Collective Living Super Weapon — a levitating controller who drapes the field in darkness. A woman\'s voice: calm, cold, unhurried, faintly amused that anyone still trusts their eyes. Soft the way a room goes soft when the lights die.',
     scene: 'Sound in a dark, muffled space. Distant, disoriented gunfire. A low, swallowing hush.',
   },
+  dominator: {
+    voice: 'Alnilam',
+    fx: 'none', // deep, commanding, resonant — a voice used to being obeyed
+    persona: 'Dominator, a Collective Living Super Weapon and the stable\'s FINALE — a levitating psychic puppeteer who treats enemy soldiers as his own limbs. Deep, imperious, resonant, unbearably calm; he never asks, he simply decides, and your body agrees.',
+    scene: 'A low psychic resonance, like a struck bell held too long. Threads of force humming taut.',
+  },
   announcer: {
     voice: 'Orus',
     fx: 'radio', // 300–3400Hz military net + soft clip
@@ -203,6 +209,13 @@ export const VO = [
   { slot: 'vo_eclipse_ability', who: 'eclipse', text: '[soft] Close your eyes.', notes: ['Almost tender, like tucking someone in.'] },
   { slot: 'vo_eclipse_low', who: 'eclipse', text: '[tightening] The light... finds me.', notes: ['The first note of unease as the dark thins.'] },
   { slot: 'vo_eclipse_death', who: 'eclipse', text: '[fading] Dawn... already?', notes: ['A quiet, almost disappointed surprise.'] },
+
+  // ---- DOMINATOR: the finale — your body agrees ----
+  { slot: 'vo_dominator_arrive', who: 'dominator', text: '[deep, certain] You belong to me now.', notes: ['Not a threat — a fact he has already decided.', 'Resonant and utterly calm.'] },
+  { slot: 'vo_dominator_kill3', who: 'dominator', text: 'Three puppets. [short pause] Cut.', notes: ['Cutting strings, not lives — to him it is the same.'] },
+  { slot: 'vo_dominator_ability', who: 'dominator', text: '[commanding] Feel each other.', notes: ['Said as the threads bind a squad into one nerve.'] },
+  { slot: 'vo_dominator_low', who: 'dominator', text: '[straining] My grip... slips.', notes: ['The imperious calm cracks — control is everything to him.'] },
+  { slot: 'vo_dominator_death', who: 'dominator', text: '[disbelieving] You were... mine.', notes: ['He cannot understand losing what he owned.', 'Fading, affronted.'] },
 ];
 
 /** The announcer — map-wide, both teams, radio net. */
@@ -263,6 +276,10 @@ export const ANN = [
   { slot: 'ann_eclipse_landed', text: 'ECLIPSE ON THE FIELD. THE DARK IS HERS.' },
   { slot: 'ann_eclipse_down', text: 'ECLIPSE IS DOWN. THE LIGHT RETURNS.' },
   { slot: 'ann_eclipse_rampage', text: 'FIVE KILLS. ECLIPSE HAS SWALLOWED THE LIGHT.' },
+  { slot: 'ann_dominator_inbound', text: 'DOMINATOR INBOUND. [short pause] SCATTER. DO NOT BUNCH.' },
+  { slot: 'ann_dominator_landed', text: 'DOMINATOR ON THE FIELD. YOUR FORMATION IS HIS WEAPON.' },
+  { slot: 'ann_dominator_down', text: 'DOMINATOR IS DOWN. THE THREADS SNAP.' },
+  { slot: 'ann_dominator_rampage', text: 'FIVE KILLS. DOMINATOR PULLS EVERY STRING.' },
 ];
 
 export const ANN_NOTES = [

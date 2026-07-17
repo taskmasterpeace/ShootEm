@@ -564,6 +564,13 @@ export class World {
         s.nextLswAt = this.time + 0.6;
         this.spawnGadget('smoke_field', s.team, s.id, { ...s.pos }, Infinity, 6);
       }
+    } else if (id === 'dominator') {
+      // the PSYCHIC LANCE on a cadence, and the LINKS on a slower one (reusing
+      // nextLswActiveAt on the bot). A human pilot links on Q.
+      if (s.kind === 'bot') {
+        if (this.time >= (s.nextLswAt ?? 0)) { this.dominatorLance(s); s.nextLswAt = this.time + 2.5; }
+        if (this.time >= (s.nextLswActiveAt ?? 0) && this.dominatorLink(s)) s.nextLswActiveAt = this.time + 9;
+      }
     }
   }
 
@@ -979,6 +986,43 @@ export class World {
     this.emit({ type: 'vo', text: 'vo_eclipse_ability', pos: { ...s.pos }, soldierId: s.id });
   }
 
+  /** Dominator's psychic lance: a piercing line down his aim (LOS per-target,
+   *  like the Sniperhawk rail) — his direct attack. */
+  private dominatorLance(s: Soldier) {
+    const dx = Math.cos(s.yaw), dz = Math.sin(s.yaw);
+    for (const e of this.soldiers.values()) {
+      if (!e.alive || e.team === s.team || e.id === s.id || e.encasedUntil !== undefined) continue;
+      const ex = e.pos.x - s.pos.x, ez = e.pos.z - s.pos.z;
+      const along = ex * dx + ez * dz;
+      if (along <= 0 || along > 60) continue;
+      if (Math.abs(ex * dz - ez * dx) > 1.5) continue;
+      if (!losClear(this.map.grid, { ...s.pos, y: 1.4 }, { ...e.pos, y: 1.4 })) continue;
+      this.damageSoldier(e, 70, s.id, 'rg2');
+    }
+    this.emit({ type: 'shot', pos: { x: s.pos.x, y: 1.4, z: s.pos.z }, weapon: 'rg2', soldierId: s.id });
+    this.emit({ type: 'vo', text: 'vo_dominator_ability', pos: { ...s.pos }, soldierId: s.id });
+  }
+
+  /** Dominator's psychic links: chain up to FOUR nearby enemy soldiers onto one
+   *  thread — from here, hurting any of them hurts all (damageSoldier). Your
+   *  own tight formation becomes his weapon; scatter beyond thread range.
+   *  Returns false if there weren't at least two to bind. */
+  private dominatorLink(s: Soldier): boolean {
+    const near = [...this.soldiers.values()]
+      .filter((e) => e.alive && e.team !== s.team && e.id !== s.id && e.encasedUntil === undefined && Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z) < 18)
+      .sort((a, b) => Math.hypot(a.pos.x - s.pos.x, a.pos.z - s.pos.z) - Math.hypot(b.pos.x - s.pos.x, b.pos.z - s.pos.z))
+      .slice(0, 4);
+    if (near.length < 2) return false;
+    const group = this.id();
+    for (const e of near) {
+      e.psiLinkId = group; e.psiLinkUntil = this.time + 8;
+      this.emit({ type: 'beacon_planted', pos: { ...e.pos }, soldierId: s.id, text: 'LINKED' });
+    }
+    this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'dominator', soldierId: s.id });
+    this.emit({ type: 'vo', text: 'vo_dominator_ability', pos: { ...s.pos }, soldierId: s.id });
+    return true;
+  }
+
   /**
    * §7 THE SIGNATURE ON Q: a human pilot's active. Whiffs never burn the
    * cooldown — a signature that punishes you for pressing it stops being
@@ -1083,6 +1127,10 @@ export class World {
     } else if (id === 'eclipse') {
       // Q: bloom a full dome of darkness around you.
       this.eclipseDome(s);
+      s.nextLswActiveAt = this.time + def.activeCd;
+    } else if (id === 'dominator') {
+      // Q: link the nearest cluster; if there's no cluster to bind, lance instead.
+      if (!this.dominatorLink(s)) this.dominatorLance(s);
       s.nextLswActiveAt = this.time + def.activeCd;
     }
   }
@@ -3458,9 +3506,19 @@ export class World {
     if (cost > 0) this.damageSoldier(s, cost, s.lastKillerId, 'bleedout');
   }
 
-  damageSoldier(victim: Soldier, dmg: number, attackerId: number, weapon: WeaponId) {
+  damageSoldier(victim: Soldier, dmg: number, attackerId: number, weapon: WeaponId, viaLink = false) {
     if (!victim.alive || dmg <= 0) return;
     if (this.time < victim.protectedUntil) return; // spawn protection (55B)
+    // DOMINATOR'S PSYCHIC LINK (§ finale): hurt one linked soldier and every
+    // soldier on the same thread takes 60%. `viaLink` stops the shared pain
+    // from feeding back on itself. Encased soldiers are off the wire.
+    if (!viaLink && victim.encasedUntil === undefined && victim.psiLinkId !== undefined && this.time < (victim.psiLinkUntil ?? 0)) {
+      for (const o of this.soldiers.values()) {
+        if (o.id === victim.id || o.psiLinkId !== victim.psiLinkId || !o.alive) continue;
+        if (this.time >= (o.psiLinkUntil ?? 0)) continue;
+        this.damageSoldier(o, dmg * 0.6, attackerId, weapon, true);
+      }
+    }
     // ENCASED: the ice eats EVERYTHING — except a teammate's shot, which
     // SHATTERS it (frees them instantly, no cost). An enemy shooting the
     // block just wastes ammo. This is the whole timing game.

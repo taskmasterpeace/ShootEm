@@ -1976,6 +1976,12 @@ export class Renderer {
         pos: { x: s.pos.x + (Math.random() - 0.5) * 1.6, y: 0.4 + Math.random() * 1.8, z: s.pos.z + (Math.random() - 0.5) * 1.6 }, count: 1,
         color: Math.random() < 0.5 ? 0x1a222a : 0x3d5566, speed: 0.4, life: 0.9, spread: 0.6, up: 0.3, gravity: 0.3, size: 0.5,
       });
+    } else if (id === 'dominator') {
+      // crimson psychic tendrils reaching up and out — the puppeteer's threads
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.4, y: 0.8 + Math.random() * 1.6, z: s.pos.z + (Math.random() - 0.5) * 1.4 }, count: 1,
+        color: Math.random() < 0.5 ? 0xd83a5a : 0xf07a92, speed: 0.5, life: 0.6, spread: 0.5, up: 1.2, gravity: -0.5, size: 0.3,
+      });
     }
     // the LSW's VOICE: an Ascendant is an event you can HEAR coming. A
     // per-unit signature on a throttle (roar/hiss/whoosh), and it gets more

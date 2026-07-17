@@ -70,6 +70,7 @@ export const LSW_TINT: Record<string, { tint: number; scale: number }> = {
   magnetar: { tint: 0x707886, scale: 1.3 },      // gunmetal-steel, magnetic sheen
   wraith: { tint: 0x8fd0b0, scale: 1.3 },        // spectral ghost-green
   eclipse: { tint: 0x3d5566, scale: 1.35 },      // deep shadow-slate
+  dominator: { tint: 0xd83a5a, scale: 1.4 },     // commanding crimson-rose (no purple)
 };
 
 /** Turn a built trooper body INTO an LSW body: scale up past a trooper,

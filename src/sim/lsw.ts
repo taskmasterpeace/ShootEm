@@ -212,6 +212,17 @@ export const LSWS: Record<AscendantId, LswDef> = {
     scale: 1.35, speed: 8, color: 0x3d5566, // deep shadow-slate
     activeLabel: 'DARKNESS DOME — vision dies inside', activeCd: 8,
   },
+  dominator: {
+    id: 'dominator', name: 'Dominator', faction: 1, threat: 2,
+    lines: {
+      inbound: 'DOMINATOR INBOUND — SCATTER, DO NOT BUNCH',
+      landed: 'DOMINATOR ON THE FIELD — YOUR FORMATION IS HIS WEAPON',
+      down: 'DOMINATOR IS DOWN — THE THREADS SNAP',
+      rampage: 'FIVE KILLS — DOMINATOR PULLS EVERY STRING',
+    },
+    scale: 1.4, speed: 7, color: 0xd83a5a, // commanding crimson-rose (no purple)
+    activeLabel: 'PSYCHIC LINK — chain them; hurt one, hurt all', activeCd: 8,
+  },
 };
 
 /** THE SPOKEN SCRIPT — subtitle text per voice slot, tag-stripped mirrors of
@@ -290,6 +301,11 @@ export const VO_LINES: Record<string, { who: AscendantId; line: string }> = {
   vo_eclipse_ability: { who: 'eclipse', line: 'Close your eyes.' },
   vo_eclipse_low: { who: 'eclipse', line: 'The light... finds me.' },
   vo_eclipse_death: { who: 'eclipse', line: 'Dawn... already?' },
+  vo_dominator_arrive: { who: 'dominator', line: 'You belong to me now.' },
+  vo_dominator_kill3: { who: 'dominator', line: 'Three puppets. Cut.' },
+  vo_dominator_ability: { who: 'dominator', line: 'Feel each other.' },
+  vo_dominator_low: { who: 'dominator', line: 'My grip... slips.' },
+  vo_dominator_death: { who: 'dominator', line: 'You were... mine.' },
 };
 export const voSlot = (id: AscendantId, moment: VoMoment) => `vo_${id}_${moment}`;
 export const annSlot = (id: AscendantId, moment: 'inbound' | 'landed' | 'down' | 'rampage') => `ann_${id}_${moment}`;

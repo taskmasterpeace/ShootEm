@@ -560,6 +560,46 @@ describe('Eclipse — the darkness dome', () => {
 });
 
 // ---------------------------------------------------------------------------
+// DOMINATOR — the finale. A psychic lance, and links that share damage across
+// a bound squad (hurt one, hurt all at 60%).
+// ---------------------------------------------------------------------------
+describe('Dominator — psychic links', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('links a cluster so hurting one hurts them all', () => {
+    const w = quiet();
+    const d = w.addLsw('dominator', 1, { x: 0, y: 0, z: 0 })!;
+    const es = [];
+    for (let i = 0; i < 3; i++) {
+      const e = w.addSoldier('E' + i, 'infantry', 0, 'human');
+      e.pos = { x: 4 + i * 2, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0; es.push(e);
+    }
+    w.applyCmd(d, cmd({ ability: true }), 1 / 60); // link them
+    const hp0 = es.map((e) => e.hp);
+    // hurt just the FIRST one — the others should bleed too
+    w.damageSoldier(es[0], 50, d.id, 'ar606');
+    expect(es[0].hp, 'the struck soldier took no damage').toBeLessThan(hp0[0]);
+    const others = es.slice(1).filter((e, i) => e.hp < hp0[i + 1]).length;
+    expect(others, 'the link did not share the pain').toBeGreaterThanOrEqual(1);
+  });
+
+  it('an unlinked soldier is unaffected when a linked one is hit', () => {
+    const w = quiet();
+    const d = w.addLsw('dominator', 1, { x: 0, y: 0, z: 0 })!;
+    const a = w.addSoldier('A', 'infantry', 0, 'human');
+    a.pos = { x: 4, y: 0, z: 0 }; a.alive = true; a.protectedUntil = 0;
+    const b = w.addSoldier('B', 'infantry', 0, 'human');
+    b.pos = { x: 6, y: 0, z: 0 }; b.alive = true; b.protectedUntil = 0;
+    const far = w.addSoldier('FAR', 'infantry', 0, 'human');
+    far.pos = { x: 60, y: 0, z: 40 }; far.alive = true; far.protectedUntil = 0; // outside link range
+    w.applyCmd(d, cmd({ ability: true }), 1 / 60);
+    const farHp = far.hp;
+    w.damageSoldier(a, 50, d.id, 'ar606');
+    expect(far.hp, 'a soldier off the thread took shared damage').toBe(farHp);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // §7 PLAYING AS AN LSW — you call it, you hold the mark, you BECOME it.
 // The full pilot loop: call → telegraph → ascension → Q signature → death
 // hands the body back.
