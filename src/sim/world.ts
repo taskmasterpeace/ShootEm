@@ -145,6 +145,14 @@ export class World {
   dug: number[] = [];
   nextPodAt = 75;
   events: SimEvent[] = [];
+  /** LIVE FEEL KNOBS (Robert's global speed control) — 1 = the shipped feel.
+   *  `projectileSpeedMul` slows/quickens DIRECT-fire rounds without moving
+   *  where they land (ttl = reach/speed compensates); arcs are left alone so
+   *  grenades still hit the cursor. `moveSpeedMul` scales soldier legs. Both
+   *  default to 1, so tests and the authoritative server never change — this
+   *  is an offline tuning surface, pushed in from client settings. */
+  projectileSpeedMul = 1;
+  moveSpeedMul = 1;
   private nextId = 1;
 
   constructor(public opts: WorldOptions) {
@@ -1187,7 +1195,8 @@ export class World {
     // movement intent (armor weighs you down)
     const c = CLASSES[s.classId];
     let speed = c.speed * (SURF_SOLDIER[surfaceAt(this.map.surface, s.pos.x, s.pos.z)] ?? 1) // §8.6
-      * moveMult(this.weather, 'soldier'); // §8.8 snow drags boots
+      * moveMult(this.weather, 'soldier') // §8.8 snow drags boots
+      * this.moveSpeedMul; // Robert's global movement knob (1 = shipped feel)
     if (s.cloaked) speed *= 0.8;
     if (s.rageMul) speed *= s.rageMul; // Ragebeast: the wound makes him fast
     for (const eid of s.equipment) {
@@ -1527,6 +1536,11 @@ export class World {
     const def = WEAPONS[wid];
     const spread = (this.rng.next() - 0.5) * 2 * def.spread;
     const yaw = s.yaw + spread;
+    // global projectile-speed knob: only DIRECT fire — a slower bullet still
+    // lands on target because ttl below is reach/speed (range preserved). Arcs
+    // re-solve speed from flight time anyway, so leaving them alone keeps
+    // grenades landing on the cursor.
+    if (!arc) speed *= this.projectileSpeedMul;
     // Arc launch: pick vy so the shell returns to the ground exactly when it
     // has travelled `reach` horizontally. Flight time t = reach/speed; solving
     // muzzleY + vy·t − ½·g·t² = 0 gives vy = ½·g·t − muzzleY/t. Uses the live

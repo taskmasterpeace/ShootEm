@@ -171,6 +171,19 @@
               </select>
             </div>
           </div>
+          <div class="setup-row" style="margin-top:0.75rem">
+            <div class="setup-block">
+              <label>Projectile speed <span id="projspd-val">1.0×</span></label>
+              <input type="range" id="set-projspeed" min="25" max="200" step="5" value="100" style="width:180px; accent-color: var(--accent)">
+            </div>
+            <div class="setup-block">
+              <label>Movement speed <span id="movespd-val">1.0×</span></label>
+              <input type="range" id="set-movespeed" min="25" max="200" step="5" value="100" style="width:180px; accent-color: var(--accent)">
+            </div>
+            <div class="setup-block" style="align-self:flex-end">
+              <button id="set-speed-reset" class="ob-alt" style="font-size:0.8rem">Reset speeds to 1.0×</button>
+            </div>
+          </div>
         </div>
         <div class="menu-section" id="mp-section">
           <h3>Multiplayer <span class="opt">(optional — leave blank to fight bots offline)</span></h3>

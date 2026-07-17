@@ -1897,6 +1897,21 @@ export class Renderer {
         color: 0xd83a1a, speed: 1.4, life: 0.4, spread: 0.6, up: 2.5, gravity: -3, size: 0.4,
       });
     }
+    // the LSW's VOICE: an Ascendant is an event you can HEAR coming. A
+    // per-unit signature on a throttle (roar/hiss/whoosh), and it gets more
+    // insistent as Ragebeast bleeds. Frostbite's voice is the freeze event.
+    const nextVoice = (mesh.userData.nextVoice as number | undefined) ?? 0;
+    if (world.time >= nextVoice) {
+      const roar = id === 'ragebeast', hiss = id === 'plaguebearer', whoosh = id === 'firebrand';
+      const snd = roar ? 'rage_roar' : hiss ? 'gas_hiss' : whoosh ? 'fire_whoosh' : null;
+      if (snd) {
+        const gap = roar ? 3.5 - (1 - s.hp / s.maxHp) * 1.8 : 4 + Math.random() * 2;
+        mesh.userData.nextVoice = world.time + gap;
+        audio.play(snd as SoundName, { pos: s.pos, volume: roar ? 0.7 : 0.5 });
+      } else {
+        mesh.userData.nextVoice = world.time + 5;
+      }
+    }
   }
 
   /** An encased soldier is a block of ice — a translucent cyan box over the
@@ -1917,8 +1932,14 @@ export class Renderer {
       this.iceBlocks.set(s.id, ice);
     }
     if (ice) {
+      const wasVisible = ice.visible;
       ice.visible = encased;
       if (encased) ice.position.set(s.pos.x, 1.15, s.pos.z);
+      else if (wasVisible && !this.replayView) {
+        // the block just broke — shatter shards + a glassy crack
+        this.particles.emit({ pos: { x: s.pos.x, y: 1.2, z: s.pos.z }, count: 20, color: 0xcdeef7, speed: 6, life: 0.5, spread: 0.7, up: 3, gravity: 9, size: 0.2 });
+        audio.play('ice_shatter', { pos: s.pos, volume: 0.75 });
+      }
     }
   }
 
@@ -2105,18 +2126,27 @@ export class Renderer {
         g.add(glow(new THREE.BoxGeometry(2.8, 0.16, 0.16), color, 0.4));
         return g;
       }
-      case 'shell': // stubby tumbling slug
-        return solid(new THREE.BoxGeometry(0.34, 0.16, 0.16), color);
+      case 'shell': // stubby tumbling slug (shotgun, paint) — bumped for reads
+        return solid(new THREE.BoxGeometry(0.42, 0.2, 0.2), color);
       case 'acid': // wet green glob
-        return solid(new THREE.SphereGeometry(0.18, 8, 6), color);
+        return solid(new THREE.SphereGeometry(0.2, 8, 6), color);
       case 'flame': // flickering ember (fire trail added in flight)
-        return glow(new THREE.SphereGeometry(0.22, 7, 5), color, 0.85);
+        return glow(new THREE.SphereGeometry(0.24, 7, 5), color, 0.85);
       case 'beam': // short healing streak
         return solid(new THREE.BoxGeometry(1.4, 0.05, 0.05), color);
-      default: { // bullet: crisp tracer streak with a soft glow
+      default: { // an actual ROUND (Robert: "bullets should kinda look like
+        // bullets… a little bit larger so you can see them"): a tapered brass
+        // slug with a bright nose, riding a glowing tracer tail. Longer and
+        // thicker than the old hairline streak, and shaped like a bullet.
+        // Long axis is +X (the update loop yaws it to face its velocity).
         const g = new THREE.Group();
-        g.add(solid(new THREE.BoxGeometry(0.9, 0.05, 0.05), color));
-        g.add(glow(new THREE.BoxGeometry(1.1, 0.12, 0.12), color, 0.3));
+        const slug = solid(new THREE.CylinderGeometry(0.055, 0.1, 0.36, 7), 0xd8a24a);
+        slug.rotation.z = -Math.PI / 2; slug.position.x = 0.08; // +Y → +X (travel)
+        const tip = solid(new THREE.ConeGeometry(0.055, 0.14, 7), 0xffe6ac);
+        tip.rotation.z = -Math.PI / 2; tip.position.x = 0.33;
+        const tracer = glow(new THREE.BoxGeometry(1.35, 0.1, 0.1), color, 0.5);
+        tracer.position.x = -0.55; // the streak trails BEHIND the slug
+        g.add(slug, tip, tracer);
         return g;
       }
     }
@@ -2357,6 +2387,13 @@ export class Renderer {
           // the referee owns the yard: not positional — a round bookend
           // should never be quiet because you sat down across the field
           audio.play('whistle', { volume: 0.7 });
+          break;
+        case 'encased':
+          // the ice takes someone — a crystalline shimmer that snaps shut
+          if (e.pos) {
+            this.particles.emit({ pos: { ...e.pos, y: 1.2 }, count: 16, color: 0xcdeef7, speed: 3, life: 0.5, spread: 0.5, up: 3, gravity: -1 });
+            audio.play('ice_freeze', { pos: e.pos, volume: 0.8 });
+          }
           break;
         case 'jetpack':
           if (e.pos) this.particles.emit({ pos: { ...e.pos, y: 0.7 }, count: 4, color: 0xff9840, speed: 2, life: 0.35, spread: 0.3, up: -4, gravity: -4 });

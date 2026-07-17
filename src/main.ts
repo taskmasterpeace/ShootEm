@@ -395,6 +395,9 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     seed, mode: selectedMode, difficulty, botsPerTeam, matchMinutes, theme: selectedTheme,
     frontId: activeFrontId ?? undefined, // §8.2: a Scar deploy lands on AUTHORED ground
   });
+  // carry the feel knobs into the match (Robert's global speed control)
+  world.projectileSpeedMul = settings.projectileSpeed;
+  world.moveSpeedMul = settings.moveSpeed;
   const me = world.addSoldier(name, selectedClass, 0, 'human', currentLoadout());
   applyScarMods(world, activeFrontId); // §8.5: the front's wound shapes the field
   // the Record (§3.4): fold this match into the dossier as it happens
@@ -829,6 +832,31 @@ audio.setMasterVolume(settings.masterVolume);
   const blood = $('set-blood') as HTMLSelectElement;
   blood.value = settings.blood;
   blood.onchange = () => { settings.blood = blood.value as BloodLevel; saveSettings(); };
+
+  // GLOBAL SPEED KNOBS (Robert): projectile + movement, live-tunable. The
+  // sliders write settings AND push straight to any running match, so you
+  // can dial a slower bullet and watch it change mid-fight. Applied to the
+  // world at every deploy too (see startGame). 25–200% → 0.25–2.0×.
+  const projSpd = $('set-projspeed') as HTMLInputElement;
+  const projVal = $('projspd-val');
+  const moveSpd = $('set-movespeed') as HTMLInputElement;
+  const moveVal = $('movespd-val');
+  const syncSpeed = () => {
+    projSpd.value = String(Math.round(settings.projectileSpeed * 100));
+    moveSpd.value = String(Math.round(settings.moveSpeed * 100));
+    projVal.textContent = `${(settings.projectileSpeed).toFixed(2)}×`;
+    moveVal.textContent = `${(settings.moveSpeed).toFixed(2)}×`;
+  };
+  const pushSpeed = () => {
+    const live = (window as unknown as { __ww?: { world?: { projectileSpeedMul: number; moveSpeedMul: number } } }).__ww?.world;
+    if (live) { live.projectileSpeedMul = settings.projectileSpeed; live.moveSpeedMul = settings.moveSpeed; }
+  };
+  syncSpeed();
+  projSpd.oninput = () => { settings.projectileSpeed = Number(projSpd.value) / 100; projVal.textContent = `${settings.projectileSpeed.toFixed(2)}×`; saveSettings(); pushSpeed(); };
+  moveSpd.oninput = () => { settings.moveSpeed = Number(moveSpd.value) / 100; moveVal.textContent = `${settings.moveSpeed.toFixed(2)}×`; saveSettings(); pushSpeed(); };
+  ($('set-speed-reset') as HTMLButtonElement).onclick = () => {
+    settings.projectileSpeed = 1; settings.moveSpeed = 1; saveSettings(); syncSpeed(); pushSpeed();
+  };
 }
 $('deploy-btn').addEventListener('click', () => { activeFrontId = null; startGame(); });
 window.addEventListener('keydown', (e) => {

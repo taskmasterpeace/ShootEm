@@ -31,6 +31,8 @@ export const SOUND_NAMES = [
   // ballistic feedback (tools/gen-impact-sounds.mjs): the round that missed
   // you tells you WHERE FROM, and the one that hit tells you WHAT it hit
   'whiz', 'impact_dirt', 'impact_stone', 'impact_metal',
+  // LSW signatures (§21.6, tools/gen-lsw-sounds.mjs): the stable has a voice
+  'ice_freeze', 'ice_shatter', 'gas_hiss', 'rage_roar', 'fire_whoosh',
 ] as const;
 export type SoundName = (typeof SOUND_NAMES)[number];
 
@@ -68,6 +70,10 @@ const EARSHOT_CLASSES: [RegExp, Earshot][] = [
   // impacts read a room away — information, never a soundtrack
   [/^whiz/, { range: 18, muffle: 0.9, weather: 0.2 }],
   [/^impact/, { range: 30, muffle: 0.7, weather: 0.5 }],
+  // LSW signatures: an Ascendant is an EVENT — its voice carries a street so
+  // both sides know it's on the field (the shatter is closer, a local beat)
+  [/^(rage_roar|ice_freeze|fire_whoosh|gas_hiss)/, { range: 90, muffle: 0.5, weather: 0.8 }],
+  [/^ice_shatter/, { range: 40, muffle: 0.6, weather: 0.4 }],
 ];
 export function earshotFor(name: string): Earshot {
   for (const [re, e] of EARSHOT_CLASSES) if (re.test(name)) return e;
