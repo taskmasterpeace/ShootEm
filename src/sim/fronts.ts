@@ -1759,17 +1759,56 @@ const GALLERY: BuildingDef = {
   ],
 };
 
-function theMine(seed: number): GameMap {
+function theMine(seed: number, size: MapSize = 'large'): GameMap {
+  const box = boxFor(size);
   const d = draft(seed, T_OPEN, S_DIRT);
   const { grid, surface, props, claims } = d;
   const ctx = ctxOf(d);
   const C = 50;
+  const L = {
+    large: {
+      rings: [26, 19, 12],
+      arcs: [[20, 25, 90, 180], [20, 25, 270, 360], [13, 18, 90, 230], [13, 18, 270, 410]] as [number, number, number, number][],
+      gates: [[18, 48, 25, 52], [75, 48, 82, 52]] as [number, number, number, number][],
+      spills: [[55, 42, 59, 45], [41, 55, 45, 58]] as [number, number, number, number][],
+      oreR: 10, galleries: [[38, 14], [42, 82]] as [number, number][],
+      bunker: [66, 30] as [number, number], guard: [30, 66] as [number, number] | null,
+      headframe: [80, 50] as [number, number], conveyor: [84, 92, 50] as [number, number, number],
+      supply: [[62, 34], [59, 30]] as [number, number][], spoil: 20,
+      baseX: [10, GRID - 11] as [number, number], baseZ: 50,
+      pickups: [[32, 40, 'medkit'], [32, 60, 'ammo'], [40, 34, 'energy']] as [number, number, PickupSpawn['type']][],
+    },
+    standard: {
+      rings: [22, 16, 10],
+      arcs: [[17, 21, 90, 180], [17, 21, 270, 360], [11, 15, 90, 230], [11, 15, 270, 410]] as [number, number, number, number][],
+      gates: [[23, 45, 27, 49], [72, 45, 77, 49]] as [number, number, number, number][],
+      spills: [[54, 42, 58, 46], [42, 54, 46, 57]] as [number, number, number, number][],
+      oreR: 8, galleries: [[34, 12], [40, 78]] as [number, number][],
+      bunker: [62, 26] as [number, number], guard: [28, 62] as [number, number] | null,
+      headframe: [72, 47] as [number, number], conveyor: [74, 84, 47] as [number, number, number],
+      supply: [[58, 30], [55, 26]] as [number, number][], spoil: 14,
+      baseX: [19, GRID - 20] as [number, number], baseZ: 47,
+      pickups: [[28, 36, 'medkit'], [28, 58, 'ammo'], [38, 30, 'energy']] as [number, number, PickupSpawn['type']][],
+    },
+    small: {
+      rings: [17, 11, 6],
+      arcs: [[12, 16, 90, 180], [12, 16, 270, 360], [7, 10, 90, 230], [7, 10, 270, 410]] as [number, number, number, number][],
+      gates: [[28, 45, 32, 49], [67, 45, 72, 49]] as [number, number, number, number][],
+      spills: [[53, 43, 56, 47], [44, 53, 47, 56]] as [number, number, number, number][],
+      oreR: 6, galleries: [[32, 22], [42, 72]] as [number, number][],
+      bunker: [58, 30] as [number, number], guard: null,
+      headframe: [56, 47] as [number, number], conveyor: [58, 62, 47] as [number, number, number],
+      supply: [[55, 33], [52, 30]] as [number, number][], spoil: 8,
+      baseX: [29, GRID - 30] as [number, number], baseZ: 47,
+      pickups: [[34, 38, 'medkit'], [34, 58, 'ammo'], [40, 34, 'energy']] as [number, number, PickupSpawn['type']][],
+    },
+  }[size];
 
   // THE PIT: three terrace rings of climb wall. Ramp gaps rotate a quarter
   // turn per ring, so descending is a spiral, not a straight drop.
-  ring(grid, C, C, 26, T_CLIMB, [[350, 360], [0, 10], [170, 190]]);            // rim: E + W ramps
-  ring(grid, C, C, 19, T_CLIMB, [[80, 100], [260, 280]]);                      // mid: S + N ramps
-  ring(grid, C, C, 12, T_CLIMB, [[35, 55], [215, 235]]);                       // floor lip: NE + SW
+  ring(grid, C, C, L.rings[0], T_CLIMB, [[350, 360], [0, 10], [170, 190]]);   // rim: E + W ramps
+  ring(grid, C, C, L.rings[1], T_CLIMB, [[80, 100], [260, 280]]);             // mid: S + N ramps
+  ring(grid, C, C, L.rings[2], T_CLIMB, [[35, 55], [215, 235]]);              // floor lip: NE + SW
   // the haul road reads the SPIRAL it actually drives (the atlas caught the
   // first draft painting a straight cross that dead-ended into every ring)
   const arcSurf = (r0: number, r1: number, a0: number, a1: number) => {
@@ -1784,17 +1823,12 @@ function theMine(seed: number): GameMap {
       }
     }
   };
-  rectSurf(surface, 18, 48, 25, 52, S_GRIT);   // west gate → rim ramp
-  rectSurf(surface, 75, 48, 82, 52, S_GRIT);   // east gate → rim ramp
-  arcSurf(20, 25, 90, 180);                    // W entry, upper bench, to the S mid gap
-  arcSurf(20, 25, 270, 360);                   // E entry's twin bench to the N mid gap
-  arcSurf(13, 18, 90, 230);                    // S mid gap, lower bench, to the SW lip
-  arcSurf(13, 18, 270, 410);                   // N mid gap, lower bench, to the NE lip
-  rectSurf(surface, 55, 42, 59, 45, S_GRIT);   // NE lip spill onto the floor
-  rectSurf(surface, 41, 55, 45, 58, S_GRIT);   // SW lip spill onto the floor
+  for (const [x0, z0, x1, z1] of L.gates) rectSurf(surface, x0, z0, x1, z1, S_GRIT);
+  for (const [r0, r1, a0, a1] of L.arcs) arcSurf(r0, r1, a0, a1);
+  for (const [x0, z0, x1, z1] of L.spills) rectSurf(surface, x0, z0, x1, z1, S_GRIT);
 
   // the ore body: the pit floor's only cover
-  clearDisc(grid, C, C, 10);
+  clearDisc(grid, C, C, L.oreR);
   for (const [ox, oz] of [[48, 48], [52, 52], [47, 52]] as const) {
     claim(grid, claims, ox, oz, T_WALL);
     props.push({ type: 'rock', pos: tw(ox, oz), scale: 1.3, rot: d.rng.range(0, Math.PI * 2) });
@@ -1804,51 +1838,51 @@ function theMine(seed: number): GameMap {
 
   // THE GALLERIES: two roofed corridors north and south of the pit — the
   // quarantine's favorite dark. Doors at both ends; the drill makes more.
-  stampBuilding(ctx, GALLERY, 38, 14, 0);
-  stampBuilding(ctx, GALLERY, 42, 82, 4);
+  for (const [gx, gz] of L.galleries) stampBuilding(ctx, GALLERY, gx, gz, gx + gz);
 
   // the bunker complex at the north-east rim — the guard station
-  stampBuilding(ctx, byId('bunker'), 66, 30, 8);
-  stampBuilding(ctx, byId('guard_post'), 30, 66, 10);
+  stampBuilding(ctx, byId('bunker'), L.bunker[0], L.bunker[1], 8);
+  if (L.guard) stampBuilding(ctx, byId('guard_post'), L.guard[0], L.guard[1], 10);
 
   // THE HEADFRAME: the mine's silhouette, over the east ramp, with its
   // conveyor running to the rim
-  props.push({ type: 'crane', pos: tw(80, 50), scale: 1.1, rot: Math.PI });
-  for (let x = 84; x <= 92; x++) { if (x % 2 === 0) set(grid, x, 50, T_COVER); }
+  props.push({ type: 'crane', pos: tw(...L.headframe), scale: 1.1, rot: Math.PI });
+  for (let x = L.conveyor[0]; x <= L.conveyor[1]; x++) { if (x % 2 === 0) set(grid, x, L.conveyor[2], T_COVER); }
 
   // the guard station's supply line: crates between bunker and rim
-  for (const [cx2, cz2] of [[62, 34], [59, 30]] as const) {
+  for (const [cx2, cz2] of L.supply) {
     claim(grid, claims, cx2, cz2, T_COVER);
     props.push({ type: 'crate', pos: tw(cx2, cz2), scale: 1, rot: d.rng.range(0, Math.PI) });
   }
 
   // spoil heaps: the rng piles rock where the mine dumped it
-  for (let i = 0; i < 20; i++) {
-    const tx = d.rng.int(8, GRID - 9), tz = d.rng.int(8, GRID - 9);
-    if (Math.hypot(tx - C, tz - C) > 30 && Math.abs(tz - 50) > 9 && openOutdoors(d, tx, tz)) {
+  for (let i = 0; i < L.spoil; i++) {
+    const tx = d.rng.int(box.x0 + 8, box.x1 - 8), tz = d.rng.int(box.z0 + 8, box.z1 - 8);
+    if (Math.hypot(tx - C, tz - C) > L.rings[0] + 4 && Math.abs(tz - L.baseZ) > 9 && openOutdoors(d, tx, tz)) {
       claim(grid, claims, tx, tz, T_WALL);
       props.push({ type: 'rock', pos: tw(tx, tz), scale: d.rng.range(1.0, 1.7), rot: d.rng.range(0, Math.PI * 2) });
     }
   }
 
-  stampBase(grid, claims, props, d.vehiclePads, 0, 10, 50, ['tunneler', 'apc', 'buggy', 'ambulance']);
-  stampBase(grid, claims, props, d.vehiclePads, 1, GRID - 11, 50, ['tunneler', 'apc', 'buggy', 'ambulance']);
+  stampBase(grid, claims, props, d.vehiclePads, 0, L.baseX[0], L.baseZ, ['tunneler', 'apc', 'buggy', 'ambulance']);
+  stampBase(grid, claims, props, d.vehiclePads, 1, L.baseX[1], L.baseZ, ['tunneler', 'apc', 'buggy', 'ambulance']);
 
-  dealPickups(d, [[32, 40, 'medkit'], [32, 60, 'ammo'], [40, 34, 'energy']]);
+  dealPickups(d, L.pickups);
+  sealOutside(grid, box);
   sealRim(grid);
 
   return {
     seed, theme: 'asteroid', grid, grid2: d.grid2, surface,
-    basePos: [tw(10, 50), tw(GRID - 11, 50)],
-    spawns: [spawnRing(10, 50), spawnRing(GRID - 11, 50)],
-    flagPos: [tw(10, 50), tw(GRID - 11, 50)],
+    basePos: [tw(L.baseX[0], L.baseZ), tw(L.baseX[1], L.baseZ)],
+    spawns: [spawnRing(L.baseX[0], L.baseZ), spawnRing(L.baseX[1], L.baseZ)],
+    flagPos: [tw(L.baseX[0], L.baseZ), tw(L.baseX[1], L.baseZ)],
     hillPos: tw(C, C), // the pit floor — king of the hole
     controlPoints: [
-      { name: 'NORTH GALLERY', pos: tw(48, 16) },
+      { name: 'NORTH GALLERY', pos: tw(L.galleries[0][0] + 10, L.galleries[0][1] + 2) },
       { name: 'THE PIT', pos: tw(C, C) },
-      { name: 'SOUTH GALLERY', pos: tw(52, 84) },
+      { name: 'SOUTH GALLERY', pos: tw(L.galleries[1][0] + 10, L.galleries[1][1] + 2) },
     ],
-    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid),
+    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid, box),
     houses: d.houses, gates: [], pads: [], propCovered: settle(grid, claims),
   };
 }
