@@ -16,3 +16,8 @@ public/audio/variants/
 # §11.5 the server's theatre file — the War Room's campaign state, per machine
 .warroom-campaign.json
 tools/atlas/
+
+# Ascendant live-verify screenshots (Playwright debug artifacts)
+/*-hero.jpeg
+/*-hero2.jpeg
+/*-ascended.jpeg
