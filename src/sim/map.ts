@@ -74,7 +74,10 @@ export function houseAt(houses: House[], x: number, z: number): number {
 }
 
 export interface PropSpec {
-  type: 'rock' | 'bunker' | 'crate' | 'tree' | 'ruin' | 'clone_bay';
+  type: 'rock' | 'bunker' | 'crate' | 'tree' | 'ruin' | 'clone_bay'
+    // the §8.2 fronts' furniture: farm skylines, refinery fire, harbor
+    // iron, and the burned-out hulls every front collects
+    | 'silo' | 'flare_stack' | 'crane' | 'wreck';
   pos: Vec3;
   scale: number;
   rot: number;

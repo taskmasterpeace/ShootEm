@@ -76,9 +76,12 @@ export const BUILDINGS: BuildingDef[] = [
     '####DD###',
   ]),
   B('duplex', 'Duplex', 'house', [
+    // the crate lives against the wall, never on the doorway column — the
+    // west unit used to be sealed behind its own furniture (same disease
+    // as the depot, same law caught it)
     '#S###S###',
     '#...#...#',
-    '#.C.#.P.#',
+    '#C..#.P.#',
     '##D###D##',
   ]),
   B('shack', 'Shack', 'house', [
@@ -123,9 +126,12 @@ export const BUILDINGS: BuildingDef[] = [
     'MMDDMMMM',
   ]),
   B('depot', 'Container Depot', 'industrial', [
+    // two pods, two doors — and each door sits under its pod's FLOOR. The
+    // original east pod had its door under the CRATE, sealing the floor
+    // tile in every depot ever dealt (found by the §8.2 zero-orphan law).
     'MMMM MMMM',
     'M.CM M.CM',
-    'MDMM MMDM',
+    'MDMM MDMM',
   ]),
   B('garage', 'Garage', 'industrial', [
     '#######',
@@ -497,14 +503,22 @@ export function stencilConnected(def: BuildingDef): boolean {
   const h = def.rows.length;
   const w = Math.max(...def.rows.map((r) => r.length));
   const at = (x: number, z: number) => (def.rows[z] ?? '')[x] ?? ' ';
-  const pass = (ch: string) => ch === '.' || ch === 'D' || ch === 'P' || ch === 'L';
-  // seed from a bottom-row door
-  let sx = -1, sz = -1;
-  for (let z = h - 1; z >= 0 && sx < 0; z--)
-    for (let x = 0; x < w; x++) if (at(x, z) === 'D') { sx = x; sz = z; break; }
-  if (sx < 0) return false;
-  const seen = new Set<number>([sz * w + sx]);
-  const q = [[sx, sz]];
+  // void is GROUND: stampBuilding leaves ' ' tiles as the terrain beneath,
+  // so a breach in a ruin's wall is as real a door as a 'D'
+  const pass = (ch: string) => ch === '.' || ch === 'D' || ch === 'P' || ch === 'L' || ch === ' ';
+  // seed from EVERY entrance: all doors, plus any floor/void on the stencil
+  // border (an open maw — hangars have no door, just a mouth; ruins have
+  // breaches). Multi-pod buildings are legal as long as each pod owns a way
+  // in; a floor tile no entrance serves is the bug this law exists to catch.
+  const seen = new Set<number>();
+  const q: [number, number][] = [];
+  for (let z = 0; z < h; z++)
+    for (let x = 0; x < w; x++) {
+      const ch = at(x, z);
+      const border = x === 0 || z === 0 || x === w - 1 || z === h - 1;
+      if (ch === 'D' || (border && pass(ch))) { seen.add(z * w + x); q.push([x, z]); }
+    }
+  if (q.length === 0) return false;
   while (q.length) {
     const [x, z] = q.pop()!;
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {

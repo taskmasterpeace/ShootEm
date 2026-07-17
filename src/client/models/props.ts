@@ -90,6 +90,103 @@ export function buildProp(type: string, scale: number): THREE.Object3D {
       g.add(wall, roof);
       return g;
     }
+    case 'silo': {
+      // the farm and fuel skyline (§8.2 Plains/Airbase/Refinery): a fat
+      // drum, a dome cap, and a fill pipe down the flank. At refinery scale
+      // (~2.1) it reads as a storage tank; at farm scale (~1) it's grain.
+      const g = new THREE.Group();
+      const drum = cyl(1.5 * scale, 1.6 * scale, 4.2 * scale, mat(0x8a8578, { metal: 0.35, rough: 0.6 }), 10);
+      drum.position.y = 2.1 * scale;
+      const dome = new THREE.Mesh(
+        new THREE.SphereGeometry(1.5 * scale, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2),
+        mat(0x77725f, { metal: 0.4, rough: 0.55 }),
+      );
+      dome.position.y = 4.2 * scale;
+      dome.castShadow = true;
+      const band = cyl(1.62 * scale, 1.62 * scale, 0.22 * scale, mat(0x5c5748, { metal: 0.4, rough: 0.5 }), 10);
+      band.position.y = 1.4 * scale;
+      const pipe = cyl(0.12 * scale, 0.12 * scale, 4.0 * scale, mat(0x4c4a40, { metal: 0.5, rough: 0.4 }), 6);
+      pipe.position.set(1.55 * scale, 2.0 * scale, 0);
+      g.add(drum, dome, band, pipe);
+      return g;
+    }
+    case 'flare_stack': {
+      // the refinery's pilot light (and, small, the blacksite's antenna):
+      // a guyed mast with an amber-hot tip — visible across the front, on
+      // purpose. The tip is the only glow; no purple, no exceptions.
+      const g = new THREE.Group();
+      const mast = cyl(0.16 * scale, 0.3 * scale, 7.5 * scale, mat(0x5a5a52, { metal: 0.55, rough: 0.4 }), 8);
+      mast.position.y = 3.75 * scale;
+      const cage = box(0.7 * scale, 1.1 * scale, 0.7 * scale, mat(0x4a4a44, { metal: 0.5, rough: 0.5 }));
+      cage.position.y = 6.4 * scale;
+      const tip = cyl(0.24 * scale, 0.18 * scale, 0.5 * scale, mat(0xffa030, { emissive: 0xe86818 }), 8);
+      tip.position.y = 7.6 * scale;
+      tip.name = 'pulse';
+      for (const side of [-1, 1]) {
+        const guy = box(0.05 * scale, 4.6 * scale, 0.05 * scale, mat(0x3c3c38, { metal: 0.6, rough: 0.3 }));
+        guy.position.set(side * 0.9 * scale, 2.3 * scale, -side * 0.5 * scale);
+        guy.rotation.z = side * 0.32;
+        g.add(guy);
+      }
+      g.add(mast, cage, tip);
+      return g;
+    }
+    case 'crane': {
+      // harbor iron (§8.2 Port/Mine headframe): a portal gantry straddling
+      // a container lane — two legs, a beam, a trolley, and the hook.
+      const g = new THREE.Group();
+      const legMat = mat(0xa06a28, { metal: 0.45, rough: 0.55 }); // work-rust amber
+      for (const side of [-1, 1]) {
+        const leg = box(0.5 * scale, 6.5 * scale, 0.5 * scale, legMat);
+        leg.position.set(0, 3.25 * scale, side * 3.4 * scale);
+        const foot = box(1.4 * scale, 0.4 * scale, 0.9 * scale, mat(0x55534c, { metal: 0.5, rough: 0.5 }));
+        foot.position.set(0, 0.2 * scale, side * 3.4 * scale);
+        const brace = box(0.28 * scale, 2.6 * scale, 0.28 * scale, legMat);
+        brace.position.set(0, 1.8 * scale, side * 2.5 * scale);
+        brace.rotation.x = side * 0.5;
+        g.add(leg, foot, brace);
+      }
+      const beam = box(0.7 * scale, 0.6 * scale, 7.6 * scale, legMat);
+      beam.position.y = 6.6 * scale;
+      const cab = box(1.1 * scale, 0.9 * scale, 1.1 * scale, mat(0x55534c, { metal: 0.4, rough: 0.5 }));
+      cab.position.set(0, 6.0 * scale, 1.2 * scale);
+      const trolley = box(0.9 * scale, 0.35 * scale, 0.8 * scale, mat(0x3f3d38, { metal: 0.6, rough: 0.35 }));
+      trolley.position.y = 6.2 * scale;
+      const cable = box(0.06 * scale, 2.6 * scale, 0.06 * scale, mat(0x2e2c28, { metal: 0.5, rough: 0.4 }));
+      cable.position.y = 4.8 * scale;
+      const hook = box(0.5 * scale, 0.4 * scale, 0.5 * scale, mat(0xd9a13a, { metal: 0.5, rough: 0.4 }));
+      hook.position.y = 3.4 * scale;
+      g.add(beam, cab, trolley, cable, hook);
+      return g;
+    }
+    case 'wreck': {
+      // a burned-out hull — §8.2's connective tissue: the Plains' no-man's
+      // lane, the City's dead intersections, the Span's stalled convoy.
+      // Charcoal steel, a thrown track, the turret knocked askew. The scar
+      // system will one day PLACE these where battles died (§8.5); until
+      // then the fronts author their own histories.
+      const g = new THREE.Group();
+      const char = mat(0x35322e, { rough: 0.95 });
+      const rust = mat(0x6b4a30, { rough: 0.85 });
+      const hull = box(3.4 * scale, 1.0 * scale, 1.9 * scale, char);
+      hull.position.y = 0.62 * scale;
+      hull.rotation.z = 0.05;
+      const glacis = box(1.0 * scale, 0.7 * scale, 1.7 * scale, rust);
+      glacis.position.set(1.5 * scale, 0.75 * scale, 0);
+      glacis.rotation.z = -0.4;
+      const turret = box(1.5 * scale, 0.6 * scale, 1.3 * scale, char);
+      turret.position.set(-0.5 * scale, 1.35 * scale, 0.25 * scale);
+      turret.rotation.y = 0.7; // knocked off its ring
+      turret.rotation.x = 0.12;
+      const tube = cyl(0.11 * scale, 0.13 * scale, 2.2 * scale, rust, 6);
+      tube.rotation.z = Math.PI / 2 - 0.35; // gun frozen skyward
+      tube.position.set(0.7 * scale, 1.75 * scale, 0.25 * scale);
+      const track = box(2.6 * scale, 0.3 * scale, 0.4 * scale, char);
+      track.position.set(-0.7 * scale, 0.15 * scale, 1.35 * scale); // the thrown track
+      track.rotation.y = 0.25;
+      g.add(hull, glacis, turret, tube, track);
+      return g;
+    }
     case 'clone_bay': {
       // §21 The Reprint: the machine you come back from. A glass pod on a
       // steel collar, ~3u tall. PropSpec carries no team, so the core glows

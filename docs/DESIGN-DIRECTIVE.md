@@ -571,7 +571,14 @@ hull out of the motor pool; the manifest doesn't care that you got shot.
   motor pool — wreck fades, pad timer starts. Nobody gets to drown the
   team's only tank in the moat and lock the pool for a match.
 
-### 8.2 The maps — ten named fronts, in full
+### 8.2 The maps — ten named fronts, in full ✅ *shipped — all ten authored (`src/sim/fronts.ts`)*
+
+> **Status:** every front below deploys onto AUTHORED ground from the Scar —
+> hand-placed bones (the river, the keep, the runway, the pit spiral), seeded
+> dressing only. Held to four machine-checked laws in `tests/fronts.test.ts`:
+> sealed rim · zero orphaned tiles · every objective/pad/door/drop BFS-reachable
+> from both bases · signature terrain asserted per front. The mapmaker's loupe
+> is `npx tsx tools/front-atlas.ts` (BMP per front, orphans burn red).
 
 > **The map PLAN now lives in its own document — [`docs/MAP-STRATEGY.md`](MAP-STRATEGY.md):**
 > map families (arena/paintball pockets, dynamic neighborhoods, the ten
@@ -840,7 +847,7 @@ the shared global war.
 |---|---|---|---|
 | This week | ~~Cursor-targeted grenades~~ ✅ · ~~FPV drones~~ ✅ · ~~Blast knockback (§4.1)~~ ✅ · ~~Breacher depth-stealth (§5.2)~~ ✅ · ~~MANPADS loop (§5.1)~~ ✅ · ~~killcam duel framing~~ ✅ · ~~armor pool + overhead layer (§10.5)~~ ✅ | Combat feel — visible in the first minute of play | **shipped** |
 | Slice 1 | **The Dossier** (§3.4): record.ts pipeline, medals v1, journal v1, Barracks screen | Offline, no backend, reuses awards + replays — biggest emotion, smallest build; everything else reads from it | **planned in full — next up** |
-| Slice 1.5 | **The Scar goes live** (§8.5 v1 plan): campaign file, fronts→existing recipes, scar modifiers, the screen | The painting becomes the front door — no new maps required | planned in full |
+| Slice 1.5 | **The Scar goes live** (§8.5 v1 plan): campaign file, fronts→existing recipes, scar modifiers, the screen | The painting becomes the front door — no new maps required | ✅ shipped; fronts since upgraded from recipes to authored grounds (§8.2) |
 | Slice 1.6 | **The Proving Grounds** (§3.3): range mode, gadget sandbox, first qualification courses + local Wall | The training/testing home; also the §8.4 roofs/slits testbed | planned |
 | Slice 2 | Factions + full Living Campaign: enlistment, tours, missions, Prototype Program | Turns matches into a war with a flag on it | proposed |
 | Slice 3 | Command: officer choices, named operations, relief of command, devolution | Needs ranks (Slice 1) + campaign (Slice 2) to mean anything | proposed |

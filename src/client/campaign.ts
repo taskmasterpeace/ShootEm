@@ -21,7 +21,9 @@ export interface FrontDef {
 /** The ten fronts of DD §8.2, on recipes that exist today (§8.5 v1 table). */
 export const FRONTS: FrontDef[] = [
   { id: 'bridge_delta', name: 'Bridge Delta', theme: 'savanna', mode: 'ctf', importance: 1.2, scar: 'flooded' },
-  { id: 'fort_raven', name: 'Fort Raven', theme: 'starship', mode: 'koth', importance: 1.1, scar: 'rubble' },
+  // titan, not starship: the fort is a hilltop colony strongpoint now that
+  // its ground is authored (§8.2) — trench rings on deck plate read as a bug
+  { id: 'fort_raven', name: 'Fort Raven', theme: 'titan', mode: 'koth', importance: 1.1, scar: 'rubble' },
   { id: 'eastern_plains', name: 'Eastern Plains', theme: 'savanna', mode: 'conquest', importance: 1.0, scar: 'fire' },
   { id: 'the_city', name: 'The City', theme: 'savanna', mode: 'tdm', importance: 1.0, scar: 'rubble' },
   { id: 'highland_pass', name: 'Highland Pass', theme: 'asteroid', mode: 'ctf', importance: 0.9, scar: 'blocked' },

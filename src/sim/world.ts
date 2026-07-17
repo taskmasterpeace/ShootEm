@@ -10,6 +10,7 @@ import {
   type Vehicle, type VehicleKind, type VehicleSystems, type WeaponId, type ZedKind,
 } from './types';
 import { stepMode, initMode } from './modes';
+import { generateFront } from './fronts';
 import { stepBot, stepDog, stepScientist, stepZombie } from './bots';
 import { PERCEIVE_RANGE, perceivesNow, type SeenMark } from './perception';
 import { THEME_WEATHER, airGrounded, moveMult, visionMult, weatherAnnounce, type WeatherState } from './weather';
@@ -90,6 +91,9 @@ export interface WorldOptions {
   matchMinutes?: number;
   /** battlefield environment — drives map flavor and gravity */
   theme?: ThemeId;
+  /** §8.2 authored ground: a Scar front id deploys onto ITS terrain, not a
+   *  recipe scatter. Unknown/absent → the classic generator. */
+  frontId?: string;
 }
 
 /** Custom deploy loadout: armory weapons + up to two equipment picks. */
@@ -144,7 +148,10 @@ export class World {
 
   constructor(public opts: WorldOptions) {
     this.rng = new Rng(opts.seed ^ 0xbeef);
-    this.map = generateMap(opts.seed, opts.mode, opts.theme ?? 'savanna');
+    // authored front ground first (§8.2); the recipe generator is the
+    // fallback for free play and any front this build doesn't know
+    this.map = (opts.frontId ? generateFront(opts.frontId, opts.seed) : null)
+      ?? generateMap(opts.seed, opts.mode, opts.theme ?? 'savanna');
     this.gravity = THEMES[this.map.theme].gravity;
     this.mode = initMode(opts.mode, this.map, opts.matchMinutes);
     if (opts.mode === 'paintball') this.weather.until = Infinity; // the yard stays sunny

@@ -391,7 +391,10 @@ function applyScarMods(world: World, frontId: string | null) {
 function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, endGame: () => void) {
   const seed = seedOverride ?? (Math.random() * 0xffffffff) >>> 0;
   seedOverride = undefined;
-  const world = new World({ seed, mode: selectedMode, difficulty, botsPerTeam, matchMinutes, theme: selectedTheme });
+  const world = new World({
+    seed, mode: selectedMode, difficulty, botsPerTeam, matchMinutes, theme: selectedTheme,
+    frontId: activeFrontId ?? undefined, // §8.2: a Scar deploy lands on AUTHORED ground
+  });
   const me = world.addSoldier(name, selectedClass, 0, 'human', currentLoadout());
   applyScarMods(world, activeFrontId); // §8.5: the front's wound shapes the field
   // the Record (§3.4): fold this match into the dossier as it happens
