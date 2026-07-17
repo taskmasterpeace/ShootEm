@@ -201,6 +201,17 @@ export const LSWS: Record<AscendantId, LswDef> = {
     scale: 1.3, speed: 8, color: 0x8fd0b0, // spectral ghost-green
     activeLabel: 'POSSESS — seize a turret, stall the armor, heal on the take', activeCd: 7,
   },
+  eclipse: {
+    id: 'eclipse', name: 'Eclipse', faction: 1, threat: 2,
+    lines: {
+      inbound: 'ECLIPSE INBOUND — TRUST YOUR EARS',
+      landed: 'ECLIPSE ON THE FIELD — THE DARK IS HERS',
+      down: 'ECLIPSE IS DOWN — THE LIGHT RETURNS',
+      rampage: 'FIVE KILLS — ECLIPSE HAS SWALLOWED THE LIGHT',
+    },
+    scale: 1.35, speed: 8, color: 0x3d5566, // deep shadow-slate
+    activeLabel: 'DARKNESS DOME — vision dies inside', activeCd: 8,
+  },
 };
 
 /** THE SPOKEN SCRIPT — subtitle text per voice slot, tag-stripped mirrors of
@@ -274,6 +285,11 @@ export const VO_LINES: Record<string, { who: AscendantId; line: string }> = {
   vo_wraith_ability: { who: 'wraith', line: 'Come to me.' },
   vo_wraith_low: { who: 'wraith', line: 'Fading... need a host.' },
   vo_wraith_death: { who: 'wraith', line: "You can't kill... a ghost." },
+  vo_eclipse_arrive: { who: 'eclipse', line: 'Let there be dark.' },
+  vo_eclipse_kill3: { who: 'eclipse', line: 'Three, in the black.' },
+  vo_eclipse_ability: { who: 'eclipse', line: 'Close your eyes.' },
+  vo_eclipse_low: { who: 'eclipse', line: 'The light... finds me.' },
+  vo_eclipse_death: { who: 'eclipse', line: 'Dawn... already?' },
 };
 export const voSlot = (id: AscendantId, moment: VoMoment) => `vo_${id}_${moment}`;
 export const annSlot = (id: AscendantId, moment: 'inbound' | 'landed' | 'down' | 'rampage') => `ann_${id}_${moment}`;

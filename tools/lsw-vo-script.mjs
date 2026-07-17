@@ -90,6 +90,12 @@ export const CAST = {
     persona: 'Wraith, a Collective Living Super Weapon — a levitating thief who possesses machines rather than fighting them. Sly, whispery, delighted by taking what is yours. Never raises its voice; it does not have to when your own turrets turn on you.',
     scene: 'A low electrical whisper. Machinery powering over to a new master. Servos turning the wrong way.',
   },
+  eclipse: {
+    voice: 'Schedar',
+    fx: 'none', // low, calm, and cold — the quiet of total dark
+    persona: 'Eclipse, a Collective Living Super Weapon — a levitating controller who drapes the field in darkness. A woman\'s voice: calm, cold, unhurried, faintly amused that anyone still trusts their eyes. Soft the way a room goes soft when the lights die.',
+    scene: 'Sound in a dark, muffled space. Distant, disoriented gunfire. A low, swallowing hush.',
+  },
   announcer: {
     voice: 'Orus',
     fx: 'radio', // 300–3400Hz military net + soft clip
@@ -190,6 +196,13 @@ export const VO = [
   { slot: 'vo_wraith_ability', who: 'wraith', text: '[coaxing] Come to me.', notes: ['Said to a machine, not a person — coaxing it over.'] },
   { slot: 'vo_wraith_low', who: 'wraith', text: '[thinning] Fading... need a host.', notes: ['The whisper grows faint, hungry.'] },
   { slot: 'vo_wraith_death', who: 'wraith', text: "[dissolving] You can't kill... a ghost.", notes: ['Amused even in death, trailing into static.'] },
+
+  // ---- ECLIPSE: trust your ears ----
+  { slot: 'vo_eclipse_arrive', who: 'eclipse', text: '[calm, cold] Let there be dark.', notes: ['A quiet inversion of a familiar line.', 'Unhurried, certain.'] },
+  { slot: 'vo_eclipse_kill3', who: 'eclipse', text: 'Three, [short pause] in the black.', notes: ['Detached — they never saw it, and neither did she care.'] },
+  { slot: 'vo_eclipse_ability', who: 'eclipse', text: '[soft] Close your eyes.', notes: ['Almost tender, like tucking someone in.'] },
+  { slot: 'vo_eclipse_low', who: 'eclipse', text: '[tightening] The light... finds me.', notes: ['The first note of unease as the dark thins.'] },
+  { slot: 'vo_eclipse_death', who: 'eclipse', text: '[fading] Dawn... already?', notes: ['A quiet, almost disappointed surprise.'] },
 ];
 
 /** The announcer — map-wide, both teams, radio net. */
@@ -246,6 +259,10 @@ export const ANN = [
   { slot: 'ann_wraith_landed', text: 'WRAITH ON THE FIELD. YOUR MACHINES ARE HIS.' },
   { slot: 'ann_wraith_down', text: 'WRAITH IS DOWN. RECLAIM YOUR HARDWARE.' },
   { slot: 'ann_wraith_rampage', text: 'FIVE KILLS. WRAITH IS WEARING YOUR ARMY.' },
+  { slot: 'ann_eclipse_inbound', text: 'ECLIPSE INBOUND. [short pause] TRUST YOUR EARS.' },
+  { slot: 'ann_eclipse_landed', text: 'ECLIPSE ON THE FIELD. THE DARK IS HERS.' },
+  { slot: 'ann_eclipse_down', text: 'ECLIPSE IS DOWN. THE LIGHT RETURNS.' },
+  { slot: 'ann_eclipse_rampage', text: 'FIVE KILLS. ECLIPSE HAS SWALLOWED THE LIGHT.' },
 ];
 
 export const ANN_NOTES = [

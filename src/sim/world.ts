@@ -555,6 +555,15 @@ export class World {
       if (s.kind === 'bot' && this.time >= (s.nextLswAt ?? 0)) {
         s.nextLswAt = this.time + (this.wraithPossess(s) ? 5 : 1.5);
       }
+    } else if (id === 'eclipse') {
+      // MOVING DARKNESS: she trails a smoke dome as she drifts — vision dies
+      // inside (asymmetric sight is a Notes 🔧). Both bot and pilot trail it;
+      // Q blooms a full dome.
+      const moving = Math.hypot(s.vel.x, s.vel.z) > 1;
+      if (moving && this.time >= (s.nextLswAt ?? 0)) {
+        s.nextLswAt = this.time + 0.6;
+        this.spawnGadget('smoke_field', s.team, s.id, { ...s.pos }, Infinity, 6);
+      }
     }
   }
 
@@ -956,6 +965,20 @@ export class World {
     return did;
   }
 
+  /** Eclipse's darkness dome: a ring of smoke around her that vision dies in
+   *  (the shipped smokeBlocks system). The asymmetric "she sees through it" is
+   *  a Notes 🔧 — for now the dark blinds everyone, and ears/dogs are the
+   *  counter the doc already promises. */
+  private eclipseDome(s: Soldier) {
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      this.spawnGadget('smoke_field', s.team, s.id, { x: s.pos.x + Math.cos(a) * 5, y: 0, z: s.pos.z + Math.sin(a) * 5 }, Infinity, 8);
+    }
+    this.spawnGadget('smoke_field', s.team, s.id, { ...s.pos }, Infinity, 8);
+    this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'eclipse', soldierId: s.id });
+    this.emit({ type: 'vo', text: 'vo_eclipse_ability', pos: { ...s.pos }, soldierId: s.id });
+  }
+
   /**
    * §7 THE SIGNATURE ON Q: a human pilot's active. Whiffs never burn the
    * cooldown — a signature that punishes you for pressing it stops being
@@ -1057,6 +1080,10 @@ export class World {
     } else if (id === 'wraith') {
       // Q: possess the nearest machine; a true whiff (nothing to take) stays hot.
       if (this.wraithPossess(s)) s.nextLswActiveAt = this.time + def.activeCd;
+    } else if (id === 'eclipse') {
+      // Q: bloom a full dome of darkness around you.
+      this.eclipseDome(s);
+      s.nextLswActiveAt = this.time + def.activeCd;
     }
   }
 

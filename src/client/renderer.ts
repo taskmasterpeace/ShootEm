@@ -1970,6 +1970,12 @@ export class Renderer {
         pos: { x: s.pos.x + (Math.random() - 0.5), y: 0.5 + Math.random() * 1.8, z: s.pos.z + (Math.random() - 0.5) }, count: 1,
         color: Math.random() < 0.5 ? 0x8fd0b0 : 0xd8f0e4, speed: 0.4, life: 1.0, spread: 0.5, up: 1.0, gravity: -0.5, size: 0.4,
       });
+    } else if (id === 'eclipse') {
+      // darkness pooling around her — big, dark, slow motes swallowing the light
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.6, y: 0.4 + Math.random() * 1.8, z: s.pos.z + (Math.random() - 0.5) * 1.6 }, count: 1,
+        color: Math.random() < 0.5 ? 0x1a222a : 0x3d5566, speed: 0.4, life: 0.9, spread: 0.6, up: 0.3, gravity: 0.3, size: 0.5,
+      });
     }
     // the LSW's VOICE: an Ascendant is an event you can HEAR coming. A
     // per-unit signature on a throttle (roar/hiss/whoosh), and it gets more

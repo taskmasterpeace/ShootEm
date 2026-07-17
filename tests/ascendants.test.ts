@@ -536,6 +536,30 @@ describe('Wraith — possession', () => {
 });
 
 // ---------------------------------------------------------------------------
+// ECLIPSE — a moving darkness dome (smoke, which the perception system blinds
+// through) trailed as she drifts, and a full dome bloomed on Q.
+// ---------------------------------------------------------------------------
+describe('Eclipse — the darkness dome', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('trails darkness (smoke) as she drifts', () => {
+    const w = quiet();
+    const e = w.addLsw('eclipse', 1, { x: 0, y: 0, z: 0 })!;
+    for (let i = 0; i < 60 * 2; i++) w.step(1 / 60, new Map([[e.id, cmd({ moveZ: -1 })]]));
+    const smoke = [...w.gadgets.values()].filter((g) => g.type === 'smoke_field' && g.ownerId === e.id).length;
+    expect(smoke, 'no darkness was laid on the move').toBeGreaterThan(0);
+  });
+
+  it('Q blooms a full dome of darkness', () => {
+    const w = quiet();
+    const e = w.addLsw('eclipse', 1, { x: 0, y: 0, z: 0 })!;
+    w.applyCmd(e, cmd({ ability: true }), 1 / 60);
+    const smoke = [...w.gadgets.values()].filter((g) => g.type === 'smoke_field' && g.ownerId === e.id).length;
+    expect(smoke, 'the dome did not bloom').toBeGreaterThan(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // §7 PLAYING AS AN LSW — you call it, you hold the mark, you BECOME it.
 // The full pilot loop: call → telegraph → ascension → Q signature → death
 // hands the body back.
