@@ -410,6 +410,44 @@ describe('Reactor — nova and overcharge', () => {
 });
 
 // ---------------------------------------------------------------------------
+// OBLIVION — void bolts (arcing splash rounds) and a black hole that drags
+// everything inward for its telegraph, then bursts.
+// ---------------------------------------------------------------------------
+describe('Oblivion — void and the black hole', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('the bot lobs an arcing void bolt at a target', () => {
+    const w = quiet();
+    const o = w.addLsw('oblivion', 1, { x: 0, y: 0, z: 0 })!; o.yaw = 0;
+    const e = w.addSoldier('E', 'infantry', 0, 'human');
+    e.pos = { x: 15, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    w.step(1 / 60, new Map([[e.id, cmd()]]));
+    const bolts = [...w.projectiles.values()].filter((p) => p.weapon === 'void_bolt' && p.arc).length;
+    expect(bolts, 'no arcing void bolt was lobbed').toBeGreaterThan(0);
+  });
+
+  it('Q opens a black hole that collapses after its telegraph', () => {
+    const w = quiet();
+    const o = w.addLsw('oblivion', 1, { x: 0, y: 0, z: 0 })!; o.yaw = 0;
+    w.applyCmd(o, cmd({ ability: true }), 1 / 60);
+    expect(w.blackHoles.length, 'no black hole opened').toBeGreaterThan(0);
+    for (let i = 0; i < 60 * 2; i++) w.step(1 / 60, new Map());
+    expect(w.blackHoles.length, 'the black hole never collapsed').toBe(0);
+  });
+
+  it('the black hole drags an enemy toward its collapse point', () => {
+    const w = quiet();
+    const o = w.addLsw('oblivion', 1, { x: 0, y: 0, z: 0 })!; o.yaw = 0;
+    const e = w.addSoldier('E', 'infantry', 0, 'human');
+    e.pos = { x: 6, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0; // hole opens at ~(8,0,0)
+    w.applyCmd(o, cmd({ ability: true }), 1 / 60);
+    e.pushX = 0; e.pushZ = 0;
+    w.step(1 / 60, new Map([[e.id, cmd()]]));
+    expect(e.pushX, 'the void did not pull the enemy inward').toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // §7 PLAYING AS AN LSW — you call it, you hold the mark, you BECOME it.
 // The full pilot loop: call → telegraph → ascension → Q signature → death
 // hands the body back.

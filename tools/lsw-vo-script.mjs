@@ -66,6 +66,12 @@ export const CAST = {
     persona: 'Reactor, a United Front Living Super Weapon — a walking power core who exists to make everyone else stronger. Warm, generous, encouraging, with a faint electric instability under the good humor. He gives too much of himself, gladly.',
     scene: 'A deep reactor hum building and releasing. Energy pouring into someone nearby.',
   },
+  oblivion: {
+    voice: 'Umbriel',
+    fx: 'none', // cold and clean — the vastness is in the delivery
+    persona: 'Oblivion, a Collective Living Super Weapon — a levitating void that speaks in absolutes. Cold, vast, hollow; utterly certain that everything ends and mildly bored by how long it is taking. Never raises its voice because it never needs to.',
+    scene: 'A low gravitational hum. Sound bending inward. A distant, deep collapse.',
+  },
   announcer: {
     voice: 'Orus',
     fx: 'radio', // 300–3400Hz military net + soft clip
@@ -138,6 +144,13 @@ export const VO = [
   { slot: 'vo_reactor_ability', who: 'reactor', text: "[surging] Take everything I've got.", notes: ['Said while pouring power into an ally.', 'Generous to the point of self-harm.'] },
   { slot: 'vo_reactor_low', who: 'reactor', text: '[unstable] Core... destabilizing.', notes: ['The hum turns dangerous.', 'Worry, but more for others than himself.'] },
   { slot: 'vo_reactor_death', who: 'reactor', text: '[rising whine] Going... critical.', notes: ['A reactor about to go — ominous, not frightened.', 'The whine climbs and cuts out.'] },
+
+  // ---- OBLIVION: everything ends, and it's bored of waiting ----
+  { slot: 'vo_oblivion_arrive', who: 'oblivion', text: '[cold] All of it. [short pause] Ends.', notes: ['A statement of physics, not a threat.', 'Vast, hollow, unhurried.'] },
+  { slot: 'vo_oblivion_kill3', who: 'oblivion', text: 'Three. [short pause] Erased.', notes: ['No satisfaction — just accounting.', 'They were never going to matter.'] },
+  { slot: 'vo_oblivion_ability', who: 'oblivion', text: '[low] Fall in.', notes: ['Said as the black hole opens.', 'Almost gentle. That is worse.'] },
+  { slot: 'vo_oblivion_low', who: 'oblivion', text: '[fraying] Even I... unravel.', notes: ['The certainty wavers for the first time.', 'A distant surprise.'] },
+  { slot: 'vo_oblivion_death', who: 'oblivion', text: '[dissolving] Nothing... lasts.', notes: ['Proven right about itself, at the end.', 'The voice thins into silence.'] },
 ];
 
 /** The announcer — map-wide, both teams, radio net. */
@@ -178,6 +191,10 @@ export const ANN = [
   { slot: 'ann_reactor_landed', text: 'REACTOR ON THE FIELD. THEIR CARRY JUST GOT STRONGER.' },
   { slot: 'ann_reactor_down', text: 'REACTOR IS DOWN. THE OVERCHARGE FADES.' },
   { slot: 'ann_reactor_rampage', text: 'FIVE KILLS. REACTOR IS FEEDING THE WHOLE LINE.' },
+  { slot: 'ann_oblivion_inbound', text: 'OBLIVION INBOUND. [short pause] DO NOT CLUSTER.' },
+  { slot: 'ann_oblivion_landed', text: 'OBLIVION IS ON THE FIELD. WATCH FOR THE PULL.' },
+  { slot: 'ann_oblivion_down', text: 'OBLIVION IS DOWN. THE VOID CLOSES.' },
+  { slot: 'ann_oblivion_rampage', text: 'FIVE KILLS. OBLIVION IS SWALLOWING THE MAP.' },
 ];
 
 export const ANN_NOTES = [

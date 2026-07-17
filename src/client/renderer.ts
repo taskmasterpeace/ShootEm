@@ -1943,6 +1943,13 @@ export class Renderer {
         color: Math.random() < 0.5 ? 0xffb020 : 0xffe07a, speed: 1.0, life: 0.5,
         spread: 0.5, up: 2.0, gravity: -1, size: 0.3,
       });
+    } else if (id === 'oblivion') {
+      // the void — black and white motes drifting IN toward him, no purple
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.4, y: 0.6 + Math.random() * 1.6, z: s.pos.z + (Math.random() - 0.5) * 1.4 }, count: 1,
+        color: Math.random() < 0.5 ? 0x0a0a12 : 0xe6ecf2, speed: 0.6, life: 0.8,
+        spread: 0.4, up: 0.2, gravity: 0.4, size: 0.34,
+      });
     }
     // the LSW's VOICE: an Ascendant is an event you can HEAR coming. A
     // per-unit signature on a throttle (roar/hiss/whoosh), and it gets more

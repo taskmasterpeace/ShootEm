@@ -298,6 +298,9 @@ export class World {
    *  `callerId` is the soldier who made the call — if that soldier is a
    *  HUMAN still standing when the pod slams down, the pod is THEIRS (§7). */
   pendingLsw: { id: AscendantId; team: Team; landsAt: number; pos: Vec3; callerId: number }[] = [];
+  /** Oblivion's live black holes — each drags enemy soldiers AND hulls inward
+   *  for its telegraph, then bursts at burstAt. Stepped every tick. */
+  blackHoles: { x: number; z: number; team: Team; ownerId: number; burstAt: number }[] = [];
   /** the bot officer's next radio check per team (staggered so the two
    *  factions never call in the same breath) */
   private nextLswCallAt: [number, number] = [90, 110];
@@ -519,6 +522,14 @@ export class World {
       if (s.kind === 'bot') {
         if (this.time >= (s.nextLswAt ?? 0)) { this.reactorNova(s); s.nextLswAt = this.time + 4; }
         if (this.time >= (s.nextLswActiveAt ?? 0) && this.reactorOvercharge(s)) s.nextLswActiveAt = this.time + 7;
+      }
+    } else if (id === 'oblivion') {
+      // VOID BOLTS lobbed at range, and a BLACK HOLE dropped on a slower
+      // cadence (reusing nextLswActiveAt on the bot). A human pilot opens the
+      // hole on Q; his rifle carries the bolt work.
+      if (s.kind === 'bot') {
+        if (this.time >= (s.nextLswAt ?? 0)) { this.oblivionBolt(s); s.nextLswAt = this.time + 1.4; }
+        if (this.time >= (s.nextLswActiveAt ?? 0)) { this.oblivionVoid(s); s.nextLswActiveAt = this.time + 8; }
       }
     }
   }
@@ -771,6 +782,62 @@ export class World {
     return true;
   }
 
+  /** Oblivion's void bolt: an arcing energy round that lobs OVER cover and
+   *  bursts with splash where it lands — fired at the nearest enemy in range.
+   *  Returns false if there's nothing to lob at. */
+  private oblivionBolt(s: Soldier): boolean {
+    let d = Infinity;
+    for (const e of this.soldiers.values()) {
+      if (!e.alive || e.team === s.team || e.id === s.id) continue;
+      const dd = Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z);
+      if (dd < d) d = dd;
+    }
+    if (d === Infinity || d > WEAPONS.void_bolt.range) return false;
+    this.throwProjectile(s, 'void_bolt', 1.6, WEAPONS.void_bolt.speed, true, Math.max(6, d));
+    this.emit({ type: 'shot', pos: { x: s.pos.x, y: 1.4, z: s.pos.z }, weapon: 'void_bolt', soldierId: s.id });
+    return true;
+  }
+
+  /** Oblivion's black hole: opens a collapse point a few strides down his aim.
+   *  It drags for a 1.5s telegraph, then bursts (stepBlackHoles). */
+  private oblivionVoid(s: Soldier) {
+    const dx = Math.cos(s.yaw), dz = Math.sin(s.yaw);
+    const x = s.pos.x + dx * 8, z = s.pos.z + dz * 8;
+    this.blackHoles.push({ x, z, team: s.team, ownerId: s.id, burstAt: this.time + 1.5 });
+    this.emit({ type: 'gravlift', pos: { x, y: 0, z } }); // the telegraph
+    this.emit({ type: 'lsw_active', pos: { x, y: 0, z }, text: 'oblivion', soldierId: s.id });
+    this.emit({ type: 'vo', text: 'vo_oblivion_ability', pos: { ...s.pos }, soldierId: s.id });
+  }
+
+  /** Drag everything not on the caster's team toward each live black hole
+   *  (sustained inward impulse, re-added each tick so it survives the decay —
+   *  sprint TANGENTIALLY to escape), then burst it when its telegraph runs out. */
+  private stepBlackHoles() {
+    this.blackHoles = this.blackHoles.filter((bh) => {
+      if (this.time >= bh.burstAt) {
+        this.explode({ x: bh.x, y: 0, z: bh.z }, WEAPONS.gl, bh.ownerId, bh.team);
+        this.emit({ type: 'explosion', pos: { x: bh.x, y: 0, z: bh.z }, weapon: 'gl' });
+        return false;
+      }
+      for (const e of this.soldiers.values()) {
+        if (!e.alive || e.team === bh.team || e.encasedUntil !== undefined) continue;
+        const dx = bh.x - e.pos.x, dz = bh.z - e.pos.z, d = Math.hypot(dx, dz);
+        if (d > 14 || d < 0.4) continue;
+        const inv = 1 / d;
+        e.pushX += dx * inv * 5; e.pushZ += dz * inv * 5;
+      }
+      for (const v of this.vehicles.values()) {
+        // only CREWED enemy hulls get dragged — an abandoned wreck isn't a threat
+        if (!v.alive || v.team === bh.team || !v.seats.some((id) => id >= 0)) continue;
+        const dx = bh.x - v.pos.x, dz = bh.z - v.pos.z, d = Math.hypot(dx, dz);
+        if (d > 14 || d < 0.4) continue;
+        const inv = 1 / d;
+        v.vel.x += dx * inv * 3; v.vel.z += dz * inv * 3;
+      }
+      return true;
+    });
+  }
+
   /**
    * §7 THE SIGNATURE ON Q: a human pilot's active. Whiffs never burn the
    * cooldown — a signature that punishes you for pressing it stops being
@@ -856,6 +923,10 @@ export class World {
     } else if (id === 'reactor') {
       // Q: feed the nearest ally; if you're alone, nova instead.
       if (!this.reactorOvercharge(s)) this.reactorNova(s);
+      s.nextLswActiveAt = this.time + def.activeCd;
+    } else if (id === 'oblivion') {
+      // Q: open a black hole down your aim.
+      this.oblivionVoid(s);
       s.nextLswActiveAt = this.time + def.activeCd;
     }
   }
@@ -1095,6 +1166,7 @@ export class World {
     }
     if (!this.mode.over) stepMode(this, dt);
     if (!this.mode.over) this.stepLswDrops(); // §21.6: telegraphed LSW landings
+    if (this.blackHoles.length) this.stepBlackHoles(); // Oblivion's void
 
     // recon state rebuilds every tick: pings accumulate from beacons, drones,
     // cameras, crewed sensor stations, and psi scanners; then smoke fields,

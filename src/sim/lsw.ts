@@ -157,6 +157,17 @@ export const LSWS: Record<AscendantId, LswDef> = {
     scale: 1.3, speed: 7, color: 0xffb020, // radiant reactor gold
     activeLabel: 'OVERCHARGE — supercharge an ally, or nova if alone', activeCd: 6,
   },
+  oblivion: {
+    id: 'oblivion', name: 'Oblivion', faction: 1, threat: 2,
+    lines: {
+      inbound: 'OBLIVION INBOUND — DO NOT CLUSTER',
+      landed: 'OBLIVION LEVITATES THE FIELD — WATCH FOR THE PULL',
+      down: 'OBLIVION IS DOWN — THE VOID CLOSES',
+      rampage: 'FIVE KILLS — OBLIVION IS SWALLOWING THE MAP',
+    },
+    scale: 1.3, speed: 8, color: 0xe6ecf2, // void-white rim (black-and-white, never purple)
+    activeLabel: 'BLACK HOLE — drag them in, then it bursts', activeCd: 7,
+  },
 };
 
 /** THE SPOKEN SCRIPT — subtitle text per voice slot, tag-stripped mirrors of
@@ -210,6 +221,11 @@ export const VO_LINES: Record<string, { who: AscendantId; line: string }> = {
   vo_reactor_ability: { who: 'reactor', line: "Take everything I've got." },
   vo_reactor_low: { who: 'reactor', line: 'Core... destabilizing.' },
   vo_reactor_death: { who: 'reactor', line: 'Going... critical.' },
+  vo_oblivion_arrive: { who: 'oblivion', line: 'All of it. Ends.' },
+  vo_oblivion_kill3: { who: 'oblivion', line: 'Three. Erased.' },
+  vo_oblivion_ability: { who: 'oblivion', line: 'Fall in.' },
+  vo_oblivion_low: { who: 'oblivion', line: 'Even I... unravel.' },
+  vo_oblivion_death: { who: 'oblivion', line: 'Nothing... lasts.' },
 };
 export const voSlot = (id: AscendantId, moment: VoMoment) => `vo_${id}_${moment}`;
 export const annSlot = (id: AscendantId, moment: 'inbound' | 'landed' | 'down' | 'rampage') => `ann_${id}_${moment}`;

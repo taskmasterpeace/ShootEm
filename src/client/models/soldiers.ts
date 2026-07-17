@@ -65,6 +65,7 @@ export const LSW_TINT: Record<string, { tint: number; scale: number }> = {
   sniperhawk: { tint: 0x5fb3c9, scale: 1.2 },   // scope steel-cyan
   barrier: { tint: 0x3fd9a0, scale: 1.3 },       // emerald shield-energy
   reactor: { tint: 0xffb020, scale: 1.3 },       // radiant reactor gold
+  oblivion: { tint: 0xe6ecf2, scale: 1.3 },      // void-white rim (black & white, no purple)
 };
 
 /** Turn a built trooper body INTO an LSW body: scale up past a trooper,
