@@ -1930,6 +1930,12 @@ export class Renderer {
         pos: { x: s.pos.x, y: 1.2 + Math.random() * 0.8, z: s.pos.z }, count: 1,
         color: 0x9fe0ee, speed: 0.3, life: 0.5, spread: 0.3, up: 0.4, gravity: 0, size: 0.22,
       });
+    } else if (id === 'barrier') {
+      // a steady emerald shimmer — the field that holds the line
+      this.particles.emit({
+        pos: { x: s.pos.x, y: 0.5 + Math.random() * 1.5, z: s.pos.z }, count: 1,
+        color: 0x3fd9a0, speed: 0.4, life: 0.7, spread: 0.6, up: 0.5, gravity: 0, size: 0.35,
+      });
     }
     // the LSW's VOICE: an Ascendant is an event you can HEAR coming. A
     // per-unit signature on a throttle (roar/hiss/whoosh), and it gets more

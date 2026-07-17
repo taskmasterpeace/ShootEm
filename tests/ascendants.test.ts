@@ -322,6 +322,54 @@ describe('Sniperhawk — the piercing rail', () => {
 });
 
 // ---------------------------------------------------------------------------
+// BARRIER — an energy wall (shield gadget) whose opening 2s throws enemy fire
+// back at the shooters (velocity reversal + re-team in the projectile step).
+// ---------------------------------------------------------------------------
+describe('Barrier — the reflect wall', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('Q projects a reflecting energy wall', () => {
+    const w = quiet();
+    const b = w.addLsw('barrier', 0, { x: 0, y: 0, z: 0 })!; b.yaw = 0;
+    w.applyCmd(b, cmd({ ability: true }), 1 / 60);
+    const wall = [...w.gadgets.values()].find((g) => g.type === 'shield' && g.ownerId === b.id && g.reflect);
+    expect(wall, 'no reflecting wall was projected').toBeTruthy();
+  });
+
+  it('an enemy shot hitting the young wall is thrown back — reversed and re-teamed', () => {
+    const w = quiet();
+    const b = w.addLsw('barrier', 0, { x: 0, y: 0, z: 0 })!; b.yaw = 0;
+    w.applyCmd(b, cmd({ ability: true }), 1 / 60); // wall lands ~3u ahead at (3,0,0)
+    // an enemy (team 1) round flying INTO the wall
+    w.projectiles.set(9999, {
+      id: 9999, weapon: 'ar606', ownerId: 500, team: 1,
+      pos: { x: 1.6, y: 1.2, z: 0 }, vel: { x: 30, y: 0, z: 0 },
+      bornAt: w.time, ttl: 3, arc: false,
+    });
+    w.step(1 / 60, new Map());
+    const p = w.projectiles.get(9999);
+    expect(p, 'the round vanished instead of reflecting').toBeTruthy();
+    expect(p!.team, 'the round was not re-teamed to Barrier').toBe(0);
+    expect(p!.vel.x, 'the round was not reversed back at the shooter').toBeLessThan(0);
+  });
+
+  it('an OLD wall (past its 2s window) swallows instead of reflecting', () => {
+    const w = quiet();
+    const b = w.addLsw('barrier', 0, { x: 0, y: 0, z: 0 })!; b.yaw = 0;
+    w.applyCmd(b, cmd({ ability: true }), 1 / 60);
+    const wall = [...w.gadgets.values()].find((g) => g.type === 'shield' && g.reflect)!;
+    wall.bornAt = w.time - 5; // age it past the reflect window
+    w.projectiles.set(8888, {
+      id: 8888, weapon: 'ar606', ownerId: 500, team: 1,
+      pos: { x: 1.6, y: 1.2, z: 0 }, vel: { x: 30, y: 0, z: 0 },
+      bornAt: w.time, ttl: 3, arc: false,
+    });
+    w.step(1 / 60, new Map());
+    expect(w.projectiles.get(8888), 'the old wall reflected instead of swallowing').toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // §7 PLAYING AS AN LSW — you call it, you hold the mark, you BECOME it.
 // The full pilot loop: call → telegraph → ascension → Q signature → death
 // hands the body back.

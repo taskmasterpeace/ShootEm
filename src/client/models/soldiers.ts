@@ -63,6 +63,7 @@ export const LSW_TINT: Record<string, { tint: number; scale: number }> = {
   titan: { tint: 0x9a8466, scale: 1.6 },      // weathered stone — the biggest silhouette now
   voltstriker: { tint: 0xf5f06a, scale: 1.25 }, // high-voltage yellow-white
   sniperhawk: { tint: 0x5fb3c9, scale: 1.2 },   // scope steel-cyan
+  barrier: { tint: 0x3fd9a0, scale: 1.3 },       // emerald shield-energy
 };
 
 /** Turn a built trooper body INTO an LSW body: scale up past a trooper,

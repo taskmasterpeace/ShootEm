@@ -135,6 +135,17 @@ export const LSWS: Record<AscendantId, LswDef> = {
     scale: 1.2, speed: 8, color: 0x5fb3c9, // scope steel-cyan
     activeLabel: 'PIERCING RAIL — one shot down the whole line', activeCd: 2.5,
   },
+  barrier: {
+    id: 'barrier', name: 'Barrier', faction: 0, threat: 1,
+    lines: {
+      inbound: 'BARRIER INBOUND — YOUR SHOTS MAY COME BACK',
+      landed: 'BARRIER ON THE FIELD — MIND THE WALLS',
+      down: 'BARRIER IS DOWN — THE LANES OPEN',
+      rampage: "FIVE KILLS — BARRIER WON'T BREAK",
+    },
+    scale: 1.3, speed: 7, color: 0x3fd9a0, // emerald shield-energy
+    activeLabel: 'ENERGY WALL — reflects fire for 2 seconds', activeCd: 5,
+  },
 };
 
 /** THE SPOKEN SCRIPT — subtitle text per voice slot, tag-stripped mirrors of
@@ -178,6 +189,11 @@ export const VO_LINES: Record<string, { who: AscendantId; line: string }> = {
   vo_sniperhawk_ability: { who: 'sniperhawk', line: "Line 'em up." },
   vo_sniperhawk_low: { who: 'sniperhawk', line: 'Position... compromised.' },
   vo_sniperhawk_death: { who: 'sniperhawk', line: "Should've... moved." },
+  vo_barrier_arrive: { who: 'barrier', line: 'This far. No further.' },
+  vo_barrier_kill3: { who: 'barrier', line: 'Three broke on the wall.' },
+  vo_barrier_ability: { who: 'barrier', line: 'Send it back.' },
+  vo_barrier_low: { who: 'barrier', line: 'The wall... is cracking.' },
+  vo_barrier_death: { who: 'barrier', line: 'Line... held.' },
 };
 export const voSlot = (id: AscendantId, moment: VoMoment) => `vo_${id}_${moment}`;
 export const annSlot = (id: AscendantId, moment: 'inbound' | 'landed' | 'down' | 'rampage') => `ann_${id}_${moment}`;

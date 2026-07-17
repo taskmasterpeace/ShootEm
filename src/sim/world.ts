@@ -508,6 +508,10 @@ export class World {
         if (this.time >= (s.nextLswAt ?? 0)) { this.sniperhawkRail(s); s.nextLswAt = this.time + 2.5; }
         if (this.time >= (s.nextLswActiveAt ?? 0) && this.sniperhawkMark(s)) s.nextLswActiveAt = this.time + 9;
       }
+    } else if (id === 'barrier') {
+      // ENERGY WALL: projects a dome down his aim whose first 2s reflect fire
+      // back at the shooters. Bot lays one on a cadence; a human pilot on Q.
+      if (s.kind === 'bot' && this.time >= (s.nextLswAt ?? 0)) { this.barrierWall(s); s.nextLswAt = this.time + 4; }
     }
   }
 
@@ -710,6 +714,19 @@ export class World {
     return true;
   }
 
+  /** Barrier's wall: projects an energy dome a few strides down his aim. Its
+   *  first 2s REFLECT enemy fire back at the shooters (grenade-bank reversal +
+   *  re-team, in the projectile step); after that it swallows like a normal
+   *  dome until it expires. */
+  private barrierWall(s: Soldier) {
+    const dx = Math.cos(s.yaw), dz = Math.sin(s.yaw);
+    const pos = { x: s.pos.x + dx * 3, y: 0, z: s.pos.z + dz * 3 };
+    const g = this.spawnGadget('shield', s.team, s.id, pos, 250, 6);
+    g.reflect = true;
+    this.emit({ type: 'lsw_active', pos, text: 'barrier', soldierId: s.id });
+    this.emit({ type: 'vo', text: 'vo_barrier_ability', pos: { ...s.pos }, soldierId: s.id });
+  }
+
   /**
    * §7 THE SIGNATURE ON Q: a human pilot's active. Whiffs never burn the
    * cooldown — a signature that punishes you for pressing it stops being
@@ -787,6 +804,10 @@ export class World {
     } else if (id === 'sniperhawk') {
       // Q: fire the piercing rail straight down your line.
       this.sniperhawkRail(s);
+      s.nextLswActiveAt = this.time + def.activeCd;
+    } else if (id === 'barrier') {
+      // Q: throw up the reflecting energy wall ahead of you.
+      this.barrierWall(s);
       s.nextLswActiveAt = this.time + def.activeCd;
     }
   }
@@ -2856,6 +2877,18 @@ export class World {
           }
           if (g.type !== 'shield') continue;
           if (p.pos.y < 4.5 && Math.hypot(g.pos.x - p.pos.x, g.pos.z - p.pos.z) < 4) {
+            // Barrier's reflect wall: its first 2s throws APPROACHING fire back
+            // at whoever sent it (grenade-bank reversal + a re-team). After the
+            // window it swallows like any dome.
+            if (g.reflect && this.time < g.bornAt + 2) {
+              const tox = g.pos.x - p.pos.x, toz = g.pos.z - p.pos.z;
+              if (p.vel.x * tox + p.vel.z * toz > 0) {
+                p.vel.x = -p.vel.x; p.vel.z = -p.vel.z;
+                p.team = g.team; p.ownerId = g.ownerId; p.bornAt = this.time;
+                this.emit({ type: 'nade_bounce', pos: { ...p.pos } });
+              }
+              continue; // reflected or passing — never swallowed
+            }
             g.hp -= def.damage + def.splashDamage * 0.5;
             this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, ownerId: p.ownerId });
             if (g.hp <= 0) {

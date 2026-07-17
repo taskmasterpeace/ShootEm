@@ -54,6 +54,12 @@ export const CAST = {
     persona: 'Sniperhawk, a United Front Living Super Weapon — a marksman who perches and waits. Patient, precise, quiet; a predator that has already decided the outcome. Never rushed, never loud.',
     scene: 'Wind over a high perch. Distant, muffled gunfire below. The slow click of a bolt.',
   },
+  barrier: {
+    voice: 'Algieba',
+    fx: 'none', // steady and even — the voice of a wall
+    persona: 'Barrier, a United Front Living Super Weapon — a defender who became a wall. Steady, immovable, low and even; he does not threaten, he simply informs you where the line is. Nothing rattles him.',
+    scene: 'A low electric hum of a force field. Rounds pinging off energy and coming back.',
+  },
   announcer: {
     voice: 'Orus',
     fx: 'radio', // 300–3400Hz military net + soft clip
@@ -112,6 +118,13 @@ export const VO = [
   { slot: 'vo_sniperhawk_ability', who: 'sniperhawk', text: "[low] Line 'em up.", notes: ['Said as the shot goes through several at once.', 'Almost a courtesy.'] },
   { slot: 'vo_sniperhawk_low', who: 'sniperhawk', text: '[tight] Position... compromised.', notes: ['The calm cracks, just slightly.', 'A professional problem, not yet a panic.'] },
   { slot: 'vo_sniperhawk_death', who: 'sniperhawk', text: "[breath] Should've... moved.", notes: ['A marksman who broke his own rule.', 'Wry, fading.'] },
+
+  // ---- BARRIER: the wall informs you ----
+  { slot: 'vo_barrier_arrive', who: 'barrier', text: '[even] This far. [short pause] No further.', notes: ['Not a threat — a statement of fact.', 'Immovable calm.'] },
+  { slot: 'vo_barrier_kill3', who: 'barrier', text: 'Three broke on the wall.', notes: ['Mild, matter-of-fact.', 'The wall did the work, not him.'] },
+  { slot: 'vo_barrier_ability', who: 'barrier', text: '[low] Send it back.', notes: ['Said as fire reflects toward its shooters.', 'A quiet, certain instruction.'] },
+  { slot: 'vo_barrier_low', who: 'barrier', text: '[strained] The wall... is cracking.', notes: ['The first uncertainty in an unshakable voice.'] },
+  { slot: 'vo_barrier_death', who: 'barrier', text: '[settling] Line... held.', notes: ['Satisfied, not afraid — the job was done.'] },
 ];
 
 /** The announcer — map-wide, both teams, radio net. */
@@ -144,6 +157,10 @@ export const ANN = [
   { slot: 'ann_sniperhawk_landed', text: 'SNIPERHAWK IS PERCHED. WATCH THE LANES.' },
   { slot: 'ann_sniperhawk_down', text: 'SNIPERHAWK IS DOWN. THE LANES ARE YOURS.' },
   { slot: 'ann_sniperhawk_rampage', text: 'FIVE KILLS. SNIPERHAWK OWNS THE SIGHTLINES.' },
+  { slot: 'ann_barrier_inbound', text: 'BARRIER INBOUND. [short pause] YOUR SHOTS MAY COME BACK.' },
+  { slot: 'ann_barrier_landed', text: 'BARRIER ON THE FIELD. MIND THE WALLS.' },
+  { slot: 'ann_barrier_down', text: 'BARRIER IS DOWN. THE LANES OPEN.' },
+  { slot: 'ann_barrier_rampage', text: 'FIVE KILLS. BARRIER WILL NOT BREAK.' },
 ];
 
 export const ANN_NOTES = [
