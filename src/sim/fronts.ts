@@ -31,7 +31,7 @@ import type { Team, Vec3 } from './types';
 import { Rng } from './rng';
 import {
   GRID, TILE, WORLD, houseAt,
-  T_OPEN, T_WALL, T_COVER, T_WATER, T_DEEP, T_SLIT, T_DOOR, T_METAL, T_LADDER, T_CLIMB,
+  T_OPEN, T_WALL, T_COVER, T_WATER, T_DEEP, T_DOOR, T_METAL, T_LADDER, T_CLIMB,
   S_DIRT, S_GRASS, S_ICE, S_GRIT, S_PLATE, S_WET, S_MUD,
   type GameMap, type PropSpec, type PickupSpawn, type VehiclePad, type House, type TileClaim,
 } from './map';
@@ -150,10 +150,6 @@ export function boxFor(size: MapSize): Box {
 export function mapSizeForPlayers(botsPerTeam: number): MapSize {
   return botsPerTeam <= 6 ? 'small' : botsPerTeam <= 9 ? 'standard' : 'large';
 }
-
-/** fraction helpers: author in box-relative units, not absolute tiles */
-const bx = (b: Box, fx: number) => Math.round(b.x0 + fx * (b.x1 - b.x0));
-const bz = (b: Box, fz: number) => Math.round(b.z0 + fz * (b.z1 - b.z0));
 
 /** seal everything OUTSIDE the playable box to solid ground — the world
  *  rim AND the margin read as impassable terrain, so small maps stay
