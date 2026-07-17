@@ -1,0 +1,275 @@
+// Deployables and objectives: gadgets, sentries, pickups, the flags.
+import * as THREE from 'three';
+import { TEAM_COLORS } from '../../sim/data';
+import type { Team } from '../../sim/types';
+import { box, cyl, mat } from './shared';
+
+export function buildGadget(type: string, team: Team): THREE.Group {
+  const g = new THREE.Group();
+  const teamCol = TEAM_COLORS[team];
+  const glow = mat(teamCol, { emissive: teamCol });
+  const dark = mat(0x2a2a26, { metal: 0.5, rough: 0.4 });
+
+  switch (type) {
+    case 'warpA':
+    case 'warpB': {
+      // tripod pylon with a floating ring
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2;
+        const leg = box(0.07, 0.7, 0.07, dark);
+        leg.position.set(Math.cos(a) * 0.4, 0.32, Math.sin(a) * 0.4);
+        leg.rotation.x = Math.sin(a) * 0.4;
+        leg.rotation.z = -Math.cos(a) * 0.4;
+        g.add(leg);
+      }
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.07, 8, 24), glow);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = 1.1;
+      ring.name = 'spin';
+      g.add(ring);
+      const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.22),
+        mat(type === 'warpA' ? 0xffffff : 0x222222, { emissive: type === 'warpA' ? 0xffffff : teamCol }));
+      core.position.y = 1.1;
+      g.add(core);
+      break;
+    }
+    case 'skitter': {
+      // GL-40 alt-fire: a demolition charge on six legs, mid-sprint
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.32, 8, 6), dark);
+      body.scale.y = 0.6;
+      body.position.y = 0.28;
+      g.add(body);
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 5), glow);
+      eye.position.set(0.28, 0.3, 0); // forward — it LOOKS at its victim
+      g.add(eye);
+      for (let i = 0; i < 6; i++) {
+        const side = i % 2 === 0 ? 1 : -1;
+        const leg = box(0.05, 0.32, 0.05, dark);
+        leg.position.set((Math.floor(i / 2) - 1) * 0.22, 0.14, side * 0.3);
+        leg.rotation.x = side * 0.7;
+        leg.name = 'leg';
+        g.add(leg);
+      }
+      break;
+    }
+    case 'target_beacon': {
+      const base = cyl(0.25, 0.35, 0.25, dark, 8);
+      base.position.y = 0.12;
+      g.add(base);
+      const mast = cyl(0.03, 0.03, 0.9, dark, 6);
+      mast.position.y = 0.7;
+      g.add(mast);
+      const dish = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), mat(0xff5040, { emissive: 0xff5040 }));
+      dish.position.y = 1.2;
+      dish.name = 'pulse';
+      g.add(dish);
+      break;
+    }
+    case 'orbital': {
+      const canister = cyl(0.3, 0.36, 0.6, mat(0x8a2020, { metal: 0.4, rough: 0.5 }), 10);
+      canister.position.y = 0.3;
+      g.add(canister);
+      const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), mat(0xff2020, { emissive: 0xff2020 }));
+      lamp.position.y = 0.72;
+      lamp.name = 'pulse';
+      g.add(lamp);
+      break;
+    }
+    case 'shield': {
+      const emitter = cyl(0.35, 0.5, 0.5, dark, 8);
+      emitter.position.y = 0.25;
+      g.add(emitter);
+      const dome = new THREE.Mesh(
+        new THREE.SphereGeometry(4, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+        new THREE.MeshStandardMaterial({
+          color: teamCol, transparent: true, opacity: 0.16,
+          emissive: teamCol, emissiveIntensity: 0.35, side: THREE.DoubleSide, depthWrite: false,
+        }),
+      );
+      dome.name = 'dome';
+      g.add(dome);
+      break;
+    }
+    case 'drone': {
+      const body = box(0.5, 0.16, 0.5, dark);
+      g.add(body);
+      for (const [dx, dz] of [[0.32, 0.32], [0.32, -0.32], [-0.32, 0.32], [-0.32, -0.32]]) {
+        const rotor = cyl(0.16, 0.16, 0.03, mat(0x3a3f44, { metal: 0.5, rough: 0.3 }), 8);
+        rotor.position.set(dx, 0.1, dz);
+        rotor.name = 'rotor';
+        g.add(rotor);
+      }
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), glow);
+      eye.position.set(0.26, -0.05, 0);
+      g.add(eye);
+      break;
+    }
+    case 'supply_pod': {
+      const capsule = cyl(0.7, 0.9, 1.8, mat(0x6a6f5a, { metal: 0.45, rough: 0.4 }), 10);
+      capsule.position.y = 0.9;
+      g.add(capsule);
+      const stripe = cyl(0.92, 0.92, 0.18, mat(0xe8a33d, { emissive: 0xe8a33d }), 10);
+      stripe.position.y = 0.5;
+      g.add(stripe);
+      break;
+    }
+    case 'camera': {
+      // spy camera on a tripod mast — small but findable (and shootable)
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2;
+        const leg = box(0.05, 0.5, 0.05, dark);
+        leg.position.set(Math.cos(a) * 0.22, 0.24, Math.sin(a) * 0.22);
+        leg.rotation.x = Math.sin(a) * 0.35;
+        leg.rotation.z = -Math.cos(a) * 0.35;
+        g.add(leg);
+      }
+      const mast = cyl(0.05, 0.07, 1.2, dark, 6);
+      mast.position.y = 1.0;
+      g.add(mast);
+      const headGrp = new THREE.Group();
+      headGrp.name = 'camHead'; // slow pan — it's watching
+      headGrp.position.y = 1.7;
+      const head = box(0.34, 0.22, 0.22, dark);
+      headGrp.add(head);
+      const lens = box(0.1, 0.12, 0.12, glow);
+      lens.position.set(0.2, 0, 0);
+      headGrp.add(lens);
+      g.add(headGrp);
+      const blink = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 5), mat(0xff4030, { emissive: 0xff4030 }));
+      blink.position.set(0, 1.86, 0);
+      blink.name = 'pulse';
+      g.add(blink);
+      break;
+    }
+    case 'flare': {
+      // burning IR decoy — a tiny blinding sun that sinks as it burns
+      const core = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), mat(0xfff2c0, { emissive: 0xffd070 }));
+      core.name = 'pulse';
+      core.position.y = 2.4;
+      g.add(core);
+      const halo = new THREE.Mesh(
+        new THREE.SphereGeometry(0.55, 10, 8),
+        new THREE.MeshStandardMaterial({
+          color: 0xffa030, emissive: 0xff8020, emissiveIntensity: 1.2,
+          transparent: true, opacity: 0.35, depthWrite: false,
+        }),
+      );
+      halo.name = 'halo';
+      halo.position.y = 2.4;
+      g.add(halo);
+      break;
+    }
+    case 'smoke_field': {
+      // billowing gray puffs
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2;
+        const puff = new THREE.Mesh(
+          new THREE.SphereGeometry(1.6 + (i % 2) * 0.7, 10, 8),
+          new THREE.MeshStandardMaterial({ color: 0x9aa0a6, transparent: true, opacity: 0.45, roughness: 1, depthWrite: false }),
+        );
+        puff.position.set(Math.cos(a) * 1.6, 1.2 + (i % 3) * 0.7, Math.sin(a) * 1.6);
+        puff.name = 'puff';
+        g.add(puff);
+      }
+      break;
+    }
+    case 'fire_field': {
+      // low licking phosphorus flames
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        const flame = new THREE.Mesh(
+          new THREE.ConeGeometry(0.35, 1.1 + (i % 2) * 0.5, 6),
+          mat(0xff8c30, { emissive: 0xff6a18, rough: 0.6 }),
+        );
+        flame.position.set(Math.cos(a) * 2.2, 0.5, Math.sin(a) * 2.2);
+        flame.name = 'flame';
+        g.add(flame);
+      }
+      const emberGlow = cyl(3.6, 3.6, 0.06, new THREE.MeshStandardMaterial({
+        color: 0xff5010, emissive: 0xff4808, emissiveIntensity: 0.8,
+        transparent: true, opacity: 0.4, depthWrite: false,
+      }) as THREE.Material, 16);
+      emberGlow.position.y = 0.04;
+      g.add(emberGlow);
+      break;
+    }
+  }
+  return g;
+}
+
+/** Jump gate: a glowing arch. */
+
+export function buildTurretMesh(team: Team): THREE.Group {
+  const g = new THREE.Group();
+  const teamCol = TEAM_COLORS[team];
+  const legMat = mat(0x3a3a34, { metal: 0.4 });
+  // tripod legs
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2;
+    const leg = box(0.08, 0.55, 0.08, legMat);
+    leg.position.set(Math.cos(a) * 0.32, 0.26, Math.sin(a) * 0.32);
+    leg.rotation.x = Math.sin(a) * 0.35;
+    leg.rotation.z = -Math.cos(a) * 0.35;
+    g.add(leg);
+  }
+  const post = cyl(0.1, 0.12, 0.7, mat(0x4a4a42));
+  post.position.y = 0.85;
+  g.add(post);
+  const head = new THREE.Group();
+  head.name = 'head';
+  const headBox = box(0.55, 0.36, 0.44, mat(0x50554a, { metal: 0.3 }));
+  head.add(headBox);
+  const barrelL = box(0.7, 0.07, 0.07, mat(0x24241f, { metal: 0.5 }));
+  barrelL.position.set(0.55, 0.06, 0.08);
+  const barrelR = barrelL.clone();
+  barrelR.position.z = -0.08;
+  head.add(barrelL, barrelR);
+  const eye = box(0.09, 0.09, 0.18, mat(teamCol, { emissive: teamCol }));
+  eye.position.set(0.29, 0.12, 0);
+  eye.name = 'eye';
+  head.add(eye);
+  head.position.y = 1.32;
+  g.add(head);
+  return g;
+}
+
+export function buildFlag(team: Team): THREE.Group {
+  const g = new THREE.Group();
+  const pole = cyl(0.05, 0.05, 3, mat(0xd8d8d0, { metal: 0.5 }), 6);
+  pole.position.y = 1.5;
+  g.add(pole);
+  const cloth = box(1.2, 0.8, 0.06, mat(TEAM_COLORS[team], { emissive: TEAM_COLORS[team] }));
+  cloth.position.set(0.62, 2.5, 0);
+  cloth.name = 'cloth';
+  g.add(cloth);
+  return g;
+}
+
+export function buildPickup(type: string): THREE.Group {
+  const g = new THREE.Group();
+  let m: THREE.Mesh;
+  switch (type) {
+    case 'medkit': {
+      m = box(0.7, 0.5, 0.7, mat(0xe8e8e2));
+      const cross = box(0.15, 0.55, 0.45, mat(0xd8453a, { emissive: 0xd8453a }));
+      const cross2 = box(0.45, 0.55, 0.15, mat(0xd8453a, { emissive: 0xd8453a }));
+      g.add(cross, cross2);
+      break;
+    }
+    case 'ammo':
+      m = box(0.7, 0.5, 0.5, mat(0x6a7a3a));
+      g.add(box(0.5, 0.15, 0.3, mat(0xe0c060, { emissive: 0xe0c060, metal: 0.7 })));
+      break;
+    case 'energy':
+      m = cyl(0.3, 0.3, 0.7, mat(0x3888c8, { emissive: 0x3888c8 }), 8);
+      break;
+    default: // flamer
+      m = cyl(0.25, 0.25, 0.8, mat(0xc86428, { emissive: 0xc84818 }), 8);
+      m.rotation.z = Math.PI / 2;
+  }
+  m.position.y = 0.35;
+  g.add(m);
+  g.position.y = 0.4;
+  return g;
+}
+
