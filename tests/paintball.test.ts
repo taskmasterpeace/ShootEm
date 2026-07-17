@@ -43,6 +43,17 @@ describe('the fields', () => {
     }
   });
 
+  it('every yard has water to splash through and pads to jump from (Robert)', () => {
+    for (const f of PAINTBALL_FIELDS) {
+      const map = generatePaintballField(f.seed, f.theme);
+      let water = 0;
+      for (const t of map.grid) if (t === 3 /* T_WATER */) water++;
+      expect(water, `${f.name} needs its pool`).toBeGreaterThanOrEqual(12);
+      expect(map.pads.length, `${f.name} needs its jumps`).toBe(2);
+      for (const pd of map.pads) expect(isBlocked(map.grid, pd.pos.x, pd.pos.z)).toBe(false);
+    }
+  });
+
   it('fields are deterministic — the same seed deals the same yard', () => {
     const a = generatePaintballField(1101, 'savanna');
     const b = generatePaintballField(1101, 'savanna');
@@ -102,5 +113,31 @@ describe('the rules', () => {
     const { w } = yard();
     expect(w.weather.until).toBe(Infinity);
     expect(w.weather.kind).toBe('clear');
+  });
+
+  // Regression: misses used to reach the renderer with no owner at all, so
+  // every wall splat fell back to one stranger's shade — you picked cyan and
+  // painted the yard red. A miss must still name its thrower, and must still
+  // keep the HUD quiet (soldierId is the hitmarker's cue, not the decal's).
+  it('a ball that eats a wall still names who threw it — and taps no hitmarker (Robert)', () => {
+    const { w, hunters } = yard();
+    const shooter = hunters[0];
+    // stand him off against the map rim and hold the trigger into it
+    shooter.pos.x = -140; shooter.pos.z = 0;
+    const intoTheFence = cmd({ fire: true, aimYaw: -Math.PI / 2 });
+    const wallHits: { ownerId?: number; soldierId?: number }[] = [];
+    for (let i = 0; i < 120; i++) {
+      w.step(1 / 60, new Map([[shooter.id, intoTheFence]]));
+      for (const e of w.takeEvents()) {
+        if (e.type === 'hit' && e.weapon?.startsWith('marker') && e.soldierId === undefined) {
+          wallHits.push({ ownerId: e.ownerId, soldierId: e.soldierId });
+        }
+      }
+    }
+    expect(wallHits.length, 'the fence should have eaten some paint').toBeGreaterThan(0);
+    for (const h of wallHits) {
+      expect(h.ownerId, 'a miss must still wear its thrower').toBe(shooter.id);
+      expect(h.soldierId, 'a miss must not flash a phantom tag').toBeUndefined();
+    }
   });
 });

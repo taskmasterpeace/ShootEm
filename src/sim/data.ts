@@ -59,9 +59,11 @@ const CORE_WEAPONS: Record<WeaponId, WeaponDef> = {
   dog_bite: W({ id: 'dog_bite', name: 'K9 Bite', damage: 16, rof: 1.6, speed: 20, spread: 0, clip: Infinity, reserve: Infinity, range: 2.0, sound: 'claw', tracer: 'none', icon: '🐕' }),
   // ---- paintball markers (§3.3/§14): one splat and you're OUT. Damage 999
   // rides the §4.3 overkill rule — paint skips the crawl, nobody bleeds. ----
-  marker_blitz: W({ id: 'marker_blitz', name: 'Blitz Marker', damage: 999, rof: 7, speed: 75, spread: 0.05, clip: 30, reloadTime: 1.5, reserve: 300, range: 34, sound: 'smg', tracer: 'shell', icon: '🎨' }),
-  marker_pump: W({ id: 'marker_pump', name: 'Pump Marker', damage: 999, rof: 1.3, speed: 95, spread: 0.006, clip: 8, reloadTime: 1.8, reserve: 80, range: 52, sound: 'shotgun', tracer: 'shell', icon: '🎨' }),
-  marker_lobber: W({ id: 'marker_lobber', name: 'The Lobber', damage: 999, rof: 1.8, speed: 34, spread: 0.01, clip: 6, reloadTime: 2, reserve: 48, range: 36, splash: 1.8, splashDamage: 999, arc: true, sound: 'thump', tracer: 'shell', icon: '🎨' }),
+  // Reloads are LONG on purpose (Robert): fumbling pods into the hopper while
+  // the pack closes in IS paintball — the reload bar becomes the drama.
+  marker_blitz: W({ id: 'marker_blitz', name: 'Blitz Marker', damage: 999, rof: 7, speed: 75, spread: 0.05, clip: 30, reloadTime: 2.6, reserve: 300, range: 34, sound: 'smg', tracer: 'shell', icon: '🎨' }),
+  marker_pump: W({ id: 'marker_pump', name: 'Pump Marker', damage: 999, rof: 1.3, speed: 95, spread: 0.006, clip: 8, reloadTime: 3.2, reserve: 80, range: 52, sound: 'shotgun', tracer: 'shell', icon: '🎨' }),
+  marker_lobber: W({ id: 'marker_lobber', name: 'The Lobber', damage: 999, rof: 1.8, speed: 34, spread: 0.01, clip: 6, reloadTime: 3.5, reserve: 48, range: 36, splash: 1.8, splashDamage: 999, arc: true, sound: 'thump', tracer: 'shell', icon: '🎨' }),
   // ---- alt-fire internals (never drawn from the armory; fired by fireAltWeapon) ----
   tag_dart: W({ id: 'tag_dart', name: 'Tag Dart', damage: 4, rof: 1, speed: 160, spread: 0.002, clip: 1, reserve: 0, range: 100, sound: 'rail', tracer: 'rail', tagsTarget: true }),
   plasma_orb: W({ id: 'plasma_orb', name: 'Plasma Overcharge', damage: 60, rof: 1, speed: 40, spread: 0.004, clip: 1, reserve: 0, range: 54, splash: 3.5, splashDamage: 40, knockback: 8, sound: 'plasma', tracer: 'plasma' }),

@@ -43,6 +43,8 @@ export interface OnboardingState {
   path?: 'enlisted' | 'ocs' | 'draftee';
   /** the war-stage interstitial explains itself once, then stays out of the way */
   warSeen?: boolean;
+  /** chosen paint color name (PAINT_COLORS) — pure identity, splats in your shade */
+  paint?: string;
 }
 
 const KEY = 'ww_onboarding';
@@ -112,6 +114,35 @@ export const PAINTBALL_MARKERS: { id: WeaponId; blurb: string }[] = [
   { id: 'marker_pump', blurb: 'One ball, one splat. Aim wins.' },
   { id: 'marker_lobber', blurb: 'Paint from above. Angles win.' },
 ];
+
+/** The paint rack (Robert: pick your paintballs). No purple — house law.
+ *  Everyone else draws by id hash from the rack minus your pick, so the yard
+ *  ends up confetti and your shade stays yours. */
+export const PAINT_COLORS: { name: string; hex: number }[] = [
+  { name: 'Blaze Orange', hex: 0xff8c1a },
+  { name: 'Cyan Burst', hex: 0x3dbde8 },
+  { name: 'Lime Splat', hex: 0x8fce3a },
+  { name: 'Hot Yellow', hex: 0xffd23d },
+  { name: 'Cherry Bomb', hex: 0xff4a4a },
+  { name: 'Whiteout', hex: 0xf2f0ea },
+];
+
+/** The local player's chosen paint (falls back to Blaze Orange). */
+export function paintColorOf(st?: OnboardingState): number {
+  const s = st ?? loadOnboarding();
+  return PAINT_COLORS.find((c) => c.name === s.paint)?.hex ?? PAINT_COLORS[0].hex;
+}
+
+/** Everyone else's paint: dealt from the rack by id — stable per soldier, and
+ *  never YOUR shade. The pick only means something if the splat by your ear
+ *  can't be mistaken for your own, so the rest of the yard draws from the rack
+ *  minus the one you claimed. */
+export function paintColorFor(soldierId: number, localId: number, st?: OnboardingState): number {
+  const mine = paintColorOf(st);
+  if (soldierId === localId) return mine;
+  const theirs = PAINT_COLORS.filter((c) => c.hex !== mine);
+  return theirs[Math.abs(soldierId * 7 + 3) % theirs.length].hex;
+}
 
 // ---- match hooks (called from main.ts) ------------------------------------
 
@@ -238,8 +269,18 @@ export function mountOnboarding(host: OnboardingHost): boolean {
         ? 'The pack hunts YOU this time. Tag three points or outlive the clock. One splat and you sit.'
         : 'No manual. Pick a marker, pick a field, take it. Two-minute rounds — hunt the prey before the clock or the tag pads beat you.'}</p>
       <h2>Your marker</h2><div class="ob-row" id="ob-markers"></div>
+      <h2>Your paint</h2><div class="ob-row ob-paints" id="ob-paints"></div>
       <h2>The field</h2><div class="ob-row" id="ob-fields"></div>
       <div class="ob-controls">⌨ <b>WASD</b> move · <b>mouse</b> aim · <b>LMB</b> shoot · <b>R</b> reload · <b>SPACE</b> hop — that's the whole manual</div>`;
+    const paints = wrap.querySelector('#ob-paints')!;
+    for (const c of PAINT_COLORS) {
+      const sw = document.createElement('button');
+      sw.className = `ob-swatch${(st.paint ?? PAINT_COLORS[0].name) === c.name ? ' selected' : ''}`;
+      sw.title = c.name;
+      sw.style.background = `#${c.hex.toString(16).padStart(6, '0')}`;
+      sw.onclick = () => { st.paint = c.name; saveOnboarding(st); mountOnboarding(host); };
+      paints.appendChild(sw);
+    }
     const markers = wrap.querySelector('#ob-markers')!;
     for (const mk of PAINTBALL_MARKERS) {
       const def = WEAPONS[mk.id];

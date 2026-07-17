@@ -425,7 +425,13 @@ export interface SimEvent {
     | 'melee_windup';  // a melee swing began — the client telegraphs the strike
   pos?: Vec3;
   weapon?: WeaponId;
+  /** On a 'hit': the shooter, but ONLY when a soldier/gadget was actually
+   *  struck — the HUD keys its hitmarker off this, so a ball that ate a wall
+   *  must NOT set it or every miss flashes a phantom tag. */
   soldierId?: number;
+  /** On a 'hit': who fired the round, struck or missed. Attribution for
+   *  decals (paint splats wear their shooter's shade), never for feedback. */
+  ownerId?: number;
   killerName?: string;
   victimName?: string;
   killerTeam?: Team;

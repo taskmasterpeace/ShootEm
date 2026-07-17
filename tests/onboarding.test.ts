@@ -4,7 +4,7 @@
 // did. These tests are those sentences, verified.
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
-import { SIGNATURE_GEAR, recommendClass, type SkirmishStats } from '../src/client/onboarding';
+import { PAINT_COLORS, SIGNATURE_GEAR, paintColorFor, recommendClass, type OnboardingState, type SkirmishStats } from '../src/client/onboarding';
 import { CLASSES, EQUIPMENT } from '../src/sim/data';
 import type { ClassId } from '../src/sim/types';
 
@@ -46,6 +46,48 @@ describe('the yard reads your file', () => {
       const gear = SIGNATURE_GEAR[cls];
       expect(gear, `class ${cls} has no signature gear`).toBeTruthy();
       expect(EQUIPMENT[gear], `gear ${gear} does not exist`).toBeTruthy();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The paint rack (§14): picking a shade is identity, so it has to hold up on a
+// crowded field — nobody else may wear it, and a given player keeps theirs.
+// ---------------------------------------------------------------------------
+describe('the paint rack', () => {
+  /** a recruit who has picked a shade and nothing else */
+  const picked = (paint: string): OnboardingState => ({
+    stage: 'skirmish', marker: 'marker_blitz', fieldId: 'kopje', rounds: [], warMatches: 0, paint,
+  });
+
+  it('no purple on the rack — house law', () => {
+    for (const c of PAINT_COLORS) {
+      const r = (c.hex >> 16) & 0xff, g = (c.hex >> 8) & 0xff, b = c.hex & 0xff;
+      // purple/violet/magenta: blue high, green starved, red keeping blue company
+      expect(b > 120 && g < b - 40 && r > b - 60, `${c.name} reads purple`).toBe(false);
+    }
+  });
+
+  it('you get the shade you picked', () => {
+    for (const c of PAINT_COLORS) {
+      expect(paintColorFor(1, 1, picked(c.name))).toBe(c.hex);
+    }
+  });
+
+  it('nobody else is ever dealt YOUR shade — whichever one you claim', () => {
+    for (const mine of PAINT_COLORS) {
+      const st = picked(mine.name);
+      for (let id = 0; id < 60; id++) {
+        if (id === 1) continue; // that's me
+        expect(paintColorFor(id, 1, st), `soldier ${id} stole ${mine.name}`).not.toBe(mine.hex);
+      }
+    }
+  });
+
+  it('a rival keeps the same shade all match — paint is how you know them', () => {
+    const st = picked('Cyan Burst');
+    for (const id of [2, 3, 4, 17]) {
+      expect(paintColorFor(id, 1, st)).toBe(paintColorFor(id, 1, st));
     }
   });
 });

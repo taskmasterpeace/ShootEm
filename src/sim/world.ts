@@ -2162,7 +2162,7 @@ export class World {
           if (g.type !== 'shield') continue;
           if (p.pos.y < 4.5 && Math.hypot(g.pos.x - p.pos.x, g.pos.z - p.pos.z) < 4) {
             g.hp -= def.damage + def.splashDamage * 0.5;
-            this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon });
+            this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, ownerId: p.ownerId });
             if (g.hp <= 0) {
               this.gadgets.delete(gid);
               this.emit({ type: 'gadget_destroyed', pos: g.pos });
@@ -2180,7 +2180,10 @@ export class World {
           blocksShotUpper(this.map.grid2, p.pos.x, p.pos.z, p.pos.y)) {
         if (this.detonatePayload(p)) { /* payload delivered */ }
         else if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team);
-        else if (def.tracer !== 'beam') this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon });
+        // no soldierId: nothing was TAGGED, so the HUD must stay quiet — but
+        // the round still belongs to whoever threw it, and paint wears its
+        // owner's shade wherever it lands
+        else if (def.tracer !== 'beam') this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, ownerId: p.ownerId });
         dead = true;
       }
 

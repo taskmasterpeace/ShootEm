@@ -287,6 +287,20 @@ export function generatePaintballField(seed: number, theme: ThemeId = 'savanna')
   // the center stays honest: a clear lane through the middle for the duel
   for (let tz = mid - 1; tz <= mid + 1; tz++) grid[tz * GRID + mid] = T_OPEN;
 
+  // WATER (Robert: 'have water — should feel like a paintball field'): every
+  // yard gets a shallow feature you splash through — wading is a choice
+  // (slow but a flank), never a wall. Mirrored like the cover.
+  const wz = mid + (seed % 2 === 0 ? 5 : -5);
+  for (let tx = A0 + 6; tx <= A0 + 11; tx++) {
+    for (let dz = 0; dz < 2; dz++) {
+      grid[(wz + dz) * GRID + tx] = T_WATER;
+      grid[(wz + dz) * GRID + (A0 + A1 - tx)] = T_WATER; // the mirror pool
+      surface[(wz + dz) * GRID + tx] = S_MUD;
+      surface[(wz + dz) * GRID + (A0 + A1 - tx)] = S_MUD;
+    }
+  }
+
+
   const P = (tx: number, tz: number): Vec3 => ({ x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 });
   // three tag points for the prey: center + two mirrored corners
   const controlPoints = [
@@ -303,6 +317,17 @@ export function generatePaintballField(seed: number, theme: ThemeId = 'savanna')
     [P(A0 + 1, mid - 2), P(A0 + 1, mid), P(A0 + 1, mid + 2), P(A0 + 2, mid)],
     [P(A1 - 1, mid - 1), P(A1 - 1, mid + 1)],
   ];
+  // JUMPING (Robert): a mirrored pair of grav pads that fling you over the
+  // middle — the inflatable-bunker leap every paintball field secretly wants
+  const pads = [
+    { pos: P(A0 + 4, mid), dir: { x: 1, z: 0 } },
+    { pos: P(A1 - 4, mid), dir: { x: -1, z: 0 } },
+  ];
+  for (const pd of pads) { // pads stand on open paint
+    const tx = Math.floor((pd.pos.x + WORLD / 2) / TILE), tz = Math.floor((pd.pos.z + WORLD / 2) / TILE);
+    grid[tz * GRID + tx] = T_OPEN;
+  }
+
   return {
     seed, theme, grid, grid2, surface,
     basePos: [P(A0 + 1, mid), P(A1 - 1, mid)],
@@ -311,7 +336,7 @@ export function generatePaintballField(seed: number, theme: ThemeId = 'savanna')
     hillPos: P(mid, mid),
     controlPoints,
     vehiclePads: [], pickups: [], props: [], zombieSpawns: [],
-    houses: [], gates: [], pads: [], propCovered: [],
+    houses: [], gates: [], pads, propCovered: [],
   };
 }
 

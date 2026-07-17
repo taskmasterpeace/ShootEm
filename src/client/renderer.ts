@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
 import { CLIMB_H, F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt, losClear } from '../sim/map';
 import { SEEN_LINGER, SEEN_LINGER_GEARED, seenRecently, type SeenMark } from '../sim/perception';
+import { paintColorFor } from './onboarding';
 import type { WeatherKind } from '../sim/weather';
 import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
 import { HAND_FRAG_REACH, meleeWindupFor, type World } from '../sim/world';
@@ -146,6 +147,11 @@ export class Renderer {
   // see, and the smudges their noise smears through the dark
   private unseenStepAt = new Map<number, number>();
   private smudges: { mesh: THREE.Mesh; until: number }[] = [];
+  // PAINTBALL: splatter STAYS (Robert) — flat paint decals, whole-match life,
+  // capped FIFO. One shared circle geometry; one cached material per shade.
+  private splats: THREE.Mesh[] = [];
+  private splatGeo?: THREE.CircleGeometry;
+  private splatMats = new Map<number, THREE.MeshBasicMaterial>();
   private nextLockToneAt = 0;                               // missile-lock warning throttle
   /** killcam duel framing: soldier id of the local player's killer (-1 = none).
    *  Set by the frame loops from the director; the camera frames victim+killer
@@ -359,6 +365,28 @@ export class Renderer {
     }
   }
 
+  /** Paint hits the ground and STAYS — the yard remembers every ball all
+   *  match. Random squash + spin per splat so 200 of them read organic. */
+  private spawnSplat(pos: { x: number; z: number }, colorHex: number, size: number) {
+    if (!this.splatGeo) this.splatGeo = new THREE.CircleGeometry(1, 10);
+    let mat = this.splatMats.get(colorHex);
+    if (!mat) {
+      mat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.82, depthWrite: false });
+      this.splatMats.set(colorHex, mat);
+    }
+    const m = new THREE.Mesh(this.splatGeo, mat);
+    m.rotation.x = -Math.PI / 2;
+    m.rotation.z = Math.random() * Math.PI * 2;
+    m.scale.set(size * (0.7 + Math.random() * 0.6), size * (0.7 + Math.random() * 0.6), 1);
+    m.position.set(pos.x + (Math.random() - 0.5) * 0.3, 0.05 + this.splats.length * 0.0004, pos.z + (Math.random() - 0.5) * 0.3);
+    this.scene.add(m);
+    this.splats.push(m);
+    if (this.splats.length > 240) {
+      const old = this.splats.shift()!;
+      this.scene.remove(old); // geometry+material are shared/cached — keep them
+    }
+  }
+
   /** §19.2: a sound you heard but couldn't see leaves a brief ring — the
    *  ear's version of a muzzle flash. Pooled and capped; never louder than
    *  a hint (the smudge aims your caution, it doesn't paint a target). */
@@ -460,8 +488,11 @@ export class Renderer {
       this.scene.add(m);
       this.clouds.push({ mesh: m, drift: 1.1 + cloudRng(i + 71) * 1.4 });
     }
-    // weather particles rebuild lazily against the new sky
+    // weather particles rebuild lazily against the new sky — and last match's
+    // paint comes off the field (a fresh yard deserves fresh canvas)
     if (this.precip) { this.scene.remove(this.precip.obj); this.precip = undefined; }
+    for (const sp of this.splats) this.scene.remove(sp);
+    this.splats = [];
 
     // ground: canvas-painted texture from the tile grid
     const cvs = document.createElement('canvas');
@@ -1432,7 +1463,10 @@ export class Renderer {
       if (!mesh) {
         const def = WEAPONS[p.weapon];
         if (def.tracer === 'none') continue;
-        mesh = this.makeProjectile(def.tracer, TRACER_COLORS[def.tracer] || 0xffcc88);
+        // paintballs FLY in their shooter's paint — the rack is identity
+        const paintball = world.mode.id === 'paintball' && p.weapon.startsWith('marker');
+        mesh = this.makeProjectile(def.tracer,
+          paintball ? paintColorFor(p.ownerId, localId) : TRACER_COLORS[def.tracer] || 0xffcc88);
         mesh.userData.tracer = def.tracer;
         this.scene.add(mesh);
         this.projMeshes.set(p.id, mesh);
@@ -2125,12 +2159,37 @@ export class Renderer {
         }
         case 'hit':
           if (e.pos) {
+            // paintballs burst in their shooter's shade — and the splat STAYS.
+            // A tagged soldier reports the shooter in soldierId; a ball that
+            // ate a wall reports it in ownerId. Either way we want the thrower:
+            // the yard should end up wearing everyone's colors, not one.
+            if (world.mode.id === 'paintball' && e.weapon?.startsWith('marker')) {
+              const paint = paintColorFor(e.ownerId ?? e.soldierId ?? -1, localId);
+              this.particles.emit({ pos: e.pos, count: 10, color: paint, speed: 6, life: 0.3, spread: 0.3, up: 2.5 });
+              this.spawnSplat(e.pos, paint, 0.55 + Math.random() * 0.4);
+              audio.play('hit', { pos: e.pos, volume: 0.5, rate: 1.2 });
+              break;
+            }
             this.particles.emit({ pos: e.pos, count: 6, color: 0xffe0a0, speed: 5, life: 0.25, spread: 0.2, up: 2 });
             audio.play('hit', { pos: e.pos, volume: 0.5 });
           }
           break;
         case 'death':
           if (e.pos) {
+            // a splatted paintballer goes down in the winner's color — the
+            // biggest splat on the field marks where they sat down (no blood,
+            // no death cry: it's PAINT — but the ragdoll still tumbles)
+            if (world.mode.id === 'paintball') {
+              const victim = e.soldierId !== undefined ? world.soldiers.get(e.soldierId) : undefined;
+              const paint = paintColorFor(victim?.lastKillerId ?? -1, localId);
+              this.particles.emit({ pos: { ...e.pos, y: 1 }, count: 26, color: paint, speed: 6, life: 0.6, spread: 0.6, up: 4 });
+              this.spawnSplat(e.pos, paint, 1.7);
+              audio.play('hit', { pos: e.pos, volume: 0.8, rate: 0.85 });
+              if (e.soldierId !== undefined && e.fallX !== undefined) {
+                this.deathFall.set(e.soldierId, { x: e.fallX, z: e.fallZ ?? 0 });
+              }
+              break;
+            }
             this.particles.emit({ pos: { ...e.pos, y: 1 }, count: 22, color: 0xa03030, speed: 5, life: 0.6, spread: 0.5, up: 4 });
             // each class has its own death cry; zombies/scientist use the generic
             const cry = e.classId ? (`death_${e.classId}` as SoundName) : 'death';

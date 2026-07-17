@@ -143,6 +143,10 @@ html, body {
 .ob-alt:hover { border-color: #e8a33d66; color: #cfd6de; }
 .ob-skip { background: none; border: none; color: #6b7683; font-size: 0.75rem; cursor: pointer; margin-top: 1rem; text-decoration: underline; }
 .ob-controls { margin-top: 0.25rem; font-size: 0.8rem; color: var(--muted); background: #171c22; border: 1px solid #2b333d; border-radius: 0.625rem; padding: 0.55rem 0.8rem; }
+.ob-paints { gap: 0.5rem; }
+.ob-swatch { width: 2.2rem; height: 2.2rem; border-radius: 50%; border: 2px solid #2b333d; cursor: pointer; transition: transform 0.15s, border-color 0.15s; flex: 0 0 auto; }
+.ob-swatch:hover { transform: scale(1.12); }
+.ob-swatch.selected { border-color: #fff; box-shadow: 0 0 0 2px #e8a33d66; }
 .ob-controls b { color: #e8a33d; }
 #pause-overlay { position: fixed; inset: 0; z-index: 55; background: rgba(10, 12, 15, 0.72); display: flex; align-items: center; justify-content: center; }
 #pause-overlay.hidden { display: none; }
