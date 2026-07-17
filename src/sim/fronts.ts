@@ -717,9 +717,10 @@ const CITY_LAYOUTS: Record<MapSize, CityLayout> = {
       { x: 34, z: 20, kind: 'stock', stock: 'hut', w: 8, h: 7 },
       { x: 56, z: 20, kind: 'stock', stock: 'rowhouse', w: 9, h: 7 },
       { x: 70, z: 20, kind: 'stock', stock: 'shack', w: 6, h: 7 },
-      { x: 40, z: 36, kind: 'house', w: 8, h: 13 },
+      // the M row keeps clear of BOTH base compounds (their walls/pads own
+      // x 18-37 and x 61-81 at z 37-52) — the center columns only
+      { x: 40, z: 36, kind: 'house', w: 9, h: 13 },
       { x: 55, z: 36, kind: 'office2', w: 7, h: 13 },
-      { x: 70, z: 36, kind: 'shop', w: 8, h: 13 },
     ],
     plaza: { x0: 40, z0: 58, x1: 62, z1: 68 },
     cps: [['MARKET', 38, 50], ['PLAZA', 50, 63], ['DEPOT', 62, 50]],
