@@ -63,6 +63,21 @@ export function surfaceAt(surface: Uint8Array, x: number, z: number): number {
 }
 
 /** which house (index into map.houses) contains this point, -1 = open sky */
+/** The outdoor vocabulary — scenery that must never stand in a room.
+ *  (A crate indoors is FURNITURE: stampBuilding's own 'C' stencil char puts
+ *  it there. These are the trespassers.) */
+const OUTDOOR_PROPS: ReadonlySet<string> = new Set(['tree', 'rock', 'wreck', 'silo', 'flare_stack', 'crane', 'memorial']);
+
+/** Buildings stamp AFTER the obstacle scatter, so a rock blob can end up in
+ *  someone's living room: the stamp clears the rock's grid claim (so it
+ *  stops blocking) but the MESH stays — a boulder rendered in the hallway.
+ *  Robert: "there was some trees inside of a house… I couldn't get down the
+ *  hallways." Prune the outdoors out of every footprint, once, at the end. */
+export function pruneIndoorProps(props: PropSpec[], houses: House[]): PropSpec[] {
+  if (houses.length === 0) return props;
+  return props.filter((p) => !OUTDOOR_PROPS.has(p.type) || houseAt(houses, p.pos.x, p.pos.z) < 0);
+}
+
 export function houseAt(houses: House[], x: number, z: number): number {
   const tx = Math.floor((x + WORLD / 2) / TILE);
   const tz = Math.floor((z + WORLD / 2) / TILE);
@@ -232,9 +247,24 @@ function claimTile(grid: Uint8Array, claims: TileClaim[], tx: number, tz: number
   claims.push({ idx: tz * GRID + tx, t: v });
 }
 
-/** Claims that survived every later stamp — deduped, ready for the map. */
-function settleClaims(grid: Uint8Array, claims: TileClaim[]): number[] {
-  return [...new Set(claims.filter((c) => grid[c.idx] === c.t).map((c) => c.idx))];
+/** Claims that survived every later stamp — deduped, ready for the map.
+ *
+ *  A claim is a promise: "the renderer will skip this tile because a PROP
+ *  draws it." Break the promise and you get an invisible wall. So a claim
+ *  whose prop is GONE (pruned indoors, or overwritten) isn't merely dropped
+ *  from the list — its tile is OPENED, because the thing that was blocking
+ *  you no longer exists. Claim and prop live and die together. */
+function settleClaims(grid: Uint8Array, claims: TileClaim[], props?: PropSpec[]): number[] {
+  const live = claims.filter((c) => grid[c.idx] === c.t);
+  if (!props) return [...new Set(live.map((c) => c.idx))];
+  const kept: number[] = [];
+  for (const c of live) {
+    const x = ((c.idx % GRID) + 0.5) * TILE - WORLD / 2;
+    const z = (Math.floor(c.idx / GRID) + 0.5) * TILE - WORLD / 2;
+    if (props.some((p) => Math.hypot(p.pos.x - x, p.pos.z - z) < 1.6 + p.scale * 1.2)) kept.push(c.idx);
+    else grid[c.idx] = T_OPEN; // its prop is gone — so is the wall
+  }
+  return [...new Set(kept)];
 }
 
 function tileToWorld(tx: number, tz: number): Vec3 {
@@ -618,7 +648,12 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
         const far = Math.hypot(w.x - basePos[0].x, w.z - basePos[0].z) > TILE * 10 &&
                     Math.hypot(w.x - basePos[1].x, w.z - basePos[1].z) > TILE * 10 &&
                     Math.hypot(w.x - hillPos.x, w.z - hillPos.z) > TILE * 7;
-        if (far) {
+        // NOTHING GROWS INDOORS (Robert: "some trees inside of a house… I
+        // couldn't get down the hallways"). A house's FLOOR is T_OPEN, so the
+        // open-tile test above happily planted oaks in living rooms — and a
+        // tree claims T_WALL, so it bricked the corridor it landed in. The
+        // houses array was right here the whole time; now we ask it.
+        if (far && houseAt(houses, w.x, w.z) < 0) {
           claimTile(grid, claims, tx, tz, T_WALL);
           props.push({ type: 'tree', pos: w, scale: rng.range(0.8, 1.4), rot: rng.range(0, Math.PI * 2) });
         }
@@ -651,7 +686,8 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
     }
   }
 
-  return { seed, theme, grid, grid2, surface, basePos, spawns, flagPos, hillPos, controlPoints, vehiclePads, pickups, props, zombieSpawns, houses, gates, pads, propCovered: settleClaims(grid, claims) };
+  const outdoorProps = pruneIndoorProps(props, houses);
+  return { seed, theme, grid, grid2, surface, basePos, spawns, flagPos, hillPos, controlPoints, vehiclePads, pickups, props: outdoorProps, zombieSpawns, houses, gates, pads, propCovered: settleClaims(grid, claims, outdoorProps) };
 }
 
 /**
@@ -707,9 +743,13 @@ function generateNeighborhood(seed: number): GameMap {
         props.push({ type: 'crate', pos: tileToWorld(cxT, czT), scale: 1, rot: rng.range(0, Math.PI) });
       }
       const tx = lx + rng.int(0, 2), tz = lz + rng.int(0, 3);
-      if (grid[tz * GRID + tx] === T_OPEN) {
+      const yard = tileToWorld(tx, tz);
+      // the yard tree grows in the YARD — the lot origin can land inside the
+      // house that was just stamped on it (same disease as the battle-map
+      // trees: a floor is T_OPEN)
+      if (grid[tz * GRID + tx] === T_OPEN && houseAt(houses, yard.x, yard.z) < 0) {
         claimTile(grid, claims, tx, tz, T_WALL);
-        props.push({ type: 'tree', pos: tileToWorld(tx, tz), scale: rng.range(0.8, 1.3), rot: rng.range(0, Math.PI * 2) });
+        props.push({ type: 'tree', pos: yard, scale: rng.range(0.8, 1.3), rot: rng.range(0, Math.PI * 2) });
       }
     }
   }
@@ -758,6 +798,7 @@ function generateNeighborhood(seed: number): GameMap {
 
   const surface = new Uint8Array(GRID * GRID);
   surface.fill(S_GRASS);
+  const hoodProps = pruneIndoorProps(props, houses);
   return {
     seed, theme: 'savanna', grid, grid2, surface, basePos, spawns,
     flagPos: [basePos[0], basePos[1]],
@@ -768,8 +809,8 @@ function generateNeighborhood(seed: number): GameMap {
       { name: 'C', pos: tileToWorld(GRID / 2 + 20, GRID / 2) },
     ],
     vehiclePads,
-    pickups, props, zombieSpawns, houses,
+    pickups, props: hoodProps, zombieSpawns, houses,
     gates: [], pads: [],
-    propCovered: settleClaims(grid, claims),
+    propCovered: settleClaims(grid, claims, hoodProps),
   };
 }

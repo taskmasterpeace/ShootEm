@@ -14,7 +14,7 @@ import { BUILDINGS, stencilConnected } from '../src/sim/buildings';
 import { FRONTS } from '../src/client/campaign';
 import {
   GRID, TILE, WORLD, T_CLIMB, T_COVER, T_DEEP, T_METAL, T_WALL, T_WATER,
-  S_ICE, S_PLATE, generateMap, tileAt, type GameMap,
+  S_ICE, S_PLATE, generateMap, houseAt, tileAt, type GameMap,
 } from '../src/sim/map';
 import type { Vec3 } from '../src/sim/types';
 
@@ -171,6 +171,37 @@ describe('the front laws — all ten grounds', () => {
         if (!m.props.some((p) => Math.hypot(p.pos.x - x, p.pos.z - z) < 1.6 + p.scale * 1.2)) bad.push(i);
       }
       expect(bad.length, `${theme}/${mode}/${seed}: ${bad.length} invisible walls, first at tile ${bad[0]}`).toBe(0);
+    }
+  });
+
+  // Robert: "there was some trees inside of a house… I couldn't get down the
+  // hallways." A house FLOOR is T_OPEN, so every naive open-tile scatter
+  // planted oaks in living rooms — and a tree claims T_WALL, so it bricked
+  // the corridor it landed in.
+  //
+  // The honest distinction: a CRATE indoors is furniture — stampBuilding's
+  // own 'C' stencil char puts it there (the "indoors has STUFF" rule). The
+  // OUTDOOR vocabulary — trees, boulders, wrecks, silos, cranes, stacks —
+  // has no business inside a building. That's the law.
+  const OUTDOOR_ONLY = ['tree', 'rock', 'wreck', 'silo', 'flare_stack', 'crane', 'memorial'];
+  const trespassers = (m: GameMap) =>
+    m.props.filter((p) => OUTDOOR_ONLY.includes(p.type) && houseAt(m.houses, p.pos.x, p.pos.z) >= 0);
+
+  it.each(ids)('%s: NOTHING GROWS INDOORS — no tree, rock, or wreck inside a building', (id) => {
+    const m = maps.get(id)!;
+    expect(trespassers(m).map((p) => `${p.type}@${p.pos.x.toFixed(0)},${p.pos.z.toFixed(0)}`),
+      `${id} grew outdoor props indoors`).toEqual([]);
+  });
+
+  it('nothing grows indoors on the GENERIC maps or the neighborhood either', () => {
+    for (const [seed, mode, theme] of [[42, 'tdm', 'savanna'], [7, 'conquest', 'savanna'], [99, 'ctf', 'titan'], [1234, 'koth', 'savanna'], [5150, 'tdm', 'titan'], [777, 'conquest', 'titan']] as const) {
+      const bad = trespassers(generateMap(seed, mode, theme));
+      expect(bad.length, `${theme}/${mode}/${seed}: ${bad.length} indoors (first: ${bad[0]?.type})`).toBe(0);
+    }
+    // the safehouse neighborhood is ALL houses — the yard tree lived closest to this bug
+    for (const seed of [3, 88, 451, 2024]) {
+      const bad = trespassers(generateMap(seed, 'safehouse'));
+      expect(bad.length, `neighborhood ${seed}: ${bad.length} indoors (first: ${bad[0]?.type})`).toBe(0);
     }
   });
 

@@ -22,7 +22,7 @@
 import type { Team, Vec3 } from './types';
 import { Rng } from './rng';
 import {
-  GRID, TILE, WORLD,
+  GRID, TILE, WORLD, houseAt,
   T_OPEN, T_WALL, T_COVER, T_WATER, T_DEEP, T_SLIT, T_DOOR, T_METAL, T_LADDER, T_CLIMB,
   S_DIRT, S_GRASS, S_ICE, S_GRIT, S_PLATE, S_WET, S_MUD,
   type GameMap, type PropSpec, type PickupSpawn, type VehiclePad, type House, type TileClaim,
@@ -85,6 +85,17 @@ function claim(grid: Uint8Array, claims: TileClaim[], tx: number, tz: number, t:
 /** claims that a later stamp overwrote are dropped — same as map.ts */
 function settle(grid: Uint8Array, claims: TileClaim[]): number[] {
   return claims.filter((c) => grid[c.idx] === c.t).map((c) => c.idx);
+}
+
+/** Open GROUND — outdoors, and not some building's floor.
+ *  NOTHING SCATTERS INDOORS (Robert: "trees inside of a house… I couldn't
+ *  get down the hallways"). A house's floor is T_OPEN, so the naive
+ *  open-tile test plants boulders in living rooms — and a claimed prop tile
+ *  becomes T_WALL, bricking the corridor. Every scatter asks this. */
+function openOutdoors(d: FrontDraft, tx: number, tz: number): boolean {
+  if (!inb(tx) || !inb(tz) || d.grid[idx(tx, tz)] !== T_OPEN) return false;
+  const w = tw(tx, tz);
+  return houseAt(d.houses, w.x, w.z) < 0;
 }
 
 /** a ring of tiles (trenches, pit terraces) with gap arcs left open.
@@ -254,7 +265,7 @@ function bridgeDelta(seed: number): GameMap {
     const tz = d.rng.int(6, GRID - 7);
     const west = d.rng.next() < 0.5;
     const tx = west ? d.rng.int(41, 43) : d.rng.int(56, 58);
-    if (grid[idx(tx, tz)] === T_OPEN) {
+    if (openOutdoors(d, tx, tz)) {
       claim(grid, claims, tx, tz, T_WALL);
       props.push({ type: 'tree', pos: tw(tx, tz), scale: d.rng.range(0.7, 1.1), rot: d.rng.range(0, Math.PI * 2) });
     }
@@ -385,7 +396,7 @@ function fortRaven(seed: number): GameMap {
   // boulder dressing outside the fight
   for (let i = 0; i < 12; i++) {
     const tx = d.rng.int(6, GRID - 7), tz = d.rng.int(6, GRID - 7);
-    if (Math.hypot(tx - C, tz - C) > 36 && Math.abs(tz - 50) > 10 && grid[idx(tx, tz)] === T_OPEN) {
+    if (Math.hypot(tx - C, tz - C) > 36 && Math.abs(tz - 50) > 10 && openOutdoors(d, tx, tz)) {
       claim(grid, claims, tx, tz, T_WALL);
       props.push({ type: 'rock', pos: tw(tx, tz), scale: d.rng.range(1.1, 1.8), rot: d.rng.range(0, Math.PI * 2) });
     }
@@ -460,8 +471,10 @@ function easternPlains(seed: number): GameMap {
   stampBuilding(ctx, mirrorDef(byId('warehouse')), GRID - 18 - 11, 54, 6);
   stampBuilding(ctx, byId('hut'), 30, 70, 8);
   stampBuilding(ctx, mirrorDef(byId('hut')), GRID - 30 - 7, 70, 10);
-  // silos by the farms — the plains' skyline
-  for (const [sx, sz] of [[32, 25], [26, 56], [36, 71]] as const) {
+  // silos BESIDE the farms — the plains' skyline. (The first draft parked
+  // two of them INSIDE the warehouse and the hut; the indoors law caught it.
+  // x-clearance is what matters: houseAt needs both axes inside the rect.)
+  for (const [sx, sz] of [[32, 25], [31, 56], [39, 71]] as const) {
     for (const tx of [sx, GRID - 1 - sx]) {
       claim(grid, claims, tx, sz, T_WALL);
       props.push({ type: 'silo', pos: tw(tx, sz), scale: 1, rot: 0 });
@@ -549,7 +562,7 @@ function theCity(seed: number): GameMap {
       // the shelled block: rubble spills into the street
       for (let i = 0; i < 6; i++) {
         const rx = lot.x + d.rng.int(-2, 10), rz = lot.z + d.rng.int(-2, 8);
-        if (grid[idx(rx, rz)] === T_OPEN) {
+        if (openOutdoors(d, rx, rz)) {
           claim(grid, claims, rx, rz, T_COVER);
           props.push({ type: 'rock', pos: tw(rx, rz), scale: 0.7, rot: d.rng.range(0, Math.PI * 2) });
         }
@@ -571,7 +584,7 @@ function theCity(seed: number): GameMap {
 
   // burnt cars at the big intersections — street cover, city texture
   for (const [wx, wz] of [[38, 44], [58, 20], [78, 68], [18, 68], [58, 44]] as const) {
-    if (grid[idx(wx, wz)] === T_OPEN) {
+    if (openOutdoors(d, wx, wz)) {
       claim(grid, claims, wx, wz, T_COVER);
       props.push({ type: 'wreck', pos: tw(wx, wz), scale: 0.8, rot: d.rng.range(0, Math.PI * 2) });
     }
@@ -583,7 +596,7 @@ function theCity(seed: number): GameMap {
     const west = i % 2 === 0;
     const tx = west ? d.rng.int(9, 16) : d.rng.int(83, 90);
     const tz = d.rng.int(10, 84);
-    if (grid[idx(tx, tz)] !== T_OPEN || Math.abs(tz - 50) < 9) continue; // the base lanes stay clear
+    if (!openOutdoors(d, tx, tz) || Math.abs(tz - 50) < 9) continue; // the base lanes stay clear
     const roll = d.rng.next();
     if (roll < 0.4) {
       claim(grid, claims, tx, tz, T_COVER);
@@ -689,7 +702,7 @@ function highlandPass(seed: number): GameMap {
   // the convoy that never made it out of the pass — burned out on the long
   // descent, right under the east overlook. The ambush story, told in steel.
   for (const [wx, wz, r] of [[70, 56, 1.7], [71, 60, 0.2]] as const) {
-    if (grid[idx(wx, wz)] === T_OPEN) {
+    if (openOutdoors(d, wx, wz)) {
       claim(grid, claims, wx, wz, T_COVER);
       props.push({ type: 'wreck', pos: tw(wx, wz), scale: 1, rot: r });
     }
@@ -814,7 +827,7 @@ function blacksite(seed: number): GameMap {
   // pressure ridges: ice boulders drift the floe (dressing)
   for (let i = 0; i < 22; i++) {
     const tx = d.rng.int(8, GRID - 9), tz = d.rng.int(8, GRID - 9);
-    if (Math.hypot(tx - 50, tz - 50) > 16 && grid[idx(tx, tz)] === T_OPEN && Math.abs(tz - 50) > 8) {
+    if (Math.hypot(tx - 50, tz - 50) > 16 && openOutdoors(d, tx, tz) && Math.abs(tz - 50) > 8) {
       claim(grid, claims, tx, tz, T_WALL);
       props.push({ type: 'rock', pos: tw(tx, tz), scale: d.rng.range(0.9, 1.6), rot: d.rng.range(0, Math.PI * 2) });
     }
@@ -917,7 +930,7 @@ function refinery(seed: number): GameMap {
   // drum stacks in the alleys and along the empty top/bottom bands
   for (let i = 0; i < 16; i++) {
     const tx = d.rng.int(20, 79), tz = d.rng.int(14, 86);
-    if (grid[idx(tx, tz)] === T_OPEN && Math.hypot(tx - 50, tz - 50) > 9 && Math.abs(tz - 50) > 4) {
+    if (openOutdoors(d, tx, tz) && Math.hypot(tx - 50, tz - 50) > 9 && Math.abs(tz - 50) > 4) {
       claim(grid, claims, tx, tz, T_COVER);
       props.push({ type: 'crate', pos: tw(tx, tz), scale: 1, rot: d.rng.range(0, Math.PI) });
     }
@@ -1252,7 +1265,7 @@ function theMine(seed: number): GameMap {
   // spoil heaps: the rng piles rock where the mine dumped it
   for (let i = 0; i < 20; i++) {
     const tx = d.rng.int(8, GRID - 9), tz = d.rng.int(8, GRID - 9);
-    if (Math.hypot(tx - C, tz - C) > 30 && Math.abs(tz - 50) > 9 && grid[idx(tx, tz)] === T_OPEN) {
+    if (Math.hypot(tx - C, tz - C) > 30 && Math.abs(tz - 50) > 9 && openOutdoors(d, tx, tz)) {
       claim(grid, claims, tx, tz, T_WALL);
       props.push({ type: 'rock', pos: tw(tx, tz), scale: d.rng.range(1.0, 1.7), rot: d.rng.range(0, Math.PI * 2) });
     }
