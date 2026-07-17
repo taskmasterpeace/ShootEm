@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
-import { CLIMB_H, F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt } from '../sim/map';
+import { CLIMB_H, F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt, losClear } from '../sim/map';
 import { SEEN_LINGER, SEEN_LINGER_GEARED, seenRecently, type SeenMark } from '../sim/perception';
 import type { WeatherKind } from '../sim/weather';
 import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
@@ -142,6 +142,10 @@ export class Renderer {
   // melee feel: telegraph windows (arms up) keyed by attacker, and the arc slashes
   private meleeTelegraphs = new Map<number, { at: number; until: number }>();
   private slashes: { mesh: THREE.Mesh; until: number }[] = [];
+  // §19.2 sound-and-movement: footstep clocks for enemies you HEAR but can't
+  // see, and the smudges their noise smears through the dark
+  private unseenStepAt = new Map<number, number>();
+  private smudges: { mesh: THREE.Mesh; until: number }[] = [];
   private nextLockToneAt = 0;                               // missile-lock warning throttle
   /** killcam duel framing: soldier id of the local player's killer (-1 = none).
    *  Set by the frame loops from the director; the camera frames victim+killer
@@ -353,6 +357,21 @@ export class Renderer {
       const mat = (this.precip.obj as THREE.Points).material as THREE.PointsMaterial;
       mat.opacity = (k === 'storm' ? 0.55 : k === 'rain' ? 0.4 : k === 'snow' ? 0.85 : 0.5) * Math.max(0.4, hard);
     }
+  }
+
+  /** §19.2: a sound you heard but couldn't see leaves a brief ring — the
+   *  ear's version of a muzzle flash. Pooled and capped; never louder than
+   *  a hint (the smudge aims your caution, it doesn't paint a target). */
+  private spawnSmudge(pos: { x: number; z: number }, size: number, now: number) {
+    if (this.smudges.length >= 12) return;
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(size * 0.55, size, 20),
+      new THREE.MeshBasicMaterial({ color: 0xcfc6b8, transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide }),
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(pos.x, 0.15, pos.z);
+    this.scene.add(ring);
+    this.smudges.push({ mesh: ring, until: now + 0.7 });
   }
 
   /** Build one precipitation particle system for the given sky. */
@@ -960,6 +979,17 @@ export class Renderer {
       d.mesh.position.z += (tz - d.mesh.position.z) * Math.min(1, dt * 10);
     }
 
+    // THE EARS' WORLD MODEL: walls between you and a sound muffle it (the
+    // audio engine asks this test per shot), and the weather dulls the whole
+    // battlefield — §8.8's sound column, finally real
+    audio.occlusionTest = (p) => !losClear(world.map.grid,
+      { x: audio.listener.x, y: 1.4, z: audio.listener.z }, { x: p.x, y: 1.4, z: p.z });
+    {
+      const wk = world.weather?.kind;
+      audio.weatherDull = (wk === 'snow' ? 0.5 : wk === 'storm' ? 0.4 : wk === 'rain' ? 0.25 : wk === 'dust' ? 0.2 : 0)
+        * (world.weather?.intensity ?? 0);
+    }
+
     // §8.8 the sky's turn: clouds drift, weather taxes the atmosphere
     this.updateWeather(world, dt);
 
@@ -1076,6 +1106,25 @@ export class Renderer {
           else dark = true;
         }
       }
+      // SOUND AND MOVEMENT (§19.2): your ears keep working where your eyes
+      // stop. An unseen mover inside earshot still lands footsteps — and
+      // each one smears a brief smudge through the dark. Hearing is a skill.
+      if (dark && s.alive && !inVehicle && local && !this.replayView) {
+        const dHear = Math.hypot(s.pos.x - local.pos.x, s.pos.z - local.pos.z);
+        const sp = Math.hypot(s.vel.x, s.vel.z);
+        if (dHear < 20 && sp > 0.8) {
+          const lastAt = this.unseenStepAt.get(s.id) ?? -9;
+          if (world.time - lastAt > Math.max(0.26, 1.7 / sp)) {
+            this.unseenStepAt.set(s.id, world.time);
+            const step = BIOME_AUDIO[world.map.theme]?.footstep;
+            if (!step || !audio.play(step, { pos: s.pos, volume: 0.4 })) {
+              audio.play('footstep', { pos: s.pos, volume: 0.4 });
+            }
+            this.spawnSmudge(s.pos, 1.3, world.time);
+          }
+        }
+      }
+
       mesh.visible = (s.alive || corpse) && !inVehicle && !dark && !(s.cloaked && s.team !== localTeam && s.id !== localId);
       if (!mesh.visible) continue;
       // squad-only overhead: name + vitals circles. Enemy plates were clutter
@@ -1527,6 +1576,22 @@ export class Renderer {
       if (!world.gadgets.has(id)) {
         this.scene.remove(mesh);
         this.gadgetMeshes.delete(id);
+      }
+    }
+
+    // §19.2 sound smudges: heard-not-seen noise leaves a fading ring where it
+    // happened — rough position, brief life, just enough to aim your caution
+    for (let i = this.smudges.length - 1; i >= 0; i--) {
+      const sm = this.smudges[i];
+      const left = sm.until - world.time;
+      const k = Math.max(0, left / 0.7);
+      (sm.mesh.material as THREE.MeshBasicMaterial).opacity = k * 0.28;
+      sm.mesh.scale.setScalar(1 + (1 - k) * 1.1);
+      if (left <= 0) {
+        this.scene.remove(sm.mesh);
+        sm.mesh.geometry.dispose();
+        (sm.mesh.material as THREE.Material).dispose();
+        this.smudges.splice(i, 1);
       }
     }
 
@@ -1999,6 +2064,19 @@ export class Renderer {
           if (def.tracer !== 'beam' && def.tracer !== 'none') {
             this.particles.emit({ pos: e.pos, count: 3, color: 0xffcc66, speed: 3, life: 0.12, spread: 0.3, up: 1, size: 0.3 });
           }
+          // §19.2: a gunshot you can't SEE still tells your ears where it
+          // came from — smear the smudge at the muzzle. (Events cross the
+          // wire uncalled: hearing an unseen shooter is fair by design.)
+          if (!this.replayView && e.soldierId !== undefined) {
+            const localS = world.soldiers.get(localId);
+            const shooter = world.soldiers.get(e.soldierId);
+            const unseenEnemy = !!localS && e.soldierId !== localId && (!shooter
+              ? true // puppet worlds: a culled shooter is one you genuinely can't see
+              : shooter.team !== localS.team && !world.puppet &&
+                !seenRecently(world.lastSeen, world.pinged, localS.team, shooter, world.time, SEEN_LINGER));
+            if (unseenEnemy) this.spawnSmudge(e.pos, def.range <= 2.5 ? 1.5 : 3, world.time);
+          }
+
           // melee strike: a pale claw-arc sweeps the ground where the swing landed
           if (def.range <= 2.5 && e.soldierId !== undefined) {
             const attacker = world.soldiers.get(e.soldierId);

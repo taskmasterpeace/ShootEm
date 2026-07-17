@@ -383,7 +383,7 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
   renderer.buildStaticWorld(world);
   course?.begin(world, me.id);
   hud.announce(MODE_INFO[selectedMode].name.toUpperCase(), true, 0);
-  (window as unknown as Record<string, unknown>).__ww = { world, me, renderer, hud, input, recorder: director.recorder, replay: director.player, director }; // debug/testing handle
+  (window as unknown as Record<string, unknown>).__ww = { world, me, renderer, hud, input, audio, recorder: director.recorder, replay: director.player, director }; // debug/testing handle
 
   const FIXED = 1 / 60;
   let acc = 0;
