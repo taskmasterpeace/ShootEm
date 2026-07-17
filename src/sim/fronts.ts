@@ -435,35 +435,61 @@ const THE_KEEP: BuildingDef = {
   ],
 };
 
-function fortRaven(seed: number): GameMap {
+function fortRaven(seed: number, size: MapSize = 'large'): GameMap {
+  const box = boxFor(size);
   const d = draft(seed, T_OPEN, S_GRIT);
   const { grid, surface, props, claims } = d;
-  const C = 50;
+  const C = 50; // the fort's heart never moves; the ground closes around it
+  const L = {
+    large: {
+      rings: [[12, [[350, 360], [0, 10], [80, 100], [170, 190], [260, 280]]], [20, [[35, 55], [125, 145], [215, 235], [305, 325]]], [33, [[0, 30], [60, 120], [150, 210], [240, 300], [330, 360]]]] as [number, [number, number][]][],
+      bunkers: [[36, 36], [57, 36], [36, 57], [57, 57]] as [number, number][],
+      posts: [[47, 24], [47, 71]] as [number, number][],
+      ruins: [[22, 44], [GRID - 29, 52]] as [number, number][],
+      teeth: { count: 16, r: 27 }, craters: 9, boulders: 12, boulderR: 36,
+      baseX: [10, GRID - 11], baseZ: 50,
+      pickups: [[30, 40, 'medkit'], [30, 60, 'ammo'], [40, 28, 'energy'], [40, 72, 'ammo']] as [number, number, PickupSpawn['type']][],
+    },
+    standard: {
+      rings: [[11, [[350, 360], [0, 10], [80, 100], [170, 190], [260, 280]]], [18, [[35, 55], [125, 145], [215, 235], [305, 325]]], [28, [[0, 30], [60, 120], [150, 210], [240, 300], [330, 360]]]] as [number, [number, number][]][],
+      bunkers: [[38, 38], [57, 38], [38, 57], [57, 57]] as [number, number][],
+      posts: [[47, 17], [47, 79]] as [number, number][],
+      ruins: [[18, 44], [GRID - 25, 52]] as [number, number][],
+      teeth: { count: 14, r: 23 }, craters: 6, boulders: 8, boulderR: 30,
+      baseX: [19, GRID - 20], baseZ: 49,
+      pickups: [[26, 38, 'medkit'], [26, 61, 'ammo'], [38, 22, 'energy'], [38, 77, 'ammo']] as [number, number, PickupSpawn['type']][],
+    },
+    small: {
+      rings: [[9, [[350, 360], [0, 10], [80, 100], [170, 190], [260, 280]]], [14, [[35, 55], [125, 145], [215, 235], [305, 325]]], [22, [[0, 30], [60, 120], [150, 210], [240, 300], [330, 360]]]] as [number, [number, number][]][],
+      bunkers: [[40, 40], [55, 40], [40, 55], [55, 55]] as [number, number][],
+      posts: [[47, 26], [47, 68]] as [number, number][],
+      ruins: [] as [number, number][],
+      teeth: { count: 12, r: 18 }, craters: 4, boulders: 6, boulderR: 24,
+      baseX: [29, GRID - 30], baseZ: 49,
+      pickups: [[32, 42, 'medkit'], [32, 57, 'ammo'], [40, 30, 'energy'], [40, 69, 'ammo']] as [number, number, PickupSpawn['type']][],
+    },
+  }[size];
 
-  // the glacis is bare grit — attackers cross it in the open
-  // inner ring r=12: parapet with four sally gaps on the cardinals
-  ring(grid, C, C, 12, T_COVER, [[350, 360], [0, 10], [80, 100], [170, 190], [260, 280]]);
-  // outer ring r=20: gaps on the diagonals — no straight walk to the keep
-  ring(grid, C, C, 20, T_COVER, [[35, 55], [125, 145], [215, 235], [305, 325]]);
+  // the glacis is bare grit — attackers cross it in the open.
+  // The rings: parapet arcs with sally gaps; no straight walk to the keep.
+  for (const [r, gaps] of L.rings) ring(grid, C, C, r, T_COVER, gaps);
 
-  // four bunkers between the rings, slits watching the diagonals
+  // bunkers between the rings, slits watching the diagonals
   const ctx = ctxOf(d);
-  stampBuilding(ctx, byId('bunker'), 36, 36, 0);
-  stampBuilding(ctx, mirrorDef(byId('bunker')), 57, 36, 2);
-  stampBuilding(ctx, byId('bunker'), 36, 57, 4);
-  stampBuilding(ctx, mirrorDef(byId('bunker')), 57, 57, 6);
+  for (const [bx2, bz2] of L.bunkers) {
+    stampBuilding(ctx, byId('bunker'), bx2, bz2, bx2 + bz2);
+  }
 
   // the keep itself — doors south, nests upstairs
   stampBuilding(ctx, THE_KEEP, C - 4, C - 3, 8);
 
-  // observation posts north and south of the fort
-  stampBuilding(ctx, byId('guard_post'), 47, 24, 10);
-  stampBuilding(ctx, byId('guard_post'), 47, 71, 12);
+  // observation posts off the fort
+  for (const [px2, pz2] of L.posts) stampBuilding(ctx, byId('guard_post'), px2, pz2, px2 + pz2);
 
   // dragon's teeth on the far glacis — armor picks a lane and commits
-  for (let i = 0; i < 16; i++) {
-    const a = (i / 16) * Math.PI * 2;
-    const tx = Math.round(C + Math.cos(a) * 27), tz = Math.round(C + Math.sin(a) * 27);
+  for (let i = 0; i < L.teeth.count; i++) {
+    const a = (i / L.teeth.count) * Math.PI * 2;
+    const tx = Math.round(C + Math.cos(a) * L.teeth.r), tz = Math.round(C + Math.sin(a) * L.teeth.r);
     if ((i % 4) === 0) continue; // four armored lanes
     if (grid[idx(tx, tz)] === T_OPEN) {
       claim(grid, claims, tx, tz, T_COVER);
@@ -471,14 +497,9 @@ function fortRaven(seed: number): GameMap {
     }
   }
 
-  // the abandoned earthwork: a third, broken arc the fort outgrew — heavy
-  // gaps, but the only pause on the long walk in (the atlas showed a bare
-  // glacis that read unfinished rather than lethal)
-  ring(grid, C, C, 33, T_COVER, [[0, 30], [60, 120], [150, 210], [240, 300], [330, 360]]);
-
   // shell craters: the guns have been ranging this ground for a season
-  for (let i = 0; i < 9; i++) {
-    const a = d.rng.range(0, Math.PI * 2), r = d.rng.range(23, 40);
+  for (let i = 0; i < L.craters; i++) {
+    const a = d.rng.range(0, Math.PI * 2), r = d.rng.range(L.rings[1][0] + 3, L.teeth.r + 13);
     const cx2 = Math.round(C + Math.cos(a) * r), cz2 = Math.round(C + Math.sin(a) * r);
     for (let z = cz2 - 1; z <= cz2 + 1; z++) for (let x = cx2 - 1; x <= cx2 + 1; x++) {
       if (inb(x) && inb(z) && (x - cx2) ** 2 + (z - cz2) ** 2 <= 2) surface[idx(x, z)] = S_DIRT;
@@ -486,36 +507,37 @@ function fortRaven(seed: number): GameMap {
   }
 
   // outbuildings the sieges gutted — approach cover with a history
-  stampBuilding(ctx, byId('ruin'), 22, 44, 14);
-  stampBuilding(ctx, mirrorDef(byId('ruin')), GRID - 22 - 7, 52, 16);
+  for (const [rx2, rz2] of L.ruins) stampBuilding(ctx, byId('ruin'), rx2, rz2, rx2 + rz2);
 
   // boulder dressing outside the fight
-  for (let i = 0; i < 12; i++) {
-    const tx = d.rng.int(6, GRID - 7), tz = d.rng.int(6, GRID - 7);
-    if (Math.hypot(tx - C, tz - C) > 36 && Math.abs(tz - 50) > 10 && openOutdoors(d, tx, tz)) {
+  for (let i = 0; i < L.boulders; i++) {
+    const tx = d.rng.int(box.x0 + 6, box.x1 - 6), tz = d.rng.int(box.z0 + 6, box.z1 - 6);
+    if (Math.hypot(tx - C, tz - C) > L.boulderR && Math.abs(tz - L.baseZ) > 10 && openOutdoors(d, tx, tz)) {
       claim(grid, claims, tx, tz, T_WALL);
       props.push({ type: 'rock', pos: tw(tx, tz), scale: d.rng.range(1.1, 1.8), rot: d.rng.range(0, Math.PI * 2) });
     }
   }
 
-  stampBase(grid, claims, props, d.vehiclePads, 0, 10, 50, ['tank', 'apc', 'tunneler', 'ambulance']);
-  stampBase(grid, claims, props, d.vehiclePads, 1, GRID - 11, 50, ['tank', 'apc', 'tunneler', 'ambulance']);
+  stampBase(grid, claims, props, d.vehiclePads, 0, L.baseX[0], L.baseZ, ['tank', 'apc', 'tunneler', 'ambulance']);
+  stampBase(grid, claims, props, d.vehiclePads, 1, L.baseX[1], L.baseZ, ['tank', 'apc', 'tunneler', 'ambulance']);
 
-  dealPickups(d, [[30, 40, 'medkit'], [30, 60, 'ammo'], [40, 28, 'energy'], [40, 72, 'ammo']]);
+  dealPickups(d, L.pickups);
+  sealOutside(grid, box);
   sealRim(grid);
 
+  const innerR = L.rings[0][0];
   return {
     seed, theme: 'titan', grid, grid2: d.grid2, surface,
-    basePos: [tw(10, 50), tw(GRID - 11, 50)],
-    spawns: [spawnRing(10, 50), spawnRing(GRID - 11, 50)],
-    flagPos: [tw(10, 50), tw(GRID - 11, 50)],
+    basePos: [tw(L.baseX[0], L.baseZ), tw(L.baseX[1], L.baseZ)],
+    spawns: [spawnRing(L.baseX[0], L.baseZ), spawnRing(L.baseX[1], L.baseZ)],
+    flagPos: [tw(L.baseX[0], L.baseZ), tw(L.baseX[1], L.baseZ)],
     hillPos: tw(C, C), // KOTH is the keep — hold the heart of the fort
     controlPoints: [
-      { name: 'NORTH SALLY', pos: tw(C, 38) },
+      { name: 'NORTH SALLY', pos: tw(C, C - innerR) },
       { name: 'THE KEEP', pos: tw(C, C) },
-      { name: 'SOUTH SALLY', pos: tw(C, 62) },
+      { name: 'SOUTH SALLY', pos: tw(C, C + innerR) },
     ],
-    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid),
+    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid, box),
     houses: d.houses, gates: [], pads: [], propCovered: settle(grid, claims),
   };
 }
