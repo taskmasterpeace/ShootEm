@@ -1951,6 +1951,35 @@ export class Renderer {
       }
     }
 
+    // ---- the RUN CARRY (Robert: "his arms don't move, the gun is always
+    // up"): a soldier sprinting between fights PUMPS his arms counter to
+    // the legs and drops the rifle to a patrol carry. The moment a shot
+    // fires (his own recoil timestamp), the gun snaps back up and the arms
+    // return to the two-handed hold. Blended, never snapped — and it runs
+    // for EVERY living soldier, Robert's GLB bodies and the procedural
+    // troopers alike.
+    if (!zed && s.kind !== 'scientist' && (j.armL || j.armR)) {
+      const rest = (mesh.userData.armRest ??= {
+        L: j.armL?.rotation.z ?? -0.75,
+        R: j.armR?.rotation.z ?? -0.5,
+      }) as { L: number; R: number };
+      const shotAt = this.recoilAt.get(s.id) ?? -Infinity;
+      const fighting = t - shotAt < 1.1;               // the gun stays up while it's hot
+      const running = moving && speed > 3.5 && !fighting && !airborne;
+      const blend = (mesh.userData.runBlend ??= { v: 0 }) as { v: number };
+      blend.v += ((running ? 1 : 0) - blend.v) * Math.min(1, this.frameDt * 7);
+      const b = blend.v;
+      const pump = Math.sin(phase) * 0.42 * Math.min(1, speed / 6);
+      // arms counter the legs (legL is +sin): hold-pose eases off as b rises
+      if (j.armL) j.armL.rotation.z = rest.L * (1 - b * 0.7) + -pump * b;
+      if (j.armR) j.armR.rotation.z = rest.R * (1 - b * 0.7) + pump * b;
+      if (j.gun) {
+        const baseY = (j.gun.userData.baseY ??= j.gun.position.y) as number;
+        j.gun.rotation.z = -0.42 * b;                  // muzzle dips off the shoulder
+        j.gun.position.y = baseY - 0.14 * b;
+      }
+    }
+
     // rifle recoil kick for the living gunners (undead reach lives in the shared pose)
     if (!zed && j.gun) {
       const shotAt = this.recoilAt.get(s.id) ?? -1;

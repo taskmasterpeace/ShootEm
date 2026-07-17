@@ -8,18 +8,19 @@ import type { ClassId, SoldierKind, Team } from '../../sim/types';
 import { box, cyl, limb, mat } from './shared';
 
 // ---------------------------------------------------------------------------
-// GLB BODIES (Robert's models, tools/soldier-pipeline.py): a class listed
-// here wears an AI-generated body — segmented into the SAME eight named
-// joints the animator swings, so gait/ragdoll/melee never know the
-// difference. United Front only (the faction law: Collective shows no skin),
-// and only once the one cached download lands — until then, and forever in
-// tests, the procedural trooper stands in. Never a pop mid-soldier: the
-// choice is made per-build, not per-frame.
+// GLB BODIES (Robert's models, tools/add-soldier.mjs): every class probes
+// /models/soldier_<class>.glb at boot — a file that exists wears in, a 404
+// stays procedural, ZERO code wiring per model. Bodies are segmented into
+// the SAME eight named joints the animator swings, so gait/ragdoll/melee
+// never know the difference. United Front only (the faction law: Collective
+// shows no skin), and only once the one cached download lands — until then,
+// and forever in tests, the procedural trooper stands in. Never a pop
+// mid-soldier: the choice is made per-build, not per-frame.
 // ---------------------------------------------------------------------------
-const GLB_BODIES: Partial<Record<ClassId, string>> = {
-  infantry: '/models/soldier_infantry.glb',
-  pathfinder: '/models/soldier_pathfinder.glb',
-};
+const GLB_CLASSES: ClassId[] = ['infantry', 'heavy', 'jump', 'engineer', 'medic', 'infiltrator', 'pathfinder', 'ghost'];
+const GLB_BODIES: Partial<Record<ClassId, string>> = Object.fromEntries(
+  GLB_CLASSES.map((c) => [c, `/models/soldier_${c}.glb`]),
+);
 const glbBodies = new Map<string, THREE.Group>();
 if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   for (const url of Object.values(GLB_BODIES)) {
@@ -30,6 +31,10 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
             o.castShadow = true;
             const m = o.material as THREE.MeshStandardMaterial;
             m.vertexColors = true;
+            // the baked colors wash out under the game sun — pull them down
+            // toward the procedural UF olive so both bodies read as one army
+            m.color.setRGB(0.62, 0.60, 0.52);
+            m.roughness = 0.9;
           }
         });
         glbBodies.set(url, gltf.scene);
@@ -58,12 +63,17 @@ function buildGlbTrooper(src: THREE.Group, classId: ClassId): THREE.Group {
     if (o instanceof THREE.Mesh) o.material = (o.material as THREE.Material).clone();
   });
   g.add(body);
-  // living arms hold the rifle — the animator only swings legs while alive,
-  // so the rest pose must match the procedural trooper's two-handed grip
+  // rifle-hold rest pose — the run cycle swings around these bases
   const armR = body.getObjectByName('armR');
   const armL = body.getObjectByName('armL');
   if (armR) armR.rotation.z = -0.5;
   if (armL) armL.rotation.z = -0.75;
+  // the faction band: one amber stripe over the left shoulder — the GLB
+  // body is Robert's art, the stripe is the army it fights for
+  const trim = mat(TEAM_COLORS[0], { emissive: TEAM_COLORS[0] });
+  const band = box(0.3, 0.05, 0.14, trim);
+  band.position.set(0.02, 1.52, 0.3);
+  g.add(band);
   const gun = buildRifle(classId);
   gun.position.set(0.42, 1.28, -0.16);
   gun.userData.baseX = gun.position.x;
