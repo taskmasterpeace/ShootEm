@@ -70,6 +70,50 @@ front's building stock is grown; the safehouse neighborhood is now 100%
 grown — with REAL front doors the horde has to break down (200+ door
 poundings and 15–26 breaches per simulated siege).
 
+## 2.6 Population-scaled tiers — SHIPPED (33C, `feature/maps`)
+
+Every front now builds in **three tiers keyed to lobby headcount**, decided
+per-front, never stretched (33C "population-scaled families"):
+
+| Tier | Ground | For | Reads as |
+|---|---|---|---|
+| `small` | 62×62 tiles (~186u) | ≤6 bots/team | the neighborhood fight |
+| `standard` | 82×82 (~246u) | 7–9 | the mid war |
+| `large` | the full 100×100 (~300u) | 10+ (12v12 keeps its balance ground) | the shipped fronts, as authored |
+
+- **Engine law:** `WORLD` stays 300u — a front authors inside a centered
+  playable **box** and seals everything outside it to solid ground (the
+  Highland Pass trick, generalized). No renderer/minimap/wire changes. What
+  scales is the ground BETWEEN the features and the COUNT of features — a
+  small city has fewer blocks, not smaller houses.
+- **The wire:** `generateFront(id, seed, size)`, or a `front@size` suffix on
+  the id — `main.ts` pushes the lobby's `botsPerTeam` through that suffix
+  (`mapSizeForPlayers`), so world.ts never learned about tiers.
+- **The law coverage:** every §8.2 law (sealed rim, zero orphans, full
+  reachability, no invisible walls, nothing indoors) now patrols all **30
+  grounds** in `tests/fronts.test.ts`, plus the new SCALE law (walkable
+  small < standard < large, per front).
+
+## 2.7 The City grows up — enterable everything + THE SEWER — SHIPPED
+
+The City was the first full rebuild on the tier system, and it carries the
+two ordinances Robert asked for:
+
+- **EVERY BUILDING IS ENTERABLE** — machine-checked, not hoped-for: from
+  each building's recorded front door, the BFS must reach a tile strictly
+  inside its roof rect. No facades, on any front, at any tier.
+- **THE SEWER** — roofed tunnel trunks under the sidewalk columns. Each
+  trunk is a stamped building (metal masonry the drill sparks off), entered
+  by **manhole ladders** set in both sidewalk walls, draining to the canal
+  through grate doors. The roof gives the §4 concealment rule: inside the
+  trunk you are OFF the map. Trunks run in segments that never wall a
+  street shut, and the quarantine's mouths can breach them. THE SEWER LAW
+  (same test file) pins manholes, roofed trunks, and reachable dark at
+  every tier.
+- **A guaranteed second storey** per tier (the `office2` lot: a grown
+  two-storey office, or the authored TENEMENT walk-up when the lot is
+  tight).
+
 ## 3. Dynamic houses — the neighborhood requirement (largely SHIPPED)
 
 The dynamic-interior system above delivers most of this: multi-room plans,

@@ -571,14 +571,22 @@ hull out of the motor pool; the manifest doesn't care that you got shot.
   motor pool — wreck fades, pad timer starts. Nobody gets to drown the
   team's only tank in the moat and lock the pool for a match.
 
-### 8.2 The maps — ten named fronts, in full ✅ *shipped — all ten authored (`src/sim/fronts.ts`)*
+### 8.2 The maps — ten named fronts, in full ✅ *shipped — all ten authored (`src/sim/fronts.ts`), now in three population tiers*
 
 > **Status:** every front below deploys onto AUTHORED ground from the Scar —
 > hand-placed bones (the river, the keep, the runway, the pit spiral), seeded
-> dressing only. Held to four machine-checked laws in `tests/fronts.test.ts`:
-> sealed rim · zero orphaned tiles · every objective/pad/door/drop BFS-reachable
-> from both bases · signature terrain asserted per front. The mapmaker's loupe
-> is `npx tsx tools/front-atlas.ts` (BMP per front, orphans burn red).
+> dressing only — and now at **three population tiers** (33C shipped on
+> `feature/maps`): small (~186u) for skirmishes, standard (~246u) for mid
+> wars, large (~300u) for 12v12+. The tier rides the lobby's headcount
+> (`mapSizeForPlayers` → `front@size`). The City carries the new ordinances:
+> **every building enterable** (machine-checked) and **THE SEWER** — roofed
+> tunnel trunks with manhole-ladder entrances and canal outflow grates,
+> concealed per §4. Held to the four machine-checked laws in
+> `tests/fronts.test.ts` — sealed rim · zero orphaned tiles · every
+> objective/pad/door/drop BFS-reachable from both bases · signature terrain
+> asserted per front — at **all 30 grounds**, plus the SCALE, ENTERABLE, and
+> SEWER laws. The mapmaker's loupe is `npx tsx tools/front-atlas.ts` (BMP
+> per front per tier, orphans burn red).
 
 > **The map PLAN now lives in its own document — [`docs/MAP-STRATEGY.md`](MAP-STRATEGY.md):**
 > map families (arena/paintball pockets, dynamic neighborhoods, the ten
