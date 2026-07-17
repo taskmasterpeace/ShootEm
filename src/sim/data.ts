@@ -42,6 +42,11 @@ const CORE_WEAPONS: Record<WeaponId, WeaponDef> = {
   impulse: W({ id: 'impulse', name: 'Impulse Cannon', damage: 30, rof: 1.5, speed: 55, spread: 0.008, clip: 8, reloadTime: 2, reserve: 64, range: 54, splash: 2.8, splashDamage: 18, knockback: 17, sound: 'impulse', tracer: 'rail' }),
   emp: W({ id: 'emp', name: 'EMP Charge', damage: 0, rof: 0.8, speed: 30, clip: 1, reserve: 0, range: 42, arc: true, sound: 'thump', tracer: 'plasma' }),
   target_beacon: W({ id: 'target_beacon', name: 'Targeting Beacon', damage: 0, rof: 0.8, speed: 28, clip: 1, reserve: 0, range: 44, arc: true, sound: 'thump', tracer: 'shell' }),
+  // THE GRENADE BAG (Robert): hand-thrown canisters on the same loft wheel
+  // and bank-shot physics as the frag. The payload field is the pop —
+  // detonatePayload already knows how to deliver smoke and fire.
+  smoke_nade: W({ id: 'smoke_nade', name: 'M-77 Smoke', damage: 0, rof: 0.8, speed: 16, clip: 1, reserve: 0, range: 26, arc: true, payload: 'smoke', sound: 'thump', tracer: 'canister' }),
+  fire_nade: W({ id: 'fire_nade', name: 'T-4 Incendiary', damage: 0, rof: 0.8, speed: 16, clip: 1, reserve: 0, range: 26, arc: true, payload: 'fire', sound: 'thump', tracer: 'canister' }),
   orbital_beacon: W({ id: 'orbital_beacon', name: 'Orbital Designator', damage: 0, rof: 0.5, speed: 26, clip: 1, reserve: 0, range: 42, arc: true, sound: 'thump', tracer: 'rocket' }),
   buggy_mg: W({ id: 'buggy_mg', name: 'Buggy MG', damage: 11, rof: 10, speed: 110, spread: 0.045, clip: Infinity, reserve: Infinity, range: 52, sound: 'smg' }),
   tank_cannon: W({ id: 'tank_cannon', name: '120mm Cannon', damage: 110, rof: 0.5, speed: 70, spread: 0.004, clip: Infinity, reserve: Infinity, range: 94, splash: 5.5, splashDamage: 60, knockback: 18, sound: 'cannon', tracer: 'rocket' }),

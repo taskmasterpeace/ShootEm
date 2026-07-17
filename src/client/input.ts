@@ -13,7 +13,7 @@ export class Input {
   grenadeAiming = false;
   /** grenade arc (0 flat rope … 1 mortar lob) — wheel adjusts while aiming */
   grenadeLob = 1;
-  private oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1 };
+  private oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false };
 
   static readonly CAM_MIN = 16;
   static readonly CAM_MAX = 80; // command height — semantic zoom keeps it readable
@@ -55,6 +55,7 @@ export class Input {
       if (k === 'g') this.grenadeAiming = true; // hold to aim — throw on release
       if (k === 'q') this.oneShot.ability = true;
       if (k === 'e') this.oneShot.use = true;
+      if (k === 'x') this.oneShot.nadeCycle = true; // rotate the grenade bag
       if (k >= '1' && k <= '3') this.oneShot.weaponSlot = parseInt(k) - 1;
       if (k === 'tab') { this.scoreboardHeld = true; e.preventDefault(); }
     });
@@ -163,8 +164,9 @@ export class Input {
       grenade: this.oneShot.grenade,
       weaponSlot: this.oneShot.weaponSlot,
       lob: this.grenadeLob,
+      nadeCycle: this.oneShot.nadeCycle,
     };
-    this.oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1 };
+    this.oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false };
     // any mouse/keyboard input hands the wheel back to the desk
     if (cmd.moveX || cmd.moveZ || cmd.fire || this.mouse.down) this.gamepadActive = false;
     this.pollGamepad(local, cmd);

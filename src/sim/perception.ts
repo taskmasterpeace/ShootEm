@@ -45,20 +45,42 @@ function eyeSees(e: Soldier, x: number, z: number, range: number): boolean {
   return diff <= CONE_HALF;
 }
 
+/** A standing smoke cloud, as the eyes care about it: center + radius. */
+export interface SmokeBlob { x: number; z: number; r: number }
+
+/** Does the sight line from A to B pass through any smoke? Segment-vs-circle
+ *  in 2D. Endpoints INSIDE a cloud count — smoke you're standing in blinds
+ *  you both ways (CS law: the cloud is the wall). */
+export function smokeBlocks(ax: number, az: number, bx: number, bz: number, smokes: SmokeBlob[]): boolean {
+  for (const c of smokes) {
+    const dx = bx - ax, dz = bz - az;
+    const len2 = dx * dx + dz * dz;
+    const t = len2 > 0 ? Math.max(0, Math.min(1, ((c.x - ax) * dx + (c.z - az) * dz) / len2)) : 0;
+    const px = ax + dx * t, pz = az + dz * t;
+    if (Math.hypot(c.x - px, c.z - pz) < c.r) return true;
+  }
+  return false;
+}
+
 /** Can this set of friendly eyes perceive enemy soldier `s` RIGHT NOW?
- *  `range` is the live vision budget — weather (§8.8) taxes it. */
-export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<number>, s: Soldier, range = PERCEIVE_RANGE): boolean {
+ *  `range` is the live vision budget — weather (§8.8) taxes it. `smokes`
+ *  are the standing clouds: they block the cone and the ring alike (a
+ *  grenade that "affects visibility" — Robert — or it's just décor). Pings
+ *  are electronic and the flag is public intel; smoke fools eyes, not radios. */
+export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<number>, s: Soldier, range = PERCEIVE_RANGE, smokes: SmokeBlob[] = []): boolean {
   if (s.cloaked && !pinged.has(s.id)) return false;   // cloak is TRUE
   if (s.carryingFlag !== -1) return true;             // objective intel is public
-  // the SKYLINE rule (§8.4): above the ground walls you're against the sky —
-  // a silhouette registers even in your periphery, so no cone check here
-  if (s.pos.y > 3 && eyes.some((e) => Math.hypot(s.pos.x - e.pos.x, s.pos.z - e.pos.z) < range)) return true;
   if (pinged.has(s.id)) return true;
+  // the SKYLINE rule (§8.4): above the ground walls you're against the sky —
+  // a silhouette registers even in your periphery, so no cone check here.
+  // (Above ~3u you're also above the smoke banks, so no smoke test.)
+  if (s.pos.y > 3 && eyes.some((e) => Math.hypot(s.pos.x - e.pos.x, s.pos.z - e.pos.z) < range)) return true;
   // cone + ring, then the window truth: losClear marches at eye height 1.4 —
   // inside the T_SLIT firing band — so a defender framed in glass is SEEN,
   // and a stalker behind your back past the ring is NOT
   return eyes.some((e) =>
     eyeSees(e, s.pos.x, s.pos.z, range) &&
+    !smokeBlocks(e.pos.x, e.pos.z, s.pos.x, s.pos.z, smokes) &&
     losClear(grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x: s.pos.x, y: 1.4, z: s.pos.z }));
 }
 

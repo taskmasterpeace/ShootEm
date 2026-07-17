@@ -126,7 +126,10 @@ function findTarget(w: World, s: Soldier, maxRange: number): Soldier | null {
     if (!e.alive || e.team === s.team || e.vehicleId >= 0) continue;
     const d = Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z);
     if (e.cloaked && d > 9) continue; // cloaked infiltrators are invisible beyond close range
-    if (d < bestD && losClear(w.map.grid, { ...s.pos, y: 1.4 }, { ...e.pos, y: 1.4 })) {
+    // sightClear = walls AND smoke — a bot must not track through the cloud
+    // a player just paid a grenade to stand up (Robert: smoke AFFECTS
+    // visibility, for every pair of eyes on the field)
+    if (d < bestD && w.sightClear(s.pos, e.pos)) {
       best = e;
       bestD = d;
     }

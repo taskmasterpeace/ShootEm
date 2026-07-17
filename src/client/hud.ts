@@ -167,10 +167,20 @@ export class Hud {
       const altTxt = !alt ? ''
         : alt.kind === 'overcharge' ? ' · RMB overcharge'
         : ` · RMB ${alt.kind} ×${s.altAmmo}`;
-      // paintballers get paintball truth — never advertise frags they don't have
+      // paintballers get paintball truth — never advertise frags they don't have.
+      // The grenade bag shows WHAT'S IN YOUR HAND: ➤ marks the pouch G throws
+      // from (X cycles); the others wait in small print.
+      const sel = s.nadeSel ?? 0;
+      const pouch = (idx: number, label: string, n: number) =>
+        n > 0 ? `${sel === idx ? '➤' : ''}${label} ×${n}` : '';
+      const bag = [
+        pouch(0, s.classId === 'engineer' ? 'mines' : 'frags', s.grenades),
+        pouch(1, 'smoke', s.smokes ?? 0),
+        pouch(2, 'fire', s.firebombs ?? 0),
+      ].filter(Boolean).join(' · ');
       $('ability-hint').textContent = world.mode.id === 'paintball'
         ? 'R reload · one splat and you sit'
-        : `${CLASSES[s.classId].abilityName} · ${s.grenades} ${s.classId === 'engineer' ? 'mines' : 'frags'}${altTxt}`;
+        : `${CLASSES[s.classId].abilityName} · ${bag || 'bag empty'}${altTxt} · X swaps`;
     }
 
     // respawn overlay

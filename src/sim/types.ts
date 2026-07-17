@@ -66,7 +66,7 @@ export interface WeaponDef {
   /** shove applied to victims (impulse cannon) */
   knockback: number;
   sound: string;
-  tracer: 'bullet' | 'shell' | 'rocket' | 'plasma' | 'rail' | 'flame' | 'beam' | 'acid' | 'none';
+  tracer: 'bullet' | 'shell' | 'rocket' | 'plasma' | 'rail' | 'flame' | 'beam' | 'acid' | 'canister' | 'none';
   /** arsenal family this weapon belongs to ('rifle', 'laser', 'mortar', …) */
   family?: WeaponFamily;
   /** Mk tier within the family (1..3) — drives the stat curve */
@@ -191,6 +191,14 @@ export interface Soldier {
   altBurstUntil: number;
   grenades: number;
   nextGrenadeAt: number;
+  /** THE GRENADE BAG (Robert: "expand our grenade selection"): smoke and
+   *  incendiary pouches alongside the class G-payload. `nadeSel` picks what
+   *  the G key throws — 0 = the class default (frag/mine/beacon/…),
+   *  1 = smoke, 2 = fire. X cycles, skipping empty pouches. Optional so
+   *  old snapshots replicate free (absent reads as 0). */
+  smokes?: number;
+  firebombs?: number;
+  nadeSel?: number;
   cloaked: boolean;
   vehicleId: number;  // -1 when on foot
   seat: number;
@@ -456,7 +464,8 @@ export interface SimEvent {
     | 'melee_windup'   // a melee swing began — the client telegraphs the strike
     | 'whistle'        // paintball referee: a round just started or ended
     | 'encased'        // a soldier was frozen alive in the ice block (§21.6)
-    | 'lsw_active';    // a piloted LSW fired its signature (text = ascendant id)
+    | 'lsw_active'     // a piloted LSW fired its signature (text = ascendant id)
+    | 'nade_bounce';   // a hand grenade kissed the ground — the tick before the bang
   pos?: Vec3;
   weapon?: WeaponId;
   /** On a 'hit': the shooter, but ONLY when a soldier/gadget was actually
@@ -548,4 +557,7 @@ export interface PlayerCmd {
    *  cursor either way — loft only chooses the road, never the destination.
    *  Absent = 1 (bots and old clients keep the classic lob). */
   lob?: number;
+  /** one-frame tap: rotate the grenade bag (frag/class-kit → smoke → fire),
+   *  skipping empty pouches. X on the keyboard. */
+  nadeCycle?: boolean;
 }

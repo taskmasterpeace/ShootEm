@@ -16,8 +16,11 @@ import { buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp, bu
 
 const TRACER_COLORS: Record<string, number> = {
   bullet: 0xffd890, shell: 0xffb060, rocket: 0xff8840, plasma: 0x60c8ff,
-  rail: 0x8fd0ff, flame: 0xff7020, beam: 0x70ffb0, acid: 0xa0e040, none: 0,
+  rail: 0x8fd0ff, flame: 0xff7020, beam: 0x70ffb0, acid: 0xa0e040,
+  canister: 0xd8d2c0, none: 0, // canister band recolored per weapon below
 };
+/** per-weapon canister band: smoke wears pale, incendiary wears warning red */
+const CANISTER_BANDS: Record<string, number> = { smoke_nade: 0xd8d2c0, fire_nade: 0xd84a20 };
 
 // ---- ragdoll ----
 /** Joints the ragdoll goes limp on (all swing on local Z). */
@@ -1483,7 +1486,8 @@ export class Renderer {
         // paintballs FLY in their shooter's paint — the rack is identity
         const paintball = world.mode.id === 'paintball' && p.weapon.startsWith('marker');
         mesh = this.makeProjectile(def.tracer,
-          paintball ? paintColorFor(p.ownerId, localId) : TRACER_COLORS[def.tracer] || 0xffcc88);
+          paintball ? paintColorFor(p.ownerId, localId)
+            : CANISTER_BANDS[p.weapon] ?? (TRACER_COLORS[def.tracer] || 0xffcc88));
         mesh.userData.tracer = def.tracer;
         this.scene.add(mesh);
         this.projMeshes.set(p.id, mesh);
@@ -1494,6 +1498,7 @@ export class Renderer {
       // per-round motion + flight trails make each family read distinctly
       const tr = mesh.userData.tracer as string;
       if (tr === 'shell') mesh.rotation.x += dt * 22; // tumbling shell
+      else if (tr === 'canister') mesh.rotation.x += dt * 9; // lazy end-over-end tin
       else if (tr === 'rocket') {
         this.particles.emit({ pos: { x: p.pos.x, y: p.pos.y, z: p.pos.z }, count: 1, color: 0x552e18, speed: 1, life: 0.5, spread: 0.15, up: 0, gravity: -1.5, size: 0.5 });
         this.particles.emit({ pos: { x: p.pos.x, y: p.pos.y, z: p.pos.z }, count: 1, color: 0xff8c30, speed: 1.5, life: 0.14, spread: 0.1, up: 0, size: 0.35 });
@@ -2136,6 +2141,15 @@ export class Renderer {
       }
       case 'shell': // stubby tumbling slug (shotgun, paint)
         return solid(new THREE.BoxGeometry(0.3, 0.15, 0.15), color);
+      case 'canister': { // hand canister (smoke/incendiary): a small tin with a band
+        const g = new THREE.Group();
+        const tin = solid(new THREE.CylinderGeometry(0.09, 0.09, 0.26, 7), 0x5d6656);
+        g.add(tin);
+        const band = solid(new THREE.CylinderGeometry(0.095, 0.095, 0.07, 7), color);
+        band.position.y = 0.06;
+        g.add(band);
+        return g;
+      }
       case 'acid': // wet green glob
         return solid(new THREE.SphereGeometry(0.2, 8, 6), color);
       case 'flame': // flickering ember (fire trail added in flight)
@@ -2192,11 +2206,12 @@ export class Renderer {
     const reach = Math.max(4, Math.min(Math.hypot(dx, dz), HAND_FRAG_REACH));
     const yaw = Math.atan2(dz, dx);
     // mirror throwProjectile EXACTLY, loft included — a preview that lies
-    // about the arc is worse than no preview (the wheel dials loft 0..1)
+    // about the arc is worse than no preview (the wheel dials loft 0..1).
+    // ×1.3 is the raised mortar ceiling (Robert: "a higher arc").
     let speed = 16;
     const muzzleY = 1.4, gArc = world.gravity * 0.7;
     const t0 = reach / speed;
-    const vyFull = Math.max(2, 0.5 * gArc * t0 - muzzleY / t0);
+    const vyFull = Math.max(2, 0.5 * gArc * t0 - muzzleY / t0) * 1.3;
     const vy = 2.2 + (Math.max(vyFull, 2.2) - 2.2) * Math.max(0, Math.min(1, loft));
     const t = (vy + Math.sqrt(vy * vy + 2 * gArc * muzzleY)) / gArc;
     speed = reach / t;
@@ -2413,6 +2428,10 @@ export class Renderer {
             audio.play('ice_freeze', { pos: e.pos, volume: 0.8 });
           }
           break;
+        case 'nade_bounce':
+          // the grenade kissing the ground — the tick that says GET AWAY
+          if (e.pos) audio.play('impact_dirt', { pos: e.pos, volume: 0.45, rate: 1.5 });
+          break;
         case 'lsw_active': {
           // a piloted LSW fired its signature — each speaks in its own voice
           if (!e.pos) break;
@@ -2483,8 +2502,16 @@ export class Renderer {
           break;
         case 'beacon_planted':
           if (e.pos) {
-            audio.play(e.big ? 'orbital_charge' : 'beacon', { pos: e.pos, volume: e.big ? 1 : 0.7 });
-            this.particles.emit({ pos: { ...e.pos, y: 0.8 }, count: 8, color: e.big ? 0xff4030 : 0xffcf70, speed: 2, life: 0.4, spread: 0.4, up: 3 });
+            if (e.text === 'Smoke deployed') {
+              // the smoke POP: a pressure hiss and a fast-blooming bank —
+              // this is a grenade paying off, not a gadget beeping
+              audio.play('gas_hiss', { pos: e.pos, volume: 0.85 });
+              this.particles.emit({ pos: { ...e.pos, y: 0.5 }, count: 26, color: 0xc8c4b6, speed: 3.5, life: 1.4, spread: 1.6, up: 1.6, gravity: 0.4, size: 0.9 });
+              this.particles.emit({ pos: { ...e.pos, y: 1.2 }, count: 14, color: 0xb8b4a8, speed: 2, life: 1.8, spread: 1.2, up: 1, gravity: 0.2, size: 1.1 });
+            } else {
+              audio.play(e.big ? 'orbital_charge' : 'beacon', { pos: e.pos, volume: e.big ? 1 : 0.7 });
+              this.particles.emit({ pos: { ...e.pos, y: 0.8 }, count: 8, color: e.big ? 0xff4030 : 0xffcf70, speed: 2, life: 0.4, spread: 0.4, up: 3 });
+            }
           }
           break;
         case 'orbital_strike': {

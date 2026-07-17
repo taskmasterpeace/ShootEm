@@ -13,7 +13,7 @@ import { stepMode, initMode } from './modes';
 import { generateFront } from './fronts';
 import { ICE_HOLD, ICE_HOLD_DRAIN, LSWS, STRUGGLE_HP, STRUGGLE_SECS, THREAT, lswAllowed, lswsForTeam } from './lsw';
 import { stepBot, stepDog, stepScientist, stepZombie } from './bots';
-import { PERCEIVE_RANGE, perceivesNow, type SeenMark } from './perception';
+import { PERCEIVE_RANGE, perceivesNow, smokeBlocks, type SeenMark, type SmokeBlob } from './perception';
 import { THEME_WEATHER, airGrounded, moveMult, visionMult, weatherAnnounce, type WeatherState } from './weather';
 
 const RESPAWN_DELAY = 4;
@@ -74,7 +74,7 @@ const SAM_CRUISE_ALT = 4.05; // just above the 4u walls so terrain can't eat the
 const SAM_DIVE_ALT = 2.6;    // terminal dive under the 3u vehicle-hit ceiling
 const FLARE_PULL_RADIUS = 18;
 /** max hand-frag throw — the HUD arc and the sim clamp share this */
-export const HAND_FRAG_REACH = 22;
+export const HAND_FRAG_REACH = 26; // Robert: "throw it just a little bit further" (was 22)
 /** structural hp of a door: ~11 walker claws (a lone walker bangs for ~9s,
  *  a pack of three is in within ~4), 3 brute swings, 1 tank shell, 2 GL-40s */
 export const DOOR_HP = 150;
@@ -669,6 +669,11 @@ export class World {
     s.clip = [WEAPONS[primary].clip, WEAPONS[secondary].clip];
     s.reserve = [WEAPONS[primary].reserve, WEAPONS[secondary].reserve];
     s.grenades = this.hasEquip(s, 'demoCharge') ? 3 : s.classId === 'infantry' ? 4 : s.classId === 'engineer' ? 3 : 2;
+    // the grenade bag: everyone carries smoke; one incendiary for the
+    // door-kickers. X cycles the pouch, G throws from it.
+    s.smokes = 2;
+    s.firebombs = s.classId === 'infantry' || s.classId === 'heavy' ? 1 : 0;
+    s.nadeSel = 0;
     s.manpads = this.hasEquip(s, 'samLauncher') ? MANPADS_ROUNDS : 0;
     s.medikitReady = true;
     s.meleeStrikeAt = 0; s.meleeWeapon = ''; // no swing survives a respawn
@@ -863,17 +868,34 @@ export class World {
     return PERCEIVE_RANGE * visionMult(this.weather);
   }
 
+  /** The standing smoke banks, as eyes care about them — rebuilt per tick by
+   *  updateLastSeen and shared with the bots' sightClear. */
+  smokeBlobs: SmokeBlob[] = [];
+
+  /** A sight line: walls AND smoke. What the bots' trigger discipline and
+   *  anything else that "looks" should use — losClear alone sees through
+   *  smoke, and a grenade that doesn't affect visibility is just décor. */
+  sightClear(from: Vec3, to: Vec3): boolean {
+    if (smokeBlocks(from.x, from.z, to.x, to.z, this.smokeBlobs)) return false;
+    return losClear(this.map.grid, { x: from.x, y: 1.4, z: from.z }, { x: to.x, y: 1.4, z: to.z });
+  }
+
   /** Stamp what each team can see this tick. Death wipes the trail — a corpse
    *  is not a track, and a respawn must never leak its new position. */
   private updateLastSeen() {
     const range = this.perceiveRange(); // weather taxes everyone's eyes equally
+    // gather the smoke banks once — perception and the bots share the list
+    this.smokeBlobs.length = 0;
+    for (const g of this.gadgets.values()) {
+      if (g.type === 'smoke_field') this.smokeBlobs.push({ x: g.pos.x, z: g.pos.z, r: 5 });
+    }
     for (const team of [0, 1] as Team[]) {
       const eyes: Soldier[] = [];
       for (const e of this.soldiers.values()) if (e.alive && e.team === team) eyes.push(e);
       for (const s of this.soldiers.values()) {
         if (s.team === team) continue;
         if (!s.alive) { this.lastSeen[team].delete(s.id); continue; }
-        if (perceivesNow(this.map.grid, eyes, this.pinged, s, range)) {
+        if (perceivesNow(this.map.grid, eyes, this.pinged, s, range, this.smokeBlobs)) {
           this.lastSeen[team].set(s.id, { t: this.time, x: s.pos.x, z: s.pos.z });
         }
       }
@@ -1467,12 +1489,52 @@ export class World {
     // grenade key: orbital designator > demolition kit > class special > frag.
     // Every thrown item is cursor-targeted: it lands at cmd.aimDist, clamped
     // to the item's max reach (proven top-down mechanic — throw at the cursor).
+    // X rotates the grenade bag: class default → smoke → fire, skipping
+    // empty pouches. The announcer names what's now in your hand.
+    if (cmd.nadeCycle) {
+      const pouches: [number, string][] = [
+        [1, `SMOKE ×${s.smokes ?? 0}`],
+        [2, `INCENDIARY ×${s.firebombs ?? 0}`],
+        [0, s.classId === 'engineer' ? `MINES ×${s.grenades}` : `FRAG ×${s.grenades}`],
+      ];
+      const cur = s.nadeSel ?? 0;
+      for (let step = 1; step <= 3; step++) {
+        const next = (cur + step) % 3;
+        const stocked = next === 0 ? true : next === 1 ? (s.smokes ?? 0) > 0 : (s.firebombs ?? 0) > 0;
+        if (stocked) {
+          if (next !== cur) {
+            s.nadeSel = next;
+            if (s.kind === 'human') {
+              const label = pouches.find(([i]) => i === next)![1];
+              this.emit({ type: 'announce', text: `GRENADE: ${label}`, big: false });
+            }
+          }
+          break;
+        }
+      }
+    }
     if (cmd.grenade && !swimming && this.time >= s.nextGrenadeAt) {
       const reachTo = (max: number) => Math.max(4, Math.min(cmd.aimDist ?? max, max));
       const grenadeGateBefore = s.nextGrenadeAt; // any branch that acts moves this
       // manpads only claims the key while an aircraft is locked — no lock, no wasted round
       const samTarget = s.manpads > 0 && this.hasEquip(s, 'samLauncher') ? this.samLockTarget(s) : null;
-      if (s.orbitals > 0) {
+      // the bag override: with smoke or fire in hand, G throws THAT — the
+      // class payload chain below never sees the press. Cycle back for it.
+      if (s.nadeSel === 1 && (s.smokes ?? 0) > 0) {
+        s.smokes = (s.smokes ?? 0) - 1;
+        s.nextGrenadeAt = this.time + 1.2;
+        this.throwProjectile(s, 'smoke_nade', 1.4, 16, true, reachTo(WEAPONS.smoke_nade.range), cmd.lob ?? 1, true);
+        this.emit({ type: 'shot', pos: s.pos, weapon: 'smoke_nade', soldierId: s.id });
+        if (s.cloaked) s.cloaked = false;
+        if ((s.smokes ?? 0) <= 0) s.nadeSel = 0; // empty pouch falls back to the class kit
+      } else if (s.nadeSel === 2 && (s.firebombs ?? 0) > 0) {
+        s.firebombs = (s.firebombs ?? 0) - 1;
+        s.nextGrenadeAt = this.time + 1.2;
+        this.throwProjectile(s, 'fire_nade', 1.4, 16, true, reachTo(WEAPONS.fire_nade.range), cmd.lob ?? 1, true);
+        this.emit({ type: 'shot', pos: s.pos, weapon: 'fire_nade', soldierId: s.id });
+        if (s.cloaked) s.cloaked = false;
+        if ((s.firebombs ?? 0) <= 0) s.nadeSel = 0;
+      } else if (s.orbitals > 0) {
         s.orbitals--;
         s.nextGrenadeAt = this.time + 1.5;
         this.throwProjectile(s, 'orbital_beacon', 1.4, 26, true, reachTo(WEAPONS.orbital_beacon.range));
@@ -1694,15 +1756,16 @@ export class World {
     // (per-theme) gravity, so low-g worlds lob correctly too.
     //
     // ARC CONTROL (Robert): `loft` slides vy between a flat rope (2.2) and
-    // the full ballistic lob — then speed is RE-SOLVED from the flight time
+    // a HIGH mortar rainbow — then speed is RE-SOLVED from the flight time
     // so the round still lands exactly on the cursor. The loft chooses the
-    // road; the destination never moves. loft=1 reproduces the classic
-    // trajectory bit-for-bit (t = reach/speed ⇒ re-solved speed = speed).
+    // road; the destination never moves. The ceiling is 1.3× the classic
+    // ballistic vy (Robert: "throw it at a higher arc… control the arc
+    // more") — max loft sails clean over a two-storey roof.
     let vy = 0;
     if (arc) {
       const gArc = this.gravity * 0.7;
       const t0 = reach / Math.max(speed, 1);
-      const vyFull = Math.max(2, 0.5 * gArc * t0 - muzzleY / t0);
+      const vyFull = Math.max(2, 0.5 * gArc * t0 - muzzleY / t0) * 1.3;
       const vyFlat = 2.2;
       vy = vyFlat + (Math.max(vyFull, vyFlat) - vyFlat) * Math.max(0, Math.min(1, loft));
       const tLand = (vy + Math.sqrt(vy * vy + 2 * gArc * muzzleY)) / gArc;
@@ -2469,6 +2532,32 @@ export class World {
       p.pos.x += p.vel.x * dt;
       p.pos.y += p.vel.y * dt;
       p.pos.z += p.vel.z * dt;
+
+      // GROUND BOUNCE (Robert: "I don't like that it doesn't bounce… kind of
+      // timed, bounce off walls and stuff"): a bouncing arc round that meets
+      // the floor KICKS back up, loses most of its pace, then settles and
+      // ROLLS out its fuse — it never explodes just because it arrived, and
+      // it never sinks under the map. The ttl (landing time + grace) is the
+      // fuse; where the grenade lies when it runs out is where it goes off.
+      if (p.arc && p.bounce && p.pos.y <= 0.14 && p.vel.y < 0) {
+        p.pos.y = 0.14;
+        const hSpeed = Math.hypot(p.vel.x, p.vel.z);
+        if (-p.vel.y > 2.6) {
+          // the kick — and the ground reads the ARRIVAL ANGLE: a steep
+          // mortar drop pops satisfyingly back up; a flat rope skims in
+          // shallow and the grass GRABS it (else it skips like a stone and
+          // the boom lands nowhere near the cursor's promise)
+          const steep = -p.vel.y > hSpeed * 0.6;
+          p.vel.y = -p.vel.y * 0.34;
+          const keep = steep ? 0.4 : 0.2;
+          p.vel.x *= keep; p.vel.z *= keep;
+          this.emit({ type: 'nade_bounce', pos: { ...p.pos }, weapon: p.weapon });
+        } else {
+          p.vel.y = 0;                                     // settled — now it rolls
+          p.vel.x *= 0.88; p.vel.z *= 0.88;
+          if (hSpeed < 0.4) { p.vel.x = 0; p.vel.z = 0; }
+        }
+      }
 
       let dead = false;
 

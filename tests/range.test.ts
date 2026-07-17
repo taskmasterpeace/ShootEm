@@ -106,7 +106,9 @@ describe('range: role bands are sane', () => {
       for (const p of w.projectiles.values()) if (p.weapon === 'gl') max = Math.max(max, p.pos.x);
       w.step(1 / 60, new Map());
     }
-    expect(max, `hand frag flew ${max.toFixed(1)}`).toBeLessThan(30); // short toss, not 46
+    // 26u reach + the ground-bounce skid (Robert's bouncing frag) — still
+    // a panic toss beside the GL-40's 46u lob
+    expect(max, `hand frag flew ${max.toFixed(1)}`).toBeLessThan(32);
     expect(max).toBeGreaterThan(12);
   });
 });
@@ -131,14 +133,15 @@ describe('grenade: cursor-targeted throw (cmd.aimDist)', () => {
   it('lands the frag at the commanded distance', () => {
     const at10 = fragLanding(10);
     const at18 = fragLanding(18);
-    expect(Math.abs(at10 - 10), `aimed 10, landed ${at10.toFixed(1)}`).toBeLessThan(3);
-    expect(Math.abs(at18 - 18), `aimed 18, landed ${at18.toFixed(1)}`).toBeLessThan(3);
+    // ±4.5: the splash-ring promise — bounces drift the rest point a little
+    expect(Math.abs(at10 - 10), `aimed 10, landed ${at10.toFixed(1)}`).toBeLessThan(4.5);
+    expect(Math.abs(at18 - 18), `aimed 18, landed ${at18.toFixed(1)}`).toBeLessThan(4.5);
     expect(at18).toBeGreaterThan(at10 + 4); // distance control is real
   });
 
   it('clamps a far cursor to the max hand-frag reach', () => {
     const far = fragLanding(60);
-    expect(far, `aimed 60, landed ${far.toFixed(1)}`).toBeLessThan(27);
+    expect(far, `aimed 60, landed ${far.toFixed(1)}`).toBeLessThan(32); // 26 clamp + bounce skid
     expect(far).toBeGreaterThan(17);
   });
 
