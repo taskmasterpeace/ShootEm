@@ -531,6 +531,19 @@ export class World {
         if (this.time >= (s.nextLswAt ?? 0)) { this.oblivionBolt(s); s.nextLswAt = this.time + 1.4; }
         if (this.time >= (s.nextLswActiveAt ?? 0)) { this.oblivionVoid(s); s.nextLswActiveAt = this.time + 8; }
       }
+    } else if (id === 'tremor') {
+      // EARTHQUAKE STOMP when a crowd is close (AoE damage + knockback + a
+      // fire-rate stagger standing in for "shaken aim" — a true accuracy debuff
+      // is a Notes 🔧), else a SOIL RIPPLE lobbed down the lane. A human pilot
+      // stomps on Q.
+      if (s.kind === 'bot' && this.time >= (s.nextLswAt ?? 0)) {
+        let near = false;
+        for (const e of this.soldiers.values()) {
+          if (e.alive && e.team !== s.team && e.id !== s.id && Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z) < 7) { near = true; break; }
+        }
+        if (near) this.tremorStomp(s); else this.tremorRipple(s);
+        s.nextLswAt = this.time + 3;
+      }
     }
   }
 
@@ -838,6 +851,41 @@ export class World {
     });
   }
 
+  /** Tremor's earthquake stomp: a slam at his feet — everyone close is hurt,
+   *  thrown, and their aim rattled (a fire-rate stagger; the movement/accuracy
+   *  "shaken aim" is a Notes 🔧). */
+  private tremorStomp(s: Soldier) {
+    for (const e of this.soldiers.values()) {
+      if (!e.alive || e.team === s.team || e.id === s.id) continue;
+      const dx = e.pos.x - s.pos.x, dz = e.pos.z - s.pos.z, d = Math.hypot(dx, dz);
+      if (d > 7) continue;
+      this.damageSoldier(e, 40 * (1 - d / 9), s.id, 'gl');
+      const inv = d > 0.01 ? 1 / d : 0;
+      e.pushX += dx * inv * 18; e.pushZ += dz * inv * 18;
+      e.nextFireAt = Math.max(e.nextFireAt, this.time + 0.8); // the shock rattles the aim
+    }
+    this.emit({ type: 'explosion', pos: { ...s.pos }, weapon: 'gl' });
+    this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'tremor', soldierId: s.id });
+    this.emit({ type: 'vo', text: 'vo_tremor_ability', pos: { ...s.pos }, soldierId: s.id });
+  }
+
+  /** Tremor's soil ripple: a slow, low, ground-hugging spike round lobbed at
+   *  the nearest enemy — you can see it coming, sidestep it. Returns false if
+   *  there's nothing in range. */
+  private tremorRipple(s: Soldier): boolean {
+    let d = Infinity;
+    for (const e of this.soldiers.values()) {
+      if (!e.alive || e.team === s.team || e.id === s.id) continue;
+      const dd = Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z);
+      if (dd < d) d = dd;
+    }
+    if (d === Infinity || d > WEAPONS.soil_spike.range) return false;
+    this.throwProjectile(s, 'soil_spike', 0.3, WEAPONS.soil_spike.speed, false, Math.max(6, d));
+    this.emit({ type: 'shot', pos: { x: s.pos.x, y: 0.3, z: s.pos.z }, weapon: 'soil_spike', soldierId: s.id });
+    this.emit({ type: 'vo', text: 'vo_tremor_ability', pos: { ...s.pos }, soldierId: s.id });
+    return true;
+  }
+
   /**
    * §7 THE SIGNATURE ON Q: a human pilot's active. Whiffs never burn the
    * cooldown — a signature that punishes you for pressing it stops being
@@ -927,6 +975,10 @@ export class World {
     } else if (id === 'oblivion') {
       // Q: open a black hole down your aim.
       this.oblivionVoid(s);
+      s.nextLswActiveAt = this.time + def.activeCd;
+    } else if (id === 'tremor') {
+      // Q: stomp the ground around you.
+      this.tremorStomp(s);
       s.nextLswActiveAt = this.time + def.activeCd;
     }
   }

@@ -46,6 +46,7 @@ export const SOUND_NAMES = [
   'vo_barrier_arrive', 'vo_barrier_kill3', 'vo_barrier_ability', 'vo_barrier_low', 'vo_barrier_death',
   'vo_reactor_arrive', 'vo_reactor_kill3', 'vo_reactor_ability', 'vo_reactor_low', 'vo_reactor_death',
   'vo_oblivion_arrive', 'vo_oblivion_kill3', 'vo_oblivion_ability', 'vo_oblivion_low', 'vo_oblivion_death',
+  'vo_tremor_arrive', 'vo_tremor_kill3', 'vo_tremor_ability', 'vo_tremor_low', 'vo_tremor_death',
   // the announcer's radio net — map-wide, both teams, per-LSW calls
   'ann_firebrand_inbound', 'ann_firebrand_landed', 'ann_firebrand_down', 'ann_firebrand_rampage',
   'ann_plaguebearer_inbound', 'ann_plaguebearer_landed', 'ann_plaguebearer_down', 'ann_plaguebearer_rampage',
@@ -57,6 +58,7 @@ export const SOUND_NAMES = [
   'ann_barrier_inbound', 'ann_barrier_landed', 'ann_barrier_down', 'ann_barrier_rampage',
   'ann_reactor_inbound', 'ann_reactor_landed', 'ann_reactor_down', 'ann_reactor_rampage',
   'ann_oblivion_inbound', 'ann_oblivion_landed', 'ann_oblivion_down', 'ann_oblivion_rampage',
+  'ann_tremor_inbound', 'ann_tremor_landed', 'ann_tremor_down', 'ann_tremor_rampage',
 ] as const;
 export type SoundName = (typeof SOUND_NAMES)[number];
 

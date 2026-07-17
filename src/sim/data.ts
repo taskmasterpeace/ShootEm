@@ -76,6 +76,7 @@ const CORE_WEAPONS: Record<WeaponId, WeaponDef> = {
   tag_dart: W({ id: 'tag_dart', name: 'Tag Dart', damage: 4, rof: 1, speed: 160, spread: 0.002, clip: 1, reserve: 0, range: 100, sound: 'rail', tracer: 'rail', tagsTarget: true }),
   plasma_orb: W({ id: 'plasma_orb', name: 'Plasma Overcharge', damage: 60, rof: 1, speed: 40, spread: 0.004, clip: 1, reserve: 0, range: 54, splash: 3.5, splashDamage: 40, knockback: 8, sound: 'plasma', tracer: 'plasma' }),
   void_bolt: W({ id: 'void_bolt', name: 'Void Bolt', damage: 45, rof: 1, speed: 24, clip: Infinity, reserve: Infinity, range: 60, splash: 3.5, splashDamage: 35, knockback: 6, arc: true, sound: 'plasma', tracer: 'plasma' }),
+  soil_spike: W({ id: 'soil_spike', name: 'Soil Spike', damage: 40, rof: 1, speed: 14, clip: Infinity, reserve: Infinity, range: 40, splash: 3, splashDamage: 30, knockback: 8, sound: 'thump', tracer: 'shell' }),
   skitter_bang: W({ id: 'skitter_bang', name: 'Skitter Charge', damage: 45, rof: 1, speed: 1, clip: 1, reserve: 0, range: 4, splash: 3.5, splashDamage: 45, knockback: 8, sound: 'thump', tracer: 'none' }),
   spitter_acid: W({ id: 'spitter_acid', name: 'Acid Spit', damage: 12, rof: 0.8, speed: 26, spread: 0.03, clip: Infinity, reserve: Infinity, range: 30, splash: 2.5, splashDamage: 8, sound: 'acid', tracer: 'acid' }),
 };

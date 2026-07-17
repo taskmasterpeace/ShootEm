@@ -448,6 +448,35 @@ describe('Oblivion — void and the black hole', () => {
 });
 
 // ---------------------------------------------------------------------------
+// TREMOR — an earthquake stomp (AoE damage + knockback + a fire-rate stagger)
+// and a slow soil-ripple round lobbed down the lane.
+// ---------------------------------------------------------------------------
+describe('Tremor — the earthquake', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('the stomp hurts and staggers everyone close', () => {
+    const w = quiet();
+    const t = w.addLsw('tremor', 1, { x: 0, y: 0, z: 0 })!;
+    const e = w.addSoldier('E', 'infantry', 0, 'human');
+    e.pos = { x: 3, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    const hp0 = e.hp, f0 = e.nextFireAt;
+    w.applyCmd(t, cmd({ ability: true }), 1 / 60);
+    expect(e.hp, 'the stomp did not hurt').toBeLessThan(hp0);
+    expect(e.nextFireAt, 'the stomp did not stagger the aim').toBeGreaterThan(f0);
+  });
+
+  it('the bot sends a soil ripple racing at a distant enemy', () => {
+    const w = quiet();
+    const t = w.addLsw('tremor', 1, { x: 0, y: 0, z: 0 })!; t.yaw = 0;
+    const e = w.addSoldier('E', 'infantry', 0, 'human');
+    e.pos = { x: 20, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    for (let i = 0; i < 10; i++) w.step(1 / 60, new Map([[e.id, cmd()]]));
+    const ripples = [...w.projectiles.values()].filter((p) => p.weapon === 'soil_spike').length;
+    expect(ripples, 'no soil ripple was sent').toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // §7 PLAYING AS AN LSW — you call it, you hold the mark, you BECOME it.
 // The full pilot loop: call → telegraph → ascension → Q signature → death
 // hands the body back.

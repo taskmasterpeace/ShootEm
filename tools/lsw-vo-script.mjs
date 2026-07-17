@@ -72,6 +72,12 @@ export const CAST = {
     persona: 'Oblivion, a Collective Living Super Weapon — a levitating void that speaks in absolutes. Cold, vast, hollow; utterly certain that everything ends and mildly bored by how long it is taking. Never raises its voice because it never needs to.',
     scene: 'A low gravitational hum. Sound bending inward. A distant, deep collapse.',
   },
+  tremor: {
+    voice: 'Gacrux',
+    fx: 'none', // low and grinding — the rumble is in the delivery
+    persona: 'Tremor, a Collective Living Super Weapon — a siege engine that fights from under the dirt. Heavy, slow, seismic; patient the way tectonic plates are patient. Speaks in short, ground-shaking statements and is never in a hurry.',
+    scene: 'A deep subterranean rumble. Soil shifting. The crack of stone under pressure.',
+  },
   announcer: {
     voice: 'Orus',
     fx: 'radio', // 300–3400Hz military net + soft clip
@@ -151,6 +157,13 @@ export const VO = [
   { slot: 'vo_oblivion_ability', who: 'oblivion', text: '[low] Fall in.', notes: ['Said as the black hole opens.', 'Almost gentle. That is worse.'] },
   { slot: 'vo_oblivion_low', who: 'oblivion', text: '[fraying] Even I... unravel.', notes: ['The certainty wavers for the first time.', 'A distant surprise.'] },
   { slot: 'vo_oblivion_death', who: 'oblivion', text: '[dissolving] Nothing... lasts.', notes: ['Proven right about itself, at the end.', 'The voice thins into silence.'] },
+
+  // ---- TREMOR: patient as tectonics ----
+  { slot: 'vo_tremor_arrive', who: 'tremor', text: '[low, grinding] The ground answers to me.', notes: ['A geological fact, stated flatly.', 'Deep and unhurried.'] },
+  { slot: 'vo_tremor_kill3', who: 'tremor', text: 'Three. [short pause] Buried.', notes: ['Matter-of-fact, like filling graves is just work.'] },
+  { slot: 'vo_tremor_ability', who: 'tremor', text: '[rumbling] Feel that?', notes: ['Said as the earth heaves — almost conversational.', 'The rumble is under the words.'] },
+  { slot: 'vo_tremor_low', who: 'tremor', text: '[strained] Cracks... running deep.', notes: ['The first fault line in his composure.'] },
+  { slot: 'vo_tremor_death', who: 'tremor', text: '[settling] Back... underground.', notes: ['No fear — a return to where he came from.', 'The rumble fades into the earth.'] },
 ];
 
 /** The announcer — map-wide, both teams, radio net. */
@@ -195,6 +208,10 @@ export const ANN = [
   { slot: 'ann_oblivion_landed', text: 'OBLIVION IS ON THE FIELD. WATCH FOR THE PULL.' },
   { slot: 'ann_oblivion_down', text: 'OBLIVION IS DOWN. THE VOID CLOSES.' },
   { slot: 'ann_oblivion_rampage', text: 'FIVE KILLS. OBLIVION IS SWALLOWING THE MAP.' },
+  { slot: 'ann_tremor_inbound', text: 'TREMOR INBOUND. [short pause] KEEP OFF THE OPEN GROUND.' },
+  { slot: 'ann_tremor_landed', text: 'TREMOR HAS SURFACED. WATCH THE SOIL.' },
+  { slot: 'ann_tremor_down', text: 'TREMOR IS DOWN. THE GROUND IS STILL.' },
+  { slot: 'ann_tremor_rampage', text: 'FIVE KILLS. TREMOR IS AN EARTHQUAKE.' },
 ];
 
 export const ANN_NOTES = [

@@ -168,6 +168,17 @@ export const LSWS: Record<AscendantId, LswDef> = {
     scale: 1.3, speed: 8, color: 0xe6ecf2, // void-white rim (black-and-white, never purple)
     activeLabel: 'BLACK HOLE — drag them in, then it bursts', activeCd: 7,
   },
+  tremor: {
+    id: 'tremor', name: 'Tremor', faction: 1, threat: 2,
+    lines: {
+      inbound: 'TREMOR INBOUND — KEEP OFF THE OPEN GROUND',
+      landed: 'TREMOR SURFACES — WATCH THE SOIL',
+      down: 'TREMOR IS DOWN — THE GROUND IS STILL',
+      rampage: 'FIVE KILLS — TREMOR IS AN EARTHQUAKE',
+    },
+    scale: 1.5, speed: 6, color: 0xa05a2a, // rusty earth-and-clay
+    activeLabel: 'EARTHQUAKE STOMP — stagger the ground around you', activeCd: 5,
+  },
 };
 
 /** THE SPOKEN SCRIPT — subtitle text per voice slot, tag-stripped mirrors of
@@ -226,6 +237,11 @@ export const VO_LINES: Record<string, { who: AscendantId; line: string }> = {
   vo_oblivion_ability: { who: 'oblivion', line: 'Fall in.' },
   vo_oblivion_low: { who: 'oblivion', line: 'Even I... unravel.' },
   vo_oblivion_death: { who: 'oblivion', line: 'Nothing... lasts.' },
+  vo_tremor_arrive: { who: 'tremor', line: 'The ground answers to me.' },
+  vo_tremor_kill3: { who: 'tremor', line: 'Three. Buried.' },
+  vo_tremor_ability: { who: 'tremor', line: 'Feel that?' },
+  vo_tremor_low: { who: 'tremor', line: 'Cracks... running deep.' },
+  vo_tremor_death: { who: 'tremor', line: 'Back... underground.' },
 };
 export const voSlot = (id: AscendantId, moment: VoMoment) => `vo_${id}_${moment}`;
 export const annSlot = (id: AscendantId, moment: 'inbound' | 'landed' | 'down' | 'rampage') => `ann_${id}_${moment}`;

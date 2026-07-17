@@ -1950,6 +1950,13 @@ export class Renderer {
         color: Math.random() < 0.5 ? 0x0a0a12 : 0xe6ecf2, speed: 0.6, life: 0.8,
         spread: 0.4, up: 0.2, gravity: 0.4, size: 0.34,
       });
+    } else if (id === 'tremor') {
+      // dirt and grit shaken loose low to the ground, falling back down
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.4, y: 0.1 + Math.random() * 0.8, z: s.pos.z + (Math.random() - 0.5) * 1.4 }, count: 1,
+        color: Math.random() < 0.5 ? 0xa05a2a : 0x6a4520, speed: 0.5, life: 0.7,
+        spread: 0.7, up: 0.8, gravity: 1.5, size: 0.4,
+      });
     }
     // the LSW's VOICE: an Ascendant is an event you can HEAR coming. A
     // per-unit signature on a throttle (roar/hiss/whoosh), and it gets more
