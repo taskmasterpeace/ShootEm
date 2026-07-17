@@ -14,10 +14,18 @@
 //   3. A persistent scar — the campaign hook (applied by main.ts scar mods).
 //   4. A doctrine lean — each front's motor pool tilts toward its stars.
 //
-// Scale note (33C): all ten ship on the standard 300u grid — inside the
-// "~300–360u standard front" band. Per-front SIZE variation is engine work
-// (WORLD is load-bearing across renderer/minimap/wire) and stays a named
-// follow-up; per-front CHARACTER variation is this file.
+// POPULATION-SCALED SIZES (33C, shipped): every front builds in three tiers
+// keyed to the lobby's bots-per-team count — small (~186u) for skirmishes,
+// standard (~246u) for mid wars, large (~300u, the full grid) for 12v12+.
+// The engine's WORLD stays 300u: a front authors inside a centered playable
+// BOX and seals everything outside it to solid ground (the Highland Pass
+// trick, generalized). Buildings keep their authored tile sizes at every
+// tier — what scales is the ground BETWEEN the features and the COUNT of
+// features: a small city has fewer blocks, not smaller houses.
+//
+// The tier reaches generateFront two ways: the explicit `size` argument
+// (tests, tools), or a `front@size` suffix on the id itself — the channel
+// main.ts uses to push the lobby's headcount through world.ts untouched.
 // ---------------------------------------------------------------------------
 import type { Team, Vec3 } from './types';
 import { Rng } from './rng';
@@ -116,6 +124,46 @@ const byId = (id: string): BuildingDef => {
   return def;
 };
 
+// ---------------------------------------------------------------------------
+// THE SIZE KIT — population-scaled fronts (33C)
+// ---------------------------------------------------------------------------
+
+/** The three population tiers. Lobby headcount picks the tier; a front is
+ *  authored once per tier, never stretched. */
+export type MapSize = 'small' | 'standard' | 'large';
+
+/** playable tile counts per tier (centered box; the grid is always 100²) */
+const SIZE_TILES: Record<MapSize, number> = { small: 62, standard: 82, large: 100 };
+
+/** The centered playable box for a tier, inclusive tile bounds. Everything
+ *  outside it is solid, sealed ground — the map's honest edge. */
+export interface Box { x0: number; z0: number; x1: number; z1: number }
+export function boxFor(size: MapSize): Box {
+  const t = SIZE_TILES[size];
+  const x0 = Math.floor((GRID - t) / 2);
+  return { x0, z0: x0, x1: x0 + t - 1, z1: x0 + t - 1 };
+}
+
+/** bots-per-team → the tier that population deserves. 12v12 keeps the full
+ *  300u grid it was balanced on; smaller wars get tighter ground so the
+ *  fight finds you. */
+export function mapSizeForPlayers(botsPerTeam: number): MapSize {
+  return botsPerTeam <= 6 ? 'small' : botsPerTeam <= 9 ? 'standard' : 'large';
+}
+
+/** fraction helpers: author in box-relative units, not absolute tiles */
+const bx = (b: Box, fx: number) => Math.round(b.x0 + fx * (b.x1 - b.x0));
+const bz = (b: Box, fz: number) => Math.round(b.z0 + fz * (b.z1 - b.z0));
+
+/** seal everything OUTSIDE the playable box to solid ground — the world
+ *  rim AND the margin read as impassable terrain, so small maps stay
+ *  honest (no walkable tile the war can never touch). */
+function sealOutside(grid: Uint8Array, b: Box) {
+  for (let z = 0; z < GRID; z++) for (let x = 0; x < GRID; x++) {
+    if (x < b.x0 || x > b.x1 || z < b.z0 || z > b.z1) grid[z * GRID + x] = T_WALL;
+  }
+}
+
 /** every front's team kit: pocket walls, clone bay, spawn ring, doctrine
  *  motor pool. The pad list IS the doctrine lean — tank country gets tanks,
  *  the pass gets transports, the port gets boats. */
@@ -152,13 +200,18 @@ function spawnRing(btx: number, btz: number): Vec3[] {
   return out;
 }
 
-function zombieRing(grid: Uint8Array): Vec3[] {
+function zombieRing(grid: Uint8Array, b?: Box): Vec3[] {
   const out: Vec3[] = [];
   const half = GRID / 2;
+  // on sized fronts the mouths ring the playable box, not the world rim —
+  // a mouth sealed inside the margin is a spawner the horde can't leave
+  const r = b ? Math.min(b.x1 - b.x0, b.z1 - b.z0) / 2 - 5 : half - 6;
+  const cx = b ? (b.x0 + b.x1) / 2 : half;
+  const cz = b ? (b.z0 + b.z1) / 2 : half;
   for (let i = 0; i < 12; i++) {
     const a = (i / 12) * Math.PI * 2;
-    const tx = Math.round(half + Math.cos(a) * (half - 6));
-    const tz = Math.round(half + Math.sin(a) * (half - 6));
+    const tx = Math.round(cx + Math.cos(a) * r);
+    const tz = Math.round(cz + Math.sin(a) * r);
     clearDisc(grid, tx, tz, 1);
     out.push(tw(tx, tz));
   }
@@ -513,50 +566,210 @@ function easternPlains(seed: number): GameMap {
 }
 
 // ---------------------------------------------------------------------------
-// 4 · THE CITY — a street grid of grown districts, a plaza, and a canal.
+// 4 · THE CITY — a street grid of grown districts, a plaza, a canal — and
+// THE SEWER: roofed tunnel trunks under the sidewalk columns, entered by
+// manhole ladders from the street, draining to the canal through grate
+// doors. The roof conceals (§4): inside the trunk you are OFF the map.
 // Signature: the K9 clearing an apartment stack room by room.
 // Doctrine: infantry country — K9, UGV, engineers. Scar: rubble.
+// LAW: every building in the city is ENTERABLE — doors, never facades.
 // ---------------------------------------------------------------------------
-function theCity(seed: number): GameMap {
+
+/** the tenement — the guaranteed two-storey fallback when a grown office
+ *  won't fit its lot: a walk-up with a ladder well and a nest upstairs. */
+const TENEMENT: BuildingDef = {
+  id: 'tenement', name: 'Tenement', kind: 'house', floors: 2,
+  rows: [
+    '#S#S#S#',
+    '#.....#',
+    '#..L.P#',
+    '#.....#',
+    '##DD###',
+  ],
+  rows2: [
+    '#S#S#S#',
+    'S.....S',
+    '#..L..#',
+    'S.....S',
+    '#S#S#S#',
+  ],
+};
+
+/** A SEWER TRUNK, grown to length: metal masonry the drill sparks off, a
+ *  two-tile walkway, manhole ladders on BOTH sidewalks, crate cover and a
+ *  cache in the dark, grate doors at the canal outflow. Stamped as a
+ *  building so the roof rect gives the §8.4 concealment the fiction needs —
+ *  from the street above, the tunnel and everyone in it does not exist. */
+function sewerTrunk(h: number, manholes: number[], outflow: boolean, rng: Rng): BuildingDef {
+  const rows: string[] = [];
+  for (let z = 0; z < h; z++) {
+    let r = 'M..M';
+    if (manholes.includes(z)) r = 'L..L';
+    else if (z > 1 && z < h - 2 && z % 9 === 4) r = rng.next() < 0.5 ? 'MC.M' : 'M.CM';
+    else if (z > 1 && z < h - 2 && z % 13 === 7) r = 'M.PM';
+    rows.push(r);
+  }
+  rows[0] = 'MMMM'; // blind end — the main runs on past the playable ground
+  rows[h - 1] = outflow ? 'MDDM' : 'MMMM'; // the outflow grates onto the bank
+  return { id: 'sewer_trunk', name: 'Sewer Trunk', kind: 'industrial', floors: 1, rows };
+}
+
+type CityLotKind = 'house' | 'shop' | 'office' | 'office2' | 'factory' | 'ruin' | 'stock';
+interface CityLot { x: number; z: number; kind: CityLotKind; stock?: string; w: number; h: number }
+interface CityLayout {
+  avenues: number[]; streets: number[];
+  canal: [number, number]; bank: number; bridges: number[];
+  trunks: number[]; segs: [number, number][]; manholes: number[];
+  lots: CityLot[]; plaza?: { x0: number; z0: number; x1: number; z1: number };
+  cps: [string, number, number][]; cars: [number, number][];
+  outskirts: number; pickups: [number, number, PickupSpawn['type']][];
+  baseTz: number; pool: VehicleKind[];
+}
+
+/** grow a district/house that FITS its lot — regrow on overflow, then fall
+ *  back to authored stock small enough to always fit. Deterministic: every
+ *  client rolls the same sequence from the same rng. */
+function growLot(rng: Rng, lot: CityLot): BuildingDef {
+  const fits = (def: BuildingDef) =>
+    def.rows.length <= lot.h && Math.max(...def.rows.map((r) => r.length)) <= lot.w;
+  const growOnce = (): BuildingDef => {
+    switch (lot.kind) {
+      case 'house': return generateHouse(rng, rng.next() < 0.5 ? 'bungalow' : 'hall_house');
+      case 'shop': return generateDistrict(rng, rng.next() < 0.5 ? 'storefront' : 'market');
+      case 'office': case 'office2': return generateDistrict(rng, 'office');
+      case 'factory': return generateDistrict(rng, rng.next() < 0.5 ? 'factory' : 'depot_hall');
+      case 'ruin': return byId('ruin');
+      default: return byId(lot.stock ?? 'shack');
+    }
+  };
+  if (lot.kind === 'stock' || lot.kind === 'ruin') return growOnce();
+  let def = growOnce();
+  if (lot.kind === 'office2') {
+    // the city's walk-up law: at least one real second storey, guaranteed —
+    // reroll until the office grows its loft (and still fits the lot)
+    for (let i = 0; i < 20 && !(def.rows2 && fits(def)); i++) def = growOnce();
+    if (!(def.rows2 && fits(def))) return TENEMENT;
+    return def;
+  }
+  for (let i = 0; i < 6 && !fits(def); i++) def = growOnce();
+  if (!fits(def)) {
+    const fallback: Record<string, string> = {
+      house: 'rowhouse', shop: 'mess_hall', office: 'barracks_hall', factory: 'machine_shop',
+    };
+    def = byId(fallback[lot.kind] ?? 'shack');
+  }
+  return def;
+}
+
+const CITY_LAYOUTS: Record<MapSize, CityLayout> = {
+  large: {
+    avenues: [18, 38, 58, 78], streets: [20, 44, 68],
+    canal: [88, 92], bank: 87, bridges: [28, 70],
+    trunks: [22, 74], segs: [[10, 18], [26, 40], [60, 66], [74, 86]],
+    manholes: [14, 30, 36, 63, 78],
+    lots: [
+      { x: 6, z: 8, kind: 'shop', w: 11, h: 11 }, { x: 28, z: 8, kind: 'house', w: 9, h: 11 },
+      { x: 44, z: 8, kind: 'office2', w: 13, h: 11 }, { x: 62, z: 8, kind: 'house', w: 11, h: 11 },
+      { x: 84, z: 8, kind: 'house', w: 11, h: 11 },
+      { x: 6, z: 26, kind: 'house', w: 11, h: 15 }, { x: 28, z: 26, kind: 'office', w: 9, h: 15 },
+      { x: 44, z: 26, kind: 'house', w: 13, h: 15 }, { x: 62, z: 26, kind: 'shop', w: 11, h: 15 },
+      { x: 84, z: 26, kind: 'ruin', w: 11, h: 15 },
+      { x: 6, z: 50, kind: 'house', w: 9, h: 15 }, { x: 28, z: 50, kind: 'shop', w: 9, h: 15 },
+      { x: 62, z: 50, kind: 'office', w: 11, h: 15 }, { x: 84, z: 50, kind: 'house', w: 11, h: 15 },
+      { x: 28, z: 74, kind: 'house', w: 9, h: 13 }, { x: 44, z: 74, kind: 'factory', w: 13, h: 13 },
+      { x: 62, z: 74, kind: 'house', w: 11, h: 13 },
+    ],
+    plaza: { x0: 44, z0: 50, x1: 56, z1: 66 },
+    cps: [['MARKET', 30, 46], ['PLAZA', 50, 58], ['DEPOT', 68, 46]],
+    cars: [[38, 44], [58, 20], [78, 68], [18, 68], [58, 44]],
+    outskirts: 10,
+    pickups: [[38, 22, 'medkit'], [40, 46, 'ammo'], [38, 70, 'energy'], [30, 87, 'ammo']],
+    baseTz: 50, pool: ['apc', 'buggy', 'bike', 'ambulance'],
+  },
+  standard: {
+    avenues: [18, 38, 58, 78], streets: [20, 44, 68],
+    canal: [84, 88], bank: 83, bridges: [28, 70],
+    trunks: [22, 74], segs: [[10, 18], [26, 36], [58, 66], [74, 82]],
+    manholes: [14, 30, 34, 62, 78],
+    lots: [
+      { x: 28, z: 10, kind: 'house', w: 9, h: 9 }, { x: 44, z: 10, kind: 'shop', w: 13, h: 9 },
+      { x: 62, z: 10, kind: 'house', w: 11, h: 9 },
+      { x: 28, z: 24, kind: 'office2', w: 9, h: 13 }, { x: 44, z: 24, kind: 'house', w: 13, h: 13 },
+      { x: 62, z: 24, kind: 'shop', w: 11, h: 13 },
+      { x: 28, z: 58, kind: 'shop', w: 9, h: 9 }, { x: 44, z: 58, kind: 'office', w: 13, h: 9 },
+      { x: 62, z: 58, kind: 'house', w: 11, h: 9 },
+      { x: 28, z: 72, kind: 'house', w: 9, h: 11 }, { x: 44, z: 72, kind: 'factory', w: 13, h: 11 },
+      { x: 62, z: 72, kind: 'house', w: 11, h: 11 },
+    ],
+    plaza: { x0: 44, z0: 48, x1: 56, z1: 56 },
+    cps: [['MARKET', 30, 46], ['PLAZA', 50, 52], ['DEPOT', 68, 46]],
+    cars: [[38, 44], [58, 68], [18, 68], [58, 44]],
+    outskirts: 8,
+    pickups: [[38, 22, 'medkit'], [40, 46, 'ammo'], [38, 66, 'energy'], [30, 83, 'ammo']],
+    baseTz: 47, pool: ['apc', 'buggy', 'bike', 'ambulance'],
+  },
+  small: {
+    avenues: [26, 50], streets: [28, 54],
+    canal: [72, 76], bank: 71, bridges: [38, 60],
+    trunks: [30, 66], segs: [[58, 70]],
+    manholes: [61, 67],
+    lots: [
+      { x: 34, z: 20, kind: 'stock', stock: 'hut', w: 8, h: 7 },
+      { x: 56, z: 20, kind: 'stock', stock: 'rowhouse', w: 9, h: 7 },
+      { x: 70, z: 20, kind: 'stock', stock: 'shack', w: 6, h: 7 },
+      { x: 40, z: 36, kind: 'house', w: 8, h: 13 },
+      { x: 55, z: 36, kind: 'office2', w: 7, h: 13 },
+      { x: 70, z: 36, kind: 'shop', w: 8, h: 13 },
+    ],
+    plaza: { x0: 40, z0: 58, x1: 62, z1: 68 },
+    cps: [['MARKET', 38, 50], ['PLAZA', 50, 63], ['DEPOT', 62, 50]],
+    cars: [[26, 54], [50, 28]],
+    outskirts: 6,
+    pickups: [[34, 26, 'medkit'], [40, 56, 'ammo'], [38, 64, 'energy']],
+    baseTz: 44, pool: ['apc', 'buggy', 'ambulance'],
+  },
+};
+
+function theCity(seed: number, size: MapSize = 'large'): GameMap {
+  const L = CITY_LAYOUTS[size];
+  const box = boxFor(size);
   const d = draft(seed, T_OPEN, S_GRIT); // asphalt world; parks paint over it
   const { grid, surface, props, claims } = d;
   const ctx = ctxOf(d);
 
   // PAVE THE GRID: avenues and cross-streets in plate — the city reads as a
-  // city from command height (the atlas showed one undifferentiated slab)
-  for (const ax of [18, 38, 58, 78]) rectSurf(surface, ax, 6, ax + 3, 87, S_PLATE);
-  for (const sz of [20, 44, 68]) rectSurf(surface, 8, sz, 91, sz + 3, S_PLATE);
+  // city from command height
+  for (const ax of L.avenues) rectSurf(surface, ax, box.z0 + 4, ax + 3, box.z1 - 4, S_PLATE);
+  for (const sz of L.streets) rectSurf(surface, box.x0 + 4, sz, box.x1 - 4, sz + 3, S_PLATE);
 
-  // the CANAL along the south edge — the "sewer" lane, two footbridges
-  rect(grid, 8, 88, 91, 92, T_WATER);
-  rect(grid, 8, 89, 91, 91, T_DEEP);
-  for (const bx of [28, 70]) {
-    rect(grid, bx, 88, bx + 1, 92, T_OPEN);
-    rectSurf(surface, bx, 88, bx + 1, 92, S_PLATE);
+  // the CANAL along the south edge — the sewer's drain, two footbridges
+  rect(grid, box.x0 + 4, L.canal[0], box.x1 - 4, L.canal[1], T_WATER);
+  rect(grid, box.x0 + 4, L.canal[0] + 1, box.x1 - 4, L.canal[1] - 1, T_DEEP);
+  for (const bx2 of L.bridges) {
+    rect(grid, bx2, L.canal[0], bx2 + 1, L.canal[1], T_OPEN);
+    rectSurf(surface, bx2, L.canal[0], bx2 + 1, L.canal[1], S_PLATE);
   }
 
-  // districts on a 3×3-ish grid; avenues x=18/38/58/78, streets z=20/44/68.
-  // Every lot is GROWN — no two cities share a floor plan — but the LOTS are
-  // authored so the street grid always reads.
-  const lots: { x: number; z: number; kind: 'house' | 'shop' | 'office' | 'factory' | 'ruin' }[] = [
-    { x: 22, z: 8, kind: 'house' }, { x: 42, z: 8, kind: 'house' }, { x: 62, z: 8, kind: 'shop' },
-    { x: 22, z: 26, kind: 'ruin' }, { x: 42, z: 26, kind: 'office' }, { x: 62, z: 26, kind: 'shop' },
-    { x: 22, z: 50, kind: 'shop' }, { x: 62, z: 50, kind: 'office' },
-    { x: 22, z: 72, kind: 'house' }, { x: 42, z: 72, kind: 'factory' }, { x: 62, z: 72, kind: 'house' },
-  ];
-  // STREET LAW: a lot is 15 tiles wide — the avenues are the city's lanes
-  // and no grown floor plan gets to wall one shut. A def that outgrows its
-  // lot falls back to authored stock that fits. Deterministic per seed.
-  const fits = (def: BuildingDef) =>
-    def.rows.length <= 15 && Math.max(...def.rows.map((r) => r.length)) <= 15;
-  const clamp = (def: BuildingDef, fallback: string) => (fits(def) ? def : byId(fallback));
-  for (const lot of lots) {
-    const def =
-      lot.kind === 'house' ? clamp(generateHouse(d.rng, 'bungalow'), 'rowhouse')
-      : lot.kind === 'shop' ? clamp(generateDistrict(d.rng, d.rng.next() < 0.5 ? 'storefront' : 'market'), 'depot')
-      : lot.kind === 'office' ? clamp(generateDistrict(d.rng, 'office'), 'barracks_hall')
-      : lot.kind === 'factory' ? clamp(generateDistrict(d.rng, 'factory'), 'machine_shop')
-      : byId('ruin');
+  // THE SEWER: trunk segments under the sidewalk columns. Each segment is a
+  // stamped building — roofed, concealed, entered by manhole ladders from
+  // the street. The south segment grates open onto the canal bank.
+  for (const tx of L.trunks) {
+    for (let s = 0; s < L.segs.length; s++) {
+      const [z0, z1] = L.segs[s];
+      const h = z1 - z0 + 1;
+      const local = L.manholes.filter((z) => z >= z0 && z <= z1).map((z) => z - z0);
+      const outflow = s === L.segs.length - 1;
+      const def = sewerTrunk(h, local, outflow, d.rng);
+      stampBuilding(ctx, def, tx, z0, 40 + tx + s);
+      rectSurf(surface, tx, z0, tx + 3, z0 + h - 1, S_WET); // the muck
+    }
+  }
+
+  // districts: every lot GROWN, every building ENTERABLE — doors, never
+  // facades (the city's law). Lots keep clear of avenues, trunks, and the
+  // base lanes; the street grid always reads.
+  for (const lot of L.lots) {
+    const def = growLot(d.rng, lot);
     stampBuilding(ctx, def, lot.x, lot.z, lot.x + lot.z);
     if (lot.kind === 'ruin') {
       // the shelled block: rubble spills into the street
@@ -572,31 +785,37 @@ function theCity(seed: number): GameMap {
 
   // THE PLAZA: the city's heart — open, paved, and watched from every side.
   // The monument is THE MEMORIAL: Robert's soldier cast in bronze, facing
-  // south down the plaza toward the CP — the city remembers its dead.
-  rect(grid, 44, 46, 56, 62, T_OPEN);
-  rectSurf(surface, 44, 46, 56, 62, S_PLATE);
-  claim(grid, claims, 50, 54, T_WALL);
-  props.push({ type: 'memorial', pos: tw(50, 54), scale: 1.25, rot: -Math.PI / 2 });
-  for (const [px, pz] of [[46, 48], [54, 48], [46, 60], [54, 60]] as const) {
-    claim(grid, claims, px, pz, T_COVER);
-    props.push({ type: 'crate', pos: tw(px, pz), scale: 1, rot: d.rng.range(0, Math.PI) });
+  // south down the plaza — the city remembers its dead.
+  if (L.plaza) {
+    const p = L.plaza;
+    rect(grid, p.x0, p.z0, p.x1, p.z1, T_OPEN);
+    rectSurf(surface, p.x0, p.z0, p.x1, p.z1, S_PLATE);
+    const mx = Math.floor((p.x0 + p.x1) / 2), mz = Math.floor((p.z0 + p.z1) / 2);
+    claim(grid, claims, mx, mz, T_WALL);
+    props.push({ type: 'memorial', pos: tw(mx, mz), scale: 1.25, rot: -Math.PI / 2 });
+    for (const [px, pz] of [[p.x0 + 2, p.z0 + 2], [p.x1 - 2, p.z0 + 2], [p.x0 + 2, p.z1 - 2], [p.x1 - 2, p.z1 - 2]] as const) {
+      if (grid[idx(px, pz)] === T_OPEN) {
+        claim(grid, claims, px, pz, T_COVER);
+        props.push({ type: 'crate', pos: tw(px, pz), scale: 1, rot: d.rng.range(0, Math.PI) });
+      }
+    }
   }
 
   // burnt cars at the big intersections — street cover, city texture
-  for (const [wx, wz] of [[38, 44], [58, 20], [78, 68], [18, 68], [58, 44]] as const) {
+  for (const [wx, wz] of L.cars) {
     if (openOutdoors(d, wx, wz)) {
       claim(grid, claims, wx, wz, T_COVER);
       props.push({ type: 'wreck', pos: tw(wx, wz), scale: 0.8, rot: d.rng.range(0, Math.PI * 2) });
     }
   }
 
-  // THE OUTSKIRTS: the flanks are edge-of-town, not empty felt — junked
-  // cars, dumped crates, and rubble where the city frays toward the bases
-  for (let i = 0; i < 10; i++) {
+  // THE OUTSKIRTS: the flanks are edge-of-town — junked cars, dumped crates,
+  // rubble where the city frays toward the bases
+  for (let i = 0; i < L.outskirts; i++) {
     const west = i % 2 === 0;
-    const tx = west ? d.rng.int(9, 16) : d.rng.int(83, 90);
-    const tz = d.rng.int(10, 84);
-    if (!openOutdoors(d, tx, tz) || Math.abs(tz - 50) < 9) continue; // the base lanes stay clear
+    const tx = west ? d.rng.int(box.x0 + 2, box.x0 + 8) : d.rng.int(box.x1 - 8, box.x1 - 2);
+    const tz = d.rng.int(box.z0 + 6, box.z1 - 6);
+    if (!openOutdoors(d, tx, tz) || Math.abs(tz - L.baseTz) < 9) continue; // the base lanes stay clear
     const roll = d.rng.next();
     if (roll < 0.4) {
       claim(grid, claims, tx, tz, T_COVER);
@@ -610,25 +829,24 @@ function theCity(seed: number): GameMap {
     }
   }
 
-  stampBase(grid, claims, props, d.vehiclePads, 0, 10, 50, ['apc', 'buggy', 'bike', 'ambulance']);
-  stampBase(grid, claims, props, d.vehiclePads, 1, GRID - 11, 50, ['apc', 'buggy', 'bike', 'ambulance']);
+  stampBase(grid, claims, props, d.vehiclePads, 0, box.x0 + 10, L.baseTz, L.pool);
+  stampBase(grid, claims, props, d.vehiclePads, 1, box.x1 - 9, L.baseTz, L.pool);
 
-  dealPickups(d, [[38, 22, 'medkit'], [40, 46, 'ammo'], [38, 70, 'energy'], [30, 90, 'ammo']]);
+  dealPickups(d, L.pickups);
   mudMargins(grid, surface);
+  sealOutside(grid, box);
   sealRim(grid);
 
   return {
     seed, theme: 'savanna', grid, grid2: d.grid2, surface,
-    basePos: [tw(10, 50), tw(GRID - 11, 50)],
-    spawns: [spawnRing(10, 50), spawnRing(GRID - 11, 50)],
-    flagPos: [tw(10, 50), tw(GRID - 11, 50)],
-    hillPos: tw(50, 54),
-    controlPoints: [
-      { name: 'MARKET', pos: tw(30, 46) },
-      { name: 'PLAZA', pos: tw(50, 56) },
-      { name: 'DEPOT', pos: tw(70, 46) },
-    ],
-    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid),
+    basePos: [tw(box.x0 + 10, L.baseTz), tw(box.x1 - 9, L.baseTz)],
+    spawns: [spawnRing(box.x0 + 10, L.baseTz), spawnRing(box.x1 - 9, L.baseTz)],
+    flagPos: [tw(box.x0 + 10, L.baseTz), tw(box.x1 - 9, L.baseTz)],
+    hillPos: L.plaza
+      ? tw(Math.floor((L.plaza.x0 + L.plaza.x1) / 2), Math.floor((L.plaza.z0 + L.plaza.z1) / 2) + 2)
+      : tw(50, 50),
+    controlPoints: L.cps.map(([name, x, z]) => ({ name, pos: tw(x, z) })),
+    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid, box),
     houses: d.houses, gates: [], pads: [], propCovered: settle(grid, claims),
   };
 }
@@ -1297,7 +1515,7 @@ function theMine(seed: number): GameMap {
 // the registry — main.ts and world.ts deploy through this door
 // ---------------------------------------------------------------------------
 
-export const FRONT_GROUNDS: Record<string, (seed: number) => GameMap> = {
+export const FRONT_GROUNDS: Record<string, (seed: number, size?: MapSize) => GameMap> = {
   bridge_delta: bridgeDelta,
   fort_raven: fortRaven,
   eastern_plains: easternPlains,
@@ -1310,16 +1528,27 @@ export const FRONT_GROUNDS: Record<string, (seed: number) => GameMap> = {
   the_mine: theMine,
 };
 
-/** authored ground for a Scar front. Unknown ids fall back to null so the
- *  caller can keep the old recipe path (forward compat with new fronts). */
-export function generateFront(frontId: string, seed: number): GameMap | null {
-  const gen = FRONT_GROUNDS[frontId];
-  return gen ? gen(seed) : null;
+/** authored ground for a Scar front, at the tier the lobby's headcount earns
+ *  (33C). The tier arrives as the `size` argument OR baked into the id as
+ *  `front@size` — the channel callers that only pass an id (world.ts) use to
+ *  stay untouched. Unknown ids fall back to null so the caller can keep the
+ *  old recipe path (forward compat with new fronts). */
+export function generateFront(frontId: string, seed: number, size: MapSize = 'large'): GameMap | null {
+  let id = frontId;
+  let sz = size;
+  const at = frontId.indexOf('@');
+  if (at >= 0) {
+    id = frontId.slice(0, at);
+    const s = frontId.slice(at + 1);
+    if (s === 'small' || s === 'standard' || s === 'large') sz = s;
+  }
+  const gen = FRONT_GROUNDS[id];
+  return gen ? gen(seed, sz) : null;
 }
 
 /** exported for tests: every stencil a front hand-authors answers to the
  *  same connectivity law as the grown stock — no sealed rooms, ever. */
-export const FRONT_STENCILS: BuildingDef[] = [THE_KEEP, LAB_TOWER, CONTROL_ROOM, HANGAR, TOWER, GALLERY];
+export const FRONT_STENCILS: BuildingDef[] = [THE_KEEP, LAB_TOWER, CONTROL_ROOM, HANGAR, TOWER, GALLERY, TENEMENT];
 
 /** exported for tests: the walkability the reachability law is judged by.
  *  Doors count (E opens them); water counts (everyone wades/swims); climb
