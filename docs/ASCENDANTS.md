@@ -43,12 +43,73 @@ spawn protection · per-theme gravity · the announcer · **the run carry**.
 
 ---
 
+## 1.5 THREAT LEVELS — the designation, and the balance behind it
+
+Robert: *"We need balance, then threat level designations."* The threat level
+is the LSW's **price, its telegraph, and the announcer's warning** — one
+number that says how much of the front has to stop what it's doing.
+
+**The baseline everything is priced against (measured, not invented):**
+a trooper has **100 HP**; the AR-606 does **13 × 7.5/s ≈ 97 dps** on paper,
+call it **~45 dps** in a real fight (cover, misses, reloads, being shot at);
+the hardest thing currently on the field, a **brute, is 320 HP**. So one
+rifleman ≈ 45 dps, a 4-man squad ≈ 180, a focused 12-man team ≈ 540.
+
+| Threat | Designation | HP | ≈ brutes | Who has to answer it | Materiel | Telegraph |
+|---|---|---|---|---|---|---|
+| **1** | **SKIRMISH** | 1200 | 3.75× | a squad of 4, ~6s of honest focus | 1 | 15s |
+| **2** | **STRONGPOINT** | 2600 | 8× | a squad + the right counter-pick, or a vehicle | 2 | 20s |
+| **3** | **SIEGE** | 5000 | 16× | the TEAM, with heavy weapons — the front stops | 4 | 30s |
+| **4** | **EXTINCTION** | 9000 | 28× | everyone, all-in, and you still might lose | 7 | 40s |
+
+> **HP is MEASURED, not guessed** (Robert: "test to determine threat
+> level"). The first-cut numbers (450–2800) were priced off a paper ~180 dps
+> squad — but the harness probe showed a focused, self-healing 4-squad lands
+> far more than that, and a 900-HP body died in 4–7s: a fat trooper, not a
+> STRONGPOINT. Retuned and re-verified live: a **T2 Firebrand (2600 HP) now
+> survives 12.2s against a relentless 4-squad, 6.5s against 8** — a fight the
+> front has to commit to. Every LSW gets this pass at build time; the table
+> is corrected to what actually happened.
+
+**The laws that keep it honest:**
+- **Threat buys HP, never immunity.** Every LSW dies to ordinary rifles —
+  a T4 is 62 seconds of a full team's focused fire, which is an eternity in
+  a firefight but never a locked door. No damage floors, no phase gates, no
+  "you need the special weapon."
+- **Bigger threat = longer telegraph.** A T4 announces 40 seconds before it
+  lands. That's not mercy, it's the drama: both sides get the countdown, and
+  the fight bends around it.
+- **The officer pays.** Materiel cost scales with threat, so a T4 is the
+  stable's whole afternoon. Dropping one is a decision, not a rotation.
+- **These are DESIGN TARGETS, not final numbers.** Robert: *"test to fix
+  bugs and to determine threat level."* Every LSW gets an empirical pass in
+  the harness at build time — time-to-kill under a real squad, and the row
+  below gets corrected to what actually happened. A number nobody measured
+  is a guess wearing a uniform.
+
+### The designations
+
+| Threat | United Front | The Collective |
+|---|---|---|
+| **1 · SKIRMISH** | Shadowstep · Blitz · Mirage | Voidwalker · Venatrix |
+| **2 · STRONGPOINT** | Vanguard · Firebrand · Volt Striker · Phantom · Sniperhawk · Pulse · Venom · Barrier · Riptide · Reactor | Nightmare · Plaguebearer · Tremor · Wraith · Crimson · Reaper · Specter |
+| **3 · SIEGE** | Frostbite ⭐ · Gravity Warden · Inferno · Steel Weaver · Crusher | Oblivion · Ragebeast · Chronos · Pyroclasm · Eclipse · Magnetar · Overload · Gargoyle |
+| **4 · EXTINCTION** | Titan · Stormcaller | Leviathan · Cataclysm · Dominator ⭐ |
+
+*Read the shape:* the assassins and tricksters are **T1** — they're paper
+between blinks, and their threat is the decision they force, not the HP bar.
+The Collective is **top-heavy** (3 EXTINCTIONs to the UF's 2, 8 SIEGEs to 5)
+— which is correct and canon: the machine army fields the horrors, the human
+army fields the answers. **Balance lives in the counter, not the mirror.**
+
+---
+
 ## 2. UNITED FRONT — roster A
 
 | # | LSW | Role · Movement | Primary | Secondary | The decision it creates | Counterplay | Tier | Status |
 |---|---|---|---|---|---|---|---|---|
 | 1 | **Vanguard** | breacher · ground | Shield bash: short charge, stuns + shoves; raised shield blocks frontal fire | Plants barricades that block bullets **for both sides** | Placement is the skill — his own wall can cage his team | Flanks; banked frags (they bounce now) | T1 | ⬜ |
-| 2 | **Firebrand** | zoner · ground | Fire streams that paint burning trails on the ground | Detonates every patch he's painted, **all at once** | You see the floor he owns: cross NOW or wait — he chooses when to cash the board | Don't stand in paint; rain douses it | T1 | ⬜ |
+| 2 | **Firebrand** | zoner · ground | Fire streams that paint burning trails on the ground | Detonates every patch he's painted, **all at once** | You see the floor he owns: cross NOW or wait — he chooses when to cash the board | Don't stand in paint; rain douses it | T2 | ✅ |
 | 3 | **Volt Striker** | anti-cluster · ground | Chain lightning, arcs to 3 | Overloads a vehicle: detonates in 2s **unless the crew bails** | Punishes clustering; the crew decides — abandon armor or gamble | Spread out; bail fast | T1 | ⬜ |
 | 4 | **Shadowstep** | assassin · blink | Blink behind, stab | Departure point holds an explosive decoy — **blows on touch** | Chasing him IS the trap | Shoot the decoy at range | T1 | ⬜ |
 | 5 | **Titan** | bruiser · huge, slow | **Grabs and throws vehicles** — crew included | Ground pound cracks cover to rubble, slows a cone | Starve him: keep armor out of his reach | Kite him — he's slow | **T3** | ⬜ |
@@ -76,7 +137,7 @@ spawn protection · per-theme gravity · the announcer · **the run carry**.
 | 2 | **Ragebeast** | bruiser · ground | Rampage: **damage taken feeds his speed and power** | Tears his own armored flesh (costing HP) and hurls it as homing projectiles | Burst him or starve him — half-measures feed him | Disengage; deny the rage | T1 | ⬜ |
 | 3 | **Nightmare** | disruptor · ground | Fear pulse: **vision cones shrink**, false red pings litter the minimap | Blinds one target 2s — **ears still work** | Trust your ears or trust a lying map | Fight by ear (§19.2 trained you for this) | T1 | ⬜ |
 | 4 | **Chronos** | controller · ground | Slow-time bubble: bullets crawl, movement drags — **walk through a frozen bullet-wall** | Temporal echo: on lethal damage he snaps back 3s, once per fight — **the echo point glows** | Burst him now, or camp the glow | Camp the echo point | T2 | ⬜ |
-| 5 | **Plaguebearer** | attrition · ground | Toxic clouds (quarantine canon) | Infects a vehicle — it trails poison as it drives | The crew chooses: abandon the tank, or drive the plague wagon | Park it; engineer cleanse | T1 | ⬜ |
+| 5 | **Plaguebearer** | attrition · ground | Toxic clouds (quarantine canon) | Infects a vehicle — it trails poison as it drives | The crew chooses: abandon the tank, or drive the plague wagon | Park it; engineer cleanse | T2 | ✅ (cloud shipped; vehicle-infect 🔧 next) |
 | 6 | **Leviathan** | boss · massive | Terrain-flattening sweeps | **Belly flop**: map-scale leap, shadow-telegraphed landing, rim shockwave | Scatter from the shadow — and he's soft mid-air | Hit him in the air (the AA window) | **T3** | ⬜ |
 | 7 | **Pyroclasm** | zoner · ground | Molten rocks leaving long-lived lava pools | **Erupts at 25% HP** — the room decides | Burst through the threshold, or poke and pray | Range the threshold; Riptide douses him | T1 | ⬜ |
 | 8 | **Voidwalker** | assassin · blink | Teleport strikes | Every blink leaves a shadow clone that **detonates after 1s** | Chase him and walk a cluster bomb | Hold ground; don't follow | T1 | ⬜ |

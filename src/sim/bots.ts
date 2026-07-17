@@ -804,6 +804,22 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
 
   cmd.moveX = Math.max(-1, Math.min(1, mvx));
   cmd.moveZ = Math.max(-1, Math.min(1, mvz));
+
+  // LSW intent (§21.6): an ability nobody uses doesn't exist, so the brain
+  // ASKS for it here and stepLsw cashes it. Firebrand watches for enough
+  // enemies standing on his painted floor, then calls the detonation by
+  // pushing nextGrenadeAt far into the future (stepLsw's agreed signal).
+  if (s.ascendant === 'firebrand' && target) {
+    let onBoard = 0;
+    for (const g of w.gadgets.values()) {
+      if (g.type !== 'fire_field' || g.ownerId !== s.id) continue;
+      for (const e of w.soldiers.values()) {
+        if (e.alive && e.team !== s.team && Math.hypot(e.pos.x - g.pos.x, e.pos.z - g.pos.z) < 4) { onBoard++; break; }
+      }
+    }
+    if (onBoard >= 2 && s.grenades > 0) s.nextGrenadeAt = w.time + 120; // the signal stepLsw reads to cash the board
+  }
+
   return cmd;
 }
 

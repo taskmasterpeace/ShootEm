@@ -4,13 +4,14 @@ import { CLIMB_H, DRILL_EATS, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLD
 import { Rng } from './rng';
 import {
   SYSTEM_IDS, isCoopMode, isZed,
-  type ClassId, type Gadget, type GadgetType, type Mine, type ModeId, type ModeState,
+  type AscendantId, type ClassId, type Gadget, type GadgetType, type Mine, type ModeId, type ModeState,
   type Pickup, type PlayerCmd, type Projectile, type SimEvent, type Soldier,
   type SoldierKind, type SystemId, type Team, type ThemeId, type Turret, type Vec3,
   type Vehicle, type VehicleKind, type VehicleSystems, type WeaponId, type ZedKind,
 } from './types';
 import { stepMode, initMode } from './modes';
 import { generateFront } from './fronts';
+import { LSWS, THREAT, lswAllowed } from './lsw';
 import { stepBot, stepDog, stepScientist, stepZombie } from './bots';
 import { PERCEIVE_RANGE, perceivesNow, type SeenMark } from './perception';
 import { THEME_WEATHER, airGrounded, moveMult, visionMult, weatherAnnounce, type WeatherState } from './weather';
@@ -278,6 +279,109 @@ export class World {
   }
 
   /**
+   * A LIVING SUPER WEAPON drops onto the field (§21.6). Built on a Soldier —
+   * same rig, same bullets kill it — with threat-scaled HP, its faction's
+   * palette speed, and its `ascendant` identity. At most one per faction:
+   * a second call for the same side is refused. Returns the LSW, or null if
+   * the mode forbids it or the slot is taken.
+   */
+  /** pending officer-called LSW drops: announced now, land after the
+   *  telegraph (bigger threat = longer dread). One slot per faction. */
+  pendingLsw: { id: AscendantId; team: Team; landsAt: number; pos: Vec3 }[] = [];
+
+  /**
+   * The officer's call (§6): spend the stable's materiel, announce the drop,
+   * and set the countdown. Both sides get the warning — the fight bends
+   * around it. Returns false if the mode forbids it or the slot is taken.
+   */
+  requestLsw(id: AscendantId, team: Team): boolean {
+    if (!lswAllowed(this.mode.id)) return false;
+    const def = LSWS[id];
+    // refuse a second of the same faction — live OR already inbound
+    for (const s of this.soldiers.values()) if (s.alive && s.team === team && s.ascendant) return false;
+    if (this.pendingLsw.some((p) => p.team === team)) return false;
+    const base = this.map.basePos[team];
+    const lz = { x: base.x, y: 0, z: base.z };
+    this.pendingLsw.push({ id, team, landsAt: this.time + THREAT[def.threat].telegraph, pos: lz });
+    this.emit({ type: 'pod_incoming', pos: lz, text: `${def.name.toUpperCase()} INBOUND`, big: true });
+    return true;
+  }
+
+  /** Land any LSW whose countdown has run out. Called each tick from step(). */
+  private stepLswDrops() {
+    if (this.pendingLsw.length === 0) return;
+    this.pendingLsw = this.pendingLsw.filter((p) => {
+      if (this.time < p.landsAt) return true;
+      this.addLsw(p.id, p.team, p.pos);
+      this.emit({ type: 'pod_landed', pos: p.pos });
+      return false;
+    });
+  }
+
+  addLsw(id: AscendantId, team: Team, at?: Vec3): Soldier | null {
+    if (!lswAllowed(this.mode.id)) return null;
+    for (const s of this.soldiers.values()) {
+      if (s.alive && s.team === team && s.ascendant) return null; // slot taken
+    }
+    const def = LSWS[id];
+    const threat = THREAT[def.threat];
+    const s = this.addSoldier(def.name, 'infantry', team, 'bot');
+    s.ascendant = id;
+    s.hp = threat.hp;
+    s.maxHp = threat.hp;
+    s.armor = 0; s.maxArmor = 0; // threat is HP, never a plate wall
+    s.nextLswAt = 0;
+    if (at) { s.pos = { ...at }; s.alive = true; s.respawnAt = 0; }
+    this.emit({ type: 'announce', text: def.callLine, big: true });
+    return s;
+  }
+
+  /**
+   * A Living Super Weapon's SIGNATURE, layered on top of the normal fight
+   * (stepBot already moves it and fires its rifle). Each LSW's ability is
+   * built from shipped systems only — Firebrand and Plaguebearer are pure
+   * field plays, no new mechanics. The bot brain sets the intent; this
+   * cashes it as telegraphed SimEvents the counter-play can read.
+   */
+  private stepLsw(s: Soldier, _dt: number) {
+    const id = s.ascendant!;
+    if (id === 'firebrand') {
+      // PRIMARY: paint a burning trail under his own feet as he advances —
+      // the floor he owns. One patch every ~0.5s while moving; each is a
+      // real fire_field (it burns enemies who cross it, rain douses it).
+      const moving = Math.hypot(s.vel.x, s.vel.z) > 1;
+      if (moving && this.time >= (s.nextLswAt ?? 0)) {
+        s.nextLswAt = this.time + 0.5;
+        this.spawnGadget('fire_field', s.team, s.id, { ...s.pos }, Infinity, 9);
+        this.emit({ type: 'shot', pos: s.pos, weapon: 'flamer', soldierId: s.id });
+      }
+      // SECONDARY (the board, cashed): the brain raises `nextGrenadeAt` past
+      // now to ask for the detonation — every patch he painted erupts at
+      // once. Decision: cross his floor NOW or wait; he chooses when to cash.
+      if (s.grenades > 0 && this.time < (s.nextGrenadeAt ?? 0) - 90) {
+        s.grenades = 0; // one board per stable of patches
+        for (const g of this.gadgets.values()) {
+          if (g.type === 'fire_field' && g.ownerId === s.id) {
+            this.explode({ ...g.pos }, WEAPONS.gl, s.id, s.team);
+          }
+        }
+        this.emit({ type: 'announce', text: 'FIREBRAND CASHES THE BOARD', big: false });
+      }
+    } else if (id === 'plaguebearer') {
+      // PRIMARY: a contamination cloud laid on the advance — quarantine
+      // canon, straight from the Outbreak's gas. Drifts where he walks.
+      const moving = Math.hypot(s.vel.x, s.vel.z) > 1;
+      if (moving && this.time >= (s.nextLswAt ?? 0)) {
+        s.nextLswAt = this.time + 0.7;
+        this.spawnGadget('smoke_field', s.team, s.id, { ...s.pos }, Infinity, 10);
+        // the cloud bites: reuse the fire_field's tick by spawning a paired
+        // damage field (acid), short and close — the poison, not just the fog
+        this.spawnGadget('fire_field', s.team, s.id, { ...s.pos }, 40, 6);
+      }
+    }
+  }
+
+  /**
    * §5.3 Military working dogs. One K9 per team, paired to a handler — the
    * dog deploys at their side and redeploys with them for the whole match.
    */
@@ -481,6 +585,7 @@ export class World {
       return;
     }
     if (!this.mode.over) stepMode(this, dt);
+    if (!this.mode.over) this.stepLswDrops(); // §21.6: telegraphed LSW landings
 
     // recon state rebuilds every tick: pings accumulate from beacons, drones,
     // cameras, crewed sensor stations, and psi scanners; then smoke fields,
@@ -520,6 +625,7 @@ export class World {
       }
       if (cmd) this.applyCmd(s, cmd, dt);
       this.stepEquipment(s);
+      if (s.ascendant) this.stepLsw(s, dt); // the LSW's signature, on top of the fight
       this.stepSoldierPhysics(s, dt);
       if (s.draggingId >= 0) this.stepDrag(s); // haul the body after we've moved
     }

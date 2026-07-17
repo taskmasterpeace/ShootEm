@@ -7,6 +7,11 @@ export type ThemeId = 'savanna' | 'starship' | 'asteroid' | 'europa' | 'titan' |
 
 export type ClassId = 'infantry' | 'heavy' | 'jump' | 'engineer' | 'medic' | 'infiltrator' | 'pathfinder' | 'ghost';
 
+/** Living Super Weapons (§21.6 / docs/ASCENDANTS.md). A Soldier carrying one
+ *  of these is an LSW — not a class, an overlay: bigger, deadlier, its own
+ *  brain, and it dies to ordinary guns. Grows as the roster ships. */
+export type AscendantId = 'firebrand' | 'plaguebearer';
+
 /**
  * Weapon ids are open strings: the hand-tuned core set (ar606, kuchler, caw,
  * rg2, ac_mk2, mml, gl, plasma, flamer, pistol, repair, medibeam, impulse,
@@ -242,6 +247,12 @@ export interface Soldier {
   /** jetpack burned dry — no relight until energy recovers to 35 (the
    *  flight economy: fly, land, breathe — never cross the map in one hop) */
   jetSpent?: boolean;
+  /** this soldier IS a Living Super Weapon (§21.6). Rides the wire free via
+   *  the snapshot spread law — the renderer and brain read it, the sim
+   *  treats it as a Soldier with a big HP pool and a special step. */
+  ascendant?: AscendantId;
+  /** LSW ability cadence — next time its secondary is off cooldown */
+  nextLswAt?: number;
   /** psi-scanner next pulse */
   nextPsiAt: number;
   /** repair-kit next use */

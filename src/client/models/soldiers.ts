@@ -53,6 +53,27 @@ export function buildSoldier(team: Team, classId: ClassId, kind: SoldierKind): T
   return body ? buildGlbTrooper(body, classId) : buildTrooper(team, classId);
 }
 
+/** LSW palette (no purple — house law). One place both the renderer and the
+ *  harness read, so a Firebrand looks the same wherever it's shown. */
+export const LSW_TINT: Record<string, { tint: number; scale: number }> = {
+  firebrand: { tint: 0xff6a1a, scale: 1.25 },
+  plaguebearer: { tint: 0x7fa83c, scale: 1.3 },
+};
+
+/** Turn a built trooper body INTO an LSW body: scale up past a trooper,
+ *  glow its faction shade, and tag it so the frame loop feeds the aura.
+ *  Robert: "make sure visually the LSWs look different." */
+export function dressAsLsw(mesh: THREE.Group, id: string): THREE.Group {
+  const look = LSW_TINT[id] ?? { tint: 0xffffff, scale: 1.25 };
+  mesh.scale.setScalar(look.scale);
+  mesh.userData.lsw = id;
+  mesh.traverse((o) => {
+    const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
+    if (m && 'emissive' in m) { m.emissive = new THREE.Color(look.tint); m.emissiveIntensity = 0.18; }
+  });
+  return mesh;
+}
+
 /** Robert's body + the game's rifle: clone the named-joint rig, give every
  *  part its own material instance (cloak alpha must never bleed across
  *  soldiers), and hang the class rifle exactly where buildTrooper does. */

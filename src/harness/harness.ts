@@ -10,12 +10,13 @@ import {
 } from '../sim/map';
 import { BUILDINGS, generateHouse, type BuildingDef, type DynHouseType } from '../sim/buildings';
 import { Rng } from '../sim/rng';
-import type { ClassId, ModeId, SoldierKind, Team, ThemeId, WeaponDef, WeaponFamily, WeaponId, ZedKind } from '../sim/types';
+import type { AscendantId, ClassId, ModeId, SoldierKind, Team, ThemeId, WeaponDef, WeaponFamily, WeaponId, ZedKind } from '../sim/types';
 import { JOINT_NAMES, poseSoldierJoints, type GaitState, type Joints } from '../client/animation';
 import {
   buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp,
-  buildSoldier, buildTurretMesh, buildVehicle,
+  buildSoldier, buildTurretMesh, buildVehicle, dressAsLsw,
 } from '../client/models';
+import { LSWS } from '../sim/lsw';
 import { SOUND_NAMES, audio, type SoundName } from '../client/audio';
 import { BIOME_AUDIO } from '../client/soundscape';
 import { THEME_PALETTES } from '../client/renderer';
@@ -515,6 +516,18 @@ $('spawn-scientist').onclick = () => showModel(() => buildSoldier(0, 'infantry',
 const ZEDS: ZedKind[] = ['zombie', 'spitter', 'brute', 'sprinter', 'bomber', 'stalker'];
 const zedGrid = $('zed-grid');
 for (const k of ZEDS) zedGrid.appendChild(chip(k, 'zed', () => showModel(() => buildSoldier(0, 'infantry', k), `Zombie · ${k}`, { soldier: true, kind: k })));
+
+// Living Super Weapons — the harness adjusts to them (Robert): same rig,
+// dressed as the LSW so the Stage judges the real in-game body.
+const LSW_STABLE: { id: AscendantId; team: 0 | 1 }[] = [
+  { id: 'firebrand', team: 0 }, { id: 'plaguebearer', team: 1 },
+];
+const lswGrid = $('lsw-grid');
+for (const { id, team } of LSW_STABLE) {
+  lswGrid.appendChild(chip(LSWS[id].name, 'lsw', () =>
+    showModel(() => dressAsLsw(buildSoldier(team, 'infantry', 'bot'), id),
+      `LSW · ${LSWS[id].name}`, { soldier: true, kind: 'bot' })));
+}
 
 // vehicles + structures — the full motor pool
 const vehGrid = $('veh-grid');

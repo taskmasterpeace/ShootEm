@@ -12,7 +12,7 @@ import { settings } from './settings';
 import { Particles, FlashLights } from './effects';
 import { JOINT_NAMES, isUndead, poseSoldierJoints, type GaitState } from './animation';
 import { hash01 } from '../sim/rng';
-import { buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp, buildSoldier, buildTurretMesh, buildVehicle } from './models';
+import { buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp, buildSoldier, buildTurretMesh, buildVehicle, dressAsLsw } from './models';
 
 const TRACER_COLORS: Record<string, number> = {
   bullet: 0xffd890, shell: 0xffb060, rocket: 0xff8840, plasma: 0x60c8ff,
@@ -1113,6 +1113,11 @@ export class Renderer {
       let mesh = this.soldierMeshes.get(s.id);
       if (!mesh) {
         mesh = buildSoldier(s.team, s.classId, s.kind);
+        // AN LSW READS AS AN LSW (§21.6, Robert: "make sure visually the
+        // LSWs look different… I want them to look like they're on fire"):
+        // scale the whole body up past a trooper, tint it its faction shade,
+        // and hang the signature aura the animator keeps alive.
+        if (s.ascendant) dressAsLsw(mesh, s.ascendant);
         // cache the animation joints — getObjectByName every frame is wasteful
         mesh.userData.joints = Object.fromEntries(
           JOINT_NAMES.map((n) => [n, mesh!.getObjectByName(n)]),
@@ -1235,6 +1240,7 @@ export class Renderer {
       }
       mesh.rotation.y = -s.yaw; // sim yaw is math-angle on XZ; three rotates opposite
       this.animateSoldier(mesh, s, world);
+      if (s.ascendant) this.lswAura(mesh, s, world);
     }
     for (const [id, mesh] of this.soldierMeshes) {
       if (!world.soldiers.has(id)) {
@@ -1857,6 +1863,28 @@ export class Renderer {
   }
 
   /** Skeletal-ish animation driven straight from sim state. */
+  /** The signature aura, fed every frame the LSW is alive (Robert: "the fire
+   *  — I want them to look like they're on fire. When they shoot energy
+   *  blasts, shoot it"). Pure particles on the shipped emitter — flame licks
+   *  up a Firebrand, poison motes drift off a Plaguebearer. */
+  private lswAura(mesh: THREE.Group, s: Soldier, world: World) {
+    const id = mesh.userData.lsw as string | undefined;
+    if (!id || !s.alive || this.replayView) return;
+    if ((world.tick + s.id) % 2 !== 0) return; // every other frame — plenty
+    if (id === 'firebrand') {
+      this.particles.emit({
+        pos: { x: s.pos.x, y: 0.4 + Math.random() * 1.6, z: s.pos.z }, count: 2,
+        color: Math.random() < 0.5 ? 0xff5a12 : 0xffb038, speed: 1.2, life: 0.5,
+        spread: 0.5, up: 3.5, gravity: -4, size: 0.5,
+      });
+    } else if (id === 'plaguebearer') {
+      this.particles.emit({
+        pos: { x: s.pos.x, y: 0.6 + Math.random() * 1.4, z: s.pos.z }, count: 1,
+        color: 0x8fbe42, speed: 0.6, life: 0.9, spread: 0.7, up: 1.2, gravity: 1, size: 0.6,
+      });
+    }
+  }
+
   private animateSoldier(mesh: THREE.Group, s: Soldier, world: World) {
     const j = mesh.userData.joints as Record<string, THREE.Object3D | undefined>;
     const t = world.time;
