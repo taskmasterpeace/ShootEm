@@ -964,73 +964,130 @@ function theCity(seed: number, size: MapSize = 'large'): GameMap {
 
 // ---------------------------------------------------------------------------
 // 5 · HIGHLAND PASS — one road through solid rock. Switchbacks, two chokes,
-// two goat paths, and a climb-wall shortcut for the airborne.
+// two goat paths, and a climb-wall saddle for the airborne. The whole map
+// is CARVED — the rock is the map edge, whatever the tier.
 // Signature: the MANPADS ambush on a helo threading the pass.
 // Doctrine: air + transport. Scar: blocked (avalanche closes a route).
 // ---------------------------------------------------------------------------
-function highlandPass(seed: number): GameMap {
+interface PassLayout {
+  road: [number, number, number, number][];   // carved road rects, end to end
+  meadows: [number, number, number][];        // [cx, cz, r] passing bays
+  meadowGates: [number, number, number, number][]; // their lanes onto the road
+  goats: [number, number, number, number][];  // infantry threads the road never sees
+  chokes: [number, number][];                 // the avalanche squeeze points
+  saddle: [number, number, number, number];   // the CLIMB wall rect
+  saddlePath: [number, number, number, number][]; // open ground through it
+  overlooks: [number, number][];              // emplacement ledges
+  ledges: [number, number, number, number][]; // their walk-ups to the road
+  stations: [string, number, number][];       // way-station buildings
+  wrecks: [number, number, number][];         // the convoy that never made it
+  bases: [[number, number], [number, number]];
+  pickups: [number, number, PickupSpawn['type']][];
+}
+
+const PASS_LAYOUTS: Record<MapSize, PassLayout> = {
+  large: {
+    road: [[4, 48, 30, 52], [27, 24, 31, 52], [27, 24, 72, 28], [69, 24, 73, 76], [69, 72, 95, 76]],
+    meadows: [[38, 26, 5], [62, 74, 5]],
+    meadowGates: [[66, 72, 70, 74]],
+    goats: [[14, 30, 15, 49], [14, 30, 27, 31], [84, 51, 85, 73], [73, 51, 85, 52]],
+    chokes: [[50, 24], [69, 50]],
+    saddle: [48, 40, 50, 44],
+    saddlePath: [[48, 29, 50, 39], [48, 45, 50, 60], [48, 60, 72, 62]],
+    overlooks: [[44, 20], [76, 56]],
+    ledges: [[44, 21, 45, 24]],
+    stations: [['shack', 34, 22], ['shack', 60, 71], ['guard_post', 52, 30]],
+    wrecks: [[70, 56, 1.7], [71, 60, 0.2]],
+    bases: [[10, 50], [GRID - 11, 74]],
+    pickups: [[38, 25, 'ammo'], [30, 44, 'medkit'], [49, 33, 'energy']],
+  },
+  standard: {
+    road: [[13, 46, 30, 50], [27, 22, 31, 50], [27, 22, 70, 26], [67, 22, 71, 72], [67, 68, 86, 72]],
+    meadows: [[36, 24, 4], [60, 68, 4]],
+    meadowGates: [[63, 66, 67, 70]],
+    goats: [[17, 28, 18, 47], [17, 28, 27, 29], [76, 45, 77, 69], [71, 45, 77, 46]],
+    chokes: [[48, 22], [67, 46]],
+    saddle: [46, 36, 48, 40],
+    saddlePath: [[46, 27, 48, 35], [46, 41, 48, 54], [46, 54, 68, 56]],
+    overlooks: [[42, 18], [72, 52]],
+    ledges: [[42, 19, 43, 22]],
+    stations: [['shack', 33, 20], ['shack', 58, 67], ['guard_post', 48, 28]],
+    wrecks: [[68, 52, 1.7], [69, 56, 0.2]],
+    bases: [[19, 48], [GRID - 20, 70]],
+    pickups: [[36, 23, 'ammo'], [28, 42, 'medkit'], [47, 29, 'energy']],
+  },
+  small: {
+    road: [[23, 44, 32, 48], [29, 26, 33, 48], [29, 26, 64, 30], [61, 26, 65, 64], [61, 60, 76, 64]],
+    meadows: [[36, 28, 4], [56, 60, 3]],
+    meadowGates: [[59, 58, 62, 62]],
+    goats: [[21, 32, 22, 45], [21, 32, 29, 33], [72, 42, 73, 61], [65, 42, 73, 43]],
+    chokes: [[46, 26], [61, 44]],
+    saddle: [44, 36, 46, 40],
+    saddlePath: [[44, 31, 46, 35], [44, 41, 46, 52], [44, 52, 62, 54]],
+    overlooks: [[40, 22], [68, 48]],
+    ledges: [[40, 23, 41, 26], [66, 48, 68, 49]],
+    stations: [['shack', 35, 22], ['guard_post', 52, 32]],
+    wrecks: [[63, 44, 1.7], [64, 48, 0.2]],
+    bases: [[29, 46], [GRID - 30, 62]],
+    pickups: [[36, 27, 'ammo'], [31, 40, 'medkit'], [45, 31, 'energy']],
+  },
+};
+
+function highlandPass(seed: number, size: MapSize = 'large'): GameMap {
+  const L = PASS_LAYOUTS[size];
+  const box = boxFor(size);
   const d = draft(seed, T_WALL, S_DIRT); // solid mountain; we CARVE the map
   const { grid, surface, props, claims } = d;
 
-  // THE ROAD: west gate → north shelf → east wall → south shelf → east gate.
-  // Four switchback legs, four tiles wide — the only ground vehicles get.
+  // THE ROAD: west gate → north shelf → east wall → south descent → east gate.
   const carveRoad = (x0: number, z0: number, x1: number, z1: number) => {
     rect(grid, x0, z0, x1, z1, T_OPEN);
     rectSurf(surface, x0, z0, x1, z1, S_GRIT);
   };
-  carveRoad(4, 48, 30, 52);    // west approach
-  carveRoad(27, 24, 31, 52);   // climb north
-  carveRoad(27, 24, 72, 28);   // the north shelf
-  carveRoad(69, 24, 73, 76);   // the long east descent
-  carveRoad(69, 72, 95, 76);   // east approach
+  for (const [x0, z0, x1, z1] of L.road) carveRoad(x0, z0, x1, z1);
 
-  // ALPINE MEADOWS: two passing bays where a convoy can turn and fight —
-  // each with its lane onto the road (a bay you can't enter is a painting)
-  clearDisc(grid, 38, 26, 5); rectSurf(surface, 33, 21, 43, 31, S_DIRT);
-  clearDisc(grid, 62, 74, 5); rectSurf(surface, 57, 69, 67, 79, S_DIRT);
-  rect(grid, 66, 72, 70, 74, T_OPEN); // the SE meadow's gate onto the descent
-  rectSurf(surface, 66, 72, 70, 74, S_DIRT);
+  // ALPINE MEADOWS: passing bays where a convoy can turn and fight — each
+  // with its lane onto the road (a bay you can't enter is a painting)
+  for (const [cx2, cz2, r] of L.meadows) {
+    clearDisc(grid, cx2, cz2, r);
+    rectSurf(surface, cx2 - r, cz2 - r, cx2 + r, cz2 + r, S_DIRT);
+  }
+  for (const [x0, z0, x1, z1] of L.meadowGates) carveRoad(x0, z0, x1, z1);
 
-  // GOAT PATHS: two one-tile infantry threads the road never sees
-  rect(grid, 14, 30, 15, 49, T_OPEN);  // west thread: approach → north shelf
-  rect(grid, 14, 30, 27, 31, T_OPEN);
-  rect(grid, 84, 51, 85, 73, T_OPEN);  // east thread: descent shortcut
-  rect(grid, 73, 51, 85, 52, T_OPEN);
+  // GOAT PATHS: one-tile infantry threads the road never sees
+  for (const [x0, z0, x1, z1] of L.goats) rect(grid, x0, z0, x1, z1, T_OPEN);
 
-  // THE CHOKES: avalanche rubble narrows the shelf and the descent to a
-  // two-tile squeeze — the MANPADS ambush points
-  for (const [cx, cz] of [[50, 24], [69, 50]] as const) {
+  // THE CHOKES: avalanche rubble narrows the road to a two-tile squeeze —
+  // the MANPADS ambush points
+  for (const [cx, cz] of L.chokes) {
     claim(grid, claims, cx, cz, T_WALL);
     claim(grid, claims, cx + 1, cz, T_WALL);
     props.push({ type: 'rock', pos: tw(cx, cz), scale: 1.6, rot: d.rng.range(0, Math.PI * 2) });
     props.push({ type: 'rock', pos: tw(cx + 1, cz + 1), scale: 1.2, rot: d.rng.range(0, Math.PI * 2) });
   }
 
-  // THE CLIMB SHORTCUT: a saddle in the spine between the two shelves —
-  // jump troopers and the bold cross here; everyone else drives around
-  rect(grid, 48, 40, 50, 44, T_CLIMB);
-  rect(grid, 48, 29, 50, 39, T_OPEN);
-  rect(grid, 48, 45, 50, 60, T_OPEN);
-  rect(grid, 48, 60, 72, 62, T_OPEN); // the saddle exit joins the descent
-  rectSurf(surface, 48, 29, 50, 62, S_DIRT);
+  // THE CLIMB SADDLE: jump troopers and the bold cross here; everyone else
+  // drives around
+  rect(grid, ...L.saddle, T_CLIMB);
+  for (const [x0, z0, x1, z1] of L.saddlePath) {
+    rect(grid, x0, z0, x1, z1, T_OPEN);
+    rectSurf(surface, x0, z0, x1, z1, S_DIRT);
+  }
 
   // overlook ledges: one emplacement each side, watching a choke — each
   // ledge gets its walk-up (an orphaned gun is a decoration, not a position)
-  clearDisc(grid, 44, 20, 2);
-  rect(grid, 44, 21, 45, 24, T_OPEN); // the ledge path down to the shelf
-  clearDisc(grid, 76, 56, 2);
-  d.vehiclePads.push({ kind: 'emplacement', team: 0, pos: tw(44, 20) });
-  d.vehiclePads.push({ kind: 'emplacement', team: 1, pos: tw(76, 56) });
+  for (const [ox, oz] of L.overlooks) clearDisc(grid, ox, oz, 2);
+  for (const [x0, z0, x1, z1] of L.ledges) rect(grid, x0, z0, x1, z1, T_OPEN);
+  d.vehiclePads.push({ kind: 'emplacement', team: 0, pos: tw(...L.overlooks[0]) });
+  d.vehiclePads.push({ kind: 'emplacement', team: 1, pos: tw(...L.overlooks[1]) });
 
   // the way stations — shelter on the shelves
   const ctx = ctxOf(d);
-  stampBuilding(ctx, byId('shack'), 34, 22, 0);
-  stampBuilding(ctx, byId('shack'), 60, 71, 2);
-  stampBuilding(ctx, byId('guard_post'), 52, 30, 4);
+  for (const [id, sx, sz] of L.stations) stampBuilding(ctx, byId(id), sx, sz, sx + sz);
 
   // the convoy that never made it out of the pass — burned out on the long
   // descent, right under the east overlook. The ambush story, told in steel.
-  for (const [wx, wz, r] of [[70, 56, 1.7], [71, 60, 0.2]] as const) {
+  for (const [wx, wz, r] of L.wrecks) {
     if (openOutdoors(d, wx, wz)) {
       claim(grid, claims, wx, wz, T_COVER);
       props.push({ type: 'wreck', pos: tw(wx, wz), scale: 1, rot: r });
@@ -1038,35 +1095,50 @@ function highlandPass(seed: number): GameMap {
   }
 
   // base pockets carved into the rock at the gates
-  clearDisc(grid, 10, 50, 8);
-  clearDisc(grid, GRID - 11, 74, 8);
-  stampBase(grid, claims, props, d.vehiclePads, 0, 10, 50, ['transport', 'flyer', 'buggy', 'ambulance']);
-  stampBase(grid, claims, props, d.vehiclePads, 1, GRID - 11, 74, ['transport', 'flyer', 'buggy', 'ambulance']);
-  // the r8 pocket carve leaks a sliver BEHIND each base's back wall — rock
+  clearDisc(grid, L.bases[0][0], L.bases[0][1], 8);
+  clearDisc(grid, L.bases[1][0], L.bases[1][1], 8);
+  stampBase(grid, claims, props, d.vehiclePads, 0, L.bases[0][0], L.bases[0][1], ['transport', 'flyer', 'buggy', 'ambulance']);
+  stampBase(grid, claims, props, d.vehiclePads, 1, L.bases[1][0], L.bases[1][1], ['transport', 'flyer', 'buggy', 'ambulance']);
+  // the pocket carve leaks a sliver BEHIND each base's back wall — rock
   // swallows it again (the zero-orphan law named these tiles exactly)
-  rect(grid, 1, 42, 3, 58, T_WALL);
-  rect(grid, GRID - 4, 66, GRID - 2, 82, T_WALL);
+  rect(grid, L.bases[0][0] - 9, L.bases[0][1] - 8, L.bases[0][0] - 7, L.bases[0][1] + 8, T_WALL);
+  rect(grid, L.bases[1][0] + 7, L.bases[1][1] - 8, L.bases[1][0] + 9, L.bases[1][1] + 8, T_WALL);
 
-  dealPickups(d, [[38, 25, 'ammo'], [30, 44, 'medkit'], [49, 33, 'energy']]);
+  dealPickups(d, L.pickups);
+  sealOutside(grid, box);
   sealRim(grid);
+
+  // the quarantine crawls out of the NETWORK — mouths on the road itself,
+  // never in rock pockets no path serves
+  const roadMid = (r: [number, number, number, number], f: number): [number, number] =>
+    [Math.round(r[0] + (r[2] - r[0]) * f), Math.round((r[1] + r[3]) / 2)];
+  const mouths: Vec3[] = [];
+  const spots: [number, number][] = [
+    roadMid(L.road[0], 0.25), roadMid(L.road[0], 0.75),
+    [Math.round(L.road[2][0] + (L.road[2][2] - L.road[2][0]) / 3), L.road[2][1] + 2],
+    [Math.round(L.road[2][0] + ((L.road[2][2] - L.road[2][0]) * 2) / 3), L.road[2][1] + 2],
+    [L.road[3][0] + 2, Math.round((L.road[3][1] + L.road[3][3]) / 2)],
+    roadMid(L.road[4], 0.5), roadMid(L.road[4], 0.8),
+    [L.meadows[0][0], L.meadows[0][1]],
+    [L.goats[0][0], Math.round((L.goats[0][1] + L.goats[0][3]) / 2)],
+    [L.goats[2][0], Math.round((L.goats[2][1] + L.goats[2][3]) / 2)],
+    [L.saddlePath[0][0], L.saddlePath[0][1]],
+    [L.meadows[1][0], L.meadows[1][1]],
+  ];
+  for (const [mx2, mz2] of spots) { clearDisc(grid, mx2, mz2, 1); mouths.push(tw(mx2, mz2)); }
 
   return {
     seed, theme: 'asteroid', grid, grid2: d.grid2, surface,
-    basePos: [tw(10, 50), tw(GRID - 11, 74)],
-    spawns: [spawnRing(10, 50), spawnRing(GRID - 11, 74)],
-    flagPos: [tw(10, 50), tw(GRID - 11, 74)],
-    hillPos: tw(50, 26),
+    basePos: [tw(...L.bases[0]), tw(...L.bases[1])],
+    spawns: [spawnRing(...L.bases[0]), spawnRing(...L.bases[1])],
+    flagPos: [tw(...L.bases[0]), tw(...L.bases[1])],
+    hillPos: tw(L.chokes[0][0], L.chokes[0][1] + 2),
     controlPoints: [
-      { name: 'WEST ELBOW', pos: tw(29, 40) },
-      { name: 'THE NARROWS', pos: tw(52, 26) },
-      { name: 'EAST ELBOW', pos: tw(71, 60) },
+      { name: 'WEST ELBOW', pos: tw(L.road[1][0] + 2, Math.round((L.road[1][1] + L.road[1][3]) / 2)) },
+      { name: 'THE NARROWS', pos: tw(L.chokes[0][0] + 2, L.chokes[0][1] + 2) },
+      { name: 'EAST ELBOW', pos: tw(L.road[3][0] + 2, Math.round((L.road[3][1] + L.road[3][3]) / 2)) },
     ],
-    // carved world: the quarantine crawls out of the NETWORK, never out of
-    // rock pockets no path serves — every mouth sits on a road or a trail
-    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: [
-      tw(6, 50), tw(38, 22), tw(54, 26), tw(62, 26), tw(72, 32),
-      tw(62, 74), tw(72, 70), tw(92, 74), tw(15, 34), tw(84, 60), tw(49, 33), tw(49, 56),
-    ],
+    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: mouths,
     houses: d.houses, gates: [], pads: [], propCovered: settle(grid, claims),
   };
 }
