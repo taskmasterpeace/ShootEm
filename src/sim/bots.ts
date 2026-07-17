@@ -19,8 +19,11 @@ const toWorld = (t: number) => (t + 0.5) * TILE - WORLD / 2;
 const bfsPrev = new Int32Array(GRID * GRID);
 const bfsQ = new Int32Array(GRID * GRID);
 
-/** BFS from start tile to goal tile; returns the next reachable waypoint (LOS-smoothed) or null. */
-function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false): Vec3 | null {
+/** BFS from start tile to goal tile; returns the next reachable waypoint (LOS-smoothed) or null.
+ *  `wheels` plans for a VEHICLE: doorways, ladders, and barricades come off
+ *  the menu — a hull fits none of them (this is why bikes used to bury
+ *  themselves in walls: the driver had a compass, never a map). */
+function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false, wheels = false): Vec3 | null {
   const grid = w.map.grid;
   const sx = toTile(from.x), sz = toTile(from.z);
   let gx = toTile(to.x), gz = toTile(to.z);
@@ -33,11 +36,17 @@ function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false): Vec3 | null
   // The walkability ray below still treats a closed door as solid, so the
   // smoothed path delivers the bot TO the door, where its hands take over
   // (and delivers a jump trooper TO the barricade, where climb IQ burns).
-  const open = (x: number, z: number) => {
-    if (x < 0 || z < 0 || x >= GRID || z >= GRID) return false;
-    const t = grid[z * GRID + x];
-    return t === T_OPEN || t === T_DOOR || t === T_DOOR_OPEN || t === T_WATER || t === T_LADDER || (canClimb && t === T_CLIMB);
-  };
+  const open = wheels
+    ? (x: number, z: number) => {
+      if (x < 0 || z < 0 || x >= GRID || z >= GRID) return false;
+      const t = grid[z * GRID + x];
+      return t === T_OPEN || t === T_WATER;
+    }
+    : (x: number, z: number) => {
+      if (x < 0 || z < 0 || x >= GRID || z >= GRID) return false;
+      const t = grid[z * GRID + x];
+      return t === T_OPEN || t === T_DOOR || t === T_DOOR_OPEN || t === T_WATER || t === T_LADDER || (canClimb && t === T_CLIMB);
+    };
   if (!open(gx, gz)) {
     // the objective landed inside a structure (buildings stamp everywhere
     // now) — spiral out to the nearest walkable tile instead of giving up.
@@ -94,6 +103,11 @@ function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false): Vec3 | null
   // This must be a walkability ray, not losClear — a shot ray flies over
   // water and open doors of thought that boots cannot cross (the pond in
   // front of a base gate once pinned four bots forever).
+  // wheels judge the ray by THEIR menu (an open doorway walks, but no hull
+  // fits through it); boots keep the classic isBlocked truth
+  const solid = wheels
+    ? (x: number, z: number) => !open(toTile(x), toTile(z))
+    : (x: number, z: number) => isBlocked(grid, x, z);
   const walkClear = (a: Vec3, bx: number, bz: number): boolean => {
     const dx = bx - a.x, dz = bz - a.z;
     const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / (TILE * 0.4)));
@@ -104,7 +118,7 @@ function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false): Vec3 | null
       // the point itself PLUS the two elbows: a sampled diagonal can thread
       // the exact corner where two walls touch — the physics can't, so bots
       // aimed through it and sat pinned on the corner forever
-      if (isBlocked(grid, x, z) || isBlocked(grid, px, z) || isBlocked(grid, x, pz)) return false;
+      if (solid(x, z) || solid(px, z) || solid(x, pz)) return false;
       px = x; pz = z;
     }
     return true;
@@ -211,6 +225,18 @@ export function objectiveFor(w: World, s: Soldier): Vec3 {
         // a nest by our own flag is the job — nobody else is coming
         const nest = enemyTurretNear(w, s.team, ownFlag.pos, 32);
         if (nest) return nest.pos;
+        // ROOM DUTY (Robert: "they should be able to sweep rooms inside"):
+        // a third of guard lives post INSIDE the nearest house overlooking
+        // the flag — the pathfinder already walks doors, the hands already
+        // open them; the overwatch just needed someone ORDERED indoors.
+        if ((s.botLifeSeed ?? 0) === 1) {
+          let room: Vec3 | null = null, hd = 30;
+          for (const h of w.map.houses) {
+            const d = Math.hypot(h.center.x - ownFlag.pos.x, h.center.z - ownFlag.pos.z);
+            if (d < hd) { hd = d; room = h.center; }
+          }
+          if (room) return { x: room.x, y: 0, z: room.z };
+        }
         // otherwise armor orbits the flag stand (engineers seed sentries there)
         const a = (s.id % 8) * (Math.PI / 4);
         return { x: ownFlag.pos.x + Math.cos(a) * 6, y: 0, z: ownFlag.pos.z + Math.sin(a) * 6 };
@@ -481,12 +507,37 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
       cmd.moveX = s.id % 2 ? 1 : -1;
       return cmd;
     }
-    const wantYaw = Math.atan2(goal.z - v.pos.z, goal.x - v.pos.x);
+    // THE DRIVER GETS A MAP (Robert: "they go fast and just run into a
+    // wall… pathfinding is kind of screwed up"). Wheels now roll the same
+    // BFS the boots use — wheels flavor: doorways, ladders, and barricades
+    // off the menu — and steer at the next waypoint, not the compass
+    // bearing. Flyers keep the compass (the sky has no walls), and a
+    // burrowed breacher tunnels straight (that's the whole point of it).
+    const flying = !!vdef.flies || (!!vdef.digs && v.burrowed);
+    let aimPt = goal;
+    if (!flying) {
+      if (!s.botGoal || w.time >= (s.botRepathAt ?? 0) ||
+          Math.hypot(s.botGoal.x - v.pos.x, s.botGoal.z - v.pos.z) < 4.5) {
+        s.botRepathAt = w.time + 1.1;
+        s.botGoal = pathStep(w, v.pos, goal, false, true) ?? { x: goal.x, y: 0, z: goal.z };
+      }
+      aimPt = s.botGoal;
+    }
+    const wantYaw = Math.atan2(aimPt.z - v.pos.z, aimPt.x - v.pos.x);
     let dy = wantYaw - v.yaw;
     while (dy > Math.PI) dy -= Math.PI * 2;
     while (dy < -Math.PI) dy += Math.PI * 2;
     cmd.moveX = Math.max(-1, Math.min(1, dy * 2));
-    cmd.moveZ = Math.abs(dy) < 1.1 ? -1 : -0.25; // forward
+    // look-ahead brake: what is the BOW about to eat? A wall 5.5u out at
+    // speed means lift the throttle and finish the turn first — hulls stop
+    // arriving at walls at full send.
+    let bowBlocked = false;
+    if (!flying) {
+      const bx = v.pos.x + Math.cos(v.yaw) * 5.5, bz = v.pos.z + Math.sin(v.yaw) * 5.5;
+      const bt = tileAt(w.map.grid, bx, bz);
+      bowBlocked = !(bt === T_OPEN || bt === T_WATER);
+    }
+    cmd.moveZ = Math.abs(dy) < 1.1 ? (bowBlocked ? -0.3 : -1) : -0.2; // forward
     if (wdef) {
       const target = findTarget(w, s, wdef.range);
       if (target) {
@@ -545,14 +596,16 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
     }
   }
 
-  // --- CTF: speed IS the raid plan ---
-  // On foot the crossing takes ~23s of exposure; on a bike it takes 7. A
-  // runner detours to a free fast ride — as a pathfinding DESTINATION, never
-  // a straight-line walk (that once pinned raiders against their own base
-  // wall, reaching for a pad vehicle on the far side of it).
+  // --- speed IS the plan: CTF runners, and every FRESH SPAWN with a long
+  // walk back (Robert: "when they respawn… grab a vehicle if it's there").
+  // On foot the crossing takes ~23s of exposure; on a bike it takes 7. The
+  // ride is a pathfinding DESTINATION, never a straight-line walk (that once
+  // pinned raiders against their own base wall, reaching for a pad vehicle
+  // on the far side of it).
   let rideDest: Vec3 | null = null;
-  if (w.mode.id === 'ctf' && !target && dGoal > 30 && w.time >= (s.botUseAt ?? 0) &&
-      (s.carryingFlag >= 0 || raidsFlags(s))) {
+  const freshLife = w.time < (s.botFreshUntil ?? 0) && (s.botLifeSeed ?? 0) >= 0; // 2/3 of lives shop
+  if (!target && dGoal > 30 && w.time >= (s.botUseAt ?? 0) &&
+      ((w.mode.id === 'ctf' && (s.carryingFlag >= 0 || raidsFlags(s))) || freshLife)) {
     let ridePos: Vec3 | null = null, rideR = 0, rd = 26;
     for (const v of w.vehicles.values()) {
       if (!v.alive || v.team !== s.team || v.seats[0] >= 0) continue;
@@ -588,9 +641,24 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
     s.botRepathAt = w.time + 0.9 + w.rng.next() * 0.7;
     // chasers hunt the target in tdm; anchors keep walking their objective;
     // a CTF runner with a ride in reach paths to the ride first
-    const dest = rideDest ?? (target && w.mode.id === 'tdm' && DOCTRINE[s.classId].chase
+    let dest = rideDest ?? (target && w.mode.id === 'tdm' && DOCTRINE[s.classId].chase
       ? target.pos
       : goal);
+    // PER-LIFE LANE BIAS (Robert: "try something different"): on the long
+    // legs, this life leans left, right, or straight — the wave arrives as
+    // prongs instead of a single-file rerun of the last death. The bias
+    // aims a sideways-shifted mid-point and expires as the goal closes.
+    if (dest === goal && dGoal > 45 && (s.botLifeSeed ?? 0) !== 0) {
+      const ax = goal.x - s.pos.x, az = goal.z - s.pos.z;
+      const al = Math.hypot(ax, az) || 1;
+      const side = (s.botLifeSeed ?? 0) * 15;
+      const cap = (v: number) => Math.max(-WORLD / 2 + 9, Math.min(WORLD / 2 - 9, v));
+      dest = {
+        x: cap(s.pos.x + ax * 0.55 - (az / al) * side),
+        y: 0,
+        z: cap(s.pos.z + az * 0.55 + (ax / al) * side),
+      };
+    }
     const wp = pathStep(w, s.pos, dest, s.classId === 'jump');
     s.botGoal = wp ?? { x: dest.x, y: 0, z: dest.z };
   }
@@ -607,13 +675,17 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
   // --- no soldier in front of you? then SHOOT THE NEST ---
   // findTarget only ever returns Soldiers, so an enemy sentry was something
   // bots physically could not fight — they'd walk to it and stand there
-  // being shot. A structure is a target too.
+  // being shot. A structure is a target too. `nestAim` guards the idle-aim
+  // default below from clobbering this (it silently did whenever the feet
+  // were moving — the separation shove made that every tick).
+  let nestAim = false;
   if (!target && s.kind === 'bot') {
     const wdef = WEAPONS[s.weapons[s.weaponIdx]];
     const nest = enemyTurretNear(w, s.team, s.pos, wdef.range * 0.95);
     if (nest && losClear(w.map.grid, { ...s.pos, y: 1.4 }, { ...nest.pos, y: 1.4 })) {
       cmd.aimYaw = Math.atan2(nest.pos.z - s.pos.z, nest.pos.x - s.pos.x);
       cmd.fire = true;
+      nestAim = true;
       if (wdef.arc) cmd.aimDist = nest.d;
     }
   }
@@ -686,10 +758,10 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
     // jump troopers hop in fights
     if (cls.ability === 'jetpack' && s.energy > 40 && w.rng.next() < 0.02) cmd.jump = true;
   } else {
-    cmd.aimYaw = Math.atan2(mvz, mvx) || s.yaw;
-    // reload when idle
+    if (!nestAim) cmd.aimYaw = Math.atan2(mvz, mvx) || s.yaw;
+    // reload when idle — but never mid nest-demolition
     const wdef = WEAPONS[s.weapons[s.weaponIdx]];
-    if (s.clip[s.weaponIdx] < wdef.clip * 0.4 && s.reserve[s.weaponIdx] > 0) cmd.reload = true;
+    if (!nestAim && s.clip[s.weaponIdx] < wdef.clip * 0.4 && s.reserve[s.weaponIdx] > 0) cmd.reload = true;
   }
 
   // --- class abilities ---
@@ -797,7 +869,16 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
     if (o.id === s.id || !o.alive || o.team !== s.team) continue;
     const dx = s.pos.x - o.pos.x, dz = s.pos.z - o.pos.z;
     const d = Math.hypot(dx, dz);
-    if (d > 3 || d < 0.001) continue;
+    if (d > 3) continue;
+    if (d < 0.001) {
+      // PERFECTLY stacked (same-tick respawns once landed here): the old
+      // guard skipped this pair entirely, so the pile pushed nobody and
+      // stood in itself forever. A deterministic per-id shove breaks the
+      // tie — everyone leaves the pile in their own direction.
+      const a = s.id * 2.399;
+      sepX += Math.cos(a); sepZ += Math.sin(a);
+      continue;
+    }
     const push = (3 - d) / 3;
     sepX += (dx / d) * push;
     sepZ += (dz / d) * push;

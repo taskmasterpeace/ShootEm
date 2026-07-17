@@ -692,17 +692,39 @@ export class World {
       let bestScore = -Infinity;
       for (const p of spawnList) {
         let nearest = Infinity;
+        let crowd = 0; // friendlies already standing on this pad
         for (const e of this.soldiers.values()) {
-          if (!e.alive || e.team === s.team) continue;
-          nearest = Math.min(nearest, Math.hypot(e.pos.x - p.x, e.pos.z - p.z));
+          if (!e.alive) continue;
+          const d = Math.hypot(e.pos.x - p.x, e.pos.z - p.z);
+          if (e.team !== s.team) nearest = Math.min(nearest, d);
+          else if (d < 4.5) crowd++;
         }
-        const score = Math.min(nearest, 60) + this.rng.range(0, 4);
+        // THE DOGPILE FIX (Robert: "they get stuck over each other"): a wave
+        // that dies together respawns in the same tick, and the enemy-aware
+        // argmax used to hand every one of them the SAME pad — a ±4 tiebreak
+        // can't outvote a 20u safety gap. Each body already standing on a
+        // pad now costs it 7 points, so the wave DEALS itself across the
+        // ring instead of stacking one square.
+        const score = Math.min(nearest, 60) + this.rng.range(0, 4) - crowd * 7;
         if (score > bestScore) { bestScore = score; ringPick = p; }
       }
     }
-    const base = mobile && this.rng.next() < 0.5 ? mobile.pos : ringPick;
-    s.pos = { x: base.x + this.rng.range(-1.5, 1.5), y: 0, z: base.z + this.rng.range(-1.5, 1.5) };
+    // the APC is a door, not a clown car — a third rides it, not half
+    const base = mobile && this.rng.next() < 0.33 ? mobile.pos : ringPick;
+    s.pos = { x: base.x + this.rng.range(-2.6, 2.6), y: 0, z: base.z + this.rng.range(-2.6, 2.6) };
     s.vel = { x: 0, y: 0, z: 0 };
+    // FRESH LIFE (Robert: "give them a chance to try something different"):
+    // dying wipes the nav scratch — no marching the old lane out of habit —
+    // and rolls a new personality salt: lane bias, indoor posting, ride
+    // appetite. The first 8 seconds are the window where a ride gets a look.
+    if (s.kind === 'bot') {
+      s.botGoal = null;
+      s.botRepathAt = 0;
+      s.botStuckAt = undefined;
+      s.botLastX = undefined; s.botLastZ = undefined;
+      s.botLifeSeed = this.rng.int(0, 2) - 1; // −1 | 0 | 1
+      s.botFreshUntil = this.time + 8;
+    }
     // spawn protection (55B): holds until the first hostile action, 5s cap.
     // §21 The Reprint: the shimmer IS calibration — a fresh sleeve syncing up,
     // the printer finishing its work. Same numbers, honest fiction.

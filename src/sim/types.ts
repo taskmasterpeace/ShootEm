@@ -299,6 +299,13 @@ export interface Soldier {
   botLastX?: number;
   botLastZ?: number;
   botMoveCheckAt?: number;
+  /** per-LIFE personality salt, rolled at spawn (−1 | 0 | 1): lane bias,
+   *  indoor posting, ride appetite — each life tries something different
+   *  (Robert's respawn-variety ask) */
+  botLifeSeed?: number;
+  /** fresh off the pad until this time — the window where a bot considers a
+   *  ride for the long trip back instead of jogging the same lane again */
+  botFreshUntil?: number;
 }
 
 export interface Vehicle {
