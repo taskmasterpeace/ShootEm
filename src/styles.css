@@ -57,14 +57,14 @@ html, body {
 #menu {
   position: absolute; inset: 0; z-index: 30;
   display: flex; align-items: flex-start; justify-content: center;
-  /* tactical terminal: a faint survey grid + amber command-glow over deep steel,
-     plus fine scanlines — atmosphere, not a SaaS radial gradient */
+  /* the war-room table: a generated topographic-steel map, darkened hard for
+     text legibility, under scanlines + a single amber command-glow */
   background:
-    repeating-linear-gradient(0deg, oklch(1 0 0 / 0.014) 0 1px, transparent 1px 3px),
-    linear-gradient(var(--grid-line, oklch(1 0 0 / 0.02)) 1px, transparent 1px) 0 0 / 44px 44px,
-    linear-gradient(90deg, var(--grid-line, oklch(1 0 0 / 0.02)) 1px, transparent 1px) 0 0 / 44px 44px,
-    radial-gradient(ellipse 70% 55% at 50% -8%, oklch(0.3 0.08 74 / 0.42), transparent 70%),
-    linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
+    repeating-linear-gradient(0deg, oklch(1 0 0 / 0.016) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse 70% 55% at 50% -8%, oklch(0.34 0.09 74 / 0.4), transparent 70%),
+    linear-gradient(180deg, oklch(0.14 0.014 74 / 0.9), oklch(0.1 0.012 74 / 0.95)),
+    url('/art/menu-bg.jpg') center center / cover no-repeat,
+    var(--bg-deep);
   overflow-y: auto;
 }
 .menu-inner { width: min(66rem, 94vw); padding: 2.4rem 1.2rem 3rem; }
@@ -182,9 +182,11 @@ html, body {
 #onboarding {
   position: fixed; inset: 0; z-index: 60; overflow-y: auto;
   background:
-    repeating-linear-gradient(0deg, oklch(1 0 0 / 0.014) 0 1px, transparent 1px 3px),
-    radial-gradient(ellipse 70% 55% at 50% -6%, oklch(0.3 0.08 74 / 0.4), transparent 70%),
-    linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
+    repeating-linear-gradient(0deg, oklch(1 0 0 / 0.016) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse 70% 55% at 50% -6%, oklch(0.34 0.09 74 / 0.38), transparent 70%),
+    linear-gradient(180deg, oklch(0.14 0.014 74 / 0.92), oklch(0.1 0.012 74 / 0.96)),
+    url('/art/menu-bg.jpg') center center / cover no-repeat,
+    var(--bg-deep);
 }
 #onboarding.hidden { display: none; }
 .ob-wrap { max-width: 47rem; margin: 4vh auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem; }
