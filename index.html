@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>War World</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>" />
+  <link rel="preload" href="/fonts/oswald-600.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/saira-stencil-one.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/share-tech-mono.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="/fonts/fonts.css" />
   <link rel="stylesheet" href="/src/styles.css" />
 </head>
 <body>
@@ -92,19 +96,19 @@
         </div>
         <div class="menu-section">
           <h3>Armory <span class="opt">(200+ weapons — draw your issue or pick your own)</span></h3>
-          <div class="setup-row">
-            <div class="setup-block">
-              <label>Primary</label>
-              <select id="primary-select" class="armory-select"></select>
-            </div>
-            <div class="setup-block">
-              <label>Sidearm</label>
-              <select id="secondary-select" class="armory-select"></select>
-            </div>
-            <div class="setup-block">
-              <label>&nbsp;</label>
-              <div id="weapon-stats" class="weapon-stats"></div>
-            </div>
+          <div class="armory-rack">
+            <button type="button" class="armory-slot" id="slot-primary" data-slot="primary">
+              <span class="slot-kind">Primary</span>
+              <span class="slot-main"><span class="slot-icon"></span><span class="slot-name"></span></span>
+              <span class="slot-stats"></span>
+              <span class="slot-cta">▸ CHANGE WEAPON</span>
+            </button>
+            <button type="button" class="armory-slot" id="slot-secondary" data-slot="secondary">
+              <span class="slot-kind">Sidearm</span>
+              <span class="slot-main"><span class="slot-icon"></span><span class="slot-name"></span></span>
+              <span class="slot-stats"></span>
+              <span class="slot-cta">▸ CHANGE WEAPON</span>
+            </button>
           </div>
         </div>
         <div class="menu-section">
@@ -174,6 +178,26 @@
         <div id="tab-map" class="menu-tabpane hidden">
           <div id="map-root"><p class="opt">THE SCAR — the theater map deploys with the Living Campaign.</p></div>
         </div>
+      </div>
+    </div>
+
+    <!-- The armory: a real weapon browser, not a pulldown. Search + family
+         filters + a grid of stat-telemetry cards. Opened from a loadout slot. -->
+    <div id="weapon-picker" class="hidden">
+      <div class="wp-panel brk">
+        <div class="wp-head">
+          <div>
+            <div class="wp-eyebrow">ARMORY</div>
+            <h2 id="wp-title">SELECT PRIMARY</h2>
+          </div>
+          <button id="wp-close" class="wp-close" aria-label="close armory">✕</button>
+        </div>
+        <div class="wp-tools">
+          <input id="wp-search" type="text" placeholder="Search weapons…" autocomplete="off" />
+          <div id="wp-families" class="wp-families"></div>
+        </div>
+        <div id="wp-grid" class="wp-grid"></div>
+        <div class="wp-foot"><span id="wp-count"></span><span class="wp-hint">↵ pick · ESC close</span></div>
       </div>
     </div>
   </div>

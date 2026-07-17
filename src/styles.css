@@ -1,18 +1,23 @@
 :root {
-  --bg: oklch(0.16 0.02 80);
-  --card: oklch(0.21 0.025 80);
-  --card-hover: oklch(0.25 0.03 80);
-  --border: oklch(0.32 0.03 80);
+  --bg: oklch(0.15 0.014 74);
+  --bg-deep: oklch(0.11 0.012 74);
+  --card: oklch(0.19 0.018 74);
+  --card-hover: oklch(0.23 0.026 74);
+  --border: oklch(0.34 0.018 74);       /* steel hairline, not warm */
+  --border-bright: oklch(0.52 0.03 74);
   --text: oklch(0.93 0.01 80);
-  --muted: oklch(0.65 0.04 80);
-  --accent: oklch(0.75 0.16 75);       /* amber */
-  --accent-strong: oklch(0.65 0.19 60);
-  --team0: oklch(0.75 0.16 75);
-  --team1: oklch(0.72 0.14 220);
+  --muted: oklch(0.64 0.03 78);
+  --accent: oklch(0.76 0.16 74);        /* amber — the one signal colour */
+  --accent-strong: oklch(0.66 0.19 58);
+  --team0: oklch(0.76 0.16 74);
+  --team1: oklch(0.72 0.13 225);
   --danger: oklch(0.6 0.21 25);
-  --ok: oklch(0.7 0.17 145);
-  --radius: 0.625rem;
-  --font: 'Inter', 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ok: oklch(0.72 0.16 145);
+  --radius: 2px;                        /* hard military edge — no soft SaaS cards */
+  /* type system: stencil wordmark · condensed grotesque UI · mono telemetry */
+  --font: 'Oswald', system-ui, 'Segoe UI', sans-serif;
+  --font-display: 'Saira Stencil One', 'Oswald', system-ui, sans-serif;
+  --font-mono: 'Share Tech Mono', ui-monospace, 'Cascadia Mono', 'Consolas', monospace;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -23,7 +28,9 @@ html, body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font);
-  font-size: 0.875rem;
+  font-size: 0.9rem;
+  letter-spacing: 0.01em;
+  -webkit-font-smoothing: antialiased;
 }
 
 #app { position: relative; width: 100%; height: 100%; }
@@ -31,47 +38,88 @@ html, body {
 
 .hidden { display: none !important; }
 
+/* telemetry numerals read as a readout, not body copy */
+.mono, .tnum { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: 0; }
+
+/* corner brackets — the targeting-reticle frame that says "tactical panel",
+   not "web card". Drop .brk on any positioned element. */
+.brk { position: relative; }
+.brk::before, .brk::after {
+  content: ''; position: absolute; width: 10px; height: 10px; pointer-events: none;
+  border-color: var(--border-bright); border-style: solid; border-width: 0;
+  transition: border-color 0.2s;
+}
+.brk::before { top: -1px; left: -1px; border-top-width: 2px; border-left-width: 2px; }
+.brk::after { bottom: -1px; right: -1px; border-bottom-width: 2px; border-right-width: 2px; }
+.brk.sel::before, .brk.sel::after, .brk.selected::before, .brk.selected::after { border-color: var(--accent); }
+
 /* ============ MENU ============ */
 #menu {
   position: absolute; inset: 0; z-index: 30;
-  display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: flex-start; justify-content: center;
+  /* tactical terminal: a faint survey grid + amber command-glow over deep steel,
+     plus fine scanlines — atmosphere, not a SaaS radial gradient */
   background:
-    radial-gradient(ellipse at 30% 20%, oklch(0.22 0.05 75 / 0.55), transparent 60%),
-    radial-gradient(ellipse at 75% 80%, oklch(0.2 0.05 220 / 0.4), transparent 55%),
-    var(--bg);
+    repeating-linear-gradient(0deg, oklch(1 0 0 / 0.014) 0 1px, transparent 1px 3px),
+    linear-gradient(var(--grid-line, oklch(1 0 0 / 0.02)) 1px, transparent 1px) 0 0 / 44px 44px,
+    linear-gradient(90deg, var(--grid-line, oklch(1 0 0 / 0.02)) 1px, transparent 1px) 0 0 / 44px 44px,
+    radial-gradient(ellipse 70% 55% at 50% -8%, oklch(0.3 0.08 74 / 0.42), transparent 70%),
+    linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
   overflow-y: auto;
 }
-.menu-inner { width: min(64rem, 92vw); padding: 2.5rem 1rem; }
+.menu-inner { width: min(66rem, 94vw); padding: 2.4rem 1.2rem 3rem; }
 .game-title {
-  font-size: 3.5rem; font-weight: 700; letter-spacing: -0.025em;
-  line-height: 1;
-  color: var(--text);
+  font-family: var(--font-display);
+  font-size: clamp(2.8rem, 7vw, 4.6rem); font-weight: 400;
+  letter-spacing: 0.02em; line-height: 0.92;
+  color: var(--text); text-transform: uppercase;
+  text-shadow: 0 2px 0 oklch(0 0 0 / 0.5), 0 0 34px oklch(0.76 0.16 74 / 0.18);
 }
-.game-title span { color: var(--accent); font-weight: 400; }
-.tagline { color: var(--muted); margin: 0.5rem 0 2rem; }
+.game-title span { color: var(--accent); }
+.tagline {
+  color: var(--muted); margin: 0.55rem 0 1.6rem;
+  font-size: 0.82rem; letter-spacing: 0.22em; text-transform: uppercase;
+  border-left: 2px solid var(--accent); padding-left: 0.7rem;
+}
 .menu-section { margin-bottom: 1.5rem; }
 .menu-section h3 {
-  font-size: 0.8rem; font-weight: 600; text-transform: uppercase;
-  letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.6rem;
+  font-size: 0.74rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.18em; color: var(--muted); margin-bottom: 0.65rem;
+  display: flex; align-items: center; gap: 0.5rem;
+}
+/* section labels wear a stencil tick — the field-manual header rule */
+.menu-section h3::before {
+  content: ''; width: 0.7rem; height: 2px; background: var(--accent); flex: 0 0 auto;
 }
 .menu-section .opt { font-weight: 400; text-transform: none; letter-spacing: 0; }
 #menu input[type="text"] {
-  background: var(--card); border: 1px solid var(--border); color: var(--text);
-  border-radius: var(--radius); padding: 0.6rem 0.9rem; font-family: var(--font);
-  font-size: 0.95rem; width: 20rem; max-width: 100%; outline: none; transition: border-color 0.2s;
+  background: var(--bg-deep); border: 1px solid var(--border); color: var(--text);
+  border-radius: var(--radius); padding: 0.6rem 0.9rem; font-family: var(--font-mono);
+  font-size: 0.95rem; letter-spacing: 0.02em; width: 20rem; max-width: 100%; outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-#menu input[type="text"]:focus { border-color: var(--accent); }
-.card-row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+#menu input[type="text"]:focus { border-color: var(--accent); box-shadow: inset 0 0 0 1px oklch(0.76 0.16 74 / 0.35); }
+#menu input[type="text"]::placeholder { color: oklch(0.5 0.02 78); }
+.card-row { display: flex; gap: 0.7rem; flex-wrap: wrap; }
 .select-card {
-  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  position: relative;
+  background: linear-gradient(180deg, var(--card), oklch(0.16 0.016 74));
+  border: 1px solid var(--border); border-radius: var(--radius);
   padding: 0.9rem 1rem; cursor: pointer; min-width: 10.5rem; flex: 1 1 10.5rem; max-width: 14rem;
-  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s, transform 0.15s;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
-.select-card:hover { background: var(--card-hover); box-shadow: 0 4px 16px oklch(0 0 0 / 0.35); transform: translateY(-1px); }
-.select-card.selected { border-color: var(--accent); background: oklch(0.26 0.05 75 / 0.55); box-shadow: 0 0 0 1px var(--accent); }
-.select-card .icon { font-size: 1.6rem; }
-.select-card .name { font-weight: 600; margin: 0.35rem 0 0.15rem; font-size: 0.95rem; letter-spacing: -0.01em; }
-.select-card .desc { color: var(--muted); font-size: 0.78rem; line-height: 1.35; }
+.select-card::before, .select-card::after {
+  content: ''; position: absolute; width: 9px; height: 9px; pointer-events: none;
+  border: 0 solid var(--border-bright); transition: border-color 0.15s;
+}
+.select-card::before { top: -1px; left: -1px; border-top-width: 2px; border-left-width: 2px; }
+.select-card::after { bottom: -1px; right: -1px; border-bottom-width: 2px; border-right-width: 2px; }
+.select-card:hover { background: var(--card-hover); border-color: var(--border-bright); }
+.select-card.selected { border-color: var(--accent); background: oklch(0.24 0.05 74 / 0.5); box-shadow: inset 0 0 0 1px oklch(0.76 0.16 74 / 0.4), 0 0 24px oklch(0.76 0.16 74 / 0.12); }
+.select-card.selected::before, .select-card.selected::after { border-color: var(--accent); }
+.select-card .icon { font-size: 1.6rem; filter: saturate(1.05); }
+.select-card .name { font-weight: 600; margin: 0.35rem 0 0.15rem; font-size: 0.98rem; letter-spacing: 0.02em; text-transform: uppercase; }
+.select-card .desc { color: var(--muted); font-size: 0.78rem; line-height: 1.4; }
 .setup-row { display: flex; gap: 2rem; flex-wrap: wrap; align-items: flex-end; }
 .setup-block label {
   display: block; font-size: 0.72rem; font-weight: 600; color: var(--muted);
@@ -79,12 +127,15 @@ html, body {
 }
 .pill-row { display: flex; gap: 0.5rem; }
 .pill {
-  background: var(--card); border: 1px solid var(--border); color: var(--text);
-  border-radius: 999px; padding: 0.45rem 0.95rem; font: 500 0.82rem var(--font);
-  cursor: pointer; transition: border-color 0.2s, background 0.2s, transform 0.15s;
+  background: var(--card); border: 1px solid var(--border); color: var(--muted);
+  border-radius: 2px; padding: 0.45rem 0.95rem;
+  font: 600 0.78rem var(--font); letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer; transition: border-color 0.15s, background 0.15s, color 0.15s;
+  /* clipped top-right corner — the tactical toggle, not a web capsule */
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 0 100%);
 }
-.pill:hover { background: var(--card-hover); transform: translateY(-1px); }
-.pill.selected { border-color: var(--accent); background: oklch(0.26 0.05 75 / 0.55); box-shadow: 0 0 0 1px var(--accent); }
+.pill:hover { background: var(--card-hover); color: var(--text); border-color: var(--border-bright); }
+.pill.selected { border-color: var(--accent); background: oklch(0.26 0.06 74 / 0.6); color: var(--accent); box-shadow: inset 0 0 0 1px oklch(0.76 0.16 74 / 0.5); }
 .stepper {
   display: inline-flex; align-items: center; gap: 0.25rem;
   background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 0.2rem;
@@ -100,14 +151,18 @@ html, body {
   font-variant-numeric: tabular-nums; color: var(--accent); font-size: 1rem;
 }
 #deploy-btn {
-  margin-top: 0.5rem;
+  margin-top: 0.5rem; position: relative;
   background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  color: oklch(0.15 0.03 80); border: none; border-radius: var(--radius);
-  font: 700 1.05rem/1 var(--font); letter-spacing: 0.12em;
-  padding: 1rem 3.2rem; cursor: pointer; transition: transform 0.15s, box-shadow 0.2s;
+  color: oklch(0.16 0.03 80); border: none;
+  font: 700 1.15rem/1 var(--font); letter-spacing: 0.2em; text-transform: uppercase;
+  padding: 1.05rem 3.4rem; cursor: pointer; transition: filter 0.15s, box-shadow 0.2s;
+  /* both right corners clipped — a launch key, not a pill */
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  box-shadow: 0 0 0 1px oklch(0.5 0.14 60 / 0.5), 0 6px 22px oklch(0 0 0 / 0.4);
 }
-#deploy-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 28px oklch(0.65 0.19 60 / 0.4); }
-.controls-hint { margin-top: 1.25rem; color: var(--muted); font-size: 0.75rem; }
+#deploy-btn:hover { filter: brightness(1.08); box-shadow: 0 0 0 1px var(--accent), 0 8px 30px oklch(0.66 0.19 58 / 0.45); }
+#deploy-btn:active { filter: brightness(0.96); }
+.controls-hint { margin-top: 1.25rem; color: var(--muted); font-size: 0.75rem; font-family: var(--font-mono); letter-spacing: 0; line-height: 1.6; }
 
 /* ============ HUD ============ */
 #hud { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
@@ -309,14 +364,96 @@ html, body {
 #chat-input:focus { border-color: var(--accent); }
 
 /* ============ ARMORY + EQUIPMENT (menu) ============ */
-.armory-select {
-  background: var(--card); border: 1px solid var(--border); color: var(--text);
-  border-radius: var(--radius); padding: 0.5rem 0.7rem; font-family: var(--font);
-  font-size: 0.82rem; min-width: 15rem; max-width: 20rem;
+/* the loadout rack: two weapon slots that open the picker — no native pulldown */
+.armory-rack { display: flex; gap: 0.8rem; flex-wrap: wrap; }
+.armory-slot {
+  position: relative; flex: 1 1 22rem; max-width: 30rem; text-align: left; cursor: pointer;
+  display: grid; grid-template-columns: auto 1fr; grid-template-areas: 'kind kind' 'main main' 'stats stats' 'cta cta';
+  gap: 0.15rem 0.6rem;
+  background: linear-gradient(180deg, var(--card), oklch(0.15 0.014 74));
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem 0.9rem;
+  color: var(--text); transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
-.armory-select:focus { border-color: var(--accent); outline: none; }
-.armory-select optgroup { color: var(--accent); font-style: normal; }
-.weapon-stats { color: var(--muted); font-size: 0.72rem; line-height: 1.5; min-width: 12rem; font-variant-numeric: tabular-nums; }
+.armory-slot::before, .armory-slot::after {
+  content: ''; position: absolute; width: 10px; height: 10px; pointer-events: none;
+  border: 0 solid var(--accent);
+}
+.armory-slot::before { top: -1px; left: -1px; border-top-width: 2px; border-left-width: 2px; }
+.armory-slot::after { bottom: -1px; right: -1px; border-bottom-width: 2px; border-right-width: 2px; }
+.armory-slot:hover { border-color: var(--border-bright); background: var(--card-hover); box-shadow: 0 0 24px oklch(0.76 0.16 74 / 0.1); }
+.slot-kind { grid-area: kind; font-size: 0.66rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+.armory-slot.is-issue .slot-kind { color: oklch(0.58 0.06 74); }
+.slot-main { grid-area: main; display: flex; align-items: center; gap: 0.55rem; margin-top: 0.1rem; }
+.slot-icon { font-size: 1.5rem; line-height: 1; }
+.slot-name { font-size: 1.05rem; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; color: var(--accent); }
+.slot-stats { grid-area: stats; font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); letter-spacing: 0; margin-top: 0.15rem; }
+.slot-cta { grid-area: cta; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.12em; color: var(--muted); margin-top: 0.4rem; transition: color 0.15s; }
+.armory-slot:hover .slot-cta { color: var(--accent); }
+
+/* the picker overlay — a real weapon browser */
+#weapon-picker {
+  position: fixed; inset: 0; z-index: 62;
+  display: flex; align-items: center; justify-content: center;
+  background: oklch(0.08 0.01 74 / 0.82); backdrop-filter: blur(3px);
+  padding: 3vh 2vw;
+}
+#weapon-picker.hidden { display: none; }
+.wp-panel {
+  width: min(58rem, 96vw); max-height: 92vh; display: flex; flex-direction: column;
+  background: linear-gradient(180deg, oklch(0.18 0.016 74), var(--bg-deep));
+  border: 1px solid var(--border-bright); border-radius: var(--radius);
+  box-shadow: 0 24px 80px oklch(0 0 0 / 0.6); padding: 1.1rem 1.2rem 0.9rem;
+}
+.wp-panel.brk::before, .wp-panel.brk::after { width: 16px; height: 16px; border-color: var(--accent); }
+.wp-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.9rem; }
+.wp-eyebrow { font-size: 0.66rem; letter-spacing: 0.24em; color: var(--accent); font-weight: 600; }
+.wp-head h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.5rem; letter-spacing: 0.03em; margin-top: 0.15rem; }
+.wp-close {
+  background: none; border: 1px solid var(--border); color: var(--muted);
+  width: 2rem; height: 2rem; border-radius: var(--radius); cursor: pointer; font-size: 0.9rem;
+  transition: 0.15s;
+}
+.wp-close:hover { border-color: var(--danger); color: var(--danger); }
+.wp-tools { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 0.8rem; }
+#wp-search {
+  background: var(--bg-deep); border: 1px solid var(--border); color: var(--text);
+  border-radius: var(--radius); padding: 0.6rem 0.85rem; font-family: var(--font-mono);
+  font-size: 0.9rem; outline: none; width: 100%; transition: border-color 0.15s;
+}
+#wp-search:focus { border-color: var(--accent); }
+#wp-search::placeholder { color: oklch(0.5 0.02 78); }
+.wp-families { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.wp-fam {
+  background: var(--card); border: 1px solid var(--border); color: var(--muted);
+  border-radius: 2px; padding: 0.32rem 0.7rem; font: 600 0.7rem var(--font);
+  letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: 0.15s;
+  clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 0 100%);
+}
+.wp-fam:hover { color: var(--text); border-color: var(--border-bright); }
+.wp-fam.selected { color: var(--accent); border-color: var(--accent); background: oklch(0.26 0.06 74 / 0.5); }
+.wp-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.55rem; overflow-y: auto; padding: 0.15rem 0.3rem 0.15rem 0.15rem; flex: 1;
+  scrollbar-width: thin; scrollbar-color: var(--border-bright) transparent;
+}
+.wp-card {
+  position: relative; text-align: left; cursor: pointer;
+  display: flex; flex-direction: column; gap: 0.25rem;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 0.6rem 0.7rem; color: var(--text); transition: border-color 0.12s, background 0.12s;
+}
+.wp-card:hover { border-color: var(--border-bright); background: var(--card-hover); }
+.wp-card.selected { border-color: var(--accent); background: oklch(0.24 0.05 74 / 0.5); box-shadow: inset 0 0 0 1px oklch(0.76 0.16 74 / 0.4); }
+.wp-card.issue { border-style: dashed; }
+.wp-card-top { display: flex; align-items: center; justify-content: space-between; }
+.wp-ico { font-size: 1.3rem; line-height: 1; }
+.wp-tier { font-family: var(--font-mono); font-size: 0.62rem; color: var(--accent); border: 1px solid oklch(0.5 0.1 74 / 0.6); border-radius: 2px; padding: 0.05rem 0.3rem; letter-spacing: 0.04em; }
+.wp-name { font-weight: 600; font-size: 0.86rem; letter-spacing: 0.01em; text-transform: uppercase; }
+.wp-card.issue .wp-name { color: var(--accent); }
+.wp-stats { font-family: var(--font-mono); font-size: 0.68rem; color: var(--muted); letter-spacing: 0; line-height: 1.4; }
+.wp-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 0.7rem; padding-top: 0.6rem; border-top: 1px solid var(--border); }
+#wp-count { font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); }
+.wp-hint { font-size: 0.68rem; color: oklch(0.5 0.02 78); letter-spacing: 0.06em; }
 .equip-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
 .equip-card {
   background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
@@ -419,13 +556,14 @@ html, body {
   border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;
 }
 .mtab {
-  appearance: none; border: 1px solid transparent; background: transparent;
-  color: var(--muted); font: inherit; font-weight: 700; letter-spacing: 0.04em;
-  font-size: 0.85rem; padding: 0.5rem 1.1rem; border-radius: 0.625rem; cursor: pointer;
+  appearance: none; border: 1px solid transparent; border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted); font: inherit; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+  font-size: 0.82rem; padding: 0.5rem 1.1rem; border-radius: 0; cursor: pointer;
   transition: 0.15s;
 }
-.mtab:hover { color: var(--ink, #e7ecf2); background: oklch(0.22 0.015 80); }
-.mtab.active { color: var(--accent); border-color: var(--accent); background: oklch(0.24 0.03 70 / 0.5); }
+.mtab:hover { color: var(--text); background: oklch(0.22 0.015 74 / 0.6); }
+.mtab.active { color: var(--accent); border-bottom-color: var(--accent); background: oklch(0.24 0.03 70 / 0.35); }
 .menu-tabpane.hidden { display: none; }
 
 /* ── Barracks: the dossier on a wall ────────────────────────────────────── */

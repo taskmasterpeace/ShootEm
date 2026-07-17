@@ -1,6 +1,6 @@
 import { CLASSES, EQUIPMENT, MODE_INFO, THEMES, WEAPONS } from './sim/data';
 import { CLASS_ARMORY, familyWeapons } from './sim/arsenal';
-import { isCoopMode, type ClassId, type ModeId, type PlayerCmd, type ThemeId, type WeaponFamily } from './sim/types';
+import { isCoopMode, type ClassId, type ModeId, type PlayerCmd, type ThemeId, type WeaponDef, type WeaponFamily, type WeaponId } from './sim/types';
 import { World, type Difficulty, type Loadout } from './sim/world';
 import { WEATHER_MODS } from './sim/weather';
 import { mountOnboarding, onMatchEnd, paintballConfig } from './client/onboarding';
@@ -41,62 +41,150 @@ let botsPerTeam = 12; // 32B: 12v12 target — bots fill every open position
 let matchMinutes = 15;
 let running = false;
 
-/** The player's armory picks (empty string = class issue weapon). */
+/** The player's armory picks ('' = class issue weapon). Chosen through the
+ *  weapon picker, not a native dropdown. */
+let primaryPick = '';
+let secondaryPick = '';
+
 function currentLoadout(): Loadout {
-  const primary = ($('primary-select') as HTMLSelectElement).value;
-  const secondary = ($('secondary-select') as HTMLSelectElement).value;
   return {
-    primary: primary || undefined,
-    secondary: secondary || undefined,
+    primary: primaryPick || undefined,
+    secondary: secondaryPick || undefined,
     equipment: [...selectedEquipment],
   };
 }
 
-/** Rebuild the armory selects for the chosen class. */
-function buildArmoryMenu() {
-  const primarySel = $('primary-select') as HTMLSelectElement;
-  const secondarySel = $('secondary-select') as HTMLSelectElement;
+/** Human-readable family names for the armory filter rail. */
+const FAMILY_LABELS: Partial<Record<WeaponFamily, string>> = {
+  pistol: 'Pistols', rifle: 'Rifles', carbine: 'Carbines', smg: 'SMGs',
+  shotgun: 'Shotguns', slugger: 'Sluggers', laser: 'Lasers', lmg: 'LMGs',
+  hmg: 'HMGs', at_rocket: 'AT Rockets', ap_rocket: 'AP Rockets', mortar: 'Mortars',
+  artillery: 'Artillery', scatter: 'Scatter', sonic: 'Sonic', flamethrower: 'Flame',
+  grenade: 'Grenades', special: 'Special',
+};
+
+/** One weapon's telemetry line — the readout a picker card and slot share. */
+function weaponTelemetry(w: WeaponDef): string {
+  const dps = Math.round(w.damage * w.pellets * w.rof);
+  const clip = Number.isFinite(w.clip) ? w.clip : '∞';
+  return `DMG ${w.damage}${w.pellets > 1 ? `×${w.pellets}` : ''} · ROF ${w.rof} · DPS ~${dps} · RNG ${w.range} · CLIP ${clip}${w.splash ? ` · SPL ${w.splash}` : ''}`;
+}
+
+/** Paint the two loadout slots with the current picks (or class issue). */
+function renderArmorySlots() {
   const cls = CLASSES[selectedClass];
-
-  primarySel.innerHTML = '';
-  const issue = document.createElement('option');
-  issue.value = '';
-  issue.textContent = `Issue: ${WEAPONS[cls.primary].icon ?? ''} ${WEAPONS[cls.primary].name}`;
-  primarySel.appendChild(issue);
-  for (const fam of CLASS_ARMORY[selectedClass]) {
-    const group = document.createElement('optgroup');
-    group.label = fam.replace('_', '-').toUpperCase();
-    for (const w of familyWeapons(WEAPONS, fam as WeaponFamily)) {
-      const o = document.createElement('option');
-      o.value = w.id;
-      o.textContent = `${w.icon ?? ''} ${w.name}`;
-      group.appendChild(o);
-    }
-    primarySel.appendChild(group);
-  }
-
-  secondarySel.innerHTML = '';
-  const issue2 = document.createElement('option');
-  issue2.value = '';
-  issue2.textContent = `Issue: ${WEAPONS[cls.secondary].name}`;
-  secondarySel.appendChild(issue2);
-  for (const w of familyWeapons(WEAPONS, 'pistol')) {
-    const o = document.createElement('option');
-    o.value = w.id;
-    o.textContent = `${w.icon ?? ''} ${w.name}`;
-    secondarySel.appendChild(o);
-  }
-
-  const stats = $('weapon-stats');
-  const renderStats = () => {
-    const id = primarySel.value || cls.primary;
-    const w = WEAPONS[id];
-    if (!w) { stats.textContent = ''; return; }
-    const dps = Math.round(w.damage * w.pellets * w.rof);
-    stats.innerHTML = `<b>${w.name}</b><br>DMG ${w.damage}${w.pellets > 1 ? `×${w.pellets}` : ''} · ROF ${w.rof}/s · DPS ~${dps}<br>RANGE ${w.range} · CLIP ${Number.isFinite(w.clip) ? w.clip : '∞'}${w.splash ? ` · SPLASH ${w.splash}` : ''}`;
+  const paint = (slot: 'primary' | 'secondary', pickId: string, issueId: WeaponId) => {
+    const w = WEAPONS[pickId] ?? WEAPONS[issueId];
+    const root = $(`slot-${slot}`);
+    const isIssue = !pickId;
+    root.querySelector('.slot-icon')!.textContent = w.icon ?? '▣';
+    root.querySelector('.slot-name')!.textContent = w.name;
+    root.querySelector('.slot-stats')!.textContent = weaponTelemetry(w);
+    root.classList.toggle('is-issue', isIssue);
+    root.querySelector('.slot-kind')!.textContent =
+      (slot === 'primary' ? 'Primary' : 'Sidearm') + (isIssue ? ' · issue' : ' · custom');
   };
-  primarySel.onchange = renderStats;
-  renderStats();
+  paint('primary', primaryPick, cls.primary);
+  paint('secondary', secondaryPick, cls.secondary);
+}
+
+/** The weapon picker overlay — search + family filter + telemetry grid.
+ *  Replaces the old <select>. `which` decides the eligible families. */
+let pickerFamily = '__all';
+let pickerQuery = '';
+function openWeaponPicker(which: 'primary' | 'secondary') {
+  const cls = CLASSES[selectedClass];
+  const families: WeaponFamily[] = which === 'primary' ? CLASS_ARMORY[selectedClass] : ['pistol'];
+  const issueId = which === 'primary' ? cls.primary : cls.secondary;
+  const currentPick = which === 'primary' ? primaryPick : secondaryPick;
+  pickerFamily = '__all';
+  pickerQuery = '';
+
+  $('wp-title').textContent = which === 'primary' ? 'SELECT PRIMARY' : 'SELECT SIDEARM';
+  const search = $('wp-search') as HTMLInputElement;
+  search.value = '';
+
+  // family filter rail (ALL + each eligible family) — hidden when only one
+  const famRail = $('wp-families');
+  famRail.innerHTML = '';
+  const addFam = (key: string, label: string) => {
+    const b = document.createElement('button');
+    b.className = `wp-fam${key === pickerFamily ? ' selected' : ''}`;
+    b.textContent = label;
+    b.onclick = () => {
+      pickerFamily = key; audio.play('ui_click');
+      famRail.querySelectorAll('.wp-fam').forEach((x) => x.classList.remove('selected'));
+      b.classList.add('selected');
+      renderPickerGrid(which, families, issueId, currentPick);
+    };
+    famRail.appendChild(b);
+  };
+  famRail.style.display = families.length > 1 ? 'flex' : 'none';
+  addFam('__all', 'All');
+  for (const f of families) addFam(f, FAMILY_LABELS[f] ?? f.toUpperCase());
+
+  search.oninput = () => { pickerQuery = search.value.toLowerCase(); renderPickerGrid(which, families, issueId, currentPick); };
+
+  renderPickerGrid(which, families, issueId, currentPick);
+  $('weapon-picker').classList.remove('hidden');
+  search.focus();
+}
+
+function closeWeaponPicker() { $('weapon-picker').classList.add('hidden'); }
+
+function renderPickerGrid(which: 'primary' | 'secondary', families: WeaponFamily[], issueId: WeaponId, currentPick: string) {
+  const grid = $('wp-grid');
+  grid.innerHTML = '';
+  const chosen = pickerFamily === '__all' ? families : [pickerFamily as WeaponFamily];
+
+  // build the row list: the class-issue option first, then every eligible weapon
+  type Row = { id: string; w: WeaponDef; issue: boolean };
+  const rows: Row[] = [{ id: '', w: WEAPONS[issueId], issue: true }];
+  for (const fam of chosen) for (const w of familyWeapons(WEAPONS, fam)) rows.push({ id: w.id, w, issue: false });
+
+  const q = pickerQuery.trim();
+  const shown = rows.filter((r) => !q || r.w.name.toLowerCase().includes(q) || (r.w.family ?? '').includes(q));
+
+  for (const r of shown) {
+    const card = document.createElement('button');
+    const selected = r.id === currentPick;
+    card.className = `wp-card${selected ? ' selected' : ''}${r.issue ? ' issue' : ''}`;
+    const tier = r.w.tier ? `<span class="wp-tier">MK${r.w.tier}</span>` : '';
+    card.innerHTML =
+      `<span class="wp-card-top"><span class="wp-ico">${r.w.icon ?? '▣'}</span>${tier}</span>` +
+      `<span class="wp-name">${r.issue ? '◆ ISSUE · ' : ''}${r.w.name}</span>` +
+      `<span class="wp-stats">${weaponTelemetry(r.w)}</span>`;
+    card.onclick = () => {
+      audio.play('ui_click');
+      if (which === 'primary') primaryPick = r.id; else secondaryPick = r.id;
+      renderArmorySlots();
+      closeWeaponPicker();
+    };
+    grid.appendChild(card);
+  }
+  $('wp-count').textContent = `${shown.length} weapon${shown.length === 1 ? '' : 's'}`;
+}
+
+/** Rebuild the armory for the chosen class. Custom picks that the new class
+ *  can't field fall back to its issue weapon. */
+function buildArmoryMenu() {
+  // a custom primary from another class's families is invalid — reset to issue
+  if (primaryPick) {
+    const fam = WEAPONS[primaryPick]?.family;
+    if (!fam || !CLASS_ARMORY[selectedClass].includes(fam)) primaryPick = '';
+  }
+  renderArmorySlots();
+}
+
+/** Wire the two slots + picker chrome once at boot. */
+function wireArmory() {
+  ($('slot-primary') as HTMLButtonElement).onclick = () => { audio.play('ui_click'); openWeaponPicker('primary'); };
+  ($('slot-secondary') as HTMLButtonElement).onclick = () => { audio.play('ui_click'); openWeaponPicker('secondary'); };
+  $('wp-close').onclick = () => { audio.play('ui_click'); closeWeaponPicker(); };
+  $('weapon-picker').onclick = (e) => { if (e.target === $('weapon-picker')) closeWeaponPicker(); };
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$('weapon-picker').classList.contains('hidden')) closeWeaponPicker();
+  });
 }
 
 /** Equipment grid: pick two. */
@@ -715,6 +803,7 @@ void initCampaign();
 
 buildMenu();
 wireSetupControls();
+wireArmory();
 wireMenuTabs();
 
 // settings (§18/§10.3): volume + comfort, persisted, applied live
