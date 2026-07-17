@@ -1111,6 +1111,14 @@ export class Renderer {
     // soldiers
     for (const s of world.soldiers.values()) {
       let mesh = this.soldierMeshes.get(s.id);
+      // §7: a soldier can CHANGE BODIES mid-match — ascend into an LSW, or
+      // die and come back mortal. The cache is by id, so a body swap means
+      // tear down and rebuild (the dress is baked into materials and scale).
+      if (mesh && (s.ascendant ?? '') !== ((mesh.userData.lsw as string | undefined) ?? '')) {
+        this.scene.remove(mesh);
+        this.soldierMeshes.delete(s.id);
+        mesh = undefined;
+      }
       if (!mesh) {
         mesh = buildSoldier(s.team, s.classId, s.kind);
         // AN LSW READS AS AN LSW (§21.6, Robert: "make sure visually the
@@ -2395,6 +2403,30 @@ export class Renderer {
             audio.play('ice_freeze', { pos: e.pos, volume: 0.8 });
           }
           break;
+        case 'lsw_active': {
+          // a piloted LSW fired its signature — each speaks in its own voice
+          if (!e.pos) break;
+          if (e.text === 'firebrand') {
+            audio.play('fire_whoosh', { pos: e.pos, volume: 0.95 });
+            this.particles.emit({ pos: { ...e.pos, y: 0.6 }, count: 24, color: 0xff7a20, speed: 8, life: 0.5, spread: 1.4, up: 4, gravity: -2 });
+          } else if (e.text === 'plaguebearer') {
+            audio.play('gas_hiss', { pos: e.pos, volume: 0.9 });
+            this.particles.emit({ pos: { ...e.pos, y: 0.8 }, count: 22, color: 0x8fbe42, speed: 5, life: 0.8, spread: 1.6, up: 2, gravity: 1 });
+          } else if (e.text === 'ragebeast') {
+            audio.play('rage_roar', { pos: e.pos, volume: 0.95 });
+            this.particles.emit({ pos: { ...e.pos, y: 0.3 }, count: 30, color: 0x8a7f6a, speed: 9, life: 0.7, spread: 1.8, up: 5, gravity: 7 });
+            const localS = world.soldiers.get(localId);
+            if (localS) {
+              const d = Math.hypot(e.pos.x - localS.pos.x, e.pos.z - localS.pos.z);
+              if (d < 22) this.camShake = Math.max(this.camShake, 0.6 * (1 - d / 22));
+            }
+          } else if (e.text === 'frostbite') {
+            // the freeze itself speaks via the encased event — this is just
+            // the pilot's cast flourish
+            this.particles.emit({ pos: { ...e.pos, y: 1 }, count: 10, color: 0xcdeef7, speed: 3, life: 0.4, spread: 0.6, up: 2, gravity: -1 });
+          }
+          break;
+        }
         case 'jetpack':
           if (e.pos) this.particles.emit({ pos: { ...e.pos, y: 0.7 }, count: 4, color: 0xff9840, speed: 2, life: 0.35, spread: 0.3, up: -4, gravity: -4 });
           if (e.soldierId === localId) audio.play('jetpack', { volume: 0.35 });

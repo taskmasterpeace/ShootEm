@@ -5,6 +5,7 @@
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
 import { World } from '../src/sim/world';
+import { CLASSES } from '../src/sim/data';
 import { LSWS, THREAT, lswAllowed } from '../src/sim/lsw';
 import type { AscendantId, PlayerCmd } from '../src/sim/types';
 
@@ -177,5 +178,157 @@ describe('Ragebeast — the rampage', () => {
     const wounded = rb.rageMul ?? 1;
     expect(healthy, 'a healthy beast should not be raging').toBeLessThan(1.15);
     expect(wounded, 'the wound did not feed him').toBeGreaterThan(healthy + 0.3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §7 PLAYING AS AN LSW — you call it, you hold the mark, you BECOME it.
+// The full pilot loop: call → telegraph → ascension → Q signature → death
+// hands the body back.
+// ---------------------------------------------------------------------------
+describe('playing as an LSW', () => {
+  const quiet = () => new World({ seed: 42, mode: 'ctf', botsPerTeam: 0 });
+
+  it('the caller ascends — the pod turns YOU into the weapon, where you stood', () => {
+    const w = quiet();
+    const h = w.addSoldier('ROBERT', 'infantry', 0, 'human');
+    h.pos = { x: 10, y: 0, z: 8 }; h.alive = true;
+    expect(w.requestLsw('firebrand', 0, h.id)).toBe(true);
+    for (let i = 0; i < 60 * 21; i++) w.step(1 / 60, new Map()); // past the T2 telegraph
+    expect(h.ascendant, 'the caller did not ascend').toBe('firebrand');
+    expect(h.maxHp).toBe(THREAT[2].hp);
+    expect(Math.hypot(h.pos.x - 10, h.pos.z - 8), 'the pod moved off the mark').toBeLessThan(2);
+    // no SECOND body — the caller IS the LSW, not a spectator of one
+    const lsws = [...w.soldiers.values()].filter((s) => s.ascendant);
+    expect(lsws.length).toBe(1);
+    expect(lsws[0].id).toBe(h.id);
+  });
+
+  it('a caller dead AT LANDING forfeits — the stable sends its own pilot', () => {
+    const w = quiet();
+    const h = w.addSoldier('ROBERT', 'infantry', 0, 'human');
+    h.pos = { x: 10, y: 0, z: 8 }; h.alive = true;
+    expect(w.requestLsw('firebrand', 0, h.id)).toBe(true);
+    // ride out most of the telegraph alive, then die 1s before the pod hits —
+    // the respawn clock can't beat the landing
+    for (let i = 0; i < 60 * 19; i++) w.step(1 / 60, new Map());
+    h.protectedUntil = 0;
+    w.damageSoldier(h, 99999, -1, 'ar606'); // overkill — no crawl, straight down
+    expect(h.alive).toBe(false);
+    for (let i = 0; i < 60 * 2; i++) w.step(1 / 60, new Map()); // landing passes while he is dead
+    const lsw = [...w.soldiers.values()].find((s) => s.ascendant === 'firebrand');
+    expect(lsw, 'the pod landed empty').toBeDefined();
+    expect(lsw!.id, 'a dead man ascended').not.toBe(h.id);
+    // and when the mortal comes back, he comes back MORTAL
+    for (let i = 0; i < 60 * 12; i++) w.step(1 / 60, new Map());
+    expect(h.alive).toBe(true);
+    expect(h.ascendant).toBeUndefined();
+  });
+
+  it('a caller who dies and RECOVERS before landing keeps the pod — it is still yours', () => {
+    const w = quiet();
+    const h = w.addSoldier('ROBERT', 'infantry', 0, 'human');
+    h.pos = { x: 10, y: 0, z: 8 }; h.alive = true; h.protectedUntil = 0;
+    expect(w.requestLsw('firebrand', 0, h.id)).toBe(true);
+    w.damageSoldier(h, 99999, -1, 'ar606'); // dies immediately…
+    for (let i = 0; i < 60 * 21; i++) w.step(1 / 60, new Map()); // …respawns mid-telegraph
+    expect(h.ascendant, 'the recovered caller lost his own pod').toBe('firebrand');
+  });
+
+  it('death hands the body back — the mortal redeploys as their class', () => {
+    const w = quiet();
+    const h = w.addSoldier('ROBERT', 'infantry', 0, 'human');
+    h.pos = { x: 10, y: 0, z: 8 }; h.alive = true;
+    expect(w.ascendSoldier(h, 'frostbite', { x: 10, y: 0, z: 8 })).toBe(true);
+    expect(h.maxHp).toBe(THREAT[3].hp);
+    h.protectedUntil = 0;
+    w.damageSoldier(h, 99999, -1, 'ar606');
+    expect(h.alive).toBe(false);
+    for (let i = 0; i < 60 * 12; i++) w.step(1 / 60, new Map()); // past the respawn delay
+    expect(h.alive, 'the mortal never came back').toBe(true);
+    expect(h.ascendant, 'the overlay survived the grave').toBeUndefined();
+    expect(h.maxHp, 'trooper stats did not return').toBe(CLASSES.infantry.hp);
+  });
+
+  it('your body answers only your own stable', () => {
+    const w = quiet();
+    const h = w.addSoldier('ROBERT', 'infantry', 0, 'human');
+    h.alive = true;
+    expect(w.ascendSoldier(h, 'ragebeast'), 'a UF trooper took a Collective body').toBe(false);
+    expect(w.requestLsw('plaguebearer', 0, h.id), 'the call crossed factions').toBe(false);
+  });
+
+  it("Q cashes Firebrand's board — and an unpainted board never burns the key", () => {
+    const w = quiet();
+    const h = w.addSoldier('ROBERT', 'infantry', 0, 'human');
+    h.pos = { x: 0, y: 0, z: 0 }; h.alive = true;
+    w.ascendSoldier(h, 'firebrand');
+    const grenadesBefore = h.grenades;
+    // Q with NOTHING painted: whiff — no cooldown, no class-kit leak
+    w.step(1 / 60, new Map([[h.id, cmd({ ability: true })]]));
+    expect(h.nextLswActiveAt ?? 0, 'a whiff burned the cooldown').toBe(0);
+    expect(h.grenades, 'the class kit leaked through Q').toBe(grenadesBefore);
+    // paint, then cash
+    for (let i = 0; i < 60 * 2; i++) w.step(1 / 60, new Map([[h.id, cmd({ moveZ: -1 })]]));
+    w.takeEvents();
+    w.step(1 / 60, new Map([[h.id, cmd({ ability: true })]]));
+    const events = w.takeEvents();
+    expect(events.some((e) => e.type === 'lsw_active' && e.text === 'firebrand'), 'the board never cashed').toBe(true);
+    expect(h.nextLswActiveAt ?? 0, 'no cooldown after a real cash').toBeGreaterThan(w.time);
+  });
+
+  it('Q freezes the soldier you are AIMING at, not whoever is closest', () => {
+    const w = new World({ seed: 42, mode: 'tdm' });
+    const h = w.addSoldier('ROBERT', 'infantry', 0, 'human');
+    h.pos = { x: 0, y: 0, z: 0 }; h.alive = true;
+    w.ascendSoldier(h, 'frostbite');
+    // the AIMED enemy is farther; a decoy stands closer but behind him
+    const aimed = w.addSoldier('AIMED', 'infantry', 1, 'human');
+    aimed.pos = { x: 12, y: 0, z: 0 }; aimed.alive = true; aimed.protectedUntil = 0;
+    const decoy = w.addSoldier('DECOY', 'infantry', 1, 'human');
+    decoy.pos = { x: -6, y: 0, z: 0 }; decoy.alive = true; decoy.protectedUntil = 0;
+    w.step(1 / 60, new Map([[h.id, cmd({ ability: true, aimYaw: 0 })]])); // aiming +x
+    expect(aimed.encasedUntil, 'the aimed man walked free').toBeDefined();
+    expect(decoy.encasedUntil, 'the ice went to the crowd, not the crosshair').toBeUndefined();
+  });
+
+  it('Q rings the quarantine around Plaguebearer', () => {
+    const w = new World({ seed: 42, mode: 'tdm' });
+    const h = w.addSoldier('K', 'infantry', 1, 'human');
+    h.pos = { x: 0, y: 0, z: 0 }; h.alive = true;
+    w.ascendSoldier(h, 'plaguebearer');
+    w.step(1 / 60, new Map([[h.id, cmd({ ability: true })]]));
+    const ring = [...w.gadgets.values()].filter((g) => g.type === 'smoke_field' && g.ownerId === h.id);
+    expect(ring.length, 'the ring is not a ring').toBeGreaterThanOrEqual(6);
+  });
+
+  it('Q slams the ground — Ragebeast hurts and THROWS whoever stands close', () => {
+    const w = new World({ seed: 42, mode: 'tdm' });
+    const h = w.addSoldier('K', 'infantry', 1, 'human');
+    h.pos = { x: 0, y: 0, z: 0 }; h.alive = true;
+    w.ascendSoldier(h, 'ragebeast');
+    const near = w.addSoldier('NEAR', 'infantry', 0, 'human');
+    near.pos = { x: 3, y: 0, z: 0 }; near.alive = true; near.protectedUntil = 0;
+    const hpBefore = near.hp + near.armor;
+    w.step(1 / 60, new Map([[h.id, cmd({ ability: true })]]));
+    expect(near.hp + near.armor, 'the slam did not bite').toBeLessThan(hpBefore);
+    expect(near.pushX, 'the slam did not throw').toBeGreaterThan(0);
+  });
+
+  it('the bot officer calls for a humanless faction — and NEVER usurps yours', () => {
+    const w = new World({ seed: 42, mode: 'ctf', botsPerTeam: 2 });
+    const h = w.addSoldier('ROBERT', 'infantry', 0, 'human');
+    h.alive = true;
+    let team1Called = false;
+    for (let i = 0; i < 60 * 120; i++) {
+      w.step(1 / 60, new Map());
+      w.takeEvents(); // keep the queue drained
+      if (w.pendingLsw.some((p) => p.team === 1) || [...w.soldiers.values()].some((s) => s.team === 1 && s.ascendant)) team1Called = true;
+      if (team1Called && w.time > 115) break;
+    }
+    expect(team1Called, 'the Collective officer never made the call').toBe(true);
+    // your faction's channel stayed YOURS — nobody called for team 0
+    expect(w.pendingLsw.some((p) => p.team === 0)).toBe(false);
+    expect([...w.soldiers.values()].some((s) => s.team === 0 && s.ascendant)).toBe(false);
   });
 });

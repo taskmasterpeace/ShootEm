@@ -109,11 +109,11 @@ army fields the answers. **Balance lives in the counter, not the mirror.**
 | # | LSW | Role · Movement | Primary | Secondary | The decision it creates | Counterplay | Tier | Status |
 |---|---|---|---|---|---|---|---|---|
 | 1 | **Vanguard** | breacher · ground | Shield bash: short charge, stuns + shoves; raised shield blocks frontal fire | Plants barricades that block bullets **for both sides** | Placement is the skill — his own wall can cage his team | Flanks; banked frags (they bounce now) | T1 | ⬜ |
-| 2 | **Firebrand** | zoner · ground | Fire streams that paint burning trails on the ground | Detonates every patch he's painted, **all at once** | You see the floor he owns: cross NOW or wait — he chooses when to cash the board | Don't stand in paint; rain douses it | T2 | ✅ |
+| 2 | **Firebrand** | zoner · ground | Fire streams that paint burning trails on the ground | Detonates every patch he's painted, **all at once** | You see the floor he owns: cross NOW or wait — he chooses when to cash the board | Don't stand in paint; rain douses it | T2 | ✅ 🎮 pilot: Q = CASH THE BOARD |
 | 3 | **Volt Striker** | anti-cluster · ground | Chain lightning, arcs to 3 | Overloads a vehicle: detonates in 2s **unless the crew bails** | Punishes clustering; the crew decides — abandon armor or gamble | Spread out; bail fast | T1 | ⬜ |
 | 4 | **Shadowstep** | assassin · blink | Blink behind, stab | Departure point holds an explosive decoy — **blows on touch** | Chasing him IS the trap | Shoot the decoy at range | T1 | ⬜ |
 | 5 | **Titan** | bruiser · huge, slow | **Grabs and throws vehicles** — crew included | Ground pound cracks cover to rubble, slows a cone | Starve him: keep armor out of his reach | Kite him — he's slow | **T3** | ⬜ |
-| 6 | **Frostbite** ⭐ | controller · ground | **THE ICE BLOCK** (§4.2) — encases a soldier alive | Ice sheets — vehicles genuinely spin out (S_ICE) | The encased player: struggle out hurt, or hold still and outlast. Freezing their star also **saves** him — timing is everything | Stay near squadmates who can shatter you free | T3 | ✅ (encase core; the block-stops-others'-movement/shots is a Notes gap — soldiers have no mutual collision yet) |
+| 6 | **Frostbite** ⭐ | controller · ground | **THE ICE BLOCK** (§4.2) — encases a soldier alive | Ice sheets — vehicles genuinely spin out (S_ICE) | The encased player: struggle out hurt, or hold still and outlast. Freezing their star also **saves** him — timing is everything | Stay near squadmates who can shatter you free | T3 | ✅ (encase core; the block-stops-others'-movement/shots is a Notes gap — soldiers have no mutual collision yet) 🎮 pilot: Q = aimed freeze |
 | 7 | **Phantom** | infiltrator · hover, silent | Phases through walls, strikes out of them | Possesses a **bot/turret/vehicle** 3s — never a human | Your own machines become the threat | K9 noses smell him; psi scanner | T2/T3 | ⬜ |
 | 8 | **Sniperhawk** | marksman · perches | Piercing rail through bodies + thin cover, **visible laser telegraph between shots** | Marks a point; artillery erases it | The laser tells you where he is — close the gap between shots | Rush him during the telegraph | T1 | ⬜ |
 | 9 | **Gravity Warden** | controller · levitates | Pull-field, then slam | Reverses gravity: enemies float 2.5s, then drop staggered — **they can still shoot** | Floating: panic-fire or hold discipline | Kill him mid-channel to end it | T2 | ⬜ |
@@ -134,10 +134,10 @@ army fields the answers. **Balance lives in the counter, not the mirror.**
 | # | LSW | Role · Movement | Primary | Secondary | The decision it creates | Counterplay | Tier | Status |
 |---|---|---|---|---|---|---|---|---|
 | 1 | **Oblivion** | zoner · levitates | Void bolts that lob over any cover (**black with a white rim — house law: no purple**) | Black hole drags soldiers AND vehicles to a collapse point, then bursts | 1.5s telegraph: run tangentially or die | Sprint across the pull, never against it | T2 | ⬜ |
-| 2 | **Ragebeast** | bruiser · ground | Rampage: **damage taken feeds his speed and power** | Tears his own armored flesh (costing HP) and hurls it as homing projectiles | Burst him or starve him — half-measures feed him | Disengage; deny the rage | T3 | ✅ (rampage shipped: speed + damage scale to ~1.9× wounded; the flesh-hurl homing 🔧 next) |
+| 2 | **Ragebeast** | bruiser · ground | Rampage: **damage taken feeds his speed and power** | Tears his own armored flesh (costing HP) and hurls it as homing projectiles | Burst him or starve him — half-measures feed him | Disengage; deny the rage | T3 | ✅ (rampage shipped: speed + damage scale to ~1.9× wounded; the flesh-hurl homing 🔧 next) 🎮 pilot: Q = GROUND SLAM |
 | 3 | **Nightmare** | disruptor · ground | Fear pulse: **vision cones shrink**, false red pings litter the minimap | Blinds one target 2s — **ears still work** | Trust your ears or trust a lying map | Fight by ear (§19.2 trained you for this) | T1 | ⬜ |
 | 4 | **Chronos** | controller · ground | Slow-time bubble: bullets crawl, movement drags — **walk through a frozen bullet-wall** | Temporal echo: on lethal damage he snaps back 3s, once per fight — **the echo point glows** | Burst him now, or camp the glow | Camp the echo point | T2 | ⬜ |
-| 5 | **Plaguebearer** | attrition · ground | Toxic clouds (quarantine canon) | Infects a vehicle — it trails poison as it drives | The crew chooses: abandon the tank, or drive the plague wagon | Park it; engineer cleanse | T2 | ✅ (cloud shipped; vehicle-infect 🔧 next) |
+| 5 | **Plaguebearer** | attrition · ground | Toxic clouds (quarantine canon) | Infects a vehicle — it trails poison as it drives | The crew chooses: abandon the tank, or drive the plague wagon | Park it; engineer cleanse | T2 | ✅ (cloud shipped; vehicle-infect 🔧 next) 🎮 pilot: Q = QUARANTINE RING |
 | 6 | **Leviathan** | boss · massive | Terrain-flattening sweeps | **Belly flop**: map-scale leap, shadow-telegraphed landing, rim shockwave | Scatter from the shadow — and he's soft mid-air | Hit him in the air (the AA window) | **T3** | ⬜ |
 | 7 | **Pyroclasm** | zoner · ground | Molten rocks leaving long-lived lava pools | **Erupts at 25% HP** — the room decides | Burst through the threshold, or poke and pray | Range the threshold; Riptide douses him | T1 | ⬜ |
 | 8 | **Voidwalker** | assassin · blink | Teleport strikes | Every blink leaves a shadow clone that **detonates after 1s** | Chase him and walk a cluster bomb | Hold ground; don't follow | T1 | ⬜ |
@@ -212,21 +212,23 @@ uses doesn't exist — the brain ships with the character, not after.
 
 ---
 
-## 6. Deployment — the officer calls it
+## 6. Deployment — the officer calls it ✅ (core shipped; economy pending)
 
-Robert's design, and it's right:
-- LSWs are **War Materiel (§17)**: each faction's campaign stock holds a
-  limited stable per front.
-- **The officer decides WHEN** — mid-match, from the officer surface
-  (§7.1/§11.5). A human spending a shared resource: exactly what officers
-  are for.
-- **The drop is telegraphed and DELAYED** — the announcer calls it, a
-  pod-incoming shadow marks the LZ, **20–40s of dread** before arrival. Both
-  sides get the information; the fight bends around the countdown.
-- Some recipes **start** with an LSW on the field (siege/boss: Cataclysm).
-  Most arrive as officer calls. AI officers use a materiel budget + a
-  pressure heuristic.
-- Dropping the enemy's LSW = Materiel + a medal + a Journal line.
+Robert's design, and it's right. What's LIVE in `world.requestLsw`:
+- **The call is telegraphed and DELAYED** — `pod_incoming` announces to both
+  sides, then **15–40s of dread by threat tier**, then the pod lands. ✅
+- **One per faction** — live OR inbound, the slot refuses a second. ✅
+- **A human caller plants the LZ where they stand** and ascends into the
+  body at landing (§7). A bot call (or a forfeited pod) spawns the stable's
+  own pilot at the mark. ✅
+- **The bot officer**: humanless factions call their own stable on a
+  45s radio-check cadence from ~90s; factions with a human never
+  auto-call. ✅
+- Still pending: LSWs as **War Materiel (§17)** — campaign stock, per-front
+  stables, the materiel price per threat tier (the THREAT table already
+  carries the numbers). Some recipes **starting** with an LSW on the field
+  (siege/boss: Cataclysm). Dropping the enemy's LSW = Materiel + a medal +
+  a Journal line.
 
 ### 6.1 How you BECOME an officer — ⚠️ OPEN, needs Robert
 §7 promises the chain of command; onboarding already shows an **OCS** card;
@@ -235,24 +237,52 @@ implementation detail — see §13 Q2.
 
 ---
 
-## 7. Playable LSWs — ⚠️ OPEN, needs Robert
-Robert: *"what if the player could play as one of these characters? That
-might be incredibly empowering. But we gotta get flight to feel right. It
-should fly like Superman or Goku."*
+## 7. PLAYING AS AN LSW — ✅ SHIPPED (the ground stable; fliers wait for flight)
+Robert: *"we need to be able to play as LSWs in a way that is fun and fits
+our game."* Shipped 2026-07-17 for every ground LSW in the stable. The
+design is **the ascension**, and it fits because it reuses the game's own
+laws — the officer call, the telegraph, the one-slot economy — instead of a
+character-select screen:
 
-The honest read:
-- **The bodies are already player-compatible** — an LSW is a Soldier; the
-  local player is a Soldier. Handing the camera to one is not the hard part.
-- **The hard part is flight FEEL.** Superman/Goku flight is a different
-  movement model from a jetpack: free 3D velocity, momentum, banking, a
-  camera that follows a flier. That's a real engine layer (and it's the same
-  layer the three TRUE FLIGHT LSWs need for their AI).
-- **The balance question is separate:** a human driving an LSW against 11
-  ordinary soldiers is a different game than an AI LSW. Options: an earned
-  one-life state (score streak), a dedicated mode, or never.
-- **Recommendation:** ship LSWs as AI first (they're designed as events with
-  counterplay). Build flight for the AI fliers. THEN, with flight feeling
-  right, hand the player the keys as its own decision. See §13 Q1.
+**The pilot loop:**
+1. **V calls your faction's first LSW, ⇧V the second** (the officer channel;
+   a HUD line tells you the binds at deploy). One call per faction slot —
+   live or inbound — same law the bots obey.
+2. **The LZ is WHERE YOU STAND.** Your call plants the mark under your own
+   boots: hold that ground through the telegraph (15–40s by threat) while
+   the whole server watches the countdown. Calling from a safe corner means
+   ascending in a safe corner — the risk is the price of the spot.
+3. **The pod turns YOU into the weapon.** If you're standing at landing —
+   alive, not downed, not frozen, not in a vehicle — your trooper vanishes
+   in the pod flash and the LSW stands up with your name on it. Same
+   soldier id: your killfeed, your record, your body. 2s of pod-flash
+   protection so the landing is an entrance, not an ambush.
+   - Dead **at the moment of landing** forfeits: the stable sends its own
+     pilot (a bot LSW) — the call is never wasted. Die and RESPAWN before
+     the pod hits and it's still yours.
+4. **Q is the SIGNATURE, not the class kit** (the class ability is
+   suppressed while ascended — an ascended medic doesn't self-stim). Whiffs
+   never burn the cooldown. The passives run themselves — walking IS the
+   weapon:
+   | LSW | passive (automatic) | Q (yours) |
+   |---|---|---|
+   | Firebrand | paints burning floor as you move | **CASH THE BOARD** — every patch erupts at once (8s) |
+   | Frostbite | — | **THE ICE BLOCK** — freeze the soldier you're *aiming* at, 20u cone + LOS (4s) |
+   | Plaguebearer | lays contamination as you move | **QUARANTINE RING** — a wall of plague around you (10s) |
+   | Ragebeast | rampage: speed+damage climb as you bleed | **GROUND SLAM** — hurts and THROWS everyone close; harder the more you bleed (6s) |
+5. **Death hands the body back.** The overlay dies with the LSW; you
+   redeploy as the class you signed up as. One life per call — the LSW is
+   an event, not a loadout.
+
+**The bot officer:** a faction with NO human on its roster calls its own
+stable (radio checks from ~90s, every 45s, seeded pick). A faction WITH a
+human never auto-calls — the channel is yours, even if you never press V.
+
+**Honest gaps:** materiel isn't priced yet (calls are free until §17
+campaign stock lands); MP clients can't call (the sim call is
+server-authoritative; the net command comes with the officer console);
+the TRUE FLIGHT trio stays AI-until-flight-feels-right (§13 Q1 stands —
+Superman/Goku is a movement model, not an overlay).
 
 ---
 
@@ -385,6 +415,14 @@ belongs after the T1s. Flagged, not silently reordered.)*
   once flight genuinely feels like Superman/Goku does a human drive one — as
   its own decision, on proven movement. **Do not** shape the entity around a
   playable case now.
+  - **D3 UPDATE (2026-07-17, Robert: "we need to be able to play as LSWs in
+    a way that is fun and fits our game"):** the "later" arrived for the
+    GROUND stable — §7 ships the ascension (call → hold the mark → become →
+    Q signature → death hands the body back). The AI-first shape held: the
+    entity never bent for the pilot (the same body serves both), which is
+    exactly why this took a day, not a rework. **The flight clause still
+    stands** — the TRUE FLIGHT trio stays AI until the movement model earns
+    Superman/Goku.
 - **D4 — Iron Eaters are PROCEDURAL scrap-composition.** Compose bodies from
   the existing prop vocabulary (crate/wreck/silo/crane parts) on the
   eight-joint rig, seed-varied so no two beasts are alike — which is the

@@ -11,7 +11,7 @@ import {
 } from './types';
 import { stepMode, initMode } from './modes';
 import { generateFront } from './fronts';
-import { ICE_HOLD, ICE_HOLD_DRAIN, LSWS, STRUGGLE_HP, STRUGGLE_SECS, THREAT, lswAllowed } from './lsw';
+import { ICE_HOLD, ICE_HOLD_DRAIN, LSWS, STRUGGLE_HP, STRUGGLE_SECS, THREAT, lswAllowed, lswsForTeam } from './lsw';
 import { stepBot, stepDog, stepScientist, stepZombie } from './bots';
 import { PERCEIVE_RANGE, perceivesNow, type SeenMark } from './perception';
 import { THEME_WEATHER, airGrounded, moveMult, visionMult, weatherAnnounce, type WeatherState } from './weather';
@@ -294,40 +294,101 @@ export class World {
    * the mode forbids it or the slot is taken.
    */
   /** pending officer-called LSW drops: announced now, land after the
-   *  telegraph (bigger threat = longer dread). One slot per faction. */
-  pendingLsw: { id: AscendantId; team: Team; landsAt: number; pos: Vec3 }[] = [];
+   *  telegraph (bigger threat = longer dread). One slot per faction.
+   *  `callerId` is the soldier who made the call — if that soldier is a
+   *  HUMAN still standing when the pod slams down, the pod is THEIRS (§7). */
+  pendingLsw: { id: AscendantId; team: Team; landsAt: number; pos: Vec3; callerId: number }[] = [];
+  /** the bot officer's next radio check per team (staggered so the two
+   *  factions never call in the same breath) */
+  private nextLswCallAt: [number, number] = [90, 110];
 
   /**
    * The officer's call (§6): spend the stable's materiel, announce the drop,
    * and set the countdown. Both sides get the warning — the fight bends
-   * around it. Returns false if the mode forbids it or the slot is taken.
+   * around it. A human caller plants the LZ WHERE THEY STAND — you mark the
+   * spot, you hold it for the countdown, the pod is yours. Returns false if
+   * the mode forbids it or the slot is taken.
    */
-  requestLsw(id: AscendantId, team: Team): boolean {
+  requestLsw(id: AscendantId, team: Team, callerId = -1): boolean {
     if (!lswAllowed(this.mode.id)) return false;
     const def = LSWS[id];
+    if (def.faction !== team) return false; // a stable answers only its own faction
     // refuse a second of the same faction — live OR already inbound
     for (const s of this.soldiers.values()) if (s.alive && s.team === team && s.ascendant) return false;
     if (this.pendingLsw.some((p) => p.team === team)) return false;
-    const base = this.map.basePos[team];
-    const lz = { x: base.x, y: 0, z: base.z };
-    this.pendingLsw.push({ id, team, landsAt: this.time + THREAT[def.threat].telegraph, pos: lz });
+    const caller = this.soldiers.get(callerId);
+    const src = caller?.alive ? caller.pos : this.map.basePos[team];
+    const lz = { x: src.x, y: 0, z: src.z };
+    this.pendingLsw.push({ id, team, landsAt: this.time + THREAT[def.threat].telegraph, pos: lz, callerId });
     this.emit({ type: 'pod_incoming', pos: lz, text: `${def.name.toUpperCase()} INBOUND`, big: true });
     return true;
   }
 
-  /** Land any LSW whose countdown has run out. Called each tick from step(). */
+  /** Land any LSW whose countdown has run out, and let the bot officer make
+   *  its own calls. Called each tick from step(). */
   private stepLswDrops() {
+    // THE BOT OFFICER (§7): a faction with NO human on its roster calls its
+    // own stable — the war doesn't wait for you to press the button. A
+    // faction WITH a human never auto-calls: the officer channel is yours.
+    if (lswAllowed(this.mode.id)) {
+      for (const team of [0, 1] as Team[]) {
+        if (this.time < this.nextLswCallAt[team]) continue;
+        this.nextLswCallAt[team] = this.time + 45; // radio checks back in later either way
+        let human = false;
+        for (const s of this.soldiers.values()) if (s.kind === 'human' && s.team === team) { human = true; break; }
+        if (human) continue;
+        const picks = lswsForTeam(team);
+        if (picks.length) this.requestLsw(picks[this.rng.int(0, picks.length - 1)], team);
+      }
+    }
     if (this.pendingLsw.length === 0) return;
     this.pendingLsw = this.pendingLsw.filter((p) => {
       if (this.time < p.landsAt) return true;
-      this.addLsw(p.id, p.team, p.pos);
+      // the pod belongs to its caller: a human still on their feet ASCENDS —
+      // their own body becomes the weapon. Dead, downed, frozen, or mounted
+      // callers forfeit; the stable sends its own pilot (a bot LSW).
+      const caller = this.soldiers.get(p.callerId);
+      const took = caller && caller.kind === 'human' && caller.alive && !caller.downed &&
+        caller.team === p.team && caller.encasedUntil === undefined && caller.vehicleId < 0 && !caller.ascendant
+        ? this.ascendSoldier(caller, p.id, p.pos) : false;
+      if (!took) this.addLsw(p.id, p.team, p.pos);
       this.emit({ type: 'pod_landed', pos: p.pos });
       return false;
     });
   }
 
+  /**
+   * §7 THE ASCENSION: an existing soldier BECOMES the LSW — same id, same
+   * killfeed line, new body. Their trooper vanishes in the pod flash and the
+   * weapon stands up at the LZ. Death hands the body back: spawn() clears
+   * the overlay and the mortal walks again.
+   */
+  ascendSoldier(s: Soldier, id: AscendantId, at?: Vec3): boolean {
+    if (!lswAllowed(this.mode.id) || !s.alive || s.ascendant) return false;
+    if (LSWS[id].faction !== s.team) return false; // your stable, your body
+    for (const o of this.soldiers.values()) if (o.alive && o.team === s.team && o.ascendant) return false;
+    const def = LSWS[id];
+    const threat = THREAT[def.threat];
+    if (at) {
+      this.emit({ type: 'warp', pos: { ...s.pos } }); // the trooper leaves in light
+      s.pos = { ...at, y: 0 };
+      s.vel = { x: 0, y: 0, z: 0 };
+      this.emit({ type: 'warp', pos: { ...at } });    // the weapon arrives in it
+    }
+    s.ascendant = id;
+    s.hp = threat.hp; s.maxHp = threat.hp;
+    s.armor = 0; s.maxArmor = 0; // threat is HP, never a plate wall
+    s.energy = 100;
+    s.nextLswAt = 0; s.nextLswActiveAt = 0;
+    s.cloaked = false;
+    s.protectedUntil = this.time + 2; // the pod flash — landing is not an ambush
+    this.emit({ type: 'announce', text: def.callLine, big: true });
+    return true;
+  }
+
   addLsw(id: AscendantId, team: Team, at?: Vec3): Soldier | null {
     if (!lswAllowed(this.mode.id)) return null;
+    if (LSWS[id].faction !== team) return null; // a stable answers only its own faction
     for (const s of this.soldiers.values()) {
       if (s.alive && s.team === team && s.ascendant) return null; // slot taken
     }
@@ -363,17 +424,12 @@ export class World {
         this.spawnGadget('fire_field', s.team, s.id, { ...s.pos }, Infinity, 9);
         this.emit({ type: 'shot', pos: s.pos, weapon: 'flamer', soldierId: s.id });
       }
-      // SECONDARY (the board, cashed): the brain raises `nextGrenadeAt` past
-      // now to ask for the detonation — every patch he painted erupts at
-      // once. Decision: cross his floor NOW or wait; he chooses when to cash.
-      if (s.grenades > 0 && this.time < (s.nextGrenadeAt ?? 0) - 90) {
+      // SECONDARY (the board, cashed): the BOT brain raises `nextGrenadeAt`
+      // past now to ask for the detonation. A human pilot cashes it on Q
+      // (lswActive) — the brain never usurps a player's timing.
+      if (s.kind === 'bot' && s.grenades > 0 && this.time < (s.nextGrenadeAt ?? 0) - 90) {
         s.grenades = 0; // one board per stable of patches
-        for (const g of this.gadgets.values()) {
-          if (g.type === 'fire_field' && g.ownerId === s.id) {
-            this.explode({ ...g.pos }, WEAPONS.gl, s.id, s.team);
-          }
-        }
-        this.emit({ type: 'announce', text: 'FIREBRAND CASHES THE BOARD', big: false });
+        this.firebrandCashBoard(s);
       }
     } else if (id === 'plaguebearer') {
       // PRIMARY: a contamination cloud laid on the advance — quarantine
@@ -389,8 +445,9 @@ export class World {
     } else if (id === 'frostbite') {
       // THE ICE BLOCK (§21.6 flagship): freeze the nearest enemy in reach on
       // a cadence. One at a time, close — the block is the threat, not DPS.
-      // Ice sheets under his feet are S_ICE, handled by the surface layer.
-      if (this.time >= (s.nextLswAt ?? 0)) {
+      // BOT-ONLY: a human pilot aims the freeze on Q; auto-freezing under a
+      // player's feet would steal the one decision that makes him fun.
+      if (s.kind === 'bot' && this.time >= (s.nextLswAt ?? 0)) {
         let victim: Soldier | undefined, best = 16;
         for (const e of this.soldiers.values()) {
           if (!e.alive || e.team === s.team || e.encasedUntil !== undefined || e.vehicleId >= 0) continue;
@@ -410,6 +467,85 @@ export class World {
       // real, mortal team still burns him down; the wound just makes the
       // last quarter of his HP the dangerous part.
       s.rageMul = 1 + missing * 0.5; // up to 1.5x wounded
+    }
+  }
+
+  /** Firebrand's board, cashed: every patch he painted erupts at once.
+   *  Shared by the bot brain's signal and the human pilot's Q. */
+  private firebrandCashBoard(s: Soldier) {
+    for (const g of this.gadgets.values()) {
+      if (g.type === 'fire_field' && g.ownerId === s.id) {
+        this.explode({ ...g.pos }, WEAPONS.gl, s.id, s.team);
+      }
+    }
+    this.emit({ type: 'announce', text: 'FIREBRAND CASHES THE BOARD', big: false });
+    this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'firebrand', soldierId: s.id });
+  }
+
+  /**
+   * §7 THE SIGNATURE ON Q: a human pilot's active. Whiffs never burn the
+   * cooldown — a signature that punishes you for pressing it stops being
+   * pressed. Every active is built from shipped systems; the class kit
+   * yields (applyCmd blanks cmd.ability for ascendants after this runs).
+   */
+  private lswActive(s: Soldier) {
+    const id = s.ascendant!;
+    const def = LSWS[id];
+    if (id === 'firebrand') {
+      // nothing painted = nothing to cash — keep the key hot
+      let painted = false;
+      for (const g of this.gadgets.values()) if (g.type === 'fire_field' && g.ownerId === s.id) { painted = true; break; }
+      if (!painted) return;
+      s.nextLswActiveAt = this.time + def.activeCd;
+      this.firebrandCashBoard(s);
+    } else if (id === 'frostbite') {
+      // freeze the soldier you're AIMING at: nearest enemy in a ~40° cone,
+      // 20u, LOS — angular miss weighs heavier than distance so the ice goes
+      // where the crosshair says, not where the crowd is.
+      let victim: Soldier | undefined, best = Infinity;
+      for (const e of this.soldiers.values()) {
+        if (!e.alive || e.team === s.team || e.encasedUntil !== undefined || e.vehicleId >= 0) continue;
+        const dx = e.pos.x - s.pos.x, dz = e.pos.z - s.pos.z;
+        const d = Math.hypot(dx, dz);
+        if (d > 20) continue;
+        let ang = Math.atan2(dz, dx) - s.yaw;
+        while (ang > Math.PI) ang -= 2 * Math.PI;
+        while (ang < -Math.PI) ang += 2 * Math.PI;
+        if (Math.abs(ang) > 0.7) continue;
+        const score = d + Math.abs(ang) * 12;
+        if (score < best && losClear(this.map.grid, { ...s.pos, y: 1.4 }, { ...e.pos, y: 1.4 })) { best = score; victim = e; }
+      }
+      if (victim && this.encaseSoldier(victim)) {
+        s.nextLswActiveAt = this.time + def.activeCd;
+        this.emit({ type: 'lsw_active', pos: { ...victim.pos }, text: 'frostbite', soldierId: s.id });
+      }
+    } else if (id === 'plaguebearer') {
+      // the quarantine ring: a wall of plague around you — walk the ring
+      // forward and the fight moves or chokes
+      s.nextLswActiveAt = this.time + def.activeCd;
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        const p = { x: s.pos.x + Math.cos(a) * 4.5, y: 0, z: s.pos.z + Math.sin(a) * 4.5 };
+        this.spawnGadget('smoke_field', s.team, s.id, p, Infinity, 10);
+        this.spawnGadget('fire_field', s.team, s.id, p, 40, 6);
+      }
+      this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'plaguebearer', soldierId: s.id });
+    } else if (id === 'ragebeast') {
+      // GROUND SLAM: everyone close is hurt and THROWN — and like the
+      // rampage itself, it hits harder the more he bleeds
+      s.nextLswActiveAt = this.time + def.activeCd;
+      const mul = s.rageMul ?? 1;
+      for (const e of this.soldiers.values()) {
+        if (!e.alive || e.team === s.team || e.id === s.id) continue;
+        const dx = e.pos.x - s.pos.x, dz = e.pos.z - s.pos.z;
+        const d = Math.hypot(dx, dz);
+        if (d > 7) continue;
+        this.damageSoldier(e, 55 * mul * (1 - d / 9), s.id, 'gl');
+        const inv = d > 0.01 ? 1 / d : 0;
+        e.pushX += dx * inv * 26;
+        e.pushZ += dz * inv * 26;
+      }
+      this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'ragebeast', soldierId: s.id });
     }
   }
 
@@ -510,6 +646,9 @@ export class World {
       this.emit({ type: 'respawn', pos: s.pos, soldierId: s.id });
       return;
     }
+    // §7: death hands the LSW body back — the overlay dies with it and the
+    // mortal redeploys as the class they signed up as (stats reset below).
+    if (s.ascendant) { s.ascendant = undefined; s.rageMul = undefined; s.nextLswAt = undefined; s.nextLswActiveAt = undefined; }
     const c = CLASSES[s.classId];
     // armor equipment issues PLATE — a separate pool that absorbs damage
     // before hp and never heals back (medics fix flesh, not ceramic).
@@ -1071,6 +1210,14 @@ export class World {
 
   applyCmd(s: Soldier, cmd: PlayerCmd, dt: number) {
     s.yaw = cmd.aimYaw;
+
+    // §7 A PILOTED LSW: Q is the SIGNATURE, not the class kit. The active
+    // fires here and the class-ability branches below never see the press —
+    // an ascended medic doesn't self-stim, an ascended ghost doesn't cloak.
+    if (s.ascendant && cmd.ability) {
+      if (s.vehicleId < 0 && this.time >= (s.nextLswActiveAt ?? 0)) this.lswActive(s);
+      cmd = { ...cmd, ability: false };
+    }
 
     // §4.3: downed soldiers crawl — quarter speed, no trigger, no toys, no doors.
     // Everything below (weapons, abilities, vehicles, E-interactions) is for the upright.

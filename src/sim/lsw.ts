@@ -49,6 +49,10 @@ export interface LswDef {
   speed: number;
   /** signature palette (no purple — house law, test-swept) */
   color: number;
+  /** the Q-key signature when a HUMAN pilots this body (§7) — the HUD hint */
+  activeLabel: string;
+  /** signature cooldown in seconds (charged only when the active actually fires) */
+  activeCd: number;
 }
 
 /** The stable. Units land here as they ship; the roster doc is the spec. */
@@ -57,23 +61,32 @@ export const LSWS: Record<AscendantId, LswDef> = {
     id: 'firebrand', name: 'Firebrand', faction: 0, threat: 2,
     callLine: 'FIREBRAND IS ON THE FIELD — THE GROUND WILL BURN',
     scale: 1.25, speed: 9, color: 0xff6a1a,
+    activeLabel: 'CASH THE BOARD — every patch you painted erupts', activeCd: 8,
   },
   plaguebearer: {
     id: 'plaguebearer', name: 'Plaguebearer', faction: 1, threat: 2,
     callLine: 'PLAGUEBEARER INBOUND — SEAL YOUR MASKS',
     scale: 1.3, speed: 8, color: 0x7fa83c,
+    activeLabel: 'QUARANTINE RING — a wall of plague around you', activeCd: 10,
   },
   frostbite: {
     id: 'frostbite', name: 'Frostbite', faction: 0, threat: 3,
     callLine: 'FROSTBITE DEPLOYS — THE COLD TAKES THE FIELD',
     scale: 1.3, speed: 8.5, color: 0x8fd4e8, // pale ice blue (team 0 is amber; this is HIS shade)
+    activeLabel: 'THE ICE BLOCK — freeze the soldier you are aiming at', activeCd: 4,
   },
   ragebeast: {
     id: 'ragebeast', name: 'Ragebeast', faction: 1, threat: 3,
     callLine: 'RAGEBEAST IS LOOSE — DO NOT FEED IT',
     scale: 1.45, speed: 8, color: 0xb23030, // blood-iron red, darkens as it rages
+    activeLabel: 'GROUND SLAM — harder the more you bleed', activeCd: 6,
   },
 };
+
+/** A faction's stable, in call order (V picks [0], ⇧V picks [1]). */
+export function lswsForTeam(team: Team): AscendantId[] {
+  return (Object.values(LSWS) as LswDef[]).filter((d) => d.faction === team).map((d) => d.id);
+}
 
 /** THE ICE BLOCK constants (§21.6). Encase forms over ~0.4s; the ice fully
  *  holds `ICE_HOLD` seconds; holding still drains slowly, struggling breaks

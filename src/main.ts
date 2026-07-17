@@ -1,6 +1,7 @@
 import { CLASSES, EQUIPMENT, MODE_INFO, THEMES, WEAPONS } from './sim/data';
 import { CLASS_ARMORY, familyWeapons } from './sim/arsenal';
-import { isCoopMode, type ClassId, type ModeId, type PlayerCmd, type ThemeId, type WeaponDef, type WeaponFamily, type WeaponId } from './sim/types';
+import { isCoopMode, type ClassId, type ModeId, type PlayerCmd, type Team, type ThemeId, type WeaponDef, type WeaponFamily, type WeaponId } from './sim/types';
+import { LSWS, lswAllowed, lswsForTeam } from './sim/lsw';
 import { World, type Difficulty, type Loadout } from './sim/world';
 import { WEATHER_MODS } from './sim/weather';
 import { mountOnboarding, onMatchEnd, paintballConfig } from './client/onboarding';
@@ -477,6 +478,11 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
   renderer.buildStaticWorld(world);
   course?.begin(world, me.id);
   hud.announce(MODE_INFO[selectedMode].name.toUpperCase(), true, 0);
+  // §7: tell the player the officer channel is open (once per deploy)
+  if (lswAllowed(selectedMode)) {
+    const [a, b] = lswsForTeam(0 as Team);
+    if (a) hud.announce(`OFFICER CHANNEL — V: CALL ${LSWS[a].name.toUpperCase()}${b ? ` · SHIFT+V: ${LSWS[b].name.toUpperCase()}` : ''}`, false, 0);
+  }
   (window as unknown as Record<string, unknown>).__ww = { world, me, renderer, hud, input, audio, recorder: director.recorder, replay: director.player, director }; // debug/testing handle
 
   const FIXED = 1 / 60;
@@ -510,6 +516,21 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
     if (e.key === 'Escape' && !world.mode.over) setPaused(!paused);
     else if (world.mode.over) lingerSkip = true; // any key hurries the AAR along
+    else if ((e.key === 'v' || e.key === 'V') && !paused && !world.puppet) {
+      // §7 THE OFFICER CHANNEL: V calls your faction's first LSW, ⇧V the
+      // second. The LZ is WHERE YOU STAND — hold it through the telegraph
+      // and the pod is yours: your trooper ascends into the weapon.
+      const picks = lswsForTeam(0 as Team);
+      const id = e.shiftKey ? picks[1] : picks[0];
+      if (!id) return;
+      if (world.requestLsw(id, 0, me.id)) {
+        hud.announce(`${LSWS[id].name.toUpperCase()} CALLED — HOLD THE MARK, THE POD IS YOURS`, false, world.time);
+      } else if (!lswAllowed(world.mode.id)) {
+        hud.announce('NO LSW WALKS IN THE YARD', false, world.time);
+      } else {
+        hud.announce('OFFICER CHANNEL BUSY — ONE WEAPON PER FACTION', false, world.time);
+      }
+    }
   };
   window.addEventListener('keydown', onKey); // page reload on endGame cleans up
   const cmds = new Map<number, PlayerCmd>();
@@ -517,6 +538,7 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
   const staticFx = new StaticOverlay();
   let hadDrone = false;
   let nextStaticAt = 0;
+  let pilotBody: string | undefined; // §7: announce each ascension exactly once
 
   function frame(now: number) {
     if (!running) return;
@@ -539,6 +561,15 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     }
     const events = world.takeEvents();
     hud.applyEvents(events, world, me.id, world.time); // killfeed stays live
+    // §7: the moment YOU become the weapon (or hand the body back), say so —
+    // the Q hint is the whole tutorial
+    if (me.ascendant !== pilotBody) {
+      pilotBody = me.ascendant;
+      if (me.ascendant) {
+        const d = LSWS[me.ascendant];
+        hud.announce(`YOU ARE ${d.name.toUpperCase()} — Q: ${d.activeLabel}`, true, world.time);
+      }
+    }
     tracker?.applyEvents(events, world, me.id);
     tracker?.update(world, me.id, dt);
     course?.update(world, dt);
