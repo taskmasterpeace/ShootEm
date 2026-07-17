@@ -2134,27 +2134,31 @@ export class Renderer {
         g.add(glow(new THREE.BoxGeometry(2.8, 0.16, 0.16), color, 0.4));
         return g;
       }
-      case 'shell': // stubby tumbling slug (shotgun, paint) — bumped for reads
-        return solid(new THREE.BoxGeometry(0.42, 0.2, 0.2), color);
+      case 'shell': // stubby tumbling slug (shotgun, paint)
+        return solid(new THREE.BoxGeometry(0.3, 0.15, 0.15), color);
       case 'acid': // wet green glob
         return solid(new THREE.SphereGeometry(0.2, 8, 6), color);
       case 'flame': // flickering ember (fire trail added in flight)
         return glow(new THREE.SphereGeometry(0.24, 7, 5), color, 0.85);
       case 'beam': // short healing streak
         return solid(new THREE.BoxGeometry(1.4, 0.05, 0.05), color);
-      default: { // an actual ROUND (Robert: "bullets should kinda look like
-        // bullets… a little bit larger so you can see them"): a tapered brass
-        // slug with a bright nose, riding a glowing tracer tail. Longer and
-        // thicker than the old hairline streak, and shaped like a bullet.
+      default: { // an actual ROUND — but at ROUND scale. The first cut of
+        // "bullets should look like bullets" shipped a 1.6u pencil (a
+        // soldier is 1.8u tall; Robert's screenshot was a field of floating
+        // crayons). Same anatomy, honest size: a dark-brass slug with a pale
+        // nose, and a thin bright tracer doing the at-zoom visibility work.
         // Long axis is +X (the update loop yaws it to face its velocity).
         const g = new THREE.Group();
-        const slug = solid(new THREE.CylinderGeometry(0.055, 0.1, 0.36, 7), 0xd8a24a);
-        slug.rotation.z = -Math.PI / 2; slug.position.x = 0.08; // +Y → +X (travel)
-        const tip = solid(new THREE.ConeGeometry(0.055, 0.14, 7), 0xffe6ac);
-        tip.rotation.z = -Math.PI / 2; tip.position.x = 0.33;
-        const tracer = glow(new THREE.BoxGeometry(1.35, 0.1, 0.1), color, 0.5);
-        tracer.position.x = -0.55; // the streak trails BEHIND the slug
-        g.add(slug, tip, tracer);
+        const slug = solid(new THREE.CylinderGeometry(0.032, 0.055, 0.17, 6), 0x8a6a30);
+        slug.rotation.z = -Math.PI / 2; slug.position.x = 0.04; // +Y → +X (travel)
+        const tip = solid(new THREE.ConeGeometry(0.032, 0.08, 6), 0xd9b25f);
+        tip.rotation.z = -Math.PI / 2; tip.position.x = 0.165;
+        // the tracer LINE does the at-zoom work: bright solid core, soft halo
+        const streak = solid(new THREE.BoxGeometry(0.72, 0.05, 0.05), color);
+        streak.position.x = -0.41;
+        const tracer = glow(new THREE.BoxGeometry(0.88, 0.11, 0.11), color, 0.42);
+        tracer.position.x = -0.43; // the glow rides the streak, behind the slug
+        g.add(slug, tip, streak, tracer);
         return g;
       }
     }

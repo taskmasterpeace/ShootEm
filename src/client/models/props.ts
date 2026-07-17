@@ -95,11 +95,20 @@ export function buildProp(type: string, scale: number): THREE.Object3D {
       // of the axis-direction invisible-wall gap (the reported bug) while
       // keeping the diagonal overhang — where the mesh pokes past collision —
       // under one world unit.
-      const geo = new THREE.IcosahedronGeometry(scale * 1.45, 0);
-      const mesh = new THREE.Mesh(geo, mat(0x6e685c, { rough: 0.95 }));
-      mesh.position.y = scale * 0.5;
-      mesh.castShadow = true;
-      return mesh;
+      // Two-tone boulder instead of the old single flat-grey blob: a dark
+      // base, a lighter weathered cap sitting INSIDE the same footprint (no
+      // collision change), and a scale-seeded tumble so no two read alike.
+      const g = new THREE.Group();
+      const base = new THREE.Mesh(new THREE.IcosahedronGeometry(scale * 1.45, 0), mat(0x655f52, { rough: 0.95 }));
+      base.position.y = scale * 0.5;
+      base.rotation.y = scale * 7.3; // seed-stable variety, free
+      base.castShadow = true;
+      const cap = new THREE.Mesh(new THREE.IcosahedronGeometry(scale * 0.85, 0), mat(0x837b6b, { rough: 0.9 }));
+      cap.position.set(scale * 0.2, scale * 1.05, -scale * 0.12);
+      cap.rotation.set(0.5, scale * 3.1, 0.3);
+      cap.castShadow = true;
+      g.add(base, cap);
+      return g;
     }
     case 'tree': {
       const g = new THREE.Group();

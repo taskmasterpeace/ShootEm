@@ -199,37 +199,104 @@ export function buildGadget(type: string, team: Team): THREE.Group {
 
 /** Jump gate: a glowing arch. */
 
+/**
+ * The sentry emplacement. The old build was a wire-frame ghost — 0.08u
+ * tripod legs, 0.07u barrels, all dark greys, faction shown by a 0.09u eye.
+ * At command height (camDist 30) that collapses into an unreadable black
+ * lump (Robert's screenshot). This one is silhouette-first: a hex ground
+ * plate, armor skirts, a real mantlet with a gun shield, twin barrels with
+ * muzzle brakes, and the faction worn as PLATES and a visor strip — not a
+ * pixel. UF wears olive drab; the Collective wears graphite with its glow.
+ */
 export function buildTurretMesh(team: Team): THREE.Group {
   const g = new THREE.Group();
   const teamCol = TEAM_COLORS[team];
-  const legMat = mat(0x3a3a34, { metal: 0.4 });
-  // tripod legs
+  const bodyMat = mat(team === 0 ? 0x6e6742 : 0x3c434c, { metal: 0.25, rough: 0.7 });
+  const darkMat = mat(0x2e2e28, { metal: 0.45, rough: 0.6 });
+  const steelMat = mat(0x55534a, { metal: 0.4, rough: 0.55 });
+  const trimMat = mat(teamCol, { emissive: teamCol, rough: 0.5 });
+  trimMat.emissiveIntensity = 0.85; // the faction must SHOUT at command zoom
+
+  // hex ground plate — the emplacement OWNS its ground
+  const pad = cyl(0.66, 0.72, 0.12, darkMat, 6);
+  pad.position.y = 0.06;
+  g.add(pad);
+  // three armor skirts, thick enough to survive distance
   for (let i = 0; i < 3; i++) {
-    const a = (i / 3) * Math.PI * 2;
-    const leg = box(0.08, 0.55, 0.08, legMat);
-    leg.position.set(Math.cos(a) * 0.32, 0.26, Math.sin(a) * 0.32);
-    leg.rotation.x = Math.sin(a) * 0.35;
-    leg.rotation.z = -Math.cos(a) * 0.35;
-    g.add(leg);
+    const a = (i / 3) * Math.PI * 2 + Math.PI / 6;
+    const skirt = box(0.4, 0.44, 0.12, bodyMat);
+    skirt.position.set(Math.cos(a) * 0.5, 0.3, Math.sin(a) * 0.5);
+    skirt.rotation.y = -a + Math.PI / 2;
+    skirt.rotation.x = 0.24;
+    g.add(skirt);
+    // a team stripe on each skirt so the faction reads from EVERY side
+    const stripe = box(0.34, 0.07, 0.02, trimMat);
+    stripe.position.set(Math.cos(a) * 0.56, 0.42, Math.sin(a) * 0.56);
+    stripe.rotation.y = -a + Math.PI / 2;
+    stripe.rotation.x = 0.24;
+    g.add(stripe);
   }
-  const post = cyl(0.1, 0.12, 0.7, mat(0x4a4a42));
-  post.position.y = 0.85;
+  // pedestal + collar
+  const post = cyl(0.17, 0.22, 0.5, steelMat, 8);
+  post.position.y = 0.62;
   g.add(post);
+  const collar = cyl(0.24, 0.24, 0.1, darkMat, 8);
+  collar.position.y = 0.9;
+  g.add(collar);
+
+  // the rotating head: mantlet + shield + twin guns + visor
   const head = new THREE.Group();
   head.name = 'head';
-  const headBox = box(0.55, 0.36, 0.44, mat(0x50554a, { metal: 0.3 }));
-  head.add(headBox);
-  const barrelL = box(0.7, 0.07, 0.07, mat(0x24241f, { metal: 0.5 }));
-  barrelL.position.set(0.55, 0.06, 0.08);
-  const barrelR = barrelL.clone();
-  barrelR.position.z = -0.08;
-  head.add(barrelL, barrelR);
-  const eye = box(0.09, 0.09, 0.18, mat(teamCol, { emissive: teamCol }));
-  eye.position.set(0.29, 0.12, 0);
+  const mantlet = box(0.62, 0.4, 0.52, bodyMat);
+  head.add(mantlet);
+  // side armor cheeks in team color — the faction read at 30u
+  const cheekL = box(0.44, 0.3, 0.05, trimMat);
+  cheekL.position.set(-0.02, 0.02, 0.29);
+  const cheekR = cheekL.clone();
+  cheekR.position.z = -0.29;
+  head.add(cheekL, cheekR);
+  // gun shield: a wide angled plate with a firing notch
+  const shield = box(0.07, 0.5, 0.66, steelMat);
+  shield.position.set(0.32, 0.04, 0);
+  shield.rotation.z = -0.12;
+  head.add(shield);
+  const notchTop = box(0.08, 0.1, 0.2, darkMat);
+  notchTop.position.set(0.34, 0.26, 0);
+  head.add(notchTop);
+  // twin barrels — thick, sleeved, braked
+  for (const side of [1, -1]) {
+    const sleeve = cyl(0.07, 0.08, 0.26, darkMat, 6);
+    sleeve.rotation.z = Math.PI / 2;
+    sleeve.position.set(0.5, 0.04, side * 0.11);
+    head.add(sleeve);
+    const barrel = box(0.62, 0.09, 0.09, darkMat);
+    barrel.position.set(0.78, 0.04, side * 0.11);
+    head.add(barrel);
+    const brake = box(0.12, 0.13, 0.13, steelMat);
+    brake.position.set(1.06, 0.04, side * 0.11);
+    head.add(brake);
+  }
+  // ammo drum on the hip, team-striped
+  const drum = box(0.24, 0.3, 0.2, darkMat);
+  drum.position.set(-0.28, -0.08, 0.2);
+  head.add(drum);
+  const drumBand = box(0.26, 0.08, 0.22, trimMat);
+  drumBand.position.set(-0.28, 0.0, 0.2);
+  head.add(drumBand);
+  // the eye: a wide visor STRIP, not a pixel — the renderer pulses it
+  const eye = box(0.06, 0.1, 0.34, mat(teamCol, { emissive: teamCol }));
+  eye.position.set(0.33, 0.14, 0);
   eye.name = 'eye';
   head.add(eye);
-  head.position.y = 1.32;
+  // sensor fin
+  const fin = box(0.16, 0.18, 0.04, bodyMat);
+  fin.position.set(-0.2, 0.26, 0);
+  head.add(fin);
+  head.position.y = 1.14;
   g.add(head);
+  // presence scale: the sim's hit cylinder is r=1.2 — the mesh keeps inside
+  // it while claiming enough pixels to read at command height
+  g.scale.setScalar(1.15);
   return g;
 }
 
