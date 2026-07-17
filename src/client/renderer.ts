@@ -1917,6 +1917,13 @@ export class Renderer {
         color: Math.random() < 0.5 ? 0x9a8466 : 0x7a6a52, speed: 0.5, life: 1.1,
         spread: 0.9, up: 0.6, gravity: 2, size: 0.6,
       });
+    } else if (id === 'voltstriker') {
+      // crackling sparks — bright, quick, jittering off him
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5), y: 0.6 + Math.random() * 1.6, z: s.pos.z + (Math.random() - 0.5) }, count: 2,
+        color: Math.random() < 0.5 ? 0xf5f06a : 0xffffff, speed: 2.0, life: 0.25,
+        spread: 0.8, up: 1.5, gravity: 0, size: 0.28,
+      });
     }
     // the LSW's VOICE: an Ascendant is an event you can HEAR coming. A
     // per-unit signature on a throttle (roar/hiss/whoosh), and it gets more

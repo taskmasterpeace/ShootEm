@@ -113,6 +113,17 @@ export const LSWS: Record<AscendantId, LswDef> = {
     scale: 1.6, speed: 6, color: 0x9a8466, // weathered stone-and-iron; the biggest, slowest silhouette
     activeLabel: 'SEISMIC HANDS — hurl what you grab; pound if empty', activeCd: 5,
   },
+  voltstriker: {
+    id: 'voltstriker', name: 'Volt Striker', faction: 0, threat: 1,
+    lines: {
+      inbound: 'VOLT STRIKER INBOUND — SPREAD OUT',
+      landed: "VOLT STRIKER ON THE FIELD — DON'T BUNCH UP",
+      down: 'VOLT STRIKER IS DOWN — THE AIR GOES QUIET',
+      rampage: 'FIVE KILLS — VOLT STRIKER IS ARCING',
+    },
+    scale: 1.25, speed: 9, color: 0xf5f06a, // high-voltage yellow-white
+    activeLabel: 'CHAIN LIGHTNING — arc through the crowd', activeCd: 3,
+  },
 };
 
 /** THE SPOKEN SCRIPT — subtitle text per voice slot, tag-stripped mirrors of
@@ -146,6 +157,11 @@ export const VO_LINES: Record<string, { who: AscendantId; line: string }> = {
   vo_titan_ability: { who: 'titan', line: 'Up you go.' },
   vo_titan_low: { who: 'titan', line: 'Chipping... at a mountain.' },
   vo_titan_death: { who: 'titan', line: 'Back... to stone.' },
+  vo_voltstriker_arrive: { who: 'voltstriker', line: "Everybody's grounded now." },
+  vo_voltstriker_kill3: { who: 'voltstriker', line: 'Three on one arc. Tidy.' },
+  vo_voltstriker_ability: { who: 'voltstriker', line: 'Hold hands!' },
+  vo_voltstriker_low: { who: 'voltstriker', line: 'Losing... current.' },
+  vo_voltstriker_death: { who: 'voltstriker', line: 'Ground... fault.' },
 };
 export const voSlot = (id: AscendantId, moment: VoMoment) => `vo_${id}_${moment}`;
 export const annSlot = (id: AscendantId, moment: 'inbound' | 'landed' | 'down' | 'rampage') => `ann_${id}_${moment}`;

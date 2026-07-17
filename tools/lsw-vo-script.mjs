@@ -42,6 +42,12 @@ export const CAST = {
     persona: 'Titan, a United Front Living Super Weapon — a mountain that learned to walk. Enormous, slow, geological calm; nothing hurries him and it never has. Voice deep and grinding, like boulders settling; he speaks rarely and never raises it.',
     scene: 'Deep rumble underfoot. Rubble sliding. Something heavy being lifted.',
   },
+  voltstriker: {
+    voice: 'Fenrir',
+    fx: 'none', // the crackle is in the performance
+    persona: 'Volt Striker, a United Front Living Super Weapon — an anti-cluster electrocutioner who genuinely enjoys a crowd. Fast, bright, gleeful; a little static crackles under every word. He finds bunched-up enemies funny.',
+    scene: 'Ozone in the air. Electric snaps and arcs. A transformer humming somewhere close.',
+  },
   announcer: {
     voice: 'Orus',
     fx: 'radio', // 300–3400Hz military net + soft clip
@@ -86,6 +92,13 @@ export const VO = [
   { slot: 'vo_titan_ability', who: 'titan', text: '[grinding] Up you go.', notes: ['Said while throwing something enormous.', 'Effortless — the strain is all on the thing being thrown.'] },
   { slot: 'vo_titan_low', who: 'titan', text: '[unshaken] Chipping... at a mountain.', notes: ['Hurt but unimpressed by it.', 'The calm does not crack.'] },
   { slot: 'vo_titan_death', who: 'titan', text: '[settling] Back... to stone.', notes: ['No fear — a return, not an end.', 'The voice grinds to a stop like a landslide settling.'] },
+
+  // ---- VOLT STRIKER: the crowd is the punchline ----
+  { slot: 'vo_voltstriker_arrive', who: 'voltstriker', text: "[crackling] Everybody's grounded now.", notes: ['A pun he finds delightful.', 'Fast and bright, static riding under the voice.'] },
+  { slot: 'vo_voltstriker_kill3', who: 'voltstriker', text: 'Three on one arc. [short pause] Tidy.', notes: ['Proud of the efficiency, like a good score.'] },
+  { slot: 'vo_voltstriker_ability', who: 'voltstriker', text: '[gleeful] Hold hands!', notes: ['Said to a cluster the instant before it chains.', 'Delighted menace.'] },
+  { slot: 'vo_voltstriker_low', who: 'voltstriker', text: '[flickering] Losing... current.', notes: ['The crackle stutters and browns out.', 'Fear under the static.'] },
+  { slot: 'vo_voltstriker_death', who: 'voltstriker', text: '[fading buzz] Ground... fault.', notes: ['One last pun, weaker.', 'The hum dies out.'] },
 ];
 
 /** The announcer — map-wide, both teams, radio net. */
@@ -110,6 +123,10 @@ export const ANN = [
   { slot: 'ann_titan_landed', text: 'TITAN ON THE FIELD. NOTHING STAYS WHERE IT STANDS.' },
   { slot: 'ann_titan_down', text: 'TITAN IS DOWN. [short pause] THE GROUND HOLDS STILL.' },
   { slot: 'ann_titan_rampage', text: 'FIVE KILLS. TITAN IS THROWING THE WHOLE FIELD.' },
+  { slot: 'ann_voltstriker_inbound', text: 'VOLT STRIKER INBOUND. [short pause] SPREAD OUT.' },
+  { slot: 'ann_voltstriker_landed', text: 'VOLT STRIKER ON THE FIELD. DO NOT BUNCH UP.' },
+  { slot: 'ann_voltstriker_down', text: 'VOLT STRIKER IS DOWN. THE AIR GOES QUIET.' },
+  { slot: 'ann_voltstriker_rampage', text: 'FIVE KILLS. VOLT STRIKER IS ARCING.' },
 ];
 
 export const ANN_NOTES = [

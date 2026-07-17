@@ -490,6 +490,14 @@ export class World {
         if (!this.titanHurl(s)) this.titanPound(s);
         s.nextLswAt = this.time + 4.5;
       }
+    } else if (id === 'voltstriker') {
+      // CHAIN LIGHTNING: arcs to three, punishing the clustered — and the
+      // nearest enemy hull seizes and cooks (partial overload; the full
+      // 2s-fuse-or-bail detonation is a Notes 🔧). Bot cadence; a human pilot
+      // fires it on Q.
+      if (s.kind === 'bot' && this.time >= (s.nextLswAt ?? 0)) {
+        s.nextLswAt = this.time + (this.voltChain(s) ? 1.6 : 0.5);
+      }
     }
   }
 
@@ -598,6 +606,60 @@ export class World {
     return hits > 0;
   }
 
+  /** Volt Striker's chain: a bolt finds the nearest enemy, then leaps to the
+   *  next-nearest within arc range, up to three — clusters die together. The
+   *  nearest enemy hull in reach seizes (EMP-stun) and takes a bite: a partial
+   *  overload (the full 2s-fuse-or-bail is still to come). Each arc pops an
+   *  'emp' where it lands. Returns false if nothing was in reach (whiff-safe). */
+  private voltChain(s: Soldier): boolean {
+    const RANGE = 22, ARC = 9;
+    const hit = new Set<number>();
+    const chain: Soldier[] = [];
+    let from = { x: s.pos.x, z: s.pos.z };
+    for (let link = 0; link < 3; link++) {
+      let best: Soldier | undefined, bestScore = Infinity;
+      for (const e of this.soldiers.values()) {
+        if (!e.alive || e.team === s.team || e.id === s.id || hit.has(e.id) || e.encasedUntil !== undefined) continue;
+        const dx = e.pos.x - from.x, dz = e.pos.z - from.z, d = Math.hypot(dx, dz);
+        if (d > (link === 0 ? RANGE : ARC)) continue;
+        let score = d;
+        if (link === 0 && s.kind === 'human') {
+          // the first bolt goes where the crosshair points
+          let ang = Math.atan2(e.pos.z - s.pos.z, e.pos.x - s.pos.x) - s.yaw;
+          while (ang > Math.PI) ang -= 2 * Math.PI;
+          while (ang < -Math.PI) ang += 2 * Math.PI;
+          if (Math.abs(ang) > 1.0) continue;
+          score = d + Math.abs(ang) * 10;
+        }
+        if (score < bestScore && losClear(this.map.grid, { x: from.x, y: 1.4, z: from.z }, { ...e.pos, y: 1.4 })) { bestScore = score; best = e; }
+      }
+      if (!best) break;
+      hit.add(best.id); chain.push(best);
+      from = { x: best.pos.x, z: best.pos.z };
+    }
+    // the nearest enemy hull in reach seizes and takes a bite
+    let veh: Vehicle | undefined, vd = 14;
+    for (const v of this.vehicles.values()) {
+      if (!v.alive || v.team === s.team) continue;
+      const d = Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z);
+      if (d < vd) { vd = d; veh = v; }
+    }
+    if (chain.length === 0 && !veh) return false;
+    const dmg = [70, 48, 32];
+    chain.forEach((e, i) => {
+      this.damageSoldier(e, dmg[i] ?? 30, s.id, 'rg2');
+      this.emit({ type: 'emp', pos: { ...e.pos } });
+    });
+    if (veh) {
+      veh.stunnedUntil = Math.max(veh.stunnedUntil, this.time + 2);
+      this.damageVehicle(veh, 90, s.id, 'rg2');
+      this.emit({ type: 'emp', pos: { ...veh.pos } });
+    }
+    this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'voltstriker', soldierId: s.id });
+    this.emit({ type: 'vo', text: 'vo_voltstriker_ability', pos: { ...s.pos }, soldierId: s.id });
+    return true;
+  }
+
   /**
    * §7 THE SIGNATURE ON Q: a human pilot's active. Whiffs never burn the
    * cooldown — a signature that punishes you for pressing it stops being
@@ -669,6 +731,9 @@ export class World {
       // Q: hurl what he's aiming at; nothing to grab but a crowd close → pound.
       // A true whiff (nobody in reach at all) keeps the key hot.
       if (this.titanHurl(s) || this.titanPound(s)) s.nextLswActiveAt = this.time + def.activeCd;
+    } else if (id === 'voltstriker') {
+      // Q: chain lightning from the crosshair; a true whiff keeps the key hot.
+      if (this.voltChain(s)) s.nextLswActiveAt = this.time + def.activeCd;
     }
   }
 

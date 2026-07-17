@@ -237,6 +237,45 @@ describe('Titan — grab and throw', () => {
 });
 
 // ---------------------------------------------------------------------------
+// VOLT STRIKER — chain lightning that punishes clusters, and a partial
+// overload that seizes the nearest enemy hull. Shipped systems only.
+// ---------------------------------------------------------------------------
+describe('Volt Striker — chain lightning', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('the bolt jumps through a cluster — several enemies hurt from one cast', () => {
+    const w = quiet();
+    const vs = w.addLsw('voltstriker', 0, { x: 0, y: 0, z: 0 })!;
+    const es = [];
+    for (let i = 0; i < 3; i++) {
+      const e = w.addSoldier('E' + i, 'infantry', 1, 'human');
+      e.pos = { x: 5 + i * 2, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0; es.push(e);
+    }
+    const hp0 = es.map((e) => e.hp);
+    w.applyCmd(vs, cmd({ ability: true }), 1 / 60);
+    const hurt = es.filter((e, i) => e.hp < hp0[i]).length;
+    expect(hurt, 'the chain did not arc through the cluster').toBeGreaterThanOrEqual(2);
+  });
+
+  it('the nearest enemy hull seizes and takes a bite (partial overload)', () => {
+    const w = quiet();
+    const vs = w.addLsw('voltstriker', 0, { x: 0, y: 0, z: 0 })!;
+    const v = w.spawnVehicle('tank', 1, { x: 6, y: 0, z: 0 });
+    const hp0 = v.hp;
+    w.applyCmd(vs, cmd({ ability: true }), 1 / 60);
+    expect(v.hp, 'the hull ignored the overload').toBeLessThan(hp0);
+    expect(v.stunnedUntil, 'the hull was not seized').toBeGreaterThan(w.time);
+  });
+
+  it('a true whiff — nothing in reach — keeps the key hot', () => {
+    const w = quiet();
+    const vs = w.addLsw('voltstriker', 0, { x: 0, y: 0, z: 0 })!;
+    w.applyCmd(vs, cmd({ ability: true }), 1 / 60);
+    expect(vs.nextLswActiveAt ?? 0, 'a whiff burned the cooldown').toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // §7 PLAYING AS AN LSW — you call it, you hold the mark, you BECOME it.
 // The full pilot loop: call → telegraph → ascension → Q signature → death
 // hands the body back.
