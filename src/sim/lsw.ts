@@ -102,6 +102,17 @@ export const LSWS: Record<AscendantId, LswDef> = {
     scale: 1.45, speed: 8, color: 0xb23030, // blood-iron red, darkens as it rages
     activeLabel: 'GROUND SLAM — harder the more you bleed', activeCd: 6,
   },
+  titan: {
+    id: 'titan', name: 'Titan', faction: 0, threat: 3,
+    lines: {
+      inbound: 'TITAN INBOUND — MOVE THE ARMOR',
+      landed: 'TITAN ON THE FIELD — NOTHING STAYS WHERE IT STANDS',
+      down: 'TITAN IS DOWN — THE GROUND HOLDS STILL',
+      rampage: 'FIVE KILLS — TITAN IS THROWING THE WHOLE FIELD',
+    },
+    scale: 1.6, speed: 6, color: 0x9a8466, // weathered stone-and-iron; the biggest, slowest silhouette
+    activeLabel: 'SEISMIC HANDS — hurl what you grab; pound if empty', activeCd: 5,
+  },
 };
 
 /** THE SPOKEN SCRIPT — subtitle text per voice slot, tag-stripped mirrors of
@@ -130,6 +141,11 @@ export const VO_LINES: Record<string, { who: AscendantId; line: string }> = {
   vo_ragebeast_ability: { who: 'ragebeast', line: 'GROUND. BREAKS.' },
   vo_ragebeast_low: { who: 'ragebeast', line: 'HURT ME. GOOD. MORE.' },
   vo_ragebeast_death: { who: 'ragebeast', line: 'Still... hungry...' },
+  vo_titan_arrive: { who: 'titan', line: "Ground's mine now." },
+  vo_titan_kill3: { who: 'titan', line: 'Three. Small ones.' },
+  vo_titan_ability: { who: 'titan', line: 'Up you go.' },
+  vo_titan_low: { who: 'titan', line: 'Chipping... at a mountain.' },
+  vo_titan_death: { who: 'titan', line: 'Back... to stone.' },
 };
 export const voSlot = (id: AscendantId, moment: VoMoment) => `vo_${id}_${moment}`;
 export const annSlot = (id: AscendantId, moment: 'inbound' | 'landed' | 'down' | 'rampage') => `ann_${id}_${moment}`;

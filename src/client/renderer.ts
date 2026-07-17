@@ -1909,6 +1909,14 @@ export class Renderer {
         pos: { x: s.pos.x, y: 0.4 + Math.random() * 1.6, z: s.pos.z }, count: fury > 0.5 ? 2 : 1,
         color: 0xd83a1a, speed: 1.4, life: 0.4, spread: 0.6, up: 2.5, gravity: -3, size: 0.4,
       });
+    } else if (id === 'titan') {
+      // dust and grit kicked up around a walking mountain — heavy motes that
+      // hang low and drift DOWN (positive gravity), stone and shadow
+      this.particles.emit({
+        pos: { x: s.pos.x, y: 0.2 + Math.random() * 1.3, z: s.pos.z }, count: 1,
+        color: Math.random() < 0.5 ? 0x9a8466 : 0x7a6a52, speed: 0.5, life: 1.1,
+        spread: 0.9, up: 0.6, gravity: 2, size: 0.6,
+      });
     }
     // the LSW's VOICE: an Ascendant is an event you can HEAR coming. A
     // per-unit signature on a throttle (roar/hiss/whoosh), and it gets more

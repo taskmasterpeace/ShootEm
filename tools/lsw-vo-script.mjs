@@ -36,6 +36,12 @@ export const CAST = {
     persona: 'Ragebeast, a Collective Living Super Weapon — a containment failure with a name. Voice enormous, torn, half animal; words come out broken because the throat was not built for them.',
     scene: 'Metal groaning. His own chains dragging. The field going quiet around him.',
   },
+  titan: {
+    voice: 'Charon',
+    fx: 'none', // the deep register carries it — no processing
+    persona: 'Titan, a United Front Living Super Weapon — a mountain that learned to walk. Enormous, slow, geological calm; nothing hurries him and it never has. Voice deep and grinding, like boulders settling; he speaks rarely and never raises it.',
+    scene: 'Deep rumble underfoot. Rubble sliding. Something heavy being lifted.',
+  },
   announcer: {
     voice: 'Orus',
     fx: 'radio', // 300–3400Hz military net + soft clip
@@ -73,6 +79,13 @@ export const VO = [
   { slot: 'vo_ragebeast_ability', who: 'ragebeast', text: 'GROUND. [short pause] BREAKS.', notes: ['Each word a slam.', 'Guttural, delighted, teeth together.'] },
   { slot: 'vo_ragebeast_low', who: 'ragebeast', text: '[panting] HURT ME. GOOD. [short pause] MORE.', notes: ['The wound FEEDS him.', 'Rising excitement where fear should be.'] },
   { slot: 'vo_ragebeast_death', who: 'ragebeast', text: '[fading growl] Still... hungry...', notes: ['The engine winding down, never satisfied.', 'Quieter than he has ever been.'] },
+
+  // ---- TITAN: the mountain, unbothered ----
+  { slot: 'vo_titan_arrive', who: 'titan', text: '[low, calm] Ground\'s mine now.', notes: ['Not a boast — a fact, like weather.', 'Deep and slow; he has all the time in the world.'] },
+  { slot: 'vo_titan_kill3', who: 'titan', text: 'Three. [short pause] Small ones.', notes: ['Mild, almost bored.', 'They barely registered.'] },
+  { slot: 'vo_titan_ability', who: 'titan', text: '[grinding] Up you go.', notes: ['Said while throwing something enormous.', 'Effortless — the strain is all on the thing being thrown.'] },
+  { slot: 'vo_titan_low', who: 'titan', text: '[unshaken] Chipping... at a mountain.', notes: ['Hurt but unimpressed by it.', 'The calm does not crack.'] },
+  { slot: 'vo_titan_death', who: 'titan', text: '[settling] Back... to stone.', notes: ['No fear — a return, not an end.', 'The voice grinds to a stop like a landslide settling.'] },
 ];
 
 /** The announcer — map-wide, both teams, radio net. */
@@ -93,6 +106,10 @@ export const ANN = [
   { slot: 'ann_ragebeast_landed', text: 'RAGEBEAST IS LOOSE. [short pause] GOOD LUCK.' },
   { slot: 'ann_ragebeast_down', text: 'RAGEBEAST IS DOWN. STAND EASY.' },
   { slot: 'ann_ragebeast_rampage', text: 'FIVE KILLS. [short pause] STOP FEEDING THE BEAST.' },
+  { slot: 'ann_titan_inbound', text: 'TITAN INBOUND. [short pause] MOVE THE ARMOR.' },
+  { slot: 'ann_titan_landed', text: 'TITAN ON THE FIELD. NOTHING STAYS WHERE IT STANDS.' },
+  { slot: 'ann_titan_down', text: 'TITAN IS DOWN. [short pause] THE GROUND HOLDS STILL.' },
+  { slot: 'ann_titan_rampage', text: 'FIVE KILLS. TITAN IS THROWING THE WHOLE FIELD.' },
 ];
 
 export const ANN_NOTES = [

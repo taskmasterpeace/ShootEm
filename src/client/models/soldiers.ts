@@ -59,7 +59,8 @@ export const LSW_TINT: Record<string, { tint: number; scale: number }> = {
   firebrand: { tint: 0xff6a1a, scale: 1.25 },
   plaguebearer: { tint: 0x7fa83c, scale: 1.3 },
   frostbite: { tint: 0x8fd4e8, scale: 1.3 },  // pale ice-blue glow
-  ragebeast: { tint: 0xb23030, scale: 1.45 }, // blood-iron, the biggest silhouette
+  ragebeast: { tint: 0xb23030, scale: 1.45 }, // blood-iron
+  titan: { tint: 0x9a8466, scale: 1.6 },      // weathered stone — the biggest silhouette now
 };
 
 /** Turn a built trooper body INTO an LSW body: scale up past a trooper,

@@ -185,6 +185,58 @@ describe('Ragebeast — the rampage', () => {
 });
 
 // ---------------------------------------------------------------------------
+// TITAN — the colossus grabs and THROWS (vehicle or soldier), and pounds the
+// ground when nothing's in reach. All shipped systems; the "slows a cone" half
+// stands in as a fire-rate stagger (movement-slow is a doc Notes gap).
+// ---------------------------------------------------------------------------
+describe('Titan — grab and throw', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('hurls the enemy he is aiming at — launched off his feet and hurt', () => {
+    const w = quiet();
+    const t = w.addLsw('titan', 0, { x: 0, y: 0, z: 0 })!;
+    t.yaw = 0; // faces +x
+    const e = w.addSoldier('E', 'infantry', 1, 'human');
+    e.pos = { x: 2.5, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0; // point-blank: LOS is clear
+    const hp0 = e.hp;
+    w.applyCmd(t, cmd({ ability: true }), 1 / 60);
+    expect(e.hp, 'the throw did not bite').toBeLessThan(hp0);
+    expect(e.vel.y, 'the enemy was not launched off the ground').toBeGreaterThan(0);
+  });
+
+  it('grabs an enemy vehicle — the hull is cracked open and seized', () => {
+    const w = quiet();
+    const t = w.addLsw('titan', 0, { x: 0, y: 0, z: 0 })!;
+    t.yaw = 0;
+    const v = w.spawnVehicle('tank', 1, { x: 5, y: 0, z: 0 });
+    const hp0 = v.hp;
+    w.applyCmd(t, cmd({ ability: true }), 1 / 60);
+    expect(v.hp, 'the hull shrugged off the throw').toBeLessThan(hp0);
+    expect(v.stunnedUntil, 'the thrown hull was not seized').toBeGreaterThan(w.time);
+  });
+
+  it('nothing to grab in front → the pound rattles the crowd close by', () => {
+    const w = quiet();
+    const t = w.addLsw('titan', 0, { x: 0, y: 0, z: 0 })!;
+    t.yaw = 0; // faces +x; the victim stands BEHIND, outside the grab cone
+    const e = w.addSoldier('E', 'infantry', 1, 'human');
+    e.pos = { x: -3, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    const hp0 = e.hp;
+    const fire0 = e.nextFireAt;
+    w.applyCmd(t, cmd({ ability: true }), 1 / 60);
+    expect(e.hp, 'the pound did not hurt the crowd').toBeLessThan(hp0);
+    expect(e.nextFireAt, 'the shock did not stagger the aim').toBeGreaterThan(fire0);
+  });
+
+  it('a true whiff — nobody in reach — keeps the key hot', () => {
+    const w = quiet();
+    const t = w.addLsw('titan', 0, { x: 0, y: 0, z: 0 })!;
+    w.applyCmd(t, cmd({ ability: true }), 1 / 60);
+    expect(t.nextLswActiveAt ?? 0, 'a whiff burned the cooldown').toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // §7 PLAYING AS AN LSW — you call it, you hold the mark, you BECOME it.
 // The full pilot loop: call → telegraph → ascension → Q signature → death
 // hands the body back.

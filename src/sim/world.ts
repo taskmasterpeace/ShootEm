@@ -479,6 +479,17 @@ export class World {
       // real, mortal team still burns him down; the wound just makes the
       // last quarter of his HP the dangerous part.
       s.rageMul = 1 + missing * 0.5; // up to 1.5x wounded
+    } else if (id === 'titan') {
+      // THE COLOSSUS: he grabs and THROWS — a vehicle if one's in reach (crew
+      // and all), else the nearest soldier; when nothing's grabbable but a
+      // crowd has closed, he pounds. Bot cadence only — a human pilot drives
+      // the same hands on Q. All shipped systems: eject+fling, knockback,
+      // hull damage, digTile cover-cracks, and a fire-rate stagger standing in
+      // for the movement-slow the engine doesn't have yet (doc Notes gap).
+      if (s.kind === 'bot' && this.time >= (s.nextLswAt ?? 0)) {
+        if (!this.titanHurl(s)) this.titanPound(s);
+        s.nextLswAt = this.time + 4.5;
+      }
     }
   }
 
@@ -492,6 +503,99 @@ export class World {
     }
     this.emit({ type: 'vo', text: 'vo_firebrand_ability', pos: { ...s.pos }, soldierId: s.id });
     this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'firebrand', soldierId: s.id });
+  }
+
+  /** Titan's hands: grab the topmost grabbable in his forward reach and HURL
+   *  it — an enemy vehicle (crew ejected and flung, hull launched, stunned,
+   *  cracked open) or the nearest enemy soldier (launched and hurt). The heave
+   *  emits the pod-flash light and a ground crack. Returns false if nothing
+   *  was in reach — the whiff keeps a human pilot's key hot. */
+  private titanHurl(s: Soldier): boolean {
+    const fx = Math.cos(s.yaw), fz = Math.sin(s.yaw);
+    const inCone = (dx: number, dz: number, cone: number) => {
+      let a = Math.atan2(dz, dx) - s.yaw;
+      while (a > Math.PI) a -= 2 * Math.PI;
+      while (a < -Math.PI) a += 2 * Math.PI;
+      return Math.abs(a) <= cone;
+    };
+    // a vehicle first — the signature throw
+    let veh: Vehicle | undefined, vbest = Infinity;
+    for (const v of this.vehicles.values()) {
+      if (!v.alive || v.team === s.team) continue;
+      const dx = v.pos.x - s.pos.x, dz = v.pos.z - s.pos.z, d = Math.hypot(dx, dz);
+      if (d > 10 || !inCone(dx, dz, 0.9)) continue;
+      if (d < vbest) { vbest = d; veh = v; }
+    }
+    if (veh) {
+      for (const sid of [...veh.seats]) {
+        const crew = this.soldiers.get(sid);
+        if (!crew) continue;
+        this.exitVehicle(crew, veh);
+        crew.pushX += fx * 32; crew.pushZ += fz * 32; crew.vel.y = 8;
+        this.damageSoldier(crew, 45, s.id, 'gl');
+      }
+      veh.vel = { x: fx * 34, y: 10, z: fz * 34 };
+      veh.stunnedUntil = this.time + 3;
+      this.damageVehicle(veh, 260, s.id, 'gl');
+      this.emit({ type: 'warp', pos: { ...veh.pos } });
+      this.emit({ type: 'explosion', pos: { ...s.pos }, weapon: 'gl' });
+      this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'titan', soldierId: s.id });
+      this.emit({ type: 'vo', text: 'vo_titan_ability', pos: { ...s.pos }, soldierId: s.id });
+      return true;
+    }
+    // else the nearest enemy soldier in reach
+    let vic: Soldier | undefined, best = Infinity;
+    for (const e of this.soldiers.values()) {
+      if (!e.alive || e.team === s.team || e.id === s.id || e.encasedUntil !== undefined || e.vehicleId >= 0) continue;
+      const dx = e.pos.x - s.pos.x, dz = e.pos.z - s.pos.z, d = Math.hypot(dx, dz);
+      if (d > 8 || !inCone(dx, dz, 0.9)) continue;
+      if (d < best && losClear(this.map.grid, { ...s.pos, y: 1.4 }, { ...e.pos, y: 1.4 })) { best = d; vic = e; }
+    }
+    if (!vic) return false;
+    vic.pushX += fx * 40; vic.pushZ += fz * 40; vic.vel.y = 10;
+    this.damageSoldier(vic, 70, s.id, 'gl');
+    this.emit({ type: 'warp', pos: { ...vic.pos } });
+    this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'titan', soldierId: s.id });
+    this.emit({ type: 'vo', text: 'vo_titan_ability', pos: { ...s.pos }, soldierId: s.id });
+    return true;
+  }
+
+  /** Titan's ground pound: a slam at his feet — everyone close is hurt,
+   *  THROWN, and rattled (a fire-rate stagger stands in for the movement-slow
+   *  the design wants; doc Notes gap). Nearby armor is cracked open and cover
+   *  tiles grind to rubble. Returns false if nobody was in the ring. */
+  private titanPound(s: Soldier): boolean {
+    let hits = 0;
+    for (const e of this.soldiers.values()) {
+      if (!e.alive || e.team === s.team || e.id === s.id) continue;
+      const dx = e.pos.x - s.pos.x, dz = e.pos.z - s.pos.z, d = Math.hypot(dx, dz);
+      if (d > 7) continue;
+      hits++;
+      this.damageSoldier(e, 45 * (1 - d / 9), s.id, 'gl');
+      const inv = d > 0.01 ? 1 / d : 0;
+      e.pushX += dx * inv * 22; e.pushZ += dz * inv * 22;
+      e.nextFireAt = Math.max(e.nextFireAt, this.time + 0.9); // the shock rattles the aim
+    }
+    for (const v of this.vehicles.values()) {
+      if (!v.alive || v.team === s.team) continue;
+      const d = Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z);
+      if (d > 7) continue;
+      this.damageVehicle(v, 60 * (1 - d / 9), s.id, 'gl');
+      v.stunnedUntil = Math.max(v.stunnedUntil, this.time + 1.5);
+    }
+    // crack the cover around him to rubble — "nothing stays where it stands"
+    const ptx = Math.floor((s.pos.x + WORLD / 2) / TILE), ptz = Math.floor((s.pos.z + WORLD / 2) / TILE);
+    for (let dz = -2; dz <= 2; dz++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        const tx = ptx + dx, tz = ptz + dz;
+        if (tx < 0 || tz < 0 || tx >= GRID || tz >= GRID) continue;
+        if (this.map.grid[tz * GRID + tx] === T_COVER) this.digTile(tx, tz);
+      }
+    }
+    this.emit({ type: 'explosion', pos: { ...s.pos }, weapon: 'gl' });
+    this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'titan', soldierId: s.id });
+    this.emit({ type: 'vo', text: 'vo_titan_ability', pos: { ...s.pos }, soldierId: s.id });
+    return hits > 0;
   }
 
   /**
@@ -561,6 +665,10 @@ export class World {
       }
       this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'ragebeast', soldierId: s.id });
       this.emit({ type: 'vo', text: 'vo_ragebeast_ability', pos: { ...s.pos }, soldierId: s.id });
+    } else if (id === 'titan') {
+      // Q: hurl what he's aiming at; nothing to grab but a crowd close → pound.
+      // A true whiff (nobody in reach at all) keeps the key hot.
+      if (this.titanHurl(s) || this.titanPound(s)) s.nextLswActiveAt = this.time + def.activeCd;
     }
   }
 
