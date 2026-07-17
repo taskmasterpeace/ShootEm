@@ -2277,8 +2277,11 @@ export class World {
             } else if (def.splash > 0) {
               this.explode(p.pos, def, p.ownerId, p.team);
             } else {
+              // read the plate BEFORE the round resolves — damageSoldier eats
+              // the armor, so asking afterward always says "bare"
+              const bare = s.armor <= 0;
               this.damageSoldier(s, def.damage, p.ownerId, p.weapon);
-              this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, soldierId: p.ownerId });
+              this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, soldierId: p.ownerId, bare });
             }
             // the RG-2 tag dart: sting like a bee, then GLOW — pinned on
             // every enemy screen until the dart burns out (stealth suit wins)

@@ -15,7 +15,7 @@ import { KILLCAM_CAM, MATCH_LINGER_LOCAL_MS, ReplayDirector } from './client/rep
 import { MatchTracker, RANKS, loadDossier, rankFor, saveDossier, type Dossier } from './client/record';
 import { FRONTS, SCAR_TEXT, applyResult, bandOf, checkSeasonEnd, loadCampaign, saveCampaign, simulateTimeSkip, type Campaign } from './client/campaign';
 import { RangeCourse, gradeFor, loadWall } from './client/range';
-import { loadSettings, saveSettings, settings } from './client/settings';
+import { loadSettings, saveSettings, settings, type BloodLevel } from './client/settings';
 
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -826,6 +826,9 @@ audio.setMasterVolume(settings.masterVolume);
   const rm = $('set-reduced') as HTMLInputElement;
   rm.checked = settings.reducedMotion;
   rm.onchange = () => { settings.reducedMotion = rm.checked; saveSettings(); };
+  const blood = $('set-blood') as HTMLSelectElement;
+  blood.value = settings.blood;
+  blood.onchange = () => { settings.blood = blood.value as BloodLevel; saveSettings(); };
 }
 $('deploy-btn').addEventListener('click', () => { activeFrontId = null; startGame(); });
 window.addEventListener('keydown', (e) => {

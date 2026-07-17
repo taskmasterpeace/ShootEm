@@ -107,8 +107,15 @@ export function poseSoldierJoints(j: Joints, inp: GaitInput): GaitPose {
     return { phase, moving, footstep: false, growl: false };
   }
 
+  // THE ZED CADENCE TRACKS THE GROUND (Robert: "refine zombies — they should
+  // look like they are running"). The old rate was a CONSTANT: a plain
+  // zombie charges at 8.5 u/s but took the same lazy six-beat as one
+  // shambling at 2 — legs skating under a body the world was dragging
+  // forward. Nobody read that as running, because it wasn't. Now the rate
+  // rides speed like the living do; each kind keeps its own idle character
+  // (a brute lumbers, a sprinter is a blur) and earns the rest by moving.
   const gaitRate = zed
-    ? kind === 'sprinter' ? 15 : kind === 'brute' ? 4.5 : 6
+    ? (kind === 'sprinter' ? 6 : kind === 'brute' ? 2.6 : 3.4) + speed * 0.72
     : 5.5 + speed * 0.75;
 
   // phase: integrated when the caller keeps state (markers), absolute otherwise
@@ -154,12 +161,17 @@ export function poseSoldierJoints(j: Joints, inp: GaitInput): GaitPose {
   }
 
   if (zed) {
-    // undead: reaching arms sway forward, head lolls, brutes lumber, bellies pulse
-    const sway = kind === 'brute' ? 0.35 : 0.16;
+    // undead: reaching arms sway forward, head lolls, brutes lumber, bellies
+    // pulse — but a CHARGING zed drives with its arms. The reach opens up
+    // and the sway doubles once it's really moving, so a sprinter reads as a
+    // sprint and a shambler still shambles. Same joints, speed tells the story.
+    const drive = Math.min(1, speed / 9);
+    const sway = (kind === 'brute' ? 0.35 : 0.16) * (1 + drive * 1.6);
     if (j.armL) j.armL.rotation.z = zombieArmRest(kind, true) + Math.sin(phase * REACH_SWAY_RATE) * sway;
     if (j.armR) j.armR.rotation.z = zombieArmRest(kind, false) + Math.cos(phase * 0.5) * sway;
     if (j.head) j.head.rotation.z = Math.sin(phase * 0.45) * 0.12;
-    if (j.torso) j.torso.rotation.x = Math.sin(phase * 0.5) * (kind === 'brute' ? 0.1 : 0.07);
+    // the charge tips them forward — a running dead thing is falling on purpose
+    if (j.torso) j.torso.rotation.x = Math.sin(phase * 0.5) * (kind === 'brute' ? 0.1 : 0.07) - drive * 0.14;
     if (j.belly) j.belly.scale.setScalar(1 + Math.sin(t * 6) * 0.06);
   }
 

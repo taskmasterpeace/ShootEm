@@ -439,6 +439,10 @@ export interface SimEvent {
   /** On a 'hit': who fired the round, struck or missed. Attribution for
    *  decals (paint splats wear their shooter's shade), never for feedback. */
   ownerId?: number;
+  /** On a 'hit': the round met FLESH, not plate — the victim's armor was
+   *  already gone. Drives the blood setting (§18 comfort): plate sparks,
+   *  flesh bleeds. Sim states the fact; the client decides whether to show it. */
+  bare?: boolean;
   killerName?: string;
   victimName?: string;
   killerTeam?: Team;

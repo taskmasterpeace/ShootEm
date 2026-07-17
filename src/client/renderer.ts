@@ -2216,8 +2216,23 @@ export class Renderer {
               break;
             }
             if (e.soldierId !== undefined) {
-              // flesh and plate: the classic hit feedback
-              this.particles.emit({ pos: e.pos, count: 6, color: 0xffe0a0, speed: 5, life: 0.25, spread: 0.2, up: 2 });
+              // BLOOD (Robert: "when shooting someone when armor is gone we
+              // should see light blood splatter"). The sim tells us whether
+              // the round met plate or flesh; the setting decides whether we
+              // show it. Plate always sparks — that's information, not gore.
+              const gore = settings.blood !== 'off' && e.bare && world.mode.id !== 'paintball';
+              if (gore) {
+                const full = settings.blood === 'full';
+                this.particles.emit({
+                  pos: e.pos, count: full ? 10 : 5, color: 0x8e1f1f,
+                  speed: full ? 5 : 3.5, life: 0.3, spread: 0.22, up: 1.6, gravity: 9, size: 0.13,
+                });
+                // the ground remembers — small, dark, and it fades with the
+                // rest of the field's paint (same capped FIFO decal pool)
+                this.spawnSplat(e.pos, 0x6b1414, (full ? 0.3 : 0.19) + Math.random() * 0.12);
+              } else {
+                this.particles.emit({ pos: e.pos, count: 6, color: 0xffe0a0, speed: 5, life: 0.25, spread: 0.2, up: 2 });
+              }
               audio.play('hit', { pos: e.pos, volume: 0.5 });
             } else {
               // the round hit the WORLD — the world answers in its own voice
@@ -2255,7 +2270,12 @@ export class Renderer {
               }
               break;
             }
-            this.particles.emit({ pos: { ...e.pos, y: 1 }, count: 22, color: 0xa03030, speed: 5, life: 0.6, spread: 0.5, up: 4 });
+            // a death splashes only as hard as the setting allows (§18)
+            if (settings.blood !== 'off') {
+              const full = settings.blood === 'full';
+              this.particles.emit({ pos: { ...e.pos, y: 1 }, count: full ? 22 : 12, color: 0xa03030, speed: 5, life: 0.6, spread: 0.5, up: 4 });
+              this.spawnSplat(e.pos, 0x5e1010, full ? 0.85 : 0.5);
+            }
             // each class has its own death cry; zombies/scientist use the generic
             const cry = e.classId ? (`death_${e.classId}` as SoundName) : 'death';
             audio.play(cry, { pos: e.pos, volume: 0.85 });

@@ -114,6 +114,49 @@ describe('combat', () => {
 });
 
 // ---------------------------------------------------------------------------
+// BLOOD (Robert: "when shooting someone when armor is gone we should see
+// light blood splatter"). The SIM only states the fact — plate or flesh —
+// and the client's setting decides whether to show it. The fact must be
+// read BEFORE the round resolves, or the plate is always already gone.
+// ---------------------------------------------------------------------------
+describe('plate or flesh', () => {
+  const duel = (armor: number) => {
+    const w = new World({ seed: 42, mode: 'tdm' });
+    const a = w.addSoldier('A', 'infantry', 0, 'human');
+    const b = w.addSoldier('B', 'infantry', 1, 'human');
+    a.pos = { x: 0, y: 0, z: 0 };
+    b.pos = { x: 8, y: 0, z: 0 };
+    b.armor = armor; b.maxArmor = Math.max(armor, b.maxArmor);
+    const hits: boolean[] = [];
+    for (let i = 0; i < 60 * 3; i++) {
+      w.step(1 / 60, new Map([[a.id, cmd({ fire: true, aimYaw: 0 })]]));
+      for (const e of w.takeEvents()) {
+        if (e.type === 'hit' && e.soldierId === a.id && e.bare !== undefined) hits.push(e.bare);
+      }
+    }
+    return hits;
+  };
+
+  it('a round that meets PLATE is not bare — sparks, not blood', () => {
+    const hits = duel(200); // plate deep enough to survive the burst
+    expect(hits.length, 'nobody got shot').toBeGreaterThan(0);
+    expect(hits[0], 'the first round hit armor and still reported flesh').toBe(false);
+  });
+
+  it('a round that meets FLESH is bare — the armor was already gone', () => {
+    const hits = duel(0);
+    expect(hits.length, 'nobody got shot').toBeGreaterThan(0);
+    expect(hits.every((b) => b), 'an unarmored victim reported plate').toBe(true);
+  });
+
+  it('the fact is read BEFORE damage resolves — armor stripped mid-burst still reports plate first', () => {
+    const hits = duel(12); // one round's worth of plate, then flesh
+    expect(hits[0], 'the plate round reported flesh').toBe(false);
+    expect(hits.some((b) => b), 'the burst never reached flesh').toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // THE ROLE SPLIT (Robert: "everybody is going after the flag... there's
 // nobody really playing defense. They're letting people set up turrets").
 // A team that all-rushes loses its flag to two men.
