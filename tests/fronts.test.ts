@@ -276,6 +276,23 @@ describe('the front laws — all ten grounds, all three tiers', () => {
       }
     }
   });
+
+  it('the front@size wire: a World deploys the tier the lobby asked for', async () => {
+    // main.ts pushes botsPerTeam through the id suffix; world.ts passes the
+    // id through untouched — this proves the whole channel end to end.
+    const { World } = await import('../src/sim/world');
+    const walkable = (w: { map: GameMap }) => {
+      let n = 0;
+      for (const t of w.map.grid) if (frontWalkable(t)) n++;
+      return n;
+    };
+    const small = new World({ seed: SEED, mode: 'tdm', frontId: 'the_city@small', botsPerTeam: 0 });
+    const large = new World({ seed: SEED, mode: 'tdm', frontId: 'the_city@large', botsPerTeam: 0 });
+    expect(walkable(small)).toBeLessThan(walkable(large));
+    let ladders = 0;
+    for (const t of small.map.grid) if (t === 8 /* T_LADDER */) ladders++;
+    expect(ladders, 'the deployed small city lost its manholes').toBeGreaterThanOrEqual(4);
+  });
 });
 
 // ---------------------------------------------------------------------------
