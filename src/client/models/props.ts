@@ -1,7 +1,49 @@
 // The furniture of the war: jump gates, grav pads, rocks, trees, bunkers,
 // crates, ruins, and the clone bay.
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { box, cyl, mat } from './shared';
+
+// ---------------------------------------------------------------------------
+// THE MEMORIAL — the one GLTF in the match renderer, and it earns it: the
+// City plaza's monument is Robert's own AI-generated soldier, remeshed to
+// 958 voxel tris, bronze baked into vertex colors, 60 KB. The loading law:
+// buildProp stays SYNCHRONOUS (the plinth renders instantly and carries the
+// collision story); the statue mounts onto it when the fetch lands. One
+// cached promise — a hundred memorials would still be one download.
+// ---------------------------------------------------------------------------
+let memorialStatue: Promise<THREE.Object3D | null> | null = null;
+function loadMemorialStatue(): Promise<THREE.Object3D | null> {
+  memorialStatue ??= new Promise((resolve) => {
+    // vitest/node has no document and rejects relative URLs before the
+    // loader's own error path can fire — the plinth stands alone there
+    if (typeof window === 'undefined' || typeof document === 'undefined') return resolve(null);
+    try {
+      new GLTFLoader().load(
+        '/models/memorial.glb',
+        (gltf) => {
+          const s = gltf.scene;
+          s.traverse((o) => {
+            if (o instanceof THREE.Mesh) {
+              o.castShadow = true;
+              // trust the baked patina: vertex colors ARE the material —
+              // lifted ~25% because the war's sun is dimmer than Blender's
+              const m = o.material as THREE.MeshStandardMaterial;
+              m.vertexColors = true;
+              m.color.setRGB(1.3, 1.25, 1.1);
+              m.metalness = 0.5;
+              m.roughness = 0.6;
+            }
+          });
+          resolve(s);
+        },
+        undefined,
+        () => resolve(null),
+      );
+    } catch { resolve(null); }
+  });
+  return memorialStatue;
+}
 
 export function buildGate(): THREE.Group {
   const g = new THREE.Group();
@@ -185,6 +227,35 @@ export function buildProp(type: string, scale: number): THREE.Object3D {
       track.position.set(-0.7 * scale, 0.15 * scale, 1.35 * scale); // the thrown track
       track.rotation.y = 0.25;
       g.add(hull, glacis, turret, tube, track);
+      return g;
+    }
+    case 'memorial': {
+      // the plinth is procedural stone — instant, collision-honest, and the
+      // fallback if the statue never arrives (tests, offline dev)
+      const g = new THREE.Group();
+      const stone = mat(0x565452, { rough: 0.9 });
+      const baseStep = box(2.6 * scale, 0.35 * scale, 2.6 * scale, stone);
+      baseStep.position.y = 0.175 * scale;
+      const plinth = box(1.7 * scale, 0.85 * scale, 1.7 * scale, mat(0x4a4846, { rough: 0.85 }));
+      plinth.position.y = 0.35 * scale + 0.425 * scale;
+      const cap = box(1.9 * scale, 0.12 * scale, 1.9 * scale, stone);
+      cap.position.y = 1.26 * scale;
+      // the plaque: one amber line on the front face — the game's accent
+      const plaque = box(0.02 * scale, 0.3 * scale, 0.75 * scale, mat(0xd9a13a, { metal: 0.7, rough: 0.35, emissive: 0x6b4a10 }));
+      plaque.position.set(0.86 * scale, 0.78 * scale, 0);
+      g.add(baseStep, plinth, cap, plaque);
+      const top = 1.32 * scale;
+      void loadMemorialStatue().then((statue) => {
+        if (!statue) return;
+        const s = statue.clone();
+        const statueScale = 2.4 * scale; // 1.116u figure → ~2.7u of bronze presence
+        s.scale.setScalar(statueScale);
+        // the GLB is authored clean: feet at origin, +Y up, facing +X
+        // (tools/fix-memorial-axis.mjs bakes that in — never rotate here,
+        // the gltf root's own transform makes mount-time rotations lie)
+        s.position.y = top;
+        g.add(s);
+      });
       return g;
     }
     case 'clone_bay': {

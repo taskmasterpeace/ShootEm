@@ -77,7 +77,10 @@ export interface PropSpec {
   type: 'rock' | 'bunker' | 'crate' | 'tree' | 'ruin' | 'clone_bay'
     // the §8.2 fronts' furniture: farm skylines, refinery fire, harbor
     // iron, and the burned-out hulls every front collects
-    | 'silo' | 'flare_stack' | 'crane' | 'wreck';
+    | 'silo' | 'flare_stack' | 'crane' | 'wreck'
+    // the City's plaza monument — Robert's own soldier, cast in bronze
+    // (the one GLTF hero prop; see props.ts for the loading law)
+    | 'memorial';
   pos: Vec3;
   scale: number;
   rot: number;
