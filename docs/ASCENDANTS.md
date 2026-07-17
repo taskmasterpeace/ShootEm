@@ -287,6 +287,17 @@ Superman/Goku is a movement model, not an overlay).
 ---
 
 ## 8. Look & sound — every LSW is unmistakable
+
+> **✅ THE VOICES SHIPPED (2026-07-17):** every LSW SPEAKS — real expressive
+> TTS (google/gemini-3.1-flash-tts via the `expressive-tts` skill), directed
+> per-line with personas and director's notes (tools/lsw-vo-script.mjs is the
+> casting sheet). Five moments each — arrival, third kill of the life, the
+> signature, bloodied (<25%, once), last words — POSITIONAL (~34u: only
+> people around them hear it, subtitles obey the same earshot). The announcer
+> reads its own per-LSW radio-net calls (inbound/landed/down/rampage-at-5)
+> map-wide through a 300–3400Hz net filter. Sci-fi FX per character: beast
+> double under Ragebeast, crystal shimmer on Frostbite, respirator on
+> Plaguebearer. All 36 clips are Sound-Lab-replaceable slots.
 Robert: *"make sure visually the LSWs look different. Like the fire — I want
 them to look like they're on fire. When they shoot energy blasts, shoot it.
 Make sure they have their own sound effects."*

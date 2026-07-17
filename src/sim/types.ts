@@ -275,6 +275,10 @@ export interface Soldier {
   /** Ragebeast (§21.6): rampage multiplier on move speed + outgoing damage,
    *  climbs as his HP falls. 1 = unwounded. Refreshed every tick by stepLsw. */
   rageMul?: number;
+  /** VO bookkeeping: kills at the moment of ascension (per-life milestones
+   *  count from here) and the once-per-life bloodied-line latch */
+  lswKillsBase?: number;
+  lswLowSaid?: boolean;
   /** psi-scanner next pulse */
   nextPsiAt: number;
   /** repair-kit next use */
@@ -472,7 +476,8 @@ export interface SimEvent {
     | 'whistle'        // paintball referee: a round just started or ended
     | 'encased'        // a soldier was frozen alive in the ice block (§21.6)
     | 'lsw_active'     // a piloted LSW fired its signature (text = ascendant id)
-    | 'nade_bounce';   // a hand grenade kissed the ground — the tick before the bang
+    | 'nade_bounce'    // a hand grenade kissed the ground — the tick before the bang
+    | 'vo';            // a spoken line: text = sound slot; pos = positional speech, absent = announcer net
   pos?: Vec3;
   weapon?: WeaponId;
   /** On a 'hit': the shooter, but ONLY when a soldier/gadget was actually

@@ -346,6 +346,21 @@ html, body {
 #announce.show { opacity: 1; }
 #announce.big { font-size: 2.2rem; letter-spacing: 0.12em; }
 
+/* spoken-line subtitles: what a nearby LSW just SAID — you read what you
+   could hear (positional truth; the HUD gates by earshot) */
+#vo-sub {
+  position: absolute; left: 50%; bottom: 17%; transform: translateX(-50%);
+  max-width: min(44rem, 86vw); text-align: center;
+  font-family: 'IBM Plex Mono', 'Consolas', monospace;
+  font-size: 1rem; font-style: italic; letter-spacing: 0.02em;
+  color: oklch(0.93 0.02 90);
+  text-shadow: 0 2px 8px oklch(0 0 0 / 0.9);
+  opacity: 0; transition: opacity 0.25s;
+  pointer-events: none;
+}
+#vo-sub.show { opacity: 1; }
+#vo-sub b { font-style: normal; letter-spacing: 0.08em; }
+
 /* ============ SCOREBOARD ============ */
 #scoreboard {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);

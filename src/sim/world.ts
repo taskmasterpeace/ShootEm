@@ -320,7 +320,8 @@ export class World {
     const src = caller?.alive ? caller.pos : this.map.basePos[team];
     const lz = { x: src.x, y: 0, z: src.z };
     this.pendingLsw.push({ id, team, landsAt: this.time + THREAT[def.threat].telegraph, pos: lz, callerId });
-    this.emit({ type: 'pod_incoming', pos: lz, text: `${def.name.toUpperCase()} INBOUND`, big: true });
+    this.emit({ type: 'pod_incoming', pos: lz, text: def.lines.inbound, big: true });
+    this.emit({ type: 'vo', text: `ann_${id}_inbound` }); // the net makes the call
     return true;
   }
 
@@ -382,7 +383,11 @@ export class World {
     s.nextLswAt = 0; s.nextLswActiveAt = 0;
     s.cloaked = false;
     s.protectedUntil = this.time + 2; // the pod flash — landing is not an ambush
-    this.emit({ type: 'announce', text: def.callLine, big: true });
+    s.lswKillsBase = s.kills;
+    s.lswLowSaid = false;
+    this.emit({ type: 'announce', text: def.lines.landed, big: true });
+    this.emit({ type: 'vo', text: `ann_${id}_landed` });
+    this.emit({ type: 'vo', text: `vo_${id}_arrive`, pos: { ...s.pos }, soldierId: s.id });
     return true;
   }
 
@@ -401,7 +406,11 @@ export class World {
     s.armor = 0; s.maxArmor = 0; // threat is HP, never a plate wall
     s.nextLswAt = 0;
     if (at) { s.pos = { ...at }; s.alive = true; s.respawnAt = 0; }
-    this.emit({ type: 'announce', text: def.callLine, big: true });
+    s.lswKillsBase = s.kills;
+    s.lswLowSaid = false;
+    this.emit({ type: 'announce', text: def.lines.landed, big: true });
+    this.emit({ type: 'vo', text: `ann_${id}_landed` });
+    this.emit({ type: 'vo', text: `vo_${id}_arrive`, pos: { ...s.pos }, soldierId: s.id });
     return s;
   }
 
@@ -454,7 +463,10 @@ export class World {
           const d = Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z);
           if (d < best && losClear(this.map.grid, { ...s.pos, y: 1.4 }, { ...e.pos, y: 1.4 })) { best = d; victim = e; }
         }
-        if (victim && this.encaseSoldier(victim)) s.nextLswAt = this.time + 4;
+        if (victim && this.encaseSoldier(victim)) {
+          s.nextLswAt = this.time + 4;
+          this.emit({ type: 'vo', text: 'vo_frostbite_ability', pos: { ...s.pos }, soldierId: s.id });
+        }
       }
     } else if (id === 'ragebeast') {
       // RAMPAGE: the lower his HP, the faster and harder he hits — burst him
@@ -478,7 +490,7 @@ export class World {
         this.explode({ ...g.pos }, WEAPONS.gl, s.id, s.team);
       }
     }
-    this.emit({ type: 'announce', text: 'FIREBRAND CASHES THE BOARD', big: false });
+    this.emit({ type: 'vo', text: 'vo_firebrand_ability', pos: { ...s.pos }, soldierId: s.id });
     this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'firebrand', soldierId: s.id });
   }
 
@@ -518,6 +530,7 @@ export class World {
       if (victim && this.encaseSoldier(victim)) {
         s.nextLswActiveAt = this.time + def.activeCd;
         this.emit({ type: 'lsw_active', pos: { ...victim.pos }, text: 'frostbite', soldierId: s.id });
+        this.emit({ type: 'vo', text: 'vo_frostbite_ability', pos: { ...s.pos }, soldierId: s.id });
       }
     } else if (id === 'plaguebearer') {
       // the quarantine ring: a wall of plague around you — walk the ring
@@ -530,6 +543,7 @@ export class World {
         this.spawnGadget('fire_field', s.team, s.id, p, 40, 6);
       }
       this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'plaguebearer', soldierId: s.id });
+      this.emit({ type: 'vo', text: 'vo_plaguebearer_ability', pos: { ...s.pos }, soldierId: s.id });
     } else if (id === 'ragebeast') {
       // GROUND SLAM: everyone close is hurt and THROWN — and like the
       // rampage itself, it hits harder the more he bleeds
@@ -546,6 +560,7 @@ export class World {
         e.pushZ += dz * inv * 26;
       }
       this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'ragebeast', soldierId: s.id });
+      this.emit({ type: 'vo', text: 'vo_ragebeast_ability', pos: { ...s.pos }, soldierId: s.id });
     }
   }
 
@@ -648,7 +663,7 @@ export class World {
     }
     // §7: death hands the LSW body back — the overlay dies with it and the
     // mortal redeploys as the class they signed up as (stats reset below).
-    if (s.ascendant) { s.ascendant = undefined; s.rageMul = undefined; s.nextLswAt = undefined; s.nextLswActiveAt = undefined; }
+    if (s.ascendant) { s.ascendant = undefined; s.rageMul = undefined; s.nextLswAt = undefined; s.nextLswActiveAt = undefined; s.lswKillsBase = undefined; s.lswLowSaid = undefined; }
     const c = CLASSES[s.classId];
     // armor equipment issues PLATE — a separate pool that absorbs damage
     // before hp and never heals back (medics fix flesh, not ceramic).
@@ -2905,6 +2920,12 @@ export class World {
       if (dmg <= 0) return; // the plate held
     }
     victim.hp -= dmg;
+    // the bloodied line (once per life): an LSW crossing a quarter health
+    // says so — nearby ears get the tell BEFORE the killfeed does
+    if (victim.ascendant && !victim.lswLowSaid && victim.hp > 0 && victim.hp < victim.maxHp * 0.25) {
+      victim.lswLowSaid = true;
+      this.emit({ type: 'vo', text: `vo_${victim.ascendant}_low`, pos: { ...victim.pos }, soldierId: victim.id });
+    }
     // getting shot interrupts the rescue — the E-channel starts over
     if (victim.downed) victim.reviveProgress = 0;
     // combat medikit auto-triggers once per life below 25% — but a stim can't fix "down"
@@ -2925,6 +2946,13 @@ export class World {
         this.downSoldier(victim, attackerId);
         return;
       }
+      // an LSW falling is an EVENT: last words for whoever stood close
+      // enough to hear them, and the net tells the whole map
+      if (victim.ascendant) {
+        this.emit({ type: 'vo', text: `vo_${victim.ascendant}_death`, pos: { ...victim.pos }, soldierId: victim.id });
+        this.emit({ type: 'announce', text: LSWS[victim.ascendant].lines.down, big: true });
+        this.emit({ type: 'vo', text: `ann_${victim.ascendant}_down` });
+      }
       victim.hp = 0;
       victim.alive = false;
       victim.deaths++;
@@ -2937,6 +2965,17 @@ export class World {
       victim.lastKillerId = attacker && attacker.id !== victim.id ? attacker.id : -1;
       if (attacker && attacker.id !== victim.id) {
         attacker.kills++;
+        // LSW kill milestones (per-life, counted from ascension): the third
+        // kill gets a line only nearby ears hear; the fifth wakes the net
+        if (attacker.ascendant) {
+          const lifeKills = attacker.kills - (attacker.lswKillsBase ?? 0);
+          if (lifeKills === 3) {
+            this.emit({ type: 'vo', text: `vo_${attacker.ascendant}_kill3`, pos: { ...attacker.pos }, soldierId: attacker.id });
+          } else if (lifeKills === 5) {
+            this.emit({ type: 'announce', text: LSWS[attacker.ascendant].lines.rampage, big: true });
+            this.emit({ type: 'vo', text: `ann_${attacker.ascendant}_rampage` });
+          }
+        }
         attacker.score += isZed(victim.kind) ? ZOMBIE_STATS[victim.kind].score : 10;
         // trophy ledger: how far did that shot travel?
         const range = Math.hypot(victim.pos.x - attacker.pos.x, victim.pos.z - attacker.pos.z);

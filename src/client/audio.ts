@@ -33,6 +33,18 @@ export const SOUND_NAMES = [
   'whiz', 'impact_dirt', 'impact_stone', 'impact_metal',
   // LSW signatures (§21.6, tools/gen-lsw-sounds.mjs): the stable has a voice
   'ice_freeze', 'ice_shatter', 'gas_hiss', 'rage_roar', 'fire_whoosh',
+  // LSW SPOKEN LINES (tools/gen-lsw-vo.mjs — gemini-3.1-flash-tts, directed
+  // per .claude/skills/expressive-tts): positional — only people around the
+  // speaker hear them. Every slot is Sound-Lab replaceable like any other.
+  'vo_firebrand_arrive', 'vo_firebrand_kill3', 'vo_firebrand_ability', 'vo_firebrand_low', 'vo_firebrand_death',
+  'vo_plaguebearer_arrive', 'vo_plaguebearer_kill3', 'vo_plaguebearer_ability', 'vo_plaguebearer_low', 'vo_plaguebearer_death',
+  'vo_frostbite_arrive', 'vo_frostbite_kill3', 'vo_frostbite_ability', 'vo_frostbite_low', 'vo_frostbite_death',
+  'vo_ragebeast_arrive', 'vo_ragebeast_kill3', 'vo_ragebeast_ability', 'vo_ragebeast_low', 'vo_ragebeast_death',
+  // the announcer's radio net — map-wide, both teams, per-LSW calls
+  'ann_firebrand_inbound', 'ann_firebrand_landed', 'ann_firebrand_down', 'ann_firebrand_rampage',
+  'ann_plaguebearer_inbound', 'ann_plaguebearer_landed', 'ann_plaguebearer_down', 'ann_plaguebearer_rampage',
+  'ann_frostbite_inbound', 'ann_frostbite_landed', 'ann_frostbite_down', 'ann_frostbite_rampage',
+  'ann_ragebeast_inbound', 'ann_ragebeast_landed', 'ann_ragebeast_down', 'ann_ragebeast_rampage',
 ] as const;
 export type SoundName = (typeof SOUND_NAMES)[number];
 
@@ -81,6 +93,14 @@ const EARSHOT_CLASSES: [RegExp, Earshot][] = [
   // both sides know it's on the field (the shatter is closer, a local beat)
   [/^(rage_roar|ice_freeze|fire_whoosh|gas_hiss)/, { range: 90, muffle: 0.5, weather: 0.8, jitter: 0.06 }],
   [/^ice_shatter/, { range: 40, muffle: 0.6, weather: 0.4, jitter: 0.1 }],
+  // SPOKEN LINES (Robert: "only the people around them would hear it"): a
+  // voice carries a room and a half, walls nearly end it, and it never
+  // warbles — a detuned actor is a different actor.
+  [/^vo_/, { range: 34, muffle: 0.85, weather: 0.4, jitter: 0.012 }],
+  // the announcer plays non-positionally (no pos = full volume, exact) —
+  // this class only exists so the slot resolves sanely if someone mis-plays
+  // it positionally in the future
+  [/^ann_/, { range: 200, muffle: 0.1, weather: 0.1, jitter: 0.012 }],
 ];
 export function earshotFor(name: string): Earshot {
   for (const [re, e] of EARSHOT_CLASSES) if (re.test(name)) return e;

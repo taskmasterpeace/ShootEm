@@ -1,4 +1,6 @@
 import { CLASSES, EQUIPMENT, MODE_INFO, TEAM_NAMES, VEHICLES, WEAPONS } from '../sim/data';
+import { LSWS, VO_LINES } from '../sim/lsw';
+import { earshotFor } from './audio';
 import { GRID, T_CLIMB, T_WALL, WORLD, losClear, houseAt } from '../sim/map';
 import type { SimEvent, Soldier, Team } from '../sim/types';
 import type { World } from '../sim/world';
@@ -229,6 +231,7 @@ export class Hud {
     } else sb.classList.add('hidden');
 
     if (now > this.announceUntil) this.announceEl.classList.remove('show');
+    if (now > this.subUntil) $('vo-sub').classList.remove('show');
   }
 
   private updateObjectives(world: World, local: Soldier) {
@@ -594,7 +597,31 @@ export class Hud {
            e.type === 'system_damaged' || e.type === 'hacked') && e.text) {
         this.announce(e.text, !!e.big, now);
       }
+      // SUBTITLES (positional truth): an LSW's spoken line is captioned only
+      // if the local player stands inside the voice's earshot — you read
+      // what you could HEAR. The announcer's net has no captions here; its
+      // text already owns the announce banner.
+      if (e.type === 'vo' && e.pos && e.text) {
+        const script = VO_LINES[e.text];
+        const me = world.soldiers.get(localId);
+        if (script && me?.alive) {
+          const d = Math.hypot(e.pos.x - me.pos.x, e.pos.z - me.pos.z);
+          if (d < earshotFor(e.text).range) {
+            this.subtitle(LSWS[script.who].name, LSWS[script.who].color, script.line, now);
+          }
+        }
+      }
     }
+  }
+
+  // ---- spoken-line subtitles ----
+  private subUntil = 0;
+  /** caption a nearby voice: "FIREBRAND: Somebody call for a light?" */
+  subtitle(speaker: string, color: number, line: string, now: number) {
+    const el = $('vo-sub');
+    el.innerHTML = `<b style="color:#${color.toString(16).padStart(6, '0')}">${speaker.toUpperCase()}:</b> ${line}`;
+    el.classList.add('show');
+    this.subUntil = now + 3.4;
   }
 
   flashHitmarker() {

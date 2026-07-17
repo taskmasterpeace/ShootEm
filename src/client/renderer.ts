@@ -2432,6 +2432,15 @@ export class Renderer {
           // the grenade kissing the ground — the tick that says GET AWAY
           if (e.pos) audio.play('impact_dirt', { pos: e.pos, volume: 0.45, rate: 1.5 });
           break;
+        case 'vo':
+          // a spoken line: positional = the LSW's own mouth (only nearby
+          // ears hear it — the earshot class does the math); no pos = the
+          // announcer's radio net, map-wide and exact
+          if (e.text) {
+            if (e.pos) audio.play(e.text as SoundName, { pos: e.pos, volume: 0.95 });
+            else audio.play(e.text as SoundName, { volume: 0.85 });
+          }
+          break;
         case 'lsw_active': {
           // a piloted LSW fired its signature — each speaks in its own voice
           if (!e.pos) break;

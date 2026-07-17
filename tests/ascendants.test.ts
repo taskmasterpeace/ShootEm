@@ -3,11 +3,14 @@
 // the proof pair: Firebrand (UF) vs Plaguebearer (Collective). Both are pure
 // field plays on shipped systems; this suite is the entry path, end to end.
 // ---------------------------------------------------------------------------
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { SOUND_NAMES } from '../src/client/audio';
 import { World } from '../src/sim/world';
 import { CLASSES } from '../src/sim/data';
-import { LSWS, THREAT, lswAllowed } from '../src/sim/lsw';
-import type { AscendantId, PlayerCmd } from '../src/sim/types';
+import { LSWS, THREAT, VO_LINES, annSlot, lswAllowed, voSlot } from '../src/sim/lsw';
+import type { AscendantId, PlayerCmd, SimEvent } from '../src/sim/types';
 
 const cmd = (over: Partial<PlayerCmd> = {}): PlayerCmd => ({
   moveX: 0, moveZ: 0, aimYaw: 0, fire: false, altFire: false, jump: false,
@@ -330,5 +333,99 @@ describe('playing as an LSW', () => {
     // your faction's channel stayed YOURS — nobody called for team 0
     expect(w.pendingLsw.some((p) => p.team === 0)).toBe(false);
     expect([...w.soldiers.values()].some((s) => s.team === 0 && s.ascendant)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// THE SPOKEN SCRIPT (Robert): every LSW has a mouth, the net has a voice,
+// and only the people around a speaker hear them. Real TTS clips
+// (tools/gen-lsw-vo.mjs) behind Sound-Lab-replaceable slots.
+// ---------------------------------------------------------------------------
+describe('the spoken script', () => {
+  const IDS = Object.keys(LSWS) as AscendantId[];
+  const MOMENTS = ['arrive', 'kill3', 'ability', 'low', 'death'] as const;
+  const NET = ['inbound', 'landed', 'down', 'rampage'] as const;
+
+  it('every LSW has every line, every slot is registered, every clip is ON DISK', () => {
+    for (const id of IDS) {
+      for (const m of MOMENTS) {
+        const slot = voSlot(id, m);
+        expect(VO_LINES[slot], `${slot} has no written line`).toBeTruthy();
+        expect(SOUND_NAMES.includes(slot as (typeof SOUND_NAMES)[number]), `${slot} not in SOUND_NAMES`).toBe(true);
+        expect(existsSync(join(__dirname, '..', 'public', 'audio', `${slot}.wav`)), `${slot}.wav missing — run gen-lsw-vo`).toBe(true);
+      }
+      for (const m of NET) {
+        const slot = annSlot(id, m);
+        expect(SOUND_NAMES.includes(slot as (typeof SOUND_NAMES)[number]), `${slot} not in SOUND_NAMES`).toBe(true);
+        expect(existsSync(join(__dirname, '..', 'public', 'audio', `${slot}.wav`)), `${slot}.wav missing`).toBe(true);
+        expect(LSWS[id].lines[m], `${id} has no ${m} announcer text`).toBeTruthy();
+      }
+    }
+  });
+
+  it('landing speaks THREE ways: the LSW aloud (positional), the net (not), the banner (text)', () => {
+    const w = new World({ seed: 42, mode: 'tdm' });
+    w.addLsw('firebrand', 0, { x: 3, y: 0, z: 4 });
+    const evs = w.takeEvents();
+    const mouth = evs.find((e) => e.type === 'vo' && e.text === 'vo_firebrand_arrive');
+    expect(mouth, 'the LSW never spoke on arrival').toBeTruthy();
+    expect(mouth!.pos, 'the arrival line must be POSITIONAL').toBeTruthy();
+    const net = evs.find((e) => e.type === 'vo' && e.text === 'ann_firebrand_landed');
+    expect(net, 'the net never called the landing').toBeTruthy();
+    expect(net!.pos, 'the net is map-wide — no position').toBeUndefined();
+    expect(evs.some((e) => e.type === 'announce' && e.text === LSWS.firebrand.lines.landed)).toBe(true);
+  });
+
+  it('the third kill of the LIFE speaks exactly once; the fifth wakes the net', () => {
+    const w = new World({ seed: 42, mode: 'tdm' });
+    const fb = w.addLsw('firebrand', 0, { x: 0, y: 0, z: 0 })!;
+    fb.kills = 40; // a veteran — milestones must count from THIS life
+    fb.lswKillsBase = 40;
+    w.takeEvents();
+    const all: SimEvent[] = [];
+    for (let i = 0; i < 6; i++) {
+      const v = w.addSoldier('V' + i, 'infantry', 1, 'human');
+      v.pos = { x: 2, y: 0, z: 0 }; v.alive = true; v.protectedUntil = 0;
+      w.damageSoldier(v, 99999, fb.id, 'ar606');
+      all.push(...w.takeEvents());
+    }
+    expect(all.filter((e) => e.type === 'vo' && e.text === 'vo_firebrand_kill3').length,
+      'kill3 must fire exactly once').toBe(1);
+    expect(all.filter((e) => e.type === 'vo' && e.text === 'ann_firebrand_rampage').length,
+      'rampage must fire exactly once, at five').toBe(1);
+    expect(all.some((e) => e.type === 'announce' && e.text === LSWS.firebrand.lines.rampage)).toBe(true);
+  });
+
+  it('the bloodied line latches — hurt twice below a quarter, speak ONCE', () => {
+    const w = new World({ seed: 42, mode: 'tdm' });
+    const fb = w.addLsw('firebrand', 0, { x: 0, y: 0, z: 0 })!;
+    fb.protectedUntil = 0;
+    w.takeEvents();
+    w.damageSoldier(fb, fb.maxHp * 0.8, -1, 'ar606'); // to 20%
+    w.damageSoldier(fb, 50, -1, 'ar606');             // still low, hurt again
+    const evs = w.takeEvents();
+    expect(evs.filter((e) => e.type === 'vo' && e.text === 'vo_firebrand_low').length).toBe(1);
+  });
+
+  it('the fall gets last words nearby and a map-wide net call', () => {
+    const w = new World({ seed: 42, mode: 'tdm' });
+    const fb = w.addLsw('firebrand', 0, { x: 0, y: 0, z: 0 })!;
+    fb.protectedUntil = 0;
+    w.takeEvents();
+    w.damageSoldier(fb, 99999, -1, 'ar606');
+    const evs = w.takeEvents();
+    const last = evs.find((e) => e.type === 'vo' && e.text === 'vo_firebrand_death');
+    expect(last, 'no last words').toBeTruthy();
+    expect(last!.pos, 'last words are for whoever stood CLOSE').toBeTruthy();
+    expect(evs.some((e) => e.type === 'vo' && e.text === 'ann_firebrand_down' && !e.pos)).toBe(true);
+    expect(evs.some((e) => e.type === 'announce' && e.text === LSWS.firebrand.lines.down)).toBe(true);
+  });
+
+  it('the officer call reads the inbound line on the banner AND the net', () => {
+    const w = new World({ seed: 42, mode: 'ctf' });
+    w.requestLsw('ragebeast', 1);
+    const evs = w.takeEvents();
+    expect(evs.some((e) => e.type === 'pod_incoming' && e.text === LSWS.ragebeast.lines.inbound)).toBe(true);
+    expect(evs.some((e) => e.type === 'vo' && e.text === 'ann_ragebeast_inbound' && !e.pos)).toBe(true);
   });
 });
