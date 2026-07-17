@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>War World</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>" />
+  <link rel="icon" type="image/png" href="/art/emblem.png" />
   <link rel="preload" href="/fonts/oswald-600.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="/fonts/saira-stencil-one.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="/fonts/share-tech-mono.woff2" as="font" type="font/woff2" crossorigin />
@@ -69,8 +69,13 @@
     <div id="scoreboard" class="hidden"></div>
     <div id="menu">
       <div class="menu-inner">
-        <h1 class="game-title">WAR<span>WORLD</span></h1>
-        <p class="tagline">A modern reimagining of Infantry Online</p>
+        <div class="title-lockup">
+          <img class="game-emblem" src="/art/emblem.png" alt="War World command insignia" width="128" height="128" />
+          <div>
+            <h1 class="game-title">WAR<span>WORLD</span></h1>
+            <p class="tagline">A modern reimagining of Infantry Online</p>
+          </div>
+        </div>
         <!-- 6B: the tab shell ships with Slice 1 — Deploy | Barracks | Map(reserved) -->
         <nav id="menu-tabs">
           <button class="mtab active" data-tab="deploy">⚔ DEPLOY</button>
