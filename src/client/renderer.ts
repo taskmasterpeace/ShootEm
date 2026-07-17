@@ -1241,6 +1241,7 @@ export class Renderer {
       mesh.rotation.y = -s.yaw; // sim yaw is math-angle on XZ; three rotates opposite
       this.animateSoldier(mesh, s, world);
       if (s.ascendant) this.lswAura(mesh, s, world);
+      if (s.encasedUntil !== undefined || this.iceBlocks.has(s.id)) this.updateIceBlock(s);
     }
     for (const [id, mesh] of this.soldierMeshes) {
       if (!world.soldiers.has(id)) {
@@ -1882,6 +1883,42 @@ export class Renderer {
         pos: { x: s.pos.x, y: 0.6 + Math.random() * 1.4, z: s.pos.z }, count: 1,
         color: 0x8fbe42, speed: 0.6, life: 0.9, spread: 0.7, up: 1.2, gravity: 1, size: 0.6,
       });
+    } else if (id === 'frostbite') {
+      // cold fog rolling off him, and frost crystals drifting DOWN
+      this.particles.emit({
+        pos: { x: s.pos.x, y: 0.3 + Math.random() * 1.4, z: s.pos.z }, count: 1,
+        color: 0xcdeef7, speed: 0.5, life: 1.0, spread: 0.8, up: 0.3, gravity: 2, size: 0.55,
+      });
+    } else if (id === 'ragebeast') {
+      // embers of fury — hotter and thicker the more wounded he is
+      const fury = 1 - s.hp / s.maxHp;
+      this.particles.emit({
+        pos: { x: s.pos.x, y: 0.4 + Math.random() * 1.6, z: s.pos.z }, count: fury > 0.5 ? 2 : 1,
+        color: 0xd83a1a, speed: 1.4, life: 0.4, spread: 0.6, up: 2.5, gravity: -3, size: 0.4,
+      });
+    }
+  }
+
+  /** An encased soldier is a block of ice — a translucent cyan box over the
+   *  frozen body, pooled per soldier. (§21.6 the ice block.) */
+  private iceBlocks = new Map<number, THREE.Mesh>();
+  private updateIceBlock(s: Soldier) {
+    let ice = this.iceBlocks.get(s.id);
+    const encased = s.encasedUntil !== undefined && s.alive;
+    if (encased && !ice) {
+      ice = new THREE.Mesh(
+        new THREE.BoxGeometry(1.7, 2.3, 1.7),
+        new THREE.MeshStandardMaterial({
+          color: 0xafe6f5, emissive: 0x4a9fc4, emissiveIntensity: 0.35,
+          transparent: true, opacity: 0.42, roughness: 0.1, metalness: 0.05, depthWrite: false,
+        }),
+      );
+      this.scene.add(ice);
+      this.iceBlocks.set(s.id, ice);
+    }
+    if (ice) {
+      ice.visible = encased;
+      if (encased) ice.position.set(s.pos.x, 1.15, s.pos.z);
     }
   }
 

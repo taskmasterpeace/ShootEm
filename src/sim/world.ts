@@ -11,7 +11,7 @@ import {
 } from './types';
 import { stepMode, initMode } from './modes';
 import { generateFront } from './fronts';
-import { LSWS, THREAT, lswAllowed } from './lsw';
+import { ICE_HOLD, ICE_HOLD_DRAIN, LSWS, STRUGGLE_HP, STRUGGLE_SECS, THREAT, lswAllowed } from './lsw';
 import { stepBot, stepDog, stepScientist, stepZombie } from './bots';
 import { PERCEIVE_RANGE, perceivesNow, type SeenMark } from './perception';
 import { THEME_WEATHER, airGrounded, moveMult, visionMult, weatherAnnounce, type WeatherState } from './weather';
@@ -378,6 +378,30 @@ export class World {
         // damage field (acid), short and close — the poison, not just the fog
         this.spawnGadget('fire_field', s.team, s.id, { ...s.pos }, 40, 6);
       }
+    } else if (id === 'frostbite') {
+      // THE ICE BLOCK (§21.6 flagship): freeze the nearest enemy in reach on
+      // a cadence. One at a time, close — the block is the threat, not DPS.
+      // Ice sheets under his feet are S_ICE, handled by the surface layer.
+      if (this.time >= (s.nextLswAt ?? 0)) {
+        let victim: Soldier | undefined, best = 16;
+        for (const e of this.soldiers.values()) {
+          if (!e.alive || e.team === s.team || e.encasedUntil !== undefined || e.vehicleId >= 0) continue;
+          const d = Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z);
+          if (d < best && losClear(this.map.grid, { ...s.pos, y: 1.4 }, { ...e.pos, y: 1.4 })) { best = d; victim = e; }
+        }
+        if (victim && this.encaseSoldier(victim)) s.nextLswAt = this.time + 4;
+      }
+    } else if (id === 'ragebeast') {
+      // RAMPAGE: the lower his HP, the faster and harder he hits — burst him
+      // or starve him, half-measures feed him. Pure scalars on shipped
+      // fields; the "feed" is the missing-HP fraction, refreshed each tick.
+      const missing = 1 - s.hp / s.maxHp;
+      // rage is speed/damage, not immortality: the harness showed a 1.9x
+      // ceiling let him out-trade an ENDLESS squad forever ("feeds the
+      // rage" working too well vs infinite bodies). Capped at 1.5x — a
+      // real, mortal team still burns him down; the wound just makes the
+      // last quarter of his HP the dangerous part.
+      s.rageMul = 1 + missing * 0.5; // up to 1.5x wounded
     }
   }
 
@@ -610,6 +634,27 @@ export class World {
       if (s.downed && this.time >= s.downedUntil) {
         this.damageSoldier(s, s.hp + 1, s.downedBy, 'bleedout');
         continue;
+      }
+      // ENCASED (§21.6): frozen in the ice block. HOLD STILL and HP drains
+      // slowly (you can outlast it); STRUGGLE — feed any move/fire input —
+      // and you break the ice in ~4s but crawl out badly hurt. Nobody else's
+      // damage touches you (the shield lives in damageSoldier). No movement,
+      // no shooting, no brain: the block just stands there being a block.
+      if (s.encasedUntil !== undefined) {
+        const cmd = cmds.get(s.id);
+        const struggling = !!cmd && (cmd.moveX !== 0 || cmd.moveZ !== 0 || cmd.fire || cmd.jump);
+        s.vel = { x: 0, y: 0, z: 0 };
+        if (struggling) {
+          s.struggle = (s.struggle ?? 0) + dt / STRUGGLE_SECS;
+          if (s.struggle >= 1) { this.freeFromIce(s, STRUGGLE_HP); continue; } // shattered it — and hurt
+        } else {
+          // hold-still drain, applied DIRECTLY (the ice shield in
+          // damageSoldier would eat a normal damage call)
+          s.hp -= ICE_HOLD_DRAIN * dt;
+          if (s.hp <= 0) { s.hp = 0; s.encasedUntil = undefined; this.damageSoldier(s, 1, -1, 'bleedout'); continue; }
+        }
+        if (this.time >= s.encasedUntil) this.freeFromIce(s, 0); // the ice melts, free at no cost
+        continue; // an ice block does nothing else
       }
       s.draggingId = -1; // the drag grip is re-asserted every tick by the E-hold
       // in-flight melee swings land on schedule, whoever the attacker is —
@@ -1144,6 +1189,7 @@ export class World {
     let speed = c.speed * (SURF_SOLDIER[surfaceAt(this.map.surface, s.pos.x, s.pos.z)] ?? 1) // §8.6
       * moveMult(this.weather, 'soldier'); // §8.8 snow drags boots
     if (s.cloaked) speed *= 0.8;
+    if (s.rageMul) speed *= s.rageMul; // Ragebeast: the wound makes him fast
     for (const eid of s.equipment) {
       const e = EQUIPMENT[eid];
       if (e?.speedMult) speed *= e.speedMult;
@@ -2386,7 +2432,10 @@ export class World {
               // read the plate BEFORE the round resolves — damageSoldier eats
               // the armor, so asking afterward always says "bare"
               const bare = s.armor <= 0;
-              this.damageSoldier(s, def.damage, p.ownerId, p.weapon);
+              // Ragebeast's rounds hit harder as he bleeds (rampage)
+              const shooter = this.soldiers.get(p.ownerId);
+              const dmg = def.damage * (shooter?.rageMul ?? 1);
+              this.damageSoldier(s, dmg, p.ownerId, p.weapon);
               this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, soldierId: p.ownerId, bare });
             }
             // the RG-2 tag dart: sting like a bee, then GLOW — pinned on
@@ -2537,9 +2586,44 @@ export class World {
 
   // ---------- damage ----------
 
+  /** THE ICE BLOCK (§21.6). Freeze a soldier alive: a real 1-tile block that
+   *  stops movement AND shots both ways, and shields them from ALL other harm
+   *  — freezing an enemy removes him from the board AND briefly saves him.
+   *  Never freezes a soldier already encased. Returns true if it took. */
+  encaseSoldier(victim: Soldier): boolean {
+    if (!victim.alive || victim.encasedUntil !== undefined) return false;
+    if (this.time < victim.protectedUntil) return false;
+    victim.encasedUntil = this.time + ICE_HOLD;
+    victim.struggle = 0;
+    victim.vel = { x: 0, y: 0, z: 0 };
+    this.emit({ type: 'encased', pos: { ...victim.pos }, soldierId: victim.id });
+    return true;
+  }
+
+  /** Break a soldier out of the ice — teammate shatter (free) or their own
+   *  struggle (hurt). `cost` HP comes off on the way out, routed through the
+   *  normal damage path so a fatal exit downs/kills correctly (the ice is
+   *  already cleared, so no shield recursion). */
+  private freeFromIce(s: Soldier, cost: number) {
+    s.encasedUntil = undefined;
+    s.struggle = undefined;
+    this.emit({ type: 'revived', pos: { ...s.pos }, soldierId: s.id }); // "the ice gives"
+    if (cost > 0) this.damageSoldier(s, cost, s.lastKillerId, 'bleedout');
+  }
+
   damageSoldier(victim: Soldier, dmg: number, attackerId: number, weapon: WeaponId) {
     if (!victim.alive || dmg <= 0) return;
     if (this.time < victim.protectedUntil) return; // spawn protection (55B)
+    // ENCASED: the ice eats EVERYTHING — except a teammate's shot, which
+    // SHATTERS it (frees them instantly, no cost). An enemy shooting the
+    // block just wastes ammo. This is the whole timing game.
+    if (victim.encasedUntil !== undefined) {
+      const attacker = this.soldiers.get(attackerId);
+      if (attacker && attacker.team === victim.team && attacker.id !== victim.id) {
+        this.freeFromIce(victim, 0); // teammate shatter — instant, free
+      }
+      return; // no other damage lands on the ice
+    }
     if (victim.cloaked) victim.cloaked = false;
     // issued plate takes the hit first; whatever punches through reaches flesh
     if (victim.armor > 0) {

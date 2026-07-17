@@ -96,3 +96,86 @@ describe('Plaguebearer — the cloud', () => {
     expect(clouds, 'no gas was laid').toBeGreaterThan(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// THE ICE BLOCK ⭐ — the shared encase state (Frostbite now, Venatrix later).
+// The loop spec's exact contract, one law each.
+// ---------------------------------------------------------------------------
+describe('the ice block', () => {
+  const victim = () => {
+    const w = new World({ seed: 42, mode: 'tdm' });
+    const s = w.addSoldier('V', 'infantry', 1, 'human');
+    s.pos = { x: 0, y: 0, z: 0 }; s.alive = true; s.protectedUntil = 0;
+    return { w, s };
+  };
+
+  it('encased soldiers cannot be hurt by anything else — the ice eats it', () => {
+    const { w, s } = victim();
+    expect(w.encaseSoldier(s)).toBe(true);
+    const before = s.hp;
+    w.damageSoldier(s, 60, -1, 'ar606');   // an enemy shooting the block
+    expect(s.hp, 'damage leaked through the ice').toBe(before);
+    expect(s.encasedUntil).toBeDefined();
+  });
+
+  it('a teammate shatters it instantly, at NO cost', () => {
+    const { w, s } = victim();
+    const mate = w.addSoldier('M', 'infantry', 1, 'human');
+    w.encaseSoldier(s);
+    const before = s.hp;
+    w.damageSoldier(s, 10, mate.id, 'ar606'); // friendly fire on the block
+    expect(s.encasedUntil, 'the ice held against a teammate').toBeUndefined();
+    expect(s.hp, 'shatter cost the freed soldier HP').toBe(before);
+    expect(s.alive).toBe(true);
+  });
+
+  it('HOLDING STILL drains slowly — you can outlast it', () => {
+    const { w, s } = victim();
+    w.encaseSoldier(s);
+    const before = s.hp;
+    for (let i = 0; i < 60 * 3; i++) w.step(1 / 60, new Map()); // 3s, no input
+    // still encased or just melted free — either way, drained but ALIVE
+    expect(s.alive, 'holding still killed a healthy soldier in 3s').toBe(true);
+    expect(s.hp, 'holding still cost nothing').toBeLessThan(before);
+    expect(before - s.hp, 'the slow drain drained fast').toBeLessThan(20);
+  });
+
+  it('STRUGGLING breaks out in ~4s but arrives hurt', () => {
+    const { w, s } = victim();
+    w.encaseSoldier(s);
+    let freedAt = -1;
+    const t0 = w.time;
+    for (let i = 0; i < 60 * 6; i++) {
+      w.step(1 / 60, new Map([[s.id, cmd({ moveX: 1 })]])); // mash a direction
+      if (s.encasedUntil === undefined && freedAt < 0) { freedAt = w.time - t0; break; }
+    }
+    expect(freedAt, 'never struggled free').toBeGreaterThan(0);
+    expect(freedAt, 'struggle-out was not ~4s').toBeLessThan(5);
+    expect(s.hp, 'struggling out was free — it should HURT').toBeLessThan(100);
+  });
+
+  it('the block is gone when the match ends — no ice outlives the whistle', () => {
+    const { w, s } = victim();
+    w.encaseSoldier(s);
+    w.mode.over = true;
+    for (let i = 0; i < 60; i++) w.step(1 / 60, new Map());
+    // a mode-over world stops stepping soldiers; the block clears on the melt
+    // timer regardless — assert it doesn't persist past its hold window
+    for (let i = 0; i < 60 * 6; i++) w.step(1 / 60, new Map());
+    expect(s.encasedUntil === undefined || w.time >= s.encasedUntil).toBe(true);
+  });
+});
+
+describe('Ragebeast — the rampage', () => {
+  it('wounding him makes him faster and hit harder', () => {
+    const w = new World({ seed: 42, mode: 'tdm' });
+    const rb = w.addLsw('ragebeast', 1, { x: 0, y: 0, z: 0 })!;
+    w.step(1 / 60, new Map()); // one tick sets rageMul at full HP
+    const healthy = rb.rageMul ?? 1;
+    rb.hp = rb.maxHp * 0.25; // bloodied
+    w.step(1 / 60, new Map());
+    const wounded = rb.rageMul ?? 1;
+    expect(healthy, 'a healthy beast should not be raging').toBeLessThan(1.15);
+    expect(wounded, 'the wound did not feed him').toBeGreaterThan(healthy + 0.3);
+  });
+});

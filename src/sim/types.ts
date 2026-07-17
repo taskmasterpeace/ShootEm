@@ -10,7 +10,7 @@ export type ClassId = 'infantry' | 'heavy' | 'jump' | 'engineer' | 'medic' | 'in
 /** Living Super Weapons (§21.6 / docs/ASCENDANTS.md). A Soldier carrying one
  *  of these is an LSW — not a class, an overlay: bigger, deadlier, its own
  *  brain, and it dies to ordinary guns. Grows as the roster ships. */
-export type AscendantId = 'firebrand' | 'plaguebearer';
+export type AscendantId = 'firebrand' | 'plaguebearer' | 'frostbite' | 'ragebeast';
 
 /**
  * Weapon ids are open strings: the hand-tuned core set (ar606, kuchler, caw,
@@ -253,6 +253,18 @@ export interface Soldier {
   ascendant?: AscendantId;
   /** LSW ability cadence — next time its secondary is off cooldown */
   nextLswAt?: number;
+  /** THE ICE BLOCK (§21.6, shared: Frostbite + Venatrix). Encased alive: a
+   *  real 1-tile block that stops movement AND shots both ways. sim-time the
+   *  ice fully forms free is `encasedUntil`; teammates shatter it early by
+   *  shooting it. While encased the soldier takes NO other damage — freezing
+   *  their star both removes AND protects him; timing is the skill. */
+  encasedUntil?: number;
+  /** accumulated struggle: rises while the encased soldier feeds move/fire
+   *  input, breaks the ice at 1 (~4s of mashing) but exits at heavy HP cost */
+  struggle?: number;
+  /** Ragebeast (§21.6): rampage multiplier on move speed + outgoing damage,
+   *  climbs as his HP falls. 1 = unwounded. Refreshed every tick by stepLsw. */
+  rageMul?: number;
   /** psi-scanner next pulse */
   nextPsiAt: number;
   /** repair-kit next use */
@@ -440,7 +452,8 @@ export interface SimEvent {
     | 'downed'         // a soldier hit the ground bleeding — not dead yet
     | 'revived'        // someone got them back on their feet
     | 'melee_windup'   // a melee swing began — the client telegraphs the strike
-    | 'whistle';       // paintball referee: a round just started or ended
+    | 'whistle'        // paintball referee: a round just started or ended
+    | 'encased';       // a soldier was frozen alive in the ice block (§21.6)
   pos?: Vec3;
   weapon?: WeaponId;
   /** On a 'hit': the shooter, but ONLY when a soldier/gadget was actually

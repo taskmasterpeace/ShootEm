@@ -521,6 +521,7 @@ for (const k of ZEDS) zedGrid.appendChild(chip(k, 'zed', () => showModel(() => b
 // dressed as the LSW so the Stage judges the real in-game body.
 const LSW_STABLE: { id: AscendantId; team: 0 | 1 }[] = [
   { id: 'firebrand', team: 0 }, { id: 'plaguebearer', team: 1 },
+  { id: 'frostbite', team: 0 }, { id: 'ragebeast', team: 1 },
 ];
 const lswGrid = $('lsw-grid');
 for (const { id, team } of LSW_STABLE) {

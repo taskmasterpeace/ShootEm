@@ -58,6 +58,8 @@ export function buildSoldier(team: Team, classId: ClassId, kind: SoldierKind): T
 export const LSW_TINT: Record<string, { tint: number; scale: number }> = {
   firebrand: { tint: 0xff6a1a, scale: 1.25 },
   plaguebearer: { tint: 0x7fa83c, scale: 1.3 },
+  frostbite: { tint: 0x8fd4e8, scale: 1.3 },  // pale ice-blue glow
+  ragebeast: { tint: 0xb23030, scale: 1.45 }, // blood-iron, the biggest silhouette
 };
 
 /** Turn a built trooper body INTO an LSW body: scale up past a trooper,

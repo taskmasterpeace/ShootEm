@@ -63,7 +63,26 @@ export const LSWS: Record<AscendantId, LswDef> = {
     callLine: 'PLAGUEBEARER INBOUND — SEAL YOUR MASKS',
     scale: 1.3, speed: 8, color: 0x7fa83c,
   },
+  frostbite: {
+    id: 'frostbite', name: 'Frostbite', faction: 0, threat: 3,
+    callLine: 'FROSTBITE DEPLOYS — THE COLD TAKES THE FIELD',
+    scale: 1.3, speed: 8.5, color: 0x8fd4e8, // pale ice blue (team 0 is amber; this is HIS shade)
+  },
+  ragebeast: {
+    id: 'ragebeast', name: 'Ragebeast', faction: 1, threat: 3,
+    callLine: 'RAGEBEAST IS LOOSE — DO NOT FEED IT',
+    scale: 1.45, speed: 8, color: 0xb23030, // blood-iron red, darkens as it rages
+  },
 };
+
+/** THE ICE BLOCK constants (§21.6). Encase forms over ~0.4s; the ice fully
+ *  holds `ICE_HOLD` seconds; holding still drains slowly, struggling breaks
+ *  out in ~STRUGGLE_SECS but costs STRUGGLE_HP. Shared by Frostbite (and
+ *  Venatrix when she ships). */
+export const ICE_HOLD = 5;          // seconds the block stands if nobody frees you
+export const ICE_HOLD_DRAIN = 2.5;  // hp/s while you HOLD STILL — slow; you can outlast it
+export const STRUGGLE_SECS = 4;     // mashing input this long shatters the ice yourself
+export const STRUGGLE_HP = 45;      // …but you crawl out this hurt (die slow if already weak)
 
 /** Modes where no LSW ever walks: the yard is for learning, the range is for
  *  work. (§14 — boot camp is a paintball match, not a boss fight.) */
