@@ -477,6 +477,38 @@ describe('Tremor — the earthquake', () => {
 });
 
 // ---------------------------------------------------------------------------
+// MAGNETAR — a halo that eats straight bullets (energy/arcs pass) and feeds
+// him, plus a magnetic pulse that jams guns and stalls armor.
+// ---------------------------------------------------------------------------
+describe('Magnetar — the halo and the pulse', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('straight bullets curve into the halo and feed him; arcs pass clean', () => {
+    const w = quiet();
+    const m = w.addLsw('magnetar', 1, { x: 0, y: 0, z: 0 })!;
+    m.hp = m.maxHp - 100;
+    // a plain bullet inbound, and an arc grenade at the same spot
+    w.projectiles.set(7001, { id: 7001, weapon: 'ar606', ownerId: 500, team: 0, pos: { x: 2, y: 1.2, z: 0 }, vel: { x: -20, y: 0, z: 0 }, bornAt: w.time, ttl: 3, arc: false });
+    w.projectiles.set(7002, { id: 7002, weapon: 'gl', ownerId: 500, team: 0, pos: { x: 2, y: 1.2, z: 0.5 }, vel: { x: -20, y: 0, z: 0 }, bornAt: w.time, ttl: 3, arc: true });
+    const hp0 = m.hp;
+    w.step(1 / 60, new Map());
+    expect(w.projectiles.get(7001), 'the bullet was not absorbed by the halo').toBeUndefined();
+    expect(m.hp, 'the halo did not feed him').toBeGreaterThan(hp0);
+    expect(w.projectiles.get(7002), 'an arc grenade was wrongly eaten').toBeTruthy();
+  });
+
+  it('the pulse jams nearby enemy guns', () => {
+    const w = quiet();
+    const m = w.addLsw('magnetar', 1, { x: 0, y: 0, z: 0 })!;
+    const e = w.addSoldier('E', 'infantry', 0, 'human');
+    e.pos = { x: 5, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    const f0 = e.nextFireAt;
+    w.applyCmd(m, cmd({ ability: true }), 1 / 60);
+    expect(e.nextFireAt, 'the pulse did not jam the gun').toBeGreaterThan(f0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // §7 PLAYING AS AN LSW — you call it, you hold the mark, you BECOME it.
 // The full pilot loop: call → telegraph → ascension → Q signature → death
 // hands the body back.

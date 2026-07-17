@@ -179,6 +179,17 @@ export const LSWS: Record<AscendantId, LswDef> = {
     scale: 1.5, speed: 6, color: 0xa05a2a, // rusty earth-and-clay
     activeLabel: 'EARTHQUAKE STOMP — stagger the ground around you', activeCd: 5,
   },
+  magnetar: {
+    id: 'magnetar', name: 'Magnetar', faction: 1, threat: 2,
+    lines: {
+      inbound: "MAGNETAR INBOUND — YOUR BULLETS WON'T LAND",
+      landed: 'MAGNETAR ON THE FIELD — CLOSE THE DISTANCE',
+      down: 'MAGNETAR IS DOWN — OPEN FIRE',
+      rampage: 'FIVE KILLS — MAGNETAR EATS EVERY ROUND',
+    },
+    scale: 1.3, speed: 7, color: 0x707886, // gunmetal-steel, a magnetic sheen
+    activeLabel: 'MAGNETIC PULSE — jam their guns, stall their armor', activeCd: 6,
+  },
 };
 
 /** THE SPOKEN SCRIPT — subtitle text per voice slot, tag-stripped mirrors of
@@ -242,6 +253,11 @@ export const VO_LINES: Record<string, { who: AscendantId; line: string }> = {
   vo_tremor_ability: { who: 'tremor', line: 'Feel that?' },
   vo_tremor_low: { who: 'tremor', line: 'Cracks... running deep.' },
   vo_tremor_death: { who: 'tremor', line: 'Back... underground.' },
+  vo_magnetar_arrive: { who: 'magnetar', line: 'Guns? How quaint.' },
+  vo_magnetar_kill3: { who: 'magnetar', line: 'Three. Their bullets built my armor.' },
+  vo_magnetar_ability: { who: 'magnetar', line: 'Jammed.' },
+  vo_magnetar_low: { who: 'magnetar', line: 'Field... collapsing.' },
+  vo_magnetar_death: { who: 'magnetar', line: 'De... magnetized.' },
 };
 export const voSlot = (id: AscendantId, moment: VoMoment) => `vo_${id}_${moment}`;
 export const annSlot = (id: AscendantId, moment: 'inbound' | 'landed' | 'down' | 'rampage') => `ann_${id}_${moment}`;

@@ -1957,6 +1957,13 @@ export class Renderer {
         color: Math.random() < 0.5 ? 0xa05a2a : 0x6a4520, speed: 0.5, life: 0.7,
         spread: 0.7, up: 0.8, gravity: 1.5, size: 0.4,
       });
+    } else if (id === 'magnetar') {
+      // metal debris orbiting him in a tight ring — the halo that eats bullets
+      const a = world.time * 3 + s.id;
+      this.particles.emit({
+        pos: { x: s.pos.x + Math.cos(a) * 1.6, y: 1.0 + Math.sin(a * 1.7) * 0.6, z: s.pos.z + Math.sin(a) * 1.6 }, count: 1,
+        color: Math.random() < 0.5 ? 0x9aa2ae : 0x5a6270, speed: 0.2, life: 0.4, spread: 0.2, up: 0, gravity: 0, size: 0.24,
+      });
     }
     // the LSW's VOICE: an Ascendant is an event you can HEAR coming. A
     // per-unit signature on a throttle (roar/hiss/whoosh), and it gets more

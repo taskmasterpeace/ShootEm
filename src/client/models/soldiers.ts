@@ -67,6 +67,7 @@ export const LSW_TINT: Record<string, { tint: number; scale: number }> = {
   reactor: { tint: 0xffb020, scale: 1.3 },       // radiant reactor gold
   oblivion: { tint: 0xe6ecf2, scale: 1.3 },      // void-white rim (black & white, no purple)
   tremor: { tint: 0xa05a2a, scale: 1.5 },        // rusty earth-and-clay
+  magnetar: { tint: 0x707886, scale: 1.3 },      // gunmetal-steel, magnetic sheen
 };
 
 /** Turn a built trooper body INTO an LSW body: scale up past a trooper,

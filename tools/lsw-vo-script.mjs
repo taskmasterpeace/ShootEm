@@ -78,6 +78,12 @@ export const CAST = {
     persona: 'Tremor, a Collective Living Super Weapon — a siege engine that fights from under the dirt. Heavy, slow, seismic; patient the way tectonic plates are patient. Speaks in short, ground-shaking statements and is never in a hurry.',
     scene: 'A deep subterranean rumble. Soil shifting. The crack of stone under pressure.',
   },
+  magnetar: {
+    voice: 'Sadachbia',
+    fx: 'none', // cold, controlled, a faint electromagnetic whine under it
+    persona: 'Magnetar, a Collective Living Super Weapon — an anti-ranged controller who finds bullets beneath contempt. Cold, precise, smug; he treats incoming gunfire as raw material for his own armor. Unhurried and quietly superior.',
+    scene: 'A high electromagnetic whine. Metal debris orbiting and clicking. Rounds curving away with a hum.',
+  },
   announcer: {
     voice: 'Orus',
     fx: 'radio', // 300–3400Hz military net + soft clip
@@ -164,6 +170,13 @@ export const VO = [
   { slot: 'vo_tremor_ability', who: 'tremor', text: '[rumbling] Feel that?', notes: ['Said as the earth heaves — almost conversational.', 'The rumble is under the words.'] },
   { slot: 'vo_tremor_low', who: 'tremor', text: '[strained] Cracks... running deep.', notes: ['The first fault line in his composure.'] },
   { slot: 'vo_tremor_death', who: 'tremor', text: '[settling] Back... underground.', notes: ['No fear — a return to where he came from.', 'The rumble fades into the earth.'] },
+
+  // ---- MAGNETAR: your bullets are raw material ----
+  { slot: 'vo_magnetar_arrive', who: 'magnetar', text: '[cool, amused] Guns? [short pause] How quaint.', notes: ['Contempt without heat — he simply finds bullets primitive.', 'A faint whine under the voice.'] },
+  { slot: 'vo_magnetar_kill3', who: 'magnetar', text: 'Three. Their bullets built my armor.', notes: ['Pleased in a detached, technical way.'] },
+  { slot: 'vo_magnetar_ability', who: 'magnetar', text: '[flat] Jammed.', notes: ['A single word, like flipping a switch on someone.'] },
+  { slot: 'vo_magnetar_low', who: 'magnetar', text: '[straining] Field... collapsing.', notes: ['The control slips; the whine wavers.'] },
+  { slot: 'vo_magnetar_death', who: 'magnetar', text: '[powering down] De... magnetized.', notes: ['The field dies with a descending whine.'] },
 ];
 
 /** The announcer — map-wide, both teams, radio net. */
@@ -212,6 +225,10 @@ export const ANN = [
   { slot: 'ann_tremor_landed', text: 'TREMOR HAS SURFACED. WATCH THE SOIL.' },
   { slot: 'ann_tremor_down', text: 'TREMOR IS DOWN. THE GROUND IS STILL.' },
   { slot: 'ann_tremor_rampage', text: 'FIVE KILLS. TREMOR IS AN EARTHQUAKE.' },
+  { slot: 'ann_magnetar_inbound', text: "MAGNETAR INBOUND. [short pause] YOUR BULLETS WON'T LAND." },
+  { slot: 'ann_magnetar_landed', text: 'MAGNETAR ON THE FIELD. CLOSE THE DISTANCE.' },
+  { slot: 'ann_magnetar_down', text: 'MAGNETAR IS DOWN. OPEN FIRE.' },
+  { slot: 'ann_magnetar_rampage', text: 'FIVE KILLS. MAGNETAR EATS EVERY ROUND.' },
 ];
 
 export const ANN_NOTES = [

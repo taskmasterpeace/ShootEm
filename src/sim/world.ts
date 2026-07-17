@@ -544,6 +544,11 @@ export class World {
         if (near) this.tremorStomp(s); else this.tremorRipple(s);
         s.nextLswAt = this.time + 3;
       }
+    } else if (id === 'magnetar') {
+      // the bullet-eating HALO is passive (in the projectile step). The bot
+      // fires the MAGNETIC PULSE on a cadence; a human pilot on Q. His halo
+      // means enemies must close or switch weapons.
+      if (s.kind === 'bot' && this.time >= (s.nextLswAt ?? 0)) { this.magnetarPulse(s); s.nextLswAt = this.time + 6; }
     }
   }
 
@@ -886,6 +891,27 @@ export class World {
     return true;
   }
 
+  /** Magnetar's magnetic pulse: nearby enemy guns JAM (a fire-rate lock, and
+   *  reloads stick), and metal vehicles STALL (EMP-stun) — all within reach. */
+  private magnetarPulse(s: Soldier) {
+    for (const e of this.soldiers.values()) {
+      if (!e.alive || e.team === s.team || e.id === s.id) continue;
+      if (Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z) > 12) continue;
+      e.nextFireAt = Math.max(e.nextFireAt, this.time + 1.5); // guns jam
+      if (e.reloadUntil > this.time) e.reloadUntil = this.time + 2.5; // stuck mid-reload
+      this.emit({ type: 'emp', pos: { ...e.pos } });
+    }
+    for (const v of this.vehicles.values()) {
+      if (!v.alive || v.team === s.team) continue;
+      if (Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z) > 12) continue;
+      v.stunnedUntil = Math.max(v.stunnedUntil, this.time + 2.5); // metal stalls
+      this.emit({ type: 'emp', pos: { ...v.pos } });
+    }
+    this.emit({ type: 'emp', pos: { ...s.pos } });
+    this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'magnetar', soldierId: s.id });
+    this.emit({ type: 'vo', text: 'vo_magnetar_ability', pos: { ...s.pos }, soldierId: s.id });
+  }
+
   /**
    * §7 THE SIGNATURE ON Q: a human pilot's active. Whiffs never burn the
    * cooldown — a signature that punishes you for pressing it stops being
@@ -979,6 +1005,10 @@ export class World {
     } else if (id === 'tremor') {
       // Q: stomp the ground around you.
       this.tremorStomp(s);
+      s.nextLswActiveAt = this.time + def.activeCd;
+    } else if (id === 'magnetar') {
+      // Q: the magnetic pulse — jam their guns, stall their armor.
+      this.magnetarPulse(s);
       s.nextLswActiveAt = this.time + def.activeCd;
     }
   }
@@ -2983,6 +3013,8 @@ export class World {
   }
 
   stepProjectiles(dt: number) {
+    // Magnetar's halo pulls straight BULLETS out of the air (precomputed once)
+    const magnetars = [...this.soldiers.values()].filter((m) => m.alive && m.ascendant === 'magnetar');
     for (const [id, p] of this.projectiles) {
       const def = WEAPONS[p.weapon];
       // heat-seekers steer before they move; true = spent on a flare
@@ -3022,6 +3054,23 @@ export class World {
       }
 
       let dead = false;
+
+      // MAGNETAR'S HALO: a straight enemy BULLET that reaches his field curves
+      // into a harmless debris orbit and is absorbed — and it FEEDS him a sip
+      // of HP ("ranged fire builds his armor"). Energy, arcs, and melee pass
+      // clean, so change weapons or close the distance.
+      if (!def.arc && def.tracer === 'bullet' && magnetars.length) {
+        for (const m of magnetars) {
+          if (m.team === p.team) continue;
+          if (Math.hypot(m.pos.x - p.pos.x, m.pos.z - p.pos.z) < 4) {
+            m.hp = Math.min(m.maxHp, m.hp + 2);
+            this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon });
+            dead = true;
+            break;
+          }
+        }
+        if (dead) { this.projectiles.delete(id); continue; }
+      }
 
       // enemy shield domes swallow projectiles; FPV drones can be shot down
       if (!def.heals) {
