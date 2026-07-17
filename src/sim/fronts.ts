@@ -1426,104 +1426,160 @@ function refinery(seed: number, size: MapSize = 'large'): GameMap {
 // Signature: the assault-boat run onto the pier under fire.
 // Doctrine: boats and the air. Scar: flooded (lanes drown).
 // ---------------------------------------------------------------------------
-function thePort(seed: number): GameMap {
+interface PortLayout {
+  ship: [number, number];          // z band of the moored hull
+  mole: [number, number] | null;   // the bare causeway (cut on small)
+  yards: { x0: number; rows: number[] }[]; // container lanes (climb walls)
+  clutter: [number, number][];     // dockside boxes toward the corners
+  cranes: [number, number][];      // crane kings (mirrored)
+  warehouses: [string, number, number][];    // west-side stock (mirrored)
+  platform: [number, number, number, number]; // the offshore cache island
+  boats: [[number, number], [number, number]];
+  baseX: [number, number]; baseZ: number;
+  pickups: [number, number, PickupSpawn['type']][];
+}
+
+const PORT_LAYOUTS: Record<MapSize, PortLayout> = {
+  large: {
+    ship: [40, 52], mole: [18, 19],
+    yards: [{ x0: 24, rows: [28, 34, 58, 64] }, { x0: GRID - 1 - 36, rows: [28, 34, 58, 64] }],
+    clutter: [[16, 14], [20, 82], [83, 14], [79, 84], [36, 12], [63, 88]],
+    cranes: [[30, 31], [30, 61]],
+    warehouses: [['warehouse', 20, 42], ['depot', 26, 74]],
+    platform: [47, 74, 52, 79],
+    boats: [[45, 30], [54, 66]],
+    baseX: [10, GRID - 11], baseZ: 50,
+    pickups: [[36, 20, 'ammo'], [38, 46, 'medkit'], [36, 70, 'ammo']],
+  },
+  standard: {
+    ship: [38, 50], mole: [16, 17],
+    yards: [{ x0: 22, rows: [24, 30, 54, 60] }, { x0: GRID - 1 - 34, rows: [24, 30, 54, 60] }],
+    clutter: [[14, 12], [18, 76], [81, 12], [77, 78], [34, 12], [61, 80]],
+    cranes: [[28, 27], [28, 55]],
+    warehouses: [['warehouse', 18, 38], ['depot', 24, 66]],
+    platform: [47, 66, 52, 71],
+    boats: [[45, 26], [54, 58]],
+    baseX: [19, GRID - 20], baseZ: 47,
+    pickups: [[34, 18, 'ammo'], [36, 42, 'medkit'], [34, 62, 'ammo']],
+  },
+  small: {
+    ship: [38, 50], mole: null,
+    yards: [{ x0: 24, rows: [26, 32, 56, 62] }, { x0: GRID - 1 - 36, rows: [26, 32, 56, 62] }],
+    clutter: [[22, 22], [24, 72], [74, 22], [72, 74]],
+    cranes: [[28, 29], [28, 53]],
+    warehouses: [['warehouse', 22, 40]],
+    platform: [47, 62, 52, 67],
+    boats: [[45, 28], [54, 56]],
+    baseX: [29, GRID - 30], baseZ: 49,
+    pickups: [[34, 24, 'ammo'], [36, 42, 'medkit'], [34, 58, 'ammo']],
+  },
+};
+
+function thePort(seed: number, size: MapSize = 'large'): GameMap {
+  const L = PORT_LAYOUTS[size];
+  const box = boxFor(size);
   const d = draft(seed, T_OPEN, S_WET);
   const { grid, surface, props, claims } = d;
   const ctx = ctxOf(d);
 
   // THE CHANNEL: deep water down the middle, working rims you can wade
-  rect(grid, 44, 1, 55, GRID - 2, T_WATER);
-  rect(grid, 46, 1, 53, GRID - 2, T_DEEP);
+  rect(grid, 44, box.z0 + 1, 55, box.z1 - 1, T_WATER);
+  rect(grid, 46, box.z0 + 1, 53, box.z1 - 1, T_DEEP);
 
-  // THE SHIP (z 40..52): a moored hull spanning the channel. Metal sides,
-  // plate deck, container stacks for deck cover, gangways both banks —
-  // boarding her IS crossing the harbor.
-  rect(grid, 42, 40, 57, 52, T_OPEN);
-  rectSurf(surface, 42, 40, 57, 52, S_PLATE);
+  // THE SHIP: a moored hull spanning the channel. Metal sides, plate deck,
+  // container stacks for deck cover, gangways both banks — boarding her IS
+  // crossing the harbor.
+  rect(grid, 42, L.ship[0], 57, L.ship[1], T_OPEN);
+  rectSurf(surface, 42, L.ship[0], 57, L.ship[1], S_PLATE);
   for (let x = 42; x <= 57; x++) {
     if (x >= 48 && x <= 51) continue; // bow/stern working gaps stay walls
-    set(grid, x, 40, T_METAL);
-    set(grid, x, 52, T_METAL);
+    set(grid, x, L.ship[0], T_METAL);
+    set(grid, x, L.ship[1], T_METAL);
   }
-  set(grid, 48, 40, T_METAL); set(grid, 51, 40, T_METAL);
-  set(grid, 48, 52, T_METAL); set(grid, 51, 52, T_METAL);
-  rect(grid, 42, 41, 42, 51, T_METAL);
-  rect(grid, 57, 41, 57, 51, T_METAL);
+  set(grid, 48, L.ship[0], T_METAL); set(grid, 51, L.ship[0], T_METAL);
+  set(grid, 48, L.ship[1], T_METAL); set(grid, 51, L.ship[1], T_METAL);
+  rect(grid, 42, L.ship[0] + 1, 42, L.ship[1] - 1, T_METAL);
+  rect(grid, 57, L.ship[0] + 1, 57, L.ship[1] - 1, T_METAL);
   // gangways: the only doors onto the deck
-  set(grid, 42, 45, T_DOOR); set(grid, 42, 46, T_DOOR);
-  set(grid, 57, 45, T_DOOR); set(grid, 57, 46, T_DOOR);
+  const gz = Math.floor((L.ship[0] + L.ship[1]) / 2);
+  set(grid, 42, gz, T_DOOR); set(grid, 42, gz + 1, T_DOOR);
+  set(grid, 57, gz, T_DOOR); set(grid, 57, gz + 1, T_DOOR);
   // deck cargo: climb stacks — jump troopers own the high line
-  rect(grid, 45, 43, 46, 44, T_CLIMB);
-  rect(grid, 52, 48, 53, 49, T_CLIMB);
-  rect(grid, 49, 45, 50, 46, T_COVER);
+  rect(grid, 45, L.ship[0] + 3, 46, L.ship[0] + 4, T_CLIMB);
+  rect(grid, 52, L.ship[1] - 4, 53, L.ship[1] - 3, T_CLIMB);
+  rect(grid, 49, gz, 50, gz + 1, T_COVER);
 
-  // THE NORTH MOLE (z 18..19): a bare plate causeway — fast and lethal
-  rect(grid, 44, 18, 55, 19, T_OPEN);
-  rectSurf(surface, 44, 18, 55, 19, S_PLATE);
+  // THE NORTH MOLE: a bare plate causeway — fast and lethal
+  if (L.mole) {
+    rect(grid, 44, L.mole[0], 55, L.mole[1], T_OPEN);
+    rectSurf(surface, 44, L.mole[0], 55, L.mole[1], S_PLATE);
+  }
 
   // CONTAINER YARDS: climb-wall lanes on both banks — the crane's kingdom.
   // The yards stand on paved aprons so the terminal reads paved against the
   // wet europa ground.
-  const yard = (x0: number) => {
-    rectSurf(surface, x0 - 2, 26, x0 + 14, 36, S_PLATE);
-    rectSurf(surface, x0 - 2, 56, x0 + 14, 66, S_PLATE);
-    for (const z of [28, 34, 58, 64]) {
+  const yard = (x0: number, rows: number[]) => {
+    for (const z of rows) rectSurf(surface, x0 - 2, z - 2, x0 + 14, z + 2, S_PLATE);
+    for (const z of rows) {
       for (let x = x0; x <= x0 + 12; x++) {
         if (x === x0 + 6) continue; // every run has one broken slot
         set(grid, x, z, T_CLIMB);
       }
     }
   };
-  yard(24); yard(GRID - 1 - 36);
+  for (const y of L.yards) yard(y.x0, y.rows);
   // stray boxes and dockside clutter toward the corners — a working port
   // is never swept clean
-  for (const [bx, bz] of [[16, 14], [20, 82], [83, 14], [79, 84], [36, 12], [63, 88]] as const) {
-    if (grid[idx(bx, bz)] === T_OPEN) {
-      set(grid, bx, bz, T_CLIMB);
-      set(grid, bx + 1, bz, T_CLIMB);
+  for (const [bx2, bz2] of L.clutter) {
+    if (grid[idx(bx2, bz2)] === T_OPEN) {
+      set(grid, bx2, bz2, T_CLIMB);
+      set(grid, bx2 + 1, bz2, T_CLIMB);
     }
   }
-  for (const [cx, cz] of [[30, 31], [30, 61]] as const) {
+  for (const [cx, cz] of L.cranes) {
     for (const tx of [cx, GRID - 1 - cx]) {
       props.push({ type: 'crane', pos: tw(tx, cz), scale: 1, rot: tx > 50 ? Math.PI : 0 });
     }
   }
 
   // warehouses back the yards
-  stampBuilding(ctx, byId('warehouse'), 20, 42, 0);
-  stampBuilding(ctx, mirrorDef(byId('warehouse')), GRID - 20 - 11, 42, 2);
-  stampBuilding(ctx, byId('depot'), 26, 74, 4);
-  stampBuilding(ctx, mirrorDef(byId('depot')), GRID - 26 - 9, 74, 6);
+  for (const [id, hx, hz] of L.warehouses) {
+    const def = byId(id);
+    stampBuilding(ctx, def, hx, hz, hx + hz);
+    stampBuilding(ctx, mirrorDef(def), GRID - hx - Math.max(...def.rows.map((r) => r.length)), hz, hx + hz + 1);
+  }
 
   // THE PLATFORM: an offshore plate island south — ladder up from the water,
   // a cache worth swimming for
-  rect(grid, 47, 74, 52, 79, T_OPEN);
-  rectSurf(surface, 47, 74, 52, 79, S_PLATE);
-  set(grid, 47, 76, T_LADDER); set(grid, 52, 77, T_LADDER);
-  d.pickups.push({ type: 'flamer', pos: tw(49, 76) });
-  d.pickups.push({ type: 'energy', pos: tw(50, 77) });
+  const [px0, pz0, px1, pz1] = L.platform;
+  rect(grid, px0, pz0, px1, pz1, T_OPEN);
+  rectSurf(surface, px0, pz0, px1, pz1, S_PLATE);
+  set(grid, px0, pz0 + 2, T_LADDER); set(grid, px1, pz0 + 3, T_LADDER);
+  d.pickups.push({ type: 'flamer', pos: tw(px0 + 2, pz0 + 2) });
+  d.pickups.push({ type: 'energy', pos: tw(px0 + 3, pz0 + 3) });
 
-  stampBase(grid, claims, props, d.vehiclePads, 0, 10, 50, ['apc', 'buggy', 'flyer', 'ambulance']);
-  stampBase(grid, claims, props, d.vehiclePads, 1, GRID - 11, 50, ['apc', 'buggy', 'flyer', 'ambulance']);
-  d.vehiclePads.push({ kind: 'boat', team: 0, pos: tw(45, 30) });
-  d.vehiclePads.push({ kind: 'boat', team: 1, pos: tw(54, 66) });
+  stampBase(grid, claims, props, d.vehiclePads, 0, L.baseX[0], L.baseZ, ['apc', 'buggy', 'flyer', 'ambulance']);
+  stampBase(grid, claims, props, d.vehiclePads, 1, L.baseX[1], L.baseZ, ['apc', 'buggy', 'flyer', 'ambulance']);
+  d.vehiclePads.push({ kind: 'boat', team: 0, pos: tw(...L.boats[0]) });
+  d.vehiclePads.push({ kind: 'boat', team: 1, pos: tw(...L.boats[1]) });
 
-  dealPickups(d, [[36, 20, 'ammo'], [38, 46, 'medkit'], [36, 70, 'ammo']]);
+  dealPickups(d, L.pickups);
   mudMargins(grid, surface);
+  sealOutside(grid, box);
   sealRim(grid);
 
   return {
     seed, theme: 'europa', grid, grid2: d.grid2, surface,
-    basePos: [tw(10, 50), tw(GRID - 11, 50)],
-    spawns: [spawnRing(10, 50), spawnRing(GRID - 11, 50)],
-    flagPos: [tw(10, 50), tw(GRID - 11, 50)],
-    hillPos: tw(49, 46),
+    basePos: [tw(L.baseX[0], L.baseZ), tw(L.baseX[1], L.baseZ)],
+    spawns: [spawnRing(L.baseX[0], L.baseZ), spawnRing(L.baseX[1], L.baseZ)],
+    flagPos: [tw(L.baseX[0], L.baseZ), tw(L.baseX[1], L.baseZ)],
+    hillPos: tw(49, gz),
     controlPoints: [
-      { name: 'WEST YARD', pos: tw(30, 46) },
-      { name: 'THE SHIP', pos: tw(49, 46) },
-      { name: 'EAST YARD', pos: tw(69, 46) },
+      { name: 'WEST YARD', pos: tw(L.yards[0].x0 + 6, Math.floor((L.yards[0].rows[1] + L.yards[0].rows[2]) / 2)) },
+      { name: 'THE SHIP', pos: tw(49, gz) },
+      { name: 'EAST YARD', pos: tw(L.yards[1].x0 + 6, Math.floor((L.yards[1].rows[1] + L.yards[1].rows[2]) / 2)) },
     ],
-    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid),
+    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid, box),
     houses: d.houses, gates: [], pads: [], propCovered: settle(grid, claims),
   };
 }
