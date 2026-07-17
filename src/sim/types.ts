@@ -422,7 +422,8 @@ export interface SimEvent {
     | 'psi_ping'       // psi scanner found someone (HUD flashes the icon)
     | 'downed'         // a soldier hit the ground bleeding — not dead yet
     | 'revived'        // someone got them back on their feet
-    | 'melee_windup';  // a melee swing began — the client telegraphs the strike
+    | 'melee_windup'   // a melee swing began — the client telegraphs the strike
+    | 'whistle';       // paintball referee: a round just started or ended
   pos?: Vec3;
   weapon?: WeaponId;
   /** On a 'hit': the shooter, but ONLY when a soldier/gadget was actually
@@ -476,6 +477,13 @@ export interface ModeState {
   alert?: boolean;
   // paintball (§3.3/§14): the outnumbered side, decided from the roster
   huntedTeam?: Team;
+  /** paintball series (Robert: "best out of 5"): first to roundTarget round
+   *  wins takes the match. One quick splat no longer ends the whole show. */
+  round?: number;
+  roundWins?: [number, number];
+  roundTarget?: number;
+  /** seconds of between-rounds breather; >0 = the yard is resetting */
+  intermission?: number;
 }
 
 /** Modes where all players share team 0 against the undead. */

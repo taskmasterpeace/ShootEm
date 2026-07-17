@@ -1,4 +1,4 @@
-import { TEAM_NAMES } from './data';
+import { TEAM_NAMES, WEAPONS } from './data';
 import { losClear, type GameMap } from './map';
 import { isZed, type ModeId, type ModeState, type Team, type ZedKind } from './types';
 import type { World } from './world';
@@ -22,6 +22,12 @@ export function initMode(id: ModeId, map: GameMap, minutes?: number): ModeState 
       m.points = map.controlPoints.map((cp, i) => ({
         id: i, name: cp.name, pos: { ...cp.pos }, owner: -1, progress: 0, radius: 3.5,
       }));
+      // …and the MATCH is a series (Robert: "best out of 5") — first to 3
+      // round wins. One lucky splat costs a round, never the afternoon.
+      m.round = 1;
+      m.roundWins = [0, 0];
+      m.roundTarget = 3;
+      m.intermission = 0;
       break;
     case 'tdm':
       m.target = 50;
@@ -87,9 +93,9 @@ export function stepMode(w: World, dt: number) {
         endMatch(w, 0);
         w.emit({ type: 'announce', text: 'EVAC ARRIVED — DR. VOSS IS SAFE', big: true });
       } else if (m.id === 'paintball') {
-        // the prey outlived the pack's clock — that IS the win
-        endMatch(w, m.huntedTeam ?? 1);
+        // the prey outlived the pack's clock — that round is THEIRS
         w.emit({ type: 'announce', text: 'TIME — THE PREY SURVIVED', big: true });
+        endPaintballRound(w, m.huntedTeam ?? 1);
       } else {
         endMatch(w, m.scores[0] === m.scores[1] ? -1 : m.scores[0] > m.scores[1] ? 0 : 1);
       }
@@ -127,6 +133,16 @@ function stepPaintball(w: World, dt: number) {
   }
   const hunted = m.huntedTeam;
 
+  // between rounds: the yard holds its breath, then everyone walks back on
+  if ((m.intermission ?? 0) > 0) {
+    m.intermission! -= dt;
+    if (m.intermission! <= 0) {
+      m.intermission = 0;
+      startPaintballRound(w);
+    }
+    return;
+  }
+
   // paint is final (per round): the splatted watch from the dead-box
   for (const s of w.humansAndBots()) {
     if (!s.alive) s.respawnAt = Infinity;
@@ -153,13 +169,64 @@ function stepPaintball(w: World, dt: number) {
 
   const liveHunted = [...w.soldiers.values()].some((s) => s.alive && s.team === hunted && (s.kind === 'human' || s.kind === 'bot'));
   const liveHunters = [...w.soldiers.values()].some((s) => s.alive && s.team !== hunted && (s.kind === 'human' || s.kind === 'bot'));
-  if (tags >= m.target) endMatch(w, hunted);            // tagged out the yard
+  if (tags >= m.target) endPaintballRound(w, hunted);            // tagged out the yard
   // the trade-out goes to the PREY: a hunted who takes the whole pack with
   // them has EARNED the round (consistent with the clock tie, where a prey
   // splatted the same tick the timer dies still wins)
-  else if (!liveHunters) endMatch(w, hunted);           // the prey ATE the pack
-  else if (!liveHunted) endMatch(w, (1 - hunted) as Team); // painted out
-  else if (m.timeLeft <= 0) endMatch(w, hunted);        // survived the clock
+  else if (!liveHunters) endPaintballRound(w, hunted);           // the prey ATE the pack
+  else if (!liveHunted) endPaintballRound(w, (1 - hunted) as Team); // painted out
+  else if (m.timeLeft <= 0) endPaintballRound(w, hunted);        // survived the clock
+}
+
+/** A round of the series just ended. Bank it; the series ends at roundTarget
+ *  wins, otherwise the yard takes a 4-second breath and resets. */
+function endPaintballRound(w: World, winner: Team) {
+  const m = w.mode;
+  if (m.over || (m.intermission ?? 0) > 0) return; // one whistle per round
+  const wins = (m.roundWins ??= [0, 0]);
+  wins[winner]++;
+  w.emit({ type: 'whistle', pos: w.map.hillPos });
+  const hunted = m.huntedTeam ?? 1;
+  const packWins = wins[1 - hunted], preyWins = wins[hunted];
+  if (wins[winner] >= (m.roundTarget ?? 3)) {
+    endMatch(w, winner); // series over — the real whistle
+    return;
+  }
+  w.emit({
+    type: 'announce', big: true,
+    text: `ROUND ${m.round ?? 1} — ${winner === hunted ? 'PREY' : 'PACK'} · ${packWins}–${preyWins}`,
+  });
+  // match point gets called out — tension is the product
+  if (wins.some((x) => x === (m.roundTarget ?? 3) - 1)) {
+    w.emit({ type: 'announce', text: 'MATCH POINT', big: false });
+  }
+  // park the clock so the generic timer can't double-call the round while
+  // the yard resets; startPaintballRound deals the real clock
+  m.timeLeft = 120;
+  m.intermission = 4;
+}
+
+/** Walk everyone back onto the yard: fresh clip, fresh clock, wiped pads.
+ *  The paint on the field STAYS — the yard remembers the series. */
+function startPaintballRound(w: World) {
+  const m = w.mode;
+  m.round = (m.round ?? 1) + 1;
+  m.timeLeft = 120;
+  for (const p of m.points!) { p.owner = -1; p.progress = 0; }
+  w.projectiles.clear(); // no ball in flight outlives the whistle
+  for (const s of w.humansAndBots()) {
+    w.spawn(s); // fresh hp/pos + brief protection…
+    // …but spawn() deals the ARMY kit (sidearm + frags). Yard law is marker
+    // only — re-impose it every round or round 2 turns into a grenade fight.
+    const marker = s.weapons[0];
+    s.weapons = [marker];
+    s.clip = [WEAPONS[marker].clip];
+    s.reserve = [WEAPONS[marker].reserve];
+    s.weaponIdx = 0;
+    s.grenades = 0;
+  }
+  w.emit({ type: 'whistle', pos: w.map.hillPos });
+  w.emit({ type: 'announce', text: `ROUND ${m.round}`, big: true });
 }
 
 function endMatch(w: World, winner: Team | -1) {

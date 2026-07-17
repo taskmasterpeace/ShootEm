@@ -24,6 +24,10 @@ export const SOUND_NAMES = [
   'door', // door swing: creak + latch (E did it)
   'door_hit', // fist/claw pounding the wood — the siege heartbeat
   'door_break', // planks give way — the siege payoff
+  // paintball (§14, tools/gen-paintball-sounds.mjs): air, paint, and a referee
+  'marker', 'marker_pump', 'marker_lob', // pneumatic thoops — air, not gunpowder
+  'splat', 'splat_big',                  // a ball breaking · a player painted out
+  'whistle',                             // round start/end — the yard's metronome
 ] as const;
 export type SoundName = (typeof SOUND_NAMES)[number];
 
@@ -52,6 +56,11 @@ const EARSHOT_CLASSES: [RegExp, Earshot][] = [
   [/^(footstep|claw|ladder|reload|door|growl|mine_plant|pickup)/, { range: 20, muffle: 0.9, weather: 0.3 }],
   // fates and abilities: mid-range so the fight stays legible
   [/^(death|jetpack|cloak|warp|blink|gravlift|beacon|spawn|drone)/, { range: 55, muffle: 0.6, weather: 0.5 }],
+  // paintball: a marker is AIR — carries a yard, not a street; paint lands
+  // wet and close; the referee's whistle owns the whole field by design
+  [/^marker/, { range: 70, muffle: 0.55, weather: 1 }],
+  [/^splat/, { range: 26, muffle: 0.8, weather: 0.4 }],
+  [/^whistle/, { range: 130, muffle: 0.3, weather: 1 }],
 ];
 export function earshotFor(name: string): Earshot {
   for (const [re, e] of EARSHOT_CLASSES) if (re.test(name)) return e;

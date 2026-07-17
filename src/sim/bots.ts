@@ -580,8 +580,12 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
     else if (s.classId === 'engineer') cmd.weaponSlot = 0;
     else if (s.classId === 'jump') cmd.weaponSlot = d > 24 ? 1 : 0; // shell them while closing, SMG inside
 
+    // paintball mercy (Robert: "too hard"): the yard is where new players
+    // live, so bot paint wobbles — wide enough to dodge, tight enough to
+    // punish standing still. Everywhere else the math stays honest.
+    const merciful = w.mode.id === 'paintball' ? 2.2 : 1;
     const aimErr = (w.rng.next() - 0.5) * (s.kind === 'zombie' ? 0.2 : 0.055) * (d / 18 + 0.6)
-      * DIFFICULTY_AIM[w.opts.difficulty ?? 'veteran'] * doc.aim;
+      * DIFFICULTY_AIM[w.opts.difficulty ?? 'veteran'] * doc.aim * merciful;
     cmd.aimYaw = leadYaw(s.pos, target, wdef.speed) + aimErr;
     if (d < wdef.range * 0.95) cmd.fire = true;
     if (wdef.arc) cmd.aimDist = d; // lob shells ON the target, not past it

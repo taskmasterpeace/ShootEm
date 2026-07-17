@@ -178,7 +178,13 @@ export class Hud {
     if (!s.alive) {
       ro.classList.remove('hidden');
       const t = Math.max(0, s.respawnAt - world.time);
-      $('respawn-timer').textContent = world.mode.over ? '' : `Respawning in ${t.toFixed(1)}s`;
+      // paintball paint is final per ROUND: no countdown, just the promise —
+      // and nobody DIES in the yard, so the header says paint, not K.I.A.
+      const paintball = world.mode.id === 'paintball';
+      ro.querySelector('h2')!.textContent = paintball ? 'SPLAT!' : 'K.I.A.';
+      $('respawn-timer').textContent = world.mode.over ? ''
+        : paintball ? 'you sit this round — back at the whistle'
+        : `Respawning in ${t.toFixed(1)}s`;
     } else ro.classList.add('hidden');
 
     // context hint: vehicles, or the scientist escort in safehouse
@@ -272,11 +278,14 @@ export class Hud {
       }
       case 'paintball': {
         // the mode built for brand-new players gets the CLEAREST bar of all:
-        // your role, the tag count, and the clock — restated every frame
+        // your role, the series score, the tag count — restated every frame
         const hunted = m.huntedTeam ?? 1;
         const prey = local.team === hunted;
         const tags = m.scores[hunted];
+        const wins = m.roundWins ?? [0, 0];
+        const mine = wins[local.team], theirs = wins[1 - local.team];
         chips = `<div class="obj-chip ${prey ? 't1' : 't0'}">${prey ? '🎯 YOU ARE THE PREY' : '🔫 HUNT THE PREY'}</div>
+                 <div class="obj-chip ${mine >= theirs ? 't0' : 't1'}">R${m.round ?? 1} · YOU ${mine}–${theirs} · FIRST TO ${m.roundTarget ?? 3}</div>
                  <div class="obj-chip neutral">TAGS ${fmt(tags)}/${m.target}</div>
                  <div class="obj-chip neutral">${prey ? 'tag pads or survive' : 'one splat and they sit'}</div>`;
         break;
@@ -563,8 +572,9 @@ export class Hud {
       // §21 The Reprint: the announcer's one word when the printer finishes.
       // Local human only (localId is always this client's human; bots get no
       // ceremony), and never the match-start deployment — your first walk to
-      // the front isn't a reprint, it's an enlistment.
-      if (e.type === 'respawn' && e.soldierId === localId && world.time > 1) {
+      // the front isn't a reprint, it's an enlistment. Paintball rounds are
+      // exempt too: nobody dies in the yard, you just walk back on.
+      if (e.type === 'respawn' && e.soldierId === localId && world.time > 1 && world.mode.id !== 'paintball') {
         this.announce('REPRINTED', false, now);
       }
       if (e.type === 'psi_ping' && e.soldierId === localId) this.psiFlashUntil = now + 1;

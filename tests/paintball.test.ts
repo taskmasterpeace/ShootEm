@@ -76,31 +76,32 @@ describe('the rules', () => {
     expect(hunters[0].alive).toBe(false);                // still in the dead-box
   });
 
-  it('painting out the prey ends the round for the pack', () => {
+  it('painting out the prey banks a ROUND for the pack — the series plays on', () => {
     const { w, prey } = yard();
     w.damageSoldier(prey, 999, -1, 'marker_blitz');
     w.step(1 / 60, new Map());
-    expect(w.mode.over).toBe(true);
-    expect(w.mode.winner).toBe(0);
+    expect(w.mode.roundWins).toEqual([1, 0]);
+    expect(w.mode.over).toBe(false);            // best of 5 — one splat ≠ the afternoon
+    expect(w.mode.intermission).toBeGreaterThan(0);
   });
 
-  it('the prey wins by tagging all three points — 2 seconds a pad', () => {
+  it('tagging all three points banks the round for the prey', () => {
     const { w, prey } = yard();
     for (const p of w.mode.points!) {
       prey.pos = { ...p.pos };
       for (let i = 0; i < 130; i++) w.step(1 / 60, new Map([[prey.id, cmd()]]));
-      if (w.mode.over) break;
+      if ((w.mode.roundWins ?? [0, 0])[1] > 0) break;
     }
-    expect(w.mode.over).toBe(true);
-    expect(w.mode.winner).toBe(1);
+    expect(w.mode.roundWins).toEqual([0, 1]);
+    expect(w.mode.over).toBe(false);
   });
 
-  it('the prey wins by outliving the clock', () => {
+  it('outliving the clock banks the round for the prey', () => {
     const { w } = yard();
     w.mode.timeLeft = 0.05;
     for (let i = 0; i < 10; i++) w.step(1 / 60, new Map());
-    expect(w.mode.over).toBe(true);
-    expect(w.mode.winner).toBe(1);
+    expect(w.mode.roundWins).toEqual([0, 1]);
+    expect(w.mode.over).toBe(false);
   });
 
   it('markers are honest paint: every one splats in a single hit', () => {
@@ -109,10 +110,98 @@ describe('the rules', () => {
     }
   });
 
+  it('balls fly slow enough to SEE — paint you can dodge (Robert: too hard)', () => {
+    for (const id of ['marker_blitz', 'marker_pump', 'marker_lobber']) {
+      expect(WEAPONS[id].speed, `${id} should be dodgeable`).toBeLessThanOrEqual(65);
+    }
+  });
+
   it('the yard stays sunny — no whiteout in anyone\'s first hour', () => {
     const { w } = yard();
     expect(w.weather.until).toBe(Infinity);
     expect(w.weather.kind).toBe('clear');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// THE SERIES (Robert: "best out of 5") — first to 3 round wins. One quick
+// splat costs a round, never the afternoon; the whistle resets the yard.
+// ---------------------------------------------------------------------------
+describe('the series', () => {
+  /** step the sim `sec` seconds, collecting every event on the way */
+  const run = (w: World, sec: number) => {
+    const events: { type: string; text?: string }[] = [];
+    for (let i = 0; i < Math.ceil(sec * 60); i++) {
+      w.step(1 / 60, new Map());
+      events.push(...w.takeEvents());
+    }
+    return events;
+  };
+
+  it('a round end blows the whistle, and the next whistle walks everyone back on', () => {
+    const { w, prey, hunters } = yard();
+    hunters[0].pos = { x: 11, y: 0, z: 7 };  // remember a mid-yard position
+    w.damageSoldier(prey, 999, -1, 'marker_blitz');
+    const endEvents = run(w, 0.1);
+    expect(endEvents.some((e) => e.type === 'whistle'), 'round-end whistle').toBe(true);
+
+    const resetEvents = run(w, 4.5);          // through the 4s intermission
+    expect(resetEvents.some((e) => e.type === 'whistle'), 'round-start whistle').toBe(true);
+    expect(resetEvents.some((e) => e.type === 'announce' && e.text === 'ROUND 2')).toBe(true);
+    expect(w.mode.round).toBe(2);
+    expect(prey.alive, 'the splatted walk back on').toBe(true);
+    expect(w.mode.timeLeft).toBeGreaterThan(100);              // fresh clock
+    for (const p of w.mode.points!) expect(p.owner).toBe(-1);  // pads wiped
+  });
+
+  it('round 2 keeps yard law: marker only, no sidearm, no frags', () => {
+    const { w, prey, hunters } = yard();
+    // impose match-setup yard law (main.ts does this at deploy)
+    for (const s of [prey, ...hunters]) { s.weapons = [s.weapons[0]]; s.clip = [30]; s.reserve = [100]; s.grenades = 0; }
+    w.damageSoldier(prey, 999, -1, 'marker_blitz');
+    run(w, 5); // round ends, intermission passes, round 2 starts
+    expect(w.mode.round).toBe(2);
+    for (const s of [prey, ...hunters]) {
+      expect(s.weapons.length, `${s.name} smuggled a sidearm past the whistle`).toBe(1);
+      expect(s.weapons[0].startsWith('marker'), `${s.name} holds ${s.weapons[0]}`).toBe(true);
+      expect(s.grenades, `${s.name} smuggled frags into the yard`).toBe(0);
+    }
+  });
+
+  it('a fresh round opens with walk-on protection — a real "ten seconds, go!"', () => {
+    const { w, prey } = yard();
+    w.damageSoldier(prey, 999, -1, 'marker_blitz');
+    run(w, 5);                            // round 2 is ~1s old now
+    w.damageSoldier(prey, 999, -1, 'marker_blitz');
+    expect(prey.alive, 'paint slid off the walk-on grace').toBe(true);
+    expect(prey.protectedUntil).toBeGreaterThan(w.time);
+  });
+
+  it('first to 3 round wins takes the series — and only then is it over', () => {
+    const { w, prey } = yard();
+    for (let round = 1; round <= 3; round++) {
+      prey.protectedUntil = 0;           // past the walk-on grace
+      w.damageSoldier(prey, 999, -1, 'marker_blitz');
+      run(w, 0.1);                       // bank the round
+      if (round < 3) {
+        expect(w.mode.over, `series ended early at round ${round}`).toBe(false);
+        run(w, 4.5);                     // intermission → next round revives the prey
+        expect(prey.alive).toBe(true);
+      }
+    }
+    expect(w.mode.roundWins).toEqual([3, 0]);
+    expect(w.mode.over, 'three round wins IS the series').toBe(true);
+    expect(w.mode.winner).toBe(0);
+  });
+
+  it('match point gets announced — tension is the product', () => {
+    const { w, prey } = yard();
+    w.damageSoldier(prey, 999, -1, 'marker_blitz');
+    run(w, 5);
+    prey.protectedUntil = 0;             // past the walk-on grace
+    w.damageSoldier(prey, 999, -1, 'marker_blitz');
+    const events = run(w, 0.2);          // pack reaches 2 wins = match point
+    expect(events.some((e) => e.type === 'announce' && e.text === 'MATCH POINT')).toBe(true);
   });
 
   // Regression: misses used to reach the renderer with no owner at all, so

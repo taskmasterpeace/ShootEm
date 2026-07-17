@@ -2167,7 +2167,8 @@ export class Renderer {
               const paint = paintColorFor(e.ownerId ?? e.soldierId ?? -1, localId);
               this.particles.emit({ pos: e.pos, count: 10, color: paint, speed: 6, life: 0.3, spread: 0.3, up: 2.5 });
               this.spawnSplat(e.pos, paint, 0.55 + Math.random() * 0.4);
-              audio.play('hit', { pos: e.pos, volume: 0.5, rate: 1.2 });
+              // paint lands WET — rate wobble so 30 balls a minute stay organic
+              audio.play('splat', { pos: e.pos, volume: 0.55, rate: 0.9 + Math.random() * 0.25 });
               break;
             }
             this.particles.emit({ pos: e.pos, count: 6, color: 0xffe0a0, speed: 5, life: 0.25, spread: 0.2, up: 2 });
@@ -2184,7 +2185,7 @@ export class Renderer {
               const paint = paintColorFor(victim?.lastKillerId ?? -1, localId);
               this.particles.emit({ pos: { ...e.pos, y: 1 }, count: 26, color: paint, speed: 6, life: 0.6, spread: 0.6, up: 4 });
               this.spawnSplat(e.pos, paint, 1.7);
-              audio.play('hit', { pos: e.pos, volume: 0.8, rate: 0.85 });
+              audio.play('splat_big', { pos: e.pos, volume: 0.85 });
               if (e.soldierId !== undefined && e.fallX !== undefined) {
                 this.deathFall.set(e.soldierId, { x: e.fallX, z: e.fallZ ?? 0 });
               }
@@ -2202,6 +2203,11 @@ export class Renderer {
           break;
         case 'heal':
           if (e.pos) this.particles.emit({ pos: { ...e.pos, y: 1.5 }, count: 6, color: 0x60ff90, speed: 2, life: 0.5, spread: 0.6, up: 3, gravity: -2 });
+          break;
+        case 'whistle':
+          // the referee owns the yard: not positional — a round bookend
+          // should never be quiet because you sat down across the field
+          audio.play('whistle', { volume: 0.7 });
           break;
         case 'jetpack':
           if (e.pos) this.particles.emit({ pos: { ...e.pos, y: 0.7 }, count: 4, color: 0xff9840, speed: 2, life: 0.35, spread: 0.3, up: -4, gravity: -4 });
