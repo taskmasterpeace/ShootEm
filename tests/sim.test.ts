@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { CLASSES, VEHICLES, WEAPONS } from '../src/sim/data';
 import { GRID, T_DOOR, TILE, WORLD, generateMap, isBlocked, losClear } from '../src/sim/map';
 import { applySnapshot, takeSnapshot, wireRound } from '../src/sim/snapshot';
-import type { PlayerCmd } from '../src/sim/types';
+import { guardsHome, objectiveFor, raidsFlags } from '../src/sim/bots';
+import type { ClassId, PlayerCmd } from '../src/sim/types';
 import { World } from '../src/sim/world';
 
 const cmd = (over: Partial<PlayerCmd> = {}): PlayerCmd => ({
@@ -109,6 +110,57 @@ describe('combat', () => {
     foe.pos = { x: 10, y: 0, z: 0 };
     run(w, new Map(), 3);
     expect(foe.hp).toBeLessThan(foe.maxHp);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// THE ROLE SPLIT (Robert: "everybody is going after the flag... there's
+// nobody really playing defense. They're letting people set up turrets").
+// A team that all-rushes loses its flag to two men.
+// ---------------------------------------------------------------------------
+describe('bot roles', () => {
+  const team = (w: World, t: 0 | 1) => {
+    const pool: ClassId[] = ['infantry', 'heavy', 'jump', 'engineer', 'medic', 'infiltrator', 'pathfinder', 'ghost'];
+    return Array.from({ length: 12 }, (_, i) => w.addSoldier(`B${t}${i}`, pool[i % pool.length], t, 'bot'));
+  };
+
+  it('a real THIRD of the team holds home — never a naked flag stand', () => {
+    const w = new World({ seed: 42, mode: 'ctf' });
+    const squad = team(w, 0);
+    const guards = squad.filter(guardsHome).length;
+    expect(guards, `only ${guards}/12 defenders`).toBeGreaterThanOrEqual(3);
+    expect(guards, `${guards}/12 defenders — nobody left to attack`).toBeLessThanOrEqual(7);
+  });
+
+  it('nobody is both a raider and a guard — the roles are disjoint', () => {
+    const w = new World({ seed: 42, mode: 'ctf' });
+    for (const s of team(w, 0)) expect(raidsFlags(s) && guardsHome(s), `${s.classId} is both`).toBe(false);
+  });
+
+  it('a defender makes an enemy nest by our flag his job', () => {
+    const w = new World({ seed: 42, mode: 'ctf' });
+    const squad = team(w, 0);
+    const guard = squad.find(guardsHome)!;
+    const ownFlag = w.mode.flags![0];
+    // an enemy sentry digs in 8u off our flag stand
+    const nestPos = { x: ownFlag.pos.x + 8, y: 0, z: ownFlag.pos.z };
+    w.turrets.set(999, { id: 999, team: 1, pos: nestPos, yaw: 0, hp: 100, maxHp: 100, nextFireAt: 0, ownerId: -1, alive: true });
+    const goal = objectiveFor(w, guard);
+    expect(Math.hypot(goal.x - nestPos.x, goal.z - nestPos.z), 'the guard ignored the nest').toBeLessThan(2);
+  });
+
+  it('a bot with no soldier in front of him SHOOTS the nest', () => {
+    const w = new World({ seed: 42, mode: 'tdm' });
+    const b = w.addSoldier('B', 'infantry', 0, 'bot');
+    b.pos = { x: 0, y: 0, z: 0 };
+    // clear ground + a lone enemy sentry 10u east, no soldiers anywhere
+    const half = GRID / 2;
+    for (let z = half - 6; z <= half + 6; z++) for (let x = half - 6; x <= half + 6; x++) w.map.grid[z * GRID + x] = 0;
+    const nest = { id: 998, team: 1 as const, pos: { x: 10, y: 0, z: 0 }, yaw: 0, hp: 100, maxHp: 100, nextFireAt: 0, ownerId: -1, alive: true };
+    w.turrets.set(998, nest);
+    const before = nest.hp;
+    for (let i = 0; i < 60 * 4; i++) w.step(1 / 60, new Map());
+    expect(w.turrets.get(998)?.hp ?? 0, 'the nest was never answered').toBeLessThan(before);
   });
 });
 

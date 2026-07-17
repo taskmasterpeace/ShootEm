@@ -1,6 +1,6 @@
 import { CLASSES, DOG_STATS, VEHICLES, WEAPONS } from './data';
 import { GRID, T_CLIMB, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_OPEN, T_WATER, TILE, WORLD, isBlocked, losClear, tileAt } from './map';
-import type { ClassId, PlayerCmd, Soldier, Vec3 } from './types';
+import type { ClassId, PlayerCmd, Soldier, Team, Vec3 } from './types';
 import { DIFFICULTY_AIM, type World } from './world';
 
 const noCmd = (): PlayerCmd => ({
@@ -149,13 +149,42 @@ function enemyVehicleNear(w: World, s: Soldier, maxRange: number) {
 /** CTF roles are CLASS-shaped: fast boots raid, armor guards, the rest
  *  pressure mid. (Role-by-id gave us a medic "raider" who never left spawn
  *  and a heavy who died 18 times crossing mid.) */
-const raidsFlags = (s: Soldier) =>
+export const raidsFlags = (s: Soldier) =>
   s.classId === 'jump' || s.classId === 'pathfinder' || s.classId === 'infiltrator' ||
   ((s.classId === 'infantry' || s.classId === 'ghost') && s.id % 2 === 0);
-const guardsHome = (s: Soldier) =>
-  s.classId === 'heavy' && s.id % 2 === 0;
 
-function objectiveFor(w: World, s: Soldier): Vec3 {
+/** THE ROLE SPLIT (Robert: "everybody is going after the flag, even when
+ *  you're close to their flag. There's nobody really playing defense.
+ *  They're letting people set up turrets near them").
+ *
+ *  The old rule was `heavy && id % 2 === 0` — in a 12v12 that's ZERO to ONE
+ *  defender per team, so every flag stand sat naked and two raiders could
+ *  walk it out. Now a real third of the team holds home, chosen by CLASS
+ *  (never by bare id — role-by-id once gave us a medic "raider" who never
+ *  left spawn and a heavy who died 18 times crossing mid): armor and
+ *  engineers dig in, medics split, runners raid. Guards and raiders are
+ *  disjoint by construction. */
+export const guardsHome = (s: Soldier) =>
+  !raidsFlags(s) && (
+    s.classId === 'heavy' || s.classId === 'engineer' ||
+    (s.classId === 'medic' && s.id % 2 === 0) ||
+    ((s.classId === 'infantry' || s.classId === 'ghost') && s.id % 4 === 1)
+  );
+
+/** An enemy STRUCTURE worth a defender's attention — a sentry dug in near
+ *  something we own. Bots could never see these: findTarget returns only
+ *  Soldiers, so a turret nest by the flag was free real estate. */
+function enemyTurretNear(w: World, team: Team, at: Vec3, maxRange: number): { pos: Vec3; d: number } | null {
+  let best: { pos: Vec3; d: number } | null = null;
+  for (const t of w.turrets.values()) {
+    if (t.team === team || !t.alive || t.hp <= 0) continue;
+    const d = Math.hypot(t.pos.x - at.x, t.pos.z - at.z);
+    if (d < maxRange && (!best || d < best.d)) best = { pos: t.pos, d };
+  }
+  return best;
+}
+
+export function objectiveFor(w: World, s: Soldier): Vec3 {
   const m = w.mode;
   const enemyBase = w.map.basePos[1 - s.team];
   switch (m.id) {
@@ -175,7 +204,11 @@ function objectiveFor(w: World, s: Soldier): Vec3 {
       // the map's edge, THEN cut to the flag. Odd ids take north, even take
       // south — the raid arrives as two prongs the guard wall can't face at
       // once, with the escorts (non-raider classes) fighting alongside.
-      if (guardsHome(s)) { // armor orbits the flag stand (engineers seed sentries there)
+      if (guardsHome(s)) {
+        // a nest by our own flag is the job — nobody else is coming
+        const nest = enemyTurretNear(w, s.team, ownFlag.pos, 32);
+        if (nest) return nest.pos;
+        // otherwise armor orbits the flag stand (engineers seed sentries there)
         const a = (s.id % 8) * (Math.PI / 4);
         return { x: ownFlag.pos.x + Math.cos(a) * 6, y: 0, z: ownFlag.pos.z + Math.sin(a) * 6 };
       }
@@ -566,6 +599,20 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
     const dl = Math.hypot(dx, dz) || 1;
     mvx = dx / dl;
     mvz = dz / dl;
+  }
+
+  // --- no soldier in front of you? then SHOOT THE NEST ---
+  // findTarget only ever returns Soldiers, so an enemy sentry was something
+  // bots physically could not fight — they'd walk to it and stand there
+  // being shot. A structure is a target too.
+  if (!target && s.kind === 'bot') {
+    const wdef = WEAPONS[s.weapons[s.weaponIdx]];
+    const nest = enemyTurretNear(w, s.team, s.pos, wdef.range * 0.95);
+    if (nest && losClear(w.map.grid, { ...s.pos, y: 1.4 }, { ...nest.pos, y: 1.4 })) {
+      cmd.aimYaw = Math.atan2(nest.pos.z - s.pos.z, nest.pos.x - s.pos.x);
+      cmd.fire = true;
+      if (wdef.arc) cmd.aimDist = nest.d;
+    }
   }
 
   // --- combat: fight the way your class fights ---

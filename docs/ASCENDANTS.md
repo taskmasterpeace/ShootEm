@@ -302,19 +302,37 @@ belongs after the T1s. Flagged, not silently reordered.)*
 
 ---
 
-## 13. Open questions for Robert
+## 13. DECIDED (Robert, 2026-07-17)
 
-- **Q1 — Playable LSWs:** ship AI-only first and revisit once flight feels
-  right (recommended), or is "player becomes an LSW" a wave-1 goal that
-  should shape the entity design now?
-- **Q2 — How do you become an officer?** Earned by record (the Dossier
-  already tracks everything)? Voted by the team? Highest-scoring player in
-  the match? Campaign appointment that outlives the match (§7's "orders that
-  outlive your login")? This gates §6 and the whole gamification ask.
-- **Q3 — Wave-1 order:** honor the loop's order exactly, or take the
-  easiest-first order above (§12) that front-loads two LSWs on the field
-  fastest?
-- **Q4 — Emotional VO:** everything is synthesized CC0 today. Want to keep
-  synth-only, bring in a licensed VO pipeline, or have Robert record?
-- **Q5 — Iron Eaters:** procedural scrap-composition (recommended — seed-varied,
-  no two alike, free) or GLB-per-beast?
+- **D1 — Order of work: the AI and feel fixes come FIRST**, then the roster.
+  They affect every match today; LSWs land on a better game. The agreed
+  sequence:
+  1. **Bot role split** — attackers/defenders; someone guards home and
+     answers turret nests. *(§11 row 5)*
+  2. **Rescue** — the spotter breaks off and comes for the isolated friendly.
+     *(§11 row 4)*
+  3. **Vision fade** — 0→5s, per-class linger, a visual dissolve not a pop.
+     *(§11 row 6)*
+  4. **Impact VFX** — sparks/chips/dust + decals. *(§11 row 2)*
+  5. **THEN** the LSW engine + **Firebrand (UF) vs Plaguebearer (Collective)**.
+- **D2 — Officers are EARNED BY RECORD.** The Dossier already tracks service
+  (kills, objectives, tours, longest hold). Cross a threshold → OCS → you're
+  an officer **across matches**. This is §7's "orders that outlive your
+  login", and it needs no new tracking — the record already exists.
+- **D3 — LSWs are AI-first; the player gets the keys later.** Ship them as
+  events with counterplay, build TRUE FLIGHT for the three fliers, and only
+  once flight genuinely feels like Superman/Goku does a human drive one — as
+  its own decision, on proven movement. **Do not** shape the entity around a
+  playable case now.
+- **D4 — Iron Eaters are PROCEDURAL scrap-composition.** Compose bodies from
+  the existing prop vocabulary (crate/wreck/silo/crane parts) on the
+  eight-joint rig, seed-varied so no two beasts are alike — which is the
+  whole point of "assembled from scrap". Free, testable, animates today,
+  matches the voxel look. No GLB dependency. *(The pipeline's non-humanoid
+  `--parts` gap stays noted, unbuilt, and unblocking.)*
+
+### Still open
+- **Emotional VO:** every sound ships synthesized CC0 (four packs). Robert
+  finds ElevenLabs "not that emotional" for death cries. Options: stay
+  synth-only, license a VO pipeline, or Robert records. **Unanswered —
+  doesn't block anything above.**
