@@ -563,7 +563,7 @@ function theCity(seed: number): GameMap {
   rect(grid, 44, 46, 56, 62, T_OPEN);
   rectSurf(surface, 44, 46, 56, 62, S_PLATE);
   claim(grid, claims, 50, 54, T_WALL);
-  props.push({ type: 'memorial', pos: tw(50, 54), scale: 1, rot: -Math.PI / 2 });
+  props.push({ type: 'memorial', pos: tw(50, 54), scale: 1.25, rot: -Math.PI / 2 });
   for (const [px, pz] of [[46, 48], [54, 48], [46, 60], [54, 60]] as const) {
     claim(grid, claims, px, pz, T_COVER);
     props.push({ type: 'crate', pos: tw(px, pz), scale: 1, rot: d.rng.range(0, Math.PI) });

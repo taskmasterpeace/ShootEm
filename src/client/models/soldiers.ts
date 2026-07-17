@@ -1,16 +1,74 @@
 // Soldier-shaped things: troopers per class, the undead, Dr. Voss, the K9,
 // and the riders that vehicles borrow.
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { TEAM_COLORS } from '../../sim/data';
 import { zombieArmRest } from '../animation';
 import type { ClassId, SoldierKind, Team } from '../../sim/types';
 import { box, cyl, limb, mat } from './shared';
 
+// ---------------------------------------------------------------------------
+// GLB BODIES (Robert's models, tools/soldier-pipeline.py): a class listed
+// here wears an AI-generated body — segmented into the SAME eight named
+// joints the animator swings, so gait/ragdoll/melee never know the
+// difference. United Front only (the faction law: Collective shows no skin),
+// and only once the one cached download lands — until then, and forever in
+// tests, the procedural trooper stands in. Never a pop mid-soldier: the
+// choice is made per-build, not per-frame.
+// ---------------------------------------------------------------------------
+const GLB_BODIES: Partial<Record<ClassId, string>> = {
+  infantry: '/models/soldier_infantry.glb',
+  pathfinder: '/models/soldier_pathfinder.glb',
+};
+const glbBodies = new Map<string, THREE.Group>();
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  for (const url of Object.values(GLB_BODIES)) {
+    try {
+      new GLTFLoader().load(url, (gltf) => {
+        gltf.scene.traverse((o) => {
+          if (o instanceof THREE.Mesh) {
+            o.castShadow = true;
+            const m = o.material as THREE.MeshStandardMaterial;
+            m.vertexColors = true;
+          }
+        });
+        glbBodies.set(url, gltf.scene);
+      }, undefined, () => { /* absent file = procedural forever; no drama */ });
+    } catch { /* headless env */ }
+  }
+}
+
 export function buildSoldier(team: Team, classId: ClassId, kind: SoldierKind): THREE.Group {
   if (kind === 'scientist') return buildScientist();
   if (kind === 'dog') return buildDog(team);
   const isZed = kind !== 'human' && kind !== 'bot';
-  return isZed ? buildZombie(kind) : buildTrooper(team, classId);
+  if (isZed) return buildZombie(kind);
+  const glbUrl = team === 0 ? GLB_BODIES[classId] : undefined;
+  const body = glbUrl ? glbBodies.get(glbUrl) : undefined;
+  return body ? buildGlbTrooper(body, classId) : buildTrooper(team, classId);
+}
+
+/** Robert's body + the game's rifle: clone the named-joint rig, give every
+ *  part its own material instance (cloak alpha must never bleed across
+ *  soldiers), and hang the class rifle exactly where buildTrooper does. */
+function buildGlbTrooper(src: THREE.Group, classId: ClassId): THREE.Group {
+  const g = new THREE.Group();
+  const body = src.clone(true);
+  body.traverse((o) => {
+    if (o instanceof THREE.Mesh) o.material = (o.material as THREE.Material).clone();
+  });
+  g.add(body);
+  // living arms hold the rifle — the animator only swings legs while alive,
+  // so the rest pose must match the procedural trooper's two-handed grip
+  const armR = body.getObjectByName('armR');
+  const armL = body.getObjectByName('armL');
+  if (armR) armR.rotation.z = -0.5;
+  if (armL) armL.rotation.z = -0.75;
+  const gun = buildRifle(classId);
+  gun.position.set(0.42, 1.28, -0.16);
+  gun.userData.baseX = gun.position.x;
+  g.add(gun);
+  return g;
 }
 
 /**
