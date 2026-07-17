@@ -11,6 +11,7 @@ import { Chat } from './client/chat';
 import { StaticOverlay } from './client/effects';
 import { Hud } from './client/hud';
 import { Input } from './client/input';
+import { MusicDirector } from './client/music';
 import { Renderer } from './client/renderer';
 import { NetGame } from './client/net';
 import { KILLCAM_CAM, MATCH_LINGER_LOCAL_MS, ReplayDirector } from './client/replay';
@@ -416,6 +417,10 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     : null;
   rangeOfficial = false; // one-shot flag — consumed by this deploy
 
+  // THE SCORE (Robert's tracks): soldier combat → LSW inbound/walking → the
+  // real monsters. The director reads the sim twice a second and crossfades.
+  const music = new MusicDirector();
+
   // replays: the director runs the killcam + match-highlights state machine
   const director = new ReplayDirector(seed, selectedMode, selectedTheme);
   const banner = $('replay-banner');
@@ -565,6 +570,9 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     }
     const events = world.takeEvents();
     hud.applyEvents(events, world, me.id, world.time); // killfeed stays live
+    // the score follows the field: soldier → LSW → the monsters (music.ts)
+    music.setVolume(settings.masterVolume);
+    music.update(world, now);
     // §7: the moment YOU become the weapon (or hand the body back), say so —
     // the Q hint is the whole tutorial
     if (me.ascendant !== pilotBody) {
