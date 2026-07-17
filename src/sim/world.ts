@@ -549,6 +549,12 @@ export class World {
       // fires the MAGNETIC PULSE on a cadence; a human pilot on Q. His halo
       // means enemies must close or switch weapons.
       if (s.kind === 'bot' && this.time >= (s.nextLswAt ?? 0)) { this.magnetarPulse(s); s.nextLswAt = this.time + 6; }
+    } else if (id === 'wraith') {
+      // POSSESS on a cadence — seize turrets, stall armor, heal on the take.
+      // A human pilot possesses on Q.
+      if (s.kind === 'bot' && this.time >= (s.nextLswAt ?? 0)) {
+        s.nextLswAt = this.time + (this.wraithPossess(s) ? 5 : 1.5);
+      }
     }
   }
 
@@ -912,6 +918,44 @@ export class World {
     this.emit({ type: 'vo', text: 'vo_magnetar_ability', pos: { ...s.pos }, soldierId: s.id });
   }
 
+  /** Wraith's possession: SEIZE the nearest enemy sentry turret (team flip —
+   *  the shipped hack) and STALL the nearest enemy vehicle (EMP), draining a
+   *  heal from each take. The full "drive the possessed vehicle / take a bot"
+   *  is a Notes 🔧; EMP evicts a possessed turret (it's just the hack). Returns
+   *  false if there was nothing to take. */
+  private wraithPossess(s: Soldier): boolean {
+    let did = false;
+    let turret: Turret | undefined, tbest = 16;
+    for (const t of this.turrets.values()) {
+      if (!t.alive || t.team === s.team) continue;
+      const d = Math.hypot(t.pos.x - s.pos.x, t.pos.z - s.pos.z);
+      if (d < tbest) { tbest = d; turret = t; }
+    }
+    if (turret) {
+      turret.team = s.team; turret.ownerId = s.id;
+      this.emit({ type: 'hacked', pos: { ...turret.pos }, soldierId: s.id, text: `${s.name} POSSESSED a sentry!` });
+      s.hp = Math.min(s.maxHp, s.hp + 80); // drains the take
+      did = true;
+    }
+    let veh: Vehicle | undefined, vbest = 16;
+    for (const v of this.vehicles.values()) {
+      if (!v.alive || v.team === s.team) continue;
+      const d = Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z);
+      if (d < vbest) { vbest = d; veh = v; }
+    }
+    if (veh) {
+      veh.stunnedUntil = Math.max(veh.stunnedUntil, this.time + 3);
+      this.emit({ type: 'emp', pos: { ...veh.pos } });
+      s.hp = Math.min(s.maxHp, s.hp + 40);
+      did = true;
+    }
+    if (did) {
+      this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'wraith', soldierId: s.id });
+      this.emit({ type: 'vo', text: 'vo_wraith_ability', pos: { ...s.pos }, soldierId: s.id });
+    }
+    return did;
+  }
+
   /**
    * §7 THE SIGNATURE ON Q: a human pilot's active. Whiffs never burn the
    * cooldown — a signature that punishes you for pressing it stops being
@@ -1010,6 +1054,9 @@ export class World {
       // Q: the magnetic pulse — jam their guns, stall their armor.
       this.magnetarPulse(s);
       s.nextLswActiveAt = this.time + def.activeCd;
+    } else if (id === 'wraith') {
+      // Q: possess the nearest machine; a true whiff (nothing to take) stays hot.
+      if (this.wraithPossess(s)) s.nextLswActiveAt = this.time + def.activeCd;
     }
   }
 

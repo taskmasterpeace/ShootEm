@@ -190,6 +190,17 @@ export const LSWS: Record<AscendantId, LswDef> = {
     scale: 1.3, speed: 7, color: 0x707886, // gunmetal-steel, a magnetic sheen
     activeLabel: 'MAGNETIC PULSE — jam their guns, stall their armor', activeCd: 6,
   },
+  wraith: {
+    id: 'wraith', name: 'Wraith', faction: 1, threat: 2,
+    lines: {
+      inbound: 'WRAITH INBOUND — EMPTY YOUR VEHICLES',
+      landed: 'WRAITH ON THE FIELD — YOUR MACHINES ARE HIS',
+      down: 'WRAITH IS DOWN — RECLAIM YOUR HARDWARE',
+      rampage: 'FIVE KILLS — WRAITH IS WEARING YOUR ARMY',
+    },
+    scale: 1.3, speed: 8, color: 0x8fd0b0, // spectral ghost-green
+    activeLabel: 'POSSESS — seize a turret, stall the armor, heal on the take', activeCd: 7,
+  },
 };
 
 /** THE SPOKEN SCRIPT — subtitle text per voice slot, tag-stripped mirrors of
@@ -258,6 +269,11 @@ export const VO_LINES: Record<string, { who: AscendantId; line: string }> = {
   vo_magnetar_ability: { who: 'magnetar', line: 'Jammed.' },
   vo_magnetar_low: { who: 'magnetar', line: 'Field... collapsing.' },
   vo_magnetar_death: { who: 'magnetar', line: 'De... magnetized.' },
+  vo_wraith_arrive: { who: 'wraith', line: "What's yours is mine." },
+  vo_wraith_kill3: { who: 'wraith', line: 'Three. Their own guns did it.' },
+  vo_wraith_ability: { who: 'wraith', line: 'Come to me.' },
+  vo_wraith_low: { who: 'wraith', line: 'Fading... need a host.' },
+  vo_wraith_death: { who: 'wraith', line: "You can't kill... a ghost." },
 };
 export const voSlot = (id: AscendantId, moment: VoMoment) => `vo_${id}_${moment}`;
 export const annSlot = (id: AscendantId, moment: 'inbound' | 'landed' | 'down' | 'rampage') => `ann_${id}_${moment}`;

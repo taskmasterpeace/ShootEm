@@ -84,6 +84,12 @@ export const CAST = {
     persona: 'Magnetar, a Collective Living Super Weapon — an anti-ranged controller who finds bullets beneath contempt. Cold, precise, smug; he treats incoming gunfire as raw material for his own armor. Unhurried and quietly superior.',
     scene: 'A high electromagnetic whine. Metal debris orbiting and clicking. Rounds curving away with a hum.',
   },
+  wraith: {
+    voice: 'Laomedeia',
+    fx: 'none', // breathy and close — a whisper that steals things
+    persona: 'Wraith, a Collective Living Super Weapon — a levitating thief who possesses machines rather than fighting them. Sly, whispery, delighted by taking what is yours. Never raises its voice; it does not have to when your own turrets turn on you.',
+    scene: 'A low electrical whisper. Machinery powering over to a new master. Servos turning the wrong way.',
+  },
   announcer: {
     voice: 'Orus',
     fx: 'radio', // 300–3400Hz military net + soft clip
@@ -177,6 +183,13 @@ export const VO = [
   { slot: 'vo_magnetar_ability', who: 'magnetar', text: '[flat] Jammed.', notes: ['A single word, like flipping a switch on someone.'] },
   { slot: 'vo_magnetar_low', who: 'magnetar', text: '[straining] Field... collapsing.', notes: ['The control slips; the whine wavers.'] },
   { slot: 'vo_magnetar_death', who: 'magnetar', text: '[powering down] De... magnetized.', notes: ['The field dies with a descending whine.'] },
+
+  // ---- WRAITH: what's yours is his ----
+  { slot: 'vo_wraith_arrive', who: 'wraith', text: "[whispering] What's yours is mine.", notes: ['Delighted, intimate, like sharing a secret.', 'A breathy electrical whisper.'] },
+  { slot: 'vo_wraith_kill3', who: 'wraith', text: 'Three. [short pause] Their own guns did it.', notes: ['Pleased by the irony, quietly.'] },
+  { slot: 'vo_wraith_ability', who: 'wraith', text: '[coaxing] Come to me.', notes: ['Said to a machine, not a person — coaxing it over.'] },
+  { slot: 'vo_wraith_low', who: 'wraith', text: '[thinning] Fading... need a host.', notes: ['The whisper grows faint, hungry.'] },
+  { slot: 'vo_wraith_death', who: 'wraith', text: "[dissolving] You can't kill... a ghost.", notes: ['Amused even in death, trailing into static.'] },
 ];
 
 /** The announcer — map-wide, both teams, radio net. */
@@ -229,6 +242,10 @@ export const ANN = [
   { slot: 'ann_magnetar_landed', text: 'MAGNETAR ON THE FIELD. CLOSE THE DISTANCE.' },
   { slot: 'ann_magnetar_down', text: 'MAGNETAR IS DOWN. OPEN FIRE.' },
   { slot: 'ann_magnetar_rampage', text: 'FIVE KILLS. MAGNETAR EATS EVERY ROUND.' },
+  { slot: 'ann_wraith_inbound', text: 'WRAITH INBOUND. [short pause] EMPTY YOUR VEHICLES.' },
+  { slot: 'ann_wraith_landed', text: 'WRAITH ON THE FIELD. YOUR MACHINES ARE HIS.' },
+  { slot: 'ann_wraith_down', text: 'WRAITH IS DOWN. RECLAIM YOUR HARDWARE.' },
+  { slot: 'ann_wraith_rampage', text: 'FIVE KILLS. WRAITH IS WEARING YOUR ARMY.' },
 ];
 
 export const ANN_NOTES = [

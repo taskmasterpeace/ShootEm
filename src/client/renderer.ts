@@ -1964,6 +1964,12 @@ export class Renderer {
         pos: { x: s.pos.x + Math.cos(a) * 1.6, y: 1.0 + Math.sin(a * 1.7) * 0.6, z: s.pos.z + Math.sin(a) * 1.6 }, count: 1,
         color: Math.random() < 0.5 ? 0x9aa2ae : 0x5a6270, speed: 0.2, life: 0.4, spread: 0.2, up: 0, gravity: 0, size: 0.24,
       });
+    } else if (id === 'wraith') {
+      // spectral wisps rising off him — pale, slow, ghostly
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5), y: 0.5 + Math.random() * 1.8, z: s.pos.z + (Math.random() - 0.5) }, count: 1,
+        color: Math.random() < 0.5 ? 0x8fd0b0 : 0xd8f0e4, speed: 0.4, life: 1.0, spread: 0.5, up: 1.0, gravity: -0.5, size: 0.4,
+      });
     }
     // the LSW's VOICE: an Ascendant is an event you can HEAR coming. A
     // per-unit signature on a throttle (roar/hiss/whoosh), and it gets more

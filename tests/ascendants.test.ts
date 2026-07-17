@@ -509,6 +509,33 @@ describe('Magnetar — the halo and the pulse', () => {
 });
 
 // ---------------------------------------------------------------------------
+// WRAITH — possesses the nearest enemy turret (team flip) and stalls the
+// nearest enemy vehicle, healing on each take.
+// ---------------------------------------------------------------------------
+describe('Wraith — possession', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('seizes the nearest enemy sentry and heals on the take', () => {
+    const w = quiet();
+    const wr = w.addLsw('wraith', 1, { x: 0, y: 0, z: 0 })!;
+    wr.hp = wr.maxHp - 200;
+    w.turrets.set(5501, { id: 5501, team: 0, pos: { x: 4, y: 0, z: 0 }, yaw: 0, hp: 100, maxHp: 100, nextFireAt: 0, ownerId: -1, alive: true });
+    const hp0 = wr.hp;
+    w.applyCmd(wr, cmd({ ability: true }), 1 / 60);
+    expect(w.turrets.get(5501)!.team, 'the sentry was not possessed').toBe(1);
+    expect(wr.hp, 'possession did not heal him').toBeGreaterThan(hp0);
+  });
+
+  it('stalls the nearest enemy vehicle', () => {
+    const w = quiet();
+    const wr = w.addLsw('wraith', 1, { x: 0, y: 0, z: 0 })!;
+    const v = w.spawnVehicle('tank', 0, { x: 5, y: 0, z: 0 });
+    w.applyCmd(wr, cmd({ ability: true }), 1 / 60);
+    expect(v.stunnedUntil, 'the vehicle was not stalled').toBeGreaterThan(w.time);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // §7 PLAYING AS AN LSW — you call it, you hold the mark, you BECOME it.
 // The full pilot loop: call → telegraph → ascension → Q signature → death
 // hands the body back.
