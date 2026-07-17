@@ -20,7 +20,10 @@ import type { Vec3 } from '../src/sim/types';
 
 const SEED = 4207;
 const ids = Object.keys(FRONT_GROUNDS);
+const SIZES = ['small', 'standard', 'large'] as const;
 const maps = new Map(ids.map((id) => [id, generateFront(id, SEED)!]));
+/** every front at every tier — the 30 grounds the laws patrol */
+const sized = new Map(ids.flatMap((id) => SIZES.map((s) => [`${id}.${s}`, generateFront(id, SEED, s)!] as const)));
 
 const tileOf = (p: Vec3): [number, number] => [
   Math.floor((p.x + WORLD / 2) / TILE),
@@ -72,7 +75,7 @@ const countSurf = (map: GameMap, s: number) => {
 const propCount = (map: GameMap, type: string) => map.props.filter((p) => p.type === type).length;
 const padCount = (map: GameMap, kind: string) => map.vehiclePads.filter((v) => v.kind === kind).length;
 
-describe('the front laws — all ten grounds', () => {
+describe('the front laws — all ten grounds, all three tiers', () => {
   it('every Scar front has authored ground (no recipe imposters)', () => {
     for (const f of FRONTS) {
       expect(FRONT_GROUNDS[f.id], `${f.name} still deploys onto a random scatter`).toBeTruthy();
@@ -80,29 +83,31 @@ describe('the front laws — all ten grounds', () => {
     expect(generateFront('no_such_front', SEED)).toBeNull(); // fallback stays honest
   });
 
-  it.each(ids)('%s: the rim is sealed — nobody walks off the world', (id) => {
-    const m = maps.get(id)!;
+  it.each([...sized.keys()])('%s: the rim is sealed — nobody walks off the world', (key) => {
+    const m = sized.get(key)!;
     for (let i = 0; i < GRID; i++) {
-      expect(frontWalkable(m.grid[i]), `${id} north rim ${i}`).toBe(false);
-      expect(frontWalkable(m.grid[(GRID - 1) * GRID + i]), `${id} south rim ${i}`).toBe(false);
-      expect(frontWalkable(m.grid[i * GRID]), `${id} west rim ${i}`).toBe(false);
-      expect(frontWalkable(m.grid[i * GRID + GRID - 1]), `${id} east rim ${i}`).toBe(false);
+      expect(frontWalkable(m.grid[i]), `${key} north rim ${i}`).toBe(false);
+      expect(frontWalkable(m.grid[(GRID - 1) * GRID + i]), `${key} south rim ${i}`).toBe(false);
+      expect(frontWalkable(m.grid[i * GRID]), `${key} west rim ${i}`).toBe(false);
+      expect(frontWalkable(m.grid[i * GRID + GRID - 1]), `${key} east rim ${i}`).toBe(false);
     }
   });
 
   it.each(ids)('%s: same seed, same ground — the Scar can promise a preview', (id) => {
-    const a = generateFront(id, 977)!;
-    const b = generateFront(id, 977)!;
-    expect(Buffer.from(a.grid).equals(Buffer.from(b.grid))).toBe(true);
-    expect(Buffer.from(a.surface).equals(Buffer.from(b.surface))).toBe(true);
+    for (const size of SIZES) {
+      const a = generateFront(id, 977, size)!;
+      const b = generateFront(id, 977, size)!;
+      expect(Buffer.from(a.grid).equals(Buffer.from(b.grid)), `${id}.${size} grid drifted`).toBe(true);
+      expect(Buffer.from(a.surface).equals(Buffer.from(b.surface)), `${id}.${size} surface drifted`).toBe(true);
+    }
   });
 
-  it.each(ids)('%s: READABLE — every objective, pad, drop, and door reachable from BOTH bases', (id) => {
-    const m = maps.get(id)!;
+  it.each([...sized.keys()])('%s: READABLE — every objective, pad, drop, and door reachable from BOTH bases', (key) => {
+    const m = sized.get(key)!;
     for (const side of [0, 1] as const) {
       const seen = flood(m, m.basePos[side]);
       const check = (p: Vec3, what: string) =>
-        expect(reached(seen, p), `${id}: ${what} unreachable from base ${side}`).toBe(true);
+        expect(reached(seen, p), `${key}: ${what} unreachable from base ${side}`).toBe(true);
       check(m.basePos[1 - side], 'the enemy base');
       check(m.hillPos, 'the hill');
       m.flagPos.forEach((f, i) => check(f, `flag ${i}`));
@@ -115,12 +120,12 @@ describe('the front laws — all ten grounds', () => {
     }
   });
 
-  it.each(ids)('%s: ZERO ORPHANS — no walkable tile the war can never touch', (id) => {
+  it.each([...sized.keys()])('%s: ZERO ORPHANS — no walkable tile the war can never touch', (key) => {
     // stricter than the objective check: authored ground has no excuse for
     // sealed pockets. Every tile a soldier could stand on must be a tile a
     // soldier can WALK to. (This is what caught the depot interiors and the
     // base-wall slivers the object law missed.)
-    const m = maps.get(id)!;
+    const m = sized.get(key)!;
     const seen = flood(m, m.basePos[0]);
     const orphans: string[] = [];
     for (let z = 0; z < GRID && orphans.length < 8; z++) {
@@ -129,28 +134,28 @@ describe('the front laws — all ten grounds', () => {
         if (frontWalkable(m.grid[i]) && !seen[i]) orphans.push(`(${x},${z})`);
       }
     }
-    expect(orphans, `${id} sealed pockets at ${orphans.join(' ')}`).toEqual([]);
+    expect(orphans, `${key} sealed pockets at ${orphans.join(' ')}`).toEqual([]);
   });
 
-  it.each(ids)('%s: grounded theater — no jump gates, no grav pads', (id) => {
-    const m = maps.get(id)!;
-    expect(m.gates.length, `${id} grew a teleporter`).toBe(0);
-    expect(m.pads.length, `${id} grew a grav pad`).toBe(0);
+  it.each([...sized.keys()])('%s: grounded theater — no jump gates, no grav pads', (key) => {
+    const m = sized.get(key)!;
+    expect(m.gates.length, `${key} grew a teleporter`).toBe(0);
+    expect(m.pads.length, `${key} grew a grav pad`).toBe(0);
   });
 
-  it.each(ids)('%s: the walls law — every prop-covered tile still blocks', (id) => {
-    const m = maps.get(id)!;
+  it.each([...sized.keys()])('%s: the walls law — every prop-covered tile still blocks', (key) => {
+    const m = sized.get(key)!;
     for (const i of m.propCovered) {
-      expect([T_WALL, T_COVER].includes(m.grid[i]), `${id} claim ${i} drifted`).toBe(true);
+      expect([T_WALL, T_COVER].includes(m.grid[i]), `${key} claim ${i} drifted`).toBe(true);
     }
   });
 
-  it.each(ids)('%s: NO INVISIBLE WALLS — every prop-covered tile has its prop standing on it', (id) => {
+  it.each([...sized.keys()])('%s: NO INVISIBLE WALLS — every prop-covered tile has its prop standing on it', (key) => {
     // a propCovered tile is one the renderer SKIPS (the prop owns the
     // visual). If no prop actually stands within 1.6u, the tile blocks
     // movement while drawing NOTHING — the invisible wall. Machine-checked
     // here so "we still got them dumbass invisible walls" ends as a class.
-    const m = maps.get(id)!;
+    const m = sized.get(key)!;
     const orphans: string[] = [];
     for (const i of m.propCovered) {
       const x = (i % GRID + 0.5) * TILE - WORLD / 2;
@@ -158,7 +163,7 @@ describe('the front laws — all ten grounds', () => {
       const owned = m.props.some((p) => Math.hypot(p.pos.x - x, p.pos.z - z) < 1.6 + p.scale * 1.2);
       if (!owned) orphans.push(`(${i % GRID},${Math.floor(i / GRID)})`);
     }
-    expect(orphans, `${id} invisible walls at tiles ${orphans.slice(0, 6).join(' ')}`).toEqual([]);
+    expect(orphans, `${key} invisible walls at tiles ${orphans.slice(0, 6).join(' ')}`).toEqual([]);
   });
 
   it('no invisible walls on the GENERIC maps either — every theme, every mode family', () => {
@@ -187,10 +192,10 @@ describe('the front laws — all ten grounds', () => {
   const trespassers = (m: GameMap) =>
     m.props.filter((p) => OUTDOOR_ONLY.includes(p.type) && houseAt(m.houses, p.pos.x, p.pos.z) >= 0);
 
-  it.each(ids)('%s: NOTHING GROWS INDOORS — no tree, rock, or wreck inside a building', (id) => {
-    const m = maps.get(id)!;
+  it.each([...sized.keys()])('%s: NOTHING GROWS INDOORS — no tree, rock, or wreck inside a building', (key) => {
+    const m = sized.get(key)!;
     expect(trespassers(m).map((p) => `${p.type}@${p.pos.x.toFixed(0)},${p.pos.z.toFixed(0)}`),
-      `${id} grew outdoor props indoors`).toEqual([]);
+      `${key} grew outdoor props indoors`).toEqual([]);
   });
 
   it('nothing grows indoors on the GENERIC maps or the neighborhood either', () => {
@@ -211,6 +216,64 @@ describe('the front laws — all ten grounds', () => {
     // Now the whole library answers: every room serves an entrance.
     for (const def of [...BUILDINGS, ...FRONT_STENCILS]) {
       expect(stencilConnected(def), `${def.id} has a sealed room`).toBe(true);
+    }
+  });
+
+  // ------------------------------------------------------------------
+  // 33C population scaling + the city's two ordinances
+  // ------------------------------------------------------------------
+
+  it.each(ids)('%s: the tiers SCALE — small ground < standard ground < large ground', (id) => {
+    const walkable = (size: (typeof SIZES)[number]) => {
+      const m = generateFront(id, SEED, size)!;
+      let n = 0;
+      for (const t of m.grid) if (frontWalkable(t)) n++;
+      return n;
+    };
+    const small = walkable('small'), standard = walkable('standard'), large = walkable('large');
+    expect(small, `${id}: small should be tighter than standard`).toBeLessThan(standard);
+    expect(standard, `${id}: standard should be tighter than large`).toBeLessThan(large);
+  });
+
+  it.each([...sized.keys()])('%s: EVERY BUILDING IS ENTERABLE — door, then floor', (key) => {
+    // Robert's law for the city, enforced on every front: no facades. From
+    // each building's recorded front door, the BFS must reach a tile that
+    // is strictly INSIDE its footprint (the roof rect's interior band).
+    const m = sized.get(key)!;
+    const seen = flood(m, m.basePos[0]);
+    for (const [i, h] of m.houses.entries()) {
+      // sewer trunks and galleries have their entrance alphabet on the
+      // footprint EDGE (manholes/grates) — the interior band is what proves
+      // you can get IN, not just stand AT the door.
+      let inside = false;
+      for (let z = h.tz; z < h.tz + h.th && !inside; z++) {
+        for (let x = h.tx; x < h.tx + h.tw && !inside; x++) {
+          const edge = x === h.tx || z === h.tz || x === h.tx + h.tw - 1 || z === h.tz + h.th - 1;
+          if (!edge && seen[z * GRID + x] && frontWalkable(m.grid[z * GRID + x])) inside = true;
+        }
+      }
+      expect(inside, `${key}: building ${i} at (${h.tx},${h.tz}) is a facade — no reachable interior`).toBe(true);
+    }
+  });
+
+  it('THE SEWER LAW: the city trunks take you off the street and drain to the canal', () => {
+    for (const size of SIZES) {
+      const m = generateFront('the_city', SEED, size)!;
+      // manholes exist on the streets (ladder tiles in the trunk walls)
+      let ladders = 0;
+      for (const t of m.grid) if (t === 8 /* T_LADDER */) ladders++;
+      expect(ladders, `the_city.${size}: no manholes — the sewer has no way in`).toBeGreaterThanOrEqual(4);
+      // the trunks are roofed buildings (concealment — you're OFF the map down there)
+      const trunks = m.houses.filter((h) => h.th >= 5 && h.tw === 4);
+      expect(trunks.length, `the_city.${size}: the sewer mains are gone`).toBeGreaterThanOrEqual(size === 'small' ? 2 : 8);
+      // every trunk interior is reachable from base — enter by manhole, walk the dark
+      const seen = flood(m, m.basePos[0]);
+      for (const t of trunks) {
+        const mz = t.tz + Math.floor(t.th / 2);
+        // either walkway lane (a cache crate can sit in one)
+        const a = mz * GRID + t.tx + 1, b = mz * GRID + t.tx + 2;
+        expect(seen[a] || seen[b], `the_city.${size}: sewer trunk at (${t.tx},${t.tz}) is sealed`).toBe(1);
+      }
     }
   });
 });

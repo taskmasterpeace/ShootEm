@@ -3,6 +3,7 @@ import { CLASS_ARMORY, familyWeapons } from './sim/arsenal';
 import { isCoopMode, type ClassId, type ModeId, type PlayerCmd, type Team, type ThemeId, type WeaponDef, type WeaponFamily, type WeaponId } from './sim/types';
 import { LSWS, lswAllowed, lswsForTeam } from './sim/lsw';
 import { World, type Difficulty, type Loadout } from './sim/world';
+import { mapSizeForPlayers } from './sim/fronts';
 import { WEATHER_MODS } from './sim/weather';
 import { mountOnboarding, onMatchEnd, paintballConfig } from './client/onboarding';
 import { audio } from './client/audio';
@@ -394,7 +395,10 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
   seedOverride = undefined;
   const world = new World({
     seed, mode: selectedMode, difficulty, botsPerTeam, matchMinutes, theme: selectedTheme,
-    frontId: activeFrontId ?? undefined, // §8.2: a Scar deploy lands on AUTHORED ground
+    // §8.2+33C: a Scar deploy lands on AUTHORED ground, at the tier the
+    // lobby's headcount earns — the size rides the id (front@size) so
+    // world.ts stays the LSW dev's untouched file.
+    frontId: activeFrontId ? `${activeFrontId}@${mapSizeForPlayers(botsPerTeam)}` : undefined,
   });
   // carry the feel knobs into the match (Robert's global speed control)
   world.projectileSpeedMul = settings.projectileSpeed;

@@ -131,8 +131,9 @@ function render(id: string, m: GameMap) {
 }
 
 const only = process.argv[2];
+const SIZES = ['small', 'standard', 'large'] as const;
 for (const id of Object.keys(FRONT_GROUNDS)) {
   if (only && id !== only) continue;
-  render(id, generateFront(id, SEED)!);
+  for (const size of SIZES) render(`${id}.${size}`, generateFront(id, SEED, size)!);
 }
 console.log(`atlas → ${OUT}`);
