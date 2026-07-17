@@ -1309,24 +1309,51 @@ const CONTROL_ROOM: BuildingDef = {
   ],
 };
 
-function refinery(seed: number): GameMap {
+function refinery(seed: number, size: MapSize = 'large'): GameMap {
+  const box = boxFor(size);
   const d = draft(seed, T_OPEN, S_PLATE);
   const { grid, surface, props, claims } = d;
   const ctx = ctxOf(d);
+  const L = {
+    large: {
+      apron: [[22, 26, 43, 72]] as [number, number, number, number][],
+      tanks: [[28, 32], [28, 50], [28, 68], [38, 41], [38, 59]] as [number, number][],
+      flares: [[22, 20], [22, 80]] as [number, number][],
+      racks: [24, 76], blocks: [['pumphouse', 42, 30], ['machine_shop', 40, 64]] as [string, number, number][],
+      drums: 16, baseX: [10, GRID - 11] as [number, number], baseZ: 50,
+      pickups: [[34, 24, 'ammo'], [34, 76, 'medkit'], [44, 40, 'flamer']] as [number, number, PickupSpawn['type']][],
+    },
+    standard: {
+      apron: [[22, 22, 41, 70]] as [number, number, number, number][],
+      tanks: [[26, 28], [26, 46], [26, 64], [36, 37]] as [number, number][],
+      flares: [[22, 16], [22, 74]] as [number, number][],
+      racks: [20, 72], blocks: [['pumphouse', 40, 26], ['machine_shop', 38, 58]] as [string, number, number][],
+      drums: 12, baseX: [19, GRID - 20] as [number, number], baseZ: 47,
+      pickups: [[32, 20, 'ammo'], [32, 70, 'medkit'], [44, 38, 'flamer']] as [number, number, PickupSpawn['type']][],
+    },
+    small: {
+      apron: [[26, 26, 40, 68]] as [number, number, number, number][],
+      tanks: [[30, 30], [30, 48], [30, 64]] as [number, number][],
+      flares: [[24, 24], [24, 70]] as [number, number][],
+      racks: [28, 66], blocks: [['pumphouse', 42, 32], ['machine_shop', 40, 56]] as [string, number, number][],
+      drums: 8, baseX: [29, GRID - 30] as [number, number], baseZ: 49,
+      pickups: [[34, 28, 'ammo'], [34, 64, 'medkit'], [44, 36, 'flamer']] as [number, number, PickupSpawn['type']][],
+    },
+  }[size];
 
   // containment aprons under each tank farm: grit stains against the plate,
   // so the farms read as districts instead of dots on a slab
-  rectSurf(surface, 22, 26, 43, 72, S_GRIT);
-  rectSurf(surface, GRID - 44, 26, GRID - 23, 72, S_GRIT);
+  for (const [ax0, az0, ax1, az1] of L.apron) {
+    rectSurf(surface, ax0, az0, ax1, az1, S_GRIT);
+    rectSurf(surface, GRID - 1 - ax1, az0, GRID - 1 - ax0, az1, S_GRIT);
+  }
 
-  // TANK FARMS: three storage tanks a side, mirrored — every tank a fat
-  // silhouette you can't see past and shouldn't stand beside
-  for (const [cx, cz] of [[28, 32], [28, 50], [28, 68], [38, 41], [38, 59]] as const) {
+  // TANK FARMS: storage tanks, mirrored — every tank a fat silhouette you
+  // can't see past and shouldn't stand beside. The claim is the PLUS shape
+  // the drum's silhouette actually covers (the invisible-rim audit law).
+  for (const [cx, cz] of L.tanks) {
     for (const tx of [cx, GRID - 1 - cx]) {
       clearDisc(grid, tx, cz, 3);
-      // claim ONLY what the drum's silhouette covers — the PLUS shape: the
-      // drum spans 3.15u, plus-neighbors sit at 3.0u (covered), diagonals
-      // at 4.24u (NOT covered — they were the invisible rim). Audit-law.
       for (const [dx, dz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
         claim(grid, claims, tx + dx, cz + dz, T_WALL);
       }
@@ -1334,8 +1361,8 @@ function refinery(seed: number): GameMap {
     }
   }
 
-  // FLARE STACKS: four pilot lights on the skyline — the chain-reaction bait
-  for (const [fx, fz] of [[22, 20], [22, 80]] as const) {
+  // FLARE STACKS: pilot lights on the skyline — the chain-reaction bait
+  for (const [fx, fz] of L.flares) {
     for (const tx of [fx, GRID - 1 - fx]) {
       claim(grid, claims, tx, fz, T_WALL);
       props.push({ type: 'flare_stack', pos: tw(tx, fz), scale: 1.2, rot: 0 });
@@ -1344,49 +1371,51 @@ function refinery(seed: number): GameMap {
 
   // PIPE RACKS: two east-west runs with crawl gaps — infantry cover the
   // whole way across, vehicles pick a gap and pray
-  for (const z of [24, 76]) {
-    for (let x = 18; x <= 81; x++) {
+  for (const z of L.racks) {
+    for (let x = box.x0 + 8; x <= box.x1 - 8; x++) {
       if (x === 30 || x === 50 || x === 70) continue;
       set(grid, x, z, T_COVER);
     }
   }
 
   // process blocks: pump houses and the machine shop, mirrored
-  stampBuilding(ctx, byId('pumphouse'), 42, 30, 0);
-  stampBuilding(ctx, mirrorDef(byId('pumphouse')), GRID - 42 - 5, 30, 2);
-  stampBuilding(ctx, byId('machine_shop'), 40, 64, 4);
-  stampBuilding(ctx, mirrorDef(byId('machine_shop')), GRID - 40 - 9, 64, 6);
+  for (const [id, bx2, bz2] of L.blocks) {
+    const def = byId(id);
+    stampBuilding(ctx, def, bx2, bz2, bx2 + bz2);
+    stampBuilding(ctx, mirrorDef(def), GRID - bx2 - Math.max(...def.rows.map((r) => r.length)), bz2, bx2 + bz2 + 1);
+  }
 
   // THE CONTROL ROOM: dead center — hold the switches, hold the front
   stampBuilding(ctx, CONTROL_ROOM, 46, 46, 8);
 
   // drum stacks in the alleys and along the empty top/bottom bands
-  for (let i = 0; i < 16; i++) {
-    const tx = d.rng.int(20, 79), tz = d.rng.int(14, 86);
-    if (openOutdoors(d, tx, tz) && Math.hypot(tx - 50, tz - 50) > 9 && Math.abs(tz - 50) > 4) {
+  for (let i = 0; i < L.drums; i++) {
+    const tx = d.rng.int(box.x0 + 10, box.x1 - 10), tz = d.rng.int(box.z0 + 8, box.z1 - 8);
+    if (openOutdoors(d, tx, tz) && Math.hypot(tx - 50, tz - 50) > 9 && Math.abs(tz - L.baseZ) > 4) {
       claim(grid, claims, tx, tz, T_COVER);
       props.push({ type: 'crate', pos: tw(tx, tz), scale: 1, rot: d.rng.range(0, Math.PI) });
     }
   }
 
-  stampBase(grid, claims, props, d.vehiclePads, 0, 10, 50, ['apc', 'tunneler', 'buggy', 'ambulance']);
-  stampBase(grid, claims, props, d.vehiclePads, 1, GRID - 11, 50, ['apc', 'tunneler', 'buggy', 'ambulance']);
+  stampBase(grid, claims, props, d.vehiclePads, 0, L.baseX[0], L.baseZ, ['apc', 'tunneler', 'buggy', 'ambulance']);
+  stampBase(grid, claims, props, d.vehiclePads, 1, L.baseX[1], L.baseZ, ['apc', 'tunneler', 'buggy', 'ambulance']);
 
-  dealPickups(d, [[34, 24, 'ammo'], [34, 76, 'medkit'], [44, 40, 'flamer']]);
+  dealPickups(d, L.pickups);
+  sealOutside(grid, box);
   sealRim(grid);
 
   return {
     seed, theme: 'starship', grid, grid2: d.grid2, surface,
-    basePos: [tw(10, 50), tw(GRID - 11, 50)],
-    spawns: [spawnRing(10, 50), spawnRing(GRID - 11, 50)],
-    flagPos: [tw(10, 50), tw(GRID - 11, 50)],
+    basePos: [tw(L.baseX[0], L.baseZ), tw(L.baseX[1], L.baseZ)],
+    spawns: [spawnRing(L.baseX[0], L.baseZ), spawnRing(L.baseX[1], L.baseZ)],
+    flagPos: [tw(L.baseX[0], L.baseZ), tw(L.baseX[1], L.baseZ)],
     hillPos: tw(49, 52),
     controlPoints: [
-      { name: 'WEST FARM', pos: tw(33, 41) },
+      { name: 'WEST FARM', pos: tw(L.tanks[0][0] + 5, L.tanks[0][1] + 9) },
       { name: 'CONTROL', pos: tw(49, 52) },
-      { name: 'EAST FARM', pos: tw(66, 59) },
+      { name: 'EAST FARM', pos: tw(GRID - L.tanks[0][0] - 6, GRID - L.tanks[0][1] - 10) },
     ],
-    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid),
+    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid, box),
     houses: d.houses, gates: [], pads: [], propCovered: settle(grid, claims),
   };
 }
