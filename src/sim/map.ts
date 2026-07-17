@@ -420,11 +420,17 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
         props.push({ type: 'crate', pos: tileToWorld(mirror(tx + ox), tz + oz), scale: 1, rot: rng.range(0, Math.PI) });
       }
     } else if (kind < mix.rock) {
-      // rock blob (wall tiles, rendered as rocks — ice boulders on Triton)
+      // rock blob (wall tiles, rendered as rocks — ice boulders on Triton).
+      // Claim only tiles the MESH actually covers: the icosphere spans
+      // scale*1.45 world units, so a tile center may sit at most that far
+      // (plus half a tile of grace) from the rock. The old r² disc claimed
+      // diagonal rims the mesh never touched — the long-lived "invisible
+      // wall" you bumped a full stride before the stone. Audit-law enforced.
       const r = rng.int(1, 2);
+      const meshReach = r * 1.6 * 1.45 + 1.2;
       for (let z = -r; z <= r; z++)
         for (let x = -r; x <= r; x++)
-          if (x * x + z * z <= r * r) {
+          if (Math.hypot(x * TILE, z * TILE) <= meshReach) {
             claimTile(grid, claims, tx + x, tz + z, T_WALL);
             claimTile(grid, claims, mirror(tx + x), tz + z, T_WALL);
           }

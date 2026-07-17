@@ -14,7 +14,7 @@ import { BUILDINGS, stencilConnected } from '../src/sim/buildings';
 import { FRONTS } from '../src/client/campaign';
 import {
   GRID, TILE, WORLD, T_CLIMB, T_COVER, T_DEEP, T_METAL, T_WALL, T_WATER,
-  S_ICE, S_PLATE, tileAt, type GameMap,
+  S_ICE, S_PLATE, generateMap, tileAt, type GameMap,
 } from '../src/sim/map';
 import type { Vec3 } from '../src/sim/types';
 
@@ -142,6 +142,35 @@ describe('the front laws — all ten grounds', () => {
     const m = maps.get(id)!;
     for (const i of m.propCovered) {
       expect([T_WALL, T_COVER].includes(m.grid[i]), `${id} claim ${i} drifted`).toBe(true);
+    }
+  });
+
+  it.each(ids)('%s: NO INVISIBLE WALLS — every prop-covered tile has its prop standing on it', (id) => {
+    // a propCovered tile is one the renderer SKIPS (the prop owns the
+    // visual). If no prop actually stands within 1.6u, the tile blocks
+    // movement while drawing NOTHING — the invisible wall. Machine-checked
+    // here so "we still got them dumbass invisible walls" ends as a class.
+    const m = maps.get(id)!;
+    const orphans: string[] = [];
+    for (const i of m.propCovered) {
+      const x = (i % GRID + 0.5) * TILE - WORLD / 2;
+      const z = (Math.floor(i / GRID) + 0.5) * TILE - WORLD / 2;
+      const owned = m.props.some((p) => Math.hypot(p.pos.x - x, p.pos.z - z) < 1.6 + p.scale * 1.2);
+      if (!owned) orphans.push(`(${i % GRID},${Math.floor(i / GRID)})`);
+    }
+    expect(orphans, `${id} invisible walls at tiles ${orphans.slice(0, 6).join(' ')}`).toEqual([]);
+  });
+
+  it('no invisible walls on the GENERIC maps either — every theme, every mode family', () => {
+    for (const [seed, mode, theme] of [[42, 'tdm', 'savanna'], [7, 'conquest', 'starship'], [99, 'ctf', 'europa'], [1234, 'koth', 'triton'], [5150, 'tdm', 'asteroid'], [31, 'conquest', 'titan']] as const) {
+      const m = generateMap(seed, mode, theme);
+      const bad: number[] = [];
+      for (const i of m.propCovered) {
+        const x = (i % GRID + 0.5) * TILE - WORLD / 2;
+        const z = (Math.floor(i / GRID) + 0.5) * TILE - WORLD / 2;
+        if (!m.props.some((p) => Math.hypot(p.pos.x - x, p.pos.z - z) < 1.6 + p.scale * 1.2)) bad.push(i);
+      }
+      expect(bad.length, `${theme}/${mode}/${seed}: ${bad.length} invisible walls, first at tile ${bad[0]}`).toBe(0);
     }
   });
 

@@ -28,6 +28,9 @@ export const SOUND_NAMES = [
   'marker', 'marker_pump', 'marker_lob', // pneumatic thoops — air, not gunpowder
   'splat', 'splat_big',                  // a ball breaking · a player painted out
   'whistle',                             // round start/end — the yard's metronome
+  // ballistic feedback (tools/gen-impact-sounds.mjs): the round that missed
+  // you tells you WHERE FROM, and the one that hit tells you WHAT it hit
+  'whiz', 'impact_dirt', 'impact_stone', 'impact_metal',
 ] as const;
 export type SoundName = (typeof SOUND_NAMES)[number];
 
@@ -61,6 +64,10 @@ const EARSHOT_CLASSES: [RegExp, Earshot][] = [
   [/^marker/, { range: 70, muffle: 0.55, weather: 1 }],
   [/^splat/, { range: 26, muffle: 0.8, weather: 0.4 }],
   [/^whistle/, { range: 130, muffle: 0.3, weather: 1 }],
+  // ballistic feedback: a whiz IS proximity (it only exists near your ear);
+  // impacts read a room away — information, never a soundtrack
+  [/^whiz/, { range: 18, muffle: 0.9, weather: 0.2 }],
+  [/^impact/, { range: 30, muffle: 0.7, weather: 0.5 }],
 ];
 export function earshotFor(name: string): Earshot {
   for (const [re, e] of EARSHOT_CLASSES) if (re.test(name)) return e;

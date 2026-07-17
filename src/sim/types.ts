@@ -239,6 +239,9 @@ export interface Soldier {
   reviveProgress: number;
   /** id of the downed teammate this soldier is hauling right now (-1 = none) */
   draggingId: number;
+  /** jetpack burned dry — no relight until energy recovers to 35 (the
+   *  flight economy: fly, land, breathe — never cross the map in one hop) */
+  jetSpent?: boolean;
   /** psi-scanner next pulse */
   nextPsiAt: number;
   /** repair-kit next use */

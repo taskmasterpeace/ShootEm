@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
-import { CLIMB_H, F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt, losClear } from '../sim/map';
+import { CLIMB_H, F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt, losClear, surfaceAt, tileAt } from '../sim/map';
 import { SEEN_LINGER, SEEN_LINGER_GEARED, seenRecently, type SeenMark } from '../sim/perception';
 import { paintColorFor } from './onboarding';
 import type { WeatherKind } from '../sim/weather';
@@ -147,6 +147,8 @@ export class Renderer {
   // see, and the smudges their noise smears through the dark
   private unseenStepAt = new Map<number, number>();
   private smudges: { mesh: THREE.Mesh; until: number }[] = [];
+  /** rounds that already cracked past the local ear — one whiz per bullet */
+  private whizzed = new Set<number>();
   // PAINTBALL: splatter STAYS (Robert) — flat paint decals, whole-match life,
   // capped FIFO. One shared circle geometry; one cached material per shade.
   private splats: THREE.Mesh[] = [];
@@ -1490,6 +1492,20 @@ export class Renderer {
         this.particles.emit({ pos: { x: p.pos.x, y: p.pos.y, z: p.pos.z }, count: 1, color: 0xa0e040, speed: 0.4, life: 0.3, spread: 0.1, up: -1, gravity: 3, size: 0.2 });
       }
     }
+    // THE WHIZ (Robert: "if somebody shoots near you, you should hear it"):
+    // a hostile round passing inside ~3u of your head cracks by, once per
+    // round. It's pure information — the miss tells you where the fire is.
+    const meWhiz = world.soldiers.get(localId);
+    if (meWhiz?.alive && !this.replayView) {
+      for (const p of world.projectiles.values()) {
+        if (p.team === meWhiz.team || p.arc || this.whizzed.has(p.id)) continue;
+        const d = Math.hypot(p.pos.x - meWhiz.pos.x, p.pos.z - meWhiz.pos.z);
+        if (d < 3.2 && Math.abs(p.pos.y - 1.4) < 2.2) {
+          this.whizzed.add(p.id);
+          audio.play('whiz', { pos: p.pos, volume: 0.65, rate: 0.9 + Math.random() * 0.25 });
+        }
+      }
+    }
     for (const [id, mesh] of this.projMeshes) {
       if (!world.projectiles.has(id)) {
         if (this.replayView) { mesh.visible = false; continue; }
@@ -1500,6 +1516,7 @@ export class Renderer {
           (m.material as THREE.Material | undefined)?.dispose();
         });
         this.projMeshes.delete(id);
+        this.whizzed.delete(id);
       }
     }
 
@@ -2198,8 +2215,28 @@ export class Renderer {
               audio.play('splat', { pos: e.pos, volume: 0.55, rate: 0.9 + Math.random() * 0.25 });
               break;
             }
-            this.particles.emit({ pos: e.pos, count: 6, color: 0xffe0a0, speed: 5, life: 0.25, spread: 0.2, up: 2 });
-            audio.play('hit', { pos: e.pos, volume: 0.5 });
+            if (e.soldierId !== undefined) {
+              // flesh and plate: the classic hit feedback
+              this.particles.emit({ pos: e.pos, count: 6, color: 0xffe0a0, speed: 5, life: 0.25, spread: 0.2, up: 2 });
+              audio.play('hit', { pos: e.pos, volume: 0.5 });
+            } else {
+              // the round hit the WORLD — the world answers in its own voice
+              // (Robert: "hear it impact something"): plate rings, stone
+              // chips, dirt thuds — and the debris wears the surface's color
+              const t = tileAt(world.map.grid, e.pos.x, e.pos.z);
+              const sf = surfaceAt(world.map.surface, e.pos.x, e.pos.z);
+              const rate = 0.85 + Math.random() * 0.3;
+              if (t === T_METAL || sf === S_PLATE) {
+                this.particles.emit({ pos: e.pos, count: 7, color: 0xffd890, speed: 7, life: 0.2, spread: 0.25, up: 2.5, size: 0.16 });
+                audio.play('impact_metal', { pos: e.pos, volume: 0.5, rate });
+              } else if (t === T_WALL || t === T_COVER || t === T_SLIT || t === T_CLIMB) {
+                this.particles.emit({ pos: e.pos, count: 6, color: 0x9a938a, speed: 4.5, life: 0.3, spread: 0.3, up: 2, gravity: 6 });
+                audio.play('impact_stone', { pos: e.pos, volume: 0.5, rate });
+              } else {
+                this.particles.emit({ pos: e.pos, count: 6, color: 0x6b5636, speed: 3.5, life: 0.35, spread: 0.35, up: 2.5, gravity: 7 });
+                audio.play('impact_dirt', { pos: e.pos, volume: 0.45, rate });
+              }
+            }
           }
           break;
         case 'death':

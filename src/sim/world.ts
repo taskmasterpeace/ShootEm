@@ -1048,16 +1048,23 @@ export class World {
     s.vel.x = (mx / len) * speed;
     s.vel.z = (mz / len) * speed;
 
-    // jetpack (jump troopers) / hop for everyone
+    // jetpack (jump troopers) / hop for everyone. The FLIGHT ECONOMY
+    // (Robert: "you can fly across the whole map without ever landing"):
+    //  · an emptied tank LATCHES — no relaunch until it recovers to 35
+    //  · thrust fades above 6u — a soft ceiling, not a cliff ("too high")
+    //  · energy only regenerates ON THE GROUND (below) — feathering the
+    //    trigger no longer buys infinite hang time. Fly, land, breathe.
     if (cmd.jump && !swimming) {
-      if (c.ability === 'jetpack' && s.energy > 1) {
-        s.vel.y = JET_THRUST;
+      if (c.ability === 'jetpack' && s.energy > 1 && !s.jetSpent) {
+        s.vel.y = JET_THRUST * Math.max(0, Math.min(1, 1 - (s.pos.y - 6) / 4));
         s.energy = Math.max(0, s.energy - JET_DRAIN * dt);
+        if (s.energy <= 1) s.jetSpent = true; // burned dry — the latch drops
         if (this.tick % 6 === 0) this.emit({ type: 'jetpack', pos: s.pos, soldierId: s.id });
       } else if (s.pos.y <= 0.01) {
         s.vel.y = 7;
       }
     }
+    if (s.jetSpent && s.energy >= 35) s.jetSpent = false; // recovered enough to relight
 
     // cloak toggle
     if (cmd.ability && c.ability === 'cloak' && this.time >= s.nextAbilityAt) {
@@ -1069,7 +1076,10 @@ export class World {
       s.energy -= CLOAK_DRAIN * dt;
       if (s.energy <= 0) { s.cloaked = false; s.energy = 0; }
     } else if (!(cmd.jump && c.ability === 'jetpack')) {
-      s.energy = Math.min(100, s.energy + ENERGY_REGEN * dt);
+      // jet fuel only flows on the deck — hanging in the sky earns nothing
+      const grounded = s.pos.y <= 0.05;
+      const rate = c.ability === 'jetpack' && !grounded ? 0 : ENERGY_REGEN;
+      s.energy = Math.min(100, s.energy + rate * dt);
     }
 
     // medic self-stim

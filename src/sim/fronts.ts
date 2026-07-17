@@ -878,8 +878,11 @@ function refinery(seed: number): GameMap {
   for (const [cx, cz] of [[28, 32], [28, 50], [28, 68], [38, 41], [38, 59]] as const) {
     for (const tx of [cx, GRID - 1 - cx]) {
       clearDisc(grid, tx, cz, 3);
-      for (let z = cz - 2; z <= cz + 2; z++) for (let x = tx - 2; x <= tx + 2; x++) {
-        if ((x - tx) ** 2 + (z - cz) ** 2 <= 5) claim(grid, claims, x, z, T_WALL);
+      // claim ONLY what the drum's silhouette covers — the PLUS shape: the
+      // drum spans 3.15u, plus-neighbors sit at 3.0u (covered), diagonals
+      // at 4.24u (NOT covered — they were the invisible rim). Audit-law.
+      for (const [dx, dz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        claim(grid, claims, tx + dx, cz + dz, T_WALL);
       }
       props.push({ type: 'silo', pos: tw(tx, cz), scale: 2.1, rot: 0 });
     }

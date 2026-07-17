@@ -113,6 +113,81 @@ describe('combat', () => {
 });
 
 // ---------------------------------------------------------------------------
+// SPACING (Robert: "they keep bunching up together") — a bot standing on a
+// teammate's boots gets pushed apart by separation steering. One grenade
+// should never delete a fireteam that walked in a knot.
+// ---------------------------------------------------------------------------
+describe('bot spacing', () => {
+  it('a bot crowded by a teammate steers away from him', () => {
+    const w = new World({ seed: 42, mode: 'tdm' });
+    const a = w.addSoldier('A', 'infantry', 0, 'bot');
+    const b = w.addSoldier('B', 'infantry', 0, 'bot');
+    a.pos = { x: 0, y: 0, z: 0 };
+    b.pos = { x: 0, y: 0, z: 1 }; // breathing down A's neck
+    const before = Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z);
+    for (let i = 0; i < 90; i++) w.step(1 / 60, new Map());
+    const after = Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z);
+    expect(after, 'the pair should breathe apart').toBeGreaterThan(before + 0.8);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// THE FLIGHT ECONOMY (Robert: "you can fly across the whole map without
+// ever landing... regenerates too fast... they go too high"). Three rules:
+// fuel only flows on the deck, a burned-dry tank latches until 35, and
+// thrust fades into a soft ceiling. Fly, land, breathe.
+// ---------------------------------------------------------------------------
+describe('the flight economy', () => {
+  const jumper = () => {
+    const w = new World({ seed: 42, mode: 'tdm' });
+    const s = w.addSoldier('J', 'jump', 0, 'human');
+    s.pos = { x: 0, y: 0, z: 0 };
+    return { w, s };
+  };
+  const hold = (w: World, s: { id: number }, sec: number, jump: boolean) => {
+    const c = cmd({ jump });
+    for (let i = 0; i < sec * 60; i++) w.step(1 / 60, new Map([[s.id, c]]));
+  };
+
+  it('no fuel in the sky — energy only regenerates on the ground', () => {
+    const { w, s } = jumper();
+    hold(w, s, 1.5, true);            // climb and burn
+    expect(s.pos.y).toBeGreaterThan(1);
+    const midair = s.energy;
+    // hover phase: coast without thrusting — still airborne for a beat
+    w.step(1 / 60, new Map([[s.id, cmd()]]));
+    if (s.pos.y > 0.05) expect(s.energy).toBeLessThanOrEqual(midair + 0.01);
+    // land and breathe — NOW it flows
+    hold(w, s, 2.5, false);
+    expect(s.pos.y).toBeLessThan(0.05);
+    const grounded = s.energy;
+    hold(w, s, 1, false);
+    expect(s.energy).toBeGreaterThan(grounded);
+  });
+
+  it('a burned-dry tank LATCHES — no relight until 35', () => {
+    const { w, s } = jumper();
+    hold(w, s, 4, true);              // burn the full tank dry
+    expect(s.jetSpent).toBe(true);
+    hold(w, s, 1.2, false);           // land, recover a little (< 35)
+    const before = s.pos.y;
+    hold(w, s, 0.5, true);            // try to relight early
+    expect(s.pos.y).toBeLessThan(Math.max(before, 0.05) + 2.5); // a hop at best, no flight
+    hold(w, s, 2.5, false);           // recover past the latch
+    expect(s.jetSpent).toBe(false);
+    hold(w, s, 0.6, true);
+    expect(s.pos.y).toBeGreaterThan(1); // airborne again
+  });
+
+  it('the sky has a soft ceiling — thrust fades, nobody moons out', () => {
+    const { w, s } = jumper();
+    s.energy = 100;
+    hold(w, s, 3, true);
+    expect(s.pos.y).toBeLessThan(12);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // The reload. One rule the guard has to mean: "not already reloading" —
 // NOT "the timer expired". The old time-based guard re-armed the reload on
 // the exact frame it lapsed, before the refill could run, so any caller

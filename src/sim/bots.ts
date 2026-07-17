@@ -738,6 +738,23 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
     }
   }
 
+  // SPACING (Robert: "they keep bunching up together") — every friendly
+  // inside 3u pushes this bot away, harder the closer they stand. One
+  // grenade should never delete a fireteam that walked in a knot; the
+  // separation rides ON TOP of the goal so bots still arrive — spread out.
+  let sepX = 0, sepZ = 0;
+  for (const o of w.humansAndBots()) {
+    if (o.id === s.id || !o.alive || o.team !== s.team) continue;
+    const dx = s.pos.x - o.pos.x, dz = s.pos.z - o.pos.z;
+    const d = Math.hypot(dx, dz);
+    if (d > 3 || d < 0.001) continue;
+    const push = (3 - d) / 3;
+    sepX += (dx / d) * push;
+    sepZ += (dz / d) * push;
+  }
+  mvx += sepX * 0.9;
+  mvz += sepZ * 0.9;
+
   cmd.moveX = Math.max(-1, Math.min(1, mvx));
   cmd.moveZ = Math.max(-1, Math.min(1, mvz));
   return cmd;
