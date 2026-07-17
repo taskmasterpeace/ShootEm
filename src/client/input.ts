@@ -11,6 +11,8 @@ export class Input {
   camDist = 30;
   /** G held: aiming a throw — the HUD draws the arc; release throws to cursor */
   grenadeAiming = false;
+  /** grenade arc (0 flat rope … 1 mortar lob) — wheel adjusts while aiming */
+  grenadeLob = 1;
   private oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1 };
 
   static readonly CAM_MIN = 16;
@@ -32,6 +34,14 @@ export class Input {
     // mouse wheel: see further (out) or fight closer (in)
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
+      // while lining up a grenade the wheel is the ARC dial (Robert:
+      // "allow us to control the arc"): down = flatter rope, up = higher
+      // lob. The cursor still owns the landing spot. Sticky per session —
+      // your throwing style is yours.
+      if (this.grenadeAiming) {
+        this.grenadeLob = Math.max(0, Math.min(1, this.grenadeLob - Math.sign(e.deltaY) * 0.2));
+        return;
+      }
       this.camDist += Math.sign(e.deltaY) * 3;
       this.clampZoom();
     }, { passive: false });
@@ -152,6 +162,7 @@ export class Input {
       reload: this.oneShot.reload,
       grenade: this.oneShot.grenade,
       weaponSlot: this.oneShot.weaponSlot,
+      lob: this.grenadeLob,
     };
     this.oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1 };
     // any mouse/keyboard input hands the wheel back to the desk

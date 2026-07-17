@@ -1201,8 +1201,10 @@ export class World {
       } else if (s.grenades > 0) {
         s.grenades--;
         s.nextGrenadeAt = this.time + 1.2;
-        // hand-thrown frag: lands on the cursor, max ~22u (not the full GL-40 lob)
-        this.throwProjectile(s, 'gl', 1.4, 16, true, reachTo(HAND_FRAG_REACH));
+        // hand-thrown frag: lands on the cursor, max ~22u (not the full GL-40
+        // lob). The player's wheel picks the arc (flat rope ↔ mortar), and a
+        // hand frag BANKS off walls — the bounce flag is the bank-shot license.
+        this.throwProjectile(s, 'gl', 1.4, 16, true, reachTo(HAND_FRAG_REACH), cmd.lob ?? 1, true);
         this.emit({ type: 'shot', pos: s.pos, weapon: 'gl', soldierId: s.id });
         if (s.cloaked) { s.cloaked = false; }
       }
@@ -1359,7 +1361,7 @@ export class World {
    * LANDS at that distance instead of a fixed short ballistic. A caller can
    * pass a shorter reach for a soft toss (e.g. the hand-thrown frag).
    */
-  throwProjectile(s: Soldier, wid: WeaponId, muzzleY: number, speed: number, arc: boolean, reach = WEAPONS[wid].range) {
+  throwProjectile(s: Soldier, wid: WeaponId, muzzleY: number, speed: number, arc: boolean, reach = WEAPONS[wid].range, loft = 1, bounce = false) {
     const def = WEAPONS[wid];
     const spread = (this.rng.next() - 0.5) * 2 * def.spread;
     const yaw = s.yaw + spread;
@@ -1367,24 +1369,28 @@ export class World {
     // has travelled `reach` horizontally. Flight time t = reach/speed; solving
     // muzzleY + vy·t − ½·g·t² = 0 gives vy = ½·g·t − muzzleY/t. Uses the live
     // (per-theme) gravity, so low-g worlds lob correctly too.
+    //
+    // ARC CONTROL (Robert): `loft` slides vy between a flat rope (2.2) and
+    // the full ballistic lob — then speed is RE-SOLVED from the flight time
+    // so the round still lands exactly on the cursor. The loft chooses the
+    // road; the destination never moves. loft=1 reproduces the classic
+    // trajectory bit-for-bit (t = reach/speed ⇒ re-solved speed = speed).
     let vy = 0;
     if (arc) {
       const gArc = this.gravity * 0.7;
-      const t = reach / Math.max(speed, 1);
-      vy = 0.5 * gArc * t - muzzleY / t;
-      if (vy < 2) {
-        // short lob: forcing the vy floor would overshoot — keep the floor and
-        // slow the toss so it still lands exactly at `reach` (cursor-accurate)
-        vy = 2;
-        const tLand = (vy + Math.sqrt(vy * vy + 2 * gArc * muzzleY)) / gArc;
-        speed = reach / tLand;
-      }
+      const t0 = reach / Math.max(speed, 1);
+      const vyFull = Math.max(2, 0.5 * gArc * t0 - muzzleY / t0);
+      const vyFlat = 2.2;
+      vy = vyFlat + (Math.max(vyFull, vyFlat) - vyFlat) * Math.max(0, Math.min(1, loft));
+      const tLand = (vy + Math.sqrt(vy * vy + 2 * gArc * muzzleY)) / gArc;
+      speed = reach / tLand;
     }
     const p: Projectile = {
       id: this.id(), weapon: wid, ownerId: s.id, team: s.team,
       pos: { x: s.pos.x + Math.cos(yaw) * 0.8, y: s.pos.y + muzzleY, z: s.pos.z + Math.sin(yaw) * 0.8 },
       vel: { x: Math.cos(yaw) * speed, y: vy, z: Math.sin(yaw) * speed },
       bornAt: this.time, ttl: reach / Math.max(speed, 1) + (arc ? 1.4 : 0), arc,
+      ...(bounce ? { bounce: true } : {}),
     };
     this.projectiles.set(p.id, p);
   }
@@ -2186,6 +2192,25 @@ export class World {
           }
         }
         if (dead) { this.projectiles.delete(id); continue; }
+      }
+
+      // grenades BANK (Robert): a wall reflects the blocked axis instead of
+      // detonating the round — the fuse keeps burning and the floor is still
+      // the floor. Bank shots around corners are now a skill.
+      if (p.bounce && !dead && p.pos.y > 0.05) {
+        const py = Math.max(p.pos.y, 0);
+        if (blocksShot(this.map.grid, p.pos.x, p.pos.z, py) ||
+            blocksShotUpper(this.map.grid2, p.pos.x, p.pos.z, p.pos.y)) {
+          const ox = p.pos.x - p.vel.x * dt, oz = p.pos.z - p.vel.z * dt;
+          const blockX = blocksShot(this.map.grid, p.pos.x, oz, py) || blocksShotUpper(this.map.grid2, p.pos.x, oz, p.pos.y);
+          const blockZ = blocksShot(this.map.grid, ox, p.pos.z, py) || blocksShotUpper(this.map.grid2, ox, p.pos.z, p.pos.y);
+          // reflect whichever axis ran into the wall; a clean corner clip
+          // (neither axis alone blocked) sends it straight back
+          if (blockX || !blockZ) { p.vel.x = -p.vel.x * 0.45; p.pos.x = ox; }
+          if (blockZ || !blockX) { p.vel.z = -p.vel.z * 0.45; p.pos.z = oz; }
+          p.vel.y *= 0.85; // the wall eats a little hop too
+          this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, ownerId: p.ownerId });
+        }
       }
 
       // hit terrain (either storey's walls)

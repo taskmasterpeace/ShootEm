@@ -600,7 +600,7 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     // duel framing: show the killer, answer "where did that come from?"
     renderer.killcamFocusId = replaying && director.killcamActive ? director.killerId : -1;
     // grenade throw preview: hold G → arc + landing ring at the cursor
-    renderer.setGrenadePreview(world, me, !replaying && input.grenadeAiming ? input.aimPoint(renderer.camera) : null);
+    renderer.setGrenadePreview(world, me, !replaying && input.grenadeAiming ? input.aimPoint(renderer.camera) : null, input.grenadeLob);
     // §8.8: heavy weather closes the long view — the sky caps the wheel
     const wxMods = WEATHER_MODS[renderWorld.weather?.kind ?? 'clear'];
     input.weatherZoomCap = wxMods.zoomCap !== undefined && (renderWorld.weather?.intensity ?? 0) > 0.3

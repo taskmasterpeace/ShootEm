@@ -332,6 +332,9 @@ export interface Projectile {
   homingVehicleId?: number;
   /** heat-seeker: flare gadget that seduced it off the aircraft */
   homingFlareId?: number;
+  /** hand grenades BANK (Robert): walls reflect it instead of detonating it.
+   *  Launcher shells never set this — a GL-40 round still eats the wall. */
+  bounce?: boolean;
 }
 
 export interface Pickup {
@@ -506,4 +509,9 @@ export interface PlayerCmd {
   /** cursor distance from the soldier — thrown items (frag, beacon, charge)
    *  land here, clamped to each item's max reach. Optional for old clients. */
   aimDist?: number;
+  /** grenade arc control (Robert): 0 = flat rope (fast, banks off walls),
+   *  1 = full mortar lob (slow, sails over them). The LANDING SPOT is the
+   *  cursor either way — loft only chooses the road, never the destination.
+   *  Absent = 1 (bots and old clients keep the classic lob). */
+  lob?: number;
 }

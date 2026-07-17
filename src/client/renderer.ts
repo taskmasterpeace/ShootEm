@@ -2014,7 +2014,7 @@ export class Renderer {
   /** Grenade-throw preview while G is held: the sim's exact arc (same math as
    *  throwProjectile) to the cursor, clamped to max reach, plus a splash ring
    *  on the landing point. Pass aim=null to hide. */
-  setGrenadePreview(world: World, s: Soldier | undefined, aim: { x: number; z: number } | null) {
+  setGrenadePreview(world: World, s: Soldier | undefined, aim: { x: number; z: number } | null, loft = 1) {
     if (!s || !aim || !s.alive) {
       if (this.nadeArc) { this.nadeArc.visible = false; this.nadeRing!.visible = false; }
       return;
@@ -2038,17 +2038,15 @@ export class Renderer {
     const dx = aim.x - s.pos.x, dz = aim.z - s.pos.z;
     const reach = Math.max(4, Math.min(Math.hypot(dx, dz), HAND_FRAG_REACH));
     const yaw = Math.atan2(dz, dx);
-    // mirror throwProjectile: vy chosen so the frag lands after `reach` horizontal;
-    // short lobs keep the vy floor and slow the toss instead (same as the sim)
+    // mirror throwProjectile EXACTLY, loft included — a preview that lies
+    // about the arc is worse than no preview (the wheel dials loft 0..1)
     let speed = 16;
     const muzzleY = 1.4, gArc = world.gravity * 0.7;
-    let t = reach / speed;
-    let vy = 0.5 * gArc * t - muzzleY / t;
-    if (vy < 2) {
-      vy = 2;
-      t = (vy + Math.sqrt(vy * vy + 2 * gArc * muzzleY)) / gArc;
-      speed = reach / t;
-    }
+    const t0 = reach / speed;
+    const vyFull = Math.max(2, 0.5 * gArc * t0 - muzzleY / t0);
+    const vy = 2.2 + (Math.max(vyFull, 2.2) - 2.2) * Math.max(0, Math.min(1, loft));
+    const t = (vy + Math.sqrt(vy * vy + 2 * gArc * muzzleY)) / gArc;
+    speed = reach / t;
     const sx = s.pos.x + Math.cos(yaw) * 0.8, sz = s.pos.z + Math.sin(yaw) * 0.8;
     const pos = (this.nadeArc.geometry.getAttribute('position') as THREE.BufferAttribute);
     for (let i = 0; i < N; i++) {
