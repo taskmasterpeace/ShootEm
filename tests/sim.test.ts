@@ -112,6 +112,61 @@ describe('combat', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// The reload. One rule the guard has to mean: "not already reloading" —
+// NOT "the timer expired". The old time-based guard re-armed the reload on
+// the exact frame it lapsed, before the refill could run, so any caller
+// HOLDING reload (a net client with held state, a bot brain, a sim probe)
+// re-started the reload forever and the weapon bricked. Shipped input only
+// ever taps (oneShot / rising edge), which is why nobody bled from it.
+// ---------------------------------------------------------------------------
+describe('the reload', () => {
+  const emptyGun = () => {
+    const w = new World({ seed: 42, mode: 'tdm' });
+    const s = w.addSoldier('R', 'infantry', 0, 'human');
+    w.step(1 / 60, new Map()); // settle one tick — reloads mid-match, not at t=0
+    const i = s.weaponIdx;
+    const def = WEAPONS[s.weapons[i]];
+    s.clip[i] = 0;
+    s.reserve[i] = def.clip * 3;
+    return { w, s, i, def };
+  };
+
+  it('a one-frame tap (real input) arms it and the clip fills on schedule', () => {
+    const { w, s, i, def } = emptyGun();
+    w.step(1 / 60, new Map([[s.id, cmd({ reload: true })]]));
+    expect(s.reloadUntil).toBeGreaterThan(0);
+    run(w, new Map([[s.id, cmd()]]), def.reloadTime + 0.1);
+    expect(s.clip[i]).toBe(def.clip);
+    expect(s.reloadUntil).toBe(0);
+  });
+
+  it('a HELD reload still refills — the re-arm can never outrun the refill', () => {
+    const { w, s, i, def } = emptyGun();
+    // hold the button across the whole window and beyond; before the fix
+    // this looped forever ("NEVER >8s" on every marker in the live probe)
+    run(w, new Map([[s.id, cmd({ reload: true })]]), def.reloadTime + 0.2);
+    expect(s.clip[i], 'held reload bricked the weapon').toBe(def.clip);
+    expect(s.reloadUntil).toBe(0);
+  });
+
+  it('holding reload on a full clip arms nothing', () => {
+    const { w, s, i, def } = emptyGun();
+    run(w, new Map([[s.id, cmd({ reload: true })]]), def.reloadTime + 0.2); // refill
+    run(w, new Map([[s.id, cmd({ reload: true })]]), 0.5);                  // keep holding
+    expect(s.clip[i]).toBe(def.clip);
+    expect(s.reloadUntil).toBe(0);
+  });
+
+  it('mashing reload mid-cycle never stretches the timer — a reload is a promise', () => {
+    const { w, s, def } = emptyGun();
+    w.step(1 / 60, new Map([[s.id, cmd({ reload: true })]]));
+    const due = s.reloadUntil;
+    run(w, new Map([[s.id, cmd({ reload: true })]]), def.reloadTime * 0.5);
+    expect(s.reloadUntil).toBe(due);
+  });
+});
+
 describe('vehicles', () => {
   it('spawns vehicles on pads and lets soldiers drive them', () => {
     const w = new World({ seed: 42, mode: 'tdm' });

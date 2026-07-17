@@ -1014,8 +1014,14 @@ export class World {
     const wid = s.weapons[s.weaponIdx];
     const def = WEAPONS[wid];
 
-    // reload
-    if (cmd.reload && s.clip[s.weaponIdx] < def.clip && s.reserve[s.weaponIdx] > 0 && this.time > s.reloadUntil) {
+    // reload — the guard means "not already reloading" (=== 0), NOT "the
+    // timer expired". The old time-based guard re-armed on the very frame
+    // the timer lapsed, BEFORE the refill below could run — so a HELD
+    // reload input restarted the reload forever and the clip never filled.
+    // Real input taps (oneShot/rising-edge), which is the only reason this
+    // never bricked a shipped weapon; held-state senders (net clients,
+    // bot brains, probes) would have hit it.
+    if (cmd.reload && s.clip[s.weaponIdx] < def.clip && s.reserve[s.weaponIdx] > 0 && s.reloadUntil === 0) {
       s.reloadUntil = this.time + def.reloadTime;
       this.emit({ type: 'reload', pos: s.pos, soldierId: s.id });
     }
