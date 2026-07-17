@@ -258,64 +258,104 @@ function dealPickups(d: FrontDraft, spots: [number, number, PickupSpawn['type']]
 }
 
 // ---------------------------------------------------------------------------
-// 1 · BRIDGE DELTA — the river owns the map; three crossings, three prices.
-// Signature: holding the main span while artillery walks the deck.
+// 1 · BRIDGE DELTA — the river owns the map; the crossings are the prices.
+// Large fields all three spans (main deck, rail, ford); standard keeps the
+// three closer; small is the knife fight: the deck and the ford, nothing
+// else. Signature: holding the main span while artillery walks it.
 // Doctrine: armor + the boat. Scar: flooded (the ford becomes everything).
 // ---------------------------------------------------------------------------
-function bridgeDelta(seed: number): GameMap {
+interface DeltaLayout {
+  span: [number, number];  // z band of the main span (4 lanes)
+  rail?: [number, number]; // the rail bridge — cut on small
+  ford: [number, number];  // shallow the whole way
+  hamlets: [string, number, number][]; // west-side buildings (mirrored)
+  boats: number;           // z of the moorings
+  guns: [number, number];  // emplacement tile (west; mirrored)
+  pickups: [number, number, PickupSpawn['type']][];
+  reeds: number;
+}
+
+const DELTA_LAYOUTS: Record<MapSize, DeltaLayout> = {
+  large: {
+    span: [36, 39], rail: [61, 62], ford: [78, 81],
+    hamlets: [['guard_post', 38, 30], ['cottage', 28, 14], ['farmhouse', 18, 24], ['pumphouse', 37, 74], ['hut', 24, 84]],
+    boats: 70, guns: [36, 46],
+    pickups: [[40, 37, 'medkit'], [40, 62, 'ammo'], [40, 80, 'energy'], [30, 50, 'ammo']],
+    reeds: 22,
+  },
+  standard: {
+    span: [32, 35], rail: [52, 53], ford: [68, 71],
+    hamlets: [['guard_post', 36, 26], ['farmhouse', 16, 20], ['pumphouse', 37, 62], ['hut', 24, 76]],
+    boats: 64, guns: [34, 42],
+    pickups: [[40, 33, 'medkit'], [40, 53, 'ammo'], [40, 69, 'energy'], [30, 47, 'ammo']],
+    reeds: 16,
+  },
+  small: {
+    span: [36, 39], ford: [60, 63],
+    hamlets: [['guard_post', 38, 28], ['farmhouse', 26, 22], ['pumphouse', 38, 56]],
+    boats: 56, guns: [36, 42],
+    pickups: [[40, 37, 'medkit'], [40, 61, 'ammo'], [30, 47, 'energy']],
+    reeds: 10,
+  },
+};
+
+function bridgeDelta(seed: number, size: MapSize = 'large'): GameMap {
+  const L = DELTA_LAYOUTS[size];
+  const box = boxFor(size);
   const d = draft(seed, T_OPEN, S_GRASS);
   const { grid, surface, props, claims } = d;
+  const midZ = Math.floor((box.z0 + box.z1) / 2);
 
   // THE RIVER: north-south, deep core, wadeable rims — the map's one truth
-  rect(grid, 45, 1, 54, GRID - 2, T_WATER);
-  rect(grid, 47, 1, 52, GRID - 2, T_DEEP);
+  rect(grid, 45, box.z0 + 1, 54, box.z1 - 1, T_WATER);
+  rect(grid, 47, box.z0 + 1, 52, box.z1 - 1, T_DEEP);
 
-  // THE MAIN SPAN (z 36..39): four lanes of plate, rail cover on the edges
-  // with three vault gaps a side — the artillery-hell duel deck
-  rect(grid, 44, 36, 55, 39, T_OPEN);
-  rectSurf(surface, 44, 36, 55, 39, S_PLATE);
+  // THE MAIN SPAN: four lanes of plate, rail cover on the edges with three
+  // vault gaps a side — the artillery-hell duel deck
+  rect(grid, 44, L.span[0], 55, L.span[1], T_OPEN);
+  rectSurf(surface, 44, L.span[0], 55, L.span[1], S_PLATE);
   for (let x = 44; x <= 55; x++) {
     if (x === 47 || x === 50 || x === 53) continue; // the vaults
-    set(grid, x, 35, T_COVER);
-    set(grid, x, 40, T_COVER);
+    set(grid, x, L.span[0] - 1, T_COVER);
+    set(grid, x, L.span[1] + 1, T_COVER);
   }
   // the burned convoy — mid-span hard cover, the story the yard tells
-  claim(grid, claims, 49, 37, T_COVER);
-  claim(grid, claims, 50, 38, T_COVER);
-  props.push({ type: 'wreck', pos: tw(49, 37), scale: 1.15, rot: 0.5 });
-  props.push({ type: 'wreck', pos: tw(50, 38), scale: 1, rot: 3.6 });
+  const spanMid = Math.floor((L.span[0] + L.span[1]) / 2);
+  claim(grid, claims, 49, spanMid, T_COVER);
+  claim(grid, claims, 50, spanMid + 1, T_COVER);
+  props.push({ type: 'wreck', pos: tw(49, spanMid), scale: 1.15, rot: 0.5 });
+  props.push({ type: 'wreck', pos: tw(50, spanMid + 1), scale: 1, rot: 3.6 });
 
-  // THE RAIL BRIDGE (z 61..62): two naked lanes — fast and honest
-  rect(grid, 44, 61, 55, 62, T_OPEN);
-  rectSurf(surface, 44, 61, 55, 62, S_PLATE);
+  // THE RAIL BRIDGE: two naked lanes — fast and honest (cut on small)
+  if (L.rail) {
+    rect(grid, 44, L.rail[0], 55, L.rail[1], T_OPEN);
+    rectSurf(surface, 44, L.rail[0], 55, L.rail[1], S_PLATE);
+  }
 
-  // THE FORD (z 78..81): shallow the whole way — the only crossing wheels get
-  rect(grid, 45, 78, 54, 81, T_WATER);
+  // THE FORD: shallow the whole width — the only crossing wheels get
+  rect(grid, 45, L.ford[0], 54, L.ford[1], T_WATER);
 
   // bridgehead sandbags, mirrored: attacking a span head costs you the open
-  for (const z of [33, 42]) {
+  for (const z of [L.span[0] - 3, L.span[1] + 3]) {
     for (let x = 39; x <= 42; x++) { set(grid, x, z, T_COVER); set(grid, GRID - 1 - x, z, T_COVER); }
   }
-  for (const z of [59, 64]) {
-    for (let x = 40; x <= 42; x++) { set(grid, x, z, T_COVER); set(grid, GRID - 1 - x, z, T_COVER); }
+  if (L.rail) {
+    for (const z of [L.rail[0] - 2, L.rail[1] + 2]) {
+      for (let x = 40; x <= 42; x++) { set(grid, x, z, T_COVER); set(grid, GRID - 1 - x, z, T_COVER); }
+    }
   }
 
   // the banks are farmland: a hamlet a side, a pumphouse watching the ford
   const ctx = ctxOf(d);
-  stampBuilding(ctx, byId('guard_post'), 38, 30, 0);
-  stampBuilding(ctx, mirrorDef(byId('guard_post')), GRID - 38 - 5, 30, 2);
-  stampBuilding(ctx, byId('cottage'), 28, 14, 4);
-  stampBuilding(ctx, mirrorDef(byId('cottage')), GRID - 28 - 7, 14, 6);
-  stampBuilding(ctx, byId('farmhouse'), 18, 24, 8);
-  stampBuilding(ctx, mirrorDef(byId('farmhouse')), GRID - 18 - 9, 24, 10);
-  stampBuilding(ctx, byId('pumphouse'), 37, 74, 12);
-  stampBuilding(ctx, mirrorDef(byId('pumphouse')), GRID - 37 - 5, 74, 14);
-  stampBuilding(ctx, byId('hut'), 24, 84, 16);
-  stampBuilding(ctx, mirrorDef(byId('hut')), GRID - 24 - 7, 84, 18);
+  for (const [id, hx, hz] of L.hamlets) {
+    const def = byId(id);
+    stampBuilding(ctx, def, hx, hz, hx + hz);
+    stampBuilding(ctx, mirrorDef(def), GRID - hx - Math.max(...def.rows.map((r) => r.length)), hz, hx + hz + 1);
+  }
 
-  // reed stands on the banks — dressing, seed's only vote
-  for (let i = 0; i < 22; i++) {
-    const tz = d.rng.int(6, GRID - 7);
+  // reed stands on the banks — dressing, the seed's only vote
+  for (let i = 0; i < L.reeds; i++) {
+    const tz = d.rng.int(box.z0 + 6, box.z1 - 6);
     const west = d.rng.next() < 0.5;
     const tx = west ? d.rng.int(41, 43) : d.rng.int(56, 58);
     if (openOutdoors(d, tx, tz)) {
@@ -324,7 +364,8 @@ function bridgeDelta(seed: number): GameMap {
     }
   }
   // supply dumps behind each bridgehead — the fight leaves its kit lying out
-  for (const [cx2, cz2] of [[38, 36], [37, 63], [41, 84]] as const) {
+  const dumps: [number, number][] = [[38, spanMid], [37, spanMid - 2], [41, L.ford[0] + 1]];
+  for (const [cx2, cz2] of dumps) {
     for (const tx of [cx2, GRID - 1 - cx2]) {
       if (grid[idx(tx, cz2)] === T_OPEN) {
         claim(grid, claims, tx, cz2, T_COVER);
@@ -334,31 +375,33 @@ function bridgeDelta(seed: number): GameMap {
   }
 
   // bases + the armor-and-boats motor pool
-  stampBase(grid, claims, props, d.vehiclePads, 0, 10, 50, ['tank', 'apc', 'buggy', 'ambulance']);
-  stampBase(grid, claims, props, d.vehiclePads, 1, GRID - 11, 50, ['tank', 'apc', 'buggy', 'ambulance']);
-  d.vehiclePads.push({ kind: 'boat', team: 0, pos: tw(45, 70) });
-  d.vehiclePads.push({ kind: 'boat', team: 1, pos: tw(54, 70) });
-  d.vehiclePads.push({ kind: 'emplacement', team: 0, pos: tw(36, 46) });
-  d.vehiclePads.push({ kind: 'emplacement', team: 1, pos: tw(GRID - 37, 46) });
-  clearDisc(grid, 36, 46, 2); clearDisc(grid, GRID - 37, 46, 2);
+  stampBase(grid, claims, props, d.vehiclePads, 0, box.x0 + 10, midZ, ['tank', 'apc', 'buggy', 'ambulance']);
+  stampBase(grid, claims, props, d.vehiclePads, 1, box.x1 - 9, midZ, ['tank', 'apc', 'buggy', 'ambulance']);
+  d.vehiclePads.push({ kind: 'boat', team: 0, pos: tw(45, L.boats) });
+  d.vehiclePads.push({ kind: 'boat', team: 1, pos: tw(54, L.boats) });
+  d.vehiclePads.push({ kind: 'emplacement', team: 0, pos: tw(...L.guns) });
+  d.vehiclePads.push({ kind: 'emplacement', team: 1, pos: tw(GRID - 1 - L.guns[0], L.guns[1]) });
+  clearDisc(grid, L.guns[0], L.guns[1], 2); clearDisc(grid, GRID - 1 - L.guns[0], L.guns[1], 2);
 
-  dealPickups(d, [[40, 37, 'medkit'], [40, 62, 'ammo'], [40, 80, 'energy'], [30, 50, 'ammo']]);
+  dealPickups(d, L.pickups);
   mudMargins(grid, surface);
+  sealOutside(grid, box);
   sealRim(grid);
 
   // conquest here is the fight for the crossings themselves
+  const cps = [
+    { name: 'SPAN', pos: tw(49, spanMid + 1) },
+    ...(L.rail ? [{ name: 'RAIL', pos: tw(49, L.rail[0]) }] : []),
+    { name: 'FORD', pos: tw(49, L.ford[0] + 1) },
+  ];
   return {
     seed, theme: 'savanna', grid, grid2: d.grid2, surface,
-    basePos: [tw(10, 50), tw(GRID - 11, 50)],
-    spawns: [spawnRing(10, 50), spawnRing(GRID - 11, 50)],
-    flagPos: [tw(10, 50), tw(GRID - 11, 50)],
-    hillPos: tw(49, 37),
-    controlPoints: [
-      { name: 'SPAN', pos: tw(49, 38) },
-      { name: 'RAIL', pos: tw(49, 61) },
-      { name: 'FORD', pos: tw(49, 79) },
-    ],
-    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid),
+    basePos: [tw(box.x0 + 10, midZ), tw(box.x1 - 9, midZ)],
+    spawns: [spawnRing(box.x0 + 10, midZ), spawnRing(box.x1 - 9, midZ)],
+    flagPos: [tw(box.x0 + 10, midZ), tw(box.x1 - 9, midZ)],
+    hillPos: tw(49, spanMid),
+    controlPoints: cps,
+    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid, box),
     houses: d.houses, gates: [], pads: [], propCovered: settle(grid, claims),
   };
 }
