@@ -548,21 +548,72 @@ function fortRaven(seed: number, size: MapSize = 'large'): GameMap {
 // Signature: the 60-unit tank duel broken by a treeline ambush.
 // Doctrine: armor doubled. Scar: fire (burned fields lose concealment).
 // ---------------------------------------------------------------------------
-function easternPlains(seed: number): GameMap {
+interface PlainsLayout {
+  rows: { z: number; gaps: number[] }[];          // the hedgerow lines
+  fields: [number, number, number, number][];     // plowed dirt rects
+  track: [number, number, number, number][];      // the mud farm lanes
+  farms: [string, number, number][];              // west-side stock (mirrored)
+  silos: [number, number][];                      // the skyline (mirrored)
+  wrecks: [number, number, number][];             // no-man's lane
+  guns: [number, number];                         // emplacement (west; mirrored)
+  baseX: [number, number]; baseZ: number;
+  pickups: [number, number, PickupSpawn['type']][];
+}
+
+const PLAINS_LAYOUTS: Record<MapSize, PlainsLayout> = {
+  large: {
+    rows: [
+      { z: 20, gaps: [22, 50, 78] }, { z: 35, gaps: [34, 64, 90] },
+      { z: 50, gaps: [14, 48, 82] }, { z: 65, gaps: [30, 60, 88] },
+      { z: 80, gaps: [20, 52, 76] },
+    ],
+    fields: [[12, 22, 44, 33], [55, 37, 88, 48], [12, 52, 44, 63], [55, 67, 88, 78]],
+    track: [[10, 46, 89, 48], [47, 36, 49, 64]],
+    farms: [['farmhouse', 22, 24], ['warehouse', 18, 54], ['hut', 30, 70]],
+    silos: [[32, 25], [31, 56], [39, 71]],
+    wrecks: [[48, 27, 0.8], [51, 42, 2.4], [47, 57, 5.5], [52, 72, 1.2], [49, 87, 4.0]],
+    guns: [30, 42], baseX: [10, GRID - 11], baseZ: 50,
+    pickups: [[38, 27, 'ammo'], [42, 43, 'medkit'], [38, 58, 'energy'], [42, 73, 'ammo']],
+  },
+  standard: {
+    rows: [
+      { z: 16, gaps: [24, 50, 74] }, { z: 30, gaps: [36, 62, 84] },
+      { z: 47, gaps: [20, 48, 78] }, { z: 60, gaps: [32, 58, 82] },
+      { z: 74, gaps: [24, 52, 72] },
+    ],
+    fields: [[12, 18, 44, 28], [55, 32, 86, 45], [12, 49, 44, 58], [55, 62, 86, 72]],
+    track: [[10, 45, 87, 47], [47, 31, 49, 59]],
+    farms: [['farmhouse', 20, 18], ['warehouse', 16, 48], ['hut', 28, 64]],
+    silos: [[30, 19], [29, 50], [37, 65]],
+    wrecks: [[48, 24, 0.8], [51, 40, 2.4], [47, 55, 5.5], [52, 70, 1.2]],
+    guns: [28, 40], baseX: [19, GRID - 20], baseZ: 47,
+    pickups: [[36, 24, 'ammo'], [40, 42, 'medkit'], [36, 56, 'energy'], [40, 68, 'ammo']],
+  },
+  small: {
+    rows: [
+      { z: 26, gaps: [30, 56, 74] }, { z: 40, gaps: [22, 48, 70] },
+      { z: 54, gaps: [34, 60, 76] }, { z: 68, gaps: [26, 52, 72] },
+    ],
+    fields: [[20, 28, 44, 38], [55, 42, 78, 52], [22, 56, 46, 66]],
+    track: [[20, 45, 78, 47]],
+    farms: [['farmhouse', 26, 28], ['hut', 30, 56]],
+    silos: [[36, 29], [38, 57]],
+    wrecks: [[48, 32, 0.8], [51, 47, 2.4], [47, 62, 5.5]],
+    guns: [32, 42], baseX: [29, GRID - 30], baseZ: 49,
+    pickups: [[38, 33, 'ammo'], [40, 45, 'medkit'], [38, 59, 'energy']],
+  },
+};
+
+function easternPlains(seed: number, size: MapSize = 'large'): GameMap {
+  const L = PLAINS_LAYOUTS[size];
+  const box = boxFor(size);
   const d = draft(seed, T_OPEN, S_GRASS);
   const { grid, surface, props, claims } = d;
 
-  // HEDGEROWS: five treelines, gaps staggered so no lane runs clean through —
+  // HEDGEROWS: treelines with staggered gaps so no lane runs clean through —
   // armor must jink between rows, and every gap is a known ambush angle
-  const rows: { z: number; gaps: number[] }[] = [
-    { z: 20, gaps: [22, 50, 78] },
-    { z: 35, gaps: [34, 64, 90] },
-    { z: 50, gaps: [14, 48, 82] },
-    { z: 65, gaps: [30, 60, 88] },
-    { z: 80, gaps: [20, 52, 76] },
-  ];
-  for (const { z, gaps } of rows) {
-    for (let x = 8; x <= 91; x++) {
+  for (const { z, gaps } of L.rows) {
+    for (let x = box.x0 + 8; x <= box.x1 - 8; x++) {
       if (gaps.some((g) => Math.abs(x - g) <= 2)) continue;
       set(grid, x, z, T_WALL);
       if (x % 3 === 0) props.push({ type: 'tree', pos: tw(x, z), scale: d.rng.range(0.9, 1.3), rot: d.rng.range(0, Math.PI * 2) });
@@ -570,29 +621,20 @@ function easternPlains(seed: number): GameMap {
   }
 
   // plowed fields between hedges — the ground itself tells you where you are
-  rectSurf(surface, 12, 22, 44, 33, S_DIRT);
-  rectSurf(surface, 55, 37, 88, 48, S_DIRT);
-  rectSurf(surface, 12, 52, 44, 63, S_DIRT);
-  rectSurf(surface, 55, 67, 88, 78, S_DIRT);
-
-  // the farm tracks: one east-west lane between the middle hedgerows, one
-  // north-south spur threading the center hedge's gap — they MEET, so the
-  // crossroads is an actual crossroads, not just a name on the HUD
-  rectSurf(surface, 10, 46, 89, 48, S_MUD);
-  rectSurf(surface, 47, 36, 49, 64, S_MUD);
+  for (const [x0, z0, x1, z1] of L.fields) rectSurf(surface, x0, z0, x1, z1, S_DIRT);
+  // the farm tracks: mud lanes the wheels hate and the crossroads that names
+  // the middle CP
+  for (const [x0, z0, x1, z1] of L.track) rectSurf(surface, x0, z0, x1, z1, S_MUD);
 
   // the farms — a working landscape, mirrored for fairness
   const ctx = ctxOf(d);
-  stampBuilding(ctx, byId('farmhouse'), 22, 24, 0);
-  stampBuilding(ctx, mirrorDef(byId('farmhouse')), GRID - 22 - 9, 24, 2);
-  stampBuilding(ctx, byId('warehouse'), 18, 54, 4);
-  stampBuilding(ctx, mirrorDef(byId('warehouse')), GRID - 18 - 11, 54, 6);
-  stampBuilding(ctx, byId('hut'), 30, 70, 8);
-  stampBuilding(ctx, mirrorDef(byId('hut')), GRID - 30 - 7, 70, 10);
-  // silos BESIDE the farms — the plains' skyline. (The first draft parked
-  // two of them INSIDE the warehouse and the hut; the indoors law caught it.
-  // x-clearance is what matters: houseAt needs both axes inside the rect.)
-  for (const [sx, sz] of [[32, 25], [31, 56], [39, 71]] as const) {
+  for (const [id, hx, hz] of L.farms) {
+    const def = byId(id);
+    stampBuilding(ctx, def, hx, hz, hx + hz);
+    stampBuilding(ctx, mirrorDef(def), GRID - hx - Math.max(...def.rows.map((r) => r.length)), hz, hx + hz + 1);
+  }
+  // silos BESIDE the farms — the plains' skyline
+  for (const [sx, sz] of L.silos) {
     for (const tx of [sx, GRID - 1 - sx]) {
       claim(grid, claims, tx, sz, T_WALL);
       props.push({ type: 'silo', pos: tw(tx, sz), scale: 1, rot: 0 });
@@ -600,32 +642,35 @@ function easternPlains(seed: number): GameMap {
   }
 
   // NO-MAN'S LANE: burned hulls down the center — the only cover out there
-  for (const [wx, wz, r] of [[48, 27, 0.8], [51, 42, 2.4], [47, 57, 5.5], [52, 72, 1.2], [49, 87, 4.0]] as const) {
+  for (const [wx, wz, r] of L.wrecks) {
     claim(grid, claims, wx, wz, T_COVER);
     props.push({ type: 'wreck', pos: tw(wx, wz), scale: 1.1, rot: r });
   }
 
-  stampBase(grid, claims, props, d.vehiclePads, 0, 10, 50, ['tank', 'tank', 'apc', 'buggy', 'ambulance']);
-  stampBase(grid, claims, props, d.vehiclePads, 1, GRID - 11, 50, ['tank', 'tank', 'apc', 'buggy', 'ambulance']);
-  d.vehiclePads.push({ kind: 'emplacement', team: 0, pos: tw(30, 42) });
-  d.vehiclePads.push({ kind: 'emplacement', team: 1, pos: tw(GRID - 31, 58) });
-  clearDisc(grid, 30, 42, 2); clearDisc(grid, GRID - 31, 58, 2);
+  stampBase(grid, claims, props, d.vehiclePads, 0, L.baseX[0], L.baseZ, ['tank', 'tank', 'apc', 'buggy', 'ambulance']);
+  stampBase(grid, claims, props, d.vehiclePads, 1, L.baseX[1], L.baseZ, ['tank', 'tank', 'apc', 'buggy', 'ambulance']);
+  d.vehiclePads.push({ kind: 'emplacement', team: 0, pos: tw(...L.guns) });
+  d.vehiclePads.push({ kind: 'emplacement', team: 1, pos: tw(GRID - 1 - L.guns[0], GRID - 1 - L.guns[1]) });
+  clearDisc(grid, L.guns[0], L.guns[1], 2); clearDisc(grid, GRID - 1 - L.guns[0], GRID - 1 - L.guns[1], 2);
 
-  dealPickups(d, [[38, 27, 'ammo'], [42, 43, 'medkit'], [38, 58, 'energy'], [42, 73, 'ammo']]);
+  dealPickups(d, L.pickups);
+  sealOutside(grid, box);
   sealRim(grid);
 
+  const midRow = L.rows[Math.floor(L.rows.length / 2)];
+  const crossZ = L.track.length ? L.track[0][2] : midRow.z;
   return {
     seed, theme: 'savanna', grid, grid2: d.grid2, surface,
-    basePos: [tw(10, 50), tw(GRID - 11, 50)],
-    spawns: [spawnRing(10, 50), spawnRing(GRID - 11, 50)],
-    flagPos: [tw(10, 50), tw(GRID - 11, 50)],
-    hillPos: tw(50, 50),
+    basePos: [tw(L.baseX[0], L.baseZ), tw(L.baseX[1], L.baseZ)],
+    spawns: [spawnRing(L.baseX[0], L.baseZ), spawnRing(L.baseX[1], L.baseZ)],
+    flagPos: [tw(L.baseX[0], L.baseZ), tw(L.baseX[1], L.baseZ)],
+    hillPos: tw(50, crossZ),
     controlPoints: [
-      { name: 'NORTH FARM', pos: tw(26, 28) },
-      { name: 'CROSSROADS', pos: tw(48, 47) },
-      { name: 'SOUTH FARM', pos: tw(73, 72) },
+      { name: 'NORTH FARM', pos: tw(L.farms[0][1] + 4, L.farms[0][2] + 4) },
+      { name: 'CROSSROADS', pos: tw(48, crossZ) },
+      { name: 'SOUTH FARM', pos: tw(GRID - L.farms[0][1] - 5, GRID - L.farms[0][2] - 5) },
     ],
-    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid),
+    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid, box),
     houses: d.houses, gates: [], pads: [], propCovered: settle(grid, claims),
   };
 }
