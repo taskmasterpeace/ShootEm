@@ -60,6 +60,12 @@ export const CAST = {
     persona: 'Barrier, a United Front Living Super Weapon — a defender who became a wall. Steady, immovable, low and even; he does not threaten, he simply informs you where the line is. Nothing rattles him.',
     scene: 'A low electric hum of a force field. Rounds pinging off energy and coming back.',
   },
+  reactor: {
+    voice: 'Rasalgethi',
+    fx: 'none', // warm, generous — a slightly unstable hum under it
+    persona: 'Reactor, a United Front Living Super Weapon — a walking power core who exists to make everyone else stronger. Warm, generous, encouraging, with a faint electric instability under the good humor. He gives too much of himself, gladly.',
+    scene: 'A deep reactor hum building and releasing. Energy pouring into someone nearby.',
+  },
   announcer: {
     voice: 'Orus',
     fx: 'radio', // 300–3400Hz military net + soft clip
@@ -125,6 +131,13 @@ export const VO = [
   { slot: 'vo_barrier_ability', who: 'barrier', text: '[low] Send it back.', notes: ['Said as fire reflects toward its shooters.', 'A quiet, certain instruction.'] },
   { slot: 'vo_barrier_low', who: 'barrier', text: '[strained] The wall... is cracking.', notes: ['The first uncertainty in an unshakable voice.'] },
   { slot: 'vo_barrier_death', who: 'barrier', text: '[settling] Line... held.', notes: ['Satisfied, not afraid — the job was done.'] },
+
+  // ---- REACTOR: gives too much, gladly ----
+  { slot: 'vo_reactor_arrive', who: 'reactor', text: '[warm] Who needs a boost?', notes: ['Genuinely offering, like a friend with a jump-start.', 'A faint electric hum under the warmth.'] },
+  { slot: 'vo_reactor_kill3', who: 'reactor', text: "Three — and I'm just the battery.", notes: ['Deflecting credit to his team, pleased about it.'] },
+  { slot: 'vo_reactor_ability', who: 'reactor', text: "[surging] Take everything I've got.", notes: ['Said while pouring power into an ally.', 'Generous to the point of self-harm.'] },
+  { slot: 'vo_reactor_low', who: 'reactor', text: '[unstable] Core... destabilizing.', notes: ['The hum turns dangerous.', 'Worry, but more for others than himself.'] },
+  { slot: 'vo_reactor_death', who: 'reactor', text: '[rising whine] Going... critical.', notes: ['A reactor about to go — ominous, not frightened.', 'The whine climbs and cuts out.'] },
 ];
 
 /** The announcer — map-wide, both teams, radio net. */
@@ -161,6 +174,10 @@ export const ANN = [
   { slot: 'ann_barrier_landed', text: 'BARRIER ON THE FIELD. MIND THE WALLS.' },
   { slot: 'ann_barrier_down', text: 'BARRIER IS DOWN. THE LANES OPEN.' },
   { slot: 'ann_barrier_rampage', text: 'FIVE KILLS. BARRIER WILL NOT BREAK.' },
+  { slot: 'ann_reactor_inbound', text: 'REACTOR INBOUND. [short pause] KILL THE BATTERY FIRST.' },
+  { slot: 'ann_reactor_landed', text: 'REACTOR ON THE FIELD. THEIR CARRY JUST GOT STRONGER.' },
+  { slot: 'ann_reactor_down', text: 'REACTOR IS DOWN. THE OVERCHARGE FADES.' },
+  { slot: 'ann_reactor_rampage', text: 'FIVE KILLS. REACTOR IS FEEDING THE WHOLE LINE.' },
 ];
 
 export const ANN_NOTES = [

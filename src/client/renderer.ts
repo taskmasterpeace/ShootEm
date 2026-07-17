@@ -1936,6 +1936,13 @@ export class Renderer {
         pos: { x: s.pos.x, y: 0.5 + Math.random() * 1.5, z: s.pos.z }, count: 1,
         color: 0x3fd9a0, speed: 0.4, life: 0.7, spread: 0.6, up: 0.5, gravity: 0, size: 0.35,
       });
+    } else if (id === 'reactor') {
+      // radiant golden energy rising off an unstable core
+      this.particles.emit({
+        pos: { x: s.pos.x, y: 0.5 + Math.random() * 1.6, z: s.pos.z }, count: 2,
+        color: Math.random() < 0.5 ? 0xffb020 : 0xffe07a, speed: 1.0, life: 0.5,
+        spread: 0.5, up: 2.0, gravity: -1, size: 0.3,
+      });
     }
     // the LSW's VOICE: an Ascendant is an event you can HEAR coming. A
     // per-unit signature on a throttle (roar/hiss/whoosh), and it gets more

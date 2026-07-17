@@ -370,6 +370,46 @@ describe('Barrier — the reflect wall', () => {
 });
 
 // ---------------------------------------------------------------------------
+// REACTOR — a charged nova when he's alone, an overcharge (borrowed rageMul)
+// for the nearest ally when one's close. The buff burns out on its own.
+// ---------------------------------------------------------------------------
+describe('Reactor — nova and overcharge', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('novas nearby enemies when there is no ally to feed', () => {
+    const w = quiet();
+    const r = w.addLsw('reactor', 0, { x: 0, y: 0, z: 0 })!;
+    const e = w.addSoldier('E', 'infantry', 1, 'human');
+    e.pos = { x: 4, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    const hp0 = e.hp;
+    w.applyCmd(r, cmd({ ability: true }), 1 / 60);
+    expect(e.hp, 'the nova did not burst the enemy').toBeLessThan(hp0);
+  });
+
+  it('overcharges the nearest ally — outgoing damage runs hot', () => {
+    const w = quiet();
+    const r = w.addLsw('reactor', 0, { x: 0, y: 0, z: 0 })!;
+    const ally = w.addSoldier('A', 'infantry', 0, 'bot');
+    ally.pos = { x: 3, y: 0, z: 0 }; ally.alive = true;
+    w.applyCmd(r, cmd({ ability: true }), 1 / 60);
+    expect(ally.rageMul ?? 1, 'the ally was not overcharged').toBeGreaterThan(1);
+    expect(ally.overchargeUntil ?? 0, 'no overcharge window was set').toBeGreaterThan(w.time);
+  });
+
+  it('the overcharge burns out after its window', () => {
+    const w = quiet();
+    const r = w.addLsw('reactor', 0, { x: 0, y: 0, z: 0 })!;
+    const ally = w.addSoldier('A', 'infantry', 0, 'bot');
+    ally.pos = { x: 3, y: 0, z: 0 }; ally.alive = true;
+    w.applyCmd(r, cmd({ ability: true }), 1 / 60);
+    r.nextLswAt = w.time + 100; r.nextLswActiveAt = w.time + 100; // stop the bot re-casting
+    ally.overchargeUntil = w.time - 1; // force the window closed
+    w.step(1 / 60, new Map());
+    expect(ally.rageMul ?? 1, 'the overcharge never wore off').toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // §7 PLAYING AS AN LSW — you call it, you hold the mark, you BECOME it.
 // The full pilot loop: call → telegraph → ascension → Q signature → death
 // hands the body back.

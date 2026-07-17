@@ -127,7 +127,7 @@ army fields the answers. **Balance lives in the counter, not the mirror.**
 | 17 | **Crusher** | bruiser · ground | Charging smash straight through cover | Hurls terrain that **becomes new cover where it lands** | He remodels the map — for whoever's smart enough to use it | Bait the charge into a wall: self-stun | T2 | ⬜ |
 | 18 | **Mirage** | trickster · ground | Up to 3 walking, fake-firing decoys | Swaps places with any decoy instantly | Which one is real? | **Dogs ignore decoys; decoys make no footsteps** — senses tell the truth | T1 | ⬜ |
 | 19 | **Stormcaller** | zoner · **TRUE FLIGHT** | Seeds a roaming tornado that flings soldiers skyward | 8s lightning storm over an area — **both sides beware** | Her own team eats bolts too | AA; fight indoors — roofs block bolts | **T3** | ⬜ |
-| 20 | **Reactor** | support · ground | Charged nova — longer charge, bigger risk window | **Overcharges an ally's next attack** (an overcharged Frostbite freezes a three-wide line) | Kill the battery first | Focus him, not the carry | T2 | ⬜ |
+| 20 | **Reactor** | support · ground | Charged nova — longer charge, bigger risk window | **Overcharges an ally's next attack** (an overcharged Frostbite freezes a three-wide line) | Kill the battery first | Focus him, not the carry | T2 | ✅ (nova + overcharge shipped: the nova is an AoE burst around him; the overcharge pours the shipped `rageMul` channel into the nearest ally so their outgoing damage + step run hot for 6s, handed back when a new `overchargeUntil` window expires. Bot novas + feeds; a human pilot feeds the nearest ally on Q, or novas when alone. The overcharged-Frostbite-3-wide-line flavor is 🔧) 🎮 pilot: Q = OVERCHARGE / NOVA |
 
 ## 3. THE COLLECTIVE — roster B
 

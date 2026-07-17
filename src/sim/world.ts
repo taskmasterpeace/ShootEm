@@ -512,6 +512,14 @@ export class World {
       // ENERGY WALL: projects a dome down his aim whose first 2s reflect fire
       // back at the shooters. Bot lays one on a cadence; a human pilot on Q.
       if (s.kind === 'bot' && this.time >= (s.nextLswAt ?? 0)) { this.barrierWall(s); s.nextLswAt = this.time + 4; }
+    } else if (id === 'reactor') {
+      // NOVA on a cadence, OVERCHARGE the nearest ally on a slower one (reusing
+      // nextLswActiveAt as the bot's overcharge timer, free on a bot). A human
+      // pilot feeds an ally on Q, or novas when alone.
+      if (s.kind === 'bot') {
+        if (this.time >= (s.nextLswAt ?? 0)) { this.reactorNova(s); s.nextLswAt = this.time + 4; }
+        if (this.time >= (s.nextLswActiveAt ?? 0) && this.reactorOvercharge(s)) s.nextLswActiveAt = this.time + 7;
+      }
     }
   }
 
@@ -727,6 +735,42 @@ export class World {
     this.emit({ type: 'vo', text: 'vo_barrier_ability', pos: { ...s.pos }, soldierId: s.id });
   }
 
+  /** Reactor's nova: a charged burst around him — everyone close is hurt and
+   *  thrown (the ground-slam pattern), with the explosion VFX. His offensive
+   *  option when there's no ally to feed. */
+  private reactorNova(s: Soldier) {
+    for (const e of this.soldiers.values()) {
+      if (!e.alive || e.team === s.team || e.id === s.id) continue;
+      const dx = e.pos.x - s.pos.x, dz = e.pos.z - s.pos.z, d = Math.hypot(dx, dz);
+      if (d > 8) continue;
+      this.damageSoldier(e, 60 * (1 - d / 10), s.id, 'gl');
+      const inv = d > 0.01 ? 1 / d : 0;
+      e.pushX += dx * inv * 20; e.pushZ += dz * inv * 20;
+    }
+    this.emit({ type: 'explosion', pos: { ...s.pos }, weapon: 'gl' });
+    this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'reactor', soldierId: s.id });
+    this.emit({ type: 'vo', text: 'vo_reactor_ability', pos: { ...s.pos }, soldierId: s.id });
+  }
+
+  /** Reactor's overcharge: pour power into the nearest ally — their outgoing
+   *  damage (and step) run hot for a few seconds (the shipped rageMul channel,
+   *  handed back when overchargeUntil expires). Returns false if no ally near. */
+  private reactorOvercharge(s: Soldier): boolean {
+    let ally: Soldier | undefined, best = 20;
+    for (const a of this.soldiers.values()) {
+      if (!a.alive || a.team !== s.team || a.id === s.id || a.ascendant || a.encasedUntil !== undefined) continue;
+      const d = Math.hypot(a.pos.x - s.pos.x, a.pos.z - s.pos.z);
+      if (d < best) { best = d; ally = a; }
+    }
+    if (!ally) return false;
+    ally.rageMul = 1.7;
+    ally.overchargeUntil = this.time + 6;
+    this.emit({ type: 'heal', pos: { ...ally.pos }, soldierId: ally.id });
+    this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'reactor', soldierId: s.id });
+    this.emit({ type: 'vo', text: 'vo_reactor_ability', pos: { ...s.pos }, soldierId: s.id });
+    return true;
+  }
+
   /**
    * §7 THE SIGNATURE ON Q: a human pilot's active. Whiffs never burn the
    * cooldown — a signature that punishes you for pressing it stops being
@@ -808,6 +852,10 @@ export class World {
     } else if (id === 'barrier') {
       // Q: throw up the reflecting energy wall ahead of you.
       this.barrierWall(s);
+      s.nextLswActiveAt = this.time + def.activeCd;
+    } else if (id === 'reactor') {
+      // Q: feed the nearest ally; if you're alone, nova instead.
+      if (!this.reactorOvercharge(s)) this.reactorNova(s);
       s.nextLswActiveAt = this.time + def.activeCd;
     }
   }
@@ -1094,6 +1142,11 @@ export class World {
         continue; // an ice block does nothing else
       }
       s.draggingId = -1; // the drag grip is re-asserted every tick by the E-hold
+      // Reactor's overcharge burns out — hand back the borrowed multiplier
+      if (s.overchargeUntil !== undefined && this.time >= s.overchargeUntil) {
+        s.overchargeUntil = undefined;
+        if (s.ascendant !== 'ragebeast') s.rageMul = undefined; // Ragebeast owns its own
+      }
       // in-flight melee swings land on schedule, whoever the attacker is —
       // this runs BEFORE the brains so zombies and dogs resolve too
       if (s.meleeStrikeAt > 0 && this.time >= s.meleeStrikeAt) this.resolveMeleeStrike(s);

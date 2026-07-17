@@ -146,6 +146,17 @@ export const LSWS: Record<AscendantId, LswDef> = {
     scale: 1.3, speed: 7, color: 0x3fd9a0, // emerald shield-energy
     activeLabel: 'ENERGY WALL — reflects fire for 2 seconds', activeCd: 5,
   },
+  reactor: {
+    id: 'reactor', name: 'Reactor', faction: 0, threat: 2,
+    lines: {
+      inbound: 'REACTOR INBOUND — KILL THE BATTERY FIRST',
+      landed: 'REACTOR ON THE FIELD — THEIR CARRY JUST GOT STRONGER',
+      down: 'REACTOR IS DOWN — THE OVERCHARGE FADES',
+      rampage: 'FIVE KILLS — REACTOR IS FEEDING THE WHOLE LINE',
+    },
+    scale: 1.3, speed: 7, color: 0xffb020, // radiant reactor gold
+    activeLabel: 'OVERCHARGE — supercharge an ally, or nova if alone', activeCd: 6,
+  },
 };
 
 /** THE SPOKEN SCRIPT — subtitle text per voice slot, tag-stripped mirrors of
@@ -194,6 +205,11 @@ export const VO_LINES: Record<string, { who: AscendantId; line: string }> = {
   vo_barrier_ability: { who: 'barrier', line: 'Send it back.' },
   vo_barrier_low: { who: 'barrier', line: 'The wall... is cracking.' },
   vo_barrier_death: { who: 'barrier', line: 'Line... held.' },
+  vo_reactor_arrive: { who: 'reactor', line: 'Who needs a boost?' },
+  vo_reactor_kill3: { who: 'reactor', line: "Three — and I'm just the battery." },
+  vo_reactor_ability: { who: 'reactor', line: "Take everything I've got." },
+  vo_reactor_low: { who: 'reactor', line: 'Core... destabilizing.' },
+  vo_reactor_death: { who: 'reactor', line: 'Going... critical.' },
 };
 export const voSlot = (id: AscendantId, moment: VoMoment) => `vo_${id}_${moment}`;
 export const annSlot = (id: AscendantId, moment: 'inbound' | 'landed' | 'down' | 'rampage') => `ann_${id}_${moment}`;

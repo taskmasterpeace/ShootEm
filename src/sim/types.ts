@@ -10,7 +10,7 @@ export type ClassId = 'infantry' | 'heavy' | 'jump' | 'engineer' | 'medic' | 'in
 /** Living Super Weapons (§21.6 / docs/ASCENDANTS.md). A Soldier carrying one
  *  of these is an LSW — not a class, an overlay: bigger, deadlier, its own
  *  brain, and it dies to ordinary guns. Grows as the roster ships. */
-export type AscendantId = 'firebrand' | 'plaguebearer' | 'frostbite' | 'ragebeast' | 'titan' | 'voltstriker' | 'sniperhawk' | 'barrier';
+export type AscendantId = 'firebrand' | 'plaguebearer' | 'frostbite' | 'ragebeast' | 'titan' | 'voltstriker' | 'sniperhawk' | 'barrier' | 'reactor';
 
 /**
  * Weapon ids are open strings: the hand-tuned core set (ar606, kuchler, caw,
@@ -263,6 +263,9 @@ export interface Soldier {
   nextLswAt?: number;
   /** piloted LSW (§7): next time the Q-key signature is off cooldown */
   nextLswActiveAt?: number;
+  /** Reactor's overcharge: while set and unexpired, this soldier's `rageMul`
+   *  is a borrowed damage/speed boost that burns out at this sim time. */
+  overchargeUntil?: number;
   /** THE ICE BLOCK (§21.6, shared: Frostbite + Venatrix). Encased alive: a
    *  real 1-tile block that stops movement AND shots both ways. sim-time the
    *  ice fully forms free is `encasedUntil`; teammates shatter it early by
