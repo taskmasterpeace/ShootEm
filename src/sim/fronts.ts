@@ -1169,13 +1169,43 @@ const LAB_TOWER: BuildingDef = {
   ],
 };
 
-function blacksite(seed: number): GameMap {
+function blacksite(seed: number, size: MapSize = 'large'): GameMap {
+  const box = boxFor(size);
   const d = draft(seed, T_OPEN, S_ICE);
   const { grid, surface, props, claims } = d;
   const ctx = ctxOf(d);
+  const L = {
+    large: {
+      leads: [[[12, 20], [30, 28], [44, 22], [58, 30]], [[40, 86], [56, 74], [72, 80], [86, 68]], [[70, 12], [80, 26], [92, 32]]] as [number, number][][],
+      tower: [44, 42] as [number, number], shop: [52, 40] as [number, number] | null, barracks: [44, 54] as [number, number] | null,
+      yard: [42, 48, 60, 52] as [number, number, number, number],
+      masts: [[28, 26], [32, 30], [26, 33], [35, 25], [30, 22], [24, 28]] as [number, number][],
+      pad: [68, 66] as [number, number], posts: [[47, 18], [47, 78]] as [number, number][],
+      fenceR: 30, boulders: 22, baseX: [10, GRID - 11] as [number, number], baseZ: 50,
+      pickups: [[34, 40, 'medkit'], [34, 60, 'ammo'], [42, 30, 'energy']] as [number, number, PickupSpawn['type']][],
+    },
+    standard: {
+      leads: [[[16, 18], [32, 24], [44, 18], [56, 26]], [[38, 78], [54, 68], [70, 72], [82, 62]], [[66, 12], [76, 22], [84, 28]]] as [number, number][][],
+      tower: [46, 42] as [number, number], shop: [53, 40] as [number, number] | null, barracks: [46, 54] as [number, number] | null,
+      yard: [44, 48, 58, 52] as [number, number, number, number],
+      masts: [[28, 24], [32, 28], [26, 31], [35, 23], [30, 20]] as [number, number][],
+      pad: [64, 62] as [number, number], posts: [[47, 16], [47, 76]] as [number, number][],
+      fenceR: 26, boulders: 16, baseX: [19, GRID - 20] as [number, number], baseZ: 47,
+      pickups: [[34, 38, 'medkit'], [34, 58, 'ammo'], [42, 28, 'energy']] as [number, number, PickupSpawn['type']][],
+    },
+    small: {
+      leads: [[[24, 22], [36, 28], [46, 22]], [[36, 74], [52, 66], [68, 70]]] as [number, number][][],
+      tower: [46, 44] as [number, number], shop: [52, 42] as [number, number] | null, barracks: null,
+      yard: [44, 48, 56, 52] as [number, number, number, number],
+      masts: [[28, 26], [32, 30], [26, 32], [34, 24]] as [number, number][],
+      pad: [62, 60] as [number, number], posts: [[47, 24], [47, 68]] as [number, number][],
+      fenceR: 20, boulders: 10, baseX: [29, GRID - 30] as [number, number], baseZ: 49,
+      pickups: [[34, 40, 'medkit'], [34, 58, 'ammo'], [42, 30, 'energy']] as [number, number, PickupSpawn['type']][],
+    },
+  }[size];
 
-  // OPEN LEADS: three cracks of black water across the floe — swim or walk
-  // around; the frozen scar seals them and rewrites every route
+  // OPEN LEADS: cracks of black water across the floe — swim or walk around;
+  // the frozen scar seals them and rewrites every route
   const lead = (pts: [number, number][]) => {
     for (let i = 0; i < pts.length - 1; i++) {
       const [x0, z0] = pts[i], [x1, z1] = pts[i + 1];
@@ -1189,71 +1219,73 @@ function blacksite(seed: number): GameMap {
       }
     }
   };
-  lead([[12, 20], [30, 28], [44, 22], [58, 30]]);
-  lead([[40, 86], [56, 74], [72, 80], [86, 68]]);
-  lead([[70, 12], [80, 26], [92, 32]]);
+  for (const pts of L.leads) lead(pts);
 
-  // THE COMPOUND: three metal labs around a plate courtyard — the whiteout's
-  // one warm heart. Walkway rails guide you home when visibility dies.
-  stampBuilding(ctx, LAB_TOWER, 44, 42, 0);
-  stampBuilding(ctx, byId('machine_shop'), 52, 40, 2);
-  stampBuilding(ctx, byId('barracks_hall'), 44, 54, 4);
-  rect(grid, 42, 48, 60, 52, T_OPEN);
-  rectSurf(surface, 42, 48, 60, 52, S_PLATE);
-  for (let x = 42; x <= 60; x += 2) {
-    // mouths at the center — and NEVER across a lab's own doorstep (the
-    // atlas caught the tower door walled shut by its own walkway rail)
-    if (x === 46 || x === 50 || x === 52) continue;
-    set(grid, x, 47, T_COVER);
-    set(grid, x, 53, T_COVER);
+  // THE COMPOUND: metal labs around a plate courtyard — the whiteout's one
+  // warm heart. Walkway rails guide you home when visibility dies.
+  stampBuilding(ctx, LAB_TOWER, L.tower[0], L.tower[1], 0);
+  if (L.shop) stampBuilding(ctx, byId('machine_shop'), L.shop[0], L.shop[1], 2);
+  if (L.barracks) stampBuilding(ctx, byId('barracks_hall'), L.barracks[0], L.barracks[1], 4);
+  const [yx0, yz0, yx1, yz1] = L.yard;
+  rect(grid, yx0, yz0, yx1, yz1, T_OPEN);
+  rectSurf(surface, yx0, yz0, yx1, yz1, S_PLATE);
+  // mouths are COMPUTED from the labs' real doorways — a rail that walls a
+  // doorstep shut is the bug this comment once described (the atlas caught
+  // the tower door walled shut by its own walkway rail)
+  const mouths = new Set([L.tower[0] + 2, Math.floor((yx0 + yx1) / 2), Math.floor((yx0 + yx1) / 2) + 2]);
+  if (L.shop) { mouths.add(L.shop[0] + 2); mouths.add(L.shop[0] + 3); }
+  for (let x = yx0; x <= yx1; x += 2) {
+    if (mouths.has(x)) continue;
+    set(grid, x, yz0 - 1, T_COVER);
+    set(grid, x, yz1 + 1, T_COVER);
   }
 
-  // ANTENNA FARM: the north-west listening post — masts in a boulder field
-  for (const [ax, az] of [[28, 26], [32, 30], [26, 33], [35, 25], [30, 22], [24, 28]] as const) {
+  // ANTENNA FARM: the listening post — masts in a boulder field
+  for (const [ax, az] of L.masts) {
     claim(grid, claims, ax, az, T_COVER);
     props.push({ type: 'flare_stack', pos: tw(ax, az), scale: 0.7, rot: 0 });
   }
 
-  // LANDING PAD: south-east plate disc — the extraction point
-  clearDisc(grid, 68, 66, 4);
-  for (let z = 62; z <= 70; z++) for (let x = 64; x <= 72; x++) {
-    if ((x - 68) ** 2 + (z - 66) ** 2 <= 16) surface[idx(x, z)] = S_PLATE;
+  // LANDING PAD: plate disc — the extraction point
+  clearDisc(grid, L.pad[0], L.pad[1], 4);
+  for (let z = L.pad[1] - 4; z <= L.pad[1] + 4; z++) for (let x = L.pad[0] - 4; x <= L.pad[0] + 4; x++) {
+    if ((x - L.pad[0]) ** 2 + (z - L.pad[1]) ** 2 <= 16 && inb(x) && inb(z)) surface[idx(x, z)] = S_PLATE;
   }
 
   // perimeter: guard posts on the cardinals, a broken fence line between
-  stampBuilding(ctx, byId('guard_post'), 47, 18, 6);
-  stampBuilding(ctx, byId('guard_post'), 47, 78, 8);
-  ring(grid, 50, 50, 30, T_COVER, [[0, 20], [70, 110], [160, 200], [250, 290], [340, 360]]);
+  for (const [px2, pz2] of L.posts) stampBuilding(ctx, byId('guard_post'), px2, pz2, px2 + pz2);
+  ring(grid, 50, 50, L.fenceR, T_COVER, [[0, 20], [70, 110], [160, 200], [250, 290], [340, 360]]);
 
   // pressure ridges: ice boulders drift the floe (dressing)
-  for (let i = 0; i < 22; i++) {
-    const tx = d.rng.int(8, GRID - 9), tz = d.rng.int(8, GRID - 9);
-    if (Math.hypot(tx - 50, tz - 50) > 16 && openOutdoors(d, tx, tz) && Math.abs(tz - 50) > 8) {
+  for (let i = 0; i < L.boulders; i++) {
+    const tx = d.rng.int(box.x0 + 8, box.x1 - 8), tz = d.rng.int(box.z0 + 8, box.z1 - 8);
+    if (Math.hypot(tx - 50, tz - 50) > 16 && openOutdoors(d, tx, tz) && Math.abs(tz - L.baseZ) > 8) {
       claim(grid, claims, tx, tz, T_WALL);
       props.push({ type: 'rock', pos: tw(tx, tz), scale: d.rng.range(0.9, 1.6), rot: d.rng.range(0, Math.PI * 2) });
     }
   }
 
-  stampBase(grid, claims, props, d.vehiclePads, 0, 10, 50, ['bike', 'buggy', 'flyer', 'ambulance']);
-  stampBase(grid, claims, props, d.vehiclePads, 1, GRID - 11, 50, ['bike', 'buggy', 'flyer', 'ambulance']);
+  stampBase(grid, claims, props, d.vehiclePads, 0, L.baseX[0], L.baseZ, ['bike', 'buggy', 'flyer', 'ambulance']);
+  stampBase(grid, claims, props, d.vehiclePads, 1, L.baseX[1], L.baseZ, ['bike', 'buggy', 'flyer', 'ambulance']);
 
-  dealPickups(d, [[34, 40, 'medkit'], [34, 60, 'ammo'], [42, 30, 'energy']]);
-  d.pickups.push({ type: 'flamer', pos: tw(68, 66) }); // the pad cache
+  dealPickups(d, L.pickups);
+  d.pickups.push({ type: 'flamer', pos: tw(L.pad[0], L.pad[1]) }); // the pad cache
   mudMargins(grid, surface);
+  sealOutside(grid, box);
   sealRim(grid);
 
   return {
     seed, theme: 'triton', grid, grid2: d.grid2, surface,
-    basePos: [tw(10, 50), tw(GRID - 11, 50)],
-    spawns: [spawnRing(10, 50), spawnRing(GRID - 11, 50)],
-    flagPos: [tw(10, 50), tw(GRID - 11, 50)],
+    basePos: [tw(L.baseX[0], L.baseZ), tw(L.baseX[1], L.baseZ)],
+    spawns: [spawnRing(L.baseX[0], L.baseZ), spawnRing(L.baseX[1], L.baseZ)],
+    flagPos: [tw(L.baseX[0], L.baseZ), tw(L.baseX[1], L.baseZ)],
     hillPos: tw(51, 50),
     controlPoints: [
-      { name: 'ANTENNA FARM', pos: tw(30, 27) },
+      { name: 'ANTENNA FARM', pos: tw(L.masts[0][0] + 2, L.masts[0][1] + 1) },
       { name: 'THE LABS', pos: tw(51, 50) },
-      { name: 'LANDING PAD', pos: tw(68, 66) },
+      { name: 'LANDING PAD', pos: tw(...L.pad) },
     ],
-    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid),
+    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid, box),
     houses: d.houses, gates: [], pads: [], propCovered: settle(grid, claims),
   };
 }
