@@ -167,7 +167,10 @@ export class Hud {
       const altTxt = !alt ? ''
         : alt.kind === 'overcharge' ? ' · RMB overcharge'
         : ` · RMB ${alt.kind} ×${s.altAmmo}`;
-      $('ability-hint').textContent = `${CLASSES[s.classId].abilityName} · ${s.grenades} ${s.classId === 'engineer' ? 'mines' : 'frags'}${altTxt}`;
+      // paintballers get paintball truth — never advertise frags they don't have
+      $('ability-hint').textContent = world.mode.id === 'paintball'
+        ? 'R reload · one splat and you sit'
+        : `${CLASSES[s.classId].abilityName} · ${s.grenades} ${s.classId === 'engineer' ? 'mines' : 'frags'}${altTxt}`;
     }
 
     // respawn overlay
@@ -265,6 +268,17 @@ export class Hud {
         chips = `<div class="obj-chip t0">🧪 ${sci ? Math.ceil(sci.hp) : 0} HP</div>
                  ${status}
                  <div class="obj-chip neutral">☠ ${fmt(m.scores[0])} · ${m.zombiesLeft ?? 0} up</div>`;
+        break;
+      }
+      case 'paintball': {
+        // the mode built for brand-new players gets the CLEAREST bar of all:
+        // your role, the tag count, and the clock — restated every frame
+        const hunted = m.huntedTeam ?? 1;
+        const prey = local.team === hunted;
+        const tags = m.scores[hunted];
+        chips = `<div class="obj-chip ${prey ? 't1' : 't0'}">${prey ? '🎯 YOU ARE THE PREY' : '🔫 HUNT THE PREY'}</div>
+                 <div class="obj-chip neutral">TAGS ${fmt(tags)}/${m.target}</div>
+                 <div class="obj-chip neutral">${prey ? 'tag pads or survive' : 'one splat and they sit'}</div>`;
         break;
       }
     }

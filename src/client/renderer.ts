@@ -845,8 +845,10 @@ export class Renderer {
     if (m.id === 'koth') {
       this.hillRing = this.makeRing(m.hillPos!, m.hillRadius!, 0xffffff, 0.4);
     }
-    if (m.id === 'conquest') {
-      for (const cp of m.points!) this.cpRings.push(this.makeRing(cp.pos, cp.radius, 0xffffff, 0.35));
+    if (m.points) {
+      // any mode with points gets world-space rings — conquest capture zones
+      // AND paintball tag pads. An objective you can't SEE isn't an objective.
+      for (const cp of m.points) this.cpRings.push(this.makeRing(cp.pos, cp.radius, 0xffffff, 0.35));
     }
     if (m.id === 'ctf') {
       for (const f of m.flags!) {

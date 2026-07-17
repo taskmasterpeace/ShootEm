@@ -29,11 +29,15 @@ const BRANDS: BrandSpec[] = [
   { key: 'kamenel', label: 'Kamenel',         dmg: 1.15, rof: 0.85, clip: 0.95, spread: 0.8, reload: 1.05, range: 1.05 },
 ];
 
-/** Mk-tier curve: higher marks hit harder, group tighter, reload faster. */
+/** Mk-tier curve — SIDEGRADES, by law (Robert, 2026-07-16): higher marks hit
+ *  harder and group tighter, but the magazine SHRINKS and the reload DRAGS.
+ *  Mk I is the workhorse, Mk II the marksman's mark, Mk III the hot rod that
+ *  feeds like a diva. No mark is strictly better — every pick is a real pick,
+ *  and a rookie's Mk I loses nothing to a veteran's Mk III but taste. */
 const TIERS = [
-  { mk: 1, dmg: 1.0,  spread: 1.0,  reload: 1.0,  reserve: 1.0 },
-  { mk: 2, dmg: 1.22, spread: 0.82, reload: 0.92, reserve: 1.25 },
-  { mk: 3, dmg: 1.5,  spread: 0.62, reload: 0.84, reserve: 1.5 },
+  { mk: 1, dmg: 1.0,  spread: 1.0,  reload: 1.0,  clip: 1.0,  reserve: 1.0 },
+  { mk: 2, dmg: 1.22, spread: 0.82, reload: 1.12, clip: 0.8,  reserve: 1.0 },
+  { mk: 3, dmg: 1.5,  spread: 0.62, reload: 1.25, clip: 0.62, reserve: 0.85 },
 ];
 
 interface FamilySpec {
@@ -96,7 +100,7 @@ export function buildArsenal(): Record<WeaponId, WeaponDef> {
       for (const tier of TIERS) {
         const id = `${f.family}_${brand.key}_${tier.mk}`;
         const base = f.base;
-        const clip = Math.max(1, Math.round(base.clip * brand.clip));
+        const clip = Math.max(1, Math.round(base.clip * brand.clip * tier.clip));
         const reserve = Number.isFinite(base.reserve)
           ? Math.round(base.reserve * brand.clip * tier.reserve)
           : Infinity;

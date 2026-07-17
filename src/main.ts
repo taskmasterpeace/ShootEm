@@ -389,6 +389,35 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
   let acc = 0;
   let last = performance.now();
   let overAt = 0;
+  let lingerSkip = false;
+  // ESC pause (local matches only — the sim is ours to stop): Resume /
+  // volume / Abandon. The clearly-marked exit every 15-minute match owed us.
+  let paused = false;
+  const pauseEl = $('pause-overlay');
+  const setPaused = (p: boolean) => {
+    paused = p;
+    pauseEl.classList.toggle('hidden', !p);
+    last = performance.now(); // no dt avalanche on resume
+  };
+  $('pause-resume').onclick = () => setPaused(false);
+  $('pause-abandon').onclick = () => {
+    if (confirm('Abandon this match and return to base? The round is forfeit.')) endGame();
+  };
+  {
+    const pv = $('pause-volume') as HTMLInputElement;
+    pv.value = String(Math.round(settings.masterVolume * 100));
+    pv.oninput = () => {
+      settings.masterVolume = Number(pv.value) / 100;
+      audio.setMasterVolume(settings.masterVolume);
+      saveSettings();
+    };
+  }
+  const onKey = (e: KeyboardEvent) => {
+    if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
+    if (e.key === 'Escape' && !world.mode.over) setPaused(!paused);
+    else if (world.mode.over) lingerSkip = true; // any key hurries the AAR along
+  };
+  window.addEventListener('keydown', onKey); // page reload on endGame cleans up
   const cmds = new Map<number, PlayerCmd>();
   // FPV drone feed: static builds as the link degrades; bursts on disconnect
   const staticFx = new StaticOverlay();
@@ -399,6 +428,9 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     if (!running) return;
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
+
+    // paused: the world holds its breath — no sim, no replay, just the overlay
+    if (paused) { requestAnimationFrame(frame); return; }
 
     // once highlights roll the live match is over and hidden — stop simming
     // it (no invisible battles burning CPU, no ghost VFX, no stray inputs)
@@ -420,9 +452,18 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
       void tracker.finalize(world, me.id).then((sum) => {
         if (!sum) return;
         renderBarracks(); // the record just grew
+        // §17.B's third leg, finally visible: fight → record grew → WAR MOVED
+        let extras = '';
         // the Living Campaign: this battle moves its front (22B)
         if (activeFrontId && campaign) {
+          const front = campaign.fronts[activeFrontId];
+          const before = front?.control ?? 0;
           applyResult(campaign, activeFrontId, sum.won);
+          if (front) {
+            const d = front.control - before;
+            const fname = FRONTS.find((f) => f.id === activeFrontId)?.name ?? activeFrontId;
+            extras += `<p style="margin-top:0.35rem">⚑ ${fname.toUpperCase()}: control ${d >= 0 ? '+' : ''}${d} → ${front.control}</p>`;
+          }
           // §13 (decided): a REAL battle can close the season — the Armistice
           const armistice = checkSeasonEnd(campaign);
           if (armistice && dossier) {
@@ -434,17 +475,25 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
             // a tour IS one season (4A): the next tour opens with the new season
             dossier.tours.push({ faction: 0, season: campaign.season, startedAt: Date.now() });
             void saveDossier(dossier);
-            hud.careerHtml += `<div id="career-pane" style="margin-top:0.5rem"><h3>ARMISTICE</h3><p>Season ${armistice.season} is over — ${winnerName} takes the war. The theatre resets; your record remains.</p></div>`;
+            // NOTE: this used to `hud.careerHtml +=` and then get clobbered by
+            // the assignment below — the Armistice pane never actually showed.
+            extras += `<div style="margin-top:0.5rem"><h3>ARMISTICE</h3><p>Season ${armistice.season} is over — ${winnerName} takes the war. The theatre resets; your record remains.</p></div>`;
           }
           saveCampaign(campaign);
           renderScarMap();
         }
+        // the goal-gradient line: how close the NEXT grade is, said at the
+        // moment of maximum motivation (the Battlefield end-of-round lesson)
+        const rk = dossier ? rankFor(dossier.soldier.rankPoints) : null;
+        const toNext = rk?.next != null ? `<span>${rk.next - (dossier?.soldier.rankPoints ?? 0)} pts to next grade</span>` : '';
         hud.careerHtml = `<div id="career-pane"><h3>Career — what this match added</h3>
           <div class="cp-row"><span>+${sum.rankPointsGained} rank pts</span>
           <span>${sum.rankBefore === sum.rankAfter ? sum.rankAfter : `${sum.rankBefore} → <b>${sum.rankAfter}</b> ▲`}</span>
+          ${toNext}
           <span>${sum.kills} kills · ${sum.deaths} deaths</span></div>
           ${sum.medals.length ? `<div class="cp-row" style="margin-top:0.4rem">${sum.medals.map((m) => `<span class="bk-medal">${m.icon} ${m.name}</span>`).join('')}</div>` : ''}
-          ${sum.journal.length ? `<p style="margin-top:0.5rem;color:var(--muted)">📖 ${sum.journal[0].text}</p>` : ''}</div>`;
+          ${sum.journal.length ? `<p style="margin-top:0.5rem;color:var(--muted)">📖 ${sum.journal[0].text}</p>` : ''}
+          ${extras}</div>`;
       });
     }
 
@@ -483,10 +532,24 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     if (world.mode.over) {
       if (!overAt) {
         overAt = now;
-        // §14: the onboarding machine reads every finished match exactly once
-        onMatchEnd(world, me.id, selectedMode);
+        // §14: the onboarding machine reads every finished match exactly once —
+        // by the WORLD's mode, never the module selection (a stray menu launch
+        // once recorded a CTF match as a paintball skirmish through that gap)
+        onMatchEnd(world, me.id, world.mode.id);
+        // the yard's one legacy beat: the round's longest splat, celebrated
+        // where it happened (Robert: 'show them whoever got the longest shot')
+        if (world.mode.id === 'paintball') {
+          const best = [...world.humansAndBots()].reduce((a, s) => (s.longestKill > a.longestKill ? s : a));
+          if (best.longestKill > 0) {
+            hud.careerHtml = `<div id="career-pane"><h3>YARD HIGHLIGHT</h3>
+              <p>★ LONGEST SPLAT — <b>${best.name}</b>, ${best.longestKill.toFixed(0)}u${best.id === me.id ? ' — that one goes on the wall' : ''}</p></div>`;
+          }
+        }
       }
-      else if (now - overAt > MATCH_LINGER_LOCAL_MS) { endGame(); return; }
+      // paintball rounds are snappy; their tail should be too — and any key
+      // after a beat skips the linger in every mode (the AAR is a look, not a jail)
+      else if (now - overAt > (world.mode.id === 'paintball' ? 8000 : MATCH_LINGER_LOCAL_MS)
+        || (now - overAt > 3000 && lingerSkip)) { endGame(); return; }
     }
     requestAnimationFrame(frame);
   }
@@ -674,7 +737,11 @@ audio.setMasterVolume(settings.masterVolume);
 }
 $('deploy-btn').addEventListener('click', () => { activeFrontId = null; startGame(); });
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !running && !$('menu').classList.contains('hidden')) startGame();
+  // Enter deploys ONLY when the menu is the actual front surface — with the
+  // onboarding overlay up, an Enter here once launched an invisible CTF
+  // underneath and soft-locked boot camp (running=true killed its button)
+  if (e.key === 'Enter' && !running && !$('menu').classList.contains('hidden')
+    && $('onboarding').classList.contains('hidden')) startGame();
 });
 
 // §14 THE FIRST HOUR: new recruits skip the menu entirely — boot camp is a

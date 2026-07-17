@@ -154,8 +154,11 @@ function stepPaintball(w: World, dt: number) {
   const liveHunted = [...w.soldiers.values()].some((s) => s.alive && s.team === hunted && (s.kind === 'human' || s.kind === 'bot'));
   const liveHunters = [...w.soldiers.values()].some((s) => s.alive && s.team !== hunted && (s.kind === 'human' || s.kind === 'bot'));
   if (tags >= m.target) endMatch(w, hunted);            // tagged out the yard
-  else if (!liveHunted) endMatch(w, (1 - hunted) as Team); // painted out
+  // the trade-out goes to the PREY: a hunted who takes the whole pack with
+  // them has EARNED the round (consistent with the clock tie, where a prey
+  // splatted the same tick the timer dies still wins)
   else if (!liveHunters) endMatch(w, hunted);           // the prey ATE the pack
+  else if (!liveHunted) endMatch(w, (1 - hunted) as Team); // painted out
   else if (m.timeLeft <= 0) endMatch(w, hunted);        // survived the clock
 }
 

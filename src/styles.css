@@ -142,6 +142,15 @@ html, body {
 .ob-alt { background: none; border: 1px solid #2b333d; color: var(--muted); padding: 0.55rem; border-radius: 0.625rem; cursor: pointer; }
 .ob-alt:hover { border-color: #e8a33d66; color: #cfd6de; }
 .ob-skip { background: none; border: none; color: #6b7683; font-size: 0.75rem; cursor: pointer; margin-top: 1rem; text-decoration: underline; }
+.ob-controls { margin-top: 0.25rem; font-size: 0.8rem; color: var(--muted); background: #171c22; border: 1px solid #2b333d; border-radius: 0.625rem; padding: 0.55rem 0.8rem; }
+.ob-controls b { color: #e8a33d; }
+#pause-overlay { position: fixed; inset: 0; z-index: 55; background: rgba(10, 12, 15, 0.72); display: flex; align-items: center; justify-content: center; }
+#pause-overlay.hidden { display: none; }
+.pause-box { background: #171c22; border: 1px solid #2b333d; border-radius: 0.625rem; padding: 1.4rem; display: flex; flex-direction: column; gap: 0.7rem; min-width: 18rem; }
+.pause-box h2 { margin: 0; color: #e8a33d; letter-spacing: 0.08em; }
+.pause-vol { display: flex; align-items: center; gap: 0.6rem; font-size: 0.85rem; color: var(--muted); }
+.pause-vol input { flex: 1; accent-color: #e8a33d; }
+.pause-hint { font-size: 0.7rem; color: #6b7683; }
 .ob-profile { background: #171c22; border: 1px solid #2b333d; border-radius: 0.625rem; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
 .ob-style { font-size: 1.4rem; font-weight: 700; color: #3dbde8; letter-spacing: 0.04em; }
 .ob-class { font-size: 0.95rem; }

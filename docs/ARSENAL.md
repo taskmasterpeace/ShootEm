@@ -28,7 +28,8 @@ and server:
 
 Manufacturers flavor the stats: **Maklov** (balanced), **Kuchler** (fast,
 light), **Titan Arms** (heavy, slow), **Harkov** (precise), **Ceres Foundry**
-(big magazines), **Kamenel** (hot energy). Mk I→III raises damage, tightens
+(big magazines), **Kamenel** (hot energy). Marks are **SIDEGRADES by law**:
+Mk I→III raises damage and tightens
 spread, speeds reloads.
 
 **Picking one:** the menu's **Armory** section lists every weapon your class

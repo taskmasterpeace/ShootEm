@@ -3,6 +3,38 @@
 // environments.
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
+
+// ---------------------------------------------------------------------------
+// THE SIDEGRADE LAW (Robert, 2026-07-16): no mark is strictly better. Higher
+// marks buy damage and precision by PAYING in magazine and reload — a rookie's
+// Mk I loses nothing to a veteran's Mk III but taste. This suite is the law.
+// ---------------------------------------------------------------------------
+import { FAMILIES } from '../src/sim/arsenal';
+import { WEAPONS as ALL_W } from '../src/sim/data';
+
+describe('marks are sidegrades, never upgrades', () => {
+  it('every family, every brand: Mk III hits harder but feeds worse than Mk I', () => {
+    for (const f of FAMILIES) {
+      const marks = Object.values(ALL_W).filter((w) => w.family === f.family && w.tier);
+      const byBrand = new Map<string, typeof marks>();
+      for (const w of marks) {
+        const brand = w.id.split('_').slice(0, -1).join('_');
+        if (!byBrand.has(brand)) byBrand.set(brand, []);
+        byBrand.get(brand)!.push(w);
+      }
+      for (const [brand, line] of byBrand) {
+        const mk1 = line.find((w) => w.tier === 1);
+        const mk3 = line.find((w) => w.tier === 3);
+        if (!mk1 || !mk3) continue;
+        expect(mk3.damage, `${brand} mk3 must out-hit mk1`).toBeGreaterThan(mk1.damage);
+        // single-shell weapons (AT rockets) can't shrink below one round —
+        // their sidegrade price is paid entirely at the reload
+        if (mk1.clip > 1) expect(mk3.clip, `${brand} mk3 must carry a smaller magazine`).toBeLessThan(mk1.clip);
+        expect(mk3.reloadTime, `${brand} mk3 must reload slower`).toBeGreaterThanOrEqual(mk1.reloadTime);
+      }
+    }
+  });
+});
 import { buildArsenal, CLASS_ARMORY, familyWeapons } from '../src/sim/arsenal';
 import { CLASSES, EQUIPMENT, THEMES, VEHICLES, WEAPONS } from '../src/sim/data';
 import { T_OPEN, T_WATER, TILE, WORLD, generateMap, losClear } from '../src/sim/map';

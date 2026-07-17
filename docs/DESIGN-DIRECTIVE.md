@@ -1686,10 +1686,16 @@ death screen line reads *"Imprint secured. Printing…"* over the respawn
 timer · journal entries for deaths write "reprinted at [base]" instead of
 "respawned". No new systems — words and one prop, worth a full act of tone.
 
-## 21.5 Faction pitches — beyond the two armies (open, pick what's dope)
+## 21.5 Faction pitches — beyond the two armies
 
-The user's brief: more factions, cloaks, dogs, towns, missions. Pitched
-sharp, none built:
+**DECIDED (2026-07-16): THE VEILED IS GREEN-LIT** — the cloaked society gets
+built first (and the pieces it needs most, K9 noses + the vision cone, both
+shipped this week). The Salvage Guild and the Choir stay pitched. Robert also
+wants MORE guild/faction pitches on the bench — add candidates here as they
+come (each must reuse shipped systems and name its mission mode).
+
+The original brief: more factions, cloaks, dogs, towns, missions. Pitched
+sharp:
 
 - **THE VEILED** — a whole society under mantles. Refuseniks of both
   armies who strip cloaking tech from the war and vanished into the towns.
@@ -1713,6 +1719,51 @@ sharp, none built:
 
 Each pitch reuses shipped systems (cloak, dogs, neighborhoods, wreck
 economy, safehouse mode) — new fiction over existing iron, the house rule.
+
+## 21.6 The Ascendants — twenty titan pitches (Robert's brief, 2026-07-16)
+
+*"What if a bunch of soldiers got killed by, like, a superman type character?"*
+— exactly. The Prototype Program (§6) has a black wing, and sometimes it
+walks. An **Ascendant** is a superhero-scale enemy EVENT: one per match at
+most, announced like weather, always killable, always counterable (every
+titan lists its tell and its counter — an unanswerable boss is a griefer we
+wrote ourselves), and worth Materiel + a medal + a Journal line to the team
+that drops one. They arrive solo in Act framing; high-difficulty ops can
+field a **cell of 2–3** ("maybe it's a team of them"). The Reprint (§21)
+explains the horror: Ascendants print SLOW — kill one and the front gets
+weeks of quiet; that's why dropping one is a campaign event.
+
+| # | Ascendant | What it does | The counter |
+|---|---|---|---|
+| 1 | **The Bulwark** | Walking siege wall — immune from the front, shrugs AT rockets | The glowing back radiator; skitters flank on their own legs |
+| 2 | **Lodestar** | Flies, then hover-locks to sweep an orbital beam | The hover IS the MANPADS window — it can't dodge while it burns |
+| 3 | **The Ox** | Picks up VEHICLES and throws them (Robert's ask, verbatim) | Feed it empty hulls (§8.1a wrecks) while the breacher mines its feet |
+| 4 | **Blink Major** | Teleports every 3s, blast between jumps | The tag dart pins its NEXT arrival point for the whole team |
+| 5 | **Afterimage** | Beam blast, then relocates instantly (Robert's beam+teleport pitch) | The beam telegraphs a laced line 1s early — break LOS, punish the arrival |
+| 6 | **Widow's Veil** | Mass-cloaks an entire enemy platoon around her | K9 noses (§5.3) and psi — the dogs LOSE THEIR MINDS near her |
+| 7 | **Stormcaller** | Drags a personal §8.8 storm cell — grounds air wherever he stands | He clears the sky for you everywhere ELSE; fight him indoors |
+| 8 | **The Ferromancer** | Slow-drags vehicles toward him, seals doors to metal | Boots-only assault — he has nothing to hold on a rifleman |
+| 9 | **Legion** | Carries a portable clone bay — reprints himself mid-field | Kill the BAY, not the man (it's the §21 prop, weaponized) |
+| 10 | **Haymaker** | Chained seismic stomps — knockback waves on the mech pipeline | Airborne troops are immune; jump troopers own this fight |
+| 11 | **The Warden** | Grows instant fortification walls (T_WALL) as he advances | The breacher EATS his art; every wall he makes is drill dinner |
+| 12 | **Gravedigger** | Travels burrowed like a breacher, erupts under squads | Fresh mounds + dog growls telegraph him; mines at the mound |
+| 13 | **The Falconer** | A raptor flock that kills drones AND swats grenades mid-air | The flock follows HIM — splat the handler, own the sky again |
+| 14 | **Whiteout** | Steals sight: your vision cone (§19) shrinks near her | 360 helmets ignore it; hug your teammates — shared eyes stack |
+| 15 | **Longshot** | Cross-map railgun, one-shot, anywhere | His lace line glints 2s before the shot — never stand still, kill him mid-reload (8s) |
+| 16 | **The Ram** | Charges THROUGH walls (DRILL_EATS on legs) | Metal walls stop him cold and stun him — bait the charge |
+| 17 | **The Quartermaster** | Support titan: re-arms and repairs everything around him | He IS the objective — ignore the healed, delete the healer |
+| 18 | **Matron of Wrecks** | Herds Iron Eaters (§20) as a weapon — the war's third act, leashed | Her pheromone pack burns — flame it and the swarm turns ON her |
+| 19 | **The Choir Master** | Walks the horde into a PvP front (§21.5's Choir, ascended) | Silence the bell: destroy the reliquary he plants, the horde scatters |
+| 20 | **Ghost Colonel** | Un-Reprintable veteran duelist — killing you writes a scar in YOUR journal (fiction sting, zero power loss); dueling him is opt-in glory | He accepts single combat: win and your dossier carries his name forever |
+
+**Build law:** an Ascendant is a soldier-or-vehicle chassis with inflated
+systems, ONE signature verb, one telegraphed weakness, and event framing —
+no new engine systems required for the first five (Bulwark, Ox, Blink Major,
+Warden, Longshot are all shipped-verb composites). They ride the SIEGE event
+skeleton (scar + control flip → titan walks). Pick the first one to build
+when the modeling stage lands (they deserve real silhouettes).
+
+---
 
 ## Appendix A — Field status
 

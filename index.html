@@ -11,6 +11,15 @@
   <div id="app">
     <canvas id="game-canvas"></canvas>
     <div id="onboarding" class="hidden"></div>
+    <div id="pause-overlay" class="hidden">
+      <div class="pause-box">
+        <h2>PAUSED</h2>
+        <button id="pause-resume" class="ob-go">RESUME</button>
+        <label class="pause-vol">Volume <input type="range" id="pause-volume" min="0" max="100"></label>
+        <button id="pause-abandon" class="ob-alt">Abandon match — return to base</button>
+        <div class="pause-hint">ESC resumes · local matches only, the war waits for you</div>
+      </div>
+    </div>
     <div id="hud" class="hidden">
       <div id="hud-top">
         <div id="objective-bar"></div>

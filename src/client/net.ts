@@ -8,6 +8,7 @@ import { StaticOverlay } from './effects';
 import type { Hud } from './hud';
 import type { Input } from './input';
 import { KILLCAM_CAM, MATCH_LINGER_NET_MS, ReplayDirector } from './replay';
+import { onMatchEnd } from './onboarding';
 import type { Renderer } from './renderer';
 
 interface WelcomeMsg { t: 'welcome'; id: number; seed: number; mode: ModeId; theme?: ThemeId; }
@@ -157,7 +158,12 @@ export class NetGame {
 
       // exit before the SERVER restarts its room (12s after the whistle)
       if (world.mode.over) {
-        if (!overAt) overAt = now;
+        if (!overAt) {
+          overAt = now;
+          // §14: online matches advance the onboarding machine too — a war
+          // drop on a real server counts the same as one against bots
+          onMatchEnd(world, this.myId, world.mode.id);
+        }
         else if (now - overAt > MATCH_LINGER_NET_MS) { stopped = true; this.ws.close(); endGame(); return; }
       }
       requestAnimationFrame(frame);

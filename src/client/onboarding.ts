@@ -41,14 +41,26 @@ export interface OnboardingState {
   gear?: string;
   warMatches: number;
   path?: 'enlisted' | 'ocs' | 'draftee';
+  /** the war-stage interstitial explains itself once, then stays out of the way */
+  warSeen?: boolean;
 }
 
 const KEY = 'ww_onboarding';
 
+const STAGES = ['skirmish', 'profile', 'war', 'split', 'done'] as const;
+
 export function loadOnboarding(): OnboardingState {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return JSON.parse(raw) as OnboardingState;
+    if (raw) {
+      const st = JSON.parse(raw) as OnboardingState;
+      // trust nothing: a hand-edited or half-written record must never brick
+      // the boot (a null here once froze the whole frame loop at match-over)
+      if (st && typeof st === 'object' && STAGES.includes(st.stage)
+        && Array.isArray(st.rounds) && Number.isFinite(st.warMatches)) {
+        return st;
+      }
+    }
   } catch { /* fresh recruit */ }
   return { stage: 'skirmish', marker: 'marker_blitz', fieldId: PAINTBALL_FIELDS[0].id, rounds: [], warMatches: 0 };
 }
@@ -211,6 +223,8 @@ export function mountOnboarding(host: OnboardingHost): boolean {
   skip.className = 'ob-skip';
   skip.textContent = 'Skip boot camp — enlist as DRAFTEE';
   skip.onclick = () => {
+    // permanent identity gets the same confirm the official Wall run gets
+    if (!confirm('Skipping boot camp is permanent — you enlist as a DRAFTEE and the record remembers it forever. Skip?')) return;
     saveOnboarding({ ...st, stage: 'done', path: st.path ?? 'draftee' });
     root.classList.add('hidden');
     location.reload();
@@ -224,7 +238,8 @@ export function mountOnboarding(host: OnboardingHost): boolean {
         ? 'The pack hunts YOU this time. Tag three points or outlive the clock. One splat and you sit.'
         : 'No manual. Pick a marker, pick a field, take it. Two-minute rounds — hunt the prey before the clock or the tag pads beat you.'}</p>
       <h2>Your marker</h2><div class="ob-row" id="ob-markers"></div>
-      <h2>The field</h2><div class="ob-row" id="ob-fields"></div>`;
+      <h2>The field</h2><div class="ob-row" id="ob-fields"></div>
+      <div class="ob-controls">⌨ <b>WASD</b> move · <b>mouse</b> aim · <b>LMB</b> shoot · <b>R</b> reload · <b>SPACE</b> hop — that's the whole manual</div>`;
     const markers = wrap.querySelector('#ob-markers')!;
     for (const mk of PAINTBALL_MARKERS) {
       const def = WEAPONS[mk.id];
@@ -281,14 +296,19 @@ export function mountOnboarding(host: OnboardingHost): boolean {
     };
     wrap.appendChild(reject);
   } else if (st.stage === 'war') {
-    // between war drops: one line of progress, then the normal menu
+    // the interstitial explains itself ONCE; after that it's pure friction —
+    // veterans of one viewing get a quiet pass-through to the real menu
+    if (st.warSeen) { root.classList.add('hidden'); return false; }
     wrap.innerHTML = `
       <h1>THE FRONT</h1>
       <p class="ob-sub">War drop ${st.warMatches + 1} of 3 before your path review. Your record is being written now — longest shot, clutch plays, all of it.</p>`;
     const go = document.createElement('button');
     go.className = 'ob-go';
     go.textContent = 'CONTINUE TO DEPLOYMENT';
-    go.onclick = () => { root.classList.add('hidden'); }; // fall through to the real menu
+    go.onclick = () => {
+      saveOnboarding({ ...st, warSeen: true });
+      root.classList.add('hidden'); // fall through to the real menu
+    };
     wrap.appendChild(go);
   } else if (st.stage === 'split') {
     wrap.innerHTML = `
