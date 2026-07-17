@@ -276,6 +276,52 @@ describe('Volt Striker — chain lightning', () => {
 });
 
 // ---------------------------------------------------------------------------
+// SNIPERHAWK — a piercing rail down the line (LOS is per-target, so bodies
+// never shield each other) and the shipped Orbital Designator as artillery.
+// ---------------------------------------------------------------------------
+describe('Sniperhawk — the piercing rail', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('the rail pierces every body in the line', () => {
+    const w = quiet();
+    const sh = w.addLsw('sniperhawk', 0, { x: 0, y: 0, z: 0 })!;
+    sh.yaw = 0; // faces +x
+    const es = [];
+    for (let i = 0; i < 3; i++) {
+      const e = w.addSoldier('L' + i, 'infantry', 1, 'human');
+      e.pos = { x: 6 + i * 4, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0; es.push(e);
+    }
+    const hp0 = es.map((e) => e.hp);
+    w.applyCmd(sh, cmd({ ability: true }), 1 / 60);
+    expect(es.every((e, i) => e.hp < hp0[i]), 'the rail failed to pierce the whole line').toBe(true);
+  });
+
+  it('a body off the line is untouched', () => {
+    const w = quiet();
+    const sh = w.addLsw('sniperhawk', 0, { x: 0, y: 0, z: 0 })!;
+    sh.yaw = 0;
+    const on = w.addSoldier('ON', 'infantry', 1, 'human');
+    on.pos = { x: 8, y: 0, z: 0 }; on.alive = true; on.protectedUntil = 0;
+    const off = w.addSoldier('OFF', 'infantry', 1, 'human');
+    off.pos = { x: 8, y: 0, z: 8 }; off.alive = true; off.protectedUntil = 0;
+    const onHp = on.hp, offHp = off.hp;
+    w.applyCmd(sh, cmd({ ability: true }), 1 / 60);
+    expect(on.hp, 'the aligned target survived the rail').toBeLessThan(onHp);
+    expect(off.hp, 'a target off the line got clipped').toBe(offHp);
+  });
+
+  it('the bot marks a target for artillery (orbital designator)', () => {
+    const w = quiet();
+    const sh = w.addLsw('sniperhawk', 0, { x: 0, y: 0, z: 0 })!;
+    const e = w.addSoldier('T', 'infantry', 1, 'human');
+    e.pos = { x: 12, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    w.step(1 / 60, new Map());
+    const marks = [...w.gadgets.values()].filter((g) => g.type === 'orbital' && g.ownerId === sh.id).length;
+    expect(marks, 'no artillery was marked').toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // §7 PLAYING AS AN LSW — you call it, you hold the mark, you BECOME it.
 // The full pilot loop: call → telegraph → ascension → Q signature → death
 // hands the body back.

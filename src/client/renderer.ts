@@ -1924,6 +1924,12 @@ export class Renderer {
         color: Math.random() < 0.5 ? 0xf5f06a : 0xffffff, speed: 2.0, life: 0.25,
         spread: 0.8, up: 1.5, gravity: 0, size: 0.28,
       });
+    } else if (id === 'sniperhawk') {
+      // a cold scope-glint — sparse, sharp, steel-cyan, up near the optic
+      this.particles.emit({
+        pos: { x: s.pos.x, y: 1.2 + Math.random() * 0.8, z: s.pos.z }, count: 1,
+        color: 0x9fe0ee, speed: 0.3, life: 0.5, spread: 0.3, up: 0.4, gravity: 0, size: 0.22,
+      });
     }
     // the LSW's VOICE: an Ascendant is an event you can HEAR coming. A
     // per-unit signature on a throttle (roar/hiss/whoosh), and it gets more

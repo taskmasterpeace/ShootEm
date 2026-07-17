@@ -498,6 +498,16 @@ export class World {
       if (s.kind === 'bot' && this.time >= (s.nextLswAt ?? 0)) {
         s.nextLswAt = this.time + (this.voltChain(s) ? 1.6 : 0.5);
       }
+    } else if (id === 'sniperhawk') {
+      // PIERCING RAIL through every body in the line (the "through thin cover"
+      // is a Notes 🔧 — cover blocks for now), and the shipped Orbital
+      // Designator as his artillery mark. A bot rails on a cadence and marks on
+      // a slower one (reusing nextLswActiveAt as the mark timer, free on a bot);
+      // a human pilot rails on Q.
+      if (s.kind === 'bot') {
+        if (this.time >= (s.nextLswAt ?? 0)) { this.sniperhawkRail(s); s.nextLswAt = this.time + 2.5; }
+        if (this.time >= (s.nextLswActiveAt ?? 0) && this.sniperhawkMark(s)) s.nextLswActiveAt = this.time + 9;
+      }
     }
   }
 
@@ -660,6 +670,46 @@ export class World {
     return true;
   }
 
+  /** Sniperhawk's rail: a hitscan line down his aim that pierces every body it
+   *  crosses (LOS is checked from HIM to each target, so soldiers never shield
+   *  each other). Walls and cover stop it for now (through-thin-cover is a
+   *  Notes 🔧). Returns the number of bodies it punched through. */
+  private sniperhawkRail(s: Soldier): number {
+    const RANGE = 80;
+    const dx = Math.cos(s.yaw), dz = Math.sin(s.yaw);
+    let hits = 0;
+    for (const e of this.soldiers.values()) {
+      if (!e.alive || e.team === s.team || e.id === s.id || e.encasedUntil !== undefined) continue;
+      const ex = e.pos.x - s.pos.x, ez = e.pos.z - s.pos.z;
+      const along = ex * dx + ez * dz;
+      if (along <= 0 || along > RANGE) continue;
+      if (Math.abs(ex * dz - ez * dx) > 1.5) continue; // perpendicular distance to the ray
+      if (!losClear(this.map.grid, { ...s.pos, y: 1.4 }, { ...e.pos, y: 1.4 })) continue;
+      this.damageSoldier(e, 90, s.id, 'rg2');
+      hits++;
+    }
+    const end = { x: s.pos.x + dx * RANGE, y: 1.2, z: s.pos.z + dz * RANGE };
+    this.emit({ type: 'shot', pos: { ...s.pos, y: 1.2 }, weapon: 'rg2', soldierId: s.id });
+    this.emit({ type: 'lsw_active', pos: end, text: 'sniperhawk', soldierId: s.id });
+    this.emit({ type: 'vo', text: 'vo_sniperhawk_ability', pos: { ...s.pos }, soldierId: s.id });
+    return hits;
+  }
+
+  /** Sniperhawk's artillery mark: paint the nearest enemy with the shipped
+   *  Orbital Designator — 3s arm, then the strike erases the spot. */
+  private sniperhawkMark(s: Soldier): boolean {
+    let tgt: Soldier | undefined, best = 90;
+    for (const e of this.soldiers.values()) {
+      if (!e.alive || e.team === s.team || e.id === s.id) continue;
+      const d = Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z);
+      if (d < best) { best = d; tgt = e; }
+    }
+    if (!tgt) return false;
+    this.spawnGadget('orbital', s.team, s.id, { x: tgt.pos.x, y: 0, z: tgt.pos.z }, 60);
+    this.emit({ type: 'beacon_planted', pos: { ...tgt.pos }, soldierId: s.id, text: 'MARKED' });
+    return true;
+  }
+
   /**
    * §7 THE SIGNATURE ON Q: a human pilot's active. Whiffs never burn the
    * cooldown — a signature that punishes you for pressing it stops being
@@ -734,6 +784,10 @@ export class World {
     } else if (id === 'voltstriker') {
       // Q: chain lightning from the crosshair; a true whiff keeps the key hot.
       if (this.voltChain(s)) s.nextLswActiveAt = this.time + def.activeCd;
+    } else if (id === 'sniperhawk') {
+      // Q: fire the piercing rail straight down your line.
+      this.sniperhawkRail(s);
+      s.nextLswActiveAt = this.time + def.activeCd;
     }
   }
 

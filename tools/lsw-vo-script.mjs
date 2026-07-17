@@ -48,6 +48,12 @@ export const CAST = {
     persona: 'Volt Striker, a United Front Living Super Weapon — an anti-cluster electrocutioner who genuinely enjoys a crowd. Fast, bright, gleeful; a little static crackles under every word. He finds bunched-up enemies funny.',
     scene: 'Ozone in the air. Electric snaps and arcs. A transformer humming somewhere close.',
   },
+  sniperhawk: {
+    voice: 'Iapetus',
+    fx: 'none', // clean and close-mic'd — a patient voice
+    persona: 'Sniperhawk, a United Front Living Super Weapon — a marksman who perches and waits. Patient, precise, quiet; a predator that has already decided the outcome. Never rushed, never loud.',
+    scene: 'Wind over a high perch. Distant, muffled gunfire below. The slow click of a bolt.',
+  },
   announcer: {
     voice: 'Orus',
     fx: 'radio', // 300–3400Hz military net + soft clip
@@ -99,6 +105,13 @@ export const VO = [
   { slot: 'vo_voltstriker_ability', who: 'voltstriker', text: '[gleeful] Hold hands!', notes: ['Said to a cluster the instant before it chains.', 'Delighted menace.'] },
   { slot: 'vo_voltstriker_low', who: 'voltstriker', text: '[flickering] Losing... current.', notes: ['The crackle stutters and browns out.', 'Fear under the static.'] },
   { slot: 'vo_voltstriker_death', who: 'voltstriker', text: '[fading buzz] Ground... fault.', notes: ['One last pun, weaker.', 'The hum dies out.'] },
+
+  // ---- SNIPERHAWK: patient, already decided ----
+  { slot: 'vo_sniperhawk_arrive', who: 'sniperhawk', text: 'Found my perch.', notes: ['Quiet, settled, unhurried.', 'He has all the time he needs.'] },
+  { slot: 'vo_sniperhawk_kill3', who: 'sniperhawk', text: 'Three. [short pause] All center mass.', notes: ['A professional noting his own accuracy.', 'No pleasure, just the record.'] },
+  { slot: 'vo_sniperhawk_ability', who: 'sniperhawk', text: "[low] Line 'em up.", notes: ['Said as the shot goes through several at once.', 'Almost a courtesy.'] },
+  { slot: 'vo_sniperhawk_low', who: 'sniperhawk', text: '[tight] Position... compromised.', notes: ['The calm cracks, just slightly.', 'A professional problem, not yet a panic.'] },
+  { slot: 'vo_sniperhawk_death', who: 'sniperhawk', text: "[breath] Should've... moved.", notes: ['A marksman who broke his own rule.', 'Wry, fading.'] },
 ];
 
 /** The announcer — map-wide, both teams, radio net. */
@@ -127,6 +140,10 @@ export const ANN = [
   { slot: 'ann_voltstriker_landed', text: 'VOLT STRIKER ON THE FIELD. DO NOT BUNCH UP.' },
   { slot: 'ann_voltstriker_down', text: 'VOLT STRIKER IS DOWN. THE AIR GOES QUIET.' },
   { slot: 'ann_voltstriker_rampage', text: 'FIVE KILLS. VOLT STRIKER IS ARCING.' },
+  { slot: 'ann_sniperhawk_inbound', text: 'SNIPERHAWK INBOUND. [short pause] BREAK LINE OF SIGHT.' },
+  { slot: 'ann_sniperhawk_landed', text: 'SNIPERHAWK IS PERCHED. WATCH THE LANES.' },
+  { slot: 'ann_sniperhawk_down', text: 'SNIPERHAWK IS DOWN. THE LANES ARE YOURS.' },
+  { slot: 'ann_sniperhawk_rampage', text: 'FIVE KILLS. SNIPERHAWK OWNS THE SIGHTLINES.' },
 ];
 
 export const ANN_NOTES = [

@@ -124,6 +124,17 @@ export const LSWS: Record<AscendantId, LswDef> = {
     scale: 1.25, speed: 9, color: 0xf5f06a, // high-voltage yellow-white
     activeLabel: 'CHAIN LIGHTNING — arc through the crowd', activeCd: 3,
   },
+  sniperhawk: {
+    id: 'sniperhawk', name: 'Sniperhawk', faction: 0, threat: 1,
+    lines: {
+      inbound: 'SNIPERHAWK INBOUND — BREAK LINE OF SIGHT',
+      landed: 'SNIPERHAWK PERCHED — WATCH THE LANES',
+      down: 'SNIPERHAWK IS DOWN — THE LANES ARE YOURS',
+      rampage: 'FIVE KILLS — SNIPERHAWK OWNS THE SIGHTLINES',
+    },
+    scale: 1.2, speed: 8, color: 0x5fb3c9, // scope steel-cyan
+    activeLabel: 'PIERCING RAIL — one shot down the whole line', activeCd: 2.5,
+  },
 };
 
 /** THE SPOKEN SCRIPT — subtitle text per voice slot, tag-stripped mirrors of
@@ -162,6 +173,11 @@ export const VO_LINES: Record<string, { who: AscendantId; line: string }> = {
   vo_voltstriker_ability: { who: 'voltstriker', line: 'Hold hands!' },
   vo_voltstriker_low: { who: 'voltstriker', line: 'Losing... current.' },
   vo_voltstriker_death: { who: 'voltstriker', line: 'Ground... fault.' },
+  vo_sniperhawk_arrive: { who: 'sniperhawk', line: 'Found my perch.' },
+  vo_sniperhawk_kill3: { who: 'sniperhawk', line: 'Three. All center mass.' },
+  vo_sniperhawk_ability: { who: 'sniperhawk', line: "Line 'em up." },
+  vo_sniperhawk_low: { who: 'sniperhawk', line: 'Position... compromised.' },
+  vo_sniperhawk_death: { who: 'sniperhawk', line: "Should've... moved." },
 };
 export const voSlot = (id: AscendantId, moment: VoMoment) => `vo_${id}_${moment}`;
 export const annSlot = (id: AscendantId, moment: 'inbound' | 'landed' | 'down' | 'rampage') => `ann_${id}_${moment}`;
