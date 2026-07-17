@@ -49,35 +49,53 @@ export interface Earshot {
   muffle: number;
   /** how much rain/snow dull it (1 = fully weather-exposed) */
   weather: number;
+  /** humanization width: ±pitch (and ×1.5 ±volume) applied per WORLD play.
+   *  Noise-born sounds wear wide jitter naturally (no two gunshots match);
+   *  tonal/musical sounds keep it narrow. Non-positional plays (stingers,
+   *  UI, the announcer) are NEVER humanized — they hit exact, every time. */
+  jitter: number;
 }
 const EARSHOT_CLASSES: [RegExp, Earshot][] = [
   // the big booms: heard map-wide, walls barely dent them
-  [/^(explosion|cannon|thump|emp_burst|orbital)/, { range: 140, muffle: 0.25, weather: 1 }],
-  // gunfire: carries a whole street, walls make it distant-thunder
-  [/^(rifle|smg|autocannon|shotgun|rail|rocket|plasma|pistol|impulse|acid)/, { range: 95, muffle: 0.5, weather: 1 }],
+  [/^(explosion|cannon|thump|emp_burst|orbital)/, { range: 140, muffle: 0.25, weather: 1, jitter: 0.05 }],
+  // gunfire: carries a whole street, walls make it distant-thunder. Widest
+  // jitter in the game — the same rifle sample must never read twice in a
+  // burst (the machine-gun-loop tell is repetition, not the sample).
+  [/^(rifle|smg|autocannon|shotgun|rail|rocket|plasma|pistol|impulse|acid)/, { range: 95, muffle: 0.5, weather: 1, jitter: 0.09 }],
   // the close hoses and beams
-  [/^(flame|repair|heal)/, { range: 30, muffle: 0.7, weather: 0.5 }],
+  [/^(flame|repair|heal)/, { range: 30, muffle: 0.7, weather: 0.5, jitter: 0.06 }],
   // movement and hands: intimate, and a wall is a wall
-  [/^(footstep|claw|ladder|reload|door|growl|mine_plant|pickup)/, { range: 20, muffle: 0.9, weather: 0.3 }],
+  [/^(footstep|claw|ladder|reload|door|growl|mine_plant|pickup)/, { range: 20, muffle: 0.9, weather: 0.3, jitter: 0.08 }],
   // fates and abilities: mid-range so the fight stays legible
-  [/^(death|jetpack|cloak|warp|blink|gravlift|beacon|spawn|drone)/, { range: 55, muffle: 0.6, weather: 0.5 }],
+  [/^(death|jetpack|cloak|warp|blink|gravlift|beacon|spawn|drone)/, { range: 55, muffle: 0.6, weather: 0.5, jitter: 0.05 }],
   // paintball: a marker is AIR — carries a yard, not a street; paint lands
   // wet and close; the referee's whistle owns the whole field by design
-  [/^marker/, { range: 70, muffle: 0.55, weather: 1 }],
-  [/^splat/, { range: 26, muffle: 0.8, weather: 0.4 }],
-  [/^whistle/, { range: 130, muffle: 0.3, weather: 1 }],
+  [/^marker/, { range: 70, muffle: 0.55, weather: 1, jitter: 0.08 }],
+  [/^splat/, { range: 26, muffle: 0.8, weather: 0.4, jitter: 0.1 }],
+  [/^whistle/, { range: 130, muffle: 0.3, weather: 1, jitter: 0.015 }], // the ref's pea, not a synth
   // ballistic feedback: a whiz IS proximity (it only exists near your ear);
   // impacts read a room away — information, never a soundtrack
-  [/^whiz/, { range: 18, muffle: 0.9, weather: 0.2 }],
-  [/^impact/, { range: 30, muffle: 0.7, weather: 0.5 }],
+  [/^whiz/, { range: 18, muffle: 0.9, weather: 0.2, jitter: 0.12 }],
+  [/^impact/, { range: 30, muffle: 0.7, weather: 0.5, jitter: 0.1 }],
   // LSW signatures: an Ascendant is an EVENT — its voice carries a street so
   // both sides know it's on the field (the shatter is closer, a local beat)
-  [/^(rage_roar|ice_freeze|fire_whoosh|gas_hiss)/, { range: 90, muffle: 0.5, weather: 0.8 }],
-  [/^ice_shatter/, { range: 40, muffle: 0.6, weather: 0.4 }],
+  [/^(rage_roar|ice_freeze|fire_whoosh|gas_hiss)/, { range: 90, muffle: 0.5, weather: 0.8, jitter: 0.06 }],
+  [/^ice_shatter/, { range: 40, muffle: 0.6, weather: 0.4, jitter: 0.1 }],
 ];
 export function earshotFor(name: string): Earshot {
   for (const [re, e] of EARSHOT_CLASSES) if (re.test(name)) return e;
-  return { range: 60, muffle: 0.5, weather: 0.5 };
+  return { range: 60, muffle: 0.5, weather: 0.5, jitter: 0.06 };
+}
+
+/**
+ * AIR ABSORPTION — distance changes TONE, not just volume. A rifle at 5u is
+ * bright and cracky; the same rifle at 90u is a dark thud, because air eats
+ * treble first. Pure curve so the law suite can pin it: full brightness up
+ * close, falling to a ~1.1kHz rumble floor at the edge of earshot.
+ */
+export function distanceCutoff(d: number, range: number): number {
+  const k = Math.max(0, Math.min(1, d / Math.max(1, range)));
+  return 1100 + 15000 * Math.pow(1 - k, 1.6);
 }
 
 // ---------------------------------------------------------------------------
@@ -174,7 +192,20 @@ export class AudioEngine {
     this.ctx = new AudioContext();
     this.master = this.ctx.createGain();
     this.master.gain.value = this.masterVolume;
-    this.master.connect(this.ctx.destination);
+    // THE MASTER BUS (sound-design pass): master → duck → compressor → out.
+    // The compressor is the glue — a 12-source firefight used to hit the
+    // DAC raw and clip into digital hash; now the bus leans instead of
+    // shattering. The duck gain is the mix's elbow: big moments (a close
+    // boom, the referee's whistle) push everything else down for a beat,
+    // which is what makes them feel BIG (loudness is relative, not absolute).
+    this.duck_ = this.ctx.createGain();
+    const comp = this.ctx.createDynamicsCompressor();
+    comp.threshold.value = -14;
+    comp.knee.value = 18;
+    comp.ratio.value = 4;
+    comp.attack.value = 0.004;
+    comp.release.value = 0.18;
+    this.master.connect(this.duck_).connect(comp).connect(this.ctx.destination);
     await Promise.all(
       SOUND_NAMES.map(async (name) => {
         try {
@@ -200,6 +231,24 @@ export class AudioEngine {
 
   resume() {
     this.ctx?.resume();
+  }
+
+  /** the mix's elbow — see init(); null until the context exists */
+  private duck_: GainNode | null = null;
+
+  /**
+   * DUCK: drop the whole mix for a beat and let it breathe back. `amount`
+   * is how far down (0.5 = -6dB-ish), `release` how long the recovery
+   * takes. Re-triggers steal the envelope — a string of booms holds the
+   * mix down instead of fluttering.
+   */
+  duck(amount = 0.5, release = 0.55) {
+    if (!this.ctx || !this.duck_) return;
+    const g = this.duck_.gain;
+    const now = this.ctx.currentTime;
+    g.cancelScheduledValues(now);
+    g.setValueAtTime(Math.min(g.value, 1 - amount), now);
+    g.linearRampToValueAtTime(1, now + release);
   }
 
   // ---- Sound Lab API (driven from the harness) ----
@@ -287,7 +336,9 @@ export class AudioEngine {
     const pref = this.getPref(name);
     let vol = (opts.volume ?? 1) * pref.vol;
     let pan = 0;
-    let muffled = false;
+    let rate = (opts.rate ?? 1) * pref.rate;
+    /** lowpass cutoff for this play; Infinity = no filter (bright, exact) */
+    let cutoff = Infinity;
     if (opts.pos) {
       const ear = earshotFor(name);
       const dx = opts.pos.x - this.listener.x;
@@ -299,25 +350,36 @@ export class AudioEngine {
       vol *= Math.pow(1 - d / range, 1.4);
       vol *= 1 - this.weatherDull * 0.35 * ear.weather;
       pan = Math.max(-0.8, Math.min(0.8, dx / 40));
+      // AIR ABSORPTION: distance darkens before it silences — a far rifle
+      // is a dull thud, not a quiet crack. (The old mix only turned the
+      // volume knob; every sound was studio-bright at any range.)
+      cutoff = distanceCutoff(d, range);
       // walls between you and the sound: quieter AND darker (low-pass) —
       // a firefight through a wall should FEEL like it's through a wall
       if (ear.muffle > 0 && d > 6 && this.occlusionTest?.(opts.pos)) {
         vol *= 1 - ear.muffle * 0.65;
-        muffled = true;
+        cutoff = Math.min(cutoff, 750); // through-the-wall darkness
         if (vol < 0.02) return false; // a footstep behind a wall is a wall's secret
       }
+      // HUMANIZATION, world sounds only: no two gunshots, footsteps, or
+      // splats read identical — pitch wobbles by the class's jitter, volume
+      // half again as much. Stingers/UI/announcer (no pos) stay EXACT: a
+      // detuned victory sting is a wrong note, not variety.
+      rate *= 1 - ear.jitter + Math.random() * ear.jitter * 2;
+      const vj = ear.jitter * 1.5;
+      vol *= 1 - vj + Math.random() * vj * 2;
     }
     const src = this.ctx.createBufferSource();
     src.buffer = buf;
-    src.playbackRate.value = (opts.rate ?? 1) * pref.rate * (0.94 + Math.random() * 0.12);
+    src.playbackRate.value = rate;
     const g = this.ctx.createGain();
     g.gain.value = vol;
     const p = this.ctx.createStereoPanner();
     p.pan.value = pan;
-    if (muffled) {
+    if (Number.isFinite(cutoff) && cutoff < 15500) {
       const lp = this.ctx.createBiquadFilter();
       lp.type = 'lowpass';
-      lp.frequency.value = 750; // through-the-wall darkness
+      lp.frequency.value = cutoff;
       src.connect(lp).connect(g).connect(p).connect(this.master);
     } else {
       src.connect(g).connect(p).connect(this.master);

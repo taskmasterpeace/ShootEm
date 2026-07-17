@@ -2305,6 +2305,9 @@ export class Renderer {
           if (local) {
             const d = Math.hypot(e.pos.x - local.pos.x, e.pos.z - local.pos.z);
             if (d < 30) this.camShake = Math.max(this.camShake, (big ? 0.9 : 0.5) * (1 - d / 30));
+            // a CLOSE boom pushes the whole mix down for a beat — the duck is
+            // what makes it feel big; loudness is relative, not absolute
+            if (d < 40) audio.duck((big ? 0.55 : 0.35) * (1 - d / 40) + 0.15, big ? 0.7 : 0.45);
           }
           break;
         }
@@ -2318,8 +2321,9 @@ export class Renderer {
               const paint = paintColorFor(e.ownerId ?? e.soldierId ?? -1, localId);
               this.particles.emit({ pos: e.pos, count: 10, color: paint, speed: 6, life: 0.3, spread: 0.3, up: 2.5 });
               this.spawnSplat(e.pos, paint, 0.55 + Math.random() * 0.4);
-              // paint lands WET — rate wobble so 30 balls a minute stay organic
-              audio.play('splat', { pos: e.pos, volume: 0.55, rate: 0.9 + Math.random() * 0.25 });
+              // paint lands WET — the splat class's own jitter keeps 30
+              // balls a minute organic (humanization lives in ONE place now)
+              audio.play('splat', { pos: e.pos, volume: 0.55 });
               break;
             }
             if (e.soldierId !== undefined) {
@@ -2397,7 +2401,9 @@ export class Renderer {
           break;
         case 'whistle':
           // the referee owns the yard: not positional — a round bookend
-          // should never be quiet because you sat down across the field
+          // should never be quiet because you sat down across the field.
+          // The duck clears the air so the pea cuts through the paint.
+          audio.duck(0.35, 0.4);
           audio.play('whistle', { volume: 0.7 });
           break;
         case 'encased':
@@ -2445,6 +2451,9 @@ export class Renderer {
           if (e.pos) {
             this.particles.emit({ pos: e.pos, count: 80, color: 0xff8030, speed: 16, life: 1, spread: 2, up: 10, gravity: 7 });
             audio.play('explosion_big', { pos: e.pos, volume: 1 });
+            const lv = world.soldiers.get(localId);
+            const dv = lv ? Math.hypot(e.pos.x - lv.pos.x, e.pos.z - lv.pos.z) : 99;
+            if (dv < 50) audio.duck(0.5 * (1 - dv / 50) + 0.15, 0.7);
           }
           break;
         case 'warp':
@@ -2494,6 +2503,7 @@ export class Renderer {
           this.flashes.flash(e.pos, 0xffcc66, 140, world.time, 0.4);
           this.camShake = Math.max(this.camShake, 1.2);
           audio.play('explosion_big', { pos: e.pos, volume: 1 });
+          audio.duck(0.6, 0.9); // an orbital strike SILENCES the field for a breath
           break;
         }
         case 'pod_incoming':
@@ -2533,7 +2543,7 @@ export class Renderer {
           // something is banging on a door — splinters fly, wood thuds
           if (e.pos) {
             this.particles.emit({ pos: { ...e.pos, y: 1.2 }, count: 8, color: 0x8a5a2a, speed: 4, life: 0.45, spread: 0.7, up: 2.5, gravity: 8 });
-            if (!audio.play('door_hit', { pos: e.pos, volume: 0.65, rate: 0.92 + Math.random() * 0.16 })) {
+            if (!audio.play('door_hit', { pos: e.pos, volume: 0.65 })) {
               audio.play('thump', { pos: e.pos, volume: 0.4, rate: 1.4 });
             }
           }
