@@ -207,12 +207,23 @@ export function mountMatchup(root: HTMLElement, deps: MatchupDeps): MatchupCtl {
     group.remove(shots); shots = new THREE.Group(); group.add(shots);
 
     const w = new World({ seed: (Math.random() * 0xffffffff) >>> 0, mode: 'tdm', botsPerTeam: 0, matchMinutes: 15 });
+    // THE DRIVE FIX (Robert: "these **** **** don't fight"): the bare world
+    // let both gods walk to objective points computed from the GENERATED
+    // map's bases — they froze 95u apart, never perceiving (the range is 65).
+    // The street is the whole war now: seal the generated map outside it,
+    // and plant the bases INSIDE the lane (±30u) so both objective anchors
+    // land ~26u apart — they meet in sight of each other and it HAS to burn.
+    for (let z = 0; z < GRID; z++) for (let x = 0; x < GRID; x++) {
+      if (x <= AX0 || x >= AX1 || z <= AZ0 || z >= AZ1) w.map.grid[z * GRID + x] = T_WALL;
+    }
     authorStreet(w);
     world = w;
     fightTime = 0;
     winner = null;
     const west = { x: (AX0 + 2.5) * TILE - WORLD / 2, y: 0, z: 50.5 * TILE - WORLD / 2 };
     const east = { x: (AX1 - 1.5) * TILE - WORLD / 2, y: 0, z: 50.5 * TILE - WORLD / 2 };
+    w.map.basePos = [{ x: -30, y: 0, z: west.z }, { x: 30, y: 0, z: west.z }];
+    w.map.hillPos = { x: 0, y: 0, z: west.z };
     const uf = w.addLsw(ufPick, 0, west)!;
     const coll = w.addLsw(collPick, 1, east)!;
     for (const s of [uf, coll]) {
