@@ -44,6 +44,15 @@ export function step(w: World, s: Soldier, _dt: number) {
       s.nextLswAt = w.time + 5;
     }
   }
+  // THE GROUND SLAM (the headline power): was pilot-only — a bot Ragebeast
+  // never brought it down. Now it slams whenever an enemy is inside its reach,
+  // on the signature cadence (activeCd 6s). This is the burst that makes the
+  // melee duel actually resolve.
+  if (s.kind === 'bot' && w.time >= (s.nextLswActiveAt ?? 0)) {
+    const inReach = [...w.soldiers.values()].some((e) => e.alive && e.team !== s.team
+      && e.id !== s.id && Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z) <= 7);
+    if (inReach) { active(w, s); s.nextLswActiveAt = w.time + 6; }
+  }
 }
 
 export function active(w: World, s: Soldier): boolean {

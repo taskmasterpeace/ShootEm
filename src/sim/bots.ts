@@ -746,7 +746,16 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
   if (target) {
     const d = Math.hypot(target.pos.x - s.pos.x, target.pos.z - s.pos.z);
     const wdef = WEAPONS[s.weapons[s.weaponIdx]];
-    const doc = DOCTRINE[s.classId];
+    const baseDoc = DOCTRINE[s.classId];
+    // LSW MELEE DOCTRINE (bots-use-their-powers): an LSW rides the infantry
+    // doctrine (standoff 17u), but its signature arm and step() abilities live
+    // at ITS weapon's range — Titan's 12u fists, Ragebeast's 10u claws. Parked
+    // at 17u they whiff everything. Fight at your own reach: close to ~0.65× the
+    // weapon range (clamped ≥6u) and always chase in a duel. Ranged gods keep
+    // their distance (a 46u lance clamps back to the infantry 17u).
+    const doc = s.ascendant
+      ? { ...baseDoc, standoff: Math.max(6, Math.min(baseDoc.standoff, wdef.range * 0.65)), chase: true }
+      : baseDoc;
 
     // DRY FALLBACK (Robert's ammo pass): a primary with an empty clip AND no
     // reserve is dead weight — drop to the sidearm, which never runs out. Only

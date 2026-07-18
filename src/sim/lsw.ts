@@ -25,15 +25,18 @@ export const THREAT: Record<ThreatLevel, {
   name: string; hp: number; materiel: number; telegraph: number;
 }> = {
   // HP MEASURED, not guessed (Robert: "test to determine threat level").
-  // The harness probe showed a focused, self-healing 4-squad lands FAR more
-  // than the paper ~180 dps — a 900-HP body died in 4-7s, which reads as a
-  // fat trooper, not a STRONGPOINT. Tripled to hit the DESIGN targets the
-  // doc promises: a T2 should be ~15s of a squad's honest focus, a T4 a
-  // minute of the whole team. These are the corrected, live-verified numbers.
-  1: { name: 'SKIRMISH', hp: 1200, materiel: 1, telegraph: 15 },
-  2: { name: 'STRONGPOINT', hp: 2600, materiel: 2, telegraph: 20 },
-  3: { name: 'SIEGE', hp: 5000, materiel: 4, telegraph: 30 },
-  4: { name: 'EXTINCTION', hp: 9000, materiel: 7, telegraph: 40 },
+  // Two contexts pull on this number: a god must survive a squad's focus for
+  // its tier's window (threat-measure law), yet a 1v1 must actually RESOLVE.
+  // Once the bots learned to fight at their own range (bots.ts melee doctrine)
+  // and land their powers, incoming 1v1 dps roughly tripled — so the old
+  // squad-only numbers left duels grinding past 90s. Trimmed ~36% so duels
+  // finish while the squad windows still hold (bands re-tuned in
+  // threat-measure.test.ts). A T3 duel now resolves; a T3 vs its 12-squad
+  // still dies in its band.
+  1: { name: 'SKIRMISH', hp: 800, materiel: 1, telegraph: 15 },
+  2: { name: 'STRONGPOINT', hp: 1600, materiel: 2, telegraph: 20 },
+  3: { name: 'SIEGE', hp: 3200, materiel: 4, telegraph: 30 },
+  4: { name: 'EXTINCTION', hp: 5800, materiel: 7, telegraph: 40 },
 };
 
 export interface LswDef {

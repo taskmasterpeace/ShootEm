@@ -62,6 +62,25 @@ describe('blink tuning', () => {
   });
 });
 
+describe('bots use their powers — the 1v1 actually fights', () => {
+  // Before the melee doctrine + wired signatures, a Titan/Ragebeast duel chipped
+  // ~19 dps and never resolved (Robert: "way too much health"). Now the bots
+  // fight at their own range and land their powers, so a duel is a real fight.
+  it('a Titan vs Ragebeast duel trades heavy damage and drives to a result', () => {
+    const w = new World({ seed: 7, mode: 'tdm', botsPerTeam: 0, matchMinutes: 15 });
+    w.map.basePos = [{ x: -30, y: 0, z: 0 }, { x: 30, y: 0, z: 0 }];
+    w.map.hillPos = { x: 0, y: 0, z: 0 };
+    const t = w.addLsw('titan', 0, { x: -12, y: 0, z: 0 })!;
+    const r = w.addLsw('ragebeast', 1, { x: 12, y: 0, z: 0 })!;
+    for (let i = 0; i < 60 * 90 && t.alive && r.alive; i++) w.step(1 / 60, new Map());
+    // a real fight: by 90s someone is dead, or both are deep in the red — not
+    // the old stalemate where two 5000-HP bodies barely scratched each other
+    const resolved = !t.alive || !r.alive;
+    const bloodied = t.hp < t.maxHp * 0.35 && r.hp < r.maxHp * 0.35;
+    expect(resolved || bloodied, `titan ${Math.round(t.hp)}/${t.maxHp}, ragebeast ${Math.round(r.hp)}/${r.maxHp}`).toBe(true);
+  });
+});
+
 describe('strange-five feel', () => {
   it('the wraith hovers at ~0.6u with gravity off', () => {
     const w = new World({ seed: 1, mode: 'tdm' });
