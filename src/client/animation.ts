@@ -143,7 +143,15 @@ export function poseSoldierJoints(j: Joints, inp: GaitInput): GaitPose {
   const stride = moving
     ? (kind === 'brute' ? 0.75 : kind === 'sprinter' ? 0.9 : 0.55) * Math.min(1, speed / 5 + 0.35)
     : 0;
-  const swing = Math.sin(phase) * stride;
+
+  // THE WEIGHTED SWING (Robert: "really running"). A raw sin(phase) spends
+  // equal time in the air and on the ground, so feet read as swinging
+  // pendulums. The phase warp accelerates the swing-THROUGH and dwells on
+  // the plant — feet hurry forward and arrive with weight. Speed scales it:
+  // a jog is honest, a sprint means it.
+  const runDrive = Math.min(1, speed / 9);
+  const warp = phase + 0.28 * runDrive * Math.sin(phase);
+  const swing = Math.sin(warp) * stride;
 
   if (j.legL && j.legR && j.shinL && j.shinR) {
     if (airborne) {
@@ -155,8 +163,17 @@ export function poseSoldierJoints(j: Joints, inp: GaitInput): GaitPose {
     } else {
       j.legL.rotation.z = swing;
       j.legR.rotation.z = -swing;
-      j.shinL.rotation.z = stride ? -Math.max(0, Math.sin(phase + 0.5)) : 0;
-      j.shinR.rotation.z = stride ? -Math.max(0, -Math.sin(phase + 0.5)) : 0;
+      // knees: a real knee LIFTS through the swing and is nearly straight by
+      // the plant, with a small yield as the stance takes the weight. The
+      // lift leads the leg's forward extreme, so the boot reaches the ground
+      // toes-first instead of shin-first.
+      const knee = (p: number) => {
+        const lift = Math.max(0, Math.sin(p + 0.85));    // recovery — boot comes up
+        const stance = Math.max(0, -Math.sin(p));         // planted — the yield
+        return stride * (lift * 0.95 + stance * 0.14);
+      };
+      j.shinL.rotation.z = -knee(warp);
+      j.shinR.rotation.z = -knee(warp + Math.PI);
     }
   }
 
@@ -173,6 +190,25 @@ export function poseSoldierJoints(j: Joints, inp: GaitInput): GaitPose {
     // the charge tips them forward — a running dead thing is falling on purpose
     if (j.torso) j.torso.rotation.x = Math.sin(phase * 0.5) * (kind === 'brute' ? 0.1 : 0.07) - drive * 0.14;
     if (j.belly) j.belly.scale.setScalar(1 + Math.sin(t * 6) * 0.06);
+  } else {
+    // THE LIVING TORSO WORKS THE RUN. Shoulders counter-roll the leg swing
+    // (every step is a small fall you catch; the chest rolls against it),
+    // and the head stabilizes against the chest — the two things a locked
+    // upper body never does. rotation.z on the torso stays the renderer's
+    // (recoil lives there); rotation.x on the head stays the ragdoll's.
+    const upper = Math.min(1, speed / 6);
+    const grounded = moving && !airborne;
+    if (j.torso) {
+      j.torso.rotation.x = grounded
+        ? -swing * 0.1 * upper                              // counter-roll the legs
+        : Math.sin(t * 1.7 + id) * 0.018;                   // idle breath
+    }
+    if (j.head) {
+      j.head.rotation.x = grounded
+        ? swing * 0.07 * upper                              // stabilize against the chest
+        : Math.sin(t * 0.5 + id * 1.3) * 0.09;              // idle scan the sector
+      j.head.rotation.z = grounded ? 0.045 * Math.min(1, speed / 8) : 0; // into the run
+    }
   }
 
   return { phase, moving, footstep, growl };
