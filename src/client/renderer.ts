@@ -11,6 +11,8 @@ import { BIOME_AUDIO } from './soundscape';
 import { settings } from './settings';
 import { Particles, FlashLights } from './effects';
 import { JOINT_NAMES, isUndead, poseSoldierJoints, CAST_SCHOOL, FLIGHT_POSES, RECOIL_SCALE, stepYawSpring, throwArmCurve, WEAPON_HOLDS, type GaitState } from './animation';
+import { chunkCount, drawChunks, drawGrade, drawNotches, drawNumber, makeRingMesh, RING_COLORS, ringChunkTexture, ringTier } from './ring';
+import { LSWS } from '../sim/lsw';
 import { hash01 } from '../sim/rng';
 import { buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp, buildSoldier, buildTurretMesh, buildVehicle, dressAsLsw } from './models';
 
@@ -1041,61 +1043,20 @@ export class Renderer {
     return sprite;
   }
 
-  /** Squadmate vitals at a glance: two circles over each teammate — health
-   *  and, when they carry plate, armor. Redrawn only when a value bucket
-   *  changes; enemies get nothing (their state is yours to find out). */
-  private statusArcs = new Map<number, { sprite: THREE.Sprite; ctx: CanvasRenderingContext2D; tex: THREE.CanvasTexture; key: string }>();
+  /** THE RING (§UI: one health language, three resolutions) — a ground ring
+   *  at each soldier's feet: 3 chunks for grunts, a continuous grade +
+   *  plate arc for recon/squad, the exact number for medics/optics. The
+   *  tier gate's data path is unchanged; the glyph is the language now. */
+  private ringMaps = new Map<number, {
+    mesh: THREE.Mesh; ctx: CanvasRenderingContext2D; tex: THREE.CanvasTexture; key: string;
+  }>();
 
-  /** THE TIER GATE (Robert: "seeing the EXACT health behind another tier"):
-   *  every perceived ENEMY shows a thin bar — the shape of the fight is
-   *  public. The NUMBER is intel: only tracking optics reads it out. */
-  private drawEnemyBar(ctx: CanvasRenderingContext2D, hpFrac: number, exact: number | null) {
-    ctx.clearRect(0, 0, 96, 48);
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillRect(14, 30, 68, 7);
-    ctx.fillStyle = hpFrac < 0.35 ? '#e05252' : '#c9553e';
-    ctx.fillRect(15, 31, 66 * Math.max(0, hpFrac), 5);
-    if (exact !== null) {
-      ctx.font = '700 20px Inter, system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.strokeStyle = 'rgba(0,0,0,0.85)';
-      ctx.lineWidth = 4;
-      ctx.strokeText(String(exact), 48, 24);
-      ctx.fillStyle = '#f0d9a8';
-      ctx.fillText(String(exact), 48, 24);
-    }
-  }
-
-  private drawStatusArcs(ctx: CanvasRenderingContext2D, hpFrac: number, arFrac: number, hasArmor: boolean) {
-    ctx.clearRect(0, 0, 96, 48);
-    const ring = (cx: number, frac: number, color: string) => {
-      ctx.lineWidth = 7;
-      ctx.lineCap = 'round';
-      ctx.strokeStyle = 'rgba(0,0,0,0.45)'; // track
-      ctx.beginPath(); ctx.arc(cx, 24, 17, 0, Math.PI * 2); ctx.stroke();
-      if (frac > 0.004) {
-        ctx.strokeStyle = color;
-        ctx.beginPath();
-        ctx.arc(cx, 24, 17, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac);
-        ctx.stroke();
-      }
-    };
-    if (hasArmor) {
-      ring(26, hpFrac, hpFrac < 0.35 ? '#e05252' : hpFrac < 0.7 ? '#e0b352' : '#7fd45c');
-      ring(70, arFrac, '#9fc3d8'); // steel — the plate circle
-    } else {
-      ring(48, hpFrac, hpFrac < 0.35 ? '#e05252' : hpFrac < 0.7 ? '#e0b352' : '#7fd45c');
-    }
-  }
-
-  private makeStatusSprite(): { sprite: THREE.Sprite; ctx: CanvasRenderingContext2D; tex: THREE.CanvasTexture } {
+  private makeRingMap(): { mesh: THREE.Mesh; ctx: CanvasRenderingContext2D; tex: THREE.CanvasTexture } {
     const cvs = document.createElement('canvas');
-    cvs.width = 96; cvs.height = 48;
+    cvs.width = cvs.height = 128;
     const ctx = cvs.getContext('2d')!;
     const tex = new THREE.CanvasTexture(cvs);
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-    sprite.scale.set(1.7, 0.85, 1);
-    return { sprite, ctx, tex };
+    return { mesh: makeRingMesh(tex), ctx, tex };
   }
 
   /** Sync all dynamic entities to the sim state, advance FX. */
@@ -1329,41 +1290,54 @@ export class Renderer {
         blip.visible = s.alive && blipAlpha > 0.01;
         blip.scale.setScalar(uiK);
       }
-      // enemy readout (the tier gate): a bar for anyone on your wire; the
-      // exact number only if YOUR kit carries tracking optics
-      const enemyBar = s.team !== localTeam && s.id !== localId && mesh.visible && s.alive && !s.downed;
-      let arcs = this.statusArcs.get(s.id);
-      if ((squad || enemyBar) && !arcs) {
-        const made = this.makeStatusSprite();
-        mesh.add(made.sprite);
-        arcs = { ...made, key: '' };
-        this.statusArcs.set(s.id, arcs);
+      // THE RING (§UI): every soldier you may see wears the one glyph.
+      // squad = faction color with plate; enemy = signal red, numbers only
+      // when your kit earns them. Cloaked = no ring (cloak stays TRUE).
+      const enemyRing = s.team !== localTeam && s.id !== localId && mesh.visible && s.alive && !s.downed;
+      const ringWanted = (squad || enemyRing) && !s.cloaked;
+      let ring = this.ringMaps.get(s.id);
+      if (ringWanted && !ring) {
+        ring = { ...this.makeRingMap(), key: '' };
+        mesh.add(ring.mesh);
+        this.ringMaps.set(s.id, ring);
       }
-      if (arcs) {
-        arcs.sprite.visible = squad || enemyBar;
-        arcs.sprite.scale.set(1.7 * uiK, 0.85 * uiK, 1);
-        arcs.sprite.position.y = 1.9 + 0.55 * uiK;
-        if (squad) {
-          const hasArmor = (s.maxArmor ?? 0) > 0;
+      if (ring) {
+        ring.mesh.visible = ringWanted;
+        if (ringWanted) {
           const hpFrac = Math.max(0, Math.min(1, s.hp / s.maxHp));
-          const arFrac = hasArmor ? Math.max(0, Math.min(1, s.armor / s.maxArmor)) : 0;
-          // redraw only when a 5% bucket moves — canvases are not free
-          const key = `${Math.round(hpFrac * 20)}:${Math.round(arFrac * 20)}:${hasArmor}`;
-          if (key !== arcs.key) {
-            arcs.key = key;
-            this.drawStatusArcs(arcs.ctx, hpFrac, arFrac, hasArmor);
-            arcs.tex.needsUpdate = true;
+          const arFrac = (s.maxArmor ?? 0) > 0 ? Math.max(0, Math.min(1, s.armor / s.maxArmor)) : 0;
+          // the tier: class tier + optics(+1) + commission(+1), squad ≥ grade
+          const tier = ringTier({
+            viewerRecon: !!local && ['ghost', 'infiltrator', 'pathfinder'].includes(local.classId),
+            viewerMedic: !!local && local.classId === 'medic',
+            viewerOptics: !!local && local.equipment.includes('tracking_optics'),
+            viewerCommissioned: false, // the officer's commission rides its own arc when it ships
+            squadmate: squad,
+          });
+          const color = squad ? (s.team === 0 ? '#e8a33d' : '#3dbde8') : RING_COLORS.hostile;
+          const exact = tier === 2 ? Math.ceil(s.hp) : null;
+          const threat = s.ascendant ? (LSWS[s.ascendant]?.threat ?? 0) : 0;
+          const key = `${tier}:${Math.round(hpFrac * 100)}:${Math.round(arFrac * 20)}:${exact ?? '-'}:${squad}:${threat}`;
+          if (key !== ring.key) {
+            ring.key = key;
+            if (tier === 0 && !s.ascendant) {
+              // chunks use the SHARED cached textures — 4 ever drawn
+              (ring.mesh.material as THREE.MeshBasicMaterial).map = ringChunkTexture(chunkCount(hpFrac), color);
+            } else {
+              (ring.mesh.material as THREE.MeshBasicMaterial).map = ring.tex;
+              if (tier === 0) drawChunks(ring.ctx, chunkCount(hpFrac), color);
+              else drawGrade(ring.ctx, hpFrac, squad ? arFrac : 0, color, squad);
+              if (threat > 0) drawNotches(ring.ctx, threat, color); // the god's tier is public
+              if (exact !== null) drawNumber(ring.ctx, exact);
+              ring.tex.needsUpdate = true;
+            }
+            (ring.mesh.material as THREE.MeshBasicMaterial).needsUpdate = true;
           }
-        } else if (enemyBar) {
-          const optics = !!local && local.equipment.includes('tracking_optics');
-          const hpFrac = Math.max(0, Math.min(1, s.hp / s.maxHp));
-          const exact = optics ? Math.ceil(s.hp) : null;
-          const key = `E:${Math.round(hpFrac * 20)}:${exact ?? '-'}`;
-          if (key !== arcs.key) {
-            arcs.key = key;
-            this.drawEnemyBar(arcs.ctx, hpFrac, exact);
-            arcs.tex.needsUpdate = true;
-          }
+          // the ring obeys perception exactly like the body does
+          (ring.mesh.material as THREE.MeshBasicMaterial).opacity = (mesh.userData.ghostAlpha as number | undefined) ?? 1;
+          // LSWs wear it larger — threat is public
+          const ringScale = s.ascendant ? 1.9 : 1;
+          ring.mesh.scale.setScalar(ringScale * uiK);
         }
       }
       // a ghost holds the spot you lost them — never their live path
@@ -1421,11 +1395,11 @@ export class Renderer {
           tag.material.dispose();
           this.nameSprites.delete(id);
         }
-        const arcs = this.statusArcs.get(id);
-        if (arcs) {
-          arcs.tex.dispose();
-          arcs.sprite.material.dispose();
-          this.statusArcs.delete(id);
+        const ring = this.ringMaps.get(id);
+        if (ring) {
+          ring.tex.dispose();
+          (ring.mesh.material as THREE.MeshBasicMaterial).dispose();
+          this.ringMaps.delete(id);
         }
         this.soldierMeshes.delete(id);
         this.meleeTelegraphs.delete(id);
@@ -1504,6 +1478,25 @@ export class Renderer {
           this.particles.emit({ pos: { x: v.pos.x, y: 0.15, z: v.pos.z }, count: 3, color: 0x6b5636, speed: 1.2, life: 0.9, spread: 1.3, up: 1.8, gravity: 5, size: 0.5 });
         }
       }
+      // THE RING at the hull's feet: vehicles wear chunks too — the tank's
+      // state of the fight reads in one glance at any zoom
+      {
+        let vring = this.ringMaps.get(v.id);
+        if (!vring) {
+          vring = { ...this.makeRingMap(), key: '' };
+          vring.mesh.scale.setScalar(2.2); // hulls wear it bigger than boots
+          mesh.add(vring.mesh);
+          this.ringMaps.set(v.id, vring);
+        }
+        const hpFrac = Math.max(0, Math.min(1, v.hp / v.maxHp));
+        const key = `${chunkCount(hpFrac)}:${v.team}`;
+        if (key !== vring.key) {
+          vring.key = key;
+          (vring.mesh.material as THREE.MeshBasicMaterial).map = ringChunkTexture(chunkCount(hpFrac), v.team === 0 ? '#e8a33d' : '#3dbde8');
+          (vring.mesh.material as THREE.MeshBasicMaterial).needsUpdate = true;
+        }
+      }
+
       // ambulance lightbar + tunneler warning lamp pulse
       const vPulse = mesh.getObjectByName('pulse') as THREE.Mesh | undefined;
       const vpm = vPulse?.material as THREE.MeshStandardMaterial | undefined;

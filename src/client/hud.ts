@@ -3,6 +3,7 @@ import { LSWS, VO_LINES } from '../sim/lsw';
 import { earshotFor } from './audio';
 import { GRID, T_CLIMB, T_WALL, WORLD, losClear, houseAt } from '../sim/map';
 import type { SimEvent, Soldier, Team } from '../sim/types';
+import { drawGrade, drawNumber, RING_COLORS } from './ring';
 import type { World } from '../sim/world';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -30,6 +31,7 @@ export class Hud {
   private equipRow = document.createElement('div');
   private reloadBar = document.createElement('div');
   private lastHp = -1;
+  private lastRingKey = '';
   private wasAlive = false;
   private psiFlashUntil = 0;
   private equipSig = '';
@@ -88,22 +90,36 @@ export class Hud {
     const s = world.soldiers.get(localId);
     if (!s) return;
 
-    // vitals
+    // vitals — THE RING, big (one language: you read your own at T2)
+    const hasPlate = (s.maxArmor ?? 0) > 0;
+    const ring = $('self-ring') as HTMLCanvasElement;
+    const hpFrac = Math.max(0, Math.min(1, s.hp / s.maxHp));
+    const arFrac = hasPlate ? Math.max(0, Math.min(1, s.armor / s.maxArmor)) : 0;
+    const enFrac = Math.max(0, Math.min(1, s.energy / 100));
+    const ringKey = `${Math.round(hpFrac * 100)}:${Math.round(arFrac * 20)}:${Math.round(enFrac * 20)}:${Math.ceil(s.hp)}`;
+    if (ringKey !== this.lastRingKey) {
+      this.lastRingKey = ringKey;
+      const ctx = ring.getContext('2d')!;
+      drawGrade(ctx, hpFrac, arFrac, RING_COLORS.hp(hpFrac), hasPlate);
+      // the energy inner arc — thin, same grammar
+      if (enFrac > 0.004) {
+        ctx.lineWidth = 3.5;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = RING_COLORS.energy;
+        ctx.beginPath();
+        ctx.arc(64, 64, 34, Math.PI * 0.75, Math.PI * 0.75 + Math.PI * 1.5 * enFrac);
+        ctx.stroke();
+      }
+      drawNumber(ctx, Math.ceil(s.hp));
+    }
     const hpNum = $('hp-num');
     hpNum.textContent = String(Math.ceil(s.hp));
     hpNum.classList.toggle('low', s.hp < s.maxHp * 0.35);
     $('en-num').textContent = String(Math.floor(s.energy));
-    const hpFill = $('hp-fill');
-    hpFill.style.width = `${(s.hp / s.maxHp) * 100}%`;
-    hpFill.classList.toggle('low', s.hp < s.maxHp * 0.35);
-    $('en-fill').style.width = `${s.energy}%`;
-    // issued plate: its own bar, shown only when this life carries any
-    const hasPlate = (s.maxArmor ?? 0) > 0;
+    // issued plate: its label follows the plate arc on the ring
     $('ar-label').classList.toggle('hidden', !hasPlate);
-    $('ar-bar').classList.toggle('hidden', !hasPlate);
     if (hasPlate) {
       $('ar-num').textContent = String(Math.ceil(s.armor));
-      $('ar-fill').style.width = `${(s.armor / s.maxArmor) * 100}%`;
     }
 
     // damage / heal vignette: the screen itself tells you what just happened
