@@ -2048,6 +2048,24 @@ export class Renderer {
         pos: { x: s.pos.x + (Math.random() - 0.5) * 1.2, y: 0.2 + Math.random() * 1.0, z: s.pos.z + (Math.random() - 0.5) * 1.2 }, count: 1,
         color: Math.random() < 0.6 ? 0x8f9e3a : 0xd8c86a, speed: 0.3, life: 0.7, spread: 0.5, up: 0.5, gravity: 0.8, size: 0.26,
       });
+    } else if (id === 'vanguard') {
+      // brass sparks skittering off the raised shield
+      this.particles.emit({
+        pos: { x: s.pos.x + Math.cos(s.yaw) * 0.8, y: 0.8 + Math.random() * 0.8, z: s.pos.z + Math.sin(s.yaw) * 0.8 }, count: 1,
+        color: 0xe8d47a, speed: 1.2, life: 0.3, spread: 0.5, up: 0.8, gravity: 2, size: 0.22,
+      });
+    } else if (id === 'pyroclasm') {
+      // magma seeping — heavy orange gobbets that FALL and linger
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.2, y: 0.4 + Math.random() * 1.4, z: s.pos.z + (Math.random() - 0.5) * 1.2 }, count: 1,
+        color: Math.random() < 0.5 ? 0xff8c2a : 0xffc24a, speed: 0.5, life: 0.8, spread: 0.4, up: 0.4, gravity: 3, size: 0.4,
+      });
+    } else if (id === 'voidwalker') {
+      // shreds of shadow trailing off him — dark, quick, gone
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5), y: 0.4 + Math.random() * 1.4, z: s.pos.z + (Math.random() - 0.5) }, count: 1,
+        color: Math.random() < 0.7 ? 0x14171d : 0x3a4150, speed: 0.8, life: 0.4, spread: 0.8, up: 0.3, gravity: 0, size: 0.3,
+      });
     } else if (id === 'dominator') {
       // crimson psychic tendrils reaching up and out — the puppeteer's threads
       this.particles.emit({

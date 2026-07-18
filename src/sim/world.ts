@@ -2753,7 +2753,9 @@ export class World {
       // enemy shield domes swallow projectiles; FPV drones can be shot down
       if (!def.heals) {
         for (const [gid, g] of this.gadgets) {
-          if (g.team === p.team) continue;
+          // Vanguard's barricade blocks BOTH sides — everyone else's gadgets
+          // only care about ENEMY rounds
+          if (g.team === p.team && !(g.type === 'shield' && g.bothSides)) continue;
           // skitters are shootable: killing one with gunfire is a clean
           // defusal — it pops with no blast (the reward for good aim)
           if (g.type === 'skitter') {

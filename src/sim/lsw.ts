@@ -267,6 +267,39 @@ export const LSWS: Record<AscendantId, LswDef> = {
     scale: 1.2, speed: 9, color: 0x8f9e3a, // huntress olive-brass
     activeLabel: 'HARPOON — reel in the one you are aiming at', activeCd: 7,
   },
+  vanguard: {
+    id: 'vanguard', name: 'Vanguard', faction: 0, threat: 2,
+    lines: {
+      inbound: 'VANGUARD INBOUND — THE DOOR IS ABOUT TO OPEN',
+      landed: 'VANGUARD ON THE FIELD — FOLLOW THE SHIELD',
+      down: 'VANGUARD IS DOWN — THE LINE IS YOURS TO HOLD',
+      rampage: 'FIVE KILLS — VANGUARD IS THE DOOR NOW',
+    },
+    scale: 1.35, speed: 7.5, color: 0xc9b458, // breacher brass-and-drab
+    activeLabel: 'SHIELD BASH — charge, stun, and shove the front', activeCd: 6,
+  },
+  pyroclasm: {
+    id: 'pyroclasm', name: 'Pyroclasm', faction: 1, threat: 2,
+    lines: {
+      inbound: 'PYROCLASM INBOUND — THE FLOOR WILL NOT BE YOURS',
+      landed: 'PYROCLASM ON THE FIELD — MIND THE POOLS',
+      down: 'PYROCLASM IS DOWN — LET IT COOL',
+      rampage: 'FIVE KILLS — PYROCLASM IS PAVING THE MAP',
+    },
+    scale: 1.35, speed: 7, color: 0xff8c2a, // magma orange
+    activeLabel: 'MAGMA VOLLEY — three rocks, three pools', activeCd: 7,
+  },
+  voidwalker: {
+    id: 'voidwalker', name: 'Voidwalker', faction: 1, threat: 1,
+    lines: {
+      inbound: 'VOIDWALKER INBOUND — CHECK YOUR SHADOWS',
+      landed: 'VOIDWALKER ON THE FIELD — HE IS ALREADY BEHIND SOMEONE',
+      down: 'VOIDWALKER IS DOWN — THE SHADOWS EMPTY',
+      rampage: 'FIVE KILLS — VOIDWALKER IS EVERYWHERE AT ONCE',
+    },
+    scale: 1.2, speed: 9.5, color: 0x2a2f38, // void slate — black, never purple
+    activeLabel: 'BLINK-STRIKE — vanish, arrive, cut; the shadow stays', activeCd: 5,
+  },
 };
 
 /** THE SPOKEN SCRIPT — subtitle text per voice slot, tag-stripped mirrors of
@@ -370,6 +403,21 @@ export const VO_LINES: Record<string, { who: AscendantId; line: string }> = {
   vo_venatrix_ability: { who: 'venatrix', line: 'Come here.' },
   vo_venatrix_low: { who: 'venatrix', line: 'Caught... in my own season.' },
   vo_venatrix_death: { who: 'venatrix', line: 'A fair... hunt.' },
+  vo_vanguard_arrive: { who: 'vanguard', line: 'Form up behind me.' },
+  vo_vanguard_kill3: { who: 'vanguard', line: 'Three broke on the shield.' },
+  vo_vanguard_ability: { who: 'vanguard', line: 'MAKE A HOLE.' },
+  vo_vanguard_low: { who: 'vanguard', line: 'Shield arm... failing.' },
+  vo_vanguard_death: { who: 'vanguard', line: 'Hold... the line...' },
+  vo_pyroclasm_arrive: { who: 'pyroclasm', line: 'The ground remembers fire.' },
+  vo_pyroclasm_kill3: { who: 'pyroclasm', line: 'Three, down to ash.' },
+  vo_pyroclasm_ability: { who: 'pyroclasm', line: 'Let it pour.' },
+  vo_pyroclasm_low: { who: 'pyroclasm', line: 'Cracking... it wants OUT.' },
+  vo_pyroclasm_death: { who: 'pyroclasm', line: 'Cooling... at last.' },
+  vo_voidwalker_arrive: { who: 'voidwalker', line: 'Blink and miss me.' },
+  vo_voidwalker_kill3: { who: 'voidwalker', line: 'Three never saw the third.' },
+  vo_voidwalker_ability: { who: 'voidwalker', line: 'Behind you.' },
+  vo_voidwalker_low: { who: 'voidwalker', line: 'Nowhere... left to blink.' },
+  vo_voidwalker_death: { who: 'voidwalker', line: 'Caught... standing still.' },
 };
 export const voSlot = (id: AscendantId, moment: VoMoment) => `vo_${id}_${moment}`;
 export const annSlot = (id: AscendantId, moment: 'inbound' | 'landed' | 'down' | 'rampage') => `ann_${id}_${moment}`;

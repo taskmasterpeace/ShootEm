@@ -126,6 +126,24 @@ export const CAST = {
     persona: "Venatrix, a Collective Living Super Weapon — a trapper who hunts soldiers the way others hunt game. A woman's voice: hushed, patient, warmly pleased when something steps wrong. She likes her quarry careful; it makes the season longer.",
     scene: 'Wind through dry grass. A metal jaw creaking open. Something small stepping where it should not.',
   },
+  vanguard: {
+    voice: 'Sadaltager',
+    fx: 'none', // a sergeant behind a shield — loud enough for the squad
+    persona: "Vanguard, a United Front Living Super Weapon — a breacher who leads every entry shield-first. A sergeant's voice: loud, square, protective; every line is for the men BEHIND him.",
+    scene: 'Rounds slapping a raised shield. Boots stacking up behind. A door about to give.',
+  },
+  pyroclasm: {
+    voice: 'Achernar',
+    fx: 'beast', // a furnace under the words
+    persona: 'Pyroclasm, a Collective Living Super Weapon — a volcano given a walk. Slow, hot, patient the way magma is patient; every word smolders and the ground is his ledger.',
+    scene: 'Lava pools ticking as they cool. Stone cracking with heat. A deep furnace draw.',
+  },
+  voidwalker: {
+    voice: 'Zephyr',
+    fx: 'none', // quick and close — a whisper from the wrong side
+    persona: "Voidwalker, a Collective Living Super Weapon — an assassin who is never where he was. Quick, whispery, amused; half his sentences arrive from behind you. He thinks standing still is a joke everyone else fell for.",
+    scene: 'The soft pop of displaced air. A footstep that starts on one side and ends on the other.',
+  },
   announcer: {
     voice: 'Orus',
     fx: 'radio', // 300–3400Hz military net + soft clip
@@ -265,6 +283,26 @@ export const VO = [
   { slot: 'vo_venatrix_ability', who: 'venatrix', text: '[reeling] Come here.', notes: ['Said while the harpoon drags someone across the open.', 'Effort under the words.'] },
   { slot: 'vo_venatrix_low', who: 'venatrix', text: '[bitter] Caught... in my own season.', notes: ['The hunter, hunted — she knows the irony.'] },
   { slot: 'vo_venatrix_death', who: 'venatrix', text: '[settling] A fair... hunt.', notes: ['Respect for whoever got her.', 'No bitterness at the end.'] },
+  // ---- VANGUARD: for the men behind him ----
+  { slot: 'vo_vanguard_arrive', who: 'vanguard', text: '[loud] Form up behind me.', notes: ['An order and a promise in one.'] },
+  { slot: 'vo_vanguard_kill3', who: 'vanguard', text: 'Three broke on the shield.', notes: ['Matter-of-fact — that is what shields are for.'] },
+  { slot: 'vo_vanguard_ability', who: 'vanguard', text: '[roaring] MAKE A HOLE.', notes: ['The breach call — said mid-charge.'] },
+  { slot: 'vo_vanguard_low', who: 'vanguard', text: '[strained] Shield arm... failing.', notes: ['The first thing he has ever admitted.'] },
+  { slot: 'vo_vanguard_death', who: 'vanguard', text: '[fading] Hold... the line...', notes: ['His last order is for everyone else.'] },
+
+  // ---- PYROCLASM: the ground is his ledger ----
+  { slot: 'vo_pyroclasm_arrive', who: 'pyroclasm', text: '[smoldering] The ground remembers fire.', notes: ['Slow, hot, geological patience.'] },
+  { slot: 'vo_pyroclasm_kill3', who: 'pyroclasm', text: 'Three, down to ash.', notes: ['An accounting, spoken over embers.'] },
+  { slot: 'vo_pyroclasm_ability', who: 'pyroclasm', text: '[opening] Let it pour.', notes: ['Said as the rocks go up and the pools come down.'] },
+  { slot: 'vo_pyroclasm_low', who: 'pyroclasm', text: '[cracking] Cracking... it wants OUT.', notes: ['The eruption is coming and he knows it.', 'The threshold is a threat.'] },
+  { slot: 'vo_pyroclasm_death', who: 'pyroclasm', text: '[hissing out] Cooling... at last.', notes: ['A volcano going dormant — relief and loss at once.'] },
+
+  // ---- VOIDWALKER: never where he was ----
+  { slot: 'vo_voidwalker_arrive', who: 'voidwalker', text: '[whisper] Blink and miss me.', notes: ['A dare, close to the ear.'] },
+  { slot: 'vo_voidwalker_kill3', who: 'voidwalker', text: 'Three never saw the third.', notes: ['Delighted by his own arithmetic.'] },
+  { slot: 'vo_voidwalker_ability', who: 'voidwalker', text: '[from behind] Behind you.', notes: ['The oldest line, made literal.'] },
+  { slot: 'vo_voidwalker_low', who: 'voidwalker', text: '[breathless] Nowhere... left to blink.', notes: ['The joke stops being funny.'] },
+  { slot: 'vo_voidwalker_death', who: 'voidwalker', text: '[still] Caught... standing still.', notes: ['The one mistake his whole life avoided.'] },
 ];
 
 /** The announcer — map-wide, both teams, radio net. */
@@ -345,6 +383,18 @@ export const ANN = [
   { slot: 'ann_venatrix_landed', text: 'VENATRIX ON THE FIELD. THE GROUND IS BAITED.' },
   { slot: 'ann_venatrix_down', text: 'VENATRIX IS DOWN. SWEEP FOR HER TRAPS.' },
   { slot: 'ann_venatrix_rampage', text: 'FIVE KILLS. VENATRIX HAS A FULL TROPHY WALL.' },
+  { slot: 'ann_vanguard_inbound', text: 'VANGUARD INBOUND. [short pause] THE DOOR IS ABOUT TO OPEN.' },
+  { slot: 'ann_vanguard_landed', text: 'VANGUARD ON THE FIELD. FOLLOW THE SHIELD.' },
+  { slot: 'ann_vanguard_down', text: 'VANGUARD IS DOWN. THE LINE IS YOURS TO HOLD.' },
+  { slot: 'ann_vanguard_rampage', text: 'FIVE KILLS. VANGUARD IS THE DOOR NOW.' },
+  { slot: 'ann_pyroclasm_inbound', text: 'PYROCLASM INBOUND. [short pause] THE FLOOR WILL NOT BE YOURS.' },
+  { slot: 'ann_pyroclasm_landed', text: 'PYROCLASM ON THE FIELD. MIND THE POOLS.' },
+  { slot: 'ann_pyroclasm_down', text: 'PYROCLASM IS DOWN. LET IT COOL.' },
+  { slot: 'ann_pyroclasm_rampage', text: 'FIVE KILLS. PYROCLASM IS PAVING THE MAP.' },
+  { slot: 'ann_voidwalker_inbound', text: 'VOIDWALKER INBOUND. [short pause] CHECK YOUR SHADOWS.' },
+  { slot: 'ann_voidwalker_landed', text: 'VOIDWALKER ON THE FIELD. HE IS ALREADY BEHIND SOMEONE.' },
+  { slot: 'ann_voidwalker_down', text: 'VOIDWALKER IS DOWN. THE SHADOWS EMPTY.' },
+  { slot: 'ann_voidwalker_rampage', text: 'FIVE KILLS. VOIDWALKER IS EVERYWHERE AT ONCE.' },
 ];
 
 export const ANN_NOTES = [

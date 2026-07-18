@@ -10,7 +10,7 @@ export type ClassId = 'infantry' | 'heavy' | 'jump' | 'engineer' | 'medic' | 'in
 /** Living Super Weapons (§21.6 / docs/ASCENDANTS.md). A Soldier carrying one
  *  of these is an LSW — not a class, an overlay: bigger, deadlier, its own
  *  brain, and it dies to ordinary guns. Grows as the roster ships. */
-export type AscendantId = 'firebrand' | 'plaguebearer' | 'frostbite' | 'ragebeast' | 'titan' | 'voltstriker' | 'sniperhawk' | 'barrier' | 'reactor' | 'oblivion' | 'tremor' | 'magnetar' | 'wraith' | 'eclipse' | 'dominator' | 'riptide' | 'gravwarden' | 'chronos' | 'venatrix';
+export type AscendantId = 'firebrand' | 'plaguebearer' | 'frostbite' | 'ragebeast' | 'titan' | 'voltstriker' | 'sniperhawk' | 'barrier' | 'reactor' | 'oblivion' | 'tremor' | 'magnetar' | 'wraith' | 'eclipse' | 'dominator' | 'riptide' | 'gravwarden' | 'chronos' | 'venatrix' | 'vanguard' | 'pyroclasm' | 'voidwalker';
 
 /**
  * Weapon ids are open strings: the hand-tuned core set (ar606, kuchler, caw,
@@ -450,6 +450,9 @@ export interface Gadget {
   /** Barrier's reflect wall: while young (bornAt+2s) it throws approaching
    *  enemy fire back at whoever sent it instead of swallowing it. */
   reflect?: boolean;
+  /** Vanguard's barricade: this dome swallows BOTH sides' rounds — his own
+   *  wall can cage his own team. Placement is the skill. */
+  bothSides?: boolean;
   anchor?: Vec3;      // drone orbit center
   phase?: number;     // drone orbit angle
   /** FPV drone: steered by its owner (humans); bots keep the auto-orbit */

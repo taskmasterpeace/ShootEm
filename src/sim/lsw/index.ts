@@ -22,8 +22,11 @@ import * as reactor from './reactor';
 import * as riptide from './riptide';
 import * as sniperhawk from './sniperhawk';
 import * as titan from './titan';
+import * as pyroclasm from './pyroclasm';
 import * as tremor from './tremor';
+import * as vanguard from './vanguard';
 import * as venatrix from './venatrix';
+import * as voidwalker from './voidwalker';
 import * as voltstriker from './voltstriker';
 import * as wraith from './wraith';
 
@@ -35,5 +38,5 @@ export interface LswBrain {
 export const LSW_BRAINS: Record<AscendantId, LswBrain> = {
   firebrand, plaguebearer, frostbite, ragebeast, titan, voltstriker,
   sniperhawk, barrier, reactor, oblivion, tremor, magnetar, wraith,
-  eclipse, dominator, riptide, gravwarden, chronos, venatrix,
+  eclipse, dominator, riptide, gravwarden, chronos, venatrix, vanguard, pyroclasm, voidwalker,
 };

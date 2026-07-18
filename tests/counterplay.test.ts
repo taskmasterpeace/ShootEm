@@ -258,3 +258,43 @@ describe('counterplay — the trapper', () => {
     expect([...w.gadgets.values()].some((g) => g.type === 'snap_trap'), 'the trap must still be armed').toBe(true);
   });
 });
+
+describe('counterplay — wave 2, third batch', () => {
+  it('VANGUARD — "flanks": a man BEHIND the shield is untouched by the bash', () => {
+    const w = quiet();
+    const v = w.addLsw('vanguard', 0, { x: 0, y: 0, z: 0 })!; v.yaw = 0;
+    const flanker = w.addSoldier('F', 'infantry', 1, 'human');
+    flanker.pos = { x: -4, y: 0, z: 0 }; flanker.alive = true; flanker.protectedUntil = 0;
+    const hp0 = flanker.hp;
+    w.applyCmd(v, cmd({ ability: true }), 1 / 60);
+    expect(flanker.hp, 'the bash hit a man behind the shield').toBe(hp0);
+  });
+
+  it('PYROCLASM — "range the threshold": poking him to 26% never triggers the burst', () => {
+    const w = quiet();
+    const p = w.addLsw('pyroclasm', 1, { x: 0, y: 0, z: 0 })!;
+    p.protectedUntil = 0;
+    w.damageSoldier(p, p.maxHp * 0.74, -1, 'ar606'); // 26% — a hair above the line
+    for (let i = 0; i < 30; i++) w.step(1 / 60, new Map());
+    expect(p.lswFlagA ?? false, 'he erupted above the quarter — ranging the threshold is dead').toBe(false);
+  });
+
+  it('VOIDWALKER — "hold ground; don\'t follow": the chaser eats the shadow, the holder never does', () => {
+    const runFight = (chase: boolean) => {
+      const w = quiet();
+      const vw = w.addLsw('voidwalker', 1, { x: 0, y: 0, z: 0 })!; vw.yaw = 0;
+      vw.clip = vw.clip.map(() => 0); vw.reserve = vw.reserve.map(() => 0); // the SHADOW is on trial
+      const e = w.addSoldier('E', 'infantry', 0, 'human');
+      e.pos = { x: 15, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+      w.applyCmd(vw, cmd({ ability: true }), 1 / 60); // he blinks; the shadow sits at (0,0)
+      vw.nextLswAt = w.time + 999; vw.nextLswActiveAt = w.time + 999;
+      const mate = w.addSoldier('M', 'infantry', 0, 'human');
+      mate.pos = chase ? { x: 0.5, y: 0, z: 0 } : { x: 20, y: 0, z: 20 }; // AT the shadow, or holding ground
+      mate.alive = true; mate.protectedUntil = 0;
+      for (let i = 0; i < 90; i++) w.step(1 / 60, new Map([[mate.id, cmd()]])); // the 1s fuse runs
+      return mate.hp;
+    };
+    expect(runFight(true), 'the chaser must eat the shadow').toBeLessThan(100);
+    expect(runFight(false), 'the holder must never be touched').toBe(100);
+  });
+});

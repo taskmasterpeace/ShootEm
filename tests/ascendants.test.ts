@@ -1089,3 +1089,83 @@ describe('Venatrix — the trapper', () => {
     expect(e.hp, 'the barb must bite going in').toBeLessThan(hp0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// VANGUARD · PYROCLASM · VOIDWALKER — wave 2's third batch.
+// ---------------------------------------------------------------------------
+describe('Vanguard — the breacher', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('the bash stuns and shoves the front cone', () => {
+    const w = quiet();
+    const v = w.addLsw('vanguard', 0, { x: 0, y: 0, z: 0 })!; v.yaw = 0;
+    const e = w.addSoldier('E', 'infantry', 1, 'human');
+    e.pos = { x: 4, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    const hp0 = e.hp, f0 = e.nextFireAt;
+    w.applyCmd(v, cmd({ ability: true }), 1 / 60);
+    expect(e.hp).toBeLessThan(hp0);
+    expect(e.nextFireAt, 'the stun must lock the gun').toBeGreaterThan(f0);
+    expect(e.pushX, 'the shove must carry him back').toBeGreaterThan(0);
+  });
+
+  it("the barricade blocks BOTH sides — even his own team's rounds die on it", () => {
+    const w = quiet();
+    const v = w.addLsw('vanguard', 0, { x: 0, y: 0, z: 0 })!; v.yaw = 0;
+    v.nextLswAt = w.time + 999;
+    w.step(1 / 60, new Map()); // bot lays the barricade ahead (~3u)
+    const wall = [...w.gadgets.values()].find((g) => g.type === 'shield' && g.bothSides);
+    expect(wall, 'no both-sides barricade was laid').toBeTruthy();
+    // a FRIENDLY (team 0) round flying into it must be swallowed
+    w.projectiles.set(9301, { id: 9301, weapon: 'ar606', ownerId: 700, team: 0, pos: { x: 1.5, y: 1.2, z: 0 }, vel: { x: 30, y: 0, z: 0 }, bornAt: w.time, ttl: 3, arc: false });
+    w.step(1 / 60, new Map());
+    expect(w.projectiles.get(9301), "his own team's round passed the wall — both sides means BOTH").toBeUndefined();
+  });
+});
+
+describe('Pyroclasm — the threshold', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('a molten rock leaves a burning pool where it lands', () => {
+    const w = quiet();
+    const p = w.addLsw('pyroclasm', 1, { x: 0, y: 0, z: 0 })!;
+    const e = w.addSoldier('E', 'infantry', 0, 'human');
+    e.pos = { x: 15, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    for (let i = 0; i < 60 * 4; i++) w.step(1 / 60, new Map([[e.id, cmd()]]));
+    expect([...w.gadgets.values()].some((g) => g.type === 'fire_field'),
+      'the rocks left no pools').toBe(true);
+  });
+
+  it('the ERUPTION fires exactly once, at the quarter mark — never above it', () => {
+    const w = quiet();
+    const p = w.addLsw('pyroclasm', 1, { x: 0, y: 0, z: 0 })!;
+    p.protectedUntil = 0;
+    const e = w.addSoldier('E', 'infantry', 0, 'human');
+    e.pos = { x: 5, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    // poke him to 30% — NO eruption (range the threshold)
+    w.damageSoldier(p, p.maxHp * 0.7, -1, 'ar606');
+    w.step(1 / 60, new Map([[e.id, cmd()]]));
+    const hpAt30 = e.hp;
+    expect(p.lswFlagA ?? false, 'he erupted above the threshold').toBe(false);
+    // now cross it — the room decides
+    w.damageSoldier(p, p.maxHp * 0.1, -1, 'ar606');
+    w.step(1 / 60, new Map([[e.id, cmd()]]));
+    expect(p.lswFlagA, 'crossing a quarter must erupt').toBe(true);
+    expect(e.hp, 'the eruption must burst the room').toBeLessThan(hpAt30);
+  });
+});
+
+describe('Voidwalker — the departure shadow', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('the blink-strike arrives beside the mark, cuts, and leaves a shadow behind', () => {
+    const w = quiet();
+    const vw = w.addLsw('voidwalker', 1, { x: 0, y: 0, z: 0 })!; vw.yaw = 0;
+    const e = w.addSoldier('E', 'infantry', 0, 'human');
+    e.pos = { x: 15, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    const hp0 = e.hp;
+    w.applyCmd(vw, cmd({ ability: true }), 1 / 60);
+    expect(Math.hypot(vw.pos.x - e.pos.x, vw.pos.z - e.pos.z), 'he never arrived').toBeLessThan(2);
+    expect(e.hp, 'the strike never cut').toBeLessThan(hp0);
+    expect(w.blackHoles.some((b) => Math.hypot(b.x, b.z) < 1), 'no shadow at the departure point').toBe(true);
+  });
+});
