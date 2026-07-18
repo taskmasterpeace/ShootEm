@@ -8,9 +8,9 @@ import {
   paintTile, paintSurface, placeProp, erasePropAt,
   addControlPoint, addPickup, addPad, addMouth, moveObject, deleteObject, pickObject,
   stamp, deleteHouse, undo, redo, buildingById,
-  T_WALL, T_OPEN, T_WATER, S_MUD,
+  T_WALL, T_OPEN, T_WATER,
 } from '../src/sim/mapedit';
-import { GRID, TILE, WORLD, T_DEEP, T_SLIT } from '../src/sim/map';
+import { GRID, TILE, WORLD, T_DEEP, T_SLIT, S_MUD } from '../src/sim/map';
 import { FRONT_GROUNDS } from '../src/sim/fronts';
 
 const tw = (tx: number, tz: number) => ({ x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 });

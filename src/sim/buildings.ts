@@ -222,9 +222,9 @@ export const BUILDINGS: BuildingDef[] = [
   ], ['starship', 'triton', 'europa']),
   B('kennel', 'Kennel', 'military', [
     'MSSMSSMSSM',
-    'M..M..M..M',
+    'M..M.CM..M',
     'MDMMDMMDDM',
-    'M..P.C...M',
+    'M..P....M',
     'MMMMDMMMMM',
   ], ['savanna', 'titan', 'asteroid']),
   B('relay_station', 'Relay Station', 'industrial', [
