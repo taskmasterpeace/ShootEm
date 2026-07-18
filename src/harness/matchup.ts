@@ -173,7 +173,17 @@ export function mountMatchup(root: HTMLElement): MatchupCtl {
   }
 
   function ensureRenderer(): Renderer {
-    if (!gr) gr = new Renderer(labCanvas);
+    if (!gr) {
+      gr = new Renderer(labCanvas);
+      // debug handle for live verification: __lab.pick('titan','ragebeast') to
+      // stage a matchup, __lab.renderer.camDist to zoom, __lab.world() to inspect.
+      (window as unknown as Record<string, unknown>).__lab = {
+        get renderer() { return gr; },
+        world: () => world,
+        get focusId() { return focusId; },
+        pick: (uf: AscendantId, coll: AscendantId) => { ufPick = uf; collPick = coll; refreshChips(); startFight(); },
+      };
+    }
     return gr;
   }
 

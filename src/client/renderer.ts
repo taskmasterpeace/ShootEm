@@ -2566,7 +2566,14 @@ export class Renderer {
     if (!zed && s.kind !== 'scientist' && j.gun) {
       const fam = WEAPONS[s.weapons[s.weaponIdx]]?.family ?? 'rifle';
       const hold = WEAPON_HOLDS[fam] ?? WEAPON_HOLDS.rifle;
-      if (hold.hideGun) {
+      // EMBODIMENT (kill the guns): a melee LSW fights with fists/blade, so its
+      // gun mesh must stay hidden. dressAsLsw hides it once at build, but this
+      // per-frame hold re-shows every armed body — without the rig check Titan
+      // picks his rifle back up on the next frame. Armed rigs (gauntlet/palm/
+      // rifle/launcher/…) still carry the model until per-rig holds land.
+      const rig = s.ascendant ? LSWS[s.ascendant]?.rig : undefined;
+      const meleeRig = rig === 'fists' || rig === 'blade';
+      if (hold.hideGun || meleeRig) {
         j.gun.visible = false; // unarmed — arms swing free (zed-style, but human)
       } else {
         j.gun.visible = true;
