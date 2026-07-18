@@ -2119,6 +2119,16 @@ export class World {
    * the lob still lands on the cursor — the knob would only move the splash.
    */
   launch(p: Projectile): Projectile {
+    const def = WEAPONS[p.weapon];
+    // copy the def's effect flags onto the round ONCE (guard with undefined so a
+    // re-launched submunition/boomerang keeps the value it was born with)
+    if (def) {
+      if (p.pierce === undefined && def.pierce) p.pierce = def.pierce;
+      if (p.ricochet === undefined && def.ricochet) p.ricochet = def.ricochet;
+      if (p.pierceArmor === undefined && def.pierceArmor) p.pierceArmor = def.pierceArmor;
+      if (p.ignite === undefined && def.ignite) p.ignite = def.ignite;
+      if (p.dmgMul === undefined) p.dmgMul = 1;
+    }
     const mul = this.projectileSpeedMul;
     if (!p.arc && mul !== 1) {
       p.vel.x *= mul;
