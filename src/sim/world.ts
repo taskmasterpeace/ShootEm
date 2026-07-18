@@ -279,6 +279,16 @@ export class World {
     }
   }
 
+  /** Route projectile surface damage to the right system: wood doors have their
+   *  own break path (damageDoor), everything else is damageWall. The surface-
+   *  reaction resolve uses this so penetrate + impact chip doors too. */
+  private damageSurface(x: number, z: number, dmg: number, heavy: boolean, byId: number) {
+    const tx = Math.floor((x + WORLD / 2) / TILE), tz = Math.floor((z + WORLD / 2) / TILE);
+    const t = this.map.grid[tz * GRID + tx];
+    if (t === T_DOOR || t === T_DOOR_OPEN) this.damageDoor(tz * GRID + tx, dmg, byId);
+    else this.damageWall(tx, tz, dmg, heavy);
+  }
+
   id(): number { return this.nextId++; }
 
   emit(e: SimEvent) { this.events.push(e); }
@@ -3140,13 +3150,41 @@ export class World {
       // hit terrain (either storey's walls)
       if (p.pos.y <= 0 || blocksShot(this.map.grid, p.pos.x, p.pos.z, Math.max(p.pos.y, 0)) ||
           blocksShotUpper(this.map.grid2, p.pos.x, p.pos.z, p.pos.y)) {
-        if (this.detonatePayload(p)) { /* payload delivered */ }
-        else if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team);
-        // no soldierId: nothing was TAGGED, so the HUD must stay quiet — but
-        // the round still belongs to whoever threw it, and paint wears its
-        // owner's shade wherever it lands
-        else if (def.tracer !== 'beam') this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, ownerId: p.ownerId });
-        dead = true;
+        // SURFACE REACTION (materials): a wall hit resolves ricochet → penetrate
+        // → impact. A ground hit (y<=0) always impacts. splash/payload rounds
+        // (rockets, GLs) always impact — they detonate on any surface.
+        const py = Math.max(p.pos.y, 0);
+        const wall = p.pos.y > 0 && blocksShot(this.map.grid, p.pos.x, p.pos.z, py);
+        const mat = wall ? materialOf(tileAt(this.map.grid, p.pos.x, p.pos.z)) : null;
+        const ox = p.pos.x - p.vel.x * dt, oz = p.pos.z - p.vel.z * dt;
+        const blockX = wall && blocksShot(this.map.grid, p.pos.x, oz, py);
+        const blockZ = wall && blocksShot(this.map.grid, ox, p.pos.z, py);
+        const plain = def.splash <= 0 && !def.heals; // ricochet/pierce are for plain rounds
+        if (mat && plain && (p.ricochet ?? 0) > 0 && mat.ricochet > 0 && blockX !== blockZ && this.rng.next() < mat.ricochet) {
+          // 1. RICOCHET — bank off the blocked axis, bleed 30% dmg, keep flying
+          if (blockX) { p.vel.x = -p.vel.x; p.pos.x = ox; } else { p.vel.z = -p.vel.z; p.pos.z = oz; }
+          p.ricochet!--; p.dmgMul = (p.dmgMul ?? 1) * 0.7;
+          this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, ownerId: p.ownerId });
+        } else if (mat && plain && (p.pierce ?? 0) > 0 && mat.penetrable) {
+          // 2. PENETRATE thin cover (wood/sandbag/grass/rubble) — chip it, bleed
+          // 15% dmg, and step a full tile past so we don't re-hit the same tile
+          this.damageSurface(p.pos.x, p.pos.z, def.damage * (p.dmgMul ?? 1), def.damage >= 100, p.ownerId);
+          p.pierce!--; p.dmgMul = (p.dmgMul ?? 1) * 0.85;
+          const vl = Math.hypot(p.vel.x, p.vel.z) || 1;
+          p.pos.x += (p.vel.x / vl) * (TILE + 0.5); p.pos.z += (p.vel.z / vl) * (TILE + 0.5);
+        } else {
+          // 3. IGNITE (proj.ignite & mat.flammable) wires here when the fire system lands.
+          // 4. IMPACT — detonate/splash, else the round dies and DAMAGES the wall
+          // per its material (soft cover shreds, masonry/metal shrug small arms —
+          // the heavyOnly gate lives in damageWall). Ground hits (no mat) just splat.
+          if (this.detonatePayload(p)) { /* payload delivered */ }
+          else if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team);
+          else {
+            if (mat) this.damageSurface(p.pos.x, p.pos.z, def.damage * (p.dmgMul ?? 1), def.damage >= 100, p.ownerId);
+            if (def.tracer !== 'beam') this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, ownerId: p.ownerId });
+          }
+          dead = true;
+        }
       }
 
       // hit soldiers

@@ -1,15 +1,15 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { World } from '../src/sim/world';
 import { WEAPONS } from '../src/sim/data';
-import { GRID, TILE, WORLD } from '../src/sim/map';
+import { GRID, TILE, WORLD, T_DOOR, T_WALL, T_METAL } from '../src/sim/map';
 import type { Projectile } from '../src/sim/types';
 
 // these tests mutate shared WEAPONS defs to arrange flags — reset after each so
 // they never pollute another test (or file). The real per-LSW data lands later.
 afterEach(() => {
   for (const id of ['rg2', 'lsw_pulse'] as const) {
-    const w = WEAPONS[id] as { pierce?: number; pierceArmor?: boolean };
-    w.pierce = undefined; w.pierceArmor = undefined;
+    const w = WEAPONS[id] as { pierce?: number; pierceArmor?: boolean; ricochet?: number };
+    w.pierce = undefined; w.pierceArmor = undefined; w.ricochet = undefined;
   }
 });
 
@@ -81,5 +81,68 @@ describe('pierceArmor bypasses plate', () => {
       bornAt: w.time, ttl: 3, arc: false } as Projectile);
     for (let i = 0; i < 40; i++) { v.pos = { x: 4, y: 0, z: 0 }; v.vel = { x: 0, y: 0, z: 0 }; w.step(1 / 60, new Map()); }
     expect(v.hp).toBeLessThan(hp0); // flesh took it despite the vest
+  });
+});
+
+describe('surface reactions (materials)', () => {
+  // clear a straight lane on the mid row so generated terrain can't interfere
+  const clearLane = (w: World): number => {
+    const tz = Math.floor((0 + WORLD / 2) / TILE);
+    for (let x = -2; x <= 20; x++) w.map.grid[tz * GRID + Math.floor((x + WORLD / 2) / TILE)] = 0;
+    return tz;
+  };
+
+  it('a pierce round breaches a wood door and threads on', () => {
+    const w = new World({ seed: 5, mode: 'tdm' });
+    const tz = clearLane(w);
+    const tx = Math.floor((6 + WORLD / 2) / TILE);
+    w.map.grid[tz * GRID + tx] = T_DOOR;
+    (WEAPONS.rg2 as { pierce?: number }).pierce = 1;
+    w.launch({ id: w.id(), weapon: 'rg2', ownerId: -1, team: 0,
+      pos: { x: 0, y: 1.2, z: 0 }, vel: { x: 40, y: 0, z: 0 },
+      bornAt: w.time, ttl: 3, arc: false } as Projectile);
+    let hitDoor = false;
+    for (let i = 0; i < 24; i++) { w.step(1 / 60, new Map()); for (const e of w.takeEvents()) if (e.type === 'doorhit' || e.type === 'doorbreak') hitDoor = true; }
+    expect(hitDoor).toBe(true); // penetrate chipped the door (routed to damageDoor) and threaded on
+  });
+
+  it('a plain round shreds a wood door on impact but masonry shrugs small arms', () => {
+    const wd = new World({ seed: 6, mode: 'tdm' });
+    const tzd = clearLane(wd);
+    const dtx = Math.floor((6 + WORLD / 2) / TILE);
+    wd.map.grid[tzd * GRID + dtx] = T_DOOR;
+    wd.launch({ id: wd.id(), weapon: 'rg2', ownerId: -1, team: 0,
+      pos: { x: 0, y: 1.2, z: 0 }, vel: { x: 40, y: 0, z: 0 },
+      bornAt: wd.time, ttl: 3, arc: false } as Projectile);
+    let hitDoor = false;
+    for (let i = 0; i < 24; i++) { wd.step(1 / 60, new Map()); for (const e of wd.takeEvents()) if (e.type === 'doorhit' || e.type === 'doorbreak') hitDoor = true; }
+    expect(hitDoor).toBe(true); // a plain round damages the wood door on impact
+
+    const ww = new World({ seed: 6, mode: 'tdm' });
+    const tzw = clearLane(ww);
+    const wtx = Math.floor((6 + WORLD / 2) / TILE);
+    ww.map.grid[tzw * GRID + wtx] = T_WALL;
+    ww.launch({ id: ww.id(), weapon: 'rg2', ownerId: -1, team: 0,
+      pos: { x: 0, y: 1.2, z: 0 }, vel: { x: 40, y: 0, z: 0 },
+      bornAt: ww.time, ttl: 3, arc: false } as Projectile);
+    for (let i = 0; i < 24; i++) ww.step(1 / 60, new Map());
+    expect(ww.map.grid[tzw * GRID + wtx]).toBe(T_WALL); // masonry unbroken by small arms
+  });
+
+  it('ricochet rounds bank off metal instead of all dying on it', () => {
+    let survived = 0;
+    for (let n = 0; n < 10; n++) {
+      const w = new World({ seed: 20 + n, mode: 'tdm' });
+      const tz = clearLane(w);
+      const mtx = Math.floor((7 + WORLD / 2) / TILE);
+      w.map.grid[tz * GRID + mtx] = T_METAL; // a 1-tile metal strip: glancing hit on its face
+      (WEAPONS.rg2 as { ricochet?: number }).ricochet = 2;
+      const p = w.launch({ id: w.id(), weapon: 'rg2', ownerId: -1, team: 0,
+        pos: { x: 0, y: 1.2, z: (tz + 0.5) * TILE - WORLD / 2 }, vel: { x: 60, y: 0, z: -6 },
+        bornAt: w.time, ttl: 3, arc: false } as Projectile);
+      for (let i = 0; i < 14; i++) w.step(1 / 60, new Map());
+      if (w.projectiles.has(p.id)) survived++; // banked, still flying
+    }
+    expect(survived).toBeGreaterThan(0); // metal banks at least some rounds (0.8 chance, glancing)
   });
 });
