@@ -292,7 +292,14 @@ html, body {
 .bar-fill.ar { background: linear-gradient(90deg, oklch(0.62 0.06 235), oklch(0.78 0.05 220)); width: 100%; }
 .bar-fill.en { background: linear-gradient(90deg, oklch(0.65 0.14 250), oklch(0.75 0.13 220)); width: 100%; }
 
-#hud-bottom-right { position: absolute; right: 1.25rem; bottom: 17.5rem; }
+/* one corner column: minimap on top, weapon block UNDER it (Robert's law) —
+   anchored to the corner as a unit so no window height can float the weapon
+   panel out over the battlefield (it used to sit at a magic bottom:17.5rem,
+   which was mid-screen on a short window) */
+#hud-bottom-right {
+  position: absolute; right: 1.25rem; bottom: 1.25rem;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;
+}
 #weapon-block {
   position: relative;
   background: oklch(0.16 0.018 74 / 0.78); border: 1px solid var(--border);
@@ -309,13 +316,14 @@ html, body {
 #ability-hint { color: var(--muted); font-size: 0.72rem; margin-top: 0.3rem; font-family: var(--font-mono); }
 
 #minimap {
-  position: absolute; right: 1.25rem; bottom: 1.25rem;
-  width: 264px; height: 264px; /* M toggles the large tactical view */
+  /* flex child of the corner column; vh caps keep short windows honest —
+     the map shrinks before it can shove the weapon block off the corner */
+  width: min(264px, 34vh); height: min(264px, 34vh); /* M toggles the large tactical view */
   border: 1px solid var(--border); border-radius: var(--radius);
   background: oklch(0.14 0.015 80 / 0.85);
   transition: width 0.15s ease, height 0.15s ease;
 }
-#minimap.large { width: 430px; height: 430px; }
+#minimap.large { width: min(430px, 60vh); height: min(430px, 60vh); }
 
 #hitmarker {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
