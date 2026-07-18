@@ -2559,6 +2559,36 @@ export class Renderer {
     const lean = airborne ? -0.3 : -Math.min(speed / 14, 1) * (zed ? 0.18 : 0.09);
     mesh.rotation.z = lean + (s.kind === 'sprinter' ? -0.18 : 0);
 
+    // ---- LEAP DRESS (movement dress §Task 8): crouch-squash on launch, stretch
+    // through the arc, crater-thud squash on landing. Leapers only — a flier's
+    // dive is not a ground leap — and modulated around the LSW's dressed base
+    // scale so the god keeps its size; the body widens as it squashes (volume).
+    if (s.ascendant && LSWS[s.ascendant].moves === 'leap') {
+      const base = (mesh.userData.baseScaleY ??= mesh.scale.y) as number;
+      const ud = mesh.userData as { baseScaleY?: number; leapStartAt?: number; landAt?: number; craterDone?: boolean };
+      let sy = base;
+      if (s.diveAt !== undefined) {
+        ud.landAt = undefined; ud.craterDone = false;
+        if (ud.leapStartAt === undefined) ud.leapStartAt = t;
+        const since = t - ud.leapStartAt;
+        sy = since < 0.12
+          ? base * (0.7 + 0.3 * (since / 0.12))            // crouch, then release
+          : base * (1 + 0.16 * Math.min(1, s.pos.y / 4));  // stretch with height
+      } else if (ud.leapStartAt !== undefined) {
+        if (ud.landAt === undefined) ud.landAt = t;
+        const since = t - ud.landAt;
+        if (since < 0.04 && !ud.craterDone) {               // the thud — a ring of dust
+          this.particles.emit({ pos: { x: s.pos.x, y: 0.12, z: s.pos.z }, count: 16, color: 0xbfae90, speed: 5.5, life: 0.5, spread: 1.8, up: 1.6, gravity: -3, size: 0.5 });
+          ud.craterDone = true;
+        }
+        if (since < 0.22) sy = base * (0.78 + 0.22 * (since / 0.22)); // squash → recover
+        else { ud.leapStartAt = undefined; ud.landAt = undefined; ud.craterDone = false; }
+      }
+      mesh.scale.y = sy;
+      const wide = base * Math.sqrt(base / sy);
+      mesh.scale.x = wide; mesh.scale.z = wide;
+    }
+
     // ---- melee telegraph: claws flash UP through the windup, whip DOWN on the
     // strike. Additive on top of the shared pose, so the shamble keeps playing.
     // (zed-only: their arm joints are re-posed every frame above, so an additive
