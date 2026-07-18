@@ -341,6 +341,37 @@ export class World {
   /** Oblivion's live black holes — each drags enemy soldiers AND hulls inward
    *  for its telegraph, then bursts at burstAt. Stepped every tick. */
   blackHoles: { x: number; z: number; team: Team; ownerId: number; burstAt: number }[] = [];
+  /** FORCE FIELDS (§4.4 #2, the shared mechanic): sustained radial pulls /
+   *  pushes and directional shoves, re-applied every tick so they survive the
+   *  impulse decay. One system → Gravity Warden, Riptide, Oblivion's hole,
+   *  Stormcaller's tornado. `radial` < 0 pulls INWARD toward (x,z), > 0
+   *  shoves OUTWARD; (fx,fz) adds a directional current. Soldiers on the
+   *  owner's team are exempt; vehicles move only when CREWED (an abandoned
+   *  wreck is nobody's toy — the §8.1a requisition law). */
+  forceFields: { x: number; z: number; r: number; radial: number; fx?: number; fz?: number; team: Team; ownerId: number; until: number }[] = [];
+
+  private stepForceFields() {
+    this.forceFields = this.forceFields.filter((f) => this.time < f.until);
+    for (const f of this.forceFields) {
+      for (const e of this.soldiers.values()) {
+        if (!e.alive || e.team === f.team || e.encasedUntil !== undefined) continue;
+        const dx = f.x - e.pos.x, dz = f.z - e.pos.z, d = Math.hypot(dx, dz);
+        if (d > f.r) continue;
+        const inv = d > 0.4 ? 1 / d : 0; // the radial term has a dead-zone at the singularity
+        e.pushX += -dx * inv * f.radial + (f.fx ?? 0);
+        e.pushZ += -dz * inv * f.radial + (f.fz ?? 0);
+      }
+      for (const v of this.vehicles.values()) {
+        if (!v.alive || v.team === f.team || !v.seats.some((id) => id >= 0)) continue;
+        const dx = f.x - v.pos.x, dz = f.z - v.pos.z, d = Math.hypot(dx, dz);
+        if (d > f.r) continue;
+        const inv = d > 0.4 ? 1 / d : 0;
+        v.vel.x += (-dx * inv * f.radial + (f.fx ?? 0)) * 0.6;
+        v.vel.z += (-dz * inv * f.radial + (f.fz ?? 0)) * 0.6;
+      }
+    }
+  }
+
   /** TIME FIELDS (§4.4 #3, the shared mechanic → Chronos): zones where
    *  movement and rounds integrate at `mul` speed. Never clock manipulation —
    *  the sim stays deterministic 30Hz; only POSITION ADVANCE scales. The
@@ -901,36 +932,24 @@ export class World {
   private oblivionVoid(s: Soldier) {
     const dx = Math.cos(s.yaw), dz = Math.sin(s.yaw);
     const x = s.pos.x + dx * 8, z = s.pos.z + dz * 8;
-    this.blackHoles.push({ x, z, team: s.team, ownerId: s.id, burstAt: this.time + 1.5 });
+    const burstAt = this.time + 1.5;
+    this.blackHoles.push({ x, z, team: s.team, ownerId: s.id, burstAt });
+    // the pull itself rides the SHARED force-field system (§4.4 #2)
+    this.forceFields.push({ x, z, r: 14, radial: -5, team: s.team, ownerId: s.id, until: burstAt });
     this.emit({ type: 'gravlift', pos: { x, y: 0, z } }); // the telegraph
     this.emit({ type: 'lsw_active', pos: { x, y: 0, z }, text: 'oblivion', soldierId: s.id });
     this.emit({ type: 'vo', text: 'vo_oblivion_ability', pos: { ...s.pos }, soldierId: s.id });
   }
 
-  /** Drag everything not on the caster's team toward each live black hole
-   *  (sustained inward impulse, re-added each tick so it survives the decay —
-   *  sprint TANGENTIALLY to escape), then burst it when its telegraph runs out. */
+  /** The black hole's BURST timing — the drag itself rides the shared
+   *  force-field system (a radial −5 field with the same lifetime). Sprint
+   *  TANGENTIALLY to escape; when the telegraph runs out, it collapses. */
   private stepBlackHoles() {
     this.blackHoles = this.blackHoles.filter((bh) => {
       if (this.time >= bh.burstAt) {
         this.explode({ x: bh.x, y: 0, z: bh.z }, WEAPONS.gl, bh.ownerId, bh.team);
         this.emit({ type: 'explosion', pos: { x: bh.x, y: 0, z: bh.z }, weapon: 'gl' });
         return false;
-      }
-      for (const e of this.soldiers.values()) {
-        if (!e.alive || e.team === bh.team || e.encasedUntil !== undefined) continue;
-        const dx = bh.x - e.pos.x, dz = bh.z - e.pos.z, d = Math.hypot(dx, dz);
-        if (d > 14 || d < 0.4) continue;
-        const inv = 1 / d;
-        e.pushX += dx * inv * 5; e.pushZ += dz * inv * 5;
-      }
-      for (const v of this.vehicles.values()) {
-        // only CREWED enemy hulls get dragged — an abandoned wreck isn't a threat
-        if (!v.alive || v.team === bh.team || !v.seats.some((id) => id >= 0)) continue;
-        const dx = bh.x - v.pos.x, dz = bh.z - v.pos.z, d = Math.hypot(dx, dz);
-        if (d > 14 || d < 0.4) continue;
-        const inv = 1 / d;
-        v.vel.x += dx * inv * 3; v.vel.z += dz * inv * 3;
       }
       return true;
     });
@@ -1428,7 +1447,8 @@ export class World {
     }
     if (!this.mode.over) stepMode(this, dt);
     if (!this.mode.over) this.stepLswDrops(); // §21.6: telegraphed LSW landings
-    if (this.blackHoles.length) this.stepBlackHoles(); // Oblivion's void
+    if (this.forceFields.length) this.stepForceFields(); // §4.4 #2: the pulls and the shoves
+    if (this.blackHoles.length) this.stepBlackHoles(); // Oblivion's void (burst timing)
     // expired time bubbles pop quietly
     if (this.timeFields.length) this.timeFields = this.timeFields.filter((f) => this.time < f.until);
 

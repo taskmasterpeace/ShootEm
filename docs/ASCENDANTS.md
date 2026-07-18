@@ -188,11 +188,15 @@ The flagship mechanic. Build it **once**, correctly:
 
 ### 4.4 The shared mechanics that unlock 17 LSWs
 1. **ENCASE** ✅ → Frostbite ⭐, Venatrix (+ future stasis). *Shipped.*
-2. **FORCE FIELDS** (radial/directional velocity applied in the soldier +
-   projectile step) → Gravity Warden, Riptide, Oblivion, Stormcaller's
-   tornado, Magnetar's halo. **One system, five LSWs.** *(Oblivion's black
-   hole and Magnetar's halo ship the pattern piecemeal — the generalized
-   field system is still open.)*
+2. **FORCE FIELDS** ✅ (2026-07-17) → Gravity Warden, Riptide, Oblivion,
+   Stormcaller's tornado. *Shipped:* `World.forceFields` — sustained radial
+   pulls/pushes (`radial` ± ) and directional currents (`fx`,`fz`),
+   re-applied every tick so they survive the impulse decay. Laws: the
+   owner's team is exempt; only CREWED hulls move (§8.1a); the radial term
+   dead-zones at the singularity so currents still flow at center.
+   Oblivion's black hole now RIDES it (a radial −5 field on the burst
+   timer). Gravity Warden's pull-then-slam, Riptide's push wave, and the
+   tornado are field pushes + one ability wrapper each.
 3. **TIME FIELDS** ✅ (2026-07-17) → Chronos. *Shipped:* `World.timeFields`
    zones scale POSITION ADVANCE for movement and rounds (`timeMulAt`) — never
    the clock; the sim stays deterministic 30Hz. A slowed round's fuse clock
