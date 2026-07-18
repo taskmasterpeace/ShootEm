@@ -1689,9 +1689,14 @@ export class Renderer {
         if (def.tracer === 'none') continue;
         // paintballs FLY in their shooter's paint — the rack is identity
         const paintball = world.mode.id === 'paintball' && p.weapon.startsWith('marker');
+        // an LSW's round/beam glows its OWN signature color (Task 11 — kills the
+        // shared mint-green beam); everyone else keeps the family tracer color
+        const owner = world.soldiers.get(p.ownerId);
+        const lswTint = owner?.ascendant ? LSWS[owner.ascendant].color : undefined;
         mesh = this.makeProjectile(def.tracer,
           paintball ? paintColorFor(p.ownerId, localId)
-            : CANISTER_BANDS[p.weapon] ?? (TRACER_COLORS[def.tracer] || 0xffcc88));
+            : lswTint ?? CANISTER_BANDS[p.weapon] ?? (TRACER_COLORS[def.tracer] || 0xffcc88),
+          def.beam);
         mesh.userData.tracer = def.tracer;
         this.scene.add(mesh);
         this.projMeshes.set(p.id, mesh);
@@ -2865,7 +2870,7 @@ export class Renderer {
   /** A distinct in-flight round per tracer family — you can tell a rocket from
    *  a plasma bolt from a rail lance at a glance. Long axis is local +X (the
    *  update loop yaws each round to face its velocity). */
-  private makeProjectile(tracer: string, color: number): THREE.Object3D {
+  private makeProjectile(tracer: string, color: number, beam?: string): THREE.Object3D {
     const solid = (geo: THREE.BufferGeometry, c: number) =>
       new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: c }));
     const glow = (geo: THREE.BufferGeometry, c: number, op = 0.5) =>
@@ -2909,8 +2914,18 @@ export class Renderer {
         return solid(new THREE.SphereGeometry(0.2, 8, 6), color);
       case 'flame': // flickering ember (fire trail added in flight)
         return glow(new THREE.SphereGeometry(0.24, 7, 5), color, 0.85);
-      case 'beam': // short healing streak
-        return solid(new THREE.BoxGeometry(1.4, 0.05, 0.05), color);
+      case 'beam': { // beam PROFILE (projectile-fx Task 7): the silhouette tells
+        // the school — a lance is long and thin, a hose is a fat stream, a charge
+        // bolt is the fattest, a ricochet round medium, a zap the default streak
+        const dim: Record<string, [number, number]> = {
+          lance: [2.8, 0.06], hose: [1.1, 0.17], charge: [1.3, 0.24], ricochet: [1.2, 0.09],
+        };
+        const [len, w] = dim[beam ?? ''] ?? [1.4, 0.05];
+        const g = new THREE.Group();
+        g.add(solid(new THREE.BoxGeometry(len, w, w), color));
+        if (beam === 'charge' || beam === 'hose') g.add(glow(new THREE.BoxGeometry(len * 1.05, w * 2.1, w * 2.1), color, 0.4));
+        return g;
+      }
       default: { // an actual ROUND — but at ROUND scale. The first cut of
         // "bullets should look like bullets" shipped a 1.6u pencil (a
         // soldier is 1.8u tall; Robert's screenshot was a field of floating
