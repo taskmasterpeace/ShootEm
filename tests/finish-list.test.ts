@@ -305,3 +305,54 @@ describe('THE MOVEMENT DOCTRINE — every god moves like what it is', () => {
     expect(wr.pos.y, 'the wraith floats').toBeGreaterThan(0.4);
   });
 });
+
+describe('THE PROJECTILE-SPEED GATE — ALL projectile stuff falls under the knob', () => {
+  it('the gate scales a direct round and PRESERVES its range; arcs are exempt', () => {
+    const w = quiet();
+    const straight = { id: 1, weapon: 'ar606', ownerId: -1, team: 0 as const,
+      pos: { x: 0, y: 1, z: 0 }, vel: { x: 100, y: 0, z: 0 }, bornAt: 0, ttl: 2, arc: false } as never;
+    w.projectileSpeedMul = 0.5;
+    const rangeBefore = 100 * 2;
+    w.launch(straight);
+    const p = straight as { vel: { x: number }, ttl: number };
+    expect(p.vel.x, 'half the knob, half the pace').toBeCloseTo(50, 3);
+    expect(p.vel.x * p.ttl, 'the range is untouched — a slow round lives longer').toBeCloseTo(rangeBefore, 1);
+    const lob = { id: 2, weapon: 'gl', ownerId: -1, team: 0 as const,
+      pos: { x: 0, y: 1, z: 0 }, vel: { x: 40, y: 8, z: 0 }, bornAt: 0, ttl: 3, arc: true } as never;
+    w.launch(lob);
+    expect((lob as { vel: { x: number } }).vel.x, 'the arc is exempt — it still lands on the cursor').toBe(40);
+  });
+
+  it("Robert's case: a round fired FROM A VEHICLE respects the knob", () => {
+    const w = quiet();
+    w.projectileSpeedMul = 0.5;
+    const v = w.spawnVehicle('buggy', 0, { x: 0, y: 0, z: 0 });
+    const driver = w.addSoldier('D', 'infantry', 0, 'human');
+    driver.alive = true; driver.pos = { x: 0, y: 0, z: 0 };
+    v.seats[0] = driver.id; driver.vehicleId = v.id; driver.seat = 0;
+    v.nextFireAt = 0;
+    const cmd = { moveX: 0, moveZ: 0, aimYaw: 0, fire: true } as never;
+    for (let i = 0; i < 3 && w.projectiles.size === 0; i++) w.step(1 / 60, new Map([[driver.id, cmd]]));
+    const shot = [...w.projectiles.values()].find((p) => p.weapon === 'buggy_mg');
+    expect(shot, 'the buggy fired').toBeTruthy();
+    const speed = Math.hypot(shot!.vel.x, shot!.vel.z);
+    expect(speed, 'the mounted gun no longer ignores the knob — 110 → 55').toBeCloseTo(55, 0);
+  });
+
+  it('a sentry turret round respects the knob too', () => {
+    const w = quiet();
+    w.projectileSpeedMul = 0.5;
+    const owner = w.addSoldier('O', 'infantry', 0, 'bot');
+    const t = { id: 90210, team: 0 as const, pos: { x: 0, y: 0, z: 0 }, yaw: 0,
+      hp: 180, maxHp: 180, nextFireAt: 0, ownerId: owner.id, alive: true } as never;
+    w.turrets.set((t as { id: number }).id, t);
+    const foe = w.addSoldier('E', 'infantry', 1, 'human');
+    foe.pos = { x: 8, y: 0, z: 0 }; foe.alive = true; foe.protectedUntil = 0;
+    for (let i = 0; i < 4 && w.projectiles.size === 0; i++) w.step(1 / 60, new Map());
+    const shot = [...w.projectiles.values()].find((p) => p.weapon === 'turret_mg');
+    expect(shot, 'the turret fired').toBeTruthy();
+    const speed = Math.hypot(shot!.vel.x, shot!.vel.z);
+    const base = WEAPONS.turret_mg.speed;
+    expect(speed, 'the sentry honors the knob').toBeCloseTo(base * 0.5, 0);
+  });
+});

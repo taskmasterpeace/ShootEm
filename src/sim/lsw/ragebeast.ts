@@ -37,7 +37,7 @@ export function step(w: World, s: Soldier, _dt: number) {
           bornAt: w.time, ttl: WEAPONS.flesh_glob.range / WEAPONS.flesh_glob.speed, arc: false,
           homingSoldierId: e.id,
         };
-        w.projectiles.set(p.id, p);
+        w.launch(p);
       }
       w.emit({ type: 'shot', pos: { x: s.pos.x, y: 1.4, z: s.pos.z }, weapon: 'flesh_glob', soldierId: s.id });
       w.emit({ type: 'vo', text: 'vo_ragebeast_ability', pos: { ...s.pos }, soldierId: s.id });

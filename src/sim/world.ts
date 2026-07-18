@@ -2065,11 +2065,6 @@ export class World {
     const def = WEAPONS[wid];
     const spread = (this.rng.next() - 0.5) * 2 * def.spread;
     const yaw = s.yaw + spread;
-    // global projectile-speed knob: only DIRECT fire — a slower bullet still
-    // lands on target because ttl below is reach/speed (range preserved). Arcs
-    // re-solve speed from flight time anyway, so leaving them alone keeps
-    // grenades landing on the cursor.
-    if (!arc) speed *= this.projectileSpeedMul;
     // Arc launch: pick vy so the shell returns to the ground exactly when it
     // has travelled `reach` horizontally. Flight time t = reach/speed; solving
     // muzzleY + vy·t − ½·g·t² = 0 gives vy = ½·g·t − muzzleY/t. Uses the live
@@ -2098,7 +2093,28 @@ export class World {
       bornAt: this.time, ttl: reach / Math.max(speed, 1) + (arc ? 1.4 : 0), arc,
       ...(bounce ? { bounce: true } : {}),
     };
+    this.launch(p);
+  }
+
+  /**
+   * THE PROJECTILE-SPEED GATE (Robert: "I want ALL projectile stuff to fall
+   * under that… fire from the vehicle, it don't respect it"). Every round in
+   * the game is born through this one door — soldier, VEHICLE, turret,
+   * monster, or god — so nothing can silently skip the speed knob again.
+   * Direct fire scales by `projectileSpeedMul`; scaling ttl inversely keeps
+   * the RANGE identical (a slower round simply lives longer, landing on the
+   * same spot). Arcs are exempt: their speed is re-solved from flight time so
+   * the lob still lands on the cursor — the knob would only move the splash.
+   */
+  launch(p: Projectile): Projectile {
+    const mul = this.projectileSpeedMul;
+    if (!p.arc && mul !== 1) {
+      p.vel.x *= mul;
+      p.vel.z *= mul;
+      if (p.ttl > 0) p.ttl /= mul; // range preserved: speed×ttl is unchanged
+    }
     this.projectiles.set(p.id, p);
+    return p;
   }
 
   // ---------- anti-air ----------
@@ -2148,7 +2164,7 @@ export class World {
       bornAt: this.time, ttl: def.range / speed, arc: false,
       ...(flesh ? { homingSoldierId: target.id } : { homingVehicleId: target.id }),
     };
-    this.projectiles.set(p.id, p);
+    this.launch(p);
     this.emit({ type: 'shot', pos: { ...p.pos }, weapon: 'sam_missile', soldierId: s.id });
   }
 
@@ -2850,7 +2866,7 @@ export class World {
         vel: { x: Math.cos(yaw) * wdef.speed, y: 0, z: Math.sin(yaw) * wdef.speed },
         bornAt: this.time, ttl: wdef.range / wdef.speed, arc: false,
       };
-      this.projectiles.set(p.id, p);
+      this.launch(p);
       this.emit({ type: 'shot', pos: { ...p.pos }, weapon: def.weapon, soldierId: shooter.id });
     }
   }
@@ -2889,7 +2905,7 @@ export class World {
           vel: { x: Math.cos(yaw) * def.speed, y: 0, z: Math.sin(yaw) * def.speed },
           bornAt: this.time, ttl: def.range / def.speed, arc: false,
         };
-        this.projectiles.set(p.id, p);
+        this.launch(p);
         this.emit({ type: 'shot', pos: { ...p.pos }, weapon: 'turret_mg', soldierId: t.ownerId });
       }
     }
@@ -3634,7 +3650,7 @@ export class World {
       vel: { x: Math.cos(yaw) * def.speed, y: 1.5, z: Math.sin(yaw) * def.speed },
       bornAt: this.time, ttl: def.range / def.speed + 0.5, arc: false,
     };
-    this.projectiles.set(p.id, p);
+    this.launch(p);
     this.emit({ type: 'shot', pos: { ...s.pos }, weapon: 'spitter_acid', soldierId: s.id });
   }
 
