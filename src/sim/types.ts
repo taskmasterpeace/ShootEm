@@ -370,6 +370,12 @@ export interface Turret {
   nextFireAt: number;
   ownerId: number; // engineer who built it
   alive: boolean;
+  /** MACHINE POSSESSION (§4.4 #4): who holds this machine, until when, and
+   *  whose it really is. Expiry or an EMP burst hands it back. Never humans. */
+  possessedBy?: number;
+  possessedUntil?: number;
+  origTeam?: Team;
+  origOwnerId?: number;
 }
 
 export interface Projectile {

@@ -1025,8 +1025,9 @@ export class World {
       if (d < tbest) { tbest = d; turret = t; }
     }
     if (turret) {
-      turret.team = s.team; turret.ownerId = s.id;
-      this.emit({ type: 'hacked', pos: { ...turret.pos }, soldierId: s.id, text: `${s.name} POSSESSED a sentry!` });
+      // a TIMED take on the shared possession system — EMP evicts, expiry
+      // hands the sentry home (§4.4 #4)
+      this.possessMachine(turret, s, 12);
       s.hp = Math.min(s.maxHp, s.hp + 80); // drains the take
       did = true;
     }
@@ -1451,6 +1452,10 @@ export class World {
     if (this.blackHoles.length) this.stepBlackHoles(); // Oblivion's void (burst timing)
     // expired time bubbles pop quietly
     if (this.timeFields.length) this.timeFields = this.timeFields.filter((f) => this.time < f.until);
+    // possessed machines come home when the hold expires (§4.4 #4)
+    for (const t of this.turrets.values()) {
+      if (t.possessedUntil !== undefined && this.time >= t.possessedUntil) this.evictPossession(t);
+    }
 
     // recon state rebuilds every tick: pings accumulate from beacons, drones,
     // cameras, crewed sensor stations, and psi scanners; then smoke fields,
@@ -1890,6 +1895,27 @@ export class World {
     g.vy = 1.2; // a last dying pop of lift, then gravity wins
   }
 
+  /** MACHINE POSSESSION (§4.4 #4): a TIMED take of an enemy turret — team and
+   *  guns flip for `secs`, then it remembers whose it was. An EMP burst
+   *  evicts instantly (empBlast). NEVER humans — the law. */
+  possessMachine(t: Turret, s: Soldier, secs: number) {
+    if (t.possessedBy === undefined) { t.origTeam = t.team; t.origOwnerId = t.ownerId; }
+    t.possessedBy = s.id;
+    t.possessedUntil = this.time + secs;
+    t.team = s.team;
+    t.ownerId = s.id;
+    this.emit({ type: 'hacked', pos: { ...t.pos }, soldierId: s.id, text: `${s.name} POSSESSED a sentry!` });
+  }
+
+  /** hand a possessed machine back to its rightful owner */
+  private evictPossession(t: Turret) {
+    if (t.possessedBy === undefined) return;
+    t.team = t.origTeam ?? t.team;
+    t.ownerId = t.origOwnerId ?? t.ownerId;
+    t.possessedBy = undefined; t.possessedUntil = undefined;
+    t.origTeam = undefined; t.origOwnerId = undefined;
+  }
+
   empBlast(pos: Vec3, team: Team, _ownerId: number) {
     this.emit({ type: 'emp', pos: { ...pos } });
     // EMP is the counter-drone weapon: any enemy drone in the burst loses link
@@ -1902,8 +1928,13 @@ export class World {
       if (Math.hypot(v.pos.x - pos.x, v.pos.z - pos.z) < 8) v.stunnedUntil = this.time + 4;
     }
     for (const t of this.turrets.values()) {
-      if (!t.alive || t.team === team) continue;
-      if (Math.hypot(t.pos.x - pos.x, t.pos.z - pos.z) < 8) t.nextFireAt = Math.max(t.nextFireAt, this.time + 5);
+      if (!t.alive) continue;
+      const near = Math.hypot(t.pos.x - pos.x, t.pos.z - pos.z) < 8;
+      if (!near) continue;
+      // EMP EVICTS POSSESSION INSTANTLY (§4.4 #4) — whoever fired the burst,
+      // the ghost is thrown out and the machine remembers its side
+      if (t.possessedBy !== undefined) this.evictPossession(t);
+      if (t.team !== team) t.nextFireAt = Math.max(t.nextFireAt, this.time + 5);
     }
     for (const s of this.soldiers.values()) {
       if (!s.alive || s.team === team) continue;

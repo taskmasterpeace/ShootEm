@@ -203,9 +203,12 @@ The flagship mechanic. Build it **once**, correctly:
    stretches (`bornAt` slides) so it neither cheats its timer nor dies short.
    The field's OWNER walks free — he strolls through his own frozen
    bullet-wall. Chronos just has to call it.
-4. **MACHINE POSSESSION** → Phantom, Wraith. Generalize the hacked-turret
-   flip to vehicles/bots + timer + EMP eviction. **Never humans — law.**
-   *(Wraith ships the turret flip + hull stall; drive/bot-take still open.)*
+4. **MACHINE POSSESSION** ✅ (2026-07-17) → Phantom, Wraith. *Shipped:*
+   `possessMachine` — a TIMED take (team + guns flip, the machine remembers
+   whose it was), expiry hands it home, and **an EMP burst evicts
+   INSTANTLY** (empBlast). **Never humans — the API only takes machines.**
+   Wraith rides it (12s holds). Still open 🔧: DRIVING a possessed vehicle
+   and taking an enemy BOT (Phantom's 3s ride).
 5. **TRUE FLIGHT AI** → Inferno, Stormcaller, Gargoyle (exactly the three
    fliers). Most engine-ish; schedule after the roster has legs.
 6. **DESTRUCTION** ✅ (2026-07-17) → Titan, Crusher, Tremor, Leviathan (+
