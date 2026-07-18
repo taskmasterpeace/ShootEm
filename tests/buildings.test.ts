@@ -1,13 +1,14 @@
 // ---------------------------------------------------------------------------
-// The building library + dynamic structures: 20 authored templates dealt
+// The building library + dynamic structures: 32 authored templates dealt
 // procedurally, doors that E opens, and metal the drill cannot eat.
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
-import { BUILDINGS, isLegalStencilChar, mirrorDef, stampBuilding } from '../src/sim/buildings';
+import { BUILDINGS, buildingsFor, isLegalStencilChar, mirrorDef, stampBuilding } from '../src/sim/buildings';
 import {
   GRID, T_COVER, T_DOOR, T_DOOR_OPEN, T_METAL, T_SLIT, T_WALL, TILE, WORLD,
   blocksShot, isBlocked,
 } from '../src/sim/map';
+import { THEMES } from '../src/sim/data';
 import { Rng } from '../src/sim/rng';
 import { applySnapshot, takeSnapshot } from '../src/sim/snapshot';
 import type { PlayerCmd } from '../src/sim/types';
@@ -20,20 +21,41 @@ const cmd = (over: Partial<PlayerCmd> = {}): PlayerCmd => ({
 });
 
 describe('the building library', () => {
-  it('twenty templates, ten of them houses, every stencil legal', () => {
-    expect(BUILDINGS.length).toBe(20);
+  it('32 templates, every stencil legal, second storeys honest', () => {
+    expect(BUILDINGS.length).toBe(32);
     expect(BUILDINGS.filter((b) => b.kind === 'house').length).toBeGreaterThanOrEqual(10);
     for (const b of BUILDINGS) {
-      expect(b.floors).toBe(1); // the second storey is a reserved slot, not a promise
+      expect([1, 2], `${b.id} floors`).toContain(b.floors);
+      if (b.rows2) expect(b.floors, `${b.id} has rows2 but claims one storey`).toBe(2);
       const w = Math.max(...b.rows.map((r) => r.length));
-      expect(w).toBeLessThanOrEqual(12);
-      expect(b.rows.length).toBeLessThanOrEqual(8);
+      expect(w, `${b.id} too wide`).toBeLessThanOrEqual(12);
+      expect(b.rows.length, `${b.id} too tall`).toBeLessThanOrEqual(8);
       for (const row of b.rows) for (const ch of row) {
         expect(isLegalStencilChar(ch), `${b.id}: illegal char '${ch}'`).toBe(true);
+      }
+      for (const row of b.rows2 ?? []) for (const ch of row) {
+        expect(isLegalStencilChar(ch), `${b.id} rows2: illegal char '${ch}'`).toBe(true);
       }
       if (b.kind !== 'ruin') {
         expect(b.rows.some((r) => r.includes('D')), `${b.id} needs a door`).toBe(true);
       }
+      // biome fit names only real themes
+      for (const t of b.biomes ?? []) expect(Object.keys(THEMES), `${b.id}: unknown biome '${t}'`).toContain(t);
+    }
+  });
+
+  it('the category shelf: buildingsFor serves the right stock per biome', () => {
+    // universal stock shows up everywhere
+    expect(buildingsFor('savanna').some((b) => b.id === 'farmhouse')).toBe(true);
+    expect(buildingsFor('triton').some((b) => b.id === 'farmhouse')).toBe(true);
+    // biome-fit stock only where it belongs
+    expect(buildingsFor('triton').some((b) => b.id === 'ice_hut')).toBe(true);
+    expect(buildingsFor('savanna').some((b) => b.id === 'ice_hut')).toBe(false);
+    expect(buildingsFor('asteroid', 'industrial').some((b) => b.id === 'ore_silo')).toBe(true);
+    expect(buildingsFor('asteroid', 'industrial').some((b) => b.id === 'ore_silo' && b.kind !== 'industrial')).toBe(false);
+    // the skirmish pack exists and is enterable
+    for (const id of ['lsw_den', 'kennel', 'relay_station', 'watchtower']) {
+      expect(BUILDINGS.some((b) => b.id === id), `the pack lost ${id}`).toBe(true);
     }
   });
 

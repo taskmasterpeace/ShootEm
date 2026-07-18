@@ -1,6 +1,7 @@
 import type { House, PickupSpawn, PropSpec } from './map';
 import { F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_COVER, T_DOOR, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, TILE, WORLD } from './map';
 import type { Rng } from './rng';
+import type { ThemeId } from './types';
 
 // ---------------------------------------------------------------------------
 // The building library — hand-AUTHORED templates, procedurally PLACED.
@@ -19,6 +20,10 @@ import type { Rng } from './rng';
 // Second storeys: the format reserves `floors` for the Phase-2 height layer
 // (DD §8.4 decided walkable roofs need their own engine decision) — every
 // template today is floors:1 and the sim treats all buildings as one level.
+//
+// CATEGORIES: `kind` is the function axis (house/commercial/industrial/
+// military/ruin); `biomes` is the fit axis — which themes the building
+// belongs in. Omitted biomes = fits everywhere (the original 20).
 // ---------------------------------------------------------------------------
 
 export interface BuildingDef {
@@ -31,12 +36,31 @@ export interface BuildingDef {
   /** the SECOND STOREY stencil (same width): '#' wall, 'S' window, '.' floor,
    *  'L' the ladder well (must sit over a ground-floor 'L'), ' ' void */
   rows2?: string[];
+  /** biome fit — the themes this building belongs in. Omitted = universal. */
+  biomes?: ThemeId[];
 }
 
-const B = (id: string, name: string, kind: BuildingDef['kind'], rows: string[]): BuildingDef =>
-  ({ id, name, kind, floors: 1, rows });
+const B = (id: string, name: string, kind: BuildingDef['kind'], rows: string[], biomes?: ThemeId[]): BuildingDef =>
+  ({ id, name, kind, floors: 1, rows, ...(biomes ? { biomes } : {}) });
 
-/** Ten houses + ten other structures — the §8.2 fronts' building stock. */
+/** the function axis, for palette grouping */
+export const BUILDING_CATEGORIES: { kind: BuildingDef['kind']; label: string }[] = [
+  { kind: 'house', label: 'Houses' },
+  { kind: 'commercial', label: 'Commercial' },
+  { kind: 'industrial', label: 'Industrial' },
+  { kind: 'military', label: 'Military' },
+  { kind: 'ruin', label: 'Ruins' },
+];
+
+/** the buildings that fit a theme (and optionally a function). The
+ *  procedural builders pick from this shelf, never the whole library. */
+export function buildingsFor(theme: ThemeId, kind?: BuildingDef['kind']): BuildingDef[] {
+  return BUILDINGS.filter((b) =>
+    (!b.biomes || b.biomes.includes(theme)) && (!kind || b.kind === kind));
+}
+
+/** Ten houses + ten other structures — the §8.2 fronts' building stock,
+ *  plus the twelve-location skirmish pack (§maps: the hunt's ground). */
 export const BUILDINGS: BuildingDef[] = [
   // ---- houses (10) ----
   B('hut', 'Field Hut', 'house', [
@@ -177,6 +201,107 @@ export const BUILDINGS: BuildingDef[] = [
     '#..   #',
     '## ## #',
   ]),
+
+  // ---- THE SKIRMISH PACK (§maps: the locations a hunt is fought over) ----
+  B('lsw_den', 'LSW Den', 'military', [
+    'MMSSSSMM',
+    'M......M',
+    'S..MMDMM',
+    'M..MP.MM',
+    'M..M..MM',
+    'S.CMMMMM',
+    'MMMDDMMM',
+  ]),
+  B('containment_lab', 'Containment Lab', 'military', [
+    'MMSSSSMMM',
+    'MC.M.P..M',
+    'MDMMDMMMM',
+    'M.......M',
+    'M...C...M',
+    'MMMDDMMMM',
+  ], ['starship', 'triton', 'europa']),
+  B('kennel', 'Kennel', 'military', [
+    'MSSMSSMSSM',
+    'M..M..M..M',
+    'MDMMDMMDDM',
+    'M..P.C...M',
+    'MMMMDMMMMM',
+  ], ['savanna', 'titan', 'asteroid']),
+  B('relay_station', 'Relay Station', 'industrial', [
+    'MMSMMM',
+    'MC.P.M',
+    'M....M',
+    'MMMDMM',
+  ]),
+  B('barn', 'Barn', 'house', [
+    '##S####S##',
+    '#........#',
+    '#..C..C..#',
+    '#....P...#',
+    '#..C..C..#',
+    '#........#',
+    '###DDDD###',
+  ], ['savanna', 'titan']),
+  B('dome_hab', 'Dome Habitat', 'house', [
+    '##S#S##',
+    '#.....#',
+    'S..P..S',
+    '#..C..#',
+    '###D###',
+  ], ['europa', 'triton']),
+  B('mine_barracks', 'Mine Barracks', 'house', [
+    '#S#S#S#S#',
+    '#C.C.C.C#',
+    '#....P..#',
+    '###DD####',
+  ], ['asteroid']),
+  B('deck_cabin', 'Deck Cabin', 'commercial', [
+    'MMSSSMM',
+    'MC....M',
+    'M..P..M',
+    'M.....M',
+    'MMMDMMM',
+  ], ['starship']),
+  B('ice_hut', 'Ice Hut', 'house', [
+    '##S###',
+    '#C...#',
+    '#.P..#',
+    '#....#',
+    '###D##',
+  ], ['triton']),
+  B('pump_station', 'Pump Station', 'industrial', [
+    'MSMSM',
+    'MC.PM',
+    'M...M',
+    'MMDMM',
+  ], ['europa']),
+  B('ore_silo', 'Ore Silo', 'industrial', [
+    'MMSMMM',
+    'MC.C.M',
+    'M..P.M',
+    'M....M',
+    'MMMDMM',
+  ], ['asteroid']),
+  // the watchtower — the skirmish map's sniper nest: a two-storey perch
+  // with a ladder well and a slit ring upstairs
+  {
+    id: 'watchtower', name: 'Watchtower', kind: 'military', floors: 2,
+    rows: [
+      'MSMSM',
+      'M...M',
+      'S.L.S',
+      'M.P.M',
+      'MMDMM',
+    ],
+    rows2: [
+      '#S#S#',
+      'S...S',
+      '#.L.#',
+      'S...S',
+      '#S#S#',
+    ],
+    biomes: ['savanna', 'titan', 'triton'],
+  },
 ];
 
 const LEGEND = new Set(['#', 'M', 'S', 'D', '.', ' ', 'C', 'P', 'L']);
