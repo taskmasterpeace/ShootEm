@@ -748,8 +748,16 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
     const wdef = WEAPONS[s.weapons[s.weaponIdx]];
     const doc = DOCTRINE[s.classId];
 
+    // DRY FALLBACK (Robert's ammo pass): a primary with an empty clip AND no
+    // reserve is dead weight — drop to the sidearm, which never runs out. Only
+    // when slot 1 is a real offensive gun (infantry/infiltrator/ghost pistol,
+    // heavy's mml, jump's gl); a medic's beam / engineer's kit aren't guns.
+    const sec = WEAPONS[s.weapons[1]];
+    const secIsGun = !!sec && !sec.heals && sec.damage > 0;
+    const primaryDry = s.clip[0] <= 0 && s.reserve[0] <= 0;
     // pick sensible weapon slot
-    if (s.classId === 'heavy') cmd.weaponSlot = d > 25 || target.vehicleId >= 0 ? 1 : 0;
+    if (primaryDry && secIsGun) cmd.weaponSlot = 1;
+    else if (s.classId === 'heavy') cmd.weaponSlot = d > 25 || target.vehicleId >= 0 ? 1 : 0;
     else if (s.classId === 'medic') cmd.weaponSlot = 0;
     else if (s.classId === 'engineer') cmd.weaponSlot = 0;
     else if (s.classId === 'jump') cmd.weaponSlot = d > 24 ? 1 : 0; // shell them while closing, SMG inside

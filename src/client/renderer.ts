@@ -1756,6 +1756,17 @@ export class Renderer {
           if (c.name !== 'flame') continue;
           c.scale.y = 0.8 + 0.4 * Math.sin(world.time * 9 + ci * 1.7);
         }
+        // ONE FIRE, ONE LOOK (Robert: "I like the flamethrower look" — an
+        // LSW's burning trail should lick the same way the flamethrower does).
+        // The wobbling mesh reads static on its own; these are the exact
+        // flamethrower flame particles, so every fire in the game — trail,
+        // pool, eruption, or gout — flickers alike. Throttled per field.
+        if (Math.random() < 0.5) {
+          this.particles.emit({
+            pos: { x: g.pos.x + (Math.random() - 0.5) * 2.4, y: 0.2, z: g.pos.z + (Math.random() - 0.5) * 2.4 },
+            count: 1, color: 0xff7020, speed: 1, life: 0.25, spread: 0.4, up: 1.4, size: 0.4,
+          });
+        }
       } else if (g.type === 'flare') {
         // decoy sun: sinks slowly, sputters a stream of falling sparks
         const y = Math.max(0.4, 2.4 - (world.time - g.bornAt) * 0.55);
