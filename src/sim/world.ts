@@ -2045,12 +2045,18 @@ export class World {
       this.startMelee(s, def);
       return;
     }
+    // AP ROUNDS (equipment): a shooter running AP threads issued plate on its
+    // BALLISTIC weapons only (bullet/shell — no energy AP), landing on flesh
+    // for −25% damage. The plate-piercing itself is gated in damageSoldier
+    // (iron molt & LSW identity armor are exempt there).
+    const ap = this.hasEquip(s, 'apRounds') && (def.tracer === 'bullet' || def.tracer === 'shell');
+    const dm = ap ? dmgMul * 0.75 : dmgMul;
     // arc weapons are cursor-targeted like every thrown item: the shell LANDS
     // at aimDist instead of always lobbing to max range. (This is what made
     // the GL-40 unusable at anything but exactly 46u.)
     const reach = def.arc ? Math.max(6, Math.min(aimDist ?? def.range, def.range)) : def.range;
     for (let p = 0; p < def.pellets; p++) {
-      this.throwProjectile(s, wid, 1.4, def.speed, def.arc, reach, 1, false, dmgMul);
+      this.throwProjectile(s, wid, 1.4, def.speed, def.arc, reach, 1, false, dm, ap);
     }
     this.emit({ type: 'shot', pos: { ...s.pos, y: s.pos.y + 1.4 }, weapon: wid, soldierId: s.id });
   }
@@ -2118,7 +2124,7 @@ export class World {
    * LANDS at that distance instead of a fixed short ballistic. A caller can
    * pass a shorter reach for a soft toss (e.g. the hand-thrown frag).
    */
-  throwProjectile(s: Soldier, wid: WeaponId, muzzleY: number, speed: number, arc: boolean, reach = WEAPONS[wid].range, loft = 1, bounce = false, dmgMul = 1) {
+  throwProjectile(s: Soldier, wid: WeaponId, muzzleY: number, speed: number, arc: boolean, reach = WEAPONS[wid].range, loft = 1, bounce = false, dmgMul = 1, pierceArmor = false) {
     const def = WEAPONS[wid];
     const spread = (this.rng.next() - 0.5) * 2 * def.spread;
     const yaw = s.yaw + spread;
@@ -2150,6 +2156,7 @@ export class World {
       bornAt: this.time, ttl: reach / Math.max(speed, 1) + (arc ? 1.4 : 0), arc,
       ...(bounce ? { bounce: true } : {}),
       ...(dmgMul !== 1 ? { dmgMul } : {}),
+      ...(pierceArmor ? { pierceArmor: true } : {}),
     };
     this.launch(p);
   }
@@ -3596,7 +3603,12 @@ export class World {
     }
     // issued plate takes the hit first; whatever punches through reaches flesh.
     // Each portion floats its own number: blue off the plate, red off the flesh.
-    if (victim.armor > 0 && !pierceArmor) {  // AP rounds ignore the plate — the damage lands on flesh
+    // AP threads ISSUED plate only. Two identity armors are exempt: an Iron
+    // Eater's molt IS its health bar (SS20.2), and an LSW's armor is its
+    // signature (Steel Weaver's rip-plate, Magnetar's bullet-fed halo) — for
+    // both, the plate absorbs normally even against AP.
+    const apThreads = pierceArmor && !isIron(victim.kind) && victim.ascendant === undefined;
+    if (victim.armor > 0 && !apThreads) {  // AP rounds ignore ISSUED plate — the damage lands on flesh
       const absorbed = Math.min(victim.armor, dmg);
       victim.armor -= absorbed;
       dmg -= absorbed;

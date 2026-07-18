@@ -387,6 +387,9 @@ export interface EquipDef {
   hackKit?: boolean;
   /** G plants a spy camera that feeds enemy positions to your team */
   deployCamera?: boolean;
+  /** ballistic rounds thread issued plate to the flesh (−25% dmg); iron hide
+   *  and LSW armor are too thick (gated in damageSoldier) */
+  apRounds?: boolean;
 }
 
 export const EQUIPMENT: Record<string, EquipDef> = {
@@ -406,6 +409,7 @@ export const EQUIPMENT: Record<string, EquipDef> = {
   manpads: { id: 'manpads', name: 'MANPADS', desc: 'Shoulder-fired IR missile: G locks the nearest enemy aircraft in your facing cone and fires (2 per life).', icon: '🚀', samLauncher: true },
   hacking_kit: { id: 'hacking_kit', name: 'Hacking Kit', desc: 'E converts an enemy sentry turret to your side.', icon: '💻', hackKit: true },
   spy_camera: { id: 'spy_camera', name: 'Spy Camera', desc: 'G plants a camera that feeds enemy positions to your team (2 per life).', icon: '📷', deployCamera: true },
+  ap_rounds: { id: 'ap_rounds', name: 'AP Rounds', desc: 'Your ballistic weapons thread issued plate — hits land on flesh (−25% damage). Iron hide and LSW armor are too thick.', icon: '🔩', apRounds: true },
 };
 
 // ---------------------------------------------------------------------------

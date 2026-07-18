@@ -100,6 +100,68 @@ describe('pierceArmor bypasses plate', () => {
   });
 });
 
+describe('AP rounds equipment', () => {
+  it('a shooter with ap_rounds stamps its BALLISTIC shot: pierceArmor + 0.75x (the −25%)', () => {
+    const w = new World({ seed: 1, mode: 'tdm' });
+    const shooter = w.addSoldier('AP', 'infantry', 0, 'human', { equipment: ['ap_rounds'] });
+    shooter.pos = { x: 0, y: 0, z: 0 };
+    w.fireSoldierWeapon(shooter, 'ar606'); // bullet
+    const round = [...w.projectiles.values()].find((p) => p.weapon === 'ar606')!;
+    expect(round.pierceArmor).toBe(true);
+    expect(round.dmgMul).toBeCloseTo(0.75, 3); // −25% is the price of penetration
+  });
+
+  it('energy weapons never get the AP stamp (ballistic only)', () => {
+    const w = new World({ seed: 1, mode: 'tdm' });
+    const shooter = w.addSoldier('AP', 'infantry', 0, 'human', { equipment: ['ap_rounds'] });
+    shooter.pos = { x: 0, y: 0, z: 0 };
+    w.fireSoldierWeapon(shooter, 'rg2'); // rail = energy
+    const round = [...w.projectiles.values()].find((p) => p.weapon === 'rg2')!;
+    expect(round.pierceArmor).toBeFalsy();
+    expect(round.dmgMul ?? 1).toBe(1); // no −25%, no pierce
+  });
+
+  it('a plain shooter stamps nothing', () => {
+    const w = new World({ seed: 1, mode: 'tdm' });
+    const shooter = w.addSoldier('N', 'infantry', 0, 'human');
+    shooter.pos = { x: 0, y: 0, z: 0 };
+    w.fireSoldierWeapon(shooter, 'ar606');
+    const round = [...w.projectiles.values()].find((p) => p.weapon === 'ar606')!;
+    expect(round.pierceArmor).toBeFalsy();
+    expect(round.dmgMul ?? 1).toBe(1);
+  });
+
+  it('AP threads a mortal’s vest — flesh bleeds, the plate stands', () => {
+    const w = new World({ seed: 1, mode: 'tdm' });
+    const v = w.addSoldier('V', 'infantry', 1, 'human', { equipment: ['armor_vest'] });
+    expect(v.armor).toBeGreaterThan(0); // the vest issued plate
+    const armor0 = v.armor, hp0 = v.hp;
+    w.damageSoldier(v, 20, -1, 'ar606', false, true); // AP hit
+    expect(v.armor).toBe(armor0); // plate untouched
+    expect(v.hp).toBeLessThan(hp0); // flesh took it
+  });
+
+  it('AP does NOT bypass an Iron Eater’s molt (armor IS its health bar)', () => {
+    const w = new World({ seed: 1, mode: 'tdm' });
+    const iron = w.addIronEater('ravager', { x: 0, y: 0, z: 0 });
+    expect(iron.armor).toBeGreaterThan(0);
+    const armor0 = iron.armor, hp0 = iron.hp;
+    w.damageSoldier(iron, 40, -1, 'ar606', false, true); // AP hit
+    expect(iron.armor).toBeLessThan(armor0); // the molt absorbed it
+    expect(iron.hp).toBe(hp0); // frame still plated — flesh untouched
+  });
+
+  it('AP does NOT bypass an LSW’s identity armor', () => {
+    const w = new World({ seed: 1, mode: 'tdm' });
+    const lsw = w.addLsw('titan', 0, { x: 0, y: 0, z: 0 })!;
+    lsw.armor = 100; lsw.maxArmor = 100; // give it plate to prove the exemption
+    const hp0 = lsw.hp;
+    w.damageSoldier(lsw, 40, -1, 'ar606', false, true); // AP hit
+    expect(lsw.armor).toBeLessThan(100); // the plate absorbed despite AP
+    expect(lsw.hp).toBe(hp0);
+  });
+});
+
 describe('surface reactions (materials)', () => {
   // clear a straight lane on the mid row so generated terrain can't interfere
   const clearLane = (w: World): number => {

@@ -21,8 +21,25 @@ const TRACER_COLORS: Record<string, number> = {
   rail: 0x8fd0ff, flame: 0xff7020, beam: 0x70ffb0, acid: 0xa0e040,
   canister: 0xd8d2c0, none: 0, // canister band recolored per weapon below
 };
-/** per-weapon canister band: smoke wears pale, incendiary wears warning red */
-const CANISTER_BANDS: Record<string, number> = { smoke_nade: 0xd8d2c0, fire_nade: 0xd84a20 };
+/** PER-WEAPON TINT: a projectile color keyed by weapon id, winning over the
+ *  family default AND the god's body tint. Canister bands (smoke pale, fire
+ *  red) plus the BEAM SEVEN — each god's beam a distinct, readable hue so a
+ *  wall of energy fire reads as many weapons, not one mint smear. No purple. */
+export const WEAPON_TINTS: Record<string, number> = {
+  smoke_nade: 0xd8d2c0, fire_nade: 0xd84a20,
+  // THE BEAM SEVEN
+  lsw_reactor: 0x58ff88,   // hot reactor green
+  lsw_crimson: 0xe02838,   // arterial red — the blood siphon
+  lsw_magnetar: 0xf8f8f0,  // arc-weld white — induction flash
+  lsw_pulse: 0xffe040,     // klaxon yellow — sound made visible
+  lsw_frostbite: 0xa0e0ff, // glacial blue-white
+  lsw_mirage: 0x50e0e0,    // heat-shimmer teal
+  lsw_eclipse: 0xfff0d0,   // corona pale — sheathes the dark core (makeProjectile)
+  // ARC / EXOTIC extras — electric whites & blues, water, void
+  lsw_voltstriker: 0xbfe8ff, lsw_overload: 0xffd858, lsw_stormcaller: 0xe8f4ff,
+  lsw_wraith: 0xc8d8cc, lsw_dominator: 0xffb0a0, lsw_riptide: 0x48b8ff,
+  lsw_oblivion: 0x303038,  // dark-core void (black, never purple)
+};
 
 // ---- ragdoll ----
 /** Joints the ragdoll goes limp on (all swing on local Z). */
@@ -1693,10 +1710,13 @@ export class Renderer {
         // shared mint-green beam); everyone else keeps the family tracer color
         const owner = world.soldiers.get(p.ownerId);
         const lswTint = owner?.ascendant ? LSWS[owner.ascendant].color : undefined;
-        mesh = this.makeProjectile(def.tracer,
-          paintball ? paintColorFor(p.ownerId, localId)
-            : lswTint ?? CANISTER_BANDS[p.weapon] ?? (TRACER_COLORS[def.tracer] || 0xffcc88),
-          def.beam);
+        // precedence: AP rounds streak white-hot · paintball keys off the owner ·
+        // a per-weapon tint (the beam seven) wins over the god's body tint (else
+        // it's shadowed) · then body tint · then the family default
+        const projColor = p.pierceArmor ? 0xffffff
+          : paintball ? paintColorFor(p.ownerId, localId)
+          : WEAPON_TINTS[p.weapon] ?? lswTint ?? (TRACER_COLORS[def.tracer] || 0xffcc88);
+        mesh = this.makeProjectile(def.tracer, projColor, def.beam, p.weapon);
         mesh.userData.tracer = def.tracer;
         this.scene.add(mesh);
         this.projMeshes.set(p.id, mesh);
@@ -2882,7 +2902,7 @@ export class Renderer {
   /** A distinct in-flight round per tracer family — you can tell a rocket from
    *  a plasma bolt from a rail lance at a glance. Long axis is local +X (the
    *  update loop yaws each round to face its velocity). */
-  private makeProjectile(tracer: string, color: number, beam?: string): THREE.Object3D {
+  private makeProjectile(tracer: string, color: number, beam?: string, weapon?: string): THREE.Object3D {
     const solid = (geo: THREE.BufferGeometry, c: number) =>
       new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: c }));
     const glow = (geo: THREE.BufferGeometry, c: number, op = 0.5) =>
@@ -2934,6 +2954,16 @@ export class Renderer {
         };
         const [len, w] = dim[beam ?? ''] ?? [1.4, 0.05];
         const g = new THREE.Group();
+        if (weapon === 'lsw_eclipse') {
+          // THE LIGHTDRINKER (no-purple solve): a beam that EATS light — a solid
+          // near-black core (normal blending, occludes what's behind it) wrapped
+          // in a thin additive pale-corona sheath. Unmistakable, and no purple.
+          const core = solid(new THREE.BoxGeometry(len, w, w), 0x101018);
+          core.name = 'darkcore';
+          g.add(core);
+          g.add(glow(new THREE.BoxGeometry(len * 1.02, w * 2.4, w * 2.4), 0xfff0d0, 0.5));
+          return g;
+        }
         g.add(solid(new THREE.BoxGeometry(len, w, w), color));
         if (beam === 'charge' || beam === 'hose') g.add(glow(new THREE.BoxGeometry(len * 1.05, w * 2.1, w * 2.1), color, 0.4));
         return g;
