@@ -19,6 +19,7 @@ import { KILLCAM_CAM, MATCH_LINGER_LOCAL_MS, ReplayDirector } from './client/rep
 import { MatchTracker, RANKS, loadDossier, rankFor, saveDossier, type Dossier } from './client/record';
 import { FRONTS, SCAR_TEXT, applyResult, bandOf, checkSeasonEnd, loadCampaign, saveCampaign, simulateTimeSkip, type Campaign } from './client/campaign';
 import { RangeCourse, loadWall } from './client/range';
+import { RingDrill } from './client/ringdrill';
 import { loadSettings, saveSettings, settings, type BloodLevel } from './client/settings';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -427,6 +428,10 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     ? new RangeCourse(rangeOfficial, name, dossier, (t, big) => hud.announce(t, !!big, 0))
     : null;
   rangeOfficial = false; // one-shot flag — consumed by this deploy
+  // READ THE RING (§UI): the boot-camp station — three dummies, splat the weakest
+  const ringDrill = selectedMode === 'paintball'
+    ? new RingDrill((t, big) => hud.announce(t, !!big, 0))
+    : null;
 
   // THE SCORE (Robert's tracks): soldier combat → LSW inbound/walking → the
   // real monsters. The director reads the sim twice a second and crossfades.
@@ -497,6 +502,7 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
 
   renderer.buildStaticWorld(world);
   course?.begin(world, me.id);
+  ringDrill?.begin(world, me.id);
   hud.announce(MODE_INFO[selectedMode].name.toUpperCase(), true, 0);
   // §7: tell the player the officer channel is open (once per deploy)
   if (lswAllowed(selectedMode)) {
@@ -612,6 +618,7 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     tracker?.applyEvents(events, world, me.id);
     tracker?.update(world, me.id, dt);
     course?.update(world, dt);
+    ringDrill?.update(world, me.id, events);
     if (world.mode.over && tracker) {
       void tracker.finalize(world, me.id).then((sum) => {
         if (!sum) return;

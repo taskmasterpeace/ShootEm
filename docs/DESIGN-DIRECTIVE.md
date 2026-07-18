@@ -1824,6 +1824,14 @@ when the modeling stage lands (they deserve real silhouettes).
 - ✅ **Combat-feel trio shipped:** blast knockback (`d50374f`), breacher
   depth-stealth (`1384a68`), MANPADS vs Kestrel with flares (`92df4a8`) —
   each with tests, all live-verified in the shipped bundle.
+- ✅ **THE RING shipped (§UI):** one health language, three resolutions —
+  segmented ground ring at the boots (270°, gap at the back for facing):
+  T0 chunks for everyone (floor boundaries, 4 cached textures), T1 grade +
+  plate arc for recon/squad, T2 the number for medics/optics. Perception-
+  gated like the body (ghost-linger, cloak-true, tagged = public); worn by
+  soldiers, hulls, LSWs (threat notches public), and the HUD corner (T2 +
+  energy inner arc). Boot-camp station "READ THE RING" in the paintball
+  flow. Laws in `tests/ring.test.ts` + `tests/ringdrill.test.ts`.
 - ✅ **Killcam duel framing shipped** (`311bb66`): the top-down killcam frames
   victim + killer at midpoint, marks the killer with a pulsing ring, and
   names the shot with range ("Killed by Grit · 50u"). Replicates online.
