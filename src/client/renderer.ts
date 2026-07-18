@@ -1011,6 +1011,26 @@ export class Renderer {
    *  changes; enemies get nothing (their state is yours to find out). */
   private statusArcs = new Map<number, { sprite: THREE.Sprite; ctx: CanvasRenderingContext2D; tex: THREE.CanvasTexture; key: string }>();
 
+  /** THE TIER GATE (Robert: "seeing the EXACT health behind another tier"):
+   *  every perceived ENEMY shows a thin bar — the shape of the fight is
+   *  public. The NUMBER is intel: only tracking optics reads it out. */
+  private drawEnemyBar(ctx: CanvasRenderingContext2D, hpFrac: number, exact: number | null) {
+    ctx.clearRect(0, 0, 96, 48);
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(14, 30, 68, 7);
+    ctx.fillStyle = hpFrac < 0.35 ? '#e05252' : '#c9553e';
+    ctx.fillRect(15, 31, 66 * Math.max(0, hpFrac), 5);
+    if (exact !== null) {
+      ctx.font = '700 20px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+      ctx.lineWidth = 4;
+      ctx.strokeText(String(exact), 48, 24);
+      ctx.fillStyle = '#f0d9a8';
+      ctx.fillText(String(exact), 48, 24);
+    }
+  }
+
   private drawStatusArcs(ctx: CanvasRenderingContext2D, hpFrac: number, arFrac: number, hasArmor: boolean) {
     ctx.clearRect(0, 0, 96, 48);
     const ring = (cx: number, frac: number, color: string) => {
@@ -1274,15 +1294,18 @@ export class Renderer {
         blip.visible = s.alive && blipAlpha > 0.01;
         blip.scale.setScalar(uiK);
       }
+      // enemy readout (the tier gate): a bar for anyone on your wire; the
+      // exact number only if YOUR kit carries tracking optics
+      const enemyBar = s.team !== localTeam && s.id !== localId && mesh.visible && s.alive && !s.downed;
       let arcs = this.statusArcs.get(s.id);
-      if (squad && !arcs) {
+      if ((squad || enemyBar) && !arcs) {
         const made = this.makeStatusSprite();
         mesh.add(made.sprite);
         arcs = { ...made, key: '' };
         this.statusArcs.set(s.id, arcs);
       }
       if (arcs) {
-        arcs.sprite.visible = squad;
+        arcs.sprite.visible = squad || enemyBar;
         arcs.sprite.scale.set(1.7 * uiK, 0.85 * uiK, 1);
         arcs.sprite.position.y = 1.9 + 0.55 * uiK;
         if (squad) {
@@ -1294,6 +1317,16 @@ export class Renderer {
           if (key !== arcs.key) {
             arcs.key = key;
             this.drawStatusArcs(arcs.ctx, hpFrac, arFrac, hasArmor);
+            arcs.tex.needsUpdate = true;
+          }
+        } else if (enemyBar) {
+          const optics = !!local && local.equipment.includes('tracking_optics');
+          const hpFrac = Math.max(0, Math.min(1, s.hp / s.maxHp));
+          const exact = optics ? Math.ceil(s.hp) : null;
+          const key = `E:${Math.round(hpFrac * 20)}:${exact ?? '-'}`;
+          if (key !== arcs.key) {
+            arcs.key = key;
+            this.drawEnemyBar(arcs.ctx, hpFrac, exact);
             arcs.tex.needsUpdate = true;
           }
         }
