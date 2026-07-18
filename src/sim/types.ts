@@ -10,7 +10,7 @@ export type ClassId = 'infantry' | 'heavy' | 'jump' | 'engineer' | 'medic' | 'in
 /** Living Super Weapons (§21.6 / docs/ASCENDANTS.md). A Soldier carrying one
  *  of these is an LSW — not a class, an overlay: bigger, deadlier, its own
  *  brain, and it dies to ordinary guns. Grows as the roster ships. */
-export type AscendantId = 'firebrand' | 'plaguebearer' | 'frostbite' | 'ragebeast' | 'titan' | 'voltstriker' | 'sniperhawk' | 'barrier' | 'reactor' | 'oblivion' | 'tremor' | 'magnetar' | 'wraith' | 'eclipse' | 'dominator' | 'riptide' | 'gravwarden' | 'chronos' | 'venatrix' | 'vanguard' | 'pyroclasm' | 'voidwalker' | 'crimson' | 'mirage' | 'blitz' | 'shadowstep' | 'specter' | 'pulse';
+export type AscendantId = 'firebrand' | 'plaguebearer' | 'frostbite' | 'ragebeast' | 'titan' | 'voltstriker' | 'sniperhawk' | 'barrier' | 'reactor' | 'oblivion' | 'tremor' | 'magnetar' | 'wraith' | 'eclipse' | 'dominator' | 'riptide' | 'gravwarden' | 'chronos' | 'venatrix' | 'vanguard' | 'pyroclasm' | 'voidwalker' | 'crimson' | 'mirage' | 'blitz' | 'shadowstep' | 'specter' | 'pulse' | 'venom' | 'nightmare' | 'reaper';
 
 /**
  * Weapon ids are open strings: the hand-tuned core set (ar606, kuchler, caw,
@@ -273,6 +273,13 @@ export interface Soldier {
   /** Mirage's decoys: this soldier is an ILLUSION wearing the id'd Mirage's
    *  face — one hit pops it, it makes no footsteps, dogs are never fooled. */
   decoyOf?: number;
+  /** Nightmare's BLIND: until this sim time these eyes see nothing — a
+   *  blinded bot cannot acquire targets. Ears still work. */
+  blindUntil?: number;
+  /** Reaper's MARK: while unexpired, the marker's own blows land DOUBLE on
+   *  this soldier — and the victim knows they are hunted. */
+  markedBy?: number;
+  markedUntil?: number;
   /** Gravity Warden's REVERSE GRAVITY: until this sim time the soldier floats
    *  (~2.2u up, ground control nearly gone) — but CAN STILL SHOOT. The drop
    *  staggers the aim once on landing. */

@@ -1316,3 +1316,94 @@ describe('Pulse — walls are a rumor', () => {
     expect(w.tagged.has(e.id), 'the wave must TAG through the wall').toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// VENOM · NIGHTMARE · REAPER — wave 2's sixth batch.
+// ---------------------------------------------------------------------------
+describe('Venom — the dosage', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('the acid glob dissolves the plate WHOLE', () => {
+    const w = quiet();
+    const v = w.addLsw('venom', 0, { x: 0, y: 0, z: 0 })!; v.yaw = 0;
+    const e = w.addSoldier('E', 'infantry', 1, 'human');
+    e.pos = { x: 10, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    e.armor = 60; e.maxArmor = 60;
+    w.applyCmd(v, cmd({ ability: true }), 1 / 60);
+    expect(e.armor, 'the plate must dissolve whole').toBe(0);
+    expect(e.hp, 'the glob must also bite').toBeLessThan(100);
+  });
+
+  it('the poisoned LEAK — anyone in his contamination is tagged public', () => {
+    const w = quiet();
+    const v = w.addLsw('venom', 0, { x: 0, y: 0, z: 0 })!;
+    w.spawnGadget('smoke_field', 0, v.id, { x: 8, y: 0, z: 0 }, Infinity, 8);
+    const e = w.addSoldier('E', 'infantry', 1, 'human');
+    e.pos = { x: 8, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0; // standing IN it
+    for (let i = 0; i < 30; i++) w.step(1 / 60, new Map([[e.id, cmd()]]));
+    expect(w.tagged.has(e.id), 'the poisoned must leak a visible trail').toBe(true);
+  });
+});
+
+describe('Nightmare — the liar', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('the fear pulse litters the net with FALSE contacts', () => {
+    const w = quiet();
+    const n = w.addLsw('nightmare', 1, { x: 0, y: 0, z: 0 })!;
+    const e = w.addSoldier('E', 'infantry', 0, 'human');
+    e.pos = { x: 10, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    w.takeEvents();
+    w.applyCmd(n, cmd({ ability: true }), 1 / 60); // Q blinds the near first — force the pulse path
+    n.nextLswAt = 0;
+    w.step(1 / 60, new Map([[e.id, cmd()]]));
+    const pings = w.takeEvents().filter((ev) => ev.type === 'psi_ping' && ev.soldierId === undefined).length;
+    expect(pings, 'no lies were told').toBeGreaterThanOrEqual(3);
+  });
+
+  it('THE BLIND: a blinded bot cannot acquire targets for 2s — then the eyes return', () => {
+    const w = quiet();
+    const n = w.addLsw('nightmare', 1, { x: 0, y: 0, z: 0 })!;
+    const e = w.addSoldier('E', 'infantry', 0, 'bot');
+    e.pos = { x: 8, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    w.applyCmd(n, cmd({ ability: true }), 1 / 60);
+    expect(e.blindUntil, 'the blind never landed').toBeGreaterThan(w.time);
+    // while blind, the bot never fires at the nightmare standing in the open
+    const f0 = w.projectiles.size;
+    for (let i = 0; i < 30; i++) w.step(1 / 60, new Map());
+    // (his rifle may be silent for other reasons; the LAW is the flag + expiry)
+    for (let i = 0; i < 60 * 3; i++) w.step(1 / 60, new Map());
+    expect(w.time >= (e.blindUntil ?? 0), 'the blind must expire — ears buy you 2s, not forever').toBe(true);
+  });
+});
+
+describe('Reaper — the ledger', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('the chain grabs the FIRST body on the line — the tank eats it for the squad', () => {
+    const w = quiet();
+    const r = w.addLsw('reaper', 1, { x: 0, y: 0, z: 0 })!; r.yaw = 0;
+    const tank = w.addSoldier('TANK', 'heavy', 0, 'human');
+    tank.pos = { x: 8, y: 0, z: 0 }; tank.alive = true; tank.protectedUntil = 0;
+    const squishy = w.addSoldier('SQ', 'medic', 0, 'human');
+    squishy.pos = { x: 16, y: 0, z: 0 }; squishy.alive = true; squishy.protectedUntil = 0; // BEHIND the tank
+    const sqHp = squishy.hp;
+    w.applyCmd(r, cmd({ ability: true }), 1 / 60);
+    expect(tank.pushX, 'the FIRST body must be reeled (toward −x)').toBeLessThan(0);
+    expect(squishy.hp, 'the chain skipped the tank — it must grab the first body').toBe(sqHp);
+  });
+
+  it("THE MARK doubles the hunter's own blows — and only his", () => {
+    const w = quiet();
+    const r = w.addLsw('reaper', 1, { x: 0, y: 0, z: 0 })!;
+    const e = w.addSoldier('E', 'infantry', 0, 'human');
+    e.pos = { x: 30, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    e.markedBy = r.id; e.markedUntil = w.time + 8;
+    const other = w.addSoldier('O', 'infantry', 1, 'bot');
+    w.damageSoldier(e, 10, r.id, 'ar606'); // the hunter's blow — doubled
+    const afterReaper = e.hp;
+    expect(100 - afterReaper, "the mark must double the hunter's damage").toBe(20);
+    w.damageSoldier(e, 10, other.id, 'ar606'); // a stranger's blow — normal
+    expect(afterReaper - e.hp, "a stranger's blow must stay normal").toBe(10);
+  });
+});

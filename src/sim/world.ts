@@ -3093,6 +3093,10 @@ export class World {
       return; // no other damage lands on the ice
     }
     if (victim.cloaked) victim.cloaked = false;
+    // REAPER'S MARK: the hunter's own blows land DOUBLE on the hunted
+    if (victim.markedUntil !== undefined && this.time < victim.markedUntil && attackerId === victim.markedBy) {
+      dmg *= 2;
+    }
     // CHRONOS'S TEMPORAL ECHO (once per fight): a lethal hit doesn't land —
     // he SNAPS to where he stood ~3s ago (the breadcrumb the glow has been
     // advertising all along; the counter is to camp it) and stands there at

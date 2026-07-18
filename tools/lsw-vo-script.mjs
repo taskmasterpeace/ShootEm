@@ -180,6 +180,24 @@ export const CAST = {
     persona: "Pulse, a United Front Living Super Weapon — a recon specialist whose ears outrange everyone's eyes. Resonant, calm, certain; walls are a rumor to him and he speaks like a sonar ping coming back true.",
     scene: 'A deep sonar sweep. Heartbeats through masonry. The hum of a wave about to break.',
   },
+  venom: {
+    voice: 'Umbriel',
+    fx: 'haz', // through the same respirator family as the outbreak
+    persona: "Venom, a United Front Living Super Weapon — a toxicologist who treats every engagement as a dosage question. Precise, faintly amused, professionally detached; he discusses dissolving armor the way chemists discuss titration.",
+    scene: 'A dripping sound that should not be indoors. Metal fizzing. A respirator drawing steady breaths.',
+  },
+  nightmare: {
+    voice: 'Pulcherrima',
+    fx: 'ice', // a thin wrong shimmer under a calm voice
+    persona: "Nightmare, a Collective Living Super Weapon — a disruptor who lives in other people's displays. Calm, intimate, quietly wrong; every sentence sounds like it was already on your minimap before he said it.",
+    scene: 'Contact tones pinging for things that are not there. A map redrawing itself. Breathing very close.',
+  },
+  reaper: {
+    voice: 'Algenib',
+    fx: 'none', // the beast voice unprocessed — a duelist, not a monster
+    persona: "Reaper, a Collective Living Super Weapon — a duelist with a ledger. Grim, level, unhurried; he speaks of targets as names to be crossed off, and his chain arrives before his sentences finish.",
+    scene: 'A chain paying out link by link. A blade being drawn across a whetstone, slow.',
+  },
   announcer: {
     voice: 'Orus',
     fx: 'radio', // 300–3400Hz military net + soft clip
@@ -379,6 +397,26 @@ export const VO = [
   { slot: 'vo_pulse_ability', who: 'pulse', text: '[booming] SPEAK UP.', notes: ['The wave itself, weaponized as a joke.'] },
   { slot: 'vo_pulse_low', who: 'pulse', text: '[wincing] Ringing... in my own ears now.', notes: ['The listener, deafened.'] },
   { slot: 'vo_pulse_death', who: 'pulse', text: '[fading] So this... is silence.', notes: ['His first silence, and his last.'] },
+  // ---- VENOM: a dosage question ----
+  { slot: 'vo_venom_arrive', who: 'venom', text: '[clinical] Breathe deep. Or better, do not.', notes: ['Professional advice, wickedly given.'] },
+  { slot: 'vo_venom_kill3', who: 'venom', text: 'Three. The dose was correct.', notes: ['A chemist confirming his math.'] },
+  { slot: 'vo_venom_ability', who: 'venom', text: '[pleased] Your armor is soup now.', notes: ['Said as a plate dissolves whole.'] },
+  { slot: 'vo_venom_low', who: 'venom', text: '[coughing] Tasting... my own work.', notes: ['The irony burns going down.'] },
+  { slot: 'vo_venom_death', who: 'venom', text: '[dissolving] Everything... dissolves.', notes: ['His life\'s thesis, proven on himself.'] },
+
+  // ---- NIGHTMARE: already on your minimap ----
+  { slot: 'vo_nightmare_arrive', who: 'nightmare', text: '[intimate] Your map is mine now.', notes: ['Quietly wrong, very close.'] },
+  { slot: 'vo_nightmare_kill3', who: 'nightmare', text: 'Three chased the wrong ghost.', notes: ['The lies are working.'] },
+  { slot: 'vo_nightmare_ability', who: 'nightmare', text: '[flat] Lights out.', notes: ['Said to one person, whose world goes dark.'] },
+  { slot: 'vo_nightmare_low', who: 'nightmare', text: '[fraying] They see... through me.', notes: ['The illusionist, finally seen.'] },
+  { slot: 'vo_nightmare_death', who: 'nightmare', text: '[fading] Wake up... all of you.', notes: ['The nightmare ends the only way they do.'] },
+
+  // ---- REAPER: names to be crossed off ----
+  { slot: 'vo_reaper_arrive', who: 'reaper', text: '[grim] One of you is already mine.', notes: ['The ledger is open before he lands.'] },
+  { slot: 'vo_reaper_kill3', who: 'reaper', text: 'Three names, crossed off.', notes: ['Level, unhurried bookkeeping.'] },
+  { slot: 'vo_reaper_ability', who: 'reaper', text: '[pulling] Come to the blade.', notes: ['Said as the chain reels a body in.'] },
+  { slot: 'vo_reaper_low', who: 'reaper', text: '[surprised] My own... name... in the ledger.', notes: ['The bookkeeper, audited.'] },
+  { slot: 'vo_reaper_death', who: 'reaper', text: '[settling] Harvested... fair enough.', notes: ['A professional\'s respect for the scythe that got him.'] },
 ];
 
 /** The announcer — map-wide, both teams, radio net. */
@@ -495,6 +533,18 @@ export const ANN = [
   { slot: 'ann_pulse_landed', text: 'PULSE ON THE FIELD. HE HEARS EVERYTHING.' },
   { slot: 'ann_pulse_down', text: 'PULSE IS DOWN. THE AIR STOPS RINGING.' },
   { slot: 'ann_pulse_rampage', text: 'FIVE KILLS. PULSE HAS THE WHOLE MAP TAGGED.' },
+  { slot: 'ann_venom_inbound', text: 'VENOM INBOUND. [short pause] CHECK YOUR SEALS.' },
+  { slot: 'ann_venom_landed', text: 'VENOM ON THE FIELD. THE AIR HAS TEETH.' },
+  { slot: 'ann_venom_down', text: 'VENOM IS DOWN. LET IT DISPERSE.' },
+  { slot: 'ann_venom_rampage', text: 'FIVE KILLS. VENOM OWNS EVERY BREATH.' },
+  { slot: 'ann_nightmare_inbound', text: 'NIGHTMARE INBOUND. [short pause] TRUST NOTHING RED.' },
+  { slot: 'ann_nightmare_landed', text: 'NIGHTMARE ON THE FIELD. YOUR MAP IS LYING.' },
+  { slot: 'ann_nightmare_down', text: 'NIGHTMARE IS DOWN. THE CONTACTS CLEAR.' },
+  { slot: 'ann_nightmare_rampage', text: 'FIVE KILLS. NIGHTMARE IS IN EVERY HEAD.' },
+  { slot: 'ann_reaper_inbound', text: 'REAPER INBOUND. [short pause] NOBODY WANDERS ALONE.' },
+  { slot: 'ann_reaper_landed', text: 'REAPER ON THE FIELD. SOMEBODY IS ALREADY MARKED.' },
+  { slot: 'ann_reaper_down', text: 'REAPER IS DOWN. THE HUNT IS OFF.' },
+  { slot: 'ann_reaper_rampage', text: 'FIVE KILLS. THE REAPER KEEPS HIS LEDGER.' },
 ];
 
 export const ANN_NOTES = [

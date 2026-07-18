@@ -2103,6 +2103,24 @@ export class Renderer {
         pos: { x: s.pos.x, y: 1.0, z: s.pos.z }, count: 2,
         color: 0x5adfd0, speed: 2.4, life: 0.4, spread: 1.0, up: 0.1, gravity: 0, size: 0.22,
       });
+    } else if (id === 'venom') {
+      // toxin drip — green beads that fall and sizzle
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.2, y: 0.6 + Math.random() * 1.2, z: s.pos.z + (Math.random() - 0.5) * 1.2 }, count: 1,
+        color: Math.random() < 0.6 ? 0x7fd43a : 0xb8f06a, speed: 0.4, life: 0.6, spread: 0.3, up: 0.2, gravity: 2.5, size: 0.26,
+      });
+    } else if (id === 'nightmare') {
+      // the darkness with edges — near-black motes that eat the light around him
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.6, y: 0.4 + Math.random() * 1.6, z: s.pos.z + (Math.random() - 0.5) * 1.6 }, count: 1,
+        color: Math.random() < 0.7 ? 0x10141c : 0x3a4356, speed: 0.5, life: 0.7, spread: 0.5, up: 0.4, gravity: 0.2, size: 0.36,
+      });
+    } else if (id === 'reaper') {
+      // grave-cold wisps trailing off the scythe arm
+      this.particles.emit({
+        pos: { x: s.pos.x + Math.cos(s.yaw) * 0.7, y: 0.9 + Math.random() * 0.9, z: s.pos.z + Math.sin(s.yaw) * 0.7 }, count: 1,
+        color: Math.random() < 0.5 ? 0x8a8f98 : 0xc6ccd6, speed: 0.4, life: 0.5, spread: 0.4, up: 0.5, gravity: 0.5, size: 0.26,
+      });
     } else if (id === 'dominator') {
       // crimson psychic tendrils reaching up and out — the puppeteer's threads
       this.particles.emit({

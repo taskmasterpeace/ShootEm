@@ -134,6 +134,9 @@ function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false, wheels = fal
 // ---------- target selection ----------
 
 function findTarget(w: World, s: Soldier, maxRange: number): Soldier | null {
+  // NIGHTMARE'S BLIND: no eyes, no targets — the ears (sound smudges) are
+  // all the client leaves you, exactly as §19.2 trained
+  if (s.blindUntil !== undefined && w.time < s.blindUntil) return null;
   let best: Soldier | null = null;
   let bestD = maxRange;
   for (const e of w.soldiers.values()) {

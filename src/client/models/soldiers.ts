@@ -84,6 +84,9 @@ export const LSW_TINT: Record<string, { tint: number; scale: number }> = {
   shadowstep: { tint: 0x4a5a4a, scale: 1.2 },    // gunmetal moss
   specter: { tint: 0xbcc7cf, scale: 1.25 },      // mirror-fog silver
   pulse: { tint: 0x5adfd0, scale: 1.3 },         // sonar teal
+  venom: { tint: 0x7fd43a, scale: 1.25 },        // toxin green
+  nightmare: { tint: 0x1e2430, scale: 1.25 },    // a darkness with edges
+  reaper: { tint: 0x8a8f98, scale: 1.35 },       // scythe-steel grey
 };
 
 /** Turn a built trooper body INTO an LSW body: scale up past a trooper,

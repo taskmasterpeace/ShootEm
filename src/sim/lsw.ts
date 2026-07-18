@@ -366,6 +366,39 @@ export const LSWS: Record<AscendantId, LswDef> = {
     scale: 1.3, speed: 8, color: 0x5adfd0, // sonar teal
     activeLabel: 'SONIC WAVE — stagger and tag them through the walls', activeCd: 7,
   },
+  venom: {
+    id: 'venom', name: 'Venom', faction: 0, threat: 2,
+    lines: {
+      inbound: 'VENOM INBOUND — CHECK YOUR SEALS',
+      landed: 'VENOM ON THE FIELD — THE AIR HAS TEETH',
+      down: 'VENOM IS DOWN — LET IT DISPERSE',
+      rampage: 'FIVE KILLS — VENOM OWNS EVERY BREATH',
+    },
+    scale: 1.25, speed: 8.5, color: 0x7fd43a, // toxin green
+    activeLabel: 'ACID GLOB — dissolve the plate whole', activeCd: 7,
+  },
+  nightmare: {
+    id: 'nightmare', name: 'Nightmare', faction: 1, threat: 2,
+    lines: {
+      inbound: 'NIGHTMARE INBOUND — TRUST NOTHING RED',
+      landed: 'NIGHTMARE ON THE FIELD — YOUR MAP IS LYING',
+      down: 'NIGHTMARE IS DOWN — THE CONTACTS CLEAR',
+      rampage: 'FIVE KILLS — NIGHTMARE IS IN EVERY HEAD',
+    },
+    scale: 1.25, speed: 8.5, color: 0x1e2430, // a darkness with edges
+    activeLabel: 'THE BLIND — put one set of eyes out', activeCd: 8,
+  },
+  reaper: {
+    id: 'reaper', name: 'Reaper', faction: 1, threat: 2,
+    lines: {
+      inbound: 'REAPER INBOUND — NOBODY WANDERS ALONE',
+      landed: 'REAPER ON THE FIELD — SOMEBODY IS ALREADY MARKED',
+      down: 'REAPER IS DOWN — THE HUNT IS OFF',
+      rampage: 'FIVE KILLS — THE REAPER KEEPS HIS LEDGER',
+    },
+    scale: 1.35, speed: 8, color: 0x8a8f98, // scythe-steel grey
+    activeLabel: 'THE CHAIN — reel the first body into the scythe', activeCd: 6,
+  },
 };
 
 /** THE SPOKEN SCRIPT — subtitle text per voice slot, tag-stripped mirrors of
@@ -514,6 +547,21 @@ export const VO_LINES: Record<string, { who: AscendantId; line: string }> = {
   vo_pulse_ability: { who: 'pulse', line: 'SPEAK UP.' },
   vo_pulse_low: { who: 'pulse', line: 'Ringing... in my own ears now.' },
   vo_pulse_death: { who: 'pulse', line: 'So this... is silence.' },
+  vo_venom_arrive: { who: 'venom', line: 'Breathe deep. Or better, do not.' },
+  vo_venom_kill3: { who: 'venom', line: 'Three. The dose was correct.' },
+  vo_venom_ability: { who: 'venom', line: 'Your armor is soup now.' },
+  vo_venom_low: { who: 'venom', line: 'Tasting... my own work.' },
+  vo_venom_death: { who: 'venom', line: 'Everything... dissolves.' },
+  vo_nightmare_arrive: { who: 'nightmare', line: 'Your map is mine now.' },
+  vo_nightmare_kill3: { who: 'nightmare', line: 'Three chased the wrong ghost.' },
+  vo_nightmare_ability: { who: 'nightmare', line: 'Lights out.' },
+  vo_nightmare_low: { who: 'nightmare', line: 'They see... through me.' },
+  vo_nightmare_death: { who: 'nightmare', line: 'Wake up... all of you.' },
+  vo_reaper_arrive: { who: 'reaper', line: 'One of you is already mine.' },
+  vo_reaper_kill3: { who: 'reaper', line: 'Three names, crossed off.' },
+  vo_reaper_ability: { who: 'reaper', line: 'Come to the blade.' },
+  vo_reaper_low: { who: 'reaper', line: 'My own... name... in the ledger.' },
+  vo_reaper_death: { who: 'reaper', line: 'Harvested... fair enough.' },
 };
 export const voSlot = (id: AscendantId, moment: VoMoment) => `vo_${id}_${moment}`;
 export const annSlot = (id: AscendantId, moment: 'inbound' | 'landed' | 'down' | 'rampage') => `ann_${id}_${moment}`;

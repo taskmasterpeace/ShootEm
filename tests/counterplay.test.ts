@@ -372,3 +372,37 @@ describe('counterplay — wave 2, fifth batch', () => {
     expect(w.tagged.has(far.id)).toBe(false);
   });
 });
+
+describe('counterplay — wave 2, sixth batch', () => {
+  it('VENOM — "medics cleanse": the acid takes the plate, never the man behind cover of distance', () => {
+    const w = quiet();
+    const v = w.addLsw('venom', 0, { x: 0, y: 0, z: 0 })!; v.yaw = 0;
+    const far = w.addSoldier('F', 'infantry', 1, 'human');
+    far.pos = { x: 30, y: 0, z: 0 }; far.alive = true; far.protectedUntil = 0; // out of glob reach
+    far.armor = 60;
+    w.applyCmd(v, cmd({ ability: true }), 1 / 60);
+    expect(far.armor, 'the glob reached past its 22u').toBe(60);
+  });
+
+  it('NIGHTMARE — "fight by ear": the blind EXPIRES — 2 seconds, never forever', () => {
+    const w = quiet();
+    const n = w.addLsw('nightmare', 1, { x: 0, y: 0, z: 0 })!;
+    const e = w.addSoldier('E', 'infantry', 0, 'bot');
+    e.pos = { x: 8, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    w.applyCmd(n, cmd({ ability: true }), 1 / 60);
+    const until = e.blindUntil!;
+    expect(until - w.time, 'the blind must be 2s, not a sentence').toBeLessThanOrEqual(2.1);
+  });
+
+  it('REAPER — "bait him into the guns": the mark alone deals NO damage — it only prices the hunt', () => {
+    const w = quiet();
+    const r = w.addLsw('reaper', 1, { x: 0, y: 0, z: 0 })!;
+    r.nextLswAt = w.time + 999; // no chain — the mark is on trial
+    r.clip = r.clip.map(() => 0); r.reserve = r.reserve.map(() => 0);
+    const e = w.addSoldier('E', 'infantry', 0, 'human');
+    e.pos = { x: 30, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    w.step(1 / 60, new Map([[e.id, cmd()]])); // the bot marks
+    for (let i = 0; i < 120; i++) w.step(1 / 60, new Map([[e.id, cmd()]]));
+    expect(e.hp, 'the mark itself must never hurt — being hunted is information, not damage').toBe(100);
+  });
+});
