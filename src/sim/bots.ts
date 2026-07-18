@@ -917,26 +917,41 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
   // grenade should never delete a fireteam that walked in a knot; the
   // separation rides ON TOP of the goal so bots still arrive — spread out.
   let sepX = 0, sepZ = 0;
+  const SEP_R = 5; // personal space (widened from 3u so a converging crowd spreads)
+  let nearest = Infinity, nearX = 0, nearZ = 0;
   for (const o of w.humansAndBots()) {
     if (o.id === s.id || !o.alive || o.team !== s.team) continue;
     const dx = s.pos.x - o.pos.x, dz = s.pos.z - o.pos.z;
     const d = Math.hypot(dx, dz);
-    if (d > 3) continue;
+    if (d > SEP_R) continue;
     if (d < 0.001) {
-      // PERFECTLY stacked (same-tick respawns once landed here): the old
-      // guard skipped this pair entirely, so the pile pushed nobody and
-      // stood in itself forever. A deterministic per-id shove breaks the
-      // tie — everyone leaves the pile in their own direction.
+      // PERFECTLY stacked (same-tick respawns once landed here): a
+      // deterministic per-id shove breaks the tie — everyone leaves the pile
+      // in their own direction.
       const a = s.id * 2.399;
       sepX += Math.cos(a); sepZ += Math.sin(a);
+      nearest = 0;
       continue;
     }
-    const push = (3 - d) / 3;
+    // a firmer-than-linear curve: the last metre shoves hardest, so bodies
+    // never settle stacked even when the crowd's outer pushes cancel
+    const push = ((SEP_R - d) / SEP_R) ** 1.5;
     sepX += (dx / d) * push;
     sepZ += (dz / d) * push;
+    if (d < nearest) { nearest = d; nearX = dx / d; nearZ = dz / d; }
   }
-  mvx += sepX * 0.9;
-  mvz += sepZ * 0.9;
+  mvx += sepX * 1.2;
+  mvz += sepZ * 1.2;
+  // PERSONAL SPACE that WINS: inside ~2u the sum can still cancel in the
+  // middle of a knot, so a body this close to its NEAREST neighbour gets a
+  // hard directional shove that overrides the goal — nobody stays stacked.
+  if (nearest < 2 && nearest > 0.001) {
+    const dom = (2 - nearest) / 2; // 0 at 2u, 1 touching
+    mvx = mvx * (1 - dom) + nearX * dom * 1.5;
+    mvz = mvz * (1 - dom) + nearZ * dom * 1.5;
+  } else if (nearest === 0) {
+    mvx = Math.cos(s.id * 2.399); mvz = Math.sin(s.id * 2.399);
+  }
 
   cmd.moveX = Math.max(-1, Math.min(1, mvx));
   cmd.moveZ = Math.max(-1, Math.min(1, mvz));

@@ -503,7 +503,34 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     const [a, b] = lswsForTeam(0 as Team);
     if (a) hud.announce(`OFFICER CHANNEL — V: CALL ${LSWS[a].name.toUpperCase()}${b ? ` · SHIFT+V: ${LSWS[b].name.toUpperCase()}` : ''}`, false, 0);
   }
-  (window as unknown as Record<string, unknown>).__ww = { world, me, renderer, hud, input, audio, recorder: director.recorder, replay: director.player, director }; // debug/testing handle
+  // CROWD DIAGNOSTIC (Robert: "put something in there so you can look at the
+  // logs… they all bunch up"). Call `__ww.crowd()` in the console any time for
+  // each team's spread — average nearest-neighbour and the tightest pair. A
+  // healthy fireteam sits ~3u+; anything averaging under ~2u is a knot. Pass
+  // `true` to also start a once-a-second console log so you can watch it live.
+  const crowd = (log?: boolean) => {
+    const report = ([0, 1] as const).map((team) => {
+      const b = [...world.soldiers.values()].filter((s) => s.alive && s.team === team && (s.kind === 'human' || s.kind === 'bot') && !s.ascendant);
+      if (b.length < 2) return { team, n: b.length, avgNN: 0, minNN: 0 };
+      let sum = 0, min = Infinity;
+      for (const x of b) {
+        let nn = Infinity;
+        for (const y of b) if (y !== x) nn = Math.min(nn, Math.hypot(y.pos.x - x.pos.x, y.pos.z - x.pos.z));
+        sum += nn; min = Math.min(min, nn);
+      }
+      return { team, n: b.length, avgNN: +(sum / b.length).toFixed(1), minNN: +min.toFixed(1) };
+    });
+    if (log) {
+      const w = window as unknown as { __crowdTimer?: number };
+      if (w.__crowdTimer) { clearInterval(w.__crowdTimer); w.__crowdTimer = undefined; return 'crowd log OFF'; }
+      w.__crowdTimer = window.setInterval(() => {
+        console.log('[crowd]', JSON.stringify(crowd()));
+      }, 1000);
+      return 'crowd log ON (call __ww.crowd(true) again to stop)';
+    }
+    return report;
+  };
+  (window as unknown as Record<string, unknown>).__ww = { world, me, renderer, hud, input, audio, recorder: director.recorder, replay: director.player, director, crowd }; // debug/testing handle
 
   const FIXED = 1 / 60;
   let acc = 0;
