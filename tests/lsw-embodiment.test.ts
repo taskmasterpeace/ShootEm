@@ -61,3 +61,22 @@ describe('blink tuning', () => {
     expect(c.nextBlinkAt! - w.time).toBeCloseTo(1.6, 1);    // snappier than the old 2.0
   });
 });
+
+describe('strange-five feel', () => {
+  it('the wraith hovers at ~0.6u with gravity off', () => {
+    const w = new World({ seed: 1, mode: 'tdm' });
+    const wr = w.addLsw('wraith', 1, { x: 0, y: 0, z: 0 })!;
+    for (let i = 0; i < 60; i++) w.step(1 / 60, new Map()); // let it rise to its float
+    expect(wr.pos.y).toBeCloseTo(0.6, 1);
+    expect(wr.vel.y).toBe(0); // no falling — the silence is the tell
+  });
+
+  it('gravity is polite to the warden — it falls slower than a mortal', () => {
+    const w = new World({ seed: 1, mode: 'tdm' });
+    const gw = w.addLsw('gravwarden', 0, { x: 0, y: 10, z: 0 })!;
+    const mortal = w.addSoldier('M', 'infantry', 0, 'human');
+    mortal.pos = { x: 5, y: 10, z: 0 };
+    for (let i = 0; i < 24; i++) w.step(1 / 60, new Map());
+    expect(gw.pos.y).toBeGreaterThan(mortal.pos.y); // 0.35x fall — still higher
+  });
+});
