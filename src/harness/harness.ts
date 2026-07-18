@@ -1334,12 +1334,36 @@ function blBuild() {
 
 {
   const libSel = $<HTMLSelectElement>('bl-lib');
-  for (const b of BUILDINGS) {
-    const o = document.createElement('option');
-    o.value = b.id;
-    o.textContent = `${b.name} (${b.kind})`;
-    libSel.appendChild(o);
+  // the category shelf: function-axis chips filter the library; biome-fit
+  // rides the option labels so a builder can see where each piece belongs
+  let cat: BuildingDef['kind'] | 'all' = 'all';
+  const fillLib = () => {
+    libSel.innerHTML = '<option value="">— pick one —</option>';
+    for (const b of BUILDINGS) {
+      if (cat !== 'all' && b.kind !== cat) continue;
+      const o = document.createElement('option');
+      o.value = b.id;
+      o.textContent = `${b.name} (${b.kind})${b.biomes ? ' · ' + b.biomes.join(',') : ''}`;
+      libSel.appendChild(o);
+    }
+  };
+  const catRow = $('bl-cats');
+  for (const c of [{ kind: 'all' as const, label: 'All' },
+    { kind: 'house' as const, label: 'Houses' },
+    { kind: 'commercial' as const, label: 'Commercial' },
+    { kind: 'industrial' as const, label: 'Industrial' },
+    { kind: 'military' as const, label: 'Military' },
+    { kind: 'ruin' as const, label: 'Ruins' }]) {
+    const b = chip(c.label, '', () => {
+      cat = c.kind;
+      catRow.querySelectorAll('button').forEach((x) => x.classList.remove('active'));
+      b.classList.add('active');
+      fillLib();
+    });
+    if (c.kind === 'all') b.classList.add('active');
+    catRow.appendChild(b);
   }
+  fillLib();
   libSel.onchange = blBuild;
   $<HTMLSelectElement>('bl-type').onchange = () => { libSel.value = ''; blBuild(); };
   $('bl-build').onclick = blBuild;

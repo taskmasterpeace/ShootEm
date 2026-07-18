@@ -16,8 +16,9 @@ import {
 } from './map';
 import { BUILDINGS, stampBuilding, type BuildingDef, type StampCtx } from './buildings';
 import { FRONT_STENCILS, frontWalkable, generateFront, boxFor, type MapSize } from './fronts';
+import { generateSkirmishMap } from './skirmish';
 import { Rng } from './rng';
-import type { Team, VehicleKind, Vec3 } from './types';
+import type { Team, ThemeId, VehicleKind, Vec3 } from './types';
 
 // ---------------------------------------------------------------------------
 // the document
@@ -71,6 +72,18 @@ export function loadFront(frontId: string, seed: number, size: MapSize): MakerDo
   if (!map) throw new Error(`mapedit: unknown front '${frontId}'`);
   return {
     frontId, size, seed, mode: 'tdm',
+    map: cloneMap(map),
+    claims: map.propCovered.map((idx) => ({ idx, t: map.grid[idx] })),
+    rng: new Rng(seed ^ 0x5eed),
+    undoStack: [], redoStack: [],
+  };
+}
+
+/** Load a procedural SKIRMISH roll — a biome hunt ground as an editable doc. */
+export function loadSkirmish(theme: ThemeId, seed: number): MakerDoc {
+  const map = generateSkirmishMap(theme, seed);
+  return {
+    frontId: null, size: 'small', seed, mode: 'tdm',
     map: cloneMap(map),
     claims: map.propCovered.map((idx) => ({ idx, t: map.grid[idx] })),
     rng: new Rng(seed ^ 0x5eed),
@@ -538,9 +551,10 @@ export const MAKER_TILES = [
   { id: T_LADDER, name: 'Ladder', hint: 'manhole / storey link' },
 ] as const;
 
-export const MAKER_BUILDINGS: { id: string; name: string }[] = [
-  ...BUILDINGS.map((b) => ({ id: b.id, name: b.name })),
-  ...FRONT_STENCILS.filter((s) => !BUILDINGS.some((b) => b.id === s.id)).map((s) => ({ id: s.id, name: s.name })),
+export const MAKER_BUILDINGS: { id: string; name: string; kind: BuildingDef['kind']; biomes?: ThemeId[] }[] = [
+  ...BUILDINGS.map((b) => ({ id: b.id, name: b.name, kind: b.kind, ...(b.biomes ? { biomes: b.biomes } : {}) })),
+  ...FRONT_STENCILS.filter((s) => !BUILDINGS.some((b) => b.id === s.id))
+    .map((s) => ({ id: s.id, name: s.name, kind: s.kind, ...(s.biomes ? { biomes: s.biomes } : {}) })),
 ];
 
 export function buildingById(id: string): BuildingDef {

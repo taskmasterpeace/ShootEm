@@ -5,7 +5,7 @@
 // one-click 3D preview of the map you're actually editing.
 // ---------------------------------------------------------------------------
 import {
-  loadFront, blankDoc, serializeDoc, deserializeDoc, validateDoc,
+  loadFront, loadSkirmish, blankDoc, serializeDoc, deserializeDoc, validateDoc,
   paintTile, paintSurface, placeProp, erasePropAt,
   addControlPoint, addPickup, addPad, addMouth, moveObject, deleteObject, pickObject, objectPos,
   stamp, deleteHouse, undo, redo, buildingById,
@@ -79,14 +79,24 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
   // ---- dom ----------------------------------------------------------------
   root.innerHTML = `
   <div id="mk-top">
-    <select id="mk-front">${FRONTS.map((f) => `<option value="${f.id}">${f.name}</option>`).join('')}</select>
+    <select id="mk-front">
+      <optgroup label="The ten fronts">${FRONTS.map((f) => `<option value="${f.id}">${f.name}</option>`).join('')}</optgroup>
+      <optgroup label="Skirmish — procedural">
+        <option value="sk:savanna">🌍 Savanna farmstead</option>
+        <option value="sk:titan">🪐 Titan colony</option>
+        <option value="sk:starship">🚀 Starship deck</option>
+        <option value="sk:europa">🌊 Europa domes</option>
+        <option value="sk:triton">❄️ Triton station</option>
+        <option value="sk:asteroid">☄️ Asteroid mine</option>
+      </optgroup>
+    </select>
     <select id="mk-size">
       <option value="small">small · ≤6/team</option>
       <option value="standard">standard · 7–9</option>
       <option value="large" selected>large · 10+</option>
     </select>
     <input type="number" id="mk-seed" value="4207" title="seed">
-    <button class="mbtn" id="mk-load">Load front</button>
+    <button class="mbtn" id="mk-load">Load</button>
     <button class="mbtn" id="mk-blank" title="sealed blank canvas at this tier">Blank</button>
     <span class="mk-sep"></span>
     <button class="mbtn" id="mk-undo" title="Ctrl+Z">↶ Undo</button>
@@ -141,7 +151,14 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
         <button class="mbtn" id="mk-delhouse" style="margin-top:4px">✕ Delete a building…</button></div>
       <div class="mk-pal-group"><label>Add objective</label><div class="grid g3" id="mk-tools-objs"></div></div>`;
     const bdef = palHost.querySelector<HTMLSelectElement>('#mk-bdef')!;
-    bdef.innerHTML = MAKER_BUILDINGS.map((b) => `<option value="${b.id}">${b.name}</option>`).join('');
+    // the stamp shelf, grouped by function with biome-fit shown — the same
+    // two axes the skirmish builder picks from
+    const cats: [string, string][] = [['house', 'Houses'], ['commercial', 'Commercial'], ['industrial', 'Industrial'], ['military', 'Military'], ['ruin', 'Ruins']];
+    bdef.innerHTML = cats.map(([kind, label]) => {
+      const opts = MAKER_BUILDINGS.filter((b) => b.kind === kind)
+        .map((b) => `<option value="${b.id}">${b.name}${b.biomes ? ' · ' + b.biomes.join(',') : ''}</option>`).join('');
+      return opts ? `<optgroup label="${label}">${opts}</optgroup>` : '';
+    }).join('');
 
     const mkBtn = (label: string, title: string, on: () => void, id?: string) => {
       const b = document.createElement('button');
@@ -492,8 +509,15 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
   }
 
   // ---- top bar wiring --------------------------------------------------------
-  root.querySelector<HTMLButtonElement>('#mk-load')!.onclick = () =>
-    loadInto(frontSel.value, sizeSel.value as MapSize, Number(seedIn.value) >>> 0);
+  root.querySelector<HTMLButtonElement>('#mk-load')!.onclick = () => {
+    const v = frontSel.value;
+    if (v.startsWith('sk:')) {
+      doc = loadSkirmish(v.slice(3) as import('../sim/types').ThemeId, Number(seedIn.value) >>> 0);
+      sel = null; report = validateDoc(doc); afterOp();
+    } else {
+      loadInto(v, sizeSel.value as MapSize, Number(seedIn.value) >>> 0);
+    }
+  };
   root.querySelector<HTMLButtonElement>('#mk-blank')!.onclick = () => {
     doc = blankDoc(sizeSel.value as MapSize, Number(seedIn.value) >>> 0);
     sel = null; report = validateDoc(doc); afterOp();

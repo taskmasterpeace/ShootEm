@@ -11,7 +11,7 @@
 // ---------------------------------------------------------------------------
 import {
   GRID, TILE, WORLD, houseAt,
-  T_OPEN, T_WALL, T_COVER, T_WATER, T_DEEP, T_CLIMB,
+  T_OPEN, T_WALL, T_COVER, T_WATER, T_DEEP,
   S_DIRT, S_GRASS, S_ICE, S_GRIT, S_PLATE, S_WET, S_MUD,
   type GameMap, type PropSpec, type PickupSpawn, type VehiclePad, type House, type TileClaim,
 } from './map';
