@@ -1518,7 +1518,7 @@ function blBuild() {
 let matchupCtl: import('./matchup').MatchupCtl | undefined;
 {
   const { mountMatchup } = await import('./matchup');
-  matchupCtl = mountMatchup($('matchup'), { scene, camera, controls, canvas: renderer.domElement });
+  matchupCtl = mountMatchup($('matchup'));
 }
 
 // ── Map Maker — the AAA editor tab (engine: src/sim/mapedit.ts) ─────────────

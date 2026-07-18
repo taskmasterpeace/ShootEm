@@ -23,6 +23,10 @@
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden; }
     #harness-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+    /* Combat Lab: the real game renderer draws here on its own canvas */
+    #lab-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: none; z-index: 1; }
+    body[data-mode="matchup"] #harness-canvas { display: none; }
+    body[data-mode="matchup"] #lab-canvas { display: block; }
 
     #panel {
       position: fixed; top: 0; left: 0; bottom: 0; width: 306px;
@@ -254,6 +258,7 @@
 </head>
 <body data-mode="stage">
   <canvas id="harness-canvas"></canvas>
+  <canvas id="lab-canvas"></canvas>
 
   <div id="topbar">
     <div class="tabs">
