@@ -3,7 +3,7 @@
 // the proof pair: Firebrand (UF) vs Plaguebearer (Collective). Both are pure
 // field plays on shipped systems; this suite is the entry path, end to end.
 // ---------------------------------------------------------------------------
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { SOUND_NAMES } from '../src/client/audio';
@@ -861,6 +861,28 @@ describe('the spoken script', () => {
         expect(LSWS[id].lines[m], `${id} has no ${m} announcer text`).toBeTruthy();
       }
     }
+  });
+
+  it('no clip runs long enough to be reading its director notes aloud', () => {
+    // THE NOTE-BLEED GUARD: gemini-3.1-flash-tts sometimes speaks its DIRECTION
+    // (persona/scene/notes) aloud — those takes ran 13-65s where a bark is 1-3s.
+    // Size is the reliable tell (44.1k mono s16: bytes = 44 + secs*88200). The
+    // ceiling sits above the longest legit dramatic line (~7.4s) and well below
+    // the bleed floor (~13s). Regenerate an offender with:
+    //   node tools/regen-oversized-vo.mjs   (or gen-lsw-vo.mjs --only <slot> --force)
+    const CEIL_BYTES = 800_000; // ~9.1s
+    const offenders: string[] = [];
+    for (const id of IDS) {
+      for (const m of MOMENTS) {
+        const p = join(__dirname, '..', 'public', 'audio', `${voSlot(id, m)}.wav`);
+        if (existsSync(p) && statSync(p).size > CEIL_BYTES) offenders.push(`${voSlot(id, m)} ${((statSync(p).size - 44) / 88200).toFixed(1)}s`);
+      }
+      for (const m of NET) {
+        const p = join(__dirname, '..', 'public', 'audio', `${annSlot(id, m)}.wav`);
+        if (existsSync(p) && statSync(p).size > CEIL_BYTES) offenders.push(`${annSlot(id, m)} ${((statSync(p).size - 44) / 88200).toFixed(1)}s`);
+      }
+    }
+    expect(offenders, `these clips are too long — likely speaking their notes:\n${offenders.join('\n')}`).toEqual([]);
   });
 
   it('landing speaks THREE ways: the LSW aloud (positional), the net (not), the banner (text)', () => {

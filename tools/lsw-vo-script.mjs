@@ -544,7 +544,7 @@ export const VO = [
 
   // ---- CATACLYSM: stalling is the only sin ----
   { slot: 'vo_cataclysm_arrive', who: 'cataclysm', text: '[grinding] Start counting.', notes: ['The DPS check, announced.'] },
-  { slot: 'vo_cataclysm_kill3', who: 'cataclysm', text: 'Three, between tremors.', notes: ['He kills on the offbeat.'] },
+  { slot: 'vo_cataclysm_kill3', who: 'cataclysm', text: 'Three, between tremors.', notes: ['He lands the third on the offbeat.'] },
   { slot: 'vo_cataclysm_ability', who: 'cataclysm', text: '[colossal impact] SETTLE.', notes: ['An order given to a whole street.'] },
   { slot: 'vo_cataclysm_low', who: 'cataclysm', text: '[cracking] Cracking... but so are you.', notes: ['The mutual-destruction ledger.'] },
   { slot: 'vo_cataclysm_death', who: 'cataclysm', text: '[subsiding] The quakes... stop with me. You are welcome.', notes: ['Contempt to the last tremor.'] },

@@ -167,9 +167,25 @@ writeWav('rifle', gunshot({ dur: 0.3, clickFreq: 4200, crackDecay: 30, thudFreq:
 writeWav('rifle2', gunshot({ dur: 0.3, clickFreq: 3900, crackDecay: 27, thudFreq: 200, thudAmp: 0.85, lp: 5400, driveAmt: 2.5 })); // 2nd take → firing variety
 writeWav('smg', gunshot({ dur: 0.15, clickFreq: 5200, crackAmp: 0.95, crackDecay: 52, thudFreq: 340, thudAmp: 0.5, lp: 7000, driveAmt: 2 }));
 writeWav('pistol', gunshot({ dur: 0.2, clickFreq: 4600, crackDecay: 42, thudFreq: 280, thudAmp: 0.6, lp: 5000, driveAmt: 1.9 }));
-writeWav('shotgun', (() => { // heavy boom: click + long low body + shot spray
-  let b = gunshot({ dur: 0.5, clickAmp: 1.2, clickFreq: 2400, crackAmp: 1.2, crackDecay: 13, thudFreq: 125, thudAmp: 1, thudDecay: 11, lp: 3400, driveAmt: 2.6 });
-  addNoise(b, { amp: 0.4, decay: 22, start: 0.02 }); // pellet hiss
+writeWav('shotgun', (() => { // deep boom blast, then a pump-action rack (cha-chunk)
+  const b = buf(0.95);
+  // THE BLAST — heavy boom + pellet hiss (the old sound's character, kept)
+  const blast = gunshot({ dur: 0.5, clickAmp: 1.2, clickFreq: 2400, crackAmp: 1.2, crackDecay: 13, thudFreq: 125, thudAmp: 1, thudDecay: 11, lp: 3400, driveAmt: 2.6 });
+  addNoise(blast, { amp: 0.4, decay: 22, start: 0.02 }); // pellet hiss
+  mix(b, blast, { gain: 1, start: 0 });
+  // THE PUMP — two mechanical transients: "cha" (rack pulled back, spent shell
+  // out) then "chunk" (rack driven forward, new shell seated). Bright and
+  // bodyless — a small steel mechanism, not another blast; sits under the boom.
+  const cha = buf(0.12);
+  addClick(cha, { amp: 0.5, dur: 0.006, freq: 2000 });
+  addNoise(cha, { amp: 0.22, decay: 60 });                                   // metal scrape
+  addTone(cha, { freq: 900, freqEnd: 1300, amp: 0.16, decay: 44, shape: 'square' });
+  mix(b, highpass(cha, 700), { gain: 0.55, start: 0.42 });
+  const chunk = buf(0.16);
+  addClick(chunk, { amp: 0.7, dur: 0.009, freq: 1300 });
+  addNoise(chunk, { amp: 0.28, decay: 52 });
+  addTone(chunk, { freq: 680, freqEnd: 360, amp: 0.26, decay: 32, shape: 'square' }); // the shell seats — heavier clack
+  mix(b, highpass(chunk, 520), { gain: 0.72, start: 0.6 });
   return b;
 })());
 writeWav('autocannon', (() => { // mechanical heavy cannon

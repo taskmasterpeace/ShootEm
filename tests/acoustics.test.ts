@@ -4,7 +4,7 @@
 // gunfire carries a street, a footstep dies at the wall.
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
-import { SOUND_NAMES, distanceCutoff, earshotFor } from '../src/client/audio';
+import { SOUND_NAMES, distanceCutoff, earshotFor, voVoicesToCut } from '../src/client/audio';
 
 describe('acoustic classes', () => {
   it('a cannon carries the map; a rifle carries a street; a footstep barely a room', () => {
@@ -31,6 +31,53 @@ describe('acoustic classes', () => {
       expect(e.muffle, n).toBeGreaterThanOrEqual(0);
       expect(e.muffle, n).toBeLessThanOrEqual(1);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// THE VOICE CAP — a teamfight used to stack a dozen gods talking at once
+// (uncapped bus, 30ms same-name throttle only). The bus now holds at most 2
+// positional god-mouths + 1 announcer; the rest yield oldest-first.
+// ---------------------------------------------------------------------------
+describe('voice cap — no wall of overlapping VO', () => {
+  // model the live-voice list evolving as lines fire, applying the policy each time
+  const fire = (live: { ann: boolean }[], ann: boolean) => {
+    const cut = new Set(voVoicesToCut(live, ann));
+    const next = live.filter((v) => !cut.has(v));
+    next.push({ ann });
+    return next;
+  };
+
+  it('five god lines in a row leave at most 2 voices live', () => {
+    let live: { ann: boolean }[] = [];
+    for (let i = 0; i < 5; i++) {
+      live = fire(live, false);
+      expect(live.filter((v) => !v.ann).length, `after ${i + 1} god lines`).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('the announcer never talks over itself', () => {
+    let live: { ann: boolean }[] = [];
+    for (let i = 0; i < 4; i++) {
+      live = fire(live, true);
+      expect(live.filter((v) => v.ann).length, `after ${i + 1} announcer calls`).toBe(1);
+    }
+  });
+
+  it('a fresh god line always gets a slot (newest survives)', () => {
+    // two gods live, a third fires — the oldest yields, the newcomer plays
+    let live: { ann: boolean }[] = [{ ann: false }, { ann: false }];
+    const cut = voVoicesToCut(live, false);
+    expect(cut.length).toBe(1);            // exactly one yields
+    live = fire(live, false);
+    expect(live.filter((v) => !v.ann).length).toBe(2);
+  });
+
+  it('gods and the announcer share the bus without cutting each other', () => {
+    let live: { ann: boolean }[] = [{ ann: false }, { ann: false }];
+    live = fire(live, true);               // announcer joins
+    expect(live.filter((v) => !v.ann).length).toBe(2); // gods untouched
+    expect(live.filter((v) => v.ann).length).toBe(1);
   });
 });
 

@@ -180,6 +180,19 @@ export function earshotFor(name: string): Earshot {
 }
 
 /**
+ * THE VOICE-CAP POLICY (pure, so the law can pin it without an AudioContext).
+ * Given the currently-live voices (oldest first) and whether the incoming line
+ * is the announcer, return which live voices must yield. The cap: at most 2
+ * positional god-mouths + 1 announcer. The announcer never talks over itself;
+ * gods yield oldest-first, keeping the newest so a fresh line always plays.
+ */
+export function voVoicesToCut<T extends { ann: boolean }>(live: T[], incomingAnn: boolean): T[] {
+  if (incomingAnn) return live.filter((v) => v.ann); // one announcer at a time
+  const gods = live.filter((v) => !v.ann);           // oldest first (push order)
+  return gods.slice(0, Math.max(0, gods.length - 1)); // keep newest; incoming makes 2
+}
+
+/**
  * AIR ABSORPTION — distance changes TONE, not just volume. A rifle at 5u is
  * bright and cracky; the same rifle at 90u is a dark thud, because air eats
  * treble first. Pure curve so the law suite can pin it: full brightness up
@@ -279,6 +292,14 @@ export class AudioEngine {
   }
   private lastPlayed = new Map<string, number>();
 
+  // THE VOICE BUS (§ the too-many-voices fix): VO/announcer lines used to fire
+  // into the uncapped master, so a teamfight stacked a dozen gods talking at
+  // once. Now they ride their own bus (post-duck, so ducking SFX never dips the
+  // voice) and are capped: at most 2 positional god-mouths + 1 announcer, the
+  // oldest fading out when a new line needs the slot.
+  private voBus: GainNode | null = null;
+  private voVoices: { src: AudioBufferSourceNode; gain: GainNode; slot: string; ann: boolean; ended: boolean }[] = [];
+
   async init() {
     if (this.ctx) return;
     this.ctx = new AudioContext();
@@ -298,6 +319,10 @@ export class AudioEngine {
     comp.attack.value = 0.004;
     comp.release.value = 0.18;
     this.master.connect(this.duck_).connect(comp).connect(this.ctx.destination);
+    // the voice bus taps in AFTER the duck, so a talking god cuts through the
+    // firefight instead of ducking itself
+    this.voBus = this.ctx.createGain();
+    this.voBus.connect(comp);
     await Promise.all(
       SOUND_NAMES.map(async (name) => {
         try {
@@ -468,16 +493,45 @@ export class AudioEngine {
     g.gain.value = vol;
     const p = this.ctx.createStereoPanner();
     p.pan.value = pan;
+    // VOICE ROUTING: gods and the announcer ride the voice bus (capped), and a
+    // talking god ducks the firefight for a beat so the line reads
+    const isVo = name.startsWith('vo_') || name.startsWith('ann_');
+    const dest: AudioNode = isVo ? (this.voBus ?? this.master) : this.master;
+    if (isVo) { this.gateVo(name); this.duck(0.28, 0.6); }
     if (Number.isFinite(cutoff) && cutoff < 15500) {
       const lp = this.ctx.createBiquadFilter();
       lp.type = 'lowpass';
       lp.frequency.value = cutoff;
-      src.connect(lp).connect(g).connect(p).connect(this.master);
+      src.connect(lp).connect(g).connect(p).connect(dest);
     } else {
-      src.connect(g).connect(p).connect(this.master);
+      src.connect(g).connect(p).connect(dest);
     }
     src.start();
+    if (isVo) {
+      const voice = { src, gain: g, slot: name, ann: name.startsWith('ann_'), ended: false };
+      this.voVoices.push(voice);
+      src.onended = () => { voice.ended = true; };
+    }
     return true;
+  }
+
+  /** VOICE CAP: keep at most 2 positional god-mouths + 1 announcer alive. When
+   *  a new line needs the slot, fade out the one it replaces (the pure policy
+   *  lives in voVoicesToCut so the law can test it without an AudioContext). */
+  private gateVo(name: string) {
+    this.voVoices = this.voVoices.filter((v) => !v.ended);
+    for (const v of voVoicesToCut(this.voVoices, name.startsWith('ann_'))) this.fadeCutVo(v);
+  }
+
+  /** Fade a voice out over 80ms and stop it — no click when it's cut. */
+  private fadeCutVo(v: { src: AudioBufferSourceNode; gain: GainNode; ended: boolean }) {
+    if (v.ended || !this.ctx) return;
+    const now = this.ctx.currentTime;
+    v.gain.gain.cancelScheduledValues(now);
+    v.gain.gain.setValueAtTime(v.gain.gain.value, now);
+    v.gain.gain.linearRampToValueAtTime(0, now + 0.08);
+    try { v.src.stop(now + 0.09); } catch { /* already stopped */ }
+    v.ended = true;
   }
 
   // ---- loop bus: ambience beds and other sustained sounds ----
