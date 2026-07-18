@@ -265,7 +265,25 @@ export function objectiveFor(w: World, s: Soldier): Vec3 {
       // a teammate is running it home — ESCORT the runner, don't sightsee mid.
       // (Bodyguards are why captures happen at all in 12v12.)
       const carrier = enemyFlag.carrierId >= 0 ? w.soldiers.get(enemyFlag.carrierId) : undefined;
-      if (carrier?.alive) return carrier.pos;
+      if (carrier?.alive) {
+        // THE STANDOFF BREAKER (the black box caught it: both flags held,
+        // both carriers parked at home, 12/12 bodies frozen at each base for
+        // eleven minutes, score 0:0). A carrier WAITING at base because our
+        // own flag is away doesn't need the whole war watching him stand —
+        // he needs it RECOVERING the flag that blocks his capture. Guards
+        // ring the waiting carrier; everyone else hunts our flag (its pos
+        // IS the enemy carrier while it's on their back, the drop point
+        // after they fall).
+        const homeBase = w.map.basePos[s.team];
+        const parked = !ownFlag.atHome &&
+          Math.hypot(carrier.pos.x - homeBase.x, carrier.pos.z - homeBase.z) < 12;
+        if (parked && !guardsHome(s)) return { x: ownFlag.pos.x, y: 0, z: ownFlag.pos.z };
+        // escort is a RING, never the runner's own tile — the old exact-pos
+        // convergence stacked eleven bodies ON the carrier: a cage, not a
+        // guard, and the run home slowed to a grind inside its own escort.
+        const ring = (s.id % 8) * (Math.PI / 4);
+        return { x: carrier.pos.x + Math.cos(ring) * 7, y: 0, z: carrier.pos.z + Math.sin(ring) * 7 };
+      }
       // Everyone who isn't guarding goes FLAG-HUNTING on the wings. CTF has
       // no mid objective — the old "pressure mid" role fed a grinder in the
       // middle of the map while both flags gathered dust (probes: 0 flag
