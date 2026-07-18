@@ -2574,6 +2574,49 @@ export class Renderer {
       if (j.torso) j.torso.rotation.z = -kick * 0.05 * rs.kick;
     }
 
+    // ---- FLIGHT STYLES (feel pass #5): each flier owns a silhouette in the
+    // air. Blended over everything above with a spring, so takeoffs read.
+    if (s.ascendant === 'inferno' || s.ascendant === 'stormcaller' || s.ascendant === 'gargoyle') {
+      const airborne2 = s.pos.y > 2.5 || (s.flightAlt ?? 0) > 2.5;
+      const fblend = (mesh.userData.flyBlend ??= { v: 0 }) as { v: number };
+      fblend.v += ((airborne2 ? 1 : 0) - fblend.v) * Math.min(1, this.frameDt / 0.3);
+      const fb = fblend.v;
+      if (fb > 0.01) {
+        let pitch = 0, armZ = 0, armX = 0, headZ = 0;
+        if (s.ascendant === 'inferno') {
+          // SUPERMAN: both arms dead ahead, body near-horizontal, head up
+          pitch = -1.25; armZ = 2.7; headZ = 0.35;
+        } else if (s.ascendant === 'stormcaller') {
+          // GOKU: arms swept back at her sides, pitched ~40°, chin forward —
+          // she flies like she's deciding to
+          pitch = -0.7; armZ = -0.5; headZ = 0.2;
+        } else {
+          // THE GARGOYLE: folded wings; the shriek's dive is steeper
+          const diving = s.diveAt !== undefined && t < s.diveAt;
+          pitch = diving ? -1.4 : -0.9; armZ = -1.1; armX = 0.9; headZ = 0.15;
+        }
+        mesh.rotation.z = mesh.rotation.z * (1 - fb) + pitch * fb;
+        if (j.armL) { j.armL.rotation.z += (armZ - j.armL.rotation.z) * fb; j.armL.rotation.x += (armX - j.armL.rotation.x) * fb; }
+        if (j.armR) { j.armR.rotation.z += (armZ - j.armR.rotation.z) * fb; j.armR.rotation.x += (-armX - j.armR.rotation.x) * fb; }
+        if (j.head) j.head.rotation.z += (headZ - j.head.rotation.z) * fb;
+        if (j.legL) j.legL.rotation.z += (0.25 - j.legL.rotation.z) * fb;
+        if (j.legR) j.legR.rotation.z += (0.15 - j.legR.rotation.z) * fb;
+        if (j.shinL) j.shinL.rotation.z += (-0.35 - j.shinL.rotation.z) * fb;
+        if (j.shinR) j.shinR.rotation.z += (-0.25 - j.shinR.rotation.z) * fb;
+      }
+      // THE PERCH: clinging to his tile, he hunches — folded and watching
+      const perched = s.perchTile !== undefined && !airborne2;
+      const pblend = (mesh.userData.perchBlend ??= { v: 0 }) as { v: number };
+      pblend.v += ((perched ? 1 : 0) - pblend.v) * Math.min(1, this.frameDt / 0.3);
+      const pb = pblend.v;
+      if (pb > 0.01) {
+        if (j.torso) j.torso.rotation.x += 0.5 * pb;
+        if (j.shinL) j.shinL.rotation.z += (-0.9 - j.shinL.rotation.z) * pb;
+        if (j.shinR) j.shinR.rotation.z += (-0.9 - j.shinR.rotation.z) * pb;
+        if (j.head) j.head.rotation.z += (0.25 - j.head.rotation.z) * pb;
+      }
+    }
+
     this.setAlpha(mesh, alpha);
   }
 
