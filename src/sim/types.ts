@@ -92,7 +92,8 @@ export interface WeaponDef {
 export type WeaponFamily =
   | 'pistol' | 'rifle' | 'carbine' | 'smg' | 'shotgun' | 'slugger' | 'laser'
   | 'lmg' | 'hmg' | 'at_rocket' | 'ap_rocket' | 'mortar' | 'artillery'
-  | 'scatter' | 'sonic' | 'flamethrower' | 'grenade' | 'special';
+  | 'scatter' | 'sonic' | 'flamethrower' | 'grenade' | 'special'
+  | 'lsw'; // signature arms — one god each, never issued, never dropped
 
 export interface ClassDef {
   id: ClassId;

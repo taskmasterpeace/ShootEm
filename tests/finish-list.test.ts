@@ -4,6 +4,8 @@
 // lands next: every feature gets a law here so "finished" stays finished.
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
+import { WEAPONS } from '../src/sim/data';
+import { LSWS } from '../src/sim/lsw';
 import { objectiveFor } from '../src/sim/bots';
 import { World } from '../src/sim/world';
 
@@ -225,5 +227,33 @@ describe('#12 THE IRON EATERS — junk that learned a body plan (DD §20)', () =
     const iron = [...w.soldiers.values()].filter((s) => s.kind === 'scraprat' || s.kind === 'junkhound' || s.kind === 'weaver' || s.kind === 'ravager');
     expect(iron.length, 'a quarter of wave 4 is scrap that stood up').toBeGreaterThan(0);
     expect(iron.every((s) => s.armor > 0), 'every beast arrives PLATED').toBe(true);
+  });
+});
+
+describe('THE ARMAMENT DOCTRINE — a god never sounds like infantry', () => {
+  it('every LSW carries its SIGNATURE arm — never the recruit rifle, never nothing', () => {
+    for (const def of Object.values(LSWS)) {
+      const arm = WEAPONS[def.weapon];
+      expect(arm, `${def.id} has no weapon def`).toBeTruthy();
+      expect(arm.family, `${def.id}'s arm must be family lsw`).toBe('lsw');
+      expect(def.weapon, `${def.id} may NEVER carry the AR-606 — the tone law`).not.toBe('ar606');
+      const dps = arm.damage * arm.rof * arm.pellets;
+      expect(dps, `${def.id}'s ${arm.name} DPS ${dps.toFixed(0)} out of band`).toBeGreaterThan(60);
+      expect(dps, `${def.id}'s ${arm.name} DPS ${dps.toFixed(0)} out of band`).toBeLessThan(170);
+      expect(arm.clip, 'gods do not fumble magazines').toBe(Infinity);
+    }
+  });
+
+  it('ascension swaps the arm in; death hands the mortal their own kit back', () => {
+    const w = quiet();
+    const b = w.addSoldier('B', 'infantry', 0, 'bot');
+    b.alive = true;
+    expect(w.ascendSoldier(b, 'titan')).toBe(true);
+    expect(b.weapons[0], 'the god holds the signature').toBe('lsw_titan');
+    expect(b.clip[0]).toBe(Infinity);
+    b.alive = false;
+    w.spawn(b);
+    expect(b.ascendant, 'death hands the body back').toBeUndefined();
+    expect(b.weapons[0], 'the mortal gets the CLASS kit, not the god-gun').toBe('ar606');
   });
 });

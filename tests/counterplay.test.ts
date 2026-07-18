@@ -204,6 +204,7 @@ describe('counterplay — wave 2 rows', () => {
   it('RIPTIDE — "leave the painted circle early": outside the circle, the pull never touches you', () => {
     const w = quiet();
     const r = w.addLsw('riptide', 0, { x: 0, y: 0, z: 0 })!; r.yaw = 0;
+    r.clip = r.clip.map(() => 0); r.reserve = r.reserve.map(() => 0); // the WHIRLPOOL is on trial — his Hydro-Lance carries knockback now
     const e = w.addSoldier('E', 'infantry', 1, 'human');
     e.pos = { x: 30, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0; // left early — 20u past the eye
     r.nextLswAt = w.time + 999; r.nextLswActiveAt = 0;

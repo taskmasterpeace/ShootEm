@@ -100,7 +100,69 @@ const CORE_ICONS: Record<string, string> = {
 };
 for (const w of Object.values(CORE_WEAPONS)) if (!w.icon) w.icon = CORE_ICONS[w.id] ?? '🔫';
 
-export const WEAPONS: Record<WeaponId, WeaponDef> = { ...buildArsenal(), ...CORE_WEAPONS };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE SIGNATURE ARMS (armament doctrine, ratified 2026-07-18): a Living
+// Super Weapon never sounds like infantry. One weapon per god — beams hum,
+// arcs crack, rails scream, and six carry nothing but their own body.
+// Practical DPS sits in the AR-606's ballpark (~90-110) so every measured
+// threat band survives the swap; the threat rig is the safety net. Clips are
+// Infinity — gods don't fumble magazines. Family 'lsw' marks them so
+// spawn() hands mortals their own kit back at respawn.
+// ═══════════════════════════════════════════════════════════════════════════
+const A = (w: Partial<WeaponDef> & Pick<WeaponDef, 'id' | 'name' | 'damage' | 'rof'>): WeaponDef =>
+  W({ clip: Infinity, reserve: Infinity, reloadTime: 0, family: 'lsw', ...w });
+
+export const LSW_ARMS: Record<WeaponId, WeaponDef> = {
+  // ── THE UNARMED SIX — the body is the gun (short, slow, brutal) ──
+  lsw_titan: A({ id: 'lsw_titan', name: 'Seismic Fists', damage: 62, rof: 1.7, speed: 200, spread: 0.01, range: 12, knockback: 8, sound: 'claw', tracer: 'none', icon: '👊' }),
+  lsw_crusher: A({ id: 'lsw_crusher', name: 'Demolition Hands', damage: 58, rof: 1.8, speed: 200, spread: 0.01, range: 11, knockback: 6, sound: 'claw', tracer: 'none', icon: '🔨' }),
+  lsw_ragebeast: A({ id: 'lsw_ragebeast', name: 'Rending Claws', damage: 34, rof: 3.0, speed: 200, spread: 0.01, range: 10, sound: 'claw', tracer: 'none', icon: '🩸' }),
+  lsw_leviathan: A({ id: 'lsw_leviathan', name: 'The Hull Itself', damage: 70, rof: 1.4, speed: 200, spread: 0.01, range: 14, knockback: 10, sound: 'claw', tracer: 'none', icon: '🏗' }),
+  lsw_gargoyle: A({ id: 'lsw_gargoyle', name: 'Stone Talons', damage: 48, rof: 2.1, speed: 200, spread: 0.01, range: 11, sound: 'claw', tracer: 'none', icon: '🦅' }),
+  lsw_blitz: A({ id: 'lsw_blitz', name: 'Momentum Blade', damage: 30, rof: 3.4, speed: 200, spread: 0.01, range: 10, sound: 'claw', tracer: 'none', icon: '⚔' }),
+  // ── THE BEAM SCHOOL — continuous energy ──
+  lsw_reactor: A({ id: 'lsw_reactor', name: 'Feed-Beam', damage: 11, rof: 9, speed: 300, spread: 0.002, range: 46, sound: 'plasma', tracer: 'beam', icon: '🔆' }),
+  lsw_crimson: A({ id: 'lsw_crimson', name: 'Haemal Siphon', damage: 10, rof: 10, speed: 300, spread: 0.002, range: 40, sound: 'plasma', tracer: 'beam', icon: '🩸' }),
+  lsw_magnetar: A({ id: 'lsw_magnetar', name: 'Induction Beam', damage: 12, rof: 8.5, speed: 300, spread: 0.002, range: 44, sound: 'plasma', tracer: 'beam', icon: '🧲' }),
+  lsw_pulse: A({ id: 'lsw_pulse', name: 'Resonance Projector', damage: 13, rof: 7.5, speed: 300, spread: 0.002, range: 48, sound: 'plasma', tracer: 'beam', icon: '📢' }),
+  lsw_eclipse: A({ id: 'lsw_eclipse', name: 'Lightdrinker', damage: 12, rof: 8.5, speed: 300, spread: 0.002, range: 50, sound: 'plasma', tracer: 'beam', icon: '🌑' }),
+  lsw_frostbite: A({ id: 'lsw_frostbite', name: 'Cryo-Stream', damage: 11, rof: 9, speed: 300, spread: 0.002, range: 42, sound: 'plasma', tracer: 'beam', icon: '❄' }),
+  lsw_sniperhawk: A({ id: 'lsw_sniperhawk', name: 'The Long Rail', damage: 88, rof: 1.15, speed: 300, spread: 0.001, range: 110, sound: 'rail', tracer: 'rail', icon: '🎯' }),
+  // ── THE ARC SCHOOL — lightning in hand ──
+  lsw_voltstriker: A({ id: 'lsw_voltstriker', name: 'Arc Caster', damage: 24, rof: 4.2, speed: 140, spread: 0.015, range: 40, sound: 'rail', tracer: 'plasma', icon: '⚡' }),
+  lsw_overload: A({ id: 'lsw_overload', name: 'Capacitor Bolts', damage: 26, rof: 4, speed: 140, spread: 0.015, range: 34, sound: 'rail', tracer: 'plasma', icon: '🔌' }),
+  lsw_stormcaller: A({ id: 'lsw_stormcaller', name: 'Sky-Spark Javelins', damage: 34, rof: 3, speed: 140, spread: 0.01, range: 52, sound: 'rail', tracer: 'plasma', icon: '🌩' }),
+  lsw_wraith: A({ id: 'lsw_wraith', name: 'Ghost-Static', damage: 22, rof: 4.5, speed: 140, spread: 0.02, range: 38, sound: 'rail', tracer: 'plasma', icon: '👻' }),
+  lsw_dominator: A({ id: 'lsw_dominator', name: 'Psi-Arc', damage: 25, rof: 4, speed: 140, spread: 0.01, range: 46, sound: 'rail', tracer: 'plasma', icon: '🧵' }),
+  // ── THE THROWN-SUN SCHOOL — slow enough to SEE ──
+  lsw_firebrand: A({ id: 'lsw_firebrand', name: 'Flame Gouts', damage: 20, rof: 5, speed: 30, spread: 0.03, range: 30, splash: 1.5, splashDamage: 8, sound: 'flame', tracer: 'flame', icon: '🔥' }),
+  lsw_inferno: A({ id: 'lsw_inferno', name: 'Fireball Spit', damage: 40, rof: 2.5, speed: 26, spread: 0.02, range: 36, splash: 2.5, splashDamage: 18, sound: 'flame', tracer: 'flame', icon: '☄' }),
+  lsw_pyroclasm: A({ id: 'lsw_pyroclasm', name: 'Magma Bolts', damage: 48, rof: 2, speed: 24, spread: 0.02, range: 40, splash: 3, splashDamage: 22, sound: 'flame', tracer: 'flame', icon: '🌋' }),
+  lsw_plaguebearer: A({ id: 'lsw_plaguebearer', name: 'Bile Lobber', damage: 34, rof: 2.8, speed: 26, spread: 0.03, range: 32, splash: 2.5, splashDamage: 16, sound: 'flame', tracer: 'acid', icon: '🤢' }),
+  lsw_venom: A({ id: 'lsw_venom', name: 'Needle Spray', damage: 8, rof: 12, speed: 60, spread: 0.06, range: 30, sound: 'smg', tracer: 'acid', icon: '💉' }),
+  lsw_riptide: A({ id: 'lsw_riptide', name: 'Hydro-Lance', damage: 30, rof: 3.4, speed: 80, spread: 0.015, range: 38, knockback: 3, sound: 'plasma', tracer: 'plasma', icon: '🌊' }),
+  // ── THE PHANTOM SCHOOL — quiet, strange, precise ──
+  lsw_phantom: A({ id: 'lsw_phantom', name: 'Wall-Whisper Needler', damage: 16, rof: 6.5, speed: 120, spread: 0.01, range: 34, sound: 'smg', tracer: 'none', icon: '🤫' }),
+  lsw_shadowstep: A({ id: 'lsw_shadowstep', name: 'Void Knives', damage: 34, rof: 3, speed: 70, spread: 0.02, range: 22, sound: 'claw', tracer: 'none', icon: '🗡' }),
+  lsw_specter: A({ id: 'lsw_specter', name: 'Mirror Shards', damage: 17, rof: 6, speed: 90, spread: 0.03, range: 30, sound: 'smg', tracer: 'none', icon: '🪞' }),
+  lsw_mirage: A({ id: 'lsw_mirage', name: 'Light-Bender', damage: 13, rof: 7.5, speed: 300, spread: 0.02, range: 50, sound: 'rifle', tracer: 'beam', icon: '🎭' }),
+  lsw_voidwalker: A({ id: 'lsw_voidwalker', name: 'Entropy Pistol', damage: 52, rof: 2, speed: 90, spread: 0.01, range: 36, sound: 'plasma', tracer: 'plasma', icon: '🕳' }),
+  lsw_nightmare: A({ id: 'lsw_nightmare', name: 'Psi-Lash', damage: 12, rof: 8.5, speed: 300, spread: 0.015, range: 40, sound: 'smg', tracer: 'none', icon: '😱' }),
+  lsw_reaper: A({ id: 'lsw_reaper', name: 'The Chain', damage: 45, rof: 2.2, speed: 60, spread: 0.01, range: 16, sound: 'claw', tracer: 'none', icon: '⛓' }),
+  lsw_chronos: A({ id: 'lsw_chronos', name: 'Dilation Bolts', damage: 85, rof: 1.2, speed: 300, spread: 0.003, range: 60, sound: 'rail', tracer: 'rail', icon: '⏳' }),
+  // ── THE ORDNANCE SCHOOL — physical and heavy ──
+  lsw_vanguard: A({ id: 'lsw_vanguard', name: 'Shield-Edge Shockwave', damage: 12, rof: 2.2, speed: 90, spread: 0.14, pellets: 6, range: 14, sound: 'shotgun', tracer: 'shell', icon: '🛡' }),
+  lsw_barrier: A({ id: 'lsw_barrier', name: 'Hardlight Repeater', damage: 15, rof: 6.5, speed: 130, spread: 0.02, range: 44, sound: 'plasma', tracer: 'plasma', icon: '🟩' }),
+  lsw_gravwarden: A({ id: 'lsw_gravwarden', name: 'Graviton Pulses', damage: 30, rof: 3.3, speed: 100, spread: 0.01, range: 40, knockback: 2, sound: 'plasma', tracer: 'plasma', icon: '🌀' }),
+  lsw_tremor: A({ id: 'lsw_tremor', name: 'Spike-Flingers', damage: 18, rof: 5.5, speed: 90, spread: 0.03, range: 34, sound: 'shotgun', tracer: 'shell', icon: '⛰' }),
+  lsw_venatrix: A({ id: 'lsw_venatrix', name: 'Harpoon Rifle', damage: 55, rof: 1.8, speed: 110, spread: 0.008, range: 42, sound: 'rifle', tracer: 'shell', icon: '🎣' }),
+  lsw_steelweaver: A({ id: 'lsw_steelweaver', name: 'Rivet Driver', damage: 22, rof: 4.5, speed: 120, spread: 0.02, range: 36, sound: 'rifle', tracer: 'shell', icon: '🔩' }),
+  lsw_oblivion: A({ id: 'lsw_oblivion', name: 'Event-Horizon Bolts', damage: 60, rof: 1.7, speed: 40, spread: 0.01, range: 44, sound: 'plasma', tracer: 'plasma', icon: '🕳' }),
+  lsw_cataclysm: A({ id: 'lsw_cataclysm', name: 'Fault-Line Mortar', damage: 55, rof: 1.7, speed: 30, spread: 0.02, range: 40, splash: 3.5, splashDamage: 30, arc: true, sound: 'thump', tracer: 'shell', icon: '💥' }),
+};
+
+export const WEAPONS: Record<WeaponId, WeaponDef> = { ...buildArsenal(), ...CORE_WEAPONS, ...LSW_ARMS };
 
 export const CLASSES: Record<ClassId, ClassDef> = {
   infantry: {

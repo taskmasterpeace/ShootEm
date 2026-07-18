@@ -6,6 +6,7 @@
 // three real matches — or a Lieutenant's worth of rank points. Draftees
 // and the enlisted see the roster; only officers get a dial tone.
 // ---------------------------------------------------------------------------
+import { WEAPONS } from '../sim/data';
 import { LSWS, THREAT, lswAllowed, lswsForTeam } from '../sim/lsw';
 import type { AscendantId, ModeId, Team } from '../sim/types';
 import { loadOnboarding } from './onboarding';
@@ -71,7 +72,7 @@ export class StableConsole {
       const price = THREAT[def.threat].materiel;
       const afford = stock < 0 || stock >= price;
       return `<div class="st-row" data-id="${id}" style="display:flex;justify-content:space-between;gap:12px;padding:2px 4px;cursor:${afford ? 'pointer' : 'default'};opacity:${afford ? 1 : 0.4}">` +
-        `<span>${def.name.toUpperCase()}</span><span>T${def.threat} · ${price}◈</span></div>`;
+        `<span>${def.name.toUpperCase()} <span style="opacity:0.55">· ${WEAPONS[def.weapon]?.name ?? ''}</span></span><span>T${def.threat} · ${price}◈</span></div>`;
     }).join('');
     this.el.innerHTML = `<b style="color:#f5b21a">▌THE STABLE — ${stockLine}</b>` +
       `<div style="opacity:0.6;margin:4px 0 8px">You mark the LZ where you stand. Hold it for the countdown; the pod is yours.</div>` +

@@ -91,6 +91,23 @@ rifleman ≈ 45 dps, a 4-man squad ≈ 180, a focused 12-man team ≈ 540.
 > the storm rains). These laws run in every suite — a regression that breaks
 > a band fails CI.
 
+> **THE ARMAMENT DOCTRINE SHIPPED (2026-07-18, Robert: "I don't think they
+> should all be using guns"):** a Living Super Weapon never sounds like
+> infantry. Every god now carries ONE signature arm (`LswDef.weapon`, family
+> 'lsw', clips Infinity — gods don't fumble magazines), swapped in at
+> ascension; death hands the mortal their own class kit back. Six carry no
+> firearm at all — Titan's SEISMIC FISTS, Crusher's DEMOLITION HANDS,
+> Ragebeast's RENDING CLAWS, Leviathan's THE HULL ITSELF, Gargoyle's STONE
+> TALONS, Blitz's MOMENTUM BLADE (short, slow, brutal). Seven hum in the
+> BEAM school, five crack in the ARC school, six throw slow suns, eight
+> whisper in the PHANTOM school, eight thump in ORDNANCE. Practical DPS sits
+> in the AR-606's ballpark so the bands survived: ALL 40 re-measured
+> in-band on first contact (Titan 20.5→12.8s — fists mean he must CLOSE;
+> kiting him is finally the real counter his row always promised). THE TONE
+> LAW is in CI: no LSW may ever carry the AR-606 again. The Arsenal Lab
+> lists all 40 arms (family ☄ lsw) with live editing — the tuning menu was
+> already built. The Stable console and Matchup chips read the armament.
+
 > **THE MATCHUP STAGE SHIPPED (2026-07-18):** the harness grew a ⚔ Matchup
 > tab (`src/harness/matchup.ts`) — pick ANY United Front LSW and ANY
 > Collective LSW from chip rosters (no pulldowns, house law), and they drop

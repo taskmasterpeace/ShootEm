@@ -11,6 +11,7 @@
 // slows the fight — the sliders audit, live).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three';
+import { WEAPONS } from '../sim/data';
 import { LSW_TINT } from '../client/models/soldiers';
 import { LSWS, lswsForTeam } from '../sim/lsw';
 import { GRID, T_COVER, T_GRASS, T_OPEN, T_WALL, TILE, WORLD } from '../sim/map';
@@ -77,6 +78,7 @@ export function mountMatchup(root: HTMLElement, deps: MatchupDeps): MatchupCtl {
       const b = document.createElement('button');
       b.className = 'mu-chip';
       b.textContent = `${LSWS[id].name} T${LSWS[id].threat}`;
+      b.title = WEAPONS[LSWS[id].weapon]?.name ?? '';
       b.onclick = () => { set(id); refreshChips(); };
       b.dataset.id = id;
       host.appendChild(b);

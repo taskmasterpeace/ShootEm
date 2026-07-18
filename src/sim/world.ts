@@ -493,6 +493,12 @@ export class World {
       this.emit({ type: 'warp', pos: { ...at } });    // the weapon arrives in it
     }
     s.ascendant = id;
+    // THE SIGNATURE ARM: the recruit's rifle stays with the recruit — the
+    // god picks up the one weapon that IS its identity (family 'lsw')
+    s.weapons = [def.weapon];
+    s.weaponIdx = 0;
+    s.clip = [Infinity];
+    s.reserve = [Infinity];
     s.hp = threat.hp; s.maxHp = threat.hp;
     s.armor = 0; s.maxArmor = 0; // threat is HP, never a plate wall
     s.energy = 100;
@@ -517,6 +523,10 @@ export class World {
     const threat = THREAT[def.threat];
     const s = this.addSoldier(def.name, 'infantry', team, 'bot');
     s.ascendant = id;
+    s.weapons = [def.weapon]; // the signature arm, never infantry issue
+    s.weaponIdx = 0;
+    s.clip = [Infinity];
+    s.reserve = [Infinity];
     s.hp = threat.hp;
     s.maxHp = threat.hp;
     s.armor = 0; s.maxArmor = 0; // threat is HP, never a plate wall
@@ -710,8 +720,10 @@ export class World {
     // a fresh deploy stands upright with the bleed slate wiped
     s.downed = false; s.downedUntil = 0; s.downedBy = -1;
     s.reviveProgress = 0; s.draggingId = -1;
-    // keep the soldier's chosen armory loadout across respawns
-    const primary = s.weapons[0] && WEAPONS[s.weapons[0]] ? s.weapons[0] : c.primary;
+    // keep the soldier's chosen armory loadout across respawns — but a
+    // signature arm (family 'lsw') dies with the god: mortals get their kit
+    const keep0 = s.weapons[0] && WEAPONS[s.weapons[0]] && WEAPONS[s.weapons[0]].family !== 'lsw';
+    const primary = keep0 ? s.weapons[0] : c.primary;
     const secondary = s.weapons[1] && WEAPONS[s.weapons[1]] ? s.weapons[1] : c.secondary;
     s.weapons = [primary, secondary];
     s.clip = [WEAPONS[primary].clip, WEAPONS[secondary].clip];

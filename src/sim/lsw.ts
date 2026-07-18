@@ -14,7 +14,7 @@
 //  · OFF in paintball / range / onboarding — the yard stays the yard.
 //  · Nothing an LSW does takes control away from a human player.
 // ---------------------------------------------------------------------------
-import type { AscendantId, ModeId, Team } from './types';
+import type { AscendantId, ModeId, Team, WeaponId } from './types';
 
 export type ThreatLevel = 1 | 2 | 3 | 4;
 
@@ -54,6 +54,9 @@ export interface LswDef {
   activeLabel: string;
   /** signature cooldown in seconds (charged only when the active actually fires) */
   activeCd: number;
+  /** THE SIGNATURE ARM (armament doctrine): the one weapon this god carries
+   *  instead of infantry issue — swapped in at ascension, family 'lsw'. */
+  weapon: WeaponId;
   /** TRUE FLIGHT (§4.4 #5): this LSW moves in the third dimension — SAMs
    *  lock it, and D3 keeps human hands off it until flight earns its keep */
   flies?: boolean;
@@ -62,7 +65,7 @@ export interface LswDef {
 /** The stable. Units land here as they ship; the roster doc is the spec. */
 export const LSWS: Record<AscendantId, LswDef> = {
   firebrand: {
-    id: 'firebrand', name: 'Firebrand', faction: 0, threat: 2,
+    id: 'firebrand', weapon: 'lsw_firebrand', name: 'Firebrand', faction: 0, threat: 2,
     lines: {
       inbound: 'FIREBRAND INBOUND — CLEAR THE GRASS',
       landed: 'FIREBRAND ON THE FIELD — THE GROUND WILL BURN',
@@ -73,7 +76,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'CASH THE BOARD — every patch you painted erupts', activeCd: 8,
   },
   plaguebearer: {
-    id: 'plaguebearer', name: 'Plaguebearer', faction: 1, threat: 2,
+    id: 'plaguebearer', weapon: 'lsw_plaguebearer', name: 'Plaguebearer', faction: 1, threat: 2,
     lines: {
       inbound: 'PLAGUEBEARER INBOUND — SEAL YOUR MASKS',
       landed: 'PLAGUEBEARER WALKS THE FIELD — THE AIR IS NOT YOUR FRIEND',
@@ -84,7 +87,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'QUARANTINE RING — a wall of plague around you', activeCd: 10,
   },
   frostbite: {
-    id: 'frostbite', name: 'Frostbite', faction: 0, threat: 3,
+    id: 'frostbite', weapon: 'lsw_frostbite', name: 'Frostbite', faction: 0, threat: 3,
     lines: {
       inbound: 'FROSTBITE INBOUND — DRESS FOR WINTER',
       landed: 'FROSTBITE DEPLOYED — THE COLD TAKES THE FIELD',
@@ -95,7 +98,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'THE ICE BLOCK — freeze the soldier you are aiming at', activeCd: 4,
   },
   ragebeast: {
-    id: 'ragebeast', name: 'Ragebeast', faction: 1, threat: 3,
+    id: 'ragebeast', weapon: 'lsw_ragebeast', name: 'Ragebeast', faction: 1, threat: 3,
     lines: {
       inbound: 'RAGEBEAST INBOUND — DO NOT FEED IT',
       landed: 'RAGEBEAST IS LOOSE — GOOD LUCK',
@@ -106,7 +109,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'GROUND SLAM — harder the more you bleed', activeCd: 6,
   },
   titan: {
-    id: 'titan', name: 'Titan', faction: 0, threat: 3,
+    id: 'titan', weapon: 'lsw_titan', name: 'Titan', faction: 0, threat: 3,
     lines: {
       inbound: 'TITAN INBOUND — MOVE THE ARMOR',
       landed: 'TITAN ON THE FIELD — NOTHING STAYS WHERE IT STANDS',
@@ -117,7 +120,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'SEISMIC HANDS — hurl what you grab; pound if empty', activeCd: 5,
   },
   voltstriker: {
-    id: 'voltstriker', name: 'Volt Striker', faction: 0, threat: 1,
+    id: 'voltstriker', weapon: 'lsw_voltstriker', name: 'Volt Striker', faction: 0, threat: 1,
     lines: {
       inbound: 'VOLT STRIKER INBOUND — SPREAD OUT',
       landed: "VOLT STRIKER ON THE FIELD — DON'T BUNCH UP",
@@ -128,7 +131,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'CHAIN LIGHTNING — arc through the crowd', activeCd: 3,
   },
   sniperhawk: {
-    id: 'sniperhawk', name: 'Sniperhawk', faction: 0, threat: 1,
+    id: 'sniperhawk', weapon: 'lsw_sniperhawk', name: 'Sniperhawk', faction: 0, threat: 1,
     lines: {
       inbound: 'SNIPERHAWK INBOUND — BREAK LINE OF SIGHT',
       landed: 'SNIPERHAWK PERCHED — WATCH THE LANES',
@@ -139,7 +142,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'PIERCING RAIL — one shot down the whole line', activeCd: 2.5,
   },
   barrier: {
-    id: 'barrier', name: 'Barrier', faction: 0, threat: 1,
+    id: 'barrier', weapon: 'lsw_barrier', name: 'Barrier', faction: 0, threat: 1,
     lines: {
       inbound: 'BARRIER INBOUND — YOUR SHOTS MAY COME BACK',
       landed: 'BARRIER ON THE FIELD — MIND THE WALLS',
@@ -150,7 +153,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'ENERGY WALL — reflects fire for 2 seconds', activeCd: 5,
   },
   reactor: {
-    id: 'reactor', name: 'Reactor', faction: 0, threat: 2,
+    id: 'reactor', weapon: 'lsw_reactor', name: 'Reactor', faction: 0, threat: 2,
     lines: {
       inbound: 'REACTOR INBOUND — KILL THE BATTERY FIRST',
       landed: 'REACTOR ON THE FIELD — THEIR CARRY JUST GOT STRONGER',
@@ -161,7 +164,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'OVERCHARGE — supercharge an ally, or nova if alone', activeCd: 6,
   },
   oblivion: {
-    id: 'oblivion', name: 'Oblivion', faction: 1, threat: 2,
+    id: 'oblivion', weapon: 'lsw_oblivion', name: 'Oblivion', faction: 1, threat: 2,
     lines: {
       inbound: 'OBLIVION INBOUND — DO NOT CLUSTER',
       landed: 'OBLIVION LEVITATES THE FIELD — WATCH FOR THE PULL',
@@ -172,7 +175,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'BLACK HOLE — drag them in, then it bursts', activeCd: 7,
   },
   tremor: {
-    id: 'tremor', name: 'Tremor', faction: 1, threat: 2,
+    id: 'tremor', weapon: 'lsw_tremor', name: 'Tremor', faction: 1, threat: 2,
     lines: {
       inbound: 'TREMOR INBOUND — KEEP OFF THE OPEN GROUND',
       landed: 'TREMOR SURFACES — WATCH THE SOIL',
@@ -183,7 +186,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'EARTHQUAKE STOMP — stagger the ground around you', activeCd: 5,
   },
   magnetar: {
-    id: 'magnetar', name: 'Magnetar', faction: 1, threat: 2,
+    id: 'magnetar', weapon: 'lsw_magnetar', name: 'Magnetar', faction: 1, threat: 2,
     lines: {
       inbound: "MAGNETAR INBOUND — YOUR BULLETS WON'T LAND",
       landed: 'MAGNETAR ON THE FIELD — CLOSE THE DISTANCE',
@@ -194,7 +197,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'MAGNETIC PULSE — jam their guns, stall their armor', activeCd: 6,
   },
   wraith: {
-    id: 'wraith', name: 'Wraith', faction: 1, threat: 2,
+    id: 'wraith', weapon: 'lsw_wraith', name: 'Wraith', faction: 1, threat: 2,
     lines: {
       inbound: 'WRAITH INBOUND — EMPTY YOUR VEHICLES',
       landed: 'WRAITH ON THE FIELD — YOUR MACHINES ARE HIS',
@@ -205,7 +208,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'POSSESS — seize a turret, stall the armor, heal on the take', activeCd: 7,
   },
   eclipse: {
-    id: 'eclipse', name: 'Eclipse', faction: 1, threat: 2,
+    id: 'eclipse', weapon: 'lsw_eclipse', name: 'Eclipse', faction: 1, threat: 2,
     lines: {
       inbound: 'ECLIPSE INBOUND — TRUST YOUR EARS',
       landed: 'ECLIPSE ON THE FIELD — THE DARK IS HERS',
@@ -216,7 +219,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'DARKNESS DOME — vision dies inside', activeCd: 8,
   },
   dominator: {
-    id: 'dominator', name: 'Dominator', faction: 1, threat: 2,
+    id: 'dominator', weapon: 'lsw_dominator', name: 'Dominator', faction: 1, threat: 2,
     lines: {
       inbound: 'DOMINATOR INBOUND — SCATTER, DO NOT BUNCH',
       landed: 'DOMINATOR ON THE FIELD — YOUR FORMATION IS HIS WEAPON',
@@ -227,7 +230,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'PSYCHIC LINK — chain them; hurt one, hurt all', activeCd: 8,
   },
   riptide: {
-    id: 'riptide', name: 'Riptide', faction: 0, threat: 2,
+    id: 'riptide', weapon: 'lsw_riptide', name: 'Riptide', faction: 0, threat: 2,
     lines: {
       inbound: 'RIPTIDE INBOUND — HIGH GROUND, NOW',
       landed: 'RIPTIDE ON THE FIELD — THE TIDE FIGHTS FOR US',
@@ -238,7 +241,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'THE WAVE — shove the line back and douse every flame', activeCd: 6,
   },
   gravwarden: {
-    id: 'gravwarden', name: 'Gravity Warden', faction: 0, threat: 3,
+    id: 'gravwarden', weapon: 'lsw_gravwarden', name: 'Gravity Warden', faction: 0, threat: 3,
     lines: {
       inbound: 'GRAVITY WARDEN INBOUND — MIND YOUR FOOTING',
       landed: 'GRAVITY WARDEN ON THE FIELD — DOWN IS A SUGGESTION NOW',
@@ -249,7 +252,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'REVERSE GRAVITY — float them, then drop them staggered', activeCd: 9,
   },
   chronos: {
-    id: 'chronos', name: 'Chronos', faction: 1, threat: 3,
+    id: 'chronos', weapon: 'lsw_chronos', name: 'Chronos', faction: 1, threat: 3,
     lines: {
       inbound: 'CHRONOS INBOUND — WATCH YOUR CLOCKS',
       landed: 'CHRONOS ON THE FIELD — TIME IS HIS NOW',
@@ -260,7 +263,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'TIME BUBBLE — the world crawls; you do not', activeCd: 9,
   },
   venatrix: {
-    id: 'venatrix', name: 'Venatrix', faction: 1, threat: 1,
+    id: 'venatrix', weapon: 'lsw_venatrix', name: 'Venatrix', faction: 1, threat: 1,
     lines: {
       inbound: 'VENATRIX INBOUND — WATCH WHERE YOU STEP',
       landed: 'VENATRIX ON THE FIELD — THE GROUND IS BAITED',
@@ -271,7 +274,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'HARPOON — reel in the one you are aiming at', activeCd: 7,
   },
   vanguard: {
-    id: 'vanguard', name: 'Vanguard', faction: 0, threat: 2,
+    id: 'vanguard', weapon: 'lsw_vanguard', name: 'Vanguard', faction: 0, threat: 2,
     lines: {
       inbound: 'VANGUARD INBOUND — THE DOOR IS ABOUT TO OPEN',
       landed: 'VANGUARD ON THE FIELD — FOLLOW THE SHIELD',
@@ -282,7 +285,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'SHIELD BASH — charge, stun, and shove the front', activeCd: 6,
   },
   pyroclasm: {
-    id: 'pyroclasm', name: 'Pyroclasm', faction: 1, threat: 2,
+    id: 'pyroclasm', weapon: 'lsw_pyroclasm', name: 'Pyroclasm', faction: 1, threat: 2,
     lines: {
       inbound: 'PYROCLASM INBOUND — THE FLOOR WILL NOT BE YOURS',
       landed: 'PYROCLASM ON THE FIELD — MIND THE POOLS',
@@ -293,7 +296,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'MAGMA VOLLEY — three rocks, three pools', activeCd: 7,
   },
   voidwalker: {
-    id: 'voidwalker', name: 'Voidwalker', faction: 1, threat: 1,
+    id: 'voidwalker', weapon: 'lsw_voidwalker', name: 'Voidwalker', faction: 1, threat: 1,
     lines: {
       inbound: 'VOIDWALKER INBOUND — CHECK YOUR SHADOWS',
       landed: 'VOIDWALKER ON THE FIELD — HE IS ALREADY BEHIND SOMEONE',
@@ -304,7 +307,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'BLINK-STRIKE — vanish, arrive, cut; the shadow stays', activeCd: 5,
   },
   crimson: {
-    id: 'crimson', name: 'Crimson', faction: 1, threat: 2,
+    id: 'crimson', weapon: 'lsw_crimson', name: 'Crimson', faction: 1, threat: 2,
     lines: {
       inbound: 'CRIMSON INBOUND — POLICE YOUR DEAD',
       landed: 'CRIMSON ON THE FIELD — EVERY LOSS FEEDS HIM',
@@ -315,7 +318,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'BLOOD RITE — drink a pool, raise the brute', activeCd: 8,
   },
   mirage: {
-    id: 'mirage', name: 'Mirage', faction: 0, threat: 1,
+    id: 'mirage', weapon: 'lsw_mirage', name: 'Mirage', faction: 0, threat: 1,
     lines: {
       inbound: 'MIRAGE INBOUND — COUNT YOUR TARGETS TWICE',
       landed: 'MIRAGE ON THE FIELD — ONE OF THEM IS REAL',
@@ -326,7 +329,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'THE SWAP — trade places with a decoy', activeCd: 6,
   },
   blitz: {
-    id: 'blitz', name: 'Blitz', faction: 0, threat: 1,
+    id: 'blitz', weapon: 'lsw_blitz', name: 'Blitz', faction: 0, threat: 1,
     lines: {
       inbound: 'BLITZ INBOUND — HE IS ALREADY MOVING',
       landed: 'BLITZ ON THE FIELD — DO NOT LET HIM CHAIN',
@@ -337,7 +340,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'DASH-STRIKE — a kill refunds the dash', activeCd: 5,
   },
   shadowstep: {
-    id: 'shadowstep', name: 'Shadowstep', faction: 0, threat: 1,
+    id: 'shadowstep', weapon: 'lsw_shadowstep', name: 'Shadowstep', faction: 0, threat: 1,
     lines: {
       inbound: 'SHADOWSTEP INBOUND — GUARD YOUR BACKS',
       landed: 'SHADOWSTEP ON THE FIELD — DO NOT CHASE HIM',
@@ -348,7 +351,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'BLINK-STAB — arrive behind them; the mine stays', activeCd: 5,
   },
   specter: {
-    id: 'specter', name: 'Specter', faction: 1, threat: 1,
+    id: 'specter', weapon: 'lsw_specter', name: 'Specter', faction: 1, threat: 1,
     lines: {
       inbound: 'SPECTER INBOUND — COUNT THE SHADOWS',
       landed: 'SPECTER ON THE FIELD — THEY ALL WALK LIKE HIM',
@@ -359,7 +362,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'DETONATE — every image goes at once', activeCd: 6,
   },
   pulse: {
-    id: 'pulse', name: 'Pulse', faction: 0, threat: 2,
+    id: 'pulse', weapon: 'lsw_pulse', name: 'Pulse', faction: 0, threat: 2,
     lines: {
       inbound: 'PULSE INBOUND — WALLS WILL NOT SAVE YOU',
       landed: 'PULSE ON THE FIELD — HE HEARS EVERYTHING',
@@ -370,7 +373,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'SONIC WAVE — stagger and tag them through the walls', activeCd: 7,
   },
   venom: {
-    id: 'venom', name: 'Venom', faction: 0, threat: 2,
+    id: 'venom', weapon: 'lsw_venom', name: 'Venom', faction: 0, threat: 2,
     lines: {
       inbound: 'VENOM INBOUND — CHECK YOUR SEALS',
       landed: 'VENOM ON THE FIELD — THE AIR HAS TEETH',
@@ -381,7 +384,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'ACID GLOB — dissolve the plate whole', activeCd: 7,
   },
   nightmare: {
-    id: 'nightmare', name: 'Nightmare', faction: 1, threat: 2,
+    id: 'nightmare', weapon: 'lsw_nightmare', name: 'Nightmare', faction: 1, threat: 2,
     lines: {
       inbound: 'NIGHTMARE INBOUND — TRUST NOTHING RED',
       landed: 'NIGHTMARE ON THE FIELD — YOUR MAP IS LYING',
@@ -392,7 +395,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'THE BLIND — put one set of eyes out', activeCd: 8,
   },
   reaper: {
-    id: 'reaper', name: 'Reaper', faction: 1, threat: 2,
+    id: 'reaper', weapon: 'lsw_reaper', name: 'Reaper', faction: 1, threat: 2,
     lines: {
       inbound: 'REAPER INBOUND — NOBODY WANDERS ALONE',
       landed: 'REAPER ON THE FIELD — SOMEBODY IS ALREADY MARKED',
@@ -403,7 +406,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'THE CHAIN — reel the first body into the scythe', activeCd: 6,
   },
   crusher: {
-    id: 'crusher', name: 'Crusher', faction: 0, threat: 2,
+    id: 'crusher', weapon: 'lsw_crusher', name: 'Crusher', faction: 0, threat: 2,
     lines: {
       inbound: 'CRUSHER INBOUND — YOUR COVER IS TEMPORARY',
       landed: 'CRUSHER ON THE FIELD — THE MAP IS NEGOTIABLE',
@@ -414,7 +417,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'THE CHARGE — smash through cover; walls win', activeCd: 6,
   },
   steelweaver: {
-    id: 'steelweaver', name: 'Steel Weaver', faction: 0, threat: 2,
+    id: 'steelweaver', weapon: 'lsw_steelweaver', name: 'Steel Weaver', faction: 0, threat: 2,
     lines: {
       inbound: 'STEEL WEAVER INBOUND — COUNT YOUR WALLS',
       landed: 'STEEL WEAVER ON THE FIELD — THE MAP IS HIS ARMORY',
@@ -425,7 +428,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'RIP A PANEL — the wall becomes your plate', activeCd: 8,
   },
   overload: {
-    id: 'overload', name: 'Overload', faction: 1, threat: 2,
+    id: 'overload', weapon: 'lsw_overload', name: 'Overload', faction: 1, threat: 2,
     lines: {
       inbound: 'OVERLOAD INBOUND — STEP OFF THE PLATE',
       landed: 'OVERLOAD ON THE FIELD — EVERY WIRE IS A DOOR',
@@ -436,7 +439,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'BECOME CURRENT — ride the metal, emerge anywhere', activeCd: 10,
   },
   phantom: {
-    id: 'phantom', name: 'Phantom', faction: 0, threat: 2,
+    id: 'phantom', weapon: 'lsw_phantom', name: 'Phantom', faction: 0, threat: 2,
     lines: {
       inbound: 'PHANTOM INBOUND — WATCH YOUR WALLS',
       landed: 'PHANTOM ON THE FIELD — YOUR MACHINES ARE NOT YOURS',
@@ -447,7 +450,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'THE PHASE — through the wall, blade first', activeCd: 7,
   },
   inferno: {
-    id: 'inferno', name: 'Inferno', faction: 0, threat: 3,
+    id: 'inferno', weapon: 'lsw_inferno', name: 'Inferno', faction: 0, threat: 3,
     lines: {
       inbound: 'INFERNO INBOUND — WATCH THE SKY BURN',
       landed: 'INFERNO IS AIRBORNE — THE SKY IS ON FIRE',
@@ -459,7 +462,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     flies: true,
   },
   stormcaller: {
-    id: 'stormcaller', name: 'Stormcaller', faction: 0, threat: 3,
+    id: 'stormcaller', weapon: 'lsw_stormcaller', name: 'Stormcaller', faction: 0, threat: 3,
     lines: {
       inbound: 'STORMCALLER INBOUND — GET UNDER SOMETHING',
       landed: 'STORMCALLER IS AIRBORNE — THE WEATHER PICKS SIDES',
@@ -471,7 +474,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     flies: true,
   },
   gargoyle: {
-    id: 'gargoyle', name: 'Gargoyle', faction: 1, threat: 3,
+    id: 'gargoyle', weapon: 'lsw_gargoyle', name: 'Gargoyle', faction: 1, threat: 3,
     lines: {
       inbound: 'GARGOYLE INBOUND — LISTEN FOR THE SHRIEK',
       landed: 'GARGOYLE IS AIRBORNE — THE SHRIEK IS YOUR WARNING',
@@ -483,7 +486,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     flies: true,
   },
   leviathan: {
-    id: 'leviathan', name: 'Leviathan', faction: 1, threat: 3,
+    id: 'leviathan', weapon: 'lsw_leviathan', name: 'Leviathan', faction: 1, threat: 3,
     lines: {
       inbound: 'LEVIATHAN INBOUND — READ THE SHADOWS',
       landed: 'LEVIATHAN ON THE FIELD — THE GROUND IS PROVISIONAL',
@@ -494,7 +497,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'BELLY FLOP — the shadow is the warning', activeCd: 12,
   },
   cataclysm: {
-    id: 'cataclysm', name: 'Cataclysm', faction: 1, threat: 2,
+    id: 'cataclysm', weapon: 'lsw_cataclysm', name: 'Cataclysm', faction: 1, threat: 2,
     lines: {
       inbound: 'CATACLYSM INBOUND — DO NOT LET THIS ONE SETTLE IN',
       landed: 'CATACLYSM ON THE FIELD — EVERY SECOND COSTS YOU',
