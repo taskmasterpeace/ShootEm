@@ -399,6 +399,39 @@ export const LSWS: Record<AscendantId, LswDef> = {
     scale: 1.35, speed: 8, color: 0x8a8f98, // scythe-steel grey
     activeLabel: 'THE CHAIN — reel the first body into the scythe', activeCd: 6,
   },
+  crusher: {
+    id: 'crusher', name: 'Crusher', faction: 0, threat: 2,
+    lines: {
+      inbound: 'CRUSHER INBOUND — YOUR COVER IS TEMPORARY',
+      landed: 'CRUSHER ON THE FIELD — THE MAP IS NEGOTIABLE',
+      down: 'CRUSHER IS DOWN — THE GROUND KEEPS ITS SHAPE',
+      rampage: 'FIVE KILLS — CRUSHER IS REDRAWING THE FRONT',
+    },
+    scale: 1.45, speed: 7, color: 0xb0783a, // quarry ochre
+    activeLabel: 'THE CHARGE — smash through cover; walls win', activeCd: 6,
+  },
+  steelweaver: {
+    id: 'steelweaver', name: 'Steel Weaver', faction: 0, threat: 2,
+    lines: {
+      inbound: 'STEEL WEAVER INBOUND — COUNT YOUR WALLS',
+      landed: 'STEEL WEAVER ON THE FIELD — THE MAP IS HIS ARMORY',
+      down: 'STEEL WEAVER IS DOWN — DROP THE PANELS',
+      rampage: 'FIVE KILLS — STEEL WEAVER WEARS THE REFINERY',
+    },
+    scale: 1.4, speed: 6.5, color: 0x9aa4b0, // worked steel
+    activeLabel: 'RIP A PANEL — the wall becomes your plate', activeCd: 8,
+  },
+  overload: {
+    id: 'overload', name: 'Overload', faction: 1, threat: 2,
+    lines: {
+      inbound: 'OVERLOAD INBOUND — STEP OFF THE PLATE',
+      landed: 'OVERLOAD ON THE FIELD — EVERY WIRE IS A DOOR',
+      down: 'OVERLOAD IS DOWN — THE CIRCUIT IS COLD',
+      rampage: 'FIVE KILLS — OVERLOAD RUNS THE WHOLE GRID',
+    },
+    scale: 1.25, speed: 8.5, color: 0xffd23a, // live-wire amber
+    activeLabel: 'BECOME CURRENT — ride the metal, emerge anywhere', activeCd: 10,
+  },
 };
 
 /** THE SPOKEN SCRIPT — subtitle text per voice slot, tag-stripped mirrors of
@@ -562,6 +595,21 @@ export const VO_LINES: Record<string, { who: AscendantId; line: string }> = {
   vo_reaper_ability: { who: 'reaper', line: 'Come to the blade.' },
   vo_reaper_low: { who: 'reaper', line: 'My own... name... in the ledger.' },
   vo_reaper_death: { who: 'reaper', line: 'Harvested... fair enough.' },
+  vo_crusher_arrive: { who: 'crusher', line: 'Walls are a rumor too.' },
+  vo_crusher_kill3: { who: 'crusher', line: 'Three. And their cover.' },
+  vo_crusher_ability: { who: 'crusher', line: 'COMING THROUGH.' },
+  vo_crusher_low: { who: 'crusher', line: 'Cracking... like the rest.' },
+  vo_crusher_death: { who: 'crusher', line: 'The map... wins.' },
+  vo_steelweaver_arrive: { who: 'steelweaver', line: 'Your walls fit me better.' },
+  vo_steelweaver_kill3: { who: 'steelweaver', line: 'Three dents in the new plate.' },
+  vo_steelweaver_ability: { who: 'steelweaver', line: 'I will take that wall.' },
+  vo_steelweaver_low: { who: 'steelweaver', line: 'Plate... peeling.' },
+  vo_steelweaver_death: { who: 'steelweaver', line: 'Scrap... again.' },
+  vo_overload_arrive: { who: 'overload', line: 'Every wire is a door.' },
+  vo_overload_kill3: { who: 'overload', line: 'Three, grounded for good.' },
+  vo_overload_ability: { who: 'overload', line: 'See you at the other socket.' },
+  vo_overload_low: { who: 'overload', line: 'Voltage... dropping.' },
+  vo_overload_death: { who: 'overload', line: 'Circuit... broken.' },
 };
 export const voSlot = (id: AscendantId, moment: VoMoment) => `vo_${id}_${moment}`;
 export const annSlot = (id: AscendantId, moment: 'inbound' | 'landed' | 'down' | 'rampage') => `ann_${id}_${moment}`;

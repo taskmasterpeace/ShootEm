@@ -10,7 +10,7 @@ export type ClassId = 'infantry' | 'heavy' | 'jump' | 'engineer' | 'medic' | 'in
 /** Living Super Weapons (§21.6 / docs/ASCENDANTS.md). A Soldier carrying one
  *  of these is an LSW — not a class, an overlay: bigger, deadlier, its own
  *  brain, and it dies to ordinary guns. Grows as the roster ships. */
-export type AscendantId = 'firebrand' | 'plaguebearer' | 'frostbite' | 'ragebeast' | 'titan' | 'voltstriker' | 'sniperhawk' | 'barrier' | 'reactor' | 'oblivion' | 'tremor' | 'magnetar' | 'wraith' | 'eclipse' | 'dominator' | 'riptide' | 'gravwarden' | 'chronos' | 'venatrix' | 'vanguard' | 'pyroclasm' | 'voidwalker' | 'crimson' | 'mirage' | 'blitz' | 'shadowstep' | 'specter' | 'pulse' | 'venom' | 'nightmare' | 'reaper';
+export type AscendantId = 'firebrand' | 'plaguebearer' | 'frostbite' | 'ragebeast' | 'titan' | 'voltstriker' | 'sniperhawk' | 'barrier' | 'reactor' | 'oblivion' | 'tremor' | 'magnetar' | 'wraith' | 'eclipse' | 'dominator' | 'riptide' | 'gravwarden' | 'chronos' | 'venatrix' | 'vanguard' | 'pyroclasm' | 'voidwalker' | 'crimson' | 'mirage' | 'blitz' | 'shadowstep' | 'specter' | 'pulse' | 'venom' | 'nightmare' | 'reaper' | 'crusher' | 'steelweaver' | 'overload';
 
 /**
  * Weapon ids are open strings: the hand-tuned core set (ar606, kuchler, caw,

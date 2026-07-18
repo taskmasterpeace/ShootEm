@@ -87,6 +87,9 @@ export const LSW_TINT: Record<string, { tint: number; scale: number }> = {
   venom: { tint: 0x7fd43a, scale: 1.25 },        // toxin green
   nightmare: { tint: 0x1e2430, scale: 1.25 },    // a darkness with edges
   reaper: { tint: 0x8a8f98, scale: 1.35 },       // scythe-steel grey
+  crusher: { tint: 0xb0783a, scale: 1.45 },      // quarry ochre
+  steelweaver: { tint: 0x9aa4b0, scale: 1.4 },   // worked steel
+  overload: { tint: 0xffd23a, scale: 1.25 },     // live-wire amber
 };
 
 /** Turn a built trooper body INTO an LSW body: scale up past a trooper,

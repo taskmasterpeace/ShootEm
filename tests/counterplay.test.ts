@@ -406,3 +406,48 @@ describe('counterplay — wave 2, sixth batch', () => {
     expect(e.hp, 'the mark itself must never hurt — being hunted is information, not damage').toBe(100);
   });
 });
+
+describe('counterplay — wave 2, seventh batch', () => {
+  it('CRUSHER — "bait the charge into a wall": the wall wins and stuns HIM', () => {
+    const w = quiet();
+    const c = w.addLsw('crusher', 0, { x: 0, y: 0, z: 0 })!; c.yaw = 0;
+    const GRID_N = Math.sqrt(w.map.grid.length) | 0; const TILE_U = 300 / GRID_N;
+    const tx = Math.floor((4 + 150) / TILE_U), tz = Math.floor((0 + 150) / TILE_U);
+    w.map.grid[tz * GRID_N + tx] = 1; // a STRUCTURAL wall in the lane
+    const e = w.addSoldier('E', 'infantry', 1, 'human');
+    e.pos = { x: 9, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0; // the bait, behind the wall
+    const f0 = c.nextFireAt;
+    w.applyCmd(c, cmd({ ability: true }), 1 / 60);
+    expect(w.map.grid[tz * GRID_N + tx], 'a structural wall must SURVIVE the charge').toBe(1);
+    expect(c.nextFireAt, 'the wall must stun the charger').toBeGreaterThan(f0);
+  });
+
+  it('OVERLOAD — "fight him on dirt": no metal near means no trick at all', () => {
+    const w = quiet();
+    const o = w.addLsw('overload', 1, { x: 0, y: 0, z: 0 })!;
+    const GRID_N = Math.sqrt(w.map.grid.length) | 0;
+    // scrub any metal within his 2-tile entry reach
+    const TILE_U = 300 / GRID_N;
+    const stx = Math.floor((0 + 150) / TILE_U), stz = Math.floor((0 + 150) / TILE_U);
+    for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) {
+      const idx = (stz + dz) * GRID_N + (stx + dx);
+      if (w.map.grid[idx] === 7) w.map.grid[idx] = 0;
+    }
+    const before = { ...o.pos };
+    o.nextLswAt = w.time + 999; // the CIRCUIT is on trial, not the burst
+    w.applyCmd(o, cmd({ ability: true }), 1 / 60);
+    expect(Math.hypot(o.pos.x - before.x, o.pos.z - before.z),
+      'he traveled without a circuit — dirt must ground him').toBeLessThan(0.1);
+  });
+
+  it('STEEL WEAVER — his defense COSTS the map: the wall he wears is gone for everyone', () => {
+    const w = quiet();
+    const sw = w.addLsw('steelweaver', 0, { x: 0, y: 0, z: 0 })!;
+    const GRID_N = Math.sqrt(w.map.grid.length) | 0; const TILE_U = 300 / GRID_N;
+    const tx = Math.floor((3 + 150) / TILE_U), tz = Math.floor((0 + 150) / TILE_U);
+    w.map.grid[tz * GRID_N + tx] = 7;
+    w.applyCmd(sw, cmd({ ability: true }), 1 / 60);
+    // the flank he opened is real: the tile is walkable ground now
+    expect(w.map.grid[tz * GRID_N + tx]).toBe(0);
+  });
+});

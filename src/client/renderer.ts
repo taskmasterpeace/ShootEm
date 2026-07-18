@@ -2121,6 +2121,24 @@ export class Renderer {
         pos: { x: s.pos.x + Math.cos(s.yaw) * 0.7, y: 0.9 + Math.random() * 0.9, z: s.pos.z + Math.sin(s.yaw) * 0.7 }, count: 1,
         color: Math.random() < 0.5 ? 0x8a8f98 : 0xc6ccd6, speed: 0.4, life: 0.5, spread: 0.4, up: 0.5, gravity: 0.5, size: 0.26,
       });
+    } else if (id === 'crusher') {
+      // quarry dust shaken off with every stride
+      if (Math.hypot(s.vel.x, s.vel.z) > 1) this.particles.emit({
+        pos: { x: s.pos.x, y: 0.2 + Math.random() * 0.8, z: s.pos.z }, count: 1,
+        color: Math.random() < 0.5 ? 0xb0783a : 0x8a5f2e, speed: 0.5, life: 0.6, spread: 0.7, up: 0.6, gravity: 2, size: 0.34,
+      });
+    } else if (id === 'steelweaver') {
+      // weld sparks skittering off the worn panels
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5), y: 0.7 + Math.random() * 1.1, z: s.pos.z + (Math.random() - 0.5) }, count: 1,
+        color: Math.random() < 0.5 ? 0xffd88a : 0x9aa4b0, speed: 1.4, life: 0.25, spread: 0.6, up: 0.8, gravity: 3, size: 0.2,
+      });
+    } else if (id === 'overload') {
+      // live-wire arcs snapping around him — amber, quick, angry
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.2, y: 0.4 + Math.random() * 1.6, z: s.pos.z + (Math.random() - 0.5) * 1.2 }, count: 2,
+        color: Math.random() < 0.6 ? 0xffd23a : 0xfff2b0, speed: 2.2, life: 0.2, spread: 0.9, up: 1.0, gravity: 0, size: 0.22,
+      });
     } else if (id === 'dominator') {
       // crimson psychic tendrils reaching up and out — the puppeteer's threads
       this.particles.emit({

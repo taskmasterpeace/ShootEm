@@ -198,6 +198,24 @@ export const CAST = {
     persona: "Reaper, a Collective Living Super Weapon — a duelist with a ledger. Grim, level, unhurried; he speaks of targets as names to be crossed off, and his chain arrives before his sentences finish.",
     scene: 'A chain paying out link by link. A blade being drawn across a whetstone, slow.',
   },
+  crusher: {
+    voice: 'Charon',
+    fx: 'beast', // Titan's register with a landslide underneath — a different mountain
+    persona: "Crusher, a United Front Living Super Weapon — a demolition man who believes every wall is a suggestion. Big, blunt, cheerful about impact; he announces himself by arriving through things.",
+    scene: 'Masonry giving way in bulk. Boots that sound like wrecking balls. Dust that never settles.',
+  },
+  steelweaver: {
+    voice: 'Gacrux',
+    fx: 'haz', // through worn metal — a voice inside a suit of the map
+    persona: "Steel Weaver, a United Front Living Super Weapon — an armorer who wears the battlefield. Methodical, proprietary, faintly smug; every wall is inventory and he is always mid-fitting.",
+    scene: 'Panels being torn free and hammered flat. Rivets. A man breathing inside new steel.',
+  },
+  overload: {
+    voice: 'Fenrir',
+    fx: 'ice', // the volt-crackle with a phase shimmer — current, not man
+    persona: "Overload, a Collective Living Super Weapon — an ambusher who is half current. Quick, buzzing, delighted by sockets; he treats connected metal as a subway and every emergence as a punchline.",
+    scene: 'Current humming down a long conduit. A breaker snapping. A voice arriving from the wrong outlet.',
+  },
   announcer: {
     voice: 'Orus',
     fx: 'radio', // 300–3400Hz military net + soft clip
@@ -417,6 +435,26 @@ export const VO = [
   { slot: 'vo_reaper_ability', who: 'reaper', text: '[pulling] Come to the blade.', notes: ['Said as the chain reels a body in.'] },
   { slot: 'vo_reaper_low', who: 'reaper', text: '[surprised] My own... name... in the ledger.', notes: ['The bookkeeper, audited.'] },
   { slot: 'vo_reaper_death', who: 'reaper', text: '[settling] Harvested... fair enough.', notes: ['A professional\'s respect for the scythe that got him.'] },
+  // ---- CRUSHER: through, not around ----
+  { slot: 'vo_crusher_arrive', who: 'crusher', text: '[booming] Walls are a rumor too.', notes: ['Cheerful demolition.'] },
+  { slot: 'vo_crusher_kill3', who: 'crusher', text: 'Three. And their cover.', notes: ['He counts terrain among the fallen.'] },
+  { slot: 'vo_crusher_ability', who: 'crusher', text: '[charging] COMING THROUGH.', notes: ['A courtesy shouted mid-impact.'] },
+  { slot: 'vo_crusher_low', who: 'crusher', text: '[grinding] Cracking... like the rest.', notes: ['He knows what cracking means better than anyone.'] },
+  { slot: 'vo_crusher_death', who: 'crusher', text: '[falling] The map... wins.', notes: ['Respect between demolisher and demolished.'] },
+
+  // ---- STEEL WEAVER: the battlefield, worn ----
+  { slot: 'vo_steelweaver_arrive', who: 'steelweaver', text: '[appraising] Your walls fit me better.', notes: ['An armorer sizing up inventory.'] },
+  { slot: 'vo_steelweaver_kill3', who: 'steelweaver', text: 'Three dents in the new plate.', notes: ['Damage reports as tailoring notes.'] },
+  { slot: 'vo_steelweaver_ability', who: 'steelweaver', text: '[tearing] I will take that wall.', notes: ['Said as the panel rips free.'] },
+  { slot: 'vo_steelweaver_low', who: 'steelweaver', text: '[rattling] Plate... peeling.', notes: ['The suit failing is the man failing.'] },
+  { slot: 'vo_steelweaver_death', who: 'steelweaver', text: '[collapsing] Scrap... again.', notes: ['Back to the pile he came from.'] },
+
+  // ---- OVERLOAD: the wrong outlet ----
+  { slot: 'vo_overload_arrive', who: 'overload', text: '[buzzing] Every wire is a door.', notes: ['Half voice, half current.'] },
+  { slot: 'vo_overload_kill3', who: 'overload', text: 'Three, grounded for good.', notes: ['An electrician\'s pun, meant.'] },
+  { slot: 'vo_overload_ability', who: 'overload', text: '[fading into hum] See you at the other socket.', notes: ['Said entering the metal; finished emerging from it.'] },
+  { slot: 'vo_overload_low', who: 'overload', text: '[flickering] Voltage... dropping.', notes: ['Brownout in a person.'] },
+  { slot: 'vo_overload_death', who: 'overload', text: '[cutting out] Circuit... broken.', notes: ['The hum stops mid-word.'] },
 ];
 
 /** The announcer — map-wide, both teams, radio net. */
@@ -545,6 +583,18 @@ export const ANN = [
   { slot: 'ann_reaper_landed', text: 'REAPER ON THE FIELD. SOMEBODY IS ALREADY MARKED.' },
   { slot: 'ann_reaper_down', text: 'REAPER IS DOWN. THE HUNT IS OFF.' },
   { slot: 'ann_reaper_rampage', text: 'FIVE KILLS. THE REAPER KEEPS HIS LEDGER.' },
+  { slot: 'ann_crusher_inbound', text: 'CRUSHER INBOUND. [short pause] YOUR COVER IS TEMPORARY.' },
+  { slot: 'ann_crusher_landed', text: 'CRUSHER ON THE FIELD. THE MAP IS NEGOTIABLE.' },
+  { slot: 'ann_crusher_down', text: 'CRUSHER IS DOWN. THE GROUND KEEPS ITS SHAPE.' },
+  { slot: 'ann_crusher_rampage', text: 'FIVE KILLS. CRUSHER IS REDRAWING THE FRONT.' },
+  { slot: 'ann_steelweaver_inbound', text: 'STEEL WEAVER INBOUND. [short pause] COUNT YOUR WALLS.' },
+  { slot: 'ann_steelweaver_landed', text: 'STEEL WEAVER ON THE FIELD. THE MAP IS HIS ARMORY.' },
+  { slot: 'ann_steelweaver_down', text: 'STEEL WEAVER IS DOWN. DROP THE PANELS.' },
+  { slot: 'ann_steelweaver_rampage', text: 'FIVE KILLS. STEEL WEAVER WEARS THE REFINERY.' },
+  { slot: 'ann_overload_inbound', text: 'OVERLOAD INBOUND. [short pause] STEP OFF THE PLATE.' },
+  { slot: 'ann_overload_landed', text: 'OVERLOAD ON THE FIELD. EVERY WIRE IS A DOOR.' },
+  { slot: 'ann_overload_down', text: 'OVERLOAD IS DOWN. THE CIRCUIT IS COLD.' },
+  { slot: 'ann_overload_rampage', text: 'FIVE KILLS. OVERLOAD RUNS THE WHOLE GRID.' },
 ];
 
 export const ANN_NOTES = [

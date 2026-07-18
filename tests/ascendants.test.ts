@@ -1407,3 +1407,69 @@ describe('Reaper — the ledger', () => {
     expect(afterReaper - e.hp, "a stranger's blow must stay normal").toBe(10);
   });
 });
+
+// ---------------------------------------------------------------------------
+// CRUSHER · STEEL WEAVER · OVERLOAD — wave 2's seventh batch: the map-shapers.
+// ---------------------------------------------------------------------------
+describe('Crusher — the map is negotiable', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('the charge smashes THROUGH cover and bulldozes the lane', () => {
+    const w = quiet();
+    const c = w.addLsw('crusher', 0, { x: 0, y: 0, z: 0 })!; c.yaw = 0;
+    const GRID_N = Math.sqrt(w.map.grid.length) | 0; const TILE_U = 300 / GRID_N;
+    const tx = Math.floor((5 + 150) / TILE_U), tz = Math.floor((0 + 150) / TILE_U);
+    w.map.grid[tz * GRID_N + tx] = 2; // T_COVER in the lane
+    const e = w.addSoldier('E', 'infantry', 1, 'human');
+    e.pos = { x: 8, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    const hp0 = e.hp;
+    w.applyCmd(c, cmd({ ability: true }), 1 / 60);
+    expect(w.map.grid[tz * GRID_N + tx], 'the cover must be smashed through').not.toBe(2);
+    expect(e.hp, 'the lane must be bulldozed').toBeLessThan(hp0);
+    expect(c.pos.x, 'he must END downrange').toBeGreaterThan(5);
+  });
+
+  it('the hurl turns bare ground into NEW COVER downrange', () => {
+    const w = quiet();
+    const c = w.addLsw('crusher', 0, { x: 0, y: 0, z: 0 })!; c.yaw = 0;
+    const GRID_N = Math.sqrt(w.map.grid.length) | 0; const TILE_U = 300 / GRID_N;
+    const tx = Math.floor((8 + 150) / TILE_U), tz = Math.floor((0 + 150) / TILE_U);
+    w.map.grid[tz * GRID_N + tx] = 0; // bare ground at the landing spot
+    w.applyCmd(c, cmd({ ability: true }), 1 / 60); // empty lane → the hurl
+    expect(w.map.grid[tz * GRID_N + tx], 'the thrown terrain must BECOME cover').toBe(2);
+  });
+});
+
+describe('Steel Weaver — the map is his armory', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('ripping a panel REMOVES the metal wall and becomes his plate', () => {
+    const w = quiet();
+    const sw = w.addLsw('steelweaver', 0, { x: 0, y: 0, z: 0 })!;
+    const GRID_N = Math.sqrt(w.map.grid.length) | 0; const TILE_U = 300 / GRID_N;
+    const tx = Math.floor((3 + 150) / TILE_U), tz = Math.floor((0 + 150) / TILE_U);
+    w.map.grid[tz * GRID_N + tx] = 7; // T_METAL beside him
+    expect(sw.armor).toBe(0); // LSWs land plateless — the panel is the exception
+    w.applyCmd(sw, cmd({ ability: true }), 1 / 60);
+    expect(w.map.grid[tz * GRID_N + tx], 'the map must LOSE the wall').toBe(0);
+    expect(sw.armor, 'the panel must become his plate').toBeGreaterThanOrEqual(80);
+    expect(w.dug.includes(tz * GRID_N + tx), 'the rip must ride the dug wire').toBe(true);
+  });
+});
+
+describe('Overload — every wire is a door', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('he rides the connected metal and emerges at the FAR end of the circuit', () => {
+    const w = quiet();
+    const o = w.addLsw('overload', 1, { x: 0, y: 0, z: 0 })!;
+    const GRID_N = Math.sqrt(w.map.grid.length) | 0; const TILE_U = 300 / GRID_N;
+    const stx = Math.floor((0 + 150) / TILE_U), stz = Math.floor((0 + 150) / TILE_U);
+    // a metal conduit running 12 tiles east from beside him
+    for (let i = 1; i <= 12; i++) w.map.grid[stz * GRID_N + (stx + i)] = 7;
+    const before = { ...o.pos };
+    w.applyCmd(o, cmd({ ability: true }), 1 / 60);
+    expect(Math.hypot(o.pos.x - before.x, o.pos.z - before.z),
+      'he must EMERGE far down the circuit').toBeGreaterThan(20);
+  });
+});
