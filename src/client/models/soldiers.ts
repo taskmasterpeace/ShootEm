@@ -66,6 +66,36 @@ export const LSW_TINT: Record<string, { tint: number; scale: number }> = {
   barrier: { tint: 0x3fd9a0, scale: 1.3 },       // emerald shield-energy
   reactor: { tint: 0xffb020, scale: 1.3 },       // radiant reactor gold
   oblivion: { tint: 0xe6ecf2, scale: 1.3 },      // void-white rim (black & white, no purple)
+  tremor: { tint: 0xa05a2a, scale: 1.5 },        // rusty earth-and-clay
+  magnetar: { tint: 0x707886, scale: 1.3 },      // gunmetal-steel, magnetic sheen
+  wraith: { tint: 0x8fd0b0, scale: 1.3 },        // spectral ghost-green
+  eclipse: { tint: 0x3d5566, scale: 1.35 },      // deep shadow-slate
+  dominator: { tint: 0xd83a5a, scale: 1.4 },     // commanding crimson-rose (no purple)
+  riptide: { tint: 0x2fa8c8, scale: 1.3 },       // sea-teal, whitecap trim
+  gravwarden: { tint: 0x9fc4e8, scale: 1.35 },   // pale updraft blue
+  chronos: { tint: 0xc8a24b, scale: 1.3 },       // clockwork brass
+  venatrix: { tint: 0x8f9e3a, scale: 1.2 },      // huntress olive-brass
+  vanguard: { tint: 0xc9b458, scale: 1.35 },     // breacher brass-and-drab
+  pyroclasm: { tint: 0xff8c2a, scale: 1.35 },    // magma orange
+  voidwalker: { tint: 0x2a2f38, scale: 1.2 },    // void slate (black, never purple)
+  crimson: { tint: 0xa11d2e, scale: 1.3 },       // arterial red
+  mirage: { tint: 0xd8b84a, scale: 1.2 },        // heat-shimmer gold
+  blitz: { tint: 0xe8e2d0, scale: 1.2 },         // afterimage white
+  shadowstep: { tint: 0x4a5a4a, scale: 1.2 },    // gunmetal moss
+  specter: { tint: 0xbcc7cf, scale: 1.25 },      // mirror-fog silver
+  pulse: { tint: 0x5adfd0, scale: 1.3 },         // sonar teal
+  venom: { tint: 0x7fd43a, scale: 1.25 },        // toxin green
+  nightmare: { tint: 0x1e2430, scale: 1.25 },    // a darkness with edges
+  reaper: { tint: 0x8a8f98, scale: 1.35 },       // scythe-steel grey
+  crusher: { tint: 0xb0783a, scale: 1.45 },      // quarry ochre
+  steelweaver: { tint: 0x9aa4b0, scale: 1.4 },   // worked steel
+  overload: { tint: 0xffd23a, scale: 1.25 },     // live-wire amber
+  phantom: { tint: 0xd9e4e6, scale: 1.2 },       // pale spectral bone
+  inferno: { tint: 0xff6a2a, scale: 1.35 },      // flame orange
+  stormcaller: { tint: 0x9fd8ff, scale: 1.35 },  // storm-sky pale blue
+  gargoyle: { tint: 0x8d8578, scale: 1.4 },      // weathered stone
+  leviathan: { tint: 0x3f6e6a, scale: 1.7 },     // deep-sea iron
+  cataclysm: { tint: 0x7a4a30, scale: 1.65 },    // magma-cracked basalt
 };
 
 /** Turn a built trooper body INTO an LSW body: scale up past a trooper,

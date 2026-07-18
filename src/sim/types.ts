@@ -10,7 +10,7 @@ export type ClassId = 'infantry' | 'heavy' | 'jump' | 'engineer' | 'medic' | 'in
 /** Living Super Weapons (§21.6 / docs/ASCENDANTS.md). A Soldier carrying one
  *  of these is an LSW — not a class, an overlay: bigger, deadlier, its own
  *  brain, and it dies to ordinary guns. Grows as the roster ships. */
-export type AscendantId = 'firebrand' | 'plaguebearer' | 'frostbite' | 'ragebeast' | 'titan' | 'voltstriker' | 'sniperhawk' | 'barrier' | 'reactor' | 'oblivion';
+export type AscendantId = 'firebrand' | 'plaguebearer' | 'frostbite' | 'ragebeast' | 'titan' | 'voltstriker' | 'sniperhawk' | 'barrier' | 'reactor' | 'oblivion' | 'tremor' | 'magnetar' | 'wraith' | 'eclipse' | 'dominator' | 'riptide' | 'gravwarden' | 'chronos' | 'venatrix' | 'vanguard' | 'pyroclasm' | 'voidwalker' | 'crimson' | 'mirage' | 'blitz' | 'shadowstep' | 'specter' | 'pulse' | 'venom' | 'nightmare' | 'reaper' | 'crusher' | 'steelweaver' | 'overload' | 'phantom' | 'inferno' | 'stormcaller' | 'gargoyle' | 'leviathan' | 'cataclysm';
 
 /**
  * Weapon ids are open strings: the hand-tuned core set (ar606, kuchler, caw,
@@ -266,6 +266,54 @@ export interface Soldier {
   /** Reactor's overcharge: while set and unexpired, this soldier's `rageMul`
    *  is a borrowed damage/speed boost that burns out at this sim time. */
   overchargeUntil?: number;
+  /** Dominator's psychic link (§ finale): soldiers sharing this group id and
+   *  an unexpired `psiLinkUntil` split each other's pain — hurt one, hurt all. */
+  psiLinkId?: number;
+  psiLinkUntil?: number;
+  /** Mirage's decoys: this soldier is an ILLUSION wearing the id'd Mirage's
+   *  face — one hit pops it, it makes no footsteps, dogs are never fooled. */
+  decoyOf?: number;
+  /** Nightmare's BLIND: until this sim time these eyes see nothing — a
+   *  blinded bot cannot acquire targets. Ears still work. */
+  blindUntil?: number;
+  /** Reaper's MARK: while unexpired, the marker's own blows land DOUBLE on
+   *  this soldier — and the victim knows they are hunted. */
+  markedBy?: number;
+  markedUntil?: number;
+  /** Gravity Warden's REVERSE GRAVITY: until this sim time the soldier floats
+   *  (~2.2u up, ground control nearly gone) — but CAN STILL SHOOT. The drop
+   *  staggers the aim once on landing. */
+  liftedUntil?: number;
+  /** Chronos's TEMPORAL ECHO: a ~3s breadcrumb trail of where he stood (the
+   *  echo point GLOWS — camp it), and the once-per-fight latch. */
+  lswTrail?: { x: number; z: number }[];
+  lswFlagA?: boolean;
+  /** MACHINE POSSESSION of a BOT (§4.4 #4, Phantom's ride): a timed take —
+   *  team flips for `possessedUntil - now`, expiry hands the chassis home,
+   *  EMP evicts instantly. NEVER a human — possessBot refuses flesh. */
+  possessedBy?: number;
+  possessedUntil?: number;
+  origTeam?: Team;
+  /** TRUE FLIGHT (§4.4 #5): the commanded altitude for a flying LSW — the
+   *  body climbs toward it; above the wall tier the grid yields. Undefined
+   *  or 0 = grounded. Small arms live at chest height: descent is exposure. */
+  flightAlt?: number;
+  /** Gargoyle's SHRIEK→SLAM telegraph: the dive resolves at `diveAt` on the
+   *  marked point — the scream buys everyone under it the dodge window.
+   *  (Inferno reuses diveAt as "committed-low until".) */
+  diveAt?: number;
+  diveX?: number;
+  diveZ?: number;
+  /** Gargoyle's PERCH: the blocking tile he's clinging to — half damage
+   *  while it stands; collapse the tile (DESTRUCTION) and he falls stunned. */
+  perchTile?: number;
+  /** Stormcaller's LIGHTNING STORM: bolts fall inside r14 of (stormX,stormZ)
+   *  until stormUntil — BOTH SIDES eat them; eaves (wall-adjacent tiles)
+   *  shelter. nextBoltAt paces the strikes. */
+  stormX?: number;
+  stormZ?: number;
+  stormUntil?: number;
+  nextBoltAt?: number;
   /** THE ICE BLOCK (§21.6, shared: Frostbite + Venatrix). Encased alive: a
    *  real 1-tile block that stops movement AND shots both ways. sim-time the
    *  ice fully forms free is `encasedUntil`; teammates shatter it early by
@@ -354,6 +402,22 @@ export interface Vehicle {
   abandonedAt: number;
   /** seconds an enemy thief has held E beside the hull (snaps to 0 if they quit) */
   hotwireProgress: number;
+  /** Plaguebearer's infection: while set, a MOVING hull trails poison. The
+   *  crew chooses — abandon the tank, or drive the plague wagon. An
+   *  engineer's field repair cleanses it. */
+  infectedUntil?: number;
+  infectedTeam?: Team;
+  nextInfectTrailAt?: number;
+  /** MACHINE POSSESSION of a HULL (§4.4 #4, Phantom's ride): timed team
+   *  flip — its guns serve the ghost, expiry hands it home, EMP evicts. */
+  possessedBy?: number;
+  possessedUntil?: number;
+  origTeam?: Team;
+  /** Volt Striker's OVERLOAD: at this sim time the hull detonates — UNLESS
+   *  every crew member has bailed, in which case it fizzles. The 2s gamble. */
+  overloadAt?: number;
+  overloadBy?: number;
+  overloadTeam?: Team;
 }
 
 export interface Turret {
@@ -366,6 +430,12 @@ export interface Turret {
   nextFireAt: number;
   ownerId: number; // engineer who built it
   alive: boolean;
+  /** MACHINE POSSESSION (§4.4 #4): who holds this machine, until when, and
+   *  whose it really is. Expiry or an EMP burst hands it back. Never humans. */
+  possessedBy?: number;
+  possessedUntil?: number;
+  origTeam?: Team;
+  origOwnerId?: number;
 }
 
 export interface Projectile {
@@ -382,6 +452,9 @@ export interface Projectile {
   homingVehicleId?: number;
   /** heat-seeker: flare gadget that seduced it off the aircraft */
   homingFlareId?: number;
+  /** Ragebeast's flesh: the SOLDIER this glob hunts (turn-rate capped —
+   *  sidestep hard and it overshoots). Target dead/encased = flies dumb. */
+  homingSoldierId?: number;
   /** hand grenades BANK (Robert): walls reflect it instead of detonating it.
    *  Launcher shells never set this — a GL-40 round still eats the wall. */
   bounce?: boolean;
@@ -401,6 +474,7 @@ export type GadgetType =
   | 'camera'       // deployable spy camera — pings enemies in view for its team
   | 'smoke_field'  // smoke cloud — hides soldiers inside from minimap + pings
   | 'fire_field'   // phosphorus burn — damage over time to enemies inside
+  | 'snap_trap'    // Venatrix: springs THE ICE BLOCK on whoever steps in (spot the glint)
   | 'flare';       // burning IR decoy dropped by a flyer — seduces heat-seekers
 
 /** Deployed sci-fi tech: beacons, domes, drones, pods. */
@@ -417,6 +491,9 @@ export interface Gadget {
   /** Barrier's reflect wall: while young (bornAt+2s) it throws approaching
    *  enemy fire back at whoever sent it instead of swallowing it. */
   reflect?: boolean;
+  /** Vanguard's barricade: this dome swallows BOTH sides' rounds — his own
+   *  wall can cage his own team. Placement is the skill. */
+  bothSides?: boolean;
   anchor?: Vec3;      // drone orbit center
   phase?: number;     // drone orbit angle
   /** FPV drone: steered by its owner (humans); bots keep the auto-orbit */
@@ -472,6 +549,7 @@ export interface SimEvent {
     | 'door'           // a door swung (open or shut) — E did it
     | 'doorhit'        // something is BANGING on a door — claws, blasts
     | 'doorbreak'      // a door gave way — splinters, planks, a hole
+    | 'wallbreak'      // DESTRUCTION: masonry breached to rubble — dust, chunks, a new lane
     | 'ladder'         // someone climbed between storeys
     | 'sparks'         // the breacher's drill met METAL — sparks, no progress
     | 'hacked'         // hacking kit converted an enemy turret

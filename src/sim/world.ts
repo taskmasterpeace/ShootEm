@@ -1,6 +1,6 @@
 import { CLASSES, DOG_NAMES, DOG_STATS, EQUIPMENT, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
-import { CLIMB_H, DRILL_EATS, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
+import { CLIMB_H, DRILL_EATS, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_RUBBLE, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
 import { Rng } from './rng';
 import {
   SYSTEM_IDS, isCoopMode, isZed,
@@ -11,6 +11,7 @@ import {
 } from './types';
 import { stepMode, initMode } from './modes';
 import { generateFront } from './fronts';
+import { LSW_BRAINS } from './lsw/index';
 import { ICE_HOLD, ICE_HOLD_DRAIN, LSWS, STRUGGLE_HP, STRUGGLE_SECS, THREAT, lswAllowed, lswsForTeam } from './lsw';
 import { stepBot, stepDog, stepScientist, stepZombie } from './bots';
 import { PERCEIVE_RANGE, perceivesNow, smokeBlocks, type SeenMark, type SmokeBlob } from './perception';
@@ -143,6 +144,11 @@ export class World {
   smoked = new Set<number>();
   /** tile indices the tunneler has ground to rubble (replicated to clients) */
   dug: number[] = [];
+  /** DESTRUCTION (the shared mechanic): tile indices breached to T_RUBBLE —
+   *  walkable-slow knee cover. Replicated like dug; monotonic (only opens). */
+  breached: number[] = [];
+  /** running damage ledger for masonry under fire, keyed by tile index */
+  private wallHp = new Map<number, number>();
   nextPodAt = 75;
   events: SimEvent[] = [];
   /** LIVE FEEL KNOBS (Robert's global speed control) — 1 = the shipped feel.
@@ -236,6 +242,41 @@ export class World {
     });
   }
 
+  /** DESTRUCTION — the tile-state ladder: intact → (damaged) → RUBBLE → gone.
+   *  The three laws (docs/ASCENDANTS.md shared mechanics):
+   *   · TIERED: soft cover breaks under any real splash; STRUCTURAL walls,
+   *     slits and barricades breach only under HEAVY sources (120mm-class,
+   *     demo charges, the drill, Titan); METAL and the map rim never break.
+   *   · MONOTONIC: a breach is walkable rubble — destruction only ever OPENS
+   *     paths, so the fronts' reachability law survives any sequence.
+   *   · ONE SEAM: damage arrives here from the same explode() every shell
+   *     already uses; sight/movement change purely by the tile's new type. */
+  damageWall(tx: number, tz: number, dmg: number, heavy: boolean) {
+    if (tx < 1 || tz < 1 || tx >= GRID - 1 || tz >= GRID - 1) return; // the rim holds, always
+    const idx = tz * GRID + tx;
+    const t = this.map.grid[idx];
+    const soft = t === T_COVER;
+    const structural = t === T_WALL || t === T_SLIT || t === T_CLIMB;
+    const rubble = t === T_RUBBLE;
+    if (!soft && !structural && !rubble) return;         // metal/doors/water: not this system's food
+    if ((structural || rubble) && !heavy) return;        // masonry shrugs off small arms
+    const maxHp = soft ? 80 : structural ? 300 : 120;    // rubble grinds away under sustained heavy fire
+    const hp = (this.wallHp.get(idx) ?? maxHp) - dmg;
+    if (hp > 0) { this.wallHp.set(idx, hp); return; }    // damaged, still standing
+    this.wallHp.delete(idx);
+    const pos = { x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 };
+    if (rubble) {
+      // the pile itself dies — gone, open ground (rides the dug wire)
+      this.map.grid[idx] = T_OPEN;
+      this.dug.push(idx);
+      this.emit({ type: 'dig', tile: idx, pos });
+    } else {
+      this.map.grid[idx] = T_RUBBLE;
+      this.breached.push(idx);
+      this.emit({ type: 'wallbreak', tile: idx, pos });
+    }
+  }
+
   id(): number { return this.nextId++; }
 
   emit(e: SimEvent) { this.events.push(e); }
@@ -301,6 +342,55 @@ export class World {
   /** Oblivion's live black holes — each drags enemy soldiers AND hulls inward
    *  for its telegraph, then bursts at burstAt. Stepped every tick. */
   blackHoles: { x: number; z: number; team: Team; ownerId: number; burstAt: number }[] = [];
+  /** FORCE FIELDS (§4.4 #2, the shared mechanic): sustained radial pulls /
+   *  pushes and directional shoves, re-applied every tick so they survive the
+   *  impulse decay. One system → Gravity Warden, Riptide, Oblivion's hole,
+   *  Stormcaller's tornado. `radial` < 0 pulls INWARD toward (x,z), > 0
+   *  shoves OUTWARD; (fx,fz) adds a directional current. Soldiers on the
+   *  owner's team are exempt; vehicles move only when CREWED (an abandoned
+   *  wreck is nobody's toy — the §8.1a requisition law). */
+  forceFields: { x: number; z: number; r: number; radial: number; fx?: number; fz?: number; team: Team; ownerId: number; until: number }[] = [];
+
+  private stepForceFields() {
+    this.forceFields = this.forceFields.filter((f) => this.time < f.until);
+    for (const f of this.forceFields) {
+      for (const e of this.soldiers.values()) {
+        if (!e.alive || e.team === f.team || e.encasedUntil !== undefined) continue;
+        const dx = f.x - e.pos.x, dz = f.z - e.pos.z, d = Math.hypot(dx, dz);
+        if (d > f.r) continue;
+        const inv = d > 0.4 ? 1 / d : 0; // the radial term has a dead-zone at the singularity
+        e.pushX += -dx * inv * f.radial + (f.fx ?? 0);
+        e.pushZ += -dz * inv * f.radial + (f.fz ?? 0);
+      }
+      for (const v of this.vehicles.values()) {
+        if (!v.alive || v.team === f.team || !v.seats.some((id) => id >= 0)) continue;
+        const dx = f.x - v.pos.x, dz = f.z - v.pos.z, d = Math.hypot(dx, dz);
+        if (d > f.r) continue;
+        const inv = d > 0.4 ? 1 / d : 0;
+        v.vel.x += (-dx * inv * f.radial + (f.fx ?? 0)) * 0.6;
+        v.vel.z += (-dz * inv * f.radial + (f.fz ?? 0)) * 0.6;
+      }
+    }
+  }
+
+  /** TIME FIELDS (§4.4 #3, the shared mechanic → Chronos): zones where
+   *  movement and rounds integrate at `mul` speed. Never clock manipulation —
+   *  the sim stays deterministic 30Hz; only POSITION ADVANCE scales. The
+   *  field's OWNER walks free: he strolls through his own frozen bullet-wall. */
+  timeFields: { x: number; z: number; r: number; mul: number; ownerId: number; until: number }[] = [];
+
+  /** the strongest (slowest) time-field multiplier at a point; the owner of a
+   *  field is exempt from it (pass their soldier id). */
+  timeMulAt(x: number, z: number, exemptOwnerId = -1): number {
+    let m = 1;
+    for (const f of this.timeFields) {
+      if (this.time >= f.until) continue;
+      if (exemptOwnerId >= 0 && f.ownerId === exemptOwnerId) continue; // the owner walks free (−1 = nobody)
+      const dx = x - f.x, dz = z - f.z;
+      if (dx * dx + dz * dz < f.r * f.r) m = Math.min(m, f.mul);
+    }
+    return m;
+  }
   /** the bot officer's next radio check per team (staggered so the two
    *  factions never call in the same breath) */
   private nextLswCallAt: [number, number] = [90, 110];
@@ -370,6 +460,9 @@ export class World {
   ascendSoldier(s: Soldier, id: AscendantId, at?: Vec3): boolean {
     if (!lswAllowed(this.mode.id) || !s.alive || s.ascendant) return false;
     if (LSWS[id].faction !== s.team) return false; // your stable, your body
+    // D3 (ratified): the TRUE-FLIGHT trio stays AI until the movement model
+    // earns Superman/Goku — no human hands on a flier yet.
+    if (LSWS[id].flies && s.kind === 'human') return false;
     for (const o of this.soldiers.values()) if (o.alive && o.team === s.team && o.ascendant) return false;
     const def = LSWS[id];
     const threat = THREAT[def.threat];
@@ -424,415 +517,21 @@ export class World {
    * field plays, no new mechanics. The bot brain sets the intent; this
    * cashes it as telegraphed SimEvents the counter-play can read.
    */
-  private stepLsw(s: Soldier, _dt: number) {
-    const id = s.ascendant!;
-    if (id === 'firebrand') {
-      // PRIMARY: paint a burning trail under his own feet as he advances —
-      // the floor he owns. One patch every ~0.5s while moving; each is a
-      // real fire_field (it burns enemies who cross it, rain douses it).
-      const moving = Math.hypot(s.vel.x, s.vel.z) > 1;
-      if (moving && this.time >= (s.nextLswAt ?? 0)) {
-        s.nextLswAt = this.time + 0.5;
-        this.spawnGadget('fire_field', s.team, s.id, { ...s.pos }, Infinity, 9);
-        this.emit({ type: 'shot', pos: s.pos, weapon: 'flamer', soldierId: s.id });
-      }
-      // SECONDARY (the board, cashed): the BOT brain raises `nextGrenadeAt`
-      // past now to ask for the detonation. A human pilot cashes it on Q
-      // (lswActive) — the brain never usurps a player's timing.
-      if (s.kind === 'bot' && s.grenades > 0 && this.time < (s.nextGrenadeAt ?? 0) - 90) {
-        s.grenades = 0; // one board per stable of patches
-        this.firebrandCashBoard(s);
-      }
-    } else if (id === 'plaguebearer') {
-      // PRIMARY: a contamination cloud laid on the advance — quarantine
-      // canon, straight from the Outbreak's gas. Drifts where he walks.
-      const moving = Math.hypot(s.vel.x, s.vel.z) > 1;
-      if (moving && this.time >= (s.nextLswAt ?? 0)) {
-        s.nextLswAt = this.time + 0.7;
-        this.spawnGadget('smoke_field', s.team, s.id, { ...s.pos }, Infinity, 10);
-        // the cloud bites: reuse the fire_field's tick by spawning a paired
-        // damage field (acid), short and close — the poison, not just the fog
-        this.spawnGadget('fire_field', s.team, s.id, { ...s.pos }, 40, 6);
-      }
-    } else if (id === 'frostbite') {
-      // THE ICE BLOCK (§21.6 flagship): freeze the nearest enemy in reach on
-      // a cadence. One at a time, close — the block is the threat, not DPS.
-      // BOT-ONLY: a human pilot aims the freeze on Q; auto-freezing under a
-      // player's feet would steal the one decision that makes him fun.
-      if (s.kind === 'bot' && this.time >= (s.nextLswAt ?? 0)) {
-        let victim: Soldier | undefined, best = 16;
-        for (const e of this.soldiers.values()) {
-          if (!e.alive || e.team === s.team || e.encasedUntil !== undefined || e.vehicleId >= 0) continue;
-          const d = Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z);
-          if (d < best && losClear(this.map.grid, { ...s.pos, y: 1.4 }, { ...e.pos, y: 1.4 })) { best = d; victim = e; }
-        }
-        if (victim && this.encaseSoldier(victim)) {
-          s.nextLswAt = this.time + 4;
-          this.emit({ type: 'vo', text: 'vo_frostbite_ability', pos: { ...s.pos }, soldierId: s.id });
-        }
-      }
-    } else if (id === 'ragebeast') {
-      // RAMPAGE: the lower his HP, the faster and harder he hits — burst him
-      // or starve him, half-measures feed him. Pure scalars on shipped
-      // fields; the "feed" is the missing-HP fraction, refreshed each tick.
-      const missing = 1 - s.hp / s.maxHp;
-      // rage is speed/damage, not immortality: the harness showed a 1.9x
-      // ceiling let him out-trade an ENDLESS squad forever ("feeds the
-      // rage" working too well vs infinite bodies). Capped at 1.5x — a
-      // real, mortal team still burns him down; the wound just makes the
-      // last quarter of his HP the dangerous part.
-      s.rageMul = 1 + missing * 0.5; // up to 1.5x wounded
-    } else if (id === 'titan') {
-      // THE COLOSSUS: he grabs and THROWS — a vehicle if one's in reach (crew
-      // and all), else the nearest soldier; when nothing's grabbable but a
-      // crowd has closed, he pounds. Bot cadence only — a human pilot drives
-      // the same hands on Q. All shipped systems: eject+fling, knockback,
-      // hull damage, digTile cover-cracks, and a fire-rate stagger standing in
-      // for the movement-slow the engine doesn't have yet (doc Notes gap).
-      if (s.kind === 'bot' && this.time >= (s.nextLswAt ?? 0)) {
-        if (!this.titanHurl(s)) this.titanPound(s);
-        s.nextLswAt = this.time + 4.5;
-      }
-    } else if (id === 'voltstriker') {
-      // CHAIN LIGHTNING: arcs to three, punishing the clustered — and the
-      // nearest enemy hull seizes and cooks (partial overload; the full
-      // 2s-fuse-or-bail detonation is a Notes 🔧). Bot cadence; a human pilot
-      // fires it on Q.
-      if (s.kind === 'bot' && this.time >= (s.nextLswAt ?? 0)) {
-        s.nextLswAt = this.time + (this.voltChain(s) ? 1.6 : 0.5);
-      }
-    } else if (id === 'sniperhawk') {
-      // PIERCING RAIL through every body in the line (the "through thin cover"
-      // is a Notes 🔧 — cover blocks for now), and the shipped Orbital
-      // Designator as his artillery mark. A bot rails on a cadence and marks on
-      // a slower one (reusing nextLswActiveAt as the mark timer, free on a bot);
-      // a human pilot rails on Q.
-      if (s.kind === 'bot') {
-        if (this.time >= (s.nextLswAt ?? 0)) { this.sniperhawkRail(s); s.nextLswAt = this.time + 2.5; }
-        if (this.time >= (s.nextLswActiveAt ?? 0) && this.sniperhawkMark(s)) s.nextLswActiveAt = this.time + 9;
-      }
-    } else if (id === 'barrier') {
-      // ENERGY WALL: projects a dome down his aim whose first 2s reflect fire
-      // back at the shooters. Bot lays one on a cadence; a human pilot on Q.
-      if (s.kind === 'bot' && this.time >= (s.nextLswAt ?? 0)) { this.barrierWall(s); s.nextLswAt = this.time + 4; }
-    } else if (id === 'reactor') {
-      // NOVA on a cadence, OVERCHARGE the nearest ally on a slower one (reusing
-      // nextLswActiveAt as the bot's overcharge timer, free on a bot). A human
-      // pilot feeds an ally on Q, or novas when alone.
-      if (s.kind === 'bot') {
-        if (this.time >= (s.nextLswAt ?? 0)) { this.reactorNova(s); s.nextLswAt = this.time + 4; }
-        if (this.time >= (s.nextLswActiveAt ?? 0) && this.reactorOvercharge(s)) s.nextLswActiveAt = this.time + 7;
-      }
-    } else if (id === 'oblivion') {
-      // VOID BOLTS lobbed at range, and a BLACK HOLE dropped on a slower
-      // cadence (reusing nextLswActiveAt on the bot). A human pilot opens the
-      // hole on Q; his rifle carries the bolt work.
-      if (s.kind === 'bot') {
-        if (this.time >= (s.nextLswAt ?? 0)) { this.oblivionBolt(s); s.nextLswAt = this.time + 1.4; }
-        if (this.time >= (s.nextLswActiveAt ?? 0)) { this.oblivionVoid(s); s.nextLswActiveAt = this.time + 8; }
-      }
-    }
+  private stepLsw(s: Soldier, dt: number) {
+    // §5: ONE BRAIN FILE PER LSW — src/sim/lsw/<id>.ts, each deterministic,
+    // DOM-free, carrying BOTH abilities. This just dispatches.
+    LSW_BRAINS[s.ascendant!]?.step(this, s, dt);
   }
 
-  /** Firebrand's board, cashed: every patch he painted erupts at once.
-   *  Shared by the bot brain's signal and the human pilot's Q. */
-  private firebrandCashBoard(s: Soldier) {
-    for (const g of this.gadgets.values()) {
-      if (g.type === 'fire_field' && g.ownerId === s.id) {
-        this.explode({ ...g.pos }, WEAPONS.gl, s.id, s.team);
-      }
-    }
-    this.emit({ type: 'vo', text: 'vo_firebrand_ability', pos: { ...s.pos }, soldierId: s.id });
-    this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'firebrand', soldierId: s.id });
-  }
-
-  /** Titan's hands: grab the topmost grabbable in his forward reach and HURL
-   *  it — an enemy vehicle (crew ejected and flung, hull launched, stunned,
-   *  cracked open) or the nearest enemy soldier (launched and hurt). The heave
-   *  emits the pod-flash light and a ground crack. Returns false if nothing
-   *  was in reach — the whiff keeps a human pilot's key hot. */
-  private titanHurl(s: Soldier): boolean {
-    const fx = Math.cos(s.yaw), fz = Math.sin(s.yaw);
-    const inCone = (dx: number, dz: number, cone: number) => {
-      let a = Math.atan2(dz, dx) - s.yaw;
-      while (a > Math.PI) a -= 2 * Math.PI;
-      while (a < -Math.PI) a += 2 * Math.PI;
-      return Math.abs(a) <= cone;
-    };
-    // a vehicle first — the signature throw
-    let veh: Vehicle | undefined, vbest = Infinity;
-    for (const v of this.vehicles.values()) {
-      if (!v.alive || v.team === s.team) continue;
-      const dx = v.pos.x - s.pos.x, dz = v.pos.z - s.pos.z, d = Math.hypot(dx, dz);
-      if (d > 10 || !inCone(dx, dz, 0.9)) continue;
-      if (d < vbest) { vbest = d; veh = v; }
-    }
-    if (veh) {
-      for (const sid of [...veh.seats]) {
-        const crew = this.soldiers.get(sid);
-        if (!crew) continue;
-        this.exitVehicle(crew, veh);
-        crew.pushX += fx * 32; crew.pushZ += fz * 32; crew.vel.y = 8;
-        this.damageSoldier(crew, 45, s.id, 'gl');
-      }
-      veh.vel = { x: fx * 34, y: 10, z: fz * 34 };
-      veh.stunnedUntil = this.time + 3;
-      this.damageVehicle(veh, 260, s.id, 'gl');
-      this.emit({ type: 'warp', pos: { ...veh.pos } });
-      this.emit({ type: 'explosion', pos: { ...s.pos }, weapon: 'gl' });
-      this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'titan', soldierId: s.id });
-      this.emit({ type: 'vo', text: 'vo_titan_ability', pos: { ...s.pos }, soldierId: s.id });
-      return true;
-    }
-    // else the nearest enemy soldier in reach
-    let vic: Soldier | undefined, best = Infinity;
-    for (const e of this.soldiers.values()) {
-      if (!e.alive || e.team === s.team || e.id === s.id || e.encasedUntil !== undefined || e.vehicleId >= 0) continue;
-      const dx = e.pos.x - s.pos.x, dz = e.pos.z - s.pos.z, d = Math.hypot(dx, dz);
-      if (d > 8 || !inCone(dx, dz, 0.9)) continue;
-      if (d < best && losClear(this.map.grid, { ...s.pos, y: 1.4 }, { ...e.pos, y: 1.4 })) { best = d; vic = e; }
-    }
-    if (!vic) return false;
-    vic.pushX += fx * 40; vic.pushZ += fz * 40; vic.vel.y = 10;
-    this.damageSoldier(vic, 70, s.id, 'gl');
-    this.emit({ type: 'warp', pos: { ...vic.pos } });
-    this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'titan', soldierId: s.id });
-    this.emit({ type: 'vo', text: 'vo_titan_ability', pos: { ...s.pos }, soldierId: s.id });
-    return true;
-  }
-
-  /** Titan's ground pound: a slam at his feet — everyone close is hurt,
-   *  THROWN, and rattled (a fire-rate stagger stands in for the movement-slow
-   *  the design wants; doc Notes gap). Nearby armor is cracked open and cover
-   *  tiles grind to rubble. Returns false if nobody was in the ring. */
-  private titanPound(s: Soldier): boolean {
-    let hits = 0;
-    for (const e of this.soldiers.values()) {
-      if (!e.alive || e.team === s.team || e.id === s.id) continue;
-      const dx = e.pos.x - s.pos.x, dz = e.pos.z - s.pos.z, d = Math.hypot(dx, dz);
-      if (d > 7) continue;
-      hits++;
-      this.damageSoldier(e, 45 * (1 - d / 9), s.id, 'gl');
-      const inv = d > 0.01 ? 1 / d : 0;
-      e.pushX += dx * inv * 22; e.pushZ += dz * inv * 22;
-      e.nextFireAt = Math.max(e.nextFireAt, this.time + 0.9); // the shock rattles the aim
-    }
-    for (const v of this.vehicles.values()) {
-      if (!v.alive || v.team === s.team) continue;
-      const d = Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z);
-      if (d > 7) continue;
-      this.damageVehicle(v, 60 * (1 - d / 9), s.id, 'gl');
-      v.stunnedUntil = Math.max(v.stunnedUntil, this.time + 1.5);
-    }
-    // crack the cover around him to rubble — "nothing stays where it stands"
-    const ptx = Math.floor((s.pos.x + WORLD / 2) / TILE), ptz = Math.floor((s.pos.z + WORLD / 2) / TILE);
-    for (let dz = -2; dz <= 2; dz++) {
-      for (let dx = -2; dx <= 2; dx++) {
-        const tx = ptx + dx, tz = ptz + dz;
-        if (tx < 0 || tz < 0 || tx >= GRID || tz >= GRID) continue;
-        if (this.map.grid[tz * GRID + tx] === T_COVER) this.digTile(tx, tz);
-      }
-    }
-    this.emit({ type: 'explosion', pos: { ...s.pos }, weapon: 'gl' });
-    this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'titan', soldierId: s.id });
-    this.emit({ type: 'vo', text: 'vo_titan_ability', pos: { ...s.pos }, soldierId: s.id });
-    return hits > 0;
-  }
-
-  /** Volt Striker's chain: a bolt finds the nearest enemy, then leaps to the
-   *  next-nearest within arc range, up to three — clusters die together. The
-   *  nearest enemy hull in reach seizes (EMP-stun) and takes a bite: a partial
-   *  overload (the full 2s-fuse-or-bail is still to come). Each arc pops an
-   *  'emp' where it lands. Returns false if nothing was in reach (whiff-safe). */
-  private voltChain(s: Soldier): boolean {
-    const RANGE = 22, ARC = 9;
-    const hit = new Set<number>();
-    const chain: Soldier[] = [];
-    let from = { x: s.pos.x, z: s.pos.z };
-    for (let link = 0; link < 3; link++) {
-      let best: Soldier | undefined, bestScore = Infinity;
-      for (const e of this.soldiers.values()) {
-        if (!e.alive || e.team === s.team || e.id === s.id || hit.has(e.id) || e.encasedUntil !== undefined) continue;
-        const dx = e.pos.x - from.x, dz = e.pos.z - from.z, d = Math.hypot(dx, dz);
-        if (d > (link === 0 ? RANGE : ARC)) continue;
-        let score = d;
-        if (link === 0 && s.kind === 'human') {
-          // the first bolt goes where the crosshair points
-          let ang = Math.atan2(e.pos.z - s.pos.z, e.pos.x - s.pos.x) - s.yaw;
-          while (ang > Math.PI) ang -= 2 * Math.PI;
-          while (ang < -Math.PI) ang += 2 * Math.PI;
-          if (Math.abs(ang) > 1.0) continue;
-          score = d + Math.abs(ang) * 10;
-        }
-        if (score < bestScore && losClear(this.map.grid, { x: from.x, y: 1.4, z: from.z }, { ...e.pos, y: 1.4 })) { bestScore = score; best = e; }
-      }
-      if (!best) break;
-      hit.add(best.id); chain.push(best);
-      from = { x: best.pos.x, z: best.pos.z };
-    }
-    // the nearest enemy hull in reach seizes and takes a bite
-    let veh: Vehicle | undefined, vd = 14;
-    for (const v of this.vehicles.values()) {
-      if (!v.alive || v.team === s.team) continue;
-      const d = Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z);
-      if (d < vd) { vd = d; veh = v; }
-    }
-    if (chain.length === 0 && !veh) return false;
-    const dmg = [70, 48, 32];
-    chain.forEach((e, i) => {
-      this.damageSoldier(e, dmg[i] ?? 30, s.id, 'rg2');
-      this.emit({ type: 'emp', pos: { ...e.pos } });
-    });
-    if (veh) {
-      veh.stunnedUntil = Math.max(veh.stunnedUntil, this.time + 2);
-      this.damageVehicle(veh, 90, s.id, 'rg2');
-      this.emit({ type: 'emp', pos: { ...veh.pos } });
-    }
-    this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'voltstriker', soldierId: s.id });
-    this.emit({ type: 'vo', text: 'vo_voltstriker_ability', pos: { ...s.pos }, soldierId: s.id });
-    return true;
-  }
-
-  /** Sniperhawk's rail: a hitscan line down his aim that pierces every body it
-   *  crosses (LOS is checked from HIM to each target, so soldiers never shield
-   *  each other). Walls and cover stop it for now (through-thin-cover is a
-   *  Notes 🔧). Returns the number of bodies it punched through. */
-  private sniperhawkRail(s: Soldier): number {
-    const RANGE = 80;
-    const dx = Math.cos(s.yaw), dz = Math.sin(s.yaw);
-    let hits = 0;
-    for (const e of this.soldiers.values()) {
-      if (!e.alive || e.team === s.team || e.id === s.id || e.encasedUntil !== undefined) continue;
-      const ex = e.pos.x - s.pos.x, ez = e.pos.z - s.pos.z;
-      const along = ex * dx + ez * dz;
-      if (along <= 0 || along > RANGE) continue;
-      if (Math.abs(ex * dz - ez * dx) > 1.5) continue; // perpendicular distance to the ray
-      if (!losClear(this.map.grid, { ...s.pos, y: 1.4 }, { ...e.pos, y: 1.4 })) continue;
-      this.damageSoldier(e, 90, s.id, 'rg2');
-      hits++;
-    }
-    const end = { x: s.pos.x + dx * RANGE, y: 1.2, z: s.pos.z + dz * RANGE };
-    this.emit({ type: 'shot', pos: { ...s.pos, y: 1.2 }, weapon: 'rg2', soldierId: s.id });
-    this.emit({ type: 'lsw_active', pos: end, text: 'sniperhawk', soldierId: s.id });
-    this.emit({ type: 'vo', text: 'vo_sniperhawk_ability', pos: { ...s.pos }, soldierId: s.id });
-    return hits;
-  }
-
-  /** Sniperhawk's artillery mark: paint the nearest enemy with the shipped
-   *  Orbital Designator — 3s arm, then the strike erases the spot. */
-  private sniperhawkMark(s: Soldier): boolean {
-    let tgt: Soldier | undefined, best = 90;
-    for (const e of this.soldiers.values()) {
-      if (!e.alive || e.team === s.team || e.id === s.id) continue;
-      const d = Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z);
-      if (d < best) { best = d; tgt = e; }
-    }
-    if (!tgt) return false;
-    this.spawnGadget('orbital', s.team, s.id, { x: tgt.pos.x, y: 0, z: tgt.pos.z }, 60);
-    this.emit({ type: 'beacon_planted', pos: { ...tgt.pos }, soldierId: s.id, text: 'MARKED' });
-    return true;
-  }
-
-  /** Barrier's wall: projects an energy dome a few strides down his aim. Its
-   *  first 2s REFLECT enemy fire back at the shooters (grenade-bank reversal +
-   *  re-team, in the projectile step); after that it swallows like a normal
-   *  dome until it expires. */
-  private barrierWall(s: Soldier) {
-    const dx = Math.cos(s.yaw), dz = Math.sin(s.yaw);
-    const pos = { x: s.pos.x + dx * 3, y: 0, z: s.pos.z + dz * 3 };
-    const g = this.spawnGadget('shield', s.team, s.id, pos, 250, 6);
-    g.reflect = true;
-    this.emit({ type: 'lsw_active', pos, text: 'barrier', soldierId: s.id });
-    this.emit({ type: 'vo', text: 'vo_barrier_ability', pos: { ...s.pos }, soldierId: s.id });
-  }
-
-  /** Reactor's nova: a charged burst around him — everyone close is hurt and
-   *  thrown (the ground-slam pattern), with the explosion VFX. His offensive
-   *  option when there's no ally to feed. */
-  private reactorNova(s: Soldier) {
-    for (const e of this.soldiers.values()) {
-      if (!e.alive || e.team === s.team || e.id === s.id) continue;
-      const dx = e.pos.x - s.pos.x, dz = e.pos.z - s.pos.z, d = Math.hypot(dx, dz);
-      if (d > 8) continue;
-      this.damageSoldier(e, 60 * (1 - d / 10), s.id, 'gl');
-      const inv = d > 0.01 ? 1 / d : 0;
-      e.pushX += dx * inv * 20; e.pushZ += dz * inv * 20;
-    }
-    this.emit({ type: 'explosion', pos: { ...s.pos }, weapon: 'gl' });
-    this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'reactor', soldierId: s.id });
-    this.emit({ type: 'vo', text: 'vo_reactor_ability', pos: { ...s.pos }, soldierId: s.id });
-  }
-
-  /** Reactor's overcharge: pour power into the nearest ally — their outgoing
-   *  damage (and step) run hot for a few seconds (the shipped rageMul channel,
-   *  handed back when overchargeUntil expires). Returns false if no ally near. */
-  private reactorOvercharge(s: Soldier): boolean {
-    let ally: Soldier | undefined, best = 20;
-    for (const a of this.soldiers.values()) {
-      if (!a.alive || a.team !== s.team || a.id === s.id || a.ascendant || a.encasedUntil !== undefined) continue;
-      const d = Math.hypot(a.pos.x - s.pos.x, a.pos.z - s.pos.z);
-      if (d < best) { best = d; ally = a; }
-    }
-    if (!ally) return false;
-    ally.rageMul = 1.7;
-    ally.overchargeUntil = this.time + 6;
-    this.emit({ type: 'heal', pos: { ...ally.pos }, soldierId: ally.id });
-    this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'reactor', soldierId: s.id });
-    this.emit({ type: 'vo', text: 'vo_reactor_ability', pos: { ...s.pos }, soldierId: s.id });
-    return true;
-  }
-
-  /** Oblivion's void bolt: an arcing energy round that lobs OVER cover and
-   *  bursts with splash where it lands — fired at the nearest enemy in range.
-   *  Returns false if there's nothing to lob at. */
-  private oblivionBolt(s: Soldier): boolean {
-    let d = Infinity;
-    for (const e of this.soldiers.values()) {
-      if (!e.alive || e.team === s.team || e.id === s.id) continue;
-      const dd = Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z);
-      if (dd < d) d = dd;
-    }
-    if (d === Infinity || d > WEAPONS.void_bolt.range) return false;
-    this.throwProjectile(s, 'void_bolt', 1.6, WEAPONS.void_bolt.speed, true, Math.max(6, d));
-    this.emit({ type: 'shot', pos: { x: s.pos.x, y: 1.4, z: s.pos.z }, weapon: 'void_bolt', soldierId: s.id });
-    return true;
-  }
-
-  /** Oblivion's black hole: opens a collapse point a few strides down his aim.
-   *  It drags for a 1.5s telegraph, then bursts (stepBlackHoles). */
-  private oblivionVoid(s: Soldier) {
-    const dx = Math.cos(s.yaw), dz = Math.sin(s.yaw);
-    const x = s.pos.x + dx * 8, z = s.pos.z + dz * 8;
-    this.blackHoles.push({ x, z, team: s.team, ownerId: s.id, burstAt: this.time + 1.5 });
-    this.emit({ type: 'gravlift', pos: { x, y: 0, z } }); // the telegraph
-    this.emit({ type: 'lsw_active', pos: { x, y: 0, z }, text: 'oblivion', soldierId: s.id });
-    this.emit({ type: 'vo', text: 'vo_oblivion_ability', pos: { ...s.pos }, soldierId: s.id });
-  }
-
-  /** Drag everything not on the caster's team toward each live black hole
-   *  (sustained inward impulse, re-added each tick so it survives the decay —
-   *  sprint TANGENTIALLY to escape), then burst it when its telegraph runs out. */
+  /** The black hole's BURST timing — the drag itself rides the shared
+   *  force-field system (a radial −5 field with the same lifetime). Sprint
+   *  TANGENTIALLY to escape; when the telegraph runs out, it collapses. */
   private stepBlackHoles() {
     this.blackHoles = this.blackHoles.filter((bh) => {
       if (this.time >= bh.burstAt) {
         this.explode({ x: bh.x, y: 0, z: bh.z }, WEAPONS.gl, bh.ownerId, bh.team);
         this.emit({ type: 'explosion', pos: { x: bh.x, y: 0, z: bh.z }, weapon: 'gl' });
         return false;
-      }
-      for (const e of this.soldiers.values()) {
-        if (!e.alive || e.team === bh.team || e.encasedUntil !== undefined) continue;
-        const dx = bh.x - e.pos.x, dz = bh.z - e.pos.z, d = Math.hypot(dx, dz);
-        if (d > 14 || d < 0.4) continue;
-        const inv = 1 / d;
-        e.pushX += dx * inv * 5; e.pushZ += dz * inv * 5;
-      }
-      for (const v of this.vehicles.values()) {
-        // only CREWED enemy hulls get dragged — an abandoned wreck isn't a threat
-        if (!v.alive || v.team === bh.team || !v.seats.some((id) => id >= 0)) continue;
-        const dx = bh.x - v.pos.x, dz = bh.z - v.pos.z, d = Math.hypot(dx, dz);
-        if (d > 14 || d < 0.4) continue;
-        const inv = 1 / d;
-        v.vel.x += dx * inv * 3; v.vel.z += dz * inv * 3;
       }
       return true;
     });
@@ -845,90 +544,10 @@ export class World {
    * yields (applyCmd blanks cmd.ability for ascendants after this runs).
    */
   private lswActive(s: Soldier) {
+    // dispatched to the unit's brain (src/sim/lsw/<id>.ts). The brain returns
+    // true only when the signature actually fired — whiffs keep the key hot.
     const id = s.ascendant!;
-    const def = LSWS[id];
-    if (id === 'firebrand') {
-      // nothing painted = nothing to cash — keep the key hot
-      let painted = false;
-      for (const g of this.gadgets.values()) if (g.type === 'fire_field' && g.ownerId === s.id) { painted = true; break; }
-      if (!painted) return;
-      s.nextLswActiveAt = this.time + def.activeCd;
-      this.firebrandCashBoard(s);
-    } else if (id === 'frostbite') {
-      // freeze the soldier you're AIMING at: nearest enemy in a ~40° cone,
-      // 20u, LOS — angular miss weighs heavier than distance so the ice goes
-      // where the crosshair says, not where the crowd is.
-      let victim: Soldier | undefined, best = Infinity;
-      for (const e of this.soldiers.values()) {
-        if (!e.alive || e.team === s.team || e.encasedUntil !== undefined || e.vehicleId >= 0) continue;
-        const dx = e.pos.x - s.pos.x, dz = e.pos.z - s.pos.z;
-        const d = Math.hypot(dx, dz);
-        if (d > 20) continue;
-        let ang = Math.atan2(dz, dx) - s.yaw;
-        while (ang > Math.PI) ang -= 2 * Math.PI;
-        while (ang < -Math.PI) ang += 2 * Math.PI;
-        if (Math.abs(ang) > 0.7) continue;
-        const score = d + Math.abs(ang) * 12;
-        if (score < best && losClear(this.map.grid, { ...s.pos, y: 1.4 }, { ...e.pos, y: 1.4 })) { best = score; victim = e; }
-      }
-      if (victim && this.encaseSoldier(victim)) {
-        s.nextLswActiveAt = this.time + def.activeCd;
-        this.emit({ type: 'lsw_active', pos: { ...victim.pos }, text: 'frostbite', soldierId: s.id });
-        this.emit({ type: 'vo', text: 'vo_frostbite_ability', pos: { ...s.pos }, soldierId: s.id });
-      }
-    } else if (id === 'plaguebearer') {
-      // the quarantine ring: a wall of plague around you — walk the ring
-      // forward and the fight moves or chokes
-      s.nextLswActiveAt = this.time + def.activeCd;
-      for (let i = 0; i < 6; i++) {
-        const a = (i / 6) * Math.PI * 2;
-        const p = { x: s.pos.x + Math.cos(a) * 4.5, y: 0, z: s.pos.z + Math.sin(a) * 4.5 };
-        this.spawnGadget('smoke_field', s.team, s.id, p, Infinity, 10);
-        this.spawnGadget('fire_field', s.team, s.id, p, 40, 6);
-      }
-      this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'plaguebearer', soldierId: s.id });
-      this.emit({ type: 'vo', text: 'vo_plaguebearer_ability', pos: { ...s.pos }, soldierId: s.id });
-    } else if (id === 'ragebeast') {
-      // GROUND SLAM: everyone close is hurt and THROWN — and like the
-      // rampage itself, it hits harder the more he bleeds
-      s.nextLswActiveAt = this.time + def.activeCd;
-      const mul = s.rageMul ?? 1;
-      for (const e of this.soldiers.values()) {
-        if (!e.alive || e.team === s.team || e.id === s.id) continue;
-        const dx = e.pos.x - s.pos.x, dz = e.pos.z - s.pos.z;
-        const d = Math.hypot(dx, dz);
-        if (d > 7) continue;
-        this.damageSoldier(e, 55 * mul * (1 - d / 9), s.id, 'gl');
-        const inv = d > 0.01 ? 1 / d : 0;
-        e.pushX += dx * inv * 26;
-        e.pushZ += dz * inv * 26;
-      }
-      this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'ragebeast', soldierId: s.id });
-      this.emit({ type: 'vo', text: 'vo_ragebeast_ability', pos: { ...s.pos }, soldierId: s.id });
-    } else if (id === 'titan') {
-      // Q: hurl what he's aiming at; nothing to grab but a crowd close → pound.
-      // A true whiff (nobody in reach at all) keeps the key hot.
-      if (this.titanHurl(s) || this.titanPound(s)) s.nextLswActiveAt = this.time + def.activeCd;
-    } else if (id === 'voltstriker') {
-      // Q: chain lightning from the crosshair; a true whiff keeps the key hot.
-      if (this.voltChain(s)) s.nextLswActiveAt = this.time + def.activeCd;
-    } else if (id === 'sniperhawk') {
-      // Q: fire the piercing rail straight down your line.
-      this.sniperhawkRail(s);
-      s.nextLswActiveAt = this.time + def.activeCd;
-    } else if (id === 'barrier') {
-      // Q: throw up the reflecting energy wall ahead of you.
-      this.barrierWall(s);
-      s.nextLswActiveAt = this.time + def.activeCd;
-    } else if (id === 'reactor') {
-      // Q: feed the nearest ally; if you're alone, nova instead.
-      if (!this.reactorOvercharge(s)) this.reactorNova(s);
-      s.nextLswActiveAt = this.time + def.activeCd;
-    } else if (id === 'oblivion') {
-      // Q: open a black hole down your aim.
-      this.oblivionVoid(s);
-      s.nextLswActiveAt = this.time + def.activeCd;
-    }
+    if (LSW_BRAINS[id]?.active(this, s)) s.nextLswActiveAt = this.time + LSWS[id].activeCd;
   }
 
   /**
@@ -1166,7 +785,45 @@ export class World {
     }
     if (!this.mode.over) stepMode(this, dt);
     if (!this.mode.over) this.stepLswDrops(); // §21.6: telegraphed LSW landings
-    if (this.blackHoles.length) this.stepBlackHoles(); // Oblivion's void
+    if (this.forceFields.length) this.stepForceFields(); // §4.4 #2: the pulls and the shoves
+    if (this.blackHoles.length) this.stepBlackHoles(); // Oblivion's void (burst timing)
+    // expired time bubbles pop quietly
+    if (this.timeFields.length) this.timeFields = this.timeFields.filter((f) => this.time < f.until);
+    // possessed machines come home when the hold expires (§4.4 #4)
+    for (const t of this.turrets.values()) {
+      if (t.possessedUntil !== undefined && this.time >= t.possessedUntil) this.evictPossession(t);
+    }
+    for (const b of this.soldiers.values()) {
+      if (b.possessedUntil !== undefined && (this.time >= b.possessedUntil || !b.alive)) this.evictBotPossession(b);
+    }
+    for (const v of this.vehicles.values()) {
+      if (v.possessedUntil !== undefined && (this.time >= v.possessedUntil || !v.alive)) this.evictVehiclePossession(v);
+    }
+    // the overload fuses: at the 2s mark the hull DETONATES — unless the
+    // crew bailed, in which case the charge fizzles and the armor survives
+    for (const v of this.vehicles.values()) {
+      if (v.overloadAt === undefined) continue;
+      if (!v.alive || this.time < v.overloadAt) { if (!v.alive) v.overloadAt = undefined; continue; }
+      const crewed = v.seats.some((i) => i >= 0);
+      const by = v.overloadBy ?? -1, team = v.overloadTeam ?? 1;
+      v.overloadAt = undefined; v.overloadBy = undefined; v.overloadTeam = undefined;
+      if (crewed) {
+        this.damageVehicle(v, 500, by, 'rg2'); // the gamble lost — the hull goes
+        this.explode({ ...v.pos }, WEAPONS.gl, by, team);
+      } else {
+        this.emit({ type: 'emp', pos: { ...v.pos } }); // bailed in time — a fizzle
+      }
+    }
+    // the plague wagons: an infected hull that DRIVES trails poison behind it
+    for (const v of this.vehicles.values()) {
+      if (v.infectedUntil === undefined) continue;
+      if (this.time >= v.infectedUntil) { v.infectedUntil = undefined; v.infectedTeam = undefined; continue; }
+      if (!v.alive) { v.infectedUntil = undefined; continue; }
+      if (Math.hypot(v.vel.x, v.vel.z) > 2 && this.time >= (v.nextInfectTrailAt ?? 0)) {
+        v.nextInfectTrailAt = this.time + 0.7;
+        this.spawnGadget('fire_field', v.infectedTeam ?? 1, -1, { x: v.pos.x, y: 0, z: v.pos.z }, 40, 5);
+      }
+    }
 
     // recon state rebuilds every tick: pings accumulate from beacons, drones,
     // cameras, crewed sensor stations, and psi scanners; then smoke fields,
@@ -1470,10 +1127,28 @@ export class World {
           }
           break;
         }
+        case 'snap_trap': {
+          // VENATRIX: the ice block's little sister — whoever steps in is
+          // ENCASED (the same shared state; teammates shatter, struggling
+          // hurts). The trap is spent on the spring.
+          for (const s2 of this.soldiers.values()) {
+            if (!s2.alive || s2.team === g.team || s2.encasedUntil !== undefined || s2.pos.y > 1) continue;
+            if (Math.hypot(s2.pos.x - g.pos.x, s2.pos.z - g.pos.z) < 1.2 && this.encaseSoldier(s2)) {
+              this.gadgets.delete(id);
+              this.emit({ type: 'gadget_destroyed', pos: { ...g.pos } });
+              break;
+            }
+          }
+          break;
+        }
         case 'smoke_field': {
-          // soldiers inside are hidden from minimap and pings
+          // soldiers inside are hidden from minimap and pings — but an LSW is
+          // TOO BIG FOR SMOKE: the silhouette looms through its own fog
+          // (measured: Plaguebearer and Eclipse were IMMORTAL when their own
+          // clouds blinded the answering squad — an unanswerable boss is a
+          // griefer we wrote ourselves)
           for (const s of this.soldiers.values()) {
-            if (!s.alive) continue;
+            if (!s.alive || s.ascendant) continue;
             if (Math.hypot(s.pos.x - g.pos.x, s.pos.z - g.pos.z) < 5) this.smoked.add(s.id);
           }
           break;
@@ -1606,6 +1281,65 @@ export class World {
     g.vy = 1.2; // a last dying pop of lift, then gravity wins
   }
 
+  /** MACHINE POSSESSION (§4.4 #4): a TIMED take of an enemy turret — team and
+   *  guns flip for `secs`, then it remembers whose it was. An EMP burst
+   *  evicts instantly (empBlast). NEVER humans — the law. */
+  possessMachine(t: Turret, s: Soldier, secs: number) {
+    if (t.possessedBy === undefined) { t.origTeam = t.team; t.origOwnerId = t.ownerId; }
+    t.possessedBy = s.id;
+    t.possessedUntil = this.time + secs;
+    t.team = s.team;
+    t.ownerId = s.id;
+    this.emit({ type: 'hacked', pos: { ...t.pos }, soldierId: s.id, text: `${s.name} POSSESSED a sentry!` });
+  }
+
+  /** hand a possessed machine back to its rightful owner */
+  private evictPossession(t: Turret) {
+    if (t.possessedBy === undefined) return;
+    t.team = t.origTeam ?? t.team;
+    t.ownerId = t.origOwnerId ?? t.ownerId;
+    t.possessedBy = undefined; t.possessedUntil = undefined;
+    t.origTeam = undefined; t.origOwnerId = undefined;
+  }
+
+  /** §4.4 #4, Phantom's ride: a timed take of an enemy BOT — its team flips
+   *  and it fights for the ghost until expiry hands the chassis home. NEVER
+   *  a human: the API itself refuses flesh (the law). */
+  possessBot(b: Soldier, s: Soldier, secs: number): boolean {
+    if (b.kind !== 'bot' || !b.alive || b.team === s.team) return false;
+    if (b.possessedBy === undefined) b.origTeam = b.team;
+    b.possessedBy = s.id;
+    b.possessedUntil = this.time + secs;
+    b.team = s.team;
+    this.emit({ type: 'hacked', pos: { ...b.pos }, soldierId: s.id, text: `${s.name} POSSESSED ${b.name}!` });
+    return true;
+  }
+
+  /** hand a ridden bot back to its side */
+  private evictBotPossession(b: Soldier) {
+    if (b.possessedBy === undefined) return;
+    b.team = b.origTeam ?? b.team;
+    b.possessedBy = undefined; b.possessedUntil = undefined; b.origTeam = undefined;
+  }
+
+  /** §4.4 #4: a timed take of an enemy HULL — team flips, its guns serve
+   *  the ghost, expiry (or an EMP) hands it home. */
+  possessVehicle(v: Vehicle, s: Soldier, secs: number): boolean {
+    if (!v.alive || v.team === s.team) return false;
+    if (v.possessedBy === undefined) v.origTeam = v.team;
+    v.possessedBy = s.id;
+    v.possessedUntil = this.time + secs;
+    v.team = s.team;
+    this.emit({ type: 'hacked', pos: { ...v.pos }, soldierId: s.id, text: `${s.name} POSSESSED a ${v.kind}!` });
+    return true;
+  }
+
+  private evictVehiclePossession(v: Vehicle) {
+    if (v.possessedBy === undefined) return;
+    v.team = v.origTeam ?? v.team;
+    v.possessedBy = undefined; v.possessedUntil = undefined; v.origTeam = undefined;
+  }
+
   empBlast(pos: Vec3, team: Team, _ownerId: number) {
     this.emit({ type: 'emp', pos: { ...pos } });
     // EMP is the counter-drone weapon: any enemy drone in the burst loses link
@@ -1614,16 +1348,28 @@ export class World {
       if (Math.hypot(g.pos.x - pos.x, g.pos.z - pos.z) < 10) this.crashDrone(g);
     }
     for (const v of this.vehicles.values()) {
-      if (!v.alive || v.team === team) continue;
-      if (Math.hypot(v.pos.x - pos.x, v.pos.z - pos.z) < 8) v.stunnedUntil = this.time + 4;
+      if (!v.alive) continue;
+      const vNear = Math.hypot(v.pos.x - pos.x, v.pos.z - pos.z) < 8;
+      if (!vNear) continue;
+      // EMP EVICTS POSSESSION INSTANTLY (§4.4 #4) — hulls too
+      if (v.possessedBy !== undefined) this.evictVehiclePossession(v);
+      if (v.team !== team) v.stunnedUntil = this.time + 4;
     }
     for (const t of this.turrets.values()) {
-      if (!t.alive || t.team === team) continue;
-      if (Math.hypot(t.pos.x - pos.x, t.pos.z - pos.z) < 8) t.nextFireAt = Math.max(t.nextFireAt, this.time + 5);
+      if (!t.alive) continue;
+      const near = Math.hypot(t.pos.x - pos.x, t.pos.z - pos.z) < 8;
+      if (!near) continue;
+      // EMP EVICTS POSSESSION INSTANTLY (§4.4 #4) — whoever fired the burst,
+      // the ghost is thrown out and the machine remembers its side
+      if (t.possessedBy !== undefined) this.evictPossession(t);
+      if (t.team !== team) t.nextFireAt = Math.max(t.nextFireAt, this.time + 5);
     }
     for (const s of this.soldiers.values()) {
-      if (!s.alive || s.team === team) continue;
-      if (Math.hypot(s.pos.x - pos.x, s.pos.z - pos.z) < 8) {
+      if (!s.alive) continue;
+      if (Math.hypot(s.pos.x - pos.x, s.pos.z - pos.z) >= 8) continue;
+      // a ridden bot is thrown back to its side the instant the burst hits
+      if (s.possessedBy !== undefined) this.evictBotPossession(s);
+      if (s.team !== team) {
         s.cloaked = false;
         s.energy = 0;
       }
@@ -1783,7 +1529,12 @@ export class World {
       if (e?.speedMult) speed *= e.speedMult;
     }
     if (s.draggingId >= 0) speed *= 0.5; // hauling a body is slow, honest work
-    const mx = cmd.moveX, mz = cmd.moveZ;
+    // THE SEAM SANITIZER (found by the threat rig): a brain that emits NaN
+    // intent must never poison the sim — Math.hypot(NaN, x) is NaN and
+    // `NaN || 1` stays NaN, so one bad division in a bot turned Magnetar
+    // into an untargetable ghost at (NaN, z). Intent is clamped finite here.
+    const mx = Number.isFinite(cmd.moveX) ? cmd.moveX : 0;
+    const mz = Number.isFinite(cmd.moveZ) ? cmd.moveZ : 0;
     const len = Math.hypot(mx, mz) || 1;
     s.vel.x = (mx / len) * speed;
     s.vel.z = (mz / len) * speed;
@@ -2199,15 +1950,25 @@ export class World {
   }
 
   /** Nearest airborne enemy aircraft inside the launcher's IR cone. */
-  samLockTarget(s: Soldier): Vehicle | null {
-    let best: Vehicle | null = null, bestD = SAM_LOCK_RANGE;
+  samLockTarget(s: Soldier): Vehicle | Soldier | null {
+    let best: Vehicle | Soldier | null = null, bestD = SAM_LOCK_RANGE;
+    const consider = (pos: Vec3, cand: Vehicle | Soldier) => {
+      const d = Math.hypot(pos.x - s.pos.x, pos.z - s.pos.z);
+      if (d >= bestD) return;
+      let da = Math.atan2(pos.z - s.pos.z, pos.x - s.pos.x) - s.yaw;
+      da = Math.atan2(Math.sin(da), Math.cos(da));
+      if (Math.abs(da) <= SAM_LOCK_CONE) { best = cand; bestD = d; }
+    };
     for (const v of this.vehicles.values()) {
       if (v.team === s.team || !this.vehicleAirborne(v)) continue;
-      const d = Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z);
-      if (d >= bestD) continue;
-      let da = Math.atan2(v.pos.z - s.pos.z, v.pos.x - s.pos.x) - s.yaw;
-      da = Math.atan2(Math.sin(da), Math.cos(da));
-      if (Math.abs(da) <= SAM_LOCK_CONE) { best = v; bestD = d; }
+      consider(v.pos, v);
+    }
+    // TRUE FLIGHT (§4.4 #5): an LSW under its own power IS an aircraft —
+    // the tube locks it the moment it's genuinely airborne
+    for (const e of this.soldiers.values()) {
+      if (!e.alive || e.team === s.team || e.ascendant === undefined) continue;
+      if (!LSWS[e.ascendant].flies || e.pos.y < 2.5) continue;
+      consider(e.pos, e);
     }
     return best;
   }
@@ -2216,16 +1977,17 @@ export class World {
    * Send the bird. Speed derives from the flyer's top speed at launch —
    * SAM_SPEED_RATIO keeps it ~8% slower, so straight flight always escapes.
    */
-  fireSamMissile(s: Soldier, target: Vehicle) {
+  fireSamMissile(s: Soldier, target: Vehicle | Soldier) {
     const def = WEAPONS.sam_missile;
     const speed = VEHICLES.flyer.speed * SAM_SPEED_RATIO;
     const yaw = Math.atan2(target.pos.z - s.pos.z, target.pos.x - s.pos.x);
+    const flesh = 'classId' in target; // a TRUE-FLIGHT LSW, not a hull
     const p: Projectile = {
       id: this.id(), weapon: 'sam_missile', ownerId: s.id, team: s.team,
       pos: { x: s.pos.x + Math.cos(yaw) * 0.8, y: s.pos.y + 1.6, z: s.pos.z + Math.sin(yaw) * 0.8 },
       vel: { x: Math.cos(yaw) * speed, y: 0, z: Math.sin(yaw) * speed },
       bornAt: this.time, ttl: def.range / speed, arc: false,
-      homingVehicleId: target.id,
+      ...(flesh ? { homingSoldierId: target.id } : { homingVehicleId: target.id }),
     };
     this.projectiles.set(p.id, p);
     this.emit({ type: 'shot', pos: { ...p.pos }, weapon: 'sam_missile', soldierId: s.id });
@@ -2263,6 +2025,31 @@ export class World {
       const v = this.vehicles.get(p.homingVehicleId);
       if (!v || !this.vehicleAirborne(v)) { p.homingVehicleId = undefined; return false; } // target gone — fly dumb
       tx = v.pos.x; tz = v.pos.z;
+    } else if (p.homingSoldierId !== undefined) {
+      // Ragebeast's flesh hunts a SOLDIER — low, turn-rate capped: sidestep
+      // hard and it overshoots. A dead or encased target frees the glob.
+      // A SAM on the same seam hunts a TRUE-FLIGHT LSW: full missile turn
+      // rate, chases the body's ALTITUDE — and a flier that dives below the
+      // lock floor shakes it (the deck is sanctuary, and the exposure).
+      const e = this.soldiers.get(p.homingSoldierId);
+      if (!e || !e.alive || e.encasedUntil !== undefined) { p.homingSoldierId = undefined; return false; }
+      const sam = p.weapon === 'sam_missile';
+      if (sam && e.pos.y < 1.5) { p.homingSoldierId = undefined; return false; } // dove under the seeker head
+      if (Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) < (sam ? 1.6 : 1.2)) {
+        this.explode({ ...e.pos }, sam ? WEAPONS.sam_missile : WEAPONS.flesh_glob, p.ownerId, p.team);
+        return true;
+      }
+      const speed = Math.hypot(p.vel.x, p.vel.z) || 1;
+      const cur = Math.atan2(p.vel.z, p.vel.x);
+      let da = Math.atan2(e.pos.z - p.pos.z, e.pos.x - p.pos.x) - cur;
+      da = Math.atan2(Math.sin(da), Math.cos(da));
+      const maxTurn = (sam ? SAM_TURN_RATE : 2.4) * dt; // the glob is dodgeable on foot
+      const yaw = cur + Math.max(-maxTurn, Math.min(maxTurn, da));
+      p.vel.x = Math.cos(yaw) * speed;
+      p.vel.z = Math.sin(yaw) * speed;
+      p.pos.y += ((sam ? e.pos.y + 1.0 : 1.2) - p.pos.y) * Math.min(1, 6 * dt);
+      p.vel.y = 0;
+      return false;
     } else {
       return false;
     }
@@ -2314,8 +2101,33 @@ export class World {
       if (tileAt(this.map.grid2, s.pos.x, s.pos.z) === F2_VOID) s.floor = 0;
       return;
     }
+    // REVERSE GRAVITY (Gravity Warden): while lifted you FLOAT at ~2.2u —
+    // ground control is gone, the trigger still works. The drop staggers the
+    // aim once, on landing.
+    if (s.liftedUntil !== undefined) {
+      if (this.time < s.liftedUntil) {
+        s.pos.y += (2.2 - s.pos.y) * Math.min(1, 6 * dt);
+        s.vel.y = 0;
+        s.vel.x *= 0.15; s.vel.z *= 0.15; // legs paddle air
+      } else {
+        s.liftedUntil = undefined;
+        s.nextFireAt = Math.max(s.nextFireAt, this.time + 0.6); // the staggered drop
+      }
+    }
+    // TRUE FLIGHT (§4.4 #5, the last shared mechanic): the three fliers move
+    // in the third dimension FOR REAL — the body climbs toward its commanded
+    // altitude, and above the wall tier the grid stops owning it. Exposure is
+    // the price (§ the doc's counter column): small arms live at chest
+    // height, so every attack run is a descent back into range.
+    const trueFlight = s.ascendant !== undefined && !!LSWS[s.ascendant].flies && s.liftedUntil === undefined;
+    if (trueFlight) {
+      const want = Math.max(0, s.flightAlt ?? 0);
+      s.pos.y += (want - s.pos.y) * Math.min(1, 4 * dt);
+      if (Math.abs(s.pos.y - want) < 0.05) s.pos.y = want;
+      s.vel.y = 0;
+    }
     // gravity + vertical (theme gravity: Europa jumps are glorious)
-    if (s.pos.y > 0 || s.vel.y > 0) {
+    if (!trueFlight && s.liftedUntil === undefined && (s.pos.y > 0 || s.vel.y > 0)) {
       s.vel.y -= this.gravity * dt;
       s.pos.y = Math.max(0, s.pos.y + s.vel.y * dt);
       if (s.pos.y === 0) s.vel.y = 0;
@@ -2331,7 +2143,13 @@ export class World {
     // water drags EVERYONE the same way — players, bots, the horde: wading
     // is slow, swimming is slower (and swimming means no trigger finger)
     const tHere = tileAt(this.map.grid, s.pos.x, s.pos.z);
-    const waterMult = tHere === T_DEEP ? 0.38 : tHere === T_WATER ? 0.55 : 1;
+    // …and rubble drags at the boots the same way: a breach is a lane, not a road
+    let waterMult = tHere === T_DEEP ? 0.38 : tHere === T_WATER ? 0.55 : tHere === T_RUBBLE ? 0.6 : 1;
+    // a flier over water is OVER it — nothing drags a body that isn't wading
+    if (trueFlight && s.pos.y > 1.2) waterMult = 1;
+    // TIME FIELDS: inside a hostile bubble, the world runs at mul — the
+    // field's owner strolls through untouched
+    if (this.timeFields.length) waterMult *= this.timeMulAt(s.pos.x, s.pos.z, s.id);
     const nx = s.pos.x + (s.vel.x + s.pushX) * waterMult * dt;
     const nz = s.pos.z + (s.vel.z + s.pushZ) * waterMult * dt;
     // §8.7 the jump vocabulary: every barrier is a HEIGHT, and your boots
@@ -2342,6 +2160,8 @@ export class World {
     // absolute — the WALL tier belongs to nobody on foot.
     const airborne = s.pos.y > 0.9;
     const blocksAir = (x: number, z: number) => {
+      // TRUE FLIGHT: above the wall tier NOTHING on the grid blocks a flier
+      if (trueFlight && s.pos.y > 4.05) return false;
       const t = tileAt(this.map.grid, x, z);
       if (t === T_CLIMB) return s.pos.y <= CLIMB_H;
       return t === T_WALL || t === T_SLIT || t === T_METAL || t === T_DEEP;
@@ -2349,7 +2169,16 @@ export class World {
     const groundBlocked = (x: number, z: number) => {
       const t = tileAt(this.map.grid, x, z);
       if (t === T_DEEP || t === T_WATER) return false; // wade in, swim deeper
-      return isBlocked(this.map.grid, x, z);
+      if (isBlocked(this.map.grid, x, z)) return true;
+      // THE ICE BLOCK IS A BLOCK (§21.6, closing Frostbite's Notes gap): an
+      // encased soldier is a real 1-tile obstacle — nobody walks through a
+      // frozen man, friend or foe. Encased soldiers are rare; the scan is short.
+      for (const o of this.soldiers.values()) {
+        if (o.encasedUntil === undefined || o.id === s.id || !o.alive) continue;
+        const dx = o.pos.x - x, dz = o.pos.z - z;
+        if (dx * dx + dz * dz < 0.81) return true; // 0.9u — a tile-ish block
+      }
+      return false;
     };
     const blockedX = airborne ? blocksAir(nx, s.pos.z) : groundBlocked(nx, s.pos.z);
     const blockedZ = airborne ? blocksAir(s.pos.x, nz) : groundBlocked(s.pos.x, nz);
@@ -2367,8 +2196,10 @@ export class World {
     if (this.time < s.nextRepairAt) return false;
     if (this.hasEquip(s, 'fieldRepair')) {
       for (const v of this.vehicles.values()) {
-        if (!v.alive || v.team !== s.team || v.hp >= v.maxHp) continue;
+        // a full-HP but INFECTED hull is still a patient — the kit cleanses
+        if (!v.alive || v.team !== s.team || (v.hp >= v.maxHp && v.infectedUntil === undefined)) continue;
         if (Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z) < VEHICLES[v.kind].radius + 2.5) {
+          if (v.infectedUntil !== undefined) { v.infectedUntil = undefined; v.infectedTeam = undefined; } // the cleanse
           v.hp = Math.min(v.maxHp, v.hp + 120);
           // a field patch also braces the weakest subsystem
           let weakest: SystemId = 'engine';
@@ -2931,17 +2762,28 @@ export class World {
   }
 
   stepProjectiles(dt: number) {
+    // Magnetar's halo pulls straight BULLETS out of the air (precomputed once)
+    const magnetars = [...this.soldiers.values()].filter((m) => m.alive && m.ascendant === 'magnetar');
     for (const [id, p] of this.projectiles) {
       const def = WEAPONS[p.weapon];
       // heat-seekers steer before they move; true = spent on a flare
-      if ((p.homingVehicleId !== undefined || p.homingFlareId !== undefined) && this.steerMissile(p, dt)) {
+      if ((p.homingVehicleId !== undefined || p.homingFlareId !== undefined || p.homingSoldierId !== undefined) && this.steerMissile(p, dt)) {
         this.projectiles.delete(id);
         continue;
       }
-      if (p.arc) p.vel.y -= this.gravity * 0.7 * dt;
-      p.pos.x += p.vel.x * dt;
-      p.pos.y += p.vel.y * dt;
-      p.pos.z += p.vel.z * dt;
+      // TIME FIELDS: a round inside a bubble crawls — its whole advance
+      // (including gravity) integrates at mul, and its fuse clock stretches
+      // to match (bornAt slides forward), so a slowed grenade doesn't cheat
+      // its timer and a crawling bullet doesn't die short of its range.
+      let tdt = dt;
+      if (this.timeFields.length) {
+        const tm = this.timeMulAt(p.pos.x, p.pos.z);
+        if (tm < 1) { tdt = dt * tm; p.bornAt += dt * (1 - tm); }
+      }
+      if (p.arc) p.vel.y -= this.gravity * 0.7 * tdt;
+      p.pos.x += p.vel.x * tdt;
+      p.pos.y += p.vel.y * tdt;
+      p.pos.z += p.vel.z * tdt;
 
       // GROUND BOUNCE (Robert: "I don't like that it doesn't bounce… kind of
       // timed, bounce off walls and stuff"): a bouncing arc round that meets
@@ -2971,10 +2813,35 @@ export class World {
 
       let dead = false;
 
+      // MAGNETAR'S HALO: a straight enemy BULLET that reaches his field curves
+      // into a debris orbit and is absorbed — and it FEEDS him a sip of HP
+      // ("ranged fire builds his armor"). Energy, arcs, and melee pass clean.
+      // MEASURED (threat rig): a total eat + a fat feed made him IMMORTAL to
+      // his designated answer, so two dials moved: the feed is +0.5/bullet,
+      // and the ORBIT SATURATES — one round in five slips the debris ring, so
+      // massed sustained fire still, eventually, gets through (§1.5: threat
+      // buys HP, never immunity).
+      if (!def.arc && def.tracer === 'bullet' && magnetars.length) {
+        for (const m of magnetars) {
+          if (m.team === p.team) continue;
+          if (Math.hypot(m.pos.x - p.pos.x, m.pos.z - p.pos.z) < 4) {
+            if (this.rng.next() < 0.8) {
+              m.hp = Math.min(m.maxHp, m.hp + 0.5);
+              this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon });
+              dead = true;
+            }
+            break; // a leaked round flies on — the orbit was full this instant
+          }
+        }
+        if (dead) { this.projectiles.delete(id); continue; }
+      }
+
       // enemy shield domes swallow projectiles; FPV drones can be shot down
       if (!def.heals) {
         for (const [gid, g] of this.gadgets) {
-          if (g.team === p.team) continue;
+          // Vanguard's barricade blocks BOTH sides — everyone else's gadgets
+          // only care about ENEMY rounds
+          if (g.team === p.team && !(g.type === 'shield' && g.bothSides)) continue;
           // skitters are shootable: killing one with gunfire is a clean
           // defusal — it pops with no blast (the reward for good aim)
           if (g.type === 'skitter') {
@@ -3244,11 +3111,16 @@ export class World {
         for (let tx = Math.max(1, ctx - r); tx <= Math.min(GRID - 2, ctx + r); tx++) {
           const idx = tz * GRID + tx;
           const g = this.map.grid[idx];
-          if (g !== T_DOOR && g !== T_DOOR_OPEN) continue;
           const d = Math.hypot((tx + 0.5) * TILE - WORLD / 2 - pos.x, (tz + 0.5) * TILE - WORLD / 2 - pos.z);
-          if (d < def.splash + TILE * 0.5) {
+          if (d >= def.splash + TILE * 0.5) continue;
+          if (g === T_DOOR || g === T_DOOR_OPEN) {
             // ×1.5: dumb wood takes a blast worse than a dodging soldier does
             this.damageDoor(idx, (def.splashDamage + def.damage * 0.5) * 1.5 * (1 - d / (def.splash + TILE)), ownerId);
+          } else {
+            // DESTRUCTION: masonry in the blast takes the same ledger hit.
+            // HEAVY (120mm-class, damage ≥ 100) breaches structure; anything
+            // with real splash chips soft cover. damageWall sorts the tiers.
+            this.damageWall(tx, tz, (def.splashDamage + def.damage * 0.5) * (1 - d / (def.splash + TILE)), def.damage >= 100);
           }
         }
       }
@@ -3283,9 +3155,19 @@ export class World {
     if (cost > 0) this.damageSoldier(s, cost, s.lastKillerId, 'bleedout');
   }
 
-  damageSoldier(victim: Soldier, dmg: number, attackerId: number, weapon: WeaponId) {
+  damageSoldier(victim: Soldier, dmg: number, attackerId: number, weapon: WeaponId, viaLink = false) {
     if (!victim.alive || dmg <= 0) return;
     if (this.time < victim.protectedUntil) return; // spawn protection (55B)
+    // DOMINATOR'S PSYCHIC LINK (§ finale): hurt one linked soldier and every
+    // soldier on the same thread takes 60%. `viaLink` stops the shared pain
+    // from feeding back on itself. Encased soldiers are off the wire.
+    if (!viaLink && victim.encasedUntil === undefined && victim.psiLinkId !== undefined && this.time < (victim.psiLinkUntil ?? 0)) {
+      for (const o of this.soldiers.values()) {
+        if (o.id === victim.id || o.psiLinkId !== victim.psiLinkId || !o.alive) continue;
+        if (this.time >= (o.psiLinkUntil ?? 0)) continue;
+        this.damageSoldier(o, dmg * 0.6, attackerId, weapon, true);
+      }
+    }
     // ENCASED: the ice eats EVERYTHING — except a teammate's shot, which
     // SHATTERS it (frees them instantly, no cost). An enemy shooting the
     // block just wastes ammo. This is the whole timing game.
@@ -3297,6 +3179,35 @@ export class World {
       return; // no other damage lands on the ice
     }
     if (victim.cloaked) victim.cloaked = false;
+    // REAPER'S MARK: the hunter's own blows land DOUBLE on the hunted
+    if (victim.markedUntil !== undefined && this.time < victim.markedUntil && attackerId === victim.markedBy) {
+      dmg *= 2;
+    }
+    // GARGOYLE'S PERCH: stone takes half — until someone collapses the perch
+    if (victim.perchTile !== undefined && victim.ascendant === 'gargoyle') {
+      dmg *= 0.5;
+    }
+    // LEVIATHAN IS SOFT MID-AIR: the belly flop is the AA window — every
+    // round that finds him between leap and landing bites 1.6x deeper
+    if (victim.ascendant === 'leviathan' && victim.diveAt !== undefined) {
+      dmg *= 1.6;
+    }
+    // CHRONOS'S TEMPORAL ECHO (once per fight): a lethal hit doesn't land —
+    // he SNAPS to where he stood ~3s ago (the breadcrumb the glow has been
+    // advertising all along; the counter is to camp it) and stands there at
+    // a sliver of HP. The latch never resets — the second death is real.
+    if (victim.ascendant === 'chronos' && !victim.lswFlagA && victim.hp - dmg <= 0 && victim.lswTrail?.length) {
+      victim.lswFlagA = true;
+      const echo = victim.lswTrail[0];
+      this.emit({ type: 'warp', pos: { ...victim.pos } });
+      victim.pos = { x: echo.x, y: 0, z: echo.z };
+      victim.vel = { x: 0, y: 0, z: 0 };
+      victim.hp = Math.max(1, victim.maxHp * 0.12);
+      this.emit({ type: 'warp', pos: { x: echo.x, y: 0, z: echo.z } });
+      this.emit({ type: 'lsw_active', pos: { x: echo.x, y: 0, z: echo.z }, text: 'chronos', soldierId: victim.id });
+      this.emit({ type: 'vo', text: 'vo_chronos_low', pos: { ...victim.pos }, soldierId: victim.id });
+      return; // the killing blow struck an afterimage
+    }
     // issued plate takes the hit first; whatever punches through reaches flesh
     if (victim.armor > 0) {
       const absorbed = Math.min(victim.armor, dmg);
@@ -3326,8 +3237,9 @@ export class World {
       // over (they're targets, not casualties), and OVERKILL — damage that
       // blows well past zero — skips the crawl: a tank shell leaves nothing
       // to drag to cover.
-      if (!victim.downed && !victim.dummy && victim.hp > -DOWNED_HP &&
+      if (!victim.downed && !victim.dummy && victim.hp > -DOWNED_HP && victim.decoyOf === undefined &&
           (victim.kind === 'human' || victim.kind === 'bot')) {
+        // (a Mirage decoy never crawls — an illusion POPS, it doesn't bleed)
         this.downSoldier(victim, attackerId);
         return;
       }

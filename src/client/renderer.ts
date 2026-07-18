@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
 import { CLIMB_H, F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt, losClear, surfaceAt, tileAt } from '../sim/map';
-import { SEEN_LINGER, SEEN_LINGER_GEARED, seenRecently, type SeenMark } from '../sim/perception';
+import { classLinger, seenRecently, type SeenMark } from '../sim/perception';
 import { paintColorFor } from './onboarding';
 import type { WeatherKind } from '../sim/weather';
 import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
@@ -221,6 +221,32 @@ export class Renderer {
   }
 
   /** Hide the wall/cover instance on a dug tile (scale to zero). */
+  /** DESTRUCTION: a knee-high pile where masonry died — the visible face of a
+   *  T_RUBBLE tile. Rides the same capped `rubble` pool as tunneler chunks. */
+  private breachPile(x: number, z: number) {
+    for (let ri = 0; ri < 6; ri++) {
+      const sz = 0.4 + Math.random() * 0.55;
+      const chunk = new THREE.Mesh(
+        new THREE.BoxGeometry(sz, sz * 0.7, sz * 0.85),
+        this.rubbleMat ?? (this.rubbleMat = new THREE.MeshStandardMaterial({ color: 0x6f6656, roughness: 0.95 })),
+      );
+      chunk.position.set(
+        x + (Math.random() - 0.5) * TILE * 0.85,
+        sz * 0.3 + (ri % 2) * 0.18, // a real PILE, not a scatter — some chunks ride others
+        z + (Math.random() - 0.5) * TILE * 0.85,
+      );
+      chunk.rotation.set(Math.random() * 0.6, Math.random() * Math.PI, Math.random() * 0.6);
+      chunk.castShadow = true;
+      this.scene.add(chunk);
+      this.rubble.push(chunk);
+    }
+    while (this.rubble.length > 240) {
+      const old = this.rubble.shift()!;
+      this.scene.remove(old);
+      old.geometry.dispose();
+    }
+  }
+
   collapseTile(tileIdx: number) {
     const zero = new THREE.Matrix4().makeScale(0.0001, 0.0001, 0.0001);
     const wi = this.wallInstanceByTile.get(tileIdx);
@@ -858,6 +884,13 @@ export class Renderer {
 
     // walls the sim already dug (mid-match join) come down immediately
     for (const idx of world.dug) this.collapseTile(idx);
+    // DESTRUCTION: breached tiles arrive as knee-high piles (late joins too)
+    for (const idx of world.breached) {
+      this.collapseTile(idx);
+      if (world.map.grid[idx] !== T_OPEN) {
+        this.breachPile((idx % GRID + 0.5) * TILE - WORLD / 2, (Math.floor(idx / GRID) + 0.5) * TILE - WORLD / 2);
+      }
+    }
 
     // props
     for (const p of world.map.props) {
@@ -1042,7 +1075,7 @@ export class Renderer {
         for (const s of world.soldiers.values()) {
           if (!s.alive || s.team === focus.team || s.vehicleId >= 0) continue;
           if (!world.puppet && !seenRecently(world.lastSeen, world.pinged, focus.team, s, world.time,
-            focus.equipment.includes('tracking_optics') ? SEEN_LINGER_GEARED : SEEN_LINGER)) continue;
+            classLinger(focus.classId, focus.equipment.includes('tracking_optics')))) continue;
           const hIdx = houseAt(world.map.houses, s.pos.x, s.pos.z);
           if (hIdx < 0) continue;
           const topFloor = world.map.houses[hIdx].floors === 2 ? 1 : 0;
@@ -1146,13 +1179,18 @@ export class Renderer {
       // cull already decided, and its ghosts arrive pre-frozen.
       let ghost: SeenMark | undefined;
       let dark = false;
+      mesh.userData.ghostAlpha = 1;
       if (!world.puppet && local && s.team !== localTeam && s.alive && !inVehicle) {
         const mark = world.lastSeen[localTeam].get(s.id);
         const fresh = mark !== undefined && world.time - mark.t < 0.07;
         if (!fresh) {
-          const linger = local.equipment.includes('tracking_optics') ? SEEN_LINGER_GEARED : SEEN_LINGER;
-          if (mark && world.time - mark.t <= linger && !(s.cloaked && !world.pinged.has(s.id))) ghost = mark;
-          else dark = true;
+          // §11 row 6: per-CLASS linger (recon holds longest, max 5s), and the
+          // ghost DISSOLVES across the window instead of popping at its end
+          const linger = classLinger(local.classId, local.equipment.includes('tracking_optics'));
+          if (mark && world.time - mark.t <= linger && !(s.cloaked && !world.pinged.has(s.id))) {
+            ghost = mark;
+            mesh.userData.ghostAlpha = Math.max(0.05, 1 - (world.time - mark.t) / linger);
+          } else dark = true;
         }
       }
       // SOUND AND MOVEMENT (§19.2): your ears keep working where your eyes
@@ -1950,6 +1988,199 @@ export class Renderer {
         color: Math.random() < 0.5 ? 0x0a0a12 : 0xe6ecf2, speed: 0.6, life: 0.8,
         spread: 0.4, up: 0.2, gravity: 0.4, size: 0.34,
       });
+    } else if (id === 'tremor') {
+      // dirt and grit shaken loose low to the ground, falling back down
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.4, y: 0.1 + Math.random() * 0.8, z: s.pos.z + (Math.random() - 0.5) * 1.4 }, count: 1,
+        color: Math.random() < 0.5 ? 0xa05a2a : 0x6a4520, speed: 0.5, life: 0.7,
+        spread: 0.7, up: 0.8, gravity: 1.5, size: 0.4,
+      });
+    } else if (id === 'magnetar') {
+      // metal debris orbiting him in a tight ring — the halo that eats bullets
+      const a = world.time * 3 + s.id;
+      this.particles.emit({
+        pos: { x: s.pos.x + Math.cos(a) * 1.6, y: 1.0 + Math.sin(a * 1.7) * 0.6, z: s.pos.z + Math.sin(a) * 1.6 }, count: 1,
+        color: Math.random() < 0.5 ? 0x9aa2ae : 0x5a6270, speed: 0.2, life: 0.4, spread: 0.2, up: 0, gravity: 0, size: 0.24,
+      });
+    } else if (id === 'wraith') {
+      // spectral wisps rising off him — pale, slow, ghostly
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5), y: 0.5 + Math.random() * 1.8, z: s.pos.z + (Math.random() - 0.5) }, count: 1,
+        color: Math.random() < 0.5 ? 0x8fd0b0 : 0xd8f0e4, speed: 0.4, life: 1.0, spread: 0.5, up: 1.0, gravity: -0.5, size: 0.4,
+      });
+    } else if (id === 'eclipse') {
+      // darkness pooling around her — big, dark, slow motes swallowing the light
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.6, y: 0.4 + Math.random() * 1.8, z: s.pos.z + (Math.random() - 0.5) * 1.6 }, count: 1,
+        color: Math.random() < 0.5 ? 0x1a222a : 0x3d5566, speed: 0.4, life: 0.9, spread: 0.6, up: 0.3, gravity: 0.3, size: 0.5,
+      });
+    } else if (id === 'riptide') {
+      // sea spray — teal and whitecap mist curling off him
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.2, y: 0.3 + Math.random() * 1.4, z: s.pos.z + (Math.random() - 0.5) * 1.2 }, count: 1,
+        color: Math.random() < 0.5 ? 0x2fa8c8 : 0xdff4fa, speed: 0.7, life: 0.7,
+        spread: 0.7, up: 1.0, gravity: 1, size: 0.38,
+      });
+    } else if (id === 'gravwarden') {
+      // motes falling UP — the local law of gravity, repealed
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.4, y: 0.1 + Math.random() * 0.6, z: s.pos.z + (Math.random() - 0.5) * 1.4 }, count: 1,
+        color: Math.random() < 0.5 ? 0x9fc4e8 : 0xe8f2fa, speed: 0.3, life: 0.9,
+        spread: 0.3, up: 2.2, gravity: -2.5, size: 0.3,
+      });
+    } else if (id === 'chronos') {
+      // clockwork brass shimmer — and THE ECHO GLOW: his 3s-old breadcrumb
+      // burns gold on the ground (camp it — that's where a dead man returns)
+      this.particles.emit({
+        pos: { x: s.pos.x, y: 0.6 + Math.random() * 1.4, z: s.pos.z }, count: 1,
+        color: 0xc8a24b, speed: 0.5, life: 0.6, spread: 0.5, up: 0.8, gravity: 0, size: 0.3,
+      });
+      const crumb = s.lswTrail?.[0];
+      if (crumb && !s.lswFlagA) {
+        this.particles.emit({
+          pos: { x: crumb.x, y: 0.2, z: crumb.z }, count: 1,
+          color: 0xffd870, speed: 0.2, life: 0.5, spread: 0.4, up: 0.6, gravity: 0, size: 0.35,
+        });
+      }
+    } else if (id === 'venatrix') {
+      // dry-leaf motes and a faint brass wink — the hunter's stillness
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.2, y: 0.2 + Math.random() * 1.0, z: s.pos.z + (Math.random() - 0.5) * 1.2 }, count: 1,
+        color: Math.random() < 0.6 ? 0x8f9e3a : 0xd8c86a, speed: 0.3, life: 0.7, spread: 0.5, up: 0.5, gravity: 0.8, size: 0.26,
+      });
+    } else if (id === 'vanguard') {
+      // brass sparks skittering off the raised shield
+      this.particles.emit({
+        pos: { x: s.pos.x + Math.cos(s.yaw) * 0.8, y: 0.8 + Math.random() * 0.8, z: s.pos.z + Math.sin(s.yaw) * 0.8 }, count: 1,
+        color: 0xe8d47a, speed: 1.2, life: 0.3, spread: 0.5, up: 0.8, gravity: 2, size: 0.22,
+      });
+    } else if (id === 'pyroclasm') {
+      // magma seeping — heavy orange gobbets that FALL and linger
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.2, y: 0.4 + Math.random() * 1.4, z: s.pos.z + (Math.random() - 0.5) * 1.2 }, count: 1,
+        color: Math.random() < 0.5 ? 0xff8c2a : 0xffc24a, speed: 0.5, life: 0.8, spread: 0.4, up: 0.4, gravity: 3, size: 0.4,
+      });
+    } else if (id === 'voidwalker') {
+      // shreds of shadow trailing off him — dark, quick, gone
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5), y: 0.4 + Math.random() * 1.4, z: s.pos.z + (Math.random() - 0.5) }, count: 1,
+        color: Math.random() < 0.7 ? 0x14171d : 0x3a4150, speed: 0.8, life: 0.4, spread: 0.8, up: 0.3, gravity: 0, size: 0.3,
+      });
+    } else if (id === 'crimson') {
+      // a fine red mist drawn INWARD — the field feeding him
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.6, y: 0.3 + Math.random() * 1.2, z: s.pos.z + (Math.random() - 0.5) * 1.6 }, count: 1,
+        color: Math.random() < 0.6 ? 0xa11d2e : 0x5c0f18, speed: 0.5, life: 0.6, spread: 0.3, up: 0.4, gravity: 0.5, size: 0.28,
+      });
+    } else if (id === 'mirage') {
+      // heat shimmer — gold air bending around something not quite there
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5), y: 0.5 + Math.random() * 1.5, z: s.pos.z + (Math.random() - 0.5) }, count: 1,
+        color: 0xd8b84a, speed: 0.4, life: 0.5, spread: 0.6, up: 0.9, gravity: -0.5, size: 0.24,
+      });
+    } else if (id === 'blitz') {
+      // speed lines — pale streaks shed behind his motion
+      this.particles.emit({
+        pos: { x: s.pos.x - s.vel.x * 0.08, y: 0.6 + Math.random() * 1.0, z: s.pos.z - s.vel.z * 0.08 }, count: 1,
+        color: 0xe8e2d0, speed: 0.3, life: 0.3, spread: 0.3, up: 0.2, gravity: 0, size: 0.26,
+      });
+    } else if (id === 'shadowstep') {
+      // barely there — a thin dark wisp only when he moves
+      if (Math.hypot(s.vel.x, s.vel.z) > 1) this.particles.emit({
+        pos: { x: s.pos.x, y: 0.4 + Math.random(), z: s.pos.z }, count: 1,
+        color: 0x2c342c, speed: 0.3, life: 0.35, spread: 0.4, up: 0.3, gravity: 0, size: 0.22,
+      });
+    } else if (id === 'specter') {
+      // mirror-fog — silvered motes that flicker in and out
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.4, y: 0.5 + Math.random() * 1.4, z: s.pos.z + (Math.random() - 0.5) * 1.4 }, count: 1,
+        color: Math.random() < 0.5 ? 0xbcc7cf : 0xe8eef2, speed: 0.4, life: 0.4, spread: 0.6, up: 0.5, gravity: 0, size: 0.24,
+      });
+    } else if (id === 'pulse') {
+      // sonar rings — teal motes pushed OUTWARD in beats
+      const beat = Math.floor(world.time * 2) % 2 === 0;
+      if (beat) this.particles.emit({
+        pos: { x: s.pos.x, y: 1.0, z: s.pos.z }, count: 2,
+        color: 0x5adfd0, speed: 2.4, life: 0.4, spread: 1.0, up: 0.1, gravity: 0, size: 0.22,
+      });
+    } else if (id === 'venom') {
+      // toxin drip — green beads that fall and sizzle
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.2, y: 0.6 + Math.random() * 1.2, z: s.pos.z + (Math.random() - 0.5) * 1.2 }, count: 1,
+        color: Math.random() < 0.6 ? 0x7fd43a : 0xb8f06a, speed: 0.4, life: 0.6, spread: 0.3, up: 0.2, gravity: 2.5, size: 0.26,
+      });
+    } else if (id === 'nightmare') {
+      // the darkness with edges — near-black motes that eat the light around him
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.6, y: 0.4 + Math.random() * 1.6, z: s.pos.z + (Math.random() - 0.5) * 1.6 }, count: 1,
+        color: Math.random() < 0.7 ? 0x10141c : 0x3a4356, speed: 0.5, life: 0.7, spread: 0.5, up: 0.4, gravity: 0.2, size: 0.36,
+      });
+    } else if (id === 'reaper') {
+      // grave-cold wisps trailing off the scythe arm
+      this.particles.emit({
+        pos: { x: s.pos.x + Math.cos(s.yaw) * 0.7, y: 0.9 + Math.random() * 0.9, z: s.pos.z + Math.sin(s.yaw) * 0.7 }, count: 1,
+        color: Math.random() < 0.5 ? 0x8a8f98 : 0xc6ccd6, speed: 0.4, life: 0.5, spread: 0.4, up: 0.5, gravity: 0.5, size: 0.26,
+      });
+    } else if (id === 'leviathan') {
+      // the ground remembers every footfall — dust rings at his feet
+      if (Math.hypot(s.vel.x, s.vel.z) > 0.5 || s.pos.y > 0.5) this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 2, y: 0.15, z: s.pos.z + (Math.random() - 0.5) * 2 }, count: 2,
+        color: Math.random() < 0.5 ? 0x3f6e6a : 0x6a5c48, speed: 0.7, life: 0.6, spread: 1.0, up: 0.4, gravity: 2, size: 0.3,
+      });
+    } else if (id === 'cataclysm') {
+      // basalt splitting — ember seams glow through the cracks
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.4, y: 0.3 + Math.random() * 1.4, z: s.pos.z + (Math.random() - 0.5) * 1.4 }, count: 1,
+        color: Math.random() < 0.5 ? 0xff7a30 : 0x7a4a30, speed: 0.5, life: 0.5, spread: 0.5, up: 0.5, gravity: 1, size: 0.26,
+      });
+    } else if (id === 'inferno') {
+      // a body that is partly fire — embers stream off him, more in a dive
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5), y: s.pos.y + 0.5 + Math.random() * 1.2, z: s.pos.z + (Math.random() - 0.5) }, count: 2,
+        color: Math.random() < 0.6 ? 0xff6a2a : 0xffc23a, speed: 1.2, life: 0.45, spread: 0.7, up: 1.4, gravity: -1, size: 0.26,
+      });
+    } else if (id === 'stormcaller') {
+      // static skitters around her — the air itself is charged
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.6, y: s.pos.y + 0.4 + Math.random() * 1.6, z: s.pos.z + (Math.random() - 0.5) * 1.6 }, count: 1,
+        color: Math.random() < 0.6 ? 0x9fd8ff : 0xffffff, speed: 2.0, life: 0.18, spread: 0.9, up: 0.6, gravity: 0, size: 0.2,
+      });
+    } else if (id === 'gargoyle') {
+      // grit sifting off stone skin — heavier when he moves
+      if (Math.hypot(s.vel.x, s.vel.z) > 0.5 || Math.random() < 0.3) this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5), y: s.pos.y + 0.3 + Math.random(), z: s.pos.z + (Math.random() - 0.5) }, count: 1,
+        color: Math.random() < 0.5 ? 0x8d8578 : 0x6e675c, speed: 0.4, life: 0.5, spread: 0.5, up: -0.2, gravity: 3, size: 0.22,
+      });
+    } else if (id === 'phantom') {
+      // the hover: pale motes sinking away beneath a body that never touches down
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 0.8, y: 0.15, z: s.pos.z + (Math.random() - 0.5) * 0.8 }, count: 1,
+        color: Math.random() < 0.7 ? 0xd9e4e6 : 0x9fb8bc, speed: 0.3, life: 0.7, spread: 0.3, up: -0.4, gravity: 0, size: 0.2,
+      });
+    } else if (id === 'crusher') {
+      // quarry dust shaken off with every stride
+      if (Math.hypot(s.vel.x, s.vel.z) > 1) this.particles.emit({
+        pos: { x: s.pos.x, y: 0.2 + Math.random() * 0.8, z: s.pos.z }, count: 1,
+        color: Math.random() < 0.5 ? 0xb0783a : 0x8a5f2e, speed: 0.5, life: 0.6, spread: 0.7, up: 0.6, gravity: 2, size: 0.34,
+      });
+    } else if (id === 'steelweaver') {
+      // weld sparks skittering off the worn panels
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5), y: 0.7 + Math.random() * 1.1, z: s.pos.z + (Math.random() - 0.5) }, count: 1,
+        color: Math.random() < 0.5 ? 0xffd88a : 0x9aa4b0, speed: 1.4, life: 0.25, spread: 0.6, up: 0.8, gravity: 3, size: 0.2,
+      });
+    } else if (id === 'overload') {
+      // live-wire arcs snapping around him — amber, quick, angry
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.2, y: 0.4 + Math.random() * 1.6, z: s.pos.z + (Math.random() - 0.5) * 1.2 }, count: 2,
+        color: Math.random() < 0.6 ? 0xffd23a : 0xfff2b0, speed: 2.2, life: 0.2, spread: 0.9, up: 1.0, gravity: 0, size: 0.22,
+      });
+    } else if (id === 'dominator') {
+      // crimson psychic tendrils reaching up and out — the puppeteer's threads
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.4, y: 0.8 + Math.random() * 1.6, z: s.pos.z + (Math.random() - 0.5) * 1.4 }, count: 1,
+        color: Math.random() < 0.5 ? 0xd83a5a : 0xf07a92, speed: 0.5, life: 0.6, spread: 0.5, up: 1.2, gravity: -0.5, size: 0.3,
+      });
     }
     // the LSW's VOICE: an Ascendant is an event you can HEAR coming. A
     // per-unit signature on a throttle (roar/hiss/whoosh), and it gets more
@@ -2005,7 +2236,7 @@ export class Renderer {
     const moving = speed > 0.6;
 
     // ---- death: ragdoll collapse + fade out ----
-    let alpha = s.cloaked ? 0.3 : 1;
+    let alpha = (s.cloaked ? 0.3 : 1) * ((mesh.userData.ghostAlpha as number | undefined) ?? 1);
     if (!s.alive) {
       // capture the pose + fall direction the instant the body first goes down
       let rag = mesh.userData.rag as RagState | undefined;
@@ -2314,7 +2545,8 @@ export class Renderer {
             const unseenEnemy = !!localS && e.soldierId !== localId && (!shooter
               ? true // puppet worlds: a culled shooter is one you genuinely can't see
               : shooter.team !== localS.team && !world.puppet &&
-                !seenRecently(world.lastSeen, world.pinged, localS.team, shooter, world.time, SEEN_LINGER));
+                !seenRecently(world.lastSeen, world.pinged, localS.team, shooter, world.time,
+                  classLinger(localS.classId, localS.equipment.includes('tracking_optics'))));
             if (unseenEnemy) this.spawnSmudge(e.pos, def.range <= 2.5 ? 1.5 : 3, world.time);
           }
 
@@ -2644,6 +2876,22 @@ export class Renderer {
             if (local && e.pos) {
               const d = Math.hypot(e.pos.x - local.pos.x, e.pos.z - local.pos.z);
               if (d < 18) this.camShake = Math.max(this.camShake, 0.35 * (1 - d / 18));
+            }
+          }
+          break;
+        }
+        case 'wallbreak': {
+          // DESTRUCTION: masonry breached to a rubble TILE — drop the wall,
+          // pile a knee-high breach (the tile is real cover now), dust + crash
+          if (e.tile !== undefined) this.collapseTile(e.tile);
+          if (e.pos) {
+            this.breachPile(e.pos.x, e.pos.z);
+            this.particles.emit({ pos: { ...e.pos, y: 1.8 }, count: 34, color: 0x8a7f6a, speed: 6, life: 0.9, spread: 1.3, up: 5, gravity: 7 });
+            if (!audio.play('explosion', { pos: e.pos, volume: 0.7 })) audio.play('impact_stone', { pos: e.pos, volume: 0.8 });
+            const local = world.soldiers.get(localId);
+            if (local) {
+              const d = Math.hypot(e.pos.x - local.pos.x, e.pos.z - local.pos.z);
+              if (d < 20) this.camShake = Math.max(this.camShake, 0.4 * (1 - d / 20));
             }
           }
           break;

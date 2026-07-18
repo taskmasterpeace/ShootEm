@@ -1,6 +1,6 @@
 import { CLASSES, DOG_STATS, VEHICLES, WEAPONS } from './data';
 import { GRID, T_CLIMB, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_OPEN, T_WATER, TILE, WORLD, isBlocked, losClear, tileAt } from './map';
-import type { ClassId, PlayerCmd, Soldier, Team, Vec3 } from './types';
+import { type ClassId, type PlayerCmd, type Soldier, type Team, type Vec3, isZed } from './types';
 import { DIFFICULTY_AIM, type World } from './world';
 
 const noCmd = (): PlayerCmd => ({
@@ -134,6 +134,9 @@ function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false, wheels = fal
 // ---------- target selection ----------
 
 function findTarget(w: World, s: Soldier, maxRange: number): Soldier | null {
+  // NIGHTMARE'S BLIND: no eyes, no targets — the ears (sound smudges) are
+  // all the client leaves you, exactly as §19.2 trained
+  if (s.blindUntil !== undefined && w.time < s.blindUntil) return null;
   let best: Soldier | null = null;
   let bestD = maxRange;
   for (const e of w.soldiers.values()) {
@@ -142,8 +145,14 @@ function findTarget(w: World, s: Soldier, maxRange: number): Soldier | null {
     if (e.cloaked && d > 9) continue; // cloaked infiltrators are invisible beyond close range
     // sightClear = walls AND smoke — a bot must not track through the cloud
     // a player just paid a grenade to stand up (Robert: smoke AFFECTS
-    // visibility, for every pair of eyes on the field)
-    if (d < bestD && w.sightClear(s.pos, e.pos)) {
+    // visibility, for every pair of eyes on the field). EXCEPT: an LSW is
+    // TOO BIG FOR SMOKE — the silhouette looms through its own fog (measured:
+    // Plaguebearer and Eclipse were immortal while their clouds blinded the
+    // answering squad). Walls still hide it.
+    const seen = e.ascendant !== undefined
+      ? losClear(w.map.grid, { x: s.pos.x, y: 1.4, z: s.pos.z }, { x: e.pos.x, y: 1.4, z: e.pos.z })
+      : w.sightClear(s.pos, e.pos);
+    if (d < bestD && seen) {
       best = e;
       bestD = d;
     }
@@ -201,9 +210,49 @@ function enemyTurretNear(w: World, team: Team, at: Vec3, maxRange: number): { po
   return best;
 }
 
+/** RESCUE (§11 row 4, D1.2 — Robert: "if you're behind enemy lines they
+ *  should come GET you"): a friendly CUT OFF — no living teammate within
+ *  24u and enemies pressing within 30u — gets a designated rescuer. */
+function isolatedFriendly(w: World, s: Soldier): Soldier | null {
+  let best: Soldier | null = null, bd = Infinity;
+  for (const f of w.soldiers.values()) {
+    if (!f.alive || f.team !== s.team || f.id === s.id || f.kind === 'dog' || isZed(f.kind)) continue;
+    let mates = 0, foes = 0;
+    for (const o of w.soldiers.values()) {
+      if (!o.alive || o.id === f.id || o.id === s.id) continue; // the rescuer doesn't count as company
+      const d = Math.hypot(o.pos.x - f.pos.x, o.pos.z - f.pos.z);
+      if (o.team === f.team && d < 24) mates++;
+      else if (o.team !== f.team && d < 30) foes++;
+    }
+    if (mates > 0 || foes === 0) continue; // has company, or isn't in trouble
+    const d = Math.hypot(f.pos.x - s.pos.x, f.pos.z - s.pos.z);
+    if (d < bd && d < 70) { bd = d; best = f; }
+  }
+  return best;
+}
+
+/** exactly ONE rescuer per victim — the nearest free bot takes the job and
+ *  the rest keep fighting the war (a dogpile rescue is a second casualty) */
+function amClosestRescuer(w: World, s: Soldier, vic: Soldier): boolean {
+  const myD = Math.hypot(vic.pos.x - s.pos.x, vic.pos.z - s.pos.z);
+  for (const o of w.soldiers.values()) {
+    if (!o.alive || o.team !== s.team || o.id === s.id || o.id === vic.id || o.kind !== 'bot') continue;
+    if (guardsHome(o) || o.ascendant) continue;
+    const d = Math.hypot(vic.pos.x - o.pos.x, vic.pos.z - o.pos.z);
+    if (d < myD || (d === myD && o.id < s.id)) return false;
+  }
+  return true;
+}
+
 export function objectiveFor(w: World, s: Soldier): Vec3 {
   const m = w.mode;
   const enemyBase = w.map.basePos[1 - s.team];
+  // RESCUE outranks the mode: guards keep the flag, everyone else can be
+  // the one who breaks off — but only the CLOSEST free bot actually does.
+  if (s.kind === 'bot' && !guardsHome(s) && !s.ascendant && s.carryingFlag < 0) {
+    const vic = isolatedFriendly(w, s);
+    if (vic && amClosestRescuer(w, s, vic)) return vic.pos;
+  }
   switch (m.id) {
     case 'ctf': {
       const enemyFlag = m.flags![1 - s.team];

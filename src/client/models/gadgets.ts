@@ -159,6 +159,22 @@ export function buildGadget(type: string, team: Team): THREE.Group {
       g.add(halo);
       break;
     }
+    case 'snap_trap': {
+      // VENATRIX'S TRAP — jaws low in the grass, and THE GLINT: one bright
+      // brass tooth that winks at anyone actually looking (the counter)
+      const jaw = mat(0x3a3d2a, { rough: 0.9 });
+      const base = cyl(0.45, 0.45, 0.06, jaw);
+      base.position.y = 0.03;
+      g.add(base);
+      const glint = mat(0xffe9a0, { emissive: 0xffd860 });
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2;
+        const tooth = box(0.06, 0.22, 0.06, i === 0 ? glint : jaw);
+        tooth.position.set(Math.cos(a) * 0.34, 0.14, Math.sin(a) * 0.34);
+        g.add(tooth);
+      }
+      return g;
+    }
     case 'smoke_field': {
       // billowing gray puffs
       for (let i = 0; i < 5; i++) {

@@ -1,4 +1,4 @@
-import { T_OPEN, losClear } from './map';
+import { T_OPEN, T_RUBBLE, losClear } from './map';
 import { SEEN_LINGER, SEEN_LINGER_GEARED, perceivesNow, seenRecently } from './perception';
 import type { WeatherState } from './weather';
 import type { Gadget, Mine, ModeId, ModeState, Pickup, Projectile, SimEvent, Soldier, ThemeId, Turret, Vehicle } from './types';
@@ -36,6 +36,8 @@ export interface Snapshot {
   smoked: number[];
   /** tile indices the tunneler has ground open (cumulative) */
   dug: number[];
+  /** DESTRUCTION: tile indices breached to rubble (cumulative, monotonic) */
+  breached: number[];
   /** door tiles that ever changed, with their CURRENT state packed in:
    *  idx*2 + (open ? 1 : 0) — cheap, cumulative, order-free */
   doors: number[];
@@ -81,6 +83,7 @@ export function takeSnapshot(w: World, events: SimEvent[]): Snapshot {
     pinged: [...w.pinged],
     smoked: [...w.smoked],
     dug: w.dug,
+    breached: w.breached,
     doors: w.doorChanges.map((idx) => idx * 2 + (w.map.grid[idx] === 6 /* T_DOOR_OPEN */ ? 1 : 0)),
     weather: { ...w.weather },
     events,
@@ -176,6 +179,12 @@ export function applySnapshot(w: World, snap: Snapshot) {
   w.pinged = new Set(snap.pinged);
   w.smoked = new Set(snap.smoked ?? []);
   if (snap.weather) w.weather = snap.weather;
+  // DESTRUCTION is cumulative too — breach the puppet's masonry to match.
+  // Rubble first, then dug: a pile that was later ground away ends OPEN.
+  if (snap.breached && snap.breached.length !== w.breached.length) {
+    for (const idx of snap.breached) if (w.map.grid[idx] !== T_OPEN) w.map.grid[idx] = T_RUBBLE;
+    w.breached = [...snap.breached];
+  }
   // tunneler damage is cumulative — grind the puppet's grid to match
   if (snap.dug && snap.dug.length !== w.dug.length) {
     for (const idx of snap.dug) w.map.grid[idx] = T_OPEN;

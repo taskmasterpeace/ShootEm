@@ -30,6 +30,18 @@ export const RING = 9;
 export const SEEN_LINGER = 1.5;
 export const SEEN_LINGER_GEARED = 3;
 
+/** §11 row 6 (Robert): "when you look away they should fade over 5s;
+ *  different classes see longer; the MAX is 5." The linger is per-VIEWER:
+ *  recon classes hold a lost contact longest, tracking optics buys more,
+ *  and nothing ever exceeds MAX_LINGER. The renderer dissolves the ghost
+ *  across this window instead of popping it. */
+export const MAX_LINGER = 5;
+const CLASS_LINGER: Record<string, number> = { ghost: 5, infiltrator: 4, pathfinder: 3.5 };
+export function classLinger(classId: string, hasOptics: boolean): number {
+  const base = CLASS_LINGER[classId] ?? 2.5;
+  return Math.min(MAX_LINGER, base + (hasOptics ? 1.5 : 0));
+}
+
 /** One team's memory of one enemy: when last perceived, and WHERE — the
  *  ghost freezes at the spot you lost them, never trailing their live path. */
 export interface SeenMark { t: number; x: number; z: number }
@@ -80,7 +92,9 @@ export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<numb
   // and a stalker behind your back past the ring is NOT
   return eyes.some((e) =>
     eyeSees(e, s.pos.x, s.pos.z, range) &&
-    !smokeBlocks(e.pos.x, e.pos.z, s.pos.x, s.pos.z, smokes) &&
+    // an LSW is TOO BIG FOR SMOKE — the silhouette looms through the fog
+    // (walls still hide it; an unanswerable boss is a griefer we wrote)
+    (s.ascendant !== undefined || !smokeBlocks(e.pos.x, e.pos.z, s.pos.x, s.pos.z, smokes)) &&
     losClear(grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x: s.pos.x, y: 1.4, z: s.pos.z }));
 }
 
