@@ -364,6 +364,11 @@ export interface Vehicle {
   infectedUntil?: number;
   infectedTeam?: Team;
   nextInfectTrailAt?: number;
+  /** Volt Striker's OVERLOAD: at this sim time the hull detonates — UNLESS
+   *  every crew member has bailed, in which case it fizzles. The 2s gamble. */
+  overloadAt?: number;
+  overloadBy?: number;
+  overloadTeam?: Team;
 }
 
 export interface Turret {

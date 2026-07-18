@@ -856,10 +856,16 @@ export class World {
       this.damageSoldier(e, dmg[i] ?? 30, s.id, 'rg2');
       this.emit({ type: 'emp', pos: { ...e.pos } });
     });
-    if (veh) {
-      veh.stunnedUntil = Math.max(veh.stunnedUntil, this.time + 2);
-      this.damageVehicle(veh, 90, s.id, 'rg2');
+    if (veh && veh.overloadAt === undefined) {
+      // THE FULL OVERLOAD (the doc's exact gamble): the hull seizes and a 2s
+      // fuse starts — it DETONATES unless every crew member bails. Exiting is
+      // never blocked by the stun; the stun only kills the escape-by-driving.
+      veh.stunnedUntil = Math.max(veh.stunnedUntil, this.time + 2.2);
+      veh.overloadAt = this.time + 2;
+      veh.overloadBy = s.id;
+      veh.overloadTeam = s.team;
       this.emit({ type: 'emp', pos: { ...veh.pos } });
+      this.emit({ type: 'beacon_planted', pos: { ...veh.pos }, soldierId: s.id, text: 'OVERLOADED — BAIL OUT' });
     }
     this.emit({ type: 'lsw_active', pos: { ...s.pos }, text: 'voltstriker', soldierId: s.id });
     this.emit({ type: 'vo', text: 'vo_voltstriker_ability', pos: { ...s.pos }, soldierId: s.id });
@@ -1499,6 +1505,21 @@ export class World {
     // possessed machines come home when the hold expires (§4.4 #4)
     for (const t of this.turrets.values()) {
       if (t.possessedUntil !== undefined && this.time >= t.possessedUntil) this.evictPossession(t);
+    }
+    // the overload fuses: at the 2s mark the hull DETONATES — unless the
+    // crew bailed, in which case the charge fizzles and the armor survives
+    for (const v of this.vehicles.values()) {
+      if (v.overloadAt === undefined) continue;
+      if (!v.alive || this.time < v.overloadAt) { if (!v.alive) v.overloadAt = undefined; continue; }
+      const crewed = v.seats.some((i) => i >= 0);
+      const by = v.overloadBy ?? -1, team = v.overloadTeam ?? 1;
+      v.overloadAt = undefined; v.overloadBy = undefined; v.overloadTeam = undefined;
+      if (crewed) {
+        this.damageVehicle(v, 500, by, 'rg2'); // the gamble lost — the hull goes
+        this.explode({ ...v.pos }, WEAPONS.gl, by, team);
+      } else {
+        this.emit({ type: 'emp', pos: { ...v.pos } }); // bailed in time — a fizzle
+      }
     }
     // the plague wagons: an infected hull that DRIVES trails poison behind it
     for (const v of this.vehicles.values()) {

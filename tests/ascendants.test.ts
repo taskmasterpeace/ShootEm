@@ -318,14 +318,38 @@ describe('Volt Striker — chain lightning', () => {
     expect(hurt, 'the chain did not arc through the cluster').toBeGreaterThanOrEqual(2);
   });
 
-  it('the nearest enemy hull seizes and takes a bite (partial overload)', () => {
+  it('the overload arms a 2s fuse and seizes the hull', () => {
     const w = quiet();
     const vs = w.addLsw('voltstriker', 0, { x: 0, y: 0, z: 0 })!;
     const v = w.spawnVehicle('tank', 1, { x: 6, y: 0, z: 0 });
-    const hp0 = v.hp;
     w.applyCmd(vs, cmd({ ability: true }), 1 / 60);
-    expect(v.hp, 'the hull ignored the overload').toBeLessThan(hp0);
-    expect(v.stunnedUntil, 'the hull was not seized').toBeGreaterThan(w.time);
+    expect(v.overloadAt, 'no fuse was armed').toBeGreaterThan(w.time);
+    expect(v.stunnedUntil, 'the hull can still drive away').toBeGreaterThan(w.time);
+  });
+
+  it('crew that STAYS loses the gamble — the hull detonates at the fuse', () => {
+    const w = quiet();
+    const vs = w.addLsw('voltstriker', 0, { x: 0, y: 0, z: 0 })!;
+    vs.pos = { x: -40, y: 0, z: -40 }; // out of his own blast's way
+    const v = w.spawnVehicle('tank', 1, { x: 6, y: 0, z: 0 });
+    const crew = w.addSoldier('C', 'infantry', 1, 'bot');
+    v.seats[0] = crew.id; crew.vehicleId = v.id; crew.seat = 0;
+    v.overloadAt = w.time + 0.2; v.overloadBy = vs.id; v.overloadTeam = 0;
+    const hp0 = v.hp;
+    for (let i = 0; i < 30; i++) w.step(1 / 60, new Map());
+    expect(v.hp, 'the crewed hull rode out the fuse unhurt').toBeLessThan(hp0 - 300);
+    expect(v.overloadAt, 'the fuse must clear after firing').toBeUndefined();
+  });
+
+  it('crew that BAILS wins it — the charge fizzles and the armor survives', () => {
+    const w = quiet();
+    const v = w.spawnVehicle('tank', 1, { x: 6, y: 0, z: 0 });
+    v.overloadAt = w.time + 0.2; v.overloadBy = -1; v.overloadTeam = 0; // nobody aboard
+    const hp0 = v.hp;
+    for (let i = 0; i < 30; i++) w.step(1 / 60, new Map());
+    expect(v.hp, 'the empty hull was punished anyway').toBe(hp0);
+    expect(v.alive).toBe(true);
+    expect(v.overloadAt).toBeUndefined();
   });
 
   it('a true whiff — nothing in reach — keeps the key hot', () => {
