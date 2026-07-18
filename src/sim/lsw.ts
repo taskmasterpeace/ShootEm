@@ -223,6 +223,17 @@ export const LSWS: Record<AscendantId, LswDef> = {
     scale: 1.4, speed: 7, color: 0xd83a5a, // commanding crimson-rose (no purple)
     activeLabel: 'PSYCHIC LINK — chain them; hurt one, hurt all', activeCd: 8,
   },
+  riptide: {
+    id: 'riptide', name: 'Riptide', faction: 0, threat: 2,
+    lines: {
+      inbound: 'RIPTIDE INBOUND — HIGH GROUND, NOW',
+      landed: 'RIPTIDE ON THE FIELD — THE TIDE FIGHTS FOR US',
+      down: 'RIPTIDE IS DOWN — THE WATER STILLS',
+      rampage: 'FIVE KILLS — RIPTIDE IS DROWNING THE FIELD',
+    },
+    scale: 1.3, speed: 8, color: 0x2fa8c8, // sea-teal, whitecap trim
+    activeLabel: 'THE WAVE — shove the line back and douse every flame', activeCd: 6,
+  },
 };
 
 /** THE SPOKEN SCRIPT — subtitle text per voice slot, tag-stripped mirrors of
@@ -306,6 +317,11 @@ export const VO_LINES: Record<string, { who: AscendantId; line: string }> = {
   vo_dominator_ability: { who: 'dominator', line: 'Feel each other.' },
   vo_dominator_low: { who: 'dominator', line: 'My grip... slips.' },
   vo_dominator_death: { who: 'dominator', line: 'You were... mine.' },
+  vo_riptide_arrive: { who: 'riptide', line: 'Tide’s coming in.' },
+  vo_riptide_kill3: { who: 'riptide', line: 'Three, out with the tide.' },
+  vo_riptide_ability: { who: 'riptide', line: 'Everybody out of the pool.' },
+  vo_riptide_low: { who: 'riptide', line: 'Running... dry.' },
+  vo_riptide_death: { who: 'riptide', line: 'The sea... takes me back.' },
 };
 export const voSlot = (id: AscendantId, moment: VoMoment) => `vo_${id}_${moment}`;
 export const annSlot = (id: AscendantId, moment: 'inbound' | 'landed' | 'down' | 'rampage') => `ann_${id}_${moment}`;

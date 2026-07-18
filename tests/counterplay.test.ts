@@ -198,3 +198,17 @@ describe('counterplay, proven — the doc column holds for every unit', () => {
     expect(b.psiLinkId).toBeUndefined();
   });
 });
+
+describe('counterplay — wave 2 rows', () => {
+  it('RIPTIDE — "leave the painted circle early": outside the circle, the pull never touches you', () => {
+    const w = quiet();
+    const r = w.addLsw('riptide', 0, { x: 0, y: 0, z: 0 })!; r.yaw = 0;
+    const e = w.addSoldier('E', 'infantry', 1, 'human');
+    e.pos = { x: 30, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0; // left early — 20u past the eye
+    r.nextLswAt = w.time + 999; r.nextLswActiveAt = 0;
+    w.step(1 / 60, new Map([[e.id, cmd()]]));
+    e.pushX = 0; e.pushZ = 0;
+    for (let i = 0; i < 30; i++) w.step(1 / 60, new Map([[e.id, cmd()]]));
+    expect(Math.abs(e.pushX) + Math.abs(e.pushZ), 'the whirlpool reached a man who left the circle').toBe(0);
+  });
+});

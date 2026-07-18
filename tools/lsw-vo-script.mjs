@@ -102,6 +102,12 @@ export const CAST = {
     persona: 'Dominator, a Collective Living Super Weapon and the stable\'s FINALE — a levitating psychic puppeteer who treats enemy soldiers as his own limbs. Deep, imperious, resonant, unbearably calm; he never asks, he simply decides, and your body agrees.',
     scene: 'A low psychic resonance, like a struck bell held too long. Threads of force humming taut.',
   },
+  riptide: {
+    voice: 'Despina',
+    fx: 'none', // easy and rolling — the surf carries it
+    persona: 'Riptide, a United Front Living Super Weapon — a lifeguard the ocean kept. Easy, rolling, unhurried; the good humor of someone who has pulled a hundred people out of the water and thrown a hundred more back in. The counter-pick to every flame.',
+    scene: 'Surf rolling in. Water sheeting off armor. A fire dying with a hiss somewhere close.',
+  },
   announcer: {
     voice: 'Orus',
     fx: 'radio', // 300–3400Hz military net + soft clip
@@ -216,6 +222,12 @@ export const VO = [
   { slot: 'vo_dominator_ability', who: 'dominator', text: '[commanding] Feel each other.', notes: ['Said as the threads bind a squad into one nerve.'] },
   { slot: 'vo_dominator_low', who: 'dominator', text: '[straining] My grip... slips.', notes: ['The imperious calm cracks — control is everything to him.'] },
   { slot: 'vo_dominator_death', who: 'dominator', text: '[disbelieving] You were... mine.', notes: ['He cannot understand losing what he owned.', 'Fading, affronted.'] },
+  // ---- RIPTIDE: the lifeguard the ocean kept ----
+  { slot: 'vo_riptide_arrive', who: 'riptide', text: "[easy] Tide's coming in.", notes: ['Relaxed, almost pleased — the water does the work.', 'A smile you can hear.'] },
+  { slot: 'vo_riptide_kill3', who: 'riptide', text: 'Three, [short pause] out with the tide.', notes: ['Matter-of-fact, like reading the surf report.'] },
+  { slot: 'vo_riptide_ability', who: 'riptide', text: '[calling out] Everybody out of the pool.', notes: ['The lifeguard line, weaponized.', 'Said as the wave breaks.'] },
+  { slot: 'vo_riptide_low', who: 'riptide', text: '[strained] Running... dry.', notes: ['The first crack in the easy humor.'] },
+  { slot: 'vo_riptide_death', who: 'riptide', text: '[fading] The sea... takes me back.', notes: ['Peaceful — a return, not a loss.', 'The surf swallows the last word.'] },
 ];
 
 /** The announcer — map-wide, both teams, radio net. */
@@ -280,6 +292,10 @@ export const ANN = [
   { slot: 'ann_dominator_landed', text: 'DOMINATOR ON THE FIELD. YOUR FORMATION IS HIS WEAPON.' },
   { slot: 'ann_dominator_down', text: 'DOMINATOR IS DOWN. THE THREADS SNAP.' },
   { slot: 'ann_dominator_rampage', text: 'FIVE KILLS. DOMINATOR PULLS EVERY STRING.' },
+  { slot: 'ann_riptide_inbound', text: 'RIPTIDE INBOUND. [short pause] HIGH GROUND, NOW.' },
+  { slot: 'ann_riptide_landed', text: 'RIPTIDE ON THE FIELD. THE TIDE FIGHTS FOR US.' },
+  { slot: 'ann_riptide_down', text: 'RIPTIDE IS DOWN. THE WATER STILLS.' },
+  { slot: 'ann_riptide_rampage', text: 'FIVE KILLS. RIPTIDE IS DROWNING THE FIELD.' },
 ];
 
 export const ANN_NOTES = [

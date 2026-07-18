@@ -929,3 +929,55 @@ describe('the spoken script', () => {
     expect(evs.some((e) => e.type === 'vo' && e.text === 'ann_ragebeast_inbound' && !e.pos)).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// RIPTIDE — both abilities ride the shared FORCE FIELDS: the wave is a
+// directional current + a fire purge; the whirlpool is a pull, doubled on
+// real water.
+// ---------------------------------------------------------------------------
+describe('Riptide — the wave and the whirlpool', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('the wave shoves the line back AND extinguishes every flame in its path', () => {
+    const w = quiet();
+    const r = w.addLsw('riptide', 0, { x: 0, y: 0, z: 0 })!; r.yaw = 0;
+    const e = w.addSoldier('E', 'infantry', 1, 'human');
+    e.pos = { x: 8, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    w.spawnGadget('fire_field', 1, -1, { x: 10, y: 0, z: 0 }, Infinity, 9); // an enemy flame in the corridor
+    w.applyCmd(r, cmd({ ability: true }), 1 / 60);
+    e.pushX = 0;
+    w.step(1 / 60, new Map());
+    expect(e.pushX, 'the wave did not carry him with the current').toBeGreaterThan(0);
+    expect([...w.gadgets.values()].some((g) => g.type === 'fire_field'),
+      'the flame survived the wave — the douse is dead').toBe(false);
+  });
+
+  it('the whirlpool pulls — and DOUBLES on real water', () => {
+    const w = quiet();
+    const r = w.addLsw('riptide', 0, { x: 0, y: 0, z: 0 })!;
+    // dry-land whirlpool via the bot's slow play: force the cadence
+    const e = w.addSoldier('E', 'infantry', 1, 'human');
+    e.pos = { x: 10, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    r.nextLswAt = w.time + 999; // silence the wave; the whirlpool is on trial
+    r.nextLswActiveAt = 0;
+    w.step(1 / 60, new Map([[e.id, cmd()]]));
+    const dry = w.forceFields.find((f) => f.radial < 0);
+    expect(dry, 'no whirlpool was painted').toBeTruthy();
+    expect(dry!.radial).toBe(-4);
+    // now the same cast over water
+    const w2 = quiet();
+    const r2 = w2.addLsw('riptide', 0, { x: 0, y: 0, z: 0 })!;
+    const GRID_N = Math.sqrt(w2.map.grid.length) | 0;
+    const T_WATER_ID = 3;
+    // flood the tile 10u down his aim
+    const tx = Math.floor((10 + 150) / (300 / GRID_N)), tz = Math.floor((0 + 150) / (300 / GRID_N));
+    w2.map.grid[tz * GRID_N + tx] = T_WATER_ID;
+    const e2 = w2.addSoldier('E', 'infantry', 1, 'human');
+    e2.pos = { x: 10, y: 0, z: 0 }; e2.alive = true; e2.protectedUntil = 0;
+    r2.yaw = 0; r2.nextLswAt = w2.time + 999; r2.nextLswActiveAt = 0;
+    w2.step(1 / 60, new Map([[e2.id, cmd()]]));
+    const wet = w2.forceFields.find((f) => f.radial < 0);
+    expect(wet, 'no whirlpool over water').toBeTruthy();
+    expect(wet!.radial, 'water must DOUBLE the pull').toBe(-8);
+  });
+});

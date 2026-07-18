@@ -2014,6 +2014,13 @@ export class Renderer {
         pos: { x: s.pos.x + (Math.random() - 0.5) * 1.6, y: 0.4 + Math.random() * 1.8, z: s.pos.z + (Math.random() - 0.5) * 1.6 }, count: 1,
         color: Math.random() < 0.5 ? 0x1a222a : 0x3d5566, speed: 0.4, life: 0.9, spread: 0.6, up: 0.3, gravity: 0.3, size: 0.5,
       });
+    } else if (id === 'riptide') {
+      // sea spray — teal and whitecap mist curling off him
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.2, y: 0.3 + Math.random() * 1.4, z: s.pos.z + (Math.random() - 0.5) * 1.2 }, count: 1,
+        color: Math.random() < 0.5 ? 0x2fa8c8 : 0xdff4fa, speed: 0.7, life: 0.7,
+        spread: 0.7, up: 1.0, gravity: 1, size: 0.38,
+      });
     } else if (id === 'dominator') {
       // crimson psychic tendrils reaching up and out — the puppeteer's threads
       this.particles.emit({
