@@ -1,6 +1,6 @@
 import { CLASSES, DOG_NAMES, DOG_STATS, EQUIPMENT, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
-import { CLIMB_H, DRILL_EATS, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
+import { CLIMB_H, DRILL_EATS, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_RUBBLE, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
 import { Rng } from './rng';
 import {
   SYSTEM_IDS, isCoopMode, isZed,
@@ -143,6 +143,11 @@ export class World {
   smoked = new Set<number>();
   /** tile indices the tunneler has ground to rubble (replicated to clients) */
   dug: number[] = [];
+  /** DESTRUCTION (the shared mechanic): tile indices breached to T_RUBBLE —
+   *  walkable-slow knee cover. Replicated like dug; monotonic (only opens). */
+  breached: number[] = [];
+  /** running damage ledger for masonry under fire, keyed by tile index */
+  private wallHp = new Map<number, number>();
   nextPodAt = 75;
   events: SimEvent[] = [];
   /** LIVE FEEL KNOBS (Robert's global speed control) — 1 = the shipped feel.
@@ -234,6 +239,41 @@ export class World {
       type: 'dig', tile: idx,
       pos: { x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 },
     });
+  }
+
+  /** DESTRUCTION — the tile-state ladder: intact → (damaged) → RUBBLE → gone.
+   *  The three laws (docs/ASCENDANTS.md shared mechanics):
+   *   · TIERED: soft cover breaks under any real splash; STRUCTURAL walls,
+   *     slits and barricades breach only under HEAVY sources (120mm-class,
+   *     demo charges, the drill, Titan); METAL and the map rim never break.
+   *   · MONOTONIC: a breach is walkable rubble — destruction only ever OPENS
+   *     paths, so the fronts' reachability law survives any sequence.
+   *   · ONE SEAM: damage arrives here from the same explode() every shell
+   *     already uses; sight/movement change purely by the tile's new type. */
+  damageWall(tx: number, tz: number, dmg: number, heavy: boolean) {
+    if (tx < 1 || tz < 1 || tx >= GRID - 1 || tz >= GRID - 1) return; // the rim holds, always
+    const idx = tz * GRID + tx;
+    const t = this.map.grid[idx];
+    const soft = t === T_COVER;
+    const structural = t === T_WALL || t === T_SLIT || t === T_CLIMB;
+    const rubble = t === T_RUBBLE;
+    if (!soft && !structural && !rubble) return;         // metal/doors/water: not this system's food
+    if ((structural || rubble) && !heavy) return;        // masonry shrugs off small arms
+    const maxHp = soft ? 80 : structural ? 300 : 120;    // rubble grinds away under sustained heavy fire
+    const hp = (this.wallHp.get(idx) ?? maxHp) - dmg;
+    if (hp > 0) { this.wallHp.set(idx, hp); return; }    // damaged, still standing
+    this.wallHp.delete(idx);
+    const pos = { x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 };
+    if (rubble) {
+      // the pile itself dies — gone, open ground (rides the dug wire)
+      this.map.grid[idx] = T_OPEN;
+      this.dug.push(idx);
+      this.emit({ type: 'dig', tile: idx, pos });
+    } else {
+      this.map.grid[idx] = T_RUBBLE;
+      this.breached.push(idx);
+      this.emit({ type: 'wallbreak', tile: idx, pos });
+    }
   }
 
   id(): number { return this.nextId++; }
@@ -2535,7 +2575,8 @@ export class World {
     // water drags EVERYONE the same way — players, bots, the horde: wading
     // is slow, swimming is slower (and swimming means no trigger finger)
     const tHere = tileAt(this.map.grid, s.pos.x, s.pos.z);
-    const waterMult = tHere === T_DEEP ? 0.38 : tHere === T_WATER ? 0.55 : 1;
+    // …and rubble drags at the boots the same way: a breach is a lane, not a road
+    const waterMult = tHere === T_DEEP ? 0.38 : tHere === T_WATER ? 0.55 : tHere === T_RUBBLE ? 0.6 : 1;
     const nx = s.pos.x + (s.vel.x + s.pushX) * waterMult * dt;
     const nz = s.pos.z + (s.vel.z + s.pushZ) * waterMult * dt;
     // §8.7 the jump vocabulary: every barrier is a HEIGHT, and your boots
@@ -3467,11 +3508,16 @@ export class World {
         for (let tx = Math.max(1, ctx - r); tx <= Math.min(GRID - 2, ctx + r); tx++) {
           const idx = tz * GRID + tx;
           const g = this.map.grid[idx];
-          if (g !== T_DOOR && g !== T_DOOR_OPEN) continue;
           const d = Math.hypot((tx + 0.5) * TILE - WORLD / 2 - pos.x, (tz + 0.5) * TILE - WORLD / 2 - pos.z);
-          if (d < def.splash + TILE * 0.5) {
+          if (d >= def.splash + TILE * 0.5) continue;
+          if (g === T_DOOR || g === T_DOOR_OPEN) {
             // ×1.5: dumb wood takes a blast worse than a dodging soldier does
             this.damageDoor(idx, (def.splashDamage + def.damage * 0.5) * 1.5 * (1 - d / (def.splash + TILE)), ownerId);
+          } else {
+            // DESTRUCTION: masonry in the blast takes the same ledger hit.
+            // HEAVY (120mm-class, damage ≥ 100) breaches structure; anything
+            // with real splash chips soft cover. damageWall sorts the tiers.
+            this.damageWall(tx, tz, (def.splashDamage + def.damage * 0.5) * (1 - d / (def.splash + TILE)), def.damage >= 100);
           }
         }
       }

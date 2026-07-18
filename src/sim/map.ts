@@ -25,6 +25,10 @@ export const T_CLIMB = 10;     // §8.7 CLIMB tier: a 2.5u container wall/barric
                                // Blocks boots and blocks fire below the lip — but a
                                // jump trooper's jet carries OVER it. Hop can't (apex
                                // ~1.1); nobody hops a 4u wall. Obstacles as verbs.
+export const T_RUBBLE = 11;    // DESTRUCTION (the shared mechanic): breached masonry.
+                               // Walkable — SLOW — for both sides, knee-high cover,
+                               // eyes see over it. The monotonic law: destruction only
+                               // ever OPENS paths, so reachability never re-runs.
 
 /** §8.7 heights, one place: what each tier stops below. HOP-tier cover at
  *  1.2, CLIMB barricades at 2.5, WALL at 4 — the tiers separate cleanly:
@@ -32,13 +36,14 @@ export const T_CLIMB = 10;     // §8.7 CLIMB tier: a 2.5u container wall/barric
 export const COVER_H = 1.2;
 export const CLIMB_H = 2.5;
 export const WALL_H = 4;
+export const RUBBLE_H = 0.6;   // a breach pile: stops rounds at the shins, not the eyes
 
 /** What the breacher's drill grinds to rubble — the ONE authoritative menu,
  *  shared by the sim (digTile + drill face) and the harness Terrain tab.
  *  Structure is dinner: walls, cover, slits, doors, CLIMB barricades. Not
  *  on the menu: METAL (sparks, zero progress), water (nothing to eat),
  *  ladders, open ground, and the map border. */
-export const DRILL_EATS: ReadonlySet<number> = new Set([T_WALL, T_COVER, T_SLIT, T_DOOR, T_DOOR_OPEN, T_CLIMB]);
+export const DRILL_EATS: ReadonlySet<number> = new Set([T_WALL, T_COVER, T_SLIT, T_DOOR, T_DOOR_OPEN, T_CLIMB, T_RUBBLE]);
 
 // ---- the SURFACE layer (§8.6): what the ground IS, orthogonal to blocking ----
 export const S_DIRT = 0;   // bare rock/dirt — the neutral surface
@@ -187,6 +192,7 @@ export function blocksShot(grid: Uint8Array, x: number, z: number, y: number): b
   if (t === T_DOOR) return y < 2.2;      // a closed door stops rounds and eyes
   if (t === T_METAL) return y < WALL_H;  // metal walls are walls
   if (t === T_CLIMB) return y < CLIMB_H; // §8.7: rounds clear the lip at 2.5
+  if (t === T_RUBBLE) return y < RUBBLE_H; // a breach pile: shin cover, eyes clear
   return false;
 }
 

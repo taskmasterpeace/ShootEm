@@ -186,17 +186,31 @@ The flagship mechanic. Build it **once**, correctly:
 `visionShrink` (the perception budget is already a number — crush it) ·
 `damageLink` (Dominator) · `mark` (double damage, shown on the victim's HUD).
 
-### 4.4 The five shared mechanics that unlock 17 LSWs
-1. **ENCASE** → Frostbite ⭐, Venatrix (+ future stasis). *Build first.*
+### 4.4 The shared mechanics that unlock 17 LSWs
+1. **ENCASE** ✅ → Frostbite ⭐, Venatrix (+ future stasis). *Shipped.*
 2. **FORCE FIELDS** (radial/directional velocity applied in the soldier +
    projectile step) → Gravity Warden, Riptide, Oblivion, Stormcaller's
-   tornado, Magnetar's halo. **One system, five LSWs.**
+   tornado, Magnetar's halo. **One system, five LSWs.** *(Oblivion's black
+   hole and Magnetar's halo ship the pattern piecemeal — the generalized
+   field system is still open.)*
 3. **TIME FIELDS** → Chronos. Zone speed *multipliers* for movement and
    projectiles — never clock manipulation (the sim stays deterministic 30Hz).
 4. **MACHINE POSSESSION** → Phantom, Wraith. Generalize the hacked-turret
    flip to vehicles/bots + timer + EMP eviction. **Never humans — law.**
+   *(Wraith ships the turret flip + hull stall; drive/bot-take still open.)*
 5. **TRUE FLIGHT AI** → Inferno, Stormcaller, Gargoyle (exactly the three
    fliers). Most engine-ish; schedule after the roster has legs.
+6. **DESTRUCTION** ✅ (2026-07-17) → Titan, Crusher, Tremor, Leviathan (+
+   every tank). *Shipped as tile-state, not physics:* masonry carries an HP
+   ledger (`damageWall`); the ladder runs intact → damaged → **T_RUBBLE**
+   (walkable-SLOW, knee cover, eyes clear) → gone. **TIERED** — soft cover
+   breaks under real splash, STRUCTURAL walls breach only under HEAVY fire
+   (damage ≥ 100: the 120mm, demo charges; grenades never), METAL and the rim
+   never break. **MONOTONIC** — destruction only ever OPENS paths, so the
+   fronts' reachability law survives any sequence by construction. Breaches
+   ride the wire like `dug` (`World.breached` → snapshot). Debris is
+   renderer-side, pooled, capped at 240 chunks. Live-proven: three tank
+   shells breached a house wall and a soldier walked through the hole.
 
 ---
 

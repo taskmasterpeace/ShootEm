@@ -476,6 +476,7 @@ export interface SimEvent {
     | 'door'           // a door swung (open or shut) — E did it
     | 'doorhit'        // something is BANGING on a door — claws, blasts
     | 'doorbreak'      // a door gave way — splinters, planks, a hole
+    | 'wallbreak'      // DESTRUCTION: masonry breached to rubble — dust, chunks, a new lane
     | 'ladder'         // someone climbed between storeys
     | 'sparks'         // the breacher's drill met METAL — sparks, no progress
     | 'hacked'         // hacking kit converted an enemy turret

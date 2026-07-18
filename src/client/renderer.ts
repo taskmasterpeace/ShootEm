@@ -221,6 +221,32 @@ export class Renderer {
   }
 
   /** Hide the wall/cover instance on a dug tile (scale to zero). */
+  /** DESTRUCTION: a knee-high pile where masonry died — the visible face of a
+   *  T_RUBBLE tile. Rides the same capped `rubble` pool as tunneler chunks. */
+  private breachPile(x: number, z: number) {
+    for (let ri = 0; ri < 6; ri++) {
+      const sz = 0.4 + Math.random() * 0.55;
+      const chunk = new THREE.Mesh(
+        new THREE.BoxGeometry(sz, sz * 0.7, sz * 0.85),
+        this.rubbleMat ?? (this.rubbleMat = new THREE.MeshStandardMaterial({ color: 0x6f6656, roughness: 0.95 })),
+      );
+      chunk.position.set(
+        x + (Math.random() - 0.5) * TILE * 0.85,
+        sz * 0.3 + (ri % 2) * 0.18, // a real PILE, not a scatter — some chunks ride others
+        z + (Math.random() - 0.5) * TILE * 0.85,
+      );
+      chunk.rotation.set(Math.random() * 0.6, Math.random() * Math.PI, Math.random() * 0.6);
+      chunk.castShadow = true;
+      this.scene.add(chunk);
+      this.rubble.push(chunk);
+    }
+    while (this.rubble.length > 240) {
+      const old = this.rubble.shift()!;
+      this.scene.remove(old);
+      old.geometry.dispose();
+    }
+  }
+
   collapseTile(tileIdx: number) {
     const zero = new THREE.Matrix4().makeScale(0.0001, 0.0001, 0.0001);
     const wi = this.wallInstanceByTile.get(tileIdx);
@@ -858,6 +884,13 @@ export class Renderer {
 
     // walls the sim already dug (mid-match join) come down immediately
     for (const idx of world.dug) this.collapseTile(idx);
+    // DESTRUCTION: breached tiles arrive as knee-high piles (late joins too)
+    for (const idx of world.breached) {
+      this.collapseTile(idx);
+      if (world.map.grid[idx] !== T_OPEN) {
+        this.breachPile((idx % GRID + 0.5) * TILE - WORLD / 2, (Math.floor(idx / GRID) + 0.5) * TILE - WORLD / 2);
+      }
+    }
 
     // props
     for (const p of world.map.props) {
@@ -2676,6 +2709,22 @@ export class Renderer {
             if (local && e.pos) {
               const d = Math.hypot(e.pos.x - local.pos.x, e.pos.z - local.pos.z);
               if (d < 18) this.camShake = Math.max(this.camShake, 0.35 * (1 - d / 18));
+            }
+          }
+          break;
+        }
+        case 'wallbreak': {
+          // DESTRUCTION: masonry breached to a rubble TILE — drop the wall,
+          // pile a knee-high breach (the tile is real cover now), dust + crash
+          if (e.tile !== undefined) this.collapseTile(e.tile);
+          if (e.pos) {
+            this.breachPile(e.pos.x, e.pos.z);
+            this.particles.emit({ pos: { ...e.pos, y: 1.8 }, count: 34, color: 0x8a7f6a, speed: 6, life: 0.9, spread: 1.3, up: 5, gravity: 7 });
+            if (!audio.play('explosion', { pos: e.pos, volume: 0.7 })) audio.play('impact_stone', { pos: e.pos, volume: 0.8 });
+            const local = world.soldiers.get(localId);
+            if (local) {
+              const d = Math.hypot(e.pos.x - local.pos.x, e.pos.z - local.pos.z);
+              if (d < 20) this.camShake = Math.max(this.camShake, 0.4 * (1 - d / 20));
             }
           }
           break;
