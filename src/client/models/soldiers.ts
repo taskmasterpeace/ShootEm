@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { TEAM_COLORS } from '../../sim/data';
 import { zombieArmRest } from '../animation';
+import { solveGlbGrip, solveTwoHandedGrip } from './grip';
 import type { ClassId, SoldierKind, Team } from '../../sim/types';
 import { box, cyl, limb, mat } from './shared';
 
@@ -123,11 +124,8 @@ function buildGlbTrooper(src: THREE.Group, classId: ClassId): THREE.Group {
     if (o instanceof THREE.Mesh) o.material = (o.material as THREE.Material).clone();
   });
   g.add(body);
-  // rifle-hold rest pose — the run cycle swings around these bases
   const armR = body.getObjectByName('armR');
   const armL = body.getObjectByName('armL');
-  if (armR) armR.rotation.z = -0.5;
-  if (armL) armL.rotation.z = -0.75;
   // the faction band: one amber stripe over the left shoulder — the GLB
   // body is Robert's art, the stripe is the army it fights for
   const trim = mat(TEAM_COLORS[0], { emissive: TEAM_COLORS[0] });
@@ -136,8 +134,11 @@ function buildGlbTrooper(src: THREE.Group, classId: ClassId): THREE.Group {
   g.add(band);
   const gun = buildRifle(classId);
   gun.position.set(0.42, 1.28, -0.16);
-  gun.userData.baseX = gun.position.x;
   g.add(gun);
+  // the SOLVED grip (models/grip.ts): both hands close on the rifle, and
+  // the rifle comes to the body if the support hand can't reach the guard
+  solveGlbGrip(g, armR, armL, gun);
+  gun.userData.baseX = gun.position.x;
   return g;
 }
 
@@ -608,6 +609,7 @@ function buildTrooper(team: Team, classId: ClassId): THREE.Group {
     foreR.add(armSeam);
   }
   const handR = box(0.1, 0.1, 0.1, gloveMat);
+  handR.name = 'handR';
   handR.position.y = -0.32;
   foreR.add(handR);
   foreR.rotation.z = -1.15;
@@ -627,6 +629,7 @@ function buildTrooper(team: Team, classId: ClassId): THREE.Group {
   const lowerL = limb(0.12, 0.28, 0.12, armMat);
   foreL.add(lowerL);
   const handL = box(0.1, 0.1, 0.1, gloveMat);
+  handL.name = 'handL';
   handL.position.y = -0.32;
   foreL.add(handL);
   foreL.rotation.z = -1.3;
@@ -707,8 +710,15 @@ function buildTrooper(team: Team, classId: ClassId): THREE.Group {
   // ---- rifle, carried at the shoulder line ----
   const gun = buildRifle(classId);
   gun.position.set(0.42, 1.28, -0.16);
-  gun.userData.baseX = gun.position.x;
   g.add(gun);
+  // the SOLVED grip (models/grip.ts): both hands close on the rifle — the
+  // authored arm angles above are the solve's starting point, and the
+  // rifle comes to the chest if the support hand can't reach the guard
+  solveTwoHandedGrip(g,
+    { shoulder: armR, elbow: foreR, hand: handR },
+    { shoulder: armL, elbow: foreL, hand: handL },
+    gun);
+  gun.userData.baseX = gun.position.x;
 
   return g;
 }
