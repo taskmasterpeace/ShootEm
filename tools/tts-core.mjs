@@ -36,8 +36,12 @@ export function findToken() {
 }
 
 /** Compose the model's `prompt` from persona + scene + director's notes —
- *  the structure Robert's research settled on. */
-export function buildPrompt({ persona, scene, notes = [], base = 'Say the following.' }) {
+ *  the structure Robert's research settled on. The base is a hard wall: the
+ *  prompt is DIRECTION, never lines to read. `gemini-3.1-flash-tts` will
+ *  occasionally speak a prompt that opens with "Say the following." (caught
+ *  by tools/transcribe-vo.mjs — e.g. the Titan announcer read its whole
+ *  profile aloud), so we tell it plainly to voice only the separate line. */
+export function buildPrompt({ persona, scene, notes = [], base = 'Voice ONLY the separate line of dialogue. Everything below is DIRECTION for how to perform it — never read any of it aloud.' }) {
   const lines = [base];
   if (persona) lines.push(`AUDIO PROFILE: ${persona}`);
   if (scene) lines.push(`THE SCENE: ${scene}`);

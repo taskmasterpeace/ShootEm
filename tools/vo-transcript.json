@@ -1,0 +1,1126 @@
+{
+  "generated": "run",
+  "threshold": 0.62,
+  "rows": [
+    {
+      "slot": "ann_barrier_down",
+      "scripted": "BARRIER IS DOWN. THE LANES OPEN.",
+      "heard": "Barrier is down. The lanes open.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_barrier_inbound",
+      "scripted": "BARRIER INBOUND. [short pause] YOUR SHOTS MAY COME BACK.",
+      "heard": "Barrier inbound. Your shots may come back.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_barrier_landed",
+      "scripted": "BARRIER ON THE FIELD. MIND THE WALLS.",
+      "heard": "Barrier on the field. Mind the walls.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_barrier_rampage",
+      "scripted": "FIVE KILLS. BARRIER WILL NOT BREAK.",
+      "heard": "Five kills! Barrier will not break!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_blitz_down",
+      "scripted": "BLITZ IS DOWN. CAUGHT BETWEEN DASHES.",
+      "heard": "Blitz is down, caught between dashes.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_blitz_inbound",
+      "scripted": "BLITZ INBOUND. [short pause] HE IS ALREADY MOVING.",
+      "heard": "Blitz inbound. He is already moving.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_blitz_landed",
+      "scripted": "BLITZ ON THE FIELD. DO NOT LET HIM CHAIN.",
+      "heard": "Blitz on the field. Do not let him chain.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_blitz_rampage",
+      "scripted": "FIVE KILLS. BLITZ HAS NOT STOPPED ONCE.",
+      "heard": "Five kills! Blitz has not stopped once!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_cataclysm_down",
+      "scripted": "CATACLYSM IS DOWN. COUNT THE QUAKES YOU SURVIVED.",
+      "heard": "Cataclysm is down! Count the Quakes you survived!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_cataclysm_inbound",
+      "scripted": "CATACLYSM INBOUND. [short pause] DO NOT LET THIS ONE SETTLE IN.",
+      "heard": "Cataclysm inbound! Do not let this one settle in!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_cataclysm_landed",
+      "scripted": "CATACLYSM ON THE FIELD. EVERY SECOND COSTS YOU.",
+      "heard": "Cataclysm on the field. Every second costs you.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_cataclysm_rampage",
+      "scripted": "FIVE KILLS. CATACLYSM IS SHAKING THE MAP APART.",
+      "heard": "Five kills! Cataclysm is shaking the map apart!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_chronos_down",
+      "scripted": "CHRONOS IS DOWN. THE SECONDS RUN TRUE AGAIN.",
+      "heard": "Kronos is down. The seconds run true again.",
+      "sim": 0.96,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_chronos_inbound",
+      "scripted": "CHRONOS INBOUND. [short pause] WATCH YOUR CLOCKS.",
+      "heard": "Kronos inbound! Watch your clocks!",
+      "sim": 0.95,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_chronos_landed",
+      "scripted": "CHRONOS ON THE FIELD. TIME IS HIS NOW.",
+      "heard": "Gornos on the field! Time is his now!",
+      "sim": 0.87,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_chronos_rampage",
+      "scripted": "FIVE KILLS. CHRONOS IS SPENDING YOUR TIME.",
+      "heard": "5 kills. Kronos is spending your time.",
+      "sim": 0.92,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_crimson_down",
+      "scripted": "CRIMSON IS DOWN. THE POOLS GO STILL.",
+      "heard": "Crimson is down. The pools go still.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_crimson_inbound",
+      "scripted": "CRIMSON INBOUND. [short pause] POLICE YOUR DEAD.",
+      "heard": "Crimson inbound. Police, you're dead.",
+      "sim": 0.95,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_crimson_landed",
+      "scripted": "CRIMSON ON THE FIELD. EVERY LOSS FEEDS HIM.",
+      "heard": "Crimson on the field. Every loss feeds him.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_crimson_rampage",
+      "scripted": "FIVE KILLS. CRIMSON DRINKS THE WHOLE FRONT.",
+      "heard": "5 kills. Crimson drinks the whole front.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_crusher_down",
+      "scripted": "CRUSHER IS DOWN. THE GROUND KEEPS ITS SHAPE.",
+      "heard": "Crusher is down. The ground keeps its shape.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_crusher_inbound",
+      "scripted": "CRUSHER INBOUND. [short pause] YOUR COVER IS TEMPORARY.",
+      "heard": "Crusher inbound. Your cover is temporary.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_crusher_landed",
+      "scripted": "CRUSHER ON THE FIELD. THE MAP IS NEGOTIABLE.",
+      "heard": "Crusher on the field! The map is negotiable!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_crusher_rampage",
+      "scripted": "FIVE KILLS. CRUSHER IS REDRAWING THE FRONT.",
+      "heard": "Five kills. Crusher is redrawing the front.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_dominator_down",
+      "scripted": "DOMINATOR IS DOWN. THE THREADS SNAP.",
+      "heard": "Dominator is down! The threads snap!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_dominator_inbound",
+      "scripted": "DOMINATOR INBOUND. [short pause] SCATTER. DO NOT BUNCH.",
+      "heard": "Dominator inbound. Scatter. Do not bunch.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_dominator_landed",
+      "scripted": "DOMINATOR ON THE FIELD. YOUR FORMATION IS HIS WEAPON.",
+      "heard": "Dominator on the field. Your formation is his weapon.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_dominator_rampage",
+      "scripted": "FIVE KILLS. DOMINATOR PULLS EVERY STRING.",
+      "heard": "Five kills. Dominator pulls every string.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_eclipse_down",
+      "scripted": "ECLIPSE IS DOWN. THE LIGHT RETURNS.",
+      "heard": "Eclipse is down. The light returns.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_eclipse_inbound",
+      "scripted": "ECLIPSE INBOUND. [short pause] TRUST YOUR EARS.",
+      "heard": "Eclipse inbound. Trust your ears.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_eclipse_landed",
+      "scripted": "ECLIPSE ON THE FIELD. THE DARK IS HERS.",
+      "heard": "Eclipse on the field. The dark is hers.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_eclipse_rampage",
+      "scripted": "FIVE KILLS. ECLIPSE HAS SWALLOWED THE LIGHT.",
+      "heard": "Five kills. Eclipse has swallowed the white.",
+      "sim": 0.84,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_firebrand_down",
+      "scripted": "FIREBRAND IS DOWN. THE FIRES GO WITH HIM.",
+      "heard": "Firebrand is down. The fires go with him.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_firebrand_inbound",
+      "scripted": "FIREBRAND INBOUND. [short pause] CLEAR THE GRASS.",
+      "heard": "Firebrand inbound. Clear the grass.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_firebrand_landed",
+      "scripted": "FIREBRAND ON THE FIELD. THE GROUND WILL BURN.",
+      "heard": "Firebrand, on the field! The ground will burn!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_firebrand_rampage",
+      "scripted": "FIVE KILLS. FIREBRAND IS COOKING.",
+      "heard": "Five kills. Firebrand is cooking.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_frostbite_down",
+      "scripted": "FROSTBITE IS DOWN. [short pause] THE THAW BEGINS.",
+      "heard": "Frostbite is down. The thaw begins.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_frostbite_inbound",
+      "scripted": "FROSTBITE INBOUND. [short pause] DRESS FOR WINTER.",
+      "heard": "Frostbite inbound. Dress for winter. Frostbite inbound. Dress for winter.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_frostbite_landed",
+      "scripted": "FROSTBITE DEPLOYED. THE COLD TAKES THE FIELD.",
+      "heard": "Frostbite deployed. The cold takes the field.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_frostbite_rampage",
+      "scripted": "FIVE KILLS. FROSTBITE IS AN ICE AGE.",
+      "heard": "Five kills. Frostbite is an ice age. Five kills. Frostbite is an ice age.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_gargoyle_down",
+      "scripted": "GARGOYLE IS DOWN. STONE AT LAST.",
+      "heard": "Gargoyle is down! Stone at last!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_gargoyle_inbound",
+      "scripted": "GARGOYLE INBOUND. [short pause] LISTEN FOR THE SHRIEK.",
+      "heard": "Gargoyle, inbound! Listen for the shriek.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_gargoyle_landed",
+      "scripted": "GARGOYLE IS AIRBORNE. THE SHRIEK IS YOUR WARNING.",
+      "heard": "Gargoyle is airborne. The shriek is your warning.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_gargoyle_rampage",
+      "scripted": "FIVE KILLS. GARGOYLE OWNS EVERY ROOF.",
+      "heard": "Five kills. Gargoyle owns every roof.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_gravwarden_down",
+      "scripted": "GRAVITY WARDEN IS DOWN. THE WEIGHT RETURNS.",
+      "heard": "Gravity Warden is down. The weight returns.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_gravwarden_inbound",
+      "scripted": "GRAVITY WARDEN INBOUND. [short pause] MIND YOUR FOOTING.",
+      "heard": "Gravity Warden inbound! Mind your footing!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_gravwarden_landed",
+      "scripted": "GRAVITY WARDEN ON THE FIELD. DOWN IS A SUGGESTION NOW.",
+      "heard": "Gravity Warden on the field. Down is a suggestion now.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_gravwarden_rampage",
+      "scripted": "FIVE KILLS. GRAVITY WARDEN OWNS THE SKY AND THE FLOOR.",
+      "heard": "Five kills. Gravity Warden owns the sky and the floor.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_inferno_down",
+      "scripted": "INFERNO IS DOWN. THE SKY COOLS.",
+      "heard": "Inferno is down. The sky cools.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_inferno_inbound",
+      "scripted": "INFERNO INBOUND. [short pause] WATCH THE SKY BURN.",
+      "heard": "Inferno inbound. Watch the sky burn.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_inferno_landed",
+      "scripted": "INFERNO IS AIRBORNE. THE SKY IS ON FIRE.",
+      "heard": "Inferno is airborne. The sky is on fire.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_inferno_rampage",
+      "scripted": "FIVE KILLS. INFERNO IS RAINING FIRE.",
+      "heard": "5 kills. Inferno is raining fire.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_leviathan_down",
+      "scripted": "LEVIATHAN IS DOWN. THE EARTH EXHALES.",
+      "heard": "Leviathan is down! The earth exhales!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_leviathan_inbound",
+      "scripted": "LEVIATHAN INBOUND. [short pause] READ THE SHADOWS.",
+      "heard": "Leviathan inbound. Read the shadows.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_leviathan_landed",
+      "scripted": "LEVIATHAN ON THE FIELD. THE GROUND IS PROVISIONAL.",
+      "heard": "Leviathan on the field! The ground is provisional!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_leviathan_rampage",
+      "scripted": "FIVE KILLS. LEVIATHAN IS FLATTENING THE FRONT.",
+      "heard": "Five kills. Leviathan is flattening the front.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_magnetar_down",
+      "scripted": "MAGNETAR IS DOWN. OPEN FIRE.",
+      "heard": "Magnetar is down. Open fire!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_magnetar_inbound",
+      "scripted": "MAGNETAR INBOUND. [short pause] YOUR BULLETS WON'T LAND.",
+      "heard": "Magnetar inbound. Your bullets won't land.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_magnetar_landed",
+      "scripted": "MAGNETAR ON THE FIELD. CLOSE THE DISTANCE.",
+      "heard": "Magnetar on the field! Close the distance!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_magnetar_rampage",
+      "scripted": "FIVE KILLS. MAGNETAR EATS EVERY ROUND.",
+      "heard": "5 kills. Magnetar eats every round.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_mirage_down",
+      "scripted": "MIRAGE IS DOWN. THE REAL ONE, THIS TIME.",
+      "heard": "Mirage is down. The real one this time.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_mirage_inbound",
+      "scripted": "MIRAGE INBOUND. [short pause] COUNT YOUR TARGETS TWICE.",
+      "heard": "Mirage inbound. Count your targets twice.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_mirage_landed",
+      "scripted": "MIRAGE ON THE FIELD. ONE OF THEM IS REAL.",
+      "heard": "Mirage on the field! One of them is real!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_mirage_rampage",
+      "scripted": "FIVE KILLS. MIRAGE IS AN ARMY OF ONE.",
+      "heard": "Five kills! Mirage is an army of one!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_nightmare_down",
+      "scripted": "NIGHTMARE IS DOWN. THE CONTACTS CLEAR.",
+      "heard": "Nightmare is down! The contact's clear!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_nightmare_inbound",
+      "scripted": "NIGHTMARE INBOUND. [short pause] TRUST NOTHING RED.",
+      "heard": "Nightmare inbound. Trust nothing red.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_nightmare_landed",
+      "scripted": "NIGHTMARE ON THE FIELD. YOUR MAP IS LYING.",
+      "heard": "Nightmare on the field! Your map is lying!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_nightmare_rampage",
+      "scripted": "FIVE KILLS. NIGHTMARE IS IN EVERY HEAD.",
+      "heard": "Five kills. Nightmare is in every head.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_oblivion_down",
+      "scripted": "OBLIVION IS DOWN. THE VOID CLOSES.",
+      "heard": "Oblivion is down! The void closes!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_oblivion_inbound",
+      "scripted": "OBLIVION INBOUND. [short pause] DO NOT CLUSTER.",
+      "heard": "Oblivion inbound! Do not cluster!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_oblivion_landed",
+      "scripted": "OBLIVION IS ON THE FIELD. WATCH FOR THE PULL.",
+      "heard": "Oblivion is on the field. Watch for the pull.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_oblivion_rampage",
+      "scripted": "FIVE KILLS. OBLIVION IS SWALLOWING THE MAP.",
+      "heard": "Five kills. Oblivion is swallowing the map.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_overload_down",
+      "scripted": "OVERLOAD IS DOWN. THE CIRCUIT IS COLD.",
+      "heard": "Overload is down. The circuit is cold.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_overload_inbound",
+      "scripted": "OVERLOAD INBOUND. [short pause] STEP OFF THE PLATE.",
+      "heard": "Overload inbound! Step off the plate!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_overload_landed",
+      "scripted": "OVERLOAD ON THE FIELD. EVERY WIRE IS A DOOR.",
+      "heard": "Overload on the field. Every wire is a door.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_overload_rampage",
+      "scripted": "FIVE KILLS. OVERLOAD RUNS THE WHOLE GRID.",
+      "heard": "Five kills! Overload runs the whole grid!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_phantom_down",
+      "scripted": "PHANTOM IS DOWN. THE WALLS ARE WALLS AGAIN.",
+      "heard": "Phantom is down! The walls are walls again!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_phantom_inbound",
+      "scripted": "PHANTOM INBOUND. [short pause] WATCH YOUR WALLS.",
+      "heard": "Phantom inbound! Watch your walls!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_phantom_landed",
+      "scripted": "PHANTOM ON THE FIELD. YOUR MACHINES ARE NOT YOURS.",
+      "heard": "Phantom on the field, your machines are not yours.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_phantom_rampage",
+      "scripted": "FIVE KILLS. PHANTOM IS EVERYWHERE AND NOWHERE.",
+      "heard": "Five kills. Phantom is everywhere and nowhere.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_plaguebearer_down",
+      "scripted": "PLAGUEBEARER IS DOWN. VENTILATE AND ADVANCE.",
+      "heard": "Plaguebearer is down! Ventilate in advance!",
+      "sim": 0.9,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_plaguebearer_inbound",
+      "scripted": "PLAGUEBEARER INBOUND. SEAL YOUR MASKS.",
+      "heard": "Plague Bear, inbound! Seal your masks!",
+      "sim": 0.97,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_plaguebearer_landed",
+      "scripted": "PLAGUEBEARER WALKS THE FIELD. THE AIR IS NOT YOUR FRIEND.",
+      "heard": "Plague Bearer walks the field. The air is not your friend.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_plaguebearer_rampage",
+      "scripted": "FIVE KILLS. THE OUTBREAK IS WINNING.",
+      "heard": "Five kills. The outbreak is winning.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_pulse_down",
+      "scripted": "PULSE IS DOWN. THE AIR STOPS RINGING.",
+      "heard": "Pulse is down. The air stops ringing.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_pulse_inbound",
+      "scripted": "PULSE INBOUND. [short pause] WALLS WILL NOT SAVE YOU.",
+      "heard": "Pulse inbound. Walls will not save you.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_pulse_landed",
+      "scripted": "PULSE ON THE FIELD. HE HEARS EVERYTHING.",
+      "heard": "Pulse on the field. He hears everything.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_pulse_rampage",
+      "scripted": "FIVE KILLS. PULSE HAS THE WHOLE MAP TAGGED.",
+      "heard": "Five kills! Pulse has the whole map tagged!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_pyroclasm_down",
+      "scripted": "PYROCLASM IS DOWN. LET IT COOL.",
+      "heard": "Pyroclasm is down! Let it cool!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_pyroclasm_inbound",
+      "scripted": "PYROCLASM INBOUND. [short pause] THE FLOOR WILL NOT BE YOURS.",
+      "heard": "Pyroclasm inbound! The floor will not be yours!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_pyroclasm_landed",
+      "scripted": "PYROCLASM ON THE FIELD. MIND THE POOLS.",
+      "heard": "Pyroclasm on the field! Mind the pools!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_pyroclasm_rampage",
+      "scripted": "FIVE KILLS. PYROCLASM IS PAVING THE MAP.",
+      "heard": "Five kills! Pyroclasm is paving the map!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_ragebeast_down",
+      "scripted": "RAGEBEAST IS DOWN. STAND EASY.",
+      "heard": "Rage Beast is down! Stand easy!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_ragebeast_inbound",
+      "scripted": "RAGEBEAST INBOUND. DO NOT FEED IT.",
+      "heard": "Rage beast inbound! Do not feed it!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_ragebeast_landed",
+      "scripted": "RAGEBEAST IS LOOSE. [short pause] GOOD LUCK.",
+      "heard": "Rage beast is loose! Good luck!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_ragebeast_rampage",
+      "scripted": "FIVE KILLS. [short pause] STOP FEEDING THE BEAST.",
+      "heard": "Five kills! Stop feeding the beast!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_reactor_down",
+      "scripted": "REACTOR IS DOWN. THE OVERCHARGE FADES.",
+      "heard": "Reactor is down. The overcharge fates.",
+      "sim": 0.93,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_reactor_inbound",
+      "scripted": "REACTOR INBOUND. [short pause] KILL THE BATTERY FIRST.",
+      "heard": "Reactor inbound. Kill the battery first.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_reactor_landed",
+      "scripted": "REACTOR ON THE FIELD. THEIR CARRY JUST GOT STRONGER.",
+      "heard": "Reactor on the field. Their carry just got stronger.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_reactor_rampage",
+      "scripted": "FIVE KILLS. REACTOR IS FEEDING THE WHOLE LINE.",
+      "heard": "Five kills! Reactor is feeding the whole line!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_reaper_down",
+      "scripted": "REAPER IS DOWN. THE HUNT IS OFF.",
+      "heard": "Reaper is down. The hunt is off.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_reaper_inbound",
+      "scripted": "REAPER INBOUND. [short pause] NOBODY WANDERS ALONE.",
+      "heard": "Reaper inbound! Nobody wanders alone.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_reaper_landed",
+      "scripted": "REAPER ON THE FIELD. SOMEBODY IS ALREADY MARKED.",
+      "heard": "Reaper on the field. Somebody is already morked.",
+      "sim": 0.95,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_reaper_rampage",
+      "scripted": "FIVE KILLS. THE REAPER KEEPS HIS LEDGER.",
+      "heard": "Five kills. The Reaper keeps his ledger.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_riptide_down",
+      "scripted": "RIPTIDE IS DOWN. THE WATER STILLS.",
+      "heard": "Riptide is down. The water stills.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_riptide_inbound",
+      "scripted": "RIPTIDE INBOUND. [short pause] HIGH GROUND, NOW.",
+      "heard": "Riptide inbound! High ground, now!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_riptide_landed",
+      "scripted": "RIPTIDE ON THE FIELD. THE TIDE FIGHTS FOR US.",
+      "heard": "Riptide on the field, the tide fights for us.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_riptide_rampage",
+      "scripted": "FIVE KILLS. RIPTIDE IS DROWNING THE FIELD.",
+      "heard": "Five kills! Riptide is drowning the field!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_shadowstep_down",
+      "scripted": "SHADOWSTEP IS DOWN. CHECK IT TWICE.",
+      "heard": "Shadow step is down. Check it twice.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_shadowstep_inbound",
+      "scripted": "SHADOWSTEP INBOUND. [short pause] GUARD YOUR BACKS.",
+      "heard": "Shadow step inbound! Guard your backs!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_shadowstep_landed",
+      "scripted": "SHADOWSTEP ON THE FIELD. DO NOT CHASE HIM.",
+      "heard": "Shadow Step on the field! Do not chase him!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_shadowstep_rampage",
+      "scripted": "FIVE KILLS. SHADOWSTEP IS EVERYWHERE YOU ARE NOT.",
+      "heard": "Five kills! Shadow Step is everywhere you are not!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_sniperhawk_down",
+      "scripted": "SNIPERHAWK IS DOWN. THE LANES ARE YOURS.",
+      "heard": "Sniper Hawk is down! The lanes are yours!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_sniperhawk_inbound",
+      "scripted": "SNIPERHAWK INBOUND. [short pause] BREAK LINE OF SIGHT.",
+      "heard": "Sniper Hawk, inbound! Break line of sight!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_sniperhawk_landed",
+      "scripted": "SNIPERHAWK IS PERCHED. WATCH THE LANES.",
+      "heard": "Sniper Hawk is perched. Watch the lanes.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_sniperhawk_rampage",
+      "scripted": "FIVE KILLS. SNIPERHAWK OWNS THE SIGHTLINES.",
+      "heard": "Five kills. Sniper Hawk owns the sightlines.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_specter_down",
+      "scripted": "SPECTER IS DOWN. THE MIRRORS CRACK.",
+      "heard": "Spectre is down. The mirrors crack.",
+      "sim": 0.89,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_specter_inbound",
+      "scripted": "SPECTER INBOUND. [short pause] COUNT THE SHADOWS.",
+      "heard": "Spectre Inbound. Count the shadows.",
+      "sim": 0.89,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_specter_landed",
+      "scripted": "SPECTER ON THE FIELD. THEY ALL WALK LIKE HIM.",
+      "heard": "Spectre on the field. They all walk like him.",
+      "sim": 0.91,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_specter_rampage",
+      "scripted": "FIVE KILLS. SPECTER IS A CROWD.",
+      "heard": "Five kills! Spectre is a crowd!",
+      "sim": 0.85,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_steelweaver_down",
+      "scripted": "STEEL WEAVER IS DOWN. DROP THE PANELS.",
+      "heard": "Steel Waver is down. Drop the panels.",
+      "sim": 0.95,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_steelweaver_inbound",
+      "scripted": "STEEL WEAVER INBOUND. [short pause] COUNT YOUR WALLS.",
+      "heard": "Steel Weaver inbound. Count your walls.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_steelweaver_landed",
+      "scripted": "STEEL WEAVER ON THE FIELD. THE MAP IS HIS ARMORY.",
+      "heard": "Steel Weaver on the field. The map is his armory.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_steelweaver_rampage",
+      "scripted": "FIVE KILLS. STEEL WEAVER WEARS THE REFINERY.",
+      "heard": "Five kills. Steel Weaver, where's the refinery?",
+      "sim": 0.86,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_stormcaller_down",
+      "scripted": "STORMCALLER IS DOWN. THE SKY CLEARS.",
+      "heard": "Stormcaller is down. The sky clears.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_stormcaller_inbound",
+      "scripted": "STORMCALLER INBOUND. [short pause] GET UNDER SOMETHING.",
+      "heard": "Stormcaller inbound. Get under something.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_stormcaller_landed",
+      "scripted": "STORMCALLER IS AIRBORNE. THE WEATHER PICKS SIDES.",
+      "heard": "Stormcaller is airborne. The weather picks sides.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_stormcaller_rampage",
+      "scripted": "FIVE KILLS. STORMCALLER OWNS THE WEATHER.",
+      "heard": "Five kills. Stormcaller owns the weather.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_titan_down",
+      "scripted": "TITAN IS DOWN. [short pause] THE GROUND HOLDS STILL.",
+      "heard": "Titan is down. The ground holds still.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_titan_inbound",
+      "scripted": "TITAN INBOUND. [short pause] MOVE THE ARMOR.",
+      "heard": "Titan inbound! Move the armor!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_titan_landed",
+      "scripted": "TITAN ON THE FIELD. NOTHING STAYS WHERE IT STANDS.",
+      "heard": "Tightened on the field, nothing stays where it stands.",
+      "sim": 0.85,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_titan_rampage",
+      "scripted": "FIVE KILLS. TITAN IS THROWING THE WHOLE FIELD.",
+      "heard": "Five kills! Titan is throwing the whole field!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_tremor_down",
+      "scripted": "TREMOR IS DOWN. THE GROUND IS STILL.",
+      "heard": "Tremor is down. The ground is still.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_tremor_inbound",
+      "scripted": "TREMOR INBOUND. [short pause] KEEP OFF THE OPEN GROUND.",
+      "heard": "Tremor inbound! Keep off the open ground!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_tremor_landed",
+      "scripted": "TREMOR HAS SURFACED. WATCH THE SOIL.",
+      "heard": "Tremor has surfaced! Watch the soil!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_tremor_rampage",
+      "scripted": "FIVE KILLS. TREMOR IS AN EARTHQUAKE.",
+      "heard": "5 kills. Tremor is an earthquake.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_vanguard_down",
+      "scripted": "VANGUARD IS DOWN. THE LINE IS YOURS TO HOLD.",
+      "heard": "Varyngarde is down. The line is yours to hold.",
+      "sim": 0.85,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_vanguard_inbound",
+      "scripted": "VANGUARD INBOUND. [short pause] THE DOOR IS ABOUT TO OPEN.",
+      "heard": "Vanguard inbound! The door is about to open.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_vanguard_landed",
+      "scripted": "VANGUARD ON THE FIELD. FOLLOW THE SHIELD.",
+      "heard": "Vanguard on the field. Follow the shield.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_vanguard_rampage",
+      "scripted": "FIVE KILLS. VANGUARD IS THE DOOR NOW.",
+      "heard": "Five kills. Vanguard is the door now.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_venatrix_down",
+      "scripted": "VENATRIX IS DOWN. SWEEP FOR HER TRAPS.",
+      "heard": "Venatrix is down! Sweep for her traps!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_venatrix_inbound",
+      "scripted": "VENATRIX INBOUND. [short pause] WATCH WHERE YOU STEP.",
+      "heard": "Venatrix, inbound! Watch where you step!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_venatrix_landed",
+      "scripted": "VENATRIX ON THE FIELD. THE GROUND IS BAITED.",
+      "heard": "Venatrix on the field. The ground is baited.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_venatrix_rampage",
+      "scripted": "FIVE KILLS. VENATRIX HAS A FULL TROPHY WALL.",
+      "heard": "Five kills. Venatrix has a full trophy wall.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_venom_down",
+      "scripted": "VENOM IS DOWN. LET IT DISPERSE.",
+      "heard": "Venom is down. Let it disperse.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_venom_inbound",
+      "scripted": "VENOM INBOUND. [short pause] CHECK YOUR SEALS.",
+      "heard": "Venom inbound. Check your seals.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_venom_landed",
+      "scripted": "VENOM ON THE FIELD. THE AIR HAS TEETH.",
+      "heard": "Venom on the field! The air has teeth!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_venom_rampage",
+      "scripted": "FIVE KILLS. VENOM OWNS EVERY BREATH.",
+      "heard": "Five kills. Venom owns every breath.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_voidwalker_down",
+      "scripted": "VOIDWALKER IS DOWN. THE SHADOWS EMPTY.",
+      "heard": "Voidwalker is down. The shadow's empty.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_voidwalker_inbound",
+      "scripted": "VOIDWALKER INBOUND. [short pause] CHECK YOUR SHADOWS.",
+      "heard": "Voidwalker inbound. Check your shadows.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_voidwalker_landed",
+      "scripted": "VOIDWALKER ON THE FIELD. HE IS ALREADY BEHIND SOMEONE.",
+      "heard": "Voidwalker on the field. He is already behind someone.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_voidwalker_rampage",
+      "scripted": "FIVE KILLS. VOIDWALKER IS EVERYWHERE AT ONCE.",
+      "heard": "Five kills. Voidwalker is everywhere at once.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_voltstriker_down",
+      "scripted": "VOLT STRIKER IS DOWN. THE AIR GOES QUIET.",
+      "heard": "Volt Striker is down. The air goes quiet.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_voltstriker_inbound",
+      "scripted": "VOLT STRIKER INBOUND. [short pause] SPREAD OUT.",
+      "heard": "Volt Striker inbound Spread out",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_voltstriker_landed",
+      "scripted": "VOLT STRIKER ON THE FIELD. DO NOT BUNCH UP.",
+      "heard": "Volt Striker on the field! Do not bunch up!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_voltstriker_rampage",
+      "scripted": "FIVE KILLS. VOLT STRIKER IS ARCING.",
+      "heard": "Five kills. Volt Striker is arcing.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_wraith_down",
+      "scripted": "WRAITH IS DOWN. RECLAIM YOUR HARDWARE.",
+      "heard": "Wraith is down! Reclaim your hardware!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_wraith_inbound",
+      "scripted": "WRAITH INBOUND. [short pause] EMPTY YOUR VEHICLES.",
+      "heard": "Wraith inbound! Empty your vehicles!",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_wraith_landed",
+      "scripted": "WRAITH ON THE FIELD. YOUR MACHINES ARE HIS.",
+      "heard": "Wraith on the field. Your machines are his.",
+      "sim": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "ann_wraith_rampage",
+      "scripted": "FIVE KILLS. WRAITH IS WEARING YOUR ARMY.",
+      "heard": "Five kills. Wraith is wearing your army.",
+      "sim": 1,
+      "status": "ok"
+    }
+  ]
+}
