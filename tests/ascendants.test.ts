@@ -186,6 +186,19 @@ describe('the ice block', () => {
     expect(s.hp, 'struggling out was free — it should HURT').toBeLessThan(100);
   });
 
+  it('the block is a BLOCK — nobody walks through a frozen man', () => {
+    const { w, s } = victim();
+    w.encaseSoldier(s); // frozen at (0,0)
+    const walker = w.addSoldier('W', 'infantry', 0, 'human');
+    walker.pos = { x: -2, y: 0, z: 0 }; walker.alive = true; walker.protectedUntil = 0;
+    // march straight at the block for 2s — the ice must stop him short
+    for (let i = 0; i < 120 && s.encasedUntil !== undefined; i++) {
+      w.step(1 / 60, new Map([[walker.id, cmd({ moveX: 1 })]]));
+    }
+    const d = Math.hypot(walker.pos.x - s.pos.x, walker.pos.z - s.pos.z);
+    expect(d, 'he walked through the ice').toBeGreaterThan(0.8);
+  });
+
   it('the block is gone when the match ends — no ice outlives the whistle', () => {
     const { w, s } = victim();
     w.encaseSoldier(s);

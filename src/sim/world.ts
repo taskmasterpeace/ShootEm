@@ -2742,7 +2742,16 @@ export class World {
     const groundBlocked = (x: number, z: number) => {
       const t = tileAt(this.map.grid, x, z);
       if (t === T_DEEP || t === T_WATER) return false; // wade in, swim deeper
-      return isBlocked(this.map.grid, x, z);
+      if (isBlocked(this.map.grid, x, z)) return true;
+      // THE ICE BLOCK IS A BLOCK (§21.6, closing Frostbite's Notes gap): an
+      // encased soldier is a real 1-tile obstacle — nobody walks through a
+      // frozen man, friend or foe. Encased soldiers are rare; the scan is short.
+      for (const o of this.soldiers.values()) {
+        if (o.encasedUntil === undefined || o.id === s.id || !o.alive) continue;
+        const dx = o.pos.x - x, dz = o.pos.z - z;
+        if (dx * dx + dz * dz < 0.81) return true; // 0.9u — a tile-ish block
+      }
+      return false;
     };
     const blockedX = airborne ? blocksAir(nx, s.pos.z) : groundBlocked(nx, s.pos.z);
     const blockedZ = airborne ? blocksAir(s.pos.x, nz) : groundBlocked(s.pos.x, nz);
