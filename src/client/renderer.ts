@@ -160,6 +160,8 @@ export class Renderer {
   private throwPoses = new Map<number, { at: number; until: number }>();
   private castPoses = new Map<number, { at: number; until: number; school: CastSchool }>();
   private slashes: { mesh: THREE.Mesh; until: number }[] = [];
+  // blink afterimages: a fading snapshot of the body left at the old spot
+  private blinkGhosts: { mesh: THREE.Group; born: number; ttl: number; style: 'gold' | 'collapse' | 'flicker' }[] = [];
   // §19.2 sound-and-movement: footstep clocks for enemies you HEAR but can't
   // see, and the smudges their noise smears through the dark
   private unseenStepAt = new Map<number, number>();
@@ -1915,6 +1917,26 @@ export class Renderer {
       }
     }
 
+    // blink afterimages: the snapshot fades where the god just stood — Chronos
+    // gold, Voidwalker imploding inward, Specter mirror-flickering
+    for (let i = this.blinkGhosts.length - 1; i >= 0; i--) {
+      const g = this.blinkGhosts[i];
+      const k = (world.time - g.born) / g.ttl;
+      if (k >= 1) {
+        this.scene.remove(g.mesh);
+        g.mesh.traverse((o) => { const m = (o as THREE.Mesh).material as THREE.Material | undefined; m?.dispose(); });
+        this.blinkGhosts.splice(i, 1);
+        continue;
+      }
+      const fade = 1 - k;
+      if (g.style === 'collapse') g.mesh.scale.setScalar((g.mesh.userData.g0 as number) * fade); // implode
+      if (g.style === 'flicker') g.mesh.visible = Math.floor(k * 12) % 2 === 0;                   // mirror-flicker
+      g.mesh.traverse((o) => {
+        const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
+        if (m && 'opacity' in m) m.opacity = fade * 0.6;
+      });
+    }
+
     // orbital beams fade out (k clamped: replay clocks run behind live time)
     for (let i = this.beams.length - 1; i >= 0; i--) {
       const b = this.beams[i];
@@ -2457,6 +2479,29 @@ export class Renderer {
     this.vehRecoilAt.clear();
   }
 
+  /** Blink afterimage: leave a fading snapshot of the body where it just was.
+   *  style tints + drives the fade — gold (Chronos), collapse (Voidwalker
+   *  implodes inward), flicker (Specter mirror-flickers). Cloned materials go
+   *  transparent so the fade never touches the live body. */
+  private spawnBlinkGhost(src: THREE.Group, x: number, z: number, now: number, style: 'gold' | 'collapse' | 'flicker', tint: number) {
+    const ghost = src.clone(true);
+    ghost.userData = { g0: ghost.scale.x };
+    ghost.traverse((o) => {
+      if ((o as THREE.Sprite).isSprite) { o.visible = false; return; } // no ghost nameplates
+      const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
+      if (m) {
+        const c = m.clone();
+        c.transparent = true; c.opacity = 0.6; c.depthWrite = false;
+        if ('emissive' in c) { c.emissive = new THREE.Color(tint); c.emissiveIntensity = 0.6; }
+        if (c.color) c.color.lerp(new THREE.Color(tint), 0.4);
+        (o as THREE.Mesh).material = c;
+      }
+    });
+    ghost.position.set(x, src.position.y, z);
+    this.scene.add(ghost);
+    this.blinkGhosts.push({ mesh: ghost, born: now, ttl: 0.3, style });
+  }
+
   private animateSoldier(mesh: THREE.Group, s: Soldier, world: World) {
     const j = mesh.userData.joints as Record<string, THREE.Object3D | undefined>;
     const t = world.time;
@@ -2531,12 +2576,19 @@ export class Renderer {
     // speed changes and render-world swaps) and reports the exact frames a
     // boot lands or an undead reach crests; replays stay silent
     if (!this.replayView) {
-      if (markers.footstep) {
+      if (markers.footstep && s.ascendant !== 'wraith') { // the wraith hovers — no footfalls
         // per-biome surface step (soundscape designation); the universal
         // footstep covers any slot a designer hasn't filled yet
         const step = BIOME_AUDIO[world.map.theme]?.footstep;
         if (!step || !audio.play(step, { pos: s.pos, volume: zed ? 0.25 : 0.35, rate: zed ? 0.8 : 1 })) {
           audio.play('footstep', { pos: s.pos, volume: zed ? 0.25 : 0.35, rate: zed ? 0.8 : 1 });
+        }
+        // CRUSH-WALK (§Task 9): Leviathan's footfalls shake the ground — a heavy
+        // dust ring and a near-camera shudder on every step
+        if (s.ascendant === 'leviathan') {
+          this.particles.emit({ pos: { x: s.pos.x, y: 0.12, z: s.pos.z }, count: 10, color: Math.random() < 0.5 ? 0x6a5c48 : 0x3f6e6a, speed: 4, life: 0.5, spread: 1.5, up: 1.2, gravity: -2.5, size: 0.5 });
+          const d = Math.hypot(s.pos.x - this.camPos.x, s.pos.z - this.camPos.z);
+          if (d < 26) this.camShake = Math.max(this.camShake, 0.3 * (1 - d / 26));
         }
       }
       if (markers.growl && hash01(s.id * 13.37 + markers.phase) < 0.4) {
@@ -2556,6 +2608,9 @@ export class Renderer {
     // body: bob while moving, breathe while idle, lean into the run
     const bob = moving ? Math.abs(Math.sin(phase)) * 0.055 : Math.sin(t * 1.8 + s.id) * 0.012;
     mesh.position.y = s.pos.y + bob;
+    // HOVER BOB (§Task 9): the wraith never touches down — a slow float on top
+    // of its 0.6u hover, so the body drifts instead of standing on air
+    if (s.ascendant === 'wraith') mesh.position.y += Math.sin(t * 2 + s.id) * 0.09;
     const lean = airborne ? -0.3 : -Math.min(speed / 14, 1) * (zed ? 0.18 : 0.09);
     mesh.rotation.z = lean + (s.kind === 'sprinter' ? -0.18 : 0);
 
@@ -2587,6 +2642,30 @@ export class Renderer {
       mesh.scale.y = sy;
       const wide = base * Math.sqrt(base / sy);
       mesh.scale.x = wide; mesh.scale.z = wide;
+    }
+
+    // ---- BLINK DRESS (movement dress §Task 9): a blink-walker leaves a fading
+    // afterimage where it stood and pops in 1.2->1 at the destination. The hop
+    // is 5..15u instant; a re-pick respawn is farther, so bound the jump.
+    if (s.ascendant && LSWS[s.ascendant].moves === 'blinkwalk') {
+      const last = mesh.userData.blinkLast as { x: number; z: number } | undefined;
+      if (last) {
+        const jump = Math.hypot(s.pos.x - last.x, s.pos.z - last.z);
+        if (jump > 4 && jump < 22) {
+          const style = s.ascendant === 'chronos' ? 'gold' : s.ascendant === 'voidwalker' ? 'collapse' : 'flicker';
+          const tint = style === 'gold' ? 0xffcf5a : style === 'collapse' ? 0x30407a : 0xbfe8ff;
+          this.spawnBlinkGhost(mesh, last.x, last.z, t, style, tint);
+          mesh.userData.blinkPopAt = t;
+        }
+      }
+      mesh.userData.blinkLast = { x: s.pos.x, z: s.pos.z };
+      const popAt = mesh.userData.blinkPopAt as number | undefined;
+      if (popAt !== undefined) {
+        const since = t - popAt;
+        const base = (mesh.userData.baseScaleY ??= mesh.scale.y) as number;
+        if (since < 0.15) mesh.scale.setScalar(base * (1.2 - 0.2 * (since / 0.15)));
+        else { mesh.scale.setScalar(base); mesh.userData.blinkPopAt = undefined; }
+      }
     }
 
     // ---- melee telegraph: claws flash UP through the windup, whip DOWN on the
