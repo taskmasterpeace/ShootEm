@@ -10,7 +10,7 @@ export type ClassId = 'infantry' | 'heavy' | 'jump' | 'engineer' | 'medic' | 'in
 /** Living Super Weapons (§21.6 / docs/ASCENDANTS.md). A Soldier carrying one
  *  of these is an LSW — not a class, an overlay: bigger, deadlier, its own
  *  brain, and it dies to ordinary guns. Grows as the roster ships. */
-export type AscendantId = 'firebrand' | 'plaguebearer' | 'frostbite' | 'ragebeast' | 'titan' | 'voltstriker' | 'sniperhawk' | 'barrier' | 'reactor' | 'oblivion' | 'tremor' | 'magnetar' | 'wraith' | 'eclipse' | 'dominator' | 'riptide' | 'gravwarden' | 'chronos' | 'venatrix' | 'vanguard' | 'pyroclasm' | 'voidwalker' | 'crimson' | 'mirage' | 'blitz' | 'shadowstep' | 'specter' | 'pulse' | 'venom' | 'nightmare' | 'reaper' | 'crusher' | 'steelweaver' | 'overload';
+export type AscendantId = 'firebrand' | 'plaguebearer' | 'frostbite' | 'ragebeast' | 'titan' | 'voltstriker' | 'sniperhawk' | 'barrier' | 'reactor' | 'oblivion' | 'tremor' | 'magnetar' | 'wraith' | 'eclipse' | 'dominator' | 'riptide' | 'gravwarden' | 'chronos' | 'venatrix' | 'vanguard' | 'pyroclasm' | 'voidwalker' | 'crimson' | 'mirage' | 'blitz' | 'shadowstep' | 'specter' | 'pulse' | 'venom' | 'nightmare' | 'reaper' | 'crusher' | 'steelweaver' | 'overload' | 'phantom';
 
 /**
  * Weapon ids are open strings: the hand-tuned core set (ar606, kuchler, caw,
@@ -288,6 +288,12 @@ export interface Soldier {
    *  echo point GLOWS — camp it), and the once-per-fight latch. */
   lswTrail?: { x: number; z: number }[];
   lswFlagA?: boolean;
+  /** MACHINE POSSESSION of a BOT (§4.4 #4, Phantom's ride): a timed take —
+   *  team flips for `possessedUntil - now`, expiry hands the chassis home,
+   *  EMP evicts instantly. NEVER a human — possessBot refuses flesh. */
+  possessedBy?: number;
+  possessedUntil?: number;
+  origTeam?: Team;
   /** THE ICE BLOCK (§21.6, shared: Frostbite + Venatrix). Encased alive: a
    *  real 1-tile block that stops movement AND shots both ways. sim-time the
    *  ice fully forms free is `encasedUntil`; teammates shatter it early by
@@ -382,6 +388,11 @@ export interface Vehicle {
   infectedUntil?: number;
   infectedTeam?: Team;
   nextInfectTrailAt?: number;
+  /** MACHINE POSSESSION of a HULL (§4.4 #4, Phantom's ride): timed team
+   *  flip — its guns serve the ghost, expiry hands it home, EMP evicts. */
+  possessedBy?: number;
+  possessedUntil?: number;
+  origTeam?: Team;
   /** Volt Striker's OVERLOAD: at this sim time the hull detonates — UNLESS
    *  every crew member has bailed, in which case it fizzles. The 2s gamble. */
   overloadAt?: number;

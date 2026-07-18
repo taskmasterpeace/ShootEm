@@ -216,6 +216,12 @@ export const CAST = {
     persona: "Overload, a Collective Living Super Weapon — an ambusher who is half current. Quick, buzzing, delighted by sockets; he treats connected metal as a subway and every emergence as a punchline.",
     scene: 'Current humming down a long conduit. A breaker snapping. A voice arriving from the wrong outlet.',
   },
+  phantom: {
+    voice: 'Enceladus',
+    fx: 'ice', // a whisper with a phase shimmer — half here, half in the wall
+    persona: "Phantom, a United Front Living Super Weapon — an infiltrator who treats walls as doorways and machines as clothes. Quiet, courteous, deeply unsettling; he apologizes to the things he comes through.",
+    scene: 'A wall breathing. Servos turning by themselves. A whisper from the wrong side of the masonry.',
+  },
   announcer: {
     voice: 'Orus',
     fx: 'radio', // 300–3400Hz military net + soft clip
@@ -455,6 +461,12 @@ export const VO = [
   { slot: 'vo_overload_ability', who: 'overload', text: '[fading into hum] See you at the other socket.', notes: ['Said entering the metal; finished emerging from it.'] },
   { slot: 'vo_overload_low', who: 'overload', text: '[flickering] Voltage... dropping.', notes: ['Brownout in a person.'] },
   { slot: 'vo_overload_death', who: 'overload', text: '[cutting out] Circuit... broken.', notes: ['The hum stops mid-word.'] },
+  // ---- PHANTOM: the polite haunting ----
+  { slot: 'vo_phantom_arrive', who: 'phantom', text: '[whispering] Your walls have two sides.', notes: ['Said from the wrong one.'] },
+  { slot: 'vo_phantom_kill3', who: 'phantom', text: 'Three. None heard the wall.', notes: ['A craftsman noting clean work.'] },
+  { slot: 'vo_phantom_ability', who: 'phantom', text: '[phasing] Excuse the wall.', notes: ['Courtesy mid-trespass — for phase and possession both.'] },
+  { slot: 'vo_phantom_low', who: 'phantom', text: '[strained whisper] Solid... too solid...', notes: ['Becoming material is what dying feels like to him.'] },
+  { slot: 'vo_phantom_death', who: 'phantom', text: '[fading] At last... a wall that holds.', notes: ['Grudging respect, dissolving.'] },
 ];
 
 /** The announcer — map-wide, both teams, radio net. */
@@ -595,6 +607,10 @@ export const ANN = [
   { slot: 'ann_overload_landed', text: 'OVERLOAD ON THE FIELD. EVERY WIRE IS A DOOR.' },
   { slot: 'ann_overload_down', text: 'OVERLOAD IS DOWN. THE CIRCUIT IS COLD.' },
   { slot: 'ann_overload_rampage', text: 'FIVE KILLS. OVERLOAD RUNS THE WHOLE GRID.' },
+  { slot: 'ann_phantom_inbound', text: 'PHANTOM INBOUND. [short pause] WATCH YOUR WALLS.' },
+  { slot: 'ann_phantom_landed', text: 'PHANTOM ON THE FIELD. YOUR MACHINES ARE NOT YOURS.' },
+  { slot: 'ann_phantom_down', text: 'PHANTOM IS DOWN. THE WALLS ARE WALLS AGAIN.' },
+  { slot: 'ann_phantom_rampage', text: 'FIVE KILLS. PHANTOM IS EVERYWHERE AND NOWHERE.' },
 ];
 
 export const ANN_NOTES = [

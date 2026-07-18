@@ -432,6 +432,17 @@ export const LSWS: Record<AscendantId, LswDef> = {
     scale: 1.25, speed: 8.5, color: 0xffd23a, // live-wire amber
     activeLabel: 'BECOME CURRENT — ride the metal, emerge anywhere', activeCd: 10,
   },
+  phantom: {
+    id: 'phantom', name: 'Phantom', faction: 0, threat: 2,
+    lines: {
+      inbound: 'PHANTOM INBOUND — WATCH YOUR WALLS',
+      landed: 'PHANTOM ON THE FIELD — YOUR MACHINES ARE NOT YOURS',
+      down: 'PHANTOM IS DOWN — THE WALLS ARE WALLS AGAIN',
+      rampage: 'FIVE KILLS — PHANTOM IS EVERYWHERE AND NOWHERE',
+    },
+    scale: 1.2, speed: 8.5, color: 0xd9e4e6, // pale spectral bone
+    activeLabel: 'THE PHASE — through the wall, blade first', activeCd: 7,
+  },
 };
 
 /** THE SPOKEN SCRIPT — subtitle text per voice slot, tag-stripped mirrors of
@@ -610,6 +621,11 @@ export const VO_LINES: Record<string, { who: AscendantId; line: string }> = {
   vo_overload_ability: { who: 'overload', line: 'See you at the other socket.' },
   vo_overload_low: { who: 'overload', line: 'Voltage... dropping.' },
   vo_overload_death: { who: 'overload', line: 'Circuit... broken.' },
+  vo_phantom_arrive: { who: 'phantom', line: 'Your walls have two sides.' },
+  vo_phantom_kill3: { who: 'phantom', line: 'Three. None heard the wall.' },
+  vo_phantom_ability: { who: 'phantom', line: 'Excuse the wall.' },
+  vo_phantom_low: { who: 'phantom', line: 'Solid... too solid...' },
+  vo_phantom_death: { who: 'phantom', line: 'At last... a wall that holds.' },
 };
 export const voSlot = (id: AscendantId, moment: VoMoment) => `vo_${id}_${moment}`;
 export const annSlot = (id: AscendantId, moment: 'inbound' | 'landed' | 'down' | 'rampage') => `ann_${id}_${moment}`;

@@ -90,6 +90,7 @@ export const LSW_TINT: Record<string, { tint: number; scale: number }> = {
   crusher: { tint: 0xb0783a, scale: 1.45 },      // quarry ochre
   steelweaver: { tint: 0x9aa4b0, scale: 1.4 },   // worked steel
   overload: { tint: 0xffd23a, scale: 1.25 },     // live-wire amber
+  phantom: { tint: 0xd9e4e6, scale: 1.2 },       // pale spectral bone
 };
 
 /** Turn a built trooper body INTO an LSW body: scale up past a trooper,

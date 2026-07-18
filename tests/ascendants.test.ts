@@ -1473,3 +1473,72 @@ describe('Overload — every wire is a door', () => {
       'he must EMERGE far down the circuit').toBeGreaterThan(20);
   });
 });
+
+describe('Phantom — the polite haunting', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  /** clear a straight east lane so the phase (or its absence) is on trial */
+  const lane = (w: World, from: number, to: number, val: number) => {
+    const GRID_N = Math.sqrt(w.map.grid.length) | 0; const TILE_U = 300 / GRID_N;
+    const tz = Math.floor((0 + 150) / TILE_U);
+    for (let x = from; x <= to; x += TILE_U) {
+      w.map.grid[tz * GRID_N + Math.floor((x + 150) / TILE_U)] = val;
+    }
+  };
+
+  it('phases THROUGH the wall and strikes out of it', () => {
+    const w = quiet();
+    const ph = w.addLsw('phantom', 0, { x: 0, y: 0, z: 0 })!; ph.yaw = 0;
+    lane(w, 1.5, 16, 0);
+    const GRID_N = Math.sqrt(w.map.grid.length) | 0; const TILE_U = 300 / GRID_N;
+    const tz = Math.floor((0 + 150) / TILE_U);
+    w.map.grid[tz * GRID_N + Math.floor((3 + 150) / TILE_U)] = 1; // the wall he faces
+    const e = w.addSoldier('E', 'infantry', 1, 'human');
+    e.pos = { x: 7, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0; // camped on the safe side
+    const hp0 = e.hp;
+    w.applyCmd(ph, cmd({ ability: true }), 1 / 60);
+    expect(ph.pos.x, 'he must EMERGE past the wall').toBeGreaterThan(4);
+    expect(e.hp, 'the strike must come OUT of the wall').toBeLessThan(hp0);
+  });
+
+  it('possession takes a BOT for exactly 3s — and NEVER a human', () => {
+    const w = quiet();
+    const ph = w.addLsw('phantom', 0, { x: 0, y: 0, z: 0 })!; ph.yaw = 0;
+    ph.nextLswAt = w.time + 999;
+    lane(w, 1.5, 16, 0); // no wall — Q falls through to the ride
+    const human = w.addSoldier('H', 'infantry', 1, 'human');
+    human.pos = { x: 4, y: 0, z: 0 }; human.alive = true;
+    expect(w.possessBot(human, ph, 3), 'the API must refuse FLESH').toBe(false);
+    expect(human.team, 'a human is never possessed — the law').toBe(1);
+    const bot = w.addSoldier('B', 'infantry', 1, 'bot');
+    bot.pos = { x: 5, y: 0, z: 0 }; bot.alive = true;
+    human.pos = { x: 80, y: 0, z: 80 }; // out of the ride radius
+    w.applyCmd(ph, cmd({ ability: true }), 1 / 60);
+    expect(bot.team, 'the bot must fight for the ghost').toBe(0);
+    expect(bot.possessedBy).toBe(ph.id);
+    for (let i = 0; i < 200; i++) w.step(1 / 60, new Map());
+    expect(bot.team, 'expiry must hand the chassis home').toBe(1);
+    expect(bot.possessedBy).toBeUndefined();
+  });
+
+  it('an EMP burst evicts the ridden bot INSTANTLY', () => {
+    const w = quiet();
+    const ph = w.addLsw('phantom', 0, { x: 0, y: 0, z: 0 })!;
+    const bot = w.addSoldier('B', 'infantry', 1, 'bot');
+    bot.pos = { x: 5, y: 0, z: 0 }; bot.alive = true;
+    expect(w.possessBot(bot, ph, 30)).toBe(true);
+    expect(bot.team).toBe(0);
+    w.empBlast({ x: 5, y: 0, z: 0 }, 1, -1);
+    expect(bot.team, 'the burst must throw the ghost out NOW').toBe(1);
+  });
+
+  it('a possessed HULL serves the ghost, then comes home', () => {
+    const w = quiet();
+    const ph = w.addLsw('phantom', 0, { x: 0, y: 0, z: 0 })!;
+    const v = w.spawnVehicle('tank', 1, { x: 6, y: 0, z: 0 });
+    expect(w.possessVehicle(v, ph, 3)).toBe(true);
+    expect(v.team, 'its guns must serve the ghost').toBe(0);
+    for (let i = 0; i < 200; i++) w.step(1 / 60, new Map());
+    expect(v.team, 'expiry must hand the hull home').toBe(1);
+  });
+});

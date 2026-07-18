@@ -2121,6 +2121,12 @@ export class Renderer {
         pos: { x: s.pos.x + Math.cos(s.yaw) * 0.7, y: 0.9 + Math.random() * 0.9, z: s.pos.z + Math.sin(s.yaw) * 0.7 }, count: 1,
         color: Math.random() < 0.5 ? 0x8a8f98 : 0xc6ccd6, speed: 0.4, life: 0.5, spread: 0.4, up: 0.5, gravity: 0.5, size: 0.26,
       });
+    } else if (id === 'phantom') {
+      // the hover: pale motes sinking away beneath a body that never touches down
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 0.8, y: 0.15, z: s.pos.z + (Math.random() - 0.5) * 0.8 }, count: 1,
+        color: Math.random() < 0.7 ? 0xd9e4e6 : 0x9fb8bc, speed: 0.3, life: 0.7, spread: 0.3, up: -0.4, gravity: 0, size: 0.2,
+      });
     } else if (id === 'crusher') {
       // quarry dust shaken off with every stride
       if (Math.hypot(s.vel.x, s.vel.z) > 1) this.particles.emit({

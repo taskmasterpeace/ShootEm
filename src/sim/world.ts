@@ -790,6 +790,12 @@ export class World {
     for (const t of this.turrets.values()) {
       if (t.possessedUntil !== undefined && this.time >= t.possessedUntil) this.evictPossession(t);
     }
+    for (const b of this.soldiers.values()) {
+      if (b.possessedUntil !== undefined && (this.time >= b.possessedUntil || !b.alive)) this.evictBotPossession(b);
+    }
+    for (const v of this.vehicles.values()) {
+      if (v.possessedUntil !== undefined && (this.time >= v.possessedUntil || !v.alive)) this.evictVehiclePossession(v);
+    }
     // the overload fuses: at the 2s mark the hull DETONATES — unless the
     // crew bailed, in which case the charge fizzles and the armor survives
     for (const v of this.vehicles.values()) {
@@ -1293,6 +1299,44 @@ export class World {
     t.origTeam = undefined; t.origOwnerId = undefined;
   }
 
+  /** §4.4 #4, Phantom's ride: a timed take of an enemy BOT — its team flips
+   *  and it fights for the ghost until expiry hands the chassis home. NEVER
+   *  a human: the API itself refuses flesh (the law). */
+  possessBot(b: Soldier, s: Soldier, secs: number): boolean {
+    if (b.kind !== 'bot' || !b.alive || b.team === s.team) return false;
+    if (b.possessedBy === undefined) b.origTeam = b.team;
+    b.possessedBy = s.id;
+    b.possessedUntil = this.time + secs;
+    b.team = s.team;
+    this.emit({ type: 'hacked', pos: { ...b.pos }, soldierId: s.id, text: `${s.name} POSSESSED ${b.name}!` });
+    return true;
+  }
+
+  /** hand a ridden bot back to its side */
+  private evictBotPossession(b: Soldier) {
+    if (b.possessedBy === undefined) return;
+    b.team = b.origTeam ?? b.team;
+    b.possessedBy = undefined; b.possessedUntil = undefined; b.origTeam = undefined;
+  }
+
+  /** §4.4 #4: a timed take of an enemy HULL — team flips, its guns serve
+   *  the ghost, expiry (or an EMP) hands it home. */
+  possessVehicle(v: Vehicle, s: Soldier, secs: number): boolean {
+    if (!v.alive || v.team === s.team) return false;
+    if (v.possessedBy === undefined) v.origTeam = v.team;
+    v.possessedBy = s.id;
+    v.possessedUntil = this.time + secs;
+    v.team = s.team;
+    this.emit({ type: 'hacked', pos: { ...v.pos }, soldierId: s.id, text: `${s.name} POSSESSED a ${v.kind}!` });
+    return true;
+  }
+
+  private evictVehiclePossession(v: Vehicle) {
+    if (v.possessedBy === undefined) return;
+    v.team = v.origTeam ?? v.team;
+    v.possessedBy = undefined; v.possessedUntil = undefined; v.origTeam = undefined;
+  }
+
   empBlast(pos: Vec3, team: Team, _ownerId: number) {
     this.emit({ type: 'emp', pos: { ...pos } });
     // EMP is the counter-drone weapon: any enemy drone in the burst loses link
@@ -1301,8 +1345,12 @@ export class World {
       if (Math.hypot(g.pos.x - pos.x, g.pos.z - pos.z) < 10) this.crashDrone(g);
     }
     for (const v of this.vehicles.values()) {
-      if (!v.alive || v.team === team) continue;
-      if (Math.hypot(v.pos.x - pos.x, v.pos.z - pos.z) < 8) v.stunnedUntil = this.time + 4;
+      if (!v.alive) continue;
+      const vNear = Math.hypot(v.pos.x - pos.x, v.pos.z - pos.z) < 8;
+      if (!vNear) continue;
+      // EMP EVICTS POSSESSION INSTANTLY (§4.4 #4) — hulls too
+      if (v.possessedBy !== undefined) this.evictVehiclePossession(v);
+      if (v.team !== team) v.stunnedUntil = this.time + 4;
     }
     for (const t of this.turrets.values()) {
       if (!t.alive) continue;
@@ -1314,8 +1362,11 @@ export class World {
       if (t.team !== team) t.nextFireAt = Math.max(t.nextFireAt, this.time + 5);
     }
     for (const s of this.soldiers.values()) {
-      if (!s.alive || s.team === team) continue;
-      if (Math.hypot(s.pos.x - pos.x, s.pos.z - pos.z) < 8) {
+      if (!s.alive) continue;
+      if (Math.hypot(s.pos.x - pos.x, s.pos.z - pos.z) >= 8) continue;
+      // a ridden bot is thrown back to its side the instant the burst hits
+      if (s.possessedBy !== undefined) this.evictBotPossession(s);
+      if (s.team !== team) {
         s.cloaked = false;
         s.energy = 0;
       }

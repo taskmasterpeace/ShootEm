@@ -450,4 +450,32 @@ describe('counterplay — wave 2, seventh batch', () => {
     // the flank he opened is real: the tile is walkable ground now
     expect(w.map.grid[tz * GRID_N + tx]).toBe(0);
   });
+
+  it('PHANTOM — "K9 noses smell him": a dog near the exit blows the strike AND his cover', () => {
+    const dogged = (withDog: boolean) => {
+      const w = quiet();
+      const ph = w.addLsw('phantom', 0, { x: 0, y: 0, z: 0 })!; ph.yaw = 0;
+      const GRID_N = Math.sqrt(w.map.grid.length) | 0; const TILE_U = 300 / GRID_N;
+      const tz = Math.floor((0 + 150) / TILE_U);
+      for (let x = 1.5; x <= 16; x += TILE_U) w.map.grid[tz * GRID_N + Math.floor((x + 150) / TILE_U)] = 0;
+      w.map.grid[tz * GRID_N + Math.floor((3 + 150) / TILE_U)] = 1; // the wall
+      const e = w.addSoldier('E', 'infantry', 1, 'human');
+      e.pos = { x: 7, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+      if (withDog) {
+        const handler = w.addSoldier('H', 'infantry', 1, 'human');
+        handler.pos = { x: 9, y: 0, z: 2 }; handler.alive = true;
+        const dog = w.addDog(handler);
+        dog.pos = { x: 9, y: 0, z: 2 }; dog.alive = true;
+      }
+      const hp0 = e.hp;
+      w.applyCmd(ph, cmd({ ability: true }), 1 / 60);
+      return { moved: ph.pos.x > 4, struck: e.hp < hp0, blown: ph.cloaked === false };
+    };
+    const noNose = dogged(false);
+    expect(noNose.struck, 'without a nose the strike lands').toBe(true);
+    const nosed = dogged(true);
+    expect(nosed.moved, 'the phase itself still happens — the dog makes it expensive').toBe(true);
+    expect(nosed.struck, 'the K9 must BLOW the strike').toBe(false);
+    expect(nosed.blown, 'and his cover with it').toBe(true);
+  });
 });
