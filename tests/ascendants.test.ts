@@ -1043,8 +1043,13 @@ describe('Chronos — the clockmaker', () => {
     const w = quiet();
     const c = w.addLsw('chronos', 1, { x: 0, y: 0, z: 0 })!;
     c.protectedUntil = 0;
-    // walk him east for 3s so the breadcrumbs trail behind him
-    for (let i = 0; i < 60 * 3; i++) w.step(1 / 60, new Map([[c.id, cmd({ moveX: 1 })]]));
+    // move him east for 3s so the breadcrumbs trail behind him — Chronos
+    // BLINK-WALKS now (statue-still between hops zeroes cmd walking), so
+    // the trail forms the way he actually travels: in skips
+    for (let i = 0; i < 60 * 3; i++) {
+      if (i % 60 === 0) c.pos = { x: c.pos.x + 8, y: 0, z: c.pos.z };
+      w.step(1 / 60, new Map());
+    }
     const crumb = c.lswTrail![0];
     const before = { x: c.pos.x, z: c.pos.z };
     w.damageSoldier(c, 99999, -1, 'ar606'); // the killing blow

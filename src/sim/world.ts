@@ -1,6 +1,6 @@
 import { CLASSES, DOG_NAMES, DOG_STATS, EQUIPMENT, IRON_STATS, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
-import { CLIMB_H, DRILL_EATS, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_RUBBLE, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
+import { CLIMB_H, DRILL_EATS, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_RUBBLE, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
 import { Rng } from './rng';
 import {
   SYSTEM_IDS, isCoopMode, isZed,
@@ -548,6 +548,69 @@ export class World {
    * cashes it as telegraphed SimEvents the counter-play can read.
    */
   private stepLsw(s: Soldier, dt: number) {
+    const def = LSWS[s.ascendant!];
+    // ── THE LEAP (movement doctrine): Hulk-class ballistics. The landing
+    // shadow grows the whole flight (the fair-warning law, same as the
+    // flop), mid-air he is SOFT (the generalized AA window), and the
+    // landing shoves without hurting — travel is travel.
+    if (def.moves === 'leap' && s.kind === 'bot' && s.encasedUntil === undefined) {
+      if (s.diveAt !== undefined && s.diveX !== undefined && s.diveZ !== undefined) {
+        const left = s.diveAt - this.time;
+        if (left > 0) {
+          const k = Math.min(1, dt / Math.max(left, dt));
+          s.pos = { x: s.pos.x + (s.diveX - s.pos.x) * k, y: Math.min(6, s.pos.y + 14 * dt) * (left > 0.35 ? 1 : left / 0.35), z: s.pos.z + (s.diveZ - s.pos.z) * k };
+          s.vel = { x: 0, y: 0, z: 0 };
+        } else {
+          s.pos = { x: s.diveX, y: 0, z: s.diveZ };
+          for (const e of this.soldiers.values()) {
+            if (!e.alive || e.team === s.team || e.id === s.id) continue;
+            const dx = e.pos.x - s.pos.x, dz = e.pos.z - s.pos.z, dd = Math.hypot(dx, dz);
+            if (dd > 3.5 || dd < 0.01) continue;
+            e.pushX += (dx / dd) * 18; e.pushZ += (dz / dd) * 18; // shoved, not hurt
+          }
+          this.emit({ type: 'explosion', pos: { ...s.pos }, weapon: 'gl' });
+          s.diveAt = undefined; s.diveX = undefined; s.diveZ = undefined;
+        }
+      } else if (this.time >= (s.nextLeapAt ?? 0)) {
+        s.nextLeapAt = this.time + 7;
+        let tgt: Soldier | undefined, best = 34;
+        for (const e of this.soldiers.values()) {
+          if (!e.alive || e.team === s.team || e.encasedUntil !== undefined) continue;
+          const d = Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z);
+          if (d >= 12 && d < best) { best = d; tgt = e; }
+        }
+        if (tgt) {
+          const dx = tgt.pos.x - s.pos.x, dz = tgt.pos.z - s.pos.z, dl = Math.hypot(dx, dz) || 1;
+          const reach = Math.min(30, dl - 2);
+          s.diveAt = this.time + 1.2;
+          s.diveX = s.pos.x + (dx / dl) * reach;
+          s.diveZ = s.pos.z + (dz / dl) * reach;
+          this.emit({ type: 'lsw_active', pos: { x: s.diveX, y: 0, z: s.diveZ }, text: s.ascendant!, soldierId: s.id });
+        }
+      }
+    }
+    // ── THE BLINK-WALK: a hop every 2s covering what walking would have —
+    // net speed unchanged, but between hops he is PERFECTLY STILL. You
+    // can't lead a target that doesn't travel; punish the rhythm instead.
+    if (def.moves === 'blinkwalk' && s.kind === 'bot' && s.encasedUntil === undefined) {
+      if (this.time >= (s.nextBlinkAt ?? 0)) {
+        s.nextBlinkAt = this.time + 2.0;
+        const goal = s.botGoal ?? null;
+        const dx = goal ? goal.x - s.pos.x : Math.cos(s.yaw), dz = goal ? goal.z - s.pos.z : Math.sin(s.yaw);
+        const dl = Math.hypot(dx, dz) || 1;
+        for (const hop of [15, 10, 5]) {
+          const nx = s.pos.x + (dx / dl) * Math.min(hop, dl);
+          const nz = s.pos.z + (dz / dl) * Math.min(hop, dl);
+          if (!isBlocked(this.map.grid, nx, nz)) {
+            this.emit({ type: 'blink', pos: { ...s.pos } });
+            s.pos = { x: nx, y: 0, z: nz };
+            this.emit({ type: 'blink', pos: { ...s.pos } });
+            break;
+          }
+        }
+      }
+      s.vel.x = 0; s.vel.z = 0; // between hops: statue-still — the window
+    }
     // §5: ONE BRAIN FILE PER LSW — src/sim/lsw/<id>.ts, each deterministic,
     // DOM-free, carrying BOTH abilities. This just dispatches.
     LSW_BRAINS[s.ascendant!]?.step(this, s, dt);
@@ -1619,6 +1682,12 @@ export class World {
     }
     if (s.draggingId >= 0) speed *= 0.5; // hauling a body is slow, honest work
     if (s.crouching) speed *= 0.5;       // ducked walking is half pace
+    // ECLIPSE'S DARK SLIDE: +15% in smoke or long grass, -10% in the open —
+    // terrain-reading as movement identity
+    if (s.ascendant === 'eclipse') {
+      const dark = this.smoked.has(s.id) || tileAt(this.map.grid, s.pos.x, s.pos.z) === T_GRASS;
+      speed *= dark ? 1.15 : 0.9;
+    }
     // THE SEAM SANITIZER (found by the threat rig): a brain that emits NaN
     // intent must never poison the sim — Math.hypot(NaN, x) is NaN and
     // `NaN || 1` stays NaN, so one bad division in a bot turned Magnetar
@@ -2216,9 +2285,15 @@ export class World {
       if (Math.abs(s.pos.y - want) < 0.05) s.pos.y = want;
       s.vel.y = 0;
     }
+    // WRAITH LEVITATES (movement doctrine): 0.6u always, no footfalls —
+    // the silence is the tell that something is wrong
+    if (s.ascendant === 'wraith' && s.alive && s.liftedUntil === undefined) {
+      s.pos.y += (0.6 - s.pos.y) * Math.min(1, 6 * dt);
+      s.vel.y = 0;
+    }
     // gravity + vertical (theme gravity: Europa jumps are glorious)
-    if (!trueFlight && s.liftedUntil === undefined && (s.pos.y > 0 || s.vel.y > 0)) {
-      s.vel.y -= this.gravity * dt;
+    if (!trueFlight && s.ascendant !== 'wraith' && s.liftedUntil === undefined && (s.pos.y > 0 || s.vel.y > 0)) {
+      s.vel.y -= this.gravity * dt * (s.ascendant === 'gravwarden' ? 0.35 : 1); // gravity is polite to its warden
       s.pos.y = Math.max(0, s.pos.y + s.vel.y * dt);
       if (s.pos.y === 0) s.vel.y = 0;
     }
@@ -2258,6 +2333,9 @@ export class World {
     };
     const groundBlocked = (x: number, z: number) => {
       const t = tileAt(this.map.grid, x, z);
+      // PHANTOM'S PHASE-STEP (movement doctrine): his walk treats LOW COVER
+      // as air — full walls still need his Q
+      if (s.ascendant === 'phantom' && t === T_COVER) return false;
       if (t === T_DEEP || t === T_WATER) return false; // wade in, swim deeper
       if (isBlocked(this.map.grid, x, z)) return true;
       // THE ICE BLOCK IS A BLOCK (§21.6, closing Frostbite's Notes gap): an
@@ -3288,9 +3366,10 @@ export class World {
     if (victim.perchTile !== undefined && victim.ascendant === 'gargoyle') {
       dmg *= 0.5;
     }
-    // LEVIATHAN IS SOFT MID-AIR: the belly flop is the AA window — every
-    // round that finds him between leap and landing bites 1.6x deeper
-    if (victim.ascendant === 'leviathan' && victim.diveAt !== undefined) {
+    // SOFT MID-AIR (generalized): the belly flop and every doctrine LEAP
+    // share the AA window — a body between takeoff and landing bites 1.6x
+    if (victim.diveAt !== undefined && victim.ascendant !== undefined &&
+        (victim.ascendant === 'leviathan' || LSWS[victim.ascendant].moves === 'leap')) {
       dmg *= 1.6;
     }
     // CHRONOS'S TEMPORAL ECHO (once per fight): a lethal hit doesn't land —

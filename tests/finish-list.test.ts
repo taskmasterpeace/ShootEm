@@ -257,3 +257,51 @@ describe('THE ARMAMENT DOCTRINE — a god never sounds like infantry', () => {
     expect(b.weapons[0], 'the mortal gets the CLASS kit, not the god-gun').toBe('ar606');
   });
 });
+
+describe('THE MOVEMENT DOCTRINE — every god moves like what it is', () => {
+  it('THE LEAP: shadow-telegraphed travel, SOFT mid-air, a shove on landing', () => {
+    const w = quiet();
+    const t = w.addLsw('titan', 0, { x: 0, y: 0, z: 0 })!;
+    t.nextLswAt = 1e9; t.clip = t.clip.map(() => 0);
+    const e = w.addSoldier('E', 'infantry', 1, 'human');
+    e.pos = { x: 25, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    for (let i = 0; i < 30 && t.diveAt === undefined; i++) w.step(1 / 60, new Map());
+    expect(t.diveAt, 'the leap is telegraphed').toBeDefined();
+    const hpA = t.hp;
+    w.damageSoldier(t, 100, -1, 'ar606');
+    expect(hpA - t.hp, 'mid-leap he is SOFT — the AA window').toBeCloseTo(160, 0);
+    for (let i = 0; i < 90; i++) w.step(1 / 60, new Map());
+    expect(t.diveAt, 'the landing resolves').toBeUndefined();
+    expect(Math.hypot(t.pos.x, t.pos.z), 'thirty units of sky, spent').toBeGreaterThan(15);
+  });
+
+  it('THE BLINK-WALK: hops on the beat, statue-still between — you punish the rhythm', () => {
+    const w = quiet();
+    const v = w.addLsw('voidwalker', 1, { x: 0, y: 0, z: 0 })!;
+    v.nextLswAt = 1e9; v.clip = v.clip.map(() => 0);
+    v.botGoal = { x: 60, y: 0, z: 0 };
+    const marks: number[] = [];
+    for (let i = 0; i < 60 * 5; i++) {
+      const x0 = v.pos.x;
+      w.step(1 / 60, new Map());
+      if (Math.abs(v.pos.x - x0) > 3) marks.push(w.time);
+    }
+    expect(marks.length, 'he hopped on the beat').toBeGreaterThanOrEqual(2);
+    expect(Math.hypot(v.pos.x, v.pos.z), 'the hops cover real ground (the brain picks the direction)').toBeGreaterThan(20);
+    for (let i = 1; i < marks.length; i++) expect(marks[i] - marks[i - 1], 'two seconds a hop').toBeGreaterThan(1.8);
+  });
+
+  it('THE STRANGE ONES: the ghost walks through crates, the wraith never lands, the warden falls politely', () => {
+    const w = quiet();
+    const ph = w.addLsw('phantom', 0, { x: 0, y: 0, z: 0 })!;
+    const GRID_N = 100, TILE_U = 3;
+    const tz = Math.floor(150 / TILE_U);
+    w.map.grid[tz * GRID_N + Math.floor((3 + 150) / TILE_U)] = 2; // a crate in his path
+    ph.nextLswAt = 1e9; ph.nextLswActiveAt = 1e9;
+    for (let i = 0; i < 60; i++) { ph.vel.x = 8; ph.vel.z = 0; w.step(1 / 60, new Map()); }
+    expect(ph.pos.x, 'low cover is AIR to his walk').toBeGreaterThan(4);
+    const wr = w.addLsw('wraith', 1, { x: 40, y: 0, z: 40 })!;
+    for (let i = 0; i < 60; i++) w.step(1 / 60, new Map());
+    expect(wr.pos.y, 'the wraith floats').toBeGreaterThan(0.4);
+  });
+});

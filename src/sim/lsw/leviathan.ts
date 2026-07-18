@@ -86,6 +86,16 @@ export function step(w: World, s: Soldier, dt: number) {
     }
   }
   if (s.kind !== 'bot') return;
+  // JUGGERNAUT (movement doctrine): the walk itself crushes low cover in
+  // his way — a mountain does not go around crates
+  if (Math.hypot(s.vel.x, s.vel.z) > 0.5) {
+    const fx = s.vel.x, fz = s.vel.z, fl = Math.hypot(fx, fz);
+    const ax = s.pos.x + (fx / fl) * TILE, az = s.pos.z + (fz / fl) * TILE;
+    const t = tileAt(w.map.grid, ax, az);
+    if (t === T_COVER || t === T_RUBBLE) {
+      w.damageWall(Math.floor((ax + WORLD / 2) / TILE), Math.floor((az + WORLD / 2) / TILE), 99999, true);
+    }
+  }
   if (w.time >= (s.nextLswAt ?? 0)) {
     s.nextLswAt = w.time + (sweep(w, s) ? 3 : 0.8);
   }

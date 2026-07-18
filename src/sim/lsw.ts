@@ -57,6 +57,12 @@ export interface LswDef {
   /** THE SIGNATURE ARM (armament doctrine): the one weapon this god carries
    *  instead of infantry issue — swapped in at ascension, family 'lsw'. */
   weapon: WeaponId;
+  /** MOVEMENT CLASS (movement doctrine): how this god crosses ground.
+   *  'leap' = Hulk-class ballistics (shadow-telegraphed, SOFT mid-air);
+   *  'blinkwalk' = a hop every 2s covering walking distance — perfectly
+   *  still between hops (the standstill IS the counterplay window).
+   *  Absent = grounded / its own shipped verb (flight, dash, current). */
+  moves?: 'leap' | 'blinkwalk';
   /** TRUE FLIGHT (§4.4 #5): this LSW moves in the third dimension — SAMs
    *  lock it, and D3 keeps human hands off it until flight earns its keep */
   flies?: boolean;
@@ -98,7 +104,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'THE ICE BLOCK — freeze the soldier you are aiming at', activeCd: 4,
   },
   ragebeast: {
-    id: 'ragebeast', weapon: 'lsw_ragebeast', name: 'Ragebeast', faction: 1, threat: 3,
+    id: 'ragebeast', weapon: 'lsw_ragebeast', moves: 'leap', name: 'Ragebeast', faction: 1, threat: 3,
     lines: {
       inbound: 'RAGEBEAST INBOUND — DO NOT FEED IT',
       landed: 'RAGEBEAST IS LOOSE — GOOD LUCK',
@@ -109,7 +115,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'GROUND SLAM — harder the more you bleed', activeCd: 6,
   },
   titan: {
-    id: 'titan', weapon: 'lsw_titan', name: 'Titan', faction: 0, threat: 3,
+    id: 'titan', weapon: 'lsw_titan', moves: 'leap', name: 'Titan', faction: 0, threat: 3,
     lines: {
       inbound: 'TITAN INBOUND — MOVE THE ARMOR',
       landed: 'TITAN ON THE FIELD — NOTHING STAYS WHERE IT STANDS',
@@ -175,7 +181,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'BLACK HOLE — drag them in, then it bursts', activeCd: 7,
   },
   tremor: {
-    id: 'tremor', weapon: 'lsw_tremor', name: 'Tremor', faction: 1, threat: 2,
+    id: 'tremor', weapon: 'lsw_tremor', moves: 'leap', name: 'Tremor', faction: 1, threat: 2,
     lines: {
       inbound: 'TREMOR INBOUND — KEEP OFF THE OPEN GROUND',
       landed: 'TREMOR SURFACES — WATCH THE SOIL',
@@ -252,7 +258,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'REVERSE GRAVITY — float them, then drop them staggered', activeCd: 9,
   },
   chronos: {
-    id: 'chronos', weapon: 'lsw_chronos', name: 'Chronos', faction: 1, threat: 3,
+    id: 'chronos', weapon: 'lsw_chronos', moves: 'blinkwalk', name: 'Chronos', faction: 1, threat: 3,
     lines: {
       inbound: 'CHRONOS INBOUND — WATCH YOUR CLOCKS',
       landed: 'CHRONOS ON THE FIELD — TIME IS HIS NOW',
@@ -296,7 +302,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'MAGMA VOLLEY — three rocks, three pools', activeCd: 7,
   },
   voidwalker: {
-    id: 'voidwalker', weapon: 'lsw_voidwalker', name: 'Voidwalker', faction: 1, threat: 1,
+    id: 'voidwalker', weapon: 'lsw_voidwalker', moves: 'blinkwalk', name: 'Voidwalker', faction: 1, threat: 1,
     lines: {
       inbound: 'VOIDWALKER INBOUND — CHECK YOUR SHADOWS',
       landed: 'VOIDWALKER ON THE FIELD — HE IS ALREADY BEHIND SOMEONE',
@@ -351,7 +357,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'BLINK-STAB — arrive behind them; the mine stays', activeCd: 5,
   },
   specter: {
-    id: 'specter', weapon: 'lsw_specter', name: 'Specter', faction: 1, threat: 1,
+    id: 'specter', weapon: 'lsw_specter', moves: 'blinkwalk', name: 'Specter', faction: 1, threat: 1,
     lines: {
       inbound: 'SPECTER INBOUND — COUNT THE SHADOWS',
       landed: 'SPECTER ON THE FIELD — THEY ALL WALK LIKE HIM',
@@ -406,7 +412,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'THE CHAIN — reel the first body into the scythe', activeCd: 6,
   },
   crusher: {
-    id: 'crusher', weapon: 'lsw_crusher', name: 'Crusher', faction: 0, threat: 2,
+    id: 'crusher', weapon: 'lsw_crusher', moves: 'leap', name: 'Crusher', faction: 0, threat: 2,
     lines: {
       inbound: 'CRUSHER INBOUND — YOUR COVER IS TEMPORARY',
       landed: 'CRUSHER ON THE FIELD — THE MAP IS NEGOTIABLE',
@@ -497,7 +503,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'BELLY FLOP — the shadow is the warning', activeCd: 12,
   },
   cataclysm: {
-    id: 'cataclysm', weapon: 'lsw_cataclysm', name: 'Cataclysm', faction: 1, threat: 2,
+    id: 'cataclysm', weapon: 'lsw_cataclysm', moves: 'leap', name: 'Cataclysm', faction: 1, threat: 2,
     lines: {
       inbound: 'CATACLYSM INBOUND — DO NOT LET THIS ONE SETTLE IN',
       landed: 'CATACLYSM ON THE FIELD — EVERY SECOND COSTS YOU',
