@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
-import { CLIMB_H, F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt, losClear, surfaceAt, tileAt } from '../sim/map';
+import { CLIMB_H, F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt, losClear, surfaceAt, tileAt } from '../sim/map';
 import { classLinger, seenRecently, type SeenMark } from '../sim/perception';
 import { paintColorFor } from './onboarding';
 import type { WeatherKind } from '../sim/weather';
@@ -535,7 +535,7 @@ export class Renderer {
         const t = world.map.grid[z * GRID + x];
         const n = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453;
         const r = n - Math.floor(n);
-        ctx.fillStyle = t === T_WATER || t === T_DEEP ? pal.water(r) : pal.open(r);
+        ctx.fillStyle = t === T_WATER || t === T_DEEP ? pal.water(r) : t === T_GRASS ? '#6b7c40' : pal.open(r);
         if (t === T_DEEP) {
           // deep channel: the same water, drowned darker
           ctx.fillStyle = pal.water(r).replace(/\d+/g, (n) => String(Math.round(Number(n) * 0.55)));
@@ -586,6 +586,7 @@ export class Renderer {
     const covered = new Set(world.map.propCovered);
     const wallTiles: [number, number][] = [];
     const coverTiles: [number, number][] = [];
+    const grassTiles: [number, number][] = [];
     const climbTiles: [number, number][] = [];
     const slitTiles: [number, number][] = [];
     const metalTiles: [number, number][] = [];
@@ -597,7 +598,9 @@ export class Renderer {
         const idx = z * GRID + x;
         const t = world.map.grid[idx];
         if (t === T_OPEN || t === T_WATER || t === T_DEEP || t === T_LADDER || covered.has(idx)) continue;
-        if (t === T_COVER) {
+        if (t === T_GRASS) {
+          grassTiles.push([x, z]);
+        } else if (t === T_COVER) {
           coverTiles.push([x, z]);
         } else if (t === T_CLIMB) {
           climbTiles.push([x, z]);
@@ -629,6 +632,31 @@ export class Renderer {
     });
     this.scene.add(wallInst);
     this.wallInst = wallInst;
+
+    // TALL GRASS (finish-list 18): crossed blades per tile, wind-still and
+    // cheap -- the meadow reads at command zoom without hiding the fight.
+    if (grassTiles.length) {
+      const bladeGeo = new THREE.PlaneGeometry(TILE * 0.9, 1.25);
+      bladeGeo.translate(0, 0.62, 0);
+      const grassMat = new THREE.MeshStandardMaterial({
+        color: 0x7c8a48, roughness: 1, side: THREE.DoubleSide, transparent: true, opacity: 0.85,
+      });
+      const grassInst = new THREE.InstancedMesh(bladeGeo, grassMat, grassTiles.length * 2);
+      const gm = new THREE.Matrix4();
+      const gq = new THREE.Quaternion();
+      const gs = new THREE.Vector3(1, 1, 1);
+      grassTiles.forEach(([x, z], i) => {
+        const wx = (x + 0.5) * TILE - WORLD / 2, wz = (z + 0.5) * TILE - WORLD / 2;
+        const a = ((x * 31 + z * 17) % 7) / 7 * Math.PI; // deterministic lean
+        for (let b = 0; b < 2; b++) {
+          gq.setFromAxisAngle(new THREE.Vector3(0, 1, 0), a + b * Math.PI / 2);
+          gm.compose(new THREE.Vector3(wx, 0, wz), gq, gs);
+          grassInst.setMatrixAt(i * 2 + b, gm);
+        }
+      });
+      grassInst.receiveShadow = true;
+      this.scene.add(grassInst);
+    }
 
     const coverMat = new THREE.MeshStandardMaterial({ color: pal.cover, roughness: 0.9 });
     const coverInst = new THREE.InstancedMesh(new THREE.BoxGeometry(TILE * 0.95, 1.2, TILE * 0.95), coverMat, Math.max(coverTiles.length, 1));
@@ -1287,6 +1315,8 @@ export class Renderer {
           }
         }
       }
+      // DUCK (finish-list 18): the silhouette folds -- head below the grass line
+      if (s.crouching && !s.ascendant && s.pos.y < 0.5) mesh.position.y -= 0.5;
       mesh.rotation.y = -s.yaw; // sim yaw is math-angle on XZ; three rotates opposite
       this.animateSoldier(mesh, s, world);
       if (s.ascendant) this.lswAura(mesh, s, world);

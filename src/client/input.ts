@@ -158,6 +158,7 @@ export class Input {
       fire: this.mouse.down,
       altFire: this.mouse.rightDown,
       jump: this.keys.has(' '),
+      crouch: this.keys.has('c'), // DUCK: held stance (finish-list 18)
       use: this.oneShot.use,
       ability: this.oneShot.ability,
       reload: this.oneShot.reload,

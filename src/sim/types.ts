@@ -294,6 +294,8 @@ export interface Soldier {
   possessedBy?: number;
   possessedUntil?: number;
   origTeam?: Team;
+  /** DUCK (finish-list 18): the held stance -- half speed, deep grass hide. */
+  crouching?: boolean;
   /** THE SQUAD (§15, finish-list #14): the fireteam this soldier deploys
    *  with — 2-4 bodies who share a spawn and read each other. Offline your
    *  friendly bots ARE your squad. Rides the wire free. */
@@ -660,4 +662,7 @@ export interface PlayerCmd {
   /** one-frame tap: rotate the grenade bag (frag/class-kit → smoke → fire),
    *  skipping empty pouches. X on the keyboard. */
   nadeCycle?: boolean;
+  /** DUCK (finish-list 18): held stance -- half speed, and in the long grass
+   *  you vanish past the footstep ring. C on the keyboard. */
+  crouch?: boolean;
 }

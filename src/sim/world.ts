@@ -998,13 +998,20 @@ export class World {
     for (const g of this.gadgets.values()) {
       if (g.type === 'smoke_field') this.smokeBlobs.push({ x: g.pos.x, z: g.pos.z, r: 5 });
     }
+    // MUZZLE FLASH TELLS THE TRUTH (finish-list 18): anyone who fired inside
+    // the last beat is revealed, long grass or not (computed once, both teams)
+    const revealed = new Set<number>();
+    for (const e of this.soldiers.values()) {
+      // nextFireAt of 0 means NEVER fired — a fresh boot is not a muzzle flash
+      if (e.alive && e.nextFireAt > 0 && e.nextFireAt > this.time - 0.9 && e.nextFireAt <= this.time + 2) revealed.add(e.id);
+    }
     for (const team of [0, 1] as Team[]) {
       const eyes: Soldier[] = [];
       for (const e of this.soldiers.values()) if (e.alive && e.team === team) eyes.push(e);
       for (const s of this.soldiers.values()) {
         if (s.team === team) continue;
         if (!s.alive) { this.lastSeen[team].delete(s.id); continue; }
-        if (perceivesNow(this.map.grid, eyes, this.pinged, s, range, this.smokeBlobs)) {
+        if (perceivesNow(this.map.grid, eyes, this.pinged, s, range, this.smokeBlobs, revealed)) {
           this.lastSeen[team].set(s.id, { t: this.time, x: s.pos.x, z: s.pos.z });
         }
       }
@@ -1430,6 +1437,7 @@ export class World {
 
   applyCmd(s: Soldier, cmd: PlayerCmd, dt: number) {
     s.yaw = cmd.aimYaw;
+    s.crouching = !!cmd.crouch && !s.downed; // the duck is a HELD stance
 
     // §7 A PILOTED LSW: Q is the SIGNATURE, not the class kit. The active
     // fires here and the class-ability branches below never see the press —
@@ -1571,6 +1579,7 @@ export class World {
       if (e?.speedMult) speed *= e.speedMult;
     }
     if (s.draggingId >= 0) speed *= 0.5; // hauling a body is slow, honest work
+    if (s.crouching) speed *= 0.5;       // ducked walking is half pace
     // THE SEAM SANITIZER (found by the threat rig): a brain that emits NaN
     // intent must never poison the sim — Math.hypot(NaN, x) is NaN and
     // `NaN || 1` stays NaN, so one bad division in a bot turned Magnetar

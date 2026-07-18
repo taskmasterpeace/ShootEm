@@ -136,3 +136,57 @@ describe('#14 THE SQUAD — the container ships (§15)', () => {
     expect(Math.hypot(dead.pos.x - 70, dead.pos.z - 70), 'nobody spawns into a lap — the ring takes over').toBeGreaterThan(10);
   });
 });
+
+describe('#18 TALL GRASS + THE DUCK — you are a rumor in the meadow', () => {
+  const grassAt = (w: World, x: number, z: number) => {
+    const GRID_N = 100, TILE_U = 3;
+    w.map.grid[Math.floor((z + 150) / TILE_U) * GRID_N + Math.floor((x + 150) / TILE_U)] = 12; // T_GRASS
+  };
+
+  it('standing in the grass the cone loses you at 14u; DUCKED, at the ring', () => {
+    const w = quiet();
+    const eye = w.addSoldier('EYE', 'infantry', 0, 'human');
+    eye.pos = { x: 0, y: 0, z: 0 }; eye.yaw = 0; eye.alive = true;
+    const hider = w.addSoldier('HIDE', 'infantry', 1, 'human');
+    hider.pos = { x: 20, y: 0, z: 0 }; hider.alive = true;
+    grassAt(w, 20, 0);
+    for (let i = 0; i < 3; i++) w.step(1 / 60, new Map());
+    expect(w.lastSeen[0].get(hider.id), 'twenty units of meadow is invisibility').toBeUndefined();
+    // walk the eye to 12u: the rumor becomes a silhouette
+    eye.pos = { x: 8, y: 0, z: 0 };
+    w.step(1 / 60, new Map());
+    expect(w.lastSeen[0].get(hider.id), 'at 12u the grass gives him up').toBeDefined();
+    // now DUCK at 12u: gone again — only the footstep ring finds a croucher
+    w.lastSeen[0].delete(hider.id);
+    hider.crouching = true;
+    w.step(1 / 60, new Map());
+    expect(w.lastSeen[0].get(hider.id), 'ducked in the grass, 12u is still a rumor').toBeUndefined();
+    eye.pos = { x: 13, y: 0, z: 0 };
+    w.step(1 / 60, new Map());
+    expect(w.lastSeen[0].get(hider.id), 'the footstep ring always tells').toBeDefined();
+  });
+
+  it('MUZZLE FLASH TELLS THE TRUTH: firing from the grass reveals you', () => {
+    const w = quiet();
+    const eye = w.addSoldier('EYE', 'infantry', 0, 'human');
+    eye.pos = { x: 0, y: 0, z: 0 }; eye.yaw = 0; eye.alive = true;
+    const shooter = w.addSoldier('SHOT', 'infantry', 1, 'human');
+    shooter.pos = { x: 20, y: 0, z: 0 }; shooter.alive = true;
+    grassAt(w, 20, 0);
+    shooter.nextFireAt = w.time + 0.1; // just pulled the trigger
+    w.step(1 / 60, new Map());
+    expect(w.lastSeen[0].get(shooter.id), 'the flash burns through the meadow').toBeDefined();
+  });
+
+  it('the duck halves the stride', () => {
+    const run = (crouch: boolean) => {
+      const w = quiet();
+      const s = w.addSoldier('S', 'infantry', 0, 'human');
+      s.pos = { x: 0, y: 0, z: 0 }; s.alive = true;
+      const cmd = { moveX: 1, moveZ: 0, aimYaw: 0, crouch } as never;
+      for (let i = 0; i < 60; i++) w.step(1 / 60, new Map([[s.id, cmd]]));
+      return s.pos.x;
+    };
+    expect(run(true) / run(false), 'knees bent, half the ground').toBeCloseTo(0.5, 1);
+  });
+});
