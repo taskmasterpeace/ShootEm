@@ -131,6 +131,19 @@ export const RECOIL_SCALE: Record<string, { kick: number; recover: number; flip:
   grenade: { kick: 0.4, recover: 0.08, flip: 0 },
 };
 
+/** THE POWER-CAST SCHOOLS (feel pass #6): how a god throws a signature.
+ *  SLAM — both arms overhead, driven down. THRUST — both arms punched
+ *  forward (the default). CHANNEL — one arm held out, sustained. */
+export type CastSchool = 'slam' | 'thrust' | 'channel';
+export const CAST_SCHOOL: Record<string, CastSchool> = {
+  titan: 'slam', crusher: 'slam', tremor: 'slam', ragebeast: 'slam',
+  leviathan: 'slam', cataclysm: 'slam', gargoyle: 'slam', vanguard: 'slam',
+  frostbite: 'channel', reactor: 'channel', crimson: 'channel', magnetar: 'channel',
+  eclipse: 'channel', chronos: 'channel', wraith: 'channel', dominator: 'channel',
+  // everyone else punches forward: voltstriker, overload, pulse, oblivion,
+  // riptide, gravwarden, stormcaller, and every blink-walker at the departure
+};
+
 /**
  * Pose a soldier's limb joints for one frame of the alive gait (and, for the
  * undead, the reaching arms / lolling head / breathing belly). Mutates only the

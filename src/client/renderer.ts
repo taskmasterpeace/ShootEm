@@ -10,7 +10,7 @@ import { audio, type SoundName } from './audio';
 import { BIOME_AUDIO } from './soundscape';
 import { settings } from './settings';
 import { Particles, FlashLights } from './effects';
-import { JOINT_NAMES, isUndead, poseSoldierJoints, RECOIL_SCALE, WEAPON_HOLDS, type GaitState } from './animation';
+import { JOINT_NAMES, isUndead, poseSoldierJoints, CAST_SCHOOL, RECOIL_SCALE, WEAPON_HOLDS, type GaitState } from './animation';
 import { hash01 } from '../sim/rng';
 import { buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp, buildSoldier, buildTurretMesh, buildVehicle, dressAsLsw } from './models';
 
@@ -146,6 +146,7 @@ export class Renderer {
   // melee feel: telegraph windows (arms up) keyed by attacker, and the arc slashes
   private meleeTelegraphs = new Map<number, { at: number; until: number }>();
   private throwPoses = new Map<number, { at: number; until: number }>();
+  private castPoses = new Map<number, { at: number; until: number; school: 'slam' | 'thrust' | 'channel' }>();
   private slashes: { mesh: THREE.Mesh; until: number }[] = [];
   // §19.2 sound-and-movement: footstep clocks for enemies you HEAR but can't
   // see, and the smudges their noise smears through the dark
@@ -2574,6 +2575,34 @@ export class Renderer {
       if (j.torso) j.torso.rotation.z = -kick * 0.05 * rs.kick;
     }
 
+    // ---- POWER-CAST POSES (feel pass #6): the god throws its signature.
+    // 0.6s additive by school — SLAM overhead-and-down, THRUST punched
+    // forward, CHANNEL one arm held out and sustained.
+    if (s.ascendant && (j.armL || j.armR)) {
+      const cp = this.castPoses.get(s.id);
+      if (cp) {
+        if (t > cp.until) this.castPoses.delete(s.id);
+        else {
+          const k = Math.min(1, (t - cp.at) / (cp.until - cp.at));
+          const env = Math.sin(k * Math.PI); // up-and-down envelope
+          if (cp.school === 'slam') {
+            const swing = k < 0.55 ? 2.4 * (k / 0.55) : 2.4 - 3.6 * ((k - 0.55) / 0.45);
+            if (j.armL) j.armL.rotation.z += swing;
+            if (j.armR) j.armR.rotation.z += swing;
+            if (j.torso) j.torso.rotation.x += (k < 0.55 ? -0.2 : 0.35) * env;
+          } else if (cp.school === 'channel') {
+            if (j.armR) j.armR.rotation.z += 1.5 * env;
+            if (j.torso) j.torso.rotation.z += -0.12 * env;
+          } else {
+            const punch = Math.min(1, k / 0.25) * (1 - Math.max(0, (k - 0.7) / 0.3));
+            if (j.armL) j.armL.rotation.z += 1.9 * punch;
+            if (j.armR) j.armR.rotation.z += 1.9 * punch;
+            if (j.torso) j.torso.rotation.x += 0.15 * env;
+          }
+        }
+      }
+    }
+
     // ---- FLIGHT STYLES (feel pass #5): each flier owns a silhouette in the
     // air. Blended over everything above with a spring, so takeoffs read.
     if (s.ascendant === 'inferno' || s.ascendant === 'stormcaller' || s.ascendant === 'gargoyle') {
@@ -2977,6 +3006,14 @@ export class Renderer {
           }
           break;
         case 'lsw_active': {
+          // THE POWER-CAST (feel pass #6): the body throws the signature
+          // before it lands — SLAM / THRUST / CHANNEL by school
+          if (e.soldierId !== undefined && e.text) {
+            this.castPoses.set(e.soldierId, {
+              at: world.time, until: world.time + 0.6,
+              school: CAST_SCHOOL[e.text] ?? 'thrust',
+            });
+          }
           // a piloted LSW fired its signature — each speaks in its own voice
           if (!e.pos) break;
           if (e.text === 'firebrand') {
