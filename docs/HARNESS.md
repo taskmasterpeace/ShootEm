@@ -37,6 +37,7 @@ in the bottom corner of the game's main menu; players never need it.
 | **Physics sandbox** | Drop test, hop, jetpack burst — integrated at the sim's own constants (gravity 22, hop 7, jet 9.5). Fire a projectile with any weapon's real speed/arc and watch the ballistic trail. |
 | **Combat sandbox** | Drop a target dummy at a chosen range and fire any weapon; the tracer leaves the shooter's muzzle line and a floating damage number appears — a quick check of muzzle offset & facing. |
 | **Environment** | Build any real generated map (all seven modes, any seed) into the scene and orbit it to inspect walls, cover, ponds, props, gates and lift pads. |
+| **Map Maker** | The AAA editor: any of the ten fronts × three tiers (or a blank canvas) as a 2D top-down document. Paint the full terrain alphabet + surfaces, place props/buildings/objectives, drag objectives around, stamp & delete buildings atomically. The six front laws run **live** (sealed rim, zero orphans, readable, enterable, indoors, walls) — a green badge means the suite would pass. 40-deep undo, autosave, JSON download/copy/import, and one-click 3D preview of the map you're editing. Engine: [`src/sim/mapedit.ts`](../src/sim/mapedit.ts) — pure sim, test-covered in `tests/mapedit.test.ts`. |
 
 ## The "arms face forward" convention
 

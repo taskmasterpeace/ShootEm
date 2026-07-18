@@ -381,7 +381,7 @@ function paintGround(world: World): THREE.Texture {
   return tex;
 }
 
-function loadEnvironment(mode: ModeId, seed: number, theme: ThemeId) {
+function loadEnvironment(mode: ModeId, seed: number, theme: ThemeId, mapOverride?: import('../sim/map').GameMap) {
   clearEnv();
   envMode = true;
   stage.visible = false;
@@ -391,6 +391,8 @@ function loadEnvironment(mode: ModeId, seed: number, theme: ThemeId) {
   floor.visible = false;
 
   const world = new World({ seed: seed >>> 0, mode, difficulty: 'veteran', botsPerTeam: 0, matchMinutes: 15, theme });
+  // the Map Maker previews its own document: same World shell, its map swapped in
+  if (mapOverride) world.map = mapOverride;
   const pal = THEME_PALETTES[world.map.theme] ?? THEME_PALETTES.savanna;
   // the preview breathes the same air as the game: sky, fog, sun.
   // Fog distances stretch ×3 — the aerial inspection camera sits far beyond
@@ -1363,4 +1365,15 @@ function blBuild() {
     audio.resume();
     audio.play('footstep');
   };
+}
+
+// ── Map Maker — the AAA editor tab (engine: src/sim/mapedit.ts) ─────────────
+{
+  const { mountMaker } = await import('./mapmaker');
+  mountMaker($('maker'), {
+    preview3D: (map) => {
+      setMode('world');
+      loadEnvironment('tdm', 1, 'savanna', map);
+    },
+  });
 }
