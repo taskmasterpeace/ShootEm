@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
 import { CLIMB_H, F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt, losClear, surfaceAt, tileAt } from '../sim/map';
-import { SEEN_LINGER, SEEN_LINGER_GEARED, seenRecently, type SeenMark } from '../sim/perception';
+import { classLinger, seenRecently, type SeenMark } from '../sim/perception';
 import { paintColorFor } from './onboarding';
 import type { WeatherKind } from '../sim/weather';
 import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
@@ -1075,7 +1075,7 @@ export class Renderer {
         for (const s of world.soldiers.values()) {
           if (!s.alive || s.team === focus.team || s.vehicleId >= 0) continue;
           if (!world.puppet && !seenRecently(world.lastSeen, world.pinged, focus.team, s, world.time,
-            focus.equipment.includes('tracking_optics') ? SEEN_LINGER_GEARED : SEEN_LINGER)) continue;
+            classLinger(focus.classId, focus.equipment.includes('tracking_optics')))) continue;
           const hIdx = houseAt(world.map.houses, s.pos.x, s.pos.z);
           if (hIdx < 0) continue;
           const topFloor = world.map.houses[hIdx].floors === 2 ? 1 : 0;
@@ -1179,13 +1179,18 @@ export class Renderer {
       // cull already decided, and its ghosts arrive pre-frozen.
       let ghost: SeenMark | undefined;
       let dark = false;
+      mesh.userData.ghostAlpha = 1;
       if (!world.puppet && local && s.team !== localTeam && s.alive && !inVehicle) {
         const mark = world.lastSeen[localTeam].get(s.id);
         const fresh = mark !== undefined && world.time - mark.t < 0.07;
         if (!fresh) {
-          const linger = local.equipment.includes('tracking_optics') ? SEEN_LINGER_GEARED : SEEN_LINGER;
-          if (mark && world.time - mark.t <= linger && !(s.cloaked && !world.pinged.has(s.id))) ghost = mark;
-          else dark = true;
+          // §11 row 6: per-CLASS linger (recon holds longest, max 5s), and the
+          // ghost DISSOLVES across the window instead of popping at its end
+          const linger = classLinger(local.classId, local.equipment.includes('tracking_optics'));
+          if (mark && world.time - mark.t <= linger && !(s.cloaked && !world.pinged.has(s.id))) {
+            ghost = mark;
+            mesh.userData.ghostAlpha = Math.max(0.05, 1 - (world.time - mark.t) / linger);
+          } else dark = true;
         }
       }
       // SOUND AND MOVEMENT (§19.2): your ears keep working where your eyes
@@ -2070,7 +2075,7 @@ export class Renderer {
     const moving = speed > 0.6;
 
     // ---- death: ragdoll collapse + fade out ----
-    let alpha = s.cloaked ? 0.3 : 1;
+    let alpha = (s.cloaked ? 0.3 : 1) * ((mesh.userData.ghostAlpha as number | undefined) ?? 1);
     if (!s.alive) {
       // capture the pose + fall direction the instant the body first goes down
       let rag = mesh.userData.rag as RagState | undefined;
@@ -2379,7 +2384,8 @@ export class Renderer {
             const unseenEnemy = !!localS && e.soldierId !== localId && (!shooter
               ? true // puppet worlds: a culled shooter is one you genuinely can't see
               : shooter.team !== localS.team && !world.puppet &&
-                !seenRecently(world.lastSeen, world.pinged, localS.team, shooter, world.time, SEEN_LINGER));
+                !seenRecently(world.lastSeen, world.pinged, localS.team, shooter, world.time,
+                  classLinger(localS.classId, localS.equipment.includes('tracking_optics'))));
             if (unseenEnemy) this.spawnSmudge(e.pos, def.range <= 2.5 ? 1.5 : 3, world.time);
           }
 

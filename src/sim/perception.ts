@@ -30,6 +30,18 @@ export const RING = 9;
 export const SEEN_LINGER = 1.5;
 export const SEEN_LINGER_GEARED = 3;
 
+/** §11 row 6 (Robert): "when you look away they should fade over 5s;
+ *  different classes see longer; the MAX is 5." The linger is per-VIEWER:
+ *  recon classes hold a lost contact longest, tracking optics buys more,
+ *  and nothing ever exceeds MAX_LINGER. The renderer dissolves the ghost
+ *  across this window instead of popping it. */
+export const MAX_LINGER = 5;
+const CLASS_LINGER: Record<string, number> = { ghost: 5, infiltrator: 4, pathfinder: 3.5 };
+export function classLinger(classId: string, hasOptics: boolean): number {
+  const base = CLASS_LINGER[classId] ?? 2.5;
+  return Math.min(MAX_LINGER, base + (hasOptics ? 1.5 : 0));
+}
+
 /** One team's memory of one enemy: when last perceived, and WHERE — the
  *  ghost freezes at the spot you lost them, never trailing their live path. */
 export interface SeenMark { t: number; x: number; z: number }
