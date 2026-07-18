@@ -150,6 +150,11 @@ export class Renderer {
   // see, and the smudges their noise smears through the dark
   private unseenStepAt = new Map<number, number>();
   private smudges: { mesh: THREE.Mesh; until: number }[] = [];
+  // THE BLAST RINGS (Robert: "a circle in the center, and a radius around
+  // that"). Each explosion stamps two ground rings sized to the SIM's own
+  // numbers — a bright kill DISC (die inside it) and an expanding splash
+  // RING (the reach, chip damage at the rim). Pooled, capped, ~0.5s life.
+  private blastRings: { mesh: THREE.Mesh; born: number; life: number; r0: number; r1: number; grow: boolean; peak: number }[] = [];
   /** rounds that already cracked past the local ear — one whiz per bullet */
   private whizzed = new Set<number>();
   // PAINTBALL: splatter STAYS (Robert) — flat paint decals, whole-match life,
@@ -431,6 +436,34 @@ export class Renderer {
     ring.position.set(pos.x, 0.15, pos.z);
     this.scene.add(ring);
     this.smudges.push({ mesh: ring, until: now + 0.7 });
+  }
+
+  /** Stamp the two blast rings sized to the sim (kill radius + splash reach).
+   *  color tints the pair — orange for HE, blue for a concussion pulse. */
+  private spawnBlastRings(pos: { x: number; z: number }, killR: number, splashR: number, color: number, now: number) {
+    if (this.blastRings.length > 40) {
+      const gone = this.blastRings.shift()!;
+      this.scene.remove(gone.mesh); gone.mesh.geometry.dispose(); (gone.mesh.material as THREE.Material).dispose();
+    }
+    // the KILL DISC — a filled heart, brightest, gone in a blink
+    const disc = new THREE.Mesh(
+      new THREE.CircleGeometry(Math.max(0.4, killR), 28),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide }),
+    );
+    disc.rotation.x = -Math.PI / 2;
+    disc.position.set(pos.x, 0.12, pos.z);
+    this.scene.add(disc);
+    this.blastRings.push({ mesh: disc, born: now, life: 0.42, r0: killR, r1: killR, grow: false, peak: 0.5 });
+    // the SPLASH RING — a shockwave that shoots out to the true reach, then fades
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.86, 1.0, 44),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide }),
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(pos.x, 0.14, pos.z);
+    ring.scale.setScalar(splashR * 0.35);
+    this.scene.add(ring);
+    this.blastRings.push({ mesh: ring, born: now, life: 0.5, r0: splashR * 0.35, r1: splashR, grow: true, peak: 0.7 });
   }
 
   /** Build one precipitation particle system for the given sky. */
@@ -1767,6 +1800,27 @@ export class Renderer {
       }
     }
 
+    // the blast rings: the disc flashes and dies; the shockwave shoots to the
+    // true splash reach, then fades — both stamped to the sim's own radii
+    for (let i = this.blastRings.length - 1; i >= 0; i--) {
+      const b = this.blastRings[i];
+      const age = world.time - b.born;
+      const k = Math.max(0, 1 - age / b.life);
+      const mat = b.mesh.material as THREE.MeshBasicMaterial;
+      if (b.grow) {
+        const grow = Math.min(1, age / 0.12); // the shockwave snaps out fast
+        b.mesh.scale.setScalar(b.r0 + (b.r1 - b.r0) * grow);
+        mat.opacity = b.peak * k;
+      } else {
+        b.mesh.scale.setScalar(1 + (1 - k) * 0.15); // the disc barely swells
+        mat.opacity = b.peak * k * k; // and snaps out
+      }
+      if (age >= b.life) {
+        this.scene.remove(b.mesh); b.mesh.geometry.dispose(); mat.dispose();
+        this.blastRings.splice(i, 1);
+      }
+    }
+
     // melee claw-arcs sweep outward and vanish fast
     for (let i = this.slashes.length - 1; i >= 0; i--) {
       const sl = this.slashes[i];
@@ -2652,6 +2706,12 @@ export class Renderer {
           this.particles.emit({ pos: e.pos, count: big ? 60 : 35, color: 0xff9040, speed: big ? 14 : 9, life: 0.7, spread: 1, up: 7, gravity: 8 });
           this.particles.emit({ pos: e.pos, count: 20, color: 0x555555, speed: 4, life: 1.2, spread: 1.5, up: 5, gravity: 2 });
           this.flashes.flash(e.pos, 0xffaa44, big ? 90 : 45, world.time);
+          // SEE THE BLAST: two ground rings at the sim's exact radii. A blue
+          // pulse marks a concussion (knockback, not death); HE is orange.
+          if (e.radius) {
+            const conc = e.weapon === 'conc_nade';
+            this.spawnBlastRings(e.pos, e.killRadius ?? e.radius * 0.4, e.radius, conc ? 0x5cc8ff : 0xff7a30, world.time);
+          }
           const local = world.soldiers.get(localId);
           if (local) {
             const d = Math.hypot(e.pos.x - local.pos.x, e.pos.z - local.pos.z);

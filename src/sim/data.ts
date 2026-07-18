@@ -30,8 +30,8 @@ const CORE_WEAPONS: Record<WeaponId, WeaponDef> = {
   rg2: W({ id: 'rg2', name: 'RG-2 Railgun', damage: 85, rof: 0.8, speed: 300, spread: 0.001, clip: 4, reloadTime: 2.4, reserve: 32, range: 125, sound: 'rail', tracer: 'rail',
     alt: { kind: 'tag', ammo: 4, cooldown: 1.4 } }), // tag dart — pin the runner, then line up the real shot
   ac_mk2: W({ id: 'ac_mk2', name: 'AC-Mk2 Autocannon', damage: 16, rof: 6.5, speed: 100, spread: 0.04, clip: 60, reloadTime: 2.8, reserve: 300, range: 56, sound: 'autocannon' }),
-  mml: W({ id: 'mml', name: 'Micro-Missile Launcher', damage: 65, rof: 0.9, speed: 42, spread: 0.01, clip: 3, reloadTime: 2.6, reserve: 24, range: 80, splash: 4.5, splashDamage: 45, knockback: 14, sound: 'rocket', tracer: 'rocket' }),
-  gl: W({ id: 'gl', name: 'GL-40 Grenade Launcher', damage: 55, rof: 1.1, speed: 34, clip: 5, reloadTime: 2.4, reserve: 30, range: 46, splash: 5, splashDamage: 50, knockback: 10, arc: true, sound: 'thump', tracer: 'shell',
+  mml: W({ id: 'mml', name: 'Micro-Missile Launcher', damage: 65, rof: 0.9, speed: 42, spread: 0.01, clip: 3, reloadTime: 2.6, reserve: 24, range: 80, splash: 5.4, splashDamage: 45, knockback: 14, sound: 'rocket', tracer: 'rocket' }),
+  gl: W({ id: 'gl', name: 'GL-40 Grenade Launcher', damage: 55, rof: 1.1, speed: 34, clip: 5, reloadTime: 2.4, reserve: 30, range: 46, splash: 6, splashDamage: 50, knockback: 10, arc: true, sound: 'thump', tracer: 'shell',
     alt: { kind: 'skitter', ammo: 2, cooldown: 3 } }), // the SKITTER — a charge on legs that runs them down
   plasma: W({ id: 'plasma', name: 'Kamenel Plasma', damage: 21, rof: 5, speed: 60, spread: 0.015, clip: 25, reloadTime: 1.8, reserve: Infinity, range: 54, sound: 'plasma', tracer: 'plasma',
     alt: { kind: 'overcharge', ammo: 0, cooldown: 1.6, cells: 6 } }), // six cells, one ugly orb
@@ -39,7 +39,7 @@ const CORE_WEAPONS: Record<WeaponId, WeaponDef> = {
   pistol: W({ id: 'pistol', name: 'P9 Sidearm', damage: 12, rof: 4.5, speed: 100, spread: 0.02, clip: 12, reloadTime: 1.1, reserve: 96, range: 44, sound: 'pistol' }),
   repair: W({ id: 'repair', name: 'Repair Gun', damage: 30, rof: 4, speed: 200, spread: 0, clip: Infinity, reloadTime: 0, reserve: Infinity, range: 12, heals: true, sound: 'repair', tracer: 'beam' }),
   medibeam: W({ id: 'medibeam', name: 'Medi-Beam', damage: 22, rof: 4, speed: 200, spread: 0, clip: Infinity, reloadTime: 0, reserve: Infinity, range: 14, heals: true, sound: 'heal', tracer: 'beam' }),
-  impulse: W({ id: 'impulse', name: 'Impulse Cannon', damage: 30, rof: 1.5, speed: 55, spread: 0.008, clip: 8, reloadTime: 2, reserve: 64, range: 54, splash: 2.8, splashDamage: 18, knockback: 17, sound: 'impulse', tracer: 'rail' }),
+  impulse: W({ id: 'impulse', name: 'Impulse Cannon', damage: 30, rof: 1.5, speed: 55, spread: 0.008, clip: 8, reloadTime: 2, reserve: 64, range: 54, splash: 3.3, splashDamage: 18, knockback: 17, sound: 'impulse', tracer: 'rail' }),
   emp: W({ id: 'emp', name: 'EMP Charge', damage: 0, rof: 0.8, speed: 30, clip: 1, reserve: 0, range: 42, arc: true, sound: 'thump', tracer: 'plasma' }),
   target_beacon: W({ id: 'target_beacon', name: 'Targeting Beacon', damage: 0, rof: 0.8, speed: 28, clip: 1, reserve: 0, range: 44, arc: true, sound: 'thump', tracer: 'shell' }),
   // THE GRENADE BAG (Robert): hand-thrown canisters on the same loft wheel
@@ -47,15 +47,16 @@ const CORE_WEAPONS: Record<WeaponId, WeaponDef> = {
   // detonatePayload already knows how to deliver smoke and fire.
   smoke_nade: W({ id: 'smoke_nade', name: 'M-77 Smoke', damage: 0, rof: 0.8, speed: 16, clip: 1, reserve: 0, range: 26, arc: true, payload: 'smoke', sound: 'thump', tracer: 'canister' }),
   fire_nade: W({ id: 'fire_nade', name: 'T-4 Incendiary', damage: 0, rof: 0.8, speed: 16, clip: 1, reserve: 0, range: 26, arc: true, payload: 'fire', sound: 'thump', tracer: 'canister' }),
+  conc_nade: W({ id: 'conc_nade', name: 'C-9 Concussion', damage: 0, rof: 0.8, speed: 16, clip: 1, reserve: 0, range: 26, splash: 6.5, splashDamage: 18, knockback: 26, arc: true, payload: 'concussion', sound: 'thump', tracer: 'canister', icon: '💫' }),
   orbital_beacon: W({ id: 'orbital_beacon', name: 'Orbital Designator', damage: 0, rof: 0.5, speed: 26, clip: 1, reserve: 0, range: 42, arc: true, sound: 'thump', tracer: 'rocket' }),
   buggy_mg: W({ id: 'buggy_mg', name: 'Buggy MG', damage: 11, rof: 10, speed: 110, spread: 0.045, clip: Infinity, reserve: Infinity, range: 52, sound: 'smg' }),
-  tank_cannon: W({ id: 'tank_cannon', name: '120mm Cannon', damage: 110, rof: 0.5, speed: 70, spread: 0.004, clip: Infinity, reserve: Infinity, range: 94, splash: 5.5, splashDamage: 60, knockback: 18, sound: 'cannon', tracer: 'rocket' }),
+  tank_cannon: W({ id: 'tank_cannon', name: '120mm Cannon', damage: 110, rof: 0.5, speed: 70, spread: 0.004, clip: Infinity, reserve: Infinity, range: 94, splash: 6.5, splashDamage: 60, knockback: 18, sound: 'cannon', tracer: 'rocket' }),
   // the Goliath's arm gun: sustained anti-infantry fire with a light splash —
   // strong vs flesh in the open, mediocre vs armor. The tank stays armor king.
   mech_autocannon: W({ id: 'mech_autocannon', name: 'GAU-9 Arm Cannon', damage: 22, rof: 4, speed: 100, spread: 0.025, clip: Infinity, reserve: Infinity, range: 68, splash: 1.2, splashDamage: 8, knockback: 2, sound: 'autocannon', tracer: 'shell' }),
   // the stomp: not a gun — an AoE ground slam resolved through explode().
   // The knockback IS the weapon; the damage is a bruise, not a kill.
-  mech_stomp: W({ id: 'mech_stomp', name: 'Seismic Stomp', damage: 0, rof: 1, speed: 1, clip: Infinity, reserve: Infinity, range: 5, splash: 4.5, splashDamage: 35, knockback: 16, sound: 'thump', tracer: 'none' }),
+  mech_stomp: W({ id: 'mech_stomp', name: 'Seismic Stomp', damage: 0, rof: 1, speed: 1, clip: Infinity, reserve: Infinity, range: 5, splash: 5.4, splashDamage: 35, knockback: 16, sound: 'thump', tracer: 'none' }),
   boat_mg: W({ id: 'boat_mg', name: 'Pike Deck MG', damage: 12, rof: 9, speed: 105, spread: 0.04, clip: Infinity, reserve: Infinity, range: 56, sound: 'autocannon' }),
   apc_mg: W({ id: 'apc_mg', name: 'APC MG', damage: 12, rof: 8, speed: 105, spread: 0.04, clip: Infinity, reserve: Infinity, range: 55, sound: 'autocannon' }),
   skiff_plasma: W({ id: 'skiff_plasma', name: 'Skiff Plasma', damage: 18, rof: 7, speed: 65, spread: 0.02, clip: Infinity, reserve: Infinity, range: 50, sound: 'plasma', tracer: 'plasma' }),

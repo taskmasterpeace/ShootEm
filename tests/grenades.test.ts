@@ -158,9 +158,9 @@ describe('the bank shot', () => {
 });
 
 describe('the grenade bag (X cycles, G throws)', () => {
-  it('X rotates class kit → smoke → fire and back, and empty pouches are skipped', () => {
+  it('X rotates frag → smoke → fire → concussion and back, and empty pouches are skipped', () => {
     const { w, s } = range();
-    w.spawn(s); // stock the bag (infantry: 4 frag / 2 smoke / 1 fire)
+    w.spawn(s); // stock the bag (infantry: 4 frag / 2 smoke / 1 fire / 1 concussion)
     s.pos = { x: 0, y: 0, z: 0 };
     expect(s.nadeSel ?? 0).toBe(0);
     w.step(1 / 60, new Map([[s.id, cmd({ nadeCycle: true })]]));
@@ -168,15 +168,19 @@ describe('the grenade bag (X cycles, G throws)', () => {
     w.step(1 / 60, new Map([[s.id, cmd({ nadeCycle: true })]]));
     expect(s.nadeSel, 'second X should put fire in hand').toBe(2);
     w.step(1 / 60, new Map([[s.id, cmd({ nadeCycle: true })]]));
-    expect(s.nadeSel, 'third X returns to the class kit').toBe(0);
-    // a medic carries no firebombs — X skips the empty pouch entirely
+    expect(s.nadeSel, 'third X should put concussion in hand').toBe(3);
+    w.step(1 / 60, new Map([[s.id, cmd({ nadeCycle: true })]]));
+    expect(s.nadeSel, 'fourth X returns to the class kit').toBe(0);
+    // a medic carries no firebombs — X skips the empty pouch, lands on concussion
     const m = w.addSoldier('M', 'medic', 0, 'human');
     w.spawn(m);
     expect(m.firebombs ?? 0).toBe(0);
     w.step(1 / 60, new Map([[m.id, cmd({ nadeCycle: true })]]));
     expect(m.nadeSel).toBe(1);
     w.step(1 / 60, new Map([[m.id, cmd({ nadeCycle: true })]]));
-    expect(m.nadeSel, 'the empty fire pouch must be skipped').toBe(0);
+    expect(m.nadeSel, 'the empty fire pouch is skipped — concussion is next').toBe(3);
+    w.step(1 / 60, new Map([[m.id, cmd({ nadeCycle: true })]]));
+    expect(m.nadeSel, 'and back to the class kit').toBe(0);
   });
 
   it('with smoke in hand, G throws a canister that POPS a standing cloud', () => {

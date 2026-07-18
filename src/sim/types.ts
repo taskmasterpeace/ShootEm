@@ -72,7 +72,7 @@ export interface WeaponDef {
   /** Mk tier within the family (1..3) — drives the stat curve */
   tier?: number;
   /** special detonation instead of damage: emp burst, beacons, smoke/fire fields */
-  payload?: 'emp' | 'target_beacon' | 'orbital' | 'smoke' | 'fire';
+  payload?: 'emp' | 'target_beacon' | 'orbital' | 'smoke' | 'fire' | 'concussion';
   /** landing this projectile pins the victim on every enemy screen for 5s (tag dart) */
   tagsTarget?: boolean;
   /** SECONDARY FIRE (right mouse) — the under-barrel surprise:
@@ -210,6 +210,9 @@ export interface Soldier {
    *  old snapshots replicate free (absent reads as 0). */
   smokes?: number;
   firebombs?: number;
+  /** THE CONCUSSION BAG: rattle-nades — heavy knockback, ringing ears
+   *  (a fire-lock stagger), and almost no lethal bite. X cycles to them. */
+  concs?: number;
   nadeSel?: number;
   cloaked: boolean;
   vehicleId: number;  // -1 when on foot
@@ -586,6 +589,12 @@ export interface SimEvent {
     | 'vo';            // a spoken line: text = sound slot; pos = positional speech, absent = announcer net
   pos?: Vec3;
   weapon?: WeaponId;
+  /** On an 'explosion': the two rings the client draws — `killRadius` is the
+   *  lethal heart (a direct-hit blow lands inside it), `radius` is the splash
+   *  reach where damage falls to nothing. The sim damage model and the ground
+   *  rings read the SAME numbers, so the ring never lies about the blast. */
+  radius?: number;
+  killRadius?: number;
   /** On a 'hit': the shooter, but ONLY when a soldier/gadget was actually
    *  struck — the HUD keys its hitmarker off this, so a ball that ate a wall
    *  must NOT set it or every miss flashes a phantom tag. */

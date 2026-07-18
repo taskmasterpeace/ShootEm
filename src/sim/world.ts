@@ -796,6 +796,7 @@ export class World {
     // door-kickers. X cycles the pouch, G throws from it.
     s.smokes = 2;
     s.firebombs = s.classId === 'infantry' || s.classId === 'heavy' ? 1 : 0;
+    s.concs = 1; // everyone carries one rattle-nade
     s.nadeSel = 0;
     s.manpads = this.hasEquip(s, 'samLauncher') ? MANPADS_ROUNDS : 0;
     s.medikitReady = true;
@@ -1815,12 +1816,13 @@ export class World {
       const pouches: [number, string][] = [
         [1, `SMOKE ×${s.smokes ?? 0}`],
         [2, `INCENDIARY ×${s.firebombs ?? 0}`],
+        [3, `CONCUSSION ×${s.concs ?? 0}`],
         [0, s.classId === 'engineer' ? `MINES ×${s.grenades}` : `FRAG ×${s.grenades}`],
       ];
       const cur = s.nadeSel ?? 0;
-      for (let step = 1; step <= 3; step++) {
-        const next = (cur + step) % 3;
-        const stocked = next === 0 ? true : next === 1 ? (s.smokes ?? 0) > 0 : (s.firebombs ?? 0) > 0;
+      for (let step = 1; step <= 4; step++) {
+        const next = (cur + step) % 4;
+        const stocked = next === 0 ? true : next === 1 ? (s.smokes ?? 0) > 0 : next === 2 ? (s.firebombs ?? 0) > 0 : (s.concs ?? 0) > 0;
         if (stocked) {
           if (next !== cur) {
             s.nadeSel = next;
@@ -1854,6 +1856,13 @@ export class World {
         this.emit({ type: 'shot', pos: s.pos, weapon: 'fire_nade', soldierId: s.id });
         if (s.cloaked) s.cloaked = false;
         if ((s.firebombs ?? 0) <= 0) s.nadeSel = 0;
+      } else if (s.nadeSel === 3 && (s.concs ?? 0) > 0) {
+        s.concs = (s.concs ?? 0) - 1;
+        s.nextGrenadeAt = this.time + 1.2;
+        this.throwProjectile(s, 'conc_nade', 1.4, 16, true, reachTo(WEAPONS.conc_nade.range), cmd.lob ?? 1, true);
+        this.emit({ type: 'shot', pos: s.pos, weapon: 'conc_nade', soldierId: s.id });
+        if (s.cloaked) s.cloaked = false;
+        if ((s.concs ?? 0) <= 0) s.nadeSel = 0;
       } else if (s.orbitals > 0) {
         s.orbitals--;
         s.nextGrenadeAt = this.time + 1.5;
@@ -2927,6 +2936,22 @@ export class World {
       this.emit({ type: 'explosion', pos: { ...p.pos }, weapon: 'flamer' });
       return true;
     }
+    if (payload === 'concussion') {
+      // THE RATTLE: the blast (heavy knockback, almost no bite) via the shared
+      // explode() — so the blue rings + two-zone falloff come free — then a
+      // STAGGER pass: ears ring (a fire-lock), and bots lose their target for
+      // a beat. It shoves and disorients; it does not kill.
+      const def = WEAPONS.conc_nade;
+      this.explode(p.pos, def, p.ownerId, p.team);
+      for (const s of this.soldiers.values()) {
+        if (!s.alive || s.vehicleId >= 0 || s.team === p.team) continue;
+        if (this.time < s.protectedUntil) continue;
+        if (Math.hypot(s.pos.x - p.pos.x, s.pos.z - p.pos.z) >= def.splash) continue;
+        s.nextFireAt = Math.max(s.nextFireAt, this.time + 1.4); // ringing ears — no trigger
+        if (s.kind === 'bot') s.blindUntil = Math.max(s.blindUntil ?? 0, this.time + 1.6); // disoriented
+      }
+      return true;
+    }
     switch (p.weapon) {
       case 'emp':
         this.empBlast(p.pos, p.team, p.ownerId);
@@ -3001,15 +3026,16 @@ export class World {
       // into a debris orbit and is absorbed — and it FEEDS him a sip of HP
       // ("ranged fire builds his armor"). Energy, arcs, and melee pass clean.
       // MEASURED (threat rig): a total eat + a fat feed made him IMMORTAL to
-      // his designated answer, so two dials moved: the feed is +0.5/bullet,
-      // and the ORBIT SATURATES — one round in five slips the debris ring, so
-      // massed sustained fire still, eventually, gets through (§1.5: threat
-      // buys HP, never immunity).
+      // his designated answer, so the dials moved: the feed is +0.5/bullet,
+      // and the ORBIT SATURATES — roughly one round in three slips the debris
+      // ring (re-widened when the two-zone blast model shifted the meta and
+      // he tipped back over the band), so massed sustained fire still gets
+      // through (§1.5: threat buys HP, never immunity).
       if (!def.arc && def.tracer === 'bullet' && magnetars.length) {
         for (const m of magnetars) {
           if (m.team === p.team) continue;
           if (Math.hypot(m.pos.x - p.pos.x, m.pos.z - p.pos.z) < 4) {
-            if (this.rng.next() < 0.8) {
+            if (this.rng.next() < 0.68) {
               m.hp = Math.min(m.maxHp, m.hp + 0.5);
               this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon });
               dead = true;
@@ -3251,7 +3277,13 @@ export class World {
   }
 
   explode(pos: Vec3, def: (typeof WEAPONS)[WeaponId], ownerId: number, team: Team) {
-    this.emit({ type: 'explosion', pos: { ...pos }, weapon: def.id });
+    // THE TWO ZONES (Robert: "a circle in the center, and a radius around
+    // that… the closer you are, the more"). The lethal HEART — a direct-hit
+    // class blow — reaches `killR`; from there damage falls smoothly to
+    // nothing at the splash rim. The client draws these exact two radii, so
+    // the ground rings tell the literal truth about who dies where.
+    const killR = Math.min(def.splash * 0.4, 2.4);
+    this.emit({ type: 'explosion', pos: { ...pos }, weapon: def.id, radius: def.splash, killRadius: killR });
     const owner = this.soldiers.get(ownerId);
     for (const s of this.soldiers.values()) {
       if (!s.alive || s.vehicleId >= 0) continue;
@@ -3261,7 +3293,12 @@ export class World {
       if (d < def.splash) {
         const isSelf = s.id === ownerId;
         if (!isSelf && s.team === team) continue; // no friendly splash, self-damage yes
-        const dmg = (def.splashDamage + (d < 1 ? def.damage : 0)) * (1 - d / def.splash) * (isSelf ? 0.6 : 1);
+        // inside the kill circle: the full direct + splash blow (lethal by
+        // design). Outside: splashDamage falling linearly to 0 at the rim.
+        const dmg = (d < killR
+          ? def.splashDamage + def.damage
+          : def.splashDamage * (1 - (d - killR) / Math.max(0.1, def.splash - killR))
+        ) * (isSelf ? 0.6 : 1);
         if (def.knockback > 0 && !this.hasEquip(s, 'noKnockback')) {
           const dl = Math.max(d, 0.5);
           s.pushX += ((s.pos.x - pos.x) / dl) * def.knockback * (1 - d / def.splash);

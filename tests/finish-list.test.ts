@@ -356,3 +356,84 @@ describe('THE PROJECTILE-SPEED GATE — ALL projectile stuff falls under the kno
     expect(speed, 'the sentry honors the knob').toBeCloseTo(base * 0.5, 0);
   });
 });
+
+describe('THE BLAST: kill circle, falloff, knockback, and the concussion', () => {
+  const quietW = () => new World({ seed: 7, mode: 'tdm', botsPerTeam: 0 });
+
+  it('the explosion carries its two radii, and the kill circle is a real zone', () => {
+    const w = quietW();
+    w.takeEvents();
+    w.explode({ x: 0, y: 0, z: 0 }, WEAPONS.gl, -1, 1);
+    const ev = w.takeEvents().find((e) => e.type === 'explosion');
+    expect(ev?.radius, 'the splash reach rides the event').toBeCloseTo(WEAPONS.gl.splash, 3);
+    expect(ev?.killRadius, 'so does the kill circle').toBeGreaterThan(1);
+    expect(ev!.killRadius!, 'the kill circle is inside the reach').toBeLessThan(ev!.radius!);
+  });
+
+  it('closer is deadlier: inside the kill circle you die, at the rim you are only chipped', () => {
+    const dmgAt = (dist: number) => {
+      const w = quietW();
+      const e = w.addSoldier('E', 'infantry', 1, 'human');
+      e.pos = { x: dist, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0; e.maxHp = 999; e.hp = 999;
+      w.explode({ x: 0, y: 0, z: 0 }, WEAPONS.gl, -1, 0);
+      return 999 - e.hp;
+    };
+    const core = dmgAt(1.0), mid = dmgAt(4.0), rim = dmgAt(5.9);
+    expect(core, 'the heart is lethal (100+)').toBeGreaterThan(100);
+    expect(mid, 'the middle bites less than the heart').toBeLessThan(core);
+    expect(rim, 'the rim only chips').toBeLessThan(mid);
+    expect(rim, 'but the rim still touches').toBeGreaterThan(0);
+  });
+
+  it('knockback scales with proximity too — the close man is thrown hardest', () => {
+    const shoveAt = (dist: number) => {
+      const w = quietW();
+      const e = w.addSoldier('E', 'infantry', 1, 'human');
+      e.pos = { x: dist, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+      w.explode({ x: 0, y: 0, z: 0 }, WEAPONS.gl, -1, 0);
+      return Math.abs(e.pushX);
+    };
+    expect(shoveAt(1.5), 'close = flung').toBeGreaterThan(shoveAt(4.5));
+  });
+
+  it('THE CONCUSSION vs a FRAG: same core spot, the rattle barely bites where the frag kills', () => {
+    // detonate each at a stationary dummy 2u off the blast and compare
+    const hitBy = (wid: 'conc_nade' | 'gl') => {
+      const w = quietW();
+      const d = w.addSoldier('D', 'infantry', 1, 'bot');
+      d.pos = { x: 2, y: 0, z: 0 }; d.alive = true; d.dummy = true; d.protectedUntil = 0; d.maxHp = 400; d.hp = 400;
+      w.explode({ x: 0, y: 0, z: 0 }, WEAPONS[wid], -1, 0);
+      return { dmg: 400 - d.hp, shove: Math.abs(d.pushX), fireLock: d.nextFireAt, blind: d.blindUntil ?? 0 };
+    };
+    const conc = hitBy('conc_nade'), frag = hitBy('gl');
+    expect(conc.dmg, 'the rattle barely bites').toBeLessThan(30);
+    expect(frag.dmg, 'the frag is lethal at the same spot').toBeGreaterThan(90);
+    expect(conc.shove, 'but the rattle SHOVES hard — harder than the frag').toBeGreaterThan(frag.shove);
+  });
+
+  it('THE CONCUSSION staggers: thrown at a dummy, it locks the trigger and disorients', () => {
+    const w = quietW();
+    const thrower = w.addSoldier('T', 'infantry', 0, 'human');
+    w.spawn(thrower); // stock the bag — then plant him at the origin
+    thrower.pos = { x: 0, y: 0, z: 0 }; thrower.yaw = 0;
+    thrower.nadeSel = 3; // concussion in hand
+    // a short row of stationary dummies in the lane — the rattle catches some
+    const foes = [4, 5, 6, 7].map((x) => {
+      const f = w.addSoldier('E' + x, 'infantry', 1, 'bot');
+      f.pos = { x, y: 0, z: 0 }; f.alive = true; f.dummy = true; f.protectedUntil = 0;
+      return f;
+    });
+    w.step(1 / 60, new Map([[thrower.id, { moveX: 0, moveZ: 0, aimYaw: 0, grenade: true, aimDist: 6 } as never]]));
+    let anyLocked = false, anyBlind = false;
+    for (let i = 0; i < 60 * 4; i++) {
+      w.step(1 / 60, new Map());
+      for (const f of foes) {
+        if (f.nextFireAt > w.time + 0.3) anyLocked = true;
+        if ((f.blindUntil ?? 0) > w.time) anyBlind = true;
+      }
+    }
+    expect(anyLocked, 'the rattle-nade locked a trigger').toBe(true);
+    expect(anyBlind, 'and disoriented a bot').toBe(true);
+    expect(Math.max(...foes.map((f) => f.maxHp - f.hp)), 'it rattles, it does not kill').toBeLessThan(40);
+  });
+});
