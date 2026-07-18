@@ -585,7 +585,7 @@ export class World {
           s.diveAt = undefined; s.diveX = undefined; s.diveZ = undefined;
         }
       } else if (this.time >= (s.nextLeapAt ?? 0)) {
-        s.nextLeapAt = this.time + 7;
+        s.nextLeapAt = this.time + 6; // tighter cadence — a leaper closes, not saunters
         let tgt: Soldier | undefined, best = 34;
         for (const e of this.soldiers.values()) {
           if (!e.alive || e.team === s.team || e.encasedUntil !== undefined) continue;
@@ -594,7 +594,7 @@ export class World {
         }
         if (tgt) {
           const dx = tgt.pos.x - s.pos.x, dz = tgt.pos.z - s.pos.z, dl = Math.hypot(dx, dz) || 1;
-          const reach = Math.min(30, dl - 2);
+          const reach = Math.max(8, Math.min(30, dl * 0.9)); // hop scales to the gap: short in a room, big in the open
           s.diveAt = this.time + 1.2;
           s.diveX = s.pos.x + (dx / dl) * reach;
           s.diveZ = s.pos.z + (dz / dl) * reach;
