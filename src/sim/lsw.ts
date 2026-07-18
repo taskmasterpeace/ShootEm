@@ -256,6 +256,17 @@ export const LSWS: Record<AscendantId, LswDef> = {
     scale: 1.3, speed: 7.5, color: 0xc8a24b, // clockwork brass
     activeLabel: 'TIME BUBBLE — the world crawls; you do not', activeCd: 9,
   },
+  venatrix: {
+    id: 'venatrix', name: 'Venatrix', faction: 1, threat: 1,
+    lines: {
+      inbound: 'VENATRIX INBOUND — WATCH WHERE YOU STEP',
+      landed: 'VENATRIX ON THE FIELD — THE GROUND IS BAITED',
+      down: 'VENATRIX IS DOWN — SWEEP FOR HER TRAPS',
+      rampage: 'FIVE KILLS — VENATRIX HAS A FULL TROPHY WALL',
+    },
+    scale: 1.2, speed: 9, color: 0x8f9e3a, // huntress olive-brass
+    activeLabel: 'HARPOON — reel in the one you are aiming at', activeCd: 7,
+  },
 };
 
 /** THE SPOKEN SCRIPT — subtitle text per voice slot, tag-stripped mirrors of
@@ -354,6 +365,11 @@ export const VO_LINES: Record<string, { who: AscendantId; line: string }> = {
   vo_chronos_ability: { who: 'chronos', line: 'Take your time. I insist.' },
   vo_chronos_low: { who: 'chronos', line: 'Borrowed time... spent.' },
   vo_chronos_death: { who: 'chronos', line: 'Out of... seconds.' },
+  vo_venatrix_arrive: { who: 'venatrix', line: 'Step lightly, little ones.' },
+  vo_venatrix_kill3: { who: 'venatrix', line: 'Three for the wall.' },
+  vo_venatrix_ability: { who: 'venatrix', line: 'Come here.' },
+  vo_venatrix_low: { who: 'venatrix', line: 'Caught... in my own season.' },
+  vo_venatrix_death: { who: 'venatrix', line: 'A fair... hunt.' },
 };
 export const voSlot = (id: AscendantId, moment: VoMoment) => `vo_${id}_${moment}`;
 export const annSlot = (id: AscendantId, moment: 'inbound' | 'landed' | 'down' | 'rampage') => `ann_${id}_${moment}`;

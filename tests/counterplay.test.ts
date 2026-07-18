@@ -243,3 +243,18 @@ describe('counterplay — wave 2, the controllers', () => {
     expect(c.hp, 'the echo must return him NEARLY dead').toBeLessThan(c.maxHp * 0.2);
   });
 });
+
+describe('counterplay — the trapper', () => {
+  it('VENATRIX — "spot the glint": stepping AROUND the trap never springs it', () => {
+    const w = quiet();
+    const v = w.addLsw('venatrix', 1, { x: 0, y: 0, z: 0 })!;
+    v.nextLswAt = w.time + 999; v.nextLswActiveAt = w.time + 999; // no reeling — the TRAP is on trial
+    v.clip = v.clip.map(() => 0); v.reserve = v.reserve.map(() => 0);
+    w.spawnGadget('snap_trap', 1, v.id, { x: 6, y: 0, z: 0 }, 30, 90);
+    const e = w.addSoldier('E', 'infantry', 0, 'human');
+    e.pos = { x: 6, y: 0, z: 2.5 }; e.alive = true; e.protectedUntil = 0; // saw the glint, gave it a wide berth
+    for (let i = 0; i < 60; i++) w.step(1 / 60, new Map([[e.id, cmd({ moveX: 1 })]]));
+    expect(e.encasedUntil, 'the trap reached a man who walked around it').toBeUndefined();
+    expect([...w.gadgets.values()].some((g) => g.type === 'snap_trap'), 'the trap must still be armed').toBe(true);
+  });
+});

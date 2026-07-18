@@ -10,7 +10,7 @@ export type ClassId = 'infantry' | 'heavy' | 'jump' | 'engineer' | 'medic' | 'in
 /** Living Super Weapons (§21.6 / docs/ASCENDANTS.md). A Soldier carrying one
  *  of these is an LSW — not a class, an overlay: bigger, deadlier, its own
  *  brain, and it dies to ordinary guns. Grows as the roster ships. */
-export type AscendantId = 'firebrand' | 'plaguebearer' | 'frostbite' | 'ragebeast' | 'titan' | 'voltstriker' | 'sniperhawk' | 'barrier' | 'reactor' | 'oblivion' | 'tremor' | 'magnetar' | 'wraith' | 'eclipse' | 'dominator' | 'riptide' | 'gravwarden' | 'chronos';
+export type AscendantId = 'firebrand' | 'plaguebearer' | 'frostbite' | 'ragebeast' | 'titan' | 'voltstriker' | 'sniperhawk' | 'barrier' | 'reactor' | 'oblivion' | 'tremor' | 'magnetar' | 'wraith' | 'eclipse' | 'dominator' | 'riptide' | 'gravwarden' | 'chronos' | 'venatrix';
 
 /**
  * Weapon ids are open strings: the hand-tuned core set (ar606, kuchler, caw,
@@ -433,6 +433,7 @@ export type GadgetType =
   | 'camera'       // deployable spy camera — pings enemies in view for its team
   | 'smoke_field'  // smoke cloud — hides soldiers inside from minimap + pings
   | 'fire_field'   // phosphorus burn — damage over time to enemies inside
+  | 'snap_trap'    // Venatrix: springs THE ICE BLOCK on whoever steps in (spot the glint)
   | 'flare';       // burning IR decoy dropped by a flyer — seduces heat-seekers
 
 /** Deployed sci-fi tech: beacons, domes, drones, pods. */

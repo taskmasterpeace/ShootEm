@@ -1058,3 +1058,34 @@ describe('Chronos — the clockmaker', () => {
     expect(c.alive, 'the echo fired twice — once per fight is the law').toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// VENATRIX — snap-traps ride ENCASE (the ice block's little sister); the
+// harpoon reels one enemy across the open.
+// ---------------------------------------------------------------------------
+describe('Venatrix — the trapper', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('a sprung trap ENCASES the wanderer — the shared ice-block state', () => {
+    const w = quiet();
+    const v = w.addLsw('venatrix', 1, { x: 0, y: 0, z: 0 })!;
+    v.nextLswAt = w.time + 999; v.nextLswActiveAt = w.time + 999; // the PLANTED trap is on trial, not her brain
+    const trap = w.spawnGadget('snap_trap', 1, v.id, { x: 6, y: 0, z: 0 }, 30, 90);
+    const e = w.addSoldier('E', 'infantry', 0, 'human');
+    e.pos = { x: 6.5, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0; // stepped IN it
+    w.step(1 / 60, new Map([[e.id, cmd()]]));
+    expect(e.encasedUntil, 'the trap never sprang the ice').toBeGreaterThan(w.time);
+    expect(w.gadgets.has(trap.id), 'the trap must be spent on the spring').toBe(false);
+  });
+
+  it('the HARPOON reels the aimed enemy toward her, and the barb bites', () => {
+    const w = quiet();
+    const v = w.addLsw('venatrix', 1, { x: 0, y: 0, z: 0 })!; v.yaw = 0;
+    const e = w.addSoldier('E', 'infantry', 0, 'human');
+    e.pos = { x: 15, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    const hp0 = e.hp;
+    w.applyCmd(v, cmd({ ability: true }), 1 / 60);
+    expect(e.pushX, 'the reel must drag him TOWARD her (−x)').toBeLessThan(0);
+    expect(e.hp, 'the barb must bite going in').toBeLessThan(hp0);
+  });
+});

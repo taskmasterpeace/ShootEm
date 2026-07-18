@@ -1118,6 +1118,20 @@ export class World {
           }
           break;
         }
+        case 'snap_trap': {
+          // VENATRIX: the ice block's little sister — whoever steps in is
+          // ENCASED (the same shared state; teammates shatter, struggling
+          // hurts). The trap is spent on the spring.
+          for (const s2 of this.soldiers.values()) {
+            if (!s2.alive || s2.team === g.team || s2.encasedUntil !== undefined || s2.pos.y > 1) continue;
+            if (Math.hypot(s2.pos.x - g.pos.x, s2.pos.z - g.pos.z) < 1.2 && this.encaseSoldier(s2)) {
+              this.gadgets.delete(id);
+              this.emit({ type: 'gadget_destroyed', pos: { ...g.pos } });
+              break;
+            }
+          }
+          break;
+        }
         case 'smoke_field': {
           // soldiers inside are hidden from minimap and pings — but an LSW is
           // TOO BIG FOR SMOKE: the silhouette looms through its own fog

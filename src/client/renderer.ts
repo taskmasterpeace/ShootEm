@@ -2042,6 +2042,12 @@ export class Renderer {
           color: 0xffd870, speed: 0.2, life: 0.5, spread: 0.4, up: 0.6, gravity: 0, size: 0.35,
         });
       }
+    } else if (id === 'venatrix') {
+      // dry-leaf motes and a faint brass wink — the hunter's stillness
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.2, y: 0.2 + Math.random() * 1.0, z: s.pos.z + (Math.random() - 0.5) * 1.2 }, count: 1,
+        color: Math.random() < 0.6 ? 0x8f9e3a : 0xd8c86a, speed: 0.3, life: 0.7, spread: 0.5, up: 0.5, gravity: 0.8, size: 0.26,
+      });
     } else if (id === 'dominator') {
       // crimson psychic tendrils reaching up and out — the puppeteer's threads
       this.particles.emit({

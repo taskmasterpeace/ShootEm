@@ -74,6 +74,7 @@ export const LSW_TINT: Record<string, { tint: number; scale: number }> = {
   riptide: { tint: 0x2fa8c8, scale: 1.3 },       // sea-teal, whitecap trim
   gravwarden: { tint: 0x9fc4e8, scale: 1.35 },   // pale updraft blue
   chronos: { tint: 0xc8a24b, scale: 1.3 },       // clockwork brass
+  venatrix: { tint: 0x8f9e3a, scale: 1.2 },      // huntress olive-brass
 };
 
 /** Turn a built trooper body INTO an LSW body: scale up past a trooper,

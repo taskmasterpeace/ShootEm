@@ -120,6 +120,12 @@ export const CAST = {
     persona: "Chronos, a Collective Living Super Weapon — a clockmaker who decided everyone else's seconds were his. Precise, dry, a little smug; speaks like every sentence was scheduled. The tick of something mechanical always under him.",
     scene: 'A thousand soft clock ticks slightly out of phase. A firefight moving like syrup nearby.',
   },
+  venatrix: {
+    voice: 'Erinome',
+    fx: 'none', // a hunter of quiet places — patient, close, pleased
+    persona: "Venatrix, a Collective Living Super Weapon — a trapper who hunts soldiers the way others hunt game. A woman's voice: hushed, patient, warmly pleased when something steps wrong. She likes her quarry careful; it makes the season longer.",
+    scene: 'Wind through dry grass. A metal jaw creaking open. Something small stepping where it should not.',
+  },
   announcer: {
     voice: 'Orus',
     fx: 'radio', // 300–3400Hz military net + soft clip
@@ -253,6 +259,12 @@ export const VO = [
   { slot: 'vo_chronos_ability', who: 'chronos', text: '[dry] Take your time. I insist.', notes: ['Said as the bubble slows them to syrup.', 'The joke is the cruelty.'] },
   { slot: 'vo_chronos_low', who: 'chronos', text: '[tight] Borrowed time... spent.', notes: ['The ledger turning against him.'] },
   { slot: 'vo_chronos_death', who: 'chronos', text: '[winding down] Out of... seconds.', notes: ['The tick under his voice slows and stops.'] },
+  // ---- VENATRIX: the season is open ----
+  { slot: 'vo_venatrix_arrive', who: 'venatrix', text: '[hushed] Step lightly, little ones.', notes: ['A warm warning she hopes they ignore.'] },
+  { slot: 'vo_venatrix_kill3', who: 'venatrix', text: 'Three for the wall.', notes: ['A collector, pleased with the day.'] },
+  { slot: 'vo_venatrix_ability', who: 'venatrix', text: '[reeling] Come here.', notes: ['Said while the harpoon drags someone across the open.', 'Effort under the words.'] },
+  { slot: 'vo_venatrix_low', who: 'venatrix', text: '[bitter] Caught... in my own season.', notes: ['The hunter, hunted — she knows the irony.'] },
+  { slot: 'vo_venatrix_death', who: 'venatrix', text: '[settling] A fair... hunt.', notes: ['Respect for whoever got her.', 'No bitterness at the end.'] },
 ];
 
 /** The announcer — map-wide, both teams, radio net. */
@@ -329,6 +341,10 @@ export const ANN = [
   { slot: 'ann_chronos_landed', text: 'CHRONOS ON THE FIELD. TIME IS HIS NOW.' },
   { slot: 'ann_chronos_down', text: 'CHRONOS IS DOWN. THE SECONDS RUN TRUE AGAIN.' },
   { slot: 'ann_chronos_rampage', text: 'FIVE KILLS. CHRONOS IS SPENDING YOUR TIME.' },
+  { slot: 'ann_venatrix_inbound', text: 'VENATRIX INBOUND. [short pause] WATCH WHERE YOU STEP.' },
+  { slot: 'ann_venatrix_landed', text: 'VENATRIX ON THE FIELD. THE GROUND IS BAITED.' },
+  { slot: 'ann_venatrix_down', text: 'VENATRIX IS DOWN. SWEEP FOR HER TRAPS.' },
+  { slot: 'ann_venatrix_rampage', text: 'FIVE KILLS. VENATRIX HAS A FULL TROPHY WALL.' },
 ];
 
 export const ANN_NOTES = [
