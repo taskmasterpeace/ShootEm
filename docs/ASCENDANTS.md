@@ -193,8 +193,12 @@ The flagship mechanic. Build it **once**, correctly:
    tornado, Magnetar's halo. **One system, five LSWs.** *(Oblivion's black
    hole and Magnetar's halo ship the pattern piecemeal — the generalized
    field system is still open.)*
-3. **TIME FIELDS** → Chronos. Zone speed *multipliers* for movement and
-   projectiles — never clock manipulation (the sim stays deterministic 30Hz).
+3. **TIME FIELDS** ✅ (2026-07-17) → Chronos. *Shipped:* `World.timeFields`
+   zones scale POSITION ADVANCE for movement and rounds (`timeMulAt`) — never
+   the clock; the sim stays deterministic 30Hz. A slowed round's fuse clock
+   stretches (`bornAt` slides) so it neither cheats its timer nor dies short.
+   The field's OWNER walks free — he strolls through his own frozen
+   bullet-wall. Chronos just has to call it.
 4. **MACHINE POSSESSION** → Phantom, Wraith. Generalize the hacked-turret
    flip to vehicles/bots + timer + EMP eviction. **Never humans — law.**
    *(Wraith ships the turret flip + hull stall; drive/bot-take still open.)*

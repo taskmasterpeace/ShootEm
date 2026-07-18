@@ -341,6 +341,24 @@ export class World {
   /** Oblivion's live black holes — each drags enemy soldiers AND hulls inward
    *  for its telegraph, then bursts at burstAt. Stepped every tick. */
   blackHoles: { x: number; z: number; team: Team; ownerId: number; burstAt: number }[] = [];
+  /** TIME FIELDS (§4.4 #3, the shared mechanic → Chronos): zones where
+   *  movement and rounds integrate at `mul` speed. Never clock manipulation —
+   *  the sim stays deterministic 30Hz; only POSITION ADVANCE scales. The
+   *  field's OWNER walks free: he strolls through his own frozen bullet-wall. */
+  timeFields: { x: number; z: number; r: number; mul: number; ownerId: number; until: number }[] = [];
+
+  /** the strongest (slowest) time-field multiplier at a point; the owner of a
+   *  field is exempt from it (pass their soldier id). */
+  timeMulAt(x: number, z: number, exemptOwnerId = -1): number {
+    let m = 1;
+    for (const f of this.timeFields) {
+      if (this.time >= f.until) continue;
+      if (exemptOwnerId >= 0 && f.ownerId === exemptOwnerId) continue; // the owner walks free (−1 = nobody)
+      const dx = x - f.x, dz = z - f.z;
+      if (dx * dx + dz * dz < f.r * f.r) m = Math.min(m, f.mul);
+    }
+    return m;
+  }
   /** the bot officer's next radio check per team (staggered so the two
    *  factions never call in the same breath) */
   private nextLswCallAt: [number, number] = [90, 110];
@@ -1411,6 +1429,8 @@ export class World {
     if (!this.mode.over) stepMode(this, dt);
     if (!this.mode.over) this.stepLswDrops(); // §21.6: telegraphed LSW landings
     if (this.blackHoles.length) this.stepBlackHoles(); // Oblivion's void
+    // expired time bubbles pop quietly
+    if (this.timeFields.length) this.timeFields = this.timeFields.filter((f) => this.time < f.until);
 
     // recon state rebuilds every tick: pings accumulate from beacons, drones,
     // cameras, crewed sensor stations, and psi scanners; then smoke fields,
@@ -2576,7 +2596,10 @@ export class World {
     // is slow, swimming is slower (and swimming means no trigger finger)
     const tHere = tileAt(this.map.grid, s.pos.x, s.pos.z);
     // …and rubble drags at the boots the same way: a breach is a lane, not a road
-    const waterMult = tHere === T_DEEP ? 0.38 : tHere === T_WATER ? 0.55 : tHere === T_RUBBLE ? 0.6 : 1;
+    let waterMult = tHere === T_DEEP ? 0.38 : tHere === T_WATER ? 0.55 : tHere === T_RUBBLE ? 0.6 : 1;
+    // TIME FIELDS: inside a hostile bubble, the world runs at mul — the
+    // field's owner strolls through untouched
+    if (this.timeFields.length) waterMult *= this.timeMulAt(s.pos.x, s.pos.z, s.id);
     const nx = s.pos.x + (s.vel.x + s.pushX) * waterMult * dt;
     const nz = s.pos.z + (s.vel.z + s.pushZ) * waterMult * dt;
     // §8.7 the jump vocabulary: every barrier is a HEIGHT, and your boots
@@ -3185,10 +3208,19 @@ export class World {
         this.projectiles.delete(id);
         continue;
       }
-      if (p.arc) p.vel.y -= this.gravity * 0.7 * dt;
-      p.pos.x += p.vel.x * dt;
-      p.pos.y += p.vel.y * dt;
-      p.pos.z += p.vel.z * dt;
+      // TIME FIELDS: a round inside a bubble crawls — its whole advance
+      // (including gravity) integrates at mul, and its fuse clock stretches
+      // to match (bornAt slides forward), so a slowed grenade doesn't cheat
+      // its timer and a crawling bullet doesn't die short of its range.
+      let tdt = dt;
+      if (this.timeFields.length) {
+        const tm = this.timeMulAt(p.pos.x, p.pos.z);
+        if (tm < 1) { tdt = dt * tm; p.bornAt += dt * (1 - tm); }
+      }
+      if (p.arc) p.vel.y -= this.gravity * 0.7 * tdt;
+      p.pos.x += p.vel.x * tdt;
+      p.pos.y += p.vel.y * tdt;
+      p.pos.z += p.vel.z * tdt;
 
       // GROUND BOUNCE (Robert: "I don't like that it doesn't bounce… kind of
       // timed, bounce off walls and stuff"): a bouncing arc round that meets
