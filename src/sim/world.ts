@@ -543,6 +543,22 @@ export class World {
         // damage field (acid), short and close — the poison, not just the fog
         this.spawnGadget('fire_field', s.team, s.id, { ...s.pos }, 40, 6);
       }
+      // VEHICLE-INFECT (secondary, shipped): the nearest crewed enemy hull in
+      // reach catches the plague — while it DRIVES it trails poison, so the
+      // crew chooses: abandon the tank, or spread the outbreak. An engineer's
+      // field repair cleanses it.
+      if (s.kind === 'bot' && this.time >= (s.nextLswActiveAt ?? 0)) {
+        for (const v of this.vehicles.values()) {
+          if (!v.alive || v.team === s.team || v.infectedUntil !== undefined || !v.seats.some((i) => i >= 0)) continue;
+          if (Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z) > 14) continue;
+          v.infectedUntil = this.time + 14;
+          v.infectedTeam = s.team;
+          this.emit({ type: 'beacon_planted', pos: { ...v.pos }, soldierId: s.id, text: 'INFECTED' });
+          this.emit({ type: 'vo', text: 'vo_plaguebearer_ability', pos: { ...s.pos }, soldierId: s.id });
+          s.nextLswActiveAt = this.time + 10;
+          break;
+        }
+      }
     } else if (id === 'frostbite') {
       // THE ICE BLOCK (§21.6 flagship): freeze the nearest enemy in reach on
       // a cadence. One at a time, close — the block is the threat, not DPS.
@@ -571,6 +587,34 @@ export class World {
       // real, mortal team still burns him down; the wound just makes the
       // last quarter of his HP the dangerous part.
       s.rageMul = 1 + missing * 0.5; // up to 1.5x wounded
+      // THE FLESH-HURL (secondary, shipped): wounded past a quarter he TEARS
+      // his own armored flesh — costing him HP — and hurls it as slow homing
+      // globs that hunt the two nearest enemies. Starving the rage starves
+      // the ammo: the wound IS the magazine.
+      if (s.kind === 'bot' && missing > 0.25 && s.hp > 60 && this.time >= (s.nextLswAt ?? 0)) {
+        const targets = [...this.soldiers.values()]
+          .filter((e) => e.alive && e.team !== s.team && e.encasedUntil === undefined
+            && Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z) < WEAPONS.flesh_glob.range)
+          .sort((a, b) => Math.hypot(a.pos.x - s.pos.x, a.pos.z - s.pos.z) - Math.hypot(b.pos.x - s.pos.x, b.pos.z - s.pos.z))
+          .slice(0, 2);
+        if (targets.length) {
+          s.hp -= 25; // the tear — flesh is not free
+          for (const e of targets) {
+            const ang = Math.atan2(e.pos.z - s.pos.z, e.pos.x - s.pos.x);
+            const p: Projectile = {
+              id: this.id(), weapon: 'flesh_glob', ownerId: s.id, team: s.team,
+              pos: { x: s.pos.x, y: 1.4, z: s.pos.z },
+              vel: { x: Math.cos(ang) * WEAPONS.flesh_glob.speed, y: 0, z: Math.sin(ang) * WEAPONS.flesh_glob.speed },
+              bornAt: this.time, ttl: WEAPONS.flesh_glob.range / WEAPONS.flesh_glob.speed, arc: false,
+              homingSoldierId: e.id,
+            };
+            this.projectiles.set(p.id, p);
+          }
+          this.emit({ type: 'shot', pos: { x: s.pos.x, y: 1.4, z: s.pos.z }, weapon: 'flesh_glob', soldierId: s.id });
+          this.emit({ type: 'vo', text: 'vo_ragebeast_ability', pos: { ...s.pos }, soldierId: s.id });
+          s.nextLswAt = this.time + 5;
+        }
+      }
     } else if (id === 'titan') {
       // THE COLOSSUS: he grabs and THROWS — a vehicle if one's in reach (crew
       // and all), else the nearest soldier; when nothing's grabbable but a
@@ -1455,6 +1499,16 @@ export class World {
     // possessed machines come home when the hold expires (§4.4 #4)
     for (const t of this.turrets.values()) {
       if (t.possessedUntil !== undefined && this.time >= t.possessedUntil) this.evictPossession(t);
+    }
+    // the plague wagons: an infected hull that DRIVES trails poison behind it
+    for (const v of this.vehicles.values()) {
+      if (v.infectedUntil === undefined) continue;
+      if (this.time >= v.infectedUntil) { v.infectedUntil = undefined; v.infectedTeam = undefined; continue; }
+      if (!v.alive) { v.infectedUntil = undefined; continue; }
+      if (Math.hypot(v.vel.x, v.vel.z) > 2 && this.time >= (v.nextInfectTrailAt ?? 0)) {
+        v.nextInfectTrailAt = this.time + 0.7;
+        this.spawnGadget('fire_field', v.infectedTeam ?? 1, -1, { x: v.pos.x, y: 0, z: v.pos.z }, 40, 5);
+      }
     }
 
     // recon state rebuilds every tick: pings accumulate from beacons, drones,
@@ -2578,6 +2632,26 @@ export class World {
       const v = this.vehicles.get(p.homingVehicleId);
       if (!v || !this.vehicleAirborne(v)) { p.homingVehicleId = undefined; return false; } // target gone — fly dumb
       tx = v.pos.x; tz = v.pos.z;
+    } else if (p.homingSoldierId !== undefined) {
+      // Ragebeast's flesh hunts a SOLDIER — low, turn-rate capped: sidestep
+      // hard and it overshoots. A dead or encased target frees the glob.
+      const e = this.soldiers.get(p.homingSoldierId);
+      if (!e || !e.alive || e.encasedUntil !== undefined) { p.homingSoldierId = undefined; return false; }
+      if (Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) < 1.2) {
+        this.explode({ ...e.pos }, WEAPONS.flesh_glob, p.ownerId, p.team);
+        return true;
+      }
+      const speed = Math.hypot(p.vel.x, p.vel.z) || 1;
+      const cur = Math.atan2(p.vel.z, p.vel.x);
+      let da = Math.atan2(e.pos.z - p.pos.z, e.pos.x - p.pos.x) - cur;
+      da = Math.atan2(Math.sin(da), Math.cos(da));
+      const maxTurn = 2.4 * dt; // slower than a SAM — dodgeable on foot
+      const yaw = cur + Math.max(-maxTurn, Math.min(maxTurn, da));
+      p.vel.x = Math.cos(yaw) * speed;
+      p.vel.z = Math.sin(yaw) * speed;
+      p.pos.y += (1.2 - p.pos.y) * Math.min(1, 6 * dt);
+      p.vel.y = 0;
+      return false;
     } else {
       return false;
     }
@@ -2686,8 +2760,10 @@ export class World {
     if (this.time < s.nextRepairAt) return false;
     if (this.hasEquip(s, 'fieldRepair')) {
       for (const v of this.vehicles.values()) {
-        if (!v.alive || v.team !== s.team || v.hp >= v.maxHp) continue;
+        // a full-HP but INFECTED hull is still a patient — the kit cleanses
+        if (!v.alive || v.team !== s.team || (v.hp >= v.maxHp && v.infectedUntil === undefined)) continue;
         if (Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z) < VEHICLES[v.kind].radius + 2.5) {
+          if (v.infectedUntil !== undefined) { v.infectedUntil = undefined; v.infectedTeam = undefined; } // the cleanse
           v.hp = Math.min(v.maxHp, v.hp + 120);
           // a field patch also braces the weakest subsystem
           let weakest: SystemId = 'engine';
@@ -3255,7 +3331,7 @@ export class World {
     for (const [id, p] of this.projectiles) {
       const def = WEAPONS[p.weapon];
       // heat-seekers steer before they move; true = spent on a flare
-      if ((p.homingVehicleId !== undefined || p.homingFlareId !== undefined) && this.steerMissile(p, dt)) {
+      if ((p.homingVehicleId !== undefined || p.homingFlareId !== undefined || p.homingSoldierId !== undefined) && this.steerMissile(p, dt)) {
         this.projectiles.delete(id);
         continue;
       }

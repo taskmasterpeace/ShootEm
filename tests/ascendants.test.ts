@@ -99,6 +99,34 @@ describe('Plaguebearer — the cloud', () => {
     const clouds = [...w.gadgets.values()].filter((g) => g.type === 'smoke_field' && g.ownerId === pb.id).length;
     expect(clouds, 'no gas was laid').toBeGreaterThan(0);
   });
+
+  it('infects a crewed enemy hull — the plague wagon trails poison as it drives', () => {
+    const w = new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+    const pb = w.addLsw('plaguebearer', 1, { x: 0, y: 0, z: 0 })!;
+    const v = w.spawnVehicle('tank', 0, { x: 6, y: 0, z: 0 });
+    const driver = w.addSoldier('D', 'infantry', 0, 'bot');
+    driver.pos = { x: 60, y: 0, z: 60 }; // out of the cloud's way
+    v.seats[0] = driver.id;
+    w.step(1 / 60, new Map());
+    expect(v.infectedUntil, 'the hull never caught the plague').toBeGreaterThan(w.time);
+    // drive it — the trail must appear
+    const before = [...w.gadgets.values()].filter((g) => g.type === 'fire_field' && g.ownerId === -1).length;
+    v.vel = { x: 8, y: 0, z: 0 };
+    for (let i = 0; i < 60; i++) { v.vel = { x: 8, y: 0, z: 0 }; w.step(1 / 60, new Map()); }
+    const after = [...w.gadgets.values()].filter((g) => g.type === 'fire_field' && g.ownerId === -1).length;
+    expect(after, 'the wagon left no trail').toBeGreaterThan(before);
+  });
+
+  it("an engineer's field repair CLEANSES the infection", () => {
+    const w = new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+    const v = w.spawnVehicle('tank', 0, { x: 6, y: 0, z: 0 });
+    v.infectedUntil = w.time + 60; v.infectedTeam = 1;
+    const eng = w.addSoldier('ENG', 'engineer', 0, 'human');
+    eng.pos = { x: 6, y: 0, z: 0 }; eng.alive = true;
+    eng.equipment = ['repair_kit'];
+    expect(w.tryFieldKit(eng), 'the kit refused a full-HP infected hull').toBe(true);
+    expect(v.infectedUntil, 'the cleanse failed').toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -181,6 +209,26 @@ describe('Ragebeast — the rampage', () => {
     const wounded = rb.rageMul ?? 1;
     expect(healthy, 'a healthy beast should not be raging').toBeLessThan(1.15);
     expect(wounded, 'the wound did not feed him').toBeGreaterThan(healthy + 0.3);
+  });
+
+  it('wounded, he TEARS his own flesh — it costs HP and the globs HUNT', () => {
+    const w = new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+    const rb = w.addLsw('ragebeast', 1, { x: 0, y: 0, z: 0 })!;
+    rb.hp = rb.maxHp * 0.5; // wounded — the magazine is open
+    const e = w.addSoldier('E', 'infantry', 0, 'human');
+    e.pos = { x: 20, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    const hp0 = rb.hp;
+    w.step(1 / 60, new Map([[e.id, cmd()]]));
+    const globs = [...w.projectiles.values()].filter((p) => p.weapon === 'flesh_glob');
+    expect(globs.length, 'no flesh was hurled').toBeGreaterThan(0);
+    expect(globs[0].homingSoldierId, 'the glob must HUNT a soldier').toBe(e.id);
+    expect(rb.hp, 'the tear must cost him').toBeLessThan(hp0);
+    // the hunt: displace the target sideways — the glob's heading must bend
+    const g = globs[0];
+    e.pos = { x: 20, y: 0, z: 15 };
+    for (let i = 0; i < 30; i++) w.step(1 / 60, new Map([[e.id, cmd()]]));
+    const live = w.projectiles.get(g.id);
+    if (live) expect(live.vel.z, 'the glob never turned toward its prey').toBeGreaterThan(0);
   });
 });
 

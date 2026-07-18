@@ -358,6 +358,12 @@ export interface Vehicle {
   abandonedAt: number;
   /** seconds an enemy thief has held E beside the hull (snaps to 0 if they quit) */
   hotwireProgress: number;
+  /** Plaguebearer's infection: while set, a MOVING hull trails poison. The
+   *  crew chooses — abandon the tank, or drive the plague wagon. An
+   *  engineer's field repair cleanses it. */
+  infectedUntil?: number;
+  infectedTeam?: Team;
+  nextInfectTrailAt?: number;
 }
 
 export interface Turret {
@@ -392,6 +398,9 @@ export interface Projectile {
   homingVehicleId?: number;
   /** heat-seeker: flare gadget that seduced it off the aircraft */
   homingFlareId?: number;
+  /** Ragebeast's flesh: the SOLDIER this glob hunts (turn-rate capped —
+   *  sidestep hard and it overshoots). Target dead/encased = flies dumb. */
+  homingSoldierId?: number;
   /** hand grenades BANK (Robert): walls reflect it instead of detonating it.
    *  Launcher shells never set this — a GL-40 round still eats the wall. */
   bounce?: boolean;
