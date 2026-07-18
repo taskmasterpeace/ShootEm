@@ -2121,6 +2121,18 @@ export class Renderer {
         pos: { x: s.pos.x + Math.cos(s.yaw) * 0.7, y: 0.9 + Math.random() * 0.9, z: s.pos.z + Math.sin(s.yaw) * 0.7 }, count: 1,
         color: Math.random() < 0.5 ? 0x8a8f98 : 0xc6ccd6, speed: 0.4, life: 0.5, spread: 0.4, up: 0.5, gravity: 0.5, size: 0.26,
       });
+    } else if (id === 'leviathan') {
+      // the ground remembers every footfall — dust rings at his feet
+      if (Math.hypot(s.vel.x, s.vel.z) > 0.5 || s.pos.y > 0.5) this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 2, y: 0.15, z: s.pos.z + (Math.random() - 0.5) * 2 }, count: 2,
+        color: Math.random() < 0.5 ? 0x3f6e6a : 0x6a5c48, speed: 0.7, life: 0.6, spread: 1.0, up: 0.4, gravity: 2, size: 0.3,
+      });
+    } else if (id === 'cataclysm') {
+      // basalt splitting — ember seams glow through the cracks
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.4, y: 0.3 + Math.random() * 1.4, z: s.pos.z + (Math.random() - 0.5) * 1.4 }, count: 1,
+        color: Math.random() < 0.5 ? 0xff7a30 : 0x7a4a30, speed: 0.5, life: 0.5, spread: 0.5, up: 0.5, gravity: 1, size: 0.26,
+      });
     } else if (id === 'inferno') {
       // a body that is partly fire — embers stream off him, more in a dive
       this.particles.emit({

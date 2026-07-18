@@ -3187,6 +3187,11 @@ export class World {
     if (victim.perchTile !== undefined && victim.ascendant === 'gargoyle') {
       dmg *= 0.5;
     }
+    // LEVIATHAN IS SOFT MID-AIR: the belly flop is the AA window — every
+    // round that finds him between leap and landing bites 1.6x deeper
+    if (victim.ascendant === 'leviathan' && victim.diveAt !== undefined) {
+      dmg *= 1.6;
+    }
     // CHRONOS'S TEMPORAL ECHO (once per fight): a lethal hit doesn't land —
     // he SNAPS to where he stood ~3s ago (the breadcrumb the glow has been
     // advertising all along; the counter is to camp it) and stands there at

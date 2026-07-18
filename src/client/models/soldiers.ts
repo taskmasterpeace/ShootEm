@@ -94,6 +94,8 @@ export const LSW_TINT: Record<string, { tint: number; scale: number }> = {
   inferno: { tint: 0xff6a2a, scale: 1.35 },      // flame orange
   stormcaller: { tint: 0x9fd8ff, scale: 1.35 },  // storm-sky pale blue
   gargoyle: { tint: 0x8d8578, scale: 1.4 },      // weathered stone
+  leviathan: { tint: 0x3f6e6a, scale: 1.7 },     // deep-sea iron
+  cataclysm: { tint: 0x7a4a30, scale: 1.65 },    // magma-cracked basalt
 };
 
 /** Turn a built trooper body INTO an LSW body: scale up past a trooper,

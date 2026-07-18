@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { CLASSES, WEAPONS } from '../src/sim/data';
 import { LSWS } from '../src/sim/lsw';
 import type { PlayerCmd } from '../src/sim/types';
+import { quakeInterval } from '../src/sim/lsw/cataclysm';
 import { World } from '../src/sim/world';
 
 const cmd = (over: Partial<PlayerCmd> = {}): PlayerCmd => ({
@@ -543,5 +544,33 @@ describe('counterplay — wave 2, seventh batch', () => {
     const hpB = g.hp;
     w.damageSoldier(g, 100, -1, 'ar606');
     expect(hpB - g.hp, 'grounded he pays FULL price').toBeCloseTo(100, 0);
+  });
+
+  it('LEVIATHAN — "scatter from the shadow": the rim spares whoever MOVED', () => {
+    const w = quiet();
+    const lv = w.addLsw('leviathan', 1, { x: 0, y: 0, z: 0 })!;
+    lv.nextLswAt = 1e9;
+    lv.clip = lv.clip.map(() => 0); lv.reserve = lv.reserve.map(() => 0);
+    const stander = w.addSoldier('S', 'infantry', 0, 'human');
+    stander.pos = { x: 30, y: 0, z: 0 }; stander.alive = true; stander.protectedUntil = 0;
+    const runner = w.addSoldier('R', 'infantry', 0, 'human');
+    runner.pos = { x: 30, y: 0, z: 2 }; runner.alive = true; runner.protectedUntil = 0;
+    w.applyCmd(lv, cmd({ ability: true }), 1 / 60); // the shadow falls on the pair
+    runner.pos = { x: 30, y: 0, z: 14 }; // he READ it and scattered
+    const s0 = stander.hp, r0 = runner.hp;
+    for (let i = 0; i < 100; i++) { runner.pos = { x: 30, y: 0, z: 14 }; w.step(1 / 60, new Map()); }
+    expect(stander.hp, 'the stander eats the flop').toBeLessThan(s0);
+    expect(runner.hp, 'the scatter is the counter — the shadow gave him the time').toBe(r0);
+  });
+
+  it('CATACLYSM — "all-in focus": stalling multiplies the quakes you must survive', () => {
+    // the DPS check in numbers: a 20s kill endures ~3 quakes; a 90s stall
+    // endures ~19 — the interval law makes stalling the losing play
+    let t = 0, fast = 0;
+    while (t < 20) { t += quakeInterval(t); fast++; }
+    let t2 = 0, slow = 0;
+    while (t2 < 90) { t2 += quakeInterval(t2); slow++; }
+    expect(fast, 'a focused kill endures a handful').toBeLessThanOrEqual(5);
+    expect(slow, 'a stall endures a bombardment').toBeGreaterThanOrEqual(15);
   });
 });

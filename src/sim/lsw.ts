@@ -482,6 +482,28 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'SCREAMING DIVE — the shriek is the mercy', activeCd: 8,
     flies: true,
   },
+  leviathan: {
+    id: 'leviathan', name: 'Leviathan', faction: 1, threat: 3,
+    lines: {
+      inbound: 'LEVIATHAN INBOUND — READ THE SHADOWS',
+      landed: 'LEVIATHAN ON THE FIELD — THE GROUND IS PROVISIONAL',
+      down: 'LEVIATHAN IS DOWN — THE EARTH EXHALES',
+      rampage: 'FIVE KILLS — LEVIATHAN IS FLATTENING THE FRONT',
+    },
+    scale: 1.7, speed: 5.5, color: 0x3f6e6a, // deep-sea iron
+    activeLabel: 'BELLY FLOP — the shadow is the warning', activeCd: 12,
+  },
+  cataclysm: {
+    id: 'cataclysm', name: 'Cataclysm', faction: 1, threat: 2,
+    lines: {
+      inbound: 'CATACLYSM INBOUND — DO NOT LET THIS ONE SETTLE IN',
+      landed: 'CATACLYSM ON THE FIELD — EVERY SECOND COSTS YOU',
+      down: 'CATACLYSM IS DOWN — COUNT THE QUAKES YOU SURVIVED',
+      rampage: 'FIVE KILLS — CATACLYSM IS SHAKING THE MAP APART',
+    },
+    scale: 1.65, speed: 5, color: 0x7a4a30, // magma-cracked basalt
+    activeLabel: 'THE SLAM — huge, slow, close', activeCd: 6,
+  },
 };
 
 /** THE SPOKEN SCRIPT — subtitle text per voice slot, tag-stripped mirrors of
@@ -680,6 +702,16 @@ export const VO_LINES: Record<string, { who: AscendantId; line: string }> = {
   vo_gargoyle_ability: { who: 'gargoyle', line: 'HEAR ME.' },
   vo_gargoyle_low: { who: 'gargoyle', line: 'Chipped... cracking...' },
   vo_gargoyle_death: { who: 'gargoyle', line: 'Stone... returns to stone.' },
+  vo_leviathan_arrive: { who: 'leviathan', line: 'Mind the shadow.' },
+  vo_leviathan_kill3: { who: 'leviathan', line: 'Three. The ground agrees with me.' },
+  vo_leviathan_ability: { who: 'leviathan', line: 'UP... and DOWN.' },
+  vo_leviathan_low: { who: 'leviathan', line: 'Heavy... getting heavier.' },
+  vo_leviathan_death: { who: 'leviathan', line: 'The ground... wins the argument.' },
+  vo_cataclysm_arrive: { who: 'cataclysm', line: 'Start counting.' },
+  vo_cataclysm_kill3: { who: 'cataclysm', line: 'Three, between tremors.' },
+  vo_cataclysm_ability: { who: 'cataclysm', line: 'SETTLE.' },
+  vo_cataclysm_low: { who: 'cataclysm', line: 'Cracking... but so are you.' },
+  vo_cataclysm_death: { who: 'cataclysm', line: 'The quakes... stop with me. You are welcome.' },
 };
 export const voSlot = (id: AscendantId, moment: VoMoment) => `vo_${id}_${moment}`;
 export const annSlot = (id: AscendantId, moment: 'inbound' | 'landed' | 'down' | 'rampage') => `ann_${id}_${moment}`;

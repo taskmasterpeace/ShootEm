@@ -240,6 +240,18 @@ export const CAST = {
     persona: "Gargoyle, a Collective Living Super Weapon — a flying ambusher of living stone. Patient, grinding, ancient; he SCREAMS before every dive because terror is half the payload, and fair warning never saved anyone.",
     scene: 'Wingbeats like slabs. A shriek that empties a street. Masonry taking his weight.',
   },
+  leviathan: {
+    voice: 'Alnilam',
+    fx: 'beast', // a voice from a chest the size of a building
+    persona: "Leviathan, a Collective Living Super Weapon — a walking foundry the size of an argument you cannot win. Slow, vast, mildly amused; he narrates gravity like a colleague and considers his own shadow fair warning.",
+    scene: 'Footfalls that re-lay the street. A shadow spreading over a whole squad. The long quiet before something enormous lands.',
+  },
+  cataclysm: {
+    voice: 'Schedar',
+    fx: 'beast', // tectonic patience — a fault line with opinions
+    persona: "Cataclysm, a Collective Living Super Weapon — a siege boss who wins by simply CONTINUING. Grinding, patient, faintly contemptuous; every sentence is a countdown and stalling is the only sin he respects.",
+    scene: 'Quakes on a schedule that keeps shortening. Masonry giving up in the distance. A clock made of stone.',
+  },
   announcer: {
     voice: 'Orus',
     fx: 'radio', // 300–3400Hz military net + soft clip
@@ -505,6 +517,19 @@ export const VO = [
   { slot: 'vo_gargoyle_ability', who: 'gargoyle', text: '[SHRIEKING] HEAR ME.', notes: ['THE telegraph — the whole street gets 0.8 seconds.'] },
   { slot: 'vo_gargoyle_low', who: 'gargoyle', text: '[grinding, cracking] Chipped... cracking...', notes: ['Stone reporting its own fractures.'] },
   { slot: 'vo_gargoyle_death', who: 'gargoyle', text: '[crumbling] Stone... returns to stone.', notes: ['Almost content about it.'] },
+  // ---- LEVIATHAN: the shadow is fair warning ----
+  { slot: 'vo_leviathan_arrive', who: 'leviathan', text: '[vast, slow] Mind the shadow.', notes: ['The only warning he considers necessary.'] },
+  { slot: 'vo_leviathan_kill3', who: 'leviathan', text: 'Three. The ground agrees with me.', notes: ['Gravity as a colleague.'] },
+  { slot: 'vo_leviathan_ability', who: 'leviathan', text: '[rising, then plunging] UP... and DOWN.', notes: ['The whole physics lesson, narrated.'] },
+  { slot: 'vo_leviathan_low', who: 'leviathan', text: '[laboring] Heavy... getting heavier.', notes: ['Mass becoming mortality.'] },
+  { slot: 'vo_leviathan_death', who: 'leviathan', text: '[toppling] The ground... wins the argument.', notes: ['Respect, at terminal velocity.'] },
+
+  // ---- CATACLYSM: stalling is the only sin ----
+  { slot: 'vo_cataclysm_arrive', who: 'cataclysm', text: '[grinding] Start counting.', notes: ['The DPS check, announced.'] },
+  { slot: 'vo_cataclysm_kill3', who: 'cataclysm', text: 'Three, between tremors.', notes: ['He kills on the offbeat.'] },
+  { slot: 'vo_cataclysm_ability', who: 'cataclysm', text: '[colossal impact] SETTLE.', notes: ['An order given to a whole street.'] },
+  { slot: 'vo_cataclysm_low', who: 'cataclysm', text: '[cracking] Cracking... but so are you.', notes: ['The mutual-destruction ledger.'] },
+  { slot: 'vo_cataclysm_death', who: 'cataclysm', text: '[subsiding] The quakes... stop with me. You are welcome.', notes: ['Contempt to the last tremor.'] },
 ];
 
 /** The announcer — map-wide, both teams, radio net. */
@@ -661,6 +686,14 @@ export const ANN = [
   { slot: 'ann_gargoyle_landed', text: 'GARGOYLE IS AIRBORNE. THE SHRIEK IS YOUR WARNING.' },
   { slot: 'ann_gargoyle_down', text: 'GARGOYLE IS DOWN. STONE AT LAST.' },
   { slot: 'ann_gargoyle_rampage', text: 'FIVE KILLS. GARGOYLE OWNS EVERY ROOF.' },
+  { slot: 'ann_leviathan_inbound', text: 'LEVIATHAN INBOUND. [short pause] READ THE SHADOWS.' },
+  { slot: 'ann_leviathan_landed', text: 'LEVIATHAN ON THE FIELD. THE GROUND IS PROVISIONAL.' },
+  { slot: 'ann_leviathan_down', text: 'LEVIATHAN IS DOWN. THE EARTH EXHALES.' },
+  { slot: 'ann_leviathan_rampage', text: 'FIVE KILLS. LEVIATHAN IS FLATTENING THE FRONT.' },
+  { slot: 'ann_cataclysm_inbound', text: 'CATACLYSM INBOUND. [short pause] DO NOT LET THIS ONE SETTLE IN.' },
+  { slot: 'ann_cataclysm_landed', text: 'CATACLYSM ON THE FIELD. EVERY SECOND COSTS YOU.' },
+  { slot: 'ann_cataclysm_down', text: 'CATACLYSM IS DOWN. COUNT THE QUAKES YOU SURVIVED.' },
+  { slot: 'ann_cataclysm_rampage', text: 'FIVE KILLS. CATACLYSM IS SHAKING THE MAP APART.' },
 ];
 
 export const ANN_NOTES = [
