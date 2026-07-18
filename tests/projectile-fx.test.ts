@@ -2,16 +2,25 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { World } from '../src/sim/world';
 import { WEAPONS } from '../src/sim/data';
 import { GRID, TILE, WORLD, T_DOOR, T_WALL, T_METAL } from '../src/sim/map';
-import type { Projectile } from '../src/sim/types';
+import type { PlayerCmd, Projectile } from '../src/sim/types';
 
 // these tests mutate shared WEAPONS defs to arrange flags — reset after each so
 // they never pollute another test (or file). The real per-LSW data lands later.
 afterEach(() => {
   for (const id of ['rg2', 'lsw_pulse'] as const) {
-    const w = WEAPONS[id] as { pierce?: number; pierceArmor?: boolean; ricochet?: number };
-    w.pierce = undefined; w.pierceArmor = undefined; w.ricochet = undefined;
+    const w = WEAPONS[id] as { pierce?: number; pierceArmor?: boolean; ricochet?: number; charge?: unknown };
+    w.pierce = undefined; w.pierceArmor = undefined; w.ricochet = undefined; w.charge = undefined;
   }
 });
+
+// a full player command with sensible defaults; override the fields a test cares about
+function cmd(over: Partial<PlayerCmd> = {}): PlayerCmd {
+  return {
+    moveX: 0, moveZ: 0, aimYaw: 0, fire: false, altFire: false, jump: false,
+    use: false, ability: false, reload: false, grenade: false, weaponSlot: -1,
+    aimDist: 30, ...over,
+  } as PlayerCmd;
+}
 
 // helper: launch a bare projectile aimed +x from origin
 function shot(w: World, weapon: string, over: Partial<Projectile> = {}) {
@@ -144,5 +153,35 @@ describe('surface reactions (materials)', () => {
       if (w.projectiles.has(p.id)) survived++; // banked, still flying
     }
     expect(survived).toBeGreaterThan(0); // metal banks at least some rounds (0.8 chance, glancing)
+  });
+});
+
+describe('charge scales the shot', () => {
+  it('holds while winding up, then releases a fully-charged round', () => {
+    const w = new World({ seed: 7, mode: 'tdm' });
+    const s = w.addSoldier('S', 'infantry', 0, 'human');
+    s.pos = { x: 0, y: 0, z: 0 }; s.yaw = 0;
+    s.weapons = ['rg2']; s.weaponIdx = 0; s.clip = [999]; s.reserve = [999];
+    (WEAPONS.rg2 as { charge?: { t: number; mul: number } }).charge = { t: 0.5, mul: 3 };
+    const cmds = new Map([[s.id, cmd({ fire: true })]]);
+    let firedBefore05 = 0, releasedMul: number | undefined;
+    for (let i = 0; i < 45; i++) {
+      const before = w.projectiles.size;
+      w.step(1 / 60, cmds);
+      for (const p of w.projectiles.values()) if (p.ownerId === s.id && releasedMul === undefined) releasedMul = p.dmgMul;
+      if (w.time < 0.5 && w.projectiles.size > before) firedBefore05++;
+    }
+    expect(firedBefore05).toBe(0);   // nothing leaves the barrel while charging
+    expect(releasedMul).toBe(3);     // the released bolt carries the full ×3
+  });
+
+  it('defaults dmgMul to 1 for a plain (uncharged) weapon', () => {
+    const w = new World({ seed: 7, mode: 'tdm' });
+    const s = w.addSoldier('S', 'infantry', 0, 'human');
+    s.weapons = ['rg2']; s.weaponIdx = 0; s.clip = [999];
+    const cmds = new Map([[s.id, cmd({ fire: true })]]);
+    let mul: number | undefined;
+    for (let i = 0; i < 6; i++) { w.step(1 / 60, cmds); for (const p of w.projectiles.values()) if (mul === undefined) mul = p.dmgMul; }
+    expect(mul).toBe(1);
   });
 });

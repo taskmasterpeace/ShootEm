@@ -1938,11 +1938,31 @@ export class World {
     if (cmd.fire && !swimming && s.reloadUntil === 0 && this.time >= s.nextFireAt) {
       if (s.clip[s.weaponIdx] > 0) {
         s.protectedUntil = 0; // hostile action ends spawn protection (55B)
-        this.fireSoldierWeapon(s, wid, def, cmd.aimDist);
+        // CHARGE: a charge weapon winds up before it releases — start the hold on
+        // the first ready frame and fire a ×mul shot once held for charge.t.
+        if (def.charge) {
+          if (s.chargeStart === undefined) s.chargeStart = this.time;
+          if (this.time - s.chargeStart >= def.charge.t) {
+            this.fireSoldierWeapon(s, wid, def, cmd.aimDist, def.charge.mul);
+            s.chargeStart = undefined;
+          }
+        } else {
+          this.fireSoldierWeapon(s, wid, def, cmd.aimDist);
+        }
       } else if (s.reserve[s.weaponIdx] > 0) {
         s.reloadUntil = this.time + def.reloadTime;
         this.emit({ type: 'reload', pos: s.pos, soldierId: s.id });
       }
+    } else if (s.chargeStart !== undefined && !swimming) {
+      // trigger released (or interrupted) mid-charge: loose a partial-charge
+      // round scaled by how long it was held, then clear the wind-up
+      const c = def.charge;
+      if (c && !cmd.fire && s.reloadUntil === 0 && this.time >= s.nextFireAt && s.clip[s.weaponIdx] > 0) {
+        const held = this.time - s.chargeStart;
+        const mul = 1 + (c.mul - 1) * Math.max(0, Math.min(1, held / c.t));
+        this.fireSoldierWeapon(s, wid, def, cmd.aimDist, mul);
+      }
+      s.chargeStart = undefined;
     }
 
     // SECONDARY FIRE (right mouse): the under-barrel surprise. It rides the
@@ -2001,7 +2021,7 @@ export class World {
     }
   }
 
-  fireSoldierWeapon(s: Soldier, wid: WeaponId, def = WEAPONS[wid], aimDist?: number) {
+  fireSoldierWeapon(s: Soldier, wid: WeaponId, def = WEAPONS[wid], aimDist?: number, dmgMul = 1) {
     s.nextFireAt = this.time + 1 / def.rof;
     if (Number.isFinite(s.clip[s.weaponIdx])) s.clip[s.weaponIdx]--;
     if (s.cloaked) s.cloaked = false;
@@ -2015,7 +2035,7 @@ export class World {
     // the GL-40 unusable at anything but exactly 46u.)
     const reach = def.arc ? Math.max(6, Math.min(aimDist ?? def.range, def.range)) : def.range;
     for (let p = 0; p < def.pellets; p++) {
-      this.throwProjectile(s, wid, 1.4, def.speed, def.arc, reach);
+      this.throwProjectile(s, wid, 1.4, def.speed, def.arc, reach, 1, false, dmgMul);
     }
     this.emit({ type: 'shot', pos: { ...s.pos, y: s.pos.y + 1.4 }, weapon: wid, soldierId: s.id });
   }
@@ -2083,7 +2103,7 @@ export class World {
    * LANDS at that distance instead of a fixed short ballistic. A caller can
    * pass a shorter reach for a soft toss (e.g. the hand-thrown frag).
    */
-  throwProjectile(s: Soldier, wid: WeaponId, muzzleY: number, speed: number, arc: boolean, reach = WEAPONS[wid].range, loft = 1, bounce = false) {
+  throwProjectile(s: Soldier, wid: WeaponId, muzzleY: number, speed: number, arc: boolean, reach = WEAPONS[wid].range, loft = 1, bounce = false, dmgMul = 1) {
     const def = WEAPONS[wid];
     const spread = (this.rng.next() - 0.5) * 2 * def.spread;
     const yaw = s.yaw + spread;
@@ -2114,6 +2134,7 @@ export class World {
       vel: { x: Math.cos(yaw) * speed, y: vy, z: Math.sin(yaw) * speed },
       bornAt: this.time, ttl: reach / Math.max(speed, 1) + (arc ? 1.4 : 0), arc,
       ...(bounce ? { bounce: true } : {}),
+      ...(dmgMul !== 1 ? { dmgMul } : {}),
     };
     this.launch(p);
   }

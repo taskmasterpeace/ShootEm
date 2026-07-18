@@ -221,6 +221,9 @@ export interface Soldier {
   reserve: number[];
   reloadUntil: number;
   nextFireAt: number;
+  /** CHARGE (projectile-fx): world time the current charge-weapon hold began,
+   *  undefined when not winding up. The release scales dmg by charge.mul. */
+  chargeStart?: number;
   /** SECONDARY FIRE (right mouse): shots left in the primary's under-barrel */
   altAmmo: number;
   nextAltAt: number;
