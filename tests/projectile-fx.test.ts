@@ -8,10 +8,17 @@ import type { PlayerCmd, Projectile } from '../src/sim/types';
 // they never pollute another test (or file). The real per-LSW data lands later.
 afterEach(() => {
   for (const id of ['rg2', 'lsw_pulse'] as const) {
-    const w = WEAPONS[id] as { pierce?: number; pierceArmor?: boolean; ricochet?: number; charge?: unknown };
-    w.pierce = undefined; w.pierceArmor = undefined; w.ricochet = undefined; w.charge = undefined;
+    const w = WEAPONS[id] as unknown as Record<string, unknown>;
+    for (const k of ['pierce', 'pierceArmor', 'ricochet', 'charge', 'cluster', 'chain', 'tether', 'boomerang', 'gasAfter']) w[k] = undefined;
   }
 });
+
+// clear a straight open lane on the mid row so generated terrain can't interfere
+function lane(w: World, x1 = -2, x2 = 20): number {
+  const tz = Math.floor((0 + WORLD / 2) / TILE);
+  for (let x = x1; x <= x2; x++) w.map.grid[tz * GRID + Math.floor((x + WORLD / 2) / TILE)] = 0;
+  return tz;
+}
 
 // a full player command with sensible defaults; override the fields a test cares about
 function cmd(over: Partial<PlayerCmd> = {}): PlayerCmd {
@@ -183,5 +190,67 @@ describe('charge scales the shot', () => {
     let mul: number | undefined;
     for (let i = 0; i < 6; i++) { w.step(1 / 60, cmds); for (const p of w.projectiles.values()) if (mul === undefined) mul = p.dmgMul; }
     expect(mul).toBe(1);
+  });
+});
+
+describe('cluster / chain / tether / boomerang / gasAfter', () => {
+  it('cluster bursts into bouncing submunitions on death', () => {
+    const w = new World({ seed: 6, mode: 'tdm' });
+    lane(w);
+    (WEAPONS.rg2 as { cluster?: number }).cluster = 4;
+    const before = w.projectiles.size;
+    w.launch({ id: w.id(), weapon: 'rg2', ownerId: -1, team: 0,
+      pos: { x: 0, y: 1.2, z: 0 }, vel: { x: 40, y: 0, z: 0 }, bornAt: w.time, ttl: 0.05, arc: false } as Projectile);
+    for (let i = 0; i < 6; i++) w.step(1 / 60, new Map());
+    expect(w.projectiles.size).toBeGreaterThan(before); // 4 children now in the air
+  });
+
+  it('chain arcs to the nearest un-struck enemies', () => {
+    const w = new World({ seed: 7, mode: 'tdm' });
+    lane(w);
+    const foes = [4, 6, 8].map((x, i) => { const s = w.addSoldier(`F${i}`, 'infantry', 1, 'human'); s.pos = { x, y: 0, z: 0 }; s.hp = 100; s.maxHp = 100; return s; });
+    (WEAPONS.rg2 as { chain?: number }).chain = 2;
+    w.launch({ id: w.id(), weapon: 'rg2', ownerId: -1, team: 0,
+      pos: { x: 0, y: 1.2, z: 0 }, vel: { x: 40, y: 0, z: 0 }, bornAt: w.time, ttl: 3, arc: false } as Projectile);
+    for (let i = 0; i < 40; i++) { for (const f of foes) f.pos.z = 0; w.step(1 / 60, new Map()); }
+    expect(foes.filter((s) => s.hp < 100).length).toBe(3); // one direct + two chained
+  });
+
+  it('tether yanks the struck victim toward the owner', () => {
+    const w = new World({ seed: 8, mode: 'tdm' });
+    lane(w);
+    const owner = w.addSoldier('O', 'infantry', 0, 'human'); owner.pos = { x: 0, y: 0, z: 0 };
+    const v = w.addSoldier('V', 'infantry', 1, 'human'); v.pos = { x: 10, y: 0, z: 0 }; v.hp = 300; v.maxHp = 300;
+    (WEAPONS.rg2 as { tether?: boolean }).tether = true;
+    w.launch({ id: w.id(), weapon: 'rg2', ownerId: owner.id, team: 0,
+      pos: { x: 0, y: 1.2, z: 0 }, vel: { x: 40, y: 0, z: 0 }, bornAt: w.time, ttl: 3, arc: false } as Projectile);
+    for (let i = 0; i < 40; i++) { v.pos.z = 0; owner.pos = { x: 0, y: 0, z: 0 }; w.step(1 / 60, new Map()); }
+    expect(v.pos.x).toBeLessThan(10); // pulled inward from x=10
+  });
+
+  it('a boomerang round whips back toward the owner', () => {
+    const w = new World({ seed: 9, mode: 'tdm' });
+    lane(w, -2, 40);
+    const owner = w.addSoldier('O', 'infantry', 0, 'human'); owner.pos = { x: 0, y: 0, z: 0 };
+    (WEAPONS.rg2 as { boomerang?: boolean }).boomerang = true;
+    const p = w.launch({ id: w.id(), weapon: 'rg2', ownerId: owner.id, team: 0,
+      pos: { x: 2, y: 1.2, z: 0 }, vel: { x: 15, y: 0, z: 0 }, bornAt: w.time, ttl: 2, arc: false } as Projectile);
+    w.step(1 / 60, new Map());
+    expect(p.vel.x).toBeGreaterThan(0);                 // outbound
+    for (let i = 0; i < 75; i++) w.step(1 / 60, new Map()); // past the ttl/2 = 1s flip
+    if (w.projectiles.has(p.id)) expect(p.vel.x).toBeLessThan(0); // homing back to x=0
+  });
+
+  it('gasAfter leaves a lingering cloud on impact', () => {
+    const w = new World({ seed: 10, mode: 'tdm' });
+    const tz = lane(w, -2, 5);
+    const tx = Math.floor((6 + WORLD / 2) / TILE);
+    w.map.grid[tz * GRID + tx] = T_WALL; // a wall to detonate on
+    (WEAPONS.rg2 as { gasAfter?: { kind: string; r: number; life: number } }).gasAfter = { kind: 'poison', r: 2, life: 4 };
+    const g0 = w.gadgets.size;
+    w.launch({ id: w.id(), weapon: 'rg2', ownerId: -1, team: 0,
+      pos: { x: 0, y: 1.2, z: 0 }, vel: { x: 40, y: 0, z: 0 }, bornAt: w.time, ttl: 3, arc: false } as Projectile);
+    for (let i = 0; i < 20; i++) w.step(1 / 60, new Map());
+    expect(w.gadgets.size).toBeGreaterThan(g0); // a cloud remains
   });
 });

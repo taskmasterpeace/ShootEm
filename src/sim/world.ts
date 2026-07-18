@@ -3038,6 +3038,21 @@ export class World {
       p.pos.y += p.vel.y * tdt;
       p.pos.z += p.vel.z * tdt;
 
+      // BOOMERANG: fly out for half the ttl, then whip back toward the owner and
+      // clear the struck list so it can hit again on the return leg (flip once)
+      if (def.boomerang) {
+        if (p.returnAt === undefined) p.returnAt = p.bornAt + p.ttl / 2;
+        else if (this.time >= p.returnAt) {
+          const o = this.soldiers.get(p.ownerId);
+          const spd = Math.hypot(p.vel.x, p.vel.z) || 30;
+          if (o) {
+            const dx = o.pos.x - p.pos.x, dz = o.pos.z - p.pos.z, dl = Math.hypot(dx, dz) || 1;
+            p.vel.x = (dx / dl) * spd; p.vel.z = (dz / dl) * spd;
+          } else { p.vel.x = -p.vel.x; p.vel.z = -p.vel.z; }
+          p.hit = []; p.returnAt = Infinity;
+        }
+      }
+
       // GROUND BOUNCE (Robert: "I don't like that it doesn't bounce… kind of
       // timed, bounce off walls and stuff"): a bouncing arc round that meets
       // the floor KICKS back up, loses most of its pace, then settles and
@@ -3259,6 +3274,27 @@ export class World {
               const dmg = def.damage * (shooter?.rageMul ?? 1) * (p.dmgMul ?? 1);
               this.damageSoldier(s, dmg, p.ownerId, p.weapon, false, p.pierceArmor);
               this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, soldierId: p.ownerId, bare });
+              // CHAIN: the round arcs to the nearest un-struck enemies (60% dmg each)
+              if (def.chain) {
+                let arcs = def.chain;
+                for (const e of this.soldiers.values()) {
+                  if (arcs <= 0) break;
+                  if (!e.alive || e.team === p.team || e.id === s.id || p.hit?.includes(e.id)) continue;
+                  if (Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z) > 8) continue;
+                  (p.hit ??= []).push(e.id);
+                  this.damageSoldier(e, dmg * 0.6, p.ownerId, p.weapon, false, p.pierceArmor);
+                  this.emit({ type: 'hit', pos: { ...e.pos }, weapon: p.weapon, soldierId: p.ownerId });
+                  arcs--;
+                }
+              }
+              // TETHER: yank the struck victim toward the owner (reuses knockback)
+              if (def.tether) {
+                const o = this.soldiers.get(p.ownerId);
+                if (o) {
+                  const dx = o.pos.x - s.pos.x, dz = o.pos.z - s.pos.z, dl = Math.hypot(dx, dz) || 1;
+                  s.pushX += (dx / dl) * 14; s.pushZ += (dz / dl) * 14;
+                }
+              }
             }
             // the RG-2 tag dart: sting like a bee, then GLOW — pinned on
             // every enemy screen until the dart burns out (stealth suit wins)
@@ -3354,6 +3390,25 @@ export class World {
       if (dead || this.time - p.bornAt > p.ttl) {
         if (!dead && this.detonatePayload(p)) { /* payload delivered at end of arc */ }
         else if (!dead && def.splash > 0 && p.arc) this.explode(p.pos, def, p.ownerId, p.team); // grenades detonate on timeout
+        // CLUSTER: burst into k bouncing submunitions (~40% dmg) on death
+        if (def.cluster && !p.submunition) {
+          for (let k = 0; k < def.cluster; k++) {
+            const a = (k / def.cluster) * Math.PI * 2 + (p.id % 7) * 0.3;
+            this.launch({
+              id: this.id(), weapon: p.weapon, ownerId: p.ownerId, team: p.team,
+              pos: { x: p.pos.x, y: Math.max(0.5, p.pos.y), z: p.pos.z },
+              vel: { x: Math.cos(a) * 22, y: 3.5, z: Math.sin(a) * 22 },
+              bornAt: this.time, ttl: 0.6, arc: false, bounce: true, submunition: true,
+              dmgMul: (p.dmgMul ?? 1) * 0.4,
+            } as Projectile);
+          }
+        }
+        // GAS-AFTER: leave a lingering cloud (reuses the field-gadget plumbing)
+        if (def.gasAfter) {
+          const caustic = def.gasAfter.kind === 'caustic' || def.gasAfter.kind === 'poison';
+          this.spawnGadget(caustic ? 'fire_field' : 'smoke_field', p.team, p.ownerId,
+            { x: p.pos.x, y: 0, z: p.pos.z }, Infinity, def.gasAfter.life);
+        }
         this.projectiles.delete(id);
       }
     }

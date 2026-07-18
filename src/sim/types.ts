@@ -523,6 +523,8 @@ export interface Projectile {
   hit?: number[];
   /** boomerang: world time to flip the round back toward its owner (0 = not yet) */
   returnAt?: number;
+  /** a cluster child — never re-clusters, so the burst can't recurse */
+  submunition?: boolean;
 }
 
 export interface Pickup {
