@@ -10,7 +10,7 @@ export type ClassId = 'infantry' | 'heavy' | 'jump' | 'engineer' | 'medic' | 'in
 /** Living Super Weapons (§21.6 / docs/ASCENDANTS.md). A Soldier carrying one
  *  of these is an LSW — not a class, an overlay: bigger, deadlier, its own
  *  brain, and it dies to ordinary guns. Grows as the roster ships. */
-export type AscendantId = 'firebrand' | 'plaguebearer' | 'frostbite' | 'ragebeast' | 'titan' | 'voltstriker' | 'sniperhawk' | 'barrier' | 'reactor' | 'oblivion' | 'tremor' | 'magnetar' | 'wraith' | 'eclipse' | 'dominator' | 'riptide';
+export type AscendantId = 'firebrand' | 'plaguebearer' | 'frostbite' | 'ragebeast' | 'titan' | 'voltstriker' | 'sniperhawk' | 'barrier' | 'reactor' | 'oblivion' | 'tremor' | 'magnetar' | 'wraith' | 'eclipse' | 'dominator' | 'riptide' | 'gravwarden' | 'chronos';
 
 /**
  * Weapon ids are open strings: the hand-tuned core set (ar606, kuchler, caw,
@@ -270,6 +270,14 @@ export interface Soldier {
    *  an unexpired `psiLinkUntil` split each other's pain — hurt one, hurt all. */
   psiLinkId?: number;
   psiLinkUntil?: number;
+  /** Gravity Warden's REVERSE GRAVITY: until this sim time the soldier floats
+   *  (~2.2u up, ground control nearly gone) — but CAN STILL SHOOT. The drop
+   *  staggers the aim once on landing. */
+  liftedUntil?: number;
+  /** Chronos's TEMPORAL ECHO: a ~3s breadcrumb trail of where he stood (the
+   *  echo point GLOWS — camp it), and the once-per-fight latch. */
+  lswTrail?: { x: number; z: number }[];
+  lswFlagA?: boolean;
   /** THE ICE BLOCK (§21.6, shared: Frostbite + Venatrix). Encased alive: a
    *  real 1-tile block that stops movement AND shots both ways. sim-time the
    *  ice fully forms free is `encasedUntil`; teammates shatter it early by

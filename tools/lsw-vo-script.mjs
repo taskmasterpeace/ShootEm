@@ -108,6 +108,18 @@ export const CAST = {
     persona: 'Riptide, a United Front Living Super Weapon — a lifeguard the ocean kept. Easy, rolling, unhurried; the good humor of someone who has pulled a hundred people out of the water and thrown a hundred more back in. The counter-pick to every flame.',
     scene: 'Surf rolling in. Water sheeting off armor. A fire dying with a hiss somewhere close.',
   },
+  gravwarden: {
+    voice: 'Achird',
+    fx: 'none', // measured and weightless — a judge of falling things
+    persona: 'Gravity Warden, a United Front Living Super Weapon — a levitating controller who treats weight as a license he can revoke. Measured, serene, faintly amused watching people discover the floor is negotiable. Never hurried; things fall to HIM.',
+    scene: 'A low hum of suspended dust. Loose gear drifting upward. Boots leaving the ground.',
+  },
+  chronos: {
+    voice: 'Zubenelgenubi',
+    fx: 'none', // precise and dry — a clockmaker keeping other people’s time
+    persona: "Chronos, a Collective Living Super Weapon — a clockmaker who decided everyone else's seconds were his. Precise, dry, a little smug; speaks like every sentence was scheduled. The tick of something mechanical always under him.",
+    scene: 'A thousand soft clock ticks slightly out of phase. A firefight moving like syrup nearby.',
+  },
   announcer: {
     voice: 'Orus',
     fx: 'radio', // 300–3400Hz military net + soft clip
@@ -228,6 +240,19 @@ export const VO = [
   { slot: 'vo_riptide_ability', who: 'riptide', text: '[calling out] Everybody out of the pool.', notes: ['The lifeguard line, weaponized.', 'Said as the wave breaks.'] },
   { slot: 'vo_riptide_low', who: 'riptide', text: '[strained] Running... dry.', notes: ['The first crack in the easy humor.'] },
   { slot: 'vo_riptide_death', who: 'riptide', text: '[fading] The sea... takes me back.', notes: ['Peaceful — a return, not a loss.', 'The surf swallows the last word.'] },
+  // ---- GRAVITY WARDEN: weight is a privilege ----
+  { slot: 'vo_gravwarden_arrive', who: 'gravwarden', text: '[serene] Weight is a privilege.', notes: ['A rule stated by the man who grants it.', 'Calm, floating, unhurried.'] },
+  { slot: 'vo_gravwarden_kill3', who: 'gravwarden', text: 'Three came down wrong.', notes: ['Clinical, faintly amused — the landing was their problem.'] },
+  { slot: 'vo_gravwarden_ability', who: 'gravwarden', text: '[soft] Up.', notes: ['One word, and the world obeys.', 'Almost gentle.'] },
+  { slot: 'vo_gravwarden_low', who: 'gravwarden', text: '[straining] Getting... heavy.', notes: ['The serenity cracks — weight is winning.'] },
+  { slot: 'vo_gravwarden_death', who: 'gravwarden', text: '[falling] Falling... at last.', notes: ['Wonder, not fear — his first fall in years.'] },
+
+  // ---- CHRONOS: everyone's seconds are his ----
+  { slot: 'vo_chronos_arrive', who: 'chronos', text: '[precise] Right on time. I always am.', notes: ['Smug, scheduled, dry as a ledger.'] },
+  { slot: 'vo_chronos_kill3', who: 'chronos', text: 'Three, ahead of schedule.', notes: ['A clockmaker pleased with his estimate.'] },
+  { slot: 'vo_chronos_ability', who: 'chronos', text: '[dry] Take your time. I insist.', notes: ['Said as the bubble slows them to syrup.', 'The joke is the cruelty.'] },
+  { slot: 'vo_chronos_low', who: 'chronos', text: '[tight] Borrowed time... spent.', notes: ['The ledger turning against him.'] },
+  { slot: 'vo_chronos_death', who: 'chronos', text: '[winding down] Out of... seconds.', notes: ['The tick under his voice slows and stops.'] },
 ];
 
 /** The announcer — map-wide, both teams, radio net. */
@@ -296,6 +321,14 @@ export const ANN = [
   { slot: 'ann_riptide_landed', text: 'RIPTIDE ON THE FIELD. THE TIDE FIGHTS FOR US.' },
   { slot: 'ann_riptide_down', text: 'RIPTIDE IS DOWN. THE WATER STILLS.' },
   { slot: 'ann_riptide_rampage', text: 'FIVE KILLS. RIPTIDE IS DROWNING THE FIELD.' },
+  { slot: 'ann_gravwarden_inbound', text: 'GRAVITY WARDEN INBOUND. [short pause] MIND YOUR FOOTING.' },
+  { slot: 'ann_gravwarden_landed', text: 'GRAVITY WARDEN ON THE FIELD. DOWN IS A SUGGESTION NOW.' },
+  { slot: 'ann_gravwarden_down', text: 'GRAVITY WARDEN IS DOWN. THE WEIGHT RETURNS.' },
+  { slot: 'ann_gravwarden_rampage', text: 'FIVE KILLS. GRAVITY WARDEN OWNS THE SKY AND THE FLOOR.' },
+  { slot: 'ann_chronos_inbound', text: 'CHRONOS INBOUND. [short pause] WATCH YOUR CLOCKS.' },
+  { slot: 'ann_chronos_landed', text: 'CHRONOS ON THE FIELD. TIME IS HIS NOW.' },
+  { slot: 'ann_chronos_down', text: 'CHRONOS IS DOWN. THE SECONDS RUN TRUE AGAIN.' },
+  { slot: 'ann_chronos_rampage', text: 'FIVE KILLS. CHRONOS IS SPENDING YOUR TIME.' },
 ];
 
 export const ANN_NOTES = [

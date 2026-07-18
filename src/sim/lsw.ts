@@ -234,6 +234,28 @@ export const LSWS: Record<AscendantId, LswDef> = {
     scale: 1.3, speed: 8, color: 0x2fa8c8, // sea-teal, whitecap trim
     activeLabel: 'THE WAVE — shove the line back and douse every flame', activeCd: 6,
   },
+  gravwarden: {
+    id: 'gravwarden', name: 'Gravity Warden', faction: 0, threat: 3,
+    lines: {
+      inbound: 'GRAVITY WARDEN INBOUND — MIND YOUR FOOTING',
+      landed: 'GRAVITY WARDEN ON THE FIELD — DOWN IS A SUGGESTION NOW',
+      down: 'GRAVITY WARDEN IS DOWN — THE WEIGHT RETURNS',
+      rampage: 'FIVE KILLS — GRAVITY WARDEN OWNS THE SKY AND THE FLOOR',
+    },
+    scale: 1.35, speed: 7, color: 0x9fc4e8, // pale updraft blue (not purple)
+    activeLabel: 'REVERSE GRAVITY — float them, then drop them staggered', activeCd: 9,
+  },
+  chronos: {
+    id: 'chronos', name: 'Chronos', faction: 1, threat: 3,
+    lines: {
+      inbound: 'CHRONOS INBOUND — WATCH YOUR CLOCKS',
+      landed: 'CHRONOS ON THE FIELD — TIME IS HIS NOW',
+      down: 'CHRONOS IS DOWN — THE SECONDS RUN TRUE AGAIN',
+      rampage: 'FIVE KILLS — CHRONOS IS SPENDING YOUR TIME',
+    },
+    scale: 1.3, speed: 7.5, color: 0xc8a24b, // clockwork brass
+    activeLabel: 'TIME BUBBLE — the world crawls; you do not', activeCd: 9,
+  },
 };
 
 /** THE SPOKEN SCRIPT — subtitle text per voice slot, tag-stripped mirrors of
@@ -322,6 +344,16 @@ export const VO_LINES: Record<string, { who: AscendantId; line: string }> = {
   vo_riptide_ability: { who: 'riptide', line: 'Everybody out of the pool.' },
   vo_riptide_low: { who: 'riptide', line: 'Running... dry.' },
   vo_riptide_death: { who: 'riptide', line: 'The sea... takes me back.' },
+  vo_gravwarden_arrive: { who: 'gravwarden', line: 'Weight is a privilege.' },
+  vo_gravwarden_kill3: { who: 'gravwarden', line: 'Three came down wrong.' },
+  vo_gravwarden_ability: { who: 'gravwarden', line: 'Up.' },
+  vo_gravwarden_low: { who: 'gravwarden', line: 'Getting... heavy.' },
+  vo_gravwarden_death: { who: 'gravwarden', line: 'Falling... at last.' },
+  vo_chronos_arrive: { who: 'chronos', line: 'Right on time. I always am.' },
+  vo_chronos_kill3: { who: 'chronos', line: 'Three, ahead of schedule.' },
+  vo_chronos_ability: { who: 'chronos', line: 'Take your time. I insist.' },
+  vo_chronos_low: { who: 'chronos', line: 'Borrowed time... spent.' },
+  vo_chronos_death: { who: 'chronos', line: 'Out of... seconds.' },
 };
 export const voSlot = (id: AscendantId, moment: VoMoment) => `vo_${id}_${moment}`;
 export const annSlot = (id: AscendantId, moment: 'inbound' | 'landed' | 'down' | 'rampage') => `ann_${id}_${moment}`;

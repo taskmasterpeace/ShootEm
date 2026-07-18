@@ -2021,6 +2021,27 @@ export class Renderer {
         color: Math.random() < 0.5 ? 0x2fa8c8 : 0xdff4fa, speed: 0.7, life: 0.7,
         spread: 0.7, up: 1.0, gravity: 1, size: 0.38,
       });
+    } else if (id === 'gravwarden') {
+      // motes falling UP — the local law of gravity, repealed
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.4, y: 0.1 + Math.random() * 0.6, z: s.pos.z + (Math.random() - 0.5) * 1.4 }, count: 1,
+        color: Math.random() < 0.5 ? 0x9fc4e8 : 0xe8f2fa, speed: 0.3, life: 0.9,
+        spread: 0.3, up: 2.2, gravity: -2.5, size: 0.3,
+      });
+    } else if (id === 'chronos') {
+      // clockwork brass shimmer — and THE ECHO GLOW: his 3s-old breadcrumb
+      // burns gold on the ground (camp it — that's where a dead man returns)
+      this.particles.emit({
+        pos: { x: s.pos.x, y: 0.6 + Math.random() * 1.4, z: s.pos.z }, count: 1,
+        color: 0xc8a24b, speed: 0.5, life: 0.6, spread: 0.5, up: 0.8, gravity: 0, size: 0.3,
+      });
+      const crumb = s.lswTrail?.[0];
+      if (crumb && !s.lswFlagA) {
+        this.particles.emit({
+          pos: { x: crumb.x, y: 0.2, z: crumb.z }, count: 1,
+          color: 0xffd870, speed: 0.2, life: 0.5, spread: 0.4, up: 0.6, gravity: 0, size: 0.35,
+        });
+      }
     } else if (id === 'dominator') {
       // crimson psychic tendrils reaching up and out — the puppeteer's threads
       this.particles.emit({

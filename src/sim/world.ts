@@ -2017,8 +2017,21 @@ export class World {
       if (tileAt(this.map.grid2, s.pos.x, s.pos.z) === F2_VOID) s.floor = 0;
       return;
     }
+    // REVERSE GRAVITY (Gravity Warden): while lifted you FLOAT at ~2.2u —
+    // ground control is gone, the trigger still works. The drop staggers the
+    // aim once, on landing.
+    if (s.liftedUntil !== undefined) {
+      if (this.time < s.liftedUntil) {
+        s.pos.y += (2.2 - s.pos.y) * Math.min(1, 6 * dt);
+        s.vel.y = 0;
+        s.vel.x *= 0.15; s.vel.z *= 0.15; // legs paddle air
+      } else {
+        s.liftedUntil = undefined;
+        s.nextFireAt = Math.max(s.nextFireAt, this.time + 0.6); // the staggered drop
+      }
+    }
     // gravity + vertical (theme gravity: Europa jumps are glorious)
-    if (s.pos.y > 0 || s.vel.y > 0) {
+    if (s.liftedUntil === undefined && (s.pos.y > 0 || s.vel.y > 0)) {
       s.vel.y -= this.gravity * dt;
       s.pos.y = Math.max(0, s.pos.y + s.vel.y * dt);
       if (s.pos.y === 0) s.vel.y = 0;
@@ -3064,6 +3077,22 @@ export class World {
       return; // no other damage lands on the ice
     }
     if (victim.cloaked) victim.cloaked = false;
+    // CHRONOS'S TEMPORAL ECHO (once per fight): a lethal hit doesn't land —
+    // he SNAPS to where he stood ~3s ago (the breadcrumb the glow has been
+    // advertising all along; the counter is to camp it) and stands there at
+    // a sliver of HP. The latch never resets — the second death is real.
+    if (victim.ascendant === 'chronos' && !victim.lswFlagA && victim.hp - dmg <= 0 && victim.lswTrail?.length) {
+      victim.lswFlagA = true;
+      const echo = victim.lswTrail[0];
+      this.emit({ type: 'warp', pos: { ...victim.pos } });
+      victim.pos = { x: echo.x, y: 0, z: echo.z };
+      victim.vel = { x: 0, y: 0, z: 0 };
+      victim.hp = Math.max(1, victim.maxHp * 0.12);
+      this.emit({ type: 'warp', pos: { x: echo.x, y: 0, z: echo.z } });
+      this.emit({ type: 'lsw_active', pos: { x: echo.x, y: 0, z: echo.z }, text: 'chronos', soldierId: victim.id });
+      this.emit({ type: 'vo', text: 'vo_chronos_low', pos: { ...victim.pos }, soldierId: victim.id });
+      return; // the killing blow struck an afterimage
+    }
     // issued plate takes the hit first; whatever punches through reaches flesh
     if (victim.armor > 0) {
       const absorbed = Math.min(victim.armor, dmg);

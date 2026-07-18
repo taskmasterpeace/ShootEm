@@ -981,3 +981,80 @@ describe('Riptide — the wave and the whirlpool', () => {
     expect(wet!.radial, 'water must DOUBLE the pull').toBe(-8);
   });
 });
+
+// ---------------------------------------------------------------------------
+// GRAVITY WARDEN — pull-then-slam on the shared force fields; REVERSE
+// GRAVITY on the lift state (float, still shooting, staggered drop).
+// ---------------------------------------------------------------------------
+describe('Gravity Warden — the weight license', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('REVERSE GRAVITY floats the near, they can still shoot, and the drop staggers', () => {
+    const w = quiet();
+    const g = w.addLsw('gravwarden', 0, { x: 0, y: 0, z: 0 })!;
+    const e = w.addSoldier('E', 'infantry', 1, 'human');
+    e.pos = { x: 5, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    w.applyCmd(g, cmd({ ability: true }), 1 / 60);
+    expect(e.liftedUntil, 'nobody floated').toBeGreaterThan(w.time);
+    for (let i = 0; i < 30; i++) w.step(1 / 60, new Map([[e.id, cmd()]]));
+    expect(e.pos.y, 'the float never left the ground').toBeGreaterThan(1);
+    // still armed while afloat: the trigger is not blocked
+    const f0 = e.nextFireAt;
+    w.applyCmd(e, cmd({ fire: true, aimYaw: Math.PI }), 1 / 60);
+    expect(e.nextFireAt, 'a floating man must still be able to shoot').toBeGreaterThan(f0);
+    // ride out the float — the drop staggers the aim once
+    for (let i = 0; i < 60 * 3; i++) w.step(1 / 60, new Map([[e.id, cmd()]]));
+    expect(e.liftedUntil, 'the float never ended').toBeUndefined();
+    expect(e.pos.y, 'he never came down').toBeLessThan(0.5);
+  });
+
+  it('the pull-then-slam: the tug telegraphs, then the slam cashes around him', () => {
+    const w = quiet();
+    const g = w.addLsw('gravwarden', 0, { x: 0, y: 0, z: 0 })!;
+    const e = w.addSoldier('E', 'infantry', 1, 'human');
+    e.pos = { x: 6, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    w.step(1 / 60, new Map([[e.id, cmd()]])); // the bot arms the pull
+    expect(w.forceFields.some((f) => f.radial < 0), 'no pull was cast').toBe(true);
+    const hp0 = e.hp;
+    for (let i = 0; i < 60 * 2; i++) w.step(1 / 60, new Map([[e.id, cmd()]])); // the pull closes, the slam lands
+    expect(e.hp, 'the slam never cashed the pull').toBeLessThan(hp0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CHRONOS — the time bubble rides TIME FIELDS; the temporal echo saves him
+// exactly once, at the breadcrumb the glow advertised.
+// ---------------------------------------------------------------------------
+describe('Chronos — the clockmaker', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('Q casts a time bubble he himself walks through untouched', () => {
+    const w = quiet();
+    const c = w.addLsw('chronos', 1, { x: 0, y: 0, z: 0 })!; c.yaw = 0;
+    w.applyCmd(c, cmd({ ability: true }), 1 / 60);
+    const f = w.timeFields.find((t) => t.ownerId === c.id);
+    expect(f, 'no bubble was cast').toBeTruthy();
+    expect(f!.mul).toBeLessThan(1);
+    expect(w.timeMulAt(f!.x, f!.z, c.id), 'his own bubble slowed HIM').toBe(1);
+    expect(w.timeMulAt(f!.x, f!.z), 'the bubble does not slow the world').toBeLessThan(1);
+  });
+
+  it('the TEMPORAL ECHO: a lethal hit snaps him to his 3s-old breadcrumb — ONCE', () => {
+    const w = quiet();
+    const c = w.addLsw('chronos', 1, { x: 0, y: 0, z: 0 })!;
+    c.protectedUntil = 0;
+    // walk him east for 3s so the breadcrumbs trail behind him
+    for (let i = 0; i < 60 * 3; i++) w.step(1 / 60, new Map([[c.id, cmd({ moveX: 1 })]]));
+    const crumb = c.lswTrail![0];
+    const before = { x: c.pos.x, z: c.pos.z };
+    w.damageSoldier(c, 99999, -1, 'ar606'); // the killing blow
+    expect(c.alive, 'the echo failed — he died on the first lethal').toBe(true);
+    expect(Math.hypot(c.pos.x - crumb.x, c.pos.z - crumb.z), 'he did not snap to the breadcrumb').toBeLessThan(1);
+    expect(Math.hypot(c.pos.x - before.x, c.pos.z - before.z), 'he never moved').toBeGreaterThan(2);
+    expect(c.lswFlagA).toBe(true);
+    // the second death is real
+    c.protectedUntil = 0;
+    w.damageSoldier(c, 99999, -1, 'ar606');
+    expect(c.alive, 'the echo fired twice — once per fight is the law').toBe(false);
+  });
+});

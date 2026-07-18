@@ -8,10 +8,12 @@
 import type { AscendantId, Soldier } from '../types';
 import type { World } from '../world';
 import * as barrier from './barrier';
+import * as chronos from './chronos';
 import * as dominator from './dominator';
 import * as eclipse from './eclipse';
 import * as firebrand from './firebrand';
 import * as frostbite from './frostbite';
+import * as gravwarden from './gravwarden';
 import * as magnetar from './magnetar';
 import * as oblivion from './oblivion';
 import * as plaguebearer from './plaguebearer';
@@ -32,5 +34,5 @@ export interface LswBrain {
 export const LSW_BRAINS: Record<AscendantId, LswBrain> = {
   firebrand, plaguebearer, frostbite, ragebeast, titan, voltstriker,
   sniperhawk, barrier, reactor, oblivion, tremor, magnetar, wraith,
-  eclipse, dominator, riptide,
+  eclipse, dominator, riptide, gravwarden, chronos,
 };

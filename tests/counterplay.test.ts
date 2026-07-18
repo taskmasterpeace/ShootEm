@@ -212,3 +212,34 @@ describe('counterplay — wave 2 rows', () => {
     expect(Math.abs(e.pushX) + Math.abs(e.pushZ), 'the whirlpool reached a man who left the circle').toBe(0);
   });
 });
+
+describe('counterplay — wave 2, the controllers', () => {
+  it('GRAVITY WARDEN — "kill him mid-channel": his death drops nobody else — the float ENDS on schedule regardless', () => {
+    const w = quiet();
+    const g = w.addLsw('gravwarden', 0, { x: 0, y: 0, z: 0 })!;
+    g.protectedUntil = 0;
+    const e = w.addSoldier('E', 'infantry', 1, 'human');
+    e.pos = { x: 5, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    w.applyCmd(g, cmd({ ability: true }), 1 / 60);
+    expect(e.liftedUntil).toBeGreaterThan(w.time);
+    w.damageSoldier(g, 99999, -1, 'ar606'); // killed mid-channel
+    expect(g.alive).toBe(false);
+    for (let i = 0; i < 60 * 3; i++) w.step(1 / 60, new Map([[e.id, cmd()]]));
+    expect(e.liftedUntil, 'the float outlived its window').toBeUndefined();
+    expect(e.alive, 'the drop killed him — the counter must END the threat, not trade for it').toBe(true);
+  });
+
+  it('CHRONOS — "camp the glow": the echo point is EXACTLY where he returns, and the glow never lies', () => {
+    const w = quiet();
+    const c = w.addLsw('chronos', 1, { x: 0, y: 0, z: 0 })!;
+    c.protectedUntil = 0;
+    for (let i = 0; i < 60 * 3; i++) w.step(1 / 60, new Map([[c.id, cmd({ moveX: 1 })]]));
+    const advertised = { ...c.lswTrail![0] }; // where the glow burns — the camper's spot
+    w.damageSoldier(c, 99999, -1, 'ar606');
+    expect(c.alive).toBe(true);
+    expect(Math.hypot(c.pos.x - advertised.x, c.pos.z - advertised.z),
+      'he returned somewhere the glow never advertised — camping would be a lie').toBeLessThan(1);
+    // the camper's payoff: he arrives at a sliver — one burst finishes it
+    expect(c.hp, 'the echo must return him NEARLY dead').toBeLessThan(c.maxHp * 0.2);
+  });
+});
