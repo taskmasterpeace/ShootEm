@@ -298,3 +298,37 @@ describe('counterplay — wave 2, third batch', () => {
     expect(runFight(false), 'the holder must never be touched').toBe(100);
   });
 });
+
+describe('counterplay — wave 2, fourth batch', () => {
+  it('CRIMSON — "burn the pools": a corpse lying in fire can NEVER be drunk', () => {
+    const w = quiet();
+    const c = w.addLsw('crimson', 1, { x: 0, y: 0, z: 0 })!;
+    const v = w.addSoldier('V', 'infantry', 0, 'human');
+    v.pos = { x: 4, y: 0, z: 0 }; v.alive = true; v.protectedUntil = 0;
+    w.damageSoldier(v, 99999, -1, 'ar606');
+    w.spawnGadget('fire_field', 0, -1, { x: 4, y: 0, z: 0 }, Infinity, 5); // the pool burns
+    w.applyCmd(c, cmd({ ability: true }), 1 / 60);
+    expect([...w.soldiers.values()].some((s) => s.name === 'BLOOD BRUTE'),
+      'he drank a burning pool — fire must deny him').toBe(false);
+  });
+
+  it('MIRAGE — the senses tell the truth: a decoy dies to any single round', () => {
+    const w = quiet();
+    const m = w.addLsw('mirage', 0, { x: 0, y: 0, z: 0 })!;
+    w.applyCmd(m, cmd({ ability: true }), 1 / 60);
+    const d = [...w.soldiers.values()].find((s) => s.decoyOf === m.id)!;
+    d.protectedUntil = 0;
+    w.damageSoldier(d, 1, -1, 'ar606'); // ONE grazing round
+    expect(d.alive, 'an illusion survived a bullet').toBe(false);
+  });
+
+  it('BLITZ — "he is paper between dashes": a whiffed dash leaves the key hot but him exposed', () => {
+    const w = quiet();
+    const b = w.addLsw('blitz', 0, { x: 0, y: 0, z: 0 })!; b.yaw = 0;
+    // nobody in reach — the dash whiffs, no teleport, no cut
+    const before = { ...b.pos };
+    const fired = w.applyCmd(b, cmd({ ability: true }), 1 / 60);
+    expect(b.nextLswActiveAt ?? 0, 'a whiff burned the cooldown').toBe(0);
+    expect(Math.hypot(b.pos.x - before.x, b.pos.z - before.z), 'a whiff must not blink him around').toBeLessThan(0.1);
+  });
+});

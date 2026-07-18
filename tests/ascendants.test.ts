@@ -1169,3 +1169,90 @@ describe('Voidwalker — the departure shadow', () => {
     expect(w.blackHoles.some((b) => Math.hypot(b.x, b.z) < 1), 'no shadow at the departure point').toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// CRIMSON · MIRAGE · BLITZ — wave 2's fourth batch.
+// ---------------------------------------------------------------------------
+describe('Crimson — the drinker', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('the drain leeches the enemy and feeds him', () => {
+    const w = quiet();
+    const c = w.addLsw('crimson', 1, { x: 0, y: 0, z: 0 })!;
+    c.hp = c.maxHp - 200;
+    const e = w.addSoldier('E', 'infantry', 0, 'human');
+    e.pos = { x: 6, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    const eHp = e.hp, cHp = c.hp;
+    for (let i = 0; i < 60; i++) w.step(1 / 60, new Map([[e.id, cmd()]]));
+    expect(e.hp, 'the drain never bit').toBeLessThan(eHp);
+    expect(c.hp, 'the leech never came home').toBeGreaterThan(cHp);
+  });
+
+  it('a fresh corpse raises ONE blood brute — and only one at a time', () => {
+    const w = quiet();
+    const c = w.addLsw('crimson', 1, { x: 0, y: 0, z: 0 })!;
+    for (let k = 0; k < 2; k++) {
+      const v = w.addSoldier('V' + k, 'infantry', 0, 'human');
+      v.pos = { x: 4 + k, y: 0, z: 0 }; v.alive = true; v.protectedUntil = 0;
+      w.damageSoldier(v, 99999, -1, 'ar606'); // two pools
+    }
+    w.applyCmd(c, cmd({ ability: true }), 1 / 60);
+    w.applyCmd(c, cmd({ ability: true }), 1 / 60); // greed — refused
+    const brutes = [...w.soldiers.values()].filter((s) => s.name === 'BLOOD BRUTE' && s.alive);
+    expect(brutes.length, 'the rite must raise exactly one').toBe(1);
+    expect(brutes[0].maxHp).toBe(320); // a brute's constitution, canon
+  });
+});
+
+describe('Mirage — the shell game', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('decoys wear her face, pop to ONE hit, and the swap trades places', () => {
+    const w = quiet();
+    const m = w.addLsw('mirage', 0, { x: 0, y: 0, z: 0 })!;
+    w.applyCmd(m, cmd({ ability: true }), 1 / 60); // no decoys → raises one
+    const d = [...w.soldiers.values()].find((s) => s.decoyOf === m.id)!;
+    expect(d, 'no decoy was raised').toBeTruthy();
+    expect(d.name, 'the decoy must wear her name').toBe(m.name);
+    expect(d.maxHp, 'one bullet, one truth').toBe(1);
+    const dPos = { ...d.pos };
+    const mPos = { ...m.pos };
+    m.nextLswActiveAt = 0;
+    w.applyCmd(m, cmd({ ability: true }), 1 / 60); // now: the swap
+    expect(Math.hypot(m.pos.x - dPos.x, m.pos.z - dPos.z), 'she never took the decoy spot').toBeLessThan(0.1);
+    expect(Math.hypot(d.pos.x - mPos.x, d.pos.z - mPos.z), 'the decoy never took hers').toBeLessThan(0.1);
+    d.protectedUntil = 0;
+    w.damageSoldier(d, 5, -1, 'ar606');
+    expect(d.alive, 'one hit must pop the illusion').toBe(false);
+  });
+});
+
+describe('Blitz — momentum', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('the dash-strike closes the gap and cuts; a KILL refunds the dash', () => {
+    const w = quiet();
+    const b = w.addLsw('blitz', 0, { x: 0, y: 0, z: 0 })!; b.yaw = 0;
+    const weak = w.addSoldier('W', 'infantry', 1, 'human');
+    weak.pos = { x: 10, y: 0, z: 0 }; weak.alive = true; weak.protectedUntil = 0;
+    weak.hp = 30; // one cut kills
+    w.applyCmd(b, cmd({ ability: true }), 1 / 60);
+    expect(weak.alive, 'the cut should have killed').toBe(false);
+    expect(b.nextLswActiveAt ?? 0, 'a kill must REFUND the dash').toBe(0);
+    expect(Math.hypot(b.pos.x - 10, b.pos.z), 'he never closed the gap').toBeLessThan(2);
+  });
+
+  it('the afterimages replay his last dash paths as damaging lines', () => {
+    const w = quiet();
+    const b = w.addLsw('blitz', 0, { x: 0, y: 0, z: 0 })!; b.yaw = 0;
+    const t1 = w.addSoldier('T', 'infantry', 1, 'human');
+    t1.pos = { x: 10, y: 0, z: 0 }; t1.alive = true; t1.protectedUntil = 0;
+    w.applyCmd(b, cmd({ ability: true }), 1 / 60); // dash — the path (0,0)→(10,0) recorded
+    const straggler = w.addSoldier('S', 'infantry', 1, 'human');
+    straggler.pos = { x: 5, y: 0, z: 0 }; straggler.alive = true; straggler.protectedUntil = 0; // ON the old path
+    const hp0 = straggler.hp;
+    b.nextLswAt = w.time + 999; b.nextLswActiveAt = 0;
+    w.step(1 / 60, new Map()); // the bot replays the afterimages
+    expect(straggler.hp, 'the afterimage never walked the old path').toBeLessThan(hp0);
+  });
+});

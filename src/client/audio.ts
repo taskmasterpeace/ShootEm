@@ -58,6 +58,9 @@ export const SOUND_NAMES = [
   'vo_vanguard_arrive', 'vo_vanguard_kill3', 'vo_vanguard_ability', 'vo_vanguard_low', 'vo_vanguard_death',
   'vo_pyroclasm_arrive', 'vo_pyroclasm_kill3', 'vo_pyroclasm_ability', 'vo_pyroclasm_low', 'vo_pyroclasm_death',
   'vo_voidwalker_arrive', 'vo_voidwalker_kill3', 'vo_voidwalker_ability', 'vo_voidwalker_low', 'vo_voidwalker_death',
+  'vo_crimson_arrive', 'vo_crimson_kill3', 'vo_crimson_ability', 'vo_crimson_low', 'vo_crimson_death',
+  'vo_mirage_arrive', 'vo_mirage_kill3', 'vo_mirage_ability', 'vo_mirage_low', 'vo_mirage_death',
+  'vo_blitz_arrive', 'vo_blitz_kill3', 'vo_blitz_ability', 'vo_blitz_low', 'vo_blitz_death',
   // the announcer's radio net — map-wide, both teams, per-LSW calls
   'ann_firebrand_inbound', 'ann_firebrand_landed', 'ann_firebrand_down', 'ann_firebrand_rampage',
   'ann_plaguebearer_inbound', 'ann_plaguebearer_landed', 'ann_plaguebearer_down', 'ann_plaguebearer_rampage',
@@ -81,6 +84,9 @@ export const SOUND_NAMES = [
   'ann_vanguard_inbound', 'ann_vanguard_landed', 'ann_vanguard_down', 'ann_vanguard_rampage',
   'ann_pyroclasm_inbound', 'ann_pyroclasm_landed', 'ann_pyroclasm_down', 'ann_pyroclasm_rampage',
   'ann_voidwalker_inbound', 'ann_voidwalker_landed', 'ann_voidwalker_down', 'ann_voidwalker_rampage',
+  'ann_crimson_inbound', 'ann_crimson_landed', 'ann_crimson_down', 'ann_crimson_rampage',
+  'ann_mirage_inbound', 'ann_mirage_landed', 'ann_mirage_down', 'ann_mirage_rampage',
+  'ann_blitz_inbound', 'ann_blitz_landed', 'ann_blitz_down', 'ann_blitz_rampage',
 ] as const;
 export type SoundName = (typeof SOUND_NAMES)[number];
 

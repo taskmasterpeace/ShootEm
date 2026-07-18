@@ -78,6 +78,9 @@ export const LSW_TINT: Record<string, { tint: number; scale: number }> = {
   vanguard: { tint: 0xc9b458, scale: 1.35 },     // breacher brass-and-drab
   pyroclasm: { tint: 0xff8c2a, scale: 1.35 },    // magma orange
   voidwalker: { tint: 0x2a2f38, scale: 1.2 },    // void slate (black, never purple)
+  crimson: { tint: 0xa11d2e, scale: 1.3 },       // arterial red
+  mirage: { tint: 0xd8b84a, scale: 1.2 },        // heat-shimmer gold
+  blitz: { tint: 0xe8e2d0, scale: 1.2 },         // afterimage white
 };
 
 /** Turn a built trooper body INTO an LSW body: scale up past a trooper,

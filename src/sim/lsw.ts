@@ -300,6 +300,39 @@ export const LSWS: Record<AscendantId, LswDef> = {
     scale: 1.2, speed: 9.5, color: 0x2a2f38, // void slate — black, never purple
     activeLabel: 'BLINK-STRIKE — vanish, arrive, cut; the shadow stays', activeCd: 5,
   },
+  crimson: {
+    id: 'crimson', name: 'Crimson', faction: 1, threat: 2,
+    lines: {
+      inbound: 'CRIMSON INBOUND — POLICE YOUR DEAD',
+      landed: 'CRIMSON ON THE FIELD — EVERY LOSS FEEDS HIM',
+      down: 'CRIMSON IS DOWN — THE POOLS GO STILL',
+      rampage: 'FIVE KILLS — CRIMSON DRINKS THE WHOLE FRONT',
+    },
+    scale: 1.3, speed: 7.5, color: 0xa11d2e, // arterial red
+    activeLabel: 'BLOOD RITE — drink a pool, raise the brute', activeCd: 8,
+  },
+  mirage: {
+    id: 'mirage', name: 'Mirage', faction: 0, threat: 1,
+    lines: {
+      inbound: 'MIRAGE INBOUND — COUNT YOUR TARGETS TWICE',
+      landed: 'MIRAGE ON THE FIELD — ONE OF THEM IS REAL',
+      down: 'MIRAGE IS DOWN — THE REAL ONE, THIS TIME',
+      rampage: 'FIVE KILLS — MIRAGE IS AN ARMY OF ONE',
+    },
+    scale: 1.2, speed: 9, color: 0xd8b84a, // heat-shimmer gold
+    activeLabel: 'THE SWAP — trade places with a decoy', activeCd: 6,
+  },
+  blitz: {
+    id: 'blitz', name: 'Blitz', faction: 0, threat: 1,
+    lines: {
+      inbound: 'BLITZ INBOUND — HE IS ALREADY MOVING',
+      landed: 'BLITZ ON THE FIELD — DO NOT LET HIM CHAIN',
+      down: 'BLITZ IS DOWN — CAUGHT BETWEEN DASHES',
+      rampage: 'FIVE KILLS — BLITZ HAS NOT STOPPED ONCE',
+    },
+    scale: 1.2, speed: 10, color: 0xe8e2d0, // afterimage white
+    activeLabel: 'DASH-STRIKE — a kill refunds the dash', activeCd: 5,
+  },
 };
 
 /** THE SPOKEN SCRIPT — subtitle text per voice slot, tag-stripped mirrors of
@@ -418,6 +451,21 @@ export const VO_LINES: Record<string, { who: AscendantId; line: string }> = {
   vo_voidwalker_ability: { who: 'voidwalker', line: 'Behind you.' },
   vo_voidwalker_low: { who: 'voidwalker', line: 'Nowhere... left to blink.' },
   vo_voidwalker_death: { who: 'voidwalker', line: 'Caught... standing still.' },
+  vo_crimson_arrive: { who: 'crimson', line: 'The field always provides.' },
+  vo_crimson_kill3: { who: 'crimson', line: 'Three courses. Generous.' },
+  vo_crimson_ability: { who: 'crimson', line: 'Rise. You owe me that.' },
+  vo_crimson_low: { who: 'crimson', line: 'Running... thin.' },
+  vo_crimson_death: { who: 'crimson', line: 'Spilled... at last.' },
+  vo_mirage_arrive: { who: 'mirage', line: 'Which one of me heard that?' },
+  vo_mirage_kill3: { who: 'mirage', line: 'Three! They keep shooting the wrong me.' },
+  vo_mirage_ability: { who: 'mirage', line: 'Over here. No — here.' },
+  vo_mirage_low: { who: 'mirage', line: 'They found... the right one.' },
+  vo_mirage_death: { who: 'mirage', line: 'This one... was real.' },
+  vo_blitz_arrive: { who: 'blitz', line: 'Try to keep up.' },
+  vo_blitz_kill3: { who: 'blitz', line: 'Three — and the meter is still running.' },
+  vo_blitz_ability: { who: 'blitz', line: 'Too slow. Always too slow.' },
+  vo_blitz_low: { who: 'blitz', line: 'Legs... betraying me.' },
+  vo_blitz_death: { who: 'blitz', line: 'Finally... standing... still.' },
 };
 export const voSlot = (id: AscendantId, moment: VoMoment) => `vo_${id}_${moment}`;
 export const annSlot = (id: AscendantId, moment: 'inbound' | 'landed' | 'down' | 'rampage') => `ann_${id}_${moment}`;

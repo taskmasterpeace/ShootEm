@@ -144,6 +144,24 @@ export const CAST = {
     persona: "Voidwalker, a Collective Living Super Weapon — an assassin who is never where he was. Quick, whispery, amused; half his sentences arrive from behind you. He thinks standing still is a joke everyone else fell for.",
     scene: 'The soft pop of displaced air. A footstep that starts on one side and ends on the other.',
   },
+  crimson: {
+    voice: 'Sulafat',
+    fx: 'none', // rich and unhurried — a connoisseur at a battlefield
+    persona: "Crimson, a Collective Living Super Weapon — an attritionist who treats the battlefield as a cellar. Rich, courteous, unhurried; he speaks of the dead the way sommeliers speak of vintages, and he is never in a rush because the field always provides.",
+    scene: 'A quiet battlefield after the push. Something being poured. A heartbeat that is not his.',
+  },
+  mirage: {
+    voice: 'Callirrhoe',
+    fx: 'none', // bright and delighted — three of her talking over one another in spirit
+    persona: "Mirage, a United Front Living Super Weapon — a trickster who is mostly rumors of herself. Bright, quick, endlessly amused; she narrates her own shell game and genuinely enjoys watching people shoot her copies.",
+    scene: 'Heat shimmer. The same footsteps from three directions. A laugh that moves.',
+  },
+  blitz: {
+    voice: 'Aoede',
+    fx: 'none', // fast, clipped, breathless — always mid-stride
+    persona: "Blitz, a United Front Living Super Weapon — momentum with a name tag. Fast, clipped, a little breathless, allergic to standing still; every line is delivered mid-stride because there is no other stride.",
+    scene: 'Air snapping shut where someone just was. Footfalls too fast to count.',
+  },
   announcer: {
     voice: 'Orus',
     fx: 'radio', // 300–3400Hz military net + soft clip
@@ -303,6 +321,26 @@ export const VO = [
   { slot: 'vo_voidwalker_ability', who: 'voidwalker', text: '[from behind] Behind you.', notes: ['The oldest line, made literal.'] },
   { slot: 'vo_voidwalker_low', who: 'voidwalker', text: '[breathless] Nowhere... left to blink.', notes: ['The joke stops being funny.'] },
   { slot: 'vo_voidwalker_death', who: 'voidwalker', text: '[still] Caught... standing still.', notes: ['The one mistake his whole life avoided.'] },
+  // ---- CRIMSON: the field always provides ----
+  { slot: 'vo_crimson_arrive', who: 'crimson', text: '[rich] The field always provides.', notes: ['A connoisseur surveying a cellar.'] },
+  { slot: 'vo_crimson_kill3', who: 'crimson', text: 'Three courses. [short pause] Generous.', notes: ['Courteous, satisfied, unhurried.'] },
+  { slot: 'vo_crimson_ability', who: 'crimson', text: '[commanding] Rise. You owe me that.', notes: ['Spoken to a pool, not a person.', 'The brute answers.'] },
+  { slot: 'vo_crimson_low', who: 'crimson', text: '[paler] Running... thin.', notes: ['A man discovering his own vintage.'] },
+  { slot: 'vo_crimson_death', who: 'crimson', text: '[emptying] Spilled... at last.', notes: ['The irony is not lost on him.'] },
+
+  // ---- MIRAGE: mostly rumors of herself ----
+  { slot: 'vo_mirage_arrive', who: 'mirage', text: '[amused] Which one of me heard that?', notes: ['Delighted by her own arithmetic.'] },
+  { slot: 'vo_mirage_kill3', who: 'mirage', text: '[laughing] Three! They keep shooting the wrong me.', notes: ['The shell game is going great.'] },
+  { slot: 'vo_mirage_ability', who: 'mirage', text: '[moving] Over here. [short pause] No — here.', notes: ['The voice itself swaps sides mid-line.'] },
+  { slot: 'vo_mirage_low', who: 'mirage', text: '[quieter] They found... the right one.', notes: ['The game stops being funny.'] },
+  { slot: 'vo_mirage_death', who: 'mirage', text: '[fading] This one... was real.', notes: ['The last reveal of the shell game.'] },
+
+  // ---- BLITZ: no other stride ----
+  { slot: 'vo_blitz_arrive', who: 'blitz', text: '[breathless] Try to keep up.', notes: ['Already three steps into the sentence.'] },
+  { slot: 'vo_blitz_kill3', who: 'blitz', text: 'Three — and the meter is still running.', notes: ['Clipped, mid-stride, pleased.'] },
+  { slot: 'vo_blitz_ability', who: 'blitz', text: '[flashing past] Too slow. Always too slow.', notes: ['Said from where he ISN\'T anymore.'] },
+  { slot: 'vo_blitz_low', who: 'blitz', text: '[gasping] Legs... betraying me.', notes: ['The one fear he has: slowing down.'] },
+  { slot: 'vo_blitz_death', who: 'blitz', text: '[settling] Finally... standing... still.', notes: ['Stillness, at last — and it cost everything.'] },
 ];
 
 /** The announcer — map-wide, both teams, radio net. */
@@ -395,6 +433,18 @@ export const ANN = [
   { slot: 'ann_voidwalker_landed', text: 'VOIDWALKER ON THE FIELD. HE IS ALREADY BEHIND SOMEONE.' },
   { slot: 'ann_voidwalker_down', text: 'VOIDWALKER IS DOWN. THE SHADOWS EMPTY.' },
   { slot: 'ann_voidwalker_rampage', text: 'FIVE KILLS. VOIDWALKER IS EVERYWHERE AT ONCE.' },
+  { slot: 'ann_crimson_inbound', text: 'CRIMSON INBOUND. [short pause] POLICE YOUR DEAD.' },
+  { slot: 'ann_crimson_landed', text: 'CRIMSON ON THE FIELD. EVERY LOSS FEEDS HIM.' },
+  { slot: 'ann_crimson_down', text: 'CRIMSON IS DOWN. THE POOLS GO STILL.' },
+  { slot: 'ann_crimson_rampage', text: 'FIVE KILLS. CRIMSON DRINKS THE WHOLE FRONT.' },
+  { slot: 'ann_mirage_inbound', text: 'MIRAGE INBOUND. [short pause] COUNT YOUR TARGETS TWICE.' },
+  { slot: 'ann_mirage_landed', text: 'MIRAGE ON THE FIELD. ONE OF THEM IS REAL.' },
+  { slot: 'ann_mirage_down', text: 'MIRAGE IS DOWN. THE REAL ONE, THIS TIME.' },
+  { slot: 'ann_mirage_rampage', text: 'FIVE KILLS. MIRAGE IS AN ARMY OF ONE.' },
+  { slot: 'ann_blitz_inbound', text: 'BLITZ INBOUND. [short pause] HE IS ALREADY MOVING.' },
+  { slot: 'ann_blitz_landed', text: 'BLITZ ON THE FIELD. DO NOT LET HIM CHAIN.' },
+  { slot: 'ann_blitz_down', text: 'BLITZ IS DOWN. CAUGHT BETWEEN DASHES.' },
+  { slot: 'ann_blitz_rampage', text: 'FIVE KILLS. BLITZ HAS NOT STOPPED ONCE.' },
 ];
 
 export const ANN_NOTES = [

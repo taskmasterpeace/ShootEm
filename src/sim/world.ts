@@ -3138,8 +3138,9 @@ export class World {
       // over (they're targets, not casualties), and OVERKILL — damage that
       // blows well past zero — skips the crawl: a tank shell leaves nothing
       // to drag to cover.
-      if (!victim.downed && !victim.dummy && victim.hp > -DOWNED_HP &&
+      if (!victim.downed && !victim.dummy && victim.hp > -DOWNED_HP && victim.decoyOf === undefined &&
           (victim.kind === 'human' || victim.kind === 'bot')) {
+        // (a Mirage decoy never crawls — an illusion POPS, it doesn't bleed)
         this.downSoldier(victim, attackerId);
         return;
       }

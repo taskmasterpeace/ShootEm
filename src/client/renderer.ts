@@ -2066,6 +2066,24 @@ export class Renderer {
         pos: { x: s.pos.x + (Math.random() - 0.5), y: 0.4 + Math.random() * 1.4, z: s.pos.z + (Math.random() - 0.5) }, count: 1,
         color: Math.random() < 0.7 ? 0x14171d : 0x3a4150, speed: 0.8, life: 0.4, spread: 0.8, up: 0.3, gravity: 0, size: 0.3,
       });
+    } else if (id === 'crimson') {
+      // a fine red mist drawn INWARD — the field feeding him
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.6, y: 0.3 + Math.random() * 1.2, z: s.pos.z + (Math.random() - 0.5) * 1.6 }, count: 1,
+        color: Math.random() < 0.6 ? 0xa11d2e : 0x5c0f18, speed: 0.5, life: 0.6, spread: 0.3, up: 0.4, gravity: 0.5, size: 0.28,
+      });
+    } else if (id === 'mirage') {
+      // heat shimmer — gold air bending around something not quite there
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5), y: 0.5 + Math.random() * 1.5, z: s.pos.z + (Math.random() - 0.5) }, count: 1,
+        color: 0xd8b84a, speed: 0.4, life: 0.5, spread: 0.6, up: 0.9, gravity: -0.5, size: 0.24,
+      });
+    } else if (id === 'blitz') {
+      // speed lines — pale streaks shed behind his motion
+      this.particles.emit({
+        pos: { x: s.pos.x - s.vel.x * 0.08, y: 0.6 + Math.random() * 1.0, z: s.pos.z - s.vel.z * 0.08 }, count: 1,
+        color: 0xe8e2d0, speed: 0.3, life: 0.3, spread: 0.3, up: 0.2, gravity: 0, size: 0.26,
+      });
     } else if (id === 'dominator') {
       // crimson psychic tendrils reaching up and out — the puppeteer's threads
       this.particles.emit({
