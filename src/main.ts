@@ -3,6 +3,7 @@ import { CLASS_ARMORY, familyWeapons } from './sim/arsenal';
 import { isCoopMode, type ClassId, type ModeId, type PlayerCmd, type Team, type ThemeId, type WeaponDef, type WeaponFamily, type WeaponId } from './sim/types';
 import { LSWS, lswAllowed, lswsForTeam } from './sim/lsw';
 import { World, type Difficulty, type Loadout } from './sim/world';
+import { blackboxReport } from './sim/blackbox';
 import { mapSizeForPlayers } from './sim/fronts';
 import { WEATHER_MODS } from './sim/weather';
 import { mountOnboarding, onMatchEnd, paintballConfig } from './client/onboarding';
@@ -538,7 +539,14 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     }
     return report;
   };
-  (window as unknown as Record<string, unknown>).__ww = { world, me, renderer, hud, input, audio, recorder: director.recorder, replay: director.player, director, crowd }; // debug/testing handle
+  // THE BLACK BOX (Robert: "put the tools in there so next time you can
+  // diagnose it") — the sim records itself, always. This is the reader:
+  //   __ww.blackbox()          → { samples, incidents } — full flight data
+  //   __ww.blackbox('report')  → compact table + incident lines
+  // Each new incident also console.warns live (see the frame loop below).
+  const blackbox = (mode?: 'report') =>
+    mode === 'report' ? blackboxReport(world.blackbox) : { samples: world.blackbox.samples, incidents: world.blackbox.incidents };
+  (window as unknown as Record<string, unknown>).__ww = { world, me, renderer, hud, input, audio, recorder: director.recorder, replay: director.player, director, crowd, blackbox }; // debug/testing handle
 
   const FIXED = 1 / 60;
   let acc = 0;
@@ -583,6 +591,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   let hadDrone = false;
   let nextStaticAt = 0;
   let pilotBody: string | undefined; // §7: announce each ascension exactly once
+  let bbWarned = 0; // black-box incidents already surfaced to the console
 
   function frame(now: number) {
     if (!running) return;
@@ -602,6 +611,13 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
         if (me.alive || me.vehicleId >= 0) cmds.set(me.id, input.buildCmd(me, renderer.camera));
         world.step(FIXED, cmds);
       }
+    }
+    // black-box incidents surface the moment they file — timestamped in sim
+    // time so "it bunched up around minute 9" is findable after the fact
+    while (bbWarned < world.blackbox.incidents.length) {
+      const inc = world.blackbox.incidents[bbWarned++];
+      const where = inc.nearBaseOf === null ? 'open field' : inc.nearBaseOf === me.team ? 'YOUR BASE' : 'enemy base';
+      console.warn(`[blackbox] ${inc.kind.toUpperCase()} — team ${inc.team}, ${inc.members.length} bodies at (${inc.at.x}, ${inc.at.z}) [${where}] t=${inc.t}s — run __ww.blackbox('report') for the flight log`);
     }
     const events = world.takeEvents();
     hud.applyEvents(events, world, me.id, world.time); // killfeed stays live

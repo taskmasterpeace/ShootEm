@@ -16,6 +16,7 @@ import { ICE_HOLD, ICE_HOLD_DRAIN, LSWS, STRUGGLE_HP, STRUGGLE_SECS, THREAT, lsw
 import { stepBot, stepDog, stepIron, stepScientist, stepZombie } from './bots';
 import { PERCEIVE_RANGE, perceivesNow, smokeBlocks, type SeenMark, type SmokeBlob } from './perception';
 import { THEME_WEATHER, airGrounded, moveMult, visionMult, weatherAnnounce, type WeatherState } from './weather';
+import { createBlackbox, stepBlackbox, type Blackbox } from './blackbox';
 
 const RESPAWN_DELAY = 4;
 const VEHICLE_RESPAWN = 22;
@@ -159,6 +160,10 @@ export class World {
    *  is an offline tuning surface, pushed in from client settings. */
   projectileSpeedMul = 1;
   moveSpeedMul = 1;
+  /** THE BLACK BOX (Robert: "put the tools in there") — always-on crowd flight
+   *  recorder: 2s-cadence spread/near-base/stuck time series + persisted-knot
+   *  and stuck-body incidents. Read via __ww.blackbox(). See sim/blackbox.ts. */
+  blackbox: Blackbox = createBlackbox();
   private nextId = 1;
 
   constructor(public opts: WorldOptions) {
@@ -970,6 +975,7 @@ export class World {
       return;
     }
     if (!this.mode.over) stepMode(this, dt);
+    stepBlackbox(this); // the crowd flight recorder samples on its own 2s clock
     // the materiel drip (§17): war production never stops, it just crawls
     if (this.time >= this.nextMaterielDripAt) {
       this.nextMaterielDripAt += 60;
