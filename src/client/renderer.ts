@@ -128,6 +128,7 @@ export class Renderer {
   private cpRings: THREE.Mesh[] = [];
   private hillRing: THREE.Mesh | null = null;
   private nameSprites = new Map<number, { sprite: THREE.Sprite; ctx: CanvasRenderingContext2D; tex: THREE.CanvasTexture; key: string }>();
+  private localId = -1; // set each frame in update(); lets animateSoldier know which soldier is YOU
   // tunneler support: map tile index → wall/cover instance so digs collapse visually
   private wallInst: THREE.InstancedMesh | null = null;
   private coverInst: THREE.InstancedMesh | null = null;
@@ -1097,6 +1098,7 @@ export class Renderer {
 
   /** Sync all dynamic entities to the sim state, advance FX. */
   update(world: World, localId: number, dt: number, waypoints?: { x: number; z: number; until: number }[]) {
+    this.localId = localId;
     const local = world.soldiers.get(localId);
     const localTeam = local?.team ?? 0;
     this.frameDt = dt;
@@ -2414,7 +2416,10 @@ export class Renderer {
     const moving = speed > 0.6;
 
     // ---- death: ragdoll collapse + fade out ----
-    let alpha = (s.cloaked ? 0.3 : 1) * ((mesh.userData.ghostAlpha as number | undefined) ?? 1);
+    // YOUR cloak reads at 0.5 so you can SEE you're hidden; everyone else cloaks
+    // deeper (0.3). setAlpha applies this to the body each frame.
+    const cloakAlpha = s.cloaked ? (s.id === this.localId ? 0.5 : 0.3) : 1;
+    let alpha = cloakAlpha * ((mesh.userData.ghostAlpha as number | undefined) ?? 1);
     if (!s.alive) {
       // capture the pose + fall direction the instant the body first goes down
       let rag = mesh.userData.rag as RagState | undefined;
