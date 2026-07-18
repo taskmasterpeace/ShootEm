@@ -3156,6 +3156,7 @@ export class World {
           const friendly = s.team === p.team;
           if (def.heals ? !friendly : friendly) continue;
           if (s.id === p.ownerId) continue;
+          if (p.hit?.includes(s.id)) continue; // pierce: never double-hit a body this flight
           const dy = (s.pos.y + 1.2) - p.pos.y;
           if (Math.abs(dy) > 1.8) continue;
           if (Math.hypot(s.pos.x - p.pos.x, s.pos.z - p.pos.z) < 0.9) {
@@ -3196,7 +3197,7 @@ export class World {
               const bare = s.armor <= 0;
               // Ragebeast's rounds hit harder as he bleeds (rampage)
               const shooter = this.soldiers.get(p.ownerId);
-              const dmg = def.damage * (shooter?.rageMul ?? 1);
+              const dmg = def.damage * (shooter?.rageMul ?? 1) * (p.dmgMul ?? 1);
               this.damageSoldier(s, dmg, p.ownerId, p.weapon);
               this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, soldierId: p.ownerId, bare });
             }
@@ -3205,6 +3206,16 @@ export class World {
             if (def.tagsTarget && !friendly) {
               this.tagged.set(s.id, this.time + 5);
               this.emit({ type: 'psi_ping', pos: { ...s.pos }, soldierId: p.ownerId });
+            }
+            // pierce: a plain bullet round (never heals/splash — those always
+            // resolve here) with charges left threads on through the body
+            // instead of dying; record the hit so it can't strike this same
+            // soldier twice in one flight.
+            (p.hit ??= []).push(s.id);
+            if (!def.heals && !(def.splash > 0) && (p.pierce ?? 0) > 0) {
+              p.pierce!--;
+              p.dmgMul = (p.dmgMul ?? 1) * 0.9; // each body bleeds a little energy
+              continue; // do NOT set dead — the round threads on to the next body
             }
             dead = true;
             break;
