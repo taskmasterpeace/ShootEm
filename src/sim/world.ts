@@ -602,12 +602,12 @@ export class World {
         }
       }
     }
-    // ── THE BLINK-WALK: a hop every 2s covering what walking would have —
+    // ── THE BLINK-WALK: a hop every 1.6s covering what walking would have —
     // net speed unchanged, but between hops he is PERFECTLY STILL. You
     // can't lead a target that doesn't travel; punish the rhythm instead.
     if (def.moves === 'blinkwalk' && s.kind === 'bot' && s.encasedUntil === undefined) {
       if (this.time >= (s.nextBlinkAt ?? 0)) {
-        s.nextBlinkAt = this.time + 2.0;
+        s.nextBlinkAt = this.time + 1.6; // snappier hop — the still-window stays the counterplay
         const goal = s.botGoal ?? null;
         const dx = goal ? goal.x - s.pos.x : Math.cos(s.yaw), dz = goal ? goal.z - s.pos.z : Math.sin(s.yaw);
         const dl = Math.hypot(dx, dz) || 1;

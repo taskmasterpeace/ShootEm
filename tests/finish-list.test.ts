@@ -288,7 +288,7 @@ describe('THE MOVEMENT DOCTRINE — every god moves like what it is', () => {
     }
     expect(marks.length, 'he hopped on the beat').toBeGreaterThanOrEqual(2);
     expect(Math.hypot(v.pos.x, v.pos.z), 'the hops cover real ground (the brain picks the direction)').toBeGreaterThan(20);
-    for (let i = 1; i < marks.length; i++) expect(marks[i] - marks[i - 1], 'two seconds a hop').toBeGreaterThan(1.8);
+    for (let i = 1; i < marks.length; i++) expect(marks[i] - marks[i - 1], 'on the 1.6s beat').toBeGreaterThan(1.5);
   });
 
   it('THE STRANGE ONES: the ghost walks through crates, the wraith never lands, the warden falls politely', () => {

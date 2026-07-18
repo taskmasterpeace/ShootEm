@@ -51,3 +51,13 @@ describe('leap tuning', () => {
     expect(t.diveX!).toBeLessThan(14);                      // never overshoots the target
   });
 });
+
+describe('blink tuning', () => {
+  it('re-arms the blink at a 1.6s cadence (was 2.0s)', () => {
+    const w = new World({ seed: 1, mode: 'tdm' });
+    const c = w.addLsw('chronos', 1, { x: 0, y: 0, z: 0 })!; // a blink-walker
+    c.nextBlinkAt = 0;
+    w.step(1 / 60, new Map());
+    expect(c.nextBlinkAt! - w.time).toBeCloseTo(1.6, 1);    // snappier than the old 2.0
+  });
+});
