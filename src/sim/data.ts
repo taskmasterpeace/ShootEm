@@ -120,7 +120,7 @@ export const LSW_ARMS: Record<WeaponId, WeaponDef> = {
   //    leapers, so their heavy melee weapon does the work. ──
   lsw_titan: A({ id: 'lsw_titan', name: 'Seismic Fists', damage: 62, rof: 1.7, speed: 200, spread: 0.01, range: 12, knockback: 8, sound: 'claw', tracer: 'none', icon: '👊', shockwave: 5 }),
   lsw_crusher: A({ id: 'lsw_crusher', name: 'Demolition Hands', damage: 58, rof: 1.8, speed: 200, spread: 0.01, range: 11, knockback: 6, sound: 'claw', tracer: 'none', icon: '🔨', shockwave: 5 }),
-  lsw_ragebeast: A({ id: 'lsw_ragebeast', name: 'Rending Claws', damage: 34, rof: 3.0, speed: 200, spread: 0.01, range: 10, sound: 'claw', tracer: 'none', icon: '🩸', shockwave: 3 }),
+  lsw_ragebeast: A({ id: 'lsw_ragebeast', name: 'Rending Claws', damage: 34, rof: 3.0, speed: 200, spread: 0.01, range: 10, sound: 'ragebeast_attack1', tracer: 'none', icon: '🩸', shockwave: 3 }),
   lsw_leviathan: A({ id: 'lsw_leviathan', name: 'The Hull Itself', damage: 70, rof: 1.4, speed: 200, spread: 0.01, range: 14, knockback: 10, sound: 'claw', tracer: 'none', icon: '🏗' }),
   lsw_gargoyle: A({ id: 'lsw_gargoyle', name: 'Stone Talons', damage: 48, rof: 2.1, speed: 200, spread: 0.01, range: 11, sound: 'claw', tracer: 'none', icon: '🦅' }),
   lsw_blitz: A({ id: 'lsw_blitz', name: 'Momentum Blade', damage: 30, rof: 3.4, speed: 200, spread: 0.01, range: 10, sound: 'claw', tracer: 'none', icon: '⚔' }),

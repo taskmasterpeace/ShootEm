@@ -33,6 +33,8 @@ export const SOUND_NAMES = [
   'whiz', 'impact_dirt', 'impact_stone', 'impact_metal',
   // LSW signatures (§21.6, tools/gen-lsw-sounds.mjs): the stable has a voice
   'ice_freeze', 'ice_shatter', 'gas_hiss', 'rage_roar', 'fire_whoosh',
+  // Ragebeast custom pack (Robert's own): a growl + three rending-claw takes
+  'ragebeast_growl', 'ragebeast_attack1', 'ragebeast_attack2', 'ragebeast_attack3',
   // LSW SPOKEN LINES (tools/gen-lsw-vo.mjs — gemini-3.1-flash-tts, directed
   // per .claude/skills/expressive-tts): positional — only people around the
   // speaker hear them. Every slot is Sound-Lab replaceable like any other.
@@ -163,7 +165,10 @@ const EARSHOT_CLASSES: [RegExp, Earshot][] = [
   [/^impact/, { range: 30, muffle: 0.7, weather: 0.5, jitter: 0.1 }],
   // LSW signatures: an Ascendant is an EVENT — its voice carries a street so
   // both sides know it's on the field (the shatter is closer, a local beat)
-  [/^(rage_roar|ice_freeze|fire_whoosh|gas_hiss)/, { range: 90, muffle: 0.5, weather: 0.8, jitter: 0.06 }],
+  [/^(rage_roar|ragebeast_growl|ice_freeze|fire_whoosh|gas_hiss)/, { range: 90, muffle: 0.5, weather: 0.8, jitter: 0.06 }],
+  // Ragebeast's rending claws: meatier than a zed's claw (20u), but a melee
+  // hit, not a gunshot — carries a room, per-take jitter for variety
+  [/^ragebeast_attack/, { range: 45, muffle: 0.6, weather: 0.5, jitter: 0.08 }],
   [/^ice_shatter/, { range: 40, muffle: 0.6, weather: 0.4, jitter: 0.1 }],
   // SPOKEN LINES (Robert: "only the people around them would hear it"): a
   // voice carries a room and a half, walls nearly end it, and it never

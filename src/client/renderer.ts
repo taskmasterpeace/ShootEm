@@ -2431,7 +2431,8 @@ export class Renderer {
     const nextVoice = (mesh.userData.nextVoice as number | undefined) ?? 0;
     if (world.time >= nextVoice) {
       const roar = id === 'ragebeast', hiss = id === 'plaguebearer', whoosh = id === 'firebrand';
-      const snd = roar ? 'rage_roar' : hiss ? 'gas_hiss' : whoosh ? 'fire_whoosh' : null;
+      const snd = roar ? 'ragebeast_growl' : hiss ? 'gas_hiss' : whoosh ? 'fire_whoosh' : null; // Robert's custom growl on the fury cadence
+
       if (snd) {
         const gap = roar ? 3.5 - (1 - s.hp / s.maxHp) * 1.8 : 4 + Math.random() * 2;
         mesh.userData.nextVoice = world.time + gap;
@@ -3085,6 +3086,9 @@ export class Renderer {
           // rifle has two takes — alternate at random so sustained fire varies
           let shotSnd = def.sound as SoundName;
           if (shotSnd === 'rifle' && Math.random() < 0.5) shotSnd = 'rifle2';
+          // Ragebeast's claws have three takes (Robert's pack) — pick one per
+          // swing so the 3/s rending never reads as one looped sample
+          else if (shotSnd === 'ragebeast_attack1') shotSnd = (['ragebeast_attack1', 'ragebeast_attack2', 'ragebeast_attack3'] as const)[Math.floor(Math.random() * 3)];
           audio.play(shotSnd, { pos: e.pos, volume: 0.7 });
           if (def.tracer !== 'beam' && def.tracer !== 'none') {
             this.particles.emit({ pos: e.pos, count: 3, color: 0xffcc66, speed: 3, life: 0.12, spread: 0.3, up: 1, size: 0.3 });
