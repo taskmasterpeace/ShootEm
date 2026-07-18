@@ -1338,7 +1338,7 @@ function frame(now: number) {
     }
   }
 
-  if (opt.turntable && current.root && !envMode) stage.rotation.y += dt * 0.6;
+  if (opt.turntable && current.root && !envMode && !feel.turn) stage.rotation.y += dt * 0.6;
 
   if (matchupCtl?.active) matchupCtl.tick(dt); // the street fight runs on the SAME clock the Time slider owns
 
