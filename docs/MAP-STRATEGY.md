@@ -114,6 +114,32 @@ two ordinances Robert asked for:
   two-storey office, or the authored TENEMENT walk-up when the lot is
   tight).
 
+## 2.8 The skirmish family — procedural hunt grounds — SHIPPED (`feature/maps`)
+
+The fifth map family, and the first one that is **grown whole** rather than
+authored: `generateSkirmishMap(theme, seed)` (`src/sim/skirmish.ts`) builds a
+62×62 squad pocket for the LSW-hunt concept — two light bases, the **LSW
+DEN** in its fenced yard at the heart, and two **named support locations**
+(RELAY, TOWER, KENNEL, BARN, DOME, PUMP, SILO...) drawn from the theme's
+shelf. The mode's rules (reinforcement tickets, the boss fight) land later;
+the GROUND carries the fiction now — control point names read `LSW DEN`.
+
+- **Six biome grammars**, not one scatter: farmstead savanna · colony-row
+  titan · deck-corridor starship · dome-field europa · station triton · a
+  carved asteroid mine. Deterministic from (theme, seed).
+- **The category system behind it** (`src/sim/buildings.ts`): `kind` is the
+  function axis (house/commercial/industrial/military/ruin), `biomes` the
+  fit axis (which themes a building belongs in — omitted = universal).
+  `buildingsFor(theme, kind)` is the shelf every procedural builder picks
+  from. The 12-stencil skirmish pack (lsw_den, containment_lab, kennel,
+  relay_station, watchtower (2F), barn, dome_hab, mine_barracks, deck_cabin,
+  ice_hut, pump_station, ore_silo) ships the location vocabulary.
+- **Laws:** every roll answers the six front laws through `validateDoc` —
+  all 24 (6 themes × 4 seeds) patrolled in `tests/skirmish.test.ts`.
+- **Harness:** the Map Maker's source picker grows them (Skirmish optgroup,
+  any seed, editable + exportable); Building Lab and the stamp shelf speak
+  the two category axes.
+
 ## 3. Dynamic houses — the neighborhood requirement (largely SHIPPED)
 
 The dynamic-interior system above delivers most of this: multi-room plans,
