@@ -246,7 +246,7 @@ export const BUILDINGS: BuildingDef[] = [
     '##S#S##',
     '#.....#',
     'S..P..S',
-    '#..C..#',
+    '#C....#',
     '###D###',
   ], ['europa', 'triton']),
   B('mine_barracks', 'Mine Barracks', 'house', [
