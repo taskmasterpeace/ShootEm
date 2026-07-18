@@ -73,17 +73,28 @@ clobber costs a day.
 
 ## Territories (current assignment map)
 
-| Area | Files / directories | Owner |
-|---|---|---|
-| Maps & fronts | `src/sim/fronts.ts`, `src/sim/skirmish.ts`, `src/sim/mapedit.ts`, `src/sim/buildings.ts`, `src/harness/mapmaker.ts`, `tests/fronts.test.ts`, `tests/mapedit.test.ts`, `tests/skirmish.test.ts`, `tests/buildings.test.ts`, `tools/front-atlas.ts`, `tools/map-*`, `tools/atlas-*`, `tools/stencil-debug.ts` | maps agent |
-| Soldier anim & grip | `src/client/animation.ts`, `src/client/models/grip.ts`, `tests/animation.test.ts`, `tests/grip.test.ts`, `tools/glb-*`, `tools/rig-*`, `tools/grip-*` | maps agent |
-| LSW / combat sim | `src/sim/world.ts`, `src/sim/lsw.ts`, `src/sim/lsw/**`, `src/sim/types.ts`, `src/sim/data.ts`, `src/client/renderer.ts`, `src/client/audio.ts`, `src/client/models/soldiers.ts`, `tests/ascendants.test.ts` and LSW-mechanic tests | LSW agent |
-| Shared, ask first | `src/main.ts`, `src/harness/harness.ts`, `src/client/campaign.ts`, `package.json`, CI/config files | coordinator sequences |
-| Docs | `docs/*` — edit only the sections your work owns | whoever owns the work |
+**The coordinator speaks FEATURES, not files.** You will never be asked to
+name a source file. Assignments sound like *"you're doing maps"* or *"you're
+on the LSW units"* — and the agent's first job is to turn that feature into
+a concrete file territory from the cards below, **declare it in one line**
+("I own `fronts.ts`, `skirmish.ts`, and their tests"), and update this table
+if the work moves.
 
-Territories change by coordinator assignment — when you get a task, your
-territory is what the coordinator names. This table is the default, not a
-substitute for the assignment.
+| Card | Plain-English scope | Files / directories | Owner |
+|---|---|---|---|
+| **Maps** | fronts, map generation, the Map Maker, buildings | `src/sim/fronts.ts`, `src/sim/skirmish.ts`, `src/sim/mapedit.ts`, `src/sim/buildings.ts`, `src/harness/mapmaker.ts`, `tests/fronts.test.ts`, `tests/mapedit.test.ts`, `tests/skirmish.test.ts`, `tests/buildings.test.ts`, `tools/front-atlas.ts`, `tools/map-*`, `tools/atlas-*`, `tools/stencil-debug.ts` | maps agent |
+| **Soldier bodies & motion** | gait, grip, soldier GLB pipeline | `src/client/animation.ts`, `src/client/models/grip.ts`, `tests/animation.test.ts`, `tests/grip.test.ts`, `tools/glb-*`, `tools/rig-*`, `tools/grip-*` | maps agent |
+| **LSW / combat sim** | the 40 units, shared mechanics, world sim, renderer, soldier meshes | `src/sim/world.ts`, `src/sim/lsw.ts`, `src/sim/lsw/**`, `src/sim/types.ts`, `src/sim/data.ts`, `src/client/renderer.ts`, `src/client/audio.ts`, `src/client/models/soldiers.ts`, `tests/ascendants.test.ts` + LSW-mechanic tests | LSW agent |
+| **Sound & music** | soundscape, VO, audio tooling | `src/client/soundscape.ts`, `src/client/audio.ts`*, `tools/gen-*.mjs`, `tools/tts-*`, `tools/*sound*` | unassigned |
+| **UI & screens** | menu, HUD, onboarding, warroom | `src/client/hud.ts`, `src/client/onboarding.ts`, `src/warroom/**`, `src/styles.css`, `*.html` | unassigned |
+| **Shared, ask first** | anything cross-cutting | `src/main.ts`, `src/harness/harness.ts`, `src/client/campaign.ts`, `package.json`, CI/config | coordinator sequences |
+| **Docs** | `docs/*` | edit only the sections your card owns | whoever owns the work |
+
+\* where two cards legitimately touch one file, the human's assignment names
+the primary owner; the other coordinates.
+
+If your feature doesn't fit a card, stop and ask the coordinator to draw a
+new one — don't quietly annex files.
 
 ---
 
