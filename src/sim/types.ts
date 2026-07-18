@@ -294,6 +294,10 @@ export interface Soldier {
   possessedBy?: number;
   possessedUntil?: number;
   origTeam?: Team;
+  /** THE SQUAD (§15, finish-list #14): the fireteam this soldier deploys
+   *  with — 2-4 bodies who share a spawn and read each other. Offline your
+   *  friendly bots ARE your squad. Rides the wire free. */
+  squadId?: number;
   /** TRUE FLIGHT (§4.4 #5): the commanded altitude for a flying LSW — the
    *  body climbs toward it; above the wall tier the grid yields. Undefined
    *  or 0 = grounded. Small arms live at chest height: descent is exposure. */

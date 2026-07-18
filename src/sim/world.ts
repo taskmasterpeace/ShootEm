@@ -322,6 +322,16 @@ export class World {
       meleeStrikeAt: 0, meleeYaw: 0, meleeWeapon: '',
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
+    // §15 THE SQUAD CONTAINER (finish-list #14): four to a fireteam, by
+    // roster order — offline, your friendly bots ARE your squad. Dogs and
+    // the horde stay outside the org chart.
+    if ((kind === 'human' || kind === 'bot') && !isZed(kind)) {
+      let mates = 0;
+      for (const o of this.soldiers.values()) {
+        if (o.team === team && (o.kind === 'human' || o.kind === 'bot')) mates++;
+      }
+      s.squadId = team * 100 + Math.floor(mates / 4);
+    }
     this.soldiers.set(s.id, s);
     this.spawn(s);
     return s;
@@ -721,8 +731,24 @@ export class World {
         if (score > bestScore) { bestScore = score; ringPick = p; }
       }
     }
+    // §15 SPAWN-ON-SQUADMATE (finish-list #14): you rejoin the fight NEAR
+    // YOUR PEOPLE — a living, upright, SAFE squadmate (no enemy within 20u)
+    // beats the ring. This is what makes reaching a downed teammate a
+    // decision instead of a formality.
+    let matePos: Vec3 | null = null;
+    if (s.squadId !== undefined && !isZed(s.kind)) {
+      for (const m of this.soldiers.values()) {
+        if (!m.alive || m.downed || m.id === s.id || m.team !== s.team || m.squadId !== s.squadId) continue;
+        let safe = true;
+        for (const e of this.soldiers.values()) {
+          if (!e.alive || e.team === s.team) continue;
+          if (Math.hypot(e.pos.x - m.pos.x, e.pos.z - m.pos.z) < 20) { safe = false; break; }
+        }
+        if (safe) { matePos = m.pos; break; }
+      }
+    }
     // the APC is a door, not a clown car — a third rides it, not half
-    const base = mobile && this.rng.next() < 0.33 ? mobile.pos : ringPick;
+    const base = matePos ?? (mobile && this.rng.next() < 0.33 ? mobile.pos : ringPick);
     s.pos = { x: base.x + this.rng.range(-2.6, 2.6), y: 0, z: base.z + this.rng.range(-2.6, 2.6) };
     s.vel = { x: 0, y: 0, z: 0 };
     // FRESH LIFE (Robert: "give them a chance to try something different"):

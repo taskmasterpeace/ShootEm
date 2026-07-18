@@ -225,7 +225,10 @@ function isolatedFriendly(w: World, s: Soldier): Soldier | null {
       else if (o.team !== f.team && d < 30) foes++;
     }
     if (mates > 0 || foes === 0) continue; // has company, or isn't in trouble
-    const d = Math.hypot(f.pos.x - s.pos.x, f.pos.z - s.pos.z);
+    // §15/§4.3: the beacon pings THE SQUAD FIRST — a cut-off squadmate
+    // counts as half the distance when the rescuer picks who to answer
+    const squadmate = f.squadId !== undefined && f.squadId === s.squadId;
+    const d = Math.hypot(f.pos.x - s.pos.x, f.pos.z - s.pos.z) * (squadmate ? 0.5 : 1);
     if (d < bd && d < 70) { bd = d; best = f; }
   }
   return best;

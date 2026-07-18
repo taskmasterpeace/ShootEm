@@ -108,3 +108,31 @@ describe('#4 MATERIEL — the call is priced (§17)', () => {
     expect(w.materiel[0], 'sixty seconds buys one').toBe(1);
   });
 });
+
+describe('#14 THE SQUAD — the container ships (§15)', () => {
+  it('fireteams of four, by roster order — friendly bots ARE your squad', () => {
+    const w = quiet();
+    const ids: (number | undefined)[] = [];
+    for (let i = 0; i < 8; i++) ids.push(w.addSoldier('S' + i, 'infantry', 0, i === 0 ? 'human' : 'bot').squadId);
+    expect(ids.slice(0, 4).every((q) => q === ids[0]), 'the first four stand together').toBe(true);
+    expect(ids.slice(4).every((q) => q === ids[4]), 'the next four are the second team').toBe(true);
+    expect(ids[0], 'two squads, not one').not.toBe(ids[4]);
+    const dog = w.addDog(w.soldiers.get(1)! ?? [...w.soldiers.values()][0]);
+    expect(dog.squadId, 'K9s stay outside the org chart').toBeUndefined();
+  });
+
+  it('SPAWN-ON-SQUADMATE: you rejoin the fight near your people — unless it is hot there', () => {
+    const w = quiet();
+    const mate = w.addSoldier('MATE', 'infantry', 0, 'bot');
+    const dead = w.addSoldier('DEAD', 'infantry', 0, 'bot');
+    expect(mate.squadId).toBe(dead.squadId);
+    mate.pos = { x: 70, y: 0, z: 70 }; mate.alive = true; mate.downed = false;
+    w.spawn(dead);
+    expect(Math.hypot(dead.pos.x - 70, dead.pos.z - 70), 'the redeploy lands at the squadmate').toBeLessThan(5);
+    // now the mate is in a firefight — the ring takes over
+    const foe = w.addSoldier('FOE', 'infantry', 1, 'bot');
+    foe.pos = { x: 74, y: 0, z: 70 }; foe.alive = true;
+    w.spawn(dead);
+    expect(Math.hypot(dead.pos.x - 70, dead.pos.z - 70), 'nobody spawns into a lap — the ring takes over').toBeGreaterThan(10);
+  });
+});
