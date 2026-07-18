@@ -86,6 +86,31 @@ export interface WeaponDef {
     /** overcharge: clip rounds one alt shot costs */
     cells?: number;
   };
+  // ── PROJECTILE EFFECTS (composable; consumed in world.ts projectile step) ──
+  /** passes through n bodies + n penetrable-cover tiles before dying */
+  pierce?: number;
+  /** ignores plate: the round's damage lands on flesh (red number through armor) */
+  pierceArmor?: boolean;
+  /** bounces off metal/ice up to n times (glancing only), −30% dmg per bounce */
+  ricochet?: number;
+  /** beam profile — how tracer:'beam' behaves and renders */
+  beam?: 'zap' | 'lance' | 'charge' | 'hose' | 'ricochet';
+  /** hold to charge: after t seconds the shot deals ×mul and reaches full profile */
+  charge?: { t: number; mul: number };
+  /** on death, burst into k submunitions (~40% dmg each) that bounce */
+  cluster?: number;
+  /** on soldier-hit, arc to n nearest extra enemies */
+  chain?: number;
+  /** links to the struck target (pull / leash) */
+  tether?: boolean;
+  /** flies to range then returns, able to hit on both legs */
+  boomerang?: boolean;
+  /** sets flammable tiles (grass, wood houses) alight — needs the fire system */
+  ignite?: boolean;
+  /** leaves a lingering cloud on impact */
+  gasAfter?: { kind: 'caustic' | 'poison' | 'singularity' | 'fear'; r: number; life: number };
+  /** melee/leap LAND aoe radius (non-projectile power; read by stepLsw) */
+  shockwave?: number;
 }
 
 /** The arsenal's weapon families — Infantry Online's armory, rebuilt. */
@@ -483,6 +508,18 @@ export interface Projectile {
   /** hand grenades BANK (Robert): walls reflect it instead of detonating it.
    *  Launcher shells never set this — a GL-40 round still eats the wall. */
   bounce?: boolean;
+  /** remaining body/cover pass-throughs (init from WeaponDef.pierce at launch) */
+  pierce?: number;
+  /** remaining ricochets (init from WeaponDef.ricochet at launch) */
+  ricochet?: number;
+  pierceArmor?: boolean;
+  ignite?: boolean;
+  /** damage scalar carried by the round: charge boost × ricochet/penetrate decay */
+  dmgMul?: number;
+  /** ids already struck this flight — so a piercing round never double-hits one body */
+  hit?: number[];
+  /** boomerang: world time to flip the round back toward its owner (0 = not yet) */
+  returnAt?: number;
 }
 
 export interface Pickup {
