@@ -2839,6 +2839,13 @@ export class Renderer {
       const fblend = (mesh.userData.flyBlend ??= { v: 0 }) as { v: number };
       fblend.v += ((airborne2 ? 1 : 0) - fblend.v) * Math.min(1, this.frameDt / 0.3);
       const fb = fblend.v;
+      // capture the built arm PITCH before flight ever bends it — rotation.z
+      // is re-based every frame by the run carry, but nothing else owns
+      // rotation.x, so without a restore the flight pose leaked and a landed
+      // flier kept its wings folded forever (the character audit)
+      const restX = (mesh.userData.armRestX ??= {
+        L: j.armL?.rotation.x ?? 0, R: j.armR?.rotation.x ?? 0,
+      }) as { L: number; R: number };
       if (fb > 0.01) {
         const diving = s.ascendant === 'gargoyle' && s.diveAt !== undefined && t < s.diveAt;
         const pose = FLIGHT_POSES[diving ? 'gargoyle_dive' : s.ascendant];
@@ -2850,6 +2857,11 @@ export class Renderer {
         if (j.legR) j.legR.rotation.z += (0.15 - j.legR.rotation.z) * fb;
         if (j.shinL) j.shinL.rotation.z += (-0.35 - j.shinL.rotation.z) * fb;
         if (j.shinR) j.shinR.rotation.z += (-0.25 - j.shinR.rotation.z) * fb;
+      } else {
+        // landed: ease the arm pitch home
+        const k = Math.min(1, this.frameDt / 0.25);
+        if (j.armL) j.armL.rotation.x += (restX.L - j.armL.rotation.x) * k;
+        if (j.armR) j.armR.rotation.x += (restX.R - j.armR.rotation.x) * k;
       }
       // THE PERCH: clinging to his tile, he hunches — folded and watching
       const perched = s.perchTile !== undefined && !airborne2;

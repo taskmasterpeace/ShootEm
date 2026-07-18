@@ -11,7 +11,7 @@ import {
 import { BUILDINGS, generateHouse, type BuildingDef, type DynHouseType } from '../sim/buildings';
 import { Rng } from '../sim/rng';
 import type { AscendantId, ClassId, ModeId, SoldierKind, Team, ThemeId, WeaponDef, WeaponId, ZedKind } from '../sim/types';
-import { JOINT_NAMES, poseSoldierJoints, stepYawSpring, throwArmCurve, FLIGHT_POSES, WEAPON_HOLDS, type GaitState, type Joints } from '../client/animation';
+import { JOINT_NAMES, isUndead, poseSoldierJoints, stepYawSpring, throwArmCurve, FLIGHT_POSES, WEAPON_HOLDS, type GaitState, type Joints } from '../client/animation';
 import {
   buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp,
   buildSoldier, buildTurretMesh, buildVehicle, dressAsLsw,
@@ -376,6 +376,7 @@ const feel = {
   hold: null as string | null,
   throwAt: -1, cast: null as 'slam' | 'thrust' | 'channel' | null, castAt: -1,
   flight: null as 'inferno' | 'stormcaller' | 'gargoyle' | null, flightBlend: { v: 0 },
+  runBlend: { v: 0 }, // the stage's run-carry (mirrors the game renderer)
 };
 const feelSay = (t: string) => { $('feel-status').textContent = t; };
 
@@ -425,15 +426,31 @@ function applyFeelLayer(dt: number) {
     stage.rotation.y = 0;
     if (j.head) j.head.rotation.y = 0;
   }
-  // HOLDS: rest pose + the family delta, every frame (gait never touches arms)
+  // THE UNDEAD OWN THEIR ARMS (the character audit, Robert's screenshot):
+  // the shared gait drives the zombie reach+sway every frame — but this
+  // block used to overwrite the arms right after the arrows sampled them,
+  // so the arm VECTORS animated while the MESH stayed frozen at the rest
+  // snapshot. Everything below is the LIVING grip/carry emulation; zeds
+  // stop here and keep the pose the gait just gave them.
+  if (isUndead(current.kind)) return;
+  // HOLDS + THE RUN CARRY (stage mirror of the game renderer): the base is
+  // rest-pose eased off by the run blend, arms pump counter to the legs at
+  // speed, and the family hold rides on top — the same formula animateSoldier
+  // runs, so the workbench tells the game's truth. Without the pump the stage
+  // showed scissoring legs under bolted arms ("the running is messed up").
   if (r) {
     const h = feel.hold ? WEAPON_HOLDS[feel.hold] : null;
-    if (j.armL) j.armL.rotation.z = r.armL + (h?.armL ?? 0);
-    if (j.armR) j.armR.rotation.z = r.armR + (h?.armR ?? 0);
+    const running = opt.anim && opt.speed > 3.5 && !opt.airborne;
+    feel.runBlend.v += ((running ? 1 : 0) - feel.runBlend.v) * Math.min(1, dt * 7);
+    const b = feel.runBlend.v;
+    const wgt = 1 - b * 0.8;
+    const pump = Math.sin(stageGait.phase ?? 0) * 0.42 * Math.min(1, opt.speed / 6);
+    if (j.armL) j.armL.rotation.z = r.armL * (1 - b * 0.7) + -pump * b + (h?.armL ?? 0) * wgt;
+    if (j.armR) j.armR.rotation.z = r.armR * (1 - b * 0.7) + pump * b + (h?.armR ?? 0) * wgt;
     if (j.gun) {
-      j.gun.position.y = r.gunY + (h?.gunY ?? 0);
-      j.gun.position.z = r.gunZ + (h?.gunZ ?? 0);
-      j.gun.rotation.z = r.gunRotZ + (h?.gunRotZ ?? 0);
+      j.gun.position.y = r.gunY + (h?.gunY ?? 0) * wgt - 0.14 * b;
+      j.gun.position.z = r.gunZ + (h?.gunZ ?? 0) * wgt;
+      j.gun.rotation.z = r.gunRotZ + (h?.gunRotZ ?? 0) * wgt - 0.42 * b;
       j.gun.visible = !(h?.hideGun);
     }
     if (h?.torsoX && j.torso) j.torso.rotation.x += h.torsoX;

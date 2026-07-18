@@ -28,6 +28,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   for (const url of Object.values(GLB_BODIES)) {
     try {
       new GLTFLoader().load(url, (gltf) => {
+        repairGlbRig(gltf.scene); // welded-arm bodies get their joints back
         gltf.scene.traverse((o) => {
           if (o instanceof THREE.Mesh) {
             o.castShadow = true;
@@ -42,6 +43,80 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         glbBodies.set(url, gltf.scene);
       }, undefined, () => { /* absent file = procedural forever; no drama */ });
     } catch { /* headless env */ }
+  }
+}
+
+/**
+ * RIG REPAIR (the character audit, Robert's "arms don't move with the arrow"):
+ * a segmented body whose armL/armR nodes own NO geometry cannot swing its
+ * arms — the joints animate (harness arrows track them) while the visible
+ * arms stay welded into the torso mesh. soldier_infantry.glb shipped exactly
+ * this way: the Blender bake created the arm joints (correct pivots and all)
+ * but left the arm voxels inside the torso — and every United Front LSW rides
+ * the infantry body, so half the roster punched with dead arms.
+ *
+ * The carve: a torso triangle belongs to an arm when its centroid sits below
+ * the collar (y ≤ 1.45) and outside the chest wall (|z| ≥ 0.17) — measured
+ * from the shipped bodies (chest+pauldrons reach the collar at |z| ≤ 0.16;
+ * everything beyond caps at the shoulder, y ≤ 1.41). Each side becomes a new
+ * mesh SHARING the torso's vertex attributes (only the index is new), hung
+ * under its joint and offset by −pivot so the rest pose is world-identical —
+ * rotation.z then swings the limb around the shoulder like every other body.
+ * A correctly-segmented model (pathfinder) is left untouched.
+ */
+export function repairGlbRig(root: THREE.Object3D): void {
+  const torso = root.getObjectByName('torso');
+  if (!torso) return;
+  let tm: THREE.Mesh | undefined;
+  torso.traverse((o) => { if (!tm && (o as THREE.Mesh).isMesh) tm = o as THREE.Mesh; });
+  if (!tm) return;
+  const geo = tm.geometry;
+  const index = geo.getIndex();
+  const pos = geo.getAttribute('position');
+  if (!index || !pos) return;
+
+  // only sides whose joint exists but owns no mesh need the carve
+  const bare = (['armL', 'armR'] as const).filter((n) => {
+    const j = root.getObjectByName(n);
+    if (!j) return false;
+    let owns = false;
+    j.traverse((o) => { if ((o as THREE.Mesh).isMesh) owns = true; });
+    return !owns;
+  });
+  if (!bare.length) return;
+
+  // classify every torso triangle by centroid (torso node sits at the origin,
+  // so mesh-local IS model space for these bodies)
+  const keep: number[] = [];
+  const armIdx: Record<'armL' | 'armR', number[]> = { armL: [], armR: [] };
+  for (let t = 0; t < index.count / 3; t++) {
+    const a = index.getX(t * 3), b = index.getX(t * 3 + 1), c = index.getX(t * 3 + 2);
+    const cy = (pos.getY(a) + pos.getY(b) + pos.getY(c)) / 3;
+    const cz = (pos.getZ(a) + pos.getZ(b) + pos.getZ(c)) / 3;
+    const side = Math.abs(cz) >= 0.17 && cy <= 1.45 ? (cz > 0 ? 'armL' : 'armR') : null;
+    if (side && bare.includes(side)) armIdx[side].push(a, b, c);
+    else keep.push(a, b, c);
+  }
+  if (!armIdx.armL.length && !armIdx.armR.length) return; // nothing carvable
+
+  // torso keeps its attributes, minus the carved triangles
+  const keepGeo = new THREE.BufferGeometry();
+  for (const name of Object.keys(geo.attributes)) keepGeo.setAttribute(name, geo.getAttribute(name));
+  keepGeo.setIndex(keep);
+  tm.geometry = keepGeo;
+
+  for (const name of bare) {
+    if (!armIdx[name].length) continue;
+    const joint = root.getObjectByName(name)!;
+    const armGeo = new THREE.BufferGeometry();
+    for (const attr of Object.keys(geo.attributes)) armGeo.setAttribute(attr, geo.getAttribute(attr));
+    armGeo.setIndex(armIdx[name]);
+    const armMesh = new THREE.Mesh(armGeo, tm.material);
+    armMesh.castShadow = true;
+    // vertex data stays in torso space: parking the mesh at −pivot inside the
+    // joint keeps the rest pose world-identical while the joint owns the swing
+    armMesh.position.copy(joint.position).multiplyScalar(-1);
+    joint.add(armMesh);
   }
 }
 
