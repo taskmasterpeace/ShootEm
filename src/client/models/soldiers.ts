@@ -6,6 +6,7 @@ import { TEAM_COLORS } from '../../sim/data';
 import { zombieArmRest } from '../animation';
 import { solveTwoHandedGrip } from './grip';
 import type { ClassId, SoldierKind, Team } from '../../sim/types';
+import { LSWS } from '../../sim/lsw';
 import { box, cyl, limb, mat } from './shared';
 
 // ---------------------------------------------------------------------------
@@ -103,6 +104,27 @@ export const LSW_TINT: Record<string, { tint: number; scale: number }> = {
 /** Turn a built trooper body INTO an LSW body: scale up past a trooper,
  *  glow its faction shade, and tag it so the frame loop feeds the aura.
  *  Robert: "make sure visually the LSWs look different." */
+/** A hand-prop for melee LSWs whose rig hides the gun — claws, talons, a blade,
+ *  a hammer. Procedural + tiny; attached to the right-hand joint so it swings
+ *  with the arm. */
+function makeProp(kind?: string): THREE.Group {
+  const g = new THREE.Group();
+  const steel = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, metalness: 0.7, roughness: 0.3 });
+  if (kind === 'claws' || kind === 'talons') {
+    for (let i = -1; i <= 1; i++) {
+      const claw = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.55, 5), steel);
+      claw.position.set(i * 0.12, -0.55, 0.22); claw.rotation.x = -0.5; g.add(claw);
+    }
+  } else if (kind === 'hammer') {
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.22, 0.22), steel);
+    head.position.set(0, -0.75, 0.1); g.add(head);
+  } else { // blade / knives / driver / default
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.8, 0.03), steel);
+    blade.position.set(0, -0.6, 0.18); g.add(blade);
+  }
+  return g;
+}
+
 export function dressAsLsw(mesh: THREE.Group, id: string): THREE.Group {
   const look = LSW_TINT[id] ?? { tint: 0xffffff, scale: 1.25 };
   mesh.scale.setScalar(look.scale);
@@ -111,6 +133,17 @@ export function dressAsLsw(mesh: THREE.Group, id: string): THREE.Group {
     const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
     if (m && 'emissive' in m) { m.emissive = new THREE.Color(look.tint); m.emissiveIntensity = 0.18; }
   });
+  // EMBODIMENT (kill the guns): melee schools (rig fists/blade) hide the rifle;
+  // blade rigs also show a hand-prop — so Titan reads as fists, not a rifleman.
+  const def = LSWS[id as keyof typeof LSWS];
+  const rig = def?.rig;
+  if (rig === 'fists' || rig === 'blade') {
+    mesh.traverse((o) => { if (o.name === 'gun') o.visible = false; });
+    if (rig === 'blade' && !mesh.userData.lswProp) {
+      (mesh.getObjectByName('armR') ?? mesh).add(makeProp(def?.prop));
+      mesh.userData.lswProp = true; // once — dressAsLsw can run per-frame
+    }
+  }
   return mesh;
 }
 

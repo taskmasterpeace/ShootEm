@@ -63,6 +63,13 @@ export interface LswDef {
    *  still between hops (the standstill IS the counterplay window).
    *  Absent = grounded / its own shipped verb (flight, dash, current). */
   moves?: 'leap' | 'blinkwalk';
+  /** EMBODIMENT (layer 2/3): how the model holds/shows its weapon. fists|blade
+   *  HIDE the gun mesh and show a hand-prop; the rest keep the gun. */
+  rig?: 'fists' | 'blade' | 'gauntlet' | 'palm' | 'rifle' | 'launcher' | 'thrower' | 'sidearm';
+  /** the melee/tool prop shown in the hands when rig hides the gun */
+  prop?: 'hammer' | 'claws' | 'talons' | 'blade' | 'knives' | 'chain' | 'harpoon' | 'driver' | 'hose' | 'shield';
+  /** the fire animation this LSW plays (SLAM/THRUST/CHANNEL exist; LOB/BRACE/SHOULDER/FLICK added by the embodiment pass) */
+  attackPose?: 'SLAM' | 'CHANNEL' | 'THRUST' | 'LOB' | 'BRACE' | 'SHOULDER' | 'FLICK';
   /** TRUE FLIGHT (§4.4 #5): this LSW moves in the third dimension — SAMs
    *  lock it, and D3 keeps human hands off it until flight earns its keep */
   flies?: boolean;
@@ -514,6 +521,62 @@ export const LSWS: Record<AscendantId, LswDef> = {
     activeLabel: 'THE SLAM — huge, slow, close', activeCd: 6,
   },
 };
+
+// EMBODIMENT (layer 2/3): rig/prop/attackPose per LSW, assigned onto the defs
+// above. Record<AscendantId,...> so TS enforces all 40 are covered. Melee rigs
+// (fists/blade) hide the gun mesh in dressAsLsw; attackPose drives the fire anim.
+const EMBODY: Record<AscendantId, { rig: NonNullable<LswDef['rig']>; prop?: LswDef['prop']; attackPose: NonNullable<LswDef['attackPose']> }> = {
+  // MELEE SIX — hide the guns
+  titan: { rig: 'fists', attackPose: 'SLAM' },
+  crusher: { rig: 'fists', attackPose: 'SLAM' },
+  ragebeast: { rig: 'blade', prop: 'claws', attackPose: 'SLAM' },
+  leviathan: { rig: 'fists', attackPose: 'SLAM' },
+  gargoyle: { rig: 'blade', prop: 'talons', attackPose: 'SLAM' },
+  blitz: { rig: 'blade', prop: 'blade', attackPose: 'SLAM' },
+  // BEAM SEVEN — two-hand channel
+  reactor: { rig: 'gauntlet', attackPose: 'CHANNEL' },
+  crimson: { rig: 'gauntlet', attackPose: 'CHANNEL' },
+  magnetar: { rig: 'gauntlet', attackPose: 'CHANNEL' },
+  pulse: { rig: 'gauntlet', attackPose: 'CHANNEL' },
+  frostbite: { rig: 'gauntlet', attackPose: 'CHANNEL' },
+  mirage: { rig: 'gauntlet', attackPose: 'CHANNEL' },
+  eclipse: { rig: 'gauntlet', attackPose: 'CHANNEL' },
+  // RAIL TWO — shoulder rifle, brace
+  sniperhawk: { rig: 'rifle', attackPose: 'BRACE' },
+  chronos: { rig: 'rifle', attackPose: 'BRACE' },
+  // ARC FIVE — open casting hand
+  voltstriker: { rig: 'palm', attackPose: 'THRUST' },
+  overload: { rig: 'palm', attackPose: 'THRUST' },
+  stormcaller: { rig: 'palm', attackPose: 'THRUST' },
+  wraith: { rig: 'palm', attackPose: 'THRUST' },
+  dominator: { rig: 'palm', attackPose: 'THRUST' },
+  // FLAME THREE
+  firebrand: { rig: 'thrower', prop: 'hose', attackPose: 'CHANNEL' },
+  inferno: { rig: 'thrower', attackPose: 'LOB' },
+  pyroclasm: { rig: 'thrower', attackPose: 'LOB' },
+  // ACID TWO
+  plaguebearer: { rig: 'thrower', attackPose: 'LOB' },
+  venom: { rig: 'thrower', attackPose: 'CHANNEL' },
+  // PLASMA-EXOTIC FIVE
+  riptide: { rig: 'sidearm', attackPose: 'THRUST' },
+  voidwalker: { rig: 'sidearm', attackPose: 'THRUST' },
+  barrier: { rig: 'sidearm', attackPose: 'THRUST' },
+  gravwarden: { rig: 'palm', attackPose: 'THRUST' },
+  oblivion: { rig: 'sidearm', attackPose: 'THRUST' },
+  // QUIET FIVE — low tell
+  phantom: { rig: 'sidearm', attackPose: 'FLICK' },
+  shadowstep: { rig: 'blade', prop: 'knives', attackPose: 'FLICK' },
+  specter: { rig: 'blade', prop: 'knives', attackPose: 'FLICK' },
+  nightmare: { rig: 'palm', attackPose: 'FLICK' },
+  reaper: { rig: 'launcher', prop: 'chain', attackPose: 'FLICK' },
+  // SHELL FIVE — shouldered
+  vanguard: { rig: 'launcher', prop: 'shield', attackPose: 'SHOULDER' },
+  tremor: { rig: 'launcher', attackPose: 'SHOULDER' },
+  venatrix: { rig: 'launcher', prop: 'harpoon', attackPose: 'SHOULDER' },
+  steelweaver: { rig: 'launcher', prop: 'driver', attackPose: 'SHOULDER' },
+  cataclysm: { rig: 'launcher', attackPose: 'SHOULDER' },
+};
+for (const id of Object.keys(EMBODY) as AscendantId[]) Object.assign(LSWS[id], EMBODY[id]);
 
 /** THE SPOKEN SCRIPT — subtitle text per voice slot, tag-stripped mirrors of
  *  tools/lsw-vo-script.mjs (the recording script with direction). Positional:
