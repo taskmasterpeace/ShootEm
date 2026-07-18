@@ -67,19 +67,29 @@ rifleman ≈ 45 dps, a 4-man squad ≈ 180, a focused 12-man team ≈ 540.
 > shipped LSW is dropped against its DESIGNATED answer (T1 → a squad of 4,
 > T2 → a squad + support (8, incl. the counter-pick), T3/T4 → the team of
 > 12) with the pressure never lapsing, and the kill must land inside the
-> tier's band. **The 2026-07-17 measured table (seed 42):**
-> T1 — Sniperhawk 8.2s · Volt Striker 15.6s · Barrier 19.3s.
-> T2 — Eclipse 8.8s · Oblivion 9.8s · Wraith 12.0s · Dominator 12.1s ·
-> Plaguebearer 12.3s · Tremor 13.2s · Firebrand 18.0s · Reactor 23.6s ·
+> tier's band. **The COMPLETE 40-unit measured table (2026-07-17, seed 42):**
+> T1 vs 4 — Venatrix 7.2s · Sniperhawk 8.2s · Voidwalker 10.2s ·
+> Specter 12.2s · Blitz 14.2s · Shadowstep 14.3s · Mirage 14.9s ·
+> Volt Striker 15.6s · Barrier 19.3s.
+> T2 vs 8 — Reaper 7.8s · Nightmare 8.1s · Eclipse 8.8s · Oblivion 9.8s ·
+> Venom 10.1s · Riptide 10.2s · Wraith 12.0s · Overload 12.0s ·
+> Dominator 12.1s · Pyroclasm 12.1s · Plaguebearer 12.3s · Cataclysm 12.3s ·
+> Phantom 12.4s · Tremor 13.2s · Crusher 14.2s · Vanguard 15.0s ·
+> Pulse 16.7s · Firebrand 18.0s · Reactor 23.6s · Steel Weaver 23.6s ·
 > **Magnetar 55.7s** (the anti-ranged identity, working).
-> T3 — Frostbite 15.3s · Titan 20.5s · Ragebeast 23.7s.
-> The rig already earned its keep: it caught Plaguebearer and Eclipse
-> IMMORTAL inside their own smoke (fixed: an LSW is too big for smoke — the
-> silhouette looms), Magnetar immortal on halo income (fixed: +0.5/bullet
-> and the orbit saturates — one round in five leaks), Volt Striker WIPING
-> his own answer (trimmed), and a NaN-intent bug that turned bots into
-> untargetable ghosts (the seam sanitizer). These laws run in every suite —
-> a regression that breaks a band fails CI.
+> T3 vs 12 — Frostbite 15.3s · Chronos 15.3s · Titan 20.5s ·
+> Gravity Warden 21.4s · Ragebeast 23.7s · Leviathan 26.3s · Inferno 50.1s ·
+> Gargoyle 65.9s · **Stormcaller 129.7s** (the sky is expensive to argue with —
+> conducting keeps her at gun height, and the band holds).
+> The rig earned its keep across the whole campaign: it caught Plaguebearer
+> and Eclipse IMMORTAL inside their own smoke (fixed: an LSW is too big for
+> smoke — the silhouette looms), Magnetar immortal on halo income (fixed:
+> +0.5/bullet and the orbit saturates — one round in five leaks), Volt
+> Striker WIPING his own answer (trimmed), a NaN-intent bug that turned bots
+> into untargetable ghosts (the seam sanitizer), and Stormcaller immortal on
+> a 2s casting swoop (fixed: CONDUCTING IS WORK — she stays low the whole 8s
+> the storm rains). These laws run in every suite — a regression that breaks
+> a band fails CI.
 
 **The laws that keep it honest:**
 - **Threat buys HP, never immunity.** Every LSW dies to ordinary rifles —
