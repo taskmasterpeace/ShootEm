@@ -127,7 +127,7 @@ export class Renderer {
   private flagMeshes: THREE.Group[] = [];
   private cpRings: THREE.Mesh[] = [];
   private hillRing: THREE.Mesh | null = null;
-  private nameSprites = new Map<number, THREE.Sprite>();
+  private nameSprites = new Map<number, { sprite: THREE.Sprite; ctx: CanvasRenderingContext2D; tex: THREE.CanvasTexture; key: string }>();
   // tunneler support: map tile index → wall/cover instance so digs collapse visually
   private wallInst: THREE.InstancedMesh | null = null;
   private coverInst: THREE.InstancedMesh | null = null;
@@ -1023,23 +1023,59 @@ export class Renderer {
     return ring;
   }
 
+  /** The overhead unit tag (friendlies only): a slim health meter with the name
+   *  under it — team-colored text, a LIGHT (white) outline, and NO black plate,
+   *  box, or dark stroke anywhere. Redrawn only when hp/armor/name change
+   *  (keyed by the caller). Replaces the old name sprite AND the friendly ground
+   *  ring, so a squad reads as clean tags instead of a black mess. */
+  private makeUnitTag(): { sprite: THREE.Sprite; ctx: CanvasRenderingContext2D; tex: THREE.CanvasTexture } {
+    const cvs = document.createElement('canvas');
+    cvs.width = 256; cvs.height = 64;
+    const ctx = cvs.getContext('2d')!;
+    const tex = new THREE.CanvasTexture(cvs);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    sprite.userData.uiOverlay = true; // setAlpha must NOT clobber this — see below
+    return { sprite, ctx, tex };
+  }
+
+  private drawUnitTag(ctx: CanvasRenderingContext2D, name: string, team: Team, hpFrac: number, arFrac: number) {
+    ctx.clearRect(0, 0, 256, 64);
+    // slim health meter — a LIGHT-framed bar, never a black plate
+    const bw = 148, bh = 10, bx = (256 - bw) / 2, by = 12;
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';             // empty track (light, not black)
+    ctx.fillRect(bx, by, bw, bh);
+    ctx.fillStyle = hpFrac > 0.5 ? '#46d17a' : hpFrac > 0.25 ? '#f5b21a' : '#ff4736';
+    ctx.fillRect(bx, by, Math.max(0, bw * hpFrac), bh);   // health fill
+    if (arFrac > 0) { ctx.fillStyle = '#4cc2ff'; ctx.fillRect(bx, by - 4, Math.max(0, bw * arFrac), 3); } // armor over health
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 1.5; // light frame
+    ctx.strokeRect(bx - 0.75, by - 0.75, bw + 1.5, bh + 1.5);
+    // name under the meter — team color with a LIGHT (white) outline, no black
+    ctx.font = '700 24px Inter, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 3.5;
+    ctx.strokeText(name, 128, 52);
+    ctx.fillStyle = team === 0 ? '#e8a33d' : '#3dbde8';
+    ctx.fillText(name, 128, 52);
+  }
+
+  /** Light-touch label: team-colored text with a THIN low-alpha rim for
+   *  legibility — readable without shouting over the head. */
   private makeNameSprite(name: string, team: Team): THREE.Sprite {
-    // crisp outlined text — the old blurred shadow read as a black plate
-    // floating over the character's head
     const cvs = document.createElement('canvas');
     cvs.width = 256; cvs.height = 48;
     const ctx = cvs.getContext('2d')!;
-    ctx.font = '700 27px Inter, system-ui, sans-serif';
+    ctx.font = '600 24px Inter, system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'rgba(0,0,0,0.85)';
-    ctx.lineWidth = 5;
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+    ctx.lineWidth = 2;
     ctx.strokeText(name, 128, 32);
     ctx.fillStyle = team === 0 ? '#e8a33d' : '#3dbde8';
     ctx.fillText(name, 128, 32);
     const tex = new THREE.CanvasTexture(cvs);
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-    sprite.scale.set(3.4, 0.64, 1);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.82, depthWrite: false }));
+    sprite.scale.set(3.0, 0.56, 1);
     return sprite;
   }
 
@@ -1265,15 +1301,21 @@ export class Renderer {
         (s.kind === 'bot' || s.kind === 'human' || s.kind === 'scientist' || s.kind === 'dog');
       let tag = this.nameSprites.get(s.id);
       if (squad && !tag) {
-        tag = this.makeNameSprite(s.name, s.team);
-        mesh.add(tag);
+        tag = { ...this.makeUnitTag(), key: '' };
+        mesh.add(tag.sprite);
         this.nameSprites.set(s.id, tag);
       }
       if (tag) {
-        tag.visible = squad;
-        // constant screen size: grow with zoom, and climb so the stack never overlaps
-        tag.scale.set(3.4 * uiK, 0.64 * uiK, 1);
-        tag.position.y = (s.kind === 'dog' ? 1.55 : 2.55) + 0.85 * uiK; // the K9 wears its name low
+        tag.sprite.visible = squad;
+        if (squad) {
+          const hpFrac = Math.max(0, Math.min(1, s.hp / s.maxHp));
+          const arFrac = (s.maxArmor ?? 0) > 0 ? Math.max(0, Math.min(1, s.armor / s.maxArmor)) : 0;
+          const key = `${s.name}:${s.team}:${Math.round(hpFrac * 24)}:${Math.round(arFrac * 12)}`;
+          if (key !== tag.key) { tag.key = key; this.drawUnitTag(tag.ctx, s.name, s.team, hpFrac, arFrac); tag.tex.needsUpdate = true; }
+          // constant screen size: grow with zoom, and climb so the stack never overlaps
+          tag.sprite.scale.set(3.4 * uiK, 0.85 * uiK, 1);
+          tag.sprite.position.y = (s.kind === 'dog' ? 1.55 : 2.55) + 0.85 * uiK; // the K9 wears its name low
+        }
       }
       // far-zoom blip: the disc IS the soldier at command height
       if (s.kind === 'bot' || s.kind === 'human' || s.kind === 'scientist') {
@@ -1284,6 +1326,7 @@ export class Renderer {
           blip = new THREE.Mesh(hostile ? this.blipRingGeo! : this.blipGeo!, this.blipMats![s.team]);
           blip.rotation.x = -Math.PI / 2;
           blip.position.y = 0.06;
+          blip.userData.uiOverlay = true; // its own alpha — keep setAlpha off it
           mesh.add(blip);
           this.blips.set(s.id, blip);
         }
@@ -1294,10 +1337,13 @@ export class Renderer {
       // squad = faction color with plate; enemy = signal red, numbers only
       // when your kit earns them. Cloaked = no ring (cloak stays TRUE).
       const enemyRing = s.team !== localTeam && s.id !== localId && mesh.visible && s.alive && !s.downed;
-      const ringWanted = (squad || enemyRing) && !s.cloaked;
+      // friendlies now carry health on the overhead tag's meter, so the ground
+      // ring is enemy-only — no more double health readout, less ground clutter.
+      const ringWanted = enemyRing && !s.cloaked;
       let ring = this.ringMaps.get(s.id);
       if (ringWanted && !ring) {
         ring = { ...this.makeRingMap(), key: '' };
+        ring.mesh.userData.uiOverlay = true; // its own alpha — keep setAlpha off it (else black disc)
         mesh.add(ring.mesh);
         this.ringMaps.set(s.id, ring);
       }
@@ -1391,8 +1437,8 @@ export class Renderer {
         });
         const tag = this.nameSprites.get(id);
         if (tag) {
-          tag.material.map?.dispose();
-          tag.material.dispose();
+          tag.sprite.material.map?.dispose();
+          tag.sprite.material.dispose();
           this.nameSprites.delete(id);
         }
         const ring = this.ringMaps.get(id);
@@ -2751,6 +2797,11 @@ export class Renderer {
     if (mesh.userData.lastAlpha === alpha) return; // skip the traverse when nothing changed
     mesh.userData.lastAlpha = alpha;
     mesh.traverse((o) => {
+      // UI overlays (name tag, health ring, blip) manage their OWN alpha. If
+      // setAlpha forces transparent=false on them at full alpha, their mostly-
+      // transparent CanvasTextures render as SOLID BLACK boxes/discs — that was
+      // the "black mess" behind every name and under every unit.
+      if (o.userData.uiOverlay) return;
       const mm = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
       if (mm && 'opacity' in mm) {
         mm.transparent = alpha < 1;
