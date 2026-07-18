@@ -10,7 +10,7 @@ export type ClassId = 'infantry' | 'heavy' | 'jump' | 'engineer' | 'medic' | 'in
 /** Living Super Weapons (§21.6 / docs/ASCENDANTS.md). A Soldier carrying one
  *  of these is an LSW — not a class, an overlay: bigger, deadlier, its own
  *  brain, and it dies to ordinary guns. Grows as the roster ships. */
-export type AscendantId = 'firebrand' | 'plaguebearer' | 'frostbite' | 'ragebeast' | 'titan' | 'voltstriker' | 'sniperhawk' | 'barrier' | 'reactor' | 'oblivion' | 'tremor' | 'magnetar' | 'wraith' | 'eclipse' | 'dominator' | 'riptide' | 'gravwarden' | 'chronos' | 'venatrix' | 'vanguard' | 'pyroclasm' | 'voidwalker' | 'crimson' | 'mirage' | 'blitz' | 'shadowstep' | 'specter' | 'pulse' | 'venom' | 'nightmare' | 'reaper' | 'crusher' | 'steelweaver' | 'overload' | 'phantom';
+export type AscendantId = 'firebrand' | 'plaguebearer' | 'frostbite' | 'ragebeast' | 'titan' | 'voltstriker' | 'sniperhawk' | 'barrier' | 'reactor' | 'oblivion' | 'tremor' | 'magnetar' | 'wraith' | 'eclipse' | 'dominator' | 'riptide' | 'gravwarden' | 'chronos' | 'venatrix' | 'vanguard' | 'pyroclasm' | 'voidwalker' | 'crimson' | 'mirage' | 'blitz' | 'shadowstep' | 'specter' | 'pulse' | 'venom' | 'nightmare' | 'reaper' | 'crusher' | 'steelweaver' | 'overload' | 'phantom' | 'inferno' | 'stormcaller' | 'gargoyle';
 
 /**
  * Weapon ids are open strings: the hand-tuned core set (ar606, kuchler, caw,
@@ -294,6 +294,26 @@ export interface Soldier {
   possessedBy?: number;
   possessedUntil?: number;
   origTeam?: Team;
+  /** TRUE FLIGHT (§4.4 #5): the commanded altitude for a flying LSW — the
+   *  body climbs toward it; above the wall tier the grid yields. Undefined
+   *  or 0 = grounded. Small arms live at chest height: descent is exposure. */
+  flightAlt?: number;
+  /** Gargoyle's SHRIEK→SLAM telegraph: the dive resolves at `diveAt` on the
+   *  marked point — the scream buys everyone under it the dodge window.
+   *  (Inferno reuses diveAt as "committed-low until".) */
+  diveAt?: number;
+  diveX?: number;
+  diveZ?: number;
+  /** Gargoyle's PERCH: the blocking tile he's clinging to — half damage
+   *  while it stands; collapse the tile (DESTRUCTION) and he falls stunned. */
+  perchTile?: number;
+  /** Stormcaller's LIGHTNING STORM: bolts fall inside r14 of (stormX,stormZ)
+   *  until stormUntil — BOTH SIDES eat them; eaves (wall-adjacent tiles)
+   *  shelter. nextBoltAt paces the strikes. */
+  stormX?: number;
+  stormZ?: number;
+  stormUntil?: number;
+  nextBoltAt?: number;
   /** THE ICE BLOCK (§21.6, shared: Frostbite + Venatrix). Encased alive: a
    *  real 1-tile block that stops movement AND shots both ways. sim-time the
    *  ice fully forms free is `encasedUntil`; teammates shatter it early by

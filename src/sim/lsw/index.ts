@@ -21,7 +21,10 @@ import * as magnetar from './magnetar';
 import * as mirage from './mirage';
 import * as nightmare from './nightmare';
 import * as oblivion from './oblivion';
+import * as gargoyle from './gargoyle';
+import * as inferno from './inferno';
 import * as overload from './overload';
+import * as stormcaller from './stormcaller';
 import * as phantom from './phantom';
 import * as reaper from './reaper';
 import * as plaguebearer from './plaguebearer';
@@ -52,4 +55,5 @@ export const LSW_BRAINS: Record<AscendantId, LswBrain> = {
   firebrand, plaguebearer, frostbite, ragebeast, titan, voltstriker,
   sniperhawk, barrier, reactor, oblivion, tremor, magnetar, wraith,
   eclipse, dominator, riptide, gravwarden, chronos, venatrix, vanguard, pyroclasm, voidwalker, crimson, mirage, blitz, shadowstep, specter, pulse, venom, nightmare, reaper, crusher, steelweaver, overload, phantom,
+  inferno, stormcaller, gargoyle,
 };

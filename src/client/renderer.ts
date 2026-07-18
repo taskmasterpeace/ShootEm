@@ -2121,6 +2121,24 @@ export class Renderer {
         pos: { x: s.pos.x + Math.cos(s.yaw) * 0.7, y: 0.9 + Math.random() * 0.9, z: s.pos.z + Math.sin(s.yaw) * 0.7 }, count: 1,
         color: Math.random() < 0.5 ? 0x8a8f98 : 0xc6ccd6, speed: 0.4, life: 0.5, spread: 0.4, up: 0.5, gravity: 0.5, size: 0.26,
       });
+    } else if (id === 'inferno') {
+      // a body that is partly fire — embers stream off him, more in a dive
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5), y: s.pos.y + 0.5 + Math.random() * 1.2, z: s.pos.z + (Math.random() - 0.5) }, count: 2,
+        color: Math.random() < 0.6 ? 0xff6a2a : 0xffc23a, speed: 1.2, life: 0.45, spread: 0.7, up: 1.4, gravity: -1, size: 0.26,
+      });
+    } else if (id === 'stormcaller') {
+      // static skitters around her — the air itself is charged
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.6, y: s.pos.y + 0.4 + Math.random() * 1.6, z: s.pos.z + (Math.random() - 0.5) * 1.6 }, count: 1,
+        color: Math.random() < 0.6 ? 0x9fd8ff : 0xffffff, speed: 2.0, life: 0.18, spread: 0.9, up: 0.6, gravity: 0, size: 0.2,
+      });
+    } else if (id === 'gargoyle') {
+      // grit sifting off stone skin — heavier when he moves
+      if (Math.hypot(s.vel.x, s.vel.z) > 0.5 || Math.random() < 0.3) this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5), y: s.pos.y + 0.3 + Math.random(), z: s.pos.z + (Math.random() - 0.5) }, count: 1,
+        color: Math.random() < 0.5 ? 0x8d8578 : 0x6e675c, speed: 0.4, life: 0.5, spread: 0.5, up: -0.2, gravity: 3, size: 0.22,
+      });
     } else if (id === 'phantom') {
       // the hover: pale motes sinking away beneath a body that never touches down
       this.particles.emit({

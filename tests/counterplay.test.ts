@@ -478,4 +478,70 @@ describe('counterplay — wave 2, seventh batch', () => {
     expect(nosed.struck, 'the K9 must BLOW the strike').toBe(false);
     expect(nosed.blown, 'and his cover with it').toBe(true);
   });
+
+  it('INFERNO — "SAMs, MANPADS, small arms": aloft the tube owns him, low the rifles do', () => {
+    const w = quiet();
+    const f = w.addLsw('inferno', 0, { x: 24, y: 0, z: 0 })!;
+    f.nextLswAt = 1e9; f.pos.y = 5.2; f.flightAlt = 5.2;
+    const aa = w.addSoldier('AA', 'heavy', 1, 'human');
+    aa.pos = { x: 0, y: 0, z: 0 }; aa.alive = true; aa.yaw = 0;
+    const lock = w.samLockTarget(aa);
+    expect(lock, 'MANPADS must lock the flier').toBeTruthy();
+    const hp0 = f.hp;
+    w.fireSamMissile(aa, lock!);
+    for (let i = 0; i < 300 && f.hp === hp0; i++) w.step(1 / 60, new Map());
+    expect(f.hp, 'the sky is not sanctuary — AA is the answer').toBeLessThan(hp0);
+  });
+
+  it('STORMCALLER — "fight indoors": eaves block bolts, the open sky does not', () => {
+    const w = quiet();
+    const sc = w.addLsw('stormcaller', 0, { x: 0, y: 0, z: 0 })!;
+    sc.nextLswAt = 1e9;
+    sc.clip = sc.clip.map(() => 0); sc.reserve = sc.reserve.map(() => 0); // the BOLTS are on trial, not her rifle
+    sc.grenades = 0; sc.smokes = 0; sc.firebombs = 0; // and not her frag bag either
+    w.forceFields.push({ x: 90, z: 90, r: 7, radial: -26, team: 0, ownerId: sc.id, until: w.time + 60 }); // Q → storm
+    const GRID_N = Math.sqrt(w.map.grid.length) | 0; const TILE_U = 300 / GRID_N;
+    for (let z = 12; z <= 28; z += TILE_U) for (let x = 12; x <= 28; x += TILE_U) {
+      w.map.grid[Math.floor((z + 150) / TILE_U) * GRID_N + Math.floor((x + 150) / TILE_U)] = 0;
+    }
+    // one wall tile: the eave the smart soldier hugs
+    const wtx = Math.floor((24 + 150) / TILE_U), wtz = Math.floor((20 + 150) / TILE_U);
+    w.map.grid[wtz * GRID_N + wtx] = 1;
+    const open = w.addSoldier('E', 'infantry', 1, 'human');
+    open.pos = { x: 20, y: 0, z: 20 }; open.alive = true; open.protectedUntil = 0;
+    const hugger = w.addSoldier('H', 'infantry', 1, 'human');
+    hugger.pos = { x: 24 - TILE_U, y: 0, z: 20 }; hugger.alive = true; hugger.protectedUntil = 0; // beside the wall
+    w.applyCmd(sc, cmd({ ability: true }), 1 / 60);
+    let openStruck = false, huggerStruck = false;
+    for (let i = 0; i < 60 * 9; i++) {
+      const hh = hugger.hp;
+      w.step(1 / 60, new Map());
+      if (open.hp < open.maxHp) { openStruck = true; open.hp = open.maxHp; open.alive = true; }
+      if (hugger.hp < hh) huggerStruck = true;
+      hugger.hp = hugger.maxHp; hugger.alive = true;
+    }
+    expect(openStruck, 'the open sky must strike').toBe(true);
+    expect(huggerStruck, 'the eave must shelter — fight indoors is real').toBe(false);
+  });
+
+  it('GARGOYLE — "collapse the perch": stone takes half until the tile goes', () => {
+    const w = quiet();
+    const g = w.addLsw('gargoyle', 1, { x: 0, y: 0, z: 0 })!;
+    g.nextLswAt = 1e9;
+    const GRID_N = Math.sqrt(w.map.grid.length) | 0; const TILE_U = 300 / GRID_N;
+    const ptx = Math.floor((3 + 150) / TILE_U), ptz = Math.floor((0 + 150) / TILE_U);
+    w.map.grid[ptz * GRID_N + ptx] = 1; // his masonry
+    w.applyCmd(g, cmd({ ability: true }), 1 / 60); // no prey in reach → he PERCHES
+    expect(g.perchTile, 'he must take the perch').toBeDefined();
+    const hpA = g.hp;
+    w.damageSoldier(g, 100, -1, 'ar606');
+    expect(hpA - g.hp, 'perched stone takes HALF').toBeCloseTo(50, 0);
+    // the counter: bring the masonry down
+    w.damageWall(ptx, ptz, 99999, true);
+    w.step(1 / 60, new Map());
+    expect(g.perchTile, 'tile gone — bird down').toBeUndefined();
+    const hpB = g.hp;
+    w.damageSoldier(g, 100, -1, 'ar606');
+    expect(hpB - g.hp, 'grounded he pays FULL price').toBeCloseTo(100, 0);
+  });
 });

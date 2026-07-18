@@ -222,6 +222,24 @@ export const CAST = {
     persona: "Phantom, a United Front Living Super Weapon — an infiltrator who treats walls as doorways and machines as clothes. Quiet, courteous, deeply unsettling; he apologizes to the things he comes through.",
     scene: 'A wall breathing. Servos turning by themselves. A whisper from the wrong side of the masonry.',
   },
+  inferno: {
+    voice: 'Rasalgethi',
+    fx: 'beast', // a voice with a furnace under it — cheerful arson from altitude
+    persona: "Inferno, a United Front Living Super Weapon — a flying skirmisher who is partly fire and entirely pleased about it. Warm, quick, terribly friendly; every dive is a housewarming.",
+    scene: 'Wind roaring past a burning body. A dive that ends in a fireball. Embers ticking on cooling stone.',
+  },
+  stormcaller: {
+    voice: 'Laomedeia',
+    fx: 'ice', // wind-shimmer around a voice that talks TO the sky, not about it
+    persona: "Stormcaller, a United Front Living Super Weapon — a zoner who negotiates with weather and always wins. Calm, wry, faintly amused; she apologizes to nobody for friendly lightning, because the sky is honest.",
+    scene: 'A tornado prowling a street. Thunder counting down. Rain that starts exactly where she points.',
+  },
+  gargoyle: {
+    voice: 'Iapetus',
+    fx: 'beast', // gravel and grind — stone given a throat
+    persona: "Gargoyle, a Collective Living Super Weapon — a flying ambusher of living stone. Patient, grinding, ancient; he SCREAMS before every dive because terror is half the payload, and fair warning never saved anyone.",
+    scene: 'Wingbeats like slabs. A shriek that empties a street. Masonry taking his weight.',
+  },
   announcer: {
     voice: 'Orus',
     fx: 'radio', // 300–3400Hz military net + soft clip
@@ -467,6 +485,26 @@ export const VO = [
   { slot: 'vo_phantom_ability', who: 'phantom', text: '[phasing] Excuse the wall.', notes: ['Courtesy mid-trespass — for phase and possession both.'] },
   { slot: 'vo_phantom_low', who: 'phantom', text: '[strained whisper] Solid... too solid...', notes: ['Becoming material is what dying feels like to him.'] },
   { slot: 'vo_phantom_death', who: 'phantom', text: '[fading] At last... a wall that holds.', notes: ['Grudging respect, dissolving.'] },
+  // ---- INFERNO: cheerful arson from altitude ----
+  { slot: 'vo_inferno_arrive', who: 'inferno', text: '[wind and flame] The sky is kindling.', notes: ['Delighted by his own element.'] },
+  { slot: 'vo_inferno_kill3', who: 'inferno', text: 'Three. Well done, all of them.', notes: ['The pun is intended and he waits for it to land.'] },
+  { slot: 'vo_inferno_ability', who: 'inferno', text: '[diving roar] DOWN WE GO.', notes: ['Shouted into the wind of his own dive.'] },
+  { slot: 'vo_inferno_low', who: 'inferno', text: '[crackling] Guttering... not out.', notes: ['A candle arguing with the dark.'] },
+  { slot: 'vo_inferno_death', who: 'inferno', text: '[fading heat] Ash... flies further.', notes: ['Even falling, he brags about airtime.'] },
+
+  // ---- STORMCALLER: the sky is honest ----
+  { slot: 'vo_stormcaller_arrive', who: 'stormcaller', text: '[thunder under her] I brought the weather.', notes: ['A hostess presenting a hurricane.'] },
+  { slot: 'vo_stormcaller_kill3', who: 'stormcaller', text: 'Three, struck fair. The sky is honest.', notes: ['Her whole ethic in one report.'] },
+  { slot: 'vo_stormcaller_ability', who: 'stormcaller', text: '[wind rising] Sky, be somewhere else.', notes: ['An instruction, not a request — for tornado and storm both.'] },
+  { slot: 'vo_stormcaller_low', who: 'stormcaller', text: '[gusting weakly] The wind... is leaving me.', notes: ['Her power abandoning her mid-sentence.'] },
+  { slot: 'vo_stormcaller_death', who: 'stormcaller', text: '[still air] Clear skies... how dull.', notes: ['Dying bores her more than it frightens her.'] },
+
+  // ---- GARGOYLE: fair warning never saved anyone ----
+  { slot: 'vo_gargoyle_arrive', who: 'gargoyle', text: '[grinding stone] Every roof is mine.', notes: ['A landlord of high places.'] },
+  { slot: 'vo_gargoyle_kill3', who: 'gargoyle', text: 'Three heard me coming. It never helps.', notes: ['The telegraph is part of the cruelty.'] },
+  { slot: 'vo_gargoyle_ability', who: 'gargoyle', text: '[SHRIEKING] HEAR ME.', notes: ['THE telegraph — the whole street gets 0.8 seconds.'] },
+  { slot: 'vo_gargoyle_low', who: 'gargoyle', text: '[grinding, cracking] Chipped... cracking...', notes: ['Stone reporting its own fractures.'] },
+  { slot: 'vo_gargoyle_death', who: 'gargoyle', text: '[crumbling] Stone... returns to stone.', notes: ['Almost content about it.'] },
 ];
 
 /** The announcer — map-wide, both teams, radio net. */
@@ -611,6 +649,18 @@ export const ANN = [
   { slot: 'ann_phantom_landed', text: 'PHANTOM ON THE FIELD. YOUR MACHINES ARE NOT YOURS.' },
   { slot: 'ann_phantom_down', text: 'PHANTOM IS DOWN. THE WALLS ARE WALLS AGAIN.' },
   { slot: 'ann_phantom_rampage', text: 'FIVE KILLS. PHANTOM IS EVERYWHERE AND NOWHERE.' },
+  { slot: 'ann_inferno_inbound', text: 'INFERNO INBOUND. [short pause] WATCH THE SKY BURN.' },
+  { slot: 'ann_inferno_landed', text: 'INFERNO IS AIRBORNE. THE SKY IS ON FIRE.' },
+  { slot: 'ann_inferno_down', text: 'INFERNO IS DOWN. THE SKY COOLS.' },
+  { slot: 'ann_inferno_rampage', text: 'FIVE KILLS. INFERNO IS RAINING FIRE.' },
+  { slot: 'ann_stormcaller_inbound', text: 'STORMCALLER INBOUND. [short pause] GET UNDER SOMETHING.' },
+  { slot: 'ann_stormcaller_landed', text: 'STORMCALLER IS AIRBORNE. THE WEATHER PICKS SIDES.' },
+  { slot: 'ann_stormcaller_down', text: 'STORMCALLER IS DOWN. THE SKY CLEARS.' },
+  { slot: 'ann_stormcaller_rampage', text: 'FIVE KILLS. STORMCALLER OWNS THE WEATHER.' },
+  { slot: 'ann_gargoyle_inbound', text: 'GARGOYLE INBOUND. [short pause] LISTEN FOR THE SHRIEK.' },
+  { slot: 'ann_gargoyle_landed', text: 'GARGOYLE IS AIRBORNE. THE SHRIEK IS YOUR WARNING.' },
+  { slot: 'ann_gargoyle_down', text: 'GARGOYLE IS DOWN. STONE AT LAST.' },
+  { slot: 'ann_gargoyle_rampage', text: 'FIVE KILLS. GARGOYLE OWNS EVERY ROOF.' },
 ];
 
 export const ANN_NOTES = [

@@ -91,6 +91,9 @@ export const LSW_TINT: Record<string, { tint: number; scale: number }> = {
   steelweaver: { tint: 0x9aa4b0, scale: 1.4 },   // worked steel
   overload: { tint: 0xffd23a, scale: 1.25 },     // live-wire amber
   phantom: { tint: 0xd9e4e6, scale: 1.2 },       // pale spectral bone
+  inferno: { tint: 0xff6a2a, scale: 1.35 },      // flame orange
+  stormcaller: { tint: 0x9fd8ff, scale: 1.35 },  // storm-sky pale blue
+  gargoyle: { tint: 0x8d8578, scale: 1.4 },      // weathered stone
 };
 
 /** Turn a built trooper body INTO an LSW body: scale up past a trooper,

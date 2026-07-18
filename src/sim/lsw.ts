@@ -54,6 +54,9 @@ export interface LswDef {
   activeLabel: string;
   /** signature cooldown in seconds (charged only when the active actually fires) */
   activeCd: number;
+  /** TRUE FLIGHT (§4.4 #5): this LSW moves in the third dimension — SAMs
+   *  lock it, and D3 keeps human hands off it until flight earns its keep */
+  flies?: boolean;
 }
 
 /** The stable. Units land here as they ship; the roster doc is the spec. */
@@ -443,6 +446,42 @@ export const LSWS: Record<AscendantId, LswDef> = {
     scale: 1.2, speed: 8.5, color: 0xd9e4e6, // pale spectral bone
     activeLabel: 'THE PHASE — through the wall, blade first', activeCd: 7,
   },
+  inferno: {
+    id: 'inferno', name: 'Inferno', faction: 0, threat: 3,
+    lines: {
+      inbound: 'INFERNO INBOUND — WATCH THE SKY BURN',
+      landed: 'INFERNO IS AIRBORNE — THE SKY IS ON FIRE',
+      down: 'INFERNO IS DOWN — THE SKY COOLS',
+      rampage: 'FIVE KILLS — INFERNO IS RAINING FIRE',
+    },
+    scale: 1.35, speed: 9, color: 0xff6a2a, // flame orange
+    activeLabel: 'DIVE-BOMB — trade the sky for the crater', activeCd: 8,
+    flies: true,
+  },
+  stormcaller: {
+    id: 'stormcaller', name: 'Stormcaller', faction: 0, threat: 3,
+    lines: {
+      inbound: 'STORMCALLER INBOUND — GET UNDER SOMETHING',
+      landed: 'STORMCALLER IS AIRBORNE — THE WEATHER PICKS SIDES',
+      down: 'STORMCALLER IS DOWN — THE SKY CLEARS',
+      rampage: 'FIVE KILLS — STORMCALLER OWNS THE WEATHER',
+    },
+    scale: 1.35, speed: 8.5, color: 0x9fd8ff, // storm-sky pale blue
+    activeLabel: 'SEED THE TORNADO — then call the storm', activeCd: 9,
+    flies: true,
+  },
+  gargoyle: {
+    id: 'gargoyle', name: 'Gargoyle', faction: 1, threat: 3,
+    lines: {
+      inbound: 'GARGOYLE INBOUND — LISTEN FOR THE SHRIEK',
+      landed: 'GARGOYLE IS AIRBORNE — THE SHRIEK IS YOUR WARNING',
+      down: 'GARGOYLE IS DOWN — STONE AT LAST',
+      rampage: 'FIVE KILLS — GARGOYLE OWNS EVERY ROOF',
+    },
+    scale: 1.4, speed: 8.5, color: 0x8d8578, // weathered stone
+    activeLabel: 'SCREAMING DIVE — the shriek is the mercy', activeCd: 8,
+    flies: true,
+  },
 };
 
 /** THE SPOKEN SCRIPT — subtitle text per voice slot, tag-stripped mirrors of
@@ -626,6 +665,21 @@ export const VO_LINES: Record<string, { who: AscendantId; line: string }> = {
   vo_phantom_ability: { who: 'phantom', line: 'Excuse the wall.' },
   vo_phantom_low: { who: 'phantom', line: 'Solid... too solid...' },
   vo_phantom_death: { who: 'phantom', line: 'At last... a wall that holds.' },
+  vo_inferno_arrive: { who: 'inferno', line: 'The sky is kindling.' },
+  vo_inferno_kill3: { who: 'inferno', line: 'Three. Well done, all of them.' },
+  vo_inferno_ability: { who: 'inferno', line: 'DOWN WE GO.' },
+  vo_inferno_low: { who: 'inferno', line: 'Guttering... not out.' },
+  vo_inferno_death: { who: 'inferno', line: 'Ash... flies further.' },
+  vo_stormcaller_arrive: { who: 'stormcaller', line: 'I brought the weather.' },
+  vo_stormcaller_kill3: { who: 'stormcaller', line: 'Three, struck fair. The sky is honest.' },
+  vo_stormcaller_ability: { who: 'stormcaller', line: 'Sky, be somewhere else.' },
+  vo_stormcaller_low: { who: 'stormcaller', line: 'The wind... is leaving me.' },
+  vo_stormcaller_death: { who: 'stormcaller', line: 'Clear skies... how dull.' },
+  vo_gargoyle_arrive: { who: 'gargoyle', line: 'Every roof is mine.' },
+  vo_gargoyle_kill3: { who: 'gargoyle', line: 'Three heard me coming. It never helps.' },
+  vo_gargoyle_ability: { who: 'gargoyle', line: 'HEAR ME.' },
+  vo_gargoyle_low: { who: 'gargoyle', line: 'Chipped... cracking...' },
+  vo_gargoyle_death: { who: 'gargoyle', line: 'Stone... returns to stone.' },
 };
 export const voSlot = (id: AscendantId, moment: VoMoment) => `vo_${id}_${moment}`;
 export const annSlot = (id: AscendantId, moment: 'inbound' | 'landed' | 'down' | 'rampage') => `ann_${id}_${moment}`;

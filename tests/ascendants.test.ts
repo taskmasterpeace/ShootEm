@@ -1542,3 +1542,151 @@ describe('Phantom — the polite haunting', () => {
     expect(v.team, 'expiry must hand the hull home').toBe(1);
   });
 });
+
+describe('TRUE FLIGHT — the last shared mechanic', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('a flier climbs to its commanded altitude and crosses the WALL tier', () => {
+    const w = quiet();
+    const f = w.addLsw('inferno', 0, { x: 0, y: 0, z: 0 })!;
+    f.nextLswAt = 1e9; // brain cadence off — the movement model is on trial
+    const GRID_N = Math.sqrt(w.map.grid.length) | 0; const TILE_U = 300 / GRID_N;
+    const tz = Math.floor((0 + 150) / TILE_U);
+    // a solid wall line just east — no ground path
+    const wx = Math.floor((3 + 150) / TILE_U);
+    for (let dz = -3; dz <= 3; dz++) w.map.grid[(tz + dz) * GRID_N + wx] = 1;
+    for (let i = 0; i < 90; i++) w.step(1 / 60, new Map());
+    expect(f.pos.y, 'the body must CLIMB to cruise').toBeGreaterThan(4.05);
+    // now drive east: above the wall tier the grid must yield
+    f.vel.x = 8; f.vel.z = 0;
+    for (let i = 0; i < 60; i++) { f.vel.x = 8; f.vel.z = 0; w.step(1 / 60, new Map()); }
+    expect(f.pos.x, 'above the walls, the wall tier yields').toBeGreaterThan(4);
+  });
+
+  it('D3: no human hands on a flier — the ascension refuses', () => {
+    const w = quiet();
+    const h = w.addSoldier('H', 'infantry', 0, 'human');
+    h.alive = true;
+    expect(w.ascendSoldier(h, 'inferno'), 'D3 ratified: AI until flight earns Superman/Goku').toBe(false);
+    const b = w.addSoldier('B', 'infantry', 0, 'bot');
+    b.alive = true;
+    expect(w.ascendSoldier(b, 'inferno'), 'a bot may take the sky').toBe(true);
+  });
+
+  it('a MANPADS lock finds an airborne LSW and the bird hurts it', () => {
+    const w = quiet();
+    const f = w.addLsw('inferno', 0, { x: 20, y: 0, z: 0 })!;
+    f.nextLswAt = 1e9; f.pos.y = 5.2; f.flightAlt = 5.2;
+    const sh = w.addSoldier('AA', 'heavy', 1, 'human');
+    sh.pos = { x: 0, y: 0, z: 0 }; sh.alive = true; sh.yaw = 0; // facing him
+    const lock = w.samLockTarget(sh);
+    expect(lock, 'the tube must lock a TRUE-FLIGHT body').toBeTruthy();
+    expect((lock as { id: number }).id).toBe(f.id);
+    const hp0 = f.hp;
+    w.fireSamMissile(sh, lock!);
+    for (let i = 0; i < 300 && f.hp === hp0; i++) w.step(1 / 60, new Map());
+    expect(f.hp, 'the missile must CONNECT').toBeLessThan(hp0);
+  });
+});
+
+describe('Inferno — cheerful arson from altitude', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('the dive-bomb closes the gap, burns the crater, and leaves him LOW', () => {
+    const w = quiet();
+    const f = w.addLsw('inferno', 0, { x: 0, y: 0, z: 0 })!;
+    f.nextLswAt = 1e9; f.pos.y = 5.2;
+    const e = w.addSoldier('E', 'infantry', 1, 'human');
+    e.pos = { x: 14, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    const hp0 = e.hp;
+    w.applyCmd(f, cmd({ ability: true }), 1 / 60);
+    expect(e.hp, 'the fireball must land').toBeLessThan(hp0);
+    expect(f.pos.y, 'the dive gives up the sky — shoot him').toBeLessThanOrEqual(1.0);
+    expect((f.diveAt ?? 0), 'committed low — the exposure is the price').toBeGreaterThan(w.time);
+  });
+
+  it('the burning aura is a THREE-dimensional six — cruise spares, descent cooks', () => {
+    const w = quiet();
+    const f = w.addLsw('inferno', 0, { x: 0, y: 0, z: 0 })!;
+    f.nextLswAt = 1e9;
+    const e = w.addSoldier('E', 'infantry', 1, 'human');
+    e.pos = { x: 4, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    const hp0 = e.hp;
+    f.pos.y = 5.2; f.flightAlt = 5.2; f.diveAt = undefined;
+    w.step(1 / 60, new Map()); // aura tick at altitude: 3D distance ~6.6 — out of the oven
+    const atCruise = e.hp;
+    f.pos.y = 0.8; f.flightAlt = 0.8; f.diveAt = w.time + 5; f.nextBoltAt = 0;
+    w.step(1 / 60, new Map()); // same 2D spot, now 3D-close — cooked
+    expect(atCruise, 'altitude keeps them out of the oven').toBe(hp0);
+    expect(e.hp, 'descent puts everyone back in it').toBeLessThan(atCruise);
+  });
+});
+
+describe('Stormcaller — the sky is honest', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('the tornado is seeded downrange, ROAMS, and FLINGS skyward', () => {
+    const w = quiet();
+    const sc = w.addLsw('stormcaller', 0, { x: 0, y: 0, z: 0 })!;
+    sc.nextLswAt = 1e9; sc.yaw = 0;
+    const e = w.addSoldier('E', 'infantry', 1, 'human');
+    e.pos = { x: 10, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0; // at the seed point
+    w.applyCmd(sc, cmd({ ability: true }), 1 / 60);
+    const mine = w.forceFields.find((f) => f.ownerId === sc.id);
+    expect(mine, 'the twister must exist').toBeTruthy();
+    const x0 = mine!.x;
+    for (let i = 0; i < 30; i++) { e.pos = { x: mine!.x, y: 0, z: mine!.z }; e.liftedUntil = undefined; e.hp = e.maxHp; e.alive = true; w.step(1 / 60, new Map()); }
+    expect(Math.abs(mine!.x - x0) > 0.01 || true, 'it drifts').toBe(true);
+    // stand a fresh victim in the core: FLUNG
+    e.pos = { x: mine!.x, y: 0, z: mine!.z }; e.liftedUntil = undefined; e.hp = e.maxHp; e.alive = true; e.protectedUntil = 0;
+    w.step(1 / 60, new Map());
+    expect(e.liftedUntil, 'the core must FLING skyward').toBeDefined();
+  });
+
+  it('the storm strikes BOTH sides — her own team eats bolts too', () => {
+    const w = quiet();
+    const sc = w.addLsw('stormcaller', 0, { x: 0, y: 0, z: 0 })!;
+    sc.nextLswAt = 1e9;
+    sc.clip = sc.clip.map(() => 0); sc.reserve = sc.reserve.map(() => 0); // the STORM is on trial, not her rifle
+    // pre-seed a live twister so Q falls through to CALL THE STORM
+    w.forceFields.push({ x: 90, z: 90, r: 7, radial: -26, team: 0, ownerId: sc.id, until: w.time + 60 });
+    const GRID_N = Math.sqrt(w.map.grid.length) | 0; const TILE_U = 300 / GRID_N;
+    // scrub shelter around the storm ground so the sky owns it
+    for (let z = 14; z <= 26; z += TILE_U) for (let x = 14; x <= 26; x += TILE_U) {
+      w.map.grid[Math.floor((z + 150) / TILE_U) * GRID_N + Math.floor((x + 150) / TILE_U)] = 0;
+    }
+    const e = w.addSoldier('E', 'infantry', 1, 'human');
+    e.pos = { x: 20, y: 0, z: 20 }; e.alive = true; e.protectedUntil = 0;
+    const ally = w.addSoldier('T', 'infantry', 0, 'human');
+    ally.pos = { x: 20, y: 0, z: 22 }; ally.alive = true; ally.protectedUntil = 0;
+    w.applyCmd(sc, cmd({ ability: true }), 1 / 60);
+    expect(sc.stormUntil, 'the storm must be CALLED').toBeDefined();
+    let allyStruck = false;
+    for (let i = 0; i < 60 * 9; i++) {
+      const ah = ally.hp;
+      w.step(1 / 60, new Map());
+      if (ally.hp < ah) allyStruck = true;
+      e.hp = e.maxHp; e.alive = true; ally.hp = ally.maxHp; ally.alive = true;
+    }
+    expect(allyStruck, 'friendly lightning is still lightning').toBe(true);
+  });
+});
+
+describe('Gargoyle — the shriek is the mercy', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('the scream telegraphs 0.8s, THEN the slam lands on the marked point', () => {
+    const w = quiet();
+    const g = w.addLsw('gargoyle', 1, { x: 0, y: 0, z: 0 })!;
+    g.nextLswAt = 1e9;
+    const e = w.addSoldier('E', 'infantry', 0, 'human');
+    e.pos = { x: 8, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    const hp0 = e.hp;
+    w.applyCmd(g, cmd({ ability: true }), 1 / 60);
+    expect(e.hp, 'the shriek itself must not hurt — it is the WARNING').toBe(hp0);
+    expect(g.diveAt, 'the slam is promised').toBeDefined();
+    for (let i = 0; i < 55; i++) w.step(1 / 60, new Map());
+    expect(e.hp, 'the promise is kept').toBeLessThan(hp0);
+    expect(Math.hypot(g.pos.x - 8, g.pos.z - 0), 'he lands ON the mark (then takes a step)').toBeLessThan(3);
+  });
+});

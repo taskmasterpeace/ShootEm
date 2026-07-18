@@ -460,6 +460,9 @@ export class World {
   ascendSoldier(s: Soldier, id: AscendantId, at?: Vec3): boolean {
     if (!lswAllowed(this.mode.id) || !s.alive || s.ascendant) return false;
     if (LSWS[id].faction !== s.team) return false; // your stable, your body
+    // D3 (ratified): the TRUE-FLIGHT trio stays AI until the movement model
+    // earns Superman/Goku — no human hands on a flier yet.
+    if (LSWS[id].flies && s.kind === 'human') return false;
     for (const o of this.soldiers.values()) if (o.alive && o.team === s.team && o.ascendant) return false;
     const def = LSWS[id];
     const threat = THREAT[def.threat];
@@ -1947,15 +1950,25 @@ export class World {
   }
 
   /** Nearest airborne enemy aircraft inside the launcher's IR cone. */
-  samLockTarget(s: Soldier): Vehicle | null {
-    let best: Vehicle | null = null, bestD = SAM_LOCK_RANGE;
+  samLockTarget(s: Soldier): Vehicle | Soldier | null {
+    let best: Vehicle | Soldier | null = null, bestD = SAM_LOCK_RANGE;
+    const consider = (pos: Vec3, cand: Vehicle | Soldier) => {
+      const d = Math.hypot(pos.x - s.pos.x, pos.z - s.pos.z);
+      if (d >= bestD) return;
+      let da = Math.atan2(pos.z - s.pos.z, pos.x - s.pos.x) - s.yaw;
+      da = Math.atan2(Math.sin(da), Math.cos(da));
+      if (Math.abs(da) <= SAM_LOCK_CONE) { best = cand; bestD = d; }
+    };
     for (const v of this.vehicles.values()) {
       if (v.team === s.team || !this.vehicleAirborne(v)) continue;
-      const d = Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z);
-      if (d >= bestD) continue;
-      let da = Math.atan2(v.pos.z - s.pos.z, v.pos.x - s.pos.x) - s.yaw;
-      da = Math.atan2(Math.sin(da), Math.cos(da));
-      if (Math.abs(da) <= SAM_LOCK_CONE) { best = v; bestD = d; }
+      consider(v.pos, v);
+    }
+    // TRUE FLIGHT (§4.4 #5): an LSW under its own power IS an aircraft —
+    // the tube locks it the moment it's genuinely airborne
+    for (const e of this.soldiers.values()) {
+      if (!e.alive || e.team === s.team || e.ascendant === undefined) continue;
+      if (!LSWS[e.ascendant].flies || e.pos.y < 2.5) continue;
+      consider(e.pos, e);
     }
     return best;
   }
@@ -1964,16 +1977,17 @@ export class World {
    * Send the bird. Speed derives from the flyer's top speed at launch —
    * SAM_SPEED_RATIO keeps it ~8% slower, so straight flight always escapes.
    */
-  fireSamMissile(s: Soldier, target: Vehicle) {
+  fireSamMissile(s: Soldier, target: Vehicle | Soldier) {
     const def = WEAPONS.sam_missile;
     const speed = VEHICLES.flyer.speed * SAM_SPEED_RATIO;
     const yaw = Math.atan2(target.pos.z - s.pos.z, target.pos.x - s.pos.x);
+    const flesh = 'classId' in target; // a TRUE-FLIGHT LSW, not a hull
     const p: Projectile = {
       id: this.id(), weapon: 'sam_missile', ownerId: s.id, team: s.team,
       pos: { x: s.pos.x + Math.cos(yaw) * 0.8, y: s.pos.y + 1.6, z: s.pos.z + Math.sin(yaw) * 0.8 },
       vel: { x: Math.cos(yaw) * speed, y: 0, z: Math.sin(yaw) * speed },
       bornAt: this.time, ttl: def.range / speed, arc: false,
-      homingVehicleId: target.id,
+      ...(flesh ? { homingSoldierId: target.id } : { homingVehicleId: target.id }),
     };
     this.projectiles.set(p.id, p);
     this.emit({ type: 'shot', pos: { ...p.pos }, weapon: 'sam_missile', soldierId: s.id });
@@ -2014,21 +2028,26 @@ export class World {
     } else if (p.homingSoldierId !== undefined) {
       // Ragebeast's flesh hunts a SOLDIER — low, turn-rate capped: sidestep
       // hard and it overshoots. A dead or encased target frees the glob.
+      // A SAM on the same seam hunts a TRUE-FLIGHT LSW: full missile turn
+      // rate, chases the body's ALTITUDE — and a flier that dives below the
+      // lock floor shakes it (the deck is sanctuary, and the exposure).
       const e = this.soldiers.get(p.homingSoldierId);
       if (!e || !e.alive || e.encasedUntil !== undefined) { p.homingSoldierId = undefined; return false; }
-      if (Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) < 1.2) {
-        this.explode({ ...e.pos }, WEAPONS.flesh_glob, p.ownerId, p.team);
+      const sam = p.weapon === 'sam_missile';
+      if (sam && e.pos.y < 1.5) { p.homingSoldierId = undefined; return false; } // dove under the seeker head
+      if (Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) < (sam ? 1.6 : 1.2)) {
+        this.explode({ ...e.pos }, sam ? WEAPONS.sam_missile : WEAPONS.flesh_glob, p.ownerId, p.team);
         return true;
       }
       const speed = Math.hypot(p.vel.x, p.vel.z) || 1;
       const cur = Math.atan2(p.vel.z, p.vel.x);
       let da = Math.atan2(e.pos.z - p.pos.z, e.pos.x - p.pos.x) - cur;
       da = Math.atan2(Math.sin(da), Math.cos(da));
-      const maxTurn = 2.4 * dt; // slower than a SAM — dodgeable on foot
+      const maxTurn = (sam ? SAM_TURN_RATE : 2.4) * dt; // the glob is dodgeable on foot
       const yaw = cur + Math.max(-maxTurn, Math.min(maxTurn, da));
       p.vel.x = Math.cos(yaw) * speed;
       p.vel.z = Math.sin(yaw) * speed;
-      p.pos.y += (1.2 - p.pos.y) * Math.min(1, 6 * dt);
+      p.pos.y += ((sam ? e.pos.y + 1.0 : 1.2) - p.pos.y) * Math.min(1, 6 * dt);
       p.vel.y = 0;
       return false;
     } else {
@@ -2095,8 +2114,20 @@ export class World {
         s.nextFireAt = Math.max(s.nextFireAt, this.time + 0.6); // the staggered drop
       }
     }
+    // TRUE FLIGHT (§4.4 #5, the last shared mechanic): the three fliers move
+    // in the third dimension FOR REAL — the body climbs toward its commanded
+    // altitude, and above the wall tier the grid stops owning it. Exposure is
+    // the price (§ the doc's counter column): small arms live at chest
+    // height, so every attack run is a descent back into range.
+    const trueFlight = s.ascendant !== undefined && !!LSWS[s.ascendant].flies && s.liftedUntil === undefined;
+    if (trueFlight) {
+      const want = Math.max(0, s.flightAlt ?? 0);
+      s.pos.y += (want - s.pos.y) * Math.min(1, 4 * dt);
+      if (Math.abs(s.pos.y - want) < 0.05) s.pos.y = want;
+      s.vel.y = 0;
+    }
     // gravity + vertical (theme gravity: Europa jumps are glorious)
-    if (s.liftedUntil === undefined && (s.pos.y > 0 || s.vel.y > 0)) {
+    if (!trueFlight && s.liftedUntil === undefined && (s.pos.y > 0 || s.vel.y > 0)) {
       s.vel.y -= this.gravity * dt;
       s.pos.y = Math.max(0, s.pos.y + s.vel.y * dt);
       if (s.pos.y === 0) s.vel.y = 0;
@@ -2114,6 +2145,8 @@ export class World {
     const tHere = tileAt(this.map.grid, s.pos.x, s.pos.z);
     // …and rubble drags at the boots the same way: a breach is a lane, not a road
     let waterMult = tHere === T_DEEP ? 0.38 : tHere === T_WATER ? 0.55 : tHere === T_RUBBLE ? 0.6 : 1;
+    // a flier over water is OVER it — nothing drags a body that isn't wading
+    if (trueFlight && s.pos.y > 1.2) waterMult = 1;
     // TIME FIELDS: inside a hostile bubble, the world runs at mul — the
     // field's owner strolls through untouched
     if (this.timeFields.length) waterMult *= this.timeMulAt(s.pos.x, s.pos.z, s.id);
@@ -2127,6 +2160,8 @@ export class World {
     // absolute — the WALL tier belongs to nobody on foot.
     const airborne = s.pos.y > 0.9;
     const blocksAir = (x: number, z: number) => {
+      // TRUE FLIGHT: above the wall tier NOTHING on the grid blocks a flier
+      if (trueFlight && s.pos.y > 4.05) return false;
       const t = tileAt(this.map.grid, x, z);
       if (t === T_CLIMB) return s.pos.y <= CLIMB_H;
       return t === T_WALL || t === T_SLIT || t === T_METAL || t === T_DEEP;
@@ -3147,6 +3182,10 @@ export class World {
     // REAPER'S MARK: the hunter's own blows land DOUBLE on the hunted
     if (victim.markedUntil !== undefined && this.time < victim.markedUntil && attackerId === victim.markedBy) {
       dmg *= 2;
+    }
+    // GARGOYLE'S PERCH: stone takes half — until someone collapses the perch
+    if (victim.perchTile !== undefined && victim.ascendant === 'gargoyle') {
+      dmg *= 0.5;
     }
     // CHRONOS'S TEMPORAL ECHO (once per fight): a lethal hit doesn't land —
     // he SNAPS to where he stood ~3s ago (the breadcrumb the glow has been
