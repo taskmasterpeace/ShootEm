@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { LSWS } from '../src/sim/lsw';
-import { World } from '../src/sim/world';
 
 // LSW EMBODIMENT — the four fields (rig/prop/attackPose) plus the movement
 // tuning must hold for all 40 gods. This suite is the data-completeness gate

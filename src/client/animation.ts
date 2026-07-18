@@ -133,8 +133,11 @@ export const RECOIL_SCALE: Record<string, { kick: number; recover: number; flip:
 
 /** THE POWER-CAST SCHOOLS (feel pass #6): how a god throws a signature.
  *  SLAM — both arms overhead, driven down. THRUST — both arms punched
- *  forward (the default). CHANNEL — one arm held out, sustained. */
-export type CastSchool = 'slam' | 'thrust' | 'channel';
+ *  forward (the default). CHANNEL — one arm held out, sustained. The last
+ *  four are the LSW-embodiment attack poses (attackPose lower-cased):
+ *  LOB — overhand hurl. BRACE — cheek-weld + recoil. SHOULDER — launcher
+ *  shouldered. FLICK — fast low-tell snap. */
+export type CastSchool = 'slam' | 'thrust' | 'channel' | 'lob' | 'brace' | 'shoulder' | 'flick';
 export const CAST_SCHOOL: Record<string, CastSchool> = {
   titan: 'slam', crusher: 'slam', tremor: 'slam', ragebeast: 'slam',
   leviathan: 'slam', cataclysm: 'slam', gargoyle: 'slam', vanguard: 'slam',

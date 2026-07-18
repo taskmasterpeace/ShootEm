@@ -164,6 +164,7 @@ export function mountMatchup(root: HTMLElement): MatchupCtl {
     focusId = uf.id; // spectate the United Front god (camera follows the fight)
 
     const r = ensureRenderer();
+    r.resetTransient(); // fresh world, reused soldier ids — clear stale poses/recoil
     r.buildStaticWorld(w);
     r.replayView = false;
     r.killcamFocusId = -1;

@@ -10,9 +10,9 @@ import { audio, type SoundName } from './audio';
 import { BIOME_AUDIO } from './soundscape';
 import { settings } from './settings';
 import { Particles, FlashLights } from './effects';
-import { JOINT_NAMES, isUndead, poseSoldierJoints, CAST_SCHOOL, FLIGHT_POSES, RECOIL_SCALE, stepYawSpring, throwArmCurve, WEAPON_HOLDS, type GaitState } from './animation';
+import { JOINT_NAMES, isUndead, poseSoldierJoints, CAST_SCHOOL, FLIGHT_POSES, RECOIL_SCALE, stepYawSpring, throwArmCurve, WEAPON_HOLDS, type GaitState, type CastSchool } from './animation';
 import { chunkCount, drawChunks, drawGrade, drawNotches, drawNumber, makeRingMesh, RING_COLORS, ringChunkTexture, ringTier } from './ring';
-import { LSWS } from '../sim/lsw';
+import { LSWS, type LswDef } from '../sim/lsw';
 import { hash01 } from '../sim/rng';
 import { buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp, buildSoldier, buildTurretMesh, buildVehicle, dressAsLsw } from './models';
 
@@ -96,6 +96,15 @@ export const THEME_PALETTES: Record<string, ThemePalette> = {
   },
 };
 
+/** EMBODIMENT: the LSW's attackPose (on its def, upper-case) → the pose the
+ *  animator plays (CastSchool, lower-case). SLAM/CHANNEL/THRUST already ship
+ *  from the signature power-cast; LOB/BRACE/SHOULDER/FLICK are the four added
+ *  for regular attacks so a sniper braces, a thrower lobs, an assassin flicks. */
+const POSE_TO_SCHOOL: Record<NonNullable<LswDef['attackPose']>, CastSchool> = {
+  SLAM: 'slam', CHANNEL: 'channel', THRUST: 'thrust',
+  LOB: 'lob', BRACE: 'brace', SHOULDER: 'shoulder', FLICK: 'flick',
+};
+
 export class Renderer {
   scene = new THREE.Scene();
   camera: THREE.PerspectiveCamera;
@@ -149,7 +158,7 @@ export class Renderer {
   // melee feel: telegraph windows (arms up) keyed by attacker, and the arc slashes
   private meleeTelegraphs = new Map<number, { at: number; until: number }>();
   private throwPoses = new Map<number, { at: number; until: number }>();
-  private castPoses = new Map<number, { at: number; until: number; school: 'slam' | 'thrust' | 'channel' }>();
+  private castPoses = new Map<number, { at: number; until: number; school: CastSchool }>();
   private slashes: { mesh: THREE.Mesh; until: number }[] = [];
   // §19.2 sound-and-movement: footstep clocks for enemies you HEAR but can't
   // see, and the smudges their noise smears through the dark
@@ -1236,6 +1245,13 @@ export class Renderer {
         this.scene.remove(mesh);
         this.soldierMeshes.delete(s.id);
         mesh = undefined;
+        // this id now holds a DIFFERENT body (a mid-match ascension, or a
+        // harness re-pick reusing the id): drop its stale time-based transients
+        // so a leftover pose can't render with a garbage envelope on the newcomer
+        this.castPoses.delete(s.id);
+        this.throwPoses.delete(s.id);
+        this.meleeTelegraphs.delete(s.id);
+        this.recoilAt.delete(s.id);
       }
       if (!mesh) {
         mesh = buildSoldier(s.team, s.classId, s.kind);
@@ -2408,6 +2424,39 @@ export class Renderer {
     }
   }
 
+  /** EMBODIMENT (Task 4): play an LSW's attack pose when it fires or swings.
+   *  Sustained poses (channel/shoulder — beams, launchers) hold while firing;
+   *  one-shot poses (slam/thrust/lob/brace/flick) fire once per motion — a
+   *  melee windup sets it and the strike that follows finds it live and doesn't
+   *  restart it, so the swing telegraphs before it lands. Shares the castPoses
+   *  map with the signature power-cast, so there's one pose code path. */
+  private setLswPose(s: Soldier, now: number) {
+    const asc = s.ascendant;
+    if (!asc) return;
+    const pose = LSWS[asc].attackPose;
+    if (!pose) return;
+    const school = POSE_TO_SCHOOL[pose];
+    const sustained = school === 'channel' || school === 'shoulder';
+    const cur = this.castPoses.get(s.id);
+    if (cur && now < cur.until) {
+      if (sustained) cur.until = Math.max(cur.until, now + 0.4); // keep the channel held out
+      return; // one motion at a time — never restart a pose already playing
+    }
+    this.castPoses.set(s.id, { at: now, until: now + 0.42, school });
+  }
+
+  /** Drop all time-based per-entity transients (poses, recoil, telegraphs).
+   *  Call when a fresh World replaces the old one (the harness re-pick) so no
+   *  entry keyed by a reused soldier id renders against the new world's clock —
+   *  otherwise a leftover pose plays with a negative envelope on the newcomer. */
+  resetTransient(): void {
+    this.castPoses.clear();
+    this.throwPoses.clear();
+    this.meleeTelegraphs.clear();
+    this.recoilAt.clear();
+    this.vehRecoilAt.clear();
+  }
+
   private animateSoldier(mesh: THREE.Group, s: Soldier, world: World) {
     const j = mesh.userData.joints as Record<string, THREE.Object3D | undefined>;
     const t = world.time;
@@ -2635,6 +2684,30 @@ export class Renderer {
           } else if (cp.school === 'channel') {
             if (j.armR) j.armR.rotation.z += 1.5 * env;
             if (j.torso) j.torso.rotation.z += -0.12 * env;
+          } else if (cp.school === 'lob') {
+            // overhand hurl: the throwing arm cocks back over the shoulder, then
+            // whips down-and-forward; the torso leans back then drives through
+            const cock = Math.min(1, k / 0.4);
+            const whip = Math.max(0, (k - 0.4) / 0.6);
+            if (j.armR) j.armR.rotation.z += 2.8 * cock - 3.3 * whip;
+            if (j.armL) j.armL.rotation.z += 0.6 * cock;
+            if (j.torso) j.torso.rotation.x += -0.3 * cock + 0.45 * whip;
+          } else if (cp.school === 'brace') {
+            // cheek-weld both arms to the eye line, hard recoil shove at the shot
+            const kick = Math.max(0, 1 - k / 0.3);
+            if (j.armL) j.armL.rotation.z += 1.2;
+            if (j.armR) j.armR.rotation.z += 1.2;
+            if (j.torso) j.torso.rotation.x += -0.22 * kick;
+          } else if (cp.school === 'shoulder') {
+            // launcher up on the shoulder — both arms raised and braced, small kick
+            const kick = Math.max(0, 1 - k / 0.35);
+            if (j.armL) j.armL.rotation.z += 0.9;
+            if (j.armR) j.armR.rotation.z += 1.5;
+            if (j.torso) j.torso.rotation.x += -0.12 * kick;
+          } else if (cp.school === 'flick') {
+            // fast, low-tell snap of the throwing arm — no big wind-up (assassins)
+            const snap = Math.sin(Math.min(1, k / 0.4) * Math.PI);
+            if (j.armR) j.armR.rotation.z += 1.1 * snap;
           } else {
             const punch = Math.min(1, k / 0.25) * (1 - Math.max(0, (k - 0.7) / 0.3));
             if (j.armL) j.armL.rotation.z += 1.9 * punch;
@@ -2836,9 +2909,12 @@ export class Renderer {
             else this.recoilAt.set(e.soldierId, world.time);
             // THE GRENADE THROW (feel pass #3): a lobbed family starts the
             // wind-up → whip → settle on the shooter's right arm
-            if (def.family === 'grenade') {
+            if (def.family === 'grenade' && !shooter?.ascendant) {
               this.throwPoses.set(e.soldierId, { at: world.time, until: world.time + 0.45 });
             }
+            // EMBODIMENT (Task 4): an LSW plays its own attack pose on every
+            // shot — the sniper braces, the thrower lobs, the beam-god channels
+            if (shooter?.ascendant) this.setLswPose(shooter, world.time);
           }
           // rifle has two takes — alternate at random so sustained fire varies
           let shotSnd = def.sound as SoundName;
@@ -2890,6 +2966,9 @@ export class Renderer {
           const rof = e.weapon ? WEAPONS[e.weapon]?.rof ?? 1.2 : 1.2;
           const windup = Math.min(meleeWindupFor(attacker?.kind ?? 'zombie'), 0.8 / rof);
           this.meleeTelegraphs.set(e.soldierId, { at: world.time, until: world.time + windup });
+          // EMBODIMENT (Task 4): a melee LSW starts its swing HERE (the windup),
+          // so the SLAM/blade arc reads before the strike lands
+          if (attacker?.ascendant) this.setLswPose(attacker, world.time);
           if (e.pos) audio.play('claw', { pos: e.pos, volume: 0.3 });
           break;
         }
