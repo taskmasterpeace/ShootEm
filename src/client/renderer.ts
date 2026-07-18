@@ -10,7 +10,7 @@ import { audio, type SoundName } from './audio';
 import { BIOME_AUDIO } from './soundscape';
 import { settings } from './settings';
 import { Particles, FlashLights } from './effects';
-import { JOINT_NAMES, isUndead, poseSoldierJoints, type GaitState } from './animation';
+import { JOINT_NAMES, isUndead, poseSoldierJoints, RECOIL_SCALE, WEAPON_HOLDS, type GaitState } from './animation';
 import { hash01 } from '../sim/rng';
 import { buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp, buildSoldier, buildTurretMesh, buildVehicle, dressAsLsw } from './models';
 
@@ -145,6 +145,7 @@ export class Renderer {
   private wpPillars: THREE.Mesh[] = [];                     // pooled waypoint light pillars
   // melee feel: telegraph windows (arms up) keyed by attacker, and the arc slashes
   private meleeTelegraphs = new Map<number, { at: number; until: number }>();
+  private throwPoses = new Map<number, { at: number; until: number }>();
   private slashes: { mesh: THREE.Mesh; until: number }[] = [];
   // §19.2 sound-and-movement: footstep clocks for enemies you HEAR but can't
   // see, and the smudges their noise smears through the dark
@@ -1383,7 +1384,20 @@ export class Renderer {
       }
       // DUCK (finish-list 18): the silhouette folds -- head below the grass line
       if (s.crouching && !s.ascendant && s.pos.y < 0.5) mesh.position.y -= 0.5;
-      mesh.rotation.y = -s.yaw; // sim yaw is math-angle on XZ; three rotates opposite
+      // THE TURN (feel pass #1): the body CATCHES UP to the aim instead of
+      // teleporting to it. A per-soldier yaw spring: fast while moving,
+      // measured at rest — and the head LEADS the body (animateSoldier picks
+      // up yawDiff below), which is what sells "he's turning" over "statue
+      // on a lazy susan". Sim yaw is math-angle on XZ; three rotates opposite.
+      {
+        const ys = (mesh.userData.yaw ??= { v: -s.yaw }) as { v: number };
+        const wrapA = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+        const diff = wrapA(-s.yaw - ys.v);
+        const movingHere = Math.hypot(s.vel.x, s.vel.z) > 0.6;
+        ys.v += diff * Math.min(1, this.frameDt * (movingHere ? 11 : 7));
+        mesh.rotation.y = ys.v;
+        mesh.userData.yawDiff = diff;
+      }
       this.animateSoldier(mesh, s, world);
       if (s.ascendant) this.lswAura(mesh, s, world);
       if (s.encasedUntil !== undefined || this.iceBlocks.has(s.id)) this.updateIceBlock(s);
@@ -2442,6 +2456,13 @@ export class Renderer {
       }
     }
 
+    // THE HEAD LEADS THE TURN (feel pass #1): while the body spring is
+    // catching up, the head has already arrived — the overshoot IS the read.
+    if (j.head && !zed) {
+      const yawDiff = (mesh.userData.yawDiff as number | undefined) ?? 0;
+      j.head.rotation.y = Math.max(-0.6, Math.min(0.6, yawDiff));
+    }
+
     // body: bob while moving, breathe while idle, lean into the run
     const bob = moving ? Math.abs(Math.sin(phase)) * 0.055 : Math.sin(t * 1.8 + s.id) * 0.012;
     mesh.position.y = s.pos.y + bob;
@@ -2474,6 +2495,7 @@ export class Renderer {
     // return to the two-handed hold. Blended, never snapped — and it runs
     // for EVERY living soldier, Robert's GLB bodies and the procedural
     // troopers alike.
+    let carryBlend = 0; // hoisted for the per-weapon holds below
     if (!zed && s.kind !== 'scientist' && (j.armL || j.armR)) {
       const rest = (mesh.userData.armRest ??= {
         L: j.armL?.rotation.z ?? -0.75,
@@ -2485,6 +2507,7 @@ export class Renderer {
       const blend = (mesh.userData.runBlend ??= { v: 0 }) as { v: number };
       blend.v += ((running ? 1 : 0) - blend.v) * Math.min(1, this.frameDt * 7);
       const b = blend.v;
+      carryBlend = b;
       const pump = Math.sin(phase) * 0.42 * Math.min(1, speed / 6);
       // arms counter the legs (legL is +sin): hold-pose eases off as b rises
       if (j.armL) j.armL.rotation.z = rest.L * (1 - b * 0.7) + -pump * b;
@@ -2496,12 +2519,59 @@ export class Renderer {
       }
     }
 
-    // rifle recoil kick for the living gunners (undead reach lives in the shared pose)
+    // ---- PER-WEAPON HOLDS (feel pass #2): the silhouette says what's in
+    // the hands before the tracer does. Additive on the solved grip; the
+    // sprint carry fades them, the fight brings them back.
+    if (!zed && s.kind !== 'scientist' && j.gun) {
+      const fam = WEAPONS[s.weapons[s.weaponIdx]]?.family ?? 'rifle';
+      const hold = WEAPON_HOLDS[fam] ?? WEAPON_HOLDS.rifle;
+      if (hold.hideGun) {
+        j.gun.visible = false; // unarmed — arms swing free (zed-style, but human)
+      } else {
+        j.gun.visible = true;
+        const wgt = 1 - carryBlend * 0.8;
+        if (j.armL) j.armL.rotation.z += hold.armL * wgt;
+        if (j.armR) j.armR.rotation.z += hold.armR * wgt;
+        const baseY = (j.gun.userData.holdBaseY ??= j.gun.position.y) as number;
+        const baseZ = (j.gun.userData.holdBaseZ ??= j.gun.position.z) as number;
+        j.gun.position.y = baseY + hold.gunY * wgt;
+        j.gun.position.z = baseZ + hold.gunZ * wgt;
+        j.gun.rotation.z += hold.gunRotZ * wgt;
+        if (hold.torsoX && j.torso) j.torso.rotation.x += hold.torsoX * wgt;
+      }
+    }
+
+    // ---- THE GRENADE THROW (feel pass #3): wind back, whip, settle. The
+    // right arm sells the lob; the gun rides the left while it's out.
+    if (!zed && j.armR) {
+      const tp = this.throwPoses.get(s.id);
+      if (tp) {
+        if (t > tp.until) this.throwPoses.delete(s.id);
+        else {
+          const span = tp.until - tp.at;
+          const k = Math.min(1, (t - tp.at) / span);       // 0..1 through the motion
+          let arm = 0;
+          if (k < 0.44) arm = -0.9 * (k / 0.44);                            // wind back
+          else if (k < 0.77) arm = -0.9 + 3.2 * easeOutBack((k - 0.44) / 0.33); // whip through (overshoots)
+          else arm = 2.3 * (1 - (k - 0.77) / 0.23);                         // settle to rest
+          j.armR.rotation.z += arm;
+          if (j.gun) j.gun.position.y -= 0.08 * (1 - k); // rides low on the left hand
+        }
+      }
+    }
+
+    // rifle recoil kick for the living gunners — SCALED BY FAMILY (feel pass
+    // #4): a slugger's whole torso shoves and takes 0.35s to recover; a
+    // shotgun kicks hard; an SMG just shivers.
     if (!zed && j.gun) {
+      const fam = WEAPONS[s.weapons[s.weaponIdx]]?.family ?? 'rifle';
+      const rs = RECOIL_SCALE[fam] ?? RECOIL_SCALE.rifle;
       const shotAt = this.recoilAt.get(s.id) ?? -1;
-      const kick = Math.max(0, 1 - (t - shotAt) / 0.09);
-      j.gun.position.x = (j.gun.userData.baseX ?? 0.42) - kick * 0.11;
-      if (j.torso) j.torso.rotation.z = -kick * 0.05;
+      const kick = Math.max(0, 1 - (t - shotAt) / rs.recover);
+      const shiver = fam === 'smg' && t - shotAt < 0.3 ? Math.sin(t * 90) * 0.012 : 0;
+      j.gun.position.x = (j.gun.userData.baseX ?? 0.42) - kick * 0.11 * rs.kick;
+      j.gun.rotation.z += kick * rs.flip + shiver;
+      if (j.torso) j.torso.rotation.z = -kick * 0.05 * rs.kick;
     }
 
     this.setAlpha(mesh, alpha);
@@ -2656,6 +2726,11 @@ export class Renderer {
             const shooter = world.soldiers.get(e.soldierId);
             if (shooter && shooter.vehicleId >= 0) this.vehRecoilAt.set(shooter.vehicleId, world.time);
             else this.recoilAt.set(e.soldierId, world.time);
+            // THE GRENADE THROW (feel pass #3): a lobbed family starts the
+            // wind-up → whip → settle on the shooter's right arm
+            if (def.family === 'grenade') {
+              this.throwPoses.set(e.soldierId, { at: world.time, until: world.time + 0.45 });
+            }
           }
           // rifle has two takes — alternate at random so sustained fire varies
           let shotSnd = def.sound as SoundName;

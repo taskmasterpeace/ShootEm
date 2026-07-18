@@ -79,6 +79,58 @@ export interface GaitPose {
   growl: boolean;
 }
 
+// ---------------------------------------------------------------------------
+// THE HOLD LIBRARY (feel pass #2) — additive arm/gun offsets per weapon
+// family, applied by the renderer over the solved grip. The silhouette says
+// what's in the hands before the tracer does.
+// ---------------------------------------------------------------------------
+export interface HoldDef {
+  /** additive z-swing on each arm (radians) */
+  armL: number; armR: number;
+  /** additive gun offsets (units / radians) */
+  gunY: number; gunZ: number; gunRotZ: number;
+  /** extra torso pitch for heavy braced carries */
+  torsoX?: number;
+  /** unarmed — the gun hides and the arms swing free */
+  hideGun?: boolean;
+}
+
+export const WEAPON_HOLDS: Record<string, HoldDef> = {
+  rifle: { armL: 0, armR: 0, gunY: 0, gunZ: 0, gunRotZ: 0 },          // the solved shoulder carry
+  carbine: { armL: 0, armR: 0, gunY: 0, gunZ: 0, gunRotZ: 0 },
+  pistol: { armL: 1.35, armR: 1.35, gunY: 0.12, gunZ: 0, gunRotZ: 0 }, // isosceles, eye line
+  shotgun: { armL: 0.3, armR: 0.1, gunY: -0.05, gunZ: 0, gunRotZ: -0.06 }, // low and level
+  slugger: { armL: 0.1, armR: 0, gunY: -0.08, gunZ: 0, gunRotZ: -0.04 },   // long low-ready
+  laser: { armL: -0.1, armR: -0.15, gunY: -0.22, gunZ: 0.04, gunRotZ: 0, torsoX: -0.07 }, // hip-braced, leaned back
+  lmg: { armL: -0.1, armR: -0.15, gunY: -0.22, gunZ: 0.04, gunRotZ: 0, torsoX: -0.07 },
+  hmg: { armL: -0.1, armR: -0.15, gunY: -0.22, gunZ: 0.04, gunRotZ: 0, torsoX: -0.07 },
+  at_rocket: { armL: 0.2, armR: 0.35, gunY: 0.24, gunZ: -0.1, gunRotZ: 0.1 },  // shouldered
+  ap_rocket: { armL: 0.2, armR: 0.35, gunY: 0.24, gunZ: -0.1, gunRotZ: 0.1 },
+  mortar: { armL: 0.2, armR: 0.35, gunY: 0.24, gunZ: -0.1, gunRotZ: 0.1 },
+  grenade: { armL: 0.15, armR: 0.3, gunY: -0.06, gunZ: 0, gunRotZ: -0.03 }, // lobber's cradle
+  melee: { armL: 0, armR: 0, gunY: 0, gunZ: 0, gunRotZ: 0, hideGun: true },
+  special: { armL: 0, armR: 0, gunY: 0, gunZ: 0, gunRotZ: 0 },
+};
+
+/** recoil personality per family (feel pass #4): kick multiplier, recovery
+ *  window, and muzzle flip — a slugger's whole torso shoves for 0.35s, an
+ *  SMG barely shrugs. */
+export const RECOIL_SCALE: Record<string, { kick: number; recover: number; flip: number }> = {
+  rifle: { kick: 1, recover: 0.09, flip: 0 },
+  carbine: { kick: 0.9, recover: 0.09, flip: 0 },
+  pistol: { kick: 1.2, recover: 0.1, flip: 0.35 },
+  shotgun: { kick: 2.2, recover: 0.16, flip: 0.2 },
+  slugger: { kick: 2.6, recover: 0.35, flip: 0.1 },
+  laser: { kick: 0.5, recover: 0.06, flip: 0 },
+  smg: { kick: 0.6, recover: 0.05, flip: 0.06 },
+  lmg: { kick: 1.4, recover: 0.12, flip: 0.04 },
+  hmg: { kick: 1.6, recover: 0.14, flip: 0.05 },
+  at_rocket: { kick: 2.0, recover: 0.3, flip: 0.15 },
+  ap_rocket: { kick: 2.0, recover: 0.3, flip: 0.15 },
+  mortar: { kick: 2.4, recover: 0.35, flip: 0.1 },
+  grenade: { kick: 0.4, recover: 0.08, flip: 0 },
+};
+
 /**
  * Pose a soldier's limb joints for one frame of the alive gait (and, for the
  * undead, the reaching arms / lolling head / breathing belly). Mutates only the
