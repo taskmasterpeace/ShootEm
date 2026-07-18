@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import { BUILDINGS, generateDistrict, generateHouse, stampBuilding, stencilConnected, type DistrictType, type StampCtx } from '../src/sim/buildings';
 import {
-  GRID, T_DEEP, T_METAL, T_WATER, TILE, WORLD, generateMap, isBlocked,
+  GRID, T_DEEP, T_WATER, TILE, WORLD, generateMap, isBlocked,
 } from '../src/sim/map';
 import { Rng } from '../src/sim/rng';
 import { VEHICLES } from '../src/sim/data';

@@ -10,7 +10,7 @@ import {
 } from '../sim/map';
 import { BUILDINGS, generateHouse, type BuildingDef, type DynHouseType } from '../sim/buildings';
 import { Rng } from '../sim/rng';
-import type { AscendantId, ClassId, ModeId, SoldierKind, Team, ThemeId, WeaponDef, WeaponFamily, WeaponId, ZedKind } from '../sim/types';
+import type { AscendantId, ClassId, ModeId, SoldierKind, Team, ThemeId, WeaponDef, WeaponId, ZedKind } from '../sim/types';
 import { JOINT_NAMES, poseSoldierJoints, type GaitState, type Joints } from '../client/animation';
 import {
   buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp,

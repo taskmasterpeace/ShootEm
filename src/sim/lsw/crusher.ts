@@ -32,7 +32,6 @@ function charge(w: World, s: Soldier): boolean {
   }
   if (!traveled) return false;
   // bulldoze whoever stood in the lane
-  let hit = 0;
   for (const e of w.soldiers.values()) {
     if (!e.alive || e.team === s.team || e.id === s.id || e.encasedUntil !== undefined) continue;
     const ex = e.pos.x - s.pos.x, ez = e.pos.z - s.pos.z;
@@ -41,7 +40,6 @@ function charge(w: World, s: Soldier): boolean {
     if (Math.abs(ex * fz - ez * fx) > 1.6) continue;
     w.damageSoldier(e, 55, s.id, 'gl');
     e.pushX += fx * 30; e.pushZ += fz * 30;
-    hit++;
   }
   s.pos = { x: s.pos.x + fx * traveled, y: 0, z: s.pos.z + fz * traveled };
   s.vel = { x: 0, y: 0, z: 0 };

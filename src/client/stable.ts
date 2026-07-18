@@ -87,7 +87,7 @@ export class StableConsole {
     }
   }
 
-  toggle() { this.open ? this.hide() : this.show(); }
+  toggle() { if (this.open) this.hide(); else this.show(); }
   show() { this.open = true; this.render(); this.el.style.display = 'block'; }
   hide() { this.open = false; this.el.style.display = 'none'; }
   dispose() { window.removeEventListener('keydown', this.onKey); this.el.remove(); }

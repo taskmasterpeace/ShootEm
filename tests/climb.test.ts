@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import { THEMES } from '../src/sim/data';
 import {
-  CLIMB_H, DRILL_EATS, GRID, T_CLIMB, T_METAL, T_OPEN, T_WALL, TILE, WORLD,
+  CLIMB_H, DRILL_EATS, GRID, T_CLIMB, T_METAL, T_OPEN, TILE, WORLD,
   blocksShot, generateMap, isBlocked, losClear,
 } from '../src/sim/map';
 import type { PlayerCmd, ThemeId } from '../src/sim/types';

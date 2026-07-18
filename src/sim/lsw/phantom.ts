@@ -4,7 +4,7 @@
 // possesses a BOT / turret / vehicle for 3s — never a human (the law).
 // K9 noses smell him: a dog near the exit blows the strike (§ counter).
 // ---------------------------------------------------------------------------
-import { GRID, T_OPEN, T_RUBBLE, TILE, WORLD, tileAt } from '../map';
+import { T_OPEN, T_RUBBLE, TILE, WORLD, tileAt } from '../map';
 import type { Soldier, Turret, Vehicle } from '../types';
 import type { World } from '../world';
 

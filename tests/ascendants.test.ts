@@ -102,7 +102,7 @@ describe('Plaguebearer — the cloud', () => {
 
   it('infects a crewed enemy hull — the plague wagon trails poison as it drives', () => {
     const w = new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
-    const pb = w.addLsw('plaguebearer', 1, { x: 0, y: 0, z: 0 })!;
+    void w.addLsw('plaguebearer', 1, { x: 0, y: 0, z: 0 })!;
     const v = w.spawnVehicle('tank', 0, { x: 6, y: 0, z: 0 });
     const driver = w.addSoldier('D', 'infantry', 0, 'bot');
     driver.pos = { x: 60, y: 0, z: 60 }; // out of the cloud's way
@@ -1010,7 +1010,7 @@ describe('Gravity Warden — the weight license', () => {
 
   it('the pull-then-slam: the tug telegraphs, then the slam cashes around him', () => {
     const w = quiet();
-    const g = w.addLsw('gravwarden', 0, { x: 0, y: 0, z: 0 })!;
+    void w.addLsw('gravwarden', 0, { x: 0, y: 0, z: 0 })!;
     const e = w.addSoldier('E', 'infantry', 1, 'human');
     e.pos = { x: 6, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
     w.step(1 / 60, new Map([[e.id, cmd()]])); // the bot arms the pull
@@ -1127,7 +1127,7 @@ describe('Pyroclasm — the threshold', () => {
 
   it('a molten rock leaves a burning pool where it lands', () => {
     const w = quiet();
-    const p = w.addLsw('pyroclasm', 1, { x: 0, y: 0, z: 0 })!;
+    void w.addLsw('pyroclasm', 1, { x: 0, y: 0, z: 0 })!;
     const e = w.addSoldier('E', 'infantry', 0, 'human');
     e.pos = { x: 15, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
     for (let i = 0; i < 60 * 4; i++) w.step(1 / 60, new Map([[e.id, cmd()]]));
@@ -1369,7 +1369,7 @@ describe('Nightmare — the liar', () => {
     w.applyCmd(n, cmd({ ability: true }), 1 / 60);
     expect(e.blindUntil, 'the blind never landed').toBeGreaterThan(w.time);
     // while blind, the bot never fires at the nightmare standing in the open
-    const f0 = w.projectiles.size;
+    void w.projectiles.size;
     for (let i = 0; i < 30; i++) w.step(1 / 60, new Map());
     // (his rifle may be silent for other reasons; the LAW is the flag + expiry)
     for (let i = 0; i < 60 * 3; i++) w.step(1 / 60, new Map());

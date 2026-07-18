@@ -7,7 +7,6 @@ import { DOCTRINE, stepBot } from '../src/sim/bots';
 import { GRID, T_DOOR, T_OPEN, T_WALL, TILE, WORLD } from '../src/sim/map';
 import { applySnapshot, takeSnapshot } from '../src/sim/snapshot';
 import { WEAPONS } from '../src/sim/data';
-import type { Soldier } from '../src/sim/types';
 import { DOOR_HP, World } from '../src/sim/world';
 
 const toWorld = (t: number) => (t + 0.5) * TILE - WORLD / 2;

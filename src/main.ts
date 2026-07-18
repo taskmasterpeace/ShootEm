@@ -18,7 +18,7 @@ import { NetGame } from './client/net';
 import { KILLCAM_CAM, MATCH_LINGER_LOCAL_MS, ReplayDirector } from './client/replay';
 import { MatchTracker, RANKS, loadDossier, rankFor, saveDossier, type Dossier } from './client/record';
 import { FRONTS, SCAR_TEXT, applyResult, bandOf, checkSeasonEnd, loadCampaign, saveCampaign, simulateTimeSkip, type Campaign } from './client/campaign';
-import { RangeCourse, gradeFor, loadWall } from './client/range';
+import { RangeCourse, loadWall } from './client/range';
 import { loadSettings, saveSettings, settings, type BloodLevel } from './client/settings';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -462,7 +462,7 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     const packSize = 3;
     if (pb.role === 'hunter') {
       for (let i = 0; i < packSize - 1; i++) world.addSoldier(wrap(n++), 'infantry', 0, 'bot', { primary: 'marker_blitz' });
-      world.addSoldier(wrap(n++), 'infantry', 1, 'bot', { primary: 'marker_pump' });
+      world.addSoldier(wrap(n), 'infantry', 1, 'bot', { primary: 'marker_pump' });
     } else {
       for (let i = 0; i < packSize; i++) world.addSoldier(wrap(n++), 'infantry', 1, 'bot', { primary: 'marker_blitz' });
     }
@@ -738,7 +738,7 @@ function renderBarracks() {
         const q = d.quals.infantry;
         const wall = loadWall();
         const top = wall.slice(0, 5).map((w, i) =>
-          `<div class="bk-stat-row"><span>#${i + 1} ${w.callsign}${w.official ? '' : ' <em style=\"opacity:0.6\">(practice)</em>'}</span><b>${w.score}</b></div>`).join('');
+          `<div class="bk-stat-row"><span>#${i + 1} ${w.callsign}${w.official ? '' : ' <em style="opacity:0.6">(practice)</em>'}</span><b>${w.score}</b></div>`).join('');
         return `${q
           ? `<p style="margin-bottom:0.4rem">🎖 <b>Infantry — ${q.grade}</b> · ${q.score} pts · ${q.percentile}th percentile<br><span class="bk-empty">official attempt, ${new Date(q.firstAttemptAt).toLocaleDateString()} — the Wall never forgets your first</span></p>`
           : '<p class="bk-empty" style="margin-bottom:0.4rem">Infantry course: unqualified. Practice free — the official run is one shot, forever (18B).</p>'}

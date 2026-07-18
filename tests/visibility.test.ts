@@ -9,13 +9,7 @@ import { GRID, T_OPEN, T_SLIT, T_WALL, TILE, WORLD } from '../src/sim/map';
 import { SEEN_LINGER } from '../src/sim/perception';
 import { cullSnapshotFor, takeSnapshot } from '../src/sim/snapshot';
 import { World } from '../src/sim/world';
-import type { PlayerCmd } from '../src/sim/types';
 
-const cmd = (over: Partial<PlayerCmd> = {}): PlayerCmd => ({
-  moveX: 0, moveZ: 0, aimYaw: 0, fire: false, altFire: false, jump: false,
-  use: false, ability: false, reload: false, grenade: false, weaponSlot: -1,
-  ...over,
-});
 
 const at = (t: number) => (t + 0.5) * TILE - WORLD / 2; // tile center → world
 

@@ -86,7 +86,6 @@ describe('threat, measured — every unit vs its designated answer', () => {
   }
 
   it('— the measured table (what the doc carries) —', () => {
-    // eslint-disable-next-line no-console
     console.log('\nTHREAT MEASURED (designated answers, seed 42):\n' + rows.join('\n'));
     expect(rows.length).toBe(ids.length);
   });

@@ -106,12 +106,11 @@ describe('the map-foundation pass (35B)', () => {
     for (const seed of [7, 42]) {
       const m = generateMap(seed, 'tdm', 'savanna');
       expect(m.houses.length).toBeGreaterThanOrEqual(6); // 3 mirrored pairs
-      let mapSlits = 0;
       for (const h of m.houses) {
         let interiorCover = 0, interiorPickup = 0;
         for (let z = h.tz; z < h.tz + h.th; z++)
           for (let x = h.tx; x < h.tx + h.tw; x++) {
-            if (m.grid[z * GRID + x] === T_SLIT) mapSlits++;
+            if (m.grid[z * GRID + x] === T_SLIT) { /* slits counted by the atlas, not here */ }
             if (m.grid[z * GRID + x] === T_COVER && m.propCovered.includes(z * GRID + x)) interiorCover++;
           }
         for (const p of m.pickups) {

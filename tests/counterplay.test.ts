@@ -328,7 +328,7 @@ describe('counterplay — wave 2, fourth batch', () => {
     const b = w.addLsw('blitz', 0, { x: 0, y: 0, z: 0 })!; b.yaw = 0;
     // nobody in reach — the dash whiffs, no teleport, no cut
     const before = { ...b.pos };
-    const fired = w.applyCmd(b, cmd({ ability: true }), 1 / 60);
+    w.applyCmd(b, cmd({ ability: true }), 1 / 60);
     expect(b.nextLswActiveAt ?? 0, 'a whiff burned the cooldown').toBe(0);
     expect(Math.hypot(b.pos.x - before.x, b.pos.z - before.z), 'a whiff must not blink him around').toBeLessThan(0.1);
   });

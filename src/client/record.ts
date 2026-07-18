@@ -262,7 +262,7 @@ export class MatchTracker {
   }
 
   /** Merge tracker state into a dossier object (pure — used by checkpoints and finalize). */
-  private foldInto(d: Dossier, world: World, meId: number, won: boolean | null): Dossier {
+  private foldInto(d: Dossier, world: World, meId: number, _won: boolean | null): Dossier {
     const meS = world.soldiers.get(meId);
     const scoreDelta = meS && this.startScore >= 0 ? Math.max(0, meS.score - this.startScore) : 0;
     d.lifetime.kills += this.kills;

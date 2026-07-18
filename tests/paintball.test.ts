@@ -4,7 +4,7 @@
 // three points or survives the clock; the pack paints them out.
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
-import { GRID, PAINTBALL_FIELDS, T_OPEN, generatePaintballField, isBlocked, tileAt } from '../src/sim/map';
+import { PAINTBALL_FIELDS, T_OPEN, generatePaintballField, isBlocked, tileAt } from '../src/sim/map';
 import { WEAPONS } from '../src/sim/data';
 import { World } from '../src/sim/world';
 import type { PlayerCmd } from '../src/sim/types';

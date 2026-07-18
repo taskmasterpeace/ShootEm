@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { BUILDINGS, buildingsFor, isLegalStencilChar, mirrorDef, stampBuilding } from '../src/sim/buildings';
 import {
-  GRID, T_COVER, T_DOOR, T_DOOR_OPEN, T_METAL, T_SLIT, T_WALL, TILE, WORLD,
+  GRID, T_DOOR, T_DOOR_OPEN, T_METAL, T_SLIT, T_WALL, TILE, WORLD,
   blocksShot, isBlocked,
 } from '../src/sim/map';
 import { THEMES } from '../src/sim/data';
