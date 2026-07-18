@@ -154,7 +154,7 @@ export interface Vec3 {
   z: number;
 }
 
-export type SoldierKind = 'human' | 'bot' | 'dog' | 'zombie' | 'spitter' | 'brute' | 'sprinter' | 'bomber' | 'stalker' | 'scientist';
+export type SoldierKind = 'human' | 'bot' | 'dog' | 'zombie' | 'spitter' | 'brute' | 'sprinter' | 'bomber' | 'stalker' | 'scientist' | 'scraprat' | 'junkhound' | 'weaver' | 'ravager';
 
 export type ZedKind = 'zombie' | 'spitter' | 'brute' | 'sprinter' | 'bomber' | 'stalker';
 
@@ -162,6 +162,17 @@ const ZED_KINDS: ReadonlySet<string> = new Set(['zombie', 'spitter', 'brute', 's
 
 export function isZed(k: SoldierKind): k is ZedKind {
   return ZED_KINDS.has(k);
+}
+
+/** THE IRON EATERS (DD §20, finish-list 12): junk that learned a body plan.
+ *  Where the Outbreak eats flesh, these eat METAL -- and they molt: plated
+ *  scrap sheds under fire, then the exposed frame takes DOUBLE and runs hot. */
+export type IronKind = 'scraprat' | 'junkhound' | 'weaver' | 'ravager';
+
+const IRON_KINDS: ReadonlySet<string> = new Set(['scraprat', 'junkhound', 'weaver', 'ravager']);
+
+export function isIron(k: SoldierKind): k is IronKind {
+  return IRON_KINDS.has(k);
 }
 
 export interface Soldier {

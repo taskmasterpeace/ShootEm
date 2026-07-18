@@ -1,4 +1,4 @@
-import { CLASSES, DOG_NAMES, DOG_STATS, EQUIPMENT, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
+import { CLASSES, DOG_NAMES, DOG_STATS, EQUIPMENT, IRON_STATS, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
 import { CLIMB_H, DRILL_EATS, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_RUBBLE, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
 import { Rng } from './rng';
@@ -7,13 +7,12 @@ import {
   type AscendantId, type ClassId, type Gadget, type GadgetType, type Mine, type ModeId, type ModeState,
   type Pickup, type PlayerCmd, type Projectile, type SimEvent, type Soldier,
   type SoldierKind, type SystemId, type Team, type ThemeId, type Turret, type Vec3,
-  type Vehicle, type VehicleKind, type VehicleSystems, type WeaponId, type ZedKind,
-} from './types';
+  type Vehicle, type VehicleKind, type VehicleSystems, type WeaponId, type ZedKind, isIron, type IronKind } from './types';
 import { stepMode, initMode } from './modes';
 import { generateFront } from './fronts';
 import { LSW_BRAINS } from './lsw/index';
 import { ICE_HOLD, ICE_HOLD_DRAIN, LSWS, STRUGGLE_HP, STRUGGLE_SECS, THREAT, lswAllowed, lswsForTeam } from './lsw';
-import { stepBot, stepDog, stepScientist, stepZombie } from './bots';
+import { stepBot, stepDog, stepIron, stepScientist, stepZombie } from './bots';
 import { PERCEIVE_RANGE, perceivesNow, smokeBlocks, type SeenMark, type SmokeBlob } from './perception';
 import { THEME_WEATHER, airGrounded, moveMult, visionMult, weatherAnnounce, type WeatherState } from './weather';
 
@@ -650,6 +649,33 @@ export class World {
     return s;
   }
 
+  /** THE IRON EATERS (DD SS20, finish-list 12): wreckage that stood up.
+   *  Spawned PLATED -- the armor pool is the molt; when fire sheds it the
+   *  exposed frame takes double and runs hot (damageSoldier SS20.2). */
+  addIronEater(kind: IronKind, pos: Vec3): Soldier {
+    const st = IRON_STATS[kind];
+    const s: Soldier = {
+      id: this.id(), kind, name: kind.charAt(0).toUpperCase() + kind.slice(1),
+      team: 1, classId: 'infantry',
+      pos: { ...pos }, vel: { x: 0, y: 0, z: 0 }, yaw: 0,
+      hp: st.hp, maxHp: st.hp, energy: 0, alive: true, respawnAt: 0,
+      weaponIdx: 0, weapons: [st.weapon], clip: [Infinity], reserve: [Infinity],
+      reloadUntil: 0, nextFireAt: 0, grenades: 0, nextGrenadeAt: 0,
+      altAmmo: 0, nextAltAt: 0, altBurstUntil: 0,
+      cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
+      kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0, ownerId: -1,
+      longestKill: 0, vehicleKills: 0, healGiven: 0,
+      pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0, lastKillerId: -1, floor: 0,
+      armor: st.plate, maxArmor: st.plate, protectedUntil: 0,
+      equipment: [], medikitReady: false, nextPsiAt: 0, nextRepairAt: 0,
+      downed: false, downedUntil: 0, downedBy: -1, reviveProgress: 0, draggingId: -1,
+      meleeStrikeAt: 0, meleeYaw: 0, meleeWeapon: '',
+      botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
+    };
+    this.soldiers.set(s.id, s);
+    return s;
+  }
+
   spawn(s: Soldier) {
     s.floor = 0;
     // K9s don't draw from the armory or the spawn queue like people do —
@@ -926,6 +952,7 @@ export class World {
         if (s.kind === 'bot' && !s.dummy) cmd = stepBot(this, s, dt); // dummies stand and take it
         else if (s.kind === 'scientist') { stepScientist(this, s, dt); continue; }
         else if (s.kind === 'dog') { stepDog(this, s, dt); continue; }
+        else if (isIron(s.kind)) { stepIron(this, s, dt); continue; }
         else if (isZed(s.kind)) { stepZombie(this, s, dt); continue; }
         else cmd = null as unknown as PlayerCmd;
       }
@@ -3233,6 +3260,17 @@ export class World {
     // REAPER'S MARK: the hunter's own blows land DOUBLE on the hunted
     if (victim.markedUntil !== undefined && this.time < victim.markedUntil && attackerId === victim.markedBy) {
       dmg *= 2;
+    }
+    // IRON EATERS (SS20.2): the molt is the health bar. While PLATED the
+    // scrap eats the damage (the armor pool, visibly shedding); the moment
+    // the plates are gone the frame is EXPOSED -- damage counts DOUBLE and
+    // the beast gets FASTER AND ANGRIER (once, with a molt burst).
+    if (isIron(victim.kind) && victim.armor <= 0) {
+      dmg *= 2;
+      if (victim.rageMul === undefined) {
+        victim.rageMul = 1.35;
+        this.emit({ type: 'explosion', pos: { ...victim.pos }, weapon: 'gl' });
+      }
     }
     // GARGOYLE'S PERCH: stone takes half — until someone collapses the perch
     if (victim.perchTile !== undefined && victim.ascendant === 'gargoyle') {

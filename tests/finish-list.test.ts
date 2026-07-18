@@ -190,3 +190,40 @@ describe('#18 TALL GRASS + THE DUCK — you are a rumor in the meadow', () => {
     expect(run(true) / run(false), 'knees bent, half the ground').toBeCloseTo(0.5, 1);
   });
 });
+
+describe('#12 THE IRON EATERS — junk that learned a body plan (DD §20)', () => {
+  it('THE MOLT: plated eats the damage, exposed takes DOUBLE and runs hot', () => {
+    const w = quiet();
+    const rv = w.addIronEater('ravager', { x: 0, y: 0, z: 0 });
+    expect(rv.armor, 'born PLATED — the scrap is the health bar').toBeGreaterThan(0);
+    const hp0 = rv.hp;
+    w.damageSoldier(rv, 100, -1, 'ar606');
+    expect(rv.hp, 'while plated the frame is untouched').toBe(hp0);
+    rv.armor = 0; // the last plate sheds
+    w.damageSoldier(rv, 50, -1, 'ar606');
+    expect(hp0 - rv.hp, 'EXPOSED: damage counts double').toBeCloseTo(100, 0);
+    expect(rv.rageMul, 'and the beast runs hot — faster, angrier').toBeCloseTo(1.35, 2);
+  });
+
+  it('SCRAP-RATS GNAW: a parked hull is food', () => {
+    const w = quiet();
+    const v = w.spawnVehicle('buggy', 0, { x: 3, y: 0, z: 0 });
+    const rat = w.addIronEater('scraprat', { x: 1, y: 0, z: 0 });
+    const hp0 = v.hp;
+    for (let i = 0; i < 120; i++) w.step(1 / 60, new Map());
+    expect(v.hp, 'two seconds of rat is real damage').toBeLessThan(hp0);
+    void rat;
+  });
+
+  it('THE THIRD ACT: from wave 4 the horde brings scrap', () => {
+    const w = new World({ seed: 42, mode: 'survival', botsPerTeam: 0 });
+    const h = w.addSoldier('H', 'infantry', 0, 'human');
+    h.alive = true;
+    w.mode.wave = 3; // the next wave rolled is 4
+    w.mode.nextWaveAt = 0;
+    w.step(1 / 60, new Map());
+    const iron = [...w.soldiers.values()].filter((s) => s.kind === 'scraprat' || s.kind === 'junkhound' || s.kind === 'weaver' || s.kind === 'ravager');
+    expect(iron.length, 'a quarter of wave 4 is scrap that stood up').toBeGreaterThan(0);
+    expect(iron.every((s) => s.armor > 0), 'every beast arrives PLATED').toBe(true);
+  });
+});

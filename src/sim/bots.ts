@@ -1,6 +1,6 @@
 import { CLASSES, DOG_STATS, VEHICLES, WEAPONS } from './data';
 import { GRID, T_CLIMB, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_OPEN, T_WATER, TILE, WORLD, isBlocked, losClear, tileAt } from './map';
-import { type ClassId, type PlayerCmd, type Soldier, type Team, type Vec3, isZed } from './types';
+import { type ClassId, type PlayerCmd, type Soldier, type Team, type Vec3, type Vehicle, isZed } from './types';
 import { DIFFICULTY_AIM, type World } from './world';
 
 const noCmd = (): PlayerCmd => ({
@@ -1080,6 +1080,39 @@ export function stepDog(w: World, s: Soldier, dt: number) {
 }
 
 // ---------- zombies ----------
+
+/** THE IRON EATERS' BRAIN (DD SS20, finish-list 12): the zed chase core
+ *  drives the legs and the teeth; each kind adds its own hunger on top --
+ *  scrap-rats GNAW parked vehicles, junkhounds JUMP the cover line. */
+export function stepIron(w: World, s: Soldier, dt: number) {
+  if (s.kind === 'scraprat') {
+    // gnaw the nearest machine: vehicles are FOOD (SS20.1) -- a parked hull
+    // with no crew is a picnic, a crewed one is a fight it still picks
+    let v: Vehicle | undefined, bd = 30;
+    for (const c of w.vehicles.values()) {
+      if (!c.alive || c.team === s.team) continue;
+      const d = Math.hypot(c.pos.x - s.pos.x, c.pos.z - s.pos.z);
+      if (d < bd) { bd = d; v = c; }
+    }
+    if (v) {
+      if (bd > 2.5) {
+        const dx = v.pos.x - s.pos.x, dz = v.pos.z - s.pos.z, dl = Math.hypot(dx, dz) || 1;
+        s.yaw = Math.atan2(dz, dx);
+        s.vel.x = (dx / dl) * 13; s.vel.z = (dz / dl) * 13;
+      } else {
+        s.vel.x = 0; s.vel.z = 0;
+        w.damageVehicle(v, 9 * dt, s.id, 'zombie_claw'); // the gnaw -- one seam, same as every shell
+      }
+      return;
+    }
+  }
+  if (s.kind === 'junkhound' && s.pos.y <= 0.05) {
+    // spring legs: a cover line one tile ahead is a JUMP, not a wall
+    const aheadT = tileAt(w.map.grid, s.pos.x + Math.cos(s.yaw) * 2.4, s.pos.z + Math.sin(s.yaw) * 2.4);
+    if (aheadT === T_COVER || aheadT === T_CLIMB) s.vel.y = 7.5;
+  }
+  stepZombie(w, s, dt); // the chase and the teeth are the horde's own
+}
 
 export function stepZombie(w: World, s: Soldier, dt: number) {
   // find nearest living human/bot
