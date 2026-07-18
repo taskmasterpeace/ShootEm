@@ -2670,14 +2670,24 @@ export class Renderer {
               const t = tileAt(world.map.grid, e.pos.x, e.pos.z);
               const sf = surfaceAt(world.map.surface, e.pos.x, e.pos.z);
               const rate = 0.85 + Math.random() * 0.3;
+              // finish-list #11 (Robert: "we need to SEE when bullets impact
+              // stuff") — every surface answers in LIGHT as well as sound:
+              // metal FLASHES and throws bouncing sparks, stone chips and
+              // hangs dust, dirt puffs — and the ground keeps a pock decal.
               if (t === T_METAL || sf === S_PLATE) {
-                this.particles.emit({ pos: e.pos, count: 7, color: 0xffd890, speed: 7, life: 0.2, spread: 0.25, up: 2.5, size: 0.16 });
+                this.particles.emit({ pos: e.pos, count: 3, color: 0xffffff, speed: 1, life: 0.08, spread: 0.1, up: 0.5, size: 0.3 }); // the flash
+                this.particles.emit({ pos: e.pos, count: 9, color: 0xffd890, speed: 8, life: 0.22, spread: 0.3, up: 2.5, size: 0.16 });
+                this.particles.emit({ pos: e.pos, count: 4, color: 0xffb060, speed: 6, life: 0.6, spread: 0.4, up: 3.5, gravity: 12, size: 0.12 }); // sparks that BOUNCE off
                 audio.play('impact_metal', { pos: e.pos, volume: 0.5, rate });
               } else if (t === T_WALL || t === T_COVER || t === T_SLIT || t === T_CLIMB) {
-                this.particles.emit({ pos: e.pos, count: 6, color: 0x9a938a, speed: 4.5, life: 0.3, spread: 0.3, up: 2, gravity: 6 });
+                this.particles.emit({ pos: e.pos, count: 8, color: 0x9a938a, speed: 5.5, life: 0.3, spread: 0.3, up: 2.5, gravity: 8, size: 0.14 }); // the chips
+                this.particles.emit({ pos: e.pos, count: 5, color: 0xb8b0a4, speed: 1.2, life: 0.9, spread: 0.5, up: 0.8, gravity: 0.5, size: 0.3 }); // dust that HANGS
+                this.spawnSplat(e.pos, 0x55504a, 0.16 + Math.random() * 0.08); // the pock
                 audio.play('impact_stone', { pos: e.pos, volume: 0.5, rate });
               } else {
-                this.particles.emit({ pos: e.pos, count: 6, color: 0x6b5636, speed: 3.5, life: 0.35, spread: 0.35, up: 2.5, gravity: 7 });
+                this.particles.emit({ pos: e.pos, count: 7, color: 0x6b5636, speed: 4, life: 0.35, spread: 0.35, up: 2.5, gravity: 7 });
+                this.particles.emit({ pos: e.pos, count: 4, color: 0x8a7a5c, speed: 1, life: 0.8, spread: 0.5, up: 1.0, gravity: 0.8, size: 0.28 }); // the puff
+                this.spawnSplat(e.pos, 0x4a3c28, 0.14 + Math.random() * 0.08);
                 audio.play('impact_dirt', { pos: e.pos, volume: 0.45, rate });
               }
             }

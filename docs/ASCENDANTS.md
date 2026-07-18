@@ -433,7 +433,7 @@ IS blocky assembled scrap. Two routes:
 | # | Report | Diagnosis | Status |
 |---|---|---|---|
 | 1 | "trees inside a house… couldn't get down the hallways" | **FOUND.** `map.ts` tree placement checks `grid[...] === T_OPEN` — but a house's interior floor **is** T_OPEN. The `houses` array and `houseAt()` sit right there, unconsulted. Trees grow indoors and wall the hallways. | ✅ fixed |
-| 2 | "we need to SEE when bullets impact stuff" | Sound + debris shipped (`78501e2`). Robert wants it more visible: sparks on metal, chips on stone, dust puffs, decals. | ⬜ |
+| 2 | "we need to SEE when bullets impact stuff" | ✅ SHIPPED: every surface answers in LIGHT as well as sound — metal FLASHES white and throws bouncing sparks, stone chips fly while dust HANGS, dirt puffs — and the ground keeps a pock decal per hit (the capped splat pool). | ✅ |
 | 3 | "if one teammate sees you, they ALL know" | **Already true** (vision-share is team-wide, §19 explicit decision, holds until squads §15). The gap is REACTION, not knowledge. | ✅ by design |
 | 4 | "if you're behind enemy lines they should come GET you" | No rescue behavior exists. Bots have no concept of an isolated friendly. Design: the spotter (or nearest free bot) breaks off and moves to you. | ⬜ |
 | 5 | "everybody goes for the flag, nobody plays defense — they let people set up turrets near them" | **Real.** `raidsFlags()` sends bots at the flag; nothing assigns defense. Design: a role split (N attackers / M defenders per team), defenders anchored to their own flag/CP, and turret-sighting adds a defense pull. | ⬜ |
