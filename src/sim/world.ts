@@ -1,6 +1,7 @@
 import { CLASSES, DOG_NAMES, DOG_STATS, EQUIPMENT, IRON_STATS, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
-import { CLIMB_H, DRILL_EATS, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_RUBBLE, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
+import { CLIMB_H, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_RUBBLE, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
+import { materialOf, DRILL_BASE } from './materials';
 import { Rng } from './rng';
 import {
   SYSTEM_IDS, isCoopMode, isZed,
@@ -229,10 +230,10 @@ export class World {
     if (tx < 1 || tz < 1 || tx >= GRID - 1 || tz >= GRID - 1) return; // border holds
     const idx = tz * GRID + tx;
     const t = this.map.grid[idx];
-    // structure is dinner: walls, cover, slits, doors, climb barricades —
-    // the DRILL_EATS menu (map.ts, shared with the harness). METAL is not
-    // (sparks handled at the drill face); water and open ground have nothing to eat.
-    if (!DRILL_EATS.has(t)) return;
+    // structure is dinner — the drill grinds anything with a positive drill rate
+    // in the MATERIALS table: walls, cover, slits, doors, barricades, AND metal
+    // now (slowly, sparking). Bedrock/dirt/water (drill 0) have nothing to eat.
+    if (materialOf(t).drill <= 0) return;
     this.map.grid[idx] = T_OPEN;
     this.dug.push(idx);
     this.emit({
@@ -254,13 +255,15 @@ export class World {
     if (tx < 1 || tz < 1 || tx >= GRID - 1 || tz >= GRID - 1) return; // the rim holds, always
     const idx = tz * GRID + tx;
     const t = this.map.grid[idx];
-    const soft = t === T_COVER;
-    const structural = t === T_WALL || t === T_SLIT || t === T_CLIMB;
     const rubble = t === T_RUBBLE;
-    if (!soft && !structural && !rubble) return;         // metal/doors/water: not this system's food
-    if ((structural || rubble) && !heavy) return;        // masonry shrugs off small arms
-    const maxHp = soft ? 80 : structural ? 300 : 120;    // rubble grinds away under sustained heavy fire
-    const hp = (this.wallHp.get(idx) ?? maxHp) - dmg;
+    // this system eats destructible structure/cover/rubble — NOT metal (drill
+    // only), doors (damageDoor), water or open ground. HP + the heavy gate now
+    // come from the MATERIALS table (one source of truth).
+    const destructible = t === T_COVER || t === T_WALL || t === T_SLIT || t === T_CLIMB || rubble;
+    if (!destructible) return;
+    const mat = materialOf(t);
+    if (mat.heavyOnly && !heavy) return;                 // masonry/stone shrug off small arms
+    const hp = (this.wallHp.get(idx) ?? mat.hp) - dmg;
     if (hp > 0) { this.wallHp.set(idx, hp); return; }    // damaged, still standing
     this.wallHp.delete(idx);
     const pos = { x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 };
@@ -2792,14 +2795,14 @@ export class World {
           const aheadX = v.pos.x + Math.cos(v.yaw) * (r + TILE * 0.6) * Math.sign(throttle);
           const aheadZ = v.pos.z + Math.sin(v.yaw) * (r + TILE * 0.6) * Math.sign(throttle);
           const t = tileAt(this.map.grid, aheadX, aheadZ);
-          if (DRILL_EATS.has(t)) {
-            // structure is dinner — walls, cover, slits, doors, barricades all grind
-            v.nextDigAt = this.time + 0.35; // loud, hungry surface work
+          const dmat = materialOf(t);
+          if (dmat.drill > 0) {
+            // grind time scales by 1/drill: masonry ~0.35s, metal ~0.82s, the
+            // safe-room door ~0.98s (the toughest). Metal (impact 'spark') throws
+            // a spark shower at the drill face the whole time it grinds.
+            v.nextDigAt = this.time + DRILL_BASE / dmat.drill;
+            if (dmat.impact === 'spark') this.emit({ type: 'sparks', pos: { x: aheadX, y: 1.2, z: aheadZ } });
             this.digTile(Math.floor((aheadX + WORLD / 2) / TILE), Math.floor((aheadZ + WORLD / 2) / TILE));
-          } else if (t === T_METAL) {
-            // metal says no: the drill screams and throws sparks, zero progress
-            v.nextDigAt = this.time + 0.35;
-            this.emit({ type: 'sparks', pos: { x: aheadX, y: 1.2, z: aheadZ } });
           }
         }
         const hover = !!def.hover;

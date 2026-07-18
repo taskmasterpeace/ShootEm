@@ -153,7 +153,7 @@ describe('the drill vs the world', () => {
     return { after: w.map.grid[tz * GRID + tx], sparks, dug: w.dug.length };
   }
 
-  it('walls, slits, and doors are dinner; METAL just throws sparks', () => {
+  it('walls, slits, doors — and now metal — are all dinner; metal grinds slow, sparking', () => {
     const wall = drillAt(T_WALL);
     expect(wall.after).toBe(0);
     expect(wall.dug).toBeGreaterThan(0);
@@ -162,7 +162,7 @@ describe('the drill vs the world', () => {
     const door = drillAt(T_DOOR);
     expect(door.after).toBe(0);
     const metal = drillAt(T_METAL);
-    expect(metal.after).toBe(T_METAL);   // not a scratch
-    expect(metal.sparks).toBeGreaterThan(3); // but a lot of noise and light
+    expect(metal.after).toBe(0);             // metal grinds through now — the slowest breach
+    expect(metal.sparks).toBeGreaterThan(0); // throwing sparks at the drill face as it eats
   });
 });

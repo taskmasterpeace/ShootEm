@@ -34,6 +34,9 @@ export const T_GRASS = 12;     // TALL GRASS (finish-list 18): walkable, stops
                                // eyes see over it. The monotonic law: destruction only
                                // ever OPENS paths, so reachability never re-runs.
 
+export const T_METAL_DOOR = 13; // the toughest breach — a safe-room door: blocks
+                                // like metal, drills the slowest of anything (materials.ts)
+
 /** §8.7 heights, one place: what each tier stops below. HOP-tier cover at
  *  1.2, CLIMB barricades at 2.5, WALL at 4 — the tiers separate cleanly:
  *  a running hop (~1.1) clears cover only; a jetpack climbs past 2.5. */
@@ -184,7 +187,7 @@ export function isBlocked(grid: Uint8Array, x: number, z: number, hover = false)
   // slits and CLOSED doors block movement always; open doors are a doorway.
   // CLIMB barricades block GROUND movement like walls — clearing one is the
   // airborne y-band's job (world.ts knows your apex; this function doesn't).
-  return t === T_WALL || t === T_COVER || t === T_SLIT || t === T_DOOR || t === T_METAL || t === T_CLIMB;
+  return t === T_WALL || t === T_COVER || t === T_SLIT || t === T_DOOR || t === T_METAL || t === T_METAL_DOOR || t === T_CLIMB;
 }
 
 /** Blocks projectiles/sight: walls always; cover and water never (shots fly over). */
@@ -194,7 +197,7 @@ export function blocksShot(grid: Uint8Array, x: number, z: number, y: number): b
   if (t === T_COVER) return y < COVER_H; // low cover
   if (t === T_SLIT) return !(y >= 1.2 && y <= 1.8); // the firing band — muzzle height passes
   if (t === T_DOOR) return y < 2.2;      // a closed door stops rounds and eyes
-  if (t === T_METAL) return y < WALL_H;  // metal walls are walls
+  if (t === T_METAL || t === T_METAL_DOOR) return y < WALL_H;  // metal walls (and safe-room doors) are walls
   if (t === T_CLIMB) return y < CLIMB_H; // §8.7: rounds clear the lip at 2.5
   if (t === T_RUBBLE) return y < RUBBLE_H; // a breach pile: shin cover, eyes clear
   return false;

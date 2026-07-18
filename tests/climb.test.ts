@@ -9,9 +9,10 @@
 import { describe, expect, it } from 'vitest';
 import { THEMES } from '../src/sim/data';
 import {
-  CLIMB_H, DRILL_EATS, GRID, T_CLIMB, T_METAL, T_OPEN, TILE, WORLD,
+  CLIMB_H, GRID, T_CLIMB, T_METAL, T_OPEN, TILE, WORLD,
   blocksShot, generateMap, isBlocked, losClear,
 } from '../src/sim/map';
+import { materialOf } from '../src/sim/materials';
 import type { PlayerCmd, ThemeId } from '../src/sim/types';
 import { World } from '../src/sim/world';
 
@@ -91,23 +92,24 @@ describe('§8.7 CLIMB — fire: blocked below the lip, clear above', () => {
   });
 });
 
-describe('§8.7 CLIMB — the breacher: barricades are dinner, metal still is not', () => {
-  it('DRILL_EATS lists the barricade', () => {
-    expect(DRILL_EATS.has(T_CLIMB)).toBe(true);
-    expect(DRILL_EATS.has(T_METAL)).toBe(false);
+describe('§8.7 CLIMB — the breacher: barricades AND metal are dinner (metal grinds slow)', () => {
+  it('the materials table gives the barricade and metal a positive drill rate', () => {
+    expect(materialOf(T_CLIMB).drill).toBeGreaterThan(0);
+    expect(materialOf(T_METAL).drill).toBeGreaterThan(0);   // metal drills now — the slowest
+    expect(materialOf(T_METAL).drill).toBeLessThan(materialOf(T_CLIMB).drill); // …but slower than a barricade
   });
 
-  it('digTile grinds a barricade to open ground and replicates via dug', () => {
+  it('digTile grinds a barricade — and now metal too — to open ground, replicating via dug', () => {
     const w = new World({ seed: 5, mode: 'tdm' });
     const tx = 50, tz = 55;
     w.map.grid[tz * GRID + tx] = T_CLIMB;
     w.digTile(tx, tz);
     expect(w.map.grid[tz * GRID + tx]).toBe(T_OPEN);
     expect(w.dug).toContain(tz * GRID + tx);
-    // and the drill still sparks off metal: no grind, no dig record
+    // metal grinds too now (slowly, sparking at the drill face) — no longer immune
     w.map.grid[tz * GRID + tx] = T_METAL;
     w.digTile(tx, tz);
-    expect(w.map.grid[tz * GRID + tx]).toBe(T_METAL);
+    expect(w.map.grid[tz * GRID + tx]).toBe(T_OPEN);
   });
 });
 
