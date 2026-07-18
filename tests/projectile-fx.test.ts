@@ -7,9 +7,9 @@ import type { PlayerCmd, Projectile } from '../src/sim/types';
 // these tests mutate shared WEAPONS defs to arrange flags — reset after each so
 // they never pollute another test (or file). The real per-LSW data lands later.
 afterEach(() => {
-  for (const id of ['rg2', 'lsw_pulse'] as const) {
+  for (const id of ['rg2', 'lsw_pulse', 'lsw_titan'] as const) {
     const w = WEAPONS[id] as unknown as Record<string, unknown>;
-    for (const k of ['pierce', 'pierceArmor', 'ricochet', 'charge', 'cluster', 'chain', 'tether', 'boomerang', 'gasAfter']) w[k] = undefined;
+    for (const k of ['pierce', 'pierceArmor', 'ricochet', 'charge', 'cluster', 'chain', 'tether', 'boomerang', 'gasAfter', 'shockwave']) w[k] = undefined;
   }
 });
 
@@ -252,5 +252,36 @@ describe('cluster / chain / tether / boomerang / gasAfter', () => {
       pos: { x: 0, y: 1.2, z: 0 }, vel: { x: 40, y: 0, z: 0 }, bornAt: w.time, ttl: 3, arc: false } as Projectile);
     for (let i = 0; i < 20; i++) w.step(1 / 60, new Map());
     expect(w.gadgets.size).toBeGreaterThan(g0); // a cloud remains
+  });
+});
+
+describe('melee shockwave on leap-land', () => {
+  // stage a titan that leaps onto the origin NOW but never fires its weapon or
+  // signature, so only the LANDING is measured
+  const stageLeaper = (w: World) => {
+    const t = w.addLsw('titan', 0, { x: 0, y: 0, z: 0 })!;
+    t.nextFireAt = 1e9; t.nextLswAt = 1e9; t.nextLswActiveAt = 1e9; // no fire, no signature
+    t.diveX = 0; t.diveZ = 0; t.diveAt = w.time;                    // land next step
+    return t;
+  };
+
+  it('a shockwave slam hurts and shoves enemies in the ring', () => {
+    const w = new World({ seed: 11, mode: 'tdm' });
+    const t = stageLeaper(w);
+    (WEAPONS[t.weapons[0]] as { shockwave?: number }).shockwave = 5;
+    const e = w.addSoldier('E', 'infantry', 1, 'human'); e.pos = { x: 3, y: 0, z: 0 }; e.hp = 600; e.maxHp = 600;
+    const hp0 = e.hp, x0 = e.pos.x;
+    for (let i = 0; i < 3; i++) w.step(1 / 60, new Map());
+    expect(e.hp).toBeLessThan(hp0);        // the ring hurt it
+    expect(e.pos.x).toBeGreaterThan(x0);   // and shoved it outward (+x, away from origin)
+  });
+
+  it('a plain leaper (no shockwave) still only shoves, no damage', () => {
+    const w = new World({ seed: 11, mode: 'tdm' });
+    stageLeaper(w);                                    // shockwave left undefined
+    const e = w.addSoldier('E', 'infantry', 1, 'human'); e.pos = { x: 3, y: 0, z: 0 }; e.hp = 600; e.maxHp = 600;
+    const hp0 = e.hp;
+    for (let i = 0; i < 3; i++) w.step(1 / 60, new Map());
+    expect(e.hp).toBe(hp0); // travel is travel — no damage without a shockwave
   });
 });

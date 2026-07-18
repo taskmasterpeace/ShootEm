@@ -575,13 +575,28 @@ export class World {
           s.vel = { x: 0, y: 0, z: 0 };
         } else {
           s.pos = { x: s.diveX, y: 0, z: s.diveZ };
+          // SHOCKWAVE (projectile-fx Task 9): a slam with a shockwave weapon
+          // HURTS in a wider ring (falloff by distance), not just shoves; a
+          // plain leaper still only shoves ("travel is travel").
+          const lw = WEAPONS[s.weapons[s.weaponIdx]];
+          const sw = lw?.shockwave ?? 0;
+          const r = sw > 0 ? sw : 3.5;
           for (const e of this.soldiers.values()) {
             if (!e.alive || e.team === s.team || e.id === s.id) continue;
             const dx = e.pos.x - s.pos.x, dz = e.pos.z - s.pos.z, dd = Math.hypot(dx, dz);
-            if (dd > 3.5 || dd < 0.01) continue;
-            e.pushX += (dx / dd) * 18; e.pushZ += (dz / dd) * 18; // shoved, not hurt
+            if (dd > r || dd < 0.01) continue;
+            e.pushX += (dx / dd) * 18 * (sw > 0 ? 1.3 : 1); e.pushZ += (dz / dd) * 18 * (sw > 0 ? 1.3 : 1);
+            if (sw > 0) this.damageSoldier(e, lw.damage * (1 - dd / r), s.id, s.weapons[s.weaponIdx]); // ring falloff
           }
-          this.emit({ type: 'explosion', pos: { ...s.pos }, weapon: 'gl' });
+          // the slam cracks masonry in the ring (heavy — breaches cover walls)
+          if (sw > 0) {
+            const cx = Math.floor((s.pos.x + WORLD / 2) / TILE), cz = Math.floor((s.pos.z + WORLD / 2) / TILE);
+            const rt = Math.ceil(sw / TILE);
+            for (let dzt = -rt; dzt <= rt; dzt++) for (let dxt = -rt; dxt <= rt; dxt++) {
+              if (dxt * dxt + dzt * dzt <= rt * rt) this.damageWall(cx + dxt, cz + dzt, lw.damage, true);
+            }
+          }
+          this.emit({ type: 'explosion', pos: { ...s.pos }, weapon: sw > 0 ? s.weapons[s.weaponIdx] : 'gl' });
           s.diveAt = undefined; s.diveX = undefined; s.diveZ = undefined;
         }
       } else if (this.time >= (s.nextLeapAt ?? 0)) {
