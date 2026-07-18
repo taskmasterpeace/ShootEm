@@ -332,3 +332,43 @@ describe('counterplay — wave 2, fourth batch', () => {
     expect(Math.hypot(b.pos.x - before.x, b.pos.z - before.z), 'a whiff must not blink him around').toBeLessThan(0.1);
   });
 });
+
+describe('counterplay — wave 2, fifth batch', () => {
+  it('SHADOWSTEP — "shoot the decoy at range": standing OFF the mine never springs it', () => {
+    const w = quiet();
+    const sh = w.addLsw('shadowstep', 0, { x: 0, y: 0, z: 0 })!; sh.yaw = 0;
+    const e = w.addSoldier('E', 'infantry', 1, 'human');
+    e.pos = { x: 12, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    w.applyCmd(sh, cmd({ ability: true }), 1 / 60); // the mine sits at (0,0)
+    sh.nextLswAt = w.time + 999; sh.nextLswActiveAt = w.time + 999;
+    sh.clip = sh.clip.map(() => 0); sh.reserve = sh.reserve.map(() => 0);
+    const careful = w.addSoldier('C', 'infantry', 1, 'human');
+    careful.pos = { x: 6, y: 0, z: 6 }; careful.alive = true; careful.protectedUntil = 0; // kept his distance
+    for (let i = 0; i < 120; i++) w.step(1 / 60, new Map([[careful.id, cmd()]]));
+    expect(careful.hp, 'the departure mine reached a man who never touched it').toBe(100);
+  });
+
+  it('SPECTER — "only the real one": popping an IMAGE with one round never hurts the shooter', () => {
+    const w = quiet();
+    const sp = w.addLsw('specter', 1, { x: 0, y: 0, z: 0 })!;
+    w.applyCmd(sp, cmd({ ability: true }), 1 / 60);
+    const img = [...w.soldiers.values()].find((d) => d.decoyOf === sp.id)!;
+    img.protectedUntil = 0;
+    const shooter = w.addSoldier('S', 'infantry', 0, 'human');
+    shooter.pos = { x: 30, y: 0, z: 30 }; shooter.alive = true; shooter.protectedUntil = 0;
+    w.damageSoldier(img, 1, shooter.id, 'ar606'); // popped at range
+    expect(img.alive, 'one round must pop an image').toBe(false);
+    expect(shooter.hp, 'popping an image must never be a blast — only the COMMAND is').toBe(100);
+  });
+
+  it('PULSE — "dodge the visible wave": beyond the 16u ring, the wave never touches you', () => {
+    const w = quiet();
+    const p = w.addLsw('pulse', 0, { x: 0, y: 0, z: 0 })!;
+    const far = w.addSoldier('F', 'infantry', 1, 'human');
+    far.pos = { x: 20, y: 0, z: 0 }; far.alive = true; far.protectedUntil = 0;
+    const f0 = far.nextFireAt;
+    w.applyCmd(p, cmd({ ability: true }), 1 / 60);
+    expect(far.nextFireAt, 'the wave reached past its ring').toBe(f0);
+    expect(w.tagged.has(far.id)).toBe(false);
+  });
+});

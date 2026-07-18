@@ -1256,3 +1256,63 @@ describe('Blitz — momentum', () => {
     expect(straggler.hp, 'the afterimage never walked the old path').toBeLessThan(hp0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// SHADOWSTEP · SPECTER · PULSE — wave 2's fifth batch.
+// ---------------------------------------------------------------------------
+describe('Shadowstep — the quiet knife', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('the blink-stab arrives behind the mark and leaves a LIVE MINE at the departure', () => {
+    const w = quiet();
+    const sh = w.addLsw('shadowstep', 0, { x: 0, y: 0, z: 0 })!; sh.yaw = 0;
+    const e = w.addSoldier('E', 'infantry', 1, 'human');
+    e.pos = { x: 12, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    const hp0 = e.hp;
+    w.applyCmd(sh, cmd({ ability: true }), 1 / 60);
+    expect(e.hp, 'the stab never landed').toBeLessThan(hp0);
+    expect(Math.hypot(sh.pos.x - e.pos.x, sh.pos.z - e.pos.z), 'he never arrived').toBeLessThan(2);
+    expect([...w.mines.values()].some((m) => Math.hypot(m.pos.x, m.pos.z) < 1 && m.ownerId === sh.id),
+      'no mine at the departure point — chasing must BE the trap').toBe(true);
+  });
+});
+
+describe('Specter — the crowd', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('the images DETONATE on command — everyone among them is burst', () => {
+    const w = quiet();
+    const sp = w.addLsw('specter', 1, { x: 0, y: 0, z: 0 })!;
+    w.applyCmd(sp, cmd({ ability: true }), 1 / 60); // no images → raises one
+    const img = [...w.soldiers.values()].find((d) => d.decoyOf === sp.id)!;
+    expect(img, 'no image was raised').toBeTruthy();
+    const e = w.addSoldier('E', 'infantry', 0, 'human');
+    e.pos = { x: img.pos.x + 2, y: 0, z: img.pos.z }; e.alive = true; e.protectedUntil = 0;
+    const hp0 = e.hp;
+    sp.nextLswActiveAt = 0;
+    w.applyCmd(sp, cmd({ ability: true }), 1 / 60); // THE COMMAND
+    expect(e.hp, 'the detonation missed the man standing among the images').toBeLessThan(hp0);
+    expect([...w.soldiers.values()].some((d) => d.decoyOf === sp.id && d.alive),
+      'the images must be spent by the blast').toBe(false);
+  });
+});
+
+describe('Pulse — walls are a rumor', () => {
+  const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+
+  it('the wave staggers and TAGS victims THROUGH a wall', () => {
+    const w = quiet();
+    const p = w.addLsw('pulse', 0, { x: 0, y: 0, z: 0 })!;
+    // a wall between them — sound does not care
+    const GRID_N = Math.sqrt(w.map.grid.length) | 0;
+    const TILE_U = 300 / GRID_N;
+    const tx = Math.floor((5 + 150) / TILE_U), tz = Math.floor((0 + 150) / TILE_U);
+    w.map.grid[tz * GRID_N + tx] = 1; // T_WALL
+    const e = w.addSoldier('E', 'infantry', 1, 'human');
+    e.pos = { x: 10, y: 0, z: 0 }; e.alive = true; e.protectedUntil = 0;
+    const f0 = e.nextFireAt;
+    w.applyCmd(p, cmd({ ability: true }), 1 / 60);
+    expect(e.nextFireAt, 'the wave never staggered him').toBeGreaterThan(f0);
+    expect(w.tagged.has(e.id), 'the wave must TAG through the wall').toBe(true);
+  });
+});

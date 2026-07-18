@@ -333,6 +333,39 @@ export const LSWS: Record<AscendantId, LswDef> = {
     scale: 1.2, speed: 10, color: 0xe8e2d0, // afterimage white
     activeLabel: 'DASH-STRIKE — a kill refunds the dash', activeCd: 5,
   },
+  shadowstep: {
+    id: 'shadowstep', name: 'Shadowstep', faction: 0, threat: 1,
+    lines: {
+      inbound: 'SHADOWSTEP INBOUND — GUARD YOUR BACKS',
+      landed: 'SHADOWSTEP ON THE FIELD — DO NOT CHASE HIM',
+      down: 'SHADOWSTEP IS DOWN — CHECK IT TWICE',
+      rampage: 'FIVE KILLS — SHADOWSTEP IS EVERYWHERE YOU ARE NOT',
+    },
+    scale: 1.2, speed: 9.5, color: 0x4a5a4a, // gunmetal moss — a quiet knife
+    activeLabel: 'BLINK-STAB — arrive behind them; the mine stays', activeCd: 5,
+  },
+  specter: {
+    id: 'specter', name: 'Specter', faction: 1, threat: 1,
+    lines: {
+      inbound: 'SPECTER INBOUND — COUNT THE SHADOWS',
+      landed: 'SPECTER ON THE FIELD — THEY ALL WALK LIKE HIM',
+      down: 'SPECTER IS DOWN — THE MIRRORS CRACK',
+      rampage: 'FIVE KILLS — SPECTER IS A CROWD',
+    },
+    scale: 1.25, speed: 8.5, color: 0xbcc7cf, // mirror-fog silver
+    activeLabel: 'DETONATE — every image goes at once', activeCd: 6,
+  },
+  pulse: {
+    id: 'pulse', name: 'Pulse', faction: 0, threat: 2,
+    lines: {
+      inbound: 'PULSE INBOUND — WALLS WILL NOT SAVE YOU',
+      landed: 'PULSE ON THE FIELD — HE HEARS EVERYTHING',
+      down: 'PULSE IS DOWN — THE AIR STOPS RINGING',
+      rampage: 'FIVE KILLS — PULSE HAS THE WHOLE MAP TAGGED',
+    },
+    scale: 1.3, speed: 8, color: 0x5adfd0, // sonar teal
+    activeLabel: 'SONIC WAVE — stagger and tag them through the walls', activeCd: 7,
+  },
 };
 
 /** THE SPOKEN SCRIPT — subtitle text per voice slot, tag-stripped mirrors of
@@ -466,6 +499,21 @@ export const VO_LINES: Record<string, { who: AscendantId; line: string }> = {
   vo_blitz_ability: { who: 'blitz', line: 'Too slow. Always too slow.' },
   vo_blitz_low: { who: 'blitz', line: 'Legs... betraying me.' },
   vo_blitz_death: { who: 'blitz', line: 'Finally... standing... still.' },
+  vo_shadowstep_arrive: { who: 'shadowstep', line: 'You will not hear the second step.' },
+  vo_shadowstep_kill3: { who: 'shadowstep', line: 'Three. None saw the knife.' },
+  vo_shadowstep_ability: { who: 'shadowstep', line: 'Behind you. Above the mine.' },
+  vo_shadowstep_low: { who: 'shadowstep', line: 'Too many... eyes.' },
+  vo_shadowstep_death: { who: 'shadowstep', line: 'Seen... at last.' },
+  vo_specter_arrive: { who: 'specter', line: 'Which of us said that?' },
+  vo_specter_kill3: { who: 'specter', line: 'Three. We all take credit.' },
+  vo_specter_ability: { who: 'specter', line: 'All of me, at once.' },
+  vo_specter_low: { who: 'specter', line: 'The mirrors... are emptying.' },
+  vo_specter_death: { who: 'specter', line: 'Alone... after all.' },
+  vo_pulse_arrive: { who: 'pulse', line: 'I can hear your heartbeat.' },
+  vo_pulse_kill3: { who: 'pulse', line: 'Three. Heard them all coming.' },
+  vo_pulse_ability: { who: 'pulse', line: 'SPEAK UP.' },
+  vo_pulse_low: { who: 'pulse', line: 'Ringing... in my own ears now.' },
+  vo_pulse_death: { who: 'pulse', line: 'So this... is silence.' },
 };
 export const voSlot = (id: AscendantId, moment: VoMoment) => `vo_${id}_${moment}`;
 export const annSlot = (id: AscendantId, moment: 'inbound' | 'landed' | 'down' | 'rampage') => `ann_${id}_${moment}`;

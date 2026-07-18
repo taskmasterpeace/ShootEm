@@ -162,6 +162,24 @@ export const CAST = {
     persona: "Blitz, a United Front Living Super Weapon — momentum with a name tag. Fast, clipped, a little breathless, allergic to standing still; every line is delivered mid-stride because there is no other stride.",
     scene: 'Air snapping shut where someone just was. Footfalls too fast to count.',
   },
+  shadowstep: {
+    voice: 'Leda',
+    fx: 'none', // a knife kept quiet
+    persona: "Shadowstep, a United Front Living Super Weapon — the army's quiet knife. Soft, economical, close to the ear; he wastes neither words nor steps, and both arrive from behind.",
+    scene: 'A footstep that never lands. A blade cleared of its sheath somewhere very close.',
+  },
+  specter: {
+    voice: 'Vindemiatrix',
+    fx: 'ice', // a faint choral shimmer — several of him, out of phase
+    persona: "Specter, a Collective Living Super Weapon — a man who is a crowd. Eerie, layered, softly plural; he says 'we' when he means 'I' and it is never quite a mistake.",
+    scene: 'Several identical footsteps out of phase. Glass humming. The same breath from three directions.',
+  },
+  pulse: {
+    voice: 'Autonoe',
+    fx: 'none', // resonant and certain — a man who hears everything
+    persona: "Pulse, a United Front Living Super Weapon — a recon specialist whose ears outrange everyone's eyes. Resonant, calm, certain; walls are a rumor to him and he speaks like a sonar ping coming back true.",
+    scene: 'A deep sonar sweep. Heartbeats through masonry. The hum of a wave about to break.',
+  },
   announcer: {
     voice: 'Orus',
     fx: 'radio', // 300–3400Hz military net + soft clip
@@ -341,6 +359,26 @@ export const VO = [
   { slot: 'vo_blitz_ability', who: 'blitz', text: '[flashing past] Too slow. Always too slow.', notes: ['Said from where he ISN\'T anymore.'] },
   { slot: 'vo_blitz_low', who: 'blitz', text: '[gasping] Legs... betraying me.', notes: ['The one fear he has: slowing down.'] },
   { slot: 'vo_blitz_death', who: 'blitz', text: '[settling] Finally... standing... still.', notes: ['Stillness, at last — and it cost everything.'] },
+  // ---- SHADOWSTEP: the quiet knife ----
+  { slot: 'vo_shadowstep_arrive', who: 'shadowstep', text: '[soft] You will not hear the second step.', notes: ['Close, calm, already moving.'] },
+  { slot: 'vo_shadowstep_kill3', who: 'shadowstep', text: 'Three. None saw the knife.', notes: ['Economical satisfaction.'] },
+  { slot: 'vo_shadowstep_ability', who: 'shadowstep', text: '[behind] Behind you. Above the mine.', notes: ['The warning is also the trap.'] },
+  { slot: 'vo_shadowstep_low', who: 'shadowstep', text: '[pressed] Too many... eyes.', notes: ['A quiet man discovered.'] },
+  { slot: 'vo_shadowstep_death', who: 'shadowstep', text: '[exhaling] Seen... at last.', notes: ['Almost relieved.'] },
+
+  // ---- SPECTER: a man who is a crowd ----
+  { slot: 'vo_specter_arrive', who: 'specter', text: '[layered] Which of us said that?', notes: ['Softly plural — the choir is one man.'] },
+  { slot: 'vo_specter_kill3', who: 'specter', text: 'Three. We all take credit.', notes: ['The plural is not a mistake.'] },
+  { slot: 'vo_specter_ability', who: 'specter', text: '[rising] All of me, at once.', notes: ['Said as every image detonates.'] },
+  { slot: 'vo_specter_low', who: 'specter', text: '[thinning] The mirrors... are emptying.', notes: ['The crowd is dying back to one.'] },
+  { slot: 'vo_specter_death', who: 'specter', text: '[single voice] Alone... after all.', notes: ['One voice, for the first time.'] },
+
+  // ---- PULSE: walls are a rumor ----
+  { slot: 'vo_pulse_arrive', who: 'pulse', text: '[resonant] I can hear your heartbeat.', notes: ['Not a threat — a diagnosis.'] },
+  { slot: 'vo_pulse_kill3', who: 'pulse', text: 'Three. Heard them all coming.', notes: ['Certain, unhurried.'] },
+  { slot: 'vo_pulse_ability', who: 'pulse', text: '[booming] SPEAK UP.', notes: ['The wave itself, weaponized as a joke.'] },
+  { slot: 'vo_pulse_low', who: 'pulse', text: '[wincing] Ringing... in my own ears now.', notes: ['The listener, deafened.'] },
+  { slot: 'vo_pulse_death', who: 'pulse', text: '[fading] So this... is silence.', notes: ['His first silence, and his last.'] },
 ];
 
 /** The announcer — map-wide, both teams, radio net. */
@@ -445,6 +483,18 @@ export const ANN = [
   { slot: 'ann_blitz_landed', text: 'BLITZ ON THE FIELD. DO NOT LET HIM CHAIN.' },
   { slot: 'ann_blitz_down', text: 'BLITZ IS DOWN. CAUGHT BETWEEN DASHES.' },
   { slot: 'ann_blitz_rampage', text: 'FIVE KILLS. BLITZ HAS NOT STOPPED ONCE.' },
+  { slot: 'ann_shadowstep_inbound', text: 'SHADOWSTEP INBOUND. [short pause] GUARD YOUR BACKS.' },
+  { slot: 'ann_shadowstep_landed', text: 'SHADOWSTEP ON THE FIELD. DO NOT CHASE HIM.' },
+  { slot: 'ann_shadowstep_down', text: 'SHADOWSTEP IS DOWN. CHECK IT TWICE.' },
+  { slot: 'ann_shadowstep_rampage', text: 'FIVE KILLS. SHADOWSTEP IS EVERYWHERE YOU ARE NOT.' },
+  { slot: 'ann_specter_inbound', text: 'SPECTER INBOUND. [short pause] COUNT THE SHADOWS.' },
+  { slot: 'ann_specter_landed', text: 'SPECTER ON THE FIELD. THEY ALL WALK LIKE HIM.' },
+  { slot: 'ann_specter_down', text: 'SPECTER IS DOWN. THE MIRRORS CRACK.' },
+  { slot: 'ann_specter_rampage', text: 'FIVE KILLS. SPECTER IS A CROWD.' },
+  { slot: 'ann_pulse_inbound', text: 'PULSE INBOUND. [short pause] WALLS WILL NOT SAVE YOU.' },
+  { slot: 'ann_pulse_landed', text: 'PULSE ON THE FIELD. HE HEARS EVERYTHING.' },
+  { slot: 'ann_pulse_down', text: 'PULSE IS DOWN. THE AIR STOPS RINGING.' },
+  { slot: 'ann_pulse_rampage', text: 'FIVE KILLS. PULSE HAS THE WHOLE MAP TAGGED.' },
 ];
 
 export const ANN_NOTES = [

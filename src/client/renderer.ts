@@ -2084,6 +2084,25 @@ export class Renderer {
         pos: { x: s.pos.x - s.vel.x * 0.08, y: 0.6 + Math.random() * 1.0, z: s.pos.z - s.vel.z * 0.08 }, count: 1,
         color: 0xe8e2d0, speed: 0.3, life: 0.3, spread: 0.3, up: 0.2, gravity: 0, size: 0.26,
       });
+    } else if (id === 'shadowstep') {
+      // barely there — a thin dark wisp only when he moves
+      if (Math.hypot(s.vel.x, s.vel.z) > 1) this.particles.emit({
+        pos: { x: s.pos.x, y: 0.4 + Math.random(), z: s.pos.z }, count: 1,
+        color: 0x2c342c, speed: 0.3, life: 0.35, spread: 0.4, up: 0.3, gravity: 0, size: 0.22,
+      });
+    } else if (id === 'specter') {
+      // mirror-fog — silvered motes that flicker in and out
+      this.particles.emit({
+        pos: { x: s.pos.x + (Math.random() - 0.5) * 1.4, y: 0.5 + Math.random() * 1.4, z: s.pos.z + (Math.random() - 0.5) * 1.4 }, count: 1,
+        color: Math.random() < 0.5 ? 0xbcc7cf : 0xe8eef2, speed: 0.4, life: 0.4, spread: 0.6, up: 0.5, gravity: 0, size: 0.24,
+      });
+    } else if (id === 'pulse') {
+      // sonar rings — teal motes pushed OUTWARD in beats
+      const beat = Math.floor(world.time * 2) % 2 === 0;
+      if (beat) this.particles.emit({
+        pos: { x: s.pos.x, y: 1.0, z: s.pos.z }, count: 2,
+        color: 0x5adfd0, speed: 2.4, life: 0.4, spread: 1.0, up: 0.1, gravity: 0, size: 0.22,
+      });
     } else if (id === 'dominator') {
       // crimson psychic tendrils reaching up and out — the puppeteer's threads
       this.particles.emit({
