@@ -92,7 +92,9 @@ export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<numb
   // and a stalker behind your back past the ring is NOT
   return eyes.some((e) =>
     eyeSees(e, s.pos.x, s.pos.z, range) &&
-    !smokeBlocks(e.pos.x, e.pos.z, s.pos.x, s.pos.z, smokes) &&
+    // an LSW is TOO BIG FOR SMOKE — the silhouette looms through the fog
+    // (walls still hide it; an unanswerable boss is a griefer we wrote)
+    (s.ascendant !== undefined || !smokeBlocks(e.pos.x, e.pos.z, s.pos.x, s.pos.z, smokes)) &&
     losClear(grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x: s.pos.x, y: 1.4, z: s.pos.z }));
 }
 

@@ -142,8 +142,14 @@ function findTarget(w: World, s: Soldier, maxRange: number): Soldier | null {
     if (e.cloaked && d > 9) continue; // cloaked infiltrators are invisible beyond close range
     // sightClear = walls AND smoke — a bot must not track through the cloud
     // a player just paid a grenade to stand up (Robert: smoke AFFECTS
-    // visibility, for every pair of eyes on the field)
-    if (d < bestD && w.sightClear(s.pos, e.pos)) {
+    // visibility, for every pair of eyes on the field). EXCEPT: an LSW is
+    // TOO BIG FOR SMOKE — the silhouette looms through its own fog (measured:
+    // Plaguebearer and Eclipse were immortal while their clouds blinded the
+    // answering squad). Walls still hide it.
+    const seen = e.ascendant !== undefined
+      ? losClear(w.map.grid, { x: s.pos.x, y: 1.4, z: s.pos.z }, { x: e.pos.x, y: 1.4, z: e.pos.z })
+      : w.sightClear(s.pos, e.pos);
+    if (d < bestD && seen) {
       best = e;
       bestD = d;
     }

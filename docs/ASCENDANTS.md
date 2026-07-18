@@ -63,13 +63,23 @@ rifleman ≈ 45 dps, a 4-man squad ≈ 180, a focused 12-man team ≈ 540.
 | **4** | **EXTINCTION** | 9000 | 28× | everyone, all-in, and you still might lose | 7 | 40s |
 
 > **HP is MEASURED, not guessed** (Robert: "test to determine threat
-> level"). The first-cut numbers (450–2800) were priced off a paper ~180 dps
-> squad — but the harness probe showed a focused, self-healing 4-squad lands
-> far more than that, and a 900-HP body died in 4–7s: a fat trooper, not a
-> STRONGPOINT. Retuned and re-verified live: a **T2 Firebrand (2600 HP) now
-> survives 12.2s against a relentless 4-squad, 6.5s against 8** — a fight the
-> front has to commit to. Every LSW gets this pass at build time; the table
-> is corrected to what actually happened.
+> level"). The measurement rig is `tests/threat-measure.test.ts` — every
+> shipped LSW is dropped against its DESIGNATED answer (T1 → a squad of 4,
+> T2 → a squad + support (8, incl. the counter-pick), T3/T4 → the team of
+> 12) with the pressure never lapsing, and the kill must land inside the
+> tier's band. **The 2026-07-17 measured table (seed 42):**
+> T1 — Sniperhawk 8.2s · Volt Striker 15.6s · Barrier 19.3s.
+> T2 — Eclipse 8.8s · Oblivion 9.8s · Wraith 12.0s · Dominator 12.1s ·
+> Plaguebearer 12.3s · Tremor 13.2s · Firebrand 18.0s · Reactor 23.6s ·
+> **Magnetar 55.7s** (the anti-ranged identity, working).
+> T3 — Frostbite 15.3s · Titan 20.5s · Ragebeast 23.7s.
+> The rig already earned its keep: it caught Plaguebearer and Eclipse
+> IMMORTAL inside their own smoke (fixed: an LSW is too big for smoke — the
+> silhouette looms), Magnetar immortal on halo income (fixed: +0.5/bullet
+> and the orbit saturates — one round in five leaks), Volt Striker WIPING
+> his own answer (trimmed), and a NaN-intent bug that turned bots into
+> untargetable ghosts (the seam sanitizer). These laws run in every suite —
+> a regression that breaks a band fails CI.
 
 **The laws that keep it honest:**
 - **Threat buys HP, never immunity.** Every LSW dies to ordinary rifles —

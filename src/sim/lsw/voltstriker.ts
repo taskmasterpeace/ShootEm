@@ -44,7 +44,10 @@ function chain(w: World, s: Soldier): boolean {
     if (d < vd) { vd = d; veh = v; }
   }
   if (links.length === 0 && !veh) return false;
-  const dmg = [70, 48, 32];
+  // MEASURED (threat rig): [70,48,32] on a 1.6s bot cadence WIPED his own
+  // designated answer — a T1 that beats a 4-squad is mislabeled. Trimmed to
+  // keep him a glass cannon that punishes clustering without owning the ring.
+  const dmg = [55, 38, 26];
   links.forEach((e, i) => {
     w.damageSoldier(e, dmg[i] ?? 30, s.id, 'rg2');
     w.emit({ type: 'emp', pos: { ...e.pos } });
@@ -66,8 +69,9 @@ function chain(w: World, s: Soldier): boolean {
 }
 
 export function step(w: World, s: Soldier, _dt: number) {
+  // 2.6s bot cadence (measured: 1.6s left the answering squad no windows)
   if (s.kind === 'bot' && w.time >= (s.nextLswAt ?? 0)) {
-    s.nextLswAt = w.time + (chain(w, s) ? 1.6 : 0.5);
+    s.nextLswAt = w.time + (chain(w, s) ? 2.6 : 0.5);
   }
 }
 

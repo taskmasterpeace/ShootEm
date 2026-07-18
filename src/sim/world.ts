@@ -1119,9 +1119,13 @@ export class World {
           break;
         }
         case 'smoke_field': {
-          // soldiers inside are hidden from minimap and pings
+          // soldiers inside are hidden from minimap and pings — but an LSW is
+          // TOO BIG FOR SMOKE: the silhouette looms through its own fog
+          // (measured: Plaguebearer and Eclipse were IMMORTAL when their own
+          // clouds blinded the answering squad — an unanswerable boss is a
+          // griefer we wrote ourselves)
           for (const s of this.soldiers.values()) {
-            if (!s.alive) continue;
+            if (!s.alive || s.ascendant) continue;
             if (Math.hypot(s.pos.x - g.pos.x, s.pos.z - g.pos.z) < 5) this.smoked.add(s.id);
           }
           break;
@@ -1457,7 +1461,12 @@ export class World {
       if (e?.speedMult) speed *= e.speedMult;
     }
     if (s.draggingId >= 0) speed *= 0.5; // hauling a body is slow, honest work
-    const mx = cmd.moveX, mz = cmd.moveZ;
+    // THE SEAM SANITIZER (found by the threat rig): a brain that emits NaN
+    // intent must never poison the sim — Math.hypot(NaN, x) is NaN and
+    // `NaN || 1` stays NaN, so one bad division in a bot turned Magnetar
+    // into an untargetable ghost at (NaN, z). Intent is clamped finite here.
+    const mx = Number.isFinite(cmd.moveX) ? cmd.moveX : 0;
+    const mz = Number.isFinite(cmd.moveZ) ? cmd.moveZ : 0;
     const len = Math.hypot(mx, mz) || 1;
     s.vel.x = (mx / len) * speed;
     s.vel.z = (mz / len) * speed;
@@ -2692,17 +2701,23 @@ export class World {
       let dead = false;
 
       // MAGNETAR'S HALO: a straight enemy BULLET that reaches his field curves
-      // into a harmless debris orbit and is absorbed — and it FEEDS him a sip
-      // of HP ("ranged fire builds his armor"). Energy, arcs, and melee pass
-      // clean, so change weapons or close the distance.
+      // into a debris orbit and is absorbed — and it FEEDS him a sip of HP
+      // ("ranged fire builds his armor"). Energy, arcs, and melee pass clean.
+      // MEASURED (threat rig): a total eat + a fat feed made him IMMORTAL to
+      // his designated answer, so two dials moved: the feed is +0.5/bullet,
+      // and the ORBIT SATURATES — one round in five slips the debris ring, so
+      // massed sustained fire still, eventually, gets through (§1.5: threat
+      // buys HP, never immunity).
       if (!def.arc && def.tracer === 'bullet' && magnetars.length) {
         for (const m of magnetars) {
           if (m.team === p.team) continue;
           if (Math.hypot(m.pos.x - p.pos.x, m.pos.z - p.pos.z) < 4) {
-            m.hp = Math.min(m.maxHp, m.hp + 2);
-            this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon });
-            dead = true;
-            break;
+            if (this.rng.next() < 0.8) {
+              m.hp = Math.min(m.maxHp, m.hp + 0.5);
+              this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon });
+              dead = true;
+            }
+            break; // a leaked round flies on — the orbit was full this instant
           }
         }
         if (dead) { this.projectiles.delete(id); continue; }
