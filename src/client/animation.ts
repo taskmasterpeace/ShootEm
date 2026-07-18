@@ -144,6 +144,41 @@ export const CAST_SCHOOL: Record<string, CastSchool> = {
   // riptide, gravwarden, stormcaller, and every blink-walker at the departure
 };
 
+// ---------------------------------------------------------------------------
+// THE FEEL-PASS MATH — the renderer and the harness share these, so the
+// game and the workbench tell the same truth (and the laws can test them).
+// ---------------------------------------------------------------------------
+
+/** THE TURN's yaw spring (feel pass #1): exponential approach to the aim
+ *  yaw — fast while moving, measured at rest. Returns the residual diff so
+ *  the caller can make the head LEAD the body. Never teleports; settles in
+ *  a third of a second at a hard flip. */
+export function stepYawSpring(state: { v: number }, targetYaw: number, dt: number, moving: boolean): number {
+  const diff = Math.atan2(Math.sin(targetYaw - state.v), Math.cos(targetYaw - state.v));
+  state.v += diff * Math.min(1, dt * (moving ? 11 : 7));
+  return diff;
+}
+
+/** THE GRENADE THROW's right-arm curve (feel pass #3): wind back, whip
+ *  through with overshoot, settle to rest. k = 0..1 through the motion. */
+export function throwArmCurve(k: number): number {
+  if (k < 0.44) return -0.9 * (k / 0.44);
+  if (k < 0.77) {
+    const w = (k - 0.44) / 0.33;
+    const back = 1 + 2.70158 * (w - 1) ** 3 + 1.70158 * (w - 1) ** 2; // easeOutBack
+    return -0.9 + 3.2 * back;
+  }
+  return 2.3 * (1 - (k - 0.77) / 0.23);
+}
+
+/** FLIGHT STYLES (feel pass #5): each flier's air silhouette. */
+export const FLIGHT_POSES: Record<string, { pitch: number; armZ: number; armX: number; headZ: number }> = {
+  inferno: { pitch: -1.25, armZ: 2.7, armX: 0, headZ: 0.35 },     // SUPERMAN
+  stormcaller: { pitch: -0.7, armZ: -0.5, armX: 0, headZ: 0.2 },  // GOKU
+  gargoyle: { pitch: -0.9, armZ: -1.1, armX: 0.9, headZ: 0.15 },  // folded wings
+  gargoyle_dive: { pitch: -1.4, armZ: -1.1, armX: 0.9, headZ: 0.15 }, // the shriek's dive
+};
+
 /**
  * Pose a soldier's limb joints for one frame of the alive gait (and, for the
  * undead, the reaching arms / lolling head / breathing belly). Mutates only the

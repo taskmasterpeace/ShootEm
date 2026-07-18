@@ -10,7 +10,7 @@ import { audio, type SoundName } from './audio';
 import { BIOME_AUDIO } from './soundscape';
 import { settings } from './settings';
 import { Particles, FlashLights } from './effects';
-import { JOINT_NAMES, isUndead, poseSoldierJoints, CAST_SCHOOL, RECOIL_SCALE, WEAPON_HOLDS, type GaitState } from './animation';
+import { JOINT_NAMES, isUndead, poseSoldierJoints, CAST_SCHOOL, FLIGHT_POSES, RECOIL_SCALE, stepYawSpring, throwArmCurve, WEAPON_HOLDS, type GaitState } from './animation';
 import { hash01 } from '../sim/rng';
 import { buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp, buildSoldier, buildTurretMesh, buildVehicle, dressAsLsw } from './models';
 
@@ -1392,12 +1392,8 @@ export class Renderer {
       // on a lazy susan". Sim yaw is math-angle on XZ; three rotates opposite.
       {
         const ys = (mesh.userData.yaw ??= { v: -s.yaw }) as { v: number };
-        const wrapA = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
-        const diff = wrapA(-s.yaw - ys.v);
-        const movingHere = Math.hypot(s.vel.x, s.vel.z) > 0.6;
-        ys.v += diff * Math.min(1, this.frameDt * (movingHere ? 11 : 7));
+        mesh.userData.yawDiff = stepYawSpring(ys, -s.yaw, this.frameDt, Math.hypot(s.vel.x, s.vel.z) > 0.6);
         mesh.rotation.y = ys.v;
-        mesh.userData.yawDiff = diff;
       }
       this.animateSoldier(mesh, s, world);
       if (s.ascendant) this.lswAura(mesh, s, world);
@@ -2549,13 +2545,8 @@ export class Renderer {
       if (tp) {
         if (t > tp.until) this.throwPoses.delete(s.id);
         else {
-          const span = tp.until - tp.at;
-          const k = Math.min(1, (t - tp.at) / span);       // 0..1 through the motion
-          let arm = 0;
-          if (k < 0.44) arm = -0.9 * (k / 0.44);                            // wind back
-          else if (k < 0.77) arm = -0.9 + 3.2 * easeOutBack((k - 0.44) / 0.33); // whip through (overshoots)
-          else arm = 2.3 * (1 - (k - 0.77) / 0.23);                         // settle to rest
-          j.armR.rotation.z += arm;
+          const k = Math.min(1, (t - tp.at) / (tp.until - tp.at)); // 0..1 through the motion
+          j.armR.rotation.z += throwArmCurve(k);
           if (j.gun) j.gun.position.y -= 0.08 * (1 - k); // rides low on the left hand
         }
       }
@@ -2611,23 +2602,12 @@ export class Renderer {
       fblend.v += ((airborne2 ? 1 : 0) - fblend.v) * Math.min(1, this.frameDt / 0.3);
       const fb = fblend.v;
       if (fb > 0.01) {
-        let pitch = 0, armZ = 0, armX = 0, headZ = 0;
-        if (s.ascendant === 'inferno') {
-          // SUPERMAN: both arms dead ahead, body near-horizontal, head up
-          pitch = -1.25; armZ = 2.7; headZ = 0.35;
-        } else if (s.ascendant === 'stormcaller') {
-          // GOKU: arms swept back at her sides, pitched ~40°, chin forward —
-          // she flies like she's deciding to
-          pitch = -0.7; armZ = -0.5; headZ = 0.2;
-        } else {
-          // THE GARGOYLE: folded wings; the shriek's dive is steeper
-          const diving = s.diveAt !== undefined && t < s.diveAt;
-          pitch = diving ? -1.4 : -0.9; armZ = -1.1; armX = 0.9; headZ = 0.15;
-        }
-        mesh.rotation.z = mesh.rotation.z * (1 - fb) + pitch * fb;
-        if (j.armL) { j.armL.rotation.z += (armZ - j.armL.rotation.z) * fb; j.armL.rotation.x += (armX - j.armL.rotation.x) * fb; }
-        if (j.armR) { j.armR.rotation.z += (armZ - j.armR.rotation.z) * fb; j.armR.rotation.x += (-armX - j.armR.rotation.x) * fb; }
-        if (j.head) j.head.rotation.z += (headZ - j.head.rotation.z) * fb;
+        const diving = s.ascendant === 'gargoyle' && s.diveAt !== undefined && t < s.diveAt;
+        const pose = FLIGHT_POSES[diving ? 'gargoyle_dive' : s.ascendant];
+        mesh.rotation.z = mesh.rotation.z * (1 - fb) + pose.pitch * fb;
+        if (j.armL) { j.armL.rotation.z += (pose.armZ - j.armL.rotation.z) * fb; j.armL.rotation.x += (pose.armX - j.armL.rotation.x) * fb; }
+        if (j.armR) { j.armR.rotation.z += (pose.armZ - j.armR.rotation.z) * fb; j.armR.rotation.x += (-pose.armX - j.armR.rotation.x) * fb; }
+        if (j.head) j.head.rotation.z += (pose.headZ - j.head.rotation.z) * fb;
         if (j.legL) j.legL.rotation.z += (0.25 - j.legL.rotation.z) * fb;
         if (j.legR) j.legR.rotation.z += (0.15 - j.legR.rotation.z) * fb;
         if (j.shinL) j.shinL.rotation.z += (-0.35 - j.shinL.rotation.z) * fb;
