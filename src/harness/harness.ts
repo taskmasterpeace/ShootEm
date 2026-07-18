@@ -11,7 +11,7 @@ import {
 import { BUILDINGS, generateHouse, type BuildingDef, type DynHouseType } from '../sim/buildings';
 import { Rng } from '../sim/rng';
 import type { AscendantId, ClassId, ModeId, SoldierKind, Team, ThemeId, WeaponDef, WeaponId, ZedKind } from '../sim/types';
-import { JOINT_NAMES, poseSoldierJoints, type GaitState, type Joints } from '../client/animation';
+import { JOINT_NAMES, poseSoldierJoints, stepYawSpring, throwArmCurve, FLIGHT_POSES, WEAPON_HOLDS, type GaitState, type Joints } from '../client/animation';
 import {
   buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp,
   buildSoldier, buildTurretMesh, buildVehicle, dressAsLsw,
@@ -101,6 +101,8 @@ interface Current {
   id: number;
   joints: Joints;
   rest: Map<THREE.Object3D, { rot: THREE.Euler; scale: THREE.Vector3 }>;
+  /** the built rest pose of arms/gun (the solved grip) — the hold layer's base */
+  feelRest?: { armL: number; armR: number; gunY: number; gunZ: number; gunRotZ: number };
 }
 const current: Current = { root: null, label: '—', isSoldier: false, kind: 'zombie', id: 3, joints: {}, rest: new Map() };
 
@@ -184,6 +186,14 @@ function showModel(build: () => THREE.Object3D, label: string, opts: { soldier?:
   stageGait.phase = undefined; // fresh gait accumulator per model
   stageGait.swayPhase = undefined;
   current.joints = Object.fromEntries(JOINT_NAMES.map((n) => [n, root.getObjectByName(n)]));
+  // the solved grip is the feel layer's base pose — snapshot it
+  current.feelRest = {
+    armL: current.joints.armL?.rotation.z ?? 0,
+    armR: current.joints.armR?.rotation.z ?? 0,
+    gunY: current.joints.gun?.position.y ?? 0,
+    gunZ: current.joints.gun?.position.z ?? 0,
+    gunRotZ: current.joints.gun?.rotation.z ?? 0,
+  };
   // snapshot the built rest pose so we can restore it when animation is off
   current.rest = new Map();
   for (const n of JOINT_NAMES) {
@@ -358,6 +368,114 @@ function fireCombat(weapon: WeaponId, range: number) {
   const label = makeLabel(dmg, def.heals ? 0x6fcf72 : 0xff6a6a, to.clone().add(new THREE.Vector3(0, 1.2, 0)), 0.8);
   stage.add(label);
   fx.push({ obj: label, life: 1.1, max: 1.1, kind: 'text' });
+}
+
+// ── Feel Pass — the live iteration workbench (shared math from animation.ts) ─
+const feel = {
+  turn: false, yawState: { v: 0 }, turnAt: -10, yawTarget: 0,
+  hold: null as string | null,
+  throwAt: -1, cast: null as 'slam' | 'thrust' | 'channel' | null, castAt: -1,
+  flight: null as 'inferno' | 'stormcaller' | 'gargoyle' | null, flightBlend: { v: 0 },
+};
+const feelSay = (t: string) => { $('feel-status').textContent = t; };
+
+$('feel-turn').onclick = () => {
+  feel.turn = !feel.turn;
+  $('feel-turn').classList.toggle('on', feel.turn);
+  feel.yawState.v = feel.yawTarget = stage.rotation.y;
+  feel.turnAt = animTime;
+  feelSay(feel.turn ? 'turn test ON — 180° flip every 2s; the head leads the body' : 'idle');
+};
+{
+  const holdsHost = $('feel-holds');
+  for (const fam of ['rifle', 'pistol', 'shotgun', 'at_rocket', 'slugger', 'hmg']) {
+    const b = chip(fam.replace('_', ' '), '', () => {
+      feel.hold = feel.hold === fam ? null : fam;
+      for (const x of Array.from(holdsHost.querySelectorAll('button'))) x.classList.remove('active');
+      if (feel.hold) b.classList.add('active');
+      feelSay(feel.hold ? `hold: ${fam} — additive over the solved grip` : 'idle');
+    });
+    holdsHost.appendChild(b);
+  }
+}
+$('feel-throw').onclick = () => { feel.throwAt = animTime; feelSay('grenade throw: wind back, whip through, settle'); };
+for (const id of ['slam', 'thrust', 'channel'] as const) {
+  $(`feel-cast-${id}`).onclick = () => { feel.cast = id; feel.castAt = animTime; feelSay(`power-cast: ${id.toUpperCase()}`); };
+}
+for (const id of ['inferno', 'stormcaller', 'gargoyle'] as const) {
+  $(`feel-fly-${id}`).onclick = () => {
+    feel.flight = feel.flight === id ? null : id;
+    for (const other of ['inferno', 'stormcaller', 'gargoyle'] as const) $(`feel-fly-${other}`).classList.remove('active');
+    if (feel.flight) $(`feel-fly-${id}`).classList.add('active');
+    feelSay(feel.flight ? `flight: ${id} — spring-blended over the gait` : 'idle');
+  };
+}
+
+/** the feel layer, applied after the shared gait every frame */
+function applyFeelLayer(dt: number) {
+  const j = current.joints;
+  const r = current.feelRest;
+  // THE TURN test: the real spring drives the stage; the head leads
+  if (feel.turn) {
+    if (animTime - feel.turnAt > 2) { feel.turnAt = animTime; feel.yawTarget += Math.PI; }
+    const diff = stepYawSpring(feel.yawState, feel.yawTarget, dt, opt.speed > 0.6);
+    stage.rotation.y = feel.yawState.v;
+    if (j.head) j.head.rotation.y = Math.max(-0.6, Math.min(0.6, diff));
+  } else {
+    stage.rotation.y = 0;
+    if (j.head) j.head.rotation.y = 0;
+  }
+  // HOLDS: rest pose + the family delta, every frame (gait never touches arms)
+  if (r) {
+    const h = feel.hold ? WEAPON_HOLDS[feel.hold] : null;
+    if (j.armL) j.armL.rotation.z = r.armL + (h?.armL ?? 0);
+    if (j.armR) j.armR.rotation.z = r.armR + (h?.armR ?? 0);
+    if (j.gun) {
+      j.gun.position.y = r.gunY + (h?.gunY ?? 0);
+      j.gun.position.z = r.gunZ + (h?.gunZ ?? 0);
+      j.gun.rotation.z = r.gunRotZ + (h?.gunRotZ ?? 0);
+      j.gun.visible = !(h?.hideGun);
+    }
+    if (h?.torsoX && j.torso) j.torso.rotation.x += h.torsoX;
+  }
+  // THE THROW: wind back, whip through with overshoot, settle to rest
+  if (feel.throwAt >= 0) {
+    const k = (animTime - feel.throwAt) / 0.45;
+    if (k >= 1) { feel.throwAt = -1; feelSay('idle'); }
+    else {
+      if (j.armR) j.armR.rotation.z = (r?.armR ?? 0) + throwArmCurve(k);
+      if (j.gun) j.gun.position.y -= 0.08 * (1 - k);
+    }
+  }
+  // POWER-CAST: slam / thrust / channel envelopes
+  if (feel.cast && feel.castAt >= 0) {
+    const k = (animTime - feel.castAt) / 0.6;
+    if (k >= 1) { feel.cast = null; feelSay('idle'); }
+    else {
+      const env = Math.sin(k * Math.PI);
+      if (feel.cast === 'slam') {
+        const swing = k < 0.55 ? 2.4 * (k / 0.55) : 2.4 - 3.6 * ((k - 0.55) / 0.45);
+        if (j.armL) j.armL.rotation.z = (r?.armL ?? 0) + swing;
+        if (j.armR) j.armR.rotation.z = (r?.armR ?? 0) + swing;
+      } else if (feel.cast === 'channel') {
+        if (j.armR) j.armR.rotation.z = (r?.armR ?? 0) + 1.5 * env;
+      } else {
+        const punch = Math.min(1, k / 0.25) * (1 - Math.max(0, (k - 0.7) / 0.3));
+        if (j.armL) j.armL.rotation.z = (r?.armL ?? 0) + 1.9 * punch;
+        if (j.armR) j.armR.rotation.z = (r?.armR ?? 0) + 1.9 * punch;
+      }
+    }
+  }
+  // FLIGHT: spring-blend the silhouette over the gait
+  const fb = feel.flightBlend;
+  fb.v += ((feel.flight ? 1 : 0) - fb.v) * Math.min(1, dt / 0.3);
+  if (fb.v > 0.01 && feel.flight) {
+    const p = FLIGHT_POSES[feel.flight];
+    if (j.armL) { j.armL.rotation.z += (p.armZ - j.armL.rotation.z) * fb.v; j.armL.rotation.x += (p.armX - j.armL.rotation.x) * fb.v; }
+    if (j.armR) { j.armR.rotation.z += (p.armZ - j.armR.rotation.z) * fb.v; j.armR.rotation.x += (-p.armX - j.armR.rotation.x) * fb.v; }
+    if (j.head) j.head.rotation.z += (p.headZ - j.head.rotation.z) * fb.v;
+    stage.rotation.z = p.pitch * fb.v;
+  } else stage.rotation.z = 0;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1168,6 +1286,8 @@ function frame(now: number) {
         overlayAcc += dt;
         if (overlayAcc >= 0.08) { overlayAcc = 0; rebuildOverlays(); }
       }
+      // THE FEEL LAYER — the live iteration knobs (turn/holds/throw/cast/flight)
+      applyFeelLayer(dt);
     }
   }
 
