@@ -124,8 +124,14 @@ function buildGlbTrooper(src: THREE.Group, classId: ClassId): THREE.Group {
     if (o instanceof THREE.Mesh) o.material = (o.material as THREE.Material).clone();
   });
   g.add(body);
+  // rifle-hold rest pose — the run cycle swings around these bases. (The
+  // chain solver is NOT for these bodies: the segmented arms are rigid
+  // single parts, and the unconstrained solve parked the gun somewhere a
+  // rigid arm could never reach. The authored pose was tuned by eye.)
   const armR = body.getObjectByName('armR');
   const armL = body.getObjectByName('armL');
+  if (armR) armR.rotation.z = -0.5;
+  if (armL) armL.rotation.z = -0.75;
   // the faction band: one amber stripe over the left shoulder — the GLB
   // body is Robert's art, the stripe is the army it fights for
   const trim = mat(TEAM_COLORS[0], { emissive: TEAM_COLORS[0] });
@@ -134,11 +140,8 @@ function buildGlbTrooper(src: THREE.Group, classId: ClassId): THREE.Group {
   g.add(band);
   const gun = buildRifle(classId);
   gun.position.set(0.42, 1.28, -0.16);
-  g.add(gun);
-  // the SOLVED grip (models/grip.ts): both hands close on the rifle, and
-  // the rifle comes to the body if the support hand can't reach the guard
-  solveGlbGrip(g, armR, armL, gun);
   gun.userData.baseX = gun.position.x;
+  g.add(gun);
   return g;
 }
 

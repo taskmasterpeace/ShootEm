@@ -50,18 +50,30 @@ function handToTarget(root: THREE.Object3D, chain: ArmChain, target: THREE.Vecto
 
 /** coordinate-descent on the arm chain: try a small rotation on each axis,
  *  keep whatever shrinks hand-to-target, halve the step when nothing helps.
- *  No frame math, no sign conventions — it just converges (build-time only). */
+ *  No frame math, no sign conventions — it just converges (build-time only).
+ *  THE ENVELOPE keeps it human: joints stay inside natural ranges, so the
+ *  solver lands a pose a soldier could actually hold (the old unconstrained
+ *  climb would happily twist a shoulder to −171° to grab the handguard). */
+const LIMITS: Record<'x' | 'z', [number, number]> = { x: [-1.1, 0.6], z: [-1.5, 1.5] };
+const ELBOW_Z: [number, number] = [-2.4, 0.2];
+
 function settle(root: THREE.Object3D, chain: ArmChain, target: THREE.Vector3, _useShoulderX: boolean, iters = 400) {
-  const axes: [THREE.Object3D, 'x' | 'z'][] = [
-    [chain.elbow, 'z'], [chain.shoulder, 'z'], [chain.shoulder, 'x'],
+  const axes: [THREE.Object3D, 'x' | 'z', [number, number]][] = [
+    [chain.elbow, 'z', ELBOW_Z],
+    [chain.shoulder, 'z', LIMITS.z],
+    [chain.shoulder, 'x', LIMITS.x],
   ];
   let step = 0.25;
   let d = handToTarget(root, chain, target);
   while (step > 0.004 && iters-- > 0) {
     let improved = false;
-    for (const [joint, axis] of axes) {
+    for (const [joint, axis, [lo, hi]] of axes) {
       for (const s of [1, -1] as const) {
         joint.rotation[axis] += s * step;
+        if (joint.rotation[axis] < lo || joint.rotation[axis] > hi) {
+          joint.rotation[axis] -= s * step; // outside the envelope — not a soldier's pose
+          continue;
+        }
         const d2 = handToTarget(root, chain, target);
         if (d2 < d - 1e-6) { d = d2; improved = true; break; }
         joint.rotation[axis] -= s * step;
