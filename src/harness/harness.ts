@@ -736,6 +736,7 @@ scene.add(laneGroup);
 
 function setMode(mode: string) {
   document.body.dataset.mode = mode;
+  matchupCtl?.setActive(mode === 'matchup');
   for (const t of Array.from(document.querySelectorAll<HTMLButtonElement>('.tab')))
     t.classList.toggle('active', t.dataset.mode === mode);
   const arsenal = mode === 'arsenal';
@@ -1219,6 +1220,8 @@ function frame(now: number) {
 
   if (opt.turntable && current.root && !envMode) stage.rotation.y += dt * 0.6;
 
+  if (matchupCtl?.active) matchupCtl.tick(dt); // the street fight runs on the SAME clock the Time slider owns
+
   controls.update();
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
@@ -1389,6 +1392,13 @@ function blBuild() {
     audio.resume();
     audio.play('footstep');
   };
+}
+
+// ── Matchup — any UF vs any Collective LSW, in a street, until one drops ────
+let matchupCtl: import('./matchup').MatchupCtl | undefined;
+{
+  const { mountMatchup } = await import('./matchup');
+  matchupCtl = mountMatchup($('matchup'), { scene, camera, controls, canvas: renderer.domElement });
 }
 
 // ── Map Maker — the AAA editor tab (engine: src/sim/mapedit.ts) ─────────────

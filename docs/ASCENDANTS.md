@@ -91,6 +91,17 @@ rifleman ≈ 45 dps, a 4-man squad ≈ 180, a focused 12-man team ≈ 540.
 > the storm rains). These laws run in every suite — a regression that breaks
 > a band fails CI.
 
+> **THE MATCHUP STAGE SHIPPED (2026-07-18):** the harness grew a ⚔ Matchup
+> tab (`src/harness/matchup.ts`) — pick ANY United Front LSW and ANY
+> Collective LSW from chip rosters (no pulldowns, house law), and they drop
+> at opposite ends of an AUTHORED STREET (building faces with doorways,
+> crates midline, a grass pocket each side) inside a real World: the same
+> brains, the same threat, the same laws as the war. The ground is EDITABLE
+> MID-FIGHT — click a street tile to cycle open → crate → wall and the bots
+> repath live — and the topbar Time slider owns the whole bout (verified:
+> 2.00× exactly doubles the fight clock — the sliders audit, live). First
+> recorded verdict: REAPER TAKES THE STREET — 9.9s, over Volt Striker.
+
 **The laws that keep it honest:**
 - **Threat buys HP, never immunity.** Every LSW dies to ordinary rifles —
   a T4 is 62 seconds of a full team's focused fire, which is an eternity in
