@@ -14,6 +14,7 @@ import { Hud } from './client/hud';
 import { Input } from './client/input';
 import { MusicDirector } from './client/music';
 import { Renderer } from './client/renderer';
+import { DamageText } from './client/damagetext';
 import { NetGame } from './client/net';
 import { KILLCAM_CAM, MATCH_LINGER_LOCAL_MS, ReplayDirector } from './client/replay';
 import { MatchTracker, RANKS, loadDossier, rankFor, saveDossier, type Dossier } from './client/record';
@@ -315,6 +316,7 @@ async function startGame() {
 
   const canvas = $('game-canvas') as HTMLCanvasElement;
   const renderer = new Renderer(canvas);
+  const dmgText = new DamageText();
   const hud = new Hud();
   const input = new Input(canvas);
   const chat = new Chat(name);
@@ -338,13 +340,13 @@ async function startGame() {
       await net.connect();
     } catch {
       hud.announce('Could not reach server — falling back to offline bots', true, 0);
-      startLocal(renderer, hud, input, name, endGame);
+      startLocal(renderer, dmgText, hud, input, name, endGame);
       return;
     }
-    net.run(renderer, hud, input, endGame);
+    net.run(renderer, dmgText, hud, input, endGame);
     return;
   }
-  startLocal(renderer, hud, input, name, endGame);
+  startLocal(renderer, dmgText, hud, input, name, endGame);
 }
 
 /** The front the player deployed to from the Scar (null = free play). */
@@ -393,7 +395,7 @@ function applyScarMods(world: World, frontId: string | null) {
   // 'blocked' (route denial) waits for the arena/authored-front pass
 }
 
-function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, endGame: () => void) {
+function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: Input, name: string, endGame: () => void) {
   const seed = seedOverride ?? (Math.random() * 0xffffffff) >>> 0;
   seedOverride = undefined;
   const world = new World({
@@ -674,6 +676,7 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     // live-world VFX/sounds only belong on the live view — a replay scene
     // getting present-time explosions would show phantom battles
     if (!replaying) renderer.applyEvents(events, world, me.id);
+    if (!replaying) dmgText.applyEvents(events, me.id); // floating -HP (red) / -ARMOR (blue), YOURS only
     renderer.replayView = replaying;
     // killcam pulls in tight on the fight; otherwise the player's wheel zoom
     renderer.camDist = replaying && director.killcamActive ? KILLCAM_CAM : input.camDist;
@@ -686,6 +689,7 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     input.weatherZoomCap = wxMods.zoomCap !== undefined && (renderWorld.weather?.intensity ?? 0) > 0.3
       ? wxMods.zoomCap : Infinity;
     renderer.update(renderWorld, me.id, dt, hud.getWaypoints());
+    dmgText.update(dt, renderer.camera); // project the floating numbers after the camera moves
     hud.update(world, me.id, input.scoreboardHeld, world.time);
 
     // FPV drone feed: noise rises as the signal drops; disconnect = full burst

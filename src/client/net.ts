@@ -11,6 +11,7 @@ import type { Input } from './input';
 import { KILLCAM_CAM, MATCH_LINGER_NET_MS, ReplayDirector } from './replay';
 import { onMatchEnd } from './onboarding';
 import type { Renderer } from './renderer';
+import type { DamageText } from './damagetext';
 
 interface WelcomeMsg { t: 'welcome'; id: number; seed: number; mode: ModeId; theme?: ThemeId; }
 interface SnapMsg { t: 'snap'; snap: Snapshot; }
@@ -95,7 +96,7 @@ export class NetGame {
     });
   }
 
-  run(renderer: Renderer, hud: Hud, input: Input, endGame: () => void) {
+  run(renderer: Renderer, dmgText: DamageText, hud: Hud, input: Input, endGame: () => void) {
     const world = this.world!;
     renderer.buildStaticWorld(world);
     hud.announce(`${MODE_INFO[world.mode.id].name.toUpperCase()} — ONLINE`, true, 0);
@@ -150,6 +151,7 @@ export class NetGame {
         if (cut.banner) banner.textContent = cut.banner;
       }
       if (!replaying) renderer.applyEvents(events, world, this.myId);
+      if (!replaying) dmgText.applyEvents(events, this.myId); // floating -HP (red) / -ARMOR (blue), YOURS only
       renderer.replayView = replaying;
       // killcam pulls in tight on the fight; otherwise the player's wheel zoom
       renderer.camDist = replaying && this.director?.killcamActive ? KILLCAM_CAM : input.camDist;
@@ -158,6 +160,7 @@ export class NetGame {
       // grenade throw preview: hold G → arc + landing ring at the cursor
       renderer.setGrenadePreview(world, me, !replaying && input.grenadeAiming ? input.aimPoint(renderer.camera) : null);
       renderer.update(cut.renderWorld, this.myId, dt, hud.getWaypoints());
+      dmgText.update(dt, renderer.camera); // project the floating numbers after the camera moves
       if (me) hud.update(world, this.myId, input.scoreboardHeld, world.time);
 
       // FPV drone feed: noise rises as the signal drops; disconnect = full burst

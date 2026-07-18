@@ -586,6 +586,7 @@ export interface SimEvent {
     | 'encased'        // a soldier was frozen alive in the ice block (§21.6)
     | 'lsw_active'     // a piloted LSW fired its signature (text = ascendant id)
     | 'nade_bounce'    // a hand grenade kissed the ground — the tick before the bang
+    | 'damage'         // a number worth showing floated off a victim (see amount/armorHit)
     | 'vo';            // a spoken line: text = sound slot; pos = positional speech, absent = announcer net
   pos?: Vec3;
   weapon?: WeaponId;
@@ -597,15 +598,27 @@ export interface SimEvent {
   killRadius?: number;
   /** On a 'hit': the shooter, but ONLY when a soldier/gadget was actually
    *  struck — the HUD keys its hitmarker off this, so a ball that ate a wall
-   *  must NOT set it or every miss flashes a phantom tag. */
+   *  must NOT set it or every miss flashes a phantom tag.
+   *  On a 'damage': the VICTIM — whose head the number floats over, and the key
+   *  that folds a burst of hits into one number. */
   soldierId?: number;
   /** On a 'hit': who fired the round, struck or missed. Attribution for
-   *  decals (paint splats wear their shooter's shade), never for feedback. */
+   *  decals (paint splats wear their shooter's shade), never for feedback.
+   *  On a 'damage': the ATTACKER — THE LAW is that a damage number shows only
+   *  when this is the local player (see shouldShowDamage). Everyone else's
+   *  exchanges stay silent so a busy field doesn't blizzard with numbers. */
   ownerId?: number;
   /** On a 'hit': the round met FLESH, not plate — the victim's armor was
    *  already gone. Drives the blood setting (§18 comfort): plate sparks,
    *  flesh bleeds. Sim states the fact; the client decides whether to show it. */
   bare?: boolean;
+  /** On a 'damage': the magnitude to float off the victim (the client rounds it
+   *  for display). Emitted from damageSoldier — one number for the plate the hit
+   *  ate, one for the flesh it reached. */
+  amount?: number;
+  /** On a 'damage': true = this number came off ARMOR (draw it blue); false/absent
+   *  = it came off HP (draw it red). */
+  armorHit?: boolean;
   killerName?: string;
   victimName?: string;
   killerTeam?: Team;

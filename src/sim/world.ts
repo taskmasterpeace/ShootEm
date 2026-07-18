@@ -3441,14 +3441,17 @@ export class World {
       this.emit({ type: 'vo', text: 'vo_chronos_low', pos: { ...victim.pos }, soldierId: victim.id });
       return; // the killing blow struck an afterimage
     }
-    // issued plate takes the hit first; whatever punches through reaches flesh
+    // issued plate takes the hit first; whatever punches through reaches flesh.
+    // Each portion floats its own number: blue off the plate, red off the flesh.
     if (victim.armor > 0) {
       const absorbed = Math.min(victim.armor, dmg);
       victim.armor -= absorbed;
       dmg -= absorbed;
+      if (absorbed > 0) this.emit({ type: 'damage', pos: { x: victim.pos.x, y: victim.pos.y + 1.7, z: victim.pos.z }, amount: absorbed, armorHit: true, soldierId: victim.id, ownerId: attackerId });
       if (dmg <= 0) return; // the plate held
     }
     victim.hp -= dmg;
+    if (dmg > 0) this.emit({ type: 'damage', pos: { x: victim.pos.x, y: victim.pos.y + 1.7, z: victim.pos.z }, amount: dmg, armorHit: false, soldierId: victim.id, ownerId: attackerId });
     // the bloodied line (once per life): an LSW crossing a quarter health
     // says so — nearby ears get the tell BEFORE the killfeed does
     if (victim.ascendant && !victim.lswLowSaid && victim.hp > 0 && victim.hp < victim.maxHp * 0.25) {
