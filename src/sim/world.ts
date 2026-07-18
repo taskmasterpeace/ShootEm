@@ -1,6 +1,6 @@
 import { CLASSES, DOG_NAMES, DOG_STATS, EQUIPMENT, IRON_STATS, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
-import { CLIMB_H, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_RUBBLE, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
+import { CLIMB_H, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_RUBBLE, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, nearestOpenTile, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
 import { materialOf, DRILL_BASE } from './materials';
 import { Rng } from './rng';
 import {
@@ -874,12 +874,31 @@ export class World {
           if (!e.alive || e.team === s.team) continue;
           if (Math.hypot(e.pos.x - m.pos.x, e.pos.z - m.pos.z) < 20) { safe = false; break; }
         }
-        if (safe) { matePos = m.pos; break; }
+        // THE STATUE LAW: a mate standing inside masonry (or treading deep
+        // water) is a trap, not an anchor — spawning the squad onto a stuck
+        // body is how one frozen soldier became a frozen fireteam.
+        if (safe && !isBlocked(this.map.grid, m.pos.x, m.pos.z)) { matePos = m.pos; break; }
       }
     }
     // the APC is a door, not a clown car — a third rides it, not half
     const base = matePos ?? (mobile && this.rng.next() < 0.33 ? mobile.pos : ringPick);
-    s.pos = { x: base.x + this.rng.range(-2.6, 2.6), y: 0, z: base.z + this.rng.range(-2.6, 2.6) };
+    // THE STATUE LAW, part two: the blind ±2.6u scatter could land a body
+    // INSIDE base masonry — where the integrator (destination checks only)
+    // vetoes every step forever. Roll until the boots find open ground; a
+    // buried anchor falls back to the ring, which the generator keeps open.
+    let px = base.x, pz = base.z, placed = false;
+    for (let i = 0; i < 12 && !placed; i++) {
+      px = base.x + this.rng.range(-2.6, 2.6);
+      pz = base.z + this.rng.range(-2.6, 2.6);
+      placed = !isBlocked(this.map.grid, px, pz);
+    }
+    for (let i = 0; i < 12 && !placed; i++) {
+      px = ringPick.x + this.rng.range(-2.6, 2.6);
+      pz = ringPick.z + this.rng.range(-2.6, 2.6);
+      placed = !isBlocked(this.map.grid, px, pz);
+    }
+    if (!placed) { px = ringPick.x; pz = ringPick.z; }
+    s.pos = { x: px, y: 0, z: pz };
     s.vel = { x: 0, y: 0, z: 0 };
     // FRESH LIFE (Robert: "give them a chance to try something different"):
     // dying wipes the nav scratch — no marching the old lane out of habit —
@@ -2445,6 +2464,22 @@ export class World {
     if (!blockedZ) s.pos.z = nz;
     s.pos.x = Math.max(-WORLD / 2 + 2, Math.min(WORLD / 2 - 2, s.pos.x));
     s.pos.z = Math.max(-WORLD / 2 + 2, Math.min(WORLD / 2 - 2, s.pos.z));
+    // THE UNSTICK (statue law, defense in depth): whatever put a grounded
+    // body ON a blocked tile — a leap landing, a door closed on the doorway,
+    // a bad old spawn — it walks itself to the nearest open tile center.
+    // The integrator above only vetoes destinations, so a body deep inside
+    // masonry would otherwise stand frozen forever while its squad accretes
+    // around it. hover=true spares swimmers: deep water is legal physics.
+    if (s.pos.y <= 0.05 && isBlocked(this.map.grid, s.pos.x, s.pos.z, true)) {
+      const esc = nearestOpenTile(this.map.grid, s.pos.x, s.pos.z);
+      if (esc) {
+        const dx = esc.x - s.pos.x, dz = esc.z - s.pos.z;
+        const dl = Math.hypot(dx, dz) || 1;
+        const step = Math.min(dl, 7 * dt);
+        s.pos.x += (dx / dl) * step;
+        s.pos.z += (dz / dl) * step;
+      }
+    }
   }
 
   /**

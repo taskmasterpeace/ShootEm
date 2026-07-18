@@ -190,6 +190,36 @@ export function isBlocked(grid: Uint8Array, x: number, z: number, hover = false)
   return t === T_WALL || t === T_COVER || t === T_SLIT || t === T_DOOR || t === T_METAL || t === T_METAL_DOOR || t === T_CLIMB;
 }
 
+/**
+ * Nearest open-tile CENTER within `maxR` rings of (x, z) — the statue law's
+ * escape hatch. The movement integrator only vetoes DESTINATIONS, so a body
+ * that somehow stands inside masonry (a leap landing, a door closed on the
+ * doorway, a bad spawn) could otherwise never move again. Ring-by-ring scan
+ * keeps it nearest-first; null means everything nearby is masonry too.
+ */
+export function nearestOpenTile(grid: Uint8Array, x: number, z: number, maxR = 4): { x: number; z: number } | null {
+  const tx = Math.floor((x + WORLD / 2) / TILE);
+  const tz = Math.floor((z + WORLD / 2) / TILE);
+  for (let r = 1; r <= maxR; r++) {
+    let best: { x: number; z: number } | null = null;
+    let bestD = Infinity;
+    for (let dz = -r; dz <= r; dz++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue; // this ring's shell only
+        const nx = tx + dx, nz = tz + dz;
+        if (nx < 0 || nx >= GRID || nz < 0 || nz >= GRID) continue;
+        const cx = (nx + 0.5) * TILE - WORLD / 2;
+        const cz = (nz + 0.5) * TILE - WORLD / 2;
+        if (isBlocked(grid, cx, cz)) continue; // deep water is no refuge either
+        const d = Math.hypot(cx - x, cz - z);
+        if (d < bestD) { bestD = d; best = { x: cx, z: cz }; }
+      }
+    }
+    if (best) return best;
+  }
+  return null;
+}
+
 /** Blocks projectiles/sight: walls always; cover and water never (shots fly over). */
 export function blocksShot(grid: Uint8Array, x: number, z: number, y: number): boolean {
   const t = tileAt(grid, x, z);
