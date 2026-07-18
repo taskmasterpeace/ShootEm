@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { TEAM_COLORS } from '../../sim/data';
 import { zombieArmRest } from '../animation';
-import { solveGlbGrip, solveTwoHandedGrip } from './grip';
+import { solveTwoHandedGrip } from './grip';
 import type { ClassId, SoldierKind, Team } from '../../sim/types';
 import { box, cyl, limb, mat } from './shared';
 
