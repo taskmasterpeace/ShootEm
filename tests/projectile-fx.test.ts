@@ -1,8 +1,17 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { World } from '../src/sim/world';
 import { WEAPONS } from '../src/sim/data';
 import { GRID, TILE, WORLD } from '../src/sim/map';
 import type { Projectile } from '../src/sim/types';
+
+// these tests mutate shared WEAPONS defs to arrange flags — reset after each so
+// they never pollute another test (or file). The real per-LSW data lands later.
+afterEach(() => {
+  for (const id of ['rg2', 'lsw_pulse'] as const) {
+    const w = WEAPONS[id] as { pierce?: number; pierceArmor?: boolean };
+    w.pierce = undefined; w.pierceArmor = undefined;
+  }
+});
 
 // helper: launch a bare projectile aimed +x from origin
 function shot(w: World, weapon: string, over: Partial<Projectile> = {}) {
@@ -55,5 +64,22 @@ describe('pierce passes through bodies', () => {
     for (let i = 0; i < 40; i++) w.step(1 / 60, new Map());
     const hurt = foes.filter((s) => s.hp < 100).length;
     expect(hurt).toBe(3); // pierced two, died in/after the third
+  });
+});
+
+describe('pierceArmor bypasses plate', () => {
+  it('an AP round takes hp even when the victim is fully plated', () => {
+    const w = new World({ seed: 3, mode: 'tdm' });
+    const v = w.addSoldier('V', 'infantry', 1, 'human', { equipment: ['armor_vest'] });
+    v.pos = { x: 4, y: 0, z: 0 };
+    const hp0 = v.hp;
+    const tz = Math.floor((0 + WORLD / 2) / TILE);
+    for (let x = -2; x <= 8; x++) w.map.grid[tz * GRID + Math.floor((x + WORLD / 2) / TILE)] = 0; // clear the lane
+    (WEAPONS.rg2 as { pierceArmor?: boolean }).pierceArmor = true;
+    w.launch({ id: w.id(), weapon: 'rg2', ownerId: -1, team: 0,
+      pos: { x: 0, y: 1.2, z: 0 }, vel: { x: 40, y: 0, z: 0 },
+      bornAt: w.time, ttl: 3, arc: false } as Projectile);
+    for (let i = 0; i < 40; i++) { v.pos = { x: 4, y: 0, z: 0 }; v.vel = { x: 0, y: 0, z: 0 }; w.step(1 / 60, new Map()); }
+    expect(v.hp).toBeLessThan(hp0); // flesh took it despite the vest
   });
 });

@@ -3198,7 +3198,7 @@ export class World {
               // Ragebeast's rounds hit harder as he bleeds (rampage)
               const shooter = this.soldiers.get(p.ownerId);
               const dmg = def.damage * (shooter?.rageMul ?? 1) * (p.dmgMul ?? 1);
-              this.damageSoldier(s, dmg, p.ownerId, p.weapon);
+              this.damageSoldier(s, dmg, p.ownerId, p.weapon, false, p.pierceArmor);
               this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, soldierId: p.ownerId, bare });
             }
             // the RG-2 tag dart: sting like a bee, then GLOW — pinned on
@@ -3400,7 +3400,7 @@ export class World {
     if (cost > 0) this.damageSoldier(s, cost, s.lastKillerId, 'bleedout');
   }
 
-  damageSoldier(victim: Soldier, dmg: number, attackerId: number, weapon: WeaponId, viaLink = false) {
+  damageSoldier(victim: Soldier, dmg: number, attackerId: number, weapon: WeaponId, viaLink = false, pierceArmor = false) {
     if (!victim.alive || dmg <= 0) return;
     if (this.time < victim.protectedUntil) return; // spawn protection (55B)
     // DOMINATOR'S PSYCHIC LINK (§ finale): hurt one linked soldier and every
@@ -3467,7 +3467,7 @@ export class World {
     }
     // issued plate takes the hit first; whatever punches through reaches flesh.
     // Each portion floats its own number: blue off the plate, red off the flesh.
-    if (victim.armor > 0) {
+    if (victim.armor > 0 && !pierceArmor) {  // AP rounds ignore the plate — the damage lands on flesh
       const absorbed = Math.min(victim.armor, dmg);
       victim.armor -= absorbed;
       dmg -= absorbed;
