@@ -334,9 +334,16 @@ character-select screen:
 stable (radio checks from ~90s, every 45s, seeded pick). A faction WITH a
 human never auto-calls — the channel is yours, even if you never press V.
 
-**Honest gaps:** materiel isn't priced yet (calls are free until §17
-campaign stock lands); MP clients can't call (the sim call is
-server-authoritative; the net command comes with the officer console);
+**Gaps CLOSED (2026-07-17, the finish-list push):** materiel is PRICED —
+each faction's purse opens at 10, drips +1/min (cap 14), and `requestLsw`
+charges `THREAT[].materiel` (a refusal charges nothing; law-tested). MP
+clients CAN call — the `{t:'lsw'}` net command lands in the server's
+`requestLsw`, which judges faction, slot, and purse alike. Both ride THE
+STABLE CONSOLE (V, client/stable.ts): the roster with tier + price + the
+live purse, gated by the COMMISSION (D2, earned by record — the OCS path
+at the three-match review, or Lieutenant's 8000 points). The old blind
+V-quick-call retired.
+**Honest gap:**
 the TRUE FLIGHT trio stays AI-until-flight-feels-right (§13 Q1 stands —
 Superman/Goku is a movement model, not an overlay).
 

@@ -89,3 +89,22 @@ describe('#13 THE SLIDERS — "make sure they are working"', () => {
     expect(speed * p.ttl, 'the slow round still reaches its range').toBeGreaterThan(40);
   });
 });
+
+describe('#4 MATERIEL — the call is priced (§17)', () => {
+  it('a call costs its tier, and an empty purse refuses WITHOUT charging', () => {
+    const w = quiet();
+    expect(w.materiel[0], 'the purse opens at 10').toBe(10);
+    expect(w.requestLsw('voltstriker', 0), 'a T1 call goes through').toBe(true);
+    expect(w.materiel[0], 'and costs 1').toBe(9);
+    w.materiel[1] = 1;
+    expect(w.requestLsw('oblivion', 1), 'a T2 against a purse of 1 is refused').toBe(false);
+    expect(w.materiel[1], 'a refusal charges nothing').toBe(1);
+  });
+
+  it('the drip: war production crawls at +1 per minute', () => {
+    const w = quiet();
+    w.materiel[0] = 0; w.materiel[1] = 0;
+    for (let i = 0; i < 61 * 60; i++) w.step(1 / 60, new Map());
+    expect(w.materiel[0], 'sixty seconds buys one').toBe(1);
+  });
+});

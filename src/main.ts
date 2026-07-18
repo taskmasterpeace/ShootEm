@@ -6,6 +6,7 @@ import { World, type Difficulty, type Loadout } from './sim/world';
 import { mapSizeForPlayers } from './sim/fronts';
 import { WEATHER_MODS } from './sim/weather';
 import { mountOnboarding, onMatchEnd, paintballConfig } from './client/onboarding';
+import { StableConsole, isCommissioned } from './client/stable';
 import { audio } from './client/audio';
 import { Chat } from './client/chat';
 import { StaticOverlay } from './client/effects';
@@ -331,7 +332,7 @@ async function startGame() {
 
   if (serverUrl) {
     // ---- multiplayer ----
-    const net = new NetGame(serverUrl, name, selectedClass, selectedMode, currentLoadout(), chat, hud);
+    const net = new NetGame(serverUrl, name, selectedClass, selectedMode, currentLoadout(), chat, hud, isCommissioned(dossier));
     try {
       await net.connect();
     } catch {
@@ -406,6 +407,16 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
   world.moveSpeedMul = settings.moveSpeed;
   const me = world.addSoldier(name, selectedClass, 0, 'human', currentLoadout());
   applyScarMods(world, activeFrontId); // §8.5: the front's wound shapes the field
+  // THE STABLE (finish-list #3/#4): the officer's V channel. SP wires
+  // straight into the sim — requestLsw prices the call and refuses politely.
+  new StableConsole({
+    mode: selectedMode,
+    commissioned: isCommissioned(dossier),
+    team: () => 0,
+    call: (id) => world.requestLsw(id, 0, me.id),
+    stock: () => world.materiel[0],
+    announce: (t) => hud.announce(t, false, world.time),
+  });
   // the Record (§3.4): fold this match into the dossier as it happens
   // the yard stays out of the Record (§14 Q3: one legacy beat per phase —
   // the dossier starts writing at the first WAR drop, not in the paint)
@@ -525,21 +536,10 @@ function startLocal(renderer: Renderer, hud: Hud, input: Input, name: string, en
     if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
     if (e.key === 'Escape' && !world.mode.over) setPaused(!paused);
     else if (world.mode.over) lingerSkip = true; // any key hurries the AAR along
-    else if ((e.key === 'v' || e.key === 'V') && !paused && !world.puppet) {
-      // §7 THE OFFICER CHANNEL: V calls your faction's first LSW, ⇧V the
-      // second. The LZ is WHERE YOU STAND — hold it through the telegraph
-      // and the pod is yours: your trooper ascends into the weapon.
-      const picks = lswsForTeam(0 as Team);
-      const id = e.shiftKey ? picks[1] : picks[0];
-      if (!id) return;
-      if (world.requestLsw(id, 0, me.id)) {
-        hud.announce(`${LSWS[id].name.toUpperCase()} CALLED — HOLD THE MARK, THE POD IS YOURS`, false, world.time);
-      } else if (!lswAllowed(world.mode.id)) {
-        hud.announce('NO LSW WALKS IN THE YARD', false, world.time);
-      } else {
-        hud.announce('OFFICER CHANNEL BUSY — ONE WEAPON PER FACTION', false, world.time);
-      }
-    }
+    // §7 THE OFFICER CHANNEL moved into the STABLE CONSOLE (client/stable.ts):
+    // V opens the full roster with prices and the materiel purse, and the
+    // commission gate (D2) decides who gets a dial tone. The old quick-call
+    // (first-unit-blind, ungated, unpriced) retired when the console shipped.
   };
   window.addEventListener('keydown', onKey); // page reload on endGame cleans up
   const cmds = new Map<number, PlayerCmd>();

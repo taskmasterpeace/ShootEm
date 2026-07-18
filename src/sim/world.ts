@@ -350,6 +350,11 @@ export class World {
    *  owner's team are exempt; vehicles move only when CREWED (an abandoned
    *  wreck is nobody's toy — the §8.1a requisition law). */
   forceFields: { x: number; z: number; r: number; radial: number; fx?: number; fz?: number; team: Team; ownerId: number; until: number }[] = [];
+  /** §17 MATERIEL (finish-list #4): each faction's purse for LSW calls —
+   *  opens at 10, drips +1 every 60s (cap 14). THREAT[].materiel is the
+   *  price per tier, so a T4 costs most of the afternoon. */
+  materiel: [number, number] = [10, 10];
+  private nextMaterielDripAt = 60;
 
   private stepForceFields() {
     this.forceFields = this.forceFields.filter((f) => this.time < f.until);
@@ -409,6 +414,12 @@ export class World {
     // refuse a second of the same faction — live OR already inbound
     for (const s of this.soldiers.values()) if (s.alive && s.team === team && s.ascendant) return false;
     if (this.pendingLsw.some((p) => p.team === team)) return false;
+    // §17 MATERIEL — the call is PRICED (finish-list #4): a T1 is pocket
+    // change, a T4 is the stable's whole afternoon. The purse says no
+    // before the net says yes, and the drip makes the second call a wait.
+    const price = THREAT[def.threat].materiel;
+    if (this.materiel[team] < price) return false;
+    this.materiel[team] -= price;
     const caller = this.soldiers.get(callerId);
     const src = caller?.alive ? caller.pos : this.map.basePos[team];
     const lz = { x: src.x, y: 0, z: src.z };
@@ -784,6 +795,11 @@ export class World {
       return;
     }
     if (!this.mode.over) stepMode(this, dt);
+    // the materiel drip (§17): war production never stops, it just crawls
+    if (this.time >= this.nextMaterielDripAt) {
+      this.nextMaterielDripAt += 60;
+      for (const t of [0, 1] as const) this.materiel[t] = Math.min(14, this.materiel[t] + 1);
+    }
     if (!this.mode.over) this.stepLswDrops(); // §21.6: telegraphed LSW landings
     if (this.forceFields.length) this.stepForceFields(); // §4.4 #2: the pulls and the shoves
     if (this.blackHoles.length) this.stepBlackHoles(); // Oblivion's void (burst timing)

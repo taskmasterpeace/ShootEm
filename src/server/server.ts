@@ -10,7 +10,8 @@ import { resolve } from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
 import { World, type Loadout } from '../sim/world';
 import { cullSnapshotFor, takeSnapshot, wireRound } from '../sim/snapshot';
-import { isCoopMode, type ClassId, type ModeId, type PlayerCmd, type ThemeId } from '../sim/types';
+import { isCoopMode, type AscendantId, type ClassId, type ModeId, type PlayerCmd, type ThemeId } from '../sim/types';
+import { LSWS } from '../sim/lsw';
 import {
   FRONTS, applyNudge, freshCampaign, stageOperation, type Campaign,
 } from '../client/campaign';
@@ -148,6 +149,16 @@ class Room {
       const s = this.world.soldiers.get(c.soldierId);
       if (s && s.team === sender.team) c.ws.send(payload);
     }
+  }
+
+  /** THE STABLE over the wire (finish-list #5): a HUMAN client asks for a
+   *  drop; `requestLsw` does ALL the judging — faction, live slot, and the
+   *  materiel purse. The pod lands where the caller stands (§6). */
+  callLsw(from: Client, id: string) {
+    if (!(id in LSWS)) return;
+    const s = this.world.soldiers.get(from.soldierId);
+    if (!s?.alive) return;
+    this.world.requestLsw(id as AscendantId, s.team, s.id);
   }
 
   leave(client: Client) {
@@ -409,7 +420,7 @@ wss.on('connection', (ws) => {
   ws.on('message', (raw) => {
     let msg: {
       t: string; name?: string; classId?: ClassId; mode?: ModeId; cmd?: PlayerCmd;
-      loadout?: Loadout; channel?: string; text?: string; to?: string; x?: number; z?: number;
+      loadout?: Loadout; channel?: string; text?: string; to?: string; x?: number; z?: number; id?: string;
     };
     try { msg = JSON.parse(String(raw)); } catch { return; }
 
@@ -434,6 +445,8 @@ wss.on('connection', (ws) => {
       mailbox.set(key, box);
     } else if (msg.t === 'wp' && client && room && typeof msg.x === 'number' && typeof msg.z === 'number') {
       room.relayWaypoint(client, msg.x, msg.z);
+    } else if (msg.t === 'lsw' && client && room && typeof msg.id === 'string') {
+      room.callLsw(client, msg.id);
     }
   });
 

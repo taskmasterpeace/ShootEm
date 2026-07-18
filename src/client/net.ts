@@ -1,6 +1,7 @@
 import { MODE_INFO } from '../sim/data';
 import { applySnapshot, createPuppetWorld, type Snapshot } from '../sim/snapshot';
-import type { ClassId, ModeId, PlayerCmd, ThemeId } from '../sim/types';
+import type { ClassId, ModeId, PlayerCmd, Team, ThemeId } from '../sim/types';
+import { StableConsole } from './stable';
 import { World, type Loadout } from '../sim/world';
 import { audio } from './audio';
 import type { Chat } from './chat';
@@ -33,6 +34,7 @@ export class NetGame {
     private loadout: Loadout,
     private chat: Chat,
     private hud: Hud,
+    private commissioned = false,
   ) {}
 
   connect(): Promise<void> {
@@ -62,6 +64,19 @@ export class NetGame {
           this.hud.onWaypoint = (x, z) => {
             if (this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify({ t: 'wp', x, z }));
           };
+          // THE STABLE over the wire (finish-list #5): the client asks, the
+          // server's requestLsw judges — faction, slot, and purse alike.
+          new StableConsole({
+            mode: msg.mode,
+            commissioned: this.commissioned,
+            team: () => (this.world?.soldiers.get(this.myId)?.team ?? 0) as Team,
+            call: (id) => {
+              if (this.ws.readyState !== WebSocket.OPEN) return false;
+              this.ws.send(JSON.stringify({ t: 'lsw', id }));
+              return true; // the announcer is the receipt
+            },
+            stock: () => -1, // command holds the ledger
+          });
           resolve();
         } else if (msg.t === 'snap' && this.world) {
           applySnapshot(this.world, msg.snap);
