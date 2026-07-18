@@ -12,7 +12,7 @@
 // governing what it already governs. Flanking, ambush, and checking corners
 // all come back the moment sight has a shape.
 // ---------------------------------------------------------------------------
-import { losClear } from './map';
+import { T_GRASS, losClear, tileAt } from './map';
 import type { Soldier, Team } from './types';
 
 /** How far friendly eyes reach (mirrors the minimap; §8.8 weather taxes it). */
@@ -79,7 +79,7 @@ export function smokeBlocks(ax: number, az: number, bx: number, bz: number, smok
  *  are the standing clouds: they block the cone and the ring alike (a
  *  grenade that "affects visibility" — Robert — or it's just décor). Pings
  *  are electronic and the flag is public intel; smoke fools eyes, not radios. */
-export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<number>, s: Soldier, range = PERCEIVE_RANGE, smokes: SmokeBlob[] = []): boolean {
+export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<number>, s: Soldier, range = PERCEIVE_RANGE, smokes: SmokeBlob[] = [], revealed?: Set<number>): boolean {
   if (s.cloaked && !pinged.has(s.id)) return false;   // cloak is TRUE
   if (s.carryingFlag !== -1) return true;             // objective intel is public
   if (pinged.has(s.id)) return true;
@@ -87,6 +87,13 @@ export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<numb
   // a silhouette registers even in your periphery, so no cone check here.
   // (Above ~3u you're also above the smoke banks, so no smoke test.)
   if (s.pos.y > 3 && eyes.some((e) => Math.hypot(s.pos.x - e.pos.x, s.pos.z - e.pos.z) < range)) return true;
+  // TALL GRASS (finish-list 18): standing in the long grass you are a RUMOR --
+  // the cone loses you beyond 14u, and beyond the footstep RING itself if you
+  // DUCK. The truth-tellers: your own muzzle flash (revealed), a ping, the
+  // flag in your hands (public, above) -- and an LSW never fits in the grass.
+  if (s.ascendant === undefined && !revealed?.has(s.id) && tileAt(grid, s.pos.x, s.pos.z) === T_GRASS) {
+    range = Math.min(range, s.crouching ? RING : 14);
+  }
   // cone + ring, then the window truth: losClear marches at eye height 1.4 —
   // inside the T_SLIT firing band — so a defender framed in glass is SEEN,
   // and a stalker behind your back past the ring is NOT

@@ -46,6 +46,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 export function buildSoldier(team: Team, classId: ClassId, kind: SoldierKind): THREE.Group {
   if (kind === 'scientist') return buildScientist();
   if (kind === 'dog') return buildDog(team);
+  if (kind === 'scraprat' || kind === 'junkhound' || kind === 'weaver' || kind === 'ravager') return buildIronEater(kind);
   const isZed = kind !== 'human' && kind !== 'bot';
   if (isZed) return buildZombie(kind);
   const glbUrl = team === 0 ? GLB_BODIES[classId] : undefined;
@@ -848,6 +849,61 @@ function buildZombie(kind: SoldierKind): THREE.Group {
 // ---------------------------------------------------------------------------
 
 /** A compact posed rider for open vehicles. Named 'rider' for the renderer. */
+/** THE IRON EATERS (DD SS20.1, D4): junk that learned a body plan --
+ *  PROCEDURAL scrap composition from the prop vocabulary, seed-varied so no
+ *  two beasts are alike. Rust, gunmetal, and the nanite glow underneath. */
+function buildIronEater(kind: 'scraprat' | 'junkhound' | 'weaver' | 'ravager'): THREE.Group {
+  const g = new THREE.Group();
+  const rust = new THREE.MeshStandardMaterial({ color: 0x8a4a2a, roughness: 0.95, metalness: 0.4 });
+  const gun = new THREE.MeshStandardMaterial({ color: 0x5a5e63, roughness: 0.8, metalness: 0.6 });
+  const glow = new THREE.MeshStandardMaterial({ color: 0xff5a1a, emissive: 0xcc3300, emissiveIntensity: 0.9, roughness: 0.5 });
+  const jitter = () => (Math.random() - 0.5) * 0.12; // no two beasts alike (D4)
+  const bx = (w: number, h: number, d: number, m: THREE.Material) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+  const cy = (r: number, h: number, m: THREE.Material) => new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 6), m);
+  if (kind === 'scraprat') {
+    const body = bx(0.7, 0.28, 0.36, rust); body.position.set(jitter(), 0.22, jitter()); g.add(body);
+    const head = bx(0.24, 0.18, 0.24, gun); head.position.set(0.42, 0.26, 0); g.add(head);
+    const tail = cy(0.045, 0.5, gun); tail.rotation.z = Math.PI / 2 + 0.4 + jitter(); tail.position.set(-0.5, 0.3, 0); g.add(tail);
+    const core = bx(0.16, 0.1, 0.16, glow); core.position.set(0, 0.24, 0); g.add(core);
+    for (const sx of [1, -1]) for (const sz of [1, -1]) {
+      const leg = cy(0.035, 0.2, gun); leg.position.set(sx * 0.24 + jitter(), 0.1, sz * 0.16); g.add(leg);
+    }
+  } else if (kind === 'junkhound') {
+    const torso = bx(0.95, 0.42, 0.4, rust); torso.position.set(jitter(), 0.72, jitter()); g.add(torso);
+    const head = bx(0.4, 0.3, 0.3, gun); head.position.set(0.62, 0.86, 0); head.rotation.y = jitter(); g.add(head);
+    const jaw = bx(0.32, 0.08, 0.24, glow); jaw.position.set(0.68, 0.7, 0); g.add(jaw);
+    for (const sx of [0.34, -0.34]) for (const sz of [0.18, -0.18]) {
+      const spring = cy(0.05, 0.62, gun); spring.position.set(sx + jitter(), 0.34, sz); g.add(spring);
+    }
+    const plate = bx(0.5, 0.1, 0.46, rust); plate.position.set(-0.1, 0.98, 0); plate.rotation.z = 0.15 + jitter(); g.add(plate);
+  } else if (kind === 'weaver') {
+    const disc = cy(0.5, 0.22, rust); disc.position.set(0, 0.8, 0); g.add(disc);
+    const eye = bx(0.2, 0.12, 0.2, glow); eye.position.set(0.3, 0.94, 0); g.add(eye);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + jitter();
+      const leg = cy(0.04, 1.15, gun);
+      leg.position.set(Math.cos(a) * 0.62, 0.5, Math.sin(a) * 0.62);
+      leg.rotation.z = Math.cos(a) * 0.7; leg.rotation.x = -Math.sin(a) * 0.7;
+      g.add(leg);
+    }
+  } else {
+    // ravager: your own armor's silhouette, wrong
+    const hull = bx(1.9, 0.85, 1.2, rust); hull.position.set(jitter(), 1.0, jitter()); g.add(hull);
+    const upper = bx(1.2, 0.5, 0.9, gun); upper.position.set(-0.2, 1.6, 0); upper.rotation.y = jitter() * 2; g.add(upper);
+    const maw = bx(0.5, 0.35, 0.7, glow); maw.position.set(0.95, 1.0, 0); g.add(maw);
+    for (const sx of [0.7, -0.7]) for (const sz of [0.45, -0.45]) {
+      const leg = bx(0.34, 0.7, 0.34, gun); leg.position.set(sx + jitter(), 0.35, sz); g.add(leg);
+    }
+    for (let i = 0; i < 3; i++) {
+      const plate = bx(0.6 + Math.random() * 0.3, 0.1, 0.5, rust);
+      plate.position.set(-0.6 + i * 0.5 + jitter(), 1.5 + i * 0.06, (Math.random() - 0.5) * 0.5);
+      plate.rotation.y = jitter() * 3; g.add(plate);
+    }
+  }
+  g.traverse((o) => { o.castShadow = true; });
+  return g;
+}
+
 export function buildRider(team: Team, pose: 'surf' | 'straddle'): THREE.Group {
   const rider = new THREE.Group();
   rider.name = 'rider';

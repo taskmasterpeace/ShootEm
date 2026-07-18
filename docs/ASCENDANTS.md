@@ -334,9 +334,16 @@ character-select screen:
 stable (radio checks from ~90s, every 45s, seeded pick). A faction WITH a
 human never auto-calls — the channel is yours, even if you never press V.
 
-**Honest gaps:** materiel isn't priced yet (calls are free until §17
-campaign stock lands); MP clients can't call (the sim call is
-server-authoritative; the net command comes with the officer console);
+**Gaps CLOSED (2026-07-17, the finish-list push):** materiel is PRICED —
+each faction's purse opens at 10, drips +1/min (cap 14), and `requestLsw`
+charges `THREAT[].materiel` (a refusal charges nothing; law-tested). MP
+clients CAN call — the `{t:'lsw'}` net command lands in the server's
+`requestLsw`, which judges faction, slot, and purse alike. Both ride THE
+STABLE CONSOLE (V, client/stable.ts): the roster with tier + price + the
+live purse, gated by the COMMISSION (D2, earned by record — the OCS path
+at the three-match review, or Lieutenant's 8000 points). The old blind
+V-quick-call retired.
+**Honest gap:**
 the TRUE FLIGHT trio stays AI-until-flight-feels-right (§13 Q1 stands —
 Superman/Goku is a movement model, not an overlay).
 
@@ -426,12 +433,12 @@ IS blocky assembled scrap. Two routes:
 | # | Report | Diagnosis | Status |
 |---|---|---|---|
 | 1 | "trees inside a house… couldn't get down the hallways" | **FOUND.** `map.ts` tree placement checks `grid[...] === T_OPEN` — but a house's interior floor **is** T_OPEN. The `houses` array and `houseAt()` sit right there, unconsulted. Trees grow indoors and wall the hallways. | ✅ fixed |
-| 2 | "we need to SEE when bullets impact stuff" | Sound + debris shipped (`78501e2`). Robert wants it more visible: sparks on metal, chips on stone, dust puffs, decals. | ⬜ |
+| 2 | "we need to SEE when bullets impact stuff" | ✅ SHIPPED: every surface answers in LIGHT as well as sound — metal FLASHES white and throws bouncing sparks, stone chips fly while dust HANGS, dirt puffs — and the ground keeps a pock decal per hit (the capped splat pool). | ✅ |
 | 3 | "if one teammate sees you, they ALL know" | **Already true** (vision-share is team-wide, §19 explicit decision, holds until squads §15). The gap is REACTION, not knowledge. | ✅ by design |
-| 4 | "if you're behind enemy lines they should come GET you" | No rescue behavior exists. Bots have no concept of an isolated friendly. Design: the spotter (or nearest free bot) breaks off and moves to you. | ⬜ |
-| 5 | "everybody goes for the flag, nobody plays defense — they let people set up turrets near them" | **Real.** `raidsFlags()` sends bots at the flag; nothing assigns defense. Design: a role split (N attackers / M defenders per team), defenders anchored to their own flag/CP, and turret-sighting adds a defense pull. | ⬜ |
+| 4 | "if you're behind enemy lines they should come GET you" | ✅ SHIPPED (`e7d814c`): a friendly CUT OFF (no mate in 24u, enemies in 30u) gets exactly ONE rescuer — the nearest free bot breaks off; guards, runners, and LSWs stay on mission; squadmates count double when the rescuer picks. Law-tested. | ✅ |
+| 5 | "everybody goes for the flag, nobody plays defense — they let people set up turrets near them" | ✅ SHIPPED (the AI audit, `3309a3c`): `guardsHome` posts a real THIRD of the team on the flag by class (armor + engineers dig in, medics split), guards answer enemy turret nests near home, and a share posts INSIDE the overlooking house (room duty). Raiders and guards disjoint by construction. | ✅ |
 | 6 | "when you look away from an enemy they should fade over 5s; different classes see longer; max 5" | ✅ SHIPPED (`4b46668`): per-viewer class linger — ghost 5s, infiltrator 4s, pathfinder 3.5s, line 2.5s, optics +1.5s, hard MAX 5s — and the renderer DISSOLVES the ghost across the linger (`mesh.userData.ghostAlpha`) instead of snapping. | ✅ |
-| 7 | ElevenLabs "isn't that emotional" for death sounds | Every sound in the game is **synthesized from scratch** (CC0, no third-party audio) — four packs shipped that way. Real emotional VO is a different pipeline and a licensing question. See §13 Q4. | ⬜ |
+| 7 | ElevenLabs "isn't that emotional" for death sounds | ✅ SHIPPED (`084cbb1`): the expressive-TTS pipeline that voices all forty LSWs now PERFORMS the eight per-class death cries — the rifleman's scream that just stops, the medic calling for a medic that is herself, the ghost noticing how loud dying is. The synth placeholders retired. | ✅ |
 
 ---
 

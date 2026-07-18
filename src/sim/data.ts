@@ -244,6 +244,16 @@ export const ZOMBIE_STATS = {
 // §5.3 Military working dogs — the K9 is a handler pairing: fast, fragile,
 // bite-only, and the grounded counter to stealth. Cloak fools optics; it does
 // not fool a nose. One dog per team for now, handled by a bot.
+// THE IRON EATERS (DD SS20.1, finish-list 12): scrap given hunger. `plate`
+// is the molt -- a visible armor pool that sheds under fire; when it's gone
+// the frame is EXPOSED (double damage, faster, angrier -- world.ts SS20.2).
+export const IRON_STATS = {
+  scraprat: { hp: 26, plate: 14, speed: 13, weapon: 'zombie_claw' as WeaponId, score: 10 },
+  junkhound: { hp: 55, plate: 35, speed: 15, weapon: 'dog_bite' as WeaponId, score: 25 },
+  weaver: { hp: 70, plate: 55, speed: 9, weapon: 'zombie_claw' as WeaponId, score: 35 },
+  ravager: { hp: 380, plate: 320, speed: 5.5, weapon: 'zombie_claw' as WeaponId, score: 90 },
+};
+
 export const DOG_STATS = {
   hp: 60,
   speed: 16.8,           // ~1.6× an infantryman — nobody outruns the dog

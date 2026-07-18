@@ -252,6 +252,24 @@ export const CAST = {
     persona: "Cataclysm, a Collective Living Super Weapon — a siege boss who wins by simply CONTINUING. Grinding, patient, faintly contemptuous; every sentence is a countdown and stalling is the only sin he respects.",
     scene: 'Quakes on a schedule that keeps shortening. Masonry giving up in the distance. A clock made of stone.',
   },
+  trooper_a: {
+    voice: 'Puck',
+    fx: 'none', // a young rifleman -- the brightness makes the end land harder
+    persona: "A United Front rifleman in his twenties. Ordinary, likeable, unready -- the voice of every soldier who thought it would be someone else.",
+    scene: 'A firefight that just became personal. Dust, ringing ears, and a body meeting the ground.',
+  },
+  trooper_b: {
+    voice: 'Algieba',
+    fx: 'none', // a career sergeant -- heavy frame, heavier fall
+    persona: "A veteran heavy-weapons sergeant. Deep-chested, unhurried, seen everything -- until now.",
+    scene: 'A big man going down slow. Gear clattering. The war continuing without him.',
+  },
+  trooper_c: {
+    voice: 'Kore',
+    fx: 'none', // a specialist -- controlled right up until control ends
+    persona: "A field specialist, precise and composed. The kind of soldier whose voice never shakes -- which is what makes the last moment unbearable.",
+    scene: 'Composure failing for the first and last time. Quiet, close, final.',
+  },
   announcer: {
     voice: 'Orus',
     fx: 'radio', // 300–3400Hz military net + soft clip
@@ -530,6 +548,17 @@ export const VO = [
   { slot: 'vo_cataclysm_ability', who: 'cataclysm', text: '[colossal impact] SETTLE.', notes: ['An order given to a whole street.'] },
   { slot: 'vo_cataclysm_low', who: 'cataclysm', text: '[cracking] Cracking... but so are you.', notes: ['The mutual-destruction ledger.'] },
   { slot: 'vo_cataclysm_death', who: 'cataclysm', text: '[subsiding] The quakes... stop with me. You are welcome.', notes: ['Contempt to the last tremor.'] },
+  // ---- THE DEATH CRIES (finish-list 17, Robert: death sounds "aren't that
+  // emotional") -- eight per-class cries, PERFORMED, overwriting the synth
+  // placeholders. Short, human, and different every class. ----
+  { slot: 'death_infantry', who: 'trooper_a', text: '[a raw scream of pain, cut short mid-breath] AAGH--', notes: ['A young man, genuinely dying. No dignity, no arc -- it just stops.'] },
+  { slot: 'death_heavy', who: 'trooper_b', text: '[a deep roar of pain collapsing into a long falling groan] RRAGH... hnn...', notes: ['A big man going down slow, like a felled tree.'] },
+  { slot: 'death_jump', who: 'trooper_a', text: '[a panicked yelp turning into a falling cry] WHOA-- no no NO--', notes: ['Hit mid-jump: the panic of altitude with nothing under it.'] },
+  { slot: 'death_engineer', who: 'trooper_b', text: '[urgent, terrified, fading fast] no no no wait-- wait--', notes: ['A fixer meeting the one thing he cannot fix.'] },
+  { slot: 'death_medic', who: 'trooper_c', text: "[stunned disbelief, weakening] I'm hit... I'm... somebody--", notes: ['The healer, hit. The word "somebody" is a call for a medic that IS the medic.'] },
+  { slot: 'death_infiltrator', who: 'trooper_c', text: '[a choked gasp, almost silent, breath leaving] ...hh... hhh...', notes: ['The quiet ones die quiet. Barely a sound; entirely final.'] },
+  { slot: 'death_pathfinder', who: 'trooper_a', text: '[winded cry of pain, trying to push through it, failing] gh-- keep... going...', notes: ['A runner ordering legs that have already stopped.'] },
+  { slot: 'death_ghost', who: 'trooper_c', text: '[a long shaking exhale, whispered] ...so loud...', notes: ['A stealth operative: the last thing she notices is the noise of her own dying.'] },
 ];
 
 /** The announcer — map-wide, both teams, radio net. */

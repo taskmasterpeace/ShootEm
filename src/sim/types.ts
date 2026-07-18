@@ -154,7 +154,7 @@ export interface Vec3 {
   z: number;
 }
 
-export type SoldierKind = 'human' | 'bot' | 'dog' | 'zombie' | 'spitter' | 'brute' | 'sprinter' | 'bomber' | 'stalker' | 'scientist';
+export type SoldierKind = 'human' | 'bot' | 'dog' | 'zombie' | 'spitter' | 'brute' | 'sprinter' | 'bomber' | 'stalker' | 'scientist' | 'scraprat' | 'junkhound' | 'weaver' | 'ravager';
 
 export type ZedKind = 'zombie' | 'spitter' | 'brute' | 'sprinter' | 'bomber' | 'stalker';
 
@@ -162,6 +162,17 @@ const ZED_KINDS: ReadonlySet<string> = new Set(['zombie', 'spitter', 'brute', 's
 
 export function isZed(k: SoldierKind): k is ZedKind {
   return ZED_KINDS.has(k);
+}
+
+/** THE IRON EATERS (DD §20, finish-list 12): junk that learned a body plan.
+ *  Where the Outbreak eats flesh, these eat METAL -- and they molt: plated
+ *  scrap sheds under fire, then the exposed frame takes DOUBLE and runs hot. */
+export type IronKind = 'scraprat' | 'junkhound' | 'weaver' | 'ravager';
+
+const IRON_KINDS: ReadonlySet<string> = new Set(['scraprat', 'junkhound', 'weaver', 'ravager']);
+
+export function isIron(k: SoldierKind): k is IronKind {
+  return IRON_KINDS.has(k);
 }
 
 export interface Soldier {
@@ -294,6 +305,12 @@ export interface Soldier {
   possessedBy?: number;
   possessedUntil?: number;
   origTeam?: Team;
+  /** DUCK (finish-list 18): the held stance -- half speed, deep grass hide. */
+  crouching?: boolean;
+  /** THE SQUAD (§15, finish-list #14): the fireteam this soldier deploys
+   *  with — 2-4 bodies who share a spawn and read each other. Offline your
+   *  friendly bots ARE your squad. Rides the wire free. */
+  squadId?: number;
   /** TRUE FLIGHT (§4.4 #5): the commanded altitude for a flying LSW — the
    *  body climbs toward it; above the wall tier the grid yields. Undefined
    *  or 0 = grounded. Small arms live at chest height: descent is exposure. */
@@ -656,4 +673,7 @@ export interface PlayerCmd {
   /** one-frame tap: rotate the grenade bag (frag/class-kit → smoke → fire),
    *  skipping empty pouches. X on the keyboard. */
   nadeCycle?: boolean;
+  /** DUCK (finish-list 18): held stance -- half speed, and in the long grass
+   *  you vanish past the footstep ring. C on the keyboard. */
+  crouch?: boolean;
 }

@@ -1,6 +1,6 @@
 import { TEAM_NAMES, WEAPONS } from './data';
 import { losClear, type GameMap } from './map';
-import { isZed, type ModeId, type ModeState, type Team, type ZedKind } from './types';
+import { isZed, type ModeId, type ModeState, type Team, type ZedKind, type IronKind } from './types';
 import type { World } from './world';
 
 const MATCH_TIME = 15 * 60;
@@ -397,7 +397,12 @@ function stepSurvival(w: World, _dt: number) {
       for (let i = 0; i < count; i++) {
         const sp = w.map.zombieSpawns[w.rng.int(0, w.map.zombieSpawns.length - 1)];
         const jitter = { x: sp.x + w.rng.range(-2, 2), y: 0, z: sp.z + w.rng.range(-2, 2) };
-        const z = w.addZombie(rollZedKind(w, wave), jitter);
+        // THE THIRD ACT (DD SS20, finish-list 12): from wave 4 the Iron
+        // Eaters join the horde -- a quarter of every wave is scrap that
+        // stood up, and the mix deepens as the waves do.
+        const z = wave >= 4 && i % 4 === 3
+          ? w.addIronEater(rollIronKind(w, wave), jitter)
+          : w.addZombie(rollZedKind(w, wave), jitter);
         // waves scale hp
         z.hp *= 1 + wave * 0.12;
         z.maxHp = z.hp;
@@ -474,6 +479,14 @@ function stepSafehouse(w: World, _dt: number) {
 }
 
 /** Special-zombie table. `tier` = wave number (Survival) or intensity level (Horde). */
+/** the deeper the waves, the heavier the scrap */
+function rollIronKind(w: World, wave: number): IronKind {
+  const r = w.rng.next();
+  if (wave >= 8 && r < 0.15) return 'ravager';
+  if (wave >= 6 && r < 0.35) return 'weaver';
+  return r < 0.6 ? 'scraprat' : 'junkhound';
+}
+
 function rollZedKind(w: World, tier: number): ZedKind {
   const roll = w.rng.next();
   if (roll < 0.1) return tier >= 3 ? 'brute' : 'zombie';
@@ -517,7 +530,11 @@ function stepHorde(w: World, _dt: number) {
     for (let i = 0; i < burst; i++) {
       const sp = w.map.zombieSpawns[w.rng.int(0, w.map.zombieSpawns.length - 1)];
       const jitter = { x: sp.x + w.rng.range(-2, 2), y: 0, z: sp.z + w.rng.range(-2, 2) };
-      const z = w.addZombie(rollZedKind(w, intensity), jitter);
+      // THE THIRD ACT (DD SS20): from intensity 4 the Iron Eaters join --
+      // a quarter of the pressure is scrap that stood up
+      const z = intensity >= 4 && w.rng.next() < 0.25
+        ? w.addIronEater(rollIronKind(w, intensity), jitter)
+        : w.addZombie(rollZedKind(w, intensity), jitter);
       z.hp *= 1 + (intensity - 1) * 0.08;
       z.maxHp = z.hp;
     }

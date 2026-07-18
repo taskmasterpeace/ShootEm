@@ -26,6 +26,10 @@ export const T_CLIMB = 10;     // §8.7 CLIMB tier: a 2.5u container wall/barric
                                // jump trooper's jet carries OVER it. Hop can't (apex
                                // ~1.1); nobody hops a 4u wall. Obstacles as verbs.
 export const T_RUBBLE = 11;    // DESTRUCTION (the shared mechanic): breached masonry.
+export const T_GRASS = 12;     // TALL GRASS (finish-list 18): walkable, stops
+                               // nothing -- but standing in it you are a RUMOR
+                               // (perception.ts: the cone loses you at 14u; at
+                               // the footstep RING itself if you duck).
                                // Walkable — SLOW — for both sides, knee-high cover,
                                // eyes see over it. The monotonic law: destruction only
                                // ever OPENS paths, so reachability never re-runs.
@@ -689,6 +693,20 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
       const dx = hillPos.x - w.x, dz = hillPos.z - w.z;
       const dl = Math.hypot(dx, dz) || 1;
       pads.push({ pos: w, dir: { x: dx / dl, z: dz / dl } });
+    }
+  }
+
+  // THE MEADOWS (finish-list 18): long grass in blobs on open ground --
+  // concealment terrain, free to cross, stops nothing. Kopje's promise kept.
+  for (let m = 0; m < 7; m++) {
+    const gcx = rng.int(8, GRID - 9), gcz = rng.int(8, GRID - 9);
+    const gr = rng.int(2, 4);
+    for (let dz = -gr; dz <= gr; dz++) {
+      for (let dx = -gr; dx <= gr; dx++) {
+        if (dx * dx + dz * dz > gr * gr + rng.int(0, 2)) continue;
+        const gidx = (gcz + dz) * GRID + (gcx + dx);
+        if (grid[gidx] === T_OPEN) grid[gidx] = T_GRASS;
+      }
     }
   }
 

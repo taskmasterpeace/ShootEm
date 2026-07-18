@@ -1,4 +1,4 @@
-import { CLASSES, DOG_NAMES, DOG_STATS, EQUIPMENT, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
+import { CLASSES, DOG_NAMES, DOG_STATS, EQUIPMENT, IRON_STATS, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
 import { CLIMB_H, DRILL_EATS, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_RUBBLE, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
 import { Rng } from './rng';
@@ -7,13 +7,12 @@ import {
   type AscendantId, type ClassId, type Gadget, type GadgetType, type Mine, type ModeId, type ModeState,
   type Pickup, type PlayerCmd, type Projectile, type SimEvent, type Soldier,
   type SoldierKind, type SystemId, type Team, type ThemeId, type Turret, type Vec3,
-  type Vehicle, type VehicleKind, type VehicleSystems, type WeaponId, type ZedKind,
-} from './types';
+  type Vehicle, type VehicleKind, type VehicleSystems, type WeaponId, type ZedKind, isIron, type IronKind } from './types';
 import { stepMode, initMode } from './modes';
 import { generateFront } from './fronts';
 import { LSW_BRAINS } from './lsw/index';
 import { ICE_HOLD, ICE_HOLD_DRAIN, LSWS, STRUGGLE_HP, STRUGGLE_SECS, THREAT, lswAllowed, lswsForTeam } from './lsw';
-import { stepBot, stepDog, stepScientist, stepZombie } from './bots';
+import { stepBot, stepDog, stepIron, stepScientist, stepZombie } from './bots';
 import { PERCEIVE_RANGE, perceivesNow, smokeBlocks, type SeenMark, type SmokeBlob } from './perception';
 import { THEME_WEATHER, airGrounded, moveMult, visionMult, weatherAnnounce, type WeatherState } from './weather';
 
@@ -322,6 +321,16 @@ export class World {
       meleeStrikeAt: 0, meleeYaw: 0, meleeWeapon: '',
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
+    // §15 THE SQUAD CONTAINER (finish-list #14): four to a fireteam, by
+    // roster order — offline, your friendly bots ARE your squad. Dogs and
+    // the horde stay outside the org chart.
+    if ((kind === 'human' || kind === 'bot') && !isZed(kind)) {
+      let mates = 0;
+      for (const o of this.soldiers.values()) {
+        if (o.team === team && (o.kind === 'human' || o.kind === 'bot')) mates++;
+      }
+      s.squadId = team * 100 + Math.floor(mates / 4);
+    }
     this.soldiers.set(s.id, s);
     this.spawn(s);
     return s;
@@ -350,6 +359,11 @@ export class World {
    *  owner's team are exempt; vehicles move only when CREWED (an abandoned
    *  wreck is nobody's toy — the §8.1a requisition law). */
   forceFields: { x: number; z: number; r: number; radial: number; fx?: number; fz?: number; team: Team; ownerId: number; until: number }[] = [];
+  /** §17 MATERIEL (finish-list #4): each faction's purse for LSW calls —
+   *  opens at 10, drips +1 every 60s (cap 14). THREAT[].materiel is the
+   *  price per tier, so a T4 costs most of the afternoon. */
+  materiel: [number, number] = [10, 10];
+  private nextMaterielDripAt = 60;
 
   private stepForceFields() {
     this.forceFields = this.forceFields.filter((f) => this.time < f.until);
@@ -409,6 +423,12 @@ export class World {
     // refuse a second of the same faction — live OR already inbound
     for (const s of this.soldiers.values()) if (s.alive && s.team === team && s.ascendant) return false;
     if (this.pendingLsw.some((p) => p.team === team)) return false;
+    // §17 MATERIEL — the call is PRICED (finish-list #4): a T1 is pocket
+    // change, a T4 is the stable's whole afternoon. The purse says no
+    // before the net says yes, and the drip makes the second call a wait.
+    const price = THREAT[def.threat].materiel;
+    if (this.materiel[team] < price) return false;
+    this.materiel[team] -= price;
     const caller = this.soldiers.get(callerId);
     const src = caller?.alive ? caller.pos : this.map.basePos[team];
     const lz = { x: src.x, y: 0, z: src.z };
@@ -629,6 +649,33 @@ export class World {
     return s;
   }
 
+  /** THE IRON EATERS (DD SS20, finish-list 12): wreckage that stood up.
+   *  Spawned PLATED -- the armor pool is the molt; when fire sheds it the
+   *  exposed frame takes double and runs hot (damageSoldier SS20.2). */
+  addIronEater(kind: IronKind, pos: Vec3): Soldier {
+    const st = IRON_STATS[kind];
+    const s: Soldier = {
+      id: this.id(), kind, name: kind.charAt(0).toUpperCase() + kind.slice(1),
+      team: 1, classId: 'infantry',
+      pos: { ...pos }, vel: { x: 0, y: 0, z: 0 }, yaw: 0,
+      hp: st.hp, maxHp: st.hp, energy: 0, alive: true, respawnAt: 0,
+      weaponIdx: 0, weapons: [st.weapon], clip: [Infinity], reserve: [Infinity],
+      reloadUntil: 0, nextFireAt: 0, grenades: 0, nextGrenadeAt: 0,
+      altAmmo: 0, nextAltAt: 0, altBurstUntil: 0,
+      cloaked: false, vehicleId: -1, seat: -1, enteredVehicleAt: 0,
+      kills: 0, deaths: 0, score: 0, carryingFlag: -1, nextAbilityAt: 0, ownerId: -1,
+      longestKill: 0, vehicleKills: 0, healGiven: 0,
+      pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0, lastKillerId: -1, floor: 0,
+      armor: st.plate, maxArmor: st.plate, protectedUntil: 0,
+      equipment: [], medikitReady: false, nextPsiAt: 0, nextRepairAt: 0,
+      downed: false, downedUntil: 0, downedBy: -1, reviveProgress: 0, draggingId: -1,
+      meleeStrikeAt: 0, meleeYaw: 0, meleeWeapon: '',
+      botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
+    };
+    this.soldiers.set(s.id, s);
+    return s;
+  }
+
   spawn(s: Soldier) {
     s.floor = 0;
     // K9s don't draw from the armory or the spawn queue like people do —
@@ -710,8 +757,24 @@ export class World {
         if (score > bestScore) { bestScore = score; ringPick = p; }
       }
     }
+    // §15 SPAWN-ON-SQUADMATE (finish-list #14): you rejoin the fight NEAR
+    // YOUR PEOPLE — a living, upright, SAFE squadmate (no enemy within 20u)
+    // beats the ring. This is what makes reaching a downed teammate a
+    // decision instead of a formality.
+    let matePos: Vec3 | null = null;
+    if (s.squadId !== undefined && !isZed(s.kind)) {
+      for (const m of this.soldiers.values()) {
+        if (!m.alive || m.downed || m.id === s.id || m.team !== s.team || m.squadId !== s.squadId) continue;
+        let safe = true;
+        for (const e of this.soldiers.values()) {
+          if (!e.alive || e.team === s.team) continue;
+          if (Math.hypot(e.pos.x - m.pos.x, e.pos.z - m.pos.z) < 20) { safe = false; break; }
+        }
+        if (safe) { matePos = m.pos; break; }
+      }
+    }
     // the APC is a door, not a clown car — a third rides it, not half
-    const base = mobile && this.rng.next() < 0.33 ? mobile.pos : ringPick;
+    const base = matePos ?? (mobile && this.rng.next() < 0.33 ? mobile.pos : ringPick);
     s.pos = { x: base.x + this.rng.range(-2.6, 2.6), y: 0, z: base.z + this.rng.range(-2.6, 2.6) };
     s.vel = { x: 0, y: 0, z: 0 };
     // FRESH LIFE (Robert: "give them a chance to try something different"):
@@ -784,6 +847,11 @@ export class World {
       return;
     }
     if (!this.mode.over) stepMode(this, dt);
+    // the materiel drip (§17): war production never stops, it just crawls
+    if (this.time >= this.nextMaterielDripAt) {
+      this.nextMaterielDripAt += 60;
+      for (const t of [0, 1] as const) this.materiel[t] = Math.min(14, this.materiel[t] + 1);
+    }
     if (!this.mode.over) this.stepLswDrops(); // §21.6: telegraphed LSW landings
     if (this.forceFields.length) this.stepForceFields(); // §4.4 #2: the pulls and the shoves
     if (this.blackHoles.length) this.stepBlackHoles(); // Oblivion's void (burst timing)
@@ -884,6 +952,7 @@ export class World {
         if (s.kind === 'bot' && !s.dummy) cmd = stepBot(this, s, dt); // dummies stand and take it
         else if (s.kind === 'scientist') { stepScientist(this, s, dt); continue; }
         else if (s.kind === 'dog') { stepDog(this, s, dt); continue; }
+        else if (isIron(s.kind)) { stepIron(this, s, dt); continue; }
         else if (isZed(s.kind)) { stepZombie(this, s, dt); continue; }
         else cmd = null as unknown as PlayerCmd;
       }
@@ -956,13 +1025,20 @@ export class World {
     for (const g of this.gadgets.values()) {
       if (g.type === 'smoke_field') this.smokeBlobs.push({ x: g.pos.x, z: g.pos.z, r: 5 });
     }
+    // MUZZLE FLASH TELLS THE TRUTH (finish-list 18): anyone who fired inside
+    // the last beat is revealed, long grass or not (computed once, both teams)
+    const revealed = new Set<number>();
+    for (const e of this.soldiers.values()) {
+      // nextFireAt of 0 means NEVER fired — a fresh boot is not a muzzle flash
+      if (e.alive && e.nextFireAt > 0 && e.nextFireAt > this.time - 0.9 && e.nextFireAt <= this.time + 2) revealed.add(e.id);
+    }
     for (const team of [0, 1] as Team[]) {
       const eyes: Soldier[] = [];
       for (const e of this.soldiers.values()) if (e.alive && e.team === team) eyes.push(e);
       for (const s of this.soldiers.values()) {
         if (s.team === team) continue;
         if (!s.alive) { this.lastSeen[team].delete(s.id); continue; }
-        if (perceivesNow(this.map.grid, eyes, this.pinged, s, range, this.smokeBlobs)) {
+        if (perceivesNow(this.map.grid, eyes, this.pinged, s, range, this.smokeBlobs, revealed)) {
           this.lastSeen[team].set(s.id, { t: this.time, x: s.pos.x, z: s.pos.z });
         }
       }
@@ -1388,6 +1464,7 @@ export class World {
 
   applyCmd(s: Soldier, cmd: PlayerCmd, dt: number) {
     s.yaw = cmd.aimYaw;
+    s.crouching = !!cmd.crouch && !s.downed; // the duck is a HELD stance
 
     // §7 A PILOTED LSW: Q is the SIGNATURE, not the class kit. The active
     // fires here and the class-ability branches below never see the press —
@@ -1529,6 +1606,7 @@ export class World {
       if (e?.speedMult) speed *= e.speedMult;
     }
     if (s.draggingId >= 0) speed *= 0.5; // hauling a body is slow, honest work
+    if (s.crouching) speed *= 0.5;       // ducked walking is half pace
     // THE SEAM SANITIZER (found by the threat rig): a brain that emits NaN
     // intent must never poison the sim — Math.hypot(NaN, x) is NaN and
     // `NaN || 1` stays NaN, so one bad division in a bot turned Magnetar
@@ -3182,6 +3260,17 @@ export class World {
     // REAPER'S MARK: the hunter's own blows land DOUBLE on the hunted
     if (victim.markedUntil !== undefined && this.time < victim.markedUntil && attackerId === victim.markedBy) {
       dmg *= 2;
+    }
+    // IRON EATERS (SS20.2): the molt is the health bar. While PLATED the
+    // scrap eats the damage (the armor pool, visibly shedding); the moment
+    // the plates are gone the frame is EXPOSED -- damage counts DOUBLE and
+    // the beast gets FASTER AND ANGRIER (once, with a molt burst).
+    if (isIron(victim.kind) && victim.armor <= 0) {
+      dmg *= 2;
+      if (victim.rageMul === undefined) {
+        victim.rageMul = 1.35;
+        this.emit({ type: 'explosion', pos: { ...victim.pos }, weapon: 'gl' });
+      }
     }
     // GARGOYLE'S PERCH: stone takes half — until someone collapses the perch
     if (victim.perchTile !== undefined && victim.ascendant === 'gargoyle') {
