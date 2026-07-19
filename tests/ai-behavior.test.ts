@@ -5,10 +5,11 @@
 // wastes its signature on empty air, and whether armor has an infantry answer.
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
-import { GRID, T_OPEN, T_WALL } from '../src/sim/map';
+import { GRID, T_COVER, T_OPEN, T_WALL, TILE, WORLD } from '../src/sim/map';
 import { World, type Difficulty } from '../src/sim/world';
 import { visionMult } from '../src/sim/weather';
 import { DIRECTOR_EVAL, PRESSURE_MAX, PRESSURE_MIN, stepDirector } from '../src/sim/director';
+import { threatAt } from '../src/sim/influence';
 import type { AscendantId, Team } from '../src/sim/types';
 
 const DT = 1 / 60;
@@ -192,6 +193,41 @@ describe('the Director paces the match (§director)', () => {
     const soft = band((w) => { const me = [...w.soldiers.values()].find((s) => s.kind === 'human')!; me.deaths += 99; }, 40);
     expect(hard).toBeLessThanOrEqual(PRESSURE_MAX);
     expect(soft).toBeGreaterThanOrEqual(PRESSURE_MIN);
+  });
+});
+
+describe('the influence map gives cover a brain (§influence)', () => {
+  it('threat radiates from enemy guns, and a mauled bot breaks for the QUIET cover', () => {
+    const at = (t: number) => (t + 0.5) * TILE - WORLD / 2;
+    const w = new World({ seed: 11, mode: 'tdm' });
+    for (let tz = 50; tz <= 78; tz++) for (let tx = 50; tx <= 82; tx++) w.map.grid[tz * GRID + tx] = T_OPEN;
+    const bot = w.addSoldier('B', 'infantry', 0, 'bot');
+    bot.pos = { x: at(64), y: 0, z: at(64) };
+    // HOT cover: closer, but ringed by four enemies
+    const hot = { x: at(68), z: at(64) };
+    w.map.grid[64 * GRID + 68] = T_COVER;
+    for (let i = 0; i < 4; i++) {
+      const e = w.addSoldier(`E${i}`, 'infantry', 1, 'bot');
+      e.pos = { x: at(71 + (i % 2)), y: 0, z: at(63 + i) };
+    }
+    // QUIET cover: further, nobody near it
+    const quiet = { x: at(58), z: at(64) };
+    w.map.grid[64 * GRID + 58] = T_COVER;
+    for (let i = 0; i < 60; i++) w.step(DT, new Map());
+
+    expect(threatAt(w.influence, 0, hot.x, hot.z), 'the field is blind to four guns')
+      .toBeGreaterThan(threatAt(w.influence, 0, quiet.x, quiet.z));
+
+    const d0h = Math.hypot(bot.pos.x - hot.x, bot.pos.z - hot.z);
+    const d0q = Math.hypot(bot.pos.x - quiet.x, bot.pos.z - quiet.z);
+    for (let i = 0; i < 90; i++) {
+      bot.alive = true; bot.downed = false; bot.hp = bot.maxHp * 0.15; bot.respawnAt = 0;
+      w.step(DT, new Map());
+    }
+    const closedOnQuiet = d0q - Math.hypot(bot.pos.x - quiet.x, bot.pos.z - quiet.z);
+    const closedOnHot = d0h - Math.hypot(bot.pos.x - hot.x, bot.pos.z - hot.z);
+    expect(closedOnQuiet, 'it peeled to the nearest crate under four guns')
+      .toBeGreaterThan(closedOnHot);
   });
 });
 

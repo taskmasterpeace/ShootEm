@@ -17,6 +17,7 @@ import { stepBot, stepDog, stepIron, stepScientist, stepZombie } from './bots';
 import { PERCEIVE_RANGE, perceivesNow, smokeBlocks, type SeenMark, type SmokeBlob } from './perception';
 import { THEME_WEATHER, airGrounded, moveMult, visionMult, weatherAnnounce, type WeatherState } from './weather';
 import { newDirector, stepDirector, type DirectorState } from './director';
+import { buildInfluence, newInfluence, type InfluenceField } from './influence';
 import { createBlackbox, stepBlackbox, type Blackbox } from './blackbox';
 
 const RESPAWN_DELAY = 4;
@@ -141,6 +142,8 @@ export class World {
   weather: WeatherState = { kind: 'clear', intensity: 0, until: 90 };
   /** §director: the match-level pacing band (neutral with no human on field) */
   director: DirectorState = newDirector();
+  /** §influence: the shared per-team threat field (pay once, all bots read) */
+  influence: InfluenceField = newInfluence();
   /** soldier ids currently hidden inside smoke fields */
   smoked = new Set<number>();
   /** tile indices the tunneler has ground to rubble (replicated to clients) */
@@ -1123,6 +1126,7 @@ export class World {
     this.applyReconCountermeasures();
     this.updateLastSeen();
     stepDirector(this, this.director); // §director: drift the pacing band
+    buildInfluence(this.influence, this.time, this.soldiers.values()); // §influence
 
     // §8.8 the sky rolls: weather fronts drift through on their own clock
     if (this.time >= this.weather.until && !this.puppet) {

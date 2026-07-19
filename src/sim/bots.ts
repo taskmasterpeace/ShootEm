@@ -5,6 +5,7 @@ import { type World } from './world';
 import { BOT_TUNING as TUNE, DIFFICULTY } from './bot-tuning';
 import { visionMult } from './weather';
 import { LSWS } from './lsw';
+import { threatAt } from './influence';
 
 const noCmd = (): PlayerCmd => ({
   moveX: 0, moveZ: 0, aimYaw: 0, fire: false, altFire: false, jump: false,
@@ -692,12 +693,18 @@ function doorAhead(w: World, pos: Vec3, yaw: number): number {
 }
 
 /** Nearest cover tile center within `range` units — where a downed bot crawls. */
-function nearestCover(w: World, pos: Vec3, range: number): Vec3 | null {
+/** Cover worth running to. NEAREST is not the same as GOOD — a bot at 20% HP
+ *  used to peel to the closest crate even when that crate sat between it and
+ *  the three men shooting it. `team` opts into the INFLUENCE field: candidates
+ *  are scored on distance PLUS how much enemy threat is radiating onto them,
+ *  so a bot breaks toward the quiet side. Pass team < 0 for the old pure-nearest
+ *  behaviour (the downed crawl just wants the closest thing to hide behind). */
+function nearestCover(w: World, pos: Vec3, range: number, team: Team | -1 = -1): Vec3 | null {
   const grid = w.map.grid;
   const cx = toTile(pos.x), cz = toTile(pos.z);
   const r = Math.ceil(range / TILE);
   let best: Vec3 | null = null;
-  let bestD = range;
+  let bestScore = Infinity;
   for (let dz = -r; dz <= r; dz++) {
     for (let dx = -r; dx <= r; dx++) {
       const tx = cx + dx, tz = cz + dz;
@@ -705,7 +712,11 @@ function nearestCover(w: World, pos: Vec3, range: number): Vec3 | null {
       if (grid[tz * GRID + tx] !== T_COVER) continue;
       const px = toWorld(tx), pz = toWorld(tz);
       const d = Math.hypot(px - pos.x, pz - pos.z);
-      if (d < bestD) { best = { x: px, y: 0, z: pz }; bestD = d; }
+      if (d >= range) continue;
+      // distance in units + threat weighted so a genuinely hot tile loses to a
+      // slightly further quiet one, without sending anyone across the map
+      const score = team >= 0 ? d + threatAt(w.influence, team as Team, px, pz) * 9 : d;
+      if (score < bestScore) { best = { x: px, y: 0, z: pz }; bestScore = score; }
     }
   }
   return best;
@@ -1193,7 +1204,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
       // to put between you and the shooter, else toward home. Guns still up.
       // (The line between a human and a zed — zeds never step back.) nearestCover
       // already existed but was only ever used by the downed-crawl.
-      const cover = nearestCover(w, s.pos, TUNE.coverSeek);
+      const cover = nearestCover(w, s.pos, TUNE.coverSeek, s.team);
       mvx = -Math.cos(toT);
       mvz = -Math.sin(toT);
       if (cover) {
@@ -1242,7 +1253,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     // stood exposed 3.2s). Reload is otherwise idle-only.
     if (s.clip[s.weaponIdx] <= 0 && s.reserve[s.weaponIdx] > 0) {
       cmd.reload = true;
-      const cover = nearestCover(w, s.pos, 20);
+      const cover = nearestCover(w, s.pos, 20, s.team);
       if (cover) { const dx = cover.x - s.pos.x, dz = cover.z - s.pos.z, dl = Math.hypot(dx, dz) || 1; mvx = dx / dl; mvz = dz / dl; }
     }
 
