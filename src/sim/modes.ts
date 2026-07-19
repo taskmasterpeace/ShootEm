@@ -385,32 +385,43 @@ function stepSurvival(w: World, _dt: number) {
   const zombies = [...w.soldiers.values()].filter((s) => s.alive && isZed(s.kind));
   m.zombiesLeft = zombies.length;
 
-  if (zombies.length === 0) {
-    if (m.nextWaveAt === undefined || !Number.isFinite(m.nextWaveAt)) {
-      // wave just cleared — breather before the next one
+  // The horde must never FREEZE on a straggler: a kited spitter, a wedged
+  // stalker, or a phase-stalker beyond its blink gate could keep the count
+  // above 0 forever (nextWaveAt stayed Infinity, so the marquee mode stalled
+  // where Horde/Safehouse's continuous targetPop doesn't). So: a full clear
+  // arms the short breather; a handful of stragglers arm a longer GRACE, after
+  // which the next wave rolls in ON TOP. All deterministic (time-based, no rng).
+  const alive = zombies.length;
+  const STRAGGLERS = 3, GRACE = 40;
+  if (alive === 0) {
+    // fully cleared — (re)set the short breather, overriding any straggler grace
+    if (!Number.isFinite(m.nextWaveAt ?? Infinity) || (m.nextWaveAt ?? 0) > w.time + 6) {
       m.nextWaveAt = w.time + 6;
       if ((m.wave ?? 0) > 0) w.emit({ type: 'announce', text: `Wave ${m.wave} cleared — 6s to regroup` });
-    } else if (w.time >= m.nextWaveAt) {
-      m.wave = (m.wave ?? 0) + 1;
-      const wave = m.wave;
-      const count = 6 + wave * 3;
-      for (let i = 0; i < count; i++) {
-        const sp = w.map.zombieSpawns[w.rng.int(0, w.map.zombieSpawns.length - 1)];
-        const jitter = { x: sp.x + w.rng.range(-2, 2), y: 0, z: sp.z + w.rng.range(-2, 2) };
-        // THE THIRD ACT (DD SS20, finish-list 12): from wave 4 the Iron
-        // Eaters join the horde -- a quarter of every wave is scrap that
-        // stood up, and the mix deepens as the waves do.
-        const z = wave >= 4 && i % 4 === 3
-          ? w.addIronEater(rollIronKind(w, wave), jitter)
-          : w.addZombie(rollZedKind(w, wave), jitter);
-        // waves scale hp
-        z.hp *= 1 + wave * 0.12;
-        z.maxHp = z.hp;
-      }
-      m.scores[0] = wave;
-      m.nextWaveAt = Infinity; // re-armed when the wave is cleared
-      w.emit({ type: 'wave_start', text: `WAVE ${wave}`, big: true });
     }
+  } else if (alive <= STRAGGLERS && !Number.isFinite(m.nextWaveAt ?? Infinity)) {
+    m.nextWaveAt = w.time + GRACE; // stragglers won't hold the horde hostage
+  }
+  if (m.nextWaveAt !== undefined && Number.isFinite(m.nextWaveAt) && w.time >= m.nextWaveAt) {
+    m.wave = (m.wave ?? 0) + 1;
+    const wave = m.wave;
+    const count = 6 + wave * 3;
+    for (let i = 0; i < count; i++) {
+      const sp = w.map.zombieSpawns[w.rng.int(0, w.map.zombieSpawns.length - 1)];
+      const jitter = { x: sp.x + w.rng.range(-2, 2), y: 0, z: sp.z + w.rng.range(-2, 2) };
+      // THE THIRD ACT (DD SS20, finish-list 12): from wave 4 the Iron
+      // Eaters join the horde -- a quarter of every wave is scrap that
+      // stood up, and the mix deepens as the waves do.
+      const z = wave >= 4 && i % 4 === 3
+        ? w.addIronEater(rollIronKind(w, wave), jitter)
+        : w.addZombie(rollZedKind(w, wave), jitter);
+      // waves scale hp
+      z.hp *= 1 + wave * 0.12;
+      z.maxHp = z.hp;
+    }
+    m.scores[0] = wave;
+    m.nextWaveAt = Infinity; // re-armed when the wave is cleared (or stragglers time out)
+    w.emit({ type: 'wave_start', text: `WAVE ${wave}`, big: true });
   }
   void humansAlive;
 }

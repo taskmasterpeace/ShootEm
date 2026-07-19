@@ -1,5 +1,5 @@
 import { CLASSES, DOG_STATS, VEHICLES, WEAPONS } from './data';
-import { F2_FLOOR, F2_SLIT, F2_VOID, F2_WALL, F2_WELL, GRID, T_CLIMB, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_OPEN, T_WATER, TILE, WORLD, isBlocked, losClear, tileAt } from './map';
+import { F2_FLOOR, F2_SLIT, F2_VOID, F2_WALL, F2_WELL, GRID, T_CLIMB, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_OPEN, T_RUBBLE, T_WATER, TILE, WORLD, isBlocked, losClear, tileAt } from './map';
 import { type ClassId, type PlayerCmd, type Soldier, type Team, type Vec3, type Vehicle, isZed } from './types';
 import { DIFFICULTY_AIM, type World } from './world';
 import { visionMult } from './weather';
@@ -53,7 +53,11 @@ function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false, wheels = fal
     : (x: number, z: number) => {
       if (x < 0 || z < 0 || x >= GRID || z >= GRID) return false;
       const t = grid[z * GRID + x];
-      return t === T_OPEN || t === T_DOOR || t === T_DOOR_OPEN || t === T_WATER || t === T_LADDER || (canClimb && t === T_CLIMB);
+      // GRASS is walkable concealment (forests are grass, not wall — "choke,
+      // not seal") and RUBBLE is a breached wall (destruction only ever OPENS a
+      // path); the planner treated both as sealed, so bots detoured around
+      // forests and never exploited a hole a teammate drilled.
+      return t === T_OPEN || t === T_DOOR || t === T_DOOR_OPEN || t === T_WATER || t === T_LADDER || t === T_GRASS || t === T_RUBBLE || (canClimb && t === T_CLIMB);
     };
   if (!open(gx, gz)) {
     // the objective landed inside a structure (buildings stamp everywhere
@@ -155,7 +159,7 @@ function pathStepLayered(w: World, from: Vec3, to: Vec3, fromFloor: number, toFl
   const openGround = (x: number, z: number) => {
     if (x < 0 || z < 0 || x >= GRID || z >= GRID) return false;
     const t = grid[z * GRID + x];
-    return t === T_OPEN || t === T_DOOR || t === T_DOOR_OPEN || t === T_WATER || t === T_LADDER;
+    return t === T_OPEN || t === T_DOOR || t === T_DOOR_OPEN || t === T_WATER || t === T_LADDER || t === T_GRASS || t === T_RUBBLE;
   };
   const openUpper = (x: number, z: number) => {
     if (x < 0 || z < 0 || x >= GRID || z >= GRID) return false;
@@ -526,8 +530,10 @@ export function objectiveFor(w: World, s: Soldier): Vec3 {
       // y-channel contract: storey, never altitude (a hopping prey is ground floor)
       return prey ? { x: prey.pos.x, y: prey.floor === 1 ? 4 : 0, z: prey.pos.z } : w.map.hillPos;
     }
-    default: // tdm — hunt toward enemy side / last seen action
-      return { x: enemyBase.x * 0.4 + w.map.hillPos.x * 0.6, y: 0, z: enemyBase.z * 0.4 };
+    default: // tdm — hunt toward the enemy-side / midfield blend
+      // (the z term used to drop the 0.6·hill.z, skewing the whole team's
+      // drift toward one wrong point on maps whose hill isn't at z=0)
+      return { x: enemyBase.x * 0.4 + w.map.hillPos.x * 0.6, y: 0, z: enemyBase.z * 0.4 + w.map.hillPos.z * 0.6 };
   }
 }
 
@@ -847,7 +853,11 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
   // corner that pinned it
   if (w.time >= (s.botMoveCheckAt ?? 0)) {
     const moved = Math.hypot(s.pos.x - (s.botLastX ?? s.pos.x), s.pos.z - (s.botLastZ ?? s.pos.z));
-    if (s.botLastX !== undefined && moved < 1 && dGoal > 6 && !target) {
+    // was gated on !target — so a bot pinned on a corner WITH an enemy in sight
+    // never re-planned (the audit's "stuck against a wall in view of a foe,
+    // forever"). A genuine stall is near-zero motion; an active strafer clears
+    // the 0.8u bar, so this fires on the real wall-kiss even mid-fight.
+    if (s.botLastX !== undefined && moved < 0.8 && dGoal > 6) {
       s.botGoal = null;
       s.botRepathAt = 0;
     }
@@ -1016,22 +1026,36 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
     } else if (committed) {
       // keep the objective movement computed above
     } else if (s.hp < s.maxHp * doc.retreat) {
-      // capability, not courage: break contact toward home, guns still up.
-      // This is the line between a human and a zed — zeds never step back.
-      const base = w.map.basePos[s.team];
-      mvx = -Math.cos(toT) * 1.2 + (base.x - s.pos.x) * 0.015;
-      mvz = -Math.sin(toT) * 1.2 + (base.z - s.pos.z) * 0.015;
+      // capability, not courage: break contact — toward COVER if there's a wall
+      // to put between you and the shooter, else toward home. Guns still up.
+      // (The line between a human and a zed — zeds never step back.) nearestCover
+      // already existed but was only ever used by the downed-crawl.
+      const cover = nearestCover(w, s.pos, 22);
+      mvx = -Math.cos(toT);
+      mvz = -Math.sin(toT);
+      if (cover) {
+        const dx = cover.x - s.pos.x, dz = cover.z - s.pos.z, dl = Math.hypot(dx, dz) || 1;
+        mvx += (dx / dl) * 1.3; mvz += (dz / dl) * 1.3; // peel to the cover tile
+      } else {
+        const base = w.map.basePos[s.team];
+        mvx += (base.x - s.pos.x) * 0.015; mvz += (base.z - s.pos.z) * 0.015;
+      }
       if (cls.ability === 'jetpack' && s.energy > 40) cmd.jump = true; // burn out of there
     } else if (d > doc.standoff * 1.3) {
-      // hunting is a TDM luxury: in objective modes, chasing kills across
-      // the map is exactly how both teams forget the flags exist
       if (doc.chase && w.mode.id === 'tdm') {
-        // close with a flanker's curve — straight lines are for the brave and brief
+        // TDM: fully close with a flanker's curve — straight lines are brief
         const side = (s.id % 2 ? 1 : -1) * doc.flank;
         mvx = Math.cos(toT) + Math.cos(toT + Math.PI / 2) * side;
         mvz = Math.sin(toT) + Math.sin(toT + Math.PI / 2) * side;
+      } else if (doc.flank > 0) {
+        // objective modes: keep walking the objective (chasing kills across the
+        // map is how both teams forget the flags), but CURL the approach so a
+        // skirmisher arcs toward the fight instead of marching a straight line —
+        // the per-class flank finally shows outside TDM, without ditching the flag
+        const side = (s.id % 2 ? 1 : -1) * doc.flank * 0.6;
+        mvx += Math.cos(toT + Math.PI / 2) * side;
+        mvz += Math.sin(toT + Math.PI / 2) * side;
       }
-      // anchors keep walking the objective and shoot what shows itself
     } else if (d < doc.standoff * 0.55) {
       // inside the class's comfort band — give ground, guns up.
       // (unit vector: applyCmd no longer scales sub-unit intent up to full
@@ -1052,8 +1076,12 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
 
     // grenades at clusters — cursor-targeted like players: land it ON the enemy
     if (d > 8 && d < 24 && s.grenades > 0 && w.rng.next() < 0.006) {
-      cmd.grenade = true;
-      cmd.aimDist = d;
+      // NB: the rng.next() above is drawn unconditionally — the class gate is on
+      // the EFFECT, not the draw, so the seeded stream stays byte-identical.
+      // Engineers' G plants a MINE at their feet (world.ts routing), so a
+      // mid-strafe "frag" dribbles the mine budget onto open ground — let them
+      // keep it for the idle choke-planting instead.
+      if (s.classId !== 'engineer') { cmd.grenade = true; cmd.aimDist = d; }
     }
 
     // jump troopers hop in fights

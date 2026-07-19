@@ -1039,6 +1039,11 @@ export class World {
           if (handler.alive && this.time >= s.respawnAt && !this.mode.over) this.spawn(s);
           continue;
         }
+        // a Crimson BLOOD BRUTE is a SUMMONED unit — it walks once and is gone,
+        // not a roster regular. It spawned kind:'bot', so it used to revive every
+        // cycle and never purge (a slow roster leak that warped team balance).
+        // Delete it on death instead.
+        if (s.name === 'BLOOD BRUTE') { this.soldiers.delete(s.id); continue; }
         if (s.kind !== 'human' && s.kind !== 'bot') continue; // dead zombies removed elsewhere
         if (this.time >= s.respawnAt && !this.mode.over && !s.dummy) this.spawn(s); // downed range targets STAY down
         continue;
