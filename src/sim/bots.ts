@@ -729,8 +729,18 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
         z: cap(s.pos.z + az * 0.55 + (ax / al) * side),
       };
     }
-    const wp = pathStep(w, s.pos, dest, s.classId === 'jump');
-    s.botGoal = wp ?? { x: dest.x, y: 0, z: dest.z };
+    // SUB-TILE DESTINATIONS GO DIRECT (the pacing-sentry fix): pathStep is
+    // tile-quantized, so a body straddling a tile boundary near its post got
+    // a DIFFERENT first waypoint each repath — and the dist<3 clause above
+    // repaths every tick, so the goal flip-flopped at 30Hz and the body
+    // paced in place. Within a stride-and-a-bit of a visible destination
+    // the straight line IS the route; the BFS keeps the job whenever a wall
+    // (a room-duty post behind a door) still stands in the way.
+    const dDest = Math.hypot(dest.x - s.pos.x, dest.z - s.pos.z);
+    const wp = (dDest < 4 && losClear(w.map.grid, s.pos, dest, 0.6))
+      ? { x: dest.x, y: 0, z: dest.z }
+      : pathStep(w, s.pos, dest, s.classId === 'jump') ?? { x: dest.x, y: 0, z: dest.z };
+    s.botGoal = wp;
   }
 
   let mvx = 0, mvz = 0;
@@ -738,8 +748,19 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
     const dx = s.botGoal.x - s.pos.x;
     const dz = s.botGoal.z - s.pos.z;
     const dl = Math.hypot(dx, dz) || 1;
-    mvx = dx / dl;
-    mvz = dz / dl;
+    // THE ARRIVAL RAMP (the vibrating-sentry fix, caught live by the flight
+    // recorder: guards standing ON their orbit posts at ~80 direction flips
+    // a second). Two dead ends taught the shape: full-speed steering at the
+    // goal turns position noise into full-stride sign flips, and a hard
+    // stop-band just moves the bang-bang to the band's edge. So the pull
+    // fades CONTINUOUSLY through the last stride — full beyond 1.5u, zero
+    // inside half a unit — and with applyCmd no longer scaling sub-unit
+    // intent up to full speed, the pull and the separation shove find a
+    // smooth equilibrium: posted bodies STAND. Mid-route waypoints re-aim
+    // at 3u, so the ramp only ever shades a route's final approach.
+    const arrive = Math.min(1, Math.max(0, dl - 0.5));
+    mvx = (dx / dl) * arrive;
+    mvz = (dz / dl) * arrive;
   }
 
   // --- no soldier in front of you? then SHOOT THE NEST ---
@@ -825,15 +846,21 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
       }
       // anchors keep walking the objective and shoot what shows itself
     } else if (d < doc.standoff * 0.55) {
-      // inside the class's comfort band — give ground, guns up
-      mvx = -Math.cos(toT) * 0.9;
-      mvz = -Math.sin(toT) * 0.9;
+      // inside the class's comfort band — give ground, guns up.
+      // (unit vector: applyCmd no longer scales sub-unit intent up to full
+      // stride, and a fighting withdrawal is a full-stride move)
+      mvx = -Math.cos(toT);
+      mvz = -Math.sin(toT);
     } else {
-      // in the band: strafe-dance, a toe still pointed at the objective
+      // in the band: strafe-dance, a toe still pointed at the objective —
+      // re-normalized to a full stride (doc.strafe shapes the MIX of dodge
+      // vs advance, not the pace; the dance was always meant at full speed)
       if (w.rng.next() < 0.02) s.botStrafeDir = (s.botStrafeDir ?? 1) * -1;
       const perp = toT + Math.PI / 2;
       mvx = Math.cos(perp) * (s.botStrafeDir ?? 1) * doc.strafe + mvx * 0.25;
       mvz = Math.sin(perp) * (s.botStrafeDir ?? 1) * doc.strafe + mvz * 0.25;
+      const sl = Math.hypot(mvx, mvz);
+      if (sl > 0.001) { mvx /= sl; mvz /= sl; }
     }
 
     // grenades at clusters — cursor-targeted like players: land it ON the enemy

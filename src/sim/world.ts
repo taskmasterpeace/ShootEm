@@ -1748,9 +1748,17 @@ export class World {
     // into an untargetable ghost at (NaN, z). Intent is clamped finite here.
     const mx = Number.isFinite(cmd.moveX) ? cmd.moveX : 0;
     const mz = Number.isFinite(cmd.moveZ) ? cmd.moveZ : 0;
-    const len = Math.hypot(mx, mz) || 1;
-    s.vel.x = (mx / len) * speed;
-    s.vel.z = (mz / len) * speed;
+    // Normalize DOWN only — never up. The old `mx/len` scaled ANY nonzero
+    // intent to full stride, so a 0.001-magnitude separation whisper became
+    // a 9.5 u/s lunge and every force equilibrium turned into a two-tick
+    // bang-bang vibration (the flight recorder clocked posted sentries at 80
+    // direction flips a second). Sub-unit intent now means sub-full speed:
+    // whispers drift, walks still sprint, equilibria SETTLE. Keyboard input
+    // is 0/±1 per axis, so player feel is untouched.
+    const len = Math.hypot(mx, mz);
+    const k = len > 1 ? 1 / len : 1;
+    s.vel.x = mx * k * speed;
+    s.vel.z = mz * k * speed;
 
     // jetpack (jump troopers) / hop for everyone. The FLIGHT ECONOMY
     // (Robert: "you can fly across the whole map without ever landing"):
