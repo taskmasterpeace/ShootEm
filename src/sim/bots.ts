@@ -974,8 +974,31 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
     }
   }
 
+  // --- FOOT ANTI-VEHICLE (Robert / audit: a tank rolled through a squad of
+  // missile-heavies untouched — findTarget only ever returns soldiers, so the
+  // heavy's mml swap below was DEAD CODE). An AT class fights armor: aim the
+  // launcher at the nearest crewed enemy vehicle in reach, hold at rocket range.
+  let vehEngage = false;
+  const atGun = WEAPONS[s.weapons[1]]; // the heavy's launcher sits in slot 1
+  if (s.classId === 'heavy' && atGun && atGun.damage > 0) {
+    const veh = enemyVehicleNear(w, s, atGun.range * 0.95);
+    // engage when there's no soldier worth shooting, or the vehicle is close
+    // enough to be the real threat — and there's a clear shot to it
+    if (veh && (!target || veh.d < 30) && w.sightClear(s.pos, veh.pos)) {
+      vehEngage = true;
+      cmd.weaponSlot = 1;
+      cmd.aimYaw = Math.atan2(veh.pos.z - s.pos.z, veh.pos.x - s.pos.x);
+      cmd.aimDist = veh.d;
+      if (veh.d < atGun.range * 0.95) cmd.fire = true;
+      if (veh.d < 15) { // peel back from a tank that's on top of you
+        mvx = s.pos.x - veh.pos.x; mvz = s.pos.z - veh.pos.z;
+        const l = Math.hypot(mvx, mvz) || 1; mvx /= l; mvz /= l;
+      }
+    }
+  }
+
   // --- combat: fight the way your class fights ---
-  if (target) {
+  if (!vehEngage && target) {
     const d = Math.hypot(target.pos.x - s.pos.x, target.pos.z - s.pos.z);
     const wdef = WEAPONS[s.weapons[s.weaponIdx]];
     const baseDoc = DOCTRINE[s.classId];
@@ -1074,6 +1097,15 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
       if (sl > 0.001) { mvx /= sl; mvz /= sl; }
     }
 
+    // out of ammo with a live enemy → BREAK TO COVER and reload, don't eat the
+    // reload standing in the open (audit: a heavy emptied its 75-round LMG then
+    // stood exposed 3.2s). Reload is otherwise idle-only.
+    if (s.clip[s.weaponIdx] <= 0 && s.reserve[s.weaponIdx] > 0) {
+      cmd.reload = true;
+      const cover = nearestCover(w, s.pos, 20);
+      if (cover) { const dx = cover.x - s.pos.x, dz = cover.z - s.pos.z, dl = Math.hypot(dx, dz) || 1; mvx = dx / dl; mvz = dz / dl; }
+    }
+
     // grenades at clusters — cursor-targeted like players: land it ON the enemy
     if (d > 8 && d < 24 && s.grenades > 0 && w.rng.next() < 0.006) {
       // NB: the rng.next() above is drawn unconditionally — the class gate is on
@@ -1086,7 +1118,7 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
 
     // jump troopers hop in fights
     if (cls.ability === 'jetpack' && s.energy > 40 && w.rng.next() < 0.02) cmd.jump = true;
-  } else {
+  } else if (!vehEngage) { // vehEngage already set aim + fire; don't clobber it
     if (!nestAim) cmd.aimYaw = Math.atan2(mvz, mvx) || s.yaw;
     // reload when idle — but never mid nest-demolition
     const wdef = WEAPONS[s.weapons[s.weaponIdx]];
