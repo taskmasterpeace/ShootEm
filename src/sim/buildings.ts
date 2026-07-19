@@ -71,16 +71,20 @@ export const BUILDINGS: BuildingDef[] = [
     '###DD##',
   ]),
   B('cottage', 'Cottage', 'house', [
+    // two rooms now — a hearth room and a back room off an interior door
+    // (crate count held at 1 so the map rng doesn't drift — richer shape,
+    // same seed)
     '#S###S#',
-    '#.....#',
-    '#.C.P.#',
-    '#.....#',
+    '#..#..#',
+    '#..D.P#',
+    '#..#C.#',
     '##DD#S#',
   ]),
   B('longhouse', 'Longhouse', 'house', [
+    // three bays down a spine — a corridor house you clear room to room
     '#S###S###S#',
-    '#C........#',
-    '#...P...C.#',
+    '#C.#.P.#.C#',
+    '#..D...D..#',
     '####DD#####',
   ]),
   B('l_house', 'L-House', 'house', [
@@ -114,11 +118,14 @@ export const BUILDINGS: BuildingDef[] = [
     '##D##',
   ]),
   B('villa', 'Villa', 'house', [
+    // a proper floor plan: two front rooms and a back room, three doors
+    // (2 crates, matching the original — richer rooms, same map seed)
     '#S##S##S#',
-    '#.......#',
-    '#.C...C.#',
-    '#...P...#',
-    '#.......#',
+    '#...#...#',
+    '#.C.D.P.#',
+    '#...#...#',
+    '##D###D##',
+    '#...C...#',
     '###DD##S#',
   ]),
   B('rowhouse', 'Rowhouse', 'house', [
@@ -128,10 +135,11 @@ export const BUILDINGS: BuildingDef[] = [
     '#D##D##D#',
   ]),
   B('farmhouse', 'Farmhouse', 'house', [
+    // kitchen + pantry, an interior door between
     '#S#####',
-    '#.....S',
-    '#.P.C.#',
-    '#.....#',
+    '#..#..S',
+    '#P.D.C#',
+    '#..#..#',
     '#DD####',
   ]),
   // ---- other structures (10) ----
