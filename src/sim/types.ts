@@ -249,6 +249,8 @@ export interface Soldier {
   kills: number;
   /** per-life kill streak (reset on death) — feeds RAMPAGE/SHUTDOWN callouts */
   streak?: number;
+  /** GOD MODE (testing): untouchable, and may wear any LSW on demand */
+  god?: boolean;
   /** delight: has the LAST-STAND clutch already been announced this life? */
   lastStandSaid?: boolean;
   deaths: number;

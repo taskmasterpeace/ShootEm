@@ -12,6 +12,7 @@ import { audio } from './client/audio';
 import { Chat } from './client/chat';
 import { StaticOverlay } from './client/effects';
 import { Hud } from './client/hud';
+import { initGodMode } from './client/godmode';
 import { Input } from './client/input';
 import { MusicDirector } from './client/music';
 import { Renderer } from './client/renderer';
@@ -446,6 +447,8 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   window.addEventListener('beforeunload', saveFlight);
   const me = world.addSoldier(name, selectedClass, 0, 'human', currentLoadout());
   applyScarMods(world, activeFrontId); // §8.5: the front's wound shapes the field
+  // GOD MODE (testing): backtick opens the stable and you can wear anything
+  initGodMode(() => world, () => me);
   // THE STABLE (finish-list #3/#4): the officer's V channel. SP wires
   // straight into the sim — requestLsw prices the call and refuses politely.
   new StableConsole({

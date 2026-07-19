@@ -499,6 +499,50 @@ export class World {
    * weapon stands up at the LZ. Death hands the body back: spawn() clears
    * the overlay and the mortal walks again.
    */
+  /**
+   * GOD MODE (testing only): wear ANY living super weapon on demand, ignoring
+   * every rule that normally guards the stable — faction, the one-god-per-team
+   * slot, and the no-human-hands-on-a-flier law. Pass `null` to shed the god
+   * and go back to a plain trooper. Also flips invulnerability on, because the
+   * point is to stand in the open and watch the AI work.
+   */
+  godMorph(s: Soldier, id: AscendantId | null): boolean {
+    s.god = true;
+    if (id === null) { // back to a mortal
+      if (!s.ascendant) return false;
+      s.ascendant = undefined;
+      s.rageMul = undefined; s.nextLswAt = undefined; s.nextLswActiveAt = undefined;
+      s.lswKillsBase = undefined; s.lswLowSaid = undefined;
+      const c = CLASSES[s.classId];
+      s.weapons = [c.primary, c.secondary];
+      s.weaponIdx = 0;
+      s.clip = [WEAPONS[c.primary].clip, WEAPONS[c.secondary].clip];
+      s.reserve = [WEAPONS[c.primary].reserve, WEAPONS[c.secondary].reserve];
+      s.hp = c.hp; s.maxHp = c.hp;
+      this.emit({ type: 'announce', text: 'GOD MODE — back to trooper' });
+      return true;
+    }
+    const def = LSWS[id];
+    const threat = THREAT[def.threat];
+    // shed any previous god cleanly, then put the new one on
+    s.ascendant = id;
+    s.weapons = [def.weapon];
+    s.weaponIdx = 0;
+    s.clip = [Infinity];
+    s.reserve = [Infinity];
+    s.hp = threat.hp; s.maxHp = threat.hp;
+    s.armor = 0; s.maxArmor = 0;
+    s.energy = 100;
+    s.nextLswAt = 0; s.nextLswActiveAt = 0;
+    s.cloaked = false;
+    s.lswKillsBase = s.kills;
+    s.lswLowSaid = false;
+    this.emit({ type: 'warp', pos: { ...s.pos } });
+    this.emit({ type: 'announce', text: `GOD MODE — ${def.name}`, big: true });
+    this.emit({ type: 'vo', text: `vo_${id}_arrive`, pos: { ...s.pos }, soldierId: s.id });
+    return true;
+  }
+
   ascendSoldier(s: Soldier, id: AscendantId, at?: Vec3): boolean {
     if (!lswAllowed(this.mode.id) || !s.alive || s.ascendant) return false;
     if (LSWS[id].faction !== s.team) return false; // your stable, your body
@@ -3651,6 +3695,7 @@ export class World {
 
   damageSoldier(victim: Soldier, dmg: number, attackerId: number, weapon: WeaponId, viaLink = false, pierceArmor = false) {
     if (!victim.alive || dmg <= 0) return;
+    if (victim.god) return;                        // GOD MODE: nothing touches you
     if (this.time < victim.protectedUntil) return; // spawn protection (55B)
     // DOMINATOR'S PSYCHIC LINK (§ finale): hurt one linked soldier and every
     // soldier on the same thread takes 60%. `viaLink` stops the shared pain
