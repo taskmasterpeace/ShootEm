@@ -22,7 +22,7 @@ describe('bot arrival (the vibrating-sentry law)', () => {
     // the exact reported scene: CTF, the human standing at spawn reading the
     // field, guard-role bots taking their orbit posts around the flag stand
     const w = new World({ seed: 7, mode: 'ctf', matchMinutes: 15 });
-    const me = w.addSoldier('Robert', 'infantry', 0, 'human');
+    w.addSoldier('Robert', 'infantry', 0, 'human'); // the human stands; guards orbit
     for (const team of [0, 1] as const) {
       for (let i = 0; i < 12; i++) w.addSoldier(`T${team}B${i}`, MIX[i], team, 'bot');
     }

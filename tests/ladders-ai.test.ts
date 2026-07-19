@@ -14,7 +14,6 @@ import { Rng } from '../src/sim/rng';
 import type { Soldier } from '../src/sim/types';
 import { World } from '../src/sim/world';
 
-const toWorld = (t: number) => (t + 0.5) * TILE - WORLD / 2;
 const DT = 1 / 30;
 
 /** CTF world with a WATCHTOWER (two storeys, ladder + well) stamped a few
