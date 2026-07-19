@@ -6,6 +6,7 @@
 import { losClear } from '../map';
 import type { Soldier } from '../types';
 import type { World } from '../world';
+import { enemyAhead } from './kit';
 
 /** the lance: a piercing line down his aim (LOS per-target, the rail idiom). */
 function lance(w: World, s: Soldier) {
@@ -47,7 +48,12 @@ export function step(w: World, s: Soldier, _dt: number) {
   // the LANCE on a cadence, the LINKS on a slower one (reusing
   // nextLswActiveAt on the bot). A human pilot links on Q.
   if (s.kind === 'bot') {
-    if (w.time >= (s.nextLswAt ?? 0)) { lance(w, s); s.nextLswAt = w.time + 2.5; }
+    // lance ONLY down a lane an enemy actually stands in — no blind piercing
+    // shot into the void. Recheck fast when the lane's empty.
+    if (w.time >= (s.nextLswAt ?? 0)) {
+      if (enemyAhead(w, s, 60, 0.14)) { lance(w, s); s.nextLswAt = w.time + 2.5; }
+      else s.nextLswAt = w.time + 0.4;
+    }
     if (w.time >= (s.nextLswActiveAt ?? 0) && link(w, s)) s.nextLswActiveAt = w.time + 9;
   }
 }

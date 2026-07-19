@@ -5,6 +5,7 @@
 import { GRID, T_COVER, TILE, WORLD, losClear } from '../map';
 import type { Soldier, Vehicle } from '../types';
 import type { World } from '../world';
+import { nearestEnemy } from './kit';
 
 /** grab the topmost grabbable in his forward reach and HURL it — an enemy
  *  vehicle (crew ejected and flung, hull launched, stunned, cracked open) or
@@ -99,8 +100,16 @@ function pound(w: World, s: Soldier): boolean {
 export function step(w: World, s: Soldier, _dt: number) {
   // Bot cadence: hurl what's in reach, pound when a crowd has closed.
   if (s.kind === 'bot' && w.time >= (s.nextLswAt ?? 0)) {
-    if (!hurl(w, s)) pound(w, s);
-    s.nextLswAt = w.time + 4.5;
+    // hurl what's in reach; if there's nothing to throw, POUND only when a body
+    // is actually in the 7u shockwave — not a blind slam of the empty ground.
+    if (hurl(w, s)) {
+      s.nextLswAt = w.time + 4.5;
+    } else if (nearestEnemy(w, s, 8, false)) {
+      pound(w, s);
+      s.nextLswAt = w.time + 4.5;
+    } else {
+      s.nextLswAt = w.time + 0.4; // nothing to hurl, no one to pound — hold
+    }
   }
 }
 

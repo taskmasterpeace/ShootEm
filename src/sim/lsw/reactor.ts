@@ -4,6 +4,7 @@
 // ---------------------------------------------------------------------------
 import type { Soldier } from '../types';
 import type { World } from '../world';
+import { nearestEnemy } from './kit';
 
 /** the nova: a charged burst around him — everyone close is hurt and thrown.
  *  His offensive option when there's no ally to feed. */
@@ -44,7 +45,12 @@ export function step(w: World, s: Soldier, _dt: number) {
   // NOVA on a cadence, OVERCHARGE the nearest ally on a slower one (reusing
   // nextLswActiveAt as the bot's overcharge timer).
   if (s.kind === 'bot') {
-    if (w.time >= (s.nextLswAt ?? 0)) { nova(w, s); s.nextLswAt = w.time + 4; }
+    // NOVA only when a body is in (or entering) the 8u blast — no detonating an
+    // empty circle. Recheck fast when it's clear so it blooms as they swarm in.
+    if (w.time >= (s.nextLswAt ?? 0)) {
+      if (nearestEnemy(w, s, 10, false)) { nova(w, s); s.nextLswAt = w.time + 4; }
+      else s.nextLswAt = w.time + 0.4;
+    }
     if (w.time >= (s.nextLswActiveAt ?? 0) && overcharge(w, s)) s.nextLswActiveAt = w.time + 7;
   }
 }

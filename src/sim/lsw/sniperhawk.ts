@@ -5,6 +5,7 @@
 import { losClear } from '../map';
 import type { Soldier } from '../types';
 import type { World } from '../world';
+import { enemyAhead } from './kit';
 
 /** the rail: a hitscan line down his aim that pierces every body it crosses
  *  (LOS is checked from HIM to each target, so soldiers never shield each
@@ -50,7 +51,13 @@ export function step(w: World, s: Soldier, _dt: number) {
   // nextLswActiveAt as the mark timer, free on a bot); a human pilot rails
   // on Q.
   if (s.kind === 'bot') {
-    if (w.time >= (s.nextLswAt ?? 0)) { rail(w, s); s.nextLswAt = w.time + 2.5; }
+    // rail ONLY when an enemy is actually down the line — a blind rail every
+    // 2.5s fires the shot + VO + telegraph at empty air. If nothing's there,
+    // recheck soon so it snaps the instant a target crosses the lane.
+    if (w.time >= (s.nextLswAt ?? 0)) {
+      if (enemyAhead(w, s, 80, 0.14)) { rail(w, s); s.nextLswAt = w.time + 2.5; }
+      else s.nextLswAt = w.time + 0.4;
+    }
     if (w.time >= (s.nextLswActiveAt ?? 0) && mark(w, s)) s.nextLswActiveAt = w.time + 9;
   }
 }
