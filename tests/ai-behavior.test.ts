@@ -10,6 +10,7 @@ import { World, type Difficulty } from '../src/sim/world';
 import { visionMult } from '../src/sim/weather';
 import { DIRECTOR_EVAL, PRESSURE_MAX, PRESSURE_MIN, stepDirector } from '../src/sim/director';
 import { threatAt } from '../src/sim/influence';
+import { defendsNow } from '../src/sim/bots';
 import type { AscendantId, Team } from '../src/sim/types';
 
 const DT = 1 / 60;
@@ -228,6 +229,34 @@ describe('the influence map gives cover a brain (§influence)', () => {
     const closedOnHot = d0h - Math.hypot(bot.pos.x - hot.x, bot.pos.z - hot.z);
     expect(closedOnQuiet, 'it peeled to the nearest crate under four guns')
       .toBeGreaterThan(closedOnHot);
+  });
+});
+
+describe('defence is scored, not frozen (§utility role)', () => {
+  const squad = () => {
+    const w = new World({ seed: 17, mode: 'ctf', matchMinutes: 15 });
+    const bots: ReturnType<World['addSoldier']>[] = [];
+    const MIX = ['infantry', 'heavy', 'medic', 'engineer', 'jump', 'infantry', 'infiltrator', 'heavy', 'infantry', 'medic', 'infantry', 'ghost'] as const;
+    for (const t of [0, 1] as const) for (let i = 0; i < 12; i++) bots.push(w.addSoldier(`${t}-${i}`, MIX[i], t, 'bot'));
+    w.step(1 / 60, new Map());
+    return { w, mine: bots.filter((b) => b.team === 0) };
+  };
+
+  it('holds a sane number of defenders — never lets the attack die', () => {
+    const { w, mine } = squad();
+    const n = mine.filter((b) => defendsNow(w, b)).length;
+    expect(n, 'nobody defended').toBeGreaterThan(0);
+    expect(n, 'half the squad went home — the attack dies').toBeLessThanOrEqual(Math.ceil(mine.length / 3) + 1);
+  });
+
+  it('BACKFILLS: kill the defenders and someone else steps up', () => {
+    const { w, mine } = squad();
+    const first = mine.filter((b) => defendsNow(w, b));
+    expect(first.length).toBeGreaterThan(0);
+    for (const b of first) { b.alive = false; b.respawnAt = 1e9; } // the whole guard detail dies
+    const second = mine.filter((b) => b.alive && defendsNow(w, b));
+    expect(second.length, 'home sat open after the guards died').toBeGreaterThan(0);
+    expect(second.some((b) => !first.includes(b)), 'the same dead men were re-picked').toBe(true);
   });
 });
 

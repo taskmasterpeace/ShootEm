@@ -409,6 +409,57 @@ export const guardsHome = (s: Soldier) =>
     ((s.classId === 'infantry' || s.classId === 'ghost') && s.id % 4 === 1)
   );
 
+/**
+ * THE UTILITY ROLE (§AI-AUDIT theme 3, the Utility-Brain idea landed where it
+ * actually pays). Defence used to be a FROZEN flag — `guardsHome` is a pure
+ * function of class and id, fixed for the soldier's whole existence. So the
+ * team never adapted: if RNG killed every guard at once, nobody backfilled and
+ * home sat open until respawns landed; and when nothing threatened home, the
+ * same bodies stood there anyway.
+ *
+ * Now the answer is SCORED and situational: work out how many defenders home
+ * needs right now (pressure on it, and whether we can afford them), rank the
+ * squad by fitness to defend (proximity home + the class bias that used to BE
+ * the whole rule), and let the top N hold. Defenders EMERGE, and the ranking
+ * re-runs every repath, so a dead guard is replaced within the second.
+ *
+ * `guardsHome` survives as the class bias — it was never wrong about WHO is
+ * suited to defend, only about it being permanent.
+ */
+export function defendsNow(w: World, s: Soldier): boolean {
+  if (s.carryingFlag >= 0) return false;      // a runner runs, always
+  const m = w.mode;
+  const home = m.flags ? m.flags[s.team].pos : w.map.basePos[s.team];
+  /** Fitness to hold home. DELIBERATELY POSITION-FREE: ranking by proximity is
+   *  the obvious idea and it is a trap — bots near home rank as defenders, so
+   *  they stay near home, so they keep ranking as defenders. Measured: that
+   *  feedback loop rebuilt the whole-team home blob the standoff-breaker exists
+   *  to prevent (162 blob samples in the seed-4207 match). Class bias decides,
+   *  id breaks ties; both are stable, so the only thing that moves the roster
+   *  is somebody DYING — which is exactly the backfill we wanted. */
+  const fit = (o: Soldier) =>
+    (guardsHome(o) ? 100 : 0) + (raidsFlags(o) ? -60 : 0) - (o.id % 16);
+  const myFit = fit(s);
+  let pressure = 0, mates = 0, better = 0;
+  for (const o of w.soldiers.values()) {
+    if (!o.alive || (o.kind !== 'human' && o.kind !== 'bot') || o.ascendant) continue;
+    if (o.team !== s.team) {
+      if (Math.hypot(o.pos.x - home.x, o.pos.z - home.z) < 45) pressure++; // guns near our ground
+      continue;
+    }
+    if (o.id === s.id) continue;
+    mates++;
+    // deterministic tie-break on id so two equally-fit bots never both yield
+    const f = fit(o);
+    if (f > myFit || (f === myFit && o.id < s.id)) better++;
+  }
+  // a floor of two, one more per three enemies pressing, and never more than a
+  // THIRD of the squad — the old frozen flag held about that many, and letting
+  // it climb toward half is how the attack quietly dies.
+  const need = Math.min(Math.floor(mates / 3) + 1, 2 + Math.floor(pressure / 3));
+  return better < need;
+}
+
 /** Am I among the ~3 nearest non-guards to the flag thief? So a RUNNING enemy
  *  carrier gets interceptors NOW without the whole team abandoning the attack
  *  (Robert's oldest complaint: "nobody plays defense"). */
@@ -499,7 +550,7 @@ export function objectiveFor(w: World, s: Soldier): Vec3 {
       // rest keep raiding so the counter-attack isn't abandoned.
       if (!ownFlag.atHome && ownFlag.carrierId >= 0) {
         const thief = w.soldiers.get(ownFlag.carrierId);
-        if (thief?.alive && Math.hypot(thief.vel.x, thief.vel.z) > 2 && (guardsHome(s) || amCloseHunter(w, s, thief))) {
+        if (thief?.alive && Math.hypot(thief.vel.x, thief.vel.z) > 2 && (defendsNow(w, s) || amCloseHunter(w, s, thief))) {
           const ring = (s.id % 6) * (Math.PI / 3); // converge on a ring, not his exact tile
           return { x: thief.pos.x + Math.cos(ring) * 4, y: 0, z: thief.pos.z + Math.sin(ring) * 4 };
         }
@@ -519,7 +570,7 @@ export function objectiveFor(w: World, s: Soldier): Vec3 {
         const homeBase = w.map.basePos[s.team];
         const parked = !ownFlag.atHome &&
           Math.hypot(carrier.pos.x - homeBase.x, carrier.pos.z - homeBase.z) < 12;
-        if (parked && !guardsHome(s)) return { x: ownFlag.pos.x, y: 0, z: ownFlag.pos.z };
+        if (parked && !defendsNow(w, s)) return { x: ownFlag.pos.x, y: 0, z: ownFlag.pos.z };
         // escort is a RING, never the runner's own tile — the old exact-pos
         // convergence stacked eleven bodies ON the carrier: a cage, not a
         // guard, and the run home slowed to a grind inside its own escort.
@@ -533,7 +584,7 @@ export function objectiveFor(w: World, s: Soldier): Vec3 {
       // the map's edge, THEN cut to the flag. Odd ids take north, even take
       // south — the raid arrives as two prongs the guard wall can't face at
       // once, with the escorts (non-raider classes) fighting alongside.
-      if (guardsHome(s)) {
+      if (defendsNow(w, s)) {
         // a nest by our own flag is the job — nobody else is coming
         const nest = enemyTurretNear(w, s.team, ownFlag.pos, 32);
         if (nest) return nest.pos;
@@ -599,7 +650,8 @@ export function objectiveFor(w: World, s: Soldier): Vec3 {
       // DEFENCE EXISTS NOW: guards hold what we've already taken (nobody ever
       // did — a captured point was abandoned the moment it flipped); everyone
       // else pushes the nearest point we don't own.
-      const pool = (guardsHome(s) && owned.length) ? owned
+      const defending = defendsNow(w, s);
+      const pool = (defending && owned.length) ? owned
         : (contestable.length ? contestable : pts);
       let best = pool[0], bd = Infinity;
       for (const p of pool) {
@@ -607,7 +659,7 @@ export function objectiveFor(w: World, s: Soldier): Vec3 {
         if (d < bd) { bd = d; best = p; }
       }
       const a = (s.id % 8) * (Math.PI / 4);
-      const r = guardsHome(s) ? 7 : 3; // spread on the point, don't stack its tile
+      const r = defending ? 7 : 3; // spread on the point, don't stack its tile
       return { x: best.pos.x + Math.cos(a) * r, y: 0, z: best.pos.z + Math.sin(a) * r };
     }
     case 'survival':
