@@ -113,6 +113,23 @@ export const DIFFICULTY_AIM: Record<Difficulty, number> = {
   elite: 0.45,
 };
 
+/** Reaction time (seconds) before a bot fires on a FRESHLY-acquired target —
+ *  the human beat of "it saw me, it's reacting" that the instant snap-shot
+ *  skipped. Elite reacts fast, recruit is slow. */
+export const DIFFICULTY_REACT: Record<Difficulty, number> = {
+  recruit: 0.5,
+  veteran: 0.3,
+  elite: 0.16,
+};
+
+/** How fast a bot can SLEW its aim (radians/second). Turning onto a target
+ *  costs time instead of teleporting the barrel — a flick has a speed limit. */
+export const DIFFICULTY_TURN: Record<Difficulty, number> = {
+  recruit: 7,
+  veteran: 10,
+  elite: 15,
+};
+
 export class World {
   time = 0;
   tick = 0;

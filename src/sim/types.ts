@@ -418,6 +418,11 @@ export interface Soldier {
    *  repath crosses storeys, cleared the moment the boots arrive — pressing
    *  E stops the instant it's satisfied, which is the ping-pong guard */
   botWantFloor?: number;
+  /** aim discipline: the enemy id this bot currently has its gun on, and the
+   *  sim time it's allowed to open fire on a FRESHLY-acquired one (reaction
+   *  delay) — so a bot doesn't corner-peek headshot the same tick it sees you */
+  botAcqId?: number;
+  botAcquireAt?: number;
 }
 
 export interface Vehicle {

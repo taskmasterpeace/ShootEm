@@ -1,7 +1,7 @@
 import { CLASSES, DOG_STATS, VEHICLES, WEAPONS } from './data';
 import { F2_FLOOR, F2_SLIT, F2_VOID, F2_WALL, F2_WELL, GRID, T_CLIMB, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_OPEN, T_RUBBLE, T_WATER, TILE, WORLD, isBlocked, losClear, tileAt } from './map';
 import { type ClassId, type PlayerCmd, type Soldier, type Team, type Vec3, type Vehicle, isZed } from './types';
-import { DIFFICULTY_AIM, type World } from './world';
+import { DIFFICULTY_AIM, DIFFICULTY_REACT, DIFFICULTY_TURN, type World } from './world';
 import { visionMult } from './weather';
 
 const noCmd = (): PlayerCmd => ({
@@ -284,7 +284,15 @@ function findTarget(w: World, s: Soldier, maxRange: number, pingRange = maxRange
     if (!e.alive || e.team === s.team || e.vehicleId >= 0) continue;
     const pinged = w.pinged.has(e.id);
     const d = Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z);
-    if (d >= (pinged ? pingRange : maxRange)) continue; // past the eye AND unmarked
+    // GRASS conceals from bots too (perception parity): an enemy in the tall
+    // grass is a rumor past ~14u — or the footstep ring if they DUCK — unless a
+    // ping reveals them. The same clamp the player's own eyes use (perception.ts),
+    // so crouching in cover to break contact finally works against the AI.
+    let reach = pinged ? pingRange : maxRange;
+    if (!pinged && e.ascendant === undefined && tileAt(w.map.grid, e.pos.x, e.pos.z) === T_GRASS) {
+      reach = Math.min(reach, e.crouching ? 9 : 14);
+    }
+    if (d >= reach) continue; // past the eye AND unmarked
     if (e.cloaked && d > 9 && !pinged) continue; // cloak is TRUE unless a mark reveals it
     // sightClear = walls AND smoke — a bot must not track through the cloud
     // a player just paid a grenade to stand up (Robert: smoke AFFECTS
@@ -618,7 +626,7 @@ function climbAhead(w: World, pos: Vec3, yaw: number): boolean {
 
 // ---------- main bot brain ----------
 
-export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
+export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
   const cmd = noCmd();
   cmd.aimYaw = s.yaw;
   const cls = CLASSES[s.classId];
@@ -1033,7 +1041,14 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
     const aimErr = (w.rng.next() - 0.5) * (s.kind === 'zombie' ? 0.2 : 0.055) * (d / 18 + 0.6)
       * DIFFICULTY_AIM[w.opts.difficulty ?? 'veteran'] * doc.aim * merciful;
     cmd.aimYaw = leadYaw(s.pos, target, wdef.speed) + aimErr;
-    if (d < wdef.range * 0.95) cmd.fire = true;
+    // REACTION DELAY: a FRESHLY-acquired target gets a human beat before the
+    // trigger — no more corner-peek headshot the same tick you appear. Only a
+    // NEW contact re-arms it; a target it's been tracking fires freely.
+    if (s.botAcqId !== target.id) { s.botAcqId = target.id; s.botAcquireAt = w.time + DIFFICULTY_REACT[w.opts.difficulty ?? 'veteran']; }
+    // LSWs are gods, not corner-peeking soldiers — no reaction beat on them
+    // (keeps every boss, incl. the off-limits GravWarden, byte-identical).
+    const reacted = s.ascendant !== undefined || w.time >= (s.botAcquireAt ?? 0);
+    if (reacted && d < wdef.range * 0.95) cmd.fire = true;
     if (wdef.arc) cmd.aimDist = d; // lob shells ON the target, not past it
 
     const toT = Math.atan2(target.pos.z - s.pos.z, target.pos.x - s.pos.x);
@@ -1265,6 +1280,23 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
 
   cmd.moveX = Math.max(-1, Math.min(1, mvx));
   cmd.moveZ = Math.max(-1, Math.min(1, mvz));
+
+  // TURN-TO-AIM: a bot can't teleport its barrel. Cap the per-tick yaw change
+  // so a flick onto a target COSTS TIME — the inhuman corner-snap headshot the
+  // audit flagged (world.ts applies s.yaw = cmd.aimYaw with no cap; humans feed
+  // it from the mouse, which is fine, but a bot's snap was a teleport). Paired
+  // with the reaction delay, the gun turns onto you and settles before it fires.
+  // LSWs exempt — a god's aim doesn't lag, and it keeps every boss (incl. the
+  // off-limits GravWarden) byte-identical to before.
+  if (!s.ascendant) {
+    const maxTurn = DIFFICULTY_TURN[w.opts.difficulty ?? 'veteran'] * dt;
+    let diff = cmd.aimYaw - s.yaw;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    if (diff > maxTurn) diff = maxTurn;
+    else if (diff < -maxTurn) diff = -maxTurn;
+    cmd.aimYaw = s.yaw + diff;
+  }
 
   // LSW intent (§21.6): an ability nobody uses doesn't exist, so the brain
   // ASKS for it here and stepLsw cashes it. Firebrand watches for enough
