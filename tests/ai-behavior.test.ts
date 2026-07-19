@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { GRID, T_OPEN, T_WALL } from '../src/sim/map';
 import { World, type Difficulty } from '../src/sim/world';
 import { visionMult } from '../src/sim/weather';
+import { DIRECTOR_EVAL, PRESSURE_MAX, PRESSURE_MIN, stepDirector } from '../src/sim/director';
 import type { AscendantId, Team } from '../src/sim/types';
 
 const DT = 1 / 60;
@@ -152,6 +153,45 @@ describe('the last of a squad fights (§last stand)', () => {
     const d0 = Math.hypot(foe.pos.x - bot.pos.x, foe.pos.z - bot.pos.z);
     for (let i = 0; i < 40; i++) { w.step(DT, new Map()); bot.hp = bot.maxHp * 0.15; foe.pos = { x: 12, y: 0, z: 0 }; }
     expect(Math.hypot(foe.pos.x - bot.pos.x, foe.pos.z - bot.pos.z), 'a mauled duelist charged instead of retreating').toBeGreaterThan(d0);
+  });
+});
+
+describe('the Director paces the match (§director)', () => {
+  /** drive the band directly — a live mode recomputes scores mid-step */
+  function band(setup: (w: World) => void, evals = 8): number {
+    const w = new World({ seed: 5, mode: 'tdm' });
+    w.addSoldier('Player', 'infantry', 0, 'human');
+    for (let i = 0; i < 6; i++) w.addSoldier(`e${i}`, 'infantry', 1, 'bot');
+    for (let i = 0; i < evals; i++) {
+      setup(w);
+      w.time += DIRECTOR_EVAL + 0.1;
+      stepDirector(w, w.director);
+    }
+    return w.director.pressure;
+  }
+
+  it('stays PINNED neutral with no human on the field (bot-vs-bot is untouched)', () => {
+    const w = new World({ seed: 5, mode: 'tdm' });
+    for (const t of [0, 1] as const) for (let i = 0; i < 6; i++) w.addSoldier(`b${t}${i}`, 'infantry', t, 'bot');
+    for (let i = 0; i < 60 * 20; i++) {
+      w.step(DT, new Map());
+      expect(w.director.pressure, 'the sky moved with nobody watching').toBe(1);
+    }
+  });
+
+  it('gives a mauled player air, and leans on one running away with it', () => {
+    const mauled = band((w) => { const me = [...w.soldiers.values()].find((s) => s.kind === 'human')!; me.deaths += 3; });
+    const winning = band((w) => { w.mode.scores[0] = 30; w.mode.scores[1] = 2; });
+    expect(mauled, 'no relief for a player being farmed').toBeLessThan(0.99);
+    expect(winning, 'no push against a player dominating').toBeGreaterThan(1.01);
+    expect(mauled).toBeLessThan(winning);
+  });
+
+  it('never leaves the band — it can lean, never cheat', () => {
+    const hard = band((w) => { w.mode.scores[0] = 9999; w.mode.scores[1] = 0; }, 40);
+    const soft = band((w) => { const me = [...w.soldiers.values()].find((s) => s.kind === 'human')!; me.deaths += 99; }, 40);
+    expect(hard).toBeLessThanOrEqual(PRESSURE_MAX);
+    expect(soft).toBeGreaterThanOrEqual(PRESSURE_MIN);
   });
 });
 

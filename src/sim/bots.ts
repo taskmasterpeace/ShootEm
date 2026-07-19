@@ -1146,12 +1146,12 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     // punish standing still. Everywhere else the math stays honest.
     const merciful = w.mode.id === 'paintball' ? 2.2 : 1;
     const aimErr = (w.rng.next() - 0.5) * (s.kind === 'zombie' ? 0.2 : TUNE.aimErrBase) * (d / TUNE.aimErrFalloff + 0.6)
-      * DIFFICULTY[w.opts.difficulty ?? 'veteran'].aim * doc.aim * merciful;
+      * DIFFICULTY[w.opts.difficulty ?? 'veteran'].aim * doc.aim * merciful / w.director.pressure;
     cmd.aimYaw = leadYaw(s.pos, target, wdef.speed) + aimErr;
     // REACTION DELAY: a FRESHLY-acquired target gets a human beat before the
     // trigger — no more corner-peek headshot the same tick you appear. Only a
     // NEW contact re-arms it; a target it's been tracking fires freely.
-    if (s.botAcqId !== target.id) { s.botAcqId = target.id; s.botAcquireAt = w.time + DIFFICULTY[w.opts.difficulty ?? 'veteran'].react; }
+    if (s.botAcqId !== target.id) { s.botAcqId = target.id; s.botAcquireAt = w.time + DIFFICULTY[w.opts.difficulty ?? 'veteran'].react / w.director.pressure; }
     // LSWs are gods, not corner-peeking soldiers — no reaction beat on them
     // (keeps every boss, incl. the off-limits GravWarden, byte-identical).
     const reacted = s.ascendant !== undefined || w.time >= (s.botAcquireAt ?? 0);

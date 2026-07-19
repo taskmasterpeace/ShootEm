@@ -16,6 +16,7 @@ import { ICE_HOLD, ICE_HOLD_DRAIN, LSWS, STRUGGLE_HP, STRUGGLE_SECS, THREAT, lsw
 import { stepBot, stepDog, stepIron, stepScientist, stepZombie } from './bots';
 import { PERCEIVE_RANGE, perceivesNow, smokeBlocks, type SeenMark, type SmokeBlob } from './perception';
 import { THEME_WEATHER, airGrounded, moveMult, visionMult, weatherAnnounce, type WeatherState } from './weather';
+import { newDirector, stepDirector, type DirectorState } from './director';
 import { createBlackbox, stepBlackbox, type Blackbox } from './blackbox';
 
 const RESPAWN_DELAY = 4;
@@ -138,6 +139,8 @@ export class World {
    *  clear; the first front arrives on its own clock. Replicated.
    *  (The paintball yard is exempt — nobody's first hour gets a whiteout.) */
   weather: WeatherState = { kind: 'clear', intensity: 0, until: 90 };
+  /** §director: the match-level pacing band (neutral with no human on field) */
+  director: DirectorState = newDirector();
   /** soldier ids currently hidden inside smoke fields */
   smoked = new Set<number>();
   /** tile indices the tunneler has ground to rubble (replicated to clients) */
@@ -1119,6 +1122,7 @@ export class World {
     }
     this.applyReconCountermeasures();
     this.updateLastSeen();
+    stepDirector(this, this.director); // §director: drift the pacing band
 
     // §8.8 the sky rolls: weather fronts drift through on their own clock
     if (this.time >= this.weather.until && !this.puppet) {
