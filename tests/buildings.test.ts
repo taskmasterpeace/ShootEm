@@ -21,8 +21,8 @@ const cmd = (over: Partial<PlayerCmd> = {}): PlayerCmd => ({
 });
 
 describe('the building library', () => {
-  it('32 templates, every stencil legal, second storeys honest', () => {
-    expect(BUILDINGS.length).toBe(32);
+  it('33 templates, every stencil legal, second storeys honest', () => {
+    expect(BUILDINGS.length).toBe(33);
     expect(BUILDINGS.filter((b) => b.kind === 'house').length).toBeGreaterThanOrEqual(10);
     for (const b of BUILDINGS) {
       expect([1, 2], `${b.id} floors`).toContain(b.floors);

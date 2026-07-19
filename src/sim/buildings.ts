@@ -188,6 +188,21 @@ export const BUILDINGS: BuildingDef[] = [
     '#...P...#',
     '###DD####',
   ]),
+  // THE BARRACKS BLOCK — the base compound's sleeping quarters (§base-anatomy
+  // pilot). Reads military at command zoom, plays as CQB inside: a central
+  // corridor, bunk bays off it (crates as bunks, clear of every doorway
+  // column — the depot disease), an ARMS ROOM behind an interior door
+  // holding the loot, a main double door plus a rear postern so the room
+  // never funnels, and slit windows that shoot back. Single storey ON
+  // PURPOSE: bots don't climb ladders (they never press E at an L tile),
+  // so compound buildings keep the whole fight on the floor bots can walk.
+  B('barracks_block', 'Barracks Block', 'military', [
+    '#S###D##S###',
+    '#C.C..C.#.P#',
+    '#.......D..#',
+    '#C.C..C.#..#',
+    '#S##DD####S#',
+  ]),
   B('mess_hall', 'Mess Hall', 'house', [
     '#S#####S#',
     '#.C...C.#',

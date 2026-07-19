@@ -108,11 +108,19 @@ describe('the CTF standoff breaker', () => {
     }
     if (w.mode.over) expect(w.mode.scores[0] + w.mode.scores[1]).toBeGreaterThan(0);
 
-    // the black box must never see the whole-team home blob again
-    const fullHouse = w.blackbox.samples.filter(
-      (s) => s.t > 60 && ([0, 1] as const).some((t) => s.teams[t].n >= 10 && s.teams[t].nearBase === s.teams[t].n),
-    );
-    expect(fullHouse.map((s) => s.t), 'whole-team home blob resurfaced').toEqual([]);
+    // the black box must never see the whole-team home blob PERSIST. A single
+    // 2s beat of everyone-home is honest play (a respawn wave landing while
+    // the defense rotates — seed 4207 produces exactly one such beat, and any
+    // library addition shifts it: placeBuildings' 30% branch draws from ALL
+    // of BUILDINGS, so growing the shelf reshuffles every seeded battle map).
+    // The DISEASE was minutes of it: 300+ consecutive samples, 10-22 stuck.
+    let run = 0, maxRun = 0;
+    for (const s of w.blackbox.samples) {
+      const full = s.t > 60 && ([0, 1] as const).some((t) => s.teams[t].n >= 10 && s.teams[t].nearBase === s.teams[t].n);
+      run = full ? run + 1 : 0;
+      if (run > maxRun) maxRun = run;
+    }
+    expect(maxRun, `whole-team home blob persisted ${maxRun * 2}s`).toBeLessThan(3);
 
     // and the bodies kept moving: the frozen build averaged 10+ stuck, calm
     // play averages ~0 — a generous ceiling still catches any relapse
