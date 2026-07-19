@@ -1401,19 +1401,44 @@ function buildStencilGroup(def: BuildingDef, showUpper: boolean, showRoof: boole
       else if (ch === 'S') {
         put(new THREE.Mesh(new THREE.BoxGeometry(TILE, 1.2, TILE), wallMat), x, 0.6, z);
         put(new THREE.Mesh(new THREE.BoxGeometry(TILE, 2.2, TILE), wallMat), x, 2.9, z);
-      } else if (ch === 'D') put(new THREE.Mesh(new THREE.BoxGeometry(TILE, 2.2, 0.35), doorMat), x, 1.1, z);
-      else if (ch === 'C') put(new THREE.Mesh(new THREE.BoxGeometry(TILE * 0.9, 1.2, TILE * 0.9), crateMat), x, 0.6, z);
+      } else if (ch === 'D') {
+        // doors sit IN their wall's plane (the game renderer got this right;
+        // the preview showed Robert a sideways slab): solid left/right in the
+        // stencil means the wall runs X, so the door spans X too
+        const solidCh = (c?: string) => c === '#' || c === 'M' || c === 'S' || c === 'D';
+        const row = def.rows[z] ?? '';
+        const spansX = solidCh(row[x - 1]) || solidCh(row[x + 1]);
+        put(new THREE.Mesh(new THREE.BoxGeometry(spansX ? TILE : 0.35, 2.2, spansX ? 0.35 : TILE), doorMat), x, 1.1, z);
+      } else if (ch === 'C') put(new THREE.Mesh(new THREE.BoxGeometry(TILE * 0.9, 1.2, TILE * 0.9), crateMat), x, 0.6, z);
       else if (ch === 'L') {
-        for (const side of [-0.45, 0.45]) {
-          const rail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 4.6, 0.12), railMat);
-          rail.position.set(ox + (x + 0.5) * TILE + side, 2.3, oz + (z + 0.5) * TILE);
-          g.add(rail);
+        // the staircase (matches the game renderer): treads to the storey,
+        // stringers on the slope — ascending toward the nearest stencil wall
+        const cx = ox + (x + 0.5) * TILE, cz = oz + (z + 0.5) * TILE;
+        const stair = new THREE.Group();
+        const STEPS = 7;
+        const runSpan = TILE * 0.8;
+        for (let i = 0; i < STEPS; i++) {
+          const tread = new THREE.Mesh(new THREE.BoxGeometry(TILE * 0.62, 0.14, 0.5), railMat);
+          tread.position.set(0, ((i + 1) / STEPS) * 4 - 0.07, TILE * 0.36 - (i + 0.5) * (runSpan / STEPS));
+          stair.add(tread);
         }
-        for (let ry = 0.4; ry < 4.4; ry += 0.55) {
-          const rung = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.09, 0.12), railMat);
-          rung.position.set(ox + (x + 0.5) * TILE, ry, oz + (z + 0.5) * TILE);
-          g.add(rung);
+        const rise = 4 * ((STEPS - 1) / STEPS);
+        const run = runSpan * ((STEPS - 1) / STEPS);
+        for (const side of [-TILE * 0.28, TILE * 0.28]) {
+          const stringer = new THREE.Mesh(new THREE.BoxGeometry(0.1, Math.hypot(rise, run) + 0.6, 0.14), railMat);
+          stringer.position.set(side, (4 + 0.57) / 2 - 0.07, TILE * 0.36 - runSpan / 2);
+          stringer.rotation.x = Math.atan2(run, rise);
+          stair.add(stringer);
         }
+        const solidCh = (c?: string) => c === '#' || c === 'M' || c === 'S';
+        const row = def.rows[z] ?? '';
+        const above = def.rows[z - 1] ?? '', below = def.rows[z + 1] ?? '';
+        if (solidCh(row[x - 1])) stair.rotation.y = Math.PI / 2;
+        else if (solidCh(row[x + 1])) stair.rotation.y = -Math.PI / 2;
+        else if (solidCh(above[x])) stair.rotation.y = 0;
+        else if (solidCh(below[x])) stair.rotation.y = Math.PI;
+        stair.position.set(cx, 0, cz);
+        g.add(stair);
       }
     }
   }

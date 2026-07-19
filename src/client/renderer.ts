@@ -794,30 +794,40 @@ export class Renderer {
     for (const c of this.rubble) { this.scene.remove(c); c.geometry.dispose(); }
     this.rubble = [];
     if (ladderTiles.length) {
+      // STAIRS, not rails (Robert: "inside we should have stairs and such") —
+      // a steep ship-style staircase per L tile: treads climbing to the
+      // storey, slope stringers under the edges. Same tile, same E to climb;
+      // the mechanics never changed, the metaphor finally reads.
       const railMat = new THREE.MeshStandardMaterial({ color: 0x7a6a4a, roughness: 0.7 });
+      const STEPS = 7;
+      const runSpan = TILE * 0.8;
       for (const [x, z] of ladderTiles) {
         const g = new THREE.Group();
         const wx = (x + 0.5) * TILE - WORLD / 2, wz = (z + 0.5) * TILE - WORLD / 2;
-        for (const side of [-0.45, 0.45]) {
-          const rail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 4.6, 0.12), railMat);
-          rail.position.set(side, 2.3, 0);
-          g.add(rail);
+        for (let i = 0; i < STEPS; i++) {
+          const tread = new THREE.Mesh(new THREE.BoxGeometry(TILE * 0.62, 0.14, 0.5), railMat);
+          tread.position.set(0, ((i + 1) / STEPS) * 4 - 0.07, TILE * 0.36 - (i + 0.5) * (runSpan / STEPS));
+          g.add(tread);
         }
-        for (let ry = 0.4; ry < 4.4; ry += 0.55) {
-          const rung = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.09, 0.12), railMat);
-          rung.position.set(0, ry, 0);
-          g.add(rung);
+        // stringers follow the slope under the tread edges
+        const rise = 4 * ((STEPS - 1) / STEPS);
+        const run = runSpan * ((STEPS - 1) / STEPS);
+        const tilt = Math.atan2(run, rise);
+        for (const side of [-TILE * 0.28, TILE * 0.28]) {
+          const stringer = new THREE.Mesh(new THREE.BoxGeometry(0.1, Math.hypot(rise, run) + 0.6, 0.14), railMat);
+          stringer.position.set(side, (4 + 0.57) / 2 - 0.07, TILE * 0.36 - runSpan / 2);
+          stringer.rotation.x = tilt;
+          g.add(stringer);
         }
         g.position.set(wx, 0, wz);
-        // lean the ladder against the nearest solid neighbor
+        // the climb tops out against the nearest solid neighbor, like the
+        // old leaned ladder did — the top step lands at the wall side
         const idx = z * GRID + x;
         const solid = (t: number) => t === T_WALL || t === T_METAL || t === T_SLIT;
         if (solid(world.map.grid[idx - 1])) g.rotation.y = Math.PI / 2;
         else if (solid(world.map.grid[idx + 1])) g.rotation.y = -Math.PI / 2;
         else if (solid(world.map.grid[idx - GRID])) g.rotation.y = 0;
         else g.rotation.y = Math.PI;
-        g.position.z += Math.cos(g.rotation.y) * -TILE * 0.32;
-        g.position.x += Math.sin(g.rotation.y) * -TILE * 0.32;
         g.traverse((o) => { (o as THREE.Mesh).castShadow = true; });
         this.scene.add(g);
         this.ladderMeshes.push(g);
