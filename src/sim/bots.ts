@@ -585,17 +585,29 @@ export function objectiveFor(w: World, s: Soldier): Vec3 {
       return enemyFlag.pos;
     }
     case 'koth':
+      // NB: deliberately the bare point. A ring-spread here reads well on paper
+      // (twelve bodies, one tile) but the separation shove already keeps them
+      // off each other's toes inside hillRadius, and offsetting the objective
+      // breaks routing to a precise goal (a bot clearing rooms to a back-room
+      // hill). Holding the hill IS the mode — go stand on it.
       return m.hillPos!;
     case 'conquest': {
       const pts = m.points!;
+      const owned = pts.filter((p) => p.owner === s.team);
       const contestable = pts.filter((p) => p.owner !== s.team);
-      const pool = contestable.length ? contestable : pts;
+      // DEFENCE EXISTS NOW: guards hold what we've already taken (nobody ever
+      // did — a captured point was abandoned the moment it flipped); everyone
+      // else pushes the nearest point we don't own.
+      const pool = (guardsHome(s) && owned.length) ? owned
+        : (contestable.length ? contestable : pts);
       let best = pool[0], bd = Infinity;
       for (const p of pool) {
         const d = Math.hypot(p.pos.x - s.pos.x, p.pos.z - s.pos.z);
         if (d < bd) { bd = d; best = p; }
       }
-      return best.pos;
+      const a = (s.id % 8) * (Math.PI / 4);
+      const r = guardsHome(s) ? 7 : 3; // spread on the point, don't stack its tile
+      return { x: best.pos.x + Math.cos(a) * r, y: 0, z: best.pos.z + Math.sin(a) * r };
     }
     case 'survival':
     case 'horde': {
@@ -627,7 +639,10 @@ export function objectiveFor(w: World, s: Soldier): Vec3 {
     }
     default: // tdm — hunt toward the enemy-side / midfield blend
       // (the z term used to drop the 0.6·hill.z, skewing the whole team's
-      // drift toward one wrong point on maps whose hill isn't at z=0)
+      // drift toward one wrong point on maps whose hill isn't at z=0).
+      // Deliberately NOT ring-spread like koth/conquest: TDM has no capture
+      // tile to stack on, bots fan out chasing contacts anyway, and this point
+      // doubles as the nav harness several tests steer bots with.
       return { x: enemyBase.x * 0.4 + w.map.hillPos.x * 0.6, y: 0, z: enemyBase.z * 0.4 + w.map.hillPos.z * 0.6 };
   }
 }
