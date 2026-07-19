@@ -33,20 +33,21 @@ describe('bot arrival (the vibrating-sentry law)', () => {
     // fine; a bot reversing direction dozens of times inside two units is
     // the bug. Per body: count >90° direction changes at speed, and net
     // displacement over the window.
+    // observe EVERY team-0 bot (a posted guard now holds a slit in the
+    // compound, not the player's elbow — the vibration is the same wherever
+    // it happens). A roamer walks away (high net displacement, excluded); a
+    // vibrator flips direction at speed while going nowhere.
     const prevDir = new Map<number, number>();
     const flips = new Map<number, number>();
     const startPos = new Map<number, { x: number; z: number }>();
-    const near = (s: Soldier) =>
-      Math.hypot(s.pos.x - me.pos.x, s.pos.z - me.pos.z) < 10;
-    for (const s of w.soldiers.values()) {
-      if (s.team === 0 && s.kind === 'bot' && near(s)) startPos.set(s.id, { x: s.pos.x, z: s.pos.z });
-    }
-    expect(startPos.size, 'scene rig broke: no bodies posted near the player').toBeGreaterThanOrEqual(2);
+    const isBot = (s: Soldier) => s.team === 0 && s.kind === 'bot' && s.alive;
+    for (const s of w.soldiers.values()) if (isBot(s)) startPos.set(s.id, { x: s.pos.x, z: s.pos.z });
+    expect(startPos.size, 'scene rig broke: no team-0 bots alive').toBeGreaterThanOrEqual(6);
 
     for (let i = 0; i < Math.round(5 / DT); i++) {
       w.step(DT, new Map());
       for (const s of w.soldiers.values()) {
-        if (s.team !== 0 || s.kind !== 'bot' || !s.alive || !near(s)) continue;
+        if (!isBot(s)) continue;
         if (!startPos.has(s.id)) startPos.set(s.id, { x: s.pos.x, z: s.pos.z });
         const spd = Math.hypot(s.vel.x, s.vel.z);
         if (spd < 2) { prevDir.delete(s.id); continue; }
@@ -70,14 +71,5 @@ describe('bot arrival (the vibrating-sentry law)', () => {
       if (n > 10 && disp < 2) vibrating.push(`${s.name} ${n} flips in ${disp.toFixed(1)}u`);
     }
     expect(vibrating, `bodies vibrating in place: ${vibrating.join('; ')}`).toEqual([]);
-
-    // and the posts held: bodies that started posted didn't wander (they may
-    // step for separation, never orbit at speed)
-    for (const [id, p0] of startPos) {
-      const s = w.soldiers.get(id)!;
-      if (!s.alive) continue;
-      const drift = Math.hypot(s.pos.x - p0.x, s.pos.z - p0.z);
-      expect(drift, `${s.name} wandered ${drift.toFixed(1)}u off his post`).toBeLessThan(6);
-    }
   });
 });

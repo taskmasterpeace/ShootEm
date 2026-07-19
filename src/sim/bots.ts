@@ -435,14 +435,15 @@ export function objectiveFor(w: World, s: Soldier): Vec3 {
         // the flag — the pathfinder already walks doors, the hands already
         // open them; the overwatch just needed someone ORDERED indoors.
         if ((s.botLifeSeed ?? 0) === 1) {
-          let room: Vec3 | null = null, roomUp = false, hd = 30;
+          let room: Vec3 | null = null, roomUp = false, hd = 40;
           for (const h of w.map.houses) {
             const d = Math.hypot(h.center.x - ownFlag.pos.x, h.center.z - ownFlag.pos.z);
             if (d < hd) { hd = d; room = h.center; roomUp = h.floors === 2; }
           }
           // LADDER IQ: a lofted house posts its guard UPSTAIRS — the y=4
-          // channel tells the router which storey the post is on, and the
-          // slit ring up there is the whole reason watchtowers exist
+          // channel tells the router which storey the post is on. The base
+          // compound stands its watchtower NEAREST the flag on purpose, so
+          // this nearest-room pick lands the overwatch up on the slit ring.
           if (room) return { x: room.x, y: roomUp ? 4 : 0, z: room.z };
         }
         // otherwise armor orbits the flag stand (engineers seed sentries there)

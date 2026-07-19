@@ -1,5 +1,6 @@
 import { Rng } from './rng';
 import { generateHouse, placeBuildings, stampBuilding, type StampCtx } from './buildings';
+import { stampBaseCompound } from './base';
 import { THEMES } from './data';
 import type { ModeId, Team, ThemeId, Vec3, VehicleKind } from './types';
 
@@ -553,31 +554,16 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
     { tx: half, tz: half, r: gen === 'ocean' ? 18 : 12 }, // the hill (+ the moat)
     { tx: half - 22, tz: half - 22, r: 8 },   // CP A clearing
     { tx: half + 22, tz: half + 22, r: 8 },   // CP C clearing
+    { tx: 10, tz: half, r: 20 },        // §base: keep battle buildings off the
+    { tx: GRID - 11, tz: half, r: 20 }, // two compounds — the base owns its ground
   ]);
 
   // Bases: west (team 0) and east (team 1)
   const baseT: [number, number][] = [[10, half], [GRID - 11, half]];
   const basePos: [Vec3, Vec3] = [tileToWorld(baseT[0][0], baseT[0][1]), tileToWorld(baseT[1][0], baseT[1][1])];
   for (const [btx, btz] of baseT) clearArea(grid, btx, btz, 7);
-  // base bunker walls (three-sided, open toward center)
-  for (let side = 0; side < 2; side++) {
-    const [btx, btz] = baseT[side];
-    const open = side === 0 ? 1 : -1; // opening faces map center
-    for (let i = -5; i <= 5; i++) {
-      setTile(grid, btx - open * 6, btz + i, T_WALL);              // back wall
-      if (Math.abs(i) > 2) setTile(grid, btx + open * 6, btz + i, T_WALL); // front wall w/ gate
-      setTile(grid, btx + i, btz - 6, i % 3 === 0 ? T_OPEN : T_WALL);
-      setTile(grid, btx + i, btz + 6, i % 3 === 0 ? T_OPEN : T_WALL);
-    }
-    props.push({ type: 'bunker', pos: tileToWorld(btx - open * 4, btz), scale: 1, rot: side === 0 ? 0 : Math.PI });
-    // §21 The Reprint: the clone bay — the machine you come back from. ONE
-    // glass pod per base, one tile off the spawn ring, so every fresh sleeve
-    // walks past its own printer on the way to the front. It claims its tile
-    // like every prop (the invisible-wall law, tests/walls.test.ts): T_COVER,
-    // because armored glass stops boots and bullets but not eyes.
-    claimTile(grid, claims, btx, btz + 4, T_COVER);
-    props.push({ type: 'clone_bay', pos: tileToWorld(btx, btz + 4), scale: 1, rot: side === 0 ? 0 : Math.PI });
-  }
+  // §base: the walled COMPOUND is stamped LAST (below, after every other
+  // terrain pass) so nothing overwrites its walls — the base owns its ground.
 
   // Center clearings for objectives
   clearArea(grid, half, half, 6);
@@ -612,11 +598,15 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
   for (let side = 0 as Team; side < 2; side++) {
     const [btx, btz] = baseT[side];
     const fwd = side === 0 ? 1 : -1;
+    // THE MOTOR POOL stages just OUTSIDE the compound gate (the wire is full
+    // of buildings now) — a vehicle yard between the base and the front, x≥20
+    // clears the east wall at +18. Rows spread off the gate lane so armor
+    // isn't parked nose-to-tail in the firing line.
     const padOffsets = [
-      [fwd * 9, -9], [fwd * 9, 9], [fwd * 12, -3], [fwd * 12, 3],
-      [fwd * 6, -12], [fwd * 6, 12], [fwd * 15, -8], [fwd * 15, 8],
-      [fwd * 12, -12], [fwd * 12, 12],
-      [fwd * 16, 4], // mech — off the center row so it doesn't park in the main firing lane
+      [fwd * 21, -8], [fwd * 21, 8], [fwd * 24, -3], [fwd * 24, 3],
+      [fwd * 21, -13], [fwd * 21, 13], [fwd * 27, -9], [fwd * 27, 9],
+      [fwd * 24, -12], [fwd * 24, 12],
+      [fwd * 28, 5], // mech — off the center row so it doesn't park in the main firing lane
     ];
     padKinds.forEach((kind, i) => {
       const [ox, oz] = padOffsets[i];
@@ -650,14 +640,26 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
     pickups.push({ type, pos: tileToWorld(GRID - 1 - tx, tz) });
   });
 
-  // Zombie spawns: map edges
+  // Zombie spawns: map edges — but NEVER inside a base compound (the horde
+  // pours in from the flanks, it doesn't spawn in the player's barracks). A
+  // point that lands within a compound is pulled toward center until it clears.
   const zombieSpawns: Vec3[] = [];
+  const inCompound = (tx: number) => tx < 30 || tx > GRID - 31; // the two base bands
   for (let i = 0; i < 12; i++) {
     const a = (i / 12) * Math.PI * 2;
-    const tx = Math.round(half + Math.cos(a) * (half - 6));
+    let tx = Math.round(half + Math.cos(a) * (half - 6));
     const tz = Math.round(half + Math.sin(a) * (half - 6));
+    if (inCompound(tx)) tx = tx < half ? 32 : GRID - 33; // just outside the gate
     clearArea(grid, tx, tz, 1);
     zombieSpawns.push(tileToWorld(tx, tz));
+  }
+
+  // §base: THE COMPOUND, drawn LAST so its walls are final — a walled base
+  // with a gate to the enemy, a parade ground at the spawn ring (flag stand
+  // open to the sky), and real buildings inside: a barracks, a watchtower's
+  // manned slit ring, a supply depot. Mirrored fair, seed-stable (base.ts).
+  for (let side = 0 as Team; side < 2; side++) {
+    stampBaseCompound(buildCtx, baseT[side][0], baseT[side][1], side);
   }
 
   // ---- the SURFACE layer (§8.6): each theme deals its own ground ----
@@ -685,12 +687,17 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
       const tx = rng.int(4, GRID - 5), tz = rng.int(4, GRID - 5);
       if (grid[tz * GRID + tx] === T_OPEN) {
         const w = tileToWorld(tx, tz);
-        // exclusion radii are TILE-SCALED: the base structure spans ~7 tiles,
-        // so a fixed world-unit radius shrinks when the map grows (a 300u map
-        // once grew a tree IN the base gate and walled a whole team in)
-        const far = Math.hypot(w.x - basePos[0].x, w.z - basePos[0].z) > TILE * 10 &&
-                    Math.hypot(w.x - basePos[1].x, w.z - basePos[1].z) > TILE * 10 &&
-                    Math.hypot(w.x - hillPos.x, w.z - hillPos.z) > TILE * 7;
+        // exclusion radii are TILE-SCALED: the base COMPOUND now spans ~18
+        // tiles from its center out to the gate, so the keep-out grew to
+        // match — a fixed radius once grew a tree IN the base gate and walled
+        // a whole team in, and a too-small one plants oaks in the parade
+        const far = Math.hypot(w.x - basePos[0].x, w.z - basePos[0].z) > TILE * 20 &&
+                    Math.hypot(w.x - basePos[1].x, w.z - basePos[1].z) > TILE * 20 &&
+                    Math.hypot(w.x - hillPos.x, w.z - hillPos.z) > TILE * 7 &&
+                    // AND never in the MOTOR POOL: the pads stage well past the
+                    // base tree-line, and a tree claims T_WALL — one oak in the
+                    // pool boxes a hull in and the AI can never drive it out
+                    !vehiclePads.some((p) => Math.hypot(w.x - p.pos.x, w.z - p.pos.z) < TILE * 3);
         // NOTHING GROWS INDOORS (Robert: "some trees inside of a house… I
         // couldn't get down the hallways"). A house's FLOOR is T_OPEN, so the
         // open-tile test above happily planted oaks in living rooms — and a
@@ -709,7 +716,10 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
   for (const side of [0, 1]) {
     const [btx, btz] = baseT[side];
     const fwd = side === 0 ? 1 : -1;
-    const aT: [number, number] = [btx + fwd * 3, btz - 10];
+    // the base-end warp pad sits OUTSIDE the compound gate now (x≥20 from
+    // base clears the +18 east wall) — a tunnel a bot reaches through the
+    // gate, not one that punches the perimeter (base.ts owns the wall)
+    const aT: [number, number] = [btx + fwd * 21, btz - 5];
     const bT: [number, number] = [half - fwd * 14, btz - 18];
     clearArea(grid, aT[0], aT[1], 2);
     clearArea(grid, bT[0], bT[1], 2);

@@ -20,9 +20,12 @@ describe('#9 RESCUE — "if you are behind enemy lines they should come GET you"
       const foe = w.addSoldier('F' + i, 'infantry', 1, 'bot');
       foe.pos = { x: 90 + i * 3, y: 0, z: 80 }; foe.alive = true; // pressing him
     }
-    const rescuer = w.addSoldier('R', 'infantry', 0, 'bot');
+    // a JUMP trooper is always a raider (never guardsHome) — a guaranteed
+    // rescuer regardless of the id it draws. (Infantry's role keys off id%4,
+    // which shifts with entity count — the base compound's armory pickups
+    // moved every id, and the old infantry rescuer drew a guard's number.)
+    const rescuer = w.addSoldier('R', 'jump', 0, 'bot');
     rescuer.pos = { x: 40, y: 0, z: 40 }; rescuer.alive = true; // inside the 70u answer radius
-    // rescuer classes matter: infantry with even id may raid; force a raider shape
     const obj = objectiveFor(w, rescuer);
     expect(Math.hypot(obj.x - 80, obj.z - 80), 'the objective must BE the lost man').toBeLessThan(1);
   });

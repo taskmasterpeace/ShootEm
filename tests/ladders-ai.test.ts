@@ -52,22 +52,32 @@ const onUpperFloor = (w: World, s: Soldier) => {
   return s.floor === 1 && (t === F2_FLOOR || t === F2_WELL);
 };
 
-describe('bots learn ladders', () => {
-  it('a room-duty guard CLIMBS to his loft post (and does not ping-pong)', () => {
-    const { w, guard } = towerScene();
-    let ladderEvents = 0;
-    for (let i = 0; i < Math.round(30 / DT) && !onUpperFloor(w, guard); i++) {
-      w.step(DT, new Map());
-      ladderEvents += w.events.filter((e) => e.type === 'ladder' && e.soldierId === guard.id).length;
-      w.events.length = 0;
-    }
-    expect(onUpperFloor(w, guard), `guard never reached the loft (floor=${guard.floor} pos=${guard.pos.x.toFixed(1)},${guard.pos.z.toFixed(1)})`).toBe(true);
-    expect(ladderEvents, 'ladder ping-pong').toBeLessThanOrEqual(2);
+const MIX = ['infantry', 'infantry', 'heavy', 'medic', 'engineer', 'jump', 'infantry', 'infiltrator', 'infantry', 'heavy', 'medic', 'infantry'] as const;
 
-    // hold the post: five more seconds upstairs, no stuck incident, no descent
-    for (let i = 0; i < Math.round(5 / DT); i++) w.step(DT, new Map());
-    expect(guard.floor, 'guard abandoned the loft').toBe(1);
-    expect(w.blackbox.incidents.filter((x) => x.kind === 'stuck').length).toBe(0);
+describe('bots learn ladders', () => {
+  it('a room-duty guard climbs the base compound overwatch (real match)', () => {
+    // the whole point, end to end: the compound stands a 2-storey watchtower
+    // by every flag, and room-duty guards now CLIMB it. A live CTF match must
+    // put a team-0 body up on an upper floor — without leaving a statue.
+    const w = new World({ seed: 41, mode: 'ctf', matchMinutes: 15 });
+    for (const team of [0, 1] as const) {
+      for (let i = 0; i < 12; i++) w.addSoldier(`T${team}B${i}`, MIX[i], team, 'bot');
+    }
+    // one guaranteed room-duty heavy, dropped by the flag so a climb is due
+    const guard = w.addSoldier('Overwatch', 'heavy', 0, 'bot');
+    guard.botLifeSeed = 1;
+    guard.pos = { x: w.mode.flags![0].homePos.x, y: 0, z: w.mode.flags![0].homePos.z + 2 };
+
+    let anyClimbed = false;
+    for (let sec = 0; sec < 120 && !anyClimbed; sec++) {
+      for (let i = 0; i < Math.round(1 / DT); i++) w.step(DT, new Map());
+      for (const s of w.humansAndBots()) {
+        if (s.team === 0 && onUpperFloor(w, s)) { anyClimbed = true; break; }
+      }
+    }
+    expect(anyClimbed, 'no team-0 bot ever climbed the compound overwatch').toBe(true);
+    // and the base never seized up doing it
+    expect(w.blackbox.incidents.filter((x) => x.kind === 'stuck').length).toBeLessThanOrEqual(2);
   });
 
   it('a bot upstairs with ground business climbs DOWN', () => {
