@@ -222,6 +222,9 @@ export class Renderer {
   private precip?: { kind: WeatherKind; obj: THREE.Object3D; pos: Float32Array; n: number };
   private nextFlashAt = 0;
   private flashUntil = 0;
+  /** the ground material + a smoothed 0..1 wetness — rain darkens & slicks it */
+  private groundMat?: THREE.MeshStandardMaterial;
+  private groundWet = 0;
   /** live door slabs — swung by grid state (E toggles it in the sim) */
   private doors: { mesh: THREE.Mesh; idx: number; spansX: boolean; base: THREE.Vector3 }[] = [];
   /** the camera height actually used last frame (killcam duels exceed camDist)
@@ -358,6 +361,25 @@ export class Renderer {
     const fog = this.scene.fog as THREE.Fog;
     fog.near += (this.baseAtmo.fogNear * lerp(1, fogK[k][0], hard) - fog.near) * Math.min(1, dt * 1.2);
     fog.far += (this.baseAtmo.fogFar * lerp(1, fogK[k][1], hard) - fog.far) * Math.min(1, dt * 1.2);
+    // FOG/STORM are the "see only a radius" skies — pin the visual murk to the
+    // live perception radius so the world greys out roughly where enemies
+    // vanish from the wire (Robert: sight pulls to a radius, lean on instruments).
+    if (k === 'fog' || k === 'storm') {
+      const pr = world.perceiveRange();
+      fog.far = Math.min(fog.far, pr * 2.2);
+      fog.near = Math.min(fog.near, pr * 0.4);
+    }
+
+    // rain works the terrain a little (Robert): the ground darkens and gains a
+    // wet sheen (lower roughness), eased in with the front. The mud itself is
+    // the moveMult drag in weather.ts — this is only its look.
+    const wetTarget = (k === 'rain' || k === 'storm') ? hard : 0;
+    this.groundWet += (wetTarget - this.groundWet) * Math.min(1, dt * 0.8);
+    if (this.groundMat) {
+      const wv = this.groundWet;
+      this.groundMat.color.setRGB(1 - 0.26 * wv, 1 - 0.24 * wv, 1 - 0.2 * wv);
+      this.groundMat.roughness = 0.95 - 0.4 * wv;
+    }
 
     const skyMul =
       k === 'night' ? lerp(1, 0.22, hard) : k === 'storm' ? lerp(1, 0.5, hard) :
@@ -634,10 +656,9 @@ export class Renderer {
     }
     const tex = new THREE.CanvasTexture(cvs);
     tex.colorSpace = THREE.SRGBColorSpace;
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(WORLD, WORLD),
-      new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95 }),
-    );
+    this.groundMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95 });
+    this.groundWet = 0;
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(WORLD, WORLD), this.groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     this.scene.add(ground);

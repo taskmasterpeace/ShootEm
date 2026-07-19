@@ -40,20 +40,33 @@ export interface WeatherMods {
   zoomCap?: number;
 }
 
+// Robert's weather pass (§8.8): the sky is a real combat variable now. FOG
+// pulls sight to a tight radius — you fight what's near and lean on your
+// instruments (pings, the flag marker, muzzle flashes) for the rest. RAIN
+// dips the view and slicks the ground a touch; STORM is HEAVY RAIN — a lot
+// less sight, real mud, air grounded. `vision` is the perception-budget
+// multiplier at intensity 1 (fronts run intensity 0.5–1.0, so even a light
+// front is felt); `soldier/wheels/tracks` are the mud tax on each drivetrain.
 export const WEATHER_MODS: Record<WeatherKind, WeatherMods> = {
   clear: { vision: 1,    soldier: 1,    wheels: 1,    tracks: 1,    groundsAir: false },
-  rain:  { vision: 0.85, soldier: 1,    wheels: 0.95, tracks: 1,    groundsAir: false },
-  storm: { vision: 0.7,  soldier: 0.97, wheels: 0.9,  tracks: 0.95, groundsAir: true, zoomCap: 44 },
-  fog:   { vision: 0.5,  soldier: 1,    wheels: 1,    tracks: 1,    groundsAir: true, zoomCap: 40 },
-  snow:  { vision: 0.6,  soldier: 0.93, wheels: 0.85, tracks: 0.9,  groundsAir: true, zoomCap: 48 },
-  dust:  { vision: 0.7,  soldier: 0.97, wheels: 0.8,  tracks: 0.95, groundsAir: true, zoomCap: 48 },
-  night: { vision: 0.75, soldier: 1,    wheels: 1,    tracks: 1,    groundsAir: false },
+  rain:  { vision: 0.7,  soldier: 0.97, wheels: 0.9,  tracks: 0.97, groundsAir: false },
+  storm: { vision: 0.42, soldier: 0.92, wheels: 0.8,  tracks: 0.9,  groundsAir: true, zoomCap: 40 },
+  fog:   { vision: 0.3,  soldier: 1,    wheels: 1,    tracks: 1,    groundsAir: true, zoomCap: 34 },
+  snow:  { vision: 0.5,  soldier: 0.9,  wheels: 0.82, tracks: 0.88, groundsAir: true, zoomCap: 46 },
+  dust:  { vision: 0.55, soldier: 0.96, wheels: 0.78, tracks: 0.93, groundsAir: true, zoomCap: 46 },
+  night: { vision: 0.7,  soldier: 1,    wheels: 1,    tracks: 1,    groundsAir: false },
 };
 
-/** Perception multiplier at the front's current strength (clear = 1). */
+/** The tightest a vision budget can be squeezed — even in the thickest murk you
+ *  still register a body inside knife range (perception's RING carries the
+ *  footsteps-close read). Keeps heavy fog dramatic without going fully blind. */
+export const MIN_VISION = 0.16;
+
+/** Perception multiplier at the front's current strength (clear = 1), floored
+ *  at MIN_VISION so the thickest murk still leaves a knife-range read. */
 export function visionMult(w: WeatherState): number {
   const base = WEATHER_MODS[w.kind].vision;
-  return 1 - (1 - base) * w.intensity;
+  return Math.max(MIN_VISION, 1 - (1 - base) * w.intensity);
 }
 
 /** Locomotion multiplier for one drivetrain at current strength. */
@@ -70,8 +83,8 @@ export function airGrounded(w: WeatherState): boolean {
 /** The dispatch line the announcer reads when the front arrives. */
 export function weatherAnnounce(kind: WeatherKind): string {
   switch (kind) {
-    case 'rain': return 'WEATHER: RAIN — infiltrator weather';
-    case 'storm': return 'WEATHER: STORM — air is GROUNDED';
+    case 'rain': return 'WEATHER: RAIN — sight dims, ground slicks';
+    case 'storm': return 'WEATHER: STORM — heavy rain, sight cut, air grounded';
     case 'fog': return 'WEATHER: FOG — you hear what you cannot see';
     case 'snow': return 'WEATHER: SNOWSTORM — air grounded, tracks fade';
     case 'dust': return 'WEATHER: DUST STORM — wheels choke, air grounded';

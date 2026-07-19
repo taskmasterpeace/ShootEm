@@ -24,6 +24,11 @@ export const CONE_HALF = 1.15;
 /** The ring: footsteps-close presence all around, cone or no cone. */
 export const RING = 9;
 
+/** A muzzle flash is a bright tell that cuts weather (§8.8): someone who just
+ *  fired is seen out to at least this far even when fog/rain has pulled the eye
+ *  in — Robert's fog law, "you hear what you cannot see." */
+export const MUZZLE_REVEAL = 50;
+
 /** Once seen, an enemy stays on your screen this long after line of sight
  *  breaks — the "he just ducked behind the wall" trail. Decided (§19):
  *  base 1.5s; tracking gear extends it, hard-capped at 3s. */
@@ -94,6 +99,9 @@ export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<numb
   if (s.ascendant === undefined && !revealed?.has(s.id) && tileAt(grid, s.pos.x, s.pos.z) === T_GRASS) {
     range = Math.min(range, s.crouching ? RING : 14);
   }
+  // MUZZLE FLASH cuts the murk (§8.8): a shooter is a bright tell, seen past
+  // the weather-taxed eye — the intel gunfire gives away in fog/night.
+  if (revealed?.has(s.id)) range = Math.max(range, MUZZLE_REVEAL);
   // cone + ring, then the window truth: losClear marches at eye height 1.4 —
   // inside the T_SLIT firing band — so a defender framed in glass is SEEN,
   // and a stalker behind your back past the ring is NOT

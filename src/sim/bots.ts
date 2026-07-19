@@ -2,6 +2,7 @@ import { CLASSES, DOG_STATS, VEHICLES, WEAPONS } from './data';
 import { F2_FLOOR, F2_SLIT, F2_VOID, F2_WALL, F2_WELL, GRID, T_CLIMB, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_OPEN, T_WATER, TILE, WORLD, isBlocked, losClear, tileAt } from './map';
 import { type ClassId, type PlayerCmd, type Soldier, type Team, type Vec3, type Vehicle, isZed } from './types';
 import { DIFFICULTY_AIM, type World } from './world';
+import { visionMult } from './weather';
 
 const noCmd = (): PlayerCmd => ({
   moveX: 0, moveZ: 0, aimYaw: 0, fire: false, altFire: false, jump: false,
@@ -265,16 +266,22 @@ function pathStepLayered(w: World, from: Vec3, to: Vec3, fromFloor: number, toFl
 
 // ---------- target selection ----------
 
-function findTarget(w: World, s: Soldier, maxRange: number): Soldier | null {
+// `maxRange` = the weather-taxed eye (fog/rain pull it in, §8.8). `pingRange` =
+// how far a MARKED enemy carries: a ping is electronic intel, so it reaches
+// past what the eye can see through the murk (Robert: "rely on your
+// instrumentation") and pierces cloak. Both still need a clear shot.
+function findTarget(w: World, s: Soldier, maxRange: number, pingRange = maxRange): Soldier | null {
   // NIGHTMARE'S BLIND: no eyes, no targets — the ears (sound smudges) are
   // all the client leaves you, exactly as §19.2 trained
   if (s.blindUntil !== undefined && w.time < s.blindUntil) return null;
   let best: Soldier | null = null;
-  let bestD = maxRange;
+  let bestD = Infinity;
   for (const e of w.soldiers.values()) {
     if (!e.alive || e.team === s.team || e.vehicleId >= 0) continue;
+    const pinged = w.pinged.has(e.id);
     const d = Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z);
-    if (e.cloaked && d > 9) continue; // cloaked infiltrators are invisible beyond close range
+    if (d >= (pinged ? pingRange : maxRange)) continue; // past the eye AND unmarked
+    if (e.cloaked && d > 9 && !pinged) continue; // cloak is TRUE unless a mark reveals it
     // sightClear = walls AND smoke — a bot must not track through the cloud
     // a player just paid a grenade to stand up (Robert: smoke AFFECTS
     // visibility, for every pair of eyes on the field). EXCEPT: an LSW is
@@ -772,7 +779,12 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
   // actually engage long and every weapon's max distance shows in real play;
   // a 42u floor keeps close-quarters classes aggressive
   const acqRange = Math.max(42, Math.min(WEAPONS[s.weapons[s.weaponIdx]].range * 0.95, 95));
-  const target = findTarget(w, s, acqRange);
+  // §8.8 the sky taxes the bot's eyes exactly as it taxes the player's — fog
+  // pulls the view to a tight radius, heavy rain a lot less — with a 16u floor
+  // so a bot still fights what's on top of it. A ping still carries out to the
+  // full weapon reach (the AI leans on its instruments too).
+  const sightRange = Math.max(16, acqRange * visionMult(w.weather));
+  const target = findTarget(w, s, sightRange, acqRange);
   const goal = objectiveFor(w, s);
   const dGoal = Math.hypot(goal.x - s.pos.x, goal.z - s.pos.z);
 
