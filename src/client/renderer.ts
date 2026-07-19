@@ -686,16 +686,41 @@ export class Renderer {
         }
       }
     }
-    const wallMat = new THREE.MeshStandardMaterial({ color: pal.wall, roughness: 0.9 });
+    // ASSET-LIBRARY wall tint: a house's walls take a warm stucco/plaster
+    // shade keyed to the SAME hash as its roof, so walls and roof coordinate
+    // and a street reads as a row of DISTINCT homes. Only tiles inside a house
+    // footprint are tinted — compound walls, barricades, and tree-trunks (all
+    // also T_WALL) keep the theme colour so the base still reads as one place.
+    const HOUSE_WALLS = [0xd8c8a8, 0xe1d6c1, 0xcdb992, 0xd2c0a0, 0xc8ad86, 0xc7a074, 0xdacbb0, 0xbfb29a];
+    const houseTint = new Map<number, number>();
+    for (const h of world.map.houses) {
+      const rk = (h.tx * 73856 + h.tz * 19349) >>> 0;
+      const wc = HOUSE_WALLS[rk % HOUSE_WALLS.length];
+      for (let dz = 0; dz < h.th; dz++) {
+        const bit = h.maskRows?.[dz];
+        for (let dx = 0; dx < h.tw; dx++) {
+          if (bit !== undefined && !(bit & (1 << dx))) continue; // shaped by footprint
+          houseTint.set((h.tz + dz) * GRID + (h.tx + dx), wc);
+        }
+      }
+    }
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
     const wallInst = new THREE.InstancedMesh(new THREE.BoxGeometry(TILE, 4, TILE), wallMat, wallTiles.length);
     wallInst.castShadow = true;
     wallInst.receiveShadow = true;
     const m4 = new THREE.Matrix4();
+    const wallBase = new THREE.Color(pal.wall);
+    const tintCol = new THREE.Color();
     wallTiles.forEach(([x, z], i) => {
       m4.setPosition((x + 0.5) * TILE - WORLD / 2, 2, (z + 0.5) * TILE - WORLD / 2);
       wallInst.setMatrixAt(i, m4);
+      const tint = houseTint.get(z * GRID + x);
+      // base material is white, so the instance colour is the final albedo:
+      // house tile → its stucco shade, everything else → the theme wall colour
+      wallInst.setColorAt(i, tint !== undefined ? tintCol.setHex(tint) : wallBase);
       this.wallInstanceByTile.set(z * GRID + x, i); // so the tunneler can grind it away
     });
+    if (wallInst.instanceColor) wallInst.instanceColor.needsUpdate = true;
     this.scene.add(wallInst);
     this.wallInst = wallInst;
 
@@ -907,9 +932,19 @@ export class Renderer {
       if (style === 'none') continue; // a shelled ruin is open to the sky
       const roofY = h.floors === 2 ? 8.15 : 4.15;
       const group = new THREE.Group();
+      // ASSET-LIBRARY VARIETY (Robert: "feel like they came from an asset
+      // library"): every house draws a roof colour from a curated pack —
+      // terracotta, slate, weathered green, clay, tin — keyed deterministically
+      // to its footprint, so a street reads as a row of DISTINCT houses, not
+      // one tan box stamped N times. Commercial/industrial keep the cooler
+      // metal roofs; homes wear the warm tiles.
+      const HOME_ROOFS = [0xa8583a, 0x8f4034, 0xb0724a, 0x6b7a4a, 0x8a6a44, 0x9c5a3c];
+      const CIVIC_ROOFS = [0x556069, 0x5e6a72, 0x6b7480, 0x4a545c];
+      const rk = (h.tx * 73856 + h.tz * 19349) >>> 0;
+      const warm = style === 'gable' || style === 'flat';
+      const roofHex = (warm ? HOME_ROOFS : CIVIC_ROOFS)[rk % (warm ? HOME_ROOFS.length : CIVIC_ROOFS.length)];
       const rmat = new THREE.MeshStandardMaterial({
-        color: style === 'gable' ? 0x7a5a40 : pal.wall,
-        roughness: 0.85, transparent: true, opacity: 0.97,
+        color: roofHex, roughness: 0.82, transparent: true, opacity: 0.97,
       });
       const mats = [rmat];
       const cx = (h.tx + h.tw / 2) * TILE - WORLD / 2;
@@ -922,7 +957,10 @@ export class Renderer {
         const alongX = h.tw >= h.th;
         const spanW = (alongX ? h.th : h.tw) * TILE;   // slope direction
         const spanL = (alongX ? h.tw : h.th) * TILE;   // ridge direction
-        const rise = Math.min(2.2, spanW * 0.22);
+        // a real ~20-32° pitch — the OLD 2.2 cap made a 64u manor a 7° slope
+        // that read as "flat with a crease", the #1 procedural tell. Rise ~30%
+        // of the short span, capped so a huge footprint doesn't spike.
+        const rise = Math.min(6.5, spanW * 0.3);
         const slopeLen = Math.hypot(spanW / 2, rise) + 0.15;
         for (const side of [1, -1]) {
           const slope = new THREE.Mesh(new THREE.BoxGeometry(spanL + 0.2, 0.22, slopeLen), rmat);
@@ -940,6 +978,14 @@ export class Renderer {
           else { cap.rotation.y = Math.PI / 2; cap.position.set(0, rise * 0.4, end * (spanL / 2 - 0.12)); }
           group.add(cap);
         }
+        // a brick CHIMNEY off the ridge — the small authored detail that turns
+        // a roof into a house (its own dark material, not the roof tile)
+        const chimMat = new THREE.MeshStandardMaterial({ color: 0x4a3b34, roughness: 0.9, transparent: true, opacity: 0.97 });
+        mats.push(chimMat);
+        const chim = new THREE.Mesh(new THREE.BoxGeometry(0.9, rise + 1.4, 0.9), chimMat);
+        const off = (spanL / 2) * 0.45;
+        if (alongX) chim.position.set(off, rise / 2 + 0.5, 0); else chim.position.set(0, rise / 2 + 0.5, off);
+        group.add(chim);
         group.position.set(cx, roofY, cz);
       } else {
         // footprint-true flat lid: one slab PER COVERED TILE — an L-shaped

@@ -185,44 +185,59 @@ function pond(t: ChunkTools, r: RegionRect, deepCore: boolean): void {
 }
 
 // ---------------------------------------------------------------------------
-// THE NEIGHBORHOOD — houses on LOTS off the region's street cross, every
-// front door facing a street, yards between (fence stubs, a tree, a crate).
-// House-to-house fighting: the MEDIUM bottleneck. The houses come from the
-// dynamic grammar (manor/bungalow/hall-house — real multi-room interiors),
-// so no two lots share a floor plan: the asset-library feel is that every
-// house is ITS OWN house, placed like somebody meant it.
+// THE NEIGHBORHOOD — a STREET of houses. Each street band (north + south of
+// the lane) is walked lot by lot, planting a ROW of varied grown houses that
+// hug the kerb with yards between them — the block reads as a real
+// neighbourhood you fight house to house, not one estate on an acre. The
+// houses come from the dynamic grammar (manor/bungalow/hall-house, real
+// multi-room interiors), a fresh floor plan every lot: the asset-library feel
+// is that every house is ITS OWN house, placed like somebody meant it.
 // ---------------------------------------------------------------------------
-export const neighborhoodChunk: Chunk = (t, r, density) => {
-  const { hz } = laneCross(t, r);
-  // one LOT per street band (north and south of the lane) — the region is
-  // ~21 tiles wide and the grown houses run 10-17, so a band holds one home
-  // with a yard, its door face toward the street
-  const bands: RegionRect[] = [
-    { tx: r.tx + 1, tz: r.tz + 1, tw: r.tw - 2, th: hz - LANE_HALF - r.tz - 2 },
-    { tx: r.tx + 1, tz: hz + LANE_HALF + 1, tw: r.tw - 2, th: r.tz + r.th - hz - LANE_HALF - 2 },
-  ];
-  let seq = 0;
-  for (const band of bands) {
-    if (band.th < 8 || band.tw < 11) continue;         // no room for a home
-    if (t.rng.next() > 0.45 + density * 0.55) continue; // density = how built-up the block is
-    // pick a house that FITS the band: try hall_house (long+low), then bungalow
-    let def: BuildingDef | null = null;
-    for (const type of ['hall_house', 'bungalow'] as const) {
-      const cand = generateHouse(t.rng, type);
-      const cw = Math.max(...cand.rows.map((row) => row.length));
-      if (cw <= band.tw - 1 && cand.rows.length <= band.th) { def = cand; break; }
+// cottages and bungalows are the workhorses (small → several line a street);
+// the odd hall house or manor lands only where a wide-enough gap remains, so
+// the block gets a mix without turning into a row of mansions
+const HOUSE_TYPES = ['cottage', 'cottage', 'bungalow', 'bungalow', 'hall_house', 'manor'] as const;
+
+/** Walk sa→sb (inclusive x) planting a row of houses that hug the kerb (the
+ *  lane side of the band), tight alleys between, the odd empty lot. */
+function streetRow(t: ChunkTools, sa: number, sb: number, bz: number, bh: number, hug: 'bottom' | 'top', density: number): void {
+  let x = sa, seq = 0;
+  while (x <= sb - 6) {                                   // 6 = the narrowest cottage
+    if (t.rng.next() > 0.55 + density * 0.35) { x += t.rng.int(3, 5); continue; } // an empty lot
+    let placed = false;
+    const start = t.rng.int(0, HOUSE_TYPES.length - 1);   // rotate the first pick — variety down the street
+    for (let k = 0; k < HOUSE_TYPES.length; k++) {
+      const def = generateHouse(t.rng, HOUSE_TYPES[(start + k) % HOUSE_TYPES.length]);
+      const hw = Math.max(...def.rows.map((row) => row.length));
+      const hh = def.rows.length;
+      if (hw > sb - x + 1 || hh > bh) continue;            // won't fit the remaining lot / band depth
+      const hzz = hug === 'bottom' ? bz + bh - hh : bz;    // hug the kerb (the lane side)
+      t.house(def, x, hzz, seq++);
+      x += hw + t.rng.int(1, 2);                           // a tight alley to the next home
+      placed = true;
+      break;
     }
-    if (!def) continue;
-    const hw = Math.max(...def.rows.map((row) => row.length));
-    const hh = def.rows.length;
-    const hx = band.tx + t.rng.int(0, Math.max(0, band.tw - hw - 1));
-    const hzz = band.tz + Math.max(0, band.th - hh);   // hug the street side
-    t.house(def, hx, hzz, seq++);
-    // yard dressing: a fence stub, a shade tree off the corner
-    const fx = band.tx + t.rng.int(0, Math.max(0, band.tw - 4));
-    for (let i = 0; i < 3; i++) if (t.isOpen(fx + i, band.tz)) t.put(fx + i, band.tz, T_COVER);
-    const ty = { x: band.tx + t.rng.int(0, band.tw - 1), z: band.tz + t.rng.int(0, Math.max(0, band.th - 1)) };
-    if (t.isOpen(ty.x, ty.z)) { t.claim(ty.x, ty.z, T_WALL); t.prop('tree', ty.x, ty.z, t.rng.range(0.8, 1.2), t.rng.range(0, Math.PI * 2)); }
+    if (!placed) x += 3;
+  }
+}
+
+export const neighborhoodChunk: Chunk = (t, r, density) => {
+  const { hz, vx } = laneCross(t, r);
+  // the vertical cross-street splits the block into a west row and an east row;
+  // each side is the full ~15-wide half (lane is vx-LANE_HALF..vx+LANE_HALF)
+  const segs: [number, number][] = [
+    [r.tx + 1, vx - LANE_HALF - 1],
+    [vx + LANE_HALF + 1, r.tx + r.tw - 2],
+  ];
+  // two bands: north of the lane (homes hug its south kerb) and south of it
+  // (homes hug its north kerb) — both rows face the central street
+  const bands: { bz: number; bh: number; hug: 'bottom' | 'top' }[] = [
+    { bz: r.tz + 1, bh: hz - LANE_HALF - r.tz - 2, hug: 'bottom' },
+    { bz: hz + LANE_HALF + 1, bh: r.tz + r.th - hz - LANE_HALF - 2, hug: 'top' },
+  ];
+  for (const band of bands) {
+    if (band.bh < 7) continue;                             // too shallow even for a cottage
+    for (const [sa, sb] of segs) if (sb - sa >= 6) streetRow(t, sa, sb, band.bz, band.bh, band.hug, density);
   }
 };
 

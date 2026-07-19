@@ -357,7 +357,7 @@ export const isLegalStencilChar = (ch: string) => LEGEND.has(ch);
 //   hall_house — a corridor spine with rooms hanging off it, barracks-style
 // ---------------------------------------------------------------------------
 
-export type DynHouseType = 'manor' | 'bungalow' | 'hall_house';
+export type DynHouseType = 'manor' | 'bungalow' | 'hall_house' | 'cottage';
 
 const DYN_SPEC: Record<DynHouseType, {
   name: string; w: [number, number]; h: [number, number]; splits: number; corridor: boolean; winEvery: number;
@@ -365,6 +365,9 @@ const DYN_SPEC: Record<DynHouseType, {
   manor:      { name: 'Manor',      w: [14, 17], h: [10, 12], splits: 3, corridor: false, winEvery: 3 },
   bungalow:   { name: 'Bungalow',   w: [10, 12], h: [8, 9],   splits: 2, corridor: false, winEvery: 3 },
   hall_house: { name: 'Hall House', w: [14, 17], h: [7, 8],   splits: 0, corridor: true,  winEvery: 4 },
+  // the small worker's home — one or two rooms; several line a street, which
+  // is what makes a NEIGHBOURHOOD read as a neighbourhood (not a row of manors)
+  cottage:    { name: 'Cottage',    w: [7, 9],   h: [6, 7],   splits: 1, corridor: false, winEvery: 2 },
 };
 
 interface Room { x: number; z: number; w: number; h: number }
