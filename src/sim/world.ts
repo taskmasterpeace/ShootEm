@@ -190,6 +190,7 @@ export class World {
       this.pickups.set(this.nextId, { id: this.nextId, type: p.type, pos: { ...p.pos }, respawnAt: 0 });
       this.nextId++;
     }
+    this.refreshHomeDoors(); // base-zone doors learn whose base they serve
   }
 
   /** Does this soldier carry the given equipment effect? */
@@ -976,6 +977,7 @@ export class World {
     }
     if (!this.mode.over) stepMode(this, dt);
     stepBlackbox(this); // the crowd flight recorder samples on its own 2s clock
+    this.stepHomeDoors(); // base doors open for their own; shut behind them
     // the materiel drip (§17): war production never stops, it just crawls
     if (this.time >= this.nextMaterielDripAt) {
       this.nextMaterielDripAt += 60;
@@ -2560,15 +2562,66 @@ export class World {
       const idx = tz * GRID + tx;
       const t = this.map.grid[idx];
       if (t !== T_DOOR && t !== T_DOOR_OPEN) continue;
-      this.map.grid[idx] = t === T_DOOR ? T_DOOR_OPEN : T_DOOR;
-      if (this.doorChanges.indexOf(idx) < 0) this.doorChanges.push(idx);
-      this.emit({
-        type: 'door', tile: idx, soldierId: s.id,
-        pos: { x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 },
-      });
+      this.toggleDoorTile(idx, s.id);
       return true;
     }
     return false;
+  }
+
+  /** Swing one door tile (open↔closed): the shared verb behind the E key
+   *  and the home-door automation — one grid flip, one replication entry,
+   *  one event, whoever the hand was. */
+  private toggleDoorTile(idx: number, soldierId: number) {
+    const t = this.map.grid[idx];
+    this.map.grid[idx] = t === T_DOOR ? T_DOOR_OPEN : T_DOOR;
+    if (this.doorChanges.indexOf(idx) < 0) this.doorChanges.push(idx);
+    this.emit({
+      type: 'door', tile: idx, soldierId,
+      pos: { x: ((idx % GRID) + 0.5) * TILE - WORLD / 2, y: 0, z: (Math.floor(idx / GRID) + 0.5) * TILE - WORLD / 2 },
+    });
+  }
+
+  /** HOME DOORS (Robert: "what if doors automatically open… if that's your
+   *  base?") — door tiles standing inside a base zone serve their team: they
+   *  swing open when an owner walks up and shut themselves once the doorway
+   *  is clear. Enemies still knock the old ways — E, or explosives. */
+  private homeDoors: { idx: number; team: Team }[] = [];
+  private nextHomeDoorAt = 0;
+  refreshHomeDoors() {
+    this.homeDoors = [];
+    const R = 42; // the base zone: today's spawn yards, tomorrow's compounds
+    for (let z = 1; z < GRID - 1; z++) {
+      for (let x = 1; x < GRID - 1; x++) {
+        const idx = z * GRID + x;
+        const t = this.map.grid[idx];
+        if (t !== T_DOOR && t !== T_DOOR_OPEN) continue;
+        const wx = (x + 0.5) * TILE - WORLD / 2, wz = (z + 0.5) * TILE - WORLD / 2;
+        for (const team of [0, 1] as const) {
+          const b = this.map.basePos[team];
+          if (Math.hypot(b.x - wx, b.z - wz) <= R) { this.homeDoors.push({ idx, team }); break; }
+        }
+      }
+    }
+  }
+  private stepHomeDoors() {
+    if (this.time < this.nextHomeDoorAt || this.homeDoors.length === 0) return;
+    this.nextHomeDoorAt = this.time + 0.15;
+    for (const d of this.homeDoors) {
+      const t = this.map.grid[d.idx];
+      if (t !== T_DOOR && t !== T_DOOR_OPEN) continue; // breached away — the hole stays a hole
+      const x = ((d.idx % GRID) + 0.5) * TILE - WORLD / 2;
+      const z = (Math.floor(d.idx / GRID) + 0.5) * TILE - WORLD / 2;
+      let ownerNear = false, anyoneInDoorway = false;
+      for (const s of this.soldiers.values()) {
+        if (!s.alive || s.floor !== 0 || (s.kind !== 'human' && s.kind !== 'bot')) continue;
+        const dd = Math.hypot(s.pos.x - x, s.pos.z - z);
+        if (dd < 1.6) anyoneInDoorway = true; // never slam a door through a body
+        // hysteresis: opens at a stride, lets go a stride and a half later
+        if (s.team === d.team && dd < (t === T_DOOR ? 2.6 : 3.9)) ownerNear = true;
+      }
+      if (t === T_DOOR && ownerNear) this.toggleDoorTile(d.idx, -1);
+      else if (t === T_DOOR_OPEN && !ownerNear && !anyoneInDoorway) this.toggleDoorTile(d.idx, -1);
+    }
   }
 
   /** door tiles whose state ever changed — replicated so puppets stay true */

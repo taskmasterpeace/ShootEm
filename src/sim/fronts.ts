@@ -1918,9 +1918,61 @@ export function generateFront(frontId: string, seed: number, size: MapSize = 'la
   return gen ? gen(seed, sz) : null;
 }
 
+/**
+ * THE BARRACKS XL — the base compound's centerpiece, at Robert's scale
+ * ("make this thing four times as wide, keep the same game plan… hallways
+ * long, rooms bigger, ammo in there"). Four times the v3 floor area: a
+ * 6u-wide corridor spine, a bunkroom that sleeps a platoon, an armory
+ * stocked with pickups (P alternates ammo and medkits — walk in dry, walk
+ * out fighting), mess store, entry lobby behind a four-tile main door, and
+ * a DOUBLE-WIDE staircase to the upper deck: officers' room, open loft,
+ * slit ring, and the drop-ledge over the entrance. Too big for the shelf
+ * (the ≤12 scatter law) — it lives with the front stock, placed by name:
+ * the compound placer's anchor and the Map Maker's biggest brush.
+ */
+const BARRACKS_XL: BuildingDef = {
+  id: 'barracks_xl', name: 'Barracks XL', kind: 'military', floors: 2,
+  rows: [
+    '###S####S#DD###S####S###',
+    '#...........#.C.C..P.P.#',
+    '#.C.C.C.C.C.#..........#',
+    '#...........#.P.P..C.C.#',
+    '#.C.C...C.C.#..........#',
+    '#####DD##########DD#####',
+    '#......................#',
+    '#......................#',
+    '###DD#####....####DD####',
+    '#........#....#........#',
+    '#.C.C.C..#....#.C....C.#',
+    '#......P.#....#........#',
+    '#........#....#...LL...#',
+    '#........#....#........#',
+    '#........#....#........#',
+    '###S###S##DDDD###S##S###',
+  ],
+  rows2: [
+    '#S###S####S###S####S####',
+    '#.C......#.............#',
+    '#........#.............#',
+    '#........#.............#',
+    '#........#.............#',
+    '####..####.............#',
+    '#......................#',
+    '#......................#',
+    'S......................S',
+    '#......................#',
+    '#......................#',
+    '#......................#',
+    '#.................LL...#',
+    '#......................#',
+    '#......................#',
+    '###S######....######S###',
+  ],
+};
+
 /** exported for tests: every stencil a front hand-authors answers to the
  *  same connectivity law as the grown stock — no sealed rooms, ever. */
-export const FRONT_STENCILS: BuildingDef[] = [THE_KEEP, LAB_TOWER, CONTROL_ROOM, HANGAR, TOWER, GALLERY, TENEMENT];
+export const FRONT_STENCILS: BuildingDef[] = [THE_KEEP, LAB_TOWER, CONTROL_ROOM, HANGAR, TOWER, GALLERY, TENEMENT, BARRACKS_XL];
 
 /** exported for tests: the walkability the reachability law is judged by.
  *  Doors count (E opens them); water counts (everyone wades/swims); climb

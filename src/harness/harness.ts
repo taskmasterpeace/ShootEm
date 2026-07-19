@@ -9,6 +9,7 @@ import {
   TILE, WORLD, blocksShot, isBlocked,
 } from '../sim/map';
 import { BUILDINGS, generateHouse, type BuildingDef, type DynHouseType } from '../sim/buildings';
+import { FRONT_STENCILS } from '../sim/fronts';
 import { Rng } from '../sim/rng';
 import type { AscendantId, ClassId, ModeId, SoldierKind, Team, ThemeId, WeaponDef, WeaponId, ZedKind } from '../sim/types';
 import { JOINT_NAMES, isUndead, poseSoldierJoints, stepYawSpring, throwArmCurve, FLIGHT_POSES, WEAPON_HOLDS, type GaitState, type Joints } from '../client/animation';
@@ -1471,7 +1472,7 @@ function blDef(): BuildingDef {
   const typeSel = $<HTMLSelectElement>('bl-type').value;
   const seed = Number($<HTMLInputElement>('bl-seed').value) || 1;
   const lib = $<HTMLSelectElement>('bl-lib').value;
-  if (lib) return BUILDINGS.find((b) => b.id === lib)!;
+  if (lib) return [...BUILDINGS, ...FRONT_STENCILS].find((b) => b.id === lib)!;
   if (typeSel === 'manor2') {
     // reroll until the manor grows its loft (the 45% roll) — capped
     const rng = new Rng(seed);
@@ -1504,7 +1505,9 @@ function blBuild() {
   let cat: BuildingDef['kind'] | 'all' = 'all';
   const fillLib = () => {
     libSel.innerHTML = '<option value="">— pick one —</option>';
-    for (const b of BUILDINGS) {
+    // shelf stock + the authored front/compound stock (the Keep, the XL
+    // barracks…) — the Lab previews everything the game can stamp
+    for (const b of [...BUILDINGS, ...FRONT_STENCILS]) {
       if (cat !== 'all' && b.kind !== cat) continue;
       const o = document.createElement('option');
       o.value = b.id;
