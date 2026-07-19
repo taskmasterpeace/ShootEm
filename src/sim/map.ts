@@ -1,6 +1,7 @@
 import { Rng } from './rng';
 import { generateHouse, placeBuildings, stampBuilding, type StampCtx } from './buildings';
 import { stampBaseCompound } from './base';
+import { carveInterior } from './interior';
 import { THEMES } from './data';
 import type { ModeId, Team, ThemeId, Vec3, VehicleKind } from './types';
 
@@ -451,6 +452,10 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
     ice:       { wall: 0.22, cover: 0.50, rock: 0.78, blobs: 48, wallLen: [3, 7] },
   };
   const mix = MIX[gen];
+  // §indoor: the corridors theme is a whole-map BUILDING INTERIOR now — carved
+  // below (carveInterior needs the pickups array, declared later), not random
+  // scatter. The base compounds stamp over the ends.
+  if (gen !== 'corridors')
   for (let b = 0; b < mix.blobs; b++) {
     const tx = rng.int(6, half - 3);
     const tz = rng.int(6, GRID - 7);
@@ -473,15 +478,10 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
         setTile(grid, tx + (horiz ? i : 0), tz + (horiz ? 0 : i), seg);
         setTile(grid, mirror(tx + (horiz ? i : 0)), tz + (horiz ? 0 : i), seg);
       }
-      // corridor junctions: an L-elbow half the time (same stock as the run —
-      // a barrier that changes height mid-corner reads as a glitch, not a wall)
-      if (gen === 'corridors' && rng.next() < 0.5) {
-        const el = rng.int(3, 7);
-        for (let i = 0; i < el; i++) {
-          setTile(grid, tx + (horiz ? len - 1 : i), tz + (horiz ? i : len - 1), seg);
-          setTile(grid, mirror(tx + (horiz ? len - 1 : i)), tz + (horiz ? i : len - 1), seg);
-        }
-      }
+      // (the old corridor L-elbow lived here — the corridors theme carves a
+      // real interior now, so the scatter never runs for it and the elbow is
+      // gone. Other themes never drew it: the guard short-circuited before
+      // the rng roll, so removing it keeps every field layout bit-for-bit.)
     } else if (kind < mix.cover) {
       // cover cluster
       const n = rng.int(2, 5);
@@ -512,8 +512,7 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
       props.push({ type: 'rock', pos: w, scale: r * 1.6, rot: rng.range(0, Math.PI * 2) });
       props.push({ type: 'rock', pos: tileToWorld(mirror(tx), tz), scale: r * 1.6, rot: rng.range(0, Math.PI * 2) });
     } else {
-      // water: savanna ponds, Europa pools, Triton crevasses (none on starships)
-      if (gen === 'corridors') continue;
+      // water: savanna ponds, Europa pools, Triton crevasses
       const r = gen === 'ocean' ? rng.int(3, 4) : rng.int(2, 3);
       for (let z = -r; z <= r; z++)
         for (let x = -r; x <= r; x++)
@@ -545,12 +544,18 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
 
   const pickups: PickupSpawn[] = []; // declared early — huts stock their shelves
 
+  // §indoor: the whole-map interior for the corridors theme — hallway spine,
+  // room bays, cross-corridors (interior.ts). Owns the middle; compounds cap
+  // the ends. The scatter loop above was skipped for this gen.
+  if (gen === 'corridors') carveInterior({ grid, claims, props, pickups, rng }, half);
+
   // ---- the building stock (§8.4 + the ZombsRoyale rule: indoors has STUFF).
   // Hand-authored templates from the library, procedurally dealt and mirrored
   // for fairness: houses, warehouses, bunkers — doors closed, shelves stocked.
+  // (Skipped indoors — the interior IS the building; battle huts would clutter.)
   const houses: House[] = [];
   const buildCtx = { grid, grid2, props, pickups, houses, claims, rng };
-  placeBuildings(buildCtx, 3, [
+  if (gen !== 'corridors') placeBuildings(buildCtx, 3, [
     { tx: half, tz: half, r: gen === 'ocean' ? 18 : 12 }, // the hill (+ the moat)
     { tx: half - 22, tz: half - 22, r: 8 },   // CP A clearing
     { tx: half + 22, tz: half + 22, r: 8 },   // CP C clearing
@@ -741,7 +746,8 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
 
   // THE MEADOWS (finish-list 18): long grass in blobs on open ground --
   // concealment terrain, free to cross, stops nothing. Kopje's promise kept.
-  for (let m = 0; m < 7; m++) {
+  // (No meadows inside a hull — the interior deck grows nothing.)
+  for (let m = 0; gen !== 'corridors' && m < 7; m++) {
     const gcx = rng.int(8, GRID - 9), gcz = rng.int(8, GRID - 9);
     const gr = rng.int(2, 4);
     for (let dz = -gr; dz <= gr; dz++) {
