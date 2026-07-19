@@ -143,10 +143,11 @@ export function stepBlackbox(w: World) {
     const disps = new Map<number, number>();
 
     for (const s of b) {
-      // nearest neighbour
+      // nearest neighbour — same storey only: a body on the loft directly
+      // above another is vertical stacking, not a crowd (bots climb now)
       let nn = Infinity;
       for (const o of b) {
-        if (o.id === s.id) continue;
+        if (o.id === s.id || o.floor !== s.floor) continue;
         const d = Math.hypot(o.pos.x - s.pos.x, o.pos.z - s.pos.z);
         if (d < nn) nn = d;
       }

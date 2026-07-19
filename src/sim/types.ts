@@ -414,6 +414,10 @@ export interface Soldier {
   /** fresh off the pad until this time — the window where a bot considers a
    *  ride for the long trip back instead of jogging the same lane again */
   botFreshUntil?: number;
+  /** the floor this bot's route is trying to reach (ladder IQ): set when a
+   *  repath crosses storeys, cleared the moment the boots arrive — pressing
+   *  E stops the instant it's satisfied, which is the ping-pong guard */
+  botWantFloor?: number;
 }
 
 export interface Vehicle {

@@ -1,5 +1,5 @@
 import { CLASSES, DOG_STATS, VEHICLES, WEAPONS } from './data';
-import { GRID, T_CLIMB, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_OPEN, T_WATER, TILE, WORLD, isBlocked, losClear, tileAt } from './map';
+import { F2_FLOOR, F2_SLIT, F2_VOID, F2_WALL, F2_WELL, GRID, T_CLIMB, T_COVER, T_DOOR, T_DOOR_OPEN, T_LADDER, T_OPEN, T_WATER, TILE, WORLD, isBlocked, losClear, tileAt } from './map';
 import { type ClassId, type PlayerCmd, type Soldier, type Team, type Vec3, type Vehicle, isZed } from './types';
 import { DIFFICULTY_AIM, type World } from './world';
 
@@ -16,17 +16,24 @@ const toWorld = (t: number) => (t + 0.5) * TILE - WORLD / 2;
 // BFS scratch, reused across repaths. Allocating two GRID²-slot arrays per
 // call was pure GC churn — 24 bots repathing is megabytes/sec of garbage on
 // a low-end machine. Safe to share: pathStep is synchronous and never nests.
-const bfsPrev = new Int32Array(GRID * GRID);
-const bfsQ = new Int32Array(GRID * GRID);
+const AREA = GRID * GRID;
+// two layers: index = floor·AREA + tile (the ground-only fast path uses
+// layer 0 exclusively, byte-identical to the classic single-layer walk)
+const bfsPrev = new Int32Array(AREA * 2);
+const bfsQ = new Int32Array(AREA * 2);
 
 /** BFS from start tile to goal tile; returns the next reachable waypoint (LOS-smoothed) or null.
  *  `wheels` plans for a VEHICLE: doorways, ladders, and barricades come off
  *  the menu — a hull fits none of them (this is why bikes used to bury
  *  themselves in walls: the driver had a compass, never a map). */
-function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false, wheels = false): Vec3 | null {
+function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false, wheels = false, fromFloor = 0, toFloor = 0): (Vec3 & { climb?: boolean }) | null {
   const grid = w.map.grid;
   const sx = toTile(from.x), sz = toTile(from.z);
   let gx = toTile(to.x), gz = toTile(to.z);
+  // LADDER IQ: any storey in play routes through the layered walk below.
+  // Ground-to-ground keeps the classic single-layer algorithm untouched —
+  // every seeded match stays bit-identical unless a climb is actually asked.
+  if (fromFloor !== 0 || toFloor !== 0) return pathStepLayered(w, from, to, fromFloor, toFloor);
   if (sx === gx && sz === gz) return null;
   // doors are PASSABLE to the planner: humans open them, monsters break them.
   // SHALLOW water is passable too — fords are routes now, not walls. DEEP
@@ -129,6 +136,131 @@ function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false, wheels = fal
     if (walkClear(from, px, pz)) { target = path[i]; break; }
   }
   return { x: toWorld(target % GRID), y: 0, z: toWorld((target / GRID) | 0) };
+}
+
+/**
+ * The LAYERED walk (ladder IQ): floor-0 tiles, floor-1 plates, and the
+ * ladder WELLS that join them — one BFS over both storeys. Returns the next
+ * waypoint on the CALLER'S floor; `climb: true` means that waypoint is the
+ * well itself and the next move is the E press. Only invoked when a storey
+ * is actually in play, so the classic ground walk stays untouched.
+ */
+function pathStepLayered(w: World, from: Vec3, to: Vec3, fromFloor: number, toFloor: number): (Vec3 & { climb?: boolean }) | null {
+  const grid = w.map.grid;
+  const g2 = w.map.grid2;
+  const sx = toTile(from.x), sz = toTile(from.z);
+  let gx = toTile(to.x), gz = toTile(to.z);
+  if (sx === gx && sz === gz && fromFloor === toFloor) return null;
+  const openGround = (x: number, z: number) => {
+    if (x < 0 || z < 0 || x >= GRID || z >= GRID) return false;
+    const t = grid[z * GRID + x];
+    return t === T_OPEN || t === T_DOOR || t === T_DOOR_OPEN || t === T_WATER || t === T_LADDER;
+  };
+  const openUpper = (x: number, z: number) => {
+    if (x < 0 || z < 0 || x >= GRID || z >= GRID) return false;
+    const t = g2[z * GRID + x];
+    return t === F2_FLOOR || t === F2_WELL;
+  };
+  const openAt = (f: number, x: number, z: number) => (f === 0 ? openGround(x, z) : openUpper(x, z));
+  const isWell = (t: number) => grid[t] === T_LADDER && g2[t] === F2_WELL;
+
+  if (!openAt(toFloor, gx, gz)) {
+    // the destination sits inside masonry on its own storey — spiral out
+    let found = false;
+    outer: for (let r = 1; r <= 4; r++) {
+      for (let dz = -r; dz <= r; dz++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+          if (openAt(toFloor, gx + dx, gz + dz)) { gx += dx; gz += dz; found = true; break outer; }
+        }
+      }
+    }
+    if (!found) return null;
+  }
+
+  const prev = bfsPrev.fill(-1);
+  const q = bfsQ;
+  let head = 0, tail = 0;
+  const startIdx = fromFloor * AREA + sz * GRID + sx;
+  const goalIdx = toFloor * AREA + gz * GRID + gx;
+  q[tail++] = startIdx;
+  prev[startIdx] = startIdx;
+  let found = false;
+  const dirs = [1, -1, GRID, -GRID, GRID + 1, GRID - 1, -GRID + 1, -GRID - 1];
+  let expanded = 0;
+  while (head < tail && expanded < AREA * 2) {
+    const cur = q[head++];
+    expanded++;
+    if (cur === goalIdx) { found = true; break; }
+    const f = cur >= AREA ? 1 : 0;
+    const t = cur - f * AREA;
+    const cx = t % GRID, cz = (t / GRID) | 0;
+    for (const d of dirs) {
+      const nt = t + d;
+      const nx = nt % GRID, nz = (nt / GRID) | 0;
+      if (Math.abs(nx - cx) > 1 || Math.abs(nz - cz) > 1) continue; // wrap guard
+      const nIdx = f * AREA + nt;
+      if (prev[nIdx] !== -1 || !openAt(f, nx, nz)) continue;
+      if (nx !== cx && nz !== cz && (!openAt(f, cx, nz) || !openAt(f, nx, cz))) continue;
+      prev[nIdx] = cur;
+      q[tail++] = nIdx;
+    }
+    // the well link: same tile, other storey, one E press apart
+    if (isWell(t)) {
+      const oIdx = (1 - f) * AREA + t;
+      if (prev[oIdx] === -1) { prev[oIdx] = cur; q[tail++] = oIdx; }
+    }
+  }
+  if (!found) return null;
+
+  const path: number[] = [];
+  let cur = goalIdx;
+  while (cur !== startIdx && path.length < 900) {
+    path.push(cur);
+    cur = prev[cur];
+  }
+  path.reverse();
+
+  // the same-floor PREFIX is all this repath can steer across; the node
+  // after it (same tile, other storey) is the climb itself
+  let cross = path.length;
+  for (let i = 0; i < path.length; i++) {
+    if ((path[i] >= AREA ? 1 : 0) !== fromFloor) { cross = i; break; }
+  }
+  const y = fromFloor * 4;
+  if (cross === 0) {
+    // standing ON the well already — the next move is the E press
+    return { x: toWorld(sx), y, z: toWorld(sz), climb: true };
+  }
+  const solid = fromFloor === 0
+    ? (x: number, z: number) => isBlocked(grid, x, z)
+    : (x: number, z: number) => {
+      const t2 = tileAt(g2, x, z);
+      return t2 === F2_WALL || t2 === F2_SLIT || t2 === F2_VOID; // void = a fall, not a route
+    };
+  const walkClearL = (bx: number, bz: number): boolean => {
+    const dx = bx - from.x, dz = bz - from.z;
+    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / (TILE * 0.4)));
+    let px = from.x, pz = from.z;
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      const x = from.x + dx * t, z = from.z + dz * t;
+      if (solid(x, z) || solid(px, z) || solid(x, pz)) return false;
+      px = x; pz = z;
+    }
+    return true;
+  };
+  let target = path[0] - (path[0] >= AREA ? AREA : 0);
+  let targetI = 0;
+  for (let i = Math.min(cross - 1, 24); i > 0; i--) {
+    const t = path[i] - (path[i] >= AREA ? AREA : 0);
+    const px = toWorld(t % GRID), pz = toWorld((t / GRID) | 0);
+    if (walkClearL(px, pz)) { target = t; targetI = i; break; }
+  }
+  return {
+    x: toWorld(target % GRID), y, z: toWorld((target / GRID) | 0),
+    climb: cross < path.length && targetI === cross - 1,
+  };
 }
 
 // ---------- target selection ----------
@@ -254,7 +386,10 @@ export function objectiveFor(w: World, s: Soldier): Vec3 {
   // the one who breaks off — but only the CLOSEST free bot actually does.
   if (s.kind === 'bot' && !guardsHome(s) && !s.ascendant && s.carryingFlag < 0) {
     const vic = isolatedFriendly(w, s);
-    if (vic && amClosestRescuer(w, s, vic)) return vic.pos;
+    // the y-channel contract: an objective's y is a STOREY (0 or 4), never an
+    // altitude — a jump-trooper victim mid-arc is still a ground-floor man
+    // (raw vic.pos here once sent every rescuer hunting a phantom loft)
+    if (vic && amClosestRescuer(w, s, vic)) return { x: vic.pos.x, y: vic.floor === 1 ? 4 : 0, z: vic.pos.z };
   }
   switch (m.id) {
     case 'ctf': {
@@ -300,12 +435,15 @@ export function objectiveFor(w: World, s: Soldier): Vec3 {
         // the flag — the pathfinder already walks doors, the hands already
         // open them; the overwatch just needed someone ORDERED indoors.
         if ((s.botLifeSeed ?? 0) === 1) {
-          let room: Vec3 | null = null, hd = 30;
+          let room: Vec3 | null = null, roomUp = false, hd = 30;
           for (const h of w.map.houses) {
             const d = Math.hypot(h.center.x - ownFlag.pos.x, h.center.z - ownFlag.pos.z);
-            if (d < hd) { hd = d; room = h.center; }
+            if (d < hd) { hd = d; room = h.center; roomUp = h.floors === 2; }
           }
-          if (room) return { x: room.x, y: 0, z: room.z };
+          // LADDER IQ: a lofted house posts its guard UPSTAIRS — the y=4
+          // channel tells the router which storey the post is on, and the
+          // slit ring up there is the whole reason watchtowers exist
+          if (room) return { x: room.x, y: roomUp ? 4 : 0, z: room.z };
         }
         // otherwise armor orbits the flag stand (engineers seed sentries there)
         const a = (s.id % 8) * (Math.PI / 4);
@@ -377,7 +515,8 @@ export function objectiveFor(w: World, s: Soldier): Vec3 {
         return open ? open.pos : w.map.basePos[s.team];
       }
       const prey = [...w.soldiers.values()].find((e) => e.alive && e.team === hunted && (e.kind === 'human' || e.kind === 'bot'));
-      return prey ? { ...prey.pos } : w.map.hillPos;
+      // y-channel contract: storey, never altitude (a hopping prey is ground floor)
+      return prey ? { x: prey.pos.x, y: prey.floor === 1 ? 4 : 0, z: prey.pos.z } : w.map.hillPos;
     }
     default: // tdm — hunt toward enemy side / last seen action
       return { x: enemyBase.x * 0.4 + w.map.hillPos.x * 0.6, y: 0, z: enemyBase.z * 0.4 };
@@ -729,18 +868,31 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
         z: cap(s.pos.z + az * 0.55 + (ax / al) * side),
       };
     }
+    // LADDER IQ — which storey is this route trying to reach? OBJECTIVES
+    // carry it in the y-channel (a loft post rides at y=4). A chased body's
+    // storey is its FLOOR FIELD, never its altitude — a jump trooper mid-arc
+    // crosses y=4 constantly and is still a ground-floor man (reading pos.y
+    // here once sent every chaser hunting a phantom loft). And a SEEN target
+    // on another storey overrides everything — you cannot duel through a
+    // concrete floor, so the route IS the play.
+    let destFloor = 0;
+    if (dest === goal && goal.y >= 3.9) destFloor = 1;
+    else if (target && dest === target.pos) destFloor = target.floor;
+    if (target && target.floor !== s.floor) { dest = target.pos; destFloor = target.floor; }
     // SUB-TILE DESTINATIONS GO DIRECT (the pacing-sentry fix): pathStep is
     // tile-quantized, so a body straddling a tile boundary near its post got
     // a DIFFERENT first waypoint each repath — and the dist<3 clause above
     // repaths every tick, so the goal flip-flopped at 30Hz and the body
     // paced in place. Within a stride-and-a-bit of a visible destination
     // the straight line IS the route; the BFS keeps the job whenever a wall
-    // (a room-duty post behind a door) still stands in the way.
+    // (a room-duty post behind a door) still stands in the way. Ground
+    // floor only — storeyed routes always take the layered walk.
     const dDest = Math.hypot(dest.x - s.pos.x, dest.z - s.pos.z);
-    const wp = (dDest < 4 && losClear(w.map.grid, s.pos, dest, 0.6))
+    const wp = (dDest < 4 && s.floor === 0 && destFloor === 0 && losClear(w.map.grid, s.pos, dest, 0.6))
       ? { x: dest.x, y: 0, z: dest.z }
-      : pathStep(w, s.pos, dest, s.classId === 'jump') ?? { x: dest.x, y: 0, z: dest.z };
+      : pathStep(w, s.pos, dest, s.classId === 'jump', false, s.floor, destFloor) ?? { x: dest.x, y: 0, z: dest.z };
     s.botGoal = wp;
+    s.botWantFloor = destFloor !== s.floor ? destFloor : undefined;
   }
 
   let mvx = 0, mvz = 0;
@@ -761,6 +913,24 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
     const arrive = Math.min(1, Math.max(0, dl - 0.5));
     mvx = (dx / dl) * arrive;
     mvz = (dz / dl) * arrive;
+  }
+
+  // LADDER IQ, the hands: en route to another storey, press E the moment the
+  // boots reach the well the path aimed at. Want-clears-on-arrival IS the
+  // ping-pong guard — the instant the floor flips, the pressing stops, the
+  // stale route is dropped, and the next repath continues on the new storey.
+  if (s.botWantFloor !== undefined) {
+    if (s.botWantFloor === s.floor) {
+      s.botWantFloor = undefined;
+      s.botGoal = null;
+      s.botRepathAt = 0;
+    } else if (s.botGoal) {
+      const dWell = Math.hypot(s.botGoal.x - s.pos.x, s.botGoal.z - s.pos.z);
+      const wellHere = s.floor === 0
+        ? tileAt(w.map.grid, s.botGoal.x, s.botGoal.z) === T_LADDER && tileAt(w.map.grid2, s.botGoal.x, s.botGoal.z) === F2_WELL
+        : tileAt(w.map.grid2, s.botGoal.x, s.botGoal.z) === F2_WELL;
+      if (dWell < 1.7 && wellHere) cmd.use = true;
+    }
   }
 
   // --- no soldier in front of you? then SHOOT THE NEST ---
@@ -826,7 +996,11 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
     // score nothing. (They still fight anyone inside 12u blocking the lane.)
     const committed = s.carryingFlag >= 0 ||
       (w.mode.id === 'ctf' && raidsFlags(s) && d > 12);
-    if (committed) {
+    if (target.floor !== s.floor) {
+      // cross-storey contact: no band dance through a concrete floor — the
+      // movement keeps walking the layered route (botGoal already aims at
+      // the well), and the gun stays warm for the reunion
+    } else if (committed) {
       // keep the objective movement computed above
     } else if (s.hp < s.maxHp * doc.retreat) {
       // capability, not courage: break contact toward home, guns still up.
@@ -983,6 +1157,7 @@ export function stepBot(w: World, s: Soldier, _dt: number): PlayerCmd {
   let nearest = Infinity, nearX = 0, nearZ = 0;
   for (const o of w.humansAndBots()) {
     if (o.id === s.id || !o.alive || o.team !== s.team) continue;
+    if (o.floor !== s.floor) continue; // a storey apart is not a crowd
     const dx = s.pos.x - o.pos.x, dz = s.pos.z - o.pos.z;
     const d = Math.hypot(dx, dz);
     if (d > SEP_R) continue;
