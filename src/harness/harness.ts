@@ -539,6 +539,7 @@ function loadEnvironment(mode: ModeId, seed: number, theme: ThemeId, mapOverride
   sun.intensity = pal.sunIntensity;
   hemi.color.setHex(pal.hemiSky);
   hemi.groundColor.setHex(pal.hemiGround);
+  envLight = { sunHex: pal.sun, sunI: pal.sunIntensity, fog: scene.fog }; // for restore
 
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(WORLD, WORLD), new THREE.MeshStandardMaterial({ map: paintGround(world), roughness: 0.95 }));
   ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true;
@@ -597,10 +598,31 @@ function loadEnvironment(mode: ModeId, seed: number, theme: ThemeId, mapOverride
   }
 
   applyWireframe();
-  // frame the whole map from above
-  camera.position.set(0, 150, 150);
-  controls.target.set(0, 0, 0);
+  applyEnvCam(); // angled overview, or the top-down floor-plan read
   updateReadout();
+}
+
+/** The World tab's two camera framings: the 45° overview, and a near-
+ *  orthographic straight-down TOP-DOWN plan (fov 30 from high up) that reads
+ *  an interior map's rooms, hallway spine, and corridors at a glance — the
+ *  view the compound/interior authoring wanted and the orbit couldn't hold.
+ *  The env render is open-topped (no roofs), so the plan needs no cutaway. */
+let topDown = false;
+let envLight: { sunHex: number; sunI: number; fog: THREE.Scene['fog'] } | null = null;
+function applyEnvCam() {
+  camera.fov = topDown ? 30 : 50;
+  camera.updateProjectionMatrix();
+  // a hair off vertical (≈15°) so the low hull walls show their FACES and read
+  // as structure, instead of vanishing to thin lines under a pure plan view
+  camera.position.set(0, topDown ? 520 : 150, topDown ? 140 : 150);
+  controls.target.set(0, 0, 0);
+  // a floor PLAN wants flat, bright, fogless light; the angled overview wears
+  // the theme's own mood back
+  if (topDown) {
+    sun.color.setHex(0xffffff); sun.intensity = 2.6; scene.fog = null;
+  } else if (envLight) {
+    sun.color.setHex(envLight.sunHex); sun.intensity = envLight.sunI; scene.fog = envLight.fog;
+  }
 }
 
 function clearEnv() {
@@ -817,13 +839,23 @@ for (const id of Object.keys(THEMES) as ThemeId[]) {
 const envSeed = $<HTMLInputElement>('env-seed');
 $('env-reseed').onclick = () => (envSeed.value = String(Math.floor(Math.random() * 99999)));
 $('env-load').onclick = () => loadEnvironment(envModeSel.value as ModeId, Number(envSeed.value), envThemeSel.value as ThemeId);
-$('env-clear').onclick = () => { clearEnv(); camera.position.copy(MODEL_CAM); controls.target.copy(MODEL_TARGET); updateReadout(); };
+$('env-topdown').onclick = () => {
+  topDown = !topDown;
+  $('env-topdown').textContent = `⬒ Top-down plan: ${topDown ? 'ON' : 'OFF'}`;
+  if (envMode) applyEnvCam();
+};
+$('env-clear').onclick = () => {
+  clearEnv();
+  camera.fov = 50; camera.updateProjectionMatrix();
+  camera.position.copy(MODEL_CAM); controls.target.copy(MODEL_TARGET);
+  updateReadout();
+};
 
 // reset camera
 window.addEventListener('keydown', (e) => {
   if (e.key === 'r' || e.key === 'R') {
-    if (envMode) { camera.position.set(0, 150, 150); controls.target.set(0, 0, 0); }
-    else { camera.position.copy(MODEL_CAM); controls.target.copy(MODEL_TARGET); }
+    if (envMode) { applyEnvCam(); }
+    else { camera.fov = 50; camera.updateProjectionMatrix(); camera.position.copy(MODEL_CAM); controls.target.copy(MODEL_TARGET); }
   }
 });
 
