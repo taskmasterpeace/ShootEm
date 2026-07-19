@@ -23,6 +23,11 @@ const AREA = GRID * GRID;
 // layer 0 exclusively, byte-identical to the classic single-layer walk)
 const bfsPrev = new Int32Array(AREA * 2);
 const bfsQ = new Int32Array(AREA * 2);
+// A* scratch: g/f scores in INTEGER octile cost (straight 10, diagonal 14) so
+// the ordering is exact and replay-stable. Neither needs clearing between runs —
+// a slot is only ever read when bfsPrev marks that node visited this search.
+const aG = new Int32Array(AREA * 2);
+const aF = new Int32Array(AREA * 2);
 
 /** BFS from start tile to goal tile; returns the next reachable waypoint (LOS-smoothed) or null.
  *  `wheels` plans for a VEHICLE: doorways, ladders, and barricades come off
@@ -32,9 +37,8 @@ function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false, wheels = fal
   const grid = w.map.grid;
   const sx = toTile(from.x), sz = toTile(from.z);
   let gx = toTile(to.x), gz = toTile(to.z);
-  // LADDER IQ: any storey in play routes through the layered walk below.
-  // Ground-to-ground keeps the classic single-layer algorithm untouched —
-  // every seeded match stays bit-identical unless a climb is actually asked.
+  // LADDER IQ: any storey in play routes through the layered walk below
+  // (still a plain BFS — it runs far less often than this ground fast path).
   if (fromFloor !== 0 || toFloor !== 0) return pathStepLayered(w, from, to, fromFloor, toFloor);
   if (sx === gx && sz === gz) return null;
   // doors are PASSABLE to the planner: humans open them, monsters break them.
@@ -76,30 +80,76 @@ function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false, wheels = fal
     if (!found) return null;
   }
 
+  // A* (was uniform-cost BFS, which expanded EVERY tile closer than the goal —
+  // a base->mid route flooded ~half the map on every repath, and 24 bots + a
+  // horde doing that once a second was the biggest cost in the brain). The
+  // octile heuristic pulls the search straight at the goal; ties break on tile
+  // index so the result is deterministic and replay-stable.
   const prev = bfsPrev.fill(-1);
-  const q = bfsQ;
-  let head = 0, tail = 0;
+  const heap = bfsQ;
+  let heapN = 0;
   const startIdx = sz * GRID + sx;
-  q[tail++] = startIdx;
-  prev[startIdx] = startIdx;
   const goalIdx = gz * GRID + gx;
+  // octile distance in the same integer units as the step costs
+  const h = (n: number) => {
+    const dx = Math.abs((n % GRID) - gx), dz = Math.abs(((n / GRID) | 0) - gz);
+    return 10 * (dx + dz) - 6 * Math.min(dx, dz);
+  };
+  const before = (a: number, b: number) => (aF[a] !== aF[b] ? aF[a] < aF[b] : a < b);
+  const push = (n: number) => {
+    let i = heapN++;
+    heap[i] = n;
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (!before(heap[i], heap[p])) break;
+      const t = heap[p]; heap[p] = heap[i]; heap[i] = t; i = p;
+    }
+  };
+  const pop = () => {
+    const top = heap[0];
+    const last = heap[--heapN];
+    if (heapN > 0) {
+      heap[0] = last;
+      let i = 0;
+      for (;;) {
+        const l = i * 2 + 1, r = l + 1;
+        let m = i;
+        if (l < heapN && before(heap[l], heap[m])) m = l;
+        if (r < heapN && before(heap[r], heap[m])) m = r;
+        if (m === i) break;
+        const t = heap[m]; heap[m] = heap[i]; heap[i] = t; i = m;
+      }
+    }
+    return top;
+  };
+
+  prev[startIdx] = startIdx;
+  aG[startIdx] = 0;
+  aF[startIdx] = h(startIdx);
+  push(startIdx);
   let found = false;
   const dirs = [1, -1, GRID, -GRID, GRID + 1, GRID - 1, -GRID + 1, -GRID - 1];
   let expanded = 0;
-  while (head < tail && expanded < GRID * GRID) {
-    const cur = q[head++];
+  while (heapN > 0 && expanded < GRID * GRID) {
+    const cur = pop();
     expanded++;
     if (cur === goalIdx) { found = true; break; }
     const cx = cur % GRID, cz = (cur / GRID) | 0;
     for (const d of dirs) {
       const nxt = cur + d;
       const nx = nxt % GRID, nz = (nxt / GRID) | 0;
+      if (nx < 0 || nz < 0 || nxt < 0 || nxt >= AREA) continue;
       if (Math.abs(nx - cx) > 1 || Math.abs(nz - cz) > 1) continue; // wrap guard
-      if (prev[nxt] !== -1 || !open(nx, nz)) continue;
+      if (!open(nx, nz)) continue;
       // no diagonal corner cutting
-      if (nx !== cx && nz !== cz && (!open(cx, nz) || !open(nx, cz))) continue;
+      const diag = nx !== cx && nz !== cz;
+      if (diag && (!open(cx, nz) || !open(nx, cz))) continue;
+      const ng = aG[cur] + (diag ? 14 : 10);
+      if (prev[nxt] !== -1 && ng >= aG[nxt]) continue; // already reached as cheap or cheaper
       prev[nxt] = cur;
-      q[tail++] = nxt;
+      aG[nxt] = ng;
+      aF[nxt] = ng + h(nxt);
+      push(nxt);
     }
   }
   if (!found) return null;
