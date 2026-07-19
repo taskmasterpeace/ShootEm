@@ -357,6 +357,21 @@ export const guardsHome = (s: Soldier) =>
     ((s.classId === 'infantry' || s.classId === 'ghost') && s.id % 4 === 1)
   );
 
+/** Am I among the ~3 nearest non-guards to the flag thief? So a RUNNING enemy
+ *  carrier gets interceptors NOW without the whole team abandoning the attack
+ *  (Robert's oldest complaint: "nobody plays defense"). */
+function amCloseHunter(w: World, s: Soldier, thief: Soldier): boolean {
+  const myD = Math.hypot(s.pos.x - thief.pos.x, s.pos.z - thief.pos.z);
+  let closer = 0;
+  for (const o of w.soldiers.values()) {
+    if (o.id === s.id || !o.alive || o.team !== s.team || o.ascendant) continue;
+    if (o.kind !== 'human' && o.kind !== 'bot') continue;
+    if (guardsHome(o) || o.carryingFlag >= 0) continue; // guards already chase; runners keep running
+    if (Math.hypot(o.pos.x - thief.pos.x, o.pos.z - thief.pos.z) < myD) closer++;
+  }
+  return closer < 3;
+}
+
 /** An enemy STRUCTURE worth a defender's attention — a sentry dug in near
  *  something we own. Bots could never see these: findTarget returns only
  *  Soldiers, so a turret nest by the flag was free real estate. */
@@ -425,6 +440,18 @@ export function objectiveFor(w: World, s: Soldier): Vec3 {
       const ownFlag = m.flags![s.team];
       if (s.carryingFlag >= 0) return w.map.basePos[s.team]; // bring it home
       if (!ownFlag.atHome && ownFlag.carrierId < 0) return ownFlag.pos; // return ours
+      // OUR FLAG IS BEING RUN OFF — hunt the thief down (Robert's oldest
+      // complaint, "nobody plays defense"). The standoff-breaker below only
+      // covers a PARKED carrier; a MOVING one needs interceptors now. Guards
+      // always chase; the 3 nearest non-guards peel off to converge, and the
+      // rest keep raiding so the counter-attack isn't abandoned.
+      if (!ownFlag.atHome && ownFlag.carrierId >= 0) {
+        const thief = w.soldiers.get(ownFlag.carrierId);
+        if (thief?.alive && Math.hypot(thief.vel.x, thief.vel.z) > 2 && (guardsHome(s) || amCloseHunter(w, s, thief))) {
+          const ring = (s.id % 6) * (Math.PI / 3); // converge on a ring, not his exact tile
+          return { x: thief.pos.x + Math.cos(ring) * 4, y: 0, z: thief.pos.z + Math.sin(ring) * 4 };
+        }
+      }
       // a teammate is running it home — ESCORT the runner, don't sightsee mid.
       // (Bodyguards are why captures happen at all in 12v12.)
       const carrier = enemyFlag.carrierId >= 0 ? w.soldiers.get(enemyFlag.carrierId) : undefined;
