@@ -21,7 +21,7 @@
 // ---------------------------------------------------------------------------
 import { GRID, TILE, WORLD, T_CLIMB, T_COVER, T_DEEP, T_GRASS, T_OPEN, T_WALL, T_WATER } from './map';
 import type { PickupSpawn, PropSpec } from './map';
-import { mirrorDef, stampBuilding, type BuildingDef, type StampCtx } from './buildings';
+import { generateDistrict, generateHouse, mirrorDef, stampBuilding, type BuildingDef, type DistrictType, type StampCtx } from './buildings';
 import type { Rng } from './rng';
 
 export interface RegionRect { tx: number; tz: number; tw: number; th: number }
@@ -184,13 +184,85 @@ function pond(t: ChunkTools, r: RegionRect, deepCore: boolean): void {
     }
 }
 
+// ---------------------------------------------------------------------------
+// THE NEIGHBORHOOD — houses on LOTS off the region's street cross, every
+// front door facing a street, yards between (fence stubs, a tree, a crate).
+// House-to-house fighting: the MEDIUM bottleneck. The houses come from the
+// dynamic grammar (manor/bungalow/hall-house — real multi-room interiors),
+// so no two lots share a floor plan: the asset-library feel is that every
+// house is ITS OWN house, placed like somebody meant it.
+// ---------------------------------------------------------------------------
+export const neighborhoodChunk: Chunk = (t, r, density) => {
+  const { hz } = laneCross(t, r);
+  // one LOT per street band (north and south of the lane) — the region is
+  // ~21 tiles wide and the grown houses run 10-17, so a band holds one home
+  // with a yard, its door face toward the street
+  const bands: RegionRect[] = [
+    { tx: r.tx + 1, tz: r.tz + 1, tw: r.tw - 2, th: hz - LANE_HALF - r.tz - 2 },
+    { tx: r.tx + 1, tz: hz + LANE_HALF + 1, tw: r.tw - 2, th: r.tz + r.th - hz - LANE_HALF - 2 },
+  ];
+  let seq = 0;
+  for (const band of bands) {
+    if (band.th < 8 || band.tw < 11) continue;         // no room for a home
+    if (t.rng.next() > 0.45 + density * 0.55) continue; // density = how built-up the block is
+    // pick a house that FITS the band: try hall_house (long+low), then bungalow
+    let def: BuildingDef | null = null;
+    for (const type of ['hall_house', 'bungalow'] as const) {
+      const cand = generateHouse(t.rng, type);
+      const cw = Math.max(...cand.rows.map((row) => row.length));
+      if (cw <= band.tw - 1 && cand.rows.length <= band.th) { def = cand; break; }
+    }
+    if (!def) continue;
+    const hw = Math.max(...def.rows.map((row) => row.length));
+    const hh = def.rows.length;
+    const hx = band.tx + t.rng.int(0, Math.max(0, band.tw - hw - 1));
+    const hzz = band.tz + Math.max(0, band.th - hh);   // hug the street side
+    t.house(def, hx, hzz, seq++);
+    // yard dressing: a fence stub, a shade tree off the corner
+    const fx = band.tx + t.rng.int(0, Math.max(0, band.tw - 4));
+    for (let i = 0; i < 3; i++) if (t.isOpen(fx + i, band.tz)) t.put(fx + i, band.tz, T_COVER);
+    const ty = { x: band.tx + t.rng.int(0, band.tw - 1), z: band.tz + t.rng.int(0, Math.max(0, band.th - 1)) };
+    if (t.isOpen(ty.x, ty.z)) { t.claim(ty.x, ty.z, T_WALL); t.prop('tree', ty.x, ty.z, t.rng.range(0.8, 1.2), t.rng.range(0, Math.PI * 2)); }
+  }
+};
+
+// ---------------------------------------------------------------------------
+// A DISTRICT block — one big multi-room structure filling a band (from the
+// district grammar: offices/factories/markets are corridors and rooms). The
+// HARD bottleneck: you clear it wall to wall. `interior` leans on offices +
+// markets (rooms), `industrial` on factories + depots (halls + yards).
+// ---------------------------------------------------------------------------
+function districtChunk(types: readonly DistrictType[]): Chunk {
+  return (t, r, density) => {
+    const { hz } = laneCross(t, r);
+    const bands: RegionRect[] = [
+      { tx: r.tx + 1, tz: r.tz + 1, tw: r.tw - 2, th: hz - LANE_HALF - r.tz - 2 },
+      { tx: r.tx + 1, tz: hz + LANE_HALF + 1, tw: r.tw - 2, th: r.tz + r.th - hz - LANE_HALF - 2 },
+    ];
+    let seq = 0;
+    for (const band of bands) {
+      if (band.th < 6 || band.tw < 10) continue;
+      if (t.rng.next() > 0.5 + density * 0.5) continue;
+      const def = generateDistrict(t.rng, types[t.rng.int(0, types.length - 1)]);
+      const bw = Math.max(...def.rows.map((row) => row.length));
+      if (bw > band.tw - 1 || def.rows.length > band.th) continue;
+      t.house(def, band.tx + t.rng.int(0, Math.max(0, band.tw - bw - 1)), band.tz + Math.max(0, band.th - def.rows.length), seq++);
+      // a loading-yard crate or two out front
+      for (let i = 0; i < 2; i++) {
+        const cx = band.tx + t.rng.int(0, band.tw - 1), cz = band.tz;
+        if (!onLane(r, cx, cz) && t.isOpen(cx, cz)) { t.claim(cx, cz, T_COVER); t.prop('crate', cx, cz, 1, t.rng.range(0, Math.PI)); }
+      }
+    }
+  };
+}
+
 // the chunk registry — the region grammar picks by kind
 export const CHUNKS: Record<ChunkKind, Chunk> = {
   forest: forestChunk,
   open: openChunk,
-  neighborhood: openChunk,  // Phase B
-  interior: openChunk,      // Phase B
-  industrial: openChunk,    // Phase B
+  neighborhood: neighborhoodChunk,
+  interior: districtChunk(['office', 'market', 'storefront']),
+  industrial: districtChunk(['factory', 'depot_hall']),
 };
 
 /**

@@ -32,19 +32,15 @@ const crewedBreacher = () => {
 };
 
 /** Interior wall tile with 4 open tiles east — a staging lane for the machine. */
+// Carve a LONE wall in guaranteed-open ground with clear approaches both
+// sides — the breacher's target shouldn't depend on where a given seed's map
+// happens to grow a wall (the region grammar moved them all).
 const findWall = (w: World): [number, number] => {
-  for (let tz = 20; tz < GRID - 20; tz++) {
-    for (let tx = 8; tx < GRID - 20; tx++) {
-      if (w.map.grid[tz * GRID + tx] === T_WALL &&
-          w.map.grid[tz * GRID + tx + 1] === T_OPEN &&
-          w.map.grid[tz * GRID + tx + 2] === T_OPEN &&
-          w.map.grid[tz * GRID + tx + 3] === T_OPEN &&
-          w.map.grid[tz * GRID + tx + 4] === T_OPEN) {
-        return [tx, tz];
-      }
-    }
-  }
-  throw new Error('no interior wall with an eastern approach on this seed');
+  const tx = 50, tz = 40;
+  for (let i = -6; i <= 6; i++)
+    for (let dz = -2; dz <= 2; dz++) w.map.grid[(tz + dz) * GRID + tx + i] = T_OPEN;
+  w.map.grid[tz * GRID + tx] = T_WALL;
+  return [tx, tz];
 };
 
 /** Park the machine 3 tiles east of the wall, nose pointed straight at it. */

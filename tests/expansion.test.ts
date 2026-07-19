@@ -224,23 +224,14 @@ describe('the new machines', () => {
     d.pos = { ...tun.pos };
     w.step(1 / 60, new Map([[d.id, cmd({ use: true })]]));
     expect(d.vehicleId).toBe(tun.id);
-    // park the machine just east of a known INTERIOR wall tile, facing it
+    // carve a LONE wall in open ground with clear approaches — the target
+    // shouldn't depend on where a seed's map grew a wall (the region grammar
+    // moved them all)
     const GRID_N = 100;
-    let wallTx = -1, wallTz = -1;
-    outer: for (let tz = 20; tz < GRID_N - 20; tz++) {
-      for (let tx = 8; tx < GRID_N - 20; tx++) {
-        // interior wall with 4 open tiles east of it to stand on
-        if (w.map.grid[tz * GRID_N + tx] === 1 &&
-            w.map.grid[tz * GRID_N + tx + 1] === T_OPEN &&
-            w.map.grid[tz * GRID_N + tx + 2] === T_OPEN &&
-            w.map.grid[tz * GRID_N + tx + 3] === T_OPEN &&
-            w.map.grid[tz * GRID_N + tx + 4] === T_OPEN) {
-          wallTx = tx; wallTz = tz;
-          break outer;
-        }
-      }
-    }
-    expect(wallTx).toBeGreaterThan(0);
+    const wallTx = 50, wallTz = 40;
+    for (let i = -6; i <= 6; i++)
+      for (let dz = -2; dz <= 2; dz++) w.map.grid[(wallTz + dz) * GRID_N + wallTx + i] = T_OPEN;
+    w.map.grid[wallTz * GRID_N + wallTx] = 1;
     tun.pos = { x: (wallTx + 3.5) * TILE - WORLD / 2, y: 0, z: (wallTz + 0.5) * TILE - WORLD / 2 };
     tun.yaw = Math.PI; // face -X, straight at the wall
     let dug = false;
@@ -256,9 +247,10 @@ describe('the new machines', () => {
     const snap = JSON.parse(JSON.stringify(takeSnapshot(w, [])));
     const w2 = new World({ seed: 42, mode: 'tdm' });
     w2.puppet = true;
-    expect(w2.map.grid[idx]).not.toBe(T_OPEN); // same seed still has the wall
+    w2.map.grid[idx] = 1; // the lone wall is authored, not seed-grown — carve it into the fresh world the same way
+    expect(w2.map.grid[idx]).not.toBe(T_OPEN); // still a wall until the snapshot's dig lands
     applySnapshot(w2, snap);
-    expect(w2.map.grid[idx]).toBe(T_OPEN);
+    expect(w2.map.grid[idx]).toBe(T_OPEN); // the replicated dig opened it
   });
 
   it('the ambulance heals wounded soldiers around it', () => {

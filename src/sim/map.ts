@@ -562,7 +562,7 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
   // forest / neighborhood / interior / open — each a tactical texture with a
   // guaranteed through-lane. Runs before placeBuildings so hand-stamped
   // structures land on top of the ground texture.
-  if (gen === 'field') fillRegions(buildCtx, half, { forest: 3, open: 2 });
+  if (gen === 'field') fillRegions(buildCtx, half, { forest: 3, neighborhood: 3, interior: 1, industrial: 1, open: 2 });
   // the old scatter-building placer is for the rock/ocean/ice worlds now — the
   // field's buildings come from its region chunks (no double placement, and no
   // building stamped over a forest, which orphaned tree claims into thin air)

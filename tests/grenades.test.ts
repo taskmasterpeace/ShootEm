@@ -223,6 +223,10 @@ describe('smoke affects VISIBILITY (Robert) — eyes, bots, everyone', () => {
     a.pos = { x: 0, y: 0, z: 0 }; a.yaw = 0;
     const b = w.addSoldier('TGT', 'infantry', 1, 'human');
     b.pos = { x: 18, y: 0, z: 0 };
+    // clear the sight lane between them — the region grammar may grow a tree or
+    // a CLIMB barricade across open ground, and this test is about SMOKE, not
+    // terrain (worlds are ~tile 50 = world 0; carve tiles 46..60 × 47..53)
+    for (let tx = 46; tx <= 60; tx++) for (let tz = 47; tz <= 53; tz++) w.map.grid[tz * 100 + tx] = 0;
     // clear ground truth first
     w.step(1 / 60, new Map());
     expect(w.lastSeen[0].has(b.id), 'open ground, dead ahead — must be seen').toBe(true);
