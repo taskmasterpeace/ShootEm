@@ -206,8 +206,10 @@ export function stepBlackbox(w: World) {
   if (bb.samples.length > BB_MAX_SAMPLES) bb.samples.shift();
 }
 
-/** Compact human summary — what __ww.blackbox('report') prints. */
-export function blackboxReport(bb: Blackbox): string {
+/** Compact human summary — what __ww.blackbox('report') prints. Accepts a
+ *  live Blackbox or a stored flight (just samples + incidents), so the
+ *  post-match reader can render a log that outlived its match. */
+export function blackboxReport(bb: { samples: BbSample[]; incidents: BbIncident[] }): string {
   const lines: string[] = [];
   const tail = bb.samples.slice(-10);
   lines.push('t     | T0 n/avg/min nearBase stuck blk | T1 n/avg/min nearBase stuck blk');

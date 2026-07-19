@@ -3,7 +3,7 @@ import { CLASS_ARMORY, familyWeapons } from './sim/arsenal';
 import { isCoopMode, type ClassId, type ModeId, type PlayerCmd, type Team, type ThemeId, type WeaponDef, type WeaponFamily, type WeaponId } from './sim/types';
 import { LSWS, lswAllowed, lswsForTeam } from './sim/lsw';
 import { World, type Difficulty, type Loadout } from './sim/world';
-import { blackboxReport } from './sim/blackbox';
+import { blackboxReport, type BbIncident, type BbSample } from './sim/blackbox';
 import { mapSizeForPlayers } from './sim/fronts';
 import { WEATHER_MODS } from './sim/weather';
 import { mountOnboarding, onMatchEnd, paintballConfig } from './client/onboarding';
@@ -327,6 +327,7 @@ async function startGame() {
   chat.deliverMail(); // stored messages arrive the moment you deploy
 
   const endGame = () => {
+    saveFlight(); // the match dies, its flight log doesn't
     running = false;
     hud.hide();
     chat.hide();
@@ -396,6 +397,36 @@ function applyScarMods(world: World, frontId: string | null) {
   // 'blocked' (route denial) waits for the arena/authored-front pass
 }
 
+// ---------------------------------------------------------------------------
+// THE FLIGHT SAVER — endGame reloads the page, and the reload used to take
+// the black box with it: the one match Robert actually played was the one
+// nobody could autopsy. The local world registers itself in startLocal; the
+// box is written to localStorage at match end, on tab close, and every 30s
+// in between. __flight() (defined at boot, below) reads it back — from the
+// menu, after the reload, any time.
+// ---------------------------------------------------------------------------
+let flightWorld: World | null = null;
+function saveFlight() {
+  if (!flightWorld || flightWorld.blackbox.samples.length === 0) return;
+  try {
+    localStorage.setItem('ww:lastFlight', JSON.stringify({
+      at: new Date().toISOString(),
+      mode: flightWorld.mode.id,
+      simTime: +flightWorld.time.toFixed(0),
+      scores: flightWorld.mode.scores,
+      samples: flightWorld.blackbox.samples,
+      incidents: flightWorld.blackbox.incidents,
+    }));
+  } catch { /* storage full or blocked — the log is a luxury, never a crash */ }
+}
+(window as unknown as Record<string, unknown>).__flight = (mode?: 'raw') => {
+  const raw = localStorage.getItem('ww:lastFlight');
+  if (!raw) return 'no stored flight — play a match first';
+  const f = JSON.parse(raw) as { at: string; mode: string; simTime: number; scores: number[]; samples: BbSample[]; incidents: BbIncident[] };
+  if (mode === 'raw') return f;
+  return `LAST FLIGHT — ${f.mode} · ${f.simTime}s sim · scores ${f.scores.join(':')} · saved ${f.at}\n${blackboxReport(f)}`;
+};
+
 function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: Input, name: string, endGame: () => void) {
   const seed = seedOverride ?? (Math.random() * 0xffffffff) >>> 0;
   seedOverride = undefined;
@@ -409,6 +440,10 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   // carry the feel knobs into the match (Robert's global speed control)
   world.projectileSpeedMul = settings.projectileSpeed;
   world.moveSpeedMul = settings.moveSpeed;
+  // the flight saver watches this world; tab close saves too (the endGame
+  // reload fires beforeunload as well — a harmless double write)
+  flightWorld = world;
+  window.addEventListener('beforeunload', saveFlight);
   const me = world.addSoldier(name, selectedClass, 0, 'human', currentLoadout());
   applyScarMods(world, activeFrontId); // §8.5: the front's wound shapes the field
   // THE STABLE (finish-list #3/#4): the officer's V channel. SP wires
@@ -592,6 +627,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   let nextStaticAt = 0;
   let pilotBody: string | undefined; // §7: announce each ascension exactly once
   let bbWarned = 0; // black-box incidents already surfaced to the console
+  let nextFlightSaveAt = 30000; // periodic flight-log write (wall clock, ms)
 
   function frame(now: number) {
     if (!running) return;
@@ -611,6 +647,12 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
         if (me.alive || me.vehicleId >= 0) cmds.set(me.id, input.buildCmd(me, renderer.camera));
         world.step(FIXED, cmds);
       }
+    }
+    // the flight log persists every 30s — a crash loses half a minute, not
+    // the match
+    if (now >= nextFlightSaveAt) {
+      nextFlightSaveAt = now + 30000;
+      saveFlight();
     }
     // black-box incidents surface the moment they file — timestamped in sim
     // time so "it bunched up around minute 9" is findable after the fact
