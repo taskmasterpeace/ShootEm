@@ -3,6 +3,7 @@ import { F2_FLOOR, F2_SLIT, F2_VOID, F2_WALL, F2_WELL, GRID, T_CLIMB, T_COVER, T
 import { type ClassId, type PlayerCmd, type Soldier, type Team, type Vec3, type Vehicle, isZed } from './types';
 import { DIFFICULTY_AIM, DIFFICULTY_REACT, DIFFICULTY_TURN, type World } from './world';
 import { visionMult } from './weather';
+import { LSWS } from './lsw';
 
 const noCmd = (): PlayerCmd => ({
   moveX: 0, moveZ: 0, aimYaw: 0, fire: false, altFire: false, jump: false,
@@ -300,7 +301,10 @@ function findTarget(w: World, s: Soldier, maxRange: number, pingRange = maxRange
     // TOO BIG FOR SMOKE — the silhouette looms through its own fog (measured:
     // Plaguebearer and Eclipse were immortal while their clouds blinded the
     // answering squad). Walls still hide it.
-    const seen = e.ascendant !== undefined
+    // an LSW is TOO BIG FOR SMOKE both ways — it looms through fog as a target,
+    // and as a VIEWER it isn't blinded by its own cloud (fixes a bot Eclipse
+    // wandering her own dome with her rifle silent). Walls still hide, always.
+    const seen = (s.ascendant !== undefined || e.ascendant !== undefined)
       ? losClear(w.map.grid, { x: s.pos.x, y: 1.4, z: s.pos.z }, { x: e.pos.x, y: 1.4, z: e.pos.z })
       : w.sightClear(s.pos, e.pos);
     if (!seen) continue;
@@ -924,7 +928,12 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     // (a room-duty post behind a door) still stands in the way. Ground
     // floor only — storeyed routes always take the layered walk.
     const dDest = Math.hypot(dest.x - s.pos.x, dest.z - s.pos.z);
-    const wp = (dDest < 4 && s.floor === 0 && destFloor === 0 && losClear(w.map.grid, s.pos, dest, 0.6))
+    // TRUE-FLIGHT LSWs cross walls — they must NOT detour on the ground grid
+    // around geometry they cruise 5u above (audit: the fliers 'walked'). Straight
+    // to the destination; stepLsw owns the altitude. (Vehicles got this fix; the
+    // LSW fliers didn't.)
+    const fliesOverIt = s.ascendant !== undefined && LSWS[s.ascendant].flies;
+    const wp = (fliesOverIt || (dDest < 4 && s.floor === 0 && destFloor === 0 && losClear(w.map.grid, s.pos, dest, 0.6)))
       ? { x: dest.x, y: 0, z: dest.z }
       : pathStep(w, s.pos, dest, s.classId === 'jump', false, s.floor, destFloor) ?? { x: dest.x, y: 0, z: dest.z };
     s.botGoal = wp;

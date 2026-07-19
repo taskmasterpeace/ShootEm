@@ -5,6 +5,7 @@
 // ---------------------------------------------------------------------------
 import type { Soldier } from '../types';
 import type { World } from '../world';
+import { nearestEnemy } from './kit';
 
 /** the full dome: a ring of smoke around her that vision dies in. */
 function dome(w: World, s: Soldier) {
@@ -24,6 +25,13 @@ export function step(w: World, s: Soldier, _dt: number) {
   if (moving && w.time >= (s.nextLswAt ?? 0)) {
     s.nextLswAt = w.time + 0.6;
     w.spawnGadget('smoke_field', s.team, s.id, { ...s.pos }, Infinity, 6);
+  }
+  // THE DOME (bot): she used to never bloom it (active-only), reduced to a
+  // passive smoke-trailer. Cast it when enemies have closed — strategic, not a
+  // blind cadence (uses nextLswActiveAt, the bot's second-ability slot).
+  if (w.time >= (s.nextLswActiveAt ?? 0) && nearestEnemy(w, s, 22, false)) {
+    dome(w, s);
+    s.nextLswActiveAt = w.time + 10;
   }
 }
 
