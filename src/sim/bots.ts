@@ -1,7 +1,8 @@
 import { CLASSES, DOG_STATS, VEHICLES, WEAPONS } from './data';
 import { F2_FLOOR, F2_SLIT, F2_VOID, F2_WALL, F2_WELL, GRID, T_CLIMB, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_OPEN, T_RUBBLE, T_WATER, TILE, WORLD, isBlocked, losClear, tileAt } from './map';
 import { type ClassId, type PlayerCmd, type Soldier, type Team, type Vec3, type Vehicle, isZed } from './types';
-import { DIFFICULTY_AIM, DIFFICULTY_REACT, DIFFICULTY_TURN, type World } from './world';
+import { type World } from './world';
+import { BOT_TUNING as TUNE, DIFFICULTY } from './bot-tuning';
 import { visionMult } from './weather';
 import { LSWS } from './lsw';
 
@@ -341,10 +342,10 @@ function findTarget(w: World, s: Soldier, maxRange: number, pingRange = maxRange
     // so crouching in cover to break contact finally works against the AI.
     let reach = pinged ? pingRange : maxRange;
     if (!pinged && e.ascendant === undefined && tileAt(w.map.grid, e.pos.x, e.pos.z) === T_GRASS) {
-      reach = Math.min(reach, e.crouching ? 9 : 14);
+      reach = Math.min(reach, e.crouching ? TUNE.grassCrouched : TUNE.grassRumor);
     }
     if (d >= reach) continue; // past the eye AND unmarked
-    if (e.cloaked && d > 9 && !pinged) continue; // cloak is TRUE unless a mark reveals it
+    if (e.cloaked && d > TUNE.cloakReveal && !pinged) continue; // cloak is TRUE unless a mark reveals it
     // sightClear = walls AND smoke — a bot must not track through the cloud
     // a player just paid a grenade to stand up (Robert: smoke AFFECTS
     // visibility, for every pair of eyes on the field). EXCEPT: an LSW is
@@ -878,12 +879,12 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
   // acquire out to the equipped weapon's reach (bounded) so snipers/lasers
   // actually engage long and every weapon's max distance shows in real play;
   // a 42u floor keeps close-quarters classes aggressive
-  const acqRange = Math.max(42, Math.min(WEAPONS[s.weapons[s.weaponIdx]].range * 0.95, 95));
+  const acqRange = Math.max(TUNE.acqFloor, Math.min(WEAPONS[s.weapons[s.weaponIdx]].range * TUNE.acqWeaponFrac, TUNE.acqCap));
   // §8.8 the sky taxes the bot's eyes exactly as it taxes the player's — fog
   // pulls the view to a tight radius, heavy rain a lot less — with a 16u floor
   // so a bot still fights what's on top of it. A ping still carries out to the
   // full weapon reach (the AI leans on its instruments too).
-  const sightRange = Math.max(16, acqRange * visionMult(w.weather));
+  const sightRange = Math.max(TUNE.weatherFloor, acqRange * visionMult(w.weather));
   const target = findTarget(w, s, sightRange, acqRange);
   const goal = objectiveFor(w, s);
   const dGoal = Math.hypot(goal.x - s.pos.x, goal.z - s.pos.z);
@@ -951,20 +952,20 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     // never re-planned (the audit's "stuck against a wall in view of a foe,
     // forever"). A genuine stall is near-zero motion; an active strafer clears
     // the 0.8u bar, so this fires on the real wall-kiss even mid-fight.
-    if (s.botLastX !== undefined && moved < 0.8 && dGoal > 6) {
+    if (s.botLastX !== undefined && moved < TUNE.stuckDist && dGoal > 6) {
       s.botGoal = null;
       s.botRepathAt = 0;
     }
     s.botLastX = s.pos.x;
     s.botLastZ = s.pos.z;
-    s.botMoveCheckAt = w.time + 2.5;
+    s.botMoveCheckAt = w.time + TUNE.stuckWindow;
   }
 
   // --- movement: repath periodically toward objective (or flank target) ---
   const wantRepath = !s.botGoal || w.time >= (s.botRepathAt ?? 0) ||
     Math.hypot((s.botGoal?.x ?? 0) - s.pos.x, (s.botGoal?.z ?? 0) - s.pos.z) < 3;
   if (wantRepath) {
-    s.botRepathAt = w.time + 0.9 + w.rng.next() * 0.7;
+    s.botRepathAt = w.time + TUNE.repathBase + w.rng.next() * TUNE.repathJitter;
     // chasers hunt the target in tdm; anchors keep walking their objective;
     // a CTF runner with a ride in reach paths to the ride first
     let dest = rideDest ?? (target && w.mode.id === 'tdm' && DOCTRINE[s.classId].chase
@@ -1083,13 +1084,13 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     const veh = enemyVehicleNear(w, s, atGun.range * 0.95);
     // engage when there's no soldier worth shooting, or the vehicle is close
     // enough to be the real threat — and there's a clear shot to it
-    if (veh && (!target || veh.d < 30) && w.sightClear(s.pos, veh.pos)) {
+    if (veh && (!target || veh.d < TUNE.atEngageRange) && w.sightClear(s.pos, veh.pos)) {
       vehEngage = true;
       cmd.weaponSlot = 1;
       cmd.aimYaw = Math.atan2(veh.pos.z - s.pos.z, veh.pos.x - s.pos.x);
       cmd.aimDist = veh.d;
       if (veh.d < atGun.range * 0.95) cmd.fire = true;
-      if (veh.d < 15) { // peel back from a tank that's on top of you
+      if (veh.d < TUNE.atPeelBack) { // peel back from a tank that's on top of you
         mvx = s.pos.x - veh.pos.x; mvz = s.pos.z - veh.pos.z;
         const l = Math.hypot(mvx, mvz) || 1; mvx /= l; mvz /= l;
       }
@@ -1129,17 +1130,17 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     // live, so bot paint wobbles — wide enough to dodge, tight enough to
     // punish standing still. Everywhere else the math stays honest.
     const merciful = w.mode.id === 'paintball' ? 2.2 : 1;
-    const aimErr = (w.rng.next() - 0.5) * (s.kind === 'zombie' ? 0.2 : 0.055) * (d / 18 + 0.6)
-      * DIFFICULTY_AIM[w.opts.difficulty ?? 'veteran'] * doc.aim * merciful;
+    const aimErr = (w.rng.next() - 0.5) * (s.kind === 'zombie' ? 0.2 : TUNE.aimErrBase) * (d / TUNE.aimErrFalloff + 0.6)
+      * DIFFICULTY[w.opts.difficulty ?? 'veteran'].aim * doc.aim * merciful;
     cmd.aimYaw = leadYaw(s.pos, target, wdef.speed) + aimErr;
     // REACTION DELAY: a FRESHLY-acquired target gets a human beat before the
     // trigger — no more corner-peek headshot the same tick you appear. Only a
     // NEW contact re-arms it; a target it's been tracking fires freely.
-    if (s.botAcqId !== target.id) { s.botAcqId = target.id; s.botAcquireAt = w.time + DIFFICULTY_REACT[w.opts.difficulty ?? 'veteran']; }
+    if (s.botAcqId !== target.id) { s.botAcqId = target.id; s.botAcquireAt = w.time + DIFFICULTY[w.opts.difficulty ?? 'veteran'].react; }
     // LSWs are gods, not corner-peeking soldiers — no reaction beat on them
     // (keeps every boss, incl. the off-limits GravWarden, byte-identical).
     const reacted = s.ascendant !== undefined || w.time >= (s.botAcquireAt ?? 0);
-    if (reacted && d < wdef.range * 0.95) cmd.fire = true;
+    if (reacted && d < wdef.range * TUNE.fireFrac) cmd.fire = true;
     if (wdef.arc) cmd.aimDist = d; // lob shells ON the target, not past it
 
     const toT = Math.atan2(target.pos.z - s.pos.z, target.pos.x - s.pos.x);
@@ -1177,7 +1178,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
       // to put between you and the shooter, else toward home. Guns still up.
       // (The line between a human and a zed — zeds never step back.) nearestCover
       // already existed but was only ever used by the downed-crawl.
-      const cover = nearestCover(w, s.pos, 22);
+      const cover = nearestCover(w, s.pos, TUNE.coverSeek);
       mvx = -Math.cos(toT);
       mvz = -Math.sin(toT);
       if (cover) {
@@ -1231,7 +1232,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     }
 
     // grenades at clusters — cursor-targeted like players: land it ON the enemy
-    if (d > 8 && d < 24 && s.grenades > 0 && w.rng.next() < 0.006) {
+    if (d > TUNE.nadeMin && d < TUNE.nadeMax && s.grenades > 0 && w.rng.next() < TUNE.nadeChance) {
       // NB: the rng.next() above is drawn unconditionally — the class gate is on
       // the EFFECT, not the draw, so the seeded stream stays byte-identical.
       // Engineers' G plants a MINE at their feet (world.ts routing), so a
@@ -1350,7 +1351,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
   // grenade should never delete a fireteam that walked in a knot; the
   // separation rides ON TOP of the goal so bots still arrive — spread out.
   let sepX = 0, sepZ = 0;
-  const SEP_R = 5; // personal space (widened from 3u so a converging crowd spreads)
+  const SEP_R = TUNE.sepRadius; // personal space (widened from 3u so a converging crowd spreads)
   let nearest = Infinity, nearX = 0, nearZ = 0;
   for (const o of w.humansAndBots()) {
     if (o.id === s.id || !o.alive || o.team !== s.team) continue;
@@ -1398,7 +1399,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
   // LSWs exempt — a god's aim doesn't lag, and it keeps every boss (incl. the
   // off-limits GravWarden) byte-identical to before.
   if (!s.ascendant) {
-    const maxTurn = DIFFICULTY_TURN[w.opts.difficulty ?? 'veteran'] * dt;
+    const maxTurn = DIFFICULTY[w.opts.difficulty ?? 'veteran'].turn * dt;
     let diff = cmd.aimYaw - s.yaw;
     while (diff > Math.PI) diff -= Math.PI * 2;
     while (diff < -Math.PI) diff += Math.PI * 2;
@@ -1428,8 +1429,8 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
 function leadYaw(from: Vec3, target: Soldier, projSpeed: number): number {
   const d = Math.hypot(target.pos.x - from.x, target.pos.z - from.z);
   const t = d / Math.max(projSpeed, 1);
-  const px = target.pos.x + target.vel.x * t * 0.85;
-  const pz = target.pos.z + target.vel.z * t * 0.85;
+  const px = target.pos.x + target.vel.x * t * TUNE.lead;
+  const pz = target.pos.z + target.vel.z * t * TUNE.lead;
   return Math.atan2(pz - from.z, px - from.x);
 }
 
