@@ -2,6 +2,7 @@ import { Rng } from './rng';
 import { generateHouse, placeBuildings, stampBuilding, type StampCtx } from './buildings';
 import { stampBaseCompound } from './base';
 import { carveInterior } from './interior';
+import { fillRegions } from './chunks';
 import { THEMES } from './data';
 import type { ModeId, Team, ThemeId, Vec3, VehicleKind } from './types';
 
@@ -452,10 +453,12 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
     ice:       { wall: 0.22, cover: 0.50, rock: 0.78, blobs: 48, wallLen: [3, 7] },
   };
   const mix = MIX[gen];
-  // §indoor: the corridors theme is a whole-map BUILDING INTERIOR now — carved
-  // below (carveInterior needs the pickups array, declared later), not random
-  // scatter. The base compounds stamp over the ends.
-  if (gen !== 'corridors')
+  // §indoor: the corridors theme is a whole-map BUILDING INTERIOR (carveInterior,
+  // below). §chunks: the FIELD themes are a region grammar now (fillRegions,
+  // below) — forests, neighborhoods, interiors, not random scatter. Both need
+  // arrays declared later, so both are carved below; the scatter is left to the
+  // rock/ocean/ice worlds.
+  if (gen !== 'corridors' && gen !== 'field')
   for (let b = 0; b < mix.blobs; b++) {
     const tx = rng.int(6, half - 3);
     const tz = rng.int(6, GRID - 7);
@@ -555,7 +558,15 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
   // (Skipped indoors — the interior IS the building; battle huts would clutter.)
   const houses: House[] = [];
   const buildCtx = { grid, grid2, props, pickups, houses, claims, rng };
-  if (gen !== 'corridors') placeBuildings(buildCtx, 3, [
+  // §chunks: the field map's contested band becomes a mix of regions —
+  // forest / neighborhood / interior / open — each a tactical texture with a
+  // guaranteed through-lane. Runs before placeBuildings so hand-stamped
+  // structures land on top of the ground texture.
+  if (gen === 'field') fillRegions(buildCtx, half, { forest: 3, open: 2 });
+  // the old scatter-building placer is for the rock/ocean/ice worlds now — the
+  // field's buildings come from its region chunks (no double placement, and no
+  // building stamped over a forest, which orphaned tree claims into thin air)
+  if (gen !== 'corridors' && gen !== 'field') placeBuildings(buildCtx, 3, [
     { tx: half, tz: half, r: gen === 'ocean' ? 18 : 12 }, // the hill (+ the moat)
     { tx: half - 22, tz: half - 22, r: 8 },   // CP A clearing
     { tx: half + 22, tz: half + 22, r: 8 },   // CP C clearing
@@ -615,12 +626,13 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
     ];
     padKinds.forEach((kind, i) => {
       const [ox, oz] = padOffsets[i];
-      clearArea(grid, btx + ox, btz + oz, 2);
+      clearArea(grid, btx + ox, btz + oz, 3); // a yard the hull can pull out of — clears any forest that crept onto the pad
       vehiclePads.push({ kind, team: side as Team, pos: tileToWorld(btx + ox, btz + oz) });
     });
-    // one Bulwark emplacement gun guarding each team's midfield approach
+    // one Bulwark emplacement gun guarding each team's midfield approach — a
+    // WIDE clear so the region's trees never wall the gun into its own bunker
     const ex = btx + fwd * 22, ez = btz + (side === 0 ? -14 : 14);
-    clearArea(grid, ex, ez, 2);
+    clearArea(grid, ex, ez, 4);
     vehiclePads.push({ kind: 'emplacement', team: side as Team, pos: tileToWorld(ex, ez) });
   }
 
