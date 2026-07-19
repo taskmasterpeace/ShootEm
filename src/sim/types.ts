@@ -247,6 +247,10 @@ export interface Soldier {
   seat: number;
   enteredVehicleAt: number; // guards same-keypress enter→exit
   kills: number;
+  /** per-life kill streak (reset on death) — feeds RAMPAGE/SHUTDOWN callouts */
+  streak?: number;
+  /** delight: has the LAST-STAND clutch already been announced this life? */
+  lastStandSaid?: boolean;
   deaths: number;
   score: number;
   carryingFlag: Team | -1;

@@ -834,6 +834,7 @@ export class World {
     // a fresh deploy stands upright with the bleed slate wiped
     s.downed = false; s.downedUntil = 0; s.downedBy = -1;
     s.reviveProgress = 0; s.draggingId = -1;
+    s.streak = 0; s.lastStandSaid = false; // per-life delight state resets on deploy
     // keep the soldier's chosen armory loadout across respawns — but a
     // signature arm (family 'lsw') dies with the god: mortals get their kit
     const keep0 = s.weapons[0] && WEAPONS[s.weapons[0]] && WEAPONS[s.weapons[0]].family !== 'lsw';
@@ -3785,8 +3786,21 @@ export class World {
       const attacker = this.soldiers.get(attackerId);
       // the killcam frames the duel — remember who fired the killing blow
       victim.lastKillerId = attacker && attacker.id !== victim.id ? attacker.id : -1;
+      // SHUTDOWN (delight): ending a soldier on a tear is a whole-net moment
+      if ((victim.streak ?? 0) >= 4 && attacker && attacker.id !== victim.id && !isZed(victim.kind)) {
+        this.emit({ type: 'announce', text: `${attacker.name} SHUT DOWN ${victim.name} (×${victim.streak})` });
+      }
+      victim.streak = 0; // a corpse's streak is over
       if (attacker && attacker.id !== victim.id) {
         attacker.kills++;
+        // RAMPAGE (delight): the LSW milestone, generalized to every soldier —
+        // a bot or human on a tear gets named to the whole lobby, and ending
+        // one (above) feels earned. LSWs keep their own bespoke lines below.
+        if (!attacker.ascendant && (attacker.kind === 'human' || attacker.kind === 'bot')) {
+          attacker.streak = (attacker.streak ?? 0) + 1;
+          const st = attacker.streak;
+          if (st === 4 || st === 6 || st === 9) this.emit({ type: 'announce', text: `${attacker.name} — RAMPAGE ×${st}`, big: st >= 6 });
+        }
         // LSW kill milestones (per-life, counted from ascension): the third
         // kill gets a line only nearby ears hear; the fifth wakes the net
         if (attacker.ascendant) {

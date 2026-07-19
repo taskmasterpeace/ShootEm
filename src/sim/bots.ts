@@ -303,9 +303,14 @@ function findTarget(w: World, s: Soldier, maxRange: number, pingRange = maxRange
     const seen = e.ascendant !== undefined
       ? losClear(w.map.grid, { x: s.pos.x, y: 1.4, z: s.pos.z }, { x: e.pos.x, y: 1.4, z: e.pos.z })
       : w.sightClear(s.pos, e.pos);
-    if (d < bestD && seen) {
+    if (!seen) continue;
+    // NEMESIS (delight): a grudge weights the pick toward the enemy who last
+    // killed you — you HUNT the bot that's been hunting you. A bias, not an
+    // override: a much-closer threat still wins, so it never tunnel-visions.
+    const score = d * (e.id === s.lastKillerId ? 0.6 : 1);
+    if (score < bestD) {
       best = e;
-      bestD = d;
+      bestD = score;
     }
   }
   return best;
@@ -1057,13 +1062,31 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     // score nothing. (They still fight anyone inside 12u blocking the lane.)
     const committed = s.carryingFlag >= 0 ||
       (w.mode.id === 'ctf' && raidsFlags(s) && d > 12);
+    // LAST STAND (delight): a SQUAD down to its last member doesn't run — the
+    // 1vX clutch. NOT a lone-wolf 1v1 (a mauled duelist still breaks contact) —
+    // so it only fires when the team HAD more than one and is down to this one.
+    // Only scan the roster when it matters (already low on HP).
+    const lowHp = s.hp < s.maxHp * doc.retreat;
+    let isLastOfSquad = false;
+    if (lowHp) {
+      let total = 0, alive = 0;
+      for (const o of w.soldiers.values()) {
+        if (o.team !== s.team || (o.kind !== 'human' && o.kind !== 'bot')) continue;
+        total++; if (o.alive) alive++;
+      }
+      isLastOfSquad = total > 1 && alive <= 1;
+    }
+    if (isLastOfSquad && !s.lastStandSaid) {
+      s.lastStandSaid = true;
+      w.emit({ type: 'announce', text: `${s.name} — LAST STAND`, big: true });
+    }
     if (target.floor !== s.floor) {
       // cross-storey contact: no band dance through a concrete floor — the
       // movement keeps walking the layered route (botGoal already aims at
       // the well), and the gun stays warm for the reunion
     } else if (committed) {
       // keep the objective movement computed above
-    } else if (s.hp < s.maxHp * doc.retreat) {
+    } else if (lowHp && !isLastOfSquad) { // the last of a squad skips retreat and fights
       // capability, not courage: break contact — toward COVER if there's a wall
       // to put between you and the shooter, else toward home. Guns still up.
       // (The line between a human and a zed — zeds never step back.) nearestCover
