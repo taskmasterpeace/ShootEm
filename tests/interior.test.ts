@@ -19,7 +19,7 @@ function reaches(grid: Uint8Array, from: [number, number], to: [number, number])
   const open = (x: number, z: number) => {
     if (x < 0 || z < 0 || x >= GRID || z >= GRID) return false;
     const t = grid[z * GRID + x];
-    return t === T_OPEN || t === T_WATER || t === T_DOOR || t === T_DOOR_OPEN || t === T_LADDER;
+    return t === T_OPEN || t === T_WATER || t === T_DOOR || t === T_DOOR_OPEN || t === T_LADDER || t === T_GRASS;
   };
   const seen = new Uint8Array(GRID * GRID);
   const q: number[] = [from[1] * GRID + from[0]];
