@@ -12,6 +12,7 @@ import { World, type Loadout } from '../sim/world';
 import { cullSnapshotFor, takeSnapshot, wireRound } from '../sim/snapshot';
 import { isCoopMode, type AscendantId, type ClassId, type ModeId, type PlayerCmd, type ThemeId } from '../sim/types';
 import { LSWS } from '../sim/lsw';
+import { drainCmd, newCmdQueue, pushCmd, resetCmdQueue, type CmdQueueState } from './input-queue';
 import {
   FRONTS, applyNudge, freshCampaign, stageOperation, type Campaign,
 } from '../client/campaign';
@@ -42,7 +43,8 @@ interface Client {
   ws: WebSocket;
   soldierId: number;
   name: string;
-  cmd: PlayerCmd | null;
+  /** opt #3 (N3): a per-client input queue instead of a latest-wins slot */
+  inputs: CmdQueueState;
 }
 
 class Room {
@@ -114,7 +116,7 @@ class Room {
     const team = isCoopMode(this.mode) ? 0 : humans[0] <= humans[1] ? 0 : 1;
     this.removeBot(team);
     const soldier = this.world.addSoldier(name.slice(0, 16) || 'Recruit', classId, team, 'human', loadout);
-    const client: Client = { ws, soldierId: soldier.id, name: soldier.name, cmd: null };
+    const client: Client = { ws, soldierId: soldier.id, name: soldier.name, inputs: newCmdQueue() };
     this.clients.add(client);
     ws.send(JSON.stringify({ t: 'welcome', id: soldier.id, seed: this.world.opts.seed, mode: this.mode, theme: this.theme }));
     // deliver any comms stored for this callsign while they were offline
@@ -172,7 +174,11 @@ class Room {
 
   tick() {
     const cmds = new Map<number, PlayerCmd>();
-    for (const c of this.clients) if (c.cmd) cmds.set(c.soldierId, c.cmd);
+    const now = Date.now();
+    for (const c of this.clients) {
+      const cmd = drainCmd(c.inputs, now); // one press per tick; held-repeat when starved; stall when stale
+      if (cmd) cmds.set(c.soldierId, cmd);
+    }
     this.world.step(TICK, cmds);
     this.tickCount++;
     if (this.tickCount % SNAP_EVERY === 0) {
@@ -207,7 +213,7 @@ class Room {
       this.removeBot(team as 0 | 1);
       const soldier = this.world.addSoldier(oldSoldier?.name ?? 'Recruit', oldSoldier?.classId ?? 'infantry', team as 0 | 1, 'human');
       c.soldierId = soldier.id;
-      c.cmd = null;
+      resetCmdQueue(c.inputs);
       if (c.ws.readyState === WebSocket.OPEN) {
         c.ws.send(JSON.stringify({ t: 'welcome', id: soldier.id, seed, mode: this.mode, theme: this.theme }));
       }
@@ -433,7 +439,7 @@ wss.on('connection', (ws) => {
       }
       client = room.join(ws, msg.name ?? 'Recruit', msg.classId ?? 'infantry', msg.loadout);
     } else if (msg.t === 'cmd' && client && msg.cmd) {
-      client.cmd = msg.cmd;
+      pushCmd(client.inputs, msg.cmd, Date.now());
     } else if (msg.t === 'chat' && client && room && msg.channel && msg.text) {
       room.relayChat(client, msg.channel, msg.text);
     } else if (msg.t === 'mail' && client && msg.to && msg.text) {
