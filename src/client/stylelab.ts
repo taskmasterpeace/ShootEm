@@ -103,6 +103,12 @@ interface Rig {
   blade: THREE.Mesh;      // the slash arc
   mittR?: THREE.Mesh;     // 12-shape only: the floating hand that sells it
   mittL?: THREE.Mesh;
+  // the reference rigs (Robert's two images) carry REAL limbs — pivot groups
+  // at shoulder and hip; the animator swings them when present
+  armR?: THREE.Group;
+  armL?: THREE.Group;
+  legR?: THREE.Group;
+  legL?: THREE.Group;
   jet?: THREE.Mesh;       // flight flame
   ghosts: THREE.Mesh[];   // dash afterimages (capsule clones)
   ghostGeo: THREE.BufferGeometry;
@@ -204,10 +210,165 @@ function capsuleRig(label: string, shapes: 1 | 4 | 12): Rig {
   return rig;
 }
 
+
+// ---------------------------------------------------------------------------
+// THE REFERENCE RIGS — built from the two images Robert has "always had".
+// ---------------------------------------------------------------------------
+
+/** Ref 1, "the standard one": a papercraft mannequin. Box head, brown jacket
+ *  with a flared hem, SEGMENTED limbs with visible cuts at every joint, dark
+ *  trousers, boots. The whole idea of this body is that it is made of joints —
+ *  so it gets real shoulder and hip pivots and earns the full move set. */
+function papercraftRig(label: string): Rig {
+  const root = new THREE.Group();
+  const body = new THREE.Group();
+  root.add(body);
+  const SKIN = 0xc9835f, JACKET = 0x6b5a41, TROUSER = 0x3f4247, BOOT = 0x24262a;
+  const box = (w: number, h: number, d: number, c: number) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), M(c));
+    m.castShadow = true;
+    return m;
+  };
+
+  // torso: the jacket, with the flared hem that gives ref 1 its silhouette
+  const torso = box(0.42, 0.5, 0.55, JACKET); torso.position.y = 1.24; body.add(torso);
+  const hem = box(0.5, 0.14, 0.66, JACKET); hem.position.y = 0.95; body.add(hem);
+  // head: the big papercraft box, floating a visible CUT above the collar
+  const head = box(0.4, 0.4, 0.4, SKIN); head.position.y = 1.74; body.add(head);
+
+  // arms: shoulder cube -> upper -> (baked elbow bend) forearm -> hand block
+  const mkArm = (dz: number): THREE.Group => {
+    const arm = new THREE.Group();
+    arm.position.set(0, 1.42, dz);
+    const sh = box(0.17, 0.17, 0.17, JACKET); sh.position.y = 0; arm.add(sh);
+    const up = box(0.13, 0.3, 0.14, JACKET); up.position.y = -0.24; arm.add(up);
+    const elbow = new THREE.Group();
+    elbow.position.y = -0.42;
+    elbow.rotation.z = 0.28; // the baked natural bend — a straight arm is a plank
+    const fore = box(0.11, 0.26, 0.12, JACKET); fore.position.y = -0.13; elbow.add(fore);
+    const hand = box(0.12, 0.13, 0.11, SKIN); hand.position.y = -0.31; elbow.add(hand);
+    arm.add(elbow);
+    body.add(arm);
+    return arm;
+  };
+  // legs: hip pivot -> thigh, gap, shin, boot — every cut visible
+  const mkLeg = (dz: number): THREE.Group => {
+    const leg = new THREE.Group();
+    leg.position.set(0, 0.92, dz);
+    const th = box(0.18, 0.36, 0.2, TROUSER); th.position.y = -0.19; leg.add(th);
+    const sh = box(0.15, 0.34, 0.17, TROUSER); sh.position.y = -0.57; leg.add(sh);
+    const bt = box(0.18, 0.12, 0.3, BOOT); bt.position.set(0.05, -0.84, 0); leg.add(bt);
+    body.add(leg);
+    return leg;
+  };
+
+  const gun = new THREE.Group();
+  gun.add(makeRifle());
+  gun.position.set(0.22, 0.95, 0.42);
+  body.add(gun);
+
+  const rig: Rig = {
+    label, root, body, gun,
+    gunHome: { pos: gun.position.clone(), rot: gun.rotation.clone() },
+    blade: makeBlade(), ghosts: [], ghostGeo: new THREE.BoxGeometry(0.5, 1.5, 0.55),
+    armR: mkArm(0.36), armL: mkArm(-0.36), legR: mkLeg(0.15), legL: mkLeg(-0.15),
+  };
+  body.add(rig.blade);
+  rig.blade.position.set(0.4, 1.1, 0.5);
+  for (let i = 0; i < 3; i++) {
+    const ghost = new THREE.Mesh(rig.ghostGeo, new THREE.MeshBasicMaterial({ color: JACKET, transparent: true, opacity: 0, depthWrite: false }));
+    ghost.position.y = 1.1;
+    root.add(ghost);
+    rig.ghosts.push(ghost);
+  }
+  return rig;
+}
+
+/** Ref 2, "a random soldier": the voxel trooper. Helmet with an NVG nub,
+ *  gray digital camo (patch boxes riding proud of the surface — honest voxel
+ *  grammar, no textures), a vest with chest pouches, cube fists, boots. */
+function voxelRig(label: string): Rig {
+  const root = new THREE.Group();
+  const body = new THREE.Group();
+  root.add(body);
+  const BASE = 0x828a92, DARKC = 0x555c64, LIGHTC = 0x9fa8b0, VEST = 0x464c54, SKIN = 0x8a5c40, BOOT = 0x33373c;
+  const box = (w: number, h: number, d: number, c: number) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), M(c));
+    m.castShadow = true;
+    return m;
+  };
+  // a camo patch: a thin box sitting proud of the surface, facing the camera
+  // line — voxel camo without a texture
+  const patch = (parent: THREE.Object3D, w: number, h: number, x: number, y: number, z: number, c: number) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.02, h, w), new THREE.MeshStandardMaterial({ color: c, roughness: 0.95 }));
+    m.position.set(x, y, z);
+    parent.add(m);
+  };
+
+  const torso = box(0.4, 0.5, 0.52, BASE); torso.position.y = 1.28; body.add(torso);
+  patch(body, 0.14, 0.1, 0.21, 1.4, 0.12, DARKC);
+  patch(body, 0.1, 0.08, 0.21, 1.14, -0.1, LIGHTC);
+  patch(body, 0.12, 0.09, -0.21, 1.3, 0.05, DARKC);
+  const vest = box(0.44, 0.34, 0.56, VEST); vest.position.y = 1.33; body.add(vest);
+  for (const dz of [-0.16, 0, 0.16]) {
+    const pouch = box(0.09, 0.13, 0.12, DARKC); pouch.position.set(0.25, 1.28, dz); body.add(pouch);
+  }
+  const belt = box(0.44, 0.09, 0.58, VEST); belt.position.y = 1.0; body.add(belt);
+
+  const head = box(0.3, 0.3, 0.3, SKIN); head.position.y = 1.68; body.add(head);
+  for (const dz of [-0.07, 0.07]) {
+    const eye = box(0.03, 0.05, 0.05, 0x22262a); eye.position.set(0.16, 1.7, dz); body.add(eye);
+  }
+  const helm = box(0.38, 0.2, 0.44, BASE); helm.position.y = 1.9; body.add(helm);
+  const brim = box(0.42, 0.06, 0.48, DARKC); brim.position.set(0.02, 1.8, 0); body.add(brim);
+  const nvg = box(0.1, 0.1, 0.1, VEST); nvg.position.set(0.22, 1.92, 0); body.add(nvg);
+  const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.34, 4), M(0x2c3034, 0.5));
+  ant.position.set(-0.2, 2.0, -0.16); body.add(ant);
+
+  const mkArm = (dz: number): THREE.Group => {
+    const arm = new THREE.Group();
+    arm.position.set(0, 1.46, dz);
+    const up = box(0.14, 0.56, 0.16, BASE); up.position.y = -0.28; arm.add(up);
+    patch(arm, 0.09, 0.1, 0.08, -0.3, 0, DARKC);
+    const fist = box(0.17, 0.17, 0.17, 0x3a3f45); fist.position.y = -0.63; arm.add(fist);
+    body.add(arm);
+    return arm;
+  };
+  const mkLeg = (dz: number): THREE.Group => {
+    const leg = new THREE.Group();
+    leg.position.set(0, 0.85, dz);
+    const th = box(0.17, 0.68, 0.19, BASE); th.position.y = -0.36; leg.add(th);
+    const bt = box(0.19, 0.16, 0.3, BOOT); bt.position.set(0.04, -0.78, 0); leg.add(bt);
+    body.add(leg);
+    return leg;
+  };
+
+  const gun = new THREE.Group();
+  gun.add(makeRifle());
+  gun.position.set(0.22, 0.95, 0.4);
+  body.add(gun);
+
+  const rig: Rig = {
+    label, root, body, gun,
+    gunHome: { pos: gun.position.clone(), rot: gun.rotation.clone() },
+    blade: makeBlade(), ghosts: [], ghostGeo: new THREE.BoxGeometry(0.48, 1.6, 0.52),
+    armR: mkArm(0.34), armL: mkArm(-0.34), legR: mkLeg(0.14), legL: mkLeg(-0.14),
+  };
+  body.add(rig.blade);
+  rig.blade.position.set(0.4, 1.1, 0.5);
+  for (let i = 0; i < 3; i++) {
+    const ghost = new THREE.Mesh(rig.ghostGeo, new THREE.MeshBasicMaterial({ color: BASE, transparent: true, opacity: 0, depthWrite: false }));
+    ghost.position.y = 1.1;
+    root.add(ghost);
+    rig.ghosts.push(ghost);
+  }
+  return rig;
+}
+
 // ---------------------------------------------------------------------------
 // THE LINEUP
 // ---------------------------------------------------------------------------
-const PITCH = 6.5;
+const PITCH = 6;
 const rigs: Rig[] = [];
 const labels: { at: THREE.Vector3; el: HTMLDivElement }[] = [];
 const labelBox = document.getElementById('labels') as HTMLDivElement;
@@ -222,21 +383,30 @@ function addLabel(text: string, x: number) {
 
 // baseline: the current soldier, as shipped
 const current = buildSoldier(0, 'infantry', 'bot');
-current.position.set(-1.5 * PITCH, 0, 0);
+current.position.set(-2.5 * PITCH, 0, 0);
 current.rotation.y = Math.PI / 2; // face +Z so the lineup reads in profile
 scene.add(current);
-addLabel('CURRENT (baseline)', -1.5 * PITCH);
+addLabel('CURRENT (baseline)', -2.5 * PITCH);
+
+// Robert's two reference images, right beside the baseline they'd replace
+const refs: Rig[] = [papercraftRig('PAPERCRAFT (ref 1)'), voxelRig('VOXEL (ref 2)')];
+refs.forEach((rig, i) => {
+  rig.root.position.set((i - 1.5) * PITCH, 0, 0);
+  scene.add(rig.root);
+  rigs.push(rig);
+  addLabel(rig.label, (i - 1.5) * PITCH);
+});
 
 const specs: [string, 1 | 4 | 12][] = [['PILL — 1 shape', 1], ['PILL — 4 shapes', 4], ['PILL — 12 shapes', 12]];
 specs.forEach(([label, n], i) => {
   const rig = capsuleRig(label, n);
-  rig.root.position.set((i - 0.5) * PITCH, 0, 0);
+  rig.root.position.set((i + 0.5) * PITCH, 0, 0);
   scene.add(rig.root);
   rigs.push(rig);
-  addLabel(label, (i - 0.5) * PITCH);
+  addLabel(label, (i + 0.5) * PITCH);
 });
 
-camera.position.set(0, 7.2, 21);
+camera.position.set(0, 7.4, 25.5);
 camera.lookAt(0, 1.2, 0);
 
 // ---------------------------------------------------------------------------
@@ -317,6 +487,15 @@ function loop() {
         r.mittR.position.x = 0.2 + Math.sin(phase) * 0.12;       // gun hand rides near the grip
         r.mittL!.position.x = 0.1 - Math.sin(phase) * 0.26;      // off hand pumps the stride
       }
+      if (r.armR) {
+        // real limbs: anti-phase arm/leg swing (positive z-rotation carries a
+        // hanging limb toward +X, the travel direction)
+        const sw = Math.sin(phase);
+        r.armR!.rotation.z = -sw * 0.55;
+        r.armL!.rotation.z = sw * 0.55;
+        r.legR!.rotation.z = sw * 0.6;
+        r.legL!.rotation.z = -sw * 0.6;
+      }
     } else if (action === 'dash') {
       // DOUBLE-TAP LUNGE — 0.5s: hard lean, squash-and-stretch, ghosts, lines
       const k = Math.min(1, actionT / 0.5);
@@ -330,6 +509,13 @@ function loop() {
         const back = (i + 1) / (r.ghosts.length + 1);
         g.position.x = b.position.x - back * 2.1;
         (g.material as THREE.MeshBasicMaterial).opacity = Math.max(0, (0.34 - back * 0.09) * punch);
+      }
+      if (r.armR) {
+        // limbs sweep BACK — the body is a dart for half a second
+        r.armR!.rotation.z = -0.9 * punch;
+        r.armL!.rotation.z = -0.9 * punch;
+        r.legR!.rotation.z = -0.7 * punch;
+        r.legL!.rotation.z = -0.55 * punch;
       }
       if (punch > 0.25 && Math.random() < 0.5) {
         speedLine(new THREE.Vector3(r.root.position.x + b.position.x - 0.8, 0, r.root.position.z), 1);
@@ -351,6 +537,13 @@ function loop() {
         r.mittR.position.y = 1.35 - swing * 0.85;
         r.mittR.position.x = 0.1 + swing * 0.5;
       }
+      if (r.armR) {
+        // the right arm IS the axe: overhead wind, then the committed chop
+        r.armR!.rotation.z = 2.5 - swing * 3.1;
+        r.armL!.rotation.z = -0.4 * Math.sin(k * Math.PI); // counterweight
+        r.legR!.rotation.z = 0.3 * Math.sin(k * Math.PI);  // step into it
+        r.legL!.rotation.z = -0.3 * Math.sin(k * Math.PI);
+      }
       if (k >= 1 && !frozen) play('run');
     } else if (action === 'fly') {
       // THE JETPACK POSE — and the answer to "the gun sticks out when they
@@ -365,6 +558,13 @@ function loop() {
       if (r.mittR) {
         r.mittR.position.set(0.7, 1.1, 0.3);             // fists PUNCH the sky ahead
         r.mittL!.position.set(0.7, 1.1, -0.3);
+      }
+      if (r.armR) {
+        // superman: arms thrown far forward, legs trailing together
+        r.armR!.rotation.z = 2.6 * ease;
+        r.armL!.rotation.z = 2.6 * ease;
+        r.legR!.rotation.z = -0.35 * ease;
+        r.legL!.rotation.z = -0.35 * ease;
       }
       if (actionT > 2.2 && !frozen) play('run');
     }
