@@ -1,0 +1,158 @@
+# THE MASTER BACKLOG — the loop document
+### One file, everything owed. Audited against the code 2026-07-20 (39-item evidence sweep). Robert: "tell the loop don't stop until you've done everything on this document. And balanced it."
+
+---
+
+## THE LOOP PROTOCOL (read this first, every iteration)
+
+1. **Pick the FIRST unchecked `[ ]` item** top to bottom — waves are dependency-ordered.
+2. **Re-verify its premise.** The evidence pointers below were true on 2026-07-20; files drift. Grep before you cut.
+3. **Build it under repo law:** `docs/WAR.md` (war shape) · `docs/ASCENDANTS.md` (LSWs) · `docs/DESIGN-DIRECTIVE.md` (wide angle) · `.claude/skills/warworld-props` (any model) · `.claude/skills/warworld-weapons` / `warworld-vehicles` (armory/hulls) · sim stays deterministic (seeded RNG only, no Date.now in src/sim).
+4. **Gates — all green or the item is not done:** `npx tsc --noEmit` → `npx vitest run` → `npm run build`.
+5. **Verify ON SCREEN.** If it renders, screenshot it (Playwright; the preview pane throttles RAF — memory law). Sheets: `/armory.html` weapons · `/props.html` props · `/fx.html` blasts · `/harness.html` rigs/anims · live match via `window.__ww` (drive `world.step` + `renderer.update` in one sync eval). File proof in `docs/reference/`.
+6. **Balance pass** whenever the item touches combat numbers: `tests/range.test.ts` + `tests/expansion.test.ts` must hold their laws (range bands are LAW; ≤260 burst DPS, ≤130 range, ≤5s reload; **marks are SIDEGRADES — no mark strictly better**), then run a 2-minute bot match and eyeball the K/D spread + blackbox (`__ww.blackbox('report')`). Log one line of what you saw.
+7. **Check the box** with the commit hash + one line of proof. One commit per item minimum. Do not batch unrelated items into one commit.
+8. **NEVER:** push unasked · touch GravWarden · purple anywhere · break the 8-joint rig contract casually (evolving it is Wave 6's job, done deliberately with `tests/rig.test.ts`) · `git add -A` (stage by name).
+9. **STOP** only when every box is checked, or every remaining item is tagged `[DECISION]` (a call only Robert can make — tag it, skip it, keep moving).
+
+**Status legend:** each item lists AUDIT: what the 2026-07-20 sweep found, with pointers.
+
+---
+
+## ALREADY DONE — do not redo (the audit's good news)
+
+These were suspected missing but are SHIPPED and pinned; the loop skips them:
+
+- **Crouch/duck** end-to-end on **C** (hold = stance, half speed) — `input.ts:175`, `world.ts:1897,2193`
+- **Grass concealment** — tall grass caps enemy sight to 14u, 9u when ducked, bots respect it, muzzle flash reveals honestly — `perception.ts:95-101`, `bots.ts:344-352`; crouching visually sinks below the blades — `renderer.ts:1579`
+- **Trees exist** (procedural + 4 GLB swaps, forest regions, indoor prune) — `props.ts:206`, `map.ts:601`
+- **Water is real** (wade 0.55×, swim 0.38×, deep water disarms, boats) and **ice exists as a surface** (Triton theme + frozen scar, vehicle traction 0.85/0.9) — `world.ts:2976`, `map.ts:61`
+- **Blood-past-armor / sparks-off-plate** fully wired (`bare` flag on hit events) — `world.ts:4008`, `renderer.ts:3536-3570`
+- **Training rounds are non-lethal to architecture** (the paintball-wrecks-the-yard bug is FIXED) — `types.ts:72-86`, `world.ts:3944,4226`
+- **Air war J1**: Q/E discrete bands (0-3, jets own 3, rotors cap 2), afterburner on sprint (energy-drained), belly MG, missiles outrun jets (`airScaled`), SAM 0.92× ratio — `world.ts:1970-1995,3502`, `tests/airwar.test.ts`
+- **The Kestrel IS the helicopter** (band-2 rotor hull, spool-up, named rotor pods) — `data.ts:257`
+- **Flares v. heat-seekers** full loop, bots pop them too — `world.ts:2820-2839`, `bots.ts:947-967`
+- **Hoverboard drift** (`slip` dial, forward keeps authority, lateral bleeds; surfer leans) — `world.ts:3526`, `tests/hoverboard.test.ts`
+- **Death frees the seat** ("a ghost may not hold a chair") — `world.ts:4409`, pinned by test
+- **Crew dots + walk-up occupancy prompt** — `hud.ts:209-226,314-324`
+- **Underfunded victory + morale banking (B1)** — `world.ts:458-472`, `modes.ts:241-255`, `tests/warledger.test.ts`
+- **The Front Courier newspaper (N1)** HTML edition + 12-issue archive — `newspaper.ts`
+- **Death cam contains the death** with hit-stop curve + duel framing (c95c707) — `replay.ts:38-54`
+- **Death knockback is per-weapon-family already** (laser drops you where you stand, shotgun launches, splash tumbles) — `world.ts:92-112`
+- **HUD meters mostly live**: health ring + hp/armor/energy numbers, stamina/energy bar with regen + spend-flash, vehicle hull bar + ENG/WPN/SEN/ECM/COM pips, infantry reload bar, LSW cooldown meter — `hud.ts:122-294`
+- **THE ARMORY MADE FLESH (this session, 80b26f0)**: every weapon family has a real model; brands change the silhouette, marks band the barrel; soldiers carry the exact equipped gun and rebuild on switch; `/armory.html` contact sheet; budget/purple/facing tests
+
+---
+
+## WAVE 1 — COMBAT FEEL CORE (the ring, the ladder, the hands)
+
+- [ ] **1.1 The accuracy ladder — one function, one truth.** Add a `spreadMul(soldier)` in the sim used by EVERY soldier fire path (`world.ts:2629` is the choke point — vehicles/turrets excluded). Locked numbers: crouched+still ×0.49 · standing still ×0.75 · walking ×1.0 (today's baseline) · sprint ×1.7 · airborne/jetpack ×1.8 on top · firing from a moving vehicle seat ×2.2 scaled by hull speed (lands with 5.4). Bots get it automatically (fairness law). AUDIT: MISSING — spread is a flat weapon stat, nothing reads mover state (`world.ts:2629`). Balance pass mandatory (sniper crouch-camp meta check: one bot match, watch infiltrator K/D).
+- [ ] **1.2 The aim ring.** Two bracket arcs orbiting the LOCAL player at ~1.7u (just outside the health ring), centered on aim direction, chevron at the exact aim point; **the gap between brackets IS the live cone from 1.1** — computed from the same `spreadMul` function, never a HUD copy (the ring must not lie). Local player only. Uniform across weapons (no special cases — flamethrower gets the same ring). AUDIT: MISSING — no aim indicator exists (`hud.ts`, `renderer.ts` swept). Verify: screenshot still vs sprint vs crouch — three visibly different gaps.
+- [ ] **1.3 Spacebar: tap = jump, hold = duck.** Rebind: tap space (<0.18s) → jump/jetpack pulse; hold space → crouch (the shipped C stance); C stays as a fallback. The duck-under-a-shot moment is the point — stance must apply the same tick the hold threshold trips, and ducking must drop the hit silhouette (crouch already sinks the body below grass; confirm the sim hit cylinder shortens too, or add it). AUDIT: PARTIAL — full crouch exists on C (`input.ts:175`), no tap-vs-hold logic. [DECISION-lite: if the jump delay feels bad in playtest, report the feel and keep C-crouch primary — but build it first, Robert asked to try it.]
+- [ ] **1.4 Ballistic falloff — bullets get tired.** Bullets/pellets: full damage to ~70% of range, sliding to 50% damage across the tail as the round visibly slows, then culled at range. Shotgun: steeper curve. Lasers/rail: **exempt — no drop is their identity.** Arc weapons exempt (splash already falls off). Implement on the projectile hit path (`world.ts:4013` has no distance term; spawn distance is derivable from `p` origin). Pin with a test beside `tests/range.test.ts`. Balance pass mandatory (long-band weapons must keep their identity — HMG at 64u should still bite).
+- [ ] **1.5 The ragdoll threshold moves to where pushes happen.** `RAGDOLL_AT=16` lives only inside `explode()` (`world.ts:4191`) — Titan's 40u slam, Crusher's 30u, tethers, sonic shoves can never ragdoll anyone. Extract an `applyKnockback(target, mag, dir)` helper that sets `ragdollUntil` past threshold and route ALL push sites through it (direct hits `:3977`, melee `:2614`, tether `:4034`, every LSW power). One helper fixes 17 sites. Verify in harness: sonic + Titan slam ragdolls on screen.
+- [ ] **1.6 Tank fires, tank rocks.** Client-only hull feel: on cannon fire shove the HULL mesh opposite the barrel (~0.22u), 2° pitch rock, spring-settle over ~0.45s; barrel recoil already exists (`renderer.ts:1862` `gunRecoil`); this adds the body. No sim change. Verify: harness or live match screenshot mid-recoil.
+- [ ] **1.7 HUD completions — the three missing readouts.** (a) Vehicle weapon readiness: the seated gunner/driver gets a recharge arc reading `v.nextFireAt` (the reload bar is explicitly hidden in the vehicle branch, `hud.ts:191`); (b) flares-remaining counter for pilots (sim tracks it, HUD doesn't); (c) altitude band indicator for aircraft (sim `v.band` exists, `hud.ts` never reads it — show `ALT 2/3` + minimap air-marker ring per band). AUDIT: PARTIAL (`hud.ts:177-227`).
+
+## WAVE 2 — THE DEATH SHOW (director, bodies, gore)
+
+- [ ] **2.1 The death cam DIRECTOR.** The straddle + hit-stop + duel framing shipped (c95c707) as ONE presentation. Build the branch table reading the death's data (weapon family, range, overkill, killer streak, time-since-spawn — most already on the death event): long range (>55u) → **Ride the Round** (camera flies the shot line muzzle→chest; cheap for hitscan); laser/rail → **The Autopsy** (hard freeze at impact, shot line drawn in world space, range/weapon/shooter card — the terminal-UI one, most distinctive); explosion/vehicle → **The Wide** (pull back, watch the blast take you); spawn-kill (<3s alive) → quick cut, no celebration; default → the shipped straddle. Rotation-seeded so same category still varies. Every one skippable. `replay.ts:202-267` is the state machine to branch.
+- [ ] **2.2 Deaths differ by weapon — the collapse itself.** Knockback already varies (shipped); the ANIMATION is one uniform flop (`renderer.ts:2764-2803` takes no weapon input). Add collapse variants keyed off the killing weapon on the death event: fire → drop to knees, keep burning, then fold; melee → half-spin; laser → straight-down fold (no stagger); bullet → stagger along the shot line. Client-side pose layering on the existing ragdoll.
+- [ ] **2.3 The cheap 80% gore pass.** No dismemberment system — limbs are named groups: on overkill (sim already computes it) + explosive/heavy kills, HIDE torso/head/arm groups, spawn 2-3 tumbling chunk meshes + a legs-stand-then-topple beat. Gate: explosives/overkill only, respect the blood setting. AUDIT: no gib code exists anywhere (grep clean).
+- [ ] **2.4 Corpses linger, decals fade.** RESPAWN_DELAY corpse vanish (~4s) → keep bodies 20-30s (client-side corpse cache after sim forgets; cap ~40 bodies, oldest out). Decals: pool is 900 shared slots with instant pop-out eviction and shared fixed-opacity materials (`renderer.ts:504-525`) — evicted decals should FADE (needs per-decal opacity, so clone material on the last N before eviction or move to instanced alpha) and blood should outlive pocks (weight the FIFO by type). A battlefield should look fought-on.
+- [ ] **2.5 A KILL cam, not just a death cam.** A great kill (≥55u, or 3+ multi within 4s, or last-stand) earns the KILLER a 1.5s cut on a rotation budget (max one per 45s, never mid-firefight — queue it to the next quiet 2s or the respawn wait). Same replay machinery, killer-facing trigger path (today's trigger is victim-only, `replay.ts:238`). AUDIT: MISSING.
+
+## WAVE 3 — THE WAR (docs/WAR.md is the law; these are its build steps)
+
+- [ ] **3.1 Kill the time-skip.** DELETE `simulateTimeSkip` (`campaign.ts:219-251`), its import (`main.ts:24`), its call (`main.ts:954`), and the `simulated` dispatch flag + rendering (`main.ts:986`). The rule that replaces it: no battle, no movement. AUDIT: still fully present and called on every boot. The easiest item in this file — do it first in this wave.
+- [ ] **3.2 The 3×3 war board.** Re-cut the ten-front Living Campaign to WAR.md §1: three fronts × three passes, win all three thrice (~9 matches). The board is a 3×3 grid of front-flags on the MAP tab — one glance = the whole war. Keep the control-band machinery (`campaign.ts` bands/scars survive; the FRONTS table shrinks to 3 with pass state added to the Campaign shape). Migration: old saves get a fresh war (season v2 key).
+- [ ] **3.3 Clones are the currency.** WAR.md §3: per-front clone reserves; every death burns one from its front's stock; **a front whose reserve hits 0 is LOST until clones are reinvested** (the fail state — winning means nothing if losing is impossible); crashing/losing a full transport burns every clone aboard (pilots get careful); the scoreboard footer splits **FLESH vs CHROME** losses (detail #6). The B1 warLedger (`world.ts:466`) is the accounting rail to extend — it counts materiel today, never lives. Surface the reserve on the war board + a REPRINTS ticker at base.
+- [ ] **3.4 Pass escalation through the gods.** Pass 1: no LSWs either side. Pass 2: ENEMY fields LSWs, you cannot (the pass that hurts — science missions are the answer). Pass 3: both stables open. Gate the officer commission + bot LSW-caller by campaign pass (LSW access today is purse+commission only, `stable.ts:15`, `world.ts:549`). The two names law: one faction says "gods", the other "living super weapons" — every UI string faction-checks (LORE.md).
+- [ ] **3.5 Science missions v1.** Hotline-Miami-tight side missions off the war clock: small map (the `skirmish.ts` mission-grounds builder is the substrate — "rules land later" is this item), instant restart, one objective. Launch set (one per category): ASSASSINATE the officer guarding an LSW program (unlocks pass-2 access early) · STEAL a clone stockpile (+N to a front's reserve) · DENY a front's reinforcements (enemy fights next battle at −20% materiel) · INTEL: see the enemy roster before next deploy. Rewards must be war-legible — they move a number already on the war board. Generated briefing-card art. The effect CATALOG grows toward Robert's 50 (categories: clones / tech / LSW rights / logistics / intel — 20 listed in WAR.md §5; extend there).
+- [ ] **3.6 Class change by request.** In-war class swap is a REQUEST to the faction leader AI, ruled on by what the war needs (team composition heuristic): "Request denied. We have enough snipers. We need medics." Approve → next deploy unlocks it. Cheap, huge fantasy. AUDIT: MISSING (lobby free-pick today, `main.ts:508`).
+- [ ] **3.7 The leaders.** One authored character per faction — same pair every war (WAR.md: real personality, science missions remember them). Write both (name, voice, 15-20 lines each: campaign beats, class-change rulings, pass-2 fear, pass-3 pride), voice via the `expressive-tts` skill + radio filter, play at deploy/pass-flip/front-lost. AUDIT: MISSING — no leader exists in code.
+- [ ] **3.8 Bots are robots — make it visible.** Chrome dress for `kind==='bot'` teammates: gunmetal skin swap, a small frame/antenna tell, no skin tone — silhouette-readable subordination (humans outrank machines on sight). The Iron Eaters stay the ENEMY machine race; teammate chrome must read allied (team trim). Touches the faction-identity test (UF shows skin — carve a bot exemption deliberately). Plus detail #4: robot boarding chatter lines.
+- [ ] **3.9 Rank on the shoulder.** The dossier rank ladder exists (`record.ts:51`); nothing in-match shows it. Add shoulder chevrons (1-3 bars by rank band) on the soldier model + rank chip on the nameplate + scoreboard column. AUDIT: MISSING in-match.
+- [ ] **3.10 Iron Eaters finished.** Weaver and ravager currently fall through to generic zombie chase (`bots.ts:1677-1708` gives scraprat/junkhound signatures only); give both their signature behavior (weaver: webs/wire that slow, ravager: charge-and-latch hull-eater), name them player-facing (Codex THREATS + announcer), and keep them horde-only. "Easily take out robots and zombies" — they're readable, killable content, not bullet sponges.
+
+## WAVE 4 — THE PRESS (the war talks back)
+
+- [ ] **4.1 AI-painted front pages.** Robert: generate the newspaper AS AN IMAGE (gpt-image-class model, very cheap) — reference image + "what it should say" prompt per issue; trigger on battle end AND on war-front change; the HTML Courier (shipped) stays as the offline/instant fallback while the image loads/fails. Pipeline: `D:/git/mkm/ad-lab/scripts/generate-image.js` pattern (or direct API) with the masthead reference in `docs/reference/`; cache per issue in the archive. [DECISION: which key/model — check `.env` for what's already funded; OPENAI key → gpt-image-1 low quality tier is the cheap one Robert means.]
+- [ ] **4.2 News TV, tier 1 (offline-honest).** ~25s broadcast at base before deploy, always skippable: authored anchor VO beds ("Tonight, from the northern front—") + lower-third ticker carrying the SPECIFICS as text (your callsign, the 94u shot, the front flip — TV grammar solves no-TTS-for-names). Blackbox supplies the facts. Faction-slanted: two channels, same battle, opposite spin. Tier 2 (LLM writes script + fresh TTS when a key exists) comes later; do not block on it. Physical TV prop in the HQ when the town exists (the Law demands the world teach it).
+- [ ] **4.3 The Corrections Box** (detail #9). Next issue corrects the last with deadpan regret ("The crew has been reprinted. We regret the optimism."). Rides `loadPress` archive — pure copywriting + one template pass.
+
+## WAVE 5 — AIR & ARMOR COMPLETIONS
+
+- [ ] **5.1 Aircraft crash.** The `flies` flag skips collision entirely (`world.ts:3553` "flyers soar over everything"). Band 0-1 flight checks building/terrain forward collision → crash damage scaled by speed (afterburner crashes are fatal), hull wreck + fireball; bands 2-3 clear everything by definition. Storm-grounded flyers already use ground collision — extend, add damage. THE cheapest big win on the air list, and it makes clone-costs bite (3.3).
+- [ ] **5.2 Map wraparound for aircraft.** Fly off one edge, come in the other (aircraft only; the border clamp at `world.ts:3593` stays for ground). Solve the two fights it picks: minimap draw (wrap the marker) and the nothing-escapes-the-world tests (carve an aircraft exemption deliberately).
+- [ ] **5.3 AA respects the bands.** WAR.md air rules: AA reaches band 2 but NOT band 3 (jets sanctuary up high, dive to strike); drones/hoverboard own band 1. Today SAM/hull locks are pure 2D range (`world.ts:2721-2786`, band-blind — audit A1). Add band checks to lock paths + Codex note. Balance pass: bot jets must still die sometimes (watch a match).
+- [ ] **5.4 Drive-by shooting.** Passengers (not driver/gunner) fire their PERSONAL weapon from the bay: seated fire path routes to `fireWeapon` with the 1.1 vehicle multiplier (×2.2 scaled by speed) — the aim ring blooms huge in a moving car and tightens when it slows: the action-hero read. The Pike's "marines shoot from the deck" comment becomes true. AUDIT: MISSING — seated fire never reaches fireWeapon (`world.ts:1966-2096`).
+- [ ] **5.5 Cars that handle like cars.** The hoverboard `slip` dial is generic in `stepVehicle` — give wheeled hulls a small base slip (0.4?) + HANDBRAKE input (hold = slip cranks to ~3.5, regrip on release): hook slides. Buggy/bike first, keep tank tracked-stiff. Pinned test updates (`hoverboard.test.ts:46` pins wheeled slip=undefined — evolve deliberately). Pair with 5.4 for the full drive-by fantasy.
+- [ ] **5.6 Seat yield + diegetic hatches.** (a) A bot yields its seat to a human walking up (drops to next free seat or dismounts — no more losing your turret to a machine); (b) per-hatch entry: approach a hull and its stations light in place (DRIVER hatch / GUNNER ring / BAY door brackets at their world positions), stand near the one you want, E takes THAT seat (today: one generic E, first-free-seat assignment `world.ts:3284`). The Law: a seat is chosen by walking to its hatch, not from a list.
+
+## WAVE 6 — THE SOLDIER (papercraft adoption — the four moves, in order)
+
+- [ ] **6.1 Port the papercraft proportions.** The lab body (`stylelab.ts:384-434`: torso 0.36×0.52×0.46, bare 0.30 head, narrow shoulders, long-not-wide boots, bent-knee rest) into `buildTrooper` (or a successor builder switched per team). Keep faction identity law intact (UF skin, Collective sealed). Verify: harness Stage silhouette side-by-side, then live match.
+- [ ] **6.2 Elbows join the law.** Name the forearm groups (`foreR`/`foreL` are unnamed at `soldiers.ts:969,994`), add them to `JOINT_NAMES`, and evolve `tests/rig.test.ts` 8→10 deliberately (rig-contract surgery, one commit, test updated in the same breath).
+- [ ] **6.3 The HOLDS table comes home.** Port the lab's per-weapon idle+run HoldPose table (`stylelab.ts:214-271`, including Robert's pasted gizmo numbers — rifle run `[0.131,-0.0576,0]` rotZ −1.32, pistol seat, off-hand shoulder) into `animation.ts` keyed by sim family, switching on the renderer's existing `running` flag; the old additive WEAPON_HOLDS becomes the fallback for families the lab never posed. Elbows (6.2) now animate per-frame.
+- [ ] **6.4 The wrist mount + live off-hand.** Reparent guns into a wrist mount (lab pattern), add shoulder mount (launchers) + back stow (flight/roll/melee), and run `solveLeftArm` per frame in `animateSoldier` (today: one-time build solve). The armory models (shipped) already carry per-gun anchors — the wrist mount consumes them.
+
+## WAVE 7 — WORLD MATERIALS (finish the fold)
+
+- [ ] **7.1 The SURF fold.** `materialForSurface` has ZERO callers; movement still reads legacy `SURF_*` tables (`map.ts:68`, `world.ts:2175,3477`). Fold: materials table becomes the one movement source (walk/wheels/tracks per material), delete the legacy tables, pin with a test. (Memory: materials-system — this is the standing Phase 2.)
+- [ ] **7.2 Ice is SLICK.** First consumer of the fold: `slick` materials give soldiers momentum carry (velocity blend ~0.86 instead of instant redirect) and vehicles a slip bump — Triton battles and frozen-scar fronts suddenly play different. The flag is dead data today (audit C5). Verify on a Triton map live.
+- [ ] **7.3 Fire wants wood.** The `flammable` field is declared, never consumed (`world.ts:3949` "wires here when the fire system lands"). Minimal fire system: phosphorus/flamer hits on flammable tiles ignite (spreading tile fire, 6-10s burn, damages occupants, chars the tile), wood houses become the tactical torch job. Cap concurrent fire tiles (determinism + perf). Balance pass mandatory.
+- [ ] **7.4 Impact VFX per material.** `ImpactKind` is read only by the drill-face sparks. Route bullet-impact events through the material's impact kind: spark on metal, chips on stone, splinters on wood, puff on dirt. The world tells you what you hit before you read the HUD.
+
+## WAVE 8 — PERFORMANCE & NETWORK (execute the audit)
+
+- [ ] **8.1 Execute `docs/OPTIMIZATION-AUDIT.md`** (written by the 2026-07-20 verified sweep): every HIGH item, then MEDIUMs, one commit each, re-profiling after each (the doc carries the numbers + the netcode plan). Low-end target: a QUALITY LOW preset (resolution scale, shadows off, decal/particle caps, band-reduced draw) selectable in settings and auto-suggested on slow first frames.
+- [ ] **8.2 The netcode prerequisite refactors** from the audit's plan (determinism hazards, client-reaching-into-sim seams, snapshot size) — land them while they're cheap, BEFORE the war grows further. The sim already serializes whole-world snapshots for the kill cam; that's the seed.
+
+## WAVE 9 — MEMORABLE DETAILS (the 20 — small, in the fiction's voice)
+
+Full specs with hooks: the table below is the shopping list; S = under an hour. Build order = delight-per-effort. **9.1 (#1 Print Number), 9.2 (#3 HR streak notices), 9.3 (#6 Flesh/Chrome ledger), 9.4 (#11 Weather desk) land first** — they're S-tier copywriting on shipped machinery. (#13 horns note: cosmetic event for future LAN.)
+
+- [ ] **9.1** #1 Print Number — "REPRINTED — PRINT 4 OF [CALLSIGN]" (`hud.ts:702` site + death counter)
+- [ ] **9.2** #3 HR Has Been Informed — streak calls as payroll notices (announce lines)
+- [ ] **9.3** #6 Flesh vs Chrome Ledger — scoreboard casualty split (pairs with 3.3/3.8)
+- [ ] **9.4** #11 Deadpan Weather Desk — "SNOWSTORM. AIR ASSETS HAVE ELECTED TO LIVE."
+- [ ] **9.5** #2 Reprint Raster — printer-sweep respawn materialize (`spawnBlinkGhost` new style)
+- [ ] **9.6** #8 Death Constellation — your deaths as dim ×s on the minimap
+- [ ] **9.7** #10 Cause of Death: Everything — career pane deadpan autopsy line (blackbox)
+- [ ] **9.8** #14 Print Lineage — "Print 4 avenged Print 3" journal lines
+- [ ] **9.9** #12 The Rubber Stamp — medals thunk+wobble onto the dossier
+- [ ] **9.10** #15 Afterburner Autographs — burner scorch smudges on runways
+- [ ] **9.11** #13 Vehicle Horns — H per hull; bots occasionally honk back
+- [ ] **9.12** #9 Corrections Box (= item 4.3; check both together)
+- [ ] **9.13** #7 The Whip-Crack — near-miss supersonic snap (voice-capped)
+- [ ] **9.14** #5 Pet the Dog — K9 MORALE: +0 (UNQUANTIFIABLE)
+- [ ] **9.15** #16 Killer's Service Card — killcam footer: chrome service years vs your print number
+- [ ] **9.16** #17 The Bay Keeps Score — reprint tally stenciled on the clone bay
+- [ ] **9.17** #18 Your Name on the Hull — requisition stencils, strike-through on recovery
+- [ ] **9.18** #19 Last Man Listening — last living human thins the mix
+- [ ] **9.19** #20 Walk Out of the Printer — respawn inside the bay, doors part (SIM — full ritual)
+
+## FIXES (bugs the audit confirmed — fold into the nearest wave's session)
+
+- [ ] **F.1 Boot camp prey bug.** Round-2 prey selection counts the 3 ring dummies as real people → player is hunter twice and the personality read falls through to the engineer default. Fix: `humansAndBots()` (`world.ts:4654`) or `stepPaintball`'s count (`modes.ts:129`) must exclude `s.dummy`. Then verify the yard-reads-your-file screen shows a non-default read.
+- [ ] **F.2 Vehicle armament visuals are hand-coupled.** `buildVehicle` never reads `VEHICLES[kind].weapon` — an armament change silently keeps the old barrel. Cheap guard: a test asserting each hull's visual tell matches its def's weapon class (or wire the read). Matters the day tank VARIANTS land (science tech, Robert's "tanks that don't shoot what tanks shoot").
+- [ ] **F.3 smg/scatter/sonic/flamethrower/artillery have no WEAPON_HOLDS entry** — they fall back to the rifle hold (`renderer.ts:3053`). Add the five poses (hip-brace for scatter/flamer, high-carry sonic, artillery shoulder-set). Quick until 6.3 replaces the table wholesale — skip if Wave 6 lands first.
+
+---
+
+## THE DECISION DESK (Robert-only calls the loop must NOT make)
+
+- **4.1** which image API/key funds the AI newspaper (and how cheap is cheap enough per issue)
+- **3.2** exact three fronts kept for the 3×3 (names/themes/modes of the trio — pick from the shipped ten)
+- **3.7** leader names/personalities sign-off before voicing (script draft is loop work; the VOICE is a call)
+- **1.3** if tap-to-jump feels laggy in playtest: keep or revert (build first, then judge)
+- **Trees/level-3+ buildings**: explicitly DEFERRED by Robert (trees exist; 3+ storeys needs a new layer system — not on this board)
+- **Mobile/touch**: parked until after the war ships (docs/MOBILE-FEASIBILITY.md exists)
+
+## LOOP HYGIENE
+
+- The war docs are law: change of war shape → update `docs/WAR.md` in the same commit.
+- New systems get a docs section or a skill note; new models get sheet proof in `docs/reference/`.
+- Push policy: commits stay local; push only when Robert says (last sync: this session).
+- If a wave item balloons past ~2 sessions, split it: land the verified half, re-list the rest here.
