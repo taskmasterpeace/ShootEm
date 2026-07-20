@@ -28,7 +28,7 @@ import { JOINT_NAMES, poseSoldierJoints, type Joints } from './animation';
 import { buildSoldier } from './models/soldiers';
 
 type ActionId = 'run' | 'dash' | 'slash' | 'fly' | 'roll';
-type GunId = 'rifle' | 'shotgun';
+type GunId = 'rifle' | 'smg' | 'shotgun' | 'pistol' | 'launcher' | 'rail' | 'flamer';
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x8fa4b4);
@@ -76,6 +76,100 @@ function makeRifle(): THREE.Group {
   g.add(body, barrel, mag);
   return g;
 }
+/** tiny L: slide over grip — reads as a pistol from any distance */
+function makePistol(): THREE.Group {
+  const g = new THREE.Group();
+  const slide = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.09, 0.07), M(STEEL, 0.4));
+  slide.position.set(0.06, 0.03, 0);
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.17, 0.07), M(DARK, 0.6));
+  grip.position.set(-0.05, -0.09, 0); grip.rotation.z = 0.2;
+  g.add(slide, grip);
+  return g;
+}
+function makeSmg(): THREE.Group {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.13, 0.1), M(DARK, 0.55));
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.2, 6), M(STEEL, 0.4));
+  barrel.rotation.z = Math.PI / 2; barrel.position.x = 0.3;
+  const mag = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.2, 0.07), M(DARK, 0.6));
+  mag.position.set(0.1, -0.15, 0); mag.rotation.z = 0.12;
+  g.add(body, barrel, mag);
+  return g;
+}
+/** the MML: a fat tube that lives ON the shoulder */
+function makeLauncher(): THREE.Group {
+  const g = new THREE.Group();
+  const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.1, 0.95, 8), M(0x5a6248, 0.8));
+  tube.rotation.z = Math.PI / 2;
+  const ringF = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.06, 8), M(DARK, 0.6));
+  ringF.rotation.z = Math.PI / 2; ringF.position.x = 0.42;
+  const ringB = ringF.clone(); ringB.position.x = -0.42;
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.16, 0.07), M(DARK, 0.6));
+  grip.position.set(0.16, -0.16, 0);
+  g.add(tube, ringF, ringB, grip);
+  return g;
+}
+/** the RG-2: all barrel, a scope riding the spine */
+function makeRail(): THREE.Group {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.12, 0.09), M(DARK, 0.55));
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.85, 6), M(STEEL, 0.35));
+  barrel.rotation.z = Math.PI / 2; barrel.position.x = 0.55;
+  const scope = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.06, 0.05), M(0x2c3034, 0.4));
+  scope.position.set(0.02, 0.1, 0);
+  const stock = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.14, 0.08), M(0x4a4238, 0.8));
+  stock.position.x = -0.26;
+  g.add(body, barrel, scope, stock);
+  return g;
+}
+/** the burner: tube, under-slung fuel bottle, pilot light always on */
+function makeFlamer(): THREE.Group {
+  const g = new THREE.Group();
+  const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.55, 7), M(0x4a4f55, 0.5));
+  tube.rotation.z = Math.PI / 2; tube.position.x = 0.1;
+  const bell = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.14, 7), M(STEEL, 0.4));
+  bell.rotation.z = -Math.PI / 2; bell.position.x = 0.44;
+  const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.3, 8), M(0x8a3b2a, 0.6));
+  tank.rotation.z = Math.PI / 2; tank.position.set(-0.1, -0.13, 0);
+  const pilot = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 5), new THREE.MeshBasicMaterial({ color: 0xffa02a }));
+  pilot.position.set(0.5, 0.02, 0);
+  g.add(tube, bell, tank, pilot);
+  return g;
+}
+
+const BUILD_GUN: Record<GunId, () => THREE.Group> = {
+  rifle: makeRifle, smg: makeSmg, shotgun: makeShotgun, pistol: makePistol,
+  launcher: makeLauncher, rail: makeRail, flamer: makeFlamer,
+};
+
+/** HOW A HUMAN HOLDS EACH ONE (Robert: "I wanna see how you hold the shotgun…
+ *  a pistol… all of the ones"). Mirrors the game's own WEAPON_HOLDS
+ *  archetypes: isosceles pistol, shouldered launcher, long low-ready rail,
+ *  hip-braced flamer. Numbers are gun transform + arm/elbow pose + mitt
+ *  anchors, applied as the per-frame baseline for every armed body. */
+interface HoldDef {
+  gun: [number, number, number];
+  gunRotZ: number;
+  armR: [number, number]; elbowR: number;   // [rotX, rotZ] + elbow bend
+  armL: [number, number]; elbowL: number;
+  mittR: [number, number, number];
+  mittL: [number, number, number];
+}
+const HOLDS: Record<GunId, HoldDef> = {
+  rifle:    { gun: [0.3, 1.14, 0.33],  gunRotZ: -0.06, armR: [0, 0.35],  elbowR: 1.1,  armL: [0.62, 0.5],  elbowL: 0.95, mittR: [0.06, 1.05, 0.5],  mittL: [0.5, 1.08, 0.5] },
+  smg:      { gun: [0.26, 1.18, 0.33], gunRotZ: -0.04, armR: [0, 0.3],   elbowR: 1.25, armL: [0.6, 0.45],  elbowL: 1.1,  mittR: [0.08, 1.1, 0.5],   mittL: [0.42, 1.12, 0.5] },
+  // low and level, off-hand way out on the pump
+  shotgun:  { gun: [0.32, 1.02, 0.34], gunRotZ: -0.1,  armR: [0, 0.3],   elbowR: 0.85, armL: [0.66, 0.75], elbowL: 0.6,  mittR: [0.04, 0.96, 0.5],  mittL: [0.58, 0.98, 0.5] },
+  // isosceles: the whole right arm extends; the pistol lives at eye line
+  pistol:   { gun: [0.62, 1.32, 0.34], gunRotZ: 0,     armR: [0, 1.45],  elbowR: 0.12, armL: [0.35, 1.2],  elbowL: 0.5,  mittR: [0.56, 1.3, 0.4],   mittL: [0.44, 1.22, 0.44] },
+  // the tube rides the SHOULDER
+  launcher: { gun: [0.12, 1.52, 0.3],  gunRotZ: 0.04,  armR: [0, 0.9],   elbowR: 1.5,  armL: [0.5, 0.7],   elbowL: 1.2,  mittR: [0.3, 1.45, 0.4],   mittL: [0.05, 1.32, 0.42] },
+  // long low-ready: muzzle dipped, both hands far apart
+  rail:     { gun: [0.36, 1.08, 0.33], gunRotZ: -0.14, armR: [0, 0.25],  elbowR: 0.9,  armL: [0.6, 0.62],  elbowL: 0.7,  mittR: [0.02, 1.0, 0.48],  mittL: [0.62, 0.96, 0.48] },
+  // hip-braced, wide grip — the weight is real
+  flamer:   { gun: [0.3, 0.98, 0.36],  gunRotZ: 0.02,  armR: [0, 0.4],   elbowR: 0.9,  armL: [0.65, 0.55], elbowL: 0.8,  mittR: [0.05, 0.95, 0.5],  mittL: [0.5, 0.95, 0.5] },
+};
+
 function makeShotgun(): THREE.Group {
   // FAT AND SHORT — you should know it's a shotgun from the ceiling
   const g = new THREE.Group();
@@ -134,7 +228,7 @@ function makeBlade(): THREE.Mesh {
   return m;
 }
 
-function capsuleRig(label: string, shapes: 1 | 4 | 12): Rig {
+function capsuleRig(label: string, shapes: 1 | 4 | 12, dress?: FactionDress): Rig {
   const root = new THREE.Group();
   const body = new THREE.Group();
   root.add(body);
@@ -142,10 +236,24 @@ function capsuleRig(label: string, shapes: 1 | 4 | 12): Rig {
   // THE PILL. One capsule IS the soldier. Radius/length tuned so the whole
   // body stands ~1.7u — same read as a trooper at command zoom.
   const capGeo = new THREE.CapsuleGeometry(0.42, 0.72, 6, 12);
-  const cap = new THREE.Mesh(capGeo, M(TEAM));
+  const cap = new THREE.Mesh(capGeo, M(dress ? dress.jacket : TEAM));
   cap.castShadow = true;
   cap.position.y = 0.86;
   body.add(cap);
+  if (dress) {
+    // faction belt — the accent as a ring you read from every angle
+    const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.435, 0.435, 0.07, 14), M(dress.accent, 0.6));
+    belt.position.y = 0.98;
+    body.add(belt);
+    // camo plates sunk into the shell
+    for (const [px, py, pz, c] of [
+      [0.28, 1.15, 0.25, dress.camoA], [0.3, 0.72, -0.2, dress.camoB], [-0.3, 1.0, 0.18, dress.camoA],
+    ] as const) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.12, 0.16), M(c, 0.95));
+      m.position.set(px, py, pz);
+      body.add(m);
+    }
+  }
 
   const gun = new THREE.Group();
   gun.add(makeRifle());
@@ -230,11 +338,22 @@ function capsuleRig(label: string, shapes: 1 | 4 | 12): Rig {
  *  with a flared hem, SEGMENTED limbs with visible cuts at every joint, dark
  *  trousers, boots. The whole idea of this body is that it is made of joints —
  *  so it gets real shoulder and hip pivots and earns the full move set. */
-function papercraftRig(label: string): Rig {
+interface FactionDress {
+  jacket: number; trouser: number; camoA: number; camoB: number; accent: number;
+}
+// THE FACTION QUESTION (Robert: "red versus blue? camouflage green versus
+// camouflage gray?"): his own instinct, dressed — the BODY wears the camo
+// (green vs gray), the ACCENT wears the faction (amber vs cyan), and the
+// game's §18 law keeps a second channel beyond hue: the accent strap is a
+// SHAPE cue too. Nobody has to be a red army man.
+const UF_DRESS: FactionDress = { jacket: 0x5c6b3f, trouser: 0x37402f, camoA: 0x47542f, camoB: 0x707d4a, accent: 0xe8a33d };
+const COL_DRESS: FactionDress = { jacket: 0x5c646e, trouser: 0x3a4047, camoA: 0x49515b, camoB: 0x737d88, accent: 0x3dbde8 };
+
+function papercraftRig(label: string, dress: FactionDress): Rig {
   const root = new THREE.Group();
   const body = new THREE.Group();
   root.add(body);
-  const SKIN = 0xc9835f, JACKET = 0x6b5a41, TROUSER = 0x3f4247, BOOT = 0x24262a;
+  const SKIN = 0xc9835f, JACKET = dress.jacket, TROUSER = dress.trouser, BOOT = 0x24262a;
   const box = (w: number, h: number, d: number, c: number) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), M(c));
     m.castShadow = true;
@@ -244,6 +363,21 @@ function papercraftRig(label: string): Rig {
   // torso: the jacket, with the flared hem that gives ref 1 its silhouette
   const torso = box(0.42, 0.5, 0.55, JACKET); torso.position.y = 1.24; body.add(torso);
   const hem = box(0.5, 0.14, 0.66, JACKET); hem.position.y = 0.95; body.add(hem);
+  // camo: thin plates proud of the cloth (the voxel trick — no textures)
+  const camo = (w: number, h: number, x: number, y: number, z: number, c: number) => {
+    const m = box(0.02, h, w, c);
+    m.position.set(x, y, z);
+    body.add(m);
+  };
+  camo(0.16, 0.12, 0.22, 1.34, 0.1, dress.camoA);
+  camo(0.12, 0.1, 0.22, 1.12, -0.14, dress.camoB);
+  camo(0.14, 0.1, -0.22, 1.26, 0.06, dress.camoA);
+  camo(0.1, 0.09, 0.26, 0.95, 0.18, dress.camoB); // one on the hem
+  // the ACCENT STRAP — faction color as a shape, slung chest to hip
+  const strap = box(0.05, 0.56, 0.09, dress.accent);
+  strap.position.set(0.22, 1.22, 0.05);
+  strap.rotation.x = 0.55;
+  body.add(strap);
   // head: the big papercraft box, floating a visible CUT above the collar
   const head = box(0.4, 0.4, 0.4, SKIN); head.position.y = 1.74; body.add(head);
 
@@ -268,6 +402,8 @@ function papercraftRig(label: string): Rig {
     const leg = new THREE.Group();
     leg.position.set(0, 0.92, dz);
     const th = box(0.18, 0.36, 0.2, TROUSER); th.position.y = -0.19; leg.add(th);
+    const camoT = box(0.02, 0.09, 0.12, dz > 0 ? dress.camoA : dress.camoB);
+    camoT.position.set(0.1, -0.2, 0); th.add(camoT);
     const knee = new THREE.Group();
     knee.position.y = -0.4;
     const sh = box(0.15, 0.34, 0.17, TROUSER); sh.position.y = -0.17; knee.add(sh);
@@ -435,22 +571,22 @@ scene.add(curRig.root);
 rigs.push(curRig);
 addLabel('CURRENT (baseline)', -2.5 * PITCH);
 
-// Robert's two reference images, right beside the baseline they'd replace
-const refs: Rig[] = [papercraftRig('PAPERCRAFT (ref 1)'), voxelRig('VOXEL (ref 2)')];
-refs.forEach((rig, i) => {
+// THE FINALISTS (Robert: "I like the papercraft guy, and I like pill twelve
+// shapes") — each in BOTH faction dresses, so green-vs-gray is a thing you
+// see, not a thing we argue about. The voxel trooper keeps a seat as the
+// what-camo-can-look-like reference.
+const lineup: Rig[] = [
+  papercraftRig('PAPERCRAFT · UNITED FRONT', UF_DRESS),
+  papercraftRig('PAPERCRAFT · COLLECTIVE', COL_DRESS),
+  voxelRig('VOXEL (camo ref)'),
+  capsuleRig('PILL-12 · UNITED FRONT', 12, UF_DRESS),
+  capsuleRig('PILL-12 · COLLECTIVE', 12, COL_DRESS),
+];
+lineup.forEach((rig, i) => {
   rig.root.position.set((i - 1.5) * PITCH, 0, 0);
   scene.add(rig.root);
   rigs.push(rig);
   addLabel(rig.label, (i - 1.5) * PITCH);
-});
-
-const specs: [string, 1 | 4 | 12][] = [['PILL — 1 shape', 1], ['PILL — 4 shapes', 4], ['PILL — 12 shapes', 12]];
-specs.forEach(([label, n], i) => {
-  const rig = capsuleRig(label, n);
-  rig.root.position.set((i + 0.5) * PITCH, 0, 0);
-  scene.add(rig.root);
-  rigs.push(rig);
-  addLabel(label, (i + 0.5) * PITCH);
 });
 
 camera.position.set(0, 7.4, 25.5);
@@ -496,13 +632,14 @@ function speedLine(at: THREE.Vector3, dir: number) {
   l.life = 0.35;
 }
 
+const GUNS: GunId[] = ['rifle', 'smg', 'shotgun', 'pistol', 'launcher', 'rail', 'flamer'];
 function setGun(kind: GunId) {
   gunKind = kind;
   for (const r of rigs) {
     r.gun.clear();
-    r.gun.add(kind === 'rifle' ? makeRifle() : makeShotgun());
+    r.gun.add(BUILD_GUN[kind]());
   }
-  document.getElementById('btn-gun')!.textContent = `GUN: ${kind.toUpperCase()}`;
+  document.getElementById('btn-gun')!.textContent = `GUN: ${kind.toUpperCase()} ▸`;
 }
 
 function play(a: ActionId) {
@@ -539,8 +676,9 @@ function loop() {
     b.position.set(0, 0, 0);
     b.rotation.set(0, 0, 0);
     b.scale.set(1, 1, 1);
-    r.gun.position.copy(r.gunHome.pos);
-    r.gun.rotation.copy(r.gunHome.rot);
+    const H = HOLDS[gunKind];
+    r.gun.position.set(H.gun[0], H.gun[1], H.gun[2]);
+    r.gun.rotation.set(0, 0, H.gunRotZ);
     r.blade.visible = false;
     if (r.jet) (r.jet.material as THREE.MeshBasicMaterial).opacity = 0;
     for (const g of r.ghosts) (g.material as THREE.MeshBasicMaterial).opacity = 0;
@@ -550,11 +688,11 @@ function loop() {
     // like a human's, knees carrying a slight athletic flex. Actions layer
     // their changes ON TOP of this instead of inventing their own arms.
     if (r.armR) {
-      r.armR.rotation.set(0, 0, 0.35);
-      r.armL!.rotation.set(0.62, 0, 0.5);
+      r.armR.rotation.set(H.armR[0], 0, H.armR[1]);
+      r.armL!.rotation.set(H.armL[0], 0, H.armL[1]);
       if (r.elbowR) {
-        r.elbowR.rotation.set(0, 0, 1.1);   // the bend that was missing
-        r.elbowL!.rotation.set(0, 0, 0.95);
+        r.elbowR.rotation.set(0, 0, H.elbowR);   // the bend that was missing
+        r.elbowL!.rotation.set(0, 0, H.elbowL);
       }
       r.legR!.rotation.set(0, 0, 0);
       r.legL!.rotation.set(0, 0, 0);
@@ -564,8 +702,8 @@ function loop() {
       }
     }
     if (r.mittR && action !== 'fly') {
-      r.mittR.position.set(0.06, 1.05, 0.5);
-      r.mittL!.position.set(0.5, 1.08, 0.5);
+      r.mittR.position.set(H.mittR[0], H.mittR[1], H.mittR[2]);
+      r.mittL!.position.set(H.mittL[0], H.mittL[1], H.mittL[2]);
     }
 
     if (action === 'run') {
@@ -734,7 +872,7 @@ function loop() {
 for (const btn of document.querySelectorAll<HTMLElement>('.act')) {
   btn.addEventListener('click', () => play(btn.dataset.a as ActionId));
 }
-document.getElementById('btn-gun')!.addEventListener('click', () => setGun(gunKind === 'rifle' ? 'shotgun' : 'rifle'));
+document.getElementById('btn-gun')!.addEventListener('click', () => setGun(GUNS[(GUNS.indexOf(gunKind) + 1) % GUNS.length]));
 setGun('rifle');
 play('run');
 loop();
