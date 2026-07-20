@@ -10,6 +10,7 @@ import { mountOnboarding, onMatchEnd, paintballConfig } from './client/onboardin
 import { StableConsole, isCommissioned } from './client/stable';
 import { audio } from './client/audio';
 import { Chat } from './client/chat';
+import { pauseCodex, renderCodex } from './client/codex';
 import { StaticOverlay } from './client/effects';
 import { Hud } from './client/hud';
 import { initGodMode } from './client/godmode';
@@ -309,6 +310,7 @@ function buildMenu() {
 async function startGame() {
   if (running) return;
   running = true;
+  pauseCodex(); // nothing else may hold a render loop once the match owns the frame
   await audio.init();
   audio.resume();
 
@@ -870,11 +872,13 @@ function wireMenuTabs() {
   tabs.forEach((t) => t.onclick = () => {
     audio.play('ui_click');
     tabs.forEach((x) => x.classList.toggle('active', x === t));
-    for (const pane of ['deploy', 'barracks', 'map']) {
+    for (const pane of ['deploy', 'barracks', 'map', 'codex']) {
       $(`tab-${pane}`).classList.toggle('hidden', pane !== t.dataset.tab);
     }
     if (t.dataset.tab === 'barracks') renderBarracks();
     if (t.dataset.tab === 'map') renderScarMap();
+    // the Codex owns a live turntable — it only spins while you are looking
+    if (t.dataset.tab === 'codex') renderCodex($('codex-root')); else pauseCodex();
   });
 }
 

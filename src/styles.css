@@ -704,3 +704,105 @@ html, body {
 }
 #front-deploy:hover { transform: translateY(-1px); }
 @media (max-width: 900px) { #scar-layout { grid-template-columns: 1fr; } }
+
+/* ── THE CODEX (V6): the master sheet ──────────────────────────────────────
+   A field manual, not a spreadsheet: stencil headers, mono telemetry, hard
+   edges, and one amber signal colour. The numbers are the design — nothing
+   decorative competes with them. */
+.cx { display: flex; flex-direction: column; gap: 0.75rem; }
+.cx-head { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
+.cx-tabs { display: flex; gap: 0.25rem; }
+.cx-tab {
+  appearance: none; background: transparent; border: 1px solid var(--border);
+  color: var(--muted); font: inherit; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.12em; font-size: 0.74rem; padding: 0.4rem 0.9rem;
+  border-radius: var(--radius); cursor: pointer; transition: 0.15s;
+}
+.cx-tab:hover { color: var(--text); border-color: var(--border-bright); }
+.cx-tab.active { color: var(--bg-deep); background: var(--accent); border-color: var(--accent); }
+.cx-note { color: var(--muted); font-size: 0.74rem; letter-spacing: 0.02em; }
+.cx-q {
+  background: var(--bg-deep); border: 1px solid var(--border); color: var(--text);
+  font-family: var(--font-mono); font-size: 0.8rem; padding: 0.4rem 0.7rem;
+  border-radius: var(--radius); width: 15rem; outline: none;
+}
+.cx-q:focus { border-color: var(--accent); }
+.cx-q::placeholder { color: oklch(0.5 0.02 78); }
+
+.cx-body { display: grid; grid-template-columns: minmax(0, 1fr) 19rem; gap: 0.75rem; align-items: start; }
+@media (max-width: 1100px) { .cx-body { grid-template-columns: minmax(0, 1fr); } }
+
+/* the sheet itself — dense, scrollable, sortable */
+.cx-sheet-wrap {
+  border: 1px solid var(--border); background: var(--bg-deep);
+  max-height: min(34rem, 52vh); overflow: auto; border-radius: var(--radius);
+}
+.cx-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 0.78rem; }
+.cx-table thead th {
+  position: sticky; top: 0; z-index: 1; background: var(--card);
+  color: var(--muted); text-align: right; font-family: var(--font); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.66rem;
+  padding: 0.5rem 0.55rem; border-bottom: 1px solid var(--border-bright);
+  cursor: pointer; white-space: nowrap; user-select: none;
+}
+.cx-table thead th:hover { color: var(--text); }
+.cx-table thead th.cx-sorted { color: var(--accent); }
+.cx-table .cx-th-name { text-align: left; cursor: default; position: sticky; left: 0; z-index: 2; }
+.cx-table tbody tr { border-bottom: 1px solid oklch(0.34 0.018 74 / 0.4); cursor: pointer; }
+.cx-table tbody tr:hover { background: var(--card-hover); }
+.cx-table tbody tr.cx-on { background: oklch(0.76 0.16 74 / 0.14); box-shadow: inset 2px 0 0 var(--accent); }
+.cx-table tbody tr.cx-pin td:first-child { border-left: 2px solid var(--team1); }
+.cx-table td { padding: 0.3rem 0.55rem; }
+.cx-num { text-align: right; white-space: nowrap; }
+.cx-td-name {
+  display: flex; align-items: center; gap: 0.5rem; text-align: left;
+  font-family: var(--font); white-space: nowrap;
+  position: sticky; left: 0; z-index: 1; background: var(--bg-deep);
+}
+.cx-table tbody tr:hover .cx-td-name { background: var(--card-hover); }
+.cx-table tbody tr.cx-on .cx-td-name { background: oklch(0.29 0.05 74); }
+.cx-td-name img { width: 44px; height: 30px; object-fit: contain; flex: 0 0 auto; }
+.cx-nomodel { width: 44px; flex: 0 0 auto; }
+
+/* the detail: a turntable and the full block */
+.cx-detail {
+  border: 1px solid var(--border); background: var(--card); padding: 0.75rem;
+  border-radius: var(--radius); max-height: min(34rem, 52vh); overflow: auto;
+}
+.cx-bench {
+  height: 11rem; background: var(--bg-deep); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 0.6rem;
+}
+.cx-bench canvas { display: block; width: 100%; height: 100%; }
+.cx-nobench { color: var(--muted); font-size: 0.74rem; text-align: center; padding: 0 1rem; }
+.cx-dname { font-family: var(--font-display); font-size: 1.15rem; font-weight: 400; letter-spacing: 0.03em; text-transform: uppercase; }
+.cx-desc { color: var(--muted); font-size: 0.78rem; margin: 0.2rem 0 0.5rem; }
+.cx-stats { display: flex; flex-direction: column; gap: 1px; margin: 0.5rem 0 0.7rem; }
+.cx-stat { display: flex; justify-content: space-between; gap: 0.5rem; padding: 0.22rem 0; border-bottom: 1px solid oklch(0.34 0.018 74 / 0.35); }
+.cx-stat span { color: var(--muted); font-size: 0.74rem; }
+.cx-stat b { font-family: var(--font-mono); font-size: 0.8rem; }
+.cx-pinbtn {
+  width: 100%; appearance: none; background: transparent; border: 1px solid var(--border-bright);
+  color: var(--text); font: inherit; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em;
+  font-size: 0.72rem; padding: 0.5rem; border-radius: var(--radius); cursor: pointer; transition: 0.15s;
+}
+.cx-pinbtn:hover { border-color: var(--accent); color: var(--accent); }
+.cx-pinbtn.on { background: var(--team1); border-color: var(--team1); color: var(--bg-deep); }
+
+/* the compare tray */
+.cx-cmp { border: 1px solid var(--border); background: var(--card); padding: 0.7rem; border-radius: var(--radius); }
+.cx-hint { color: var(--muted); font-size: 0.78rem; }
+table.cx-compare { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 0.8rem; }
+table.cx-compare thead th { padding: 0.4rem 0.6rem; text-align: right; vertical-align: bottom; }
+table.cx-compare thead th img { display: block; margin-left: auto; width: 76px; height: 50px; object-fit: contain; }
+table.cx-compare thead th span { font-family: var(--font); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.72rem; }
+table.cx-compare tbody tr { border-bottom: 1px solid oklch(0.34 0.018 74 / 0.4); }
+table.cx-compare .cx-crow { text-align: left; color: var(--muted); font-family: var(--font); font-weight: 400; font-size: 0.76rem; padding: 0.3rem 0.6rem 0.3rem 0; }
+table.cx-compare td { padding: 0.3rem 0.6rem; }
+table.cx-compare .cx-best { color: var(--accent); font-weight: 700; }
+.cx-clear {
+  margin-top: 0.6rem; appearance: none; background: transparent; border: 1px solid var(--border);
+  color: var(--muted); font: inherit; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em;
+  padding: 0.35rem 0.8rem; border-radius: var(--radius); cursor: pointer;
+}
+.cx-clear:hover { color: var(--text); border-color: var(--border-bright); }

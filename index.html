@@ -80,6 +80,7 @@
           <button class="mtab active" data-tab="deploy">⚔ DEPLOY</button>
           <button class="mtab" data-tab="barracks">🎖 BARRACKS</button>
           <button class="mtab" data-tab="map">🗺 MAP</button>
+          <button class="mtab" data-tab="codex">📕 CODEX</button>
         </nav>
         <div id="tab-deploy" class="menu-tabpane">
         <div class="menu-section">
@@ -206,6 +207,12 @@
         <!-- MAP: reserved for the Scar (fills in Slice 1.5) -->
         <div id="tab-map" class="menu-tabpane hidden">
           <div id="map-root"><p class="opt">THE SCAR — the theater map deploys with the Living Campaign.</p></div>
+        </div>
+
+        <!-- CODEX: the master sheet — every vehicle, weapon and class, read
+             live from the sim's own tables, with models and side-by-side compare -->
+        <div id="tab-codex" class="menu-tabpane hidden">
+          <div id="codex-root"></div>
         </div>
       </div>
     </div>
