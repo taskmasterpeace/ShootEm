@@ -1884,7 +1884,6 @@ export class World {
         if (cmd.fire && v.bombLoad > 0 && this.time >= v.nextFireAt) {
           v.bombLoad--;
           v.nextFireAt = this.time + 1 / WEAPONS.bomb.rof;
-          const def = WEAPONS.bomb;
           this.launch({
             id: this.id(), weapon: 'bomb', ownerId: s.id, team: v.team,
             pos: { x: v.pos.x, y: Math.max(2.4, v.pos.y), z: v.pos.z },
