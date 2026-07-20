@@ -528,7 +528,7 @@ export interface ThemeDef {
   /** gravity in u/s² — Europa and Triton fight in low-g */
   gravity: number;
   /** map generator obstacle flavor */
-  gen: 'field' | 'corridors' | 'rocks' | 'ocean' | 'ice';
+  gen: 'field' | 'corridors' | 'rocks' | 'ocean' | 'ice' | 'armor';
 }
 
 export const THEMES: Record<ThemeId, ThemeDef> = {
@@ -538,4 +538,9 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
   europa: { id: 'europa', name: 'Europa Depths', desc: 'Ocean-floor domes beneath the ice of Jupiter’s moon.', icon: '🌊', gravity: 9, gen: 'ocean' },
   titan: { id: 'titan', name: 'Titan Colony', desc: 'Methane haze over Saturn’s prosperous colony.', icon: '🪐', gravity: 16, gen: 'field' },
   triton: { id: 'triton', name: 'Triton Outpost', desc: 'A lonely ice station at the edge of everything.', icon: '❄️', gravity: 9, gen: 'ice' },
+  // V5 ARMOR COUNTRY (Robert: "certain maps should have a lot of tanks,
+  // because our vehicle combat is very good"). Wide open ground, long fire
+  // lanes, almost no interiors — a map built so armour and aircraft can
+  // actually manoeuvre instead of getting stuck in somebody's kitchen.
+  hardpan: { id: 'hardpan', name: 'The Hardpan — Armor Country', desc: 'Cracked flats and long fire lanes. Bring the whole motor pool.', icon: '🛞', gravity: 22, gen: 'armor' },
 };

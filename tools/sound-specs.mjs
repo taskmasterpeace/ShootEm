@@ -95,6 +95,7 @@ export const SOUND_SPECS = {
 
   // ---- per-theme ambience beds (looped low under the match) ----
   amb_savanna:  { cat: 'ambience', desc: 'Dry savanna wind through grass, distant insects, very sparse far bird — steady atmosphere bed, no melody', dur: 12 },
+  amb_hardpan:  { cat: 'ambience', desc: 'Wind over cracked open flats — a low rush with slow gusts and a thin dust whistle. NO wildlife: the emptiness is the point. Generated procedurally by tools/gen-hardpan-ambience.mjs, not by the AI pipeline.', dur: 10.5 },
   amb_starship: { cat: 'ambience', desc: 'Starship interior hum — low engine drone, faint ventilation hiss, occasional soft metal tick', dur: 12 },
   amb_asteroid: { cat: 'ambience', desc: 'Deep mine ambience — cavernous low rumble, distant rock settling, faint machinery echo', dur: 12 },
   amb_europa:   { cat: 'ambience', desc: 'Underwater dome ambience — muffled ocean pressure, slow water movement, deep groaning ice above', dur: 12 },

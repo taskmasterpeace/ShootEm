@@ -3,7 +3,7 @@ export type Team = 0 | 1; // 0 = United Front (amber), 1 = Collective (cyan). Su
 export type ModeId = 'tdm' | 'ctf' | 'koth' | 'conquest' | 'survival' | 'horde' | 'safehouse' | 'range' | 'paintball';
 
 /** Battlefield environments — the war spans the solar system. */
-export type ThemeId = 'savanna' | 'starship' | 'asteroid' | 'europa' | 'titan' | 'triton';
+export type ThemeId = 'savanna' | 'starship' | 'asteroid' | 'europa' | 'titan' | 'triton' | 'hardpan';
 
 export type ClassId = 'infantry' | 'heavy' | 'jump' | 'engineer' | 'medic' | 'infiltrator' | 'pathfinder' | 'ghost';
 

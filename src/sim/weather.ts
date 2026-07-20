@@ -26,6 +26,9 @@ export const THEME_WEATHER: Record<ThemeId, WeatherKind[]> = {
   europa:   ['clear', 'clear', 'fog', 'night'],              // dome mist
   titan:    ['clear', 'clear', 'dust', 'dust', 'night'],     // the desert: NEVER snow, never rain
   triton:   ['clear', 'snow', 'snow', 'fog', 'night'],       // the snow home
+  // open flats: dust storms and clear skies. Fog would gut a map whose whole
+  // point is the long fire lane, so it is not on the menu.
+  hardpan:  ['clear', 'clear', 'clear', 'dust', 'dust', 'night'],
 };
 
 export interface WeatherMods {

@@ -474,6 +474,10 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
     rocks:     { wall: 0.15, cover: 0.40, rock: 0.97, blobs: 52, wallLen: [3, 6] },
     ocean:     { wall: 0.28, cover: 0.52, rock: 0.68, blobs: 48, wallLen: [3, 7] },
     ice:       { wall: 0.22, cover: 0.50, rock: 0.78, blobs: 48, wallLen: [3, 7] },
+    // ARMOR COUNTRY: the fewest walls in the game and the shortest ones —
+    // what obstacles exist are COVER (something to fight around at speed),
+    // not structures (something to get wedged in).
+    armor:     { wall: 0.12, cover: 0.58, rock: 0.80, blobs: 34, wallLen: [2, 4] },
   };
   const mix = MIX[gen];
   // §indoor: the corridors theme is a whole-map BUILDING INTERIOR (carveInterior,
@@ -586,6 +590,11 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
   // guaranteed through-lane. Runs before placeBuildings so hand-stamped
   // structures land on top of the ground texture.
   if (gen === 'field') fillRegions(buildCtx, half, { forest: 3, neighborhood: 3, farm: 2, interior: 1, industrial: 1, open: 2 });
+  // V5 ARMOR COUNTRY: the SAME chunk system, weighted for manoeuvre. Mostly
+  // open ground with a little cover to fight around, and NO interior blocks —
+  // a tank map's job is long lanes and flanks, not corridors where a hull
+  // gets stuck and a jet has nothing to strafe.
+  else if (gen === 'armor') fillRegions(buildCtx, half, { open: 7, forest: 2, farm: 2, industrial: 1 });
   // the old scatter-building placer is for the rock/ocean/ice worlds now — the
   // field's buildings come from its region chunks (no double placement, and no
   // building stamped over a forest, which orphaned tree claims into thin air)
@@ -666,6 +675,15 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
     const ex = btx + fwd * 22, ez = btz + (side === 0 ? -14 : 14);
     clearArea(grid, ex, ez, 4);
     vehiclePads.push({ kind: 'emplacement', team: side as Team, pos: tileToWorld(ex, ez) });
+    // V5: ARMOR COUNTRY runs a heavier pool — a second tank and a second
+    // Lance per side, so the map plays like the tank battle it is shaped for
+    // (and so the extra armour has an extra answer above it).
+    if (gen === 'armor') {
+      for (const [kind, ox, oz] of [['tank', fwd * 30, -6], ['tank', fwd * 30, 6], ['aatrack', fwd * 26, 0]] as const) {
+        clearArea(grid, btx + ox, btz + oz, 3);
+        vehiclePads.push({ kind, team: side as Team, pos: tileToWorld(btx + ox, btz + oz) });
+      }
+    }
     // V3 EVERY BASE STARTS WITH A SAM (Robert's exact ask). A second Lance
     // sits ON the compound, unmanned and always awake — so the sky over a
     // base is never free, even when the whole team is out on the map. It
@@ -727,7 +745,7 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
 
   // ---- the SURFACE layer (§8.6): each theme deals its own ground ----
   const surface = new Uint8Array(GRID * GRID);
-  const baseSurf = gen === 'field' ? (theme === 'titan' ? S_GRIT : S_GRASS)
+  const baseSurf = gen === 'field' || gen === 'armor' ? (theme === 'titan' ? S_GRIT : S_GRASS)
     : gen === 'corridors' ? S_PLATE
     : gen === 'rocks' ? S_DIRT
     : gen === 'ocean' ? S_WET
