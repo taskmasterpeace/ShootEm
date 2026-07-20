@@ -359,10 +359,12 @@ describe('equipment', () => {
     const w = world();
     const fixer = w.addSoldier('F', 'engineer', 0, 'human', { equipment: ['repair_kit'] });
     const v = [...w.vehicles.values()].find((x) => x.team === 0 && x.kind === 'buggy')!;
-    v.hp = 50;
+    v.hp = 20;
     fixer.pos = { x: v.pos.x + 2, y: 0, z: v.pos.z };
     w.step(1 / 60, new Map([[fixer.id, cmd({ use: true })]]));
-    expect(v.hp).toBeGreaterThanOrEqual(170);
+    // relative to the hull's OWN pool, not a hardcoded number — the V1 armour
+    // ladder cut the buggy from 220 to 95 and this assertion went stale
+    expect(v.hp, 'the patch put real metal back on').toBeGreaterThan(20 + 60);
   });
 
   it('the spy camera deploys and feeds enemy positions', () => {

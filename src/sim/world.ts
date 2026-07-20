@@ -1796,7 +1796,11 @@ export class World {
 
     // M5 THE AXE ON F: throw it, or call it home. One axe, three states —
     // on your back (throw), in the ground (recall), in the air (wait).
-    if (cmd.melee && !s.downed && s.vehicleId < 0 && s.encasedUntil === undefined) {
+    // the axe is ISSUED KIT (V1) — a soldier without it on his rig has no
+    // sci-fi returning weapon, he has a rifle. Gods carry it inherently:
+    // a thrown weapon that comes home is exactly what a god's arm is for.
+    if (cmd.melee && (this.hasEquip(s, 'axe') || s.ascendant) &&
+        !s.downed && s.vehicleId < 0 && s.encasedUntil === undefined) {
       const stuck = s.axeId !== undefined ? this.gadgets.get(s.axeId) : undefined;
       if (stuck) {
         this.recallAxe(s, stuck);

@@ -227,7 +227,7 @@ export const CLASSES: Record<ClassId, ClassDef> = {
 // Subsystem hp sits near 10% of hull so systems genuinely break DURING a
 // fight (engines die, guns jam, sensors go dark) well before the wreck.
 export const VEHICLES: Record<VehicleKind, VehicleDef> = {
-  buggy: { kind: 'buggy', name: 'Scout Buggy', hp: 220, speed: 22, turnRate: 2.6, weapon: 'buggy_mg', seats: 2, mobileSpawn: false, radius: 1.6, systemHp: 24 },
+  buggy: { kind: 'buggy', name: 'Scout Buggy', hp: 95, speed: 19, turnRate: 2.6, weapon: 'buggy_mg', seats: 2, mobileSpawn: false, radius: 1.6, systemHp: 24 },
   // The Ares is a crewed weapons platform: driver/gunner + sensors + ECM +
   // comms stations, plus 4 passenger benches for when leg work is required.
   // Every subsystem has its own hit points — tanks break in many ways.
@@ -237,17 +237,17 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
     crew: ['sensors', 'ecm', 'comms'], systemHp: 60,
   },
   apc: { kind: 'apc', name: 'Bastion APC', hp: 450, speed: 14, turnRate: 1.8, weapon: 'apc_mg', seats: 4, mobileSpawn: true, radius: 2.2, systemHp: 45 },
-  skiff: { kind: 'skiff', name: 'Wraith Skiff', hp: 160, speed: 26, turnRate: 3.2, weapon: 'skiff_plasma', seats: 1, mobileSpawn: false, radius: 1.4, hover: true, systemHp: 18 },
+  skiff: { kind: 'skiff', name: 'Wraith Skiff', hp: 90, speed: 22, turnRate: 3.2, weapon: 'skiff_plasma', seats: 1, mobileSpawn: false, radius: 1.4, hover: true, systemHp: 18 },
   hoverboard: {
-    kind: 'hoverboard', name: 'Halo Hoverboard', hp: 70, speed: 30, turnRate: 4.2,
+    kind: 'hoverboard', name: 'Halo Hoverboard', hp: 45, speed: 24, turnRate: 4.2,
     weapon: '', seats: 1, mobileSpawn: false, radius: 0.8, hover: true, systemHp: 10,
   },
   bike: {
-    kind: 'bike', name: 'Jackal Recon Bike', hp: 130, speed: 34, turnRate: 3.4,
+    kind: 'bike', name: 'Jackal Recon Bike', hp: 85, speed: 26, turnRate: 3.4,
     weapon: 'bike_mg', seats: 1, mobileSpawn: false, radius: 1.1, systemHp: 15,
   },
   flyer: {
-    kind: 'flyer', name: 'Kestrel Gunship', hp: 200, speed: 24, turnRate: 2.8,
+    kind: 'flyer', name: 'Kestrel Gunship', hp: 48, speed: 24, turnRate: 2.8,
     weapon: 'flyer_plasma', seats: 2, mobileSpawn: false, radius: 1.6,
     hover: true, flies: true, systemHp: 22, liftoffTime: 2.5,
   },
@@ -257,7 +257,7 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
     crew: ['gunner', 'sensors', 'ecm', 'comms'], systemHp: 52,
   },
   ambulance: {
-    kind: 'ambulance', name: 'Mercy Field Ambulance', hp: 300, speed: 17, turnRate: 2.2,
+    kind: 'ambulance', name: 'Mercy Field Ambulance', hp: 240, speed: 17, turnRate: 2.2,
     weapon: '', seats: 3, mobileSpawn: false, radius: 1.9,
     healRadius: 7, healRate: 9, systemHp: 32,
   },
@@ -275,7 +275,7 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
   // can shoot from the deck. Counters swimmers utterly (they can't shoot
   // back); loses to shore rockets it can't chase inland.
   boat: {
-    kind: 'boat', name: 'Pike Gunboat', hp: 260, speed: 21, turnRate: 2.6,
+    kind: 'boat', name: 'Pike Gunboat', hp: 145, speed: 21, turnRate: 2.6,
     weapon: 'boat_mg', seats: 3, mobileSpawn: false, radius: 1.8,
     boat: true, systemHp: 28,
   },
@@ -404,6 +404,8 @@ export interface EquipDef {
   /** ballistic rounds thread issued plate to the flesh (−25% dmg); iron hide
    *  and LSW armor are too thick (gated in damageSoldier) */
   apRounds?: boolean;
+  /** M5/V1: F throws the recallable Breacher Axe — issued kit, not standard */
+  axe?: boolean;
 }
 
 export const EQUIPMENT: Record<string, EquipDef> = {
@@ -420,6 +422,11 @@ export const EQUIPMENT: Record<string, EquipDef> = {
   tac_system: { id: 'tac_system', name: 'Tactical System', desc: 'Click the minimap to drop waypoints your team sees.', icon: '🗺️', waypoints: true },
   psi_scanner: { id: 'psi_scanner', name: 'Psi Scanner', desc: 'Pings the nearest hidden enemy every 8 seconds.', icon: '🔮', psiScan: true },
   demo_kit: { id: 'demo_kit', name: 'Demolition Kit', desc: 'G plants a DX-9 demolition charge (3 per life).', icon: '🧨', demoCharge: true },
+  // Robert: "I don't think regular soldiers should have sci-fi's axe return to
+  // their hands." Correct — a weapon that flies home is ISSUED, not standard.
+  // It costs an equipment slot now, which also prices it: you give up a vest,
+  // or optics, or the MANPADS, to carry it.
+  breacher_axe: { id: 'breacher_axe', name: 'Breacher Axe', desc: 'F throws a recallable axe. Calling it back opens everyone on the return line (45).', icon: '🪓', axe: true },
   manpads: { id: 'manpads', name: 'MANPADS', desc: 'Shoulder-fired IR missile: G locks the nearest enemy aircraft in your facing cone and fires (2 per life).', icon: '🚀', samLauncher: true },
   hacking_kit: { id: 'hacking_kit', name: 'Hacking Kit', desc: 'E converts an enemy sentry turret to your side.', icon: '💻', hackKit: true },
   spy_camera: { id: 'spy_camera', name: 'Spy Camera', desc: 'G plants a camera that feeds enemy positions to your team (2 per life).', icon: '📷', deployCamera: true },

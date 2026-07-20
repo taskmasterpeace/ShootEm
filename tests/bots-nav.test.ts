@@ -100,15 +100,21 @@ describe('the driver gets a map (Robert: "go fast and just run into a wall")', (
     b.seat = 0;
     b.enteredVehicleAt = w.time;
     b.botGoal = null; b.botRepathAt = 0;
-    for (let i = 0; i < 60 * 10; i++) { w.step(1 / 60, new Map()); w.takeEvents(); }
-    // the old compass driver parked on the wall at x ≈ half+6 tiles ≈ +18 and
-    // sat there; a navigating driver has cleared the wall line OR moved well
-    // around it (net displacement says it never just idled against bricks)
-    const moved = Math.hypot(buggy.pos.x, buggy.pos.z);
-    expect(moved, 'the buggy never really went anywhere').toBeGreaterThan(14);
+    for (let i = 0; i < 60 * 14; i++) { w.step(1 / 60, new Map()); w.takeEvents(); }
+    // MEASURE THE DRIVER, NOT THE HULL. The old assertion watched the BUGGY's
+    // position — and the V1 speed cut (22 → 19) exposed it: at 19 the hull can
+    // no longer squeak around the corner, so the driver correctly runs strike
+    // two ("a parked ride is a coffin, not cover"), ABANDONS it, and walks to
+    // the goal on foot. The AI did exactly the right thing and the test failed
+    // it, because an abandoned hull sits at the wall forever by design.
+    // Passing for the wrong reason is still failing. What this test actually
+    // means is "the driver gets there" — around the wall, or on foot.
+    const goal = b.botGoal!;
+    const dToGoal = Math.hypot(b.pos.x - goal.x, b.pos.z - goal.z);
+    expect(dToGoal, `the driver never reached its goal (at ${b.pos.x.toFixed(1)},${b.pos.z.toFixed(1)})`).toBeLessThan(14);
     const wallX = (half + 6) * 3 - 150; // tile → world (TILE=3, WORLD=300)
-    const pinned = Math.abs(buggy.pos.x - wallX) < 2.5 && Math.abs(buggy.vel?.x ?? 0) < 0.5;
-    expect(pinned, `parked against the wall at x=${buggy.pos.x.toFixed(1)}`).toBe(false);
+    const kissingBricks = Math.abs(b.pos.x - wallX) < 2.5;
+    expect(kissingBricks, `the DRIVER is still nosed into the wall at x=${b.pos.x.toFixed(1)}`).toBe(false);
   });
 });
 

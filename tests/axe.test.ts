@@ -18,6 +18,9 @@ const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
 const thrower = (w: World) => {
   const s = w.addSoldier('AXE', 'infantry', 0, 'human');
   s.pos = { x: 0, y: 0, z: 0 }; s.alive = true; s.protectedUntil = 0; s.yaw = 0;
+  // V1: the axe costs an equipment slot — a soldier without it on his rig has
+  // a rifle, not a sci-fi returning weapon
+  s.equipment = [...s.equipment, 'breacher_axe'];
   return s;
 };
 const settle = (w: World, secs = 2) => { for (let i = 0; i < 60 * secs; i++) w.step(1 / 60, new Map()); };
