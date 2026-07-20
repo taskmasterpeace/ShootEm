@@ -28,6 +28,7 @@ import { TransformControls } from 'three/examples/jsm/controls/TransformControls
 
 type ActionId = 'idle' | 'run' | 'dash' | 'slash' | 'fly' | 'roll';
 type GunId = 'rifle' | 'smg' | 'shotgun' | 'pistol' | 'launcher' | 'rail' | 'flamer';
+type MeleeId = 'none' | 'sword' | 'laser' | 'axe';
 
 // ---------------------------------------------------------------------------
 // SCENE
@@ -286,21 +287,95 @@ interface Rig {
   elbowR: THREE.Group; elbowL: THREE.Group;
   legR: THREE.Group; legL: THREE.Group;
   kneeR: THREE.Group; kneeL: THREE.Group;
-  blade: THREE.Mesh;
+  blade: THREE.Group;
+  meleeProp: THREE.Group;     // sword/laser/axe in the right hand when melee is armed
   ghosts: THREE.Mesh[];
   parts: { name: string; obj: THREE.Object3D }[]; // EDIT-mode selectables
 }
 
-function makeBlade(): THREE.Mesh {
-  const geo = new THREE.RingGeometry(0.55, 1.15, 20, 1, 0, Math.PI * 0.62);
-  const mat = new THREE.MeshBasicMaterial({
-    color: 0xeef4ff, transparent: true, opacity: 0, side: THREE.DoubleSide,
-    blending: THREE.AdditiveBlending, depthWrite: false,
-  });
-  const m = new THREE.Mesh(geo, mat);
-  m.visible = false;
-  return m;
+// THE SLASH ARC, FLAT (Robert: "the game is played top-down — the slashing
+// is in the wrong direction. It should go ACROSS, forming a letter C around
+// the character"). Two layers per his ask — a close arc and a far arc — so a
+// knife, a sword, a laser blade and a battle axe can each claim a reach.
+interface ArcStyle { color: number; inner: [number, number]; outer: [number, number]; span: number }
+const ARC_STYLES: Record<MeleeId, ArcStyle> = {
+  none:  { color: 0xeef4ff, inner: [0.5, 0.85], outer: [0.9, 1.15], span: Math.PI * 0.7 },
+  sword: { color: 0xdfe9f2, inner: [0.55, 0.95], outer: [1.0, 1.45], span: Math.PI * 0.8 },
+  laser: { color: 0x54e0ff, inner: [0.55, 1.0], outer: [1.05, 1.7], span: Math.PI * 0.95 },
+  axe:   { color: 0xffb54a, inner: [0.5, 1.05], outer: [1.1, 1.35], span: Math.PI * 0.6 },
+};
+
+function makeBlade(): THREE.Group {
+  const g = new THREE.Group();
+  g.visible = false;
+  // lies FLAT: the fan is built in XZ (rotated from XY), swept about Y
+  for (let layer = 0; layer < 2; layer++) {
+    const m = new THREE.Mesh(
+      new THREE.RingGeometry(0.5, 0.9, 24, 1, 0, Math.PI * 0.7),
+      new THREE.MeshBasicMaterial({
+        color: 0xeef4ff, transparent: true, opacity: 0, side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending, depthWrite: false,
+      }),
+    );
+    m.rotation.x = -Math.PI / 2;
+    g.add(m);
+  }
+  return g;
 }
+
+function styleBlade(blade: THREE.Group, style: ArcStyle) {
+  const layers = blade.children as THREE.Mesh[];
+  const specs = [style.inner, style.outer];
+  layers.forEach((m, i) => {
+    m.geometry.dispose();
+    m.geometry = new THREE.RingGeometry(specs[i][0], specs[i][1], 24, 1, 0, style.span);
+    (m.material as THREE.MeshBasicMaterial).color.setHex(style.color);
+  });
+}
+
+// ---- the melee props the hand swings ----
+function makeSword(): THREE.Group {
+  const g = new THREE.Group();
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.05, 0.12), M(0xd8dee6, 0.3));
+  blade.position.x = 0.45;
+  const guard = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.06, 0.2), M(0x8a6a30, 0.5));
+  guard.position.x = 0.06;
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.05, 0.06), M(0x3a2c1c, 0.8));
+  grip.position.x = -0.05;
+  g.add(blade, guard, grip);
+  return g;
+}
+function makeLaserSword(): THREE.Group {
+  const g = new THREE.Group();
+  const core = new THREE.Mesh(
+    new THREE.BoxGeometry(0.85, 0.04, 0.04),
+    new THREE.MeshBasicMaterial({ color: 0xffffff }),
+  );
+  core.position.x = 0.5;
+  const glow = new THREE.Mesh(
+    new THREE.BoxGeometry(0.88, 0.1, 0.1),
+    new THREE.MeshBasicMaterial({ color: 0x54e0ff, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }),
+  );
+  glow.position.x = 0.5;
+  const hilt = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.2, 8), M(0x9aa0a6, 0.35));
+  hilt.rotation.z = Math.PI / 2; hilt.position.x = -0.02;
+  g.add(core, glow, hilt);
+  return g;
+}
+function makeAxe(): THREE.Group {
+  const g = new THREE.Group();
+  const haft = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.8, 7), M(0x6b4a2f, 0.85));
+  haft.rotation.z = Math.PI / 2; haft.position.x = 0.3;
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.06, 0.34), M(0x8a8f94, 0.35));
+  head.position.set(0.62, 0, 0.08);
+  const edge = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.04, 0.1), M(0xd8dee6, 0.25));
+  edge.position.set(0.62, 0, 0.27);
+  g.add(haft, head, edge);
+  return g;
+}
+const BUILD_MELEE: Record<Exclude<MeleeId, 'none'>, () => THREE.Group> = {
+  sword: makeSword, laser: makeLaserSword, axe: makeAxe,
+};
 
 function papercraftRig(label: string, dress: FactionDress): Rig {
   const root = new THREE.Group();
@@ -393,16 +468,20 @@ function papercraftRig(label: string, dress: FactionDress): Rig {
   const gun = new THREE.Group();
   gun.name = 'gun';
   aR.wrist.add(gun);
+  const meleeProp = new THREE.Group();
+  meleeProp.name = 'melee';
+  aR.wrist.add(meleeProp);
 
   const rig: Rig = {
-    label, root, body, gun,
+    label, root, body, gun, meleeProp,
     wrist: aR.wrist, shoulderMount, backMount,
     armR: aR.arm, armL: aL.arm, elbowR: aR.elbow, elbowL: aL.elbow,
     legR: lR.leg, legL: lL.leg, kneeR: lR.knee, kneeL: lL.knee,
     blade: makeBlade(), ghosts: [],
     parts: [],
   };
-  rig.blade.position.set(0.4, 1.1, 0.5);
+  // the C-arc wraps the BODY: centred on the man, waist height, flat
+  rig.blade.position.set(0, 1.0, 0);
   body.add(rig.blade);
   const ghostGeo = new THREE.BoxGeometry(0.5, 1.5, 0.5);
   for (let i = 0; i < 3; i++) {
@@ -570,6 +649,17 @@ function speedLine(at: THREE.Vector3) {
 }
 
 const GUNS: GunId[] = ['rifle', 'smg', 'shotgun', 'pistol', 'launcher', 'rail', 'flamer'];
+const MELEES: MeleeId[] = ['none', 'sword', 'laser', 'axe'];
+let meleeKind: MeleeId = 'none';
+function setMelee(kind: MeleeId) {
+  meleeKind = kind;
+  for (const r of rigs) {
+    r.meleeProp.clear();
+    if (kind !== 'none') r.meleeProp.add(BUILD_MELEE[kind]());
+    styleBlade(r.blade, ARC_STYLES[kind]);
+  }
+  document.getElementById('btn-melee')!.textContent = `MELEE: ${kind.toUpperCase()} ▸`;
+}
 function setGun(kind: GunId) {
   gunKind = kind;
   for (const r of rigs) {
@@ -670,11 +760,16 @@ function loop() {
       b.rotation.set(0, 0, 0);
       b.scale.set(1, 1, 1);
       r.blade.visible = false;
+      b.rotation.y = 0;
       for (const g of r.ghosts) (g.material as THREE.MeshBasicMaterial).opacity = 0;
-      // the gun rides the mount the current action wants (flight stows it)
-      const wantBack = action === 'fly' || action === 'roll';
+      // the gun rides the mount the current action wants; an armed MELEE
+      // sends the gun to the back and puts the blade in the fist instead
+      const meleeArmed = meleeKind !== 'none';
+      const wantBack = action === 'fly' || action === 'roll' || meleeArmed;
       const mount = wantBack ? r.backMount : H.mount === 'shoulder' ? r.shoulderMount : r.wrist;
       if (r.gun.parent !== mount) mount.add(r.gun);
+      r.meleeProp.visible = meleeArmed;
+      if (meleeArmed) { r.meleeProp.position.set(0.02, -0.04, 0); r.meleeProp.rotation.set(0, 0, -1.35); }
 
       // baseline: the hold for the current state — running is a DIFFERENT hold
       applyHold(r, action === 'run' || action === 'dash' ? H.run : H.idle);
@@ -683,6 +778,13 @@ function loop() {
       r.kneeR.rotation.set(0, 0, -0.2);
       r.kneeL.rotation.set(0, 0, -0.2);
       if (wantBack) { r.gun.position.set(0, 0, 0); r.gun.rotation.set(0, 0, 0); }
+      if (meleeArmed && action !== 'slash' && action !== 'fly' && action !== 'roll') {
+        // blade carried at the side, arms relaxed — the off-hand has no gun to hold
+        r.armR.rotation.set(0, 0, 0.25);
+        r.elbowR.rotation.set(0, 0, 0.5);
+        r.armL.rotation.set(0, 0, -0.05);
+        r.elbowL.rotation.set(0, 0, 0.35);
+      }
 
       if (action === 'idle') {
         // breathing — weight shifts, the weapon stays ready
@@ -728,18 +830,28 @@ function loop() {
         if (!H.run.leftFree) solveLeftArm(r);
         if (k >= 1 && !frozen) play('run');
       } else if (action === 'slash') {
-        const k = Math.min(1, actionT / 0.38);
-        const swing = k < 0.18 ? 0 : (k - 0.18) / 0.82;
+        // ACROSS, NOT DOWN (Robert): the game reads from above, so the arc
+        // sweeps a C AROUND the man — the whole fan yaws about Y from his
+        // left, across the front, to his right, while the torso twists into
+        // it. Two layers trail slightly apart so close and far reach both read.
+        const k = Math.min(1, actionT / 0.4);
+        const swing = k < 0.15 ? 0 : (k - 0.15) / 0.85;
+        const sweep = 1.9 - swing * 3.8;                 // +1.9 → −1.9 rad about Y
         r.blade.visible = swing > 0 && swing < 1;
-        r.blade.rotation.set(0, 0, 2.0 - swing * 2.9);
-        (r.blade.material as THREE.MeshBasicMaterial).opacity = 0.85 * Math.sin(Math.min(1, swing) * Math.PI);
-        b.rotation.z = -0.3 * Math.sin(k * Math.PI);
-        b.rotation.x = 0.18 * Math.sin(k * Math.PI);
-        r.armR.rotation.set(0, 0, 2.5 - swing * 3.1);
-        r.elbowR.rotation.set(0, 0, 0.4 + swing * 0.9);
-        r.legR.rotation.z = 0.3 * Math.sin(k * Math.PI);
-        r.legL.rotation.z = -0.3 * Math.sin(k * Math.PI);
-        solveLeftArm(r); // the left hand keeps the gun through the chop
+        r.blade.rotation.set(0, sweep, 0);
+        const op = Math.sin(Math.min(1, swing) * Math.PI);
+        const [inner, outer] = r.blade.children as THREE.Mesh[];
+        (inner.material as THREE.MeshBasicMaterial).opacity = 0.9 * op;
+        outer.rotation.z = 0.22;                         // the far layer trails the close one
+        (outer.material as THREE.MeshBasicMaterial).opacity = 0.55 * op;
+        b.rotation.y = 0.55 - swing * 1.1;               // torso twists INTO the sweep
+        b.rotation.z = -0.1 * Math.sin(k * Math.PI);
+        // the right arm carries the blade horizontally across the body
+        r.armR.rotation.set(-(0.9 - swing * 1.8), 0, 1.35);
+        r.elbowR.rotation.set(0, 0, 0.25);
+        r.legR.rotation.z = 0.25 * Math.sin(k * Math.PI);
+        r.legL.rotation.z = -0.25 * Math.sin(k * Math.PI);
+        if (meleeKind === 'none') solveLeftArm(r);       // gun stays two-handed through a knife-swipe
         if (k >= 1 && !frozen) play('run');
       } else if (action === 'fly') {
         const k = Math.min(1, actionT / 0.6);
@@ -812,8 +924,10 @@ for (const btn of document.querySelectorAll<HTMLElement>('.act')) {
   btn.addEventListener('click', () => play(btn.dataset.a as ActionId));
 }
 document.getElementById('btn-gun')!.addEventListener('click', () => setGun(GUNS[(GUNS.indexOf(gunKind) + 1) % GUNS.length]));
+document.getElementById('btn-melee')!.addEventListener('click', () => setMelee(MELEES[(MELEES.indexOf(meleeKind) + 1) % MELEES.length]));
 document.getElementById('btn-edit')!.addEventListener('click', () => setEdit(!editMode));
 setGun('rifle');
+setMelee('none');
 play('run');
 setEdit(false);
 loop();

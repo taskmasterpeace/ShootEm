@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>War World — Beam Lab</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #14171b; }
+    canvas { display: block; }
+    #bar {
+      position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 6px; z-index: 5;
+    }
+    #bar button {
+      font: 600 12px ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      color: #b9c2cf; background: rgba(20, 24, 30, 0.92);
+      border: 1px solid #333b47; border-radius: 6px; padding: 7px 13px; cursor: pointer;
+    }
+    #bar button.on, #bar button:hover { color: #e8a33d; border-color: #e8a33d; }
+    #hint {
+      position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+      font: 11px ui-monospace, Menlo, Consolas, monospace; color: #93a0b0;
+      background: rgba(14, 17, 21, 0.8); padding: 5px 10px; border: 1px solid #333b47;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <div id="bar">
+    <button class="mode on" data-m="hose">🚿 HOSE</button>
+    <button class="mode" data-m="kame">🌀 KAMEHAMEHA</button>
+    <button class="mode" data-m="heat">🔴 HEAT VISION</button>
+    <button class="mode" data-m="flamer">🔥 FLAMER</button>
+  </div>
+  <div id="hint">move the mouse — every beam follows it · leave it alone and the bench sweeps itself · drag = orbit</div>
+  <script>
+    addEventListener('error', (e) => {
+      const el = document.createElement('div');
+      el.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:99;' +
+        'max-width:80vw;background:#3a1512;border:1px solid #ff4736;color:#ffb0a8;' +
+        'font:12px ui-monospace,Consolas,monospace;padding:10px 14px;white-space:pre-wrap';
+      el.textContent = 'BEAM LAB ERROR — paste this to Claude:\n' +
+        (e.message || String(e.error)) + '\n' + (e.filename || '') + ':' + (e.lineno || '');
+      document.body.appendChild(el);
+    });
+  </script>
+  <script type="module">
+    import './src/client/beamlab.ts';
+  </script>
+</body>
+</html>

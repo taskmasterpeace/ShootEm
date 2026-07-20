@@ -910,6 +910,10 @@ function setMode(mode: string) {
     const frame = document.getElementById('style-frame') as HTMLIFrameElement | null;
     if (frame && !frame.src) frame.src = '/style.html';
   }
+  if (mode === 'beams') {
+    const frame = document.getElementById('beams-frame') as HTMLIFrameElement | null;
+    if (frame && !frame.src) frame.src = '/beams.html';
+  }
   matchupCtl?.setActive(mode === 'matchup');
   for (const t of Array.from(document.querySelectorAll<HTMLButtonElement>('.tab')))
     t.classList.toggle('active', t.dataset.mode === mode);

@@ -40,6 +40,8 @@ export default defineConfig({
         fx: resolve(__dirname, 'fx.html'),
         // the style lab — the capsule-soldier experiment (/style.html)
         style: resolve(__dirname, 'style.html'),
+        // the beam lab — continuous beams: hose / kamehameha / heat / flamer (/beams.html)
+        beams: resolve(__dirname, 'beams.html'),
       },
     },
   },
