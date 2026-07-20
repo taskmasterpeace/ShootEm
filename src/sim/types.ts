@@ -484,6 +484,12 @@ export interface Soldier {
   botRepathAt?: number;
   botTargetId?: number;
   botStrafeDir?: number;
+  /** opt #5 (S4): the cached strategic objective + when it next recomputes +
+   *  the carry state it was computed under. objectiveFor is 25% of the tick
+   *  from O(S) scans it runs every frame; the goal only matters at ~2-4 Hz. */
+  botObjective?: Vec3 | null;
+  botObjAt?: number;
+  botObjFlag?: number;
   /** next sim time this bot may press E (one polite press, not a woodpecker) */
   botUseAt?: number;
   /** stuck detection: when this bot's ride stopped making progress */

@@ -539,6 +539,28 @@ function amClosestRescuer(w: World, s: Soldier, vic: Soldier): boolean {
   return true;
 }
 
+/**
+ * opt #5 (S4): objectiveFor is pure but ~25% of World.step — it re-runs O(S)
+ * scans (isolatedFriendly, defendsNow, amCloseHunter) every tick when the goal
+ * only shifts at ~1 Hz. Cache it per-bot on a staggered ~4 Hz clock, cloned so
+ * a returned live reference (a flag pos, a base) can't mutate under us, and
+ * force a fresh compute the instant the bot's OWN carry state flips — a carrier
+ * must turn for home now, not up to 250 ms later. Everything else (own-flag
+ * flips, point ownership) is a strategic change that ≤250 ms of lag can't hurt.
+ */
+export function cachedObjective(w: World, s: Soldier): Vec3 {
+  const flag = s.carryingFlag;
+  if (s.botObjective && s.botObjAt !== undefined && w.time < s.botObjAt && s.botObjFlag === flag) {
+    return s.botObjective;
+  }
+  const g = objectiveFor(w, s);
+  s.botObjective = { x: g.x, y: g.y, z: g.z }; // snapshot, never a live reference
+  s.botObjFlag = flag;
+  // ~4 Hz, jittered per id so the fleet doesn't recompute on one tick
+  s.botObjAt = w.time + 0.25 + (s.id % 8) * 0.01;
+  return s.botObjective;
+}
+
 export function objectiveFor(w: World, s: Soldier): Vec3 {
   const m = w.mode;
   const enemyBase = w.map.basePos[1 - s.team];
@@ -875,7 +897,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     }
 
     // unarmed utility rides (ambulance/tunneler/hoverboard): drive to objective, hop out
-    const goal = objectiveFor(w, s);
+    const goal = cachedObjective(w, s);
     const dGoal = Math.hypot(goal.x - v.pos.x, goal.z - v.pos.z);
     // breacher depth discipline (49A): run DEEP on the long quiet legs —
     // silent, off-minimap, under the walls — and SURFACE near the objective
@@ -1012,7 +1034,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
   // full weapon reach (the AI leans on its instruments too).
   const sightRange = Math.max(TUNE.weatherFloor, acqRange * visionMult(w.weather));
   const target = findTarget(w, s, sightRange, acqRange);
-  const goal = objectiveFor(w, s);
+  const goal = cachedObjective(w, s);
   const dGoal = Math.hypot(goal.x - s.pos.x, goal.z - s.pos.z);
 
   // --- consider grabbing an ARMED vehicle for long trips (not in survival) ---
