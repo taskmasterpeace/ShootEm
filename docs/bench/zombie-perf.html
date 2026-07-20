@@ -9,113 +9,348 @@
 <body>
 <style>
   :root{
-    --ink:#12151a; --panel:#1a1e24; --line:#2b323c; --grid:#232a33;
-    --fg:#e7ecf2; --muted:#8b98a8; --amber:#e8a33d; --good:#46d17a; --bad:#ff4736;
+    --ink:#111419; --panel:#181d24; --panel2:#141920; --line:#2a313b; --grid:#20262e;
+    --fg:#e7ecf2; --muted:#8b98a8; --dim:#5a6675;
+    --amber:#e8a33d; --amber-hot:#ffc266; --good:#46d17a; --bad:#ff4736;
   }
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--ink);color:var(--fg);
     font:14px/1.5 ui-monospace,"SF Mono",Menlo,Consolas,monospace}
-  .wrap{max-width:1000px;margin:0 auto;padding:28px 20px 60px}
-  h1{font-size:20px;letter-spacing:.08em;text-transform:uppercase;margin:0 0 2px;color:var(--amber)}
-  .sub{color:var(--muted);font-size:12px;margin:0 0 22px}
-  .panel{background:var(--panel);border:1px solid var(--line);padding:18px 16px 8px;position:relative}
-  .panel::before,.panel::after{content:"";position:absolute;width:10px;height:10px;border:2px solid var(--amber)}
+  ::selection{background:var(--amber);color:var(--ink)}
+  .wrap{max-width:1040px;margin:0 auto;padding:30px 22px 70px}
+
+  /* ── masthead ─────────────────────────────────────────────── */
+  header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;
+    gap:16px;border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:18px}
+  h1{font-size:21px;letter-spacing:.14em;text-transform:uppercase;margin:0;color:var(--fg)}
+  h1 b{color:var(--amber);font-weight:700}
+  .sub{color:var(--muted);font-size:12px;margin:4px 0 0;max-width:62ch}
+  .chips{display:flex;gap:10px;flex-wrap:wrap}
+  .chip{border:1px solid var(--line);background:var(--panel2);padding:7px 12px;min-width:104px}
+  .chip .k{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .chip .v{font-size:19px;color:var(--amber);font-variant-numeric:tabular-nums}
+  .chip .v small{font-size:11px;color:var(--muted)}
+  .chip.up .v{color:var(--good)}
+
+  /* ── panels ───────────────────────────────────────────────── */
+  .panel{background:var(--panel);border:1px solid var(--line);padding:16px;position:relative;margin-top:22px}
+  .panel::before,.panel::after{content:"";position:absolute;width:11px;height:11px;border:2px solid var(--amber);pointer-events:none}
   .panel::before{left:-1px;top:-1px;border-right:0;border-bottom:0}
   .panel::after{right:-1px;bottom:-1px;border-left:0;border-top:0}
+  .phead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 2px 12px}
+  .ptitle{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber)}
+  .toggle{display:flex;border:1px solid var(--line)}
+  .toggle button{all:unset;cursor:pointer;font:11px ui-monospace,Menlo,Consolas,monospace;
+    letter-spacing:.1em;color:var(--muted);padding:4px 12px}
+  .toggle button.on{background:var(--amber);color:var(--ink)}
+  .toggle button:focus-visible{outline:2px solid var(--amber-hot);outline-offset:-2px}
   svg{display:block;width:100%;height:auto;overflow:visible}
-  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:14px 2px 2px;font-size:12px}
-  .lg{display:flex;align-items:center;gap:7px;color:var(--muted)}
-  .sw{width:16px;height:3px;display:inline-block}
-  table{border-collapse:collapse;width:100%;margin-top:26px;font-size:12px;
-    font-variant-numeric:tabular-nums;overflow-x:auto;display:block}
-  th,td{text-align:right;padding:5px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+  text{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+
+  /* ── waves legend ─────────────────────────────────────────── */
+  .waves{display:flex;flex-direction:column;gap:6px;margin-top:14px}
+  .wave{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted);
+    border-left:3px solid transparent;padding:3px 8px}
+  .wave .no{color:var(--dim);letter-spacing:.08em}
+  .wave .lbl{color:var(--fg)}
+  .wave .meta{margin-left:auto;color:var(--dim);font-size:11px;white-space:nowrap}
+  .wave.latest{background:var(--panel2)}
+  .wave.latest .lbl{color:var(--amber-hot)}
+
+  /* ── table ────────────────────────────────────────────────── */
+  .tblwrap{overflow-x:auto;margin-top:4px}
+  table{border-collapse:collapse;width:100%;font-size:12px;font-variant-numeric:tabular-nums}
+  th,td{text-align:right;padding:6px 11px;border-bottom:1px solid var(--grid);white-space:nowrap}
   th:first-child,td:first-child{text-align:left}
-  thead th{color:var(--amber);text-transform:uppercase;letter-spacing:.05em;font-weight:400;border-bottom:1px solid var(--amber)}
-  td.over{color:var(--bad)} td.under{color:var(--good)}
-  .note{color:var(--muted);font-size:12px;margin-top:18px;max-width:70ch}
-  .runlbl{color:var(--fg)}
-  .commit{color:var(--muted)}
+  thead th{color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-weight:400;
+    font-size:10px;border-bottom:1px solid var(--line)}
+  td.over{color:var(--bad)} td.under{color:var(--good)} td.na{color:var(--dim)}
+  tr.latest td{color:var(--fg);background:var(--panel2)}
+  tr.latest td.over{color:var(--bad)} tr.latest td.under{color:var(--good)}
+  .dot{display:inline-block;width:8px;height:8px;margin-right:7px}
+
+  .note{color:var(--muted);font-size:12px;margin-top:20px;max-width:74ch;line-height:1.65}
+  .note b{color:var(--fg);font-weight:400}
+
+  /* tooltip */
+  #tip{position:fixed;pointer-events:none;background:var(--ink);border:1px solid var(--amber);
+    padding:7px 10px;font-size:11px;line-height:1.6;display:none;z-index:9;
+    box-shadow:0 4px 18px rgba(0,0,0,.5)}
+  #tip .t-n{color:var(--amber);letter-spacing:.06em}
+  #tip .t-run{color:var(--muted)}
+  @media (prefers-reduced-motion: no-preference){
+    .drawable{transition:stroke-dashoffset 1.1s cubic-bezier(.4,0,.2,1)}
+  }
 </style>
-</head>
-<body>
 <div class="wrap">
-  <h1>Zombie Stress Bench</h1>
-  <p class="sub">Sim-step cost vs shambler count — 12 defenders holding, population pinned each tick, <span style="color:var(--fg)">step() only</span>. Lower is faster. Each fix draws a new line.</p>
+  <header>
+    <div>
+      <h1>Zombie <b>Stress Bench</b></h1>
+      <p class="sub">Sim-step cost as the shambler horde grows — 12 defenders holding, population pinned every tick, <span style="color:var(--fg)">step() only</span>. Each optimization is a <span style="color:var(--amber)">wave</span>; each wave should ride lower than the last.</p>
+    </div>
+    <div class="chips" id="chips"></div>
+  </header>
+
   <div class="panel">
-    <svg id="chart" viewBox="0 0 900 460" role="img" aria-label="Step time versus zombie count"></svg>
+    <div class="phead">
+      <span class="ptitle">Step time vs horde size</span>
+      <div class="toggle" role="group" aria-label="y scale">
+        <button id="sc-lin" class="on">LIN</button><button id="sc-log">LOG</button>
+      </div>
+    </div>
+    <svg id="chart" viewBox="0 0 940 470" role="img" aria-label="Step time versus zombie count, one curve per optimization wave"></svg>
+    <div class="waves" id="waves"></div>
   </div>
-  <div class="legend" id="legend"></div>
-  <table id="tbl"></table>
+
+  <div class="panel">
+    <div class="phead"><span class="ptitle">The wall advances</span>
+      <span style="font-size:11px;color:var(--muted)">shamblers before one step blows the 16.7&nbsp;ms frame</span></div>
+    <svg id="wallchart" viewBox="0 0 940 10" aria-label="Frame-budget wall per wave"></svg>
+  </div>
+
+  <div class="panel">
+    <div class="phead"><span class="ptitle">Every run on record</span></div>
+    <div class="tblwrap"><table id="tbl"></table></div>
+  </div>
+
   <p class="note" id="note"></p>
 </div>
+<div id="tip"></div>
 <script>
 const HISTORY = [{"ts":"2026-07-20T23:05:21.238Z","commit":"7926df8","label":"baseline (no obj-cache)","nocache":true,"points":[{"n":50,"mean":0.679,"median":0.635,"p95":0.93,"max":1.604,"defenders":12,"zAlive":50},{"n":100,"mean":1.452,"median":1.368,"p95":2.041,"max":3.063,"defenders":12,"zAlive":100},{"n":200,"mean":2.739,"median":2.667,"p95":3.347,"max":5.986,"defenders":12,"zAlive":200},{"n":300,"mean":4.15,"median":4.074,"p95":4.994,"max":6.45,"defenders":12,"zAlive":300},{"n":500,"mean":6.091,"median":6.077,"p95":7.464,"max":8.486,"defenders":12,"zAlive":500},{"n":800,"mean":19.785,"median":20.833,"p95":23.654,"max":24.74,"defenders":12,"zAlive":800},{"n":1200,"mean":25.997,"median":26.161,"p95":29.173,"max":31.14,"defenders":12,"zAlive":1200},{"n":1600,"mean":43.522,"median":43.866,"p95":47.336,"max":51.389,"defenders":12,"zAlive":1600}]},{"ts":"2026-07-20T23:06:16.983Z","commit":"7926df8","label":"S4 objective cache","nocache":false,"points":[{"n":50,"mean":0.465,"median":0.43,"p95":0.654,"max":1.608,"defenders":12,"zAlive":50},{"n":100,"mean":0.971,"median":0.929,"p95":1.363,"max":3.117,"defenders":12,"zAlive":99},{"n":200,"mean":1.875,"median":1.8,"p95":2.435,"max":4.593,"defenders":12,"zAlive":200},{"n":300,"mean":3.136,"median":3.104,"p95":3.702,"max":4.413,"defenders":12,"zAlive":300},{"n":500,"mean":5.665,"median":5.726,"p95":6.764,"max":7.197,"defenders":12,"zAlive":500},{"n":800,"mean":17.567,"median":18.632,"p95":23.152,"max":25.795,"defenders":12,"zAlive":800},{"n":1200,"mean":22.923,"median":22.658,"p95":25.704,"max":28.434,"defenders":12,"zAlive":1200},{"n":1600,"mean":39,"median":38.753,"p95":42.348,"max":51.054,"defenders":12,"zAlive":1600}]}];
 const BUDGET = 16.7;
-const COLORS = ['#e8a33d','#3dbde8','#46d17a','#ff8a2a','#c9d1d9','#e85d9c','#8fd4e8'];
-const runs = HISTORY.map((r,i)=>({...r, color: COLORS[i % COLORS.length]}));
-
-// scales
-const allN = [...new Set(runs.flatMap(r=>r.points.map(p=>p.n)))].sort((a,b)=>a-b);
-const maxN = Math.max(...allN, 1);
-const maxMs = Math.max(BUDGET*1.05, ...runs.flatMap(r=>r.points.map(p=>p.mean)))*1.08;
-const M={l:58,r:18,t:14,b:44}, W=900, H=460, iw=W-M.l-M.r, ih=H-M.t-M.b;
-const x=n=>M.l+(n/maxN)*iw;
-const y=ms=>M.t+ih-(ms/maxMs)*ih;
-
-const svg=document.getElementById('chart');
 const NS='http://www.w3.org/2000/svg';
 const el=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
+const fmt=(x,d)=>x.toFixed(d===undefined?2:d);
 
-// y grid + labels
-for(let ms=0;ms<=maxMs;ms+= maxMs>20?5:2){
-  svg.appendChild(el('line',{x1:M.l,y1:y(ms),x2:W-M.r,y2:y(ms),stroke:'#232a33', 'stroke-width':1}));
-  const t=el('text',{x:M.l-8,y:y(ms)+4,fill:'#8b98a8','font-size':11,'text-anchor':'end'});t.textContent=ms.toFixed(0);svg.appendChild(t);
+// ── wave palette: older waves recede into steel, the newest burns amber ──
+function waveColor(i,n){
+  if(i===n-1) return '#e8a33d';
+  if(n<=1) return '#e8a33d';
+  const t=i/(n-1); // 0 oldest … →1 newest
+  const mix=(a,b,k)=>Math.round(a+(b-a)*k);
+  // steel #4a5462 → pale slate #93a0b0 as waves get more recent
+  return 'rgb('+mix(74,147,t)+','+mix(84,160,t)+','+mix(98,176,t)+')';
 }
-// budget line
-svg.appendChild(el('line',{x1:M.l,y1:y(BUDGET),x2:W-M.r,y2:y(BUDGET),stroke:'#ff4736','stroke-width':1.5,'stroke-dasharray':'6 4'}));
-const bl=el('text',{x:W-M.r,y:y(BUDGET)-6,fill:'#ff4736','font-size':11,'text-anchor':'end'});bl.textContent='16.7 ms — one 60fps frame';svg.appendChild(bl);
-// x ticks
-for(const n of allN){
-  const t=el('text',{x:x(n),y:H-M.b+18,fill:'#8b98a8','font-size':11,'text-anchor':'middle'});t.textContent=n;svg.appendChild(t);
-}
-const xl=el('text',{x:M.l+iw/2,y:H-6,fill:'#8b98a8','font-size':11,'text-anchor':'middle'});xl.textContent='shamblers on the field';svg.appendChild(xl);
-const yl=el('text',{x:16,y:M.t+ih/2,fill:'#8b98a8','font-size':11,'text-anchor':'middle',transform:'rotate(-90 16 '+(M.t+ih/2)+')'});yl.textContent='sim step (ms)';svg.appendChild(yl);
+const runs=HISTORY.map((r,i)=>({...r,i,color:waveColor(i,HISTORY.length),latest:i===HISTORY.length-1}));
 
-// one polyline per run
-for(const r of runs){
-  const pts=r.points.map(p=>x(p.n)+','+y(p.mean)).join(' ');
-  svg.appendChild(el('polyline',{points:pts,fill:'none',stroke:r.color,'stroke-width':2}));
-  for(const p of r.points){
-    svg.appendChild(el('circle',{cx:x(p.n),cy:y(p.mean),r:3.2,fill:p.mean>BUDGET?'#ff4736':r.color}));
+function wallOf(pts){
+  for(let i=1;i<pts.length;i++){
+    if(pts[i].mean>=BUDGET&&pts[i-1].mean<BUDGET){
+      const a=pts[i-1],b=pts[i],t=(BUDGET-a.mean)/(b.mean-a.mean);
+      return Math.round(a.n+t*(b.n-a.n));
+    }
   }
+  if(pts.every(p=>p.mean<BUDGET)&&pts.length>1){
+    const a=pts[pts.length-2],b=pts[pts.length-1];
+    if(b.mean>a.mean) return Math.round(b.n+(BUDGET-b.mean)*(b.n-a.n)/(b.mean-a.mean));
+  }
+  return null;
+}
+runs.forEach(r=>r.wall=wallOf(r.points));
+
+const allN=[...new Set(runs.flatMap(r=>r.points.map(p=>p.n)))].sort((a,b)=>a-b);
+const maxN=Math.max.apply(null,allN);
+const maxMs=Math.max.apply(null,[BUDGET*1.05].concat(runs.flatMap(r=>r.points.map(p=>p.mean))))*1.09;
+const minMs=Math.min.apply(null,runs.flatMap(r=>r.points.map(p=>p.mean)));
+
+// ── header chips ──
+(function(){
+  const first=runs[0],last=runs[runs.length-1];
+  const chips=[];
+  chips.push({k:'waves recorded',v:String(runs.length)});
+  if(last.wall)chips.push({k:'current wall',v:'~'+last.wall+'<small> zeds</small>'});
+  if(runs.length>=2&&first.wall&&last.wall){
+    const d=last.wall-first.wall;
+    chips.push({k:'wall moved',v:(d>=0?'+':'')+d+'<small> zeds</small>',up:d>0});
+  }
+  if(runs.length>=2){
+    const common=first.points.filter(p=>last.points.some(q=>q.n===p.n));
+    let best=0,bn=0;
+    common.forEach(p=>{const q=last.points.find(q=>q.n===p.n);const pct=Math.round((1-q.mean/p.mean)*100);
+      if(pct>best){best=pct;bn=p.n;}});
+    if(best>0)chips.push({k:'best gain',v:'-'+best+'%<small> @'+bn+'</small>',up:true});
+  }
+  document.getElementById('chips').innerHTML=chips.map(c=>
+    '<div class="chip'+(c.up?' up':'')+'"><div class="k">'+c.k+'</div><div class="v">'+c.v+'</div></div>').join('');
+})();
+
+// ── main chart ──
+const svg=document.getElementById('chart');
+const M={l:60,r:20,t:16,b:46},W=940,H=470,iw=W-M.l-M.r,ih=H-M.t-M.b;
+let yMode='lin';
+const x=n=>M.l+(n/maxN)*iw;
+const yLin=ms=>M.t+ih-(ms/maxMs)*ih;
+const lo=Math.max(0.2,minMs*0.8);
+const yLog=ms=>{const a=Math.log(lo),b=Math.log(maxMs);return M.t+ih-((Math.log(Math.max(lo,ms))-a)/(b-a))*ih;};
+const Y=ms=>yMode==='lin'?yLin(ms):yLog(ms);
+
+// smooth catmull-rom→bezier, control-y clamped so the curve never dips
+// below/above its own endpoints (an honest chart doesn't overshoot)
+function smooth(pts){
+  if(pts.length<3)return 'M'+pts.map(p=>p[0]+' '+p[1]).join(' L ');
+  let d='M'+pts[0][0]+','+pts[0][1];
+  for(let i=0;i<pts.length-1;i++){
+    const p0=pts[Math.max(0,i-1)],p1=pts[i],p2=pts[i+1],p3=pts[Math.min(pts.length-1,i+2)];
+    const lo2=Math.min(p1[1],p2[1]),hi=Math.max(p1[1],p2[1]);
+    const c1y=Math.min(hi,Math.max(lo2,p1[1]+(p2[1]-p0[1])/6));
+    const c2y=Math.min(hi,Math.max(lo2,p2[1]-(p3[1]-p1[1])/6));
+    d+='C'+(p1[0]+(p2[0]-p0[0])/6)+','+c1y+' '+(p2[0]-(p3[0]-p1[0])/6)+','+c2y+' '+p2[0]+','+p2[1];
+  }
+  return d;
 }
 
-// legend
-const lg=document.getElementById('legend');
-runs.forEach(r=>{
-  const d=document.createElement('div');d.className='lg';
-  d.innerHTML='<span class="sw" style="background:'+r.color+'"></span><span class="runlbl">'+r.label+'</span> <span class="commit">'+r.commit+' · '+r.ts.slice(0,10)+'</span>';
-  lg.appendChild(d);
+const tip=document.getElementById('tip');
+let hoverPts=[]; // {sx,sy,n,mean,p95,label,color}
+
+function drawChart(){
+  svg.innerHTML='';
+  hoverPts=[];
+  // defs: amber area gradient for the latest wave
+  const defs=el('defs',{});
+  defs.innerHTML='<linearGradient id="gA" x1="0" y1="0" x2="0" y2="1">'
+    +'<stop offset="0" stop-color="#e8a33d" stop-opacity=".22"/>'
+    +'<stop offset="1" stop-color="#e8a33d" stop-opacity="0"/></linearGradient>';
+  svg.appendChild(defs);
+
+  // y grid + labels
+  const ticks=yMode==='lin'
+    ? (function(){const s=maxMs>24?10:maxMs>12?5:2;const t=[];for(let v=0;v<=maxMs;v+=s)t.push(v);return t;})()
+    : [0.5,1,2,4,8,16.7,32,64].filter(v=>v>=lo*0.9&&v<=maxMs);
+  ticks.forEach(ms=>{
+    svg.appendChild(el('line',{x1:M.l,y1:Y(ms),x2:W-M.r,y2:Y(ms),stroke:'#20262e','stroke-width':1}));
+    const t=el('text',{x:M.l-9,y:Y(ms)+4,fill:'#8b98a8','font-size':11,'text-anchor':'end'});
+    t.textContent=ms===16.7?'16.7':fmt(ms,ms<2?1:0);svg.appendChild(t);
+  });
+  // budget line
+  svg.appendChild(el('line',{x1:M.l,y1:Y(BUDGET),x2:W-M.r,y2:Y(BUDGET),stroke:'#ff4736','stroke-width':1.5,'stroke-dasharray':'7 5'}));
+  const bl=el('text',{x:W-M.r,y:Y(BUDGET)-7,fill:'#ff4736','font-size':11,'text-anchor':'end'});
+  bl.textContent='16.7 ms — the 60 fps frame';svg.appendChild(bl);
+  // x ticks
+  allN.forEach(n=>{
+    const t=el('text',{x:x(n),y:H-M.b+19,fill:'#8b98a8','font-size':11,'text-anchor':'middle'});
+    t.textContent=n;svg.appendChild(t);
+  });
+  const xl=el('text',{x:M.l+iw/2,y:H-7,fill:'#5a6675','font-size':11,'text-anchor':'middle','letter-spacing':'.12em'});
+  xl.textContent='SHAMBLERS ON THE FIELD';svg.appendChild(xl);
+  const yl=el('text',{x:17,y:M.t+ih/2,fill:'#5a6675','font-size':11,'text-anchor':'middle',
+    transform:'rotate(-90 17 '+(M.t+ih/2)+')','letter-spacing':'.12em'});
+  yl.textContent='SIM STEP (MS)';svg.appendChild(yl);
+
+  // waves, oldest first so the newest paints on top
+  runs.forEach(r=>{
+    const P=r.points.map(p=>[x(p.n),Y(p.mean)]);
+    const d=smooth(P);
+    if(r.latest){
+      const area=d+' L'+P[P.length-1][0]+','+(M.t+ih)+' L'+P[0][0]+','+(M.t+ih)+' Z';
+      svg.appendChild(el('path',{d:area,fill:'url(#gA)',stroke:'none'}));
+    }
+    const path=el('path',{d,fill:'none',stroke:r.color,
+      'stroke-width':r.latest?2.6:1.4,'stroke-opacity':r.latest?1:0.75,class:'drawable'});
+    svg.appendChild(path);
+    // line-draw reveal, newest last (each wave "continues" from the one before)
+    try{
+      const len=path.getTotalLength();
+      path.style.strokeDasharray=String(len);
+      path.style.strokeDashoffset=String(len);
+      requestAnimationFrame(()=>setTimeout(()=>{path.style.strokeDashoffset='0';},140*r.i));
+    }catch(e){/* headless */}
+    r.points.forEach(p=>{
+      const sx=x(p.n),sy=Y(p.mean);
+      svg.appendChild(el('circle',{cx:sx,cy:sy,r:r.latest?3.8:2.6,
+        fill:p.mean>BUDGET?'#ff4736':r.color,'fill-opacity':r.latest?1:0.85}));
+      hoverPts.push({sx,sy,n:p.n,mean:p.mean,p95:p.p95,label:r.label,color:r.color});
+    });
+  });
+}
+drawChart();
+
+// hover readout
+svg.addEventListener('mousemove',ev=>{
+  const rect=svg.getBoundingClientRect();
+  const sx=(ev.clientX-rect.left)*(W/rect.width), sy=(ev.clientY-rect.top)*(H/rect.height);
+  let best=null,bd=17*17;
+  hoverPts.forEach(p=>{const d=(p.sx-sx)*(p.sx-sx)+(p.sy-sy)*(p.sy-sy);if(d<bd){bd=d;best=p;}});
+  if(!best){tip.style.display='none';return;}
+  tip.innerHTML='<div class="t-n">'+best.n+' shamblers — '+fmt(best.mean)+' ms</div>'
+    +'<div class="t-run">p95 '+fmt(best.p95)+' · '+Math.round(best.mean/BUDGET*100)+'% of frame</div>'
+    +'<div class="t-run" style="color:'+best.color+'">'+best.label+'</div>';
+  tip.style.display='block';
+  tip.style.left=Math.min(window.innerWidth-190,ev.clientX+14)+'px';
+  tip.style.top=(ev.clientY+14)+'px';
 });
+svg.addEventListener('mouseleave',()=>{tip.style.display='none';});
 
-// table
-const tbl=document.getElementById('tbl');
-let head='<thead><tr><th>Run</th>'+allN.map(n=>'<th>'+n+'</th>').join('')+'</tr></thead><tbody>';
-let body=runs.map(r=>{
-  const byN=Object.fromEntries(r.points.map(p=>[p.n,p]));
-  const cells=allN.map(n=>{const p=byN[n];if(!p)return '<td>·</td>';const cls=p.mean>BUDGET?'over':'under';return '<td class="'+cls+'">'+p.mean.toFixed(2)+'</td>';}).join('');
-  return '<tr><td>'+r.label+'</td>'+cells+'</tr>';
-}).join('');
-tbl.innerHTML=head+body+'</tbody>';
+// scale toggle
+const bLin=document.getElementById('sc-lin'),bLog=document.getElementById('sc-log');
+function setMode(m){yMode=m;bLin.classList.toggle('on',m==='lin');bLog.classList.toggle('on',m==='log');drawChart();}
+bLin.onclick=()=>setMode('lin');bLog.onclick=()=>setMode('log');
 
-// note: the improvement between the first and last run
-if(runs.length>=2){
-  const a=runs[0], b=runs[runs.length-1];
+// ── waves legend ──
+document.getElementById('waves').innerHTML=runs.map(r=>
+  '<div class="wave'+(r.latest?' latest':'')+'" style="border-left-color:'+r.color+'">'
+  +'<span class="no">W'+String(r.i+1).padStart(2,'0')+'</span>'
+  +'<span class="lbl">'+r.label+'</span>'
+  +'<span class="meta">'+r.commit+' · '+r.ts.slice(0,10)
+  +(r.wall?' · wall ~'+r.wall:'')+'</span></div>').join('');
+
+// ── the wall advances ──
+(function(){
+  const wsvg=document.getElementById('wallchart');
+  const rows=runs.filter(r=>r.wall!==null);
+  if(!rows.length){wsvg.remove();return;}
+  const RH=34,PAD=6,LW=940;
+  const h=rows.length*(RH+PAD)+8;
+  wsvg.setAttribute('viewBox','0 0 '+LW+' '+h);
+  const wMax=Math.max.apply(null,rows.map(r=>r.wall))*1.12;
+  rows.forEach((r,j)=>{
+    const yy=j*(RH+PAD)+4;
+    const bw=Math.max(3,(r.wall/wMax)*(LW-260));
+    wsvg.appendChild(el('rect',{x:150,y:yy+6,width:bw,height:RH-14,
+      fill:r.latest?'#e8a33d':r.color,'fill-opacity':r.latest?1:0.55}));
+    const lbl=el('text',{x:142,y:yy+RH/2+4,fill:r.latest?'#ffc266':'#8b98a8','font-size':11,'text-anchor':'end'});
+    lbl.textContent='W'+String(r.i+1).padStart(2,'0');wsvg.appendChild(lbl);
+    const val=el('text',{x:150+bw+10,y:yy+RH/2+4,fill:r.latest?'#e8a33d':'#8b98a8','font-size':12});
+    const prev=j>0?rows[j-1].wall:null;
+    const delta=prev!==null?(r.wall-prev):null;
+    val.textContent='~'+r.wall+(delta!==null?'  ('+(delta>=0?'+':'')+delta+')':'');
+    wsvg.appendChild(val);
+    // continuity tick: where the previous wave's wall stood
+    if(prev!==null){
+      const px=150+(prev/wMax)*(LW-260);
+      wsvg.appendChild(el('line',{x1:px,y1:yy+2,x2:px,y2:yy+RH-6,stroke:'#5a6675','stroke-width':1,'stroke-dasharray':'2 3'}));
+    }
+  });
+})();
+
+// ── table ──
+(function(){
+  const tbl=document.getElementById('tbl');
+  let html='<thead><tr><th>wave</th>'+allN.map(n=>'<th>'+n+'</th>').join('')+'<th>wall</th></tr></thead><tbody>';
+  html+=runs.map(r=>{
+    const byN={};r.points.forEach(p=>byN[p.n]=p);
+    const cells=allN.map(n=>{const p=byN[n];if(!p)return '<td class="na">·</td>';
+      return '<td class="'+(p.mean>BUDGET?'over':'under')+'">'+fmt(p.mean)+'</td>';}).join('');
+    return '<tr'+(r.latest?' class="latest"':'')+'><td><span class="dot" style="background:'+r.color+'"></span>W'
+      +String(r.i+1).padStart(2,'0')+' '+r.label+'</td>'+cells
+      +'<td>'+(r.wall?'~'+r.wall:'—')+'</td></tr>';
+  }).join('');
+  tbl.innerHTML=html+'</tbody>';
+})();
+
+// ── the note ──
+(function(){
+  if(runs.length<2)return;
+  const a=runs[0],b=runs[runs.length-1];
   const common=a.points.filter(p=>b.points.some(q=>q.n===p.n));
-  const deltas=common.map(p=>{const q=b.points.find(q=>q.n===p.n);return {n:p.n, pct:Math.round((1-q.mean/p.mean)*100)};});
-  const best=deltas.reduce((m,d)=>Math.abs(d.pct)>Math.abs(m.pct)?d:m,{pct:0,n:0});
-  document.getElementById('note').textContent='"'+b.label+'" vs "'+a.label+'": up to '+best.pct+'% faster (at '+best.n+' shamblers). Values are mean step ms over the measured window; a point turns red when a single step blows the frame budget.';
-}
+  const deltas=common.map(p=>{const q=b.points.find(q=>q.n===p.n);
+    return {n:p.n,pct:Math.round((1-q.mean/p.mean)*100)};});
+  const best=deltas.reduce((m,d)=>d.pct>m.pct?d:m,{pct:-999,n:0});
+  let s='Latest wave <b>“'+b.label+'”</b> vs <b>“'+a.label+'”</b>: up to <b>'+best.pct+'% faster</b> (at '+best.n+' shamblers)';
+  if(a.wall&&b.wall)s+=', and the wall has marched from <b>~'+a.wall+'</b> to <b>~'+b.wall+'</b> shamblers';
+  s+='. Values are mean step ms; a red point means a single step blew the frame budget. Older waves fade to steel — the amber wave is the war as it stands.';
+  document.getElementById('note').innerHTML=s;
+})();
 </script>
 </body>
 </html>
