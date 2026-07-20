@@ -56,6 +56,12 @@ const CORE_WEAPONS: Record<WeaponId, WeaponDef> = {
   // which crosses the ragdoll threshold out to ~3u. It flips people; the
   // jetpack class becomes the crowd-control skirmisher, not a bomber.
   cl40: W({ id: 'cl40', name: 'CL-40 Concussor', damage: 0, rof: 1.1, speed: 34, clip: 5, reloadTime: 2.4, reserve: 30, range: 46, splash: 6.5, splashDamage: 14, knockback: 30, arc: true, payload: 'concussion', sound: 'thump', tracer: 'canister', icon: '💫' }),
+  // M5 THE BREACHER'S AXE (Robert: "you can give them a thing they can throw
+  // and retrieve"). Thrown flat and fast, it BURIES itself where it lands and
+  // waits. Press F again and it tears free and flies home — hurting anything
+  // on the return path. One axe per soldier: throw it badly and you're on
+  // your rifle until you go get it or call it back.
+  axe: W({ id: 'axe', name: 'Breacher Axe', damage: 62, rof: 1.1, speed: 30, clip: 1, reserve: 0, range: 30, knockback: 6, sound: 'claw', tracer: 'frag' }),
   orbital_beacon: W({ id: 'orbital_beacon', name: 'Orbital Designator', damage: 0, rof: 0.5, speed: 26, clip: 1, reserve: 0, range: 42, arc: true, sound: 'thump', tracer: 'rocket' }),
   buggy_mg: W({ id: 'buggy_mg', name: 'Buggy MG', damage: 11, rof: 10, speed: 110, spread: 0.045, clip: Infinity, reserve: Infinity, range: 52, sound: 'smg' }),
   tank_cannon: W({ id: 'tank_cannon', name: '120mm Cannon', damage: 110, rof: 0.5, speed: 70, spread: 0.004, clip: Infinity, reserve: Infinity, range: 94, splash: 6.5, splashDamage: 60, knockback: 18, sound: 'cannon', tracer: 'rocket' }),

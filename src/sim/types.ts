@@ -227,6 +227,11 @@ export interface Soldier {
   ragdollUntil?: number;
   /** M4: an LSW's own regen rate, when its god overrides the class stat */
   lswRegen?: number;
+  /** M5 THROW-AND-RETRIEVE: the gadget id of this soldier's axe while it is
+   *  in the ground. Absent = the axe is on his back, ready to throw. */
+  axeId?: number;
+  /** M5: the axe is flying home — no second recall until it lands */
+  axeRecallAt?: number;
   alive: boolean;
   respawnAt: number;  // sim time when respawn allowed
   weaponIdx: number;  // 0 primary, 1 secondary, 2 special pickup
@@ -576,7 +581,10 @@ export type GadgetType =
   | 'smoke_field'  // smoke cloud — hides soldiers inside from minimap + pings
   | 'fire_field'   // phosphorus burn — damage over time to enemies inside
   | 'snap_trap'    // Venatrix: springs THE ICE BLOCK on whoever steps in (spot the glint)
-  | 'flare';       // burning IR decoy dropped by a flyer — seduces heat-seekers
+  | 'flare'        // burning IR decoy dropped by a flyer — seduces heat-seekers
+  | 'axe';         // M5 THE THROWN AXE — buried where it landed, waiting to be
+                   // called back. It is a WEAPON on the ground, not a pickup:
+                   // only its thrower can recall it, and it hurts on the way home.
 
 /** Deployed sci-fi tech: beacons, domes, drones, pods. */
 export interface Gadget {
@@ -664,6 +672,9 @@ export interface SimEvent {
     | 'nade_bounce'    // a hand grenade kissed the ground — the tick before the bang
     | 'dash'           // M1: a soldier burst forward / tumbled sideways
     | 'ragdoll'        // M1: blown past the knockback threshold — body is luggage
+    | 'axe_throw'      // M5: the axe left the hand
+    | 'axe_stick'      // M5: it bit something and stayed there
+    | 'axe_recall'     // M5: it tore free and is flying home
     | 'damage'         // a number worth showing floated off a victim (see amount/armorHit)
     | 'vo';            // a spoken line: text = sound slot; pos = positional speech, absent = announcer net
   pos?: Vec3;
@@ -772,6 +783,8 @@ export interface PlayerCmd {
   /** M1 DASH/ROLL: 0/absent none · 1 dash forward · 2 roll left · 3 roll right.
    *  Double-tap detection lives on the client; the sim only sees intent. */
   dash?: number;
+  /** M5 MELEE / AXE: the F key. Throw it, recall it, or swing it. */
+  melee?: boolean;
   /** cursor distance from the soldier — thrown items (frag, beacon, charge)
    *  land here, clamped to each item's max reach. Optional for old clients. */
   aimDist?: number;

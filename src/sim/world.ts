@@ -77,6 +77,10 @@ const DASH_CD = 0.9;
 // or past this flips the body: conc (26) ragdolls out to ~2.5u, artillery
 // flips whole fireteams, but a plain frag (13) only ever shoves.
 const RAGDOLL_AT = 16;
+// M5 THE AXE: thrown flat, buried on landing, recalled through anyone in the way
+const AXE_REACH = 30;
+const AXE_RECALL_SPEED = 46;
+const AXE_RETURN_DAMAGE = 45;
 const CLOAK_DRAIN = 11;
 const JET_DRAIN = 30;
 const JET_THRUST = 9.5;
@@ -891,6 +895,13 @@ export class World {
     // §7: death hands the LSW body back — the overlay dies with it and the
     // mortal redeploys as the class they signed up as (stats reset below).
     if (s.ascendant) { s.ascendant = undefined; s.rageMul = undefined; s.nextLswAt = undefined; s.nextLswActiveAt = undefined; s.lswKillsBase = undefined; s.lswLowSaid = undefined; }
+      // M5: dying frees a mid-air claim — the buried axe stays in the world
+      if (s.axeId === -1) s.axeId = undefined;
+      s.axeRecallAt = undefined;
+      // M5: dying frees the axe — a buried one stays in the world, but the
+      // corpse stops owning a mid-air claim
+      if (s.axeId === -1) s.axeId = undefined;
+      s.axeRecallAt = undefined;
     const c = CLASSES[s.classId];
     // armor equipment issues PLATE — a separate pool that absorbs damage
     // before hp and never heals back (medics fix flesh, not ceramic).
@@ -1389,6 +1400,38 @@ export class World {
 
   // ---------- gadgets ----------
 
+  /** M5: hurl the axe. It flies as a normal projectile and buries itself
+   *  wherever it stops — see the axe branch in stepProjectiles. */
+  throwAxe(s: Soldier, reach: number) {
+    s.axeId = -1; // claimed: the axe is in the air, not on his back
+    this.throwProjectile(s, 'axe', 1.3, WEAPONS.axe.speed, false, Math.min(reach, AXE_REACH));
+    this.emit({ type: 'axe_throw', pos: { ...s.pos }, soldierId: s.id, weapon: 'axe' });
+  }
+
+  /** M5: the axe tears out of the dirt and flies home, opening anything
+   *  standing on the line between there and here. THE RETURN IS THE TRICK —
+   *  a good throw sets up a lane, and calling it back sweeps that lane. */
+  recallAxe(s: Soldier, axe: Gadget) {
+    this.gadgets.delete(axe.id);
+    s.axeId = undefined;
+    s.axeRecallAt = this.time + Math.hypot(axe.pos.x - s.pos.x, axe.pos.z - s.pos.z) / AXE_RECALL_SPEED;
+    this.emit({ type: 'axe_recall', pos: { ...axe.pos }, soldierId: s.id });
+    // everyone on the return line eats it — hostiles only, once each
+    const dx = s.pos.x - axe.pos.x, dz = s.pos.z - axe.pos.z;
+    const len = Math.hypot(dx, dz) || 1;
+    const ux = dx / len, uz = dz / len;
+    for (const v of this.soldiers.values()) {
+      if (!v.alive || v.team === s.team || v.id === s.id || v.vehicleId >= 0) continue;
+      const rx = v.pos.x - axe.pos.x, rz = v.pos.z - axe.pos.z;
+      const along = rx * ux + rz * uz;
+      if (along < 0 || along > len) continue;              // behind it, or past home
+      const off = Math.abs(rx * uz - rz * ux);             // perpendicular miss
+      if (off > 1.3) continue;
+      this.damageSoldier(v, AXE_RETURN_DAMAGE, s.id, 'axe');
+      this.emit({ type: 'hit', pos: { ...v.pos }, weapon: 'axe', soldierId: v.id, ownerId: s.id });
+    }
+  }
+
   spawnGadget(type: GadgetType, team: Team, ownerId: number, pos: Vec3, hp: number, lifetime = Infinity): Gadget {
     const g: Gadget = {
       id: this.id(), type, team, ownerId,
@@ -1748,6 +1791,17 @@ export class World {
           s.rollDir = side;
         }
         this.emit({ type: 'dash', pos: { ...s.pos }, soldierId: s.id });
+      }
+    }
+
+    // M5 THE AXE ON F: throw it, or call it home. One axe, three states —
+    // on your back (throw), in the ground (recall), in the air (wait).
+    if (cmd.melee && !s.downed && s.vehicleId < 0 && s.encasedUntil === undefined) {
+      const stuck = s.axeId !== undefined ? this.gadgets.get(s.axeId) : undefined;
+      if (stuck) {
+        this.recallAxe(s, stuck);
+      } else if (s.axeId === undefined && s.axeRecallAt === undefined) {
+        this.throwAxe(s, cmd.aimDist ?? AXE_REACH);
       }
     }
 
@@ -2602,6 +2656,10 @@ export class World {
     // M1: the ragdoll expires in PHYSICS, not input handling — a body nobody
     // is steering (no cmd this tick) must still get up on time
     if (s.ragdollUntil !== undefined && this.time >= s.ragdollUntil) s.ragdollUntil = undefined;
+    // M5: the recalled axe finishes its flight home and is throwable again.
+    // Lives in PHYSICS for the same reason the ragdoll does — a soldier
+    // nobody is steering this tick must still get his axe back.
+    if (s.axeRecallAt !== undefined && this.time >= s.axeRecallAt) s.axeRecallAt = undefined;
     // knockback impulse decays fast
     if (s.pushX !== 0 || s.pushZ !== 0) {
       const decay = Math.exp(-5 * dt);
@@ -3723,6 +3781,18 @@ export class World {
           const caustic = def.gasAfter.kind === 'caustic' || def.gasAfter.kind === 'poison';
           this.spawnGadget(caustic ? 'fire_field' : 'smoke_field', p.team, p.ownerId,
             { x: p.pos.x, y: 0, z: p.pos.z }, Infinity, def.gasAfter.life);
+        }
+        // M5 THE AXE BURIES ITSELF wherever the flight ended — a body, a wall,
+        // or the end of its reach. THIS is the mechanic: the axe is somewhere
+        // now, and going to get it (or yanking it home through a crowd) is
+        // the decision the weapon exists to create.
+        if (p.weapon === 'axe') {
+          const owner = this.soldiers.get(p.ownerId);
+          if (owner && owner.axeId === -1) {
+            const g = this.spawnGadget('axe', p.team, p.ownerId, { x: p.pos.x, y: 0, z: p.pos.z }, 40);
+            owner.axeId = g.id;
+            this.emit({ type: 'axe_stick', pos: { x: p.pos.x, y: 0, z: p.pos.z }, soldierId: p.ownerId });
+          }
         }
         this.projectiles.delete(id);
       }
