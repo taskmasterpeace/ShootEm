@@ -14,12 +14,42 @@ const EMPTY_CMDS = new Map<number, PlayerCmd>();
 
 export const REPLAY_HZ = 10;       // snapshot cadence
 export const REPLAY_KEEP_S = 14;   // ring depth in seconds
-/** Killcam footage length. Played in SLOW MOTION (KILLCAM_SPEED), so the
- *  realtime viewing window is KILLCAM_S / KILLCAM_SPEED — that must fit inside
- *  RESPAWN_DELAY (4s in world.ts) with room to spare, or the respawn cuts
- *  playback before the kill is ever shown. 1.8s / 0.5 = 3.6s of viewing. */
+/**
+ * THE DEATH CAM (Robert: "it cuts out too quick and the deaths aren't worth
+ * seeing").
+ *
+ * The old cut fired `clip(KILLCAM_S)` at the instant the player died, and a
+ * clip taken at that moment ENDS on the death frame. So the killcam showed
+ * the seconds leading up to being killed and stopped exactly when the
+ * interesting thing happened — you never saw your own death. That is not a
+ * length problem, it is a WINDOW problem: the money shot was always off the
+ * end of the tape.
+ *
+ * The fix rides a happy accident of the numbers. Playback runs in slow motion,
+ * so it consumes footage at HALF the speed the recorder lays it down — the
+ * recorder can never be caught. That means the cam can start the moment you
+ * die and keep appending frames that haven't been filmed yet, streaming the
+ * aftermath in as it happens. No waiting, no respawn changes, and the
+ * viewing budget is exactly what it always was.
+ *
+ * KILLCAM_PRE is how much of the run-up we open on; the rest of the window
+ * fills in live from beyond the grave.
+ */
+export const KILLCAM_PRE = 0.7;
+/** Total footage a death cam will play — pre-roll plus the streamed aftermath. */
 export const KILLCAM_S = 1.8;
 export const KILLCAM_SPEED = 0.5;
+/**
+ * The impact deserves its own tempo. A flat 0.5× treats the shot that killed
+ * you the same as the two seconds of walking before it, so nothing lands.
+ * This ramps: brisk on the approach, a near-freeze THROUGH the hit, then a
+ * middle speed for the fall so the body coming to rest is legible.
+ */
+export function killcamSpeedAt(sinceDeath: number): number {
+  if (sinceDeath < -0.35) return 0.75;              // the run-up: keep it moving
+  if (sinceDeath < 0.18) return 0.15;               // the hit: almost stopped
+  return 0.45;                                       // the fall, and the stillness after
+}
 /** Killcam camera: pulled in tight on the fight instead of the player's zoom. */
 export const KILLCAM_CAM = 14;
 export const HIGHLIGHTS_S = 10;
@@ -53,6 +83,11 @@ export class ReplayRecorder {
     return this.frames.filter((f) => f.t >= endT - seconds);
   }
 
+  /** Everything filmed strictly after `t` — how the death cam gets its future. */
+  since(t: number): ReplayFrame[] {
+    return this.frames.filter((f) => f.t > t);
+  }
+
   get depth(): number {
     return this.frames.length ? this.frames[this.frames.length - 1].t - this.frames[0].t : 0;
   }
@@ -77,12 +112,21 @@ export class ReplayPlayer {
     this.world = createPuppetWorld(seed, mode, theme);
   }
 
-  start(frames: ReplayFrame[], label: string, loop = false, speed = 1) {
+  /** Recorded time to stop at. Set for a STREAMING clip whose tail has not
+   *  been filmed yet — without it, running dry would end the cam early. */
+  endT: number | undefined;
+  /** Optional speed curve keyed on recorded time; overrides `speed`. */
+  speedFn: ((recordedT: number) => number) | undefined;
+
+  start(frames: ReplayFrame[], label: string, loop = false, speed = 1,
+        opts: { endT?: number; speedFn?: (t: number) => number } = {}) {
     if (frames.length < 2) return; // nothing worth replaying
     this.frames = frames;
     this.label = label;
     this.loop = loop;
     this.speed = speed;
+    this.endT = opts.endT;
+    this.speedFn = opts.speedFn;
     this.idx = 0;
     this.clock = frames[0].t;
     this.active = true;
@@ -91,6 +135,23 @@ export class ReplayPlayer {
 
   stop() {
     this.active = false;
+  }
+
+  /** Newest recorded timestamp this player is holding. */
+  get lastT(): number {
+    return this.frames.length ? this.frames[this.frames.length - 1].t : 0;
+  }
+
+  /**
+   * Feed footage filmed AFTER playback began. Slow motion consumes frames at
+   * half the rate the recorder produces them, so the tape can be written
+   * ahead of the playhead forever — this is what lets a death cam show the
+   * aftermath of a death that had not happened when the cam started.
+   */
+  append(frames: ReplayFrame[]) {
+    if (!this.active || !frames.length) return;
+    const last = this.lastT;
+    for (const f of frames) if (f.t > last) this.frames.push(f);
   }
 
   /** Apply frame `i` — CLONED, because applySnapshot aliases nested objects
@@ -108,12 +169,18 @@ export class ReplayPlayer {
    *  they land ~0.13s apart, and assuming 0.1 played footage fast). */
   tick(dt: number): boolean {
     if (!this.active) return false;
-    const rdt = dt * this.speed; // slow motion scales the whole puppet world
+    const rate = this.speedFn ? this.speedFn(this.clock) : this.speed;
+    const rdt = dt * rate; // slow motion scales the whole puppet world
     this.clock += rdt;
     while (this.idx + 1 < this.frames.length && this.frames[this.idx + 1].t <= this.clock) {
       this.apply(this.idx + 1);
     }
-    if (this.idx >= this.frames.length - 1 && this.clock >= this.frames[this.frames.length - 1].t) {
+    if (this.endT !== undefined) {
+      // STREAMING: the tail is still being filmed. Only the deadline ends
+      // this cam — running out of frames just means dead-reckoning for a beat
+      // until the recorder catches up (at half speed, it always does).
+      if (this.clock >= this.endT) { this.active = false; return false; }
+    } else if (this.idx >= this.frames.length - 1 && this.clock >= this.frames[this.frames.length - 1].t) {
       if (!this.loop) {
         this.active = false;
         return false;
@@ -139,6 +206,8 @@ export class ReplayDirector {
   /** who killed the local player this killcam (-1 = self/environment) — the
    *  renderer frames the DUEL between the corpse and this soldier */
   killerId = -1;
+  /** World time the local player died — the anchor the speed ramp bends around. */
+  deathT = 0;
 
   constructor(seed: number, mode: ModeId, theme: ThemeId | undefined) {
     this.player = new ReplayPlayer(seed, mode, theme);
@@ -171,8 +240,16 @@ export class ReplayDirector {
       const killer = this.killerId >= 0 ? world.soldiers.get(this.killerId) : undefined;
       const range = killer ? Math.round(Math.hypot(killer.pos.x - me.pos.x, killer.pos.z - me.pos.z)) : 0;
       const label = killer ? `☠ Killed by ${killer.name} · ${range}u` : '☠ Killcam';
-      this.player.start(this.recorder.clip(KILLCAM_S), label, false, KILLCAM_SPEED);
+      // open on the run-up, and run PAST the death into footage that does not
+      // exist yet — the recorder fills it in while we watch (see KILLCAM_PRE)
+      this.deathT = world.time;
+      this.player.start(this.recorder.clip(KILLCAM_PRE), label, false, KILLCAM_SPEED, {
+        endT: world.time + (KILLCAM_S - KILLCAM_PRE),
+        speedFn: (t) => killcamSpeedAt(t - world.time),
+      });
     }
+    // keep the tape ahead of the playhead for as long as the death cam runs
+    if (this.killcamActive) this.player.append(this.recorder.since(this.player.lastT));
     if (me && me.alive && !this.wasAlive && !this.player.loop) {
       this.player.stop();
     }
