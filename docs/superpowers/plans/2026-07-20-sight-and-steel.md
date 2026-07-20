@@ -15,80 +15,123 @@
 
 ## PART A — SIGHT
 
-### The diagnosis (measured, not guessed)
+### The diagnosis (measured headless: seed 1234, 12v12 TDM, 120 s, sampled 2 Hz)
 
-The perception system is already correct and already culls. `src/client/renderer.ts:1472` reads:
+The culling **machinery** is correct and already free. `src/client/renderer.ts:1472-1473`:
 
 ```ts
 mesh.visible = (s.alive || corpse) && (!inVehicle || surfing) && !dark && !(s.cloaked && …);
 if (!mesh.visible) continue;
 ```
 
-An enemy you cannot see is **invisible and skipped entirely** — no color pass, no shadow pass, no pose work. Nothing is broken there.
+`.visible = false` zeroes the color pass, the **shadow pass** (verified in the installed build: `three.cjs:22644`, `WebGLShadowMap.renderObject` returns early on invisible), and every line of pose work below the `continue`. Nothing there is broken.
 
-The ambiguity Robert is describing is one specific thing: **the linger ghost**. Between "I see him" and "he's gone" there is a window (`src/client/renderer.ts:1440-1444`) where a **person-shaped, animated-looking, frozen soldier body** is drawn at a dissolving alpha:
+**The machinery is ~95% ineffective, and not because it is slow — because it asks the wrong question.** `world.lastSeen` is indexed **by team, not by viewer** (`world.ts:1434-1435` gathers *all live friendlies* as `eyes`). The renderer draws an enemy if **any of your twelve teammates** saw him, then holds him for **your** class's linger.
 
-| Viewer class | Ghost holds for | With tracking optics |
+| For the local player, per frame | count |
+|---|---|
+| enemies alive | 9.20 |
+| seen by **your own eyes** | **4.84** |
+| seen by the **team** | 7.62 |
+| **actually drawn on your screen** | **8.70** |
+
+**You are shown 80% more enemies than you can personally see.** That is the complaint, stated as a number.
+
+**Three compounding causes:**
+
+1. **Team vision wears your body's eyes.** The screen is answering "has anyone on my side seen him lately," which is a *radio* question, not an *eyes* question.
+
+2. **The ghost is a man, not a memory.** With the default 2.5 s linger and a linear ramp (`renderer.ts:1443`), a lost contact is drawn at **80% alpha at 0.5 s** and stays **over 50% for ~1.2 s** — indistinguishable from a live enemy at combat pace. Worse: the ghost is frozen in position (`renderer.ts:1574`) but **still fully animated** (`animateSoldier` at `:1610` gets the *live* soldier), so it is a half-transparent enemy **jogging in place** where you lost him. The health ring inherits the same alpha and reads as real too.
+
+| Viewer class | linger | with `tracking_optics` |
 |---|---|---|
-| base (infantry, heavy, medic, engineer…) | **2.5 s** | 4.0 s |
-| pathfinder | 3.5 s | 5.0 s (capped) |
+| infantry / heavy / jump / engineer / medic / **anything unlisted** | **2.5 s** | 4.0 s |
+| pathfinder | 3.5 s | 5.0 s |
 | infiltrator | 4.0 s | 5.0 s (capped) |
 | ghost | 5.0 s | 5.0 s (capped) |
 
-*(`src/sim/perception.ts:43-48`, `MAX_LINGER = 5`.)*
+3. **Four systems answer "can I see him" four different ways.** This is the deepest reason the screen feels untrustworthy:
 
-At 90% alpha that ghost looks like a man. At 20% it looks like a man in fog. **Nothing in the visual language separates "he is there" from "he was there."** That is the whole complaint, and it is a presentation bug, not a systems gap.
+| Consumer | Whose eyes | Cone? | Range | Linger |
+|---|---|---|---|---|
+| sim `perceivesNow` | team | yes, 132° | 65 × weather | — |
+| 3D view (`renderer.ts:1435`) | team | inherited | inherited | **2.5–5 s** |
+| minimap (`hud.ts:536-543`) | **you** (+headcam mates) | **no — 360°** | 55 | **none** |
+| net cull (`snapshot.ts:115-118`) | team | **no — 360°** | 65 × weather | 1.5 / 3 s |
 
-### A1 — The body vanishes; the memory becomes a mark
+The minimap and the 3D view are reading different data to answer the same question, and offline vs online the linger differs by up to 3.5 s.
 
-**Files:** `src/client/renderer.ts` (~1420-1473), new `src/client/contacts.ts`
+**Two leaks found on the way:**
+- **Corpses bypass the fog entirely** — the `dark` computation requires `s.alive` (`renderer.ts:1434`) while `:1472` admits `corpse` independently. ~2.8 dead enemies at any moment, drawn at full cost map-wide: **~168 shadow draws** for bodies you cannot see, plus free intel on where your team is dying.
+- **Enemy vehicles are never culled** — `renderer.ts:1662` is `mesh.visible = v.alive;`, the entire test. Enemy hulls draw map-wide regardless of perception. The *network* cull does filter them (`snapshot.ts:138-145`), so **offline leaks what online does not.**
 
-The rule: **a soldier mesh is only ever drawn when the team can see him right now.** The linger information is valuable and already computed — it just must stop wearing a body.
+### A1 — Your eyes draw your screen; your team feeds your map
 
-- [ ] **Step 1:** In the ghost branch, stop setting `ghost`/`ghostAlpha` on the mesh. Set `dark = true` for anything not fresh, so the body is hidden the same tick sight breaks. Delete the ghost-alpha dissolve path and its `setAlpha` call.
-- [ ] **Step 2:** New `contacts.ts` draws a **LAST KNOWN CONTACT** mark at `mark.x/mark.z` for the remaining linger window: a flat ground stencil in the terminal language — a hollow bracket-diamond in enemy team color, no body, no limbs, no animation, drawn on the ground plane, with a small age tick that shortens as the mark expires. It must read as **UI, not a person**, from command height.
-- [ ] **Step 3:** Keep the footstep smudge (`renderer.ts:1450-1464`) exactly as is — hearing stays a skill, and it is now the *only* thing that moves in the dark.
-- [ ] **Step 4:** Pool the marks (never allocate per frame — see audit R11/E8, [issue #25](https://github.com/taskmasterpeace/ShootEm/issues/25)).
+**Files:** `src/client/renderer.ts` (~1425-1473, 1662), `src/client/hud.ts` (~532-543), `src/sim/snapshot.ts` (~115-137)
+
+**[DECISION — Robert's call, and the heart of this whole plan.]** §19.1 deliberately chose *friendly eyes* — team vision. Robert is now saying that reads as noise. The resolution I recommend is not to pick one, but to **split them by surface**:
+
+> **Your 3D view shows what YOU see. Your minimap shows what your TEAM sees.**
+
+That is diegetically exact — the minimap *is* the radio, shared intel is what a radio is for — it keeps the squad-vision fantasy §19.1 wanted, it makes the screen trustworthy, and it happens to be where all the frame time is. It also collapses the four-way inconsistency above into two honest, clearly-labelled channels.
+
+- [ ] **Step 1 — per-viewer bodies.** Replace the `world.lastSeen[localTeam]` read (`renderer.ts:1435`) with a direct `perceivesNow(grid, [local], pinged, s, range, smokeBlobs, revealed)` per enemy. Cost: ~9 calls/frame; audit S5 benched the *whole 24-body team pass* at 8.7 µs, so a one-eye pass is ~1 µs. Free.
+- [ ] **Step 2 — the ghost stops being a man.** Cut the drawn-body linger to ~0.2–0.4 s (a hair, so a target strafing a doorway doesn't strobe). Everything past that becomes a **LAST KNOWN CONTACT mark** at `mark.x/mark.z`: a flat ground stencil in the terminal language — hollow bracket-diamond, enemy team color, **no body, no limbs, no animation** — with an age tick that shortens as it expires. It must read as **UI, not a person**, from command height. Pool the marks (audit R11/E8, [issue #25](https://github.com/taskmasterpeace/ShootEm/issues/25)).
+- [ ] **Step 3 — the ghost must also stop *moving*.** Today a frozen ghost is still fed the live soldier to `animateSoldier` (`renderer.ts:1610`), so it jogs in place. Whatever survives Step 2 must not animate.
+- [ ] **Step 4 — plug the corpse leak.** `dark` requires `s.alive` (`:1434`) while `:1472` admits `corpse` independently. Corpses must obey the same fog. (~168 shadow draws, plus it is free intel about where your team is dying.)
+- [ ] **Step 5 — plug the vehicle leak.** `renderer.ts:1662` is `mesh.visible = v.alive;`. Enemy hulls need the same perception test — the net cull already does this (`snapshot.ts:138-145`), so this is offline catching up to online.
+- [ ] **Step 6 — keep the minimap team-wide, and say so.** Leave `hud.ts` on team intel deliberately, and label it in the UI so the split is legible rather than a bug. (This composes with audit R7/E2, [issue #6](https://github.com/taskmasterpeace/ShootEm/issues/6) — that fix should read `lastSeen` instead of raymarching.)
+- [ ] **Step 7 — unify the net linger** (`snapshot.ts:115-118`, 1.5/3 s) with whatever Step 2 lands on, so online and offline agree.
+- [ ] **Step 8:** Keep the footstep smudge (`renderer.ts:1450-1464`) untouched — hearing stays a skill, and it becomes the *main* channel for the hidden instead of firing on ~5% of enemies.
 
 **The read Robert asked for, in three states:** solid body = *I see you* · bracket mark = *I remember you* · nothing = *dark*.
 
-**Cost:** this is a **subtraction**. Today every lost contact keeps drawing a ~60-mesh body (audit R1) for up to 2.5 s. In a firefight, contacts break constantly. Removing the ghost body is a straight frame-time win — measure it as such.
+### A2 — Reading the dark
 
-### A2 — Reading the dark: the vision overlay
+**Files:** `src/client/renderer.ts` (every material-creation site), `src/client/models/shared.ts` (`mat()`)
 
-**Files:** `src/client/renderer.ts` (ground/lighting build ~662-710), new `src/client/visibility.ts`
+Two hooks ruled out by measurement, so nobody re-proposes them:
 
-There is **no post-processing pipeline** in this renderer (grep: only `THREE.Fog` distance fog at `renderer.ts:343,613`; no `EffectComposer`). Adding one for a fullscreen darkness pass would cost every fragment on exactly the iGPUs we are protecting — wrong tool.
+- **No post-processing exists** (no `EffectComposer` anywhere; `renderer.ts:2394` is a bare `render()`). A fullscreen pass at DPR 2 / 4K writes **8.3 M fragments twice** and forces MSAA onto a multisampled render target — audit L6 already names fullscreen overdraw as the low-end killer. Wrong tool.
+- **The ground canvas is built once per match** (1024², `renderer.ts:663-710`), never re-uploaded. Repainting it per frame = 10,000 `fillRect`s **+ a 4 MB upload every frame** (~250 MB/s). And it would darken only the ground while soldiers and walls stayed lit, which reads as a bug.
 
-The ground texture is a **1024×1024 CanvasTexture built once per match** (`renderer.ts:662-704`), not per frame — so it is not a live hook either.
+**The right hook is shader injection via `Material.onBeforeCompile` — zero extra draws, zero passes, zero uploads:**
 
-The right instrument is a **visibility polygon**, the classic top-down solution, drawn as one overlay mesh:
+- [ ] **Step 1 — the analytic cone (near-free).** One shared chunk, four uniforms — `uEyePos`, `uEyeYaw`, `uConeHalf` (1.15), `uRange` — multiplying `gl_FragColor.rgb` by a visibility factor computed per fragment from world position. **~6 ALU ops per fragment.** No texture, no upload, no draw call. This alone gives Robert directionally-correct darkness at no measurable cost.
+- [ ] **Step 2 — soften and tune.** A falloff ramp at the cone edge and at `uRange` so the boundary reads as murk, not a laser line; keep the 9u `RING` lit all around (`perception.ts:25`) or you blind the player to their own feet.
+- [ ] **Step 3 — weather ties in free.** `visionMult` (`src/sim/weather.ts:70`) already taxes the eye and `renderer.ts:389-392` already pins fog to `perceiveRange`. Feed the same number to `uRange` and fog visibly closes the cone in.
+- [ ] **Step 4 (optional, only if wall-shadowing is wanted) — the LOS mask.** A **128×128 R8** texture over the 300u world (2.34 u/texel) written CPU-side per frame from the same raymarch `losClear` already does, uploaded as **16 KB/frame**. Still zero extra draws. Do this only after Step 1 ships and only if the analytic cone feels insufficient indoors.
 
-- [ ] **Step 1:** Cast N rays (start at 96) from the local player's eye across the ~132° cone (`CONE_HALF`, `src/sim/perception.ts:22`) plus the 9u all-around ring (`RING`), each marching the tile grid until `losClear` fails. Rebuild at **10-15 Hz**, not per frame, interpolating between rebuilds.
-- [ ] **Step 2:** Build a triangle-fan mesh of the lit region; render a large dark plane over the world with the fan punched through it (stencil, or the fan drawn with additive light against a dark quad). One extra draw call total.
-- [ ] **Step 3:** Soften the boundary (a short alpha ramp on the outer vertices) so the edge reads as *falloff*, not a laser line.
-- [ ] **Step 4:** Darkness must be **team-honest, not player-selfish.** Perception is a team union (`perceivesNow` takes `eyes: Soldier[]`). Teammates' cones light their own regions too, or an enemy you legitimately see through a squadmate would stand in blackness. A lit pocket across the map that you personally can't see *is* your squadmate's eyes — that reads beautifully and is truthful.
-- [ ] **Step 5:** Tie depth to weather: `visionMult` (`src/sim/weather.ts:70`) already taxes the eye — fog should visibly close the polygon in, which is free once the radius reads the same number the sim uses.
+**The real work is coverage, not the shader.** The injection must reach *every* material site or the effect looks broken: ground `:705`, walls `:776`, grass `:815`, cover `:821`, climb `:837/:841`, slits `:858`, metal `:872`, houses `:953-985`, roofs/uppers `:933-1099`, plus `models/shared.ts:mat()` and the GLB bodies. That is the day of work — budget it there, not in the GLSL.
 
-**Budget note:** 96 rays at 12 Hz ≈ 1.2k marches/second. The minimap today does *up to 144 raymarches per frame at 60 Hz* (audit R7/E2, [issue #6](https://github.com/taskmasterpeace/ShootEm/issues/6)) — an order of magnitude more than this feature costs. Fix #6 first and the whole feature is free out of the savings.
+- [ ] **Step 5 — accessibility.** Expose strength in settings (`off / subtle / full`). Some players want the information without the murk.
 
-### A3 — Houses and mazes
+### A3 — Houses and mazes (two real bugs, then the hard part)
 
-**Files:** `src/client/visibility.ts`, roof-cutaway path in `src/client/renderer.ts`
+- [ ] **Step 1 — the upstairs fishbowl [BUG, hours].** `world.ts:2902,3182` set `s.pos.y = 4` for `floor === 1`. `perception.ts:94` then reads `if (s.pos.y > 3 && eyes.some(within range)) return true` — **no cone, no LOS, no smoke.** So **anyone on a second storey is visible to the entire enemy team out to 65 u through every wall and every roof.** The skyline rule was written for jetpacks and silhouettes against the sky; it catches the second storey by accident. Guard it on floor (`(s.floor ?? 0) !== 1`) or require an LOS check at the upper band. **This single line is most of Robert's "I should see what I can see in a house."**
+- [ ] **Step 2 — upstairs has no walls, to the eyes [BUG, hours].** `losClear(grid, a, b, y)` takes **one layer** and never consults `grid2`. `blocksShotUpper` (`map.ts:279-285`: F2_WALL blocks 4..8, F2_SLIT passes 5.2–5.8) **already exists and is never called from perception.** Wire it in so upstairs-to-upstairs sight obeys upper walls.
+- [ ] **Step 3 — what already works, don't break it.** Ground-floor interior LOS is genuinely good: `losClear` marches at y=1.4 through `blocksShot`, `T_SLIT` passes only in the 1.2–1.8 firing band, houses have real BSP floor plans with interior doors (`buildings.ts:397-445`), and the reveal sets (`renderer.ts:1303-1319`) already guarantee a legitimately-seen enemy can never hide under an opaque roof. Standing outside a house today, occupants are correctly hidden.
+- [ ] **Step 4 — the floor plan giveaway [days, do last].** The roof opens when you are within **4.5 u of the house rect** (`renderer.ts:1350-1354`), which hands you a room layout you have not earned. Fixing it needs A2's darkness to extend indoors, or per-room roof opacity keyed to rooms actually entered (needs per-room tagging in `buildings.ts`). Do not attempt before Steps 1-3.
 
-This falls out of A2 for free and is the reason to build A2 as a polygon rather than a radial gradient: **the rays already stop at walls.** Standing at a doorway, the lit wedge reaches into the room you're facing and the other rooms stay black. That is exactly "you should see what you can see and what you can't."
+### A4 — Does this help performance? (the direct answer)
 
-- [ ] **Step 1:** Verify the polygon uses the same `losClear` eye height (1.4, inside the `T_SLIT` firing band) as `perceivesNow` — so a defender framed in a window is lit, matching the sim's own truth.
-- [ ] **Step 2:** Reconcile with the roof cutaway: the roof already hides/reveals to keep the wire and the screen agreeing (`src/sim/perception.ts:1-13` states this law explicitly). The polygon must not contradict it — one source of truth, or the header's own warning comes true.
-- [ ] **Step 3:** Second storey (`grid2`): the polygon is per-storey. Draw the one the player is on; do not light an upper floor from below.
+**No — darkness never saves frame time. Culling does, and the culling hook already exists and is currently defeated.**
 
-### A4 — Make it pay (the optimization half of Robert's question)
+Darkening is a shading operation: it changes fragment color and removes no geometry, no draw call, no shadow draw, no animation. Done as A2 Step 1 it is unmeasurable; done as a fullscreen pass it is measurably *bad* on the iGPUs we're protecting. At best it is free.
 
-**Direct answer: darkness itself is roughly cost-neutral — one overlay draw plus a 12 Hz rebuild. It does not save frame time on its own. But it arrives beside two changes that do, and it is the reason to make them:**
+**The saving is A1, and it is large:**
 
-- [ ] **Step 1 — the shadow box.** Audit R3 ([issue #31](https://github.com/taskmasterpeace/ShootEm/issues/31)): the sun's ortho box is a fixed ±130u covering the *whole map* (`renderer.ts:629-632`), so every visible soldier map-wide pays full shadow draws every frame regardless of where the camera is. Tighten it to a ~60u box following `camPos`. Sharper shadows, far fewer casters. **This is the real win adjacent to darkness.**
-- [ ] **Step 2 — A1's subtraction**, measured: capture draw calls before/after removing ghost bodies during a firefight.
-- [ ] **Step 3 — the honest license.** Once the world outside the polygon is genuinely dark, props, decals, particles and grass blades outside it can be skipped rather than dimmed. Do this only after measuring Steps 1-2; do not claim it in advance.
+| change | effect |
+|---|---|
+| per-viewer bodies (A1 S1-2) | drawn enemies **8.70 → ~4.84**: ~**230 color draws + 230 shadow draws** and ~4 `animateSoldier` calls gone per frame, for ~1 µs of `perceivesNow` |
+| corpse leak (A1 S4) | ~**168 shadow draws** |
+| vehicle leak (A1 S5) | more, unmeasured |
+
+Stated plainly: **darkness is what the player sees; visibility is what the GPU is told. They are the same variable with the wrong subject today.** Fixing the subject is the optimization; the darkness is the feedback that makes it legible.
+
+- [ ] **Step 1 — do the shadow box first, it is the biggest line in the report.** The sun's ortho box is nailed to `S = 130` over a 300 u world (`renderer.ts:629-632`) with a 2048² map, and **never follows the camera** — every soldier map-wide pays full shadow draws every frame. **~75–80% of ~1,242 soldier shadow draws are for bodies not on screen.** Tighten to a ~60 u box tracking `camPos`: far fewer casters *and* sharper shadows. Effort: **hours**. (Audit R3, [issue #31](https://github.com/taskmasterpeace/ShootEm/issues/31).)
+- [ ] **Step 2 — measure A1** before/after with draw-call counts during a firefight; the numbers above are the prediction to check.
+- [ ] **Step 3 — only then, the honest license.** Once the world outside the cone is genuinely dark, props/decals/particles/grass outside it may be skipped rather than dimmed. Do not claim this in advance.
 
 ### A5 — Tuning and safety rails
 
@@ -96,7 +139,9 @@ This falls out of A2 for free and is the reason to build A2 as a polygon rather 
 
 - [ ] Linger *marks* keep the existing per-class durations — recon still remembers longest, `classLinger` is untouched, and **`tests/visionfade.test.ts` stays green** (it pins the linger math in `src/sim/perception.ts`, not the rendering — verified).
 - [ ] The exceptions in `perceivesNow` are law and must still shine through: cloak is TRUE, the flag is public, pings are electronic, the **skyline rule** (`pos.y > 3`, no cone check) means a jet or a jump trooper against the sky is seen in your periphery, and a muzzle flash cuts murk to 50u.
-- [ ] Bots must not gain or lose sight from any of this — Part A is **presentation only**; nothing in `src/sim` changes except reading existing values. `tests/visibility.test.ts`, `tests/visionfade.test.ts` and `tests/culling.test.ts` must stay green **without being edited** — if one needs a change, the change is wrong.
+- [ ] **A1 and A2 are presentation only** — they read existing sim values and change nothing in `src/sim`. `tests/visibility.test.ts`, `tests/visionfade.test.ts` and `tests/culling.test.ts` must stay green **without being edited**; if one needs a change, the change is wrong.
+- [ ] **A3 Steps 1-2 are the exception and must be treated as sim surgery.** Guarding the skyline rule and teaching `losClear` about `grid2` change `perceivesNow`, which **bots read too** (`bots.ts:344-357`) — correctly, since the fishbowl cheats bots and players alike, but it *will* shift bot behavior. Expect terrain-coupled harnesses to move (a known trap: RNG/vision shifts expose seed-fragile tests). Land A3 in its own commit, run the full suite, and re-run a 2-minute bot match watching the blackbox (`__ww.blackbox('report')`) for new stuck/knot incidents before calling it done.
+- [ ] Nothing here may make an LSW hideable — the smoke carve-out (`perception.ts:110-112`) exists because an unanswerable boss is a griefer we wrote. Same spirit applies to the cone and the mask.
 - [ ] Accessibility: expose overlay strength in settings (`off / subtle / full`). Some players will want the information without the murk.
 - [ ] Ghost bodies are drawn **transparent**, which costs more than opaque (sorting, no early-z). Removing them is a slightly bigger win than the raw mesh count suggests.
 
