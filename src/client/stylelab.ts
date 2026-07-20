@@ -222,11 +222,14 @@ const HOLDS: Record<GunId, HoldDef> = {
     idle: { armR: [0, 0.3], elbowR: 0.85, armL: [0.6, 0.55], elbowL: 1.35, local: [0.12, -0.04, 0], localRotZ: -1.27 },
     run:  { armR: [0, 0.1], elbowR: 0.6, armL: [0.52, 0.45], elbowL: 1.1, local: [0.12, -0.04, 0], localRotZ: -1.2 },
   },
-  // ISOSCELES standing; a pumping bent-arm carry at a sprint, muzzle down
+  // ISOSCELES standing; a pumping bent-arm carry at a sprint, muzzle down.
+  // The local seat is ROBERT'S OWN NUMBER — dragged in the edit gizmo and
+  // COPY-pasted back (2026-07-20): the pistol sits 3.5cm deeper in the fist
+  // and a touch higher than my guess. The gizmo loop works; keep using it.
   pistol: {
     mount: 'hand',
-    idle: { armR: [0, 1.45], elbowR: 0.12, armL: [0.4, 1.15], elbowL: 0.6, local: [0.04, -0.04, 0], localRotZ: -1.57 },
-    run:  { armR: [0, 0.3], elbowR: 1.3, armL: [0, -0.1], elbowL: 0.5, local: [0.04, -0.04, 0], localRotZ: -1.9, leftFree: true },
+    idle: { armR: [0, 1.45], elbowR: 0.12, armL: [0.4, 1.15], elbowL: 0.6, local: [0.0048, -0.0274, 0.0015], localRotZ: -1.57 },
+    run:  { armR: [0, 0.3], elbowR: 1.3, armL: [0, -0.1], elbowL: 0.5, local: [0.0048, -0.0274, 0.0015], localRotZ: -1.9, leftFree: true },
   },
   // the tube rides the SHOULDER MOUNT — hands brace it, they don't carry it
   launcher: {
@@ -495,6 +498,8 @@ document.getElementById('btn-copy')!.addEventListener('click', () => {
   const o = selected.obj;
   const data = {
     part: selected.name,
+    gun: gunKind,
+    during: action, // which hold was live when the gizmo froze — run and idle differ
     position: [o.position.x, o.position.y, o.position.z].map((n) => +n.toFixed(4)),
     rotation: [o.rotation.x, o.rotation.y, o.rotation.z].map((n) => +n.toFixed(4)),
   };
