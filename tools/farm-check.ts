@@ -4,16 +4,22 @@
 import { generateMap, GRID, TILE, WORLD, isBlocked, nearestOpenTile, T_DOOR, T_DOOR_OPEN, T_GRASS } from '../src/sim/map';
 
 const toTile = (wx: number, wz: number) => ({ x: Math.floor((wx + WORLD / 2) / TILE), z: Math.floor((wz + WORLD / 2) / TILE) });
+// isBlocked() speaks WORLD coordinates; the grid is indexed by TILE. Passing
+// tile indices straight to it silently probes a different part of the map —
+// which is exactly how this file once reported a confident 99.3% reachability
+// while measuring nothing at all. Convert, every time.
 const pass = (g: Uint8Array, x: number, z: number) => {
   const t = g[z * GRID + x];
-  return !isBlocked(g, x, z) || t === T_DOOR || t === T_DOOR_OPEN;
+  const cx = (x + 0.5) * TILE - WORLD / 2, cz = (z + 0.5) * TILE - WORLD / 2;
+  return !isBlocked(g, cx, cz) || t === T_DOOR || t === T_DOOR_OPEN;
 };
 
+let basesBlocked = 0;
 let seedsWithFarm = 0, totalCrops = 0, totalLandmarks = 0, worst = 100;
 for (let seed = 1; seed <= 20; seed++) {
   const m = generateMap(seed, 'ctf', 'savanna');
   const crops = m.props.filter((p) => p.type === 'crop').length;
-  const marks = m.props.filter((p) => ['barn', 'silo_farm', 'windmill', 'watertower'].includes(p.type)).length;
+  const marks = m.props.filter((p) => ['barn', 'farmhouse', 'silo_farm', 'windmill', 'watertower'].includes(p.type)).length;
   if (crops > 0 || marks > 0) seedsWithFarm++;
   totalCrops += crops; totalLandmarks += marks;
 
@@ -28,7 +34,15 @@ for (let seed = 1; seed <= 20; seed++) {
   // reachability: base0 -> base1 + hill
   const g = m.grid;
   let b0 = toTile(m.basePos[0].x, m.basePos[0].z);
-  if (!pass(g, b0.x, b0.z)) { const o = nearestOpenTile(g, b0.x, b0.z, 6); if (o) b0 = o; }
+  // nearestOpenTile speaks WORLD coordinates in AND out — feed it tile indices
+  // and it hands back tile centres, which put a fractional index in the queue
+  // and ran this BFS to four billion entries. World in, tile out.
+  if (!pass(g, b0.x, b0.z)) {
+    basesBlocked++;
+    const o = nearestOpenTile(g, m.basePos[0].x, m.basePos[0].z, 6);
+    if (o) b0 = toTile(o.x, o.z);
+    else { console.log(`seed ${seed}: !! base0 SEALED IN — nothing open within 6 tiles`); continue; }
+  }
   const seen = new Uint8Array(GRID * GRID); const q = [b0.z * GRID + b0.x]; seen[q[0]] = 1;
   let head = 0, reached = 0;
   while (head < q.length) {
@@ -36,7 +50,7 @@ for (let seed = 1; seed <= 20; seed++) {
     const x = idx % GRID, z = (idx / GRID) | 0;
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
       const nx = x + dx, nz = z + dz;
-      if (nx < 0 || nz < 0 || nx >= GRID || nz >= GRID) continue;
+      if (!(nx >= 0 && nz >= 0 && nx < GRID && nz < GRID)) continue; // NaN-safe: a NaN index once ran this queue to 4 billion
       const ni = nz * GRID + nx;
       if (seen[ni] || !pass(g, nx, nz)) continue;
       seen[ni] = 1; q.push(ni);

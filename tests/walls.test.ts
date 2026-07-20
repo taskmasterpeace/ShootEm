@@ -26,10 +26,20 @@ const tileCenter = (idx: number) => ({
 /** How far from a prop's center its mesh visually reaches, per type.
  *  rock: its stamped disc (scale = r·1.6 by generator contract) plus
  *  half-tile slop; tree/crate/clone_bay: their own tile; bunker claims
- *  nothing. The clone bay (§21) stands dead-center on its one claimed tile. */
+ *  nothing. The clone bay (§21) stands dead-center on its one claimed tile.
+ *
+ *  THE FARM LANDMARKS. A barn or farmhouse straddles a 2×2 claim and is
+ *  placed on the four tiles' SHARED CORNER, so it is 2.13u from each tile
+ *  center — a point-sized default fails it. The reach is real, not slack:
+ *  props.ts fits a barn to 6u wide and a farmhouse to 7u, so the mesh spans
+ *  ±3u from that corner while the tile centers sit at ±1.5u. It covers them.
+ *  The single-tile towers stand dead-center on their one claimed tile and
+ *  only ever passed because 0 ≤ 0; say so out loud instead. */
 const visualReach = (type: string, scale: number) =>
   type === 'rock' ? (scale / 1.6) * TILE + TILE * 0.5 :
-  type === 'tree' || type === 'crate' || type === 'clone_bay' ? TILE * 0.75 : 0;
+  type === 'tree' || type === 'crate' || type === 'clone_bay' ? TILE * 0.75 :
+  type === 'barn' || type === 'farmhouse' ? TILE :
+  type === 'silo_farm' || type === 'windmill' || type === 'watertower' ? TILE * 0.5 : 0;
 
 const allMaps = () => {
   const maps = [];

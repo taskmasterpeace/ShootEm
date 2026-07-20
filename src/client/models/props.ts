@@ -75,7 +75,13 @@ const GLB_PROPS: Record<string, GlbProp> = {
   // fit by HEIGHT — their bases are narrow and the sails/tank overhang above
   // head height, which is a thing you walk under, not into).
   crop: { files: ['Corn_4', 'Wheat_4'], fit: 'h', target: 2.0 },
-  barn: { files: ['Barn', 'SmallBarn'], fit: 'w', target: 6 },
+  barn: { files: ['Barn', 'BigBarn', 'SmallBarn'], fit: 'w', target: 6 },
+  // A HOUSE THAT IS NOT A HOUSE YOU ENTER. The stamped houses are 30+ units
+  // wide with doors and rooms; these are 4-unit models we scale to 7 and sit
+  // on a solid 2x2 claim, so they read as a farmstead you fight AROUND. They
+  // stay in the farm — the neighbourhood teaches "a house has a door," and one
+  // that doesn't would make a liar of every other one on the map.
+  farmhouse: { files: ['House1', 'House2', 'Building4'], fit: 'w', target: 7 },
   silo_farm: { files: ['Silo'], fit: 'w', target: 3 },
   windmill: { files: ['Windmill', 'TowerWindmill'], fit: 'h', target: 10 },
   watertower: { files: ['WaterTower'], fit: 'h', target: 7.5 },
@@ -399,6 +405,17 @@ export function buildProp(type: string, scale: number): THREE.Object3D {
       roof.position.y = 4.4 * scale; roof.rotation.y = Math.PI / 4; roof.castShadow = true;
       g.add(body, roof);
       return glbProp('barn', scale, scale, g);
+    }
+    case 'farmhouse': {
+      const g = new THREE.Group();
+      const body = box(5.6 * scale, 3.6 * scale, 4.6 * scale, mat(0xd8cdb4, { rough: 0.95 }));
+      body.position.y = 1.8 * scale; body.castShadow = true;
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(4.2 * scale, 2.2 * scale, 4), mat(0x7a4436, { rough: 0.95 }));
+      roof.position.y = 4.7 * scale; roof.rotation.y = Math.PI / 4; roof.castShadow = true;
+      const stack = box(0.5 * scale, 1.4 * scale, 0.5 * scale, mat(0x6d6560, { rough: 0.95 }));
+      stack.position.set(1.5 * scale, 5.1 * scale, 1.1 * scale); stack.castShadow = true;
+      g.add(body, roof, stack);
+      return glbProp('farmhouse', scale, scale, g);
     }
     case 'silo_farm': {
       const g = new THREE.Group();

@@ -256,6 +256,20 @@ export const neighborhoodChunk: Chunk = (t, r, density) => {
 // claim, and a silo / windmill / water tower on single tiles — tall silhouettes
 // that read from across the map and give the open ground something to mean.
 // ---------------------------------------------------------------------------
+/** Sit a landmark building on a clear, off-lane 2×2 and claim all four tiles.
+ *  Returns false if the roll landed on the street or on something already
+ *  standing — a farm with one barn is fine, a barn inside a silo is not. */
+function block2x2(t: ChunkTools, r: RegionRect, hz: number, vx: number, type: PropSpec['type']): boolean {
+  const bx = r.tx + 2 + t.rng.int(0, Math.max(0, r.tw - 6));
+  const bz = r.tz + 2 + t.rng.int(0, Math.max(0, r.th - 6));
+  if (Math.abs(bz - hz) <= LANE_HALF + 2 || Math.abs(bx - vx) <= LANE_HALF + 2) return false;
+  for (let dz = 0; dz < 2; dz++) for (let dx = 0; dx < 2; dx++) if (!t.isOpen(bx + dx, bz + dz)) return false;
+  for (let dz = 0; dz < 2; dz++) for (let dx = 0; dx < 2; dx++) t.claim(bx + dx, bz + dz, T_WALL);
+  // the 2×2's true centre is the shared corner of its four tiles
+  t.propAt(type, (bx + 1) * TILE - WORLD / 2, (bz + 1) * TILE - WORLD / 2, 1, t.rng.range(0, Math.PI * 2));
+  return true;
+}
+
 export const farmChunk: Chunk = (t, r, density) => {
   const { hz, vx } = laneCross(t, r);
   const area = r.tw * r.th;
@@ -279,18 +293,10 @@ export const farmChunk: Chunk = (t, r, density) => {
   }
 
   // ---- the landmarks -----------------------------------------------------
-  // a BARN on a 2×2 claim, placed centred on that claim (propAt, world coords)
-  const bx = r.tx + 2 + t.rng.int(0, Math.max(0, r.tw - 6));
-  const bz = r.tz + 2 + t.rng.int(0, Math.max(0, r.th - 6));
-  if (Math.abs(bz - hz) > LANE_HALF + 2 && Math.abs(bx - vx) > LANE_HALF + 2) {
-    let clear = true;
-    for (let dz = 0; dz < 2; dz++) for (let dx = 0; dx < 2; dx++) if (!t.isOpen(bx + dx, bz + dz)) clear = false;
-    if (clear) {
-      for (let dz = 0; dz < 2; dz++) for (let dx = 0; dx < 2; dx++) t.claim(bx + dx, bz + dz, T_WALL);
-      // the 2×2's true centre is the shared corner of its four tiles
-      t.propAt('barn', (bx + 1) * TILE - WORLD / 2, (bz + 1) * TILE - WORLD / 2, 1, t.rng.range(0, Math.PI * 2));
-    }
-  }
+  // a BARN and a FARMHOUSE, each on a solid 2×2 claim. Both are buildings you
+  // fight around, never through — the farm's whole vocabulary is exteriors.
+  block2x2(t, r, hz, vx, 'barn');
+  block2x2(t, r, hz, vx, 'farmhouse');
 
   // one or two towers — a silo, a windmill, a water tower on single tiles
   const towers: PropSpec['type'][] = ['silo_farm', 'windmill', 'watertower'];

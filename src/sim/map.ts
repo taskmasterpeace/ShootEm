@@ -83,7 +83,7 @@ export function surfaceAt(surface: Uint8Array, x: number, z: number): number {
  *  it there. These are the trespassers.) */
 const OUTDOOR_PROPS: ReadonlySet<string> = new Set(['tree', 'rock', 'wreck', 'silo', 'flare_stack', 'crane', 'memorial',
   // §farm — a corn stalk in someone's living room is the exact bug this set exists for
-  'crop', 'barn', 'silo_farm', 'windmill', 'watertower']);
+  'crop', 'barn', 'farmhouse', 'silo_farm', 'windmill', 'watertower']);
 
 /** Buildings stamp AFTER the obstacle scatter, so a rock blob can end up in
  *  someone's living room: the stamp clears the rock's grid claim (so it
@@ -131,7 +131,7 @@ export interface PropSpec {
     // §farm: the countryside. `crop` is DECORATION on walkable T_GRASS (corn
     // stands 2u — taller than a man — so a field conceals exactly the way tall
     // grass already does); the rest are SOLID landmarks that claim their tiles.
-    | 'crop' | 'barn' | 'silo_farm' | 'windmill' | 'watertower';
+    | 'crop' | 'barn' | 'farmhouse' | 'silo_farm' | 'windmill' | 'watertower';
   pos: Vec3;
   scale: number;
   rot: number;
