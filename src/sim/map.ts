@@ -133,7 +133,11 @@ export interface PropSpec {
     // §farm: the countryside. `crop` is DECORATION on walkable T_GRASS (corn
     // stands 2u — taller than a man — so a field conceals exactly the way tall
     // grass already does); the rest are SOLID landmarks that claim their tiles.
-    | 'crop' | 'barn' | 'farmhouse' | 'silo_farm' | 'windmill' | 'watertower';
+    | 'crop' | 'barn' | 'farmhouse' | 'silo_farm' | 'windmill' | 'watertower'
+    // A1 the airfield: a building dedicated to an aircraft (Robert). Purely
+    // visual — no grid stamps, so it can never trap a hull or break a path;
+    // the jet parks under the canopy and flies out over everything anyway.
+    | 'hangar';
   pos: Vec3;
   scale: number;
   rot: number;
@@ -658,17 +662,40 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
       [fwd * 21, -13], [fwd * 21, 13], [fwd * 27, -9], [fwd * 27, 9],
       [fwd * 24, -12], [fwd * 24, 12],
       [fwd * 28, 5], // mech — off the center row so it doesn't park in the main firing lane
-      // THE AIRFIELD sits BEHIND the motor pool (deeper toward home): a
-      // runway apron is a soft target, so it hides behind the armour, and a
-      // raider who wants to kill jets on the ground has to come all the way in
-      [fwd * 15, -18], [fwd * 15, 18],   // strike jet · interceptor
-      [fwd * 11, 0],                      // bomber — the deepest, slowest, most precious
-      [fwd * 19, 0],                      // the Lance, parked between the field and the front
+      // A1 THE AIRFIELD (Robert: "put them all together… buildings dedicated
+      // to certain aircraft"). One flight line on the base's south flank —
+      // three hangars in a row, mouths toward the front, a poured apron in
+      // front of them. The flank, NOT the centreline: a first cut parked the
+      // strip at 10-13 tiles deep and the compound's own barracks stamped
+      // over the pads on some seeds (the last-stamp trap), and re-clearing
+      // after the stamp carved lopsided holes in the compound walls. The old
+      // jet pads lived at lateral 18 and never collided with anything —
+      // the whole field now lives out there.
+      [fwd * 14, -15], [fwd * 14, -20],  // strike jet · interceptor, on the flight line
+      [fwd * 14, -25],                    // bomber — the end slot, biggest hangar
+      [fwd * 19, -6],                     // the Lance guards the field; off the gate lane
     ];
     padKinds.forEach((kind, i) => {
       const [ox, oz] = padOffsets[i];
-      clearArea(grid, btx + ox, btz + oz, 3); // a yard the hull can pull out of — clears any forest that crept onto the pad
-      vehiclePads.push({ kind, team: side as Team, pos: tileToWorld(btx + ox, btz + oz) });
+      // aircraft get a wider clear — a hangar's canopy needs the whole yard
+      const aircraft = kind === 'strikejet' || kind === 'interceptor' || kind === 'bomber';
+      clearArea(grid, btx + ox, btz + oz, aircraft ? 4 : 3); // a yard the hull can pull out of
+      const at = tileToWorld(btx + ox, btz + oz);
+      vehiclePads.push({ kind, team: side as Team, pos: at });
+      // A1: every airframe sleeps in its own building — the bomber's is
+      // taller and wider because the bomber is. Open face toward the front,
+      // which is also the direction the runway leaves.
+      if (aircraft) {
+        // the hangar wraps the TAIL, not the whole airframe — a plane fully
+        // under its roof is a plane the top-down camera cannot find. Nose
+        // pokes out of the mouth, so "my jet is home" reads at any zoom.
+        props.push({
+          type: 'hangar',
+          pos: { x: at.x - fwd * 2.6, y: at.y, z: at.z },
+          scale: kind === 'bomber' ? 1.35 : 1,
+          rot: side === 0 ? 0 : Math.PI,
+        });
+      }
     });
     // one Bulwark emplacement gun guarding each team's midfield approach — a
     // WIDE clear so the region's trees never wall the gun into its own bunker
@@ -751,6 +778,25 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
     : gen === 'ocean' ? S_WET
     : S_ICE; // triton
   surface.fill(baseSurf);
+  // A1 THE APRON: a poured-plate flight line in front of the three hangars.
+  // Pure surface paint — no tiles change, so nothing can be trapped or
+  // walled by it; it reads AS an airfield from the sky and gives wheels
+  // their 1.05 on the deck. Stamped before the mud pass on purpose.
+  for (let side = 0 as Team; side < 2; side++) {
+    const [btx, btz] = baseT[side];
+    const fwd = side === 0 ? 1 : -1;
+    for (let dx = 16; dx <= 19; dx++) {
+      for (let dz = -27; dz <= -13; dz++) {
+        const tx = btx + fwd * dx, tz = btz + dz;
+        if (tx < 1 || tx >= GRID - 1 || tz < 1 || tz >= GRID - 1) continue;
+        surface[tz * GRID + tx] = S_PLATE;
+        // and no meadow grows through poured plate — clear tall grass on the
+        // line (grass is walkable, so reachability cannot change; it only
+        // stops the flight line hiding a whole fireteam)
+        if (grid[tz * GRID + tx] === T_GRASS) grid[tz * GRID + tx] = T_OPEN;
+      }
+    }
+  }
   // water margins turn to mud (wheels hate it; hover gets its moment)
   if (gen !== 'ice') {
     for (let z = 1; z < GRID - 1; z++) for (let x = 1; x < GRID - 1; x++) {

@@ -416,6 +416,39 @@ export function buildProp(type: string, scale: number): THREE.Object3D {
       }
       return g;
     }
+    case 'hangar': {
+      // A1 THE HANGAR — a building dedicated to an aircraft (Robert). An
+      // open-front military shed: back wall, two sides, a shallow-arched
+      // roof, and NOTHING in front — the airframe noses out under the lip.
+      // Faces +x at rot 0; the map flips it per side. The bomber's hangar
+      // ships at scale 1.35 because the bomber does.
+      const g = new THREE.Group();
+      const drab = mat(0x5c6152, { rough: 0.9 });
+      const dark = mat(0x41463c, { rough: 0.95 });
+      const W = 8.4 * scale;   // across the opening (z)
+      const D = 7.6 * scale;   // deep (x)
+      const H = 3.1 * scale;
+      // back wall
+      const back = box(0.35, H, W, dark);
+      back.position.set(-D / 2, H / 2, 0); back.castShadow = true;
+      // side walls
+      const sideL = box(D, H, 0.35, drab);
+      sideL.position.set(0, H / 2, -W / 2); sideL.castShadow = true;
+      const sideR = box(D, H, 0.35, drab);
+      sideR.position.set(0, H / 2, W / 2); sideR.castShadow = true;
+      // the roof: three tilted slabs faking a shallow arch, with a front lip
+      const roofC = box(D + 0.8, 0.28, W * 0.44, drab);
+      roofC.position.set(0, H + 0.32, 0); roofC.castShadow = true;
+      const roofL = box(D + 0.8, 0.26, W * 0.36, dark);
+      roofL.position.set(0, H + 0.06, -W * 0.36); roofL.rotation.x = -0.22; roofL.castShadow = true;
+      const roofR = box(D + 0.8, 0.26, W * 0.36, dark);
+      roofR.position.set(0, H + 0.06, W * 0.36); roofR.rotation.x = 0.22; roofR.castShadow = true;
+      // the lintel over the mouth — reads "doorway" from command zoom
+      const lintel = box(0.3, 0.7, W, dark);
+      lintel.position.set(D / 2 - 0.15, H - 0.2, 0); lintel.castShadow = true;
+      g.add(back, sideL, sideR, roofC, roofL, roofR, lintel);
+      return g;
+    }
     case 'barn': {
       const g = new THREE.Group();
       const body = box(5.4 * scale, 3.4 * scale, 5.6 * scale, mat(0x8c4b3a, { rough: 0.95 }));

@@ -36,6 +36,7 @@ const SHEET: { type: string; tiles: number }[] = [
   { type: 'silo_farm', tiles: 1 },
   { type: 'windmill', tiles: 1 },
   { type: 'watertower', tiles: 1 },
+  { type: 'hangar', tiles: 3 },
 ];
 
 const SOLDIER_H = 1.8; // the yardstick: everything is measured against a man

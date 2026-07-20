@@ -3398,7 +3398,14 @@ export class World {
       // never flies slower than minAirspeed × top — and it can never reverse.
       // Let go and you keep going: attack runs become PASSES, and the pilot
       // who over-commits eats the terrain he was strafing.
-      const stall = def.minAirspeed ?? 0;
+      //
+      // …but only with A PILOT ABOARD, past his spool. The first cut applied
+      // the floor unconditionally, so every UNCREWED jet in the game taxied
+      // itself off its pad at stall speed forever — parked aircraft creeping
+      // across the map until a wall caught them. (Robert: "planes have to
+      // start off grounded." They did start grounded; they just didn't STAY.)
+      const flown = v.seats[0] >= 0 && this.time >= v.spoolUntil;
+      const stall = flown ? def.minAirspeed ?? 0 : 0;
       const wing = stall > 0 ? Math.max(stall, Math.max(0, throttle)) : throttle;
       const targetSpeed = wing * def.speed * engineMult * depthMult * surfMult * this.vehicleSpeedMul * (wing < 0 ? 0.5 : 1);
       const accel = 18;

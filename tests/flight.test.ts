@@ -15,9 +15,21 @@ const cmd = (over: Partial<PlayerCmd> = {}): PlayerCmd => ({
   ...over,
 });
 
+/** the map's own AA hulls would shoot our test aircraft down mid-measure —
+ *  the airfield rework moved the Lance a few tiles and the missiles started
+ *  CONNECTING: the "hovering" flyer this suite once measured was actually a
+ *  corpse frozen at its last velocity. Right behaviour, wrong room (the same
+ *  isolation antiair.test.ts already uses). */
+function noAutoAA(w: World) {
+  for (const v of w.vehicles.values()) {
+    if (v.kind === 'aatrack') v.alive = false;
+  }
+}
+
 /** put a pilot in the named airframe, airborne and flying */
 function fly(kind: VehicleKind) {
   const w = new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+  noAutoAA(w);
   const p = w.addSoldier('P', 'infantry', 0, 'human');
   const v = w.spawnVehicle(kind, 0, { x: 0, y: 0, z: 0 });
   v.alive = true; v.seats[0] = p.id;
