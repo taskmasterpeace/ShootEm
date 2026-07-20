@@ -62,7 +62,11 @@ describe('blast knockback', () => {
   });
 
   it('every splash family shoves, scaled by mk-tier; heal beams never do', () => {
-    expect(WEAPONS.gl.knockback).toBe(10);
+    // gl went 10 → 13 in the juice pass (Robert: "we need a little bit of
+    // knock back" — the hand frag is the shove he throws most). It stays
+    // UNDER the mml's 14: the tier ladder is the law, the exact rung isn't.
+    expect(WEAPONS.gl.knockback).toBe(13);
+    expect(WEAPONS.gl.knockback).toBeLessThan(WEAPONS.mml.knockback);
     expect(WEAPONS.mml.knockback).toBe(14);
     expect(WEAPONS.tank_cannon.knockback).toBe(18);
     expect(WEAPONS.demo_charge.knockback).toBe(16);

@@ -31,6 +31,9 @@ export const SOUND_NAMES = [
   // ballistic feedback (tools/gen-impact-sounds.mjs): the round that missed
   // you tells you WHERE FROM, and the one that hit tells you WHAT it hit
   'whiz', 'impact_dirt', 'impact_stone', 'impact_metal',
+  // grenade foley (tools/gen-nade-sounds.mjs): the steel ting-ting-ting of a
+  // frag on the deck — each bounce rings once, rate-jittered by the renderer
+  'nade_tink',
   // LSW signatures (§21.6, tools/gen-lsw-sounds.mjs): the stable has a voice
   'ice_freeze', 'ice_shatter', 'gas_hiss', 'rage_roar', 'fire_whoosh',
   // Ragebeast custom pack (Robert's own): a growl + three rending-claw takes

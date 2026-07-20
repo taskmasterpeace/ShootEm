@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>War World — FX Sheet</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💥</text></svg>" />
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #11151a; }
+    canvas { display: block; }
+    #hint {
+      position: fixed; top: 10px; left: 12px;
+      font: 11px ui-monospace, Menlo, Consolas, monospace; color: #93a0b0;
+      background: rgba(14, 17, 21, 0.8); padding: 5px 9px; border: 1px solid #333b47;
+    }
+  </style>
+</head>
+<body>
+  <div id="hint">frag boom (left) · tank boom (right) — posts stand at the sim's kill/splash radii · red = kill circle</div>
+  <script type="module">
+    import './src/client/fxsheet.ts';
+  </script>
+</body>
+</html>

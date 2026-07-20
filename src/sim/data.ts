@@ -31,7 +31,7 @@ const CORE_WEAPONS: Record<WeaponId, WeaponDef> = {
     alt: { kind: 'tag', ammo: 4, cooldown: 1.4 } }), // tag dart — pin the runner, then line up the real shot
   ac_mk2: W({ id: 'ac_mk2', name: 'AC-Mk2 Autocannon', damage: 16, rof: 6.5, speed: 100, spread: 0.04, clip: 60, reloadTime: 2.8, reserve: 300, range: 56, sound: 'autocannon' }),
   mml: W({ id: 'mml', name: 'Micro-Missile Launcher', damage: 65, rof: 0.9, speed: 42, spread: 0.01, clip: 3, reloadTime: 2.6, reserve: 24, range: 80, splash: 5.4, splashDamage: 45, knockback: 14, sound: 'rocket', tracer: 'rocket' }),
-  gl: W({ id: 'gl', name: 'GL-40 Grenade Launcher', damage: 55, rof: 1.1, speed: 34, clip: 5, reloadTime: 2.4, reserve: 30, range: 46, splash: 6, splashDamage: 50, knockback: 10, arc: true, sound: 'thump', tracer: 'shell',
+  gl: W({ id: 'gl', name: 'GL-40 Grenade Launcher', damage: 55, rof: 1.1, speed: 34, clip: 5, reloadTime: 2.4, reserve: 30, range: 46, splash: 6, splashDamage: 50, knockback: 13, arc: true, sound: 'thump', tracer: 'frag',
     alt: { kind: 'skitter', ammo: 2, cooldown: 3 } }), // the SKITTER — a charge on legs that runs them down
   plasma: W({ id: 'plasma', name: 'Kamenel Plasma', damage: 21, rof: 5, speed: 60, spread: 0.015, clip: 25, reloadTime: 1.8, reserve: Infinity, range: 54, sound: 'plasma', tracer: 'plasma',
     alt: { kind: 'overcharge', ammo: 0, cooldown: 1.6, cells: 6 } }), // six cells, one ugly orb

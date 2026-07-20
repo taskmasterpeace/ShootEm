@@ -36,6 +36,8 @@ export default defineConfig({
         // the prop contact sheet — every placeable prop beside a 1.8u man
         // (/props.html); the one check the gates can't run for you
         props: resolve(__dirname, 'props.html'),
+        // the FX sheet — explosions on a bench at the sim's real radii (/fx.html)
+        fx: resolve(__dirname, 'fx.html'),
       },
     },
   },

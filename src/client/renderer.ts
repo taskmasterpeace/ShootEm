@@ -9,7 +9,7 @@ import { HAND_FRAG_REACH, meleeWindupFor, type World } from '../sim/world';
 import { audio, type SoundName } from './audio';
 import { BIOME_AUDIO } from './soundscape';
 import { settings } from './settings';
-import { Particles, FlashLights } from './effects';
+import { Particles, FlashLights, Fireballs } from './effects';
 import { JOINT_NAMES, isUndead, poseSoldierJoints, CAST_SCHOOL, FLIGHT_POSES, RECOIL_SCALE, stepYawSpring, throwArmCurve, WEAPON_HOLDS, type GaitState, type CastSchool } from './animation';
 import { chunkCount, drawChunks, drawGrade, drawNotches, drawNumber, makeRingMesh, RING_COLORS, ringChunkTexture, ringTier } from './ring';
 import { LSWS, type LswDef } from '../sim/lsw';
@@ -130,6 +130,7 @@ export class Renderer {
   flashes: FlashLights;
   camPos = new THREE.Vector3();
   camShake = 0;
+  private fireballs!: Fireballs;
   /** wheel-zoom distance, fed by Input each frame */
   camDist = 30;
   /** true while a killcam/highlights puppet world is being rendered —
@@ -323,6 +324,7 @@ export class Renderer {
     this.scene.background = new THREE.Color(0xa8bccc);
     this.particles = new Particles(this.scene);
     this.flashes = new FlashLights(this.scene);
+    this.fireballs = new Fireballs(this.scene);
 
     window.addEventListener('resize', () => {
       this.camera.aspect = window.innerWidth / window.innerHeight;
@@ -1804,6 +1806,7 @@ export class Renderer {
       // per-round motion + flight trails make each family read distinctly
       const tr = mesh.userData.tracer as string;
       if (tr === 'shell') mesh.rotation.x += dt * 22; // tumbling shell
+      if (tr === 'frag') { mesh.rotation.x += dt * 13; mesh.rotation.z += dt * 9; } // end-over-end can
       else if (tr === 'canister') mesh.rotation.x += dt * 9; // lazy end-over-end tin
       else if (tr === 'rocket') {
         this.particles.emit({ pos: { x: p.pos.x, y: p.pos.y, z: p.pos.z }, count: 1, color: 0x552e18, speed: 1, life: 0.5, spread: 0.15, up: 0, gravity: -1.5, size: 0.5 });
@@ -2222,6 +2225,14 @@ export class Renderer {
         this.camPos.z += (Math.random() - 0.5) * this.camShake;
         this.camShake = Math.max(0, this.camShake - dt * 2.5);
       }
+      // KNOCKBACK KICK: when a blast shoves YOU, the camera rides the shove.
+      // The sim's push impulse already decays e^-5t, so borrowing it directly
+      // gives a kick-and-settle with no extra state — the view lurches the way
+      // your boots do and recovers exactly as fast.
+      if (!settings.reducedMotion && (local.pushX !== 0 || local.pushZ !== 0)) {
+        this.camPos.x += local.pushX * 0.055;
+        this.camPos.z += local.pushZ * 0.055;
+      }
       this.camera.position.copy(this.camPos);
       this.camera.lookAt(target);
       // replays must not drag the audio listener to your PAST position —
@@ -2231,6 +2242,7 @@ export class Renderer {
 
     this.particles.update(dt);
     this.flashes.update(world.time, dt);
+    this.fireballs.update(dt);
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -2715,7 +2727,22 @@ export class Renderer {
     // of its 0.6u hover, so the body drifts instead of standing on air
     if (s.ascendant === 'wraith') mesh.position.y += Math.sin(t * 2 + s.id) * 0.09;
     const lean = airborne ? -0.3 : -Math.min(speed / 14, 1) * (zed ? 0.18 : 0.09);
-    mesh.rotation.z = lean + (s.kind === 'sprinter' ? -0.18 : 0);
+    // STAGGER (Robert: "a little bit of knock back" — the shove was always in
+    // the sim; nothing SOLD it). Tip the body along the blast's forward
+    // component: shoved from behind you pitch back on your heels, shoved from
+    // the front you fold forward. Gods barely rock — mass is a statement.
+    let stagger = 0;
+    if ((s.pushX !== 0 || s.pushZ !== 0) && !airborne) {
+      const fwd = s.pushX * Math.cos(s.yaw) + s.pushZ * Math.sin(s.yaw);
+      stagger = Math.max(-0.38, Math.min(0.38, fwd * 0.042)) * (s.ascendant ? 0.35 : 1);
+      const p2 = s.pushX * s.pushX + s.pushZ * s.pushZ;
+      // boot-skid dust while the impulse drags them — throttled by dice, and
+      // the shove itself only lasts ~0.4s, so a few puffs per stagger
+      if (p2 > 7 && s.pos.y < 0.3 && Math.random() < 0.35) {
+        this.particles.emit({ pos: { x: s.pos.x, y: 0.15, z: s.pos.z }, count: 2, color: 0x8a7a5c, speed: 2.2, life: 0.35, spread: 0.5, up: 1.6, gravity: 5 });
+      }
+    }
+    mesh.rotation.z = lean + (s.kind === 'sprinter' ? -0.18 : 0) + stagger;
 
     // ---- LEAP DRESS (movement dress §Task 8): crouch-squash on launch, stretch
     // through the arc, crater-thud squash on landing. Leapers only — a flier's
@@ -3011,6 +3038,22 @@ export class Renderer {
       }
       case 'shell': // stubby tumbling slug (shotgun, paint)
         return solid(new THREE.BoxGeometry(0.3, 0.15, 0.15), color);
+      case 'frag': { // an honest-to-god GRENADE: olive segmented body, steel
+        // collar, safety spoon still riding the side. Oversized a touch —
+        // at our camera height a to-scale frag is a flying pixel, and the
+        // whole point of the shape is that you RECOGNIZE the thing that's
+        // about to ruin your afternoon.
+        const g = new THREE.Group();
+        const body = solid(new THREE.IcosahedronGeometry(0.17, 1), 0x4a5d3a);
+        g.add(body);
+        const band = solid(new THREE.CylinderGeometry(0.175, 0.175, 0.05, 8), 0x333a2c);
+        g.add(band); // the frag-segmentation groove, read as a dark equator
+        const collar = solid(new THREE.CylinderGeometry(0.07, 0.07, 0.1, 6), 0x8f9296);
+        collar.position.y = 0.2; g.add(collar);
+        const spoon = solid(new THREE.BoxGeometry(0.045, 0.22, 0.09), 0xa8adb2);
+        spoon.position.set(0.1, 0.12, 0); spoon.rotation.z = -0.35; g.add(spoon);
+        return g;
+      }
       case 'canister': { // hand canister (smoke/incendiary): a small tin with a band
         const g = new THREE.Group();
         const tin = solid(new THREE.CylinderGeometry(0.09, 0.09, 0.26, 7), 0x5d6656);
@@ -3226,6 +3269,10 @@ export class Renderer {
           this.particles.emit({ pos: e.pos, count: big ? 60 : 35, color: 0xff9040, speed: big ? 14 : 9, life: 0.7, spread: 1, up: 7, gravity: 8 });
           this.particles.emit({ pos: e.pos, count: 20, color: 0x555555, speed: 4, life: 1.2, spread: 1.5, up: 5, gravity: 2 });
           this.flashes.flash(e.pos, 0xffaa44, big ? 90 : 45, world.time);
+          // the ACTUAL explosion (the rings below are the damage law; this is
+          // the violence). Sized from the sim's own radii when the event
+          // carries them; the bare emit sites get a stock frag-scale boom.
+          this.fireballs.boom(e.pos, e.radius ?? (big ? 6.5 : 5.4), e.killRadius ?? 2.2, big);
           // SEE THE BLAST: two ground rings at the sim's exact radii. A blue
           // pulse marks a concussion (knockback, not death); HE is orange.
           if (e.radius) {
@@ -3355,8 +3402,10 @@ export class Renderer {
           }
           break;
         case 'nade_bounce':
-          // the grenade kissing the ground — the tick that says GET AWAY
-          if (e.pos) audio.play('impact_dirt', { pos: e.pos, volume: 0.45, rate: 1.5 });
+          // the TING of a steel can on the deck — the sound that says GET AWAY.
+          // Rate jitter keeps the second and third bounce from being the first
+          // one twice; the settle tick arrives naturally quieter (energy's spent).
+          if (e.pos) audio.play('nade_tink', { pos: e.pos, volume: 0.6, rate: 0.92 + Math.random() * 0.34 });
           break;
         case 'vo':
           // a spoken line: positional = the LSW's own mouth (only nearby

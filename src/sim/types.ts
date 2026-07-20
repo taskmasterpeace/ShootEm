@@ -66,7 +66,7 @@ export interface WeaponDef {
   /** shove applied to victims (impulse cannon) */
   knockback: number;
   sound: string;
-  tracer: 'bullet' | 'shell' | 'rocket' | 'plasma' | 'rail' | 'flame' | 'beam' | 'acid' | 'canister' | 'none';
+  tracer: 'bullet' | 'shell' | 'rocket' | 'plasma' | 'rail' | 'flame' | 'beam' | 'acid' | 'canister' | 'frag' | 'none';
   /** arsenal family this weapon belongs to ('rifle', 'laser', 'mortar', …) */
   family?: WeaponFamily;
   /** Mk tier within the family (1..3) — drives the stat curve */
@@ -526,6 +526,8 @@ export interface Projectile {
   /** hand grenades BANK (Robert): walls reflect it instead of detonating it.
    *  Launcher shells never set this — a GL-40 round still eats the wall. */
   bounce?: boolean;
+  /** the settle tick already rang once — a rolling grenade tings on arrival, not per frame */
+  tinked?: boolean;
   /** remaining body/cover pass-throughs (init from WeaponDef.pierce at launch) */
   pierce?: number;
   /** remaining ricochets (init from WeaponDef.ricochet at launch) */

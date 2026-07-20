@@ -3263,6 +3263,9 @@ export class World {
           p.vel.x *= keep; p.vel.z *= keep;
           this.emit({ type: 'nade_bounce', pos: { ...p.pos }, weapon: p.weapon });
         } else {
+          // the LAST tick of the ting-ting-ting: the hop is spent and the can
+          // settles into its roll. Once — this branch runs every frame after.
+          if (!p.tinked) { p.tinked = true; this.emit({ type: 'nade_bounce', pos: { ...p.pos }, weapon: p.weapon }); }
           p.vel.y = 0;                                     // settled — now it rolls
           p.vel.x *= 0.88; p.vel.z *= 0.88;
           if (hSpeed < 0.4) { p.vel.x = 0; p.vel.z = 0; }
