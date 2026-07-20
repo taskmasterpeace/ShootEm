@@ -25,6 +25,8 @@ tools/atlas/
 # recovered maps WIP (kept out of git; see README)
 /.maps-wip-recovered/
 
-# converted asset intermediates (source zips + extracted blends + glb staging)
+# converted asset intermediates (source zips + extracted blends + glb staging).
+# Source material stays OUT of git; only the converted .glb under public/ ships.
 assets/raw/
 assets/glb/
+assets/*.zip

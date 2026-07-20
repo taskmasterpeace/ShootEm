@@ -25,7 +25,7 @@ import { generateDistrict, generateHouse, mirrorDef, stampBuilding, type Buildin
 import type { Rng } from './rng';
 
 export interface RegionRect { tx: number; tz: number; tw: number; th: number }
-export type ChunkKind = 'forest' | 'neighborhood' | 'interior' | 'industrial' | 'open';
+export type ChunkKind = 'forest' | 'neighborhood' | 'interior' | 'industrial' | 'farm' | 'open';
 
 /** Half-width of the guaranteed clear lane cross (LANE_HALF*2+1 tiles wide). */
 export const LANE_HALF = 1;
@@ -42,6 +42,9 @@ export interface ChunkTools {
   /** a prop-owned blocking tile (claim + prop, both halves) */
   claim(tx: number, tz: number, tile: number): void;
   prop(type: PropSpec['type'], tx: number, tz: number, scale: number, rot: number): void;
+  /** a prop at WORLD coords — for a landmark that straddles a multi-tile claim
+   *  and must sit centred on it, not on one tile's middle (the mirror is x→−x) */
+  propAt(type: PropSpec['type'], wx: number, wz: number, scale: number, rot: number): void;
   pickup(type: PickupSpawn['type'], tx: number, tz: number): void;
   /** stamp a building west + its mirrored twin east; returns the west stamp ok */
   house(def: BuildingDef, tx: number, tz: number, seq?: number): boolean;
@@ -62,6 +65,9 @@ export function chunkTools(ctx: StampCtx): ChunkTools {
       for (const x of [tx, mir(tx)]) if (inb(x, tz)) { ctx.grid[tz * GRID + x] = tile; ctx.claims.push({ idx: tz * GRID + x, t: tile }); }
     },
     prop(type, tx, tz, scale, rot) { for (const x of [tx, mir(tx)]) if (inb(x, tz)) ctx.props.push({ type, pos: toWorld(x, tz), scale, rot }); },
+    propAt(type, wx, wz, scale, rot) {
+      for (const x of [wx, -wx]) ctx.props.push({ type, pos: { x, y: 0, z: wz }, scale, rot });
+    },
     pickup(type, tx, tz) { for (const x of [tx, mir(tx)]) if (inb(x, tz)) ctx.pickups.push({ type, pos: toWorld(x, tz) }); },
     house(def, tx, tz, seq = 0) {
       const w = Math.max(...def.rows.map((r) => r.length));
@@ -242,6 +248,73 @@ export const neighborhoodChunk: Chunk = (t, r, density) => {
 };
 
 // ---------------------------------------------------------------------------
+// THE FARM — the countryside block. CROP ROWS are runs of walkable T_GRASS
+// wearing corn: a stalk stands 2u, taller than a man, so a field conceals
+// exactly the way tall grass already does (bots respect the same clamp) — the
+// soft bottleneck in a different coat, and you can WALK it, which is the point.
+// Around the rows sit the landmarks you fight over: a barn straddling a 2×2
+// claim, and a silo / windmill / water tower on single tiles — tall silhouettes
+// that read from across the map and give the open ground something to mean.
+// ---------------------------------------------------------------------------
+export const farmChunk: Chunk = (t, r, density) => {
+  const { hz, vx } = laneCross(t, r);
+  const area = r.tw * r.th;
+
+  // ---- the crop rows: long strips, aligned like a ploughed field ----------
+  const rows = Math.max(3, Math.round(r.th * 0.22 * (0.6 + density)));
+  for (let i = 0; i < rows; i++) {
+    const rz = r.tz + 2 + t.rng.int(0, Math.max(0, r.th - 5));
+    if (Math.abs(rz - hz) <= LANE_HALF + 1) continue; // the street stays bare
+    const x0 = r.tx + 1 + t.rng.int(0, 4);
+    const len = t.rng.int(6, Math.max(7, r.tw - 6));
+    for (let k = 0; k < len; k++) {
+      const tx = x0 + k;
+      if (tx >= r.tx + r.tw - 1) break;
+      if (Math.abs(tx - vx) <= LANE_HALF + 1) continue; // and so does the cross-street
+      if (!t.isOpen(tx, rz)) continue;
+      t.put(tx, rz, T_GRASS);                     // walkable concealment
+      // corn on most tiles — decoration only, it claims nothing
+      if (t.rng.next() < 0.72) t.prop('crop', tx, rz, t.rng.range(0.85, 1.15), t.rng.range(0, Math.PI * 2));
+    }
+  }
+
+  // ---- the landmarks -----------------------------------------------------
+  // a BARN on a 2×2 claim, placed centred on that claim (propAt, world coords)
+  const bx = r.tx + 2 + t.rng.int(0, Math.max(0, r.tw - 6));
+  const bz = r.tz + 2 + t.rng.int(0, Math.max(0, r.th - 6));
+  if (Math.abs(bz - hz) > LANE_HALF + 2 && Math.abs(bx - vx) > LANE_HALF + 2) {
+    let clear = true;
+    for (let dz = 0; dz < 2; dz++) for (let dx = 0; dx < 2; dx++) if (!t.isOpen(bx + dx, bz + dz)) clear = false;
+    if (clear) {
+      for (let dz = 0; dz < 2; dz++) for (let dx = 0; dx < 2; dx++) t.claim(bx + dx, bz + dz, T_WALL);
+      // the 2×2's true centre is the shared corner of its four tiles
+      t.propAt('barn', (bx + 1) * TILE - WORLD / 2, (bz + 1) * TILE - WORLD / 2, 1, t.rng.range(0, Math.PI * 2));
+    }
+  }
+
+  // one or two towers — a silo, a windmill, a water tower on single tiles
+  const towers: PropSpec['type'][] = ['silo_farm', 'windmill', 'watertower'];
+  const nTowers = 1 + (t.rng.next() < 0.55 ? 1 : 0);
+  for (let i = 0; i < nTowers; i++) {
+    const kind = towers[t.rng.int(0, towers.length - 1)];
+    const tx = r.tx + 2 + t.rng.int(0, Math.max(0, r.tw - 4));
+    const tz = r.tz + 2 + t.rng.int(0, Math.max(0, r.th - 4));
+    if (onLane(r, tx, tz) || !t.isOpen(tx, tz)) continue;
+    t.claim(tx, tz, T_WALL);
+    t.prop(kind, tx, tz, 1, t.rng.range(0, Math.PI * 2));
+  }
+
+  // a little low cover so the rows aren't the only thing to fight from
+  const bales = Math.round(area * 0.004 * (0.5 + density));
+  for (let i = 0; i < bales; i++) {
+    const tx = r.tx + t.rng.int(1, r.tw - 2), tz = r.tz + t.rng.int(1, r.th - 2);
+    if (onLane(r, tx, tz) || !t.isOpen(tx, tz)) continue;
+    t.claim(tx, tz, T_COVER);
+    t.prop('crate', tx, tz, 1, t.rng.range(0, Math.PI));
+  }
+};
+
+// ---------------------------------------------------------------------------
 // A DISTRICT block — one big multi-room structure filling a band (from the
 // district grammar: offices/factories/markets are corridors and rooms). The
 // HARD bottleneck: you clear it wall to wall. `interior` leans on offices +
@@ -278,6 +351,7 @@ export const CHUNKS: Record<ChunkKind, Chunk> = {
   neighborhood: neighborhoodChunk,
   interior: districtChunk(['office', 'market', 'storefront']),
   industrial: districtChunk(['factory', 'depot_hall']),
+  farm: farmChunk,
 };
 
 /**

@@ -23,6 +23,13 @@ const homeDist = (v: Vehicle) => Math.hypot(v.pos.x - v.padPos.x, v.pos.z - v.pa
 
 /** Sign a buggy out of the motor pool and leave it stranded `away` units from home. */
 function abandonBuggy(w: World, away = 15) {
+  // A WITNESS ON THE OTHER SIDE, and the officer channel goes quiet. §7: "a
+  // faction WITH a human never auto-calls." Without one, team 1's bot officer
+  // makes its radio check at 110s and drops a god — which is how a chunk change
+  // that only nudged the RNG once had Overload land beside the abandoned hull
+  // and melt it at t=146, thirty-four seconds shy of the write-off. He gives no
+  // orders and never fires; he just keeps the sky shut.
+  w.addSoldier('OBS', 'infantry', 1, 'human');
   const s = w.addSoldier('D', 'infantry', 0, 'human');
   const v = [...w.vehicles.values()].find((x) => x.team === 0 && x.kind === 'buggy')!;
   s.pos = { ...v.pos };
@@ -35,9 +42,15 @@ function abandonBuggy(w: World, away = 15) {
   return { s, v };
 }
 
+// EMPTY FIELD ON PURPOSE (botsPerTeam: 0). Every test here brings its own
+// driver and thief; the ambient bots are noise, and one of these runs the clock
+// for three straight minutes. It caught fire the day a chunk change nudged the
+// RNG: Overload ascended mid-test, walked over, and melted the abandoned hull
+// in 1.3 seconds — a perfectly good god ruining a bookkeeping test. The
+// manifest doesn't care who is on the field, so nobody is.
 describe('requisition (§8.1a)', () => {
   it('keeps your name on the manifest: an abandoned hull blocks its pad indefinitely', () => {
-    const w = new World({ seed: 42, mode: 'tdm' });
+    const w = new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
     const total = w.vehicles.size;
     const { s, v } = abandonBuggy(w);
     expect(v.requisitionedBy).toBe(s.id); // signed out — dying doesn't refill the pool
@@ -51,7 +64,7 @@ describe('requisition (§8.1a)', () => {
   });
 
   it('destroyed hull → the pad respawns a fresh one with a clean manifest', () => {
-    const w = new World({ seed: 42, mode: 'tdm' });
+    const w = new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
     const { s, v } = abandonBuggy(w);
     w.damageVehicle(v, 9999, s.id, 'tank_cannon');
     expect(v.alive).toBe(false);
@@ -64,7 +77,7 @@ describe('requisition (§8.1a)', () => {
   });
 
   it('any teammate can crew it, and parking it home with no crew re-registers it', () => {
-    const w = new World({ seed: 42, mode: 'tdm' });
+    const w = new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
     const { s, v } = abandonBuggy(w);
     // a different teammate recovers the stranded hull — not the original signer
     const mate = w.addSoldier('M', 'infantry', 0, 'human');
@@ -84,7 +97,7 @@ describe('requisition (§8.1a)', () => {
   });
 
   it('enemy hotwire flips the team after the E-hold, but only after 90s abandonment', () => {
-    const w = new World({ seed: 42, mode: 'tdm' });
+    const w = new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
     const { v } = abandonBuggy(w);
     const thief = w.addSoldier('T', 'infantry', 1, 'human');
     thief.pos = { x: v.pos.x + 2, y: 0, z: v.pos.z };
@@ -106,7 +119,7 @@ describe('requisition (§8.1a)', () => {
   });
 
   it('engineers hotwire twice as fast — they know the wiring', () => {
-    const w = new World({ seed: 42, mode: 'tdm' });
+    const w = new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
     const { v } = abandonBuggy(w);
     const thief = w.addSoldier('T', 'engineer', 1, 'human');
     thief.pos = { x: v.pos.x + 2, y: 0, z: v.pos.z };
@@ -119,7 +132,7 @@ describe('requisition (§8.1a)', () => {
   });
 
   it('walking away mid-hotwire snaps the wiring back to zero', () => {
-    const w = new World({ seed: 42, mode: 'tdm' });
+    const w = new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
     const { v } = abandonBuggy(w);
     const thief = w.addSoldier('T', 'infantry', 1, 'human');
     thief.pos = { x: v.pos.x + 2, y: 0, z: v.pos.z };
@@ -131,7 +144,7 @@ describe('requisition (§8.1a)', () => {
   });
 
   it('command writes off a far-away hull after 3 minutes and frees the pad', () => {
-    const w = new World({ seed: 42, mode: 'tdm' });
+    const w = new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
     const { v } = abandonBuggy(w, 30); // > 25u from home — write-off territory
     run(w, new Map(), 170);
     expect(v.alive).toBe(true); // not yet — three FULL minutes
@@ -145,14 +158,14 @@ describe('requisition (§8.1a)', () => {
   });
 
   it('a hull abandoned close to home is never written off — recovery handles it', () => {
-    const w = new World({ seed: 42, mode: 'tdm' });
+    const w = new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
     const { v } = abandonBuggy(w, 15); // far enough to stay requisitioned, too close to write off
     run(w, new Map(), 200);
     expect(v.alive).toBe(true); // the write-off needs BOTH clocks: time AND distance
   });
 
   it('crewing resets the clocks — hotwire and write-off start over', () => {
-    const w = new World({ seed: 42, mode: 'tdm' });
+    const w = new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
     const { s, v } = abandonBuggy(w);
     const thief = w.addSoldier('T', 'infantry', 1, 'human');
     thief.pos = { x: v.pos.x + 2, y: 0, z: v.pos.z };

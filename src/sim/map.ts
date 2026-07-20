@@ -81,7 +81,9 @@ export function surfaceAt(surface: Uint8Array, x: number, z: number): number {
 /** The outdoor vocabulary — scenery that must never stand in a room.
  *  (A crate indoors is FURNITURE: stampBuilding's own 'C' stencil char puts
  *  it there. These are the trespassers.) */
-const OUTDOOR_PROPS: ReadonlySet<string> = new Set(['tree', 'rock', 'wreck', 'silo', 'flare_stack', 'crane', 'memorial']);
+const OUTDOOR_PROPS: ReadonlySet<string> = new Set(['tree', 'rock', 'wreck', 'silo', 'flare_stack', 'crane', 'memorial',
+  // §farm — a corn stalk in someone's living room is the exact bug this set exists for
+  'crop', 'barn', 'silo_farm', 'windmill', 'watertower']);
 
 /** Buildings stamp AFTER the obstacle scatter, so a rock blob can end up in
  *  someone's living room: the stamp clears the rock's grid claim (so it
@@ -91,6 +93,21 @@ const OUTDOOR_PROPS: ReadonlySet<string> = new Set(['tree', 'rock', 'wreck', 'si
 export function pruneIndoorProps(props: PropSpec[], houses: House[]): PropSpec[] {
   if (houses.length === 0) return props;
   return props.filter((p) => !OUTDOOR_PROPS.has(p.type) || houseAt(houses, p.pos.x, p.pos.z) < 0);
+}
+
+/** §farm: a corn stalk only makes sense standing in a FIELD. The farm chunk
+ *  paints its rows as T_GRASS and drops crops on them, but later passes (its
+ *  own landmarks, the lane carve, base compounds, vehicle pads) can overwrite
+ *  a tile out from under one — leaving corn growing on bare road or buried in
+ *  a wall. Re-check at the end: every crop stands on grass, or it doesn't stand. */
+export function pruneStrandedCrops(props: PropSpec[], grid: Uint8Array): PropSpec[] {
+  return props.filter((p) => {
+    if (p.type !== 'crop') return true;
+    const tx = Math.floor((p.pos.x + WORLD / 2) / TILE);
+    const tz = Math.floor((p.pos.z + WORLD / 2) / TILE);
+    if (tx < 0 || tz < 0 || tx >= GRID || tz >= GRID) return false;
+    return grid[tz * GRID + tx] === T_GRASS;
+  });
 }
 
 export function houseAt(houses: House[], x: number, z: number): number {
@@ -110,7 +127,11 @@ export interface PropSpec {
     | 'silo' | 'flare_stack' | 'crane' | 'wreck'
     // the City's plaza monument — Robert's own soldier, cast in bronze
     // (the one GLTF hero prop; see props.ts for the loading law)
-    | 'memorial';
+    | 'memorial'
+    // §farm: the countryside. `crop` is DECORATION on walkable T_GRASS (corn
+    // stands 2u — taller than a man — so a field conceals exactly the way tall
+    // grass already does); the rest are SOLID landmarks that claim their tiles.
+    | 'crop' | 'barn' | 'silo_farm' | 'windmill' | 'watertower';
   pos: Vec3;
   scale: number;
   rot: number;
@@ -562,7 +583,7 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
   // forest / neighborhood / interior / open — each a tactical texture with a
   // guaranteed through-lane. Runs before placeBuildings so hand-stamped
   // structures land on top of the ground texture.
-  if (gen === 'field') fillRegions(buildCtx, half, { forest: 3, neighborhood: 3, interior: 1, industrial: 1, open: 2 });
+  if (gen === 'field') fillRegions(buildCtx, half, { forest: 3, neighborhood: 3, farm: 2, interior: 1, industrial: 1, open: 2 });
   // the old scatter-building placer is for the rock/ocean/ice worlds now — the
   // field's buildings come from its region chunks (no double placement, and no
   // building stamped over a forest, which orphaned tree claims into thin air)
@@ -771,7 +792,7 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
     }
   }
 
-  const outdoorProps = pruneIndoorProps(props, houses);
+  const outdoorProps = pruneStrandedCrops(pruneIndoorProps(props, houses), grid);
   return { seed, theme, grid, grid2, surface, basePos, spawns, flagPos, hillPos, controlPoints, vehiclePads, pickups, props: outdoorProps, zombieSpawns, houses, gates, pads, propCovered: settleClaims(grid, claims, outdoorProps) };
 }
 

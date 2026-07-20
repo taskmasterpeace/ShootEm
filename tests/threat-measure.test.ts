@@ -14,12 +14,22 @@
 // its DESIGNATED answer inside a wide band. A timeout is a balance bug.
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
+import { GRID, T_OPEN } from '../src/sim/map';
 import { LSWS } from '../src/sim/lsw';
 import type { AscendantId, ClassId } from '../src/sim/types';
 import { World } from '../src/sim/world';
 
 function measureTTK(id: AscendantId, squad: number, seed: number, capSecs: number): number {
   const w = new World({ seed, mode: 'tdm', botsPerTeam: 0 });
+  // A CLEAN ARENA. The fight is pinned at the origin on whatever terrain the
+  // seed grew there, and this test measures UNIT BALANCE — terrain is a
+  // confound. Tall grass in particular is fatal to it: the squad rings the god
+  // at 12-14u, which is exactly the grass concealment edge, so the answering
+  // bots simply cannot acquire and TTK reads Infinity. (Caught when the farm
+  // chunk started painting crop rows near the middle.) Carve it flat.
+  for (let tz = 34; tz <= 66; tz++) {
+    for (let tx = 34; tx <= 66; tx++) w.map.grid[tz * GRID + tx] = T_OPEN;
+  }
   const def = LSWS[id];
   const lsw = w.addLsw(id, def.faction, { x: 0, y: 0, z: 0 })!;
   const enemy = def.faction === 0 ? 1 : 0;

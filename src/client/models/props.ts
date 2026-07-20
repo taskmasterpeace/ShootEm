@@ -67,6 +67,18 @@ const GLB_PROPS: Record<string, GlbProp> = {
   // rocks fit by WIDTH: the collision footprint is tile-quantised off the
   // radius, so matching the girth is what keeps the invisible walls honest
   rock: { files: ['Rock1', 'Rock2', 'Rock3'], fit: 'w', target: 2.9 },
+  // §farm. Crops are decoration on walkable grass — corn keeps its native 2u
+  // so a field stands taller than a man. The landmarks fit by WIDTH to the
+  // tiles they claim (barn 2×2, the rest 1×1) so mesh and collision agree.
+  // NB: TILE is 3u. The barn claims 2×2, so it fits to 6 across; the towers
+  // claim a single tile, so they fit to 3 across (the windmill and water tower
+  // fit by HEIGHT — their bases are narrow and the sails/tank overhang above
+  // head height, which is a thing you walk under, not into).
+  crop: { files: ['Corn_4', 'Wheat_4'], fit: 'h', target: 2.0 },
+  barn: { files: ['Barn', 'SmallBarn'], fit: 'w', target: 6 },
+  silo_farm: { files: ['Silo'], fit: 'w', target: 3 },
+  windmill: { files: ['Windmill', 'TowerWindmill'], fit: 'h', target: 10 },
+  watertower: { files: ['WaterTower'], fit: 'h', target: 7.5 },
 };
 
 const glbCache = new Map<string, Promise<THREE.Object3D | null>>();
@@ -365,6 +377,58 @@ export function buildProp(type: string, scale: number): THREE.Object3D {
       cap.position.y = 2.85;
       g.add(collar, core, glass, cap);
       return g;
+    }
+    // §farm — each carries a cheap procedural body so the silhouette and the
+    // collision story exist on frame one; the real model swaps in on load.
+    case 'crop': {
+      // a stalk, not a bush: corn stands taller than a man and conceals like
+      // the tall grass it grows on (walkable — this claims no tile)
+      const g = new THREE.Group();
+      const stalk = cyl(0.06 * scale, 0.09 * scale, 1.9 * scale, mat(0x7c8a3a, { rough: 1 }), 4);
+      stalk.position.y = 0.95 * scale;
+      const head = new THREE.Mesh(new THREE.ConeGeometry(0.16 * scale, 0.5 * scale, 5), mat(0xb8a94a, { rough: 1 }));
+      head.position.y = 1.95 * scale;
+      g.add(stalk, head);
+      return glbProp('crop', scale, scale, g);
+    }
+    case 'barn': {
+      const g = new THREE.Group();
+      const body = box(5.4 * scale, 3.4 * scale, 5.6 * scale, mat(0x8c4b3a, { rough: 0.95 }));
+      body.position.y = 1.7 * scale; body.castShadow = true;
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(4.3 * scale, 2.1 * scale, 4), mat(0x5b3b30, { rough: 0.95 }));
+      roof.position.y = 4.4 * scale; roof.rotation.y = Math.PI / 4; roof.castShadow = true;
+      g.add(body, roof);
+      return glbProp('barn', scale, scale, g);
+    }
+    case 'silo_farm': {
+      const g = new THREE.Group();
+      const drum = cyl(1.4 * scale, 1.4 * scale, 6 * scale, mat(0xb9bcc0, { metal: 0.35, rough: 0.7 }), 12);
+      drum.position.y = 3 * scale; drum.castShadow = true;
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(1.4 * scale, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), mat(0x8f9398, { metal: 0.4, rough: 0.6 }));
+      dome.position.y = 6 * scale; dome.castShadow = true;
+      g.add(drum, dome);
+      return glbProp('silo_farm', scale, scale, g);
+    }
+    case 'windmill': {
+      const g = new THREE.Group();
+      const tower = cyl(0.7 * scale, 1.2 * scale, 7.5 * scale, mat(0xa89a83, { rough: 0.95 }), 8);
+      tower.position.y = 3.75 * scale; tower.castShadow = true;
+      const sail = box(0.3 * scale, 5.5 * scale, 0.15 * scale, mat(0x6a5a48, { rough: 0.95 }));
+      sail.position.y = 7.8 * scale; sail.castShadow = true;
+      g.add(tower, sail);
+      return glbProp('windmill', scale, scale, g);
+    }
+    case 'watertower': {
+      const g = new THREE.Group();
+      const tank = cyl(1.25 * scale, 1.25 * scale, 3 * scale, mat(0x7d8a72, { metal: 0.3, rough: 0.8 }), 10);
+      tank.position.y = 6.4 * scale; tank.castShadow = true;
+      for (const [lx, lz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]] as const) {
+        const leg = cyl(0.12 * scale, 0.12 * scale, 5 * scale, mat(0x5c6355, { metal: 0.3, rough: 0.8 }), 5);
+        leg.position.set(lx * 0.85 * scale, 2.5 * scale, lz * 0.85 * scale);
+        g.add(leg);
+      }
+      g.add(tank);
+      return glbProp('watertower', scale, scale, g);
     }
     default:
       return new THREE.Group();
