@@ -15,10 +15,25 @@
 // asserts the Codex predicts it, so the mirror can't rot quietly.
 // ---------------------------------------------------------------------------
 import * as THREE from 'three';
-import { CLASSES, VEHICLES, WEAPONS } from '../sim/data';
-import { SYSTEM_IDS, type ClassId, type VehicleDef, type VehicleKind, type WeaponDef, type WeaponId } from '../sim/types';
-import { buildSoldier } from './models/soldiers';
+import { CLASSES, VEHICLES, WEAPONS, ZOMBIE_STATS, IRON_STATS, TEAM_NAMES } from '../sim/data';
+import { LSWS, THREAT } from '../sim/lsw';
+import { SYSTEM_IDS, type AscendantId, type ClassId, type SoldierKind, type VehicleDef, type VehicleKind, type WeaponDef, type WeaponId } from '../sim/types';
+import { buildSoldier, dressAsLsw } from './models/soldiers';
 import { buildVehicle } from './models/vehicles';
+
+// ── reference weapons for shots-to-kill, and the zombie the numbers answer to ─
+// Robert: "add the damage to kill a zombie for the weapons — a regular old
+// zombie." One trigger pull is the unit; a shotgun's pellets count as one pull.
+const REF: Record<'rifle' | 'shotgun' | 'pistol', WeaponId> = { rifle: 'ar606', shotgun: 'caw', pistol: 'pistol' };
+const PLAIN_ZED_HP = ZOMBIE_STATS.zombie.hp; // 60 — "a regular old zombie"
+
+/** Trigger pulls of `wid` to drop a pool of `hp` (pellets count once). */
+function shotsToKill(hp: number, wid: WeaponId): number {
+  const w = WEAPONS[wid];
+  if (!w) return Infinity;
+  const per = soldierDamagePerShot(w);
+  return per > 0 ? Math.ceil(hp / per) : Infinity;
+}
 
 // ── the sim's damage rules, restated where the Codex can do arithmetic on ────
 // them. Each is pinned to world.ts by a test.
@@ -141,6 +156,7 @@ const WEAPON_STATS: Stat[] = [
   { key: 'dps', label: 'Sustained DPS', better: 1, sheet: true, fmt: n0 },
   { key: 'burst', label: 'Burst DPS', better: 1, fmt: n0 },
   { key: 'ttk', label: 'Shots to drop a 100hp man', better: -1, sheet: true, fmt: n0 },
+  { key: 'zed', label: 'Shots to drop a zombie', better: -1, sheet: true, fmt: n0 },
   { key: 'buggy', label: 'Shots to kill a buggy', better: -1, sheet: true, fmt: n0 },
   { key: 'clip', label: 'Clip', better: 1, sheet: true, fmt: (v) => (isFinite(v as number) ? n0(v) : '∞') },
   { key: 'reloadTime', label: 'Reload (s)', better: -1, fmt: n1 },
@@ -162,6 +178,39 @@ const CLASS_STATS: Stat[] = [
   { key: 'abilityName', label: 'Ability', better: 0, sheet: true, fmt: txt },
   { key: 'pdps', label: 'Primary DPS', better: 1, sheet: true, fmt: n0 },
   { key: 'prange', label: 'Primary reach (u)', better: 1, fmt: n0 },
+];
+
+// ── the gods (Robert: "codex definitely needs the living super weapons"). Every
+// figure derives from lsw.ts: HP off the THREAT table, arm off the signature
+// weapon, and — the law that matters — HOW MANY RIFLE ROUNDS KILL IT, because
+// "threat buys HP, never immunity" is only real if the sheet proves it.
+const ASCENDANT_STATS: Stat[] = [
+  { key: 'threatName', label: 'Threat', better: 0, sheet: true, fmt: txt },
+  { key: 'hp', label: 'Health', better: 1, sheet: true, fmt: n0 },
+  { key: 'faction', label: 'Stable', better: 0, sheet: true, fmt: txt },
+  { key: 'armName', label: 'Signature arm', better: 0, sheet: true, fmt: txt },
+  { key: 'armDps', label: 'Arm DPS', better: 1, sheet: true, fmt: n0 },
+  { key: 'rifleShots', label: 'AR rounds to kill', better: -1, sheet: true, fmt: n0 },
+  { key: 'tankShells', label: 'Tank shells to kill', better: -1, sheet: true, fmt: n0 },
+  { key: 'movement', label: 'Movement', better: 0, sheet: true, fmt: txt },
+  { key: 'ability', label: 'Signature power', better: 0, fmt: txt },
+  { key: 'flies', label: 'Flies', better: 0, fmt: yn },
+  { key: 'speed', label: 'Speed (u/s)', better: 1, fmt: n1 },
+  { key: 'scale', label: 'Size (× a trooper)', better: 0, fmt: (v) => `${n1(v)}×` },
+];
+
+// ── the threats (Robert: "the damage to kill a regular old zombie… a THREATS
+// section"). Undead + Iron Eaters, with the shots-to-kill by rifle / shotgun /
+// pistol so a player knows what closes the distance and what does not.
+const THREAT_STATS: Stat[] = [
+  { key: 'family', label: 'Kind', better: 0, sheet: true, fmt: txt },
+  { key: 'hp', label: 'Health', better: 1, sheet: true, fmt: n0 },
+  { key: 'plate', label: 'Molt (armor)', better: 1, sheet: true, fmt: (v) => (v ? n0(v) : '·') },
+  { key: 'speed', label: 'Speed (u/s)', better: 0, sheet: true, fmt: n1 },
+  { key: 'rifleShots', label: 'AR rounds to kill', better: -1, sheet: true, fmt: n0 },
+  { key: 'shotgunShots', label: 'Shotgun to kill', better: -1, sheet: true, fmt: n0 },
+  { key: 'pistolShots', label: 'Pistol to kill', better: -1, sheet: true, fmt: n0 },
+  { key: 'score', label: 'Kill score', better: 0, sheet: true, fmt: n0 },
 ];
 
 // M1: the sprint multiplier and the ragdoll threshold, restated from world.ts.
@@ -216,6 +265,7 @@ function weaponRows(): Row[] {
       dps: sustainedDps(d, perMan),
       burst: perMan * d.rof,
       ttk: perMan > 0 ? Math.ceil(100 / perMan) : Infinity,
+      zed: perMan > 0 ? Math.ceil(PLAIN_ZED_HP / perMan) : Infinity,
       buggy: perHull > 0 ? hitsToKill(buggy, perHull) : Infinity,
       clip: d.clip,
       reloadTime: d.reloadTime,
@@ -251,9 +301,66 @@ function classRows(): Row[] {
   });
 }
 
+const MOVE_LABEL: Record<string, string> = { leap: 'Leaps', blinkwalk: 'Blink-walks' };
+
+function ascendantRows(): Row[] {
+  return (Object.keys(LSWS) as AscendantId[]).map((id) => {
+    const g = LSWS[id];
+    const arm = WEAPONS[g.weapon];
+    const hp = THREAT[g.threat].hp;
+    return {
+      id,
+      name: g.name,
+      threatName: THREAT[g.threat].name,
+      hp,
+      faction: TEAM_NAMES[g.faction],
+      armName: arm ? arm.name : '—',
+      armDps: arm ? sustainedDps(arm, soldierDamagePerShot(arm)) : 0,
+      // "threat buys HP, never immunity" — the sheet's job is to prove it
+      rifleShots: shotsToKill(hp, REF.rifle),
+      tankShells: shotsToKill(hp, 'tank_cannon'),
+      movement: g.flies ? 'Flies' : MOVE_LABEL[g.moves ?? ''] ?? 'Grounded',
+      ability: g.activeLabel,
+      flies: !!g.flies,
+      speed: g.speed,
+      scale: g.scale,
+      desc: `Threat ${THREAT[g.threat].name} · ${TEAM_NAMES[g.faction]}. Signature power: ${g.activeLabel}.`,
+    };
+  });
+}
+
+function threatRows(): Row[] {
+  const zed = (Object.keys(ZOMBIE_STATS) as (keyof typeof ZOMBIE_STATS)[]).map((k) => {
+    const z = ZOMBIE_STATS[k];
+    const cap = k.charAt(0).toUpperCase() + k.slice(1);
+    return {
+      id: k, name: cap, family: 'Undead', hp: z.hp, plate: 0, speed: z.speed,
+      rifleShots: shotsToKill(z.hp, REF.rifle),
+      shotgunShots: shotsToKill(z.hp, REF.shotgun),
+      pistolShots: shotsToKill(z.hp, REF.pistol),
+      score: z.score,
+      desc: `The undead. ${z.hp} HP, moves ${z.speed} u/s.`,
+    };
+  });
+  const iron = (Object.keys(IRON_STATS) as (keyof typeof IRON_STATS)[]).map((k) => {
+    const i = IRON_STATS[k];
+    const pool = i.hp + i.plate; // the molt sheds first, then the frame is EXPOSED
+    const cap = k.charAt(0).toUpperCase() + k.slice(1);
+    return {
+      id: k, name: cap, family: 'Iron Eater', hp: i.hp, plate: i.plate, speed: i.speed,
+      rifleShots: shotsToKill(pool, REF.rifle),
+      shotgunShots: shotsToKill(pool, REF.shotgun),
+      pistolShots: shotsToKill(pool, REF.pistol),
+      score: i.score,
+      desc: `Scrap given hunger. ${i.plate} molt over ${i.hp} frame — strip the plate and the frame takes DOUBLE.`,
+    };
+  });
+  return [...zed, ...iron];
+}
+
 // ── the model bench: one renderer, thumbnails baked once, live turntable ─────
 
-type ModelKind = 'vehicle' | 'class';
+type ModelKind = 'vehicle' | 'class' | 'ascendant' | 'threat';
 
 let bench: {
   renderer: THREE.WebGLRenderer;
@@ -283,9 +390,19 @@ function makeBench() {
 }
 
 function buildModel(kind: ModelKind, id: string): THREE.Object3D {
-  return kind === 'vehicle'
-    ? buildVehicle(id as VehicleKind, 0)
-    : buildSoldier(0, id as ClassId, 'human');
+  if (kind === 'vehicle') return buildVehicle(id as VehicleKind, 0);
+  if (kind === 'threat') {
+    // the id IS the SoldierKind for zeds/iron — buildSoldier routes on kind
+    return buildSoldier(0, 'infantry', id as SoldierKind);
+  }
+  if (kind === 'ascendant') {
+    // a god is a dressed trooper: build the faction body, then the god's shell
+    const g = LSWS[id as AscendantId];
+    const mesh = buildSoldier(g.faction, 'infantry', 'human');
+    dressAsLsw(mesh, id as AscendantId);
+    return mesh;
+  }
+  return buildSoldier(0, id as ClassId, 'human');
 }
 
 /**
@@ -336,13 +453,15 @@ function bakeThumbs(kind: ModelKind, ids: string[]) {
 
 // ── the page ────────────────────────────────────────────────────────────────
 
-type SectionId = 'vehicles' | 'weapons' | 'infantry';
+type SectionId = 'vehicles' | 'weapons' | 'infantry' | 'ascendants' | 'threats';
 interface Section { id: SectionId; label: string; stats: Stat[]; rows: () => Row[]; model?: ModelKind }
 
 const SECTIONS: Section[] = [
   { id: 'vehicles', label: 'Vehicles', stats: VEHICLE_STATS, rows: vehicleRows, model: 'vehicle' },
   { id: 'weapons', label: 'Weapons', stats: WEAPON_STATS, rows: weaponRows },
   { id: 'infantry', label: 'Infantry', stats: CLASS_STATS, rows: classRows, model: 'class' },
+  { id: 'ascendants', label: 'Ascendants', stats: ASCENDANT_STATS, rows: ascendantRows, model: 'ascendant' },
+  { id: 'threats', label: 'Threats', stats: THREAT_STATS, rows: threatRows, model: 'threat' },
 ];
 
 let section: SectionId = 'vehicles';
