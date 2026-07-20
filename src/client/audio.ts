@@ -337,7 +337,10 @@ export class AudioEngine {
     await Promise.all(
       SOUND_NAMES.map(async (name) => {
         try {
-          const res = await fetch(`/audio/${name}.wav`);
+          // opt #1 (L3): ship Opus (.ogg, ~15× smaller than WAV, no audible
+          // loss at this use) and fall back to the WAV source if it's missing
+          let res = await fetch(`/audio/${name}.ogg`);
+          if (!res.ok) res = await fetch(`/audio/${name}.wav`);
           const arr = await res.arrayBuffer();
           const buf = await this.ctx!.decodeAudioData(arr);
           this.stock.set(name, buf);

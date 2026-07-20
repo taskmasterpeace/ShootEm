@@ -1,5 +1,32 @@
 import { defineConfig } from 'vitest/config'; // vite's defineConfig + the `test` key
 import { resolve } from 'node:path';
+import { readdirSync, statSync, rmSync } from 'node:fs';
+
+// opt #1 (L3): Vite copies public/ verbatim, so the WAV pack (134 MB) lands in
+// dist even though the game now fetches .ogg. Prune dist/audio/**/*.wav after
+// the build — the .ogg siblings (9 MB) are what ships; the WAVs stay in
+// public/ as the pipeline/test source. Dist audio 134 MB → 9 MB.
+function pruneWavPlugin() {
+  return {
+    name: 'prune-dist-wav',
+    apply: 'build' as const,
+    closeBundle() {
+      const root = resolve(__dirname, 'dist/audio');
+      let freed = 0, n = 0;
+      const walk = (dir: string) => {
+        let names: string[];
+        try { names = readdirSync(dir); } catch { return; }
+        for (const name of names) {
+          const p = resolve(dir, name);
+          if (statSync(p).isDirectory()) walk(p);
+          else if (name.toLowerCase().endsWith('.wav')) { freed += statSync(p).size; n++; rmSync(p); }
+        }
+      };
+      walk(root);
+      if (n) console.log(`[prune-dist-wav] removed ${n} WAVs, freed ${(freed / 1024 / 1024).toFixed(1)} MB from dist`);
+    },
+  };
+}
 
 // The launch harness (autoPort) assigns a free port and hands it over in
 // PORT — honor it, so the dev and preview servers never collide with another
@@ -8,6 +35,7 @@ import { resolve } from 'node:path';
 const PORT = process.env.PORT ? Number(process.env.PORT) : undefined;
 
 export default defineConfig({
+  plugins: [pruneWavPlugin()],
   // vitest: only the repo's own suite — agent worktrees under .claude/ carry
   // their own copies of the tests and must not pollute the gate counts
   test: {
