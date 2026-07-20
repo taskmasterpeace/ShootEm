@@ -209,10 +209,50 @@ function makeProp(kind?: string): THREE.Group {
       new THREE.MeshBasicMaterial({ color: 0xffa02a }),
     );
     pilot.position.set(0, -0.6, 0.58); g.add(pilot); // the pilot light, always lit
-  } else { // blade / knives / driver / default
+  } else if (kind === 'shield') {
+    // VANGUARD'S TOWER PLATE — the VO says "follow the shield"; now there is
+    // one to follow. A forearm slab with a vision slit, faction-neutral steel.
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.85, 0.55), new THREE.MeshStandardMaterial({ color: 0x6a7076, metalness: 0.55, roughness: 0.45 }));
+    plate.position.set(0.06, -0.5, 0.2); g.add(plate);
+    const rim = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.9, 0.08), steel);
+    rim.position.set(0.06, -0.5, 0.46); g.add(rim);
+    const slit = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.05, 0.3), new THREE.MeshBasicMaterial({ color: 0x14171b }));
+    slit.position.set(0.06, -0.22, 0.2); g.add(slit);
+  } else if (kind === 'chain') {
+    // REAPER'S CHAIN — hanging links and the hook the aura keeps promising
+    const dark = new THREE.MeshStandardMaterial({ color: 0x4a4f55, metalness: 0.75, roughness: 0.35 });
+    for (let i = 0; i < 5; i++) {
+      const link = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.02, 5, 8), dark);
+      link.position.set(0, -0.35 - i * 0.13, 0.18 + Math.sin(i * 1.2) * 0.03);
+      link.rotation.y = i % 2 ? Math.PI / 2 : 0;
+      g.add(link);
+    }
+    const hook = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.24, 6), steel);
+    hook.position.set(0, -1.06, 0.2); hook.rotation.x = Math.PI; g.add(hook);
+  } else if (kind === 'harpoon') {
+    // VENATRIX'S HARPOON — a spear with a barbed head, held down the forearm
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.05, 6), new THREE.MeshStandardMaterial({ color: 0x5c5248, roughness: 0.7 }));
+    shaft.position.set(0, -0.55, 0.22); shaft.rotation.x = -0.35; g.add(shaft);
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.24, 6), steel);
+    tip.position.set(0, -0.05, 0.42); tip.rotation.x = -0.35; g.add(tip);
+    for (const dz of [-0.07, 0.07]) {
+      const barb = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.14, 5), steel);
+      barb.position.set(0, -0.2, 0.38 + dz); barb.rotation.x = Math.PI - 0.5; g.add(barb);
+    }
+  } else if (kind === 'driver') {
+    // STEEL WEAVER'S RIVET DRIVER — a piston tool, not a knife
+    const bodyM = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.34, 0.18), new THREE.MeshStandardMaterial({ color: 0x8a6a30, metalness: 0.5, roughness: 0.5 }));
+    bodyM.position.set(0, -0.55, 0.2); g.add(bodyM);
+    const piston = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.3, 7), steel);
+    piston.position.set(0, -0.78, 0.2); g.add(piston);
+    const bit = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.12, 6), steel);
+    bit.position.set(0, -0.96, 0.2); bit.rotation.x = Math.PI; g.add(bit);
+  } else if (kind === 'blade' || kind === 'knives') {
     const blade = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.8, 0.03), steel);
     blade.position.set(0, -0.6, 0.18); g.add(blade);
   }
+  // an UNDECLARED prop yields an empty hand on purpose — the old default
+  // handed a stray knife to every flamethrower god
   return g;
 }
 
@@ -225,17 +265,63 @@ export function dressAsLsw(mesh: THREE.Group, id: string): THREE.Group {
     if (m && 'emissive' in m) { m.emissive = new THREE.Color(look.tint); m.emissiveIntensity = 0.18; }
   });
   // EMBODIMENT (kill the guns): melee schools (rig fists/blade) hide the rifle;
-  // blade rigs also show a hand-prop — so Titan reads as fists, not a rifleman.
+  // 'thrower' joins them — a flame god holds its own igniter, not standard issue.
   const def = LSWS[id as keyof typeof LSWS];
   const rig = def?.rig;
-  // 'thrower' joins the gun-hiding rigs: a flame god holds its own igniter,
-  // not standard issue. Same law for all five throwers (firebrand, inferno,
-  // pyroclasm, plaguebearer, venom) — they each already declare a prop.
   if (rig === 'fists' || rig === 'blade' || rig === 'thrower') {
     mesh.traverse((o) => { if (o.name === 'gun') o.visible = false; });
-    if ((rig === 'blade' || rig === 'thrower') && !mesh.userData.lswProp) {
-      (mesh.getObjectByName('armR') ?? mesh).add(makeProp(def?.prop));
-      mesh.userData.lswProp = true; // once — dressAsLsw can run per-frame
+  }
+  // A DECLARED PROP RENDERS, PERIOD. The old gate only mounted props for
+  // blade/thrower rigs, so four gods' signatures silently vanished for an
+  // era: Vanguard's shield ("follow the shield" — there was none), Reaper's
+  // chain, Venatrix's harpoon, Steel Weaver's driver. The launcher/sidearm
+  // rigs keep their guns AND wear the prop on the off arm.
+  if (def?.prop && !mesh.userData.lswProp) {
+    const arm = (rig === 'blade' || rig === 'thrower' || rig === 'fists')
+      ? mesh.getObjectByName('armR')     // melee schools: the weapon hand
+      : mesh.getObjectByName('armL');    // armed schools: the off arm carries it
+    (arm ?? mesh).add(makeProp(def.prop));
+    mesh.userData.lswProp = true; // once — dressAsLsw can run per-frame
+  }
+  // thrower gods with NO declared prop get the igniter anyway — venom's acid
+  // sprayer and plaguebearer's gas wand are the same silhouette promise
+  if (rig === 'thrower' && !def?.prop && !mesh.userData.lswProp) {
+    (mesh.getObjectByName('armR') ?? mesh).add(makeProp('hose'));
+    mesh.userData.lswProp = true;
+  }
+  // THE CAPE (Robert: "you can give them capes") — the commander tier wears
+  // cloth. Top-pivoted thin slab hanging from the shoulders, waved by the
+  // renderer exactly like the CTF flag's cloth. No purple, per the law.
+  const CAPES: Record<string, number> = { chronos: 0x8a6a3a, dominator: 0x8a2a22, reaper: 0x23262b, eclipse: 0x1d2b33 };
+  const capeColor = CAPES[id];
+  if (capeColor !== undefined && !mesh.userData.lswCape) {
+    const torso = mesh.getObjectByName('torso');
+    if (torso) {
+      const geo = new THREE.BoxGeometry(0.06, 1.05, 0.62);
+      geo.translate(0, -0.5, 0); // top pivot — rotation.x sweeps it back
+      const cape = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: capeColor, roughness: 0.95 }));
+      cape.name = 'cape';
+      cape.position.set(-0.26, 0.34, 0);
+      cape.rotation.x = 0; cape.rotation.z = -0.08;
+      cape.castShadow = true;
+      torso.add(cape);
+      mesh.userData.lswCape = true;
+    }
+  }
+  // CHRONOS' CLOCK — a slow brass disc on the back, because the highest
+  // threat tier must never read as a recolored rifleman
+  if (id === 'chronos' && !mesh.userData.lswDial) {
+    const torso = mesh.getObjectByName('torso');
+    if (torso) {
+      const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.05, 12), new THREE.MeshStandardMaterial({ color: 0xb99248, metalness: 0.6, roughness: 0.35 }));
+      dial.name = 'clockdial';
+      dial.rotation.z = Math.PI / 2;
+      dial.position.set(-0.34, 0.3, 0);
+      const hand = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.03, 0.22), new THREE.MeshStandardMaterial({ color: 0x2c2620 }));
+      hand.position.set(-0.03, 0, 0.08);
+      dial.add(hand);
+      torso.add(dial);
+      mesh.userData.lswDial = true;
     }
   }
   return mesh;

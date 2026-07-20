@@ -2896,6 +2896,18 @@ export class Renderer {
       // rifle/launcher/…) still carry the model until per-rig holds land.
       const rig = s.ascendant ? LSWS[s.ascendant]?.rig : undefined;
       const meleeRig = rig === 'fists' || rig === 'blade' || rig === 'thrower'; // throwers carry a hose
+      // THE CAPE LIVES (dressAsLsw hangs it; this waves it — same law as the
+      // CTF flag's cloth): a breeze sway, and it TRAILS when the god moves.
+      if (s.ascendant) {
+        const cape = mesh.getObjectByName('cape');
+        if (cape) {
+          const spd = Math.hypot(s.vel.x, s.vel.z);
+          cape.rotation.x = -0.12 - Math.min(1, spd / 9) * 0.55 + Math.sin(t * 2.1 + s.id) * 0.06;
+          cape.rotation.y = Math.sin(t * 1.7 + s.id * 2) * 0.1;
+        }
+        const dial = mesh.getObjectByName('clockdial');
+        if (dial) dial.rotation.x = t * 0.45; // chronos' clock turns, slowly, always
+      }
       if (hold.hideGun || meleeRig) {
         j.gun.visible = false; // unarmed — arms swing free (zed-style, but human)
       } else {
