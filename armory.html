@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>War World — Armory Contact Sheet</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔫</text></svg>" />
+  <style>
+    :root { --ink: #e7ecf2; --muted: #93a0b0; --amber: #e8a33d; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #14171b; }
+    canvas { display: block; }
+    #labels { position: fixed; inset: 0; pointer-events: none; }
+    .lbl {
+      position: absolute; transform: translate(-50%, 0);
+      font: 600 10px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      letter-spacing: -0.01em; color: var(--muted);
+      background: rgba(14, 17, 21, 0.75); padding: 2px 4px;
+      white-space: nowrap;
+    }
+    .lbl.fam {
+      font-size: 12px; color: var(--amber);
+      border: 1px solid #333b47; padding: 3px 7px;
+    }
+    #hint {
+      position: fixed; top: 10px; left: 12px;
+      font: 11px ui-monospace, Menlo, Consolas, monospace; color: var(--muted);
+      background: rgba(14, 17, 21, 0.8); padding: 5px 9px; border: 1px solid #333b47;
+    }
+  </style>
+</head>
+<body>
+  <div id="hint">every family × 4 brands × 3 marks · ↑↓ walk rows · O overview · guns at 4.5× — a rifle is ~0.9u in hand</div>
+  <div id="labels"></div>
+  <script type="module">
+    import './src/client/armorysheet.ts';
+  </script>
+</body>
+</html>

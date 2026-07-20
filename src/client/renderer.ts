@@ -1395,8 +1395,19 @@ export class Renderer {
         this.meleeTelegraphs.delete(s.id);
         this.recoilAt.delete(s.id);
       }
+      // the CARRIED weapon is part of the body now (weapons.ts): a switch to
+      // the sidearm — or an armory re-draw on respawn — rebuilds the mesh so
+      // the hands close on the right silhouette. Humans and bots only; zeds,
+      // dogs and the doctor never wear an armory piece.
+      const wantWeapon = (s.kind === 'human' || s.kind === 'bot')
+        ? (s.weapons[s.weaponIdx] ?? '') : '';
+      if (mesh && (mesh.userData.weaponId ?? '') !== wantWeapon) {
+        this.scene.remove(mesh);
+        this.soldierMeshes.delete(s.id);
+        mesh = undefined;
+      }
       if (!mesh) {
-        mesh = buildSoldier(s.team, s.classId, s.kind);
+        mesh = buildSoldier(s.team, s.classId, s.kind, wantWeapon || undefined);
         // AN LSW READS AS AN LSW (§21.6, Robert: "make sure visually the
         // LSWs look different… I want them to look like they're on fire"):
         // scale the whole body up past a trooper, tint it its faction shade,

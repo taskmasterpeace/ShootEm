@@ -5,6 +5,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { TEAM_COLORS } from '../../sim/data';
 import { zombieArmRest } from '../animation';
 import { solveTwoHandedGrip } from './grip';
+import { buildWeaponModel } from './weapons';
 import type { ClassId, SoldierKind, Team } from '../../sim/types';
 import { LSWS } from '../../sim/lsw';
 import { box, cyl, limb, mat } from './shared';
@@ -120,7 +121,7 @@ export function repairGlbRig(root: THREE.Object3D): void {
   }
 }
 
-export function buildSoldier(team: Team, classId: ClassId, kind: SoldierKind): THREE.Group {
+export function buildSoldier(team: Team, classId: ClassId, kind: SoldierKind, weaponId?: string): THREE.Group {
   if (kind === 'scientist') return buildScientist();
   if (kind === 'dog') return buildDog(team);
   if (kind === 'scraprat' || kind === 'junkhound' || kind === 'weaver' || kind === 'ravager') return buildIronEater(kind);
@@ -128,7 +129,10 @@ export function buildSoldier(team: Team, classId: ClassId, kind: SoldierKind): T
   if (isZed) return buildZombie(kind);
   const glbUrl = team === 0 ? GLB_BODIES[classId] : undefined;
   const body = glbUrl ? glbBodies.get(glbUrl) : undefined;
-  return body ? buildGlbTrooper(body, classId) : buildTrooper(team, classId);
+  const mesh = body ? buildGlbTrooper(body, classId, weaponId) : buildTrooper(team, classId, weaponId);
+  // the renderer rebuilds the body when the CARRIED weapon changes family/brand/mark
+  mesh.userData.weaponId = weaponId ?? '';
+  return mesh;
 }
 
 /** LSW palette (no purple — house law). One place both the renderer and the
@@ -481,7 +485,7 @@ export function dressAsLsw(mesh: THREE.Group, id: string): THREE.Group {
 /** Robert's body + the game's rifle: clone the named-joint rig, give every
  *  part its own material instance (cloak alpha must never bleed across
  *  soldiers), and hang the class rifle exactly where buildTrooper does. */
-function buildGlbTrooper(src: THREE.Group, classId: ClassId): THREE.Group {
+function buildGlbTrooper(src: THREE.Group, classId: ClassId, weaponId?: string): THREE.Group {
   const g = new THREE.Group();
   const body = src.clone(true);
   body.traverse((o) => {
@@ -502,7 +506,7 @@ function buildGlbTrooper(src: THREE.Group, classId: ClassId): THREE.Group {
   const band = box(0.3, 0.05, 0.14, trim);
   band.position.set(0.02, 1.52, 0.3);
   g.add(band);
-  const gun = buildRifle(classId);
+  const gun = weaponId ? buildWeaponModel(weaponId) : buildRifle(classId);
   gun.position.set(0.42, 1.28, -0.16);
   gun.userData.baseX = gun.position.x;
   g.add(gun);
@@ -722,7 +726,7 @@ function buildRifle(classId: ClassId): THREE.Group {
   return gun;
 }
 
-function buildTrooper(team: Team, classId: ClassId): THREE.Group {
+function buildTrooper(team: Team, classId: ClassId, weaponId?: string): THREE.Group {
   const g = new THREE.Group();
   const teamCol = TEAM_COLORS[team];
   const inf = classId === 'infiltrator';
@@ -1074,8 +1078,9 @@ function buildTrooper(team: Team, classId: ClassId): THREE.Group {
     headGrp.add(crest);
   }
 
-  // ---- rifle, carried at the shoulder line ----
-  const gun = buildRifle(classId);
+  // ---- the carried weapon, at the shoulder line — the REAL family model
+  // when the sim tells us what's equipped, the class rifle otherwise ----
+  const gun = weaponId ? buildWeaponModel(weaponId) : buildRifle(classId);
   gun.position.set(0.42, 1.28, -0.16);
   g.add(gun);
   // the SOLVED grip (models/grip.ts): both hands close on the rifle — the

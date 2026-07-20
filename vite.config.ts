@@ -38,6 +38,8 @@ export default defineConfig({
         props: resolve(__dirname, 'props.html'),
         // the FX sheet — explosions on a bench at the sim's real radii (/fx.html)
         fx: resolve(__dirname, 'fx.html'),
+        // the armory sheet — every weapon family × brand × mark (/armory.html)
+        armory: resolve(__dirname, 'armory.html'),
         // the style lab — the capsule-soldier experiment (/style.html)
         style: resolve(__dirname, 'style.html'),
         // the beam lab — continuous beams: hose / kamehameha / heat / flamer (/beams.html)

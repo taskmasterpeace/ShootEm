@@ -97,7 +97,11 @@ export function solveTwoHandedGrip(
   gun: THREE.Object3D,
 ): { grip: number; handguard: number } {
   root.updateMatrixWorld(true);
-  const gripWorld = RIFLE_ANCHORS.grip.clone().applyMatrix4(gun.matrixWorld);
+  // a weapon may declare its own anchors (weapons.ts); handguard: null means
+  // the piece is carried ONE-HANDED and the support arm keeps its authored pose
+  const anchors = (gun.userData.anchors as
+    { grip: THREE.Vector3; handguard: THREE.Vector3 | null } | undefined) ?? RIFLE_ANCHORS;
+  const gripWorld = anchors.grip.clone().applyMatrix4(gun.matrixWorld);
   root.worldToLocal(gripWorld);
   const out = { grip: NaN, handguard: NaN };
 
@@ -106,8 +110,8 @@ export function solveTwoHandedGrip(
     out.grip = handToTarget(root, armR, gripWorld);
   }
 
-  if (armL) {
-    const guardWorld = RIFLE_ANCHORS.handguard.clone().applyMatrix4(gun.matrixWorld);
+  if (armL && anchors.handguard) {
+    const guardWorld = anchors.handguard.clone().applyMatrix4(gun.matrixWorld);
     root.worldToLocal(guardWorld);
     // reach check: bring the rifle home until the support hand can wrap it
     const reach = handReach(armL) * 0.94;
@@ -119,14 +123,14 @@ export function solveTwoHandedGrip(
       gun.position.x -= 0.015;
       gun.position.z += Math.sign(shoulderPos.z - gun.position.z) * 0.025;
       root.updateMatrixWorld(true);
-      guardWorld.copy(RIFLE_ANCHORS.handguard).applyMatrix4(gun.matrixWorld);
+      guardWorld.copy(anchors.handguard).applyMatrix4(gun.matrixWorld);
       root.worldToLocal(guardWorld);
       dist = shoulderPos.distanceTo(guardWorld);
       slides++;
     }
     // re-solve the firing hand after any slide, then close the support hand
     if (armR && slides > 0) {
-      gripWorld.copy(RIFLE_ANCHORS.grip).applyMatrix4(gun.matrixWorld);
+      gripWorld.copy(anchors.grip).applyMatrix4(gun.matrixWorld);
       root.worldToLocal(gripWorld);
       // reset armR's solved pose back toward neutral before re-solving
       settle(root, armR, gripWorld, true, 36);
@@ -176,7 +180,9 @@ export function solveGlbGrip(
 ): { grip: number; handguard: number } {
   root.updateMatrixWorld(true);
   const out = { grip: NaN, handguard: NaN };
-  const gripWorld = RIFLE_ANCHORS.grip.clone().applyMatrix4(gun.matrixWorld);
+  const anchors = (gun.userData.anchors as
+    { grip: THREE.Vector3; handguard: THREE.Vector3 | null } | undefined) ?? RIFLE_ANCHORS;
+  const gripWorld = anchors.grip.clone().applyMatrix4(gun.matrixWorld);
   root.worldToLocal(gripWorld);
 
   if (armR) {
@@ -188,8 +194,8 @@ export function solveGlbGrip(
     armR.remove(probe);
   }
 
-  if (armL) {
-    const guardWorld = RIFLE_ANCHORS.handguard.clone().applyMatrix4(gun.matrixWorld);
+  if (armL && anchors.handguard) {
+    const guardWorld = anchors.handguard.clone().applyMatrix4(gun.matrixWorld);
     root.worldToLocal(guardWorld);
     const len = armLength(armL) * 0.96;
     const shoulderPos = bodyPos(armL, root, new THREE.Vector3());
@@ -199,13 +205,13 @@ export function solveGlbGrip(
       gun.position.x -= 0.012;
       gun.position.z += Math.sign(shoulderPos.z - gun.position.z) * 0.02;
       root.updateMatrixWorld(true);
-      guardWorld.copy(RIFLE_ANCHORS.handguard).applyMatrix4(gun.matrixWorld);
+      guardWorld.copy(anchors.handguard).applyMatrix4(gun.matrixWorld);
       root.worldToLocal(guardWorld);
       dist = shoulderPos.distanceTo(guardWorld);
       slides++;
     }
     if (armR && slides > 0) {
-      gripWorld.copy(RIFLE_ANCHORS.grip).applyMatrix4(gun.matrixWorld);
+      gripWorld.copy(anchors.grip).applyMatrix4(gun.matrixWorld);
       root.worldToLocal(gripWorld);
       solveStraightArm(root, armR, armLength(armR) * 0.96, gripWorld);
     }

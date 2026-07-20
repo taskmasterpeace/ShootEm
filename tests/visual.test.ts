@@ -11,9 +11,9 @@ import * as THREE from 'three';
 import { zombieArmRest } from '../src/client/animation';
 import {
   buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp,
-  buildSoldier, buildTurretMesh, buildVehicle,
+  buildSoldier, buildTurretMesh, buildVehicle, buildWeaponModel,
 } from '../src/client/models';
-import { CLASSES, THEMES, VEHICLES } from '../src/sim/data';
+import { CLASSES, THEMES, VEHICLES, WEAPONS } from '../src/sim/data';
 import { generateMap, isBlocked } from '../src/sim/map';
 import type { ClassId, GadgetType, ModeId, Team, ThemeId, VehicleKind, ZedKind } from '../src/sim/types';
 
@@ -283,6 +283,53 @@ describe('visual: map integrity per mode', () => {
       expect(isBlocked(m.grid, m.hillPos.x, m.hillPos.z), 'hill').toBe(false);
     },
   );
+});
+
+// ---- 12. the armory, visible — every weapon id builds a legal model ---------
+// (weapons.ts: one silhouette per family, brand + mark variations derived
+// from the id; the same law sweep the soldiers get — budget, purple, facing)
+
+describe('visual: the armory models', () => {
+  const ids = Object.keys(WEAPONS);
+  it('covers the whole table', () => {
+    expect(ids.length).toBeGreaterThan(190); // 16 fam × 4 brands × 3 marks + cores
+  });
+  it('every weapon model is budget-legal, purple-free, and points +X', () => {
+    for (const id of ids) {
+      const g = buildWeaponModel(id);
+      expect(g.name, `${id} root name`).toBe('gun');
+      assertNoPurple(g, id);
+      expect(triangles(g), `${id} tris`).toBeLessThan(500);
+      const b = new THREE.Box3().setFromObject(g);
+      // the muzzle lives forward of the grip: real +X presence, no backwards guns
+      expect(b.max.x, `${id} extends +X`).toBeGreaterThan(0.15);
+      const size = b.getSize(new THREE.Vector3());
+      expect(size.x, `${id} length`).toBeGreaterThan(0.25);
+      expect(size.x, `${id} length`).toBeLessThan(1.7);
+      expect(Math.max(size.y, size.z), `${id} girth`).toBeLessThan(0.9);
+    }
+  });
+  it('brands change the silhouette and marks dress the barrel', () => {
+    // same family, different brand: measurably different proportions
+    // (rifle's rotation carries kuchler/titan/harkov/ceres — real table ids)
+    const kuc = bbox(buildWeaponModel('rifle_kuchler_1'));
+    const tit = bbox(buildWeaponModel('rifle_titan_1'));
+    expect(Math.abs(tit.y - kuc.y)).toBeGreaterThan(0.005);
+    // same gun, higher mark: more meshes (the amber bands)
+    let base = 0, hot = 0;
+    buildWeaponModel('rifle_kuchler_1').traverse((o) => { if ((o as THREE.Mesh).isMesh) base++; });
+    buildWeaponModel('rifle_kuchler_3').traverse((o) => { if ((o as THREE.Mesh).isMesh) hot++; });
+    expect(hot).toBeGreaterThan(base);
+  });
+  it('a trooper built with a weapon id carries that model', () => {
+    const g = buildSoldier(0, 'heavy', 'bot', 'hmg_titan_2');
+    const gun = g.getObjectByName('gun');
+    expect(gun).toBeTruthy();
+    expect(gun!.userData.weaponId).toBe('hmg_titan_2');
+    expect(g.userData.weaponId).toBe('hmg_titan_2');
+    for (const j of SOLDIER_JOINTS) expect(g.getObjectByName(j), j).toBeTruthy();
+    assertNoPurple(g, 'armed trooper');
+  });
 });
 
 // ---- 11. the no-purple rule, everywhere (3 cases) ---------------------------
