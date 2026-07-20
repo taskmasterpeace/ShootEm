@@ -209,7 +209,10 @@ const HOLDS: Record<GunId, HoldDef> = {
   rifle: {
     mount: 'hand',
     idle: { armR: [0, 0.35], elbowR: 1.1, armL: [0.62, 0.5], elbowL: 0.95, local: [0.1, -0.03, 0], localRotZ: -1.51 },
-    run:  { armR: [0, 0.12], elbowR: 0.7, armL: [0.55, 0.42], elbowL: 0.85, local: [0.1, -0.03, 0], localRotZ: -1.32 },
+    // run local is ROBERT'S NUMBER (gizmo, 2026-07-20, during:"run") — the
+    // sprint grip shifts 3cm forward and 3cm lower on the rifle than mine.
+    // Scoped to run exactly as the COPY payload said; idle untouched.
+    run:  { armR: [0, 0.12], elbowR: 0.7, armL: [0.55, 0.42], elbowL: 0.85, local: [0.131, -0.0576, 0], localRotZ: -1.32 },
   },
   smg: {
     mount: 'hand',
