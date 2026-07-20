@@ -13,7 +13,9 @@ export class Input {
   grenadeAiming = false;
   /** grenade arc (0 flat rope … 1 mortar lob) — wheel adjusts while aiming */
   grenadeLob = 1;
-  private oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false };
+  private oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false, dash: 0 };
+  /** M2 double-tap tracker for dash/roll */
+  private lastTap = { key: '', at: 0 };
 
   static readonly CAM_MIN = 16;
   static readonly CAM_MAX = 80; // command height — semantic zoom keeps it readable
@@ -50,6 +52,18 @@ export class Input {
       if ((e.target as HTMLElement)?.tagName === 'INPUT') { this.keys.clear(); return; }
       if (e.repeat) return;
       const k = e.key.toLowerCase();
+      // M2 DOUBLE-TAP VERBS (Robert: "dashing forward, rolling to the sides"):
+      // two taps of W inside 260ms = dash; A/D = side roll. The sim only
+      // sees the verb — timing taste lives here where it belongs.
+      if (k === 'w' || k === 'a' || k === 'd') {
+        const now = performance.now();
+        if (this.lastTap.key === k && now - this.lastTap.at < 260) {
+          this.oneShot.dash = k === 'w' ? 1 : k === 'a' ? 2 : 3;
+          this.lastTap.at = 0; // a triple-tap is two taps, not two dashes
+        } else {
+          this.lastTap = { key: k, at: now };
+        }
+      }
       this.keys.add(k);
       if (k === 'r') this.oneShot.reload = true;
       if (k === 'g') this.grenadeAiming = true; // hold to aim — throw on release
@@ -166,8 +180,10 @@ export class Input {
       weaponSlot: this.oneShot.weaponSlot,
       lob: this.grenadeLob,
       nadeCycle: this.oneShot.nadeCycle,
+      sprint: this.keys.has('shift'), // M2: hold to run — the tank pays
+      dash: this.oneShot.dash,
     };
-    this.oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false };
+    this.oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false, dash: 0 };
     // any mouse/keyboard input hands the wheel back to the desk
     if (cmd.moveX || cmd.moveZ || cmd.fire || this.mouse.down) this.gamepadActive = false;
     this.pollGamepad(local, cmd);

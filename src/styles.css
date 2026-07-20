@@ -543,6 +543,23 @@ html, body {
 }
 #reload-fill { height: 100%; width: 0%; background: var(--accent); border-radius: 2px; }
 
+/* M2 the stamina bar — the tank made visible. Amber fill with a hot leading
+   edge (the regen is a thing you SEE), red under a quarter, and a white
+   blink when a dash/roll/ability bites a chunk out. */
+#stam-bar {
+  width: 100%; height: 7px; margin-top: 0.45rem;
+  background: oklch(0.22 0.02 80); border-radius: 2px; overflow: hidden;
+}
+#stam-fill {
+  height: 100%; width: 100%; border-radius: 2px;
+  background: linear-gradient(90deg, oklch(0.62 0.13 75), oklch(0.75 0.15 80));
+  box-shadow: inset -2px 0 0 oklch(0.9 0.1 85);
+  transition: width 0.1s linear;
+}
+#stam-fill.low { background: linear-gradient(90deg, oklch(0.5 0.18 30), oklch(0.62 0.2 30)); }
+#stam-bar.spent { animation: stam-spent 0.28s ease-out; }
+@keyframes stam-spent { 0% { box-shadow: 0 0 0 2px rgba(255,255,255,0.7); } 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); } }
+
 /* the hull bar (crewed) and the god's signature meter — same grammar as the
    reload bar so the weapon block speaks one language. Both colour themselves
    from JS: hull by damage, the signature green the moment Q is ready. */

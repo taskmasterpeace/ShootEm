@@ -2777,7 +2777,26 @@ export class Renderer {
         this.particles.emit({ pos: { x: s.pos.x, y: 0.15, z: s.pos.z }, count: 2, color: 0x8a7a5c, speed: 2.2, life: 0.35, spread: 0.5, up: 1.6, gravity: 5 });
       }
     }
-    mesh.rotation.z = lean + (s.kind === 'sprinter' ? -0.18 : 0) + stagger;
+    // M2 MOVEMENT DRESS: the dash leans HARD, the roll is a sideways barrel
+    // spin, and a ragdolled body is flat on the deck until the get-up.
+    let verbLean = 0;
+    let verbRollX = 0;
+    if (s.dashUntil !== undefined && t < s.dashUntil) verbLean = -0.45;
+    if (s.rollUntil !== undefined && t < s.rollUntil) {
+      const k = 1 - (s.rollUntil - t) / 0.5;
+      verbRollX = (s.rollDir ?? 1) * k * Math.PI * 2; // one full sideways revolution
+      mesh.position.y = s.pos.y + Math.sin(k * Math.PI) * 0.25;
+    }
+    if (verbRollX !== 0) mesh.rotation.x = verbRollX;
+    if (s.ragdollUntil !== undefined && t < s.ragdollUntil) {
+      // luggage: flat fast, then the last 0.35s is the rise
+      const remain = s.ragdollUntil - t;
+      const flat = Math.min(1, remain / 0.35);
+      mesh.rotation.z = -1.45 * flat;
+      mesh.position.y = s.pos.y + 0.12 * (1 - flat) + 0.05;
+    } else {
+      mesh.rotation.z = lean + (s.kind === 'sprinter' ? -0.18 : 0) + stagger + verbLean;
+    }
 
     // ---- LEAP DRESS (movement dress §Task 8): crouch-squash on launch, stretch
     // through the arc, crater-thud squash on landing. Leapers only — a flier's
@@ -3448,6 +3467,16 @@ export class Renderer {
             audio.play('ice_freeze', { pos: e.pos, volume: 0.8 });
           }
           break;
+        case 'dash': {
+          // the burst reads as lines peeling off the mover
+          if (e.pos) this.particles.emit({ pos: { x: e.pos.x, y: 0.9, z: e.pos.z }, count: 7, color: 0xdfe9f2, speed: 7, life: 0.28, spread: 0.6, up: 0.4, gravity: 0 });
+          break;
+        }
+        case 'ragdoll': {
+          if (e.pos) this.particles.emit({ pos: { x: e.pos.x, y: 0.4, z: e.pos.z }, count: 6, color: 0x8a7a5c, speed: 3, life: 0.4, spread: 0.8, up: 2, gravity: 6 });
+          if (e.soldierId === localId) this.camShake = Math.max(this.camShake, 0.55);
+          break;
+        }
         case 'nade_bounce':
           // the TING of a steel can on the deck — the sound that says GET AWAY.
           // Rate jitter keeps the second and third bounce from being the first

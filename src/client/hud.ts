@@ -30,6 +30,8 @@ export class Hud {
   private sysPips = document.createElement('div');
   private equipRow = document.createElement('div');
   private reloadBar = document.createElement('div');
+  private stamBar = document.createElement('div');
+  private lastEnergy = 100;
   private hullBar = document.createElement('div');
   private lswBar = document.createElement('div');
   private lastHp = -1;
@@ -61,6 +63,13 @@ export class Hud {
     // damage/heal vignette overlay
     this.vignette.id = 'dmg-vignette';
     $('hud').appendChild(this.vignette);
+    // M2 THE STAMINA BAR (Robert: "we need that energy meter and be able to
+    // see it regenerate"): the tank now pays for sprint/dash/roll AND
+    // abilities, so it earns a real horizontal bar under the ring — filling
+    // edge visible, a flash on every spend.
+    this.stamBar.id = 'stam-bar';
+    this.stamBar.innerHTML = '<div id="stam-fill"></div>';
+    $('health-block').appendChild(this.stamBar);
     // vehicle subsystem pips + reload progress live in the weapon block
     this.sysPips.id = 'sys-pips';
     this.reloadBar.id = 'reload-bar';
@@ -110,6 +119,17 @@ export class Hud {
     const hpFrac = Math.max(0, Math.min(1, s.hp / s.maxHp));
     const arFrac = hasPlate ? Math.max(0, Math.min(1, s.armor / s.maxArmor)) : 0;
     const enFrac = Math.max(0, Math.min(1, s.energy / 100));
+    // stamina bar: width tracks the tank; a chunk-spend (dash/roll/ability)
+    // flashes the bar so the cost is FELT, and refill is visibly continuous
+    const sf = $('stam-fill');
+    sf.style.width = `${enFrac * 100}%`;
+    sf.classList.toggle('low', enFrac < 0.25);
+    if (this.lastEnergy - s.energy > 5) {
+      this.stamBar.classList.remove('spent');
+      void this.stamBar.offsetWidth; // restart the CSS animation
+      this.stamBar.classList.add('spent');
+    }
+    this.lastEnergy = s.energy;
     const ringKey = `${Math.round(hpFrac * 100)}:${Math.round(arFrac * 20)}:${Math.round(enFrac * 20)}:${Math.ceil(s.hp)}`;
     if (ringKey !== this.lastRingKey) {
       this.lastRingKey = ringKey;
@@ -185,7 +205,9 @@ export class Hud {
       this.sysPips.style.display = 'none';
       this.hullBar.style.display = 'none';
       const def = WEAPONS[s.weapons[s.weaponIdx]];
-      $('weapon-name').textContent = `${def.icon ? def.icon + ' ' : ''}${def.name}`;
+      // coach-ui: NO emoji in the lockup — the 🎯 rendered magenta (a house-law
+      // violation) and full-color emoji broke the mono/stencil type system
+      $('weapon-name').textContent = def.name;
       const ammoEl = $('ammo-count');
       if (s.reloadUntil > 0) {
         ammoEl.textContent = 'RELOADING';
