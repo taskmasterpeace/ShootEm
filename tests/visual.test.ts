@@ -168,6 +168,11 @@ const VEHICLE_PARTS: Record<VehicleKind, string[]> = {
   emplacement: ['turret', 'gunRecoil'],
   mech: ['legL', 'legR', 'turret', 'gunRecoil', 'pulse'],
   boat: ['turret', 'gunRecoil'],
+  // V2-V4 the air program — planform is the read at command zoom
+  strikejet: ['turret', 'gunRecoil', 'thrustL', 'podL', 'podR'],
+  interceptor: ['turret', 'gunRecoil', 'thrustL', 'thrustR'],
+  bomber: ['turret', 'gunRecoil', 'thrustL', 'thrustR', 'bay'],
+  aatrack: ['turret', 'gunRecoil', 'spin'],
 };
 
 describe('visual: vehicles', () => {

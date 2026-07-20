@@ -270,6 +270,193 @@ export function buildVehicle(kind: VehicleKind, team: Team): THREE.Group {
       g.add(buildRider(team, 'straddle'));
       break;
     }
+    // ==== V2/V3/V4 THE AIR PROGRAM ====
+    // At command zoom these read by PLANFORM: swept delta (strike), thin
+    // needle with a long nose (interceptor), fat slab with four engines
+    // (bomber), boxy launcher with raised rails (AA).
+    case 'strikejet': {
+      // VULTURE — a swept delta, nose-heavy, rocket pods slung under
+      const hull = box(3.0, 0.42, 0.7, body);
+      hull.position.y = 1.5;
+      g.add(hull);
+      const nose = new THREE.Mesh(new THREE.ConeGeometry(0.34, 1.1, 6), body);
+      nose.rotation.z = -Math.PI / 2;
+      nose.position.set(2.0, 1.5, 0);
+      g.add(nose);
+      const canopy = box(0.65, 0.3, 0.5, mat(0x18242a, { rough: 0.2, metal: 0.65 }));
+      canopy.position.set(0.75, 1.78, 0);
+      g.add(canopy);
+      for (const side of [1, -1]) {
+        // the delta: a wide swept wing, thick at the root
+        const wing = box(1.5, 0.14, 1.5, bodyDark);
+        wing.position.set(-0.25, 1.48, side * 1.05);
+        wing.rotation.y = side * 0.42;
+        g.add(wing);
+        const pod = cyl(0.16, 0.16, 0.9, dark, 7);
+        pod.rotation.z = Math.PI / 2;
+        pod.position.set(-0.1, 1.28, side * 1.15);
+        pod.name = side === 1 ? 'podL' : 'podR';
+        g.add(pod);
+        const fin = box(0.5, 0.55, 0.07, bodyDark);
+        fin.position.set(-1.35, 1.78, side * 0.45);
+        fin.rotation.z = 0.2;
+        g.add(fin);
+      }
+      const exhaust = cyl(0.26, 0.3, 0.4, mat(0x2a2f35, { metal: 0.6, rough: 0.3 }), 8);
+      exhaust.rotation.z = Math.PI / 2;
+      exhaust.position.set(-1.6, 1.5, 0);
+      g.add(exhaust);
+      const flame = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.8, 7), mat(0xff9a3c, { emissive: 0xff9a3c }));
+      flame.rotation.z = Math.PI / 2;
+      flame.position.set(-2.15, 1.5, 0);
+      flame.name = 'thrustL';
+      g.add(flame);
+      const turret = new THREE.Group();
+      turret.name = 'turret';
+      turret.position.set(0.9, 1.35, 0);
+      const gunR = new THREE.Group();
+      gunR.name = 'gunRecoil';
+      const muzzle = cyl(0.09, 0.09, 0.7, dark, 6);
+      muzzle.rotation.z = Math.PI / 2;
+      muzzle.position.x = 0.35;
+      gunR.add(muzzle);
+      turret.add(gunR);
+      g.add(turret);
+      break;
+    }
+    case 'interceptor': {
+      // FALCON — a needle: long nose, short straight wings, twin tails
+      const hull = box(3.4, 0.34, 0.5, body);
+      hull.position.y = 1.5;
+      g.add(hull);
+      const nose = new THREE.Mesh(new THREE.ConeGeometry(0.24, 1.5, 6), bodyDark);
+      nose.rotation.z = -Math.PI / 2;
+      nose.position.set(2.35, 1.5, 0);
+      g.add(nose);
+      const canopy = box(0.8, 0.3, 0.42, mat(0x1b2a33, { rough: 0.15, metal: 0.7 }));
+      canopy.position.set(0.85, 1.76, 0);
+      g.add(canopy);
+      for (const side of [1, -1]) {
+        const wing = box(0.9, 0.1, 1.35, bodyDark);
+        wing.position.set(-0.1, 1.5, side * 0.95);
+        wing.rotation.y = side * 0.2;
+        g.add(wing);
+        // twin canted tails — the interceptor's signature from above
+        const tail = box(0.55, 0.62, 0.07, bodyDark);
+        tail.position.set(-1.5, 1.82, side * 0.42);
+        tail.rotation.z = 0.28;
+        tail.rotation.x = side * 0.3;
+        g.add(tail);
+        const eng = cyl(0.19, 0.22, 0.5, mat(0x2a2f35, { metal: 0.6, rough: 0.3 }), 8);
+        eng.rotation.z = Math.PI / 2;
+        eng.position.set(-1.5, 1.5, side * 0.28);
+        g.add(eng);
+        const fl = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.75, 7), mat(0x8ad8ff, { emissive: 0x8ad8ff }));
+        fl.rotation.z = Math.PI / 2;
+        fl.position.set(-2.0, 1.5, side * 0.28);
+        fl.name = side === 1 ? 'thrustL' : 'thrustR';
+        g.add(fl);
+      }
+      const turret = new THREE.Group();
+      turret.name = 'turret';
+      turret.position.set(1.4, 1.42, 0);
+      const gunR = new THREE.Group();
+      gunR.name = 'gunRecoil';
+      for (const dz of [-0.1, 0.1]) {
+        const barrel = cyl(0.055, 0.055, 0.9, dark, 6);
+        barrel.rotation.z = Math.PI / 2;
+        barrel.position.set(0.45, 0, dz);
+        gunR.add(barrel);
+      }
+      turret.add(gunR);
+      g.add(turret);
+      break;
+    }
+    case 'bomber': {
+      // ANVIL — a fat slab with four engines and a bomb bay. Reads HUGE.
+      const hull = box(4.4, 0.8, 1.5, body);
+      hull.position.y = 1.7;
+      g.add(hull);
+      const nose = box(1.0, 0.6, 1.1, mat(0x1b2a33, { rough: 0.25, metal: 0.5 }));
+      nose.position.set(2.5, 1.7, 0);
+      g.add(nose);
+      const bay = box(2.2, 0.3, 1.1, dark);
+      bay.position.set(0.1, 1.24, 0);
+      bay.name = 'bay';
+      g.add(bay);
+      for (const side of [1, -1]) {
+        const wing = box(1.6, 0.18, 3.2, bodyDark);
+        wing.position.set(-0.2, 1.75, side * 2.0);
+        g.add(wing);
+        for (const [ex, off] of [[0.35, 1.25], [0.05, 2.5]] as const) {
+          const eng = cyl(0.28, 0.28, 0.85, mat(0x30363c, { metal: 0.55, rough: 0.3 }), 8);
+          eng.rotation.z = Math.PI / 2;
+          eng.position.set(ex, 1.55, side * off);
+          g.add(eng);
+          const fl = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.7, 7), mat(0xffb45c, { emissive: 0xffb45c }));
+          fl.rotation.z = Math.PI / 2;
+          fl.position.set(ex - 0.75, 1.55, side * off);
+          fl.name = side === 1 ? 'thrustL' : 'thrustR';
+          g.add(fl);
+        }
+        const tail = box(0.7, 0.9, 0.1, bodyDark);
+        tail.position.set(-2.1, 2.2, side * 0.5);
+        g.add(tail);
+      }
+      const spine = box(3.6, 0.22, 0.3, bodyDark);
+      spine.position.set(-0.2, 2.15, 0);
+      g.add(spine);
+      const turret = new THREE.Group();
+      turret.name = 'turret';
+      turret.position.set(-1.4, 2.05, 0);
+      const gunR = new THREE.Group();
+      gunR.name = 'gunRecoil';
+      const barrel = cyl(0.07, 0.07, 0.6, dark, 6);
+      barrel.rotation.z = Math.PI / 2;
+      barrel.position.x = 0.3;
+      gunR.add(barrel);
+      turret.add(gunR);
+      g.add(turret);
+      break;
+    }
+    case 'aatrack': {
+      // LANCE — a low tracked box with a raised twin-rail launcher and a dish
+      const hull = box(2.6, 0.65, 1.7, body);
+      hull.position.y = 0.62;
+      g.add(hull);
+      for (const side of [1, -1]) {
+        const track = box(2.7, 0.45, 0.42, dark);
+        track.position.set(0, 0.28, side * 0.9);
+        g.add(track);
+      }
+      // the search dish — the tell that this thing owns the sky
+      const dish = cyl(0.5, 0.5, 0.08, mat(0x9aa4b0, { metal: 0.5, rough: 0.4 }), 10);
+      dish.position.set(-0.85, 1.15, 0);
+      dish.rotation.z = 0.45;
+      dish.name = 'spin';
+      g.add(dish);
+      const turret = new THREE.Group();
+      turret.name = 'turret';
+      turret.position.set(0.35, 1.0, 0);
+      const base = box(0.8, 0.3, 0.9, bodyDark);
+      turret.add(base);
+      const gunR = new THREE.Group();
+      gunR.name = 'gunRecoil';
+      // twin rails, canted UP — a launcher that is obviously pointed at the sky
+      for (const dz of [-0.3, 0.3]) {
+        const rail = box(1.5, 0.14, 0.18, dark);
+        rail.position.set(0.35, 0.3, dz);
+        rail.rotation.z = 0.42;
+        gunR.add(rail);
+        const missile = cyl(0.1, 0.1, 1.2, mat(0xc8c2b4, { rough: 0.6 }), 7);
+        missile.rotation.z = Math.PI / 2 + 0.42;
+        missile.position.set(0.35, 0.42, dz);
+        gunR.add(missile);
+      }
+      turret.add(gunR);
+      g.add(turret);
+      break;
+    }
     case 'flyer': {
       // gunship: lifted hull, canted rotor pods, weapons chin
       const hull = box(2.4, 0.55, 1.1, body);

@@ -3179,7 +3179,13 @@ export class World {
         * (def.hover || def.flies ? 1
           : moveMult(this.weather, def.strider ? 'soldier' : tracked ? 'tracks' : 'wheels'));
       v.yaw += turn * def.turnRate * dt * (throttle < 0 ? -1 : 1);
-      const targetSpeed = throttle * def.speed * engineMult * depthMult * surfMult * this.vehicleSpeedMul * (throttle < 0 ? 0.5 : 1);
+      // V2 FIXED WING: a jet has a stall floor. Whatever the stick says, it
+      // never flies slower than minAirspeed × top — and it can never reverse.
+      // Let go and you keep going: attack runs become PASSES, and the pilot
+      // who over-commits eats the terrain he was strafing.
+      const stall = def.minAirspeed ?? 0;
+      const wing = stall > 0 ? Math.max(stall, Math.max(0, throttle)) : throttle;
+      const targetSpeed = wing * def.speed * engineMult * depthMult * surfMult * this.vehicleSpeedMul * (wing < 0 ? 0.5 : 1);
       const accel = 18;
       const curSpeed = Math.cos(v.yaw) * v.vel.x + Math.sin(v.yaw) * v.vel.z;
       const newSpeed = curSpeed + Math.max(-accel * dt, Math.min(accel * dt, targetSpeed - curSpeed));

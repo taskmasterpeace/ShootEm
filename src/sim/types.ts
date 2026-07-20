@@ -26,6 +26,10 @@ export type VehicleKind =
   | 'hoverboard'   // one-trooper personal hover deck — fast, fragile, unarmed
   | 'bike'         // recon bike — fastest ground vehicle, light MG
   | 'flyer'        // gunship flyer — soars over walls, plasma
+  | 'strikejet'    // V2 Vulture — air-to-ground jet. CANNOT HOVER.
+  | 'interceptor'  // V2 Falcon — air-to-air jet. CANNOT HOVER.
+  | 'aatrack'      // V3 Lance — ground-to-air homing launcher, paper-thin
+  | 'bomber'       // V4 Anvil — slow heavy payload, needs an escort
   | 'transport'    // crewed transport craft — sensors/ECM/comms stations + 4 passengers
   | 'ambulance'    // field ambulance — heals soldiers around it, 2 stretcher seats
   | 'tunneler'     // tunneling machine — grinds through walls, glacially slow
@@ -155,6 +159,20 @@ export interface VehicleDef {
   flies?: boolean;
   /** rotor spool-up: seconds between the pilot boarding and liftoff (1–5s by airframe) */
   liftoffTime?: number;
+  /**
+   * V2 FIXED WING (Robert: "what if there were a jet that COULDN'T hover?").
+   * A jet carries a MINIMUM AIRSPEED: let go of the throttle and it does not
+   * stop, it keeps flying. That single rule is the whole feel of the old
+   * combat flight games — you make PASSES, you never park in the sky.
+   * Value = the fraction of top speed it can never drop below.
+   */
+  minAirspeed?: number;
+  /** V2: how hard it banks into a turn (visual roll, radians at full turn) */
+  bankAngle?: number;
+  /** V3: fires homing missiles at aircraft (AA track, SAM turret) */
+  antiAir?: boolean;
+  /** V4: drops a stick of bombs straight down along its flight path */
+  bombs?: number;
   /** grinds T_WALL tiles into open ground as it moves (tunneler) */
   digs?: boolean;
   /** legs step over low cover — T_COVER doesn't block it; walls/water do (mech) */

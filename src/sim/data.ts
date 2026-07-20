@@ -251,6 +251,50 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
     weapon: 'flyer_plasma', seats: 2, mobileSpawn: false, radius: 1.6,
     hover: true, flies: true, systemHp: 22, liftoffTime: 2.5,
   },
+  // ==== V2 THE FIXED-WING PAIR ====
+  // Both CANNOT HOVER (minAirspeed): release the stick and they keep flying.
+  // Both are made of glass — the M3 armour ladder says the sky costs you your
+  // armour, and a jet that could also tank would have no counter at all.
+  //
+  // VULTURE — air-to-ground. Rockets that gut armour columns; nearly useless
+  // against another jet (slow rockets, wide spread). Fast, but the least
+  // agile thing in the air: it commits to a run.
+  strikejet: {
+    kind: 'strikejet', name: 'Vulture Strike Jet', hp: 62, speed: 40, turnRate: 1.5,
+    weapon: 'vulture_rockets', seats: 1, mobileSpawn: false, radius: 1.7,
+    hover: true, flies: true, systemHp: 16, liftoffTime: 1.4,
+    minAirspeed: 0.45, bankAngle: 0.7,
+  },
+  // FALCON — air-to-air. A fast-firing cannon that leads a moving jet, and
+  // the best turn rate in the sky. Its rounds barely scratch a tank: this is
+  // the answer to aircraft, and ONLY to aircraft.
+  interceptor: {
+    kind: 'interceptor', name: 'Falcon Interceptor', hp: 55, speed: 46, turnRate: 2.3,
+    weapon: 'falcon_cannon', seats: 1, mobileSpawn: false, radius: 1.5,
+    hover: true, flies: true, systemHp: 14, liftoffTime: 1.2,
+    minAirspeed: 0.5, bankAngle: 0.95,
+  },
+  // ==== V3 THE LANCE — the reason the sky is not free ====
+  // A missile track: it reaches 120u into the air and hits like a truck, and
+  // it is made of PAPER on purpose. Robert's law for it — "another one that
+  // was ground that could shoot in the air." It must be escorted or it dies
+  // to the first tank that notices it, which is what keeps AA a POSITION the
+  // ground war has to fight over instead of a free umbrella.
+  aatrack: {
+    kind: 'aatrack', name: 'Lance AA Track', hp: 130, speed: 13, turnRate: 1.9,
+    weapon: 'aa_missile', seats: 2, mobileSpawn: false, radius: 1.9,
+    antiAir: true, systemHp: 20,
+  },
+  // ==== V4 THE ANVIL — the slowest thing that flies ====
+  // It drops a stick of twelve, or the one warhead nobody forgets. It cannot
+  // turn, cannot run, and cannot defend itself: an Anvil without a Falcon
+  // escort is a gift to the enemy team. That dependency IS the design.
+  bomber: {
+    kind: 'bomber', name: 'Anvil Heavy Bomber', hp: 240, speed: 17, turnRate: 0.75,
+    weapon: '', seats: 3, mobileSpawn: false, radius: 3.1,
+    hover: true, flies: true, systemHp: 30, liftoffTime: 3.5,
+    minAirspeed: 0.6, bankAngle: 0.3, bombs: 12,
+  },
   transport: {
     kind: 'transport', name: 'Atlas Transport', hp: 520, speed: 12, turnRate: 1.6,
     weapon: 'transport_mg', seats: 9, mobileSpawn: true, radius: 2.6,
@@ -290,6 +334,45 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
     strider: true, stomps: true, systemHp: 48,
   },
 };
+
+// ---------------------------------------------------------------------------
+// V2 THE AIR LAYER's guns. The jets carry opposite tools on purpose: the
+// Vulture's rockets are murder on a tank and useless against a moving jet;
+// the Falcon's cannon is the reverse. Neither can do the other's job, which
+// is what makes both worth flying.
+// ---------------------------------------------------------------------------
+WEAPONS.vulture_rockets = W({
+  id: 'vulture_rockets', name: 'Talon Rocket Pod', damage: 48, rof: 3.2,
+  speed: 62, spread: 0.03, clip: 14, reloadTime: 3.4, reserve: 56, range: 62,
+  splash: 3.6, splashDamage: 34, knockback: 9, sound: 'rocket', tracer: 'rocket',
+});
+WEAPONS.falcon_cannon = W({
+  id: 'falcon_cannon', name: 'Falcon Autocannon', damage: 26, rof: 7,
+  speed: 150, spread: 0.012, clip: 60, reloadTime: 2.6, reserve: Infinity, range: 74,
+  sound: 'autocannon', tracer: 'bullet',
+});
+
+// V3 THE LANCE's missile: it does not chase soldiers, it does not chase
+// hulls. It chases AIRCRAFT, and it is the reason the sky is not free.
+WEAPONS.aa_missile = W({
+  id: 'aa_missile', name: 'Lance AA Missile', damage: 90, rof: 0.55,
+  speed: 44, spread: 0, clip: 2, reloadTime: 3.6, reserve: 24, range: 120,
+  splash: 3.2, splashDamage: 45, knockback: 8, sound: 'rocket', tracer: 'rocket',
+});
+// V4 THE ANVIL's stick of iron — dumb, heavy, and dropped straight down.
+WEAPONS.bomb = W({
+  id: 'bomb', name: 'Mk-9 Iron Bomb', damage: 90, rof: 2.4, speed: 12,
+  clip: 12, reserve: 0, range: 30, splash: 7.5, splashDamage: 80,
+  knockback: 20, arc: true, sound: 'thump', tracer: 'shell',
+});
+// V4 THE BABY NUKE (Robert: "I almost think we need a baby nuke — that would
+// be kinda dope"). One per bomber, priced in materiel, telegraphed loudly.
+// Knockback 34 puts every survivor on their back (M1 ragdolls past 16).
+WEAPONS.baby_nuke = W({
+  id: 'baby_nuke', name: 'Cradle Tactical Warhead', damage: 400, rof: 0.2, speed: 10,
+  clip: 1, reserve: 0, range: 30, splash: 26, splashDamage: 260,
+  knockback: 34, arc: true, sound: 'cannon', tracer: 'shell',
+});
 
 // ---------------------------------------------------------------------------
 // Anti-air. Lives below VEHICLES because the missile's speed is DERIVED from
