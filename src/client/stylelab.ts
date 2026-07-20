@@ -27,7 +27,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { JOINT_NAMES, poseSoldierJoints, type Joints } from './animation';
 import { buildSoldier } from './models/soldiers';
 
-type ActionId = 'run' | 'dash' | 'slash' | 'fly';
+type ActionId = 'run' | 'dash' | 'slash' | 'fly' | 'roll';
 type GunId = 'rifle' | 'shotgun';
 
 const scene = new THREE.Scene();
@@ -111,6 +111,12 @@ interface Rig {
   armL?: THREE.Group;
   legR?: THREE.Group;
   legL?: THREE.Group;
+  // second-order joints (Robert: "the knees need to bend… they look like they
+  // don't wanna bend the elbows at all") — child pivots inside the limbs
+  elbowR?: THREE.Group;
+  elbowL?: THREE.Group;
+  kneeR?: THREE.Group;
+  kneeL?: THREE.Group;
   jet?: THREE.Mesh;       // flight flame
   ghosts: THREE.Mesh[];   // dash afterimages (capsule clones)
   ghostGeo: THREE.BufferGeometry;
@@ -143,9 +149,10 @@ function capsuleRig(label: string, shapes: 1 | 4 | 12): Rig {
 
   const gun = new THREE.Group();
   gun.add(makeRifle());
-  // THE GUN ON THE RIGHT SIDE — hip height, slightly toed forward
-  gun.position.set(0.18, 0.78, 0.5);
+  // THE GUN ON THE RIGHT SIDE — carried at the chest, not dangling at the hip
+  gun.position.set(0.2, 1.06, 0.5);
   gun.rotation.y = -0.06;
+  gun.rotation.z = -0.06;
   body.add(gun);
   const gunHome = { pos: gun.position.clone(), rot: gun.rotation.clone() };
 
@@ -175,9 +182,9 @@ function capsuleRig(label: string, shapes: 1 | 4 | 12): Rig {
     // glove-tan, and parked ON the weapon — grip and foregrip — so they read
     // as hands holding a gun, not white things bouncing around
     const mittR = new THREE.Mesh(mittGeo, M(0xc9a97a));
-    mittR.position.set(0.08, 0.8, 0.5); mittR.castShadow = true;
+    mittR.position.set(0.06, 1.05, 0.5); mittR.castShadow = true;
     const mittL = new THREE.Mesh(mittGeo, M(0xc9a97a));
-    mittL.position.set(0.52, 0.84, 0.5); mittL.castShadow = true;
+    mittL.position.set(0.5, 1.08, 0.5); mittL.castShadow = true;
     body.add(mittR, mittL);
     rig.mittR = mittR; rig.mittL = mittL;
     // feet nubs — the bop reads harder with something to leave the ground
@@ -240,42 +247,50 @@ function papercraftRig(label: string): Rig {
   // head: the big papercraft box, floating a visible CUT above the collar
   const head = box(0.4, 0.4, 0.4, SKIN); head.position.y = 1.74; body.add(head);
 
-  // arms: shoulder cube -> upper -> (baked elbow bend) forearm -> hand block
-  const mkArm = (dz: number): THREE.Group => {
+  // arms: shoulder cube -> upper -> ELBOW PIVOT -> forearm -> hand block.
+  // The elbow is a live joint now (Robert: "they look like they don't wanna
+  // bend the elbows at all — it should hold it like a real human would").
+  const mkArm = (dz: number): { pivot: THREE.Group; elbow: THREE.Group } => {
     const arm = new THREE.Group();
     arm.position.set(0, 1.42, dz);
     const sh = box(0.17, 0.17, 0.17, JACKET); sh.position.y = 0; arm.add(sh);
     const up = box(0.13, 0.3, 0.14, JACKET); up.position.y = -0.24; arm.add(up);
     const elbow = new THREE.Group();
     elbow.position.y = -0.42;
-    elbow.rotation.z = 0.28; // the baked natural bend — a straight arm is a plank
     const fore = box(0.11, 0.26, 0.12, JACKET); fore.position.y = -0.13; elbow.add(fore);
     const hand = box(0.12, 0.13, 0.11, SKIN); hand.position.y = -0.31; elbow.add(hand);
     arm.add(elbow);
     body.add(arm);
-    return arm;
+    return { pivot: arm, elbow };
   };
-  // legs: hip pivot -> thigh, gap, shin, boot — every cut visible
-  const mkLeg = (dz: number): THREE.Group => {
+  // legs: hip pivot -> thigh -> KNEE PIVOT -> shin + boot ("the knees need to bend")
+  const mkLeg = (dz: number): { pivot: THREE.Group; knee: THREE.Group } => {
     const leg = new THREE.Group();
     leg.position.set(0, 0.92, dz);
     const th = box(0.18, 0.36, 0.2, TROUSER); th.position.y = -0.19; leg.add(th);
-    const sh = box(0.15, 0.34, 0.17, TROUSER); sh.position.y = -0.57; leg.add(sh);
-    const bt = box(0.18, 0.12, 0.3, BOOT); bt.position.set(0.05, -0.84, 0); leg.add(bt);
+    const knee = new THREE.Group();
+    knee.position.y = -0.4;
+    const sh = box(0.15, 0.34, 0.17, TROUSER); sh.position.y = -0.17; knee.add(sh);
+    const bt = box(0.18, 0.12, 0.3, BOOT); bt.position.set(0.05, -0.44, 0); knee.add(bt);
+    leg.add(knee);
     body.add(leg);
-    return leg;
+    return { pivot: leg, knee };
   };
 
   const gun = new THREE.Group();
   gun.add(makeRifle());
-  gun.position.set(0.22, 0.95, 0.42);
+  // AT THE CHEST, where a human holds a rifle — not floating at the hip
+  gun.position.set(0.3, 1.14, 0.33);
+  gun.rotation.z = -0.06; // muzzle a breath down — the ready carry
   body.add(gun);
 
+  const aR = mkArm(0.36), aL = mkArm(-0.36), lR = mkLeg(0.15), lL = mkLeg(-0.15);
   const rig: Rig = {
     label, root, body, gun,
     gunHome: { pos: gun.position.clone(), rot: gun.rotation.clone() },
     blade: makeBlade(), ghosts: [], ghostGeo: new THREE.BoxGeometry(0.5, 1.5, 0.55),
-    armR: mkArm(0.36), armL: mkArm(-0.36), legR: mkLeg(0.15), legL: mkLeg(-0.15),
+    armR: aR.pivot, armL: aL.pivot, elbowR: aR.elbow, elbowL: aL.elbow,
+    legR: lR.pivot, legL: lL.pivot, kneeR: lR.knee, kneeL: lL.knee,
   };
   body.add(rig.blade);
   rig.blade.position.set(0.4, 1.1, 0.5);
@@ -349,7 +364,8 @@ function voxelRig(label: string): Rig {
 
   const gun = new THREE.Group();
   gun.add(makeRifle());
-  gun.position.set(0.22, 0.95, 0.4);
+  gun.position.set(0.28, 1.12, 0.3); // chest carry, tucked into the body
+  gun.rotation.z = -0.06;
   body.add(gun);
 
   const rig: Rig = {
@@ -514,7 +530,7 @@ function loop() {
     const j: Joints = {};
     for (const name of JOINT_NAMES) j[name] = curSoldier.getObjectByName(name) ?? undefined;
     const speed = action === 'run' ? 8 : action === 'dash' ? 13 : 0;
-    poseSoldierJoints(j, { kind: 'bot', time: t, id: 3, speed, airborne: action === 'fly' });
+    poseSoldierJoints(j, { kind: 'bot', time: t, id: 3, speed, airborne: action === 'fly' || action === 'roll' });
   }
 
   for (const r of rigs) {
@@ -529,29 +545,47 @@ function loop() {
     if (r.jet) (r.jet.material as THREE.MeshBasicMaterial).opacity = 0;
     for (const g of r.ghosts) (g.material as THREE.MeshBasicMaterial).opacity = 0;
 
+    // THE HOLD — the default truth for every armed, limbed body: right hand
+    // back at the grip, left arm across to the foregrip, BOTH elbows bent
+    // like a human's, knees carrying a slight athletic flex. Actions layer
+    // their changes ON TOP of this instead of inventing their own arms.
+    if (r.armR) {
+      r.armR.rotation.set(0, 0, 0.35);
+      r.armL!.rotation.set(0.62, 0, 0.5);
+      if (r.elbowR) {
+        r.elbowR.rotation.set(0, 0, 1.1);   // the bend that was missing
+        r.elbowL!.rotation.set(0, 0, 0.95);
+      }
+      r.legR!.rotation.set(0, 0, 0);
+      r.legL!.rotation.set(0, 0, 0);
+      if (r.kneeR) {
+        r.kneeR.rotation.set(0, 0, -0.2);   // soft knees — nobody stands on planks
+        r.kneeL!.rotation.set(0, 0, -0.2);
+      }
+    }
+    if (r.mittR && action !== 'fly') {
+      r.mittR.position.set(0.06, 1.05, 0.5);
+      r.mittL!.position.set(0.5, 1.08, 0.5);
+    }
+
     if (action === 'run') {
       // THE BOP — |sin| bounce, forward lean, a breath of roll. The whole ask.
       const phase = t * 9 + r.root.position.x;
       b.position.y = Math.abs(Math.sin(phase)) * 0.16;
       b.rotation.z = -0.16;                      // lean INTO the run (travel = +X, the profile read)
       b.rotation.x = Math.sin(phase) * 0.055;    // the waddle that sells weight
-      if (r.mittR) {
-        // BOTH HANDS ON THE WEAPON (Robert: "shouldn't it be on the gun?").
-        // The off-hand pumping the stride read as a random white ball — a
-        // soldier running with a rifle keeps both hands on it. Grip + foregrip.
-        r.mittR.position.set(0.08, 0.8, 0.5);
-        r.mittL!.position.set(0.52, 0.84, 0.5);
-      }
       if (r.armR) {
-        // THE HOLD (Robert: "they don't look like they're holding the guns").
-        // A rifleman runs with both hands ON the rifle: right hand back at
-        // the grip, left arm crossing the body to the foregrip. The LEGS do
-        // the running — anti-phase scissor, full stride.
+        // the LEGS do the running — anti-phase scissor with a REAL KNEE:
+        // the shin folds through the recovery swing and lands near-straight,
+        // the same shape the game's own gait uses. Arms stay in the hold.
         const sw = Math.sin(phase);
-        r.armR!.rotation.set(0, 0, 0.55);
-        r.armL!.rotation.set(-0.7, 0, 0.62);
-        r.legR!.rotation.z = sw * 0.6;
-        r.legL!.rotation.z = -sw * 0.6;
+        r.legR!.rotation.z = sw * 0.55;
+        r.legL!.rotation.z = -sw * 0.55;
+        if (r.kneeR) {
+          const bend = (p: number) => -0.25 - Math.max(0, Math.sin(p + 0.9)) * 0.9;
+          r.kneeR.rotation.z = bend(phase);
+          r.kneeL!.rotation.z = bend(phase + Math.PI);
+        }
       }
     } else if (action === 'dash') {
       // DOUBLE-TAP LUNGE — 0.5s: hard lean, squash-and-stretch, ghosts, lines
@@ -567,16 +601,14 @@ function loop() {
         g.position.x = b.position.x - back * 2.1;
         (g.material as THREE.MeshBasicMaterial).opacity = Math.max(0, (0.34 - back * 0.09) * punch);
       }
-      if (r.mittR) {
-        r.mittR.position.set(0.08, 0.8, 0.5);   // hands never leave the weapon
-        r.mittL!.position.set(0.52, 0.84, 0.5);
-      }
       if (r.armR) {
-        // arms stay ON THE GUN through the dash — the legs are the dart
-        r.armR!.rotation.set(0, 0, 0.55);
-        r.armL!.rotation.set(-0.7, 0, 0.62);
+        // hands never leave the weapon — the legs trail back, knees folded
         r.legR!.rotation.z = -0.7 * punch;
         r.legL!.rotation.z = -0.55 * punch;
+        if (r.kneeR) {
+          r.kneeR.rotation.z = -0.2 - 0.7 * punch;
+          r.kneeL!.rotation.z = -0.2 - 0.55 * punch;
+        }
       }
       if (punch > 0.25 && Math.random() < 0.5) {
         speedLine(new THREE.Vector3(r.root.position.x + b.position.x - 0.8, 0, r.root.position.z), 1);
@@ -600,9 +632,9 @@ function loop() {
       }
       if (r.armR) {
         // the right arm IS the axe: overhead wind, then the committed chop —
-        // the left hand never lets go of the gun
+        // the ELBOW whips through the stroke; the left hand keeps the gun
         r.armR!.rotation.set(0, 0, 2.5 - swing * 3.1);
-        r.armL!.rotation.set(-0.7, 0, 0.62);
+        if (r.elbowR) r.elbowR.rotation.set(0, 0, 0.4 + swing * 0.9);
         r.legR!.rotation.z = 0.3 * Math.sin(k * Math.PI);  // step into it
         r.legL!.rotation.z = -0.3 * Math.sin(k * Math.PI);
       }
@@ -622,13 +654,58 @@ function loop() {
         r.mittL!.position.set(0.7, 1.1, -0.3);
       }
       if (r.armR) {
-        // superman: arms thrown far forward, legs trailing together
+        // superman: arms thrown far forward and STRAIGHT, legs trailing
         r.armR!.rotation.set(0, 0, 2.6 * ease);
         r.armL!.rotation.set(0, 0, 2.6 * ease);
+        if (r.elbowR) { r.elbowR.rotation.set(0, 0, 0.1); r.elbowL!.rotation.set(0, 0, 0.1); }
         r.legR!.rotation.z = -0.35 * ease;
         r.legL!.rotation.z = -0.35 * ease;
+        if (r.kneeR) { r.kneeR.rotation.z = -0.3 * ease; r.kneeL!.rotation.z = -0.3 * ease; }
       }
       if (actionT > 2.2 && !frozen) play('run');
+    } else if (action === 'roll') {
+      // MAX PAYNE (Robert: "a dive, like a dive roll type of deal"). One
+      // 0.75s beat: DIVE out stretched, TUCK into a ball, roll a full
+      // revolution along the travel line, come up on your feet.
+      //
+      // The spin must happen around the body's CENTRE, but a group rotates
+      // around its origin (the feet) — so the position is solved from the
+      // rotation each frame: keep the rotated centre riding the dive arc,
+      // and the feet land where the math says, not where they started.
+      const k = Math.min(1, actionT / 0.75);
+      const ease = k * k * (3 - 2 * k);              // smoothstep drives both
+      const th = -Math.PI * 2 * ease;                // one full forward revolution
+      const c = 0.85;                                 // centre height of the tuck
+      const arc = Math.sin(Math.min(1, k / 0.35) * Math.PI) * 0.5; // the dive's air
+      const cx = ease * 3.4;                          // ground covered
+      const cy = c + arc;
+      b.rotation.z = th;
+      b.position.x = cx + c * Math.sin(th);
+      b.position.y = cy - c * Math.cos(th);
+      b.scale.setScalar(1 - 0.12 * Math.sin(ease * Math.PI)); // the tuck squeeze
+      if (r.armR) {
+        // limbs HUG the ball — elbows and knees at full fold
+        r.armR.rotation.set(0, 0, 1.5);
+        r.armL!.rotation.set(0, 0, 1.5);
+        if (r.elbowR) { r.elbowR.rotation.set(0, 0, 1.6); r.elbowL!.rotation.set(0, 0, 1.6); }
+        r.legR!.rotation.z = 1.1;
+        r.legL!.rotation.z = 1.1;
+        if (r.kneeR) { r.kneeR.rotation.z = -1.9; r.kneeL!.rotation.z = -1.9; }
+      }
+      if (r.mittR) {
+        r.mittR.position.set(0.1, 0.9, 0.45);        // hands pull in
+        r.mittL!.position.set(0.3, 1.0, 0.45);
+      }
+      for (let i = 0; i < r.ghosts.length; i++) {
+        const g = r.ghosts[i];
+        const back = (i + 1) / (r.ghosts.length + 1);
+        g.position.x = b.position.x - back * 1.6;
+        (g.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 0.22 * Math.sin(ease * Math.PI) * (1 - back * 0.4));
+      }
+      if (k > 0.05 && k < 0.5 && Math.random() < 0.4) {
+        speedLine(new THREE.Vector3(r.root.position.x + b.position.x - 0.6, 0, r.root.position.z), 1);
+      }
+      if (k >= 1 && !frozen) play('run');
     }
   }
 
