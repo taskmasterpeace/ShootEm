@@ -688,7 +688,10 @@ export class Hud {
         // detail #6, the flesh-vs-chrome ledger: clones are the treasure,
         // machines are scrap — the scoreboard teaches the economy in one line
         let flesh = 0, chrome = 0;
-        for (const s of soldiers) if (s.team === team) (s.kind === 'human' ? flesh += s.deaths : chrome += s.deaths);
+        for (const s of soldiers) {
+          if (s.team !== team) continue;
+          if (s.kind === 'human') flesh += s.deaths; else chrome += s.deaths;
+        }
         html += `<tr class="team-head t${team}"><td colspan="5">${TEAM_NAMES[team]} — ${Math.floor(m.scores[team])}` +
           `<span style="float:right;font-size:0.78em;color:var(--muted)">LOSSES — FLESH ${flesh} · CHROME ${chrome}</span></td></tr>`;
         html += soldiers.filter((s) => s.team === team).map(row).join('');
