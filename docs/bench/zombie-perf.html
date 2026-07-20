@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>War World — Zombie Stress Bench</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧟</text></svg>" />
+</head>
+<body>
+<style>
+  :root{
+    --ink:#12151a; --panel:#1a1e24; --line:#2b323c; --grid:#232a33;
+    --fg:#e7ecf2; --muted:#8b98a8; --amber:#e8a33d; --good:#46d17a; --bad:#ff4736;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--ink);color:var(--fg);
+    font:14px/1.5 ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+  .wrap{max-width:1000px;margin:0 auto;padding:28px 20px 60px}
+  h1{font-size:20px;letter-spacing:.08em;text-transform:uppercase;margin:0 0 2px;color:var(--amber)}
+  .sub{color:var(--muted);font-size:12px;margin:0 0 22px}
+  .panel{background:var(--panel);border:1px solid var(--line);padding:18px 16px 8px;position:relative}
+  .panel::before,.panel::after{content:"";position:absolute;width:10px;height:10px;border:2px solid var(--amber)}
+  .panel::before{left:-1px;top:-1px;border-right:0;border-bottom:0}
+  .panel::after{right:-1px;bottom:-1px;border-left:0;border-top:0}
+  svg{display:block;width:100%;height:auto;overflow:visible}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:14px 2px 2px;font-size:12px}
+  .lg{display:flex;align-items:center;gap:7px;color:var(--muted)}
+  .sw{width:16px;height:3px;display:inline-block}
+  table{border-collapse:collapse;width:100%;margin-top:26px;font-size:12px;
+    font-variant-numeric:tabular-nums;overflow-x:auto;display:block}
+  th,td{text-align:right;padding:5px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  thead th{color:var(--amber);text-transform:uppercase;letter-spacing:.05em;font-weight:400;border-bottom:1px solid var(--amber)}
+  td.over{color:var(--bad)} td.under{color:var(--good)}
+  .note{color:var(--muted);font-size:12px;margin-top:18px;max-width:70ch}
+  .runlbl{color:var(--fg)}
+  .commit{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Zombie Stress Bench</h1>
+  <p class="sub">Sim-step cost vs shambler count — 12 defenders holding, population pinned each tick, <span style="color:var(--fg)">step() only</span>. Lower is faster. Each fix draws a new line.</p>
+  <div class="panel">
+    <svg id="chart" viewBox="0 0 900 460" role="img" aria-label="Step time versus zombie count"></svg>
+  </div>
+  <div class="legend" id="legend"></div>
+  <table id="tbl"></table>
+  <p class="note" id="note"></p>
+</div>
+<script>
+const HISTORY = [{"ts":"2026-07-20T23:05:21.238Z","commit":"7926df8","label":"baseline (no obj-cache)","nocache":true,"points":[{"n":50,"mean":0.679,"median":0.635,"p95":0.93,"max":1.604,"defenders":12,"zAlive":50},{"n":100,"mean":1.452,"median":1.368,"p95":2.041,"max":3.063,"defenders":12,"zAlive":100},{"n":200,"mean":2.739,"median":2.667,"p95":3.347,"max":5.986,"defenders":12,"zAlive":200},{"n":300,"mean":4.15,"median":4.074,"p95":4.994,"max":6.45,"defenders":12,"zAlive":300},{"n":500,"mean":6.091,"median":6.077,"p95":7.464,"max":8.486,"defenders":12,"zAlive":500},{"n":800,"mean":19.785,"median":20.833,"p95":23.654,"max":24.74,"defenders":12,"zAlive":800},{"n":1200,"mean":25.997,"median":26.161,"p95":29.173,"max":31.14,"defenders":12,"zAlive":1200},{"n":1600,"mean":43.522,"median":43.866,"p95":47.336,"max":51.389,"defenders":12,"zAlive":1600}]},{"ts":"2026-07-20T23:06:16.983Z","commit":"7926df8","label":"S4 objective cache","nocache":false,"points":[{"n":50,"mean":0.465,"median":0.43,"p95":0.654,"max":1.608,"defenders":12,"zAlive":50},{"n":100,"mean":0.971,"median":0.929,"p95":1.363,"max":3.117,"defenders":12,"zAlive":99},{"n":200,"mean":1.875,"median":1.8,"p95":2.435,"max":4.593,"defenders":12,"zAlive":200},{"n":300,"mean":3.136,"median":3.104,"p95":3.702,"max":4.413,"defenders":12,"zAlive":300},{"n":500,"mean":5.665,"median":5.726,"p95":6.764,"max":7.197,"defenders":12,"zAlive":500},{"n":800,"mean":17.567,"median":18.632,"p95":23.152,"max":25.795,"defenders":12,"zAlive":800},{"n":1200,"mean":22.923,"median":22.658,"p95":25.704,"max":28.434,"defenders":12,"zAlive":1200},{"n":1600,"mean":39,"median":38.753,"p95":42.348,"max":51.054,"defenders":12,"zAlive":1600}]}];
+const BUDGET = 16.7;
+const COLORS = ['#e8a33d','#3dbde8','#46d17a','#ff8a2a','#c9d1d9','#e85d9c','#8fd4e8'];
+const runs = HISTORY.map((r,i)=>({...r, color: COLORS[i % COLORS.length]}));
+
+// scales
+const allN = [...new Set(runs.flatMap(r=>r.points.map(p=>p.n)))].sort((a,b)=>a-b);
+const maxN = Math.max(...allN, 1);
+const maxMs = Math.max(BUDGET*1.05, ...runs.flatMap(r=>r.points.map(p=>p.mean)))*1.08;
+const M={l:58,r:18,t:14,b:44}, W=900, H=460, iw=W-M.l-M.r, ih=H-M.t-M.b;
+const x=n=>M.l+(n/maxN)*iw;
+const y=ms=>M.t+ih-(ms/maxMs)*ih;
+
+const svg=document.getElementById('chart');
+const NS='http://www.w3.org/2000/svg';
+const el=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
+
+// y grid + labels
+for(let ms=0;ms<=maxMs;ms+= maxMs>20?5:2){
+  svg.appendChild(el('line',{x1:M.l,y1:y(ms),x2:W-M.r,y2:y(ms),stroke:'#232a33', 'stroke-width':1}));
+  const t=el('text',{x:M.l-8,y:y(ms)+4,fill:'#8b98a8','font-size':11,'text-anchor':'end'});t.textContent=ms.toFixed(0);svg.appendChild(t);
+}
+// budget line
+svg.appendChild(el('line',{x1:M.l,y1:y(BUDGET),x2:W-M.r,y2:y(BUDGET),stroke:'#ff4736','stroke-width':1.5,'stroke-dasharray':'6 4'}));
+const bl=el('text',{x:W-M.r,y:y(BUDGET)-6,fill:'#ff4736','font-size':11,'text-anchor':'end'});bl.textContent='16.7 ms — one 60fps frame';svg.appendChild(bl);
+// x ticks
+for(const n of allN){
+  const t=el('text',{x:x(n),y:H-M.b+18,fill:'#8b98a8','font-size':11,'text-anchor':'middle'});t.textContent=n;svg.appendChild(t);
+}
+const xl=el('text',{x:M.l+iw/2,y:H-6,fill:'#8b98a8','font-size':11,'text-anchor':'middle'});xl.textContent='shamblers on the field';svg.appendChild(xl);
+const yl=el('text',{x:16,y:M.t+ih/2,fill:'#8b98a8','font-size':11,'text-anchor':'middle',transform:'rotate(-90 16 '+(M.t+ih/2)+')'});yl.textContent='sim step (ms)';svg.appendChild(yl);
+
+// one polyline per run
+for(const r of runs){
+  const pts=r.points.map(p=>x(p.n)+','+y(p.mean)).join(' ');
+  svg.appendChild(el('polyline',{points:pts,fill:'none',stroke:r.color,'stroke-width':2}));
+  for(const p of r.points){
+    svg.appendChild(el('circle',{cx:x(p.n),cy:y(p.mean),r:3.2,fill:p.mean>BUDGET?'#ff4736':r.color}));
+  }
+}
+
+// legend
+const lg=document.getElementById('legend');
+runs.forEach(r=>{
+  const d=document.createElement('div');d.className='lg';
+  d.innerHTML='<span class="sw" style="background:'+r.color+'"></span><span class="runlbl">'+r.label+'</span> <span class="commit">'+r.commit+' · '+r.ts.slice(0,10)+'</span>';
+  lg.appendChild(d);
+});
+
+// table
+const tbl=document.getElementById('tbl');
+let head='<thead><tr><th>Run</th>'+allN.map(n=>'<th>'+n+'</th>').join('')+'</tr></thead><tbody>';
+let body=runs.map(r=>{
+  const byN=Object.fromEntries(r.points.map(p=>[p.n,p]));
+  const cells=allN.map(n=>{const p=byN[n];if(!p)return '<td>·</td>';const cls=p.mean>BUDGET?'over':'under';return '<td class="'+cls+'">'+p.mean.toFixed(2)+'</td>';}).join('');
+  return '<tr><td>'+r.label+'</td>'+cells+'</tr>';
+}).join('');
+tbl.innerHTML=head+body+'</tbody>';
+
+// note: the improvement between the first and last run
+if(runs.length>=2){
+  const a=runs[0], b=runs[runs.length-1];
+  const common=a.points.filter(p=>b.points.some(q=>q.n===p.n));
+  const deltas=common.map(p=>{const q=b.points.find(q=>q.n===p.n);return {n:p.n, pct:Math.round((1-q.mean/p.mean)*100)};});
+  const best=deltas.reduce((m,d)=>Math.abs(d.pct)>Math.abs(m.pct)?d:m,{pct:0,n:0});
+  document.getElementById('note').textContent='"'+b.label+'" vs "'+a.label+'": up to '+best.pct+'% faster (at '+best.n+' shamblers). Values are mean step ms over the measured window; a point turns red when a single step blows the frame budget.';
+}
+</script>
+</body>
+</html>

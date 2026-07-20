@@ -548,7 +548,14 @@ function amClosestRescuer(w: World, s: Soldier, vic: Soldier): boolean {
  * must turn for home now, not up to 250 ms later. Everything else (own-flag
  * flips, point ownership) is a strategic change that ≤250 ms of lag can't hurt.
  */
+/** Bench-only switch: lets tools/bench-track.ts measure the true before/after
+ *  of the S4 cache on the SAME binary. Never touched by the game (defaults on;
+ *  no process.env in this hot path so the browser bundle stays clean). */
+let OBJ_CACHE_ON = true;
+export function _setObjectiveCache(on: boolean): void { OBJ_CACHE_ON = on; }
+
 export function cachedObjective(w: World, s: Soldier): Vec3 {
+  if (!OBJ_CACHE_ON) return objectiveFor(w, s);
   const flag = s.carryingFlag;
   if (s.botObjective && s.botObjAt !== undefined && w.time < s.botObjAt && s.botObjFlag === flag) {
     return s.botObjective;
