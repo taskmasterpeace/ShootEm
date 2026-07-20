@@ -374,6 +374,12 @@ function papercraftRig(label: string, dress: FactionDress): Rig {
   };
 
   const aR = mkArm(0.3, 'R'), aL = mkArm(-0.3, 'L');
+  // THE OFF-HAND SHOULDER, PLACED BY ROBERT (gizmo, 2026-07-20, "for all
+  // weapons — the shoulder for the offhand always seems a little too far
+  // away"): forward 3cm, down 7cm, and 10cm INWARD off the symmetric slot,
+  // so the reach across to any foregrip stops looking stretched. The
+  // rotation from his paste is discarded on purpose — the IK owns it live.
+  aL.arm.position.set(0.0326, 1.3258, -0.2046);
   const lR = mkLeg(0.14, 'R'), lL = mkLeg(-0.14, 'L');
 
   const shoulderMount = new THREE.Group();
