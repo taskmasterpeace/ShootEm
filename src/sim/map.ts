@@ -121,7 +121,9 @@ export function houseAt(houses: House[], x: number, z: number): number {
 }
 
 export interface PropSpec {
-  type: 'rock' | 'bunker' | 'crate' | 'tree' | 'ruin' | 'clone_bay'
+  // ('ruin' lived here for a while with no producer and no render case —
+  //  the Shelled Ruin is a BUILDING kind, stamped as tiles, not a prop)
+  type: 'rock' | 'bunker' | 'crate' | 'tree' | 'clone_bay'
     // the §8.2 fronts' furniture: farm skylines, refinery fire, harbor
     // iron, and the burned-out hulls every front collects
     | 'silo' | 'flare_stack' | 'crane' | 'wreck'

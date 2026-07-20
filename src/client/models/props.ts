@@ -74,7 +74,10 @@ const GLB_PROPS: Record<string, GlbProp> = {
   // claim a single tile, so they fit to 3 across (the windmill and water tower
   // fit by HEIGHT — their bases are narrow and the sails/tank overhang above
   // head height, which is a thing you walk under, not into).
-  crop: { files: ['Corn_4', 'Wheat_4'], fit: 'h', target: 2.0 },
+  // CORN ONLY. Wheat_4 is a 0.95u stalk, and fitting it to the 2u a
+  // concealment crop needs stretched one lonely wheat to twice a man's height.
+  // Corn is natively 1.97u — it earns the target instead of being racked to it.
+  crop: { files: ['Corn_4'], fit: 'h', target: 2.0 },
   barn: { files: ['Barn', 'BigBarn', 'SmallBarn'], fit: 'w', target: 6 },
   // A HOUSE THAT IS NOT A HOUSE YOU ENTER. The stamped houses are 30+ units
   // wide with doors and rooms; these are 4-unit models we scale to 7 and sit
@@ -387,15 +390,31 @@ export function buildProp(type: string, scale: number): THREE.Object3D {
     // §farm — each carries a cheap procedural body so the silhouette and the
     // collision story exist on frame one; the real model swaps in on load.
     case 'crop': {
-      // a stalk, not a bush: corn stands taller than a man and conceals like
-      // the tall grass it grows on (walkable — this claims no tile)
+      // A FIELD, NOT A FLAGPOLE. Corn stands taller than a man and conceals
+      // like the tall grass it grows on (walkable — this claims no tile), but
+      // ONE stalk on a 3u tile reads as bare dirt with a twig in it. A crop
+      // tile is a CLUMP. It's cheap to do honestly: a map grows at most ~70
+      // crop props, so a handful of stalks each costs nothing, and the GLB
+      // itself is fetched once and cloned.
       const g = new THREE.Group();
-      const stalk = cyl(0.06 * scale, 0.09 * scale, 1.9 * scale, mat(0x7c8a3a, { rough: 1 }), 4);
-      stalk.position.y = 0.95 * scale;
-      const head = new THREE.Mesh(new THREE.ConeGeometry(0.16 * scale, 0.5 * scale, 5), mat(0xb8a94a, { rough: 1 }));
-      head.position.y = 1.95 * scale;
-      g.add(stalk, head);
-      return glbProp('crop', scale, scale, g);
+      // jitter derived from the prop's own scale, so a given stalk stands in
+      // the same place every time the map is drawn
+      let h = Math.abs(Math.sin(scale * 127.1) * 43758.5453) % 1;
+      const rnd = () => (h = Math.abs(Math.sin(h * 127.1 + 311.7) * 43758.5453) % 1);
+      for (let i = 0; i < 5; i++) {
+        const s = scale * (0.85 + rnd() * 0.3);
+        const one = new THREE.Group();
+        const stalk = cyl(0.06 * s, 0.09 * s, 1.9 * s, mat(0x7c8a3a, { rough: 1 }), 4);
+        stalk.position.y = 0.95 * s;
+        const head = new THREE.Mesh(new THREE.ConeGeometry(0.16 * s, 0.5 * s, 5), mat(0xb8a94a, { rough: 1 }));
+        head.position.y = 1.95 * s;
+        one.add(stalk, head);
+        const plant = glbProp('crop', s, s + i, one);
+        plant.position.set((rnd() - 0.5) * 1.9, 0, (rnd() - 0.5) * 1.9);
+        plant.rotation.y = rnd() * Math.PI * 2;
+        g.add(plant);
+      }
+      return g;
     }
     case 'barn': {
       const g = new THREE.Group();

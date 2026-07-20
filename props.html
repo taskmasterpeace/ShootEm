@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>War World — Prop Contact Sheet</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌾</text></svg>" />
+  <style>
+    :root { --ink: #e7ecf2; --muted: #93a0b0; --amber: #e8a33d; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #14171b; }
+    canvas { display: block; }
+    #labels { position: fixed; inset: 0; pointer-events: none; }
+    .lbl {
+      position: absolute; transform: translate(-50%, 0);
+      font: 600 11px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      letter-spacing: -0.01em; color: var(--amber);
+      background: rgba(14, 17, 21, 0.82); padding: 3px 6px;
+      border: 1px solid #333b47; white-space: nowrap;
+    }
+    #hint {
+      position: fixed; top: 10px; left: 12px;
+      font: 11px ui-monospace, Menlo, Consolas, monospace; color: var(--muted);
+      background: rgba(14, 17, 21, 0.8); padding: 5px 9px; border: 1px solid #333b47;
+    }
+  </style>
+</head>
+<body>
+  <div id="hint">red post = 1.8u (a soldier) · dark square = the tiles the generator claims</div>
+  <div id="labels"></div>
+  <script type="module">
+    import './src/client/propsheet.ts';
+  </script>
+</body>
+</html>

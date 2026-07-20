@@ -33,6 +33,9 @@ export default defineConfig({
         harness: resolve(__dirname, 'harness.html'),
         // §11.5 the War Room — the operator's console (/warroom.html)
         warroom: resolve(__dirname, 'warroom.html'),
+        // the prop contact sheet — every placeable prop beside a 1.8u man
+        // (/props.html); the one check the gates can't run for you
+        props: resolve(__dirname, 'props.html'),
       },
     },
   },
