@@ -48,6 +48,14 @@ const CORE_WEAPONS: Record<WeaponId, WeaponDef> = {
   smoke_nade: W({ id: 'smoke_nade', name: 'M-77 Smoke', damage: 0, rof: 0.8, speed: 16, clip: 1, reserve: 0, range: 26, arc: true, payload: 'smoke', sound: 'thump', tracer: 'canister' }),
   fire_nade: W({ id: 'fire_nade', name: 'T-4 Incendiary', damage: 0, rof: 0.8, speed: 16, clip: 1, reserve: 0, range: 26, arc: true, payload: 'fire', sound: 'thump', tracer: 'canister' }),
   conc_nade: W({ id: 'conc_nade', name: 'C-9 Concussion', damage: 0, rof: 0.8, speed: 16, clip: 1, reserve: 0, range: 26, splash: 6.5, splashDamage: 18, knockback: 26, arc: true, payload: 'concussion', sound: 'thump', tracer: 'canister', icon: '💫' }),
+  // M3 THE REPLACEMENT (Robert: "I don't think we need to add weapons, I
+  // think we need to replace weapons… concussion grenades, no fire, just
+  // concussed, with maximum knockback"). The jump trooper's GL-40 becomes
+  // the CL-40: same launcher handling, but the round is PURE CONCUSSION —
+  // 14 splash damage (a slap), knockback 30 (the maximum on any launcher),
+  // which crosses the ragdoll threshold out to ~3u. It flips people; the
+  // jetpack class becomes the crowd-control skirmisher, not a bomber.
+  cl40: W({ id: 'cl40', name: 'CL-40 Concussor', damage: 0, rof: 1.1, speed: 34, clip: 5, reloadTime: 2.4, reserve: 30, range: 46, splash: 6.5, splashDamage: 14, knockback: 30, arc: true, payload: 'concussion', sound: 'thump', tracer: 'canister', icon: '💫' }),
   orbital_beacon: W({ id: 'orbital_beacon', name: 'Orbital Designator', damage: 0, rof: 0.5, speed: 26, clip: 1, reserve: 0, range: 42, arc: true, sound: 'thump', tracer: 'rocket' }),
   buggy_mg: W({ id: 'buggy_mg', name: 'Buggy MG', damage: 11, rof: 10, speed: 110, spread: 0.045, clip: Infinity, reserve: Infinity, range: 52, sound: 'smg' }),
   tank_cannon: W({ id: 'tank_cannon', name: '120mm Cannon', damage: 110, rof: 0.5, speed: 70, spread: 0.004, clip: Infinity, reserve: Infinity, range: 94, splash: 6.5, splashDamage: 60, knockback: 18, sound: 'cannon', tracer: 'rocket' }),
@@ -180,7 +188,7 @@ export const CLASSES: Record<ClassId, ClassDef> = {
   },
   jump: {
     id: 'jump', name: 'Jump Trooper', desc: 'Jetpack mobility. SMG skirmisher.',
-    hp: 90, speed: 11.5, primary: 'kuchler', secondary: 'gl',
+    hp: 90, speed: 11.5, primary: 'kuchler', secondary: 'cl40',
     ability: 'jetpack', abilityName: 'Jetpack (Space)', color: 0x7fa8c9,
   },
   engineer: {

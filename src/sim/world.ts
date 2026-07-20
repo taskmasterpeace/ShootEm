@@ -3274,7 +3274,10 @@ export class World {
       // explode() — so the blue rings + two-zone falloff come free — then a
       // STAGGER pass: ears ring (a fire-lock), and bots lose their target for
       // a beat. It shoves and disorients; it does not kill.
-      const def = WEAPONS.conc_nade;
+      // the CARRIER owns the blast: the hand C-9 keeps its own numbers, and
+      // the CL-40's max-knockback round brings its own (hardcoding conc_nade
+      // here would cap every concussion weapon at the hand grenade's shove)
+      const def = WEAPONS[p.weapon]?.splash ? WEAPONS[p.weapon] : WEAPONS.conc_nade;
       this.explode(p.pos, def, p.ownerId, p.team);
       for (const s of this.soldiers.values()) {
         if (!s.alive || s.vehicleId >= 0 || s.team === p.team) continue;
