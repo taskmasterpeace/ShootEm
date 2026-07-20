@@ -23,6 +23,8 @@
 // as the baseline to beat. window.__style drives it deterministically.
 // ---------------------------------------------------------------------------
 import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { JOINT_NAMES, poseSoldierJoints, type Joints } from './animation';
 import { buildSoldier } from './models/soldiers';
 
 type ActionId = 'run' | 'dash' | 'slash' | 'fly';
@@ -170,10 +172,12 @@ function capsuleRig(label: string, shapes: 1 | 4 | 12): Rig {
     // "flying doesn't look good": hands that hold, tuck, and swing without a
     // welded limb to fight. Rayman shipped a whole franchise on this.
     const mittGeo = new THREE.SphereGeometry(0.16, 8, 6);
-    const mittR = new THREE.Mesh(mittGeo, M(0xd8cdb4));
-    mittR.position.set(0.2, 0.86, 0.62); mittR.castShadow = true;
-    const mittL = new THREE.Mesh(mittGeo, M(0xd8cdb4));
-    mittL.position.set(0.1, 0.9, -0.6); mittL.castShadow = true;
+    // glove-tan, and parked ON the weapon — grip and foregrip — so they read
+    // as hands holding a gun, not white things bouncing around
+    const mittR = new THREE.Mesh(mittGeo, M(0xc9a97a));
+    mittR.position.set(0.08, 0.8, 0.5); mittR.castShadow = true;
+    const mittL = new THREE.Mesh(mittGeo, M(0xc9a97a));
+    mittL.position.set(0.52, 0.84, 0.5); mittL.castShadow = true;
     body.add(mittR, mittL);
     rig.mittR = mittR; rig.mittL = mittL;
     // feet nubs — the bop reads harder with something to leave the ground
@@ -381,11 +385,38 @@ function addLabel(text: string, x: number) {
   labels.push({ at: new THREE.Vector3(x, 0, 2.6), el });
 }
 
-// baseline: the current soldier, as shipped
-const current = buildSoldier(0, 'infantry', 'bot');
-current.position.set(-2.5 * PITCH, 0, 0);
-current.rotation.y = Math.PI / 2; // face +Z so the lineup reads in profile
-scene.add(current);
+// THE BASELINE, UNBIASED (Robert: "why isn't it doing any of the stuff? this
+// is kinda biased"). Fair point — it stood there like a statue while the
+// candidates danced. Now it runs its ACTUAL in-game gait: poseSoldierJoints,
+// the same function the renderer calls, drives its joints every frame, and
+// the shared animator gives it the same root motion, ghosts and speed lines
+// as everyone else. What you see is what the current rig can really do.
+const curSoldier = buildSoldier(0, 'infantry', 'bot'); // faces +X at yaw 0 — the rig contract
+const curRig: Rig = (() => {
+  const root = new THREE.Group();
+  const body = new THREE.Group();
+  body.add(curSoldier);
+  root.add(body);
+  const gun = new THREE.Group(); // the soldier's gun lives in its own hands; this is a dummy for the animator
+  body.add(gun);
+  const rig: Rig = {
+    label: 'CURRENT (baseline)', root, body, gun,
+    gunHome: { pos: gun.position.clone(), rot: gun.rotation.clone() },
+    blade: makeBlade(), ghosts: [], ghostGeo: new THREE.BoxGeometry(0.7, 1.7, 0.7),
+  };
+  body.add(rig.blade);
+  rig.blade.position.set(0.4, 1.1, 0.5);
+  for (let i = 0; i < 3; i++) {
+    const ghost = new THREE.Mesh(rig.ghostGeo, new THREE.MeshBasicMaterial({ color: 0x8a7a52, transparent: true, opacity: 0, depthWrite: false }));
+    ghost.position.y = 0.95;
+    root.add(ghost);
+    rig.ghosts.push(ghost);
+  }
+  return rig;
+})();
+curRig.root.position.set(-2.5 * PITCH, 0, 0);
+scene.add(curRig.root);
+rigs.push(curRig);
 addLabel('CURRENT (baseline)', -2.5 * PITCH);
 
 // Robert's two reference images, right beside the baseline they'd replace
@@ -408,6 +439,16 @@ specs.forEach(([label, n], i) => {
 
 camera.position.set(0, 7.4, 25.5);
 camera.lookAt(0, 1.2, 0);
+
+// ROTATE AND LOOK AROUND (Robert asked): drag orbits, wheel zooms, right-drag
+// pans. The damping makes it feel like a turntable, not a CAD tool.
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1.2, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.maxPolarAngle = Math.PI * 0.49; // never under the floor
+controls.minDistance = 6;
+controls.maxDistance = 60;
 
 // ---------------------------------------------------------------------------
 // THE ANIMATOR — one clock drives every rig so comparison is honest.
@@ -465,6 +506,17 @@ function loop() {
   frames++;
   const t = now / 1000;
 
+  controls.update();
+
+  // the baseline's limbs run the game's OWN gait — joints re-resolved each
+  // frame because the team-0 GLB body can mount in and replace the meshes
+  {
+    const j: Joints = {};
+    for (const name of JOINT_NAMES) j[name] = curSoldier.getObjectByName(name) ?? undefined;
+    const speed = action === 'run' ? 8 : action === 'dash' ? 13 : 0;
+    poseSoldierJoints(j, { kind: 'bot', time: t, id: 3, speed, airborne: action === 'fly' });
+  }
+
   for (const r of rigs) {
     const b = r.body;
     // rest pose every frame; actions layer on top
@@ -484,15 +536,20 @@ function loop() {
       b.rotation.z = -0.16;                      // lean INTO the run (travel = +X, the profile read)
       b.rotation.x = Math.sin(phase) * 0.055;    // the waddle that sells weight
       if (r.mittR) {
-        r.mittR.position.x = 0.2 + Math.sin(phase) * 0.12;       // gun hand rides near the grip
-        r.mittL!.position.x = 0.1 - Math.sin(phase) * 0.26;      // off hand pumps the stride
+        // BOTH HANDS ON THE WEAPON (Robert: "shouldn't it be on the gun?").
+        // The off-hand pumping the stride read as a random white ball — a
+        // soldier running with a rifle keeps both hands on it. Grip + foregrip.
+        r.mittR.position.set(0.08, 0.8, 0.5);
+        r.mittL!.position.set(0.52, 0.84, 0.5);
       }
       if (r.armR) {
-        // real limbs: anti-phase arm/leg swing (positive z-rotation carries a
-        // hanging limb toward +X, the travel direction)
+        // THE HOLD (Robert: "they don't look like they're holding the guns").
+        // A rifleman runs with both hands ON the rifle: right hand back at
+        // the grip, left arm crossing the body to the foregrip. The LEGS do
+        // the running — anti-phase scissor, full stride.
         const sw = Math.sin(phase);
-        r.armR!.rotation.z = -sw * 0.55;
-        r.armL!.rotation.z = sw * 0.55;
+        r.armR!.rotation.set(0, 0, 0.55);
+        r.armL!.rotation.set(-0.7, 0, 0.62);
         r.legR!.rotation.z = sw * 0.6;
         r.legL!.rotation.z = -sw * 0.6;
       }
@@ -510,10 +567,14 @@ function loop() {
         g.position.x = b.position.x - back * 2.1;
         (g.material as THREE.MeshBasicMaterial).opacity = Math.max(0, (0.34 - back * 0.09) * punch);
       }
+      if (r.mittR) {
+        r.mittR.position.set(0.08, 0.8, 0.5);   // hands never leave the weapon
+        r.mittL!.position.set(0.52, 0.84, 0.5);
+      }
       if (r.armR) {
-        // limbs sweep BACK — the body is a dart for half a second
-        r.armR!.rotation.z = -0.9 * punch;
-        r.armL!.rotation.z = -0.9 * punch;
+        // arms stay ON THE GUN through the dash — the legs are the dart
+        r.armR!.rotation.set(0, 0, 0.55);
+        r.armL!.rotation.set(-0.7, 0, 0.62);
         r.legR!.rotation.z = -0.7 * punch;
         r.legL!.rotation.z = -0.55 * punch;
       }
@@ -538,9 +599,10 @@ function loop() {
         r.mittR.position.x = 0.1 + swing * 0.5;
       }
       if (r.armR) {
-        // the right arm IS the axe: overhead wind, then the committed chop
-        r.armR!.rotation.z = 2.5 - swing * 3.1;
-        r.armL!.rotation.z = -0.4 * Math.sin(k * Math.PI); // counterweight
+        // the right arm IS the axe: overhead wind, then the committed chop —
+        // the left hand never lets go of the gun
+        r.armR!.rotation.set(0, 0, 2.5 - swing * 3.1);
+        r.armL!.rotation.set(-0.7, 0, 0.62);
         r.legR!.rotation.z = 0.3 * Math.sin(k * Math.PI);  // step into it
         r.legL!.rotation.z = -0.3 * Math.sin(k * Math.PI);
       }
@@ -561,8 +623,8 @@ function loop() {
       }
       if (r.armR) {
         // superman: arms thrown far forward, legs trailing together
-        r.armR!.rotation.z = 2.6 * ease;
-        r.armL!.rotation.z = 2.6 * ease;
+        r.armR!.rotation.set(0, 0, 2.6 * ease);
+        r.armL!.rotation.set(0, 0, 2.6 * ease);
         r.legR!.rotation.z = -0.35 * ease;
         r.legL!.rotation.z = -0.35 * ease;
       }
