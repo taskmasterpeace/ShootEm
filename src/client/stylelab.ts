@@ -82,6 +82,16 @@ const COL_DRESS: FactionDress = { jacket: 0x38414f, trouser: 0x22252c, camoA: 0x
 // grip and the barrel clears it (his note: "the barrel is sticking out of
 // the handle").
 // ---------------------------------------------------------------------------
+/** an invisible left-hand grip marker — the IK solver plants the off-hand
+ *  HERE every frame, so two-handed weapons are two-handed by construction
+ *  (and the hand chases the gun live when Robert drags it in edit mode) */
+function gripL(g: THREE.Group, x: number, y: number, z: number) {
+  const m = new THREE.Object3D();
+  m.name = 'gripL';
+  m.position.set(x, y, z);
+  g.add(m);
+}
+
 function makeRifle(): THREE.Group {
   const g = new THREE.Group();
   const body = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.13, 0.1), M(DARK, 0.6));
@@ -90,6 +100,7 @@ function makeRifle(): THREE.Group {
   const mag = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.22, 0.08), M(DARK, 0.6));
   mag.position.set(0.05, -0.16, 0); mag.rotation.z = 0.25;
   g.add(body, barrel, mag);
+  gripL(g, 0.28, -0.03, 0); // forend, ahead of the mag
   return g;
 }
 function makeSmg(): THREE.Group {
@@ -100,6 +111,7 @@ function makeSmg(): THREE.Group {
   const mag = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.2, 0.07), M(DARK, 0.6));
   mag.position.set(0.1, -0.15, 0); mag.rotation.z = 0.12;
   g.add(body, barrel, mag);
+  gripL(g, 0.2, -0.03, 0);
   return g;
 }
 function makeShotgun(): THREE.Group {
@@ -114,6 +126,7 @@ function makeShotgun(): THREE.Group {
   const pump = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.09, 0.16), M(0x8a5a36, 0.8));
   pump.position.set(0.22, -0.07, 0);
   g.add(stock, pump);
+  gripL(g, 0.22, -0.07, 0); // THE PUMP — "the other arm has to be grabbing the brown part in the front"
   return g;
 }
 function makePistol(): THREE.Group {
@@ -125,6 +138,7 @@ function makePistol(): THREE.Group {
   const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.1, 6), M(DARK, 0.4));
   muzzle.rotation.z = Math.PI / 2; muzzle.position.set(0.29, 0.1, 0);
   g.add(slide, grip, muzzle);
+  gripL(g, 0.0, -0.12, 0); // the support hand cups under the grip (isosceles)
   return g;
 }
 function makeLauncher(): THREE.Group {
@@ -137,6 +151,7 @@ function makeLauncher(): THREE.Group {
   const grip = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.16, 0.07), M(DARK, 0.6));
   grip.position.set(0.16, -0.16, 0);
   g.add(tube, ringF, ringB, grip);
+  gripL(g, 0.16, -0.18, 0); // the front grip under the tube
   return g;
 }
 /** the RG-2, UNMISTAKABLE this time (Robert: "I can't tell what type of gun
@@ -161,6 +176,7 @@ function makeRail(): THREE.Group {
   const foreGrip = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.14, 0.07), M(DARK, 0.6));
   foreGrip.position.set(0.34, -0.12, 0);
   g.add(body, barrel, scope, stock, pad, foreGrip);
+  gripL(g, 0.34, -0.14, 0); // the foregrip
   return g;
 }
 function makeFlamer(): THREE.Group {
@@ -174,6 +190,7 @@ function makeFlamer(): THREE.Group {
   const pilot = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 5), new THREE.MeshBasicMaterial({ color: 0xffa02a }));
   pilot.position.set(0.5, 0.02, 0);
   g.add(tube, bell, tank, pilot);
+  gripL(g, 0.26, -0.04, 0); // both hands on the tube
   return g;
 }
 
@@ -222,7 +239,7 @@ const HOLDS: Record<GunId, HoldDef> = {
   // TWO HANDS (Robert): left arm COMPLETELY bent, off-hand under the barrel
   shotgun: {
     mount: 'hand',
-    idle: { armR: [0, 0.3], elbowR: 0.85, armL: [0.6, 0.55], elbowL: 1.35, local: [0.12, -0.04, 0], localRotZ: -1.27 },
+    idle: { armR: [0, 0.3], elbowR: 0.85, armL: [0.6, 0.55], elbowL: 1.35, local: [0.12, -0.04, 0], localRotZ: -1.15 },
     run:  { armR: [0, 0.1], elbowR: 0.6, armL: [0.52, 0.45], elbowL: 1.1, local: [0.12, -0.04, 0], localRotZ: -1.2 },
   },
   // ISOSCELES standing; a pumping bent-arm carry at a sprint, muzzle down.
@@ -561,6 +578,58 @@ function play(a: ActionId) {
   for (const b of document.querySelectorAll('.act')) b.classList.toggle('on', (b as HTMLElement).dataset.a === a);
 }
 
+// ---------------------------------------------------------------------------
+// LEFT-ARM IK (Robert, on the shotgun: "the other arm has to be grabbing the
+// brown part in the front — it's a two-handed weapon"). Authored angles can
+// only ever land the off-hand NEAR a grip; a two-bone solve lands it ON it.
+// Shoulder and elbow are solved analytically each frame against the gun's
+// gripL marker, in body space, elbow dropping naturally below the reach line.
+// ---------------------------------------------------------------------------
+const L_UPPER = 0.4;   // shoulder pivot → elbow pivot
+const L_FORE = 0.29;   // elbow pivot → hand centre
+const DOWN = new THREE.Vector3(0, -1, 0);
+const _t = new THREE.Vector3();
+const _dir = new THREE.Vector3();
+const _n = new THREE.Vector3();
+const _u = new THREE.Vector3();
+const _e = new THREE.Vector3();
+const _v = new THREE.Vector3();
+const _q = new THREE.Quaternion();
+const _qi = new THREE.Quaternion();
+
+function solveLeftArm(r: Rig) {
+  const marker = r.gun.getObjectByName('gripL');
+  if (!marker) return;
+  r.root.updateMatrixWorld(true);
+  marker.getWorldPosition(_t);
+  r.body.worldToLocal(_t);                       // target, body space
+  const S = r.armL.position;                     // shoulder pivot, body space
+  _dir.copy(_t).sub(S);
+  const d = Math.min(Math.max(_dir.length(), Math.abs(L_UPPER - L_FORE) + 0.01), L_UPPER + L_FORE - 0.01);
+  _dir.normalize();
+  // law of cosines: shoulder offset angle and elbow interior angle
+  const gamma = Math.acos(Math.min(1, Math.max(-1, (L_UPPER * L_UPPER + d * d - L_FORE * L_FORE) / (2 * L_UPPER * d))));
+  // elbow plane normal — perpendicular to the reach, biased so the elbow
+  // falls BELOW the shoulder→grip line (a raised elbow reads broken)
+  _n.crossVectors(_dir, DOWN);
+  if (_n.lengthSq() < 1e-4) _n.set(0, 0, 1);
+  _n.normalize();
+  _u.copy(_dir).applyAxisAngle(_n, gamma);
+  _e.copy(S).addScaledVector(_u, L_UPPER);       // elbow position candidate
+  if (_e.y > S.y + _dir.y * L_UPPER) {           // elbow above the line? flip the plane
+    _u.copy(_dir).applyAxisAngle(_n, -gamma);
+    _e.copy(S).addScaledVector(_u, L_UPPER);
+  }
+  // shoulder: rotate the rest limb (hangs -Y) onto the upper-arm direction
+  r.armL.quaternion.setFromUnitVectors(DOWN, _u);
+  // elbow: in the shoulder's LOCAL frame, aim the forearm at the target
+  _v.copy(_t).sub(_e).normalize();
+  _qi.copy(r.armL.quaternion).invert();
+  _v.applyQuaternion(_qi);
+  r.elbowL.quaternion.setFromUnitVectors(DOWN, _v.normalize());
+  void _q;
+}
+
 function applyHold(r: Rig, pose: HoldPose) {
   r.armR.rotation.set(pose.armR[0], 0, pose.armR[1]);
   r.armL.rotation.set(pose.armL[0], 0, pose.armL[1]);
@@ -609,6 +678,7 @@ function loop() {
         // breathing — weight shifts, the weapon stays ready
         b.position.y = Math.sin(t * 1.7 + r.root.position.x) * 0.015;
         b.rotation.x = Math.sin(t * 1.3 + r.root.position.x) * 0.012;
+        solveLeftArm(r);
       } else if (action === 'run') {
         const phase = t * 9 + r.root.position.x;
         b.position.y = Math.abs(Math.sin(phase)) * 0.16;
@@ -624,6 +694,8 @@ function loop() {
           // the free off-hand pumps the sprint
           r.armL.rotation.set(0, 0, Math.sin(phase) * 0.5 - 0.1);
           r.elbowL.rotation.set(0, 0, 0.9);
+        } else {
+          solveLeftArm(r); // both hands ON the weapon, even mid-stride
         }
       } else if (action === 'dash') {
         const k = Math.min(1, actionT / 0.5);
@@ -643,6 +715,7 @@ function loop() {
           (g.material as THREE.MeshBasicMaterial).opacity = Math.max(0, (0.34 - back * 0.09) * punch);
         }
         if (punch > 0.25 && Math.random() < 0.5) speedLine(new THREE.Vector3(r.root.position.x + b.position.x - 0.8, 0, r.root.position.z));
+        if (!H.run.leftFree) solveLeftArm(r);
         if (k >= 1 && !frozen) play('run');
       } else if (action === 'slash') {
         const k = Math.min(1, actionT / 0.38);
@@ -656,6 +729,7 @@ function loop() {
         r.elbowR.rotation.set(0, 0, 0.4 + swing * 0.9);
         r.legR.rotation.z = 0.3 * Math.sin(k * Math.PI);
         r.legL.rotation.z = -0.3 * Math.sin(k * Math.PI);
+        solveLeftArm(r); // the left hand keeps the gun through the chop
         if (k >= 1 && !frozen) play('run');
       } else if (action === 'fly') {
         const k = Math.min(1, actionT / 0.6);
