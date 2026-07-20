@@ -44,6 +44,14 @@ These were suspected missing but are SHIPPED and pinned; the loop skips them:
 
 ---
 
+## WAVE 0 — SIGHT & STEEL (added 2026-07-20 — jumps the queue)
+
+Full spec: **`docs/superpowers/plans/2026-07-20-sight-and-steel.md`**. This wave goes first because Part A is where the frame time is *and* it is the clarity fix Robert asked for, and because Part B (melee) only pays off once interiors have real sight lines.
+
+- [ ] **0.1 — the three visibility bugs.** [#43](https://github.com/taskmasterpeace/ShootEm/issues/43) the skyline rule makes any second storey a fishbowl (visible through walls to the whole enemy team — bots too); [#44](https://github.com/taskmasterpeace/ShootEm/issues/44) enemy corpses bypass the fog entirely (~168 shadow draws + a feed of where your team is dying); [#45](https://github.com/taskmasterpeace/ShootEm/issues/45) enemy vehicles are never fog-culled (offline leaks what online protects). #43 is sim surgery — its own commit, full suite, then a bot match watching the blackbox.
+- [ ] **0.2 — SIGHT** ([#46](https://github.com/taskmasterpeace/ShootEm/issues/46), plan § A). Measured: the player is shown **80% more enemies than he can see** (8.70 drawn vs 4.84 personally seen) because `lastSeen` is keyed by TEAM, not viewer. **[DECISION] the recommended split: the 3D view shows what YOU see, the minimap shows what your TEAM sees.** Then the ghost stops being a man (a ground contact mark, not a jogging translucent body), and darkness outside the cone arrives via `onBeforeCompile` injection — zero draws, zero passes.
+- [ ] **0.3 — STEEL** ([#47](https://github.com/taskmasterpeace/ShootEm/issues/47), plan § B). The swing state machine already ships (`world.ts:2569-2619`) wired only to zombie claws: add a melee weapon, a key, then block/grab and the strike/block/grab triangle. Watch the run-carry rebase trap (`renderer.ts:3050`) — an additive punch pose gets erased every frame.
+
 ## WAVE 1 — COMBAT FEEL CORE (the ring, the ladder, the hands)
 
 - [ ] **1.1 The accuracy ladder — one function, one truth.** Add a `spreadMul(soldier)` in the sim used by EVERY soldier fire path (`world.ts:2629` is the choke point — vehicles/turrets excluded). Locked numbers: crouched+still ×0.49 · standing still ×0.75 · walking ×1.0 (today's baseline) · sprint ×1.7 · airborne/jetpack ×1.8 on top · firing from a moving vehicle seat ×2.2 scaled by hull speed (lands with 5.4). Bots get it automatically (fairness law). AUDIT: MISSING — spread is a flat weapon stat, nothing reads mover state (`world.ts:2629`). Balance pass mandatory (sniper crouch-camp meta check: one bot match, watch infiltrator K/D).
@@ -105,6 +113,10 @@ These were suspected missing but are SHIPPED and pinned; the loop skips them:
 - [ ] **7.4 Impact VFX per material.** `ImpactKind` is read only by the drill-face sparks. Route bullet-impact events through the material's impact kind: spark on metal, chips on stone, splinters on wood, puff on dirt. The world tells you what you hit before you read the HUD.
 
 ## WAVE 8 — PERFORMANCE & NETWORK (execute the audit)
+
+> **Every audit finding is now a GitHub issue: [#1–#42](https://github.com/taskmasterpeace/ShootEm/issues), ranked payoff-per-effort (issue number = board rank), labelled by area and effort.** Work them in number order unless a plan says otherwise. `docs/OPTIMIZATION-AUDIT.md` stays the reference with the full measurements and the netcode plan.
+>
+> **Start with [#31](https://github.com/taskmasterpeace/ShootEm/issues/31) (quality settings + the camera-following shadow box).** The sun's ortho box is nailed to ±130 u over a 300 u world and never follows the camera, so ~75–80% of ~1,242 soldier shadow draws are for bodies not on screen. It is *hours* and it is the highest-leverage single line in the whole report.
 
 - [ ] **8.1 Execute `docs/OPTIMIZATION-AUDIT.md`** (written by the 2026-07-20 verified sweep): every HIGH item, then MEDIUMs, one commit each, re-profiling after each (the doc carries the numbers + the netcode plan). Low-end target: a QUALITY LOW preset (resolution scale, shadows off, decal/particle caps, band-reduced draw) selectable in settings and auto-suggested on slow first frames.
 - [ ] **8.2 The netcode prerequisite refactors** from the audit's plan (determinism hazards, client-reaching-into-sim seams, snapshot size) — land them while they're cheap, BEFORE the war grows further. The sim already serializes whole-world snapshots for the kill cam; that's the seed.
