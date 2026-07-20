@@ -42,10 +42,10 @@ One Blender session for the whole batch (startup is the slow part), mesh-only ex
 | Pack | Decision |
 |---|---|
 | **trees** (13) | ✅ **WIRED** — tree ×4 + rock ×3 variants replace the procedural cone-trees. Every field map upgraded. |
-| **farm houses** (13) | ✅ **Next** — barn/silo/windmill/water-tower/well as *solid landmark props* that claim tiles. No interior needed, which is exactly what they are. |
-| **crops** (102) | ✅ **Next** — a new **FARMLAND chunk**: crop rows as walkable concealment (the same "soft bottleneck" role tall grass plays), with a barn + fences as the landmark. This is a whole map texture the game doesn't have. |
+| **farm houses** (13) | ✅ **WIRED** — barn (×3: Barn/BigBarn/SmallBarn), silo, windmill (×2), water tower as *solid landmark props* that claim tiles. `OpenBarn` deliberately **skipped**: an open-sided barn standing on a solid tile invites a player into a wall. |
+| **crops** (102) | ✅ **WIRED, but only ONE model of it.** The FARMLAND chunk ships: crop rows as walkable concealment (the "soft bottleneck" role tall grass plays) under a barn + farmhouse. **Measure your models before you trust a folder name** — the eight `*_Crop` files are ankle-high ground cover, not crops: Wheat_Crop 0.10u tall, Tomato 0.15u, Corn_Crop 0.15u, Lettuce 0.40u. Only `Corn_4` (1.97u) stands tall enough to justify a concealment tile. Scattering the short ones on `T_GRASS` would make the picture lie about cover. A crop tile is five jittered corn plants; the low ones stay out until there's a *decorative* garden tile that conceals nothing. |
 | **props** (123, interior furniture) | ✅ **High value** — our stamped houses are *enterable but empty rooms*. Couches, tables, shelves, beds make them real **and** give cover. Furniture is just props on tiles. |
-| **houses** (9, detailed) | ❌ **Skip.** 28k tris, no tile data (so non-enterable), and our own stamped houses are already enterable and look right after the roof/cottage pass. Keep 1–2 only if we ever want map-edge skyline. |
+| **houses** (9, detailed) | ⚠️ **Partly wired — verdict revised.** Still not a replacement for the stamped houses (no tile data, so non-enterable). But House1/House2/Building4 are only ~4u wide, i.e. *single-building props*, not architecture — scaled to 7u they make a fine **farmhouse** on a solid 2×2. They live in the **farm only**, on purpose: the neighbourhood teaches "a house has a door," and a doorless one there would make a liar of every other house on the map. |
 
 ## Should we add more? — yes, but narrowly
 
@@ -61,7 +61,23 @@ Worth pulling, in order:
 ## Roadmap
 
 - [x] Converter + prop library + trees/rocks wired
-- [ ] Farm buildings as solid landmark props
-- [ ] FARMLAND chunk (crop rows + barn + fences)
-- [ ] Furniture inside stamped houses
-- [ ] Resolve the license ⚠
+- [x] Farm buildings as solid landmark props (barn, silo, windmill, water tower)
+- [x] FARMLAND chunk — crop rows + barn + farmhouse. 11/20 seeds grow one;
+      every crop stands on walkable grass, reachability 100% on all seeds
+      (`npx tsx tools/farm-check.ts`)
+- [x] `/props.html` — the prop contact sheet. Every prop beside a 1.8u man,
+      on its claimed footprint. The one check the gates cannot run for you;
+      it caught the stretched-wheat crop and a prop that rendered nothing.
+- [ ] Fences along crop rows — needs a decision first: a fence prop is either
+      solid (claims tiles, and a 5.9u fence spans two of them) or it's a
+      visual lie you walk through. Not free, so not done blind.
+- [ ] Furniture inside stamped houses ← **the remaining high-value item**
+- [ ] Resolve the license ⚠ — still unresolved, still blocking ship
+
+## Tools
+
+| Tool | What it answers |
+|---|---|
+| `node tools/glb-bounds.mjs <dir>` | How big is this model, really? Reads the POSITION accessor min/max straight out of the GLB container — no parser, no three.js. This is how the ankle-high "crops" were caught. |
+| `npx tsx tools/farm-check.ts` | Does the farm land, per seed? Crops on grass, landmarks placed, bases and hill still reachable. |
+| `/props.html` | Does it *look* right? Scale, grounding, orientation. `window.__sheet.census()` returns mesh count, size and ground contact per prop. |
