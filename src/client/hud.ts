@@ -188,7 +188,24 @@ export class Hud {
         ammoEl.textContent = `${Math.ceil(v.hp)} / ${v.maxHp} HULL`;
         ammoEl.classList.toggle('low-ammo', hullFrac <= 0.5 && hullFrac > 0.25);
         ammoEl.classList.toggle('no-ammo', hullFrac <= 0.25); // the smoke you already see, in a number
-        this.reloadBar.style.display = 'none';
+        // WPN cycle (backlog 1.7a — Robert: "we need to see when our gun is
+        // recharged… for the vehicle that we're in"): slow mounted guns show
+        // their recharge on the reload bar. Fast MGs (period < 0.5s) skip it —
+        // a bar that strobes nine times a second is noise, not information.
+        const wid = VEHICLES[v.kind].weapon;
+        const wdef = wid ? WEAPONS[wid] : undefined;
+        const period = wdef ? 1 / wdef.rof : 0;
+        const wpnDead = (v.systems?.weapon ?? 1) <= 0;
+        if (wdef && period >= 0.5 && !wpnDead) {
+          const wait = Math.max(0, (v.nextFireAt ?? 0) - world.time);
+          const ready = 1 - Math.min(1, wait / period);
+          this.reloadBar.style.display = 'block';
+          const rf = $('reload-fill');
+          rf.style.width = `${ready * 100}%`;
+          rf.style.background = ready >= 1 ? '#46d17a' : '#f5b21a'; // amber cycling, green READY
+        } else {
+          this.reloadBar.style.display = 'none';
+        }
         this.hullBar.style.display = 'block';
         const hf = $('hull-fill');
         hf.style.width = `${hullFrac * 100}%`;
@@ -241,7 +258,9 @@ export class Hud {
         // reload progress bar fills toward ready
         this.reloadBar.style.display = 'block';
         const k = Math.min(1, Math.max(0, 1 - (s.reloadUntil - world.time) / def.reloadTime));
-        ($('reload-fill')).style.width = `${k * 100}%`;
+        const rfill = $('reload-fill');
+        rfill.style.width = `${k * 100}%`;
+        rfill.style.background = ''; // the vehicle WPN meter tints this — reclaim the default
       } else {
         ammoEl.classList.remove('reloading');
         this.reloadBar.style.display = 'none';
