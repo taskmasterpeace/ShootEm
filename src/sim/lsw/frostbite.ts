@@ -20,7 +20,7 @@ export function step(w: World, s: Soldier, _dt: number) {
       const d = Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z);
       if (d < best && losClear(w.map.grid, { ...s.pos, y: 1.4 }, { ...e.pos, y: 1.4 })) { best = d; victim = e; }
     }
-    if (victim && w.encaseSoldier(victim)) {
+    if (victim && w.encaseSoldier(victim, s.id)) {
       s.nextLswAt = w.time + 4;
       w.emit({ type: 'vo', text: 'vo_frostbite_ability', pos: { ...s.pos }, soldierId: s.id });
     }
@@ -44,7 +44,7 @@ export function active(w: World, s: Soldier): boolean {
     const score = d + Math.abs(ang) * 12;
     if (score < best && losClear(w.map.grid, { ...s.pos, y: 1.4 }, { ...e.pos, y: 1.4 })) { best = score; victim = e; }
   }
-  if (victim && w.encaseSoldier(victim)) {
+  if (victim && w.encaseSoldier(victim, s.id)) {
     w.emit({ type: 'lsw_active', pos: { ...victim.pos }, text: 'frostbite', soldierId: s.id });
     w.emit({ type: 'vo', text: 'vo_frostbite_ability', pos: { ...s.pos }, soldierId: s.id });
     return true;

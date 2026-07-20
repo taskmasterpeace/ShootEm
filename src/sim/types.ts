@@ -379,6 +379,9 @@ export interface Soldier {
    *  shooting it. While encased the soldier takes NO other damage — freezing
    *  their star both removes AND protects him; timing is the skill. */
   encasedUntil?: number;
+  /** who put you in the ice — so a death inside the block is credited to the
+   *  hand that froze you, not to nobody and not to a stale previous killer */
+  encasedBy?: number;
   /** accumulated struggle: rises while the encased soldier feeds move/fire
    *  input, breaks the ice at 1 (~4s of mashing) but exits at heavy HP cost */
   struggle?: number;

@@ -30,6 +30,8 @@ export class Hud {
   private sysPips = document.createElement('div');
   private equipRow = document.createElement('div');
   private reloadBar = document.createElement('div');
+  private hullBar = document.createElement('div');
+  private lswBar = document.createElement('div');
   private lastHp = -1;
   private lastRingKey = '';
   private wasAlive = false;
@@ -63,8 +65,20 @@ export class Hud {
     this.sysPips.id = 'sys-pips';
     this.reloadBar.id = 'reload-bar';
     this.reloadBar.innerHTML = '<div id="reload-fill"></div>';
+    // THE HULL BAR (Robert: "when we get into a vehicle we can't see how much
+    // health it has… I can tell when it's about to explode because it started
+    // smoking, but I can't tell" — the number was there, the READING wasn't)
+    this.hullBar.id = 'hull-bar';
+    this.hullBar.innerHTML = '<div id="hull-fill"></div>';
+    // THE SIGNATURE METER: an ascended pilot had NO cooldown readout anywhere —
+    // nextLswActiveAt was never once read on the client (Robert, on Phantom:
+    // "he doesn't have a meter to tell me when he could phase again")
+    this.lswBar.id = 'lsw-bar';
+    this.lswBar.innerHTML = '<div id="lsw-fill"></div>';
     const wb = $('weapon-block');
     wb.appendChild(this.reloadBar);
+    wb.appendChild(this.hullBar);
+    wb.appendChild(this.lswBar);
     wb.appendChild(this.sysPips);
     // equipment status icons next to the vitals
     this.equipRow.id = 'equip-status';
@@ -139,9 +153,20 @@ export class Hud {
       if (v) {
         $('weapon-name').textContent = VEHICLES[v.kind].name;
         const ammoEl = $('ammo-count');
-        ammoEl.classList.remove('reloading', 'low-ammo', 'no-ammo');
-        ammoEl.textContent = `${Math.ceil(v.hp)} ARMOR`;
+        ammoEl.classList.remove('reloading');
+        // HULL, not "ARMOR": this read `${hp} ARMOR` — a bare number with no
+        // maximum, so 90 meant nothing (a full buggy? a dying tank?) and it
+        // never changed colour. Now it's a fraction with the same low/critical
+        // warning states the ammo counter uses, over a bar you read at a glance.
+        const hullFrac = Math.max(0, Math.min(1, v.hp / Math.max(1, v.maxHp)));
+        ammoEl.textContent = `${Math.ceil(v.hp)} / ${v.maxHp} HULL`;
+        ammoEl.classList.toggle('low-ammo', hullFrac <= 0.5 && hullFrac > 0.25);
+        ammoEl.classList.toggle('no-ammo', hullFrac <= 0.25); // the smoke you already see, in a number
         this.reloadBar.style.display = 'none';
+        this.hullBar.style.display = 'block';
+        const hf = $('hull-fill');
+        hf.style.width = `${hullFrac * 100}%`;
+        hf.style.background = hullFrac > 0.5 ? '#46d17a' : hullFrac > 0.25 ? '#f5b21a' : '#ff4736';
         // crew position
         const crew = VEHICLES[v.kind].crew;
         let role = s.seat === 0 ? 'DRIVER · W/S drive · A/D steer' : 'PASSENGER';
@@ -158,6 +183,7 @@ export class Hud {
       }
     } else {
       this.sysPips.style.display = 'none';
+      this.hullBar.style.display = 'none';
       const def = WEAPONS[s.weapons[s.weaponIdx]];
       $('weapon-name').textContent = `${def.icon ? def.icon + ' ' : ''}${def.name}`;
       const ammoEl = $('ammo-count');
@@ -196,9 +222,29 @@ export class Hud {
         pouch(1, 'smoke', s.smokes ?? 0),
         pouch(2, 'fire', s.firebombs ?? 0),
       ].filter(Boolean).join(' · ');
+      // WHAT Q ACTUALLY DOES. An ascended pilot was shown `CLASSES[classId].
+      // abilityName` — the ability of the recruit they stopped being — while
+      // the god's own activeLabel was never displayed anywhere in the game.
+      // A god also carries no frag pouch now, so the bag line is a lie too.
+      const god = s.ascendant ? LSWS[s.ascendant] : undefined;
       $('ability-hint').textContent = world.mode.id === 'paintball'
         ? 'R reload · one splat and you sit'
-        : `${CLASSES[s.classId].abilityName} · ${bag || 'bag empty'}${altTxt} · X swaps`;
+        : god
+          ? `Q · ${god.activeLabel}`
+          : `${CLASSES[s.classId].abilityName} · ${bag || 'bag empty'}${altTxt} · X swaps`;
+
+      // THE SIGNATURE METER: fills back toward ready. Hidden for mortals.
+      if (god) {
+        const cd = Math.max(0.001, god.activeCd);
+        const left = Math.max(0, (s.nextLswActiveAt ?? 0) - world.time);
+        const k = Math.max(0, Math.min(1, 1 - left / cd));
+        this.lswBar.style.display = 'block';
+        const lf = $('lsw-fill');
+        lf.style.width = `${k * 100}%`;
+        lf.style.background = k >= 1 ? '#46d17a' : '#e8a33d'; // green = press it
+      } else {
+        this.lswBar.style.display = 'none';
+      }
     }
 
     // respawn overlay

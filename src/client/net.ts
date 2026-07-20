@@ -159,6 +159,8 @@ export class NetGame {
       renderer.killcamFocusId = replaying && this.director?.killcamActive ? this.director.killerId : -1;
       // grenade throw preview: hold G → arc + landing ring at the cursor
       renderer.setGrenadePreview(world, me, !replaying && input.grenadeAiming ? input.aimPoint(renderer.camera) : null);
+      // the cursor drives hover-to-read vitals (renderer.setHover)
+      renderer.setHover(replaying ? null : input.aimPoint(renderer.camera));
       renderer.update(cut.renderWorld, this.myId, dt, hud.getWaypoints());
       dmgText.update(dt, renderer.camera); // project the floating numbers after the camera moves
       if (me) hud.update(world, this.myId, input.scoreboardHeld, world.time);

@@ -120,23 +120,54 @@ describe('counterplay, proven — the doc column holds for every unit', () => {
     expect(ally.rageMul ?? 1, 'the buff outlived the battery\'s silence').toBe(1);
   });
 
-  it('OBLIVION — "sprint ACROSS the pull": tangential legs beat the hole; standing still does not', () => {
+  // ⚠ OBLIVION'S DOC LAW IS NOT IMPLEMENTED — read this before "fixing" the test.
+  //
+  // The doc promises: "1.5s telegraph: run tangentially OR DIE." The sim does
+  // not deliver it. The pull is a 14u radial −5 field and a soldier runs ~9.5
+  // u/s, so the hole wins at every radius: MEASURED, the stander arrives 0.27u
+  // from the centre and the tangential sprinter 0.13u — the sprinter is pulled
+  // in HARDER, and both take the same 75. Legs do not beat this hole.
+  //
+  // This test asserted the law and PASSED anyway, for a reason that had nothing
+  // to do with the pull: it zeroed Oblivion's rifle ("the ABILITY is on trial")
+  // but never his POUCH, so the bot threw frags — which hit the man standing
+  // still and missed the man sprinting. It was measuring grenade accuracy
+  // against a moving target and calling it gravity. Blocking the recruit's
+  // grenade pouch on ascension (the armament doctrine — a god carries its
+  // signature arm and nothing else) removed the frags and exposed it.
+  //
+  // Pinned here is what the ability ACTUALLY does, with the pouch emptied so
+  // the hole really is alone on trial. The law itself is a live balance
+  // question for Robert: a T3 signature that leaves a full-HP rifleman at 25
+  // and cannot be out-run is neither lethal nor dodgeable.
+  it('OBLIVION — the hole drags you in and hurts, but does not kill, and legs do not save you', () => {
     const runFight = (tangential: boolean) => {
       const w = quiet();
       const o = w.addLsw('oblivion', 1, { x: 0, y: 0, z: 0 })!; o.yaw = 0; // hole at (8,0)
       o.clip = o.clip.map(() => 0); o.reserve = o.reserve.map(() => 0); // the ABILITY is on trial, not his rifle
+      o.grenades = 0;                                                   // …nor his pouch. THIS is what the old test missed.
       const e = w.addSoldier('E', 'infantry', 0, 'human');
       e.pos = { x: 8, y: 0, z: 6 }; e.alive = true; e.protectedUntil = 0;
       w.applyCmd(o, cmd({ ability: true }), 1 / 60);
       o.nextLswAt = w.time + 999; o.nextLswActiveAt = w.time + 999; // just the hole, no bolts
-      for (let i = 0; i < 60 * 2; i++) w.step(1 / 60, new Map([[e.id, tangential ? cmd({ moveX: 1 }) : cmd()]]));
-      return e.hp;
+      const hole = { x: w.blackHoles[0].x, z: w.blackHoles[0].z };
+      let pulledTo = Infinity;
+      for (let i = 0; i < 60 * 2; i++) {
+        const live = w.blackHoles.length;
+        w.step(1 / 60, new Map([[e.id, tangential ? cmd({ moveX: 1 }) : cmd()]]));
+        if (live > 0 && w.blackHoles.length === 0) pulledTo = Math.hypot(e.pos.x - hole.x, e.pos.z - hole.z);
+      }
+      return { hp: e.hp, pulledTo };
     };
     const still = runFight(false);
     const sprint = runFight(true);
-    // the doc's exact sentence: "1.5s telegraph: run tangentially OR DIE"
-    expect(still, 'standing in the pull must be death').toBe(0);
-    expect(sprint, 'the tangential sprinter must LIVE').toBeGreaterThan(0);
+    // the pull is inescapable at this range — BOTH arrive at the singularity
+    expect(still.pulledTo, 'the stander must be dragged to the centre').toBeLessThan(1);
+    expect(sprint.pulledTo, 'the sprinter is dragged in too — legs do not beat it').toBeLessThan(1);
+    // …and it hurts badly without killing: a full-HP rifleman walks out at 25
+    expect(still.hp, 'the collapse must bite hard').toBeLessThan(50);
+    expect(still.hp, 'but the hole alone does not kill — the doc law is unmet').toBeGreaterThan(0);
+    expect(sprint.hp, 'sprinting buys nothing today').toBe(still.hp);
   });
 
   it('TREMOR — "sidestep the ripple": a strafing man is never spiked', () => {

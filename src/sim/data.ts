@@ -139,7 +139,7 @@ export const LSW_ARMS: Record<WeaponId, WeaponDef> = {
   lsw_wraith: A({ id: 'lsw_wraith', name: 'Ghost-Static', damage: 22, rof: 4.5, speed: 140, spread: 0.02, range: 38, sound: 'rail', tracer: 'plasma', icon: '👻', pierce: 3 }),
   lsw_dominator: A({ id: 'lsw_dominator', name: 'Psi-Arc', damage: 25, rof: 4, speed: 140, spread: 0.01, range: 46, sound: 'rail', tracer: 'plasma', icon: '🧵', tether: true }),
   // ── THE THROWN-SUN SCHOOL — slow enough to SEE (ignite waits on the fire system) ──
-  lsw_firebrand: A({ id: 'lsw_firebrand', name: 'Flame Gouts', damage: 20, rof: 5, speed: 30, spread: 0.03, range: 30, splash: 1.5, splashDamage: 8, sound: 'flame', tracer: 'flame', icon: '🔥' }),
+  lsw_firebrand: A({ id: 'lsw_firebrand', name: 'Flame Gouts', damage: 20, rof: 5, speed: 30, spread: 0.03, range: 30, splash: 2.6, splashDamage: 16, sound: 'flame', tracer: 'flame', icon: '🔥' }),
   lsw_inferno: A({ id: 'lsw_inferno', name: 'Fireball Spit', damage: 40, rof: 2.5, speed: 26, spread: 0.02, range: 36, splash: 2.5, splashDamage: 18, sound: 'flame', tracer: 'flame', icon: '☄', charge: { t: 0.6, mul: 2 } }),
   lsw_pyroclasm: A({ id: 'lsw_pyroclasm', name: 'Magma Bolts', damage: 48, rof: 2, speed: 24, spread: 0.02, range: 40, splash: 3, splashDamage: 22, sound: 'flame', tracer: 'flame', icon: '🌋', cluster: 3 }),
   lsw_plaguebearer: A({ id: 'lsw_plaguebearer', name: 'Bile Lobber', damage: 34, rof: 2.8, speed: 26, spread: 0.03, range: 32, splash: 2.5, splashDamage: 16, sound: 'flame', tracer: 'acid', icon: '🤢', gasAfter: { kind: 'caustic', r: 2.5, life: 5 } }),

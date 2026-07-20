@@ -193,6 +193,22 @@ function makeProp(kind?: string): THREE.Group {
   } else if (kind === 'hammer') {
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.22, 0.22), steel);
     head.position.set(0, -0.75, 0.1); g.add(head);
+  } else if (kind === 'hose') {
+    // THE IGNITER WAND. Five gods have declared `prop: 'hose'` since the
+    // embodiment pass and none of them ever grew one: makeProp only ran for
+    // blade rigs, so Firebrand and his cousins stood there holding an
+    // infantry rifle. (Robert: "he still has a gun. I don't know if he's
+    // supposed to have it.") He is not. A stubby nozzle with a hot mouth.
+    const dark = new THREE.MeshStandardMaterial({ color: 0x3f4348, metalness: 0.5, roughness: 0.6 });
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.075, 0.62, 7), dark);
+    barrel.position.set(0, -0.5, 0.16); barrel.rotation.x = -1.35; g.add(barrel);
+    const bell = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.18, 7), steel);
+    bell.position.set(0, -0.6, 0.48); bell.rotation.x = Math.PI / 2 - 0.2; g.add(bell);
+    const pilot = new THREE.Mesh(
+      new THREE.SphereGeometry(0.05, 6, 5),
+      new THREE.MeshBasicMaterial({ color: 0xffa02a }),
+    );
+    pilot.position.set(0, -0.6, 0.58); g.add(pilot); // the pilot light, always lit
   } else { // blade / knives / driver / default
     const blade = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.8, 0.03), steel);
     blade.position.set(0, -0.6, 0.18); g.add(blade);
@@ -212,9 +228,12 @@ export function dressAsLsw(mesh: THREE.Group, id: string): THREE.Group {
   // blade rigs also show a hand-prop — so Titan reads as fists, not a rifleman.
   const def = LSWS[id as keyof typeof LSWS];
   const rig = def?.rig;
-  if (rig === 'fists' || rig === 'blade') {
+  // 'thrower' joins the gun-hiding rigs: a flame god holds its own igniter,
+  // not standard issue. Same law for all five throwers (firebrand, inferno,
+  // pyroclasm, plaguebearer, venom) — they each already declare a prop.
+  if (rig === 'fists' || rig === 'blade' || rig === 'thrower') {
     mesh.traverse((o) => { if (o.name === 'gun') o.visible = false; });
-    if (rig === 'blade' && !mesh.userData.lswProp) {
+    if ((rig === 'blade' || rig === 'thrower') && !mesh.userData.lswProp) {
       (mesh.getObjectByName('armR') ?? mesh).add(makeProp(def?.prop));
       mesh.userData.lswProp = true; // once — dressAsLsw can run per-frame
     }

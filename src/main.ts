@@ -441,6 +441,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   // carry the feel knobs into the match (Robert's global speed control)
   world.projectileSpeedMul = settings.projectileSpeed;
   world.moveSpeedMul = settings.moveSpeed;
+  world.vehicleSpeedMul = settings.vehicleSpeed;
   // the flight saver watches this world; tab close saves too (the endGame
   // reload fires beforeunload as well — a harmless double write)
   flightWorld = world;
@@ -975,7 +976,7 @@ audio.setMasterVolume(settings.masterVolume);
   blood.value = settings.blood;
   blood.onchange = () => { settings.blood = blood.value as BloodLevel; saveSettings(); };
 
-  // GLOBAL SPEED KNOBS (Robert): projectile + movement, live-tunable. The
+  // GLOBAL SPEED KNOBS (Robert): projectile + movement + VEHICLE, live-tunable. The
   // sliders write settings AND push straight to any running match, so you
   // can dial a slower bullet and watch it change mid-fight. Applied to the
   // world at every deploy too (see startGame). 25–200% → 0.25–2.0×.
@@ -983,21 +984,36 @@ audio.setMasterVolume(settings.masterVolume);
   const projVal = $('projspd-val');
   const moveSpd = $('set-movespeed') as HTMLInputElement;
   const moveVal = $('movespd-val');
+  // the hull knob exists because the other two created a bug: slow the rounds
+  // to 0.35× and a 22u/s buggy simply outruns the grenade chasing it
+  const vehSpd = $('set-vehspeed') as HTMLInputElement;
+  const vehVal = $('vehspd-val');
   const syncSpeed = () => {
     projSpd.value = String(Math.round(settings.projectileSpeed * 100));
     moveSpd.value = String(Math.round(settings.moveSpeed * 100));
+    vehSpd.value = String(Math.round(settings.vehicleSpeed * 100));
     projVal.textContent = `${(settings.projectileSpeed).toFixed(2)}×`;
     moveVal.textContent = `${(settings.moveSpeed).toFixed(2)}×`;
+    vehVal.textContent = `${(settings.vehicleSpeed).toFixed(2)}×`;
   };
   const pushSpeed = () => {
-    const live = (window as unknown as { __ww?: { world?: { projectileSpeedMul: number; moveSpeedMul: number } } }).__ww?.world;
-    if (live) { live.projectileSpeedMul = settings.projectileSpeed; live.moveSpeedMul = settings.moveSpeed; }
+    const live = (window as unknown as { __ww?: { world?: { projectileSpeedMul: number; moveSpeedMul: number; vehicleSpeedMul: number } } }).__ww?.world;
+    if (live) {
+      live.projectileSpeedMul = settings.projectileSpeed;
+      live.moveSpeedMul = settings.moveSpeed;
+      live.vehicleSpeedMul = settings.vehicleSpeed;
+    }
   };
   syncSpeed();
   projSpd.oninput = () => { settings.projectileSpeed = Number(projSpd.value) / 100; projVal.textContent = `${settings.projectileSpeed.toFixed(2)}×`; saveSettings(); pushSpeed(); };
   moveSpd.oninput = () => { settings.moveSpeed = Number(moveSpd.value) / 100; moveVal.textContent = `${settings.moveSpeed.toFixed(2)}×`; saveSettings(); pushSpeed(); };
+  vehSpd.oninput = () => { settings.vehicleSpeed = Number(vehSpd.value) / 100; vehVal.textContent = `${settings.vehicleSpeed.toFixed(2)}×`; saveSettings(); pushSpeed(); };
+  // RESET GOES HOME, NOT TO 1.0 — home is Robert's tuned feel (0.35 / 0.80 /
+  // 0.80), which is what "default" means here now. Resetting to 1.0 would have
+  // quietly undone the tuning every time someone poked the button.
   ($('set-speed-reset') as HTMLButtonElement).onclick = () => {
-    settings.projectileSpeed = 1; settings.moveSpeed = 1; saveSettings(); syncSpeed(); pushSpeed();
+    settings.projectileSpeed = 0.35; settings.moveSpeed = 0.8; settings.vehicleSpeed = 0.8;
+    saveSettings(); syncSpeed(); pushSpeed();
   };
 }
 $('deploy-btn').addEventListener('click', () => { activeFrontId = null; startGame(); });

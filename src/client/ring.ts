@@ -70,7 +70,11 @@ function arcSpan(ctx: CanvasRenderingContext2D, r: number, frac: number, width: 
 export function drawChunks(ctx: CanvasRenderingContext2D, chunks: 0 | 1 | 2 | 3, color: string) {
   ctx.clearRect(0, 0, 128, 128);
   const seg = ARC_SPAN / 3;
-  const gapPad = 0.06;
+  // Robert: "those three intervals — they need to be a little bit more
+  // separated around the characters." 0.06 rad at r=44 is a ~2.6px nick; the
+  // three chunks read as one smudged arc at command zoom. 0.16 cuts a real
+  // ~7px notch so you count 3 / 2 / 1 at a glance instead of squinting.
+  const gapPad = 0.16;
   ctx.lineWidth = 11;
   ctx.lineCap = 'butt';
   for (let i = 0; i < 3; i++) {

@@ -131,6 +131,24 @@ export class Renderer {
   camPos = new THREE.Vector3();
   camShake = 0;
   private fireballs!: Fireballs;
+  /** World-space cursor, fed each frame by the client. Health meters read it:
+   *  Robert asked that they stop rendering on every body at once and appear
+   *  only under the pointer — "don't render it for the people unless I put my
+   *  mouse around the area." null = no cursor (replay, menus) → nothing shows. */
+  private hoverAt: { x: number; z: number } | null = null;
+  /** how close the cursor must come before a body shows its vitals */
+  private static readonly HOVER_R = 7;
+
+  /** The client hands us the ground point under the mouse once per frame. */
+  setHover(at: { x: number; z: number } | null) { this.hoverAt = at; }
+
+  /** Is the cursor near enough to this body to be asking about it? */
+  private hovered(x: number, z: number): boolean {
+    const h = this.hoverAt;
+    if (!h) return false;
+    const dx = x - h.x, dz = z - h.z;
+    return dx * dx + dz * dz < Renderer.HOVER_R * Renderer.HOVER_R;
+  }
   /** wheel-zoom distance, fed by Input each frame */
   camDist = 30;
   /** true while a killcam/highlights puppet world is being rendered —
@@ -1412,9 +1430,14 @@ export class Renderer {
       if (!mesh.visible) continue;
       // squad-only overhead: name + vitals circles. Enemy plates were clutter
       // AND free intel — enemies now read as silhouettes and team color.
+      // ON DEMAND, NOT ALWAYS. Every friendly used to wear a name + health
+      // meter permanently, which is the clutter Robert is complaining about:
+      // twelve stacked tags between you and the fight. Now a body speaks when
+      // you point at it — the information is all still there, you ask for it.
       const squad = !!local && s.id !== localId && s.alive &&
         (s.team === localTeam || s.kind === 'scientist') &&
-        (s.kind === 'bot' || s.kind === 'human' || s.kind === 'scientist' || s.kind === 'dog');
+        (s.kind === 'bot' || s.kind === 'human' || s.kind === 'scientist' || s.kind === 'dog') &&
+        this.hovered(s.pos.x, s.pos.z);
       let tag = this.nameSprites.get(s.id);
       if (squad && !tag) {
         tag = { ...this.makeUnitTag(), key: '' };
@@ -1455,7 +1478,9 @@ export class Renderer {
       const enemyRing = s.team !== localTeam && s.id !== localId && mesh.visible && s.alive && !s.downed;
       // friendlies now carry health on the overhead tag's meter, so the ground
       // ring is enemy-only — no more double health readout, less ground clutter.
-      const ringWanted = enemyRing && !s.cloaked;
+      // the enemy health ring answers the same way — point at a man to read
+      // how hurt he is, instead of the floor being a wall of dials
+      const ringWanted = enemyRing && !s.cloaked && this.hovered(s.pos.x, s.pos.z);
       let ring = this.ringMaps.get(s.id);
       if (ringWanted && !ring) {
         ring = { ...this.makeRingMap(), key: '' };
@@ -1782,7 +1807,17 @@ export class Renderer {
       let mesh = this.projMeshes.get(p.id);
       if (!mesh) {
         const def = WEAPONS[p.weapon];
-        if (def.tracer === 'none') continue;
+        // tracer 'none' means "the SWING is the visual" — a fist, a claw, a
+        // stomp, where a flying mesh would be nonsense. It was never meant to
+        // mean "ranged and invisible", but four LSW needlers wear it too, and
+        // this line silently refused to draw them: Phantom's Wall-Whisper
+        // (34u), Nightmare (40u), Specter (30u), Shadowstep (22u) all fired
+        // rounds that damaged, pierced three men, and appeared as NOTHING.
+        // (Robert, playing Phantom: "I don't have a projectile. Or it's
+        // invisible?" — it was invisible.) The harness already worked around
+        // this by remapping none→bullet, which is the tell. Melee is the
+        // 2-14u band; past that, a round is a round and gets drawn.
+        if (def.tracer === 'none' && def.range <= 14) continue;
         // paintballs FLY in their shooter's paint — the rack is identity
         const paintball = world.mode.id === 'paintball' && p.weapon.startsWith('marker');
         // an LSW's round/beam glows its OWN signature color (Task 11 — kills the
@@ -2860,7 +2895,7 @@ export class Renderer {
       // picks his rifle back up on the next frame. Armed rigs (gauntlet/palm/
       // rifle/launcher/…) still carry the model until per-rig holds land.
       const rig = s.ascendant ? LSWS[s.ascendant]?.rig : undefined;
-      const meleeRig = rig === 'fists' || rig === 'blade';
+      const meleeRig = rig === 'fists' || rig === 'blade' || rig === 'thrower'; // throwers carry a hose
       if (hold.hideGun || meleeRig) {
         j.gun.visible = false; // unarmed — arms swing free (zed-style, but human)
       } else {

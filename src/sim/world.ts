@@ -167,6 +167,10 @@ export class World {
    *  default to 1, so tests and the authoritative server never change — this
    *  is an offline tuning surface, pushed in from client settings. */
   projectileSpeedMul = 1;
+  /** Robert's HULL knob. Vehicles were the one mover no global slider touched,
+   *  so slowing rounds to 0.35× left a buggy outrunning its own incoming fire.
+   *  Scales drive speed only — turn rate, weapons and armour are untouched. */
+  vehicleSpeedMul = 1;
   moveSpeedMul = 1;
   /** THE BLACK BOX (Robert: "put the tools in there") — always-on crowd flight
    *  recorder: 2s-cadence spread/near-base/stuck time series + persisted-knot
@@ -1128,7 +1132,18 @@ export class World {
           // hold-still drain, applied DIRECTLY (the ice shield in
           // damageSoldier would eat a normal damage call)
           s.hp -= ICE_HOLD_DRAIN * dt;
-          if (s.hp <= 0) { s.hp = 0; s.encasedUntil = undefined; this.damageSoldier(s, 1, -1, 'bleedout'); continue; }
+          // THE ICE GETS THE KILL. This read `-1` — a man frozen at low HP bled
+          // out inside the block and the death feed named no one, so the hand
+          // that froze him got nothing and the victim never learned what
+          // killed him. Clear the marks first: damageSoldier refuses damage
+          // to an encased body (the shield), and the credit must survive it.
+          if (s.hp <= 0) {
+            s.hp = 0;
+            const froze = s.encasedBy ?? -1;
+            s.encasedUntil = undefined; s.encasedBy = undefined; s.struggle = undefined;
+            this.damageSoldier(s, 1, froze, 'bleedout');
+            continue;
+          }
         }
         if (this.time >= s.encasedUntil) this.freeFromIce(s, 0); // the ice melts, free at no cost
         continue; // an ice block does nothing else
@@ -1406,7 +1421,7 @@ export class World {
           // hurts). The trap is spent on the spring.
           for (const s2 of this.soldiers.values()) {
             if (!s2.alive || s2.team === g.team || s2.encasedUntil !== undefined || s2.pos.y > 1) continue;
-            if (Math.hypot(s2.pos.x - g.pos.x, s2.pos.z - g.pos.z) < 1.2 && this.encaseSoldier(s2)) {
+            if (Math.hypot(s2.pos.x - g.pos.x, s2.pos.z - g.pos.z) < 1.2 && this.encaseSoldier(s2, g.ownerId)) {
               this.gadgets.delete(id);
               this.emit({ type: 'gadget_destroyed', pos: { ...g.pos } });
               break;
@@ -1964,7 +1979,13 @@ export class World {
         }
       }
     }
-    if (cmd.grenade && !swimming && this.time >= s.nextGrenadeAt) {
+    // A GOD DOES NOT REACH FOR A GRENADE (Robert, on Firebrand: "I don't think
+    // he should be throwing these grenades either"). Ascension swaps in the
+    // signature arm and leaves the class kit behind; the pouch was the one
+    // piece of infantry issue that survived. The COUNT stays untouched on
+    // purpose — Firebrand's bot brain uses s.grenades as its cash-the-board
+    // signal (see sim/lsw/firebrand.ts), so emptying it would mute the bot.
+    if (cmd.grenade && !swimming && !s.ascendant && this.time >= s.nextGrenadeAt) {
       const reachTo = (max: number) => Math.max(4, Math.min(cmd.aimDist ?? max, max));
       const grenadeGateBefore = s.nextGrenadeAt; // any branch that acts moves this
       // manpads only claims the key while an aircraft is locked — no lock, no wasted round
@@ -2259,6 +2280,16 @@ export class World {
       ...(dmgMul !== 1 ? { dmgMul } : {}),
       ...(pierceArmor ? { pierceArmor: true } : {}),
     };
+    // CARRY THE THROWER'S MOMENTUM (Robert: "you can outrun your own flame —
+    // that's kinda crazy"). A flame stream is burning gas, not a bullet: it
+    // leaves the nozzle already travelling with the man holding it. Without
+    // this, a sprint straight down your own stream closes on it every tick.
+    // FLAME ONLY — bullets are fast enough that inheritance is noise, and
+    // adding it there would shift every lead-the-target sum the bots compute.
+    if (def.tracer === 'flame') {
+      p.vel.x += s.vel.x;
+      p.vel.z += s.vel.z;
+    }
     this.launch(p);
   }
 
@@ -2803,6 +2834,12 @@ export class World {
   }
 
   tryEnterVehicle(s: Soldier) {
+    // A GOD WALKS (Robert, on Firebrand: "He shouldn't be able to get in
+    // vehicles"). A 1600 HP strongpoint riding a jeep is neither threat nor
+    // silhouette — it's a turret with wheels, and every counterplay the
+    // threat table promises assumes you can SEE the god coming. Same shape as
+    // the flier law at ascendSoldier: refuse at the door, bots included.
+    if (s.ascendant) return;
     for (const v of this.vehicles.values()) {
       if (!v.alive || v.team !== s.team) continue;
       const d = Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z);
@@ -2998,7 +3035,7 @@ export class World {
         * (def.hover || def.flies ? 1
           : moveMult(this.weather, def.strider ? 'soldier' : tracked ? 'tracks' : 'wheels'));
       v.yaw += turn * def.turnRate * dt * (throttle < 0 ? -1 : 1);
-      const targetSpeed = throttle * def.speed * engineMult * depthMult * surfMult * (throttle < 0 ? 0.5 : 1);
+      const targetSpeed = throttle * def.speed * engineMult * depthMult * surfMult * this.vehicleSpeedMul * (throttle < 0 ? 0.5 : 1);
       const accel = 18;
       const curSpeed = Math.cos(v.yaw) * v.vel.x + Math.sin(v.yaw) * v.vel.z;
       const newSpeed = curSpeed + Math.max(-accel * dt, Math.min(accel * dt, targetSpeed - curSpeed));
@@ -3686,10 +3723,11 @@ export class World {
    *  stops movement AND shots both ways, and shields them from ALL other harm
    *  — freezing an enemy removes him from the board AND briefly saves him.
    *  Never freezes a soldier already encased. Returns true if it took. */
-  encaseSoldier(victim: Soldier): boolean {
+  encaseSoldier(victim: Soldier, byId = -1): boolean {
     if (!victim.alive || victim.encasedUntil !== undefined) return false;
     if (this.time < victim.protectedUntil) return false;
     victim.encasedUntil = this.time + ICE_HOLD;
+    victim.encasedBy = byId;
     victim.struggle = 0;
     victim.vel = { x: 0, y: 0, z: 0 };
     this.emit({ type: 'encased', pos: { ...victim.pos }, soldierId: victim.id });
@@ -3701,10 +3739,15 @@ export class World {
    *  normal damage path so a fatal exit downs/kills correctly (the ice is
    *  already cleared, so no shield recursion). */
   private freeFromIce(s: Soldier, cost: number) {
+    // the freezer owns this exit wound too — it read s.lastKillerId, which is
+    // whoever killed this soldier in a PREVIOUS life: a man who struggled out
+    // below 45 HP handed the kill to an arbitrary stranger from ten minutes ago
+    const froze = s.encasedBy ?? -1;
     s.encasedUntil = undefined;
+    s.encasedBy = undefined;
     s.struggle = undefined;
     this.emit({ type: 'revived', pos: { ...s.pos }, soldierId: s.id }); // "the ice gives"
-    if (cost > 0) this.damageSoldier(s, cost, s.lastKillerId, 'bleedout');
+    if (cost > 0) this.damageSoldier(s, cost, froze, 'bleedout');
   }
 
   damageSoldier(victim: Soldier, dmg: number, attackerId: number, weapon: WeaponId, viaLink = false, pierceArmor = false) {
