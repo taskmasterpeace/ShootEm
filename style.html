@@ -19,7 +19,7 @@
     }
     #bar {
       position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
-      display: flex; gap: 6px; z-index: 5;
+      display: flex; gap: 6px; z-index: 5; flex-wrap: wrap; justify-content: center;
     }
     #bar button {
       font: 600 12px ui-monospace, Menlo, Consolas, monospace;
@@ -27,6 +27,14 @@
       border: 1px solid #333b47; border-radius: 6px; padding: 7px 13px; cursor: pointer;
     }
     #bar button.on, #bar button:hover { color: #e8a33d; border-color: #e8a33d; }
+    #bar button#btn-edit.on { color: #ff8a5c; border-color: #ff8a5c; }
+    #edit-panel {
+      display: none;
+      position: fixed; top: 56px; right: 14px; z-index: 5;
+      font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace; color: #d8e0ea;
+      background: rgba(14, 17, 21, 0.9); padding: 9px 12px; border: 1px solid #333b47;
+      white-space: pre; min-width: 240px;
+    }
     #hint {
       position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
       font: 11px ui-monospace, Menlo, Consolas, monospace; color: #93a0b0;
@@ -37,15 +45,20 @@
 </head>
 <body>
   <div id="bar">
+    <button class="act" data-a="idle">IDLE</button>
     <button class="act on" data-a="run">RUN</button>
     <button class="act" data-a="dash">DASH</button>
     <button class="act" data-a="slash">SLASH</button>
     <button class="act" data-a="fly">FLY</button>
     <button class="act" data-a="roll">ROLL</button>
-    <button id="btn-gun">GUN: RIFLE</button>
+    <button id="btn-gun">GUN: RIFLE ▸</button>
+    <button id="btn-edit">✎ EDIT</button>
+    <button id="btn-mode" style="display:none">MODE: MOVE</button>
+    <button id="btn-copy" style="display:none">COPY</button>
   </div>
+  <div id="edit-panel"></div>
   <div id="labels"></div>
-  <div id="hint">the capsule experiment — same clock drives every body; judge the moves, not the argument</div>
+  <div id="hint">the papercraft soldier — IDLE vs RUN carries differ per weapon · drag = orbit · ✎ EDIT: click a part, G move / R rotate, COPY prints the numbers</div>
   <script>
     // "i don't see anything" must never be silent: any error on any machine
     // paints itself on the page in red instead of leaving a black void

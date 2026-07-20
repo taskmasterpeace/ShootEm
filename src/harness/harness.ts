@@ -904,6 +904,12 @@ scene.add(laneGroup);
 
 function setMode(mode: string) {
   document.body.dataset.mode = mode;
+  // the Style Lab tab is /style.html in a frame — lazy-loaded on first open
+  // so the harness pays nothing for it until asked
+  if (mode === 'style') {
+    const frame = document.getElementById('style-frame') as HTMLIFrameElement | null;
+    if (frame && !frame.src) frame.src = '/style.html';
+  }
   matchupCtl?.setActive(mode === 'matchup');
   for (const t of Array.from(document.querySelectorAll<HTMLButtonElement>('.tab')))
     t.classList.toggle('active', t.dataset.mode === mode);

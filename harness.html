@@ -26,6 +26,12 @@
     /* Combat Lab: the real game renderer draws here on its own canvas */
     #lab-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: none; z-index: 1; }
     body[data-mode="matchup"] #harness-canvas { display: none; }
+    /* the STYLE LAB tab is /style.html itself, in a frame — one source of
+       truth, two doors (Robert: "part of our regular Unified Harness…
+       have it pulled from the same place") */
+    #style-frame { display: none; position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #14171b; }
+    body[data-mode="style"] #style-frame { display: block; }
+    body[data-mode="style"] #harness-canvas { display: none; }
     body[data-mode="matchup"] #lab-canvas { display: block; }
 
     #panel {
@@ -258,6 +264,7 @@
 </head>
 <body data-mode="stage">
   <canvas id="harness-canvas"></canvas>
+  <iframe id="style-frame" title="Style Lab"></iframe>
   <canvas id="lab-canvas"></canvas>
 
   <div id="topbar">
@@ -268,6 +275,7 @@
       <button class="tab" data-mode="building">🏠 Building Lab</button>
       <button class="tab" data-mode="maker">🛠 Map Maker</button>
       <button class="tab" data-mode="matchup">⚔ Matchup</button>
+      <button class="tab" data-mode="style">💊 Style Lab</button>
     </div>
     <a class="tool-link" href="/sound-review.html">🔊 Sound Lab</a>
     <a class="tool-link" href="/scar-harness.html">🩸 Scar Map</a>
