@@ -4,10 +4,13 @@
 // three points or survives the clock; the pack paints them out.
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
-import { PAINTBALL_FIELDS, T_OPEN, generatePaintballField, isBlocked, tileAt } from '../src/sim/map';
+import {
+  GRID, PAINTBALL_FIELDS, T_COVER, T_OPEN, T_WALL, TILE, WORLD,
+  generatePaintballField, isBlocked, tileAt,
+} from '../src/sim/map';
 import { WEAPONS } from '../src/sim/data';
 import { World } from '../src/sim/world';
-import type { PlayerCmd } from '../src/sim/types';
+import type { PlayerCmd, Projectile, WeaponId } from '../src/sim/types';
 
 const cmd = (over: Partial<PlayerCmd> = {}): PlayerCmd => ({
   moveX: 0, moveZ: 0, aimYaw: 0, fire: false, altFire: false, jump: false,
@@ -111,8 +114,16 @@ describe('the rules', () => {
   });
 
   it('balls fly slow enough to SEE — paint you can dodge (Robert: too hard)', () => {
+    // Measured against a RIFLE, not against a constant. The old bar was
+    // `speed <= 65`, which the Blitz cleared at 46 while still feeling too
+    // fast — because what matters is not the absolute number (every
+    // projectile is scaled by the speed slider) but how paint compares to
+    // live rounds. Robert, second pass: "they should actually be WAY slower
+    // than the bullets, allowing people to kind of move out of the way."
+    const rifle = WEAPONS.ar606.speed;
     for (const id of ['marker_blitz', 'marker_pump', 'marker_lobber']) {
-      expect(WEAPONS[id].speed, `${id} should be dodgeable`).toBeLessThanOrEqual(65);
+      const ratio = WEAPONS[id].speed / rifle;
+      expect(ratio, `${id} flies at ${ratio.toFixed(2)}x a rifle round`).toBeLessThan(0.4);
     }
   });
 
@@ -228,5 +239,90 @@ describe('the series', () => {
       expect(h.ownerId, 'a miss must still wear its thrower').toBe(shooter.id);
       expect(h.soldierId, 'a miss must not flash a phantom tag').toBeUndefined();
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// THE YARD SURVIVES THE LESSON (Robert: "we gotta change the mechanics of the
+// paintball. Right now it destroys the structure.")
+//
+// Markers carry damage 999 so paint rides the overkill rule and skips the
+// down-and-crawl — nobody bleeds in the yard. But every wall in the game
+// breaches on `damage >= 100`, so that same 999 quietly made a training round
+// the most destructive weapon in the game: one ball turned masonry to rubble,
+// a second erased it to open ground, and the Lobber's splashDamage 999 landed
+// ~1500 across a 3.3u circle. The boot camp was demolishing its own cover.
+//
+// The fix is not a smaller number — the 999 is load-bearing. It is declaring
+// what a training round IS: it marks men, never buildings.
+// ---------------------------------------------------------------------------
+describe('training rounds leave the architecture alone', () => {
+  const MARKERS = ['marker_blitz', 'marker_pump', 'marker_lobber'] as const;
+
+  /**
+   * Fire a REAL round at a real tile and let the sim resolve it. An earlier
+   * cut of this suite called damageSurface() directly and "passed" against
+   * code that still demolished the yard — the guard lives on the projectile's
+   * impact branch, so a test that skips the projectile skips the guard.
+   */
+  function shootTile(weapon: WeaponId, kind: number) {
+    const w = new World({ seed: 4, mode: 'tdm' });
+    const tx = Math.floor(GRID / 2), tz = Math.floor(GRID / 2);
+    const idx = tz * GRID + tx;
+    w.map.grid[idx] = kind;
+    for (let d = 1; d <= 4; d++) w.map.grid[idx - d] = T_OPEN; // a clear lane
+    const cx = (tx + 0.5) * TILE - WORLD / 2;
+    const cz = (tz + 0.5) * TILE - WORLD / 2;
+    const def = WEAPONS[weapon];
+    w.launch({
+      id: 90001, weapon, ownerId: -1, team: 0,
+      pos: { x: cx - TILE * 2.5, y: 1, z: cz },
+      vel: { x: def.speed, y: 0, z: 0 },
+      bornAt: w.time, ttl: 3, arc: false,
+    } as Projectile);
+    for (let i = 0; i < 240 && w.projectiles.size; i++) w.step(1 / 60, new Map());
+    return w.map.grid[idx];
+  }
+
+  it('every marker is DECLARED a training round — and nothing else is', () => {
+    for (const id of MARKERS) expect(WEAPONS[id].training, id).toBe(true);
+    const strays = Object.values(WEAPONS)
+      .filter((d) => d.training && !MARKERS.includes(d.id as typeof MARKERS[number]));
+    expect(strays.map((d) => d.id), 'live ordnance must never be marked training').toEqual([]);
+  });
+
+  for (const id of MARKERS) {
+    it(`${id} cannot breach masonry`, () => {
+      expect(shootTile(id, T_WALL), 'the wall must still be a wall').toBe(T_WALL);
+    });
+    it(`${id} cannot shred soft cover`, () => {
+      expect(shootTile(id, T_COVER)).toBe(T_COVER);
+    });
+  }
+
+  it('the Lobber no longer flattens the circle it lands in', () => {
+    const w = new World({ seed: 4, mode: 'tdm' });
+    const cx = Math.floor(GRID / 2), cz = Math.floor(GRID / 2);
+    for (let dz = -2; dz <= 2; dz++) {
+      for (let dx = -2; dx <= 2; dx++) w.map.grid[(cz + dz) * GRID + cx + dx] = T_COVER;
+    }
+    w.explode(
+      { x: (cx + 0.5) * TILE - WORLD / 2, y: 0.5, z: (cz + 0.5) * TILE - WORLD / 2 },
+      WEAPONS.marker_lobber, -1, 0,
+    );
+    let gone = 0;
+    for (let dz = -2; dz <= 2; dz++) {
+      for (let dx = -2; dx <= 2; dx++) if (w.map.grid[(cz + dz) * GRID + cx + dx] === T_OPEN) gone++;
+    }
+    expect(gone, 'one lobbed ball used to erase every destructible tile in reach').toBe(0);
+  });
+
+  it('CONTROL: real ordnance still breaks things, so the gate is not just off', () => {
+    // Sandbag, not masonry: one 120mm lands (60 + 110*0.5) = 115 on a wall and
+    // masonry carries 300hp, so a shell is SUPPOSED to need three goes at a
+    // wall. It flattens an 80hp earthwork in one — the cleanest proof the
+    // destruction ledger still works for everything that isn't paint.
+    expect(shootTile('tank_cannon', T_COVER), 'a paint rule, not a peace treaty')
+      .not.toBe(T_COVER);
   });
 });

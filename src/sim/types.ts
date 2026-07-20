@@ -69,8 +69,23 @@ export interface WeaponDef {
   heals: boolean;
   /** shove applied to victims (impulse cannon) */
   knockback: number;
+  /**
+   * A TRAINING ROUND. It settles a fight and marks a man, and it does not
+   * touch architecture — no breaching, no rubble, no doors.
+   *
+   * Paint carries damage 999 so it rides the overkill rule and skips the
+   * down-and-crawl (nobody bleeds in the yard). But every wall in the game is
+   * breached by `damage >= 100`, so that same 999 made a marker the most
+   * destructive weapon in the game: one ball turned masonry to rubble, a
+   * second erased it, and the Lobber flattened everything within 3.3u. The
+   * yard was demolishing itself.
+   *
+   * The fix is not a smaller number — the 999 is load-bearing. It is saying
+   * out loud what a training round IS.
+   */
+  training?: boolean;
   sound: string;
-  tracer: 'bullet' | 'shell' | 'rocket' | 'plasma' | 'rail' | 'flame' | 'beam' | 'acid' | 'canister' | 'frag' | 'none';
+  tracer: 'bullet' | 'shell' | 'rocket' | 'plasma' | 'rail' | 'flame' | 'beam' | 'acid' | 'canister' | 'frag' | 'paint' | 'none';
   /** arsenal family this weapon belongs to ('rifle', 'laser', 'mortar', …) */
   family?: WeaponFamily;
   /** Mk tier within the family (1..3) — drives the stat curve */

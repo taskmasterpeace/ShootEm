@@ -3721,7 +3721,9 @@ export class World {
         } else if (mat && plain && (p.pierce ?? 0) > 0 && mat.penetrable) {
           // 2. PENETRATE thin cover (wood/sandbag/grass/rubble) — chip it, bleed
           // 15% dmg, and step a full tile past so we don't re-hit the same tile
-          this.damageSurface(p.pos.x, p.pos.z, def.damage * (p.dmgMul ?? 1), def.damage >= 100, p.ownerId);
+          // (no marker carries `pierce` today, but a training round must never
+          // chip a wall no matter which branch it arrives on)
+          if (!def.training) this.damageSurface(p.pos.x, p.pos.z, def.damage * (p.dmgMul ?? 1), def.damage >= 100, p.ownerId);
           p.pierce!--; p.dmgMul = (p.dmgMul ?? 1) * 0.85;
           const vl = Math.hypot(p.vel.x, p.vel.z) || 1;
           p.pos.x += (p.vel.x / vl) * (TILE + 0.5); p.pos.z += (p.vel.z / vl) * (TILE + 0.5);
@@ -3733,7 +3735,9 @@ export class World {
           if (this.detonatePayload(p)) { /* payload delivered */ }
           else if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team);
           else {
-            if (mat) this.damageSurface(p.pos.x, p.pos.z, def.damage * (p.dmgMul ?? 1), def.damage >= 100, p.ownerId);
+            // a TRAINING round marks the wall and stops there — paint has no
+            // business breaching masonry (see WeaponDef.training)
+            if (mat && !def.training) this.damageSurface(p.pos.x, p.pos.z, def.damage * (p.dmgMul ?? 1), def.damage >= 100, p.ownerId);
             if (def.tracer !== 'beam') this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, ownerId: p.ownerId });
           }
           dead = true;
@@ -4000,7 +4004,11 @@ export class World {
     }
     // doors in the blast take demolition damage — grenades, tank shells, and
     // bomber zeds are all door keys, just louder ones than E
-    if (def.splash > 0 && def.splashDamage > 0) {
+    // TRAINING ordnance (paint) skips the structure ledger entirely. The
+    // Lobber carries splashDamage 999 for the same overkill reason the other
+    // markers do, which made one lobbed ball a demolition charge that
+    // flattened every destructible tile within 3.3u of where it landed.
+    if (def.splash > 0 && def.splashDamage > 0 && !def.training) {
       const r = Math.ceil(def.splash / TILE) + 1;
       const ctx = Math.floor((pos.x + WORLD / 2) / TILE), ctz = Math.floor((pos.z + WORLD / 2) / TILE);
       for (let tz = Math.max(1, ctz - r); tz <= Math.min(GRID - 2, ctz + r); tz++) {

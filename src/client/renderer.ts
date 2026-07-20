@@ -19,7 +19,7 @@ import { buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp, bu
 const TRACER_COLORS: Record<string, number> = {
   bullet: 0xffd890, shell: 0xffb060, rocket: 0xff8840, plasma: 0x60c8ff,
   rail: 0x8fd0ff, flame: 0xff7020, beam: 0x70ffb0, acid: 0xa0e040,
-  canister: 0xd8d2c0, none: 0, // canister band recolored per weapon below
+  canister: 0xd8d2c0, paint: 0xffffff, none: 0, // paint is recolored per shooter; canister per weapon
 };
 /** PER-WEAPON TINT: a projectile color keyed by weapon id, winning over the
  *  family default AND the god's body tint. Canister bands (smoke pale, fire
@@ -478,6 +478,27 @@ export class Renderer {
 
   /** Paint hits the ground and STAYS — the yard remembers every ball all
    *  match. Random squash + spin per splat so 200 of them read organic. */
+  /**
+   * A GOOEY splat (Robert: "I want it to look more gooey if possible").
+   * One clean disc reads as a sticker. Real paint lands as a body with
+   * satellites — so a paint hit throws a main blob plus a few smaller
+   * droplets flung off it, all sharing the pooled geometry and the cached
+   * material, so the cost is a handful of extra meshes and nothing else.
+   */
+  private spawnGoo(pos: { x: number; z: number }, colorHex: number, size: number) {
+    this.spawnSplat(pos, colorHex, size);
+    const drops = 2 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < drops; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = size * (0.8 + Math.random() * 1.5);
+      this.spawnSplat(
+        { x: pos.x + Math.cos(a) * r, z: pos.z + Math.sin(a) * r },
+        colorHex,
+        size * (0.18 + Math.random() * 0.3),
+      );
+    }
+  }
+
   private spawnSplat(pos: { x: number; z: number }, colorHex: number, size: number) {
     if (!this.splatGeo) this.splatGeo = new THREE.CircleGeometry(1, 10);
     let mat = this.splatMats.get(colorHex);
@@ -492,7 +513,10 @@ export class Renderer {
     m.position.set(pos.x + (Math.random() - 0.5) * 0.3, 0.05 + this.splats.length * 0.0004, pos.z + (Math.random() - 0.5) * 0.3);
     this.scene.add(m);
     this.splats.push(m);
-    if (this.splats.length > 240) {
+    // Headroom: a gooey paint hit lands a blob plus satellites, so the yard
+    // fills this pool ~4x faster than it used to — and blood, bullet pocks and
+    // dirt all share it. Too small a cap and a firefight erases its own record.
+    if (this.splats.length > 900) {
       const old = this.splats.shift()!;
       this.scene.remove(old); // geometry+material are shared/cached — keep them
     }
@@ -1840,7 +1864,13 @@ export class Renderer {
       mesh.rotation.y = -Math.atan2(p.vel.z, p.vel.x);
       // per-round motion + flight trails make each family read distinctly
       const tr = mesh.userData.tracer as string;
-      if (tr === 'shell') mesh.rotation.x += dt * 22; // tumbling shell
+      if (tr === 'paint') {
+        // it WOBBLES rather than spins — a ball of liquid under its own skin
+        const goo = mesh.getObjectByName('goo');
+        const w = Math.sin(world.time * 26 + p.id) * 0.08;
+        if (goo) goo.scale.set(1 + w, 0.86 - w, 1 + w * 0.5);
+      }
+      else if (tr === 'shell') mesh.rotation.x += dt * 22; // tumbling shell
       if (tr === 'frag') { mesh.rotation.x += dt * 13; mesh.rotation.z += dt * 9; } // end-over-end can
       else if (tr === 'canister') mesh.rotation.x += dt * 9; // lazy end-over-end tin
       else if (tr === 'rocket') {
@@ -3089,6 +3119,26 @@ export class Renderer {
         exhaust.position.x = -0.32; g.add(exhaust);
         return g;
       }
+      case 'paint': {
+        // A PAINTBALL IS A WET THING (Robert: "I want it to look more gooey").
+        // A fat squashed sphere with a soft skin over it — the shell casing it
+        // used to borrow read as hard, metallic and fast, which is three
+        // wrong answers. Slight vertical squash so it looks heavy and full.
+        const g = new THREE.Group();
+        const core = solid(new THREE.SphereGeometry(0.19, 9, 7), color);
+        core.scale.set(1, 0.86, 1);
+        core.name = 'goo';
+        g.add(core);
+        // the skin: a hair larger, translucent, so the ball has depth and a
+        // wet edge instead of a flat silhouette
+        const skin = new THREE.Mesh(
+          new THREE.SphereGeometry(0.23, 9, 7),
+          new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.35, depthWrite: false }),
+        );
+        skin.scale.set(1, 0.86, 1);
+        g.add(skin);
+        return g;
+      }
       case 'plasma': { // pulsing energy orb with an additive halo
         const g = new THREE.Group();
         g.add(solid(new THREE.SphereGeometry(0.16, 10, 8), color));
@@ -3364,7 +3414,7 @@ export class Renderer {
             if (world.mode.id === 'paintball' && e.weapon?.startsWith('marker')) {
               const paint = paintColorFor(e.ownerId ?? e.soldierId ?? -1, localId);
               this.particles.emit({ pos: e.pos, count: 10, color: paint, speed: 6, life: 0.3, spread: 0.3, up: 2.5 });
-              this.spawnSplat(e.pos, paint, 0.55 + Math.random() * 0.4);
+              this.spawnGoo(e.pos, paint, 0.55 + Math.random() * 0.4);
               // paint lands WET — the splat class's own jitter keeps 30
               // balls a minute organic (humanization lives in ONE place now)
               audio.play('splat', { pos: e.pos, volume: 0.55 });
@@ -3428,7 +3478,7 @@ export class Renderer {
               const victim = e.soldierId !== undefined ? world.soldiers.get(e.soldierId) : undefined;
               const paint = paintColorFor(victim?.lastKillerId ?? -1, localId);
               this.particles.emit({ pos: { ...e.pos, y: 1 }, count: 26, color: paint, speed: 6, life: 0.6, spread: 0.6, up: 4 });
-              this.spawnSplat(e.pos, paint, 1.7);
+              this.spawnGoo(e.pos, paint, 1.7);
               audio.play('splat_big', { pos: e.pos, volume: 0.85 });
               if (e.soldierId !== undefined && e.fallX !== undefined) {
                 this.deathFall.set(e.soldierId, { x: e.fallX, z: e.fallZ ?? 0 });
