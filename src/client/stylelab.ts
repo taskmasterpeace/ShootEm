@@ -289,6 +289,9 @@ interface Rig {
   kneeR: THREE.Group; kneeL: THREE.Group;
   blade: THREE.Group;
   meleeProp: THREE.Group;     // sword/laser/axe in the right hand when melee is armed
+  slashPivot: THREE.Group;    // the blade rides THIS through a slash — it traces the arc itself
+  dummies: { m: THREE.Mesh; angle: number; range: number; flash: number; hitThisSwing: boolean }[];
+  hitFlash: number;           // arc turns hit-color for a beat when something is struck
   ghosts: THREE.Mesh[];
   parts: { name: string; obj: THREE.Object3D }[]; // EDIT-mode selectables
 }
@@ -297,12 +300,17 @@ interface Rig {
 // is in the wrong direction. It should go ACROSS, forming a letter C around
 // the character"). Two layers per his ask — a close arc and a far arc — so a
 // knife, a sword, a laser blade and a battle axe can each claim a reach.
-interface ArcStyle { color: number; inner: [number, number]; outer: [number, number]; span: number }
+// Radii are the WEAPON'S TRUTH (Robert: "the wave should go all the way out
+// to the laser… the main part should be where the blade is"): inner = the
+// lethal band the blade's edge sweeps, outer = the tip's furthest kiss.
+// `reach` is the hit-test distance; `hilt` is where the fist rides on the
+// sweep so the blade tip lands exactly at `reach`.
+interface ArcStyle { color: number; inner: [number, number]; outer: [number, number]; reach: number; hilt: number }
 const ARC_STYLES: Record<MeleeId, ArcStyle> = {
-  none:  { color: 0xeef4ff, inner: [0.5, 0.85], outer: [0.9, 1.15], span: Math.PI * 0.7 },
-  sword: { color: 0xdfe9f2, inner: [0.55, 0.95], outer: [1.0, 1.45], span: Math.PI * 0.8 },
-  laser: { color: 0x54e0ff, inner: [0.55, 1.0], outer: [1.05, 1.7], span: Math.PI * 0.95 },
-  axe:   { color: 0xffb54a, inner: [0.5, 1.05], outer: [1.1, 1.35], span: Math.PI * 0.6 },
+  none:  { color: 0xeef4ff, inner: [0.55, 1.0], outer: [1.05, 1.3], reach: 1.3, hilt: 0.5 },
+  sword: { color: 0xdfe9f2, inner: [0.6, 1.25], outer: [1.3, 1.8], reach: 1.8, hilt: 0.85 },
+  laser: { color: 0x54e0ff, inner: [0.6, 1.4], outer: [1.45, 2.15], reach: 2.15, hilt: 1.2 },
+  axe:   { color: 0xffb54a, inner: [0.6, 1.1], outer: [1.15, 1.45], reach: 1.45, hilt: 0.7 },
 };
 
 function makeBlade(): THREE.Group {
@@ -324,13 +332,9 @@ function makeBlade(): THREE.Group {
 }
 
 function styleBlade(blade: THREE.Group, style: ArcStyle) {
-  const layers = blade.children as THREE.Mesh[];
-  const specs = [style.inner, style.outer];
-  layers.forEach((m, i) => {
-    m.geometry.dispose();
-    m.geometry = new THREE.RingGeometry(specs[i][0], specs[i][1], 24, 1, 0, style.span);
+  for (const m of blade.children as THREE.Mesh[]) {
     (m.material as THREE.MeshBasicMaterial).color.setHex(style.color);
-  });
+  }
 }
 
 // ---- the melee props the hand swings ----
@@ -471,9 +475,27 @@ function papercraftRig(label: string, dress: FactionDress): Rig {
   const meleeProp = new THREE.Group();
   meleeProp.name = 'melee';
   aR.wrist.add(meleeProp);
+  const slashPivot = new THREE.Group();
+  slashPivot.position.set(0, 1.05, 0);
+  body.add(slashPivot);
+
+  // HIT DUMMIES at three ranges — the axe reaches one, the sword two, the
+  // laser all three. When the sweep catches one it flashes the HIT color
+  // (Robert: "another visual indicator that you actually hit").
+  const dummies: Rig['dummies'] = [];
+  for (const [angle, range] of [[-0.8, 1.25], [0.1, 1.7], [0.95, 2.05]] as const) {
+    const m = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.2, 0.22, 1.4, 8),
+      new THREE.MeshStandardMaterial({ color: 0x5a6066, roughness: 0.9 }),
+    );
+    m.position.set(Math.cos(angle) * range, 0.7, -Math.sin(angle) * range);
+    m.castShadow = true;
+    root.add(m);
+    dummies.push({ m, angle, range, flash: 0, hitThisSwing: false });
+  }
 
   const rig: Rig = {
-    label, root, body, gun, meleeProp,
+    label, root, body, gun, meleeProp, slashPivot, dummies, hitFlash: 0,
     wrist: aR.wrist, shoulderMount, backMount,
     armR: aR.arm, armL: aL.arm, elbowR: aR.elbow, elbowL: aL.elbow,
     legR: lR.leg, legL: lL.leg, kneeR: lR.knee, kneeL: lL.knee,
@@ -492,6 +514,7 @@ function papercraftRig(label: string, dress: FactionDress): Rig {
   }
   rig.parts = [
     { name: 'gun', obj: gun },
+    { name: 'melee', obj: meleeProp },
     { name: 'armR', obj: aR.arm }, { name: 'armL', obj: aL.arm },
     { name: 'elbowR', obj: aR.elbow }, { name: 'elbowL', obj: aL.elbow },
     { name: 'legR', obj: lR.leg }, { name: 'legL', obj: lL.leg },
@@ -742,11 +765,18 @@ function applyHold(r: Rig, pose: HoldPose) {
 let last = performance.now();
 let frames = 0;
 let frozen = false;
+// freeze() ARMS a stop instead of teleporting: the action plays real frames
+// up to the mark, THEN holds — so continuous things (the slash hit-tests
+// sweeping through dummy angles) actually happen on the way there
+let freezeAt: number | null = null;
 function loop() {
   const now = performance.now();
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
-  if (!frozen && !editMode) actionT += dt;
+  if (!frozen && !editMode) {
+    actionT += dt;
+    if (freezeAt !== null && actionT >= freezeAt) { frozen = true; freezeAt = null; }
+  }
   frames++;
   const t = now / 1000;
 
@@ -769,7 +799,14 @@ function loop() {
       const mount = wantBack ? r.backMount : H.mount === 'shoulder' ? r.shoulderMount : r.wrist;
       if (r.gun.parent !== mount) mount.add(r.gun);
       r.meleeProp.visible = meleeArmed;
-      if (meleeArmed) { r.meleeProp.position.set(0.02, -0.04, 0); r.meleeProp.rotation.set(0, 0, -1.35); }
+      if (meleeArmed && action !== 'slash') {
+        // carried READY — blade up-forward at 30°, not pointing at the dirt
+        // (Robert: "he's holding the sword down while he's running — I don't
+        // think that's how it should be")
+        if (r.meleeProp.parent !== r.wrist) r.wrist.add(r.meleeProp);
+        r.meleeProp.position.set(0.02, -0.02, 0);
+        r.meleeProp.rotation.set(0, 0, action === 'run' ? -0.35 : -0.55);
+      }
 
       // baseline: the hold for the current state — running is a DIFFERENT hold
       applyHold(r, action === 'run' || action === 'dash' ? H.run : H.idle);
@@ -830,29 +867,56 @@ function loop() {
         if (!H.run.leftFree) solveLeftArm(r);
         if (k >= 1 && !frozen) play('run');
       } else if (action === 'slash') {
-        // ACROSS, NOT DOWN (Robert): the game reads from above, so the arc
-        // sweeps a C AROUND the man — the whole fan yaws about Y from his
-        // left, across the front, to his right, while the torso twists into
-        // it. Two layers trail slightly apart so close and far reach both read.
-        const k = Math.min(1, actionT / 0.4);
+        // THE BLADE IS THE SLASH (Robert: "when I hit slash he doesn't slash
+        // the actual sword… the slash should just be where the blade is").
+        // During the swing the weapon rides a body-level pivot that yaws a C
+        // across the front — the blade physically traces the arc, and the
+        // glow is its TRAIL, growing behind the edge instead of spinning as
+        // a separate ornament. The arm follows the same angle, so the motion
+        // matches the stroke instead of zombie-shuffling beside it.
+        const style = ARC_STYLES[meleeKind];
+        const k = Math.min(1, actionT / 0.42);
         const swing = k < 0.15 ? 0 : (k - 0.15) / 0.85;
-        const sweep = 1.9 - swing * 3.8;                 // +1.9 → −1.9 rad about Y
-        r.blade.visible = swing > 0 && swing < 1;
-        r.blade.rotation.set(0, sweep, 0);
-        const op = Math.sin(Math.min(1, swing) * Math.PI);
-        const [inner, outer] = r.blade.children as THREE.Mesh[];
-        (inner.material as THREE.MeshBasicMaterial).opacity = 0.9 * op;
-        outer.rotation.z = 0.22;                         // the far layer trails the close one
-        (outer.material as THREE.MeshBasicMaterial).opacity = 0.55 * op;
-        b.rotation.y = 0.55 - swing * 1.1;               // torso twists INTO the sweep
-        b.rotation.z = -0.1 * Math.sin(k * Math.PI);
-        // the right arm carries the blade horizontally across the body
-        r.armR.rotation.set(-(0.9 - swing * 1.8), 0, 1.35);
-        r.elbowR.rotation.set(0, 0, 0.25);
+        const lead = 1.9 - swing * 3.8;                  // the edge's angle, +1.9 → −1.9
+        // the weapon on the pivot, hilt out so the TIP lands at style.reach
+        if (meleeKind !== 'none') {
+          if (r.meleeProp.parent !== r.slashPivot) r.slashPivot.add(r.meleeProp);
+          r.meleeProp.position.set(style.hilt, 0, 0);
+          r.meleeProp.rotation.set(0, 0, 0);
+        }
+        r.slashPivot.rotation.y = lead;
+        // the arm chases the same angle — shoulder yaws with the pivot
+        r.armR.rotation.set(-lead * 0.55, 0, 1.3);
+        r.elbowR.rotation.set(0, 0, 0.2);
+        b.rotation.y = 0.45 - swing * 0.9;               // torso twists INTO the sweep
+        b.rotation.z = -0.08 * Math.sin(k * Math.PI);
         r.legR.rotation.z = 0.25 * Math.sin(k * Math.PI);
         r.legL.rotation.z = -0.25 * Math.sin(k * Math.PI);
+        // the trail: rebuilt each frame from the swept span so it ends
+        // exactly at the blade
+        const span = Math.max(0.05, 1.9 - lead);
+        r.blade.visible = swing > 0 && swing < 1;
+        r.blade.rotation.set(0, lead, 0);
+        const op = Math.sin(Math.min(1, swing) * Math.PI);
+        const hit = r.hitFlash > 0;
+        const specs = [style.inner, style.outer];
+        (r.blade.children as THREE.Mesh[]).forEach((m, i) => {
+          m.geometry.dispose();
+          m.geometry = new THREE.RingGeometry(specs[i][0], specs[i][1], 24, 1, 0, span);
+          const mat = m.material as THREE.MeshBasicMaterial;
+          mat.color.setHex(hit ? 0xff5347 : style.color); // HIT turns the whole arc hot
+          mat.opacity = (i === 0 ? 0.9 : 0.55) * op * (hit ? 1.2 : 1);
+        });
+        // hit test: the edge crosses a dummy inside this weapon's reach
+        for (const d of r.dummies) {
+          if (!d.hitThisSwing && Math.abs(lead - d.angle) < 0.22 && d.range <= style.reach + 0.1) {
+            d.hitThisSwing = true;
+            d.flash = 0.45;
+            r.hitFlash = 0.18;
+          }
+        }
         if (meleeKind === 'none') solveLeftArm(r);       // gun stays two-handed through a knife-swipe
-        if (k >= 1 && !frozen) play('run');
+        if (k >= 1 && !frozen) { for (const d of r.dummies) d.hitThisSwing = false; play('run'); }
       } else if (action === 'fly') {
         const k = Math.min(1, actionT / 0.6);
         const ease = 1 - (1 - k) * (1 - k);
@@ -909,6 +973,28 @@ function loop() {
     if (l.life <= 0) (l.m.material as THREE.MeshBasicMaterial).opacity = 0;
   }
 
+  // hit confirms cool off: struck dummies burn HIT-red and pop, then settle.
+  // A freeze-frame holds the burn too — the confirm must be photographable.
+  for (const r of rigs) {
+    if (r.hitFlash > 0 && !frozen) r.hitFlash -= dt;
+    for (const d of r.dummies) {
+      const mat = d.m.material as THREE.MeshStandardMaterial;
+      if (d.flash > 0) {
+        if (!frozen) d.flash -= dt; // a freeze-frame holds the burn
+        const k = Math.max(0, d.flash / 0.45);
+        mat.color.setHex(0xff5347);
+        mat.emissive.setHex(0xff5347);
+        mat.emissiveIntensity = k * 0.9;
+        d.m.scale.setScalar(1 + k * 0.18);
+      } else {
+        mat.color.setHex(0x5a6066);
+        mat.emissive.setHex(0x000000);
+        mat.emissiveIntensity = 0;
+        d.m.scale.setScalar(1);
+      }
+    }
+  }
+
   const v = new THREE.Vector3();
   for (const L of labels) {
     v.copy(L.at).project(camera);
@@ -943,8 +1029,8 @@ interface StyleHandle {
   frames: () => frames,
   play,
   gun: setGun,
-  freeze: (a, tt) => { play(a); actionT = tt; frozen = true; },
-  thaw: () => { frozen = false; play('run'); },
+  freeze: (a, tt) => { frozen = false; play(a); freezeAt = tt; },
+  thaw: () => { frozen = false; freezeAt = null; play('run'); },
 };
 
 addEventListener('resize', () => {
