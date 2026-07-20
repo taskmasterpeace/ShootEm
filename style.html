@@ -45,6 +45,19 @@
   </div>
   <div id="labels"></div>
   <div id="hint">the capsule experiment — same clock drives every body; judge the moves, not the argument</div>
+  <script>
+    // "i don't see anything" must never be silent: any error on any machine
+    // paints itself on the page in red instead of leaving a black void
+    addEventListener('error', (e) => {
+      const el = document.createElement('div');
+      el.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:99;' +
+        'max-width:80vw;background:#3a1512;border:1px solid #ff4736;color:#ffb0a8;' +
+        'font:12px ui-monospace,Consolas,monospace;padding:10px 14px;white-space:pre-wrap';
+      el.textContent = 'STYLE LAB ERROR — paste this to Claude:\n' +
+        (e.message || String(e.error)) + '\n' + (e.filename || '') + ':' + (e.lineno || '');
+      document.body.appendChild(el);
+    });
+  </script>
   <script type="module">
     import './src/client/stylelab.ts';
   </script>
