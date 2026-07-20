@@ -45,6 +45,78 @@ function loadMemorialStatue(): Promise<THREE.Object3D | null> {
   return memorialStatue;
 }
 
+// ---------------------------------------------------------------------------
+// THE PROP LIBRARY (Quaternius, converted from .blend by tools/blend-to-glb.py).
+// Flat vertex/material colours, no textures — which is exactly why they sit
+// next to our procedural silhouettes instead of fighting them.
+//
+// Same loading law as the memorial above: buildProp stays SYNCHRONOUS, so the
+// procedural body renders instantly AND carries the collision story; the GLB
+// swaps in when the fetch lands, and if it 404s (or we're in vitest) the
+// procedural one simply stays. One cached promise per FILE — a 200-tree forest
+// is four downloads and every instance shares the loaded geometry.
+//
+// Models are auto-GROUNDED (several have their origin above the base — the
+// Windmill sits 2.26u under it) and auto-FITTED to the size our generators
+// already assume, so `scale` keeps meaning exactly what it meant before.
+// ---------------------------------------------------------------------------
+interface GlbProp { files: string[]; fit: 'h' | 'w'; target: number }
+const GLB_PROPS: Record<string, GlbProp> = {
+  // fit trees by HEIGHT to the procedural cone-tree they replace
+  tree: { files: ['Tree1', 'Tree2', 'Tree3', 'Tree4'], fit: 'h', target: 5.4 },
+  // rocks fit by WIDTH: the collision footprint is tile-quantised off the
+  // radius, so matching the girth is what keeps the invisible walls honest
+  rock: { files: ['Rock1', 'Rock2', 'Rock3'], fit: 'w', target: 2.9 },
+};
+
+const glbCache = new Map<string, Promise<THREE.Object3D | null>>();
+function loadGlbProp(name: string): Promise<THREE.Object3D | null> {
+  let p = glbCache.get(name);
+  if (p) return p;
+  p = new Promise<THREE.Object3D | null>((resolve) => {
+    // vitest/node has no document and rejects relative URLs before the
+    // loader's own error path can fire — the procedural body stands alone there
+    if (typeof window === 'undefined' || typeof document === 'undefined') return resolve(null);
+    try {
+      new GLTFLoader().load(`/models/props/${name}.glb`, (gltf) => {
+        gltf.scene.traverse((o) => {
+          if (o instanceof THREE.Mesh) {
+            o.castShadow = true;
+            o.receiveShadow = true;
+          }
+        });
+        resolve(gltf.scene);
+      }, undefined, () => resolve(null));
+    } catch { resolve(null); }
+  });
+  glbCache.set(name, p);
+  return p;
+}
+
+/** A prop group: the procedural `fallback` now, the real model when it lands. */
+function glbProp(kind: string, scale: number, seed: number, fallback: THREE.Object3D): THREE.Object3D {
+  const def = GLB_PROPS[kind];
+  const g = new THREE.Group();
+  g.add(fallback);
+  if (!def) return g;
+  // deterministic variant pick — the same prop always wears the same model
+  const name = def.files[Math.abs(Math.round(seed * 997)) % def.files.length];
+  void loadGlbProp(name).then((src) => {
+    if (!src) return; // 404 or headless — keep the procedural body
+    const m = src.clone(true);
+    const box = new THREE.Box3().setFromObject(m);
+    const size = box.getSize(new THREE.Vector3());
+    const native = def.fit === 'h' ? size.y : Math.max(size.x, size.z);
+    if (native > 0.001) m.scale.setScalar((def.target * scale) / native);
+    // sit it ON the ground: re-measure after scaling and lift by the base
+    const grounded = new THREE.Box3().setFromObject(m);
+    m.position.y -= grounded.min.y;
+    g.remove(fallback);
+    g.add(m);
+  });
+  return g;
+}
+
 export function buildGate(): THREE.Group {
   const g = new THREE.Group();
   const frame = mat(0x3a3f44, { metal: 0.6, rough: 0.3 });
@@ -108,7 +180,7 @@ export function buildProp(type: string, scale: number): THREE.Object3D {
       cap.rotation.set(0.5, scale * 3.1, 0.3);
       cap.castShadow = true;
       g.add(base, cap);
-      return g;
+      return glbProp('rock', scale, scale, g);
     }
     case 'tree': {
       const g = new THREE.Group();
@@ -121,7 +193,8 @@ export function buildProp(type: string, scale: number): THREE.Object3D {
       crown2.position.y = 4.3 * scale;
       crown2.castShadow = true;
       g.add(trunk, crown, crown2);
-      return g;
+      // the cone-tree is the instant body; a real trunk swaps in when it lands
+      return glbProp('tree', scale, scale, g);
     }
     case 'crate': {
       const g = new THREE.Group();
