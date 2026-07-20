@@ -83,15 +83,16 @@ export function airGrounded(w: WeatherState): boolean {
   return WEATHER_MODS[w.kind].groundsAir && w.intensity > 0.25;
 }
 
-/** The dispatch line the announcer reads when the front arrives. */
+/** The dispatch line the announcer reads when the front arrives — the weather
+ *  desk is a payroll clerk: state the fact, regret nothing. */
 export function weatherAnnounce(kind: WeatherKind): string {
   switch (kind) {
-    case 'rain': return 'WEATHER: RAIN — sight dims, ground slicks';
-    case 'storm': return 'WEATHER: STORM — heavy rain, sight cut, air grounded';
-    case 'fog': return 'WEATHER: FOG — you hear what you cannot see';
-    case 'snow': return 'WEATHER: SNOWSTORM — air grounded, tracks fade';
-    case 'dust': return 'WEATHER: DUST STORM — wheels choke, air grounded';
-    case 'night': return 'NIGHTFALL — muzzle flashes glow';
-    default: return 'Skies clearing';
+    case 'rain': return 'WEATHER: RAIN — sight dims. THE WAR CONTINUES REGARDLESS.';
+    case 'storm': return 'WEATHER: STORM — sight cut, air grounded. COMPLAINTS MAY BE FILED WITH THE SKY.';
+    case 'fog': return 'WEATHER: FOG — TRUST YOUR EARS.';
+    case 'snow': return 'WEATHER: SNOWSTORM — AIR ASSETS HAVE ELECTED TO LIVE.';
+    case 'dust': return 'WEATHER: DUST STORM — THE WHEELS OBJECT. THE WAR DOES NOT.';
+    case 'night': return 'NIGHTFALL — muzzle flashes glow. SO DO MISTAKES.';
+    default: return 'SKIES CLEARING. RESUME.';
   }
 }

@@ -666,7 +666,12 @@ export class Hud {
       html += soldiers.map(row).join('');
     } else {
       for (const team of [0, 1] as Team[]) {
-        html += `<tr class="team-head t${team}"><td colspan="5">${TEAM_NAMES[team]} — ${Math.floor(m.scores[team])}</td></tr>`;
+        // detail #6, the flesh-vs-chrome ledger: clones are the treasure,
+        // machines are scrap — the scoreboard teaches the economy in one line
+        let flesh = 0, chrome = 0;
+        for (const s of soldiers) if (s.team === team) (s.kind === 'human' ? flesh += s.deaths : chrome += s.deaths);
+        html += `<tr class="team-head t${team}"><td colspan="5">${TEAM_NAMES[team]} — ${Math.floor(m.scores[team])}` +
+          `<span style="float:right;font-size:0.78em;color:var(--muted)">LOSSES — FLESH ${flesh} · CHROME ${chrome}</span></td></tr>`;
         html += soldiers.filter((s) => s.team === team).map(row).join('');
       }
     }
@@ -679,7 +684,15 @@ export class Hud {
   /** Post-match career pane (the Record, §3.4) — set by the match tracker. */
   careerHtml = '';
 
+  /** Detail #1: which print of you is currently walking. You deploy as
+   *  PRINT 1; every reprint increments. Reset when a fresh match's clock
+   *  runs backwards past us. */
+  private prints = 1;
+  private lastSimTime = 0;
+
   applyEvents(events: SimEvent[], world: World, localId: number, now: number) {
+    if (world.time < this.lastSimTime) this.prints = 1; // new match, first body
+    this.lastSimTime = world.time;
     for (const e of events) {
       if (e.type === 'death' && e.victimName) {
         const killerTeamCls = e.killerTeam !== undefined ? `t${e.killerTeam}` : 'zed';
@@ -699,7 +712,10 @@ export class Hud {
       // the front isn't a reprint, it's an enlistment. Paintball rounds are
       // exempt too: nobody dies in the yard, you just walk back on.
       if (e.type === 'respawn' && e.soldierId === localId && world.time > 1 && world.mode.id !== 'paintball') {
-        this.announce('REPRINTED', false, now);
+        // your death count becomes a character: by PRINT 9 it's dark comedy,
+        // on a one-death match it's a quiet brag (detail #1)
+        this.prints++;
+        this.announce(`REPRINTED — PRINT ${this.prints}`, false, now);
       }
       if (e.type === 'psi_ping' && e.soldierId === localId) this.psiFlashUntil = now + 1;
       if ((e.type === 'announce' || e.type === 'flag_taken' || e.type === 'flag_captured' ||

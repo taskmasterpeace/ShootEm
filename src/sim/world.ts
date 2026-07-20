@@ -4436,7 +4436,11 @@ export class World {
         if (!attacker.ascendant && (attacker.kind === 'human' || attacker.kind === 'bot')) {
           attacker.streak = (attacker.streak ?? 0) + 1;
           const st = attacker.streak;
-          if (st === 4 || st === 6 || st === 9) this.emit({ type: 'announce', text: `${attacker.name} — RAMPAGE ×${st}`, big: st >= 6 });
+          // streak calls in the payroll department's voice — carnage,
+          // reluctantly acknowledged (detail #3, the HR notices)
+          if (st === 4) this.emit({ type: 'announce', text: `NOTICE: ${attacker.name} — 4 CONFIRMED. HR HAS BEEN INFORMED.` });
+          else if (st === 6) this.emit({ type: 'announce', text: `${attacker.name} — 6 CONFIRMED. AMMUNITION EXPENDITURE FLAGGED FOR REVIEW.`, big: true });
+          else if (st === 9) this.emit({ type: 'announce', text: `${attacker.name} — 9 CONFIRMED. THE ENEMY HAS FILED A FORMAL COMPLAINT.`, big: true });
         }
         // LSW kill milestones (per-life, counted from ascension): the third
         // kill gets a line only nearby ears hear; the fifth wakes the net
