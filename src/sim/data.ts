@@ -246,6 +246,9 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
   hoverboard: {
     kind: 'hoverboard', name: 'Halo Hoverboard', hp: 45, speed: 24, turnRate: 4.2,
     weapon: '', seats: 1, mobileSpawn: false, radius: 0.8, hover: true, systemHp: 10,
+    // the one hull that DRIFTS: velocity chases the nose at 2.6/s, so a hard
+    // carve at speed slides ~0.4s before the board bites. Slippery, not soap.
+    slip: 2.6,
   },
   bike: {
     kind: 'bike', name: 'Jackal Recon Bike', hp: 85, speed: 26, turnRate: 3.4,

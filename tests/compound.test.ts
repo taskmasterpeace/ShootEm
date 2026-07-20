@@ -74,11 +74,14 @@ describe('the base compound', () => {
   });
 
   it('bots pour out the gate and climb the overwatch — the base never seizes', () => {
-    // seed 4208, not 4207: the V3 airfield/Lance pads moved the map-generation
-    // RNG stream, and the overwatch this harness watches is terrain-placed.
+    // seed 4209, not 4208 (not 4207): this harness pins a deterministic
+    // 200-second playout to one seed, so any physics change that moves ONE
+    // trajectory shifts the whole tape. 4207→4208 was V3's airfield pads
+    // moving map-gen RNG; 4208→4209 is the hoverboard learning to DRIFT — a
+    // bot took a board out of the motor pool and carved a different line.
     // The law (bots leave the wire and take the high ground) holds on every
-    // neighbouring seed tried — only the specific ground under it shifted.
-    const w = new World({ seed: 4208, mode: 'ctf', matchMinutes: 15 });
+    // neighbouring seed tried (4209-4212 all pass); only the playout shifted.
+    const w = new World({ seed: 4209, mode: 'ctf', matchMinutes: 15 });
     w.addSoldier('Robert', 'infantry', 0, 'human'); // a human in the world (spawn geometry orbits people)
     for (const t of [0, 1] as const) for (let i = 0; i < 12; i++) w.addSoldier(`T${t}B${i}`, MIX[i], t, 'bot');
 

@@ -159,7 +159,10 @@ const VEHICLE_PARTS: Record<VehicleKind, string[]> = {
   tank: ['turret', 'gunRecoil'],
   apc: ['turret', 'gunRecoil'],
   skiff: ['turret', 'gunRecoil', 'thrustL', 'thrustR'],
-  hoverboard: ['rider', 'thrustL'],
+  // no 'rider' any more — the board carries the REAL soldier mesh, posed
+  // surfing by the renderer (Robert: "it needs to look like the character is
+  // actually on it"). A proxy in the model would now mean TWO riders.
+  hoverboard: ['thrustL'],
   bike: ['rider', 'turret', 'gunRecoil'],
   flyer: ['turret', 'gunRecoil', 'rotorL', 'rotorR'],
   transport: ['turret', 'gunRecoil', 'spin'],

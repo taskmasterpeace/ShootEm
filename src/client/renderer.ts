@@ -219,6 +219,8 @@ export class Renderer {
    *  Set by the frame loops from the director; the camera frames victim+killer
    *  together and a red ring marks the killer. */
   killcamFocusId = -1;
+  /** rotates the crew-chatter bark so the squad doesn't repeat itself */
+  private crewLine = 0;
   private killerRing: THREE.Mesh | null = null;             // pulsing marker over the killer
   /** cutaway roofs (§8.4): fade when the viewed soldier stands beneath one */
   private roofs: { group: THREE.Group; mats: THREE.MeshStandardMaterial[]; house: { tx: number; tz: number; tw: number; th: number } }[] = [];
@@ -1450,7 +1452,13 @@ export class Renderer {
         }
       }
 
-      mesh.visible = (s.alive || corpse) && !inVehicle && !dark && !(s.cloaked && s.team !== localTeam && s.id !== localId);
+      // THE SURFER IS THE EXCEPTION to "occupants are invisible" (Robert:
+      // "the hoverboard needs to look like the character is actually on it").
+      // An open deck hides nothing — the real soldier mesh rides it, class,
+      // gun, nameplate and all, instead of a generic stand-in.
+      const surfBoard = inVehicle ? world.vehicles.get(s.vehicleId) : undefined;
+      const surfing = surfBoard?.kind === 'hoverboard' && surfBoard.alive;
+      mesh.visible = (s.alive || corpse) && (!inVehicle || surfing) && !dark && !(s.cloaked && s.team !== localTeam && s.id !== localId);
       if (!mesh.visible) continue;
       // squad-only overhead: name + vitals circles. Enemy plates were clutter
       // AND free intel — enemies now read as silhouettes and team color.
@@ -1577,8 +1585,16 @@ export class Renderer {
       // on a lazy susan". Sim yaw is math-angle on XZ; three rotates opposite.
       {
         const ys = (mesh.userData.yaw ??= { v: -s.yaw }) as { v: number };
-        mesh.userData.yawDiff = stepYawSpring(ys, -s.yaw, this.frameDt, Math.hypot(s.vel.x, s.vel.z) > 0.6);
+        // a surfer's body follows the BOARD, not the mouse — the deck decides
+        const wantYaw = surfing && surfBoard ? -surfBoard.yaw : -s.yaw;
+        mesh.userData.yawDiff = stepYawSpring(ys, wantYaw, this.frameDt, Math.hypot(s.vel.x, s.vel.z) > 0.6);
         mesh.rotation.y = ys.v;
+      }
+      if (surfing && surfBoard) {
+        // feet on the deck: the same bob the board mesh rides (see the vehicle
+        // pass), deck top at 0.51, minus a crouch dip the surf pose expects
+        const bob = Math.sin(world.time * 4 + surfBoard.id) * 0.1 + 0.25;
+        mesh.position.set(surfBoard.pos.x, bob + 0.51 - 0.14, surfBoard.pos.z);
       }
       this.animateSoldier(mesh, s, world);
       if (s.ascendant) this.lswAura(mesh, s, world);
@@ -1660,8 +1676,49 @@ export class Renderer {
           if (rotor) rotor.rotation.y += dt * (1.5 + (hasPilot ? k * 17 : 0));
         }
       }
+      // THE FIXED WING EARNS THE SKY TOO (Robert: "planes have to start off
+      // grounded"). Only the flyer had altitude code — strikejet, interceptor
+      // and bomber rendered at deck height forever, parked AND flying. A
+      // parked jet now sits flat on its gear; a piloted one climbs to cruise
+      // as its spool completes, and it BANKS into turns (bankAngle shipped in
+      // V2's defs and was read by nobody until now).
+      const vdef = VEHICLES[v.kind];
+      if (vdef.flies && v.kind !== 'flyer') {
+        const lift = vdef.liftoffTime ?? 1.4;
+        const hasPilot = v.seats[0] >= 0;
+        const spoolLeft = Math.max(0, (v.spoolUntil ?? 0) - world.time);
+        const k = hasPilot ? 1 - Math.min(1, spoolLeft / lift) : 0;
+        const target = 0.12 + k * (2.6 + Math.sin(world.time * 1.7 + v.id) * 0.18 * k);
+        const prev = this.flyerAlt.get(v.id) ?? 0.12;
+        const alt = prev + (target - prev) * Math.min(1, dt * 1.6);
+        this.flyerAlt.set(v.id, alt);
+        hoverBob = alt;
+      }
       mesh.position.set(v.pos.x, hoverBob, v.pos.z);
       mesh.rotation.y = -v.yaw;
+      // roll: jets bank into their turn rate; the hoverboard heels into its
+      // drift. Order YXZ makes rotation.x a roll about the hull's own nose.
+      {
+        const prevYaw = (mesh.userData.prevYaw as number | undefined) ?? v.yaw;
+        let yawRate = (v.yaw - prevYaw) / Math.max(dt, 1e-4);
+        if (yawRate > 9) yawRate -= (Math.PI * 2) / Math.max(dt, 1e-4) * Math.sign(yawRate);
+        mesh.userData.prevYaw = v.yaw;
+        let roll = 0;
+        if (vdef.bankAngle && v.seats[0] >= 0) {
+          roll = Math.max(-1, Math.min(1, yawRate / vdef.turnRate)) * vdef.bankAngle;
+        } else if (vdef.slip) {
+          const latV = -v.vel.x * Math.sin(v.yaw) + v.vel.z * Math.cos(v.yaw);
+          roll = Math.max(-0.32, Math.min(0.32, latV * 0.03));
+        }
+        if (roll !== 0 || mesh.userData.hadRoll) {
+          mesh.rotation.order = 'YXZ';
+          const prevRoll = (mesh.userData.roll as number | undefined) ?? 0;
+          const sm = prevRoll + (roll - prevRoll) * Math.min(1, dt * 6);
+          mesh.userData.roll = sm;
+          mesh.userData.hadRoll = Math.abs(sm) > 0.002;
+          mesh.rotation.x = sm;
+        }
+      }
       if (v.kind === 'mech') {
         // the walk cycle: hips scissor with ground speed, planted when still
         const vSpeed = Math.hypot(v.vel.x, v.vel.z);
@@ -2742,6 +2799,47 @@ export class Renderer {
       if (j.torso) j.torso.rotation.x = 0;
     }
 
+    // ---- THE SURF STANCE (Robert: "the hoverboard needs to look like the
+    // character is actually on it"). The rider is the REAL soldier mesh —
+    // feet apart along the deck, knees bent, arms out for balance, body
+    // leaning INTO the drift so the slide reads in the spine, not just the
+    // hull. Arms belong to the weapon-hold layer normally, so their pose is
+    // captured on mount and restored on the first frame back on boots.
+    const board = s.vehicleId >= 0 ? world.vehicles.get(s.vehicleId) : undefined;
+    if (board?.kind === 'hoverboard' && board.alive) {
+      if (!mesh.userData.surfCap) {
+        const c: Record<string, [number, number, number]> = {};
+        for (const n of ['armL', 'armR', 'legL', 'legR', 'shinL', 'shinR', 'head', 'torso']) {
+          const o = j[n];
+          if (o) c[n] = [o.rotation.x, o.rotation.y, o.rotation.z];
+        }
+        mesh.userData.surfCap = c;
+      }
+      // lateral slide in board-local terms — lean INTO it
+      const latV = -board.vel.x * Math.sin(board.yaw) + board.vel.z * Math.cos(board.yaw);
+      const lean = Math.max(-0.35, Math.min(0.35, latV * 0.035));
+      const breathe = Math.sin(t * 4 + board.id) * 0.04; // arms ride the deck bob
+      if (j.legL) { j.legL.rotation.z = 0.5; j.legL.rotation.x = 0.12; }
+      if (j.legR) { j.legR.rotation.z = -0.42; j.legR.rotation.x = -0.12; }
+      if (j.shinL) j.shinL.rotation.z = -0.55;
+      if (j.shinR) j.shinR.rotation.z = -0.4;
+      if (j.armL) { j.armL.rotation.x = 0.85 + breathe; j.armL.rotation.z = 0.25; }
+      if (j.armR) { j.armR.rotation.x = -0.75 - breathe; j.armR.rotation.z = -0.2; }
+      if (j.torso) { j.torso.rotation.z = 0.16; j.torso.rotation.x = lean; }
+      if (j.head) { j.head.rotation.z = -0.12; j.head.rotation.x = -lean * 0.6; }
+      this.setAlpha(mesh, alpha);
+      return;
+    }
+    // back on boots: restore the pose the weapon hold had authored
+    const surfCap = mesh.userData.surfCap as Record<string, [number, number, number]> | undefined;
+    if (surfCap) {
+      mesh.userData.surfCap = undefined;
+      for (const [n, r] of Object.entries(surfCap)) {
+        const o = j[n];
+        if (o) o.rotation.set(r[0], r[1], r[2]);
+      }
+    }
+
     // ---- gait + undead reach (shared verbatim with the model harness) ----
     const airborne = s.pos.y > 0.6;
     const gaitState = (mesh.userData.gait ??= {}) as GaitState;
@@ -3536,6 +3634,27 @@ export class Renderer {
             audio.play('thump', { pos: e.pos });
           }
           if (e.soldierId === localId) this.camShake = Math.max(this.camShake, 0.7);
+          break;
+        }
+        case 'vehicle_enter': {
+          // A SQUADMATE ABOARD IS NEWS (Robert: "when the bots get in a
+          // vehicle with you, them telling you to do something like Let's Go
+          // — so you know"). Two cases speak: a bot drops into a ride YOU are
+          // in, or you take a ride bots are already holding. Silence for
+          // everything happening to other people's vehicles.
+          if (e.vehicleId === undefined || e.soldierId === undefined) break;
+          const me = world.soldiers.get(localId);
+          if (!me || me.vehicleId !== e.vehicleId) break;
+          const veh = world.vehicles.get(e.vehicleId);
+          if (!veh) break;
+          const boarder = world.soldiers.get(e.soldierId);
+          const botJoinedMe = e.soldierId !== localId && boarder?.kind === 'bot';
+          const iJoinedBots = e.soldierId === localId
+            && veh.seats.some((id) => id >= 0 && id !== localId && world.soldiers.get(id)?.kind === 'bot');
+          if (botJoinedMe || iJoinedBots) {
+            const lines = ['crew_letsgo', 'crew_gogogo', 'crew_punchit', 'crew_allin'] as const;
+            audio.play(lines[(this.crewLine++) % lines.length], { pos: e.pos });
+          }
           break;
         }
         case 'ragdoll': {

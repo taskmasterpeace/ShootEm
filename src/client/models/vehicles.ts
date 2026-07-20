@@ -238,9 +238,11 @@ export function buildVehicle(kind: VehicleKind, team: Team): THREE.Group {
         pod.position.set(x, 0.32, 0);
         g.add(pod);
       }
-      // the rider (renderer shows it only while someone's aboard):
-      // surf stance — feet apart along the deck, knees bent, leaning in
-      g.add(buildRider(team, 'surf'));
+      // NO proxy rider any more (Robert: "the hoverboard needs to look like
+      // the character is actually on it"). The old buildRider was a hardcoded
+      // team-colored stand-in — no class, no gun, no identity. The renderer
+      // now keeps the REAL soldier mesh visible and poses it surfing on the
+      // deck instead of hiding it (see the surf branch in renderer.ts).
       break;
     }
     case 'bike': {

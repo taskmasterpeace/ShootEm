@@ -13,6 +13,8 @@ export const SOUND_NAMES = [
   // per-class death cries (see tools/gen-sounds.mjs)
   'death_infantry', 'death_heavy', 'death_jump', 'death_engineer',
   'death_medic', 'death_infiltrator', 'death_pathfinder', 'death_ghost',
+  // crew chatter: a squadmate boarding your ride tells you so (tts-say barks)
+  'crew_letsgo', 'crew_gogogo', 'crew_punchit', 'crew_allin',
   // per-surface footsteps — biome designation lives in src/client/soundscape.ts;
   // plain 'footstep' is the universal fallback until an asset lands in a slot
   'footstep_grass', 'footstep_metal', 'footstep_rock', 'footstep_ice', 'footstep_grit',

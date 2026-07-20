@@ -28,6 +28,7 @@ export class Hud {
   // ---- visual feedback layers (created dynamically) ----
   private vignette = document.createElement('div');
   private sysPips = document.createElement('div');
+  private crewPips = document.createElement('div');
   private equipRow = document.createElement('div');
   private reloadBar = document.createElement('div');
   private stamBar = document.createElement('div');
@@ -89,6 +90,11 @@ export class Hud {
     wb.appendChild(this.hullBar);
     wb.appendChild(this.lswBar);
     wb.appendChild(this.sysPips);
+    // THE CREW ROW (Robert: "little dots to show how many people are in the
+    // vehicle with you, by how many seats it could hold, and then how many
+    // people are actually in it")
+    this.crewPips.id = 'crew-pips';
+    wb.appendChild(this.crewPips);
     // equipment status icons next to the vitals
     this.equipRow.id = 'equip-status';
     $('hud-bottom-left').appendChild(this.equipRow);
@@ -200,9 +206,28 @@ export class Hud {
           const state = hp <= 0 ? 'dead' : hp < max * 0.4 ? 'hurt' : 'ok';
           return `<span class="pip ${state}">${id.slice(0, 3).toUpperCase()}</span>`;
         }).join('');
+        // one dot per SEAT: filled = someone is in it, ◉ = the wheel, white =
+        // you. An empty wheel while others ride blinks — nobody is driving.
+        const seats = v.seats;
+        if (seats.length > 1) {
+          this.crewPips.style.display = 'flex';
+          const filled = seats.filter((id) => id >= 0).length;
+          const dots = seats.map((occ, i) => {
+            const cls = ['seat'];
+            if (occ >= 0) cls.push('filled');
+            if (i === 0) cls.push('driver');
+            if (occ === s.id) cls.push('you');
+            const glyph = i === 0 ? (occ >= 0 ? '◉' : '◌') : occ >= 0 ? '●' : '○';
+            return `<span class="${cls.join(' ')}">${glyph}</span>`;
+          }).join('');
+          this.crewPips.innerHTML = `<span class="crew-count">CREW ${filled}/${seats.length}</span>${dots}`;
+        } else {
+          this.crewPips.style.display = 'none';
+        }
       }
     } else {
       this.sysPips.style.display = 'none';
+      this.crewPips.style.display = 'none';
       this.hullBar.style.display = 'none';
       const def = WEAPONS[s.weapons[s.weaponIdx]];
       // coach-ui: NO emoji in the lockup — the 🎯 rendered magenta (a house-law
@@ -290,7 +315,9 @@ export class Hud {
       for (const v of world.vehicles.values()) {
         if (!v.alive || v.team !== s.team || !v.seats.includes(-1)) continue;
         if (Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z) < VEHICLES[v.kind].radius + 2.2) {
-          hint.textContent = `[E] Enter ${VEHICLES[v.kind].name}`;
+          const aboard = v.seats.filter((x) => x >= 0).length;
+          const seatDots = v.seats.map((x) => (x >= 0 ? '●' : '○')).join('');
+          hint.textContent = `[E] Enter ${VEHICLES[v.kind].name} · ${aboard}/${v.seats.length} ${seatDots}`;
           showHint = true;
           break;
         }

@@ -186,6 +186,16 @@ export interface VehicleDef {
   bankAngle?: number;
   /** V3: fires homing missiles at aircraft (AA track, SAM turret) */
   antiAir?: boolean;
+  /**
+   * GRIP RATE (Robert: "the hoverboard's controlled too well — it should be a
+   * little bit more slippery, and fun"). Every hull used to rebuild its
+   * velocity from its facing every tick, which makes lateral momentum
+   * mathematically impossible — steering perfectly locked to the nose.
+   * With `slip` set, velocity CHASES the nose at this rate instead (1/s):
+   * turn hard at speed and the hull keeps sliding the way it was going.
+   * Absent = rails, like always.
+   */
+  slip?: number;
   /** V4: drops a stick of bombs straight down along its flight path */
   bombs?: number;
   /** grinds T_WALL tiles into open ground as it moves (tunneler) */
@@ -735,6 +745,9 @@ export interface SimEvent {
    *  On a 'damage': the VICTIM — whose head the number floats over, and the key
    *  that folds a burst of hits into one number. */
   soldierId?: number;
+  /** On vehicle_enter/exit: the hull it happened on — the client tells
+   *  "someone boarded MY ride" apart from a door slamming across the map */
+  vehicleId?: number;
   /** On a 'hit': who fired the round, struck or missed. Attribution for
    *  decals (paint splats wear their shooter's shade), never for feedback.
    *  On a 'damage': the ATTACKER — THE LAW is that a damage number shows only

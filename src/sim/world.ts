@@ -3222,7 +3222,7 @@ export class World {
             this.emit({ type: 'announce', text: `${VEHICLES[v.kind].name}: rotors spooling…` });
           }
           if (s.carryingFlag >= 0) return; // flag carriers may ride — mode handles flag pos
-          this.emit({ type: 'vehicle_enter', pos: v.pos, soldierId: s.id });
+          this.emit({ type: 'vehicle_enter', pos: v.pos, soldierId: s.id, vehicleId: v.id });
           return;
         }
       }
@@ -3239,7 +3239,7 @@ export class World {
     const ex = v.pos.x + Math.cos(side) * (VEHICLES[v.kind].radius + 1.5);
     const ez = v.pos.z + Math.sin(side) * (VEHICLES[v.kind].radius + 1.5);
     s.pos = isBlocked(this.map.grid, ex, ez) ? { ...v.pos } : { x: ex, y: 0, z: ez };
-    this.emit({ type: 'vehicle_exit', pos: s.pos, soldierId: s.id });
+    this.emit({ type: 'vehicle_exit', pos: s.pos, soldierId: s.id, vehicleId: v.id });
   }
 
   /** Which soldier mans a named crew station right now (seat order: driver, then def.crew). */
@@ -3404,8 +3404,25 @@ export class World {
       const accel = 18;
       const curSpeed = Math.cos(v.yaw) * v.vel.x + Math.sin(v.yaw) * v.vel.z;
       const newSpeed = curSpeed + Math.max(-accel * dt, Math.min(accel * dt, targetSpeed - curSpeed));
-      v.vel.x = Math.cos(v.yaw) * newSpeed;
-      v.vel.z = Math.sin(v.yaw) * newSpeed;
+      const fwdX = Math.cos(v.yaw), fwdZ = Math.sin(v.yaw);
+      if (def.slip) {
+        // THE DRIFT (see VehicleDef.slip). Split the velocity on the nose
+        // axis: the FORWARD part obeys the engine exactly like rails do —
+        // full throttle authority, nothing mushy — while the LATERAL part
+        // (what rails simply delete) BLEEDS at the slip rate instead. Turn
+        // hard at speed and yesterday's forward becomes today's sideways,
+        // sliding off over ~1/slip seconds. A first cut lagged the WHOLE
+        // velocity toward the nose, which read as drift in a unit test and
+        // as a dead engine on the stick — 4% throttle authority.
+        const latX = v.vel.x - fwdX * curSpeed;
+        const latZ = v.vel.z - fwdZ * curSpeed;
+        const keep = Math.exp(-def.slip * dt); // frame-rate honest
+        v.vel.x = fwdX * newSpeed + latX * keep;
+        v.vel.z = fwdZ * newSpeed + latZ * keep;
+      } else {
+        v.vel.x = fwdX * newSpeed;
+        v.vel.z = fwdZ * newSpeed;
+      }
 
       const nx = v.pos.x + v.vel.x * dt;
       const nz = v.pos.z + v.vel.z * dt;
@@ -4269,6 +4286,20 @@ export class World {
       victim.downedUntil = 0;
       victim.reviveProgress = 0;
       victim.respawnAt = this.time + (isZed(victim.kind) ? 2 : RESPAWN_DELAY);
+      // A GHOST MAY NOT HOLD A CHAIR. Death used to leave the victim's id in
+      // v.seats forever — spawn() cleared the SOLDIER's fields at respawn but
+      // never the hull's manifest. A killed rider bricked the seat for the
+      // rest of the match: nobody could board it, crew checks counted a dead
+      // gunner as crew, and a 1-seat hoverboard became furniture.
+      if (victim.vehicleId >= 0) {
+        const hull = this.vehicles.get(victim.vehicleId);
+        if (hull && hull.seats[victim.seat] === victim.id) {
+          hull.seats[victim.seat] = -1;
+          if (!hull.seats.some((id) => id >= 0)) hull.abandonedAt = this.time;
+        }
+        victim.vehicleId = -1;
+        victim.seat = -1;
+      }
       const attacker = this.soldiers.get(attackerId);
       // the killcam frames the duel — remember who fired the killing blow
       victim.lastKillerId = attacker && attacker.id !== victim.id ? attacker.id : -1;
