@@ -30,3 +30,5 @@ tools/atlas/
 assets/raw/
 assets/glb/
 assets/*.zip
+
+*.code-workspace
