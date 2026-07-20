@@ -25,6 +25,12 @@ export const BOT_TUNING = {
   grassCrouched: 9,
   /** cloaked infiltrators register only inside this (a ping overrides) */
   cloakReveal: 9,
+  /** footstep-close presence: inside this a bot registers you regardless of
+   *  facing (mirrors perception.ts RING — you hear what's on top of you) */
+  ringClose: 9,
+  /** half-angle of a bot's eyes (~130° total, mirrors perception.ts CONE_HALF).
+   *  Past ringClose it sees only inside this — which is what makes FLANKING work */
+  coneHalf: 1.15,
 
   // ---- the trigger ----
   /** velocity-lead weight (under-lead on purpose: fast strafing beats them) */

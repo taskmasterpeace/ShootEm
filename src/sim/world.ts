@@ -129,6 +129,11 @@ export class World {
   gadgets = new Map<number, Gadget>();
   /** soldier ids currently revealed by targeting beacons / drones / sensors / psi */
   pinged = new Set<number>();
+  /** LAST tick's marks. The recon pass (beacons/drones/cameras/psi) repopulates
+   *  `pinged` AFTER the bot brains have already run, so a bot reading `pinged`
+   *  live always saw an empty set — every ping-aware behaviour was dead code.
+   *  Bots read this instead: one tick stale (16ms) and deterministic. */
+  pingedLast = new Set<number>();
   /** per-team memory: when team T last perceived enemy soldier id, and WHERE
    *  (§19.1 ghosts freeze at the spot you lost them). Stamped every tick by
    *  updateLastSeen; the wire culler (68A) and the renderer's roof cutaway
@@ -1075,6 +1080,12 @@ export class World {
     // recon state rebuilds every tick: pings accumulate from beacons, drones,
     // cameras, crewed sensor stations, and psi scanners; then smoke fields,
     // stealth suits, and crewed ECM stations strip entries back out.
+    // hand this tick's marks to `pingedLast` before wiping, so the bot brains
+    // (which run BEFORE the recon pass below) have something real to read.
+    // Swap the set objects rather than copying — no per-tick allocation.
+    const recycled = this.pingedLast;
+    this.pingedLast = this.pinged;
+    this.pinged = recycled;
     this.pinged.clear();
     this.smoked.clear();
 

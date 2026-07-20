@@ -260,6 +260,47 @@ describe('defence is scored, not frozen (§utility role)', () => {
   });
 });
 
+describe('a bot has eyes, not radar (§facing cone)', () => {
+  /** does the bot (facing +x at the origin) engage a foe `deg` off its facing? */
+  function engages(deg: number, dist: number, ping = false): boolean {
+    const w = new World({ seed: 3, mode: 'tdm' });
+    carve(w);
+    const bot = w.addSoldier('B', 'infantry', 0, 'bot');
+    const foe = w.addSoldier('F', 'infantry', 1, 'human');
+    const a = (deg * Math.PI) / 180;
+    let fired = false, prev = w.events.length;
+    for (let i = 0; i < 90; i++) {
+      bot.pos = { x: 0, y: 0, z: 0 }; bot.yaw = 0;
+      foe.pos = { x: Math.cos(a) * dist, y: 0, z: Math.sin(a) * dist };
+      foe.hp = 9999; foe.maxHp = 9999;
+      // a REAL ping source: world.step rebuilds `pinged` each tick, so a manual
+      // add is wiped. A friendly target beacon paints enemies within 25u.
+      if (ping && i === 0) w.spawnGadget('target_beacon', 0, bot.id, { x: foe.pos.x, y: 0, z: foe.pos.z }, 60, 9999);
+      w.step(DT, new Map());
+      for (let k = prev; k < w.events.length; k++) {
+        if (w.events[k].soldierId === bot.id && w.events[k].type === 'shot') fired = true;
+      }
+      prev = w.events.length;
+    }
+    return fired;
+  }
+
+  it('FLANKING works: it engages what it faces and is blind to what is behind it', () => {
+    expect(engages(0, 20), 'blind straight ahead').toBe(true);
+    expect(engages(45, 20), 'blind at 45deg — the cone is too narrow').toBe(true);
+    expect(engages(120, 20), 'saw a body at 120deg — the cone is too wide').toBe(false);
+    expect(engages(180, 20), 'it has eyes in the back of its head again').toBe(false);
+  });
+
+  it('a ping ignores facing, and the footstep ring still hears what is on top of you', () => {
+    // regression: `pinged` is repopulated AFTER the bot brains run, so bots must
+    // read the previous tick's snapshot — reading it live made every ping-aware
+    // branch dead code, silently.
+    expect(engages(180, 20, true), 'a MARKED enemy behind it stayed invisible').toBe(true);
+    expect(engages(180, 6), 'it ignored a body inside the footstep ring').toBe(true);
+  });
+});
+
 describe('the planner knows the ground (§walkable)', () => {
   it('a bot routes THROUGH tall grass instead of treating a forest as a wall', () => {
     // a grass corridor is the only way through a wall line — if the planner

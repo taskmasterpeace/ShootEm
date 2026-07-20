@@ -335,7 +335,11 @@ function findTarget(w: World, s: Soldier, maxRange: number, pingRange = maxRange
   let bestD = Infinity;
   for (const e of w.soldiers.values()) {
     if (!e.alive || e.team === s.team || e.vehicleId >= 0) continue;
-    const pinged = w.pinged.has(e.id);
+    // LAST tick's marks, not this tick's: the recon pass that fills `pinged`
+    // (beacons, drones, cameras, psi scans) runs AFTER the bot brains, so
+    // reading it live always saw an empty set and every ping-aware branch below
+    // was dead. One tick stale is 16ms and stays deterministic.
+    const pinged = w.pingedLast.has(e.id);
     const d = Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z);
     // GRASS conceals from bots too (perception parity): an enemy in the tall
     // grass is a rumor past ~14u — or the footstep ring if they DUCK — unless a
@@ -346,6 +350,16 @@ function findTarget(w: World, s: Soldier, maxRange: number, pingRange = maxRange
       reach = Math.min(reach, e.crouching ? TUNE.grassCrouched : TUNE.grassRumor);
     }
     if (d >= reach) continue; // past the eye AND unmarked
+    // THE FACING CONE (the last piece of perception parity): a bot's eyes point
+    // where its gun points. Past the footstep RING it only sees inside the same
+    // ~130° cone the player's own eyes use (perception.ts CONE_HALF) — bots used
+    // to have eyes in the back of their heads, so FLANKING did nothing. A ping is
+    // electronic and ignores facing; an LSW is a god and keeps its 360°.
+    if (!pinged && !s.ascendant && d > TUNE.ringClose) {
+      let off = Math.abs(Math.atan2(e.pos.z - s.pos.z, e.pos.x - s.pos.x) - s.yaw) % (Math.PI * 2);
+      if (off > Math.PI) off = Math.PI * 2 - off;
+      if (off > TUNE.coneHalf) continue; // behind him — walk on by
+    }
     if (e.cloaked && d > TUNE.cloakReveal && !pinged) continue; // cloak is TRUE unless a mark reveals it
     // sightClear = walls AND smoke — a bot must not track through the cloud
     // a player just paid a grenade to stand up (Robert: smoke AFFECTS
