@@ -316,8 +316,8 @@ function papercraftRig(label: string, dress: FactionDress): Rig {
   // narrower torso, no hem — the jacket ends at a belt like a jacket
   const torso = box(0.36, 0.52, 0.46, JACKET); torso.position.y = 1.22; torso.name = 'torso'; body.add(torso);
   const belt = box(0.38, 0.07, 0.48, BOOT); belt.position.y = 0.94; body.add(belt);
-  // smaller head, still the papercraft box
-  const head = box(0.34, 0.34, 0.34, SKIN); head.position.y = 1.7; head.name = 'head'; body.add(head);
+  // smaller again (Robert, round two of "a little smaller") — same cut gap
+  const head = box(0.3, 0.3, 0.3, SKIN); head.position.y = 1.68; head.name = 'head'; body.add(head);
 
   // camo plates proud of the cloth
   const camo = (w: number, h: number, x: number, y: number, z: number, c: number) => {
@@ -363,7 +363,11 @@ function papercraftRig(label: string, dress: FactionDress): Rig {
     const knee = new THREE.Group();
     knee.position.y = -0.4;
     const shin = box(0.14, 0.32, 0.16, TROUSER); shin.position.y = -0.16; knee.add(shin);
-    const bt = box(0.17, 0.12, 0.28, BOOT); bt.position.set(0.05, -0.42, 0); knee.add(bt);
+    // A FOOT IS LONG, NOT WIDE. The old boot was 0.28 across on legs 0.28
+    // apart — standing together the two read as ONE slab (Robert: "the feet
+    // are unified"), and the run looked clunky for the same reason. Narrow
+    // side-to-side, longer front-to-back: a boot, not a snowshoe.
+    const bt = box(0.26, 0.12, 0.13, BOOT); bt.position.set(0.06, -0.42, 0); knee.add(bt);
     leg.add(knee);
     body.add(leg);
     return { leg, knee };
