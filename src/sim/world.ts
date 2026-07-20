@@ -77,6 +77,9 @@ const DASH_CD = 0.9;
 // or past this flips the body: conc (26) ragdolls out to ~2.5u, artillery
 // flips whole fireteams, but a plain frag (13) only ever shoves.
 const RAGDOLL_AT = 16;
+// V4: the Cradle warhead costs the same as a tier-3 god. It should feel like
+// spending the stable's whole afternoon, because it does what a god does.
+const NUKE_PRICE = 4;
 // M5 THE AXE: thrown flat, buried on landing, recalled through anyone in the way
 const AXE_REACH = 30;
 const AXE_RECALL_SPEED = 46;
@@ -1865,6 +1868,56 @@ export class World {
         s.protectedUntil = 0; // hostile action (55B)
         this.explode({ ...v.pos }, WEAPONS.mech_stomp, s.id, v.team);
         this.emit({ type: 'shot', pos: { ...v.pos }, weapon: 'mech_stomp', soldierId: s.id });
+      }
+      // ── V4 THE BOMB BAY ────────────────────────────────────────────────
+      // Robert: "a bomber, one that a team could have and actually drop
+      // bombs… and I almost think we need a baby nuke."
+      //
+      // FIRE drops iron: one bomb per trigger pull, released straight down
+      // into the aircraft's own momentum, so a bombing run is a LINE you walk
+      // across the target — you aim by FLYING, not by looking, which is the
+      // only thing that makes a bomber feel like a bomber.
+      const bombDef = VEHICLES[v.kind];
+      if (bombDef.bombs && s.seat === 0) {
+        if (v.bombLoad === undefined) v.bombLoad = bombDef.bombs;
+        if (v.nukeAboard === undefined) v.nukeAboard = false;
+        if (cmd.fire && v.bombLoad > 0 && this.time >= v.nextFireAt) {
+          v.bombLoad--;
+          v.nextFireAt = this.time + 1 / WEAPONS.bomb.rof;
+          const def = WEAPONS.bomb;
+          this.launch({
+            id: this.id(), weapon: 'bomb', ownerId: s.id, team: v.team,
+            pos: { x: v.pos.x, y: Math.max(2.4, v.pos.y), z: v.pos.z },
+            // it INHERITS the aircraft's velocity — that's the whole skill
+            vel: { x: v.vel.x * 0.85, y: -2, z: v.vel.z * 0.85 },
+            bornAt: this.time, ttl: 2.2, arc: true,
+          } as Projectile);
+          this.emit({ type: 'bomb_away', pos: { ...v.pos }, soldierId: s.id });
+        }
+        // ── THE CRADLE: one warhead, priced in materiel, announced to
+        // EVERYONE. A weapon that reshapes a map must never be a surprise —
+        // the counterplay is the warning, and the whole enemy team gets it.
+        if (cmd.altFire && !v.nukeAboard && this.time >= s.nextAbilityAt) {
+          const price = NUKE_PRICE;
+          if (this.materiel[v.team] >= price) {
+            this.materiel[v.team] -= price;
+            v.nukeAboard = true;
+            s.nextAbilityAt = this.time + 2;
+            this.emit({ type: 'nuke_armed', pos: { ...v.pos }, soldierId: s.id, big: true,
+              text: 'CRADLE WARHEAD ARMED — CLEAR THE FIELD' });
+          }
+        } else if (cmd.altFire && v.nukeAboard && this.time >= s.nextAbilityAt) {
+          v.nukeAboard = false;
+          s.nextAbilityAt = this.time + 2;
+          this.launch({
+            id: this.id(), weapon: 'baby_nuke', ownerId: s.id, team: v.team,
+            pos: { x: v.pos.x, y: Math.max(2.4, v.pos.y), z: v.pos.z },
+            vel: { x: v.vel.x * 0.7, y: -2, z: v.vel.z * 0.7 },
+            bornAt: this.time, ttl: 2.6, arc: true,
+          } as Projectile);
+          this.emit({ type: 'bomb_away', pos: { ...v.pos }, soldierId: s.id, big: true,
+            text: 'WARHEAD AWAY' });
+        }
       }
       // flyer pilots pop IR flares with the grenade key — the heat-seeker counter
       if (cmd.grenade && s.seat === 0 && VEHICLES[v.kind].flies && v.flares > 0 && this.time >= s.nextGrenadeAt) {

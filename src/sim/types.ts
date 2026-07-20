@@ -250,6 +250,7 @@ export interface Soldier {
   axeId?: number;
   /** M5: the axe is flying home — no second recall until it lands */
   axeRecallAt?: number;
+
   alive: boolean;
   respawnAt: number;  // sim time when respawn allowed
   weaponIdx: number;  // 0 primary, 1 secondary, 2 special pickup
@@ -497,6 +498,9 @@ export interface Vehicle {
   nextHealAt: number;
   /** flyer: IR decoy flares left this life (heat-seeker counter) */
   flares: number;
+  /** V4: the Anvil's remaining iron, and whether the Cradle is still aboard */
+  bombLoad?: number;
+  nukeAboard?: boolean;
   /** flyer: sim time the rotors finish spooling — airborne (and mobile) after this */
   spoolUntil: number;
   // ---- requisition (§8.1a) — the manifest that makes hulls feel OWNED ----
@@ -694,6 +698,8 @@ export interface SimEvent {
     | 'axe_stick'      // M5: it bit something and stayed there
     | 'axe_recall'     // M5: it tore free and is flying home
     | 'sam_launch'     // V3: a missile is up — every pilot in earshot should know
+    | 'bomb_away'      // V4: the bay opened
+    | 'nuke_armed'     // V4: the warhead is live and everyone can hear it
     | 'damage'         // a number worth showing floated off a victim (see amount/armorHit)
     | 'vo';            // a spoken line: text = sound slot; pos = positional speech, absent = announcer net
   pos?: Vec3;
