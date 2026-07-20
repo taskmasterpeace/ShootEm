@@ -4,6 +4,14 @@
 // and one who panics gets caught. Flares are the other way out.
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
+
+/** V3: strip the autonomous AA hulls. Every base now fields a Lance that
+ *  fires on any aircraft within 120u — correct in a match, and pure noise in
+ *  a suite about the MANPADS duel: it shot the test's own flyer down to 7hp
+ *  and the failure read as "the sprint didn't work". Isolate the subject. */
+function noAutoAA(w: { vehicles: Map<number, { kind: string; alive: boolean }> }) {
+  for (const [id, v] of w.vehicles) if (v.kind === 'aatrack') w.vehicles.delete(id);
+}
 import { EQUIPMENT, SAM_SPEED_RATIO, VEHICLES, WEAPONS } from '../src/sim/data';
 import type { PlayerCmd, Soldier, Team, Vehicle } from '../src/sim/types';
 import { World } from '../src/sim/world';
@@ -40,6 +48,7 @@ describe('MANPADS vs aircraft', () => {
   it('fires only with an airborne enemy flyer in the cone — otherwise the frag flies', () => {
     expect(EQUIPMENT.manpads.samLauncher).toBe(true);
     const w = new World({ seed: 7, mode: 'tdm' });
+    noAutoAA(w);
     const s = manpadsShooter(w, w.map.hillPos);
     expect(s.manpads).toBe(2);
 
@@ -73,6 +82,7 @@ describe('MANPADS vs aircraft', () => {
     expect(WEAPONS.sam_missile.speed).toBeLessThan(VEHICLES.flyer.speed);
     // a live launch flies at exactly that speed
     const w = new World({ seed: 7, mode: 'tdm' });
+    noAutoAA(w);
     airborneFlyer(w, { x: w.map.hillPos.x + 20, z: w.map.hillPos.z }, 1);
     const s = manpadsShooter(w, w.map.hillPos);
     w.step(1 / 60, new Map([[s.id, cmd({ grenade: true, aimYaw: 0 })]]));
@@ -82,6 +92,7 @@ describe('MANPADS vs aircraft', () => {
 
   it('a straight sprint outruns the bird: launched dead astern, it never connects', () => {
     const w = new World({ seed: 7, mode: 'tdm' });
+    noAutoAA(w);
     const z = w.map.hillPos.z;
     const { fly, pilot } = airborneFlyer(w, { x: -80, z }, 1);
     fly.vel = { x: VEHICLES.flyer.speed, y: 0, z: 0 }; // already at full tilt when the tone sounds
@@ -110,6 +121,7 @@ describe('MANPADS vs aircraft', () => {
 
   it('a gunship that hovers in place gets caught and hurt', () => {
     const w = new World({ seed: 7, mode: 'tdm' });
+    noAutoAA(w);
     const { fly } = airborneFlyer(w, { x: w.map.hillPos.x + 40, z: w.map.hillPos.z }, 1);
     const s = manpadsShooter(w, w.map.hillPos);
     const hp = fly.hp;
@@ -122,6 +134,7 @@ describe('MANPADS vs aircraft', () => {
 
   it('flares seduce the seeker: it detonates on the decoy while the gunship runs', () => {
     const w = new World({ seed: 7, mode: 'tdm' });
+    noAutoAA(w);
     const { fly, pilot } = airborneFlyer(w, { x: w.map.hillPos.x, z: w.map.hillPos.z }, 1);
     const s = manpadsShooter(w, { x: fly.pos.x - 30, z: fly.pos.z });
     expect(fly.flares).toBe(3);

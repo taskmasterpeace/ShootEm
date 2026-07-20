@@ -933,7 +933,41 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
       }
       aimPt = s.botGoal;
     }
-    const wantYaw = Math.atan2(aimPt.z - v.pos.z, aimPt.x - v.pos.x);
+    let wantYaw = Math.atan2(aimPt.z - v.pos.z, aimPt.x - v.pos.x);
+
+    // ── V3 THE PILOT BREAKS LOCK BUT KEEPS WORKING ────────────────────────
+    // Robert: "when it fires, the AI pilot needs to try to EVADE while still
+    // ATTACKING." Both halves matter — a pilot who only evades is a coward
+    // the ground never fears, and one who only attacks is a free kill for
+    // any launcher.
+    //
+    // The geometry is already decided by SAM_SPEED_RATIO: the missile is
+    // ~8% slower, so a straight run opens the gap and a panic turn hands it
+    // the corner. The RIGHT answer is neither — it's a shallow BEAM turn
+    // (put the missile off your wingtip and keep your energy), plus flares.
+    // So the pilot biases its heading ~50° off the threat instead of fleeing,
+    // which keeps the target in the forward arc and the gun still working.
+    if (flying) {
+      let inbound: { x: number; z: number } | null = null;
+      for (const p of w.projectiles.values()) {
+        if (p.team === s.team) continue;
+        if (p.homingVehicleId !== v.id && p.homingSoldierId !== s.id) continue;
+        inbound = { x: p.pos.x, z: p.pos.z };
+        break;
+      }
+      if (inbound) {
+        const away = Math.atan2(v.pos.z - inbound.z, v.pos.x - inbound.x);
+        // beam it: 50° off the pure-flee bearing, turning the way that costs
+        // the least — the shallow break keeps speed, and speed is survival
+        let off = away - v.yaw;
+        while (off > Math.PI) off -= Math.PI * 2;
+        while (off < -Math.PI) off += Math.PI * 2;
+        wantYaw = away - Math.sign(off || 1) * 0.87;
+        // and dump a flare if the airframe has one — the missile prefers heat
+        if (v.flares > 0) cmd.grenade = true;
+      }
+    }
+
     let dy = wantYaw - v.yaw;
     while (dy > Math.PI) dy -= Math.PI * 2;
     while (dy < -Math.PI) dy += Math.PI * 2;

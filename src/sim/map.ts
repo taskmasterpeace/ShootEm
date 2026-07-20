@@ -633,7 +633,10 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
 
   // Vehicle pads flanking each base — the full motor pool
   const vehiclePads: VehiclePad[] = [];
-  const padKinds: VehicleKind[] = ['buggy', 'tank', 'apc', 'skiff', 'bike', 'flyer', 'transport', 'ambulance', 'tunneler', 'hoverboard', 'mech'];
+  // V2/V3: the air program joins the motor pool. The AIRFIELD (strike jet,
+  // interceptor, bomber) and the LANCE that answers the enemy's.
+  const padKinds: VehicleKind[] = ['buggy', 'tank', 'apc', 'skiff', 'bike', 'flyer', 'transport', 'ambulance', 'tunneler', 'hoverboard', 'mech',
+    'strikejet', 'interceptor', 'bomber', 'aatrack'];
   for (let side = 0 as Team; side < 2; side++) {
     const [btx, btz] = baseT[side];
     const fwd = side === 0 ? 1 : -1;
@@ -646,6 +649,12 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
       [fwd * 21, -13], [fwd * 21, 13], [fwd * 27, -9], [fwd * 27, 9],
       [fwd * 24, -12], [fwd * 24, 12],
       [fwd * 28, 5], // mech — off the center row so it doesn't park in the main firing lane
+      // THE AIRFIELD sits BEHIND the motor pool (deeper toward home): a
+      // runway apron is a soft target, so it hides behind the armour, and a
+      // raider who wants to kill jets on the ground has to come all the way in
+      [fwd * 15, -18], [fwd * 15, 18],   // strike jet · interceptor
+      [fwd * 11, 0],                      // bomber — the deepest, slowest, most precious
+      [fwd * 19, 0],                      // the Lance, parked between the field and the front
     ];
     padKinds.forEach((kind, i) => {
       const [ox, oz] = padOffsets[i];
@@ -657,6 +666,20 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
     const ex = btx + fwd * 22, ez = btz + (side === 0 ? -14 : 14);
     clearArea(grid, ex, ez, 4);
     vehiclePads.push({ kind: 'emplacement', team: side as Team, pos: tileToWorld(ex, ez) });
+    // V3 EVERY BASE STARTS WITH A SAM (Robert's exact ask). A second Lance
+    // sits ON the compound, unmanned and always awake — so the sky over a
+    // base is never free, even when the whole team is out on the map. It
+    // fires slower without a gunner (see stepAntiAir), which is the incentive
+    // to actually crew it.
+    // …but NOT inside the compound: a pad at fwd*6 sat where the base
+    // buildings stamp LATER, so my clearArea was overwritten and the launcher
+    // spawned inside a wall (this codebase's signature ordering trap — the
+    // last stamp wins). It parks in the yard beside the emplacement instead,
+    // which costs nothing: the missile reaches 120u, so "covering the base"
+    // never depended on standing in the middle of it.
+    const sx = btx + fwd * 18, sz = btz + (side === 0 ? 16 : -16);
+    clearArea(grid, sx, sz, 3);
+    vehiclePads.push({ kind: 'aatrack', team: side as Team, pos: tileToWorld(sx, sz) });
   }
 
   // gunboats moor on the SHALLOW inner bank beside the causeways — where

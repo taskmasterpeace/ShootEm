@@ -727,6 +727,28 @@ export class World {
   /** The black hole's BURST timing — the drag itself rides the shared
    *  force-field system (a radial −5 field with the same lifetime). Sprint
    *  TANGENTIALLY to escape; when the telegraph runs out, it collapses. */
+  /**
+   * V3 THE SKY IS NEVER FREE (Robert: "every base should start off with a
+   * surface-to-air missile"). Every AA hull — the Lance track and the base
+   * emplacement — sweeps for aircraft on its own reload clock and fires
+   * without a crew. A base always has SOME answer to a jet; taking the sky
+   * costs you a sortie against the launcher first.
+   */
+  private stepAntiAir() {
+    for (const v of this.vehicles.values()) {
+      if (!v.alive || !VEHICLES[v.kind].antiAir) continue;
+      if (this.time < v.nextFireAt) continue;
+      // a crewed launcher reloads faster than an automated one — a gunner
+      // is worth something
+      const crewed = v.seats[0] >= 0;
+      const target = this.hullLockTarget(v);
+      if (!target) continue;
+      const def = WEAPONS.aa_missile;
+      v.nextFireAt = this.time + (1 / def.rof) * (crewed ? 1 : 1.9);
+      this.fireHullSam(v, target, crewed ? v.seats[0] : -1);
+    }
+  }
+
   private stepBlackHoles() {
     this.blackHoles = this.blackHoles.filter((bh) => {
       if (this.time >= bh.burstAt) {
@@ -1084,6 +1106,7 @@ export class World {
     }
     if (!this.mode.over) this.stepLswDrops(); // §21.6: telegraphed LSW landings
     if (this.forceFields.length) this.stepForceFields(); // §4.4 #2: the pulls and the shoves
+    this.stepAntiAir();                                 // V3: the sky is never free
     if (this.blackHoles.length) this.stepBlackHoles(); // Oblivion's void (burst timing)
     // expired time bubbles pop quietly
     if (this.timeFields.length) this.timeFields = this.timeFields.filter((f) => this.time < f.until);
@@ -2510,6 +2533,54 @@ export class World {
     };
     this.launch(p);
     this.emit({ type: 'shot', pos: { ...p.pos }, weapon: 'sam_missile', soldierId: s.id });
+  }
+
+  /**
+   * V3: the same lock, run from a HULL instead of a shoulder. The Lance track
+   * and the base SAM turret both use this — nearest airborne enemy inside
+   * range, no cone (a radar dish sees all round, unlike a man with a tube).
+   */
+  hullLockTarget(v: Vehicle): Vehicle | Soldier | null {
+    let best: Vehicle | Soldier | null = null;
+    let bestD = WEAPONS.aa_missile.range;
+    const consider = (pos: Vec3, cand: Vehicle | Soldier) => {
+      const d = Math.hypot(pos.x - v.pos.x, pos.z - v.pos.z);
+      if (d < bestD) { best = cand; bestD = d; }
+    };
+    for (const t of this.vehicles.values()) {
+      if (t.team === v.team || !this.vehicleAirborne(t)) continue;
+      consider(t.pos, t);
+    }
+    for (const e of this.soldiers.values()) {
+      if (!e.alive || e.team === v.team || e.ascendant === undefined) continue;
+      if (!LSWS[e.ascendant].flies || e.pos.y < 2.5) continue;
+      consider(e.pos, e);
+    }
+    return best;
+  }
+
+  /** V3: send an AA bird from a hull. Same predator/prey law as the MANPADS —
+   *  the missile is slower than what it hunts, so straight flight escapes and
+   *  panic turns die. That ratio is the entire air game. */
+  fireHullSam(v: Vehicle, target: Vehicle | Soldier, ownerId: number) {
+    const def = WEAPONS.aa_missile;
+    // derived, never hardcoded: it must always lose a drag race to the
+    // fastest thing in the sky
+    const speed = VEHICLES.interceptor.speed * SAM_SPEED_RATIO;
+    const yaw = Math.atan2(target.pos.z - v.pos.z, target.pos.x - v.pos.x);
+    const flesh = 'classId' in target;
+    const p: Projectile = {
+      id: this.id(), weapon: 'aa_missile', ownerId, team: v.team,
+      pos: { x: v.pos.x + Math.cos(yaw) * 1.4, y: v.pos.y + 1.8, z: v.pos.z + Math.sin(yaw) * 1.4 },
+      vel: { x: Math.cos(yaw) * speed, y: 0, z: Math.sin(yaw) * speed },
+      bornAt: this.time, ttl: def.range / speed, arc: false,
+      ...(flesh ? { homingSoldierId: target.id } : { homingVehicleId: target.id }),
+    };
+    this.launch(p);
+    this.emit({ type: 'shot', pos: { ...p.pos }, weapon: 'aa_missile' });
+    // EVERYONE HEARS THE LAUNCH. A missile you can't know about isn't
+    // counterplay, it's a coin flip — this is what the pilot reacts to.
+    this.emit({ type: 'sam_launch', pos: { ...v.pos }, soldierId: flesh ? target.id : undefined });
   }
 
   /**

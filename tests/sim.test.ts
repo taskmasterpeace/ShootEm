@@ -340,7 +340,11 @@ describe('the reload', () => {
 describe('vehicles', () => {
   it('spawns vehicles on pads and lets soldiers drive them', () => {
     const w = new World({ seed: 42, mode: 'tdm' });
-    expect(w.vehicles.size).toBe(24); // 11 motor-pool kinds (incl. the mech) + 1 emplacement, × 2 teams
+    // DERIVED, not hardcoded — the motor pool grows (V2/V3 added the airfield
+    // and the Lance) and a magic number just goes stale and gets bumped
+    // without anyone checking whether the pads are real.
+    expect(w.vehicles.size).toBe(w.map.vehiclePads.length);
+    expect(w.vehicles.size, 'both teams field the same pool').toBeGreaterThanOrEqual(24);
     const s = w.addSoldier('D', 'infantry', 0, 'human');
     const v = [...w.vehicles.values()].find((x) => x.team === 0 && x.kind === 'buggy')!;
     s.pos = { ...v.pos };

@@ -693,6 +693,7 @@ export interface SimEvent {
     | 'axe_throw'      // M5: the axe left the hand
     | 'axe_stick'      // M5: it bit something and stayed there
     | 'axe_recall'     // M5: it tore free and is flying home
+    | 'sam_launch'     // V3: a missile is up — every pilot in earshot should know
     | 'damage'         // a number worth showing floated off a victim (see amount/armorHit)
     | 'vo';            // a spoken line: text = sound slot; pos = positional speech, absent = announcer net
   pos?: Vec3;
