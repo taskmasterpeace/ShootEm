@@ -269,7 +269,7 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
   // agile thing in the air: it commits to a run.
   strikejet: {
     kind: 'strikejet', name: 'Vulture Strike Jet', cost: 3, hp: 62, speed: 40, turnRate: 1.5,
-    weapon: 'vulture_rockets', seats: 1, mobileSpawn: false, radius: 1.7,
+    weapon: 'vulture_rockets', altWeapon: 'vulture_mg', seats: 1, mobileSpawn: false, radius: 1.7,
     hover: true, flies: true, systemHp: 16, liftoffTime: 1.4,
     minAirspeed: 0.45, bankAngle: 0.7,
   },
@@ -353,6 +353,14 @@ WEAPONS.vulture_rockets = W({
   id: 'vulture_rockets', name: 'Talon Rocket Pod', damage: 48, rof: 3.2,
   speed: 62, spread: 0.03, clip: 14, reloadTime: 3.4, reserve: 56, range: 62,
   splash: 3.6, splashDamage: 34, knockback: 9, sound: 'rocket', tracer: 'rocket',
+});
+// J1 (Robert: "we might need machine guns, of course") — the Vulture's belly
+// gun. Rockets gut armour; the MG is for the men beside it. Alt-fire, its own
+// clock, deliberately weak against hulls.
+WEAPONS.vulture_mg = W({
+  id: 'vulture_mg', name: 'Vulture Belly MG', damage: 7, rof: 11,
+  speed: 150, spread: 0.035, clip: 40, reloadTime: 2.0, reserve: Infinity, range: 55,
+  sound: 'autocannon', tracer: 'bullet',
 });
 WEAPONS.falcon_cannon = W({
   id: 'falcon_cannon', name: 'Falcon Autocannon', damage: 26, rof: 7,

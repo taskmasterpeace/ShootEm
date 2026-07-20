@@ -1665,7 +1665,8 @@ export class Renderer {
         const hasPilot = v.seats[0] >= 0;
         const spoolLeft = Math.max(0, (v.spoolUntil ?? 0) - world.time);
         const k = hasPilot ? 1 - Math.min(1, spoolLeft / lift) : 0;
-        const target = 0.3 + k * (1.9 + Math.sin(world.time * 2.2 + v.id) * 0.25 * k);
+        const cruiseF = [0.3, 1.9, 3.4, 3.4][Math.max(0, Math.min(3, v.band ?? 2))];
+        const target = 0.3 + k * (cruiseF - 0.3 + Math.sin(world.time * 2.2 + v.id) * 0.25 * k);
         const prev = this.flyerAlt.get(v.id) ?? 0.3;
         const alt = prev + (target - prev) * Math.min(1, dt * 2.2);
         this.flyerAlt.set(v.id, alt);
@@ -1683,16 +1684,30 @@ export class Renderer {
       // as its spool completes, and it BANKS into turns (bankAngle shipped in
       // V2's defs and was read by nobody until now).
       const vdef = VEHICLES[v.kind];
+      // J1 THE SKY HAS FLOORS: a BAND is drawable in a way raw height never
+      // was — each one is a distinct deck the eye can learn. 1 rooftop-low,
+      // 2 clear of every roof, 3 the jets' own country.
+      const BAND_ALT = [0.12, 1.9, 3.4, 5.4];
       if (vdef.flies && v.kind !== 'flyer') {
         const lift = vdef.liftoffTime ?? 1.4;
         const hasPilot = v.seats[0] >= 0;
         const spoolLeft = Math.max(0, (v.spoolUntil ?? 0) - world.time);
         const k = hasPilot ? 1 - Math.min(1, spoolLeft / lift) : 0;
-        const target = 0.12 + k * (2.6 + Math.sin(world.time * 1.7 + v.id) * 0.18 * k);
+        const cruise = BAND_ALT[Math.max(0, Math.min(3, v.band ?? 0))];
+        const target = 0.12 + k * (cruise - 0.12 + Math.sin(world.time * 1.7 + v.id) * 0.18 * k);
         const prev = this.flyerAlt.get(v.id) ?? 0.12;
         const alt = prev + (target - prev) * Math.min(1, dt * 1.6);
         this.flyerAlt.set(v.id, alt);
         hoverBob = alt;
+        // the burner shows: the thrust flame stretches while it's lit
+        for (const tn of ['thrustL', 'thrustR']) {
+          const fl = mesh.getObjectByName(tn);
+          if (fl) {
+            const want = v.burnerOn ? 2.1 : 1;
+            const cur = (fl.scale.x + (want - fl.scale.x) * Math.min(1, dt * 8));
+            fl.scale.setScalar(cur);
+          }
+        }
       }
       mesh.position.set(v.pos.x, hoverBob, v.pos.z);
       mesh.rotation.y = -v.yaw;

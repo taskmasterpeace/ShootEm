@@ -205,6 +205,9 @@ export interface VehicleDef {
   cost?: number;
   /** V4: drops a stick of bombs straight down along its flight path */
   bombs?: number;
+  /** J1: secondary trigger weapon (the Vulture's strafing MG). The bomber
+   *  never gets one — its alt-fire is the Cradle. */
+  altWeapon?: WeaponId;
   /** grinds T_WALL tiles into open ground as it moves (tunneler) */
   digs?: boolean;
   /** legs step over low cover — T_COVER doesn't block it; walls/water do (mech) */
@@ -536,6 +539,15 @@ export interface Vehicle {
   /** V4: the Anvil's remaining iron, and whether the Cradle is still aboard */
   bombLoad?: number;
   nukeAboard?: boolean;
+  /** J1 THE SKY HAS FLOORS: discrete altitude band (0 = on the deck, 1-3 in
+   *  the air). Q climbs, E dives, and at band 0 the E key becomes the door.
+   *  Continuous height is unreadable from a top-down camera; a BAND can be
+   *  drawn. 0/absent for anything that doesn't fly. */
+  band?: number;
+  /** J1: the alt-fire weapon's own cadence clock (Vulture strafing MG) */
+  nextAltFireAt?: number;
+  /** J1: afterburner lit this tick — the renderer scales the flame off it */
+  burnerOn?: boolean;
   /** flyer: sim time the rotors finish spooling — airborne (and mobile) after this */
   spoolUntil: number;
   // ---- requisition (§8.1a) — the manifest that makes hulls feel OWNED ----
@@ -596,6 +608,13 @@ export interface Projectile {
   ttl: number;
   arc: boolean;
   /** heat-seeker: vehicle this missile is steering toward */
+  /** J1 THE AIR FRAME: this round lives in the VEHICLE-speed frame — it
+   *  scales by vehicleSpeedMul at launch, not projectileSpeedMul. Anything
+   *  whose job is to catch an aircraft (homing AA) or that an aircraft fires
+   *  in its own duels must share its target's scale, or the settings sliders
+   *  shear the air war apart (at defaults 0.35 vs 0.8, jets outran their own
+   *  rockets and no SAM could ever catch anyone). */
+  airScaled?: boolean;
   homingVehicleId?: number;
   /** heat-seeker: flare gadget that seduced it off the aircraft */
   homingFlareId?: number;

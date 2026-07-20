@@ -1967,7 +1967,32 @@ export class World {
     if (s.vehicleId >= 0) {
       const v = this.vehicles.get(s.vehicleId);
       if (!v || !v.alive) { s.vehicleId = -1; s.seat = -1; return; }
-      if (cmd.use && this.time - s.enteredVehicleAt > 0.3) this.exitVehicle(s, v);
+      // J1 THE SKY HAS FLOORS (Robert: "we need to be able to fly up and fly
+      // down easily — I think Q and E would be nice"). Aircraft live in
+      // discrete BANDS (1-3): Q climbs one, E dives one, and on the deck the
+      // E key becomes the door — you step out of a LANDED aircraft, which is
+      // also the only place stepping out isn't a funeral. Ground vehicles
+      // keep E-as-door everywhere, unchanged.
+      const flightDef = VEHICLES[v.kind];
+      if (cmd.use && this.time - s.enteredVehicleAt > 0.3) {
+        if (flightDef.flies && s.seat === 0 && (v.band ?? 0) > 0 && this.time >= v.spoolUntil) {
+          // one band per PRESS, not per tick — a held key walks, never falls.
+          // The same gate stands between the last dive and the door, so the
+          // tap that lands you can never also throw you out.
+          if (this.time >= s.nextAbilityAt) {
+            v.band = (v.band ?? 1) - 1;
+            s.nextAbilityAt = this.time + 0.28;
+          }
+        } else if (!flightDef.flies || s.seat !== 0 || this.time >= s.nextAbilityAt) {
+          this.exitVehicle(s, v);
+        }
+      }
+      if (cmd.ability && s.seat === 0 && flightDef.flies && this.time >= v.spoolUntil
+          && this.time >= s.nextAbilityAt) {
+        // jets own band 3; rotors top out at 2 (the design's ceiling rule)
+        v.band = Math.min(flightDef.minAirspeed ? 3 : 2, (v.band ?? 0) + 1);
+        s.nextAbilityAt = this.time + 0.28;
+      }
       // breacher depth toggle: deep is silent and passes under walls, but
       // crawls and can't dig — surfacing is where the grinding happens
       if (cmd.ability && s.seat === 0 && VEHICLES[v.kind].digs && this.time >= s.nextAbilityAt) {
@@ -2036,6 +2061,28 @@ export class World {
           this.emit({ type: 'bomb_away', pos: { ...v.pos }, soldierId: s.id, big: true,
             text: 'WARHEAD AWAY' });
         }
+      }
+      // J1 THE BELLY GUN (Robert: "we might need machine guns, of course").
+      // Alt-fire on airframes that carry one — its own cadence, the turret's
+      // bearing. The bomber is exempt: its alt-fire is the Cradle.
+      const mgDef = VEHICLES[v.kind];
+      if (cmd.altFire && s.seat === 0 && mgDef.altWeapon && !mgDef.bombs
+          && v.systems.weapon > 0 && this.time >= (v.nextAltFireAt ?? 0)
+          && this.time >= v.spoolUntil && v.stunnedUntil <= this.time) {
+        const wdef = WEAPONS[mgDef.altWeapon];
+        v.nextAltFireAt = this.time + 1 / wdef.rof;
+        s.protectedUntil = 0;
+        const spread = (this.rng.next() - 0.5) * 2 * wdef.spread;
+        const yaw = v.turretYaw + spread;
+        const muzzle = mgDef.radius + 0.8;
+        this.launch({
+          id: this.id(), weapon: mgDef.altWeapon, ownerId: s.id, team: v.team,
+          pos: { x: v.pos.x + Math.cos(yaw) * muzzle, y: 1.6, z: v.pos.z + Math.sin(yaw) * muzzle },
+          vel: { x: Math.cos(yaw) * wdef.speed, y: 0, z: Math.sin(yaw) * wdef.speed },
+          bornAt: this.time, ttl: wdef.range / wdef.speed, arc: false,
+          airScaled: !!mgDef.flies,
+        } as Projectile);
+        this.emit({ type: 'shot', pos: { ...v.pos }, weapon: mgDef.altWeapon, soldierId: s.id });
       }
       // flyer pilots pop IR flares with the grenade key — the heat-seeker counter
       if (cmd.grenade && s.seat === 0 && VEHICLES[v.kind].flies && v.flares > 0 && this.time >= s.nextGrenadeAt) {
@@ -2645,7 +2692,15 @@ export class World {
       if (p.ignite === undefined && def.ignite) p.ignite = def.ignite;
       if (p.dmgMul === undefined) p.dmgMul = 1;
     }
-    const mul = this.projectileSpeedMul;
+    // J1 THE AIR FRAME: ordnance that lives in the vehicle-speed frame scales
+    // WITH the vehicles. The two sliders default to different values (0.35
+    // projectiles, 0.8 vehicles), and rounds fired at or by aircraft used to
+    // take the projectile scale while their targets took the vehicle scale —
+    // at defaults a strike jet outran its own rockets and no homing missile
+    // could ever close on anything. Ground fire keeps the projectile knob
+    // (Robert asked for vehicle fire to respect it); the AIR duel keeps its
+    // geometry at any slider setting.
+    const mul = p.airScaled ? this.vehicleSpeedMul : this.projectileSpeedMul;
     if (!p.arc && mul !== 1) {
       p.vel.x *= mul;
       p.vel.z *= mul;
@@ -2699,7 +2754,7 @@ export class World {
       id: this.id(), weapon: 'sam_missile', ownerId: s.id, team: s.team,
       pos: { x: s.pos.x + Math.cos(yaw) * 0.8, y: s.pos.y + 1.6, z: s.pos.z + Math.sin(yaw) * 0.8 },
       vel: { x: Math.cos(yaw) * speed, y: 0, z: Math.sin(yaw) * speed },
-      bornAt: this.time, ttl: def.range / speed, arc: false,
+      bornAt: this.time, ttl: def.range / speed, arc: false, airScaled: true,
       ...(flesh ? { homingSoldierId: target.id } : { homingVehicleId: target.id }),
     };
     this.launch(p);
@@ -2744,7 +2799,7 @@ export class World {
       id: this.id(), weapon: 'aa_missile', ownerId, team: v.team,
       pos: { x: v.pos.x + Math.cos(yaw) * 1.4, y: v.pos.y + 1.8, z: v.pos.z + Math.sin(yaw) * 1.4 },
       vel: { x: Math.cos(yaw) * speed, y: 0, z: Math.sin(yaw) * speed },
-      bornAt: this.time, ttl: def.range / speed, arc: false,
+      bornAt: this.time, ttl: def.range / speed, arc: false, airScaled: true,
       ...(flesh ? { homingSoldierId: target.id } : { homingVehicleId: target.id }),
     };
     this.launch(p);
@@ -3375,7 +3430,12 @@ export class World {
       turn = driverCmd.moveX;
       fire = driverCmd.fire;
       v.turretYaw = driverCmd.aimYaw;
-      if (driverCmd.use && driver && this.time - driver.enteredVehicleAt > 0.3) this.exitVehicle(driver, v);
+      // J1: an AIRBORNE pilot's E key is the dive, not the door — applyCmd
+      // walks the bands; this exit only fires once the wheels are down.
+      // (Two exit paths existed; ungated, this one threw the pilot out on the
+      // same tick the band branch caught his dive.)
+      if (driverCmd.use && driver && this.time - driver.enteredVehicleAt > 0.3
+          && !(VEHICLES[v.kind].flies && (v.band ?? 0) > 0)) this.exitVehicle(driver, v);
     }
 
     // a manned gunner station overrides the driver's trigger (transport)
@@ -3433,8 +3493,32 @@ export class World {
       // start off grounded." They did start grounded; they just didn't STAY.)
       const flown = v.seats[0] >= 0 && this.time >= v.spoolUntil;
       const stall = flown ? def.minAirspeed ?? 0 : 0;
+      // J1 band lifecycle: taking the sky opens at the airframe's home band
+      // (jets 3, rotors 2); an empty aircraft is parked, band 0.
+      if (def.flies) {
+        if (flown && (v.band ?? 0) === 0) v.band = def.minAirspeed ? 3 : 2;
+        if (v.seats[0] < 0) v.band = 0;
+      }
+      // J1 THE AFTERBURNER (Robert): hold sprint and the pilot's own tank
+      // feeds the engine — 1.4x thrust while energy lasts, refilling when the
+      // burner is cold. The pilot's ENERGY becomes burner fuel in the HUD.
+      let burner = 1;
+      v.burnerOn = false;
+      const pilot = this.soldiers.get(v.seats[0]);
+      if (def.minAirspeed && flown && pilot) {
+        const pcmd = cmds.get(pilot.id);
+        if (pcmd?.sprint && pilot.energy > 5) {
+          pilot.energy = Math.max(0, pilot.energy - 16 * dt);
+          burner = 1.4;
+          v.burnerOn = true;
+        } else {
+          // a seated pilot's tank refills here — the soldier regen loop
+          // returns early for vehicle occupants and never reaches them
+          pilot.energy = Math.min(100, pilot.energy + 9 * dt);
+        }
+      }
       const wing = stall > 0 ? Math.max(stall, Math.max(0, throttle)) : throttle;
-      const targetSpeed = wing * def.speed * engineMult * depthMult * surfMult * this.vehicleSpeedMul * (wing < 0 ? 0.5 : 1);
+      const targetSpeed = wing * def.speed * engineMult * depthMult * surfMult * this.vehicleSpeedMul * burner * (wing < 0 ? 0.5 : 1);
       const accel = 18;
       const curSpeed = Math.cos(v.yaw) * v.vel.x + Math.sin(v.yaw) * v.vel.z;
       const newSpeed = curSpeed + Math.max(-accel * dt, Math.min(accel * dt, targetSpeed - curSpeed));
@@ -3561,6 +3645,8 @@ export class World {
         pos: { x: v.pos.x + Math.cos(yaw) * muzzle, y: 1.8, z: v.pos.z + Math.sin(yaw) * muzzle },
         vel: { x: Math.cos(yaw) * wdef.speed, y: 0, z: Math.sin(yaw) * wdef.speed },
         bornAt: this.time, ttl: wdef.range / wdef.speed, arc: false,
+        // an aircraft's rounds live in ITS speed frame — see launch()
+        airScaled: !!def.flies,
       };
       this.launch(p);
       this.emit({ type: 'shot', pos: { ...p.pos }, weapon: def.weapon, soldierId: shooter.id });
