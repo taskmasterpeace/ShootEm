@@ -126,6 +126,9 @@ export interface ClassDef {
   desc: string;
   hp: number;
   speed: number; // units/s
+  /** M1: stamina/energy regen multiplier — the stat the tank is locked behind.
+   *  Absent = 1. Pathfinders recover like athletes; heavies like furniture. */
+  energyRegen?: number;
   primary: WeaponId;
   secondary: WeaponId;
   ability: 'grenade' | 'jetpack' | 'turret' | 'heal' | 'cloak' | 'warp' | 'drone' | 'shield';
@@ -212,7 +215,16 @@ export interface Soldier {
   yaw: number;        // facing/aim direction on ground plane
   hp: number;
   maxHp: number;
-  energy: number;     // jetpack fuel / cloak charge / ability resource
+  energy: number;     // jetpack fuel / cloak charge / ability resource — AND the
+                      // stamina tank (M1): sprint drains it, dash/roll bite it
+  /** M1 movement verbs — all transient, renderer-dressed */
+  sprinting?: boolean;
+  nextDashAt?: number;
+  dashUntil?: number;
+  rollUntil?: number;
+  rollDir?: number;      // +1 left, -1 right (relative to facing)
+  /** M1 RAGDOLL: past the knockback threshold the body is luggage until this */
+  ragdollUntil?: number;
   alive: boolean;
   respawnAt: number;  // sim time when respawn allowed
   weaponIdx: number;  // 0 primary, 1 secondary, 2 special pickup
@@ -648,6 +660,8 @@ export interface SimEvent {
     | 'encased'        // a soldier was frozen alive in the ice block (§21.6)
     | 'lsw_active'     // a piloted LSW fired its signature (text = ascendant id)
     | 'nade_bounce'    // a hand grenade kissed the ground — the tick before the bang
+    | 'dash'           // M1: a soldier burst forward / tumbled sideways
+    | 'ragdoll'        // M1: blown past the knockback threshold — body is luggage
     | 'damage'         // a number worth showing floated off a victim (see amount/armorHit)
     | 'vo';            // a spoken line: text = sound slot; pos = positional speech, absent = announcer net
   pos?: Vec3;
@@ -751,6 +765,11 @@ export interface PlayerCmd {
   reload: boolean;
   grenade: boolean;
   weaponSlot: number; // -1 = no change
+  /** M1 SPRINT: hold to run 1.35x — paid from the energy tank */
+  sprint?: boolean;
+  /** M1 DASH/ROLL: 0/absent none · 1 dash forward · 2 roll left · 3 roll right.
+   *  Double-tap detection lives on the client; the sim only sees intent. */
+  dash?: number;
   /** cursor distance from the soldier — thrown items (frag, beacon, charge)
    *  land here, clamped to each item's max reach. Optional for old clients. */
   aimDist?: number;

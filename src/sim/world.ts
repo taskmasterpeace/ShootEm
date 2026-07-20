@@ -63,6 +63,20 @@ export function meleeWindupFor(kind: SoldierKind): number {
   return MELEE_WINDUP;
 }
 const ENERGY_REGEN = 14;
+// M1 movement verbs (Robert: "dashing forward, rolling to the sides… run…
+// but we should have a stamina"): all paid from the ONE energy tank.
+const SPRINT_MULT = 1.35;
+const SPRINT_DRAIN = 10;   // per second held
+const DASH_COST = 25;
+const ROLL_COST = 20;
+const DASH_IMPULSE = 16;   // decays e^-5t → ~3.2u of burst
+const ROLL_IMPULSE = 13;
+const DASH_CD = 0.9;
+// M1 RAGDOLL (Robert: "a knockback threshold that ragdolls us… and our
+// characters get up and we get control again"). Applied per-blast impulse at
+// or past this flips the body: conc (26) ragdolls out to ~2.5u, artillery
+// flips whole fireteams, but a plain frag (13) only ever shoves.
+const RAGDOLL_AT = 16;
 const CLOAK_DRAIN = 11;
 const JET_DRAIN = 30;
 const JET_THRUST = 9.5;
@@ -1686,6 +1700,40 @@ export class World {
       cmd = { ...cmd, ability: false };
     }
 
+    // M1 RAGDOLLED: past the threshold the body is luggage — no inputs land,
+    // the blast's own push carries you, and control returns when you get up.
+    if (s.ragdollUntil !== undefined && this.time < s.ragdollUntil) {
+      s.vel.x = 0;
+      s.vel.z = 0; // legs contribute nothing; pushX/Z still slides the body
+      s.sprinting = false;
+      return;
+    }
+
+    // M1 DASH & ROLL (Robert: "dashing forward, rolling to the sides"):
+    // double-tap verbs from the client, paid from the stamina tank, gated by
+    // one shared cooldown so they can't be chained into flight.
+    if (cmd.dash && !s.downed && s.vehicleId < 0 && s.encasedUntil === undefined &&
+        this.time >= (s.nextDashAt ?? 0)) {
+      const cost = cmd.dash === 1 ? DASH_COST : ROLL_COST;
+      if (s.energy >= cost) {
+        s.energy -= cost;
+        s.nextDashAt = this.time + DASH_CD;
+        const fx = Math.cos(s.yaw), fz = Math.sin(s.yaw);
+        if (cmd.dash === 1) {
+          s.pushX += fx * DASH_IMPULSE;
+          s.pushZ += fz * DASH_IMPULSE;
+          s.dashUntil = this.time + 0.28;
+        } else {
+          const side = cmd.dash === 2 ? 1 : -1;
+          s.pushX += fz * side * ROLL_IMPULSE;
+          s.pushZ += -fx * side * ROLL_IMPULSE;
+          s.rollUntil = this.time + 0.5;
+          s.rollDir = side;
+        }
+        this.emit({ type: 'dash', pos: { ...s.pos }, soldierId: s.id });
+      }
+    }
+
     // §4.3: downed soldiers crawl — quarter speed, no trigger, no toys, no doors.
     // Everything below (weapons, abilities, vehicles, E-interactions) is for the upright.
     if (s.downed) {
@@ -1812,6 +1860,14 @@ export class World {
       * moveMult(this.weather, 'soldier') // §8.8 snow drags boots
       * this.moveSpeedMul; // Robert's global movement knob (1 = shipped feel)
     if (s.cloaked) speed *= 0.8;
+    // M1 SPRINT: hold the key, burn the tank. No sprinting while ducked, and
+    // an empty tank simply refuses — the meter IS the mechanic.
+    s.sprinting = !!cmd.sprint && !s.crouching && s.energy > 1 &&
+      (cmd.moveX !== 0 || cmd.moveZ !== 0);
+    if (s.sprinting) {
+      speed *= SPRINT_MULT;
+      s.energy = Math.max(0, s.energy - SPRINT_DRAIN * dt);
+    }
     if (s.rageMul) speed *= s.rageMul; // Ragebeast: the wound makes him fast
     for (const eid of s.equipment) {
       const e = EQUIPMENT[eid];
@@ -1873,7 +1929,10 @@ export class World {
     } else if (!(cmd.jump && c.ability === 'jetpack')) {
       // jet fuel only flows on the deck — hanging in the sky earns nothing
       const grounded = s.pos.y <= 0.05;
-      const rate = c.ability === 'jetpack' && !grounded ? 0 : ENERGY_REGEN;
+      // M1: the tank refills on the class's own clock — and never mid-sprint
+      const rate = (c.ability === 'jetpack' && !grounded) || s.sprinting
+        ? 0
+        : ENERGY_REGEN * (c.energyRegen ?? 1);
       s.energy = Math.min(100, s.energy + rate * dt);
     }
 
@@ -2520,6 +2579,9 @@ export class World {
       s.pos.y = Math.max(0, s.pos.y + s.vel.y * dt);
       if (s.pos.y === 0) s.vel.y = 0;
     }
+    // M1: the ragdoll expires in PHYSICS, not input handling — a body nobody
+    // is steering (no cmd this tick) must still get up on time
+    if (s.ragdollUntil !== undefined && this.time >= s.ragdollUntil) s.ragdollUntil = undefined;
     // knockback impulse decays fast
     if (s.pushX !== 0 || s.pushZ !== 0) {
       const decay = Math.exp(-5 * dt);
@@ -3669,8 +3731,16 @@ export class World {
         ) * (isSelf ? 0.6 : 1);
         if (def.knockback > 0 && !this.hasEquip(s, 'noKnockback')) {
           const dl = Math.max(d, 0.5);
-          s.pushX += ((s.pos.x - pos.x) / dl) * def.knockback * (1 - d / def.splash);
-          s.pushZ += ((s.pos.z - pos.z) / dl) * def.knockback * (1 - d / def.splash);
+          const applied = def.knockback * (1 - d / def.splash);
+          s.pushX += ((s.pos.x - pos.x) / dl) * applied;
+          s.pushZ += ((s.pos.z - pos.z) / dl) * applied;
+          // M1 THE RAGDOLL THRESHOLD: enough blast and the body stops being
+          // yours — you tumble as luggage, then GET UP. Gods are too heavy
+          // to flip; power armor already refused the shove above.
+          if (applied >= RAGDOLL_AT && !s.ascendant && s.encasedUntil === undefined) {
+            s.ragdollUntil = this.time + 0.9 + Math.min(0.6, (applied - RAGDOLL_AT) * 0.05);
+            this.emit({ type: 'ragdoll', pos: { ...s.pos }, soldierId: s.id });
+          }
           // vertical pop capped at 6: artillery-class knockback (20+) would
           // otherwise launch soldiers into low-g orbit — the horizontal shove
           // carries the drama, the hop just sells the blast

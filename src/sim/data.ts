@@ -174,7 +174,7 @@ export const CLASSES: Record<ClassId, ClassDef> = {
     ability: 'grenade', abilityName: 'Frag Grenade', color: 0xc9a86a,
   },
   heavy: {
-    id: 'heavy', name: 'Heavy Weapons', desc: 'Slow but devastating. Autocannon, missiles, shield dome.',
+    id: 'heavy', name: 'Heavy Weapons', energyRegen: 0.75, desc: 'Slow but devastating. Autocannon, missiles, shield dome.',
     hp: 145, speed: 8.2, primary: 'ac_mk2', secondary: 'mml',
     ability: 'shield', abilityName: 'Shield Dome (Q)', color: 0xb0623a,
   },
@@ -184,7 +184,7 @@ export const CLASSES: Record<ClassId, ClassDef> = {
     ability: 'jetpack', abilityName: 'Jetpack (Space)', color: 0x7fa8c9,
   },
   engineer: {
-    id: 'engineer', name: 'Combat Engineer', desc: 'Builds sentry turrets, repairs vehicles, plants mines.',
+    id: 'engineer', name: 'Combat Engineer', energyRegen: 0.9, desc: 'Builds sentry turrets, repairs vehicles, plants mines.',
     hp: 110, speed: 9.5, primary: 'caw', secondary: 'repair',
     ability: 'turret', abilityName: 'Build Sentry (Q) / Mine (G)', color: 0x9a8f4f,
   },
@@ -194,12 +194,12 @@ export const CLASSES: Record<ClassId, ClassDef> = {
     ability: 'heal', abilityName: 'Self-Stim (Q)', color: 0x8fb98a,
   },
   infiltrator: {
-    id: 'infiltrator', name: 'Infiltrator', desc: 'Cloaking field + RG-2 railgun. Fragile.',
+    id: 'infiltrator', name: 'Infiltrator', energyRegen: 1.15, desc: 'Cloaking field + RG-2 railgun. Fragile.',
     hp: 80, speed: 11, primary: 'rg2', secondary: 'pistol',
     ability: 'cloak', abilityName: 'Cloak (Q)', color: 0x8a7fb9,
   },
   pathfinder: {
-    id: 'pathfinder', name: 'Pathfinder', desc: 'Warp beacon pair + knockback impulse cannon. Fastest boots in the war.',
+    id: 'pathfinder', name: 'Pathfinder', energyRegen: 1.35, desc: 'Warp beacon pair + knockback impulse cannon. Fastest boots in the war.',
     hp: 85, speed: 12.5, primary: 'impulse', secondary: 'pistol',
     ability: 'warp', abilityName: 'Warp Beacon (Q) / Target Beacon (G)', color: 0x5ac8b0,
   },
