@@ -265,6 +265,9 @@ export interface Soldier {
   axeId?: number;
   /** M5: the axe is flying home — no second recall until it lands */
   axeRecallAt?: number;
+  /** Sim time this body stops taking physics. Set at death so the corpse can
+   *  spend the shove that killed it instead of freezing where it stood. */
+  corpseUntil?: number;
 
   alive: boolean;
   respawnAt: number;  // sim time when respawn allowed
@@ -713,6 +716,7 @@ export interface SimEvent {
     | 'axe_stick'      // M5: it bit something and stayed there
     | 'axe_recall'     // M5: it tore free and is flying home
     | 'sam_launch'     // V3: a missile is up — every pilot in earshot should know
+    | 'corpse_slam'    // a body arrived at a wall hard enough to be worth hearing
     | 'bomb_away'      // V4: the bay opened
     | 'nuke_armed'     // V4: the warhead is live and everyone can hear it
     | 'damage'         // a number worth showing floated off a victim (see amount/armorHit)

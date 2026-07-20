@@ -5,6 +5,7 @@ import { materialOf, DRILL_BASE } from './materials';
 import { Rng } from './rng';
 import {
   SYSTEM_IDS, isCoopMode, isZed,
+  type WeaponDef,
   type AscendantId, type ClassId, type Gadget, type GadgetType, type Mine, type ModeId, type ModeState,
   type Pickup, type PlayerCmd, type Projectile, type SimEvent, type Soldier,
   type SoldierKind, type SystemId, type Team, type ThemeId, type Turret, type Vec3,
@@ -84,6 +85,31 @@ const NUKE_PRICE = 4;
 // shorter than its reload (1.8s crewed, 3.4s not), so it never costs a shot —
 // it only stops idle radars from re-scanning the whole world every frame.
 const AA_SWEEP = 0.25;
+
+/** How long a corpse keeps taking physics — long enough to fall, land, and be
+ *  seen doing it in the death cam (which streams ~1.1s past the kill). */
+const CORPSE_PHYSICS_S = 2.2;
+/**
+ * How hard the killing blow throws the body, DERIVED from the weapon so it can
+ * never drift from what the weapon actually is:
+ *
+ *   • energy — a beam or a rail slug punches through and imparts nothing. You
+ *     drop where you stood. This contrast is the whole point: a laser death
+ *     and a shotgun death must not look alike.
+ *   • buckshot — a wall of pellets at close range is the biggest shove in the
+ *     game, scaled by how many pellets are in the pattern.
+ *   • explosives — already carry a real knockback figure; use it.
+ *   • everything else — a rifle round barely moves a man, but "barely" is not
+ *     "not at all", and it is the difference between a body falling and a body
+ *     switching off.
+ */
+export function deathShove(def: WeaponDef | undefined): number {
+  if (!def) return 4;
+  if (def.tracer === 'beam' || def.tracer === 'rail') return 0;
+  if (def.splash > 0) return Math.max(def.knockback, 11);
+  if (def.pellets > 1) return 7 + def.pellets * 1.1;
+  return def.knockback > 0 ? def.knockback : 5;
+}
 // M5 THE AXE: thrown flat, buried on landing, recalled through anyone in the way
 const AXE_REACH = 30;
 const AXE_RECALL_SPEED = 46;
@@ -741,6 +767,60 @@ export class World {
    * without a crew. A base always has SOME answer to a jet; taking the sky
    * costs you a sortie against the launcher first.
    */
+  /**
+   * THE BODY FALLS (Robert: "there is no ragdoll for killing… it'd be nice to
+   * see it knock you back… knock you into a wall or something").
+   *
+   * The main loop skips everything for a soldier who is not alive, so until
+   * now a corpse froze at the exact position of the killing frame — mid-stride,
+   * mid-air, unmoved by the blast that killed it. This gives a dead body the
+   * one thing it needs and nothing else: the physics to finish falling.
+   *
+   * Deliberately NOT the full soldier step — no commands, no equipment, no
+   * powers, no abilities. Just the shove, gravity, and the walls. It lives in
+   * the SIM rather than the renderer on purpose: snapshots serialize the whole
+   * soldier, so a body that falls here also falls in the death cam and in
+   * every other client. A client-side flop would be invisible in the one
+   * camera built to watch it.
+   */
+  private stepCorpses(dt: number) {
+    for (const s of this.soldiers.values()) {
+      if (s.alive || s.corpseUntil === undefined) continue;
+      if (this.time >= s.corpseUntil) { s.corpseUntil = undefined; continue; }
+      // gravity, then the ground
+      s.vel.y -= 22 * dt;
+      s.pos.y = Math.max(0, s.pos.y + s.vel.y * dt);
+      if (s.pos.y <= 0) { s.pos.y = 0; if (s.vel.y < 0) s.vel.y = 0; }
+      const grounded = s.pos.y <= 0.01;
+      const nx = s.pos.x + s.pushX * dt;
+      const nz = s.pos.z + s.pushZ * dt;
+      // THE WALL SLAM. Bodies stop dead against masonry instead of sliding
+      // along it — and a body that arrives fast enough says so, which is the
+      // hook the renderer hangs the crunch and the smear on.
+      const hitX = isBlocked(this.map.grid, nx, s.pos.z);
+      const hitZ = isBlocked(this.map.grid, s.pos.x, nz);
+      if (hitX || hitZ) {
+        const speed = Math.hypot(s.pushX, s.pushZ);
+        if (speed > 9) {
+          this.emit({ type: 'corpse_slam', pos: { ...s.pos }, soldierId: s.id });
+          s.pushX = 0; s.pushZ = 0;   // all of it goes into the wall
+        } else {
+          if (hitX) s.pushX = 0;
+          if (hitZ) s.pushZ = 0;
+        }
+      }
+      if (!hitX) s.pos.x = Math.max(-WORLD / 2 + 1, Math.min(WORLD / 2 - 1, nx));
+      if (!hitZ) s.pos.z = Math.max(-WORLD / 2 + 1, Math.min(WORLD / 2 - 1, nz));
+      // friction: a body in the air keeps its momentum; one on the deck skids
+      // to a stop like the sack of meat it now is
+      const drag = grounded ? 7 : 1.2;
+      const k = Math.exp(-drag * dt);
+      s.pushX *= k; s.pushZ *= k;
+      if (Math.abs(s.pushX) < 0.05) s.pushX = 0;
+      if (Math.abs(s.pushZ) < 0.05) s.pushZ = 0;
+    }
+  }
+
   private stepAntiAir() {
     for (const v of this.vehicles.values()) {
       if (!v.alive || !VEHICLES[v.kind].antiAir) continue;
@@ -1120,6 +1200,7 @@ export class World {
     }
     if (!this.mode.over) this.stepLswDrops(); // §21.6: telegraphed LSW landings
     if (this.forceFields.length) this.stepForceFields(); // §4.4 #2: the pulls and the shoves
+    this.stepCorpses(dt);                               // the dead finish falling
     this.stepAntiAir();                                 // V3: the sky is never free
     if (this.blackHoles.length) this.stepBlackHoles(); // Oblivion's void (burst timing)
     // expired time bubbles pop quietly
@@ -4232,6 +4313,19 @@ export class World {
         const d = Math.hypot(dx, dz) || 1;
         fx = dx / d; fz = dz / d;
       }
+      // THE KILLING BLOW HAS WEIGHT (Robert: "if a bullet hits you and it kills
+      // you, it'd be nice to see it knock you back — if a shotgun hits you it'd
+      // be nice to see it blow you back").
+      //
+      // Until now only the DIRECTION of the blow survived death; its force was
+      // discarded, and the body froze where it stood. A corpse now carries the
+      // shove that killed it, and stepCorpses() spends it.
+      const shove = deathShove(WEAPONS[weapon]);
+      victim.pushX += fx * shove;
+      victim.pushZ += fz * shove;
+      // a heavy blow lifts you off your feet; a beam does not
+      if (shove >= 12) victim.vel.y = Math.max(victim.vel.y, Math.min(shove * 0.22, 5));
+      victim.corpseUntil = this.time + CORPSE_PHYSICS_S;
       this.emit({
         type: 'death', pos: { ...victim.pos }, soldierId: victim.id,
         killerName: attacker && attacker.id !== victim.id ? attacker.name : undefined,

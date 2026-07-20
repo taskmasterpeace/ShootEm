@@ -3522,6 +3522,22 @@ export class Renderer {
           if (e.pos) this.particles.emit({ pos: { x: e.pos.x, y: 0.9, z: e.pos.z }, count: 7, color: 0xdfe9f2, speed: 7, life: 0.28, spread: 0.6, up: 0.4, gravity: 0 });
           break;
         }
+        case 'corpse_slam': {
+          // A BODY MEETS MASONRY (Robert: "knock you into a wall or
+          // something?"). Dust off the wall, a smear where it hit, and the
+          // low flat report of dead weight arriving — not a gunshot, a THUD.
+          if (e.pos) {
+            this.particles.emit({ pos: { x: e.pos.x, y: 0.9, z: e.pos.z }, count: 12, color: 0x8a7a5c, speed: 4.5, life: 0.5, spread: 1.1, up: 2.5, gravity: 8 });
+            if (settings.blood !== 'off') {
+              const full = settings.blood === 'full';
+              this.particles.emit({ pos: { x: e.pos.x, y: 1.1, z: e.pos.z }, count: full ? 14 : 7, color: 0xa03030, speed: 4, life: 0.5, spread: 0.9, up: 1.6, gravity: 10, size: 0.14 });
+              this.spawnSplat(e.pos, 0x5e1010, full ? 0.7 : 0.42);
+            }
+            audio.play('thump', { pos: e.pos });
+          }
+          if (e.soldierId === localId) this.camShake = Math.max(this.camShake, 0.7);
+          break;
+        }
         case 'ragdoll': {
           if (e.pos) this.particles.emit({ pos: { x: e.pos.x, y: 0.4, z: e.pos.z }, count: 6, color: 0x8a7a5c, speed: 3, life: 0.4, spread: 0.8, up: 2, gravity: 6 });
           if (e.soldierId === localId) this.camShake = Math.max(this.camShake, 0.55);
