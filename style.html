@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>War World — Style Lab</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💊</text></svg>" />
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #14171b; }
+    canvas { display: block; }
+    #labels { position: fixed; inset: 0; pointer-events: none; }
+    .lbl {
+      position: absolute; transform: translate(-50%, 0);
+      font: 600 11px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      letter-spacing: -0.01em; color: #e8a33d;
+      background: rgba(14, 17, 21, 0.82); padding: 3px 6px;
+      border: 1px solid #333b47; white-space: nowrap;
+    }
+    #bar {
+      position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 6px; z-index: 5;
+    }
+    #bar button {
+      font: 600 12px ui-monospace, Menlo, Consolas, monospace;
+      color: #b9c2cf; background: rgba(20, 24, 30, 0.92);
+      border: 1px solid #333b47; border-radius: 6px; padding: 7px 13px; cursor: pointer;
+    }
+    #bar button.on, #bar button:hover { color: #e8a33d; border-color: #e8a33d; }
+    #hint {
+      position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+      font: 11px ui-monospace, Menlo, Consolas, monospace; color: #93a0b0;
+      background: rgba(14, 17, 21, 0.8); padding: 5px 10px; border: 1px solid #333b47;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <div id="bar">
+    <button class="act on" data-a="run">RUN</button>
+    <button class="act" data-a="dash">DASH</button>
+    <button class="act" data-a="slash">SLASH</button>
+    <button class="act" data-a="fly">FLY</button>
+    <button id="btn-gun">GUN: RIFLE</button>
+  </div>
+  <div id="labels"></div>
+  <div id="hint">the capsule experiment — same clock drives every body; judge the moves, not the argument</div>
+  <script type="module">
+    import './src/client/stylelab.ts';
+  </script>
+</body>
+</html>

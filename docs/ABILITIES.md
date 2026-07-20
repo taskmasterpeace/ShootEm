@@ -2,6 +2,8 @@
 
 *Read from source: `data.ts` (CLASSES/WEAPONS), `world.ts` (applyCmd, damageSoldier, stepProjectiles), `lsw.ts` (LSWS/THREAT), and all 40 `lsw/*.ts` brains. Numbers are from code — `ASCENDANTS.md` is stale, trust this.*
 
+*Updated 2026-07-20 after the playtest pass: god armament laws (no frags, no vehicles), the signature meter, Firebrand's rework, visible needlers, ice-kill attribution.*
+
 ---
 
 ## PART 1 — THE CLASSES
@@ -13,7 +15,7 @@
 | Energy regen | **14/s** — suppressed while cloaked; jump troopers regen **only on the ground** |
 | Cloak drain | 11/s |
 | Jetpack | thrust 9.5, drain 30/s; thrust fades above **6u**. Burn dry and the pack **latches** until energy hits **35** |
-| Hand frag | GL-40 round, 1.2s cd, cursor-targeted, ~22u reach, **banks off walls** |
+| Hand frag | GL-40 round, 1.2s cd, cursor-targeted, ~22u reach, **banks off walls**, knockback 13, tings on every bounce · **ascendants cannot throw it** |
 | Grenade bag (X) | cycles class default → smoke → incendiary → concussion. Everyone spawns **smoke ×2, concussion ×1**; infantry + heavy also get **incendiary ×1** |
 | G priority | bag item → orbital designator → MANPADS → demo charge → spy camera → **class special** → frag |
 
@@ -49,7 +51,9 @@
 
 Roster is **9×T1, 22×T2, 9×T3** — no shipped unit uses tier 4.
 
-**Laws binding all 40:** threat buys HP, never immunity · one LSW per faction on field · OFF in paintball/range/onboarding · a pilot's **Q replaces the class kit entirely** · death returns the mortal's kit · LSW armor is exempt from AP rounds.
+**Laws binding all 40:** threat buys HP, never immunity · one LSW per faction on field · OFF in paintball/range/onboarding · a pilot's **Q replaces the class kit entirely — including the frag pouch: G does nothing while ascended** · **a god cannot enter a vehicle** (refused at the door, bots included) · death returns the mortal's kit · LSW armor is exempt from AP rounds.
+
+**The signature meter (new):** the HUD's ability line shows the god's own Q label (not your old class ability) over a cooldown bar that turns **green the moment Q is ready**. The backtick god-mode bench (testing) adds search, heal, cooldown reset, a NO-COOLDOWNS toggle, a weather dial, and SHIFT-click to spawn any god as a live sparring bot.
 
 **Movement classes:** `leap` (Titan, Ragebeast, Tremor, Crusher, Cataclysm) — bot-only, **1.6× damage taken mid-air**. `blinkwalk` (Chronos, Voidwalker, Specter) — hops every 1.6s and is **perfectly still between them; you can't lead a target that doesn't travel**. `flies` (Inferno, Stormcaller, Gargoyle) — **AI-ONLY**, cruise 5.2u, MANPADS-lockable above y2.5. Levitators: Wraith (0.6u, silent), Gravity Warden (falls at 0.35× gravity).
 
@@ -63,7 +67,7 @@ Roster is **9×T1, 22×T2, 9×T3** — no shipped unit uses tier 4.
 | Mirage | 1 | **Swap places** with a decoy | up to 3 fake-firing decoys, 6s |
 | Blitz | 1 | Dash-strike 16u, 60 dmg — **a kill refunds it** | afterimages: last 2 dash paths replay, 35 dmg |
 | Shadowstep | 1 | Blink behind 22u, 50 dmg, **live mine where he left** | *one ability* |
-| Firebrand | 2 | **Cash the board** — every painted patch erupts | passive: paints fire under his feet every 0.5s |
+| Firebrand | 2 | **Cash the board** — every painted patch erupts **and relights (3.5s of fresh fire)** — area denial, not a one-frame bang | passive: paints fire every 0.5s while moving, patches burn **4.5s** (~40u ribbon) · gout splash 2.6/16 · carries an **igniter wand**, not a rifle |
 | Reactor | 2 | **Overcharge an ally** (1.7× dmg+speed, 6s), else nova | nova 8u, 60 dmg |
 | Riptide | 2 | The Wave — shove **+ douses every fire in the corridor** | whirlpool −4 pull (**−8 over water**) |
 | Vanguard | 2 | Shield bash 35 dmg + **1.2s gun lock** | barricade 300hp — **blocks BOTH sides, yours too** |
@@ -71,8 +75,8 @@ Roster is **9×T1, 22×T2, 9×T3** — no shipped unit uses tier 4.
 | Venom | 2 | Acid glob — **sets armor to 0** + 20 dmg | gas volley · passive: his gas tags you |
 | Crusher | 2 | The Charge 10u, **smashes cover**, 55 dmg | hurl terrain to **create new cover** |
 | Steel Weaver | 2 | **Rip a metal tile out of the map** → +80 armor | exosuit: +120 armor, 1.25× dmg, 10s |
-| Phantom | 2 | The Phase — through a wall (3 thick), 50 dmg strike | **The Ride** — possess a machine 3s (never flesh) |
-| Frostbite | 3 | **The Ice Block** — encase the aimed soldier, 20u | *one ability* (bot auto-freezes ≤16u) |
+| Phantom | 2 | The Phase — through a wall (3 thick), 50 dmg strike | **The Ride** — possess a machine 3s (never flesh) · needler rounds are **visible now** (they never were — `tracer: none` skipped the mesh; same fix for Nightmare/Specter/Shadowstep) |
+| Frostbite | 3 | **The Ice Block** — encase the aimed soldier, 20u. Hold still: 2.5hp/s drain, melts at 5s · struggle: out in 4s, **−45 HP** · a teammate's shot shatters it free | *one ability* (bot auto-freezes ≤16u) · **kills inside the block credit Frostbite** (they used to credit nobody) |
 | Titan | 3 | **Seismic Hands** — hurl a vehicle (260 dmg, crew ejected) or soldier | pound 7u, 45 dmg, **grinds cover to rubble** |
 | Gravity Warden | 3 | **Reverse Gravity** — float them 2.5s, land staggered | pull-then-slam: −6 pull then 50 dmg |
 | Inferno ✈ | 3 | Dive-bomb 55 dmg + fire crater (**committed low 2.4s**) | passive: **burning aura 9 dmg/0.6s within 6u 3D** |
