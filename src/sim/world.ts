@@ -395,7 +395,7 @@ export class World {
   pendingLsw: { id: AscendantId; team: Team; landsAt: number; pos: Vec3; callerId: number }[] = [];
   /** Oblivion's live black holes — each drags enemy soldiers AND hulls inward
    *  for its telegraph, then bursts at burstAt. Stepped every tick. */
-  blackHoles: { x: number; z: number; team: Team; ownerId: number; burstAt: number }[] = [];
+  blackHoles: { x: number; z: number; team: Team; ownerId: number; burstAt: number; charge?: number }[] = [];
   /** FORCE FIELDS (§4.4 #2, the shared mechanic): sustained radial pulls /
    *  pushes and directional shoves, re-applied every tick so they survive the
    *  impulse decay. One system → Gravity Warden, Riptide, Oblivion's hole,
@@ -726,8 +726,25 @@ export class World {
   private stepBlackHoles() {
     this.blackHoles = this.blackHoles.filter((bh) => {
       if (this.time >= bh.burstAt) {
-        this.explode({ x: bh.x, y: 0, z: bh.z }, WEAPONS.gl, bh.ownerId, bh.team);
-        this.emit({ type: 'explosion', pos: { x: bh.x, y: 0, z: bh.z }, weapon: 'gl' });
+        // M4 THE OVERDRAW PAYS OFF AT THE COLLAPSE: a hole opened on a full
+        // tank bursts wider and harder. charge 0 = the free hole (today's
+        // numbers); charge 1 = everything he had.
+        const ch = bh.charge ?? 0;
+        // THE DAMAGE NEVER SCALES. §counterplay's published law for Oblivion
+        // is "the hole drags you in and HURTS, BUT DOES NOT KILL" — a full-HP
+        // rifleman walks out at 25. Scaling the damage made an overdrawn
+        // collapse lethal and broke that promise on the first run.
+        // So the overdraw buys REACH, PULL, and THE FLIP instead: at full
+        // charge the collapse ragdolls everyone in it. A god who leaves the
+        // whole enemy squad face-down at his feet has not been nerfed — he
+        // handed his team four free kills without breaking his own law.
+        const def = {
+          ...WEAPONS.gl,
+          splash: WEAPONS.gl.splash * (1 + ch * 0.55),
+          knockback: WEAPONS.gl.knockback * (1 + ch * 1.4), // 13 → 31: it FLIPS
+        };
+        this.explode({ x: bh.x, y: 0, z: bh.z }, def, bh.ownerId, bh.team);
+        this.emit({ type: 'explosion', pos: { x: bh.x, y: 0, z: bh.z }, weapon: 'gl', radius: def.splash, killRadius: def.splash * 0.4 });
         return false;
       }
       return true;
@@ -1930,9 +1947,12 @@ export class World {
       // jet fuel only flows on the deck — hanging in the sky earns nothing
       const grounded = s.pos.y <= 0.05;
       // M1: the tank refills on the class's own clock — and never mid-sprint
+      // M4: an ascended body runs on its GOD's tank rate when it has one —
+      // the class stat underneath is irrelevant once you're wearing a god
+      const regenMul = s.ascendant ? (LSWS[s.ascendant]?.energyRegen ?? 1) : (c.energyRegen ?? 1);
       const rate = (c.ability === 'jetpack' && !grounded) || s.sprinting
         ? 0
-        : ENERGY_REGEN * (c.energyRegen ?? 1);
+        : ENERGY_REGEN * regenMul;
       s.energy = Math.min(100, s.energy + rate * dt);
     }
 

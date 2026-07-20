@@ -57,6 +57,11 @@ export interface LswDef {
   activeLabel: string;
   /** signature cooldown in seconds (charged only when the active actually fires) */
   activeCd: number;
+  /** M4 (Robert: "certain people can regenerate faster") — this god's own
+   *  stamina/power regen multiplier. Absent = 1. A god who SPENDS its meter
+   *  on a scaling power (Oblivion) needs to earn it back faster than one
+   *  who just runs around with it. */
+  energyRegen?: number;
   /** THE SIGNATURE ARM (armament doctrine): the one weapon this god carries
    *  instead of infantry issue — swapped in at ascension, family 'lsw'. */
   weapon: WeaponId;
@@ -181,6 +186,7 @@ export const LSWS: Record<AscendantId, LswDef> = {
   },
   oblivion: {
     id: 'oblivion', weapon: 'lsw_oblivion', name: 'Oblivion', faction: 1, threat: 2,
+    energyRegen: 1.6, // M4: the overdraw god earns his meter back fastest
     lines: {
       inbound: 'OBLIVION INBOUND — DO NOT CLUSTER',
       landed: 'OBLIVION LEVITATES THE FIELD — WATCH FOR THE PULL',

@@ -225,6 +225,8 @@ export interface Soldier {
   rollDir?: number;      // +1 left, -1 right (relative to facing)
   /** M1 RAGDOLL: past the knockback threshold the body is luggage until this */
   ragdollUntil?: number;
+  /** M4: an LSW's own regen rate, when its god overrides the class stat */
+  lswRegen?: number;
   alive: boolean;
   respawnAt: number;  // sim time when respawn allowed
   weaponIdx: number;  // 0 primary, 1 secondary, 2 special pickup
