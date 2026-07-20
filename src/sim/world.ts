@@ -144,6 +144,9 @@ export interface WorldOptions {
   mode: ModeId;
   botsPerTeam?: number;
   difficulty?: Difficulty;
+  /** B1: morale banked by underfunded victories opens the stable richer —
+   *  per team, capped in the constructor so it never floods the economy */
+  moraleBoost?: [number, number];
   matchMinutes?: number;
   /** battlefield environment — drives map flavor and gravity */
   theme?: ThemeId;
@@ -240,6 +243,13 @@ export class World {
     if (opts.mode === 'paintball') this.weather.until = Infinity; // the yard stays sunny
     // vehicles on pads. Co-op zombie modes field only squad support —
     // the ambulance and the emplacement guns — no armor column.
+    // B1: morale arrives as opening materiel — an army that believes fights
+    // on a fuller stable (capped: belief is not a printing press)
+    if (opts.moraleBoost) {
+      for (const t of [0, 1] as const) {
+        this.materiel[t] = Math.min(14, this.materiel[t] + Math.min(3, Math.max(0, opts.moraleBoost[t])));
+      }
+    }
     this.map.vehiclePads.forEach((pad, padId) => {
       if (isCoopMode(opts.mode) && pad.kind !== 'ambulance' && pad.kind !== 'emplacement') return;
       this.spawnVehicle(pad.kind, pad.team, pad.pos, padId);
@@ -445,6 +455,21 @@ export class World {
    *  opens at 10, drips +1 every 60s (cap 14). THREAT[].materiel is the
    *  price per tier, so a T4 costs most of the afternoon. */
   materiel: [number, number] = [10, 10];
+  /**
+   * B1 THE WAR LEDGER (Robert: "a budget on each side… if you won and were
+   * underfunded it increased your morale — we could keep track of those kind
+   * of things"). Every side's account: materiel SPENT (gods, warheads) and
+   * hulls LOST (each vehicle's requisition cost). The whistle compares books:
+   * a winner who spent meaningfully less than the loser earns an UNDERFUNDED
+   * VICTORY — the campaign banks it as morale.
+   */
+  warLedger: [{ spent: number; hulls: number }, { spent: number; hulls: number }] =
+    [{ spent: 0, hulls: 0 }, { spent: 0, hulls: 0 }];
+
+  /** the whole bill for one side: what it spent plus what it lost */
+  warCost(team: Team): number {
+    return this.warLedger[team].spent + this.warLedger[team].hulls;
+  }
   private nextMaterielDripAt = 60;
 
   private stepForceFields() {
@@ -511,6 +536,7 @@ export class World {
     const price = THREAT[def.threat].materiel;
     if (this.materiel[team] < price) return false;
     this.materiel[team] -= price;
+    this.warLedger[team].spent += price; // the ledger never forgets a gate fee
     const caller = this.soldiers.get(callerId);
     const src = caller?.alive ? caller.pos : this.map.basePos[team];
     const lz = { x: src.x, y: 0, z: src.z };
@@ -1992,6 +2018,7 @@ export class World {
           const price = NUKE_PRICE;
           if (this.materiel[v.team] >= price) {
             this.materiel[v.team] -= price;
+            this.warLedger[v.team].spent += price;
             v.nukeAboard = true;
             s.nextAbilityAt = this.time + 2;
             this.emit({ type: 'nuke_armed', pos: { ...v.pos }, soldierId: s.id, big: true,
@@ -4395,6 +4422,8 @@ export class World {
     if (v.hp <= 0) {
       v.hp = 0;
       v.alive = false;
+      // B1: a wreck goes on its owner team's bill at requisition value
+      this.warLedger[v.team].hulls += VEHICLES[v.kind].cost ?? 1;
       v.respawnAt = this.time + VEHICLE_RESPAWN;
       this.emit({ type: 'vehicle_destroyed', pos: { ...v.pos } });
       this.emit({ type: 'explosion', pos: { ...v.pos }, weapon: 'tank_cannon' });

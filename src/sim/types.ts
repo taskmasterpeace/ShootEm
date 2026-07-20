@@ -196,6 +196,13 @@ export interface VehicleDef {
    * Absent = rails, like always.
    */
   slip?: number;
+  /**
+   * B1 THE WAR BUDGET (Robert: "you got all these vehicles… what if there
+   * was like a budget on each side?"). What this hull is worth on the war
+   * ledger — losing it charges the team's account. Requisition-scale (the
+   * same currency gods cost), not hit points.
+   */
+  cost?: number;
   /** V4: drops a stick of bombs straight down along its flight path */
   bombs?: number;
   /** grinds T_WALL tiles into open ground as it moves (tunneler) */
@@ -790,6 +797,9 @@ export interface ModeState {
   target: number;
   over: boolean;
   winner: Team | -1;
+  /** B1: set at the whistle when the WINNER spent meaningfully less than the
+   *  loser — an underfunded victory, the morale event the officer earns */
+  underdog?: Team;
   // ctf
   flags?: FlagState[];
   // koth

@@ -238,6 +238,21 @@ function endMatch(w: World, winner: Team | -1) {
     type: 'match_over', team: winner === -1 ? undefined : winner,
     text: winner === -1 ? 'DRAW' : `${TEAM_NAMES[winner]} WINS`, big: true,
   });
+  // B1 THE AUDIT (Robert: "if you won and were underfunded it increased your
+  // morale"). The whistle compares the books: a winner whose whole bill —
+  // spend plus wrecks — comes in at three-quarters of the loser's or less
+  // fought poor and won anyway. That is worth announcing, and worth morale.
+  if (winner !== -1) {
+    const wCost = w.warCost(winner);
+    const lCost = w.warCost((1 - winner) as Team);
+    if (lCost >= 4 && wCost <= lCost * 0.75) {
+      m.underdog = winner;
+      w.emit({
+        type: 'announce', team: winner, big: true,
+        text: `UNDERFUNDED VICTORY — ${TEAM_NAMES[winner]} won on ${wCost} against ${lCost}. MORALE RISES.`,
+      });
+    }
+  }
 }
 
 // ---------- TDM ----------

@@ -22,6 +22,7 @@ import { NetGame } from './client/net';
 import { KILLCAM_CAM, MATCH_LINGER_LOCAL_MS, ReplayDirector } from './client/replay';
 import { MatchTracker, RANKS, loadDossier, rankFor, saveDossier, type Dossier } from './client/record';
 import { FRONTS, SCAR_TEXT, applyResult, bandOf, checkSeasonEnd, loadCampaign, saveCampaign, simulateTimeSkip, type Campaign } from './client/campaign';
+import { fileIssue, renderIssueHTML, renderPressInto, loadPress } from './client/newspaper';
 import { RangeCourse, loadWall } from './client/range';
 import { RingDrill } from './client/ringdrill';
 import { loadSettings, saveSettings, settings, type BloodLevel } from './client/settings';
@@ -435,6 +436,8 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   seedOverride = undefined;
   const world = new World({
     seed, mode: selectedMode, difficulty, botsPerTeam, matchMinutes, theme: selectedTheme,
+    // B1: banked morale opens the stable richer for YOUR side (capped in-world)
+    moraleBoost: [Math.min(3, dossier?.soldier.morale ?? 0), 0],
     // §8.2+33C: a Scar deploy lands on AUTHORED ground, at the tier the
     // lobby's headcount earns — the size rides the id (front@size) so
     // world.ts stays the LSW dev's untouched file.
@@ -691,7 +694,26 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
         renderBarracks(); // the record just grew
         // §17.B's third leg, finally visible: fight → record grew → WAR MOVED
         let extras = '';
+        // B1 THE WAR LEDGER on the closing screen: both sides' books, and the
+        // morale event when the winner fought poor (Robert: "if you won and
+        // were underfunded it increased your morale… that officer could do")
+        {
+          const myTeam = 0 as const;
+          const mine = world.warCost(myTeam);
+          const theirs = world.warCost(1);
+          extras += `<p style="margin-top:0.35rem">⛁ WAR COST — yours ${mine} · theirs ${theirs}</p>`;
+          if (world.mode.underdog === myTeam && dossier) {
+            dossier.soldier.morale = (dossier.soldier.morale ?? 0) + 1;
+            dossier.journal.unshift({
+              text: `UNDERFUNDED VICTORY — we won on ${mine} against their ${theirs}. Morale rose to ${dossier.soldier.morale}. An army that believes fights on a fuller stable.`,
+              at: Date.now(), matchRef: 'underdog',
+            });
+            void saveDossier(dossier);
+            extras += `<p style="margin-top:0.2rem"><b>★ UNDERFUNDED VICTORY</b> — morale +1 (now ${dossier.soldier.morale}). Next deploy opens with a richer stable.</p>`;
+          }
+        }
         // the Living Campaign: this battle moves its front (22B)
+        let pressFront: { name: string; control: number; delta: number } | undefined;
         if (activeFrontId && campaign) {
           const front = campaign.fronts[activeFrontId];
           const before = front?.control ?? 0;
@@ -699,6 +721,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
           if (front) {
             const d = front.control - before;
             const fname = FRONTS.find((f) => f.id === activeFrontId)?.name ?? activeFrontId;
+            pressFront = { name: fname, control: front.control, delta: d };
             extras += `<p style="margin-top:0.35rem">⚑ ${fname.toUpperCase()}: control ${d >= 0 ? '+' : ''}${d} → ${front.control}</p>`;
           }
           // §13 (decided): a REAL battle can close the season — the Armistice
@@ -731,6 +754,38 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
           ${sum.medals.length ? `<div class="cp-row" style="margin-top:0.4rem">${sum.medals.map((m) => `<span class="bk-medal">${m.icon} ${m.name}</span>`).join('')}</div>` : ''}
           ${sum.journal.length ? `<p style="margin-top:0.5rem;color:var(--muted)">📖 ${sum.journal[0].text}</p>` : ''}
           ${extras}</div>`;
+
+        // N1 THE PRESS FILES (Robert: "we could literally make newspapers…
+        // to show all the three things that happened"). One issue per battle:
+        // the duel, the money, the field. Archived as data in the MAP tab.
+        {
+          let ace = { name: '—', kills: 0 };
+          let longest = 0;
+          for (const s2 of world.humansAndBots()) {
+            if (s2.kills > ace.kills) ace = { name: s2.name, kills: s2.kills };
+            if (s2.longestKill > longest) longest = s2.longestKill;
+          }
+          const kills: [number, number] = [0, 0];
+          for (const s2 of world.humansAndBots()) kills[s2.team] += s2.kills;
+          fileIssue({
+            at: Date.now(),
+            season: campaign?.season ?? 1,
+            frontName: pressFront?.name,
+            controlAfter: pressFront?.control,
+            controlDelta: pressFront?.delta,
+            won: sum.won === true, // a draw prints as a hard day, not a win
+            modeName: MODE_INFO[world.mode.id]?.name ?? world.mode.id.toUpperCase(),
+            aceName: ace.name, aceKills: ace.kills, longestShot: Math.round(longest),
+            myCost: world.warCost(0), theirCost: world.warCost(1),
+            underdog: world.mode.underdog === 0,
+            morale: dossier?.soldier.morale,
+            myKills: kills[0], theirKills: kills[1],
+            medals: sum.medals.map((m) => `${m.icon} ${m.name}`),
+          });
+          // the freshest front page goes straight onto the closing screen
+          const latest = loadPress()[0];
+          if (latest) hud.careerHtml += `<div style="margin-top:0.7rem">${renderIssueHTML(latest)}</div>`;
+        }
       });
     }
 
@@ -876,7 +931,7 @@ function wireMenuTabs() {
       $(`tab-${pane}`).classList.toggle('hidden', pane !== t.dataset.tab);
     }
     if (t.dataset.tab === 'barracks') renderBarracks();
-    if (t.dataset.tab === 'map') renderScarMap();
+    if (t.dataset.tab === 'map') { renderScarMap(); renderPressInto($('press-root')); }
     // the Codex owns a live turntable — it only spins while you are looking
     if (t.dataset.tab === 'codex') renderCodex($('codex-root')); else pauseCodex();
   });

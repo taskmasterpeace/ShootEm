@@ -17,7 +17,10 @@ export interface QualRecord { score: number; percentile: number; grade: string; 
 
 export interface Dossier {
   v: 1;
-  soldier: { callsign: string; created: number; rankPoints: number };
+  soldier: { callsign: string; created: number; rankPoints: number;
+    /** B1: underfunded victories bank morale — the officer's proof his side
+     *  fights above its budget. Spent as opening materiel on later deploys. */
+    morale?: number };
   tours: { faction: Team; season: number; startedAt: number }[];
   lifetime: {
     matches: number; wins: number; kills: number; deaths: number; score: number;
