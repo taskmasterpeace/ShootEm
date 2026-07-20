@@ -4,6 +4,17 @@
 
 *Updated 2026-07-20 after the playtest pass: god armament laws (no frags, no vehicles), the signature meter, Firebrand's rework, visible needlers, ice-kill attribution.*
 
+*Updated again the same day — the MECHANICS PROGRAM (M1–M6):*
+
+| # | What landed |
+|---|---|
+| **M1** | **Stamina is the energy meter.** Sprint (hold Shift, ×1.35, 10/s), **dash** forward and **roll** sideways on double-tap (25/20 stamina, shared 0.9s cooldown), per-class regen (pathfinder 1.35 → heavy 0.75). **RAGDOLL THRESHOLD:** applied knockback ≥16 flips you — controls die, the blast carries you, you get up. Gods and power armor never flip. |
+| **M2** | Double-tap W/A/D in the client; dash lean + barrel-roll + face-plant dress; **the stamina bar** with a visible regen edge and a spend flash. |
+| **M3** | **The CL-40 Concussor REPLACES the GL-40 frag launcher** on the jump trooper. Damage 0, splash 14, **knockback 30** — the hardest shove in the game, and past the ragdoll line. It opens doors; it doesn't kill through them. |
+| **M4** | **Oblivion's OVERDRAW:** the black hole eats his whole tank and scales with it — r14→r20, pull −5→−11, and a full-power collapse **ragdolls** everyone in it. The 1.5s fuse and the "hurts but does not kill" law both survive untouched. His regen is 1.6, the fastest in the game. |
+| **M5** | **The Breacher Axe** (F): throw it, it buries where it lands; press F again and it flies home, **opening every hostile on the return line** (45 dmg, 1.3u corridor). One axe per soldier — a bad throw disarms you. |
+| **M6** | **The silhouette pass:** all 40 gods break their rectangle at command zoom — crowns, horns, spike racks, dorsal ridges, pauldrons, wings, and trailing coats. Closes the "25 of 40 are recolored riflemen" finding. |
+
 ---
 
 ## PART 1 — THE CLASSES
