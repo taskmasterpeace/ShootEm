@@ -80,6 +80,10 @@ const RAGDOLL_AT = 16;
 // V4: the Cradle warhead costs the same as a tier-3 god. It should feel like
 // spending the stable's whole afternoon, because it does what a god does.
 const NUKE_PRICE = 4;
+// V5: how long a launcher waits before sweeping an empty sky again. Far
+// shorter than its reload (1.8s crewed, 3.4s not), so it never costs a shot —
+// it only stops idle radars from re-scanning the whole world every frame.
+const AA_SWEEP = 0.25;
 // M5 THE AXE: thrown flat, buried on landing, recalled through anyone in the way
 const AXE_REACH = 30;
 const AXE_RECALL_SPEED = 46;
@@ -745,7 +749,14 @@ export class World {
       // is worth something
       const crewed = v.seats[0] >= 0;
       const target = this.hullLockTarget(v);
-      if (!target) continue;
+      if (!target) {
+        // A SWEEP HAS A PERIOD. An empty sky means the dish goes back around
+        // before it looks again — without this, every idle launcher rescans
+        // every vehicle and every soldier 60 times a second for nothing, and
+        // an armour map fields a lot of idle launchers.
+        v.nextFireAt = this.time + AA_SWEEP;
+        continue;
+      }
       const def = WEAPONS.aa_missile;
       v.nextFireAt = this.time + (1 / def.rof) * (crewed ? 1 : 1.9);
       this.fireHullSam(v, target, crewed ? v.seats[0] : -1);
