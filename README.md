@@ -1,4 +1,4 @@
-# ⚔️ War World
+# ⚔️ War World: Earth
 
 **A modern, browser-native reimagining of [Infantry Online](https://github.com/InfantryOnline/Infantry-Online-Server)** — the classic 1998 top-down multiplayer shooter — rebuilt from scratch in TypeScript + Three.js with a **200+ weapon armory**, **11 vehicles including multi-crew platforms with per-system damage**, seven game modes, eight combat classes, six battlefield environments, flyable **FPV recon drones**, comms channels with offline mail, Tribes-style warp tech, bots, and LAN multiplayer.
 
