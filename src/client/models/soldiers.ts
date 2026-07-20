@@ -176,6 +176,141 @@ export const LSW_TINT: Record<string, { tint: number; scale: number }> = {
   cataclysm: { tint: 0x7a4a30, scale: 1.65 },    // magma-cracked basalt
 };
 
+/**
+ * M6 THE SILHOUETTE TABLE (Robert: "get our entire visual look for our LSWs…
+ * pay more attention to detail, and remember that we're going to be ZOOMED
+ * OUT"). At command zoom a god is ~40 pixels tall: tint and scale are nearly
+ * invisible, and fine surface detail is wasted entirely. What survives is
+ * OUTLINE — what breaks the body's rectangle against the sky.
+ *
+ * So every god that isn't already distinct gets ONE bold shape change,
+ * readable as a black cutout:
+ *   crown  — a ring/halo above the head (mystics, commanders)
+ *   horns  — a wide V off the skull (brutes, beasts)
+ *   spikes — a back rack (bruisers, siege)
+ *   ridge  — a hunched dorsal fin (the deep-sea heavies)
+ *   pauldr — hard shoulder slabs, doubling apparent width (armored)
+ *   wings  — swept back-plates (fliers, levitators)
+ *   coat   — a long hanging tail (skirmishers)
+ * Each is a couple of boxes on a named joint, guarded so per-frame dressing
+ * never multiplies them. Cheap, and the whole roster stops reading as one
+ * body at three sizes.
+ */
+type SilhouetteKind = 'crown' | 'horns' | 'spikes' | 'ridge' | 'pauldr' | 'wings' | 'coat';
+export const LSW_SILHOUETTE: Record<string, SilhouetteKind> = {
+  // the brutes stop being one body at three sizes
+  titan: 'pauldr', crusher: 'spikes', leviathan: 'ridge', cataclysm: 'spikes',
+  tremor: 'pauldr', ragebeast: 'horns',
+  // fliers + levitators wear the sky
+  inferno: 'wings', stormcaller: 'wings', gargoyle: 'wings',
+  wraith: 'wings', gravwarden: 'crown',
+  // mystics and commanders take the crown
+  chronos: 'crown', dominator: 'crown', oblivion: 'crown', nightmare: 'crown',
+  magnetar: 'crown', eclipse: 'crown', reactor: 'crown', pulse: 'crown',
+  // armored line
+  vanguard: 'pauldr', steelweaver: 'pauldr', barrier: 'pauldr', reaper: 'coat',
+  // skirmishers get the coat tail
+  blitz: 'coat', shadowstep: 'coat', specter: 'coat', voidwalker: 'coat',
+  mirage: 'coat', phantom: 'coat', venatrix: 'coat', sniperhawk: 'coat',
+  // the rest — beasts and elementals
+  crimson: 'horns', venom: 'horns', plaguebearer: 'horns', pyroclasm: 'spikes',
+  firebrand: 'spikes', voltstriker: 'spikes', overload: 'spikes',
+  frostbite: 'crown', riptide: 'ridge',
+};
+
+/** Build one silhouette breaker. Boxes only — at command zoom the shape is
+ *  the entire message, so every piece is chosen to survive as a cutout. */
+function makeSilhouette(kind: SilhouetteKind, tint: number): THREE.Group {
+  const g = new THREE.Group();
+  const solid = (c: number, rough = 0.75) => new THREE.MeshStandardMaterial({ color: c, roughness: rough, metalness: 0.25 });
+  const box = (w: number, h: number, d: number, c: number) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), solid(c));
+    m.castShadow = true;
+    return m;
+  };
+  const dark = 0x22262b;
+  switch (kind) {
+    case 'crown': {
+      // a floating ring — the most legible "this one is a caster" at distance
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        const p2 = box(0.07, 0.26, 0.07, tint);
+        p2.position.set(Math.cos(a) * 0.32, 0.62, Math.sin(a) * 0.32);
+        p2.rotation.y = -a;
+        g.add(p2);
+      }
+      const band = new THREE.Mesh(new THREE.TorusGeometry(0.33, 0.035, 5, 12), solid(tint, 0.5));
+      band.rotation.x = Math.PI / 2;
+      band.position.y = 0.52;
+      g.add(band);
+      break;
+    }
+    case 'horns': {
+      for (const side of [-1, 1]) {
+        const h = box(0.1, 0.44, 0.1, dark);
+        h.position.set(0.02, 0.5, side * 0.22);
+        h.rotation.x = side * 0.55;
+        g.add(h);
+        const tip = box(0.07, 0.2, 0.07, tint);
+        tip.position.set(0.04, 0.72, side * 0.34);
+        tip.rotation.x = side * 0.8;
+        g.add(tip);
+      }
+      break;
+    }
+    case 'spikes': {
+      for (let i = 0; i < 4; i++) {
+        const sp = box(0.09, 0.3 + i * 0.06, 0.09, i % 2 ? tint : dark);
+        sp.position.set(-0.26, 0.28 + i * 0.02, -0.3 + i * 0.2);
+        sp.rotation.z = 0.5;
+        g.add(sp);
+      }
+      break;
+    }
+    case 'ridge': {
+      for (let i = 0; i < 5; i++) {
+        const f = box(0.06, 0.16 + Math.sin((i / 4) * Math.PI) * 0.34, 0.2, tint);
+        f.position.set(-0.22, 0.36, -0.36 + i * 0.18);
+        g.add(f);
+      }
+      break;
+    }
+    case 'pauldr': {
+      for (const side of [-1, 1]) {
+        const pl = box(0.42, 0.2, 0.34, dark);
+        pl.position.set(0, 0.34, side * 0.36);
+        pl.rotation.x = side * 0.18;
+        g.add(pl);
+        const trim = box(0.44, 0.06, 0.36, tint);
+        trim.position.set(0, 0.45, side * 0.36);
+        trim.rotation.x = side * 0.18;
+        g.add(trim);
+      }
+      break;
+    }
+    case 'wings': {
+      for (const side of [-1, 1]) {
+        const wg = box(0.08, 0.62, 0.5, tint);
+        wg.position.set(-0.24, 0.3, side * 0.3);
+        wg.rotation.set(side * 0.35, 0, 0.45);
+        g.add(wg);
+      }
+      break;
+    }
+    case 'coat': {
+      const geo = new THREE.BoxGeometry(0.07, 0.95, 0.56);
+      geo.translate(0, -0.45, 0); // top pivot — it hangs and sways
+      const tail = new THREE.Mesh(geo, solid(tint, 0.95));
+      tail.name = 'cape'; // the renderer's cape wave already drives this name
+      tail.position.set(-0.26, 0.3, 0);
+      tail.castShadow = true;
+      g.add(tail);
+      break;
+    }
+  }
+  return g;
+}
+
 /** Turn a built trooper body INTO an LSW body: scale up past a trooper,
  *  glow its faction shade, and tag it so the frame loop feeds the aura.
  *  Robert: "make sure visually the LSWs look different." */
@@ -308,6 +443,22 @@ export function dressAsLsw(mesh: THREE.Group, id: string): THREE.Group {
       mesh.userData.lswCape = true;
     }
   }
+  // M6: the silhouette breaker. Head-mounted shapes ride the head joint so
+  // they follow the look; body shapes ride the torso. Guarded — dressAsLsw
+  // runs per-frame and this must mount exactly once.
+  const sil = LSW_SILHOUETTE[id];
+  if (sil && !mesh.userData.lswSil) {
+    const head = mesh.getObjectByName('head');
+    const torso = mesh.getObjectByName('torso');
+    const host = (sil === 'crown' || sil === 'horns') ? head : torso;
+    if (host) {
+      const piece = makeSilhouette(sil, look.tint);
+      piece.name = 'silhouette';
+      host.add(piece);
+      mesh.userData.lswSil = true;
+    }
+  }
+
   // CHRONOS' CLOCK — a slow brass disc on the back, because the highest
   // threat tier must never read as a recolored rifleman
   if (id === 'chronos' && !mesh.userData.lswDial) {
