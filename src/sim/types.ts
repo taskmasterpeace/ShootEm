@@ -504,6 +504,11 @@ export interface Soldier {
    *  confirms (Z) while the needle overlaps it. Best-of-three — defender
    *  takes 2 → fights free; attacker takes 2 → `locked`, and only a LOCKED
    *  rear pin accepts the §14.2 finisher. Front pins never carry one. */
+  /** §14.2 CHOKE (outcome menu): victim-side progress toward the silent
+   *  capture (0..1) and the attacker-side link. Both transient — cleared on
+   *  release, interrupt (the choker taking damage), death, or reset. */
+  chokeProgress?: number;
+  chokingId?: number;
   ctrlStruggle?: {
     round: number; attWins: number; defWins: number;
     /** sim-time the current round's needle started — needle position is a
@@ -883,6 +888,8 @@ export interface SimEvent {
     | 'struggle_start' // §15: a REAR pin opened a Control Struggle (soldierId = victim)
     | 'struggle_round' // §15: a contest pip fell — text: 'att' | 'def' won the round
     | 'struggle_lock'  // §15: attacker took best-of-three — the hold is LOCKED, finisher live
+    | 'disarm'         // §14.2 outcome: the held gun was RIPPED away (weapon = what fell)
+    | 'choke_out'      // §14.2 outcome: choked to DOWNED — a silent capture, not a kill
     | 'sprinter_wake'  // §7.1: a dormant sprinter just activated — the terror spike
     | 'corpse_critical' // §6: a booked corpse entered its final reanimation window
     | 'contamination'  // §8: a corpse pile curdled into a mutation-field nest

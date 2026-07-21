@@ -193,6 +193,7 @@ const CTRL_NEEDLE_HZ = 0.7;   // needle triangle cycles/sec (round 1; +20%/round
 const CTRL_STEER = 0.55;      // attacker zone-steer speed (track/sec)
 const CTRL_BOT_CONFIRM = 5;   // defender-bot confirm hazard/sec while in the zone
 const CTRL_LOCK_HOLD = 1.6;   // the locked hold's fresh window to land the finisher
+const CHOKE_SECS = 2.6;       // §14.2 the silent capture — full squeeze to DOWNED
 /** the needle is a PURE function of (anchor, time, round) — sim and HUD both
  *  call this, so what you see IS what the contest judges. */
 export function ctrlNeedlePos(anchor: number, time: number, round: number): number {
@@ -1340,7 +1341,7 @@ export class World {
     s.medikitReady = true;
     s.meleeStrikeAt = 0; s.meleeWeapon = ''; // no swing survives a respawn
     s.meleeCharge = 0; s.meleeChargeMul = undefined; // and no half-built Power Strike
-    s.guarding = false; s.grabbedUntil = undefined; s.grabbedBy = undefined; s.ctrlStruggle = undefined; // no hold survives it either
+    s.guarding = false; s.grabbedUntil = undefined; s.grabbedBy = undefined; s.ctrlStruggle = undefined; s.chokeProgress = undefined; s.chokingId = undefined; // no hold survives it either
     // mobile spawn: a crewed APC or transport with a LIVE comms system
     const mobile = [...this.vehicles.values()].find(
       (v) => v.alive && v.team === s.team && VEHICLES[v.kind].mobileSpawn &&
@@ -1655,6 +1656,24 @@ export class World {
         // mash escape belongs to FRONT pins and zombie clinches only — a rear
         // contest (locked or live) is won on the needle, never the keyboard shake
         if (struggling && !s.ctrlStruggle) s.struggle = (s.struggle ?? 0) + dt / GRAB_STRUGGLE_SECS;
+        // §14.2 CHOKE — the silent capture channels here, where the hold is
+        // already adjudicated: progress climbs while the LOCKED grip and the
+        // choker both hold; completion puts the body DOWN (bleed clock, medic
+        // liftable) — a capture, never a kill credit.
+        if (grabber && grabber.alive && grabber.chokingId === s.id && s.ctrlStruggle?.locked) {
+          s.chokeProgress = (s.chokeProgress ?? 0) + dt / CHOKE_SECS;
+          s.grabbedUntil = Math.max(s.grabbedUntil, this.time + 0.3); // the squeeze outlasts the lock timer
+          if (s.chokeProgress >= 1) {
+            this.emit({ type: 'choke_out', pos: { ...s.pos }, soldierId: s.id });
+            grabber.chokingId = undefined;
+            s.chokeProgress = undefined;
+            s.grabbedUntil = undefined; s.grabbedBy = undefined; s.struggle = undefined; s.ctrlStruggle = undefined;
+            grabber.grabbingId = undefined;
+            s.grabImmuneUntil = this.time + GRAB_IMMUNE;
+            this.downSoldier(s, grabber.id);
+            continue; // the body is on the ground — nothing else acts this tick
+          }
+        }
         // BITE STRUGGLE (OUTBREAK-SPEC §15.5): a ZOMBIE's grip gnaws — Viral
         // Load climbs the whole time it has you, so a slow escape still costs.
         const byZed = !!grabber && isZed(grabber.kind);
@@ -1680,6 +1699,8 @@ export class World {
             if (s.alive) { s.pushX += ((grabber.pos.x - s.pos.x) / dl) * 3; s.pushZ += ((grabber.pos.z - s.pos.z) / dl) * 3; }
           }
           s.grabbedUntil = undefined; s.grabbedBy = undefined; s.struggle = undefined; s.ctrlStruggle = undefined;
+          s.chokeProgress = undefined;
+          if (grabber && grabber.chokingId === s.id) grabber.chokingId = undefined;
           s.grabImmuneUntil = this.time + GRAB_IMMUNE; // no instant re-clinch
           this.emit({ type: 'grab_break', pos: { ...s.pos }, soldierId: s.id });
         }
@@ -2401,6 +2422,60 @@ export class World {
 
     // M5 THE AXE ON F: throw it, or call it home. One axe, three states —
     // on your back (throw), in the ground (recall), in the air (wait).
+    // §14.2 THE OUTCOME MENU: a LOCKED rear hold offers more than the kill.
+    // Z stays the takedown; F DISARMS (the held gun is ripped to the dirt and
+    // he's shoved clear — a mercy with a price); E CHOKES (a silent capture —
+    // he goes DOWN, not dead). Runs BEFORE the knife/door blocks and EATS the
+    // key, so F doesn't also swing and E doesn't also open the door.
+    {
+      const heldV = s.grabbingId !== undefined ? this.soldiers.get(s.grabbingId) : undefined;
+      const lockedHold = !!heldV && heldV.alive && heldV.grabbedBy === s.id
+        && heldV.grabbedUntil !== undefined && heldV.ctrlStruggle?.locked === true
+        && !heldV.ascendant;
+      if (lockedHold) {
+        const v = heldV!;
+        if (cmd.melee || cmd.meleeHold) {
+          // DISARM + SHOVE: strip the gun IN HIS HANDS (never below one weapon
+          // — the sidearm law), drop it as real loot, shove him clear. A
+          // release, not an escape: no rebound, but he keeps the no-re-clinch
+          // window and you pay a beat of recovery for the rip.
+          if (v.weapons.length >= 2) {
+            const idx = v.weaponIdx;
+            const wid = v.weapons[idx];
+            v.weapons.splice(idx, 1); v.clip.splice(idx, 1); v.reserve.splice(idx, 1);
+            v.weaponIdx = 0; v.trigHeld = false;
+            if (!LOOT_EXCLUDED.has(wid)) {
+              let drops = 0; let oldest: Pickup | undefined;
+              for (const pk of this.pickups.values()) if (pk.type === 'weapon') { drops++; oldest ??= pk; }
+              if (drops >= LOOT_MAX && oldest) this.pickups.delete(oldest.id);
+              const a = ((v.id % 8) / 8) * Math.PI * 2;
+              const pk: Pickup = {
+                id: this.id(), type: 'weapon', weaponId: wid,
+                pos: { x: v.pos.x + Math.cos(a) * 0.7, y: 0, z: v.pos.z + Math.sin(a) * 0.7 },
+                respawnAt: 0, oneShot: true, expiresAt: this.time + LOOT_DESPAWN,
+              };
+              this.pickups.set(pk.id, pk);
+            }
+            this.emit({ type: 'disarm', pos: { ...v.pos }, soldierId: v.id, weapon: wid });
+          }
+          const dl = Math.max(Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z), 0.5);
+          v.pushX += ((v.pos.x - s.pos.x) / dl) * 9;
+          v.pushZ += ((v.pos.z - s.pos.z) / dl) * 9;
+          v.grabbedUntil = undefined; v.grabbedBy = undefined; v.struggle = undefined; v.ctrlStruggle = undefined;
+          v.grabImmuneUntil = this.time + GRAB_IMMUNE;
+          v.chokeProgress = undefined; s.chokingId = undefined;
+          s.grabbingId = undefined;
+          s.nextFireAt = Math.max(s.nextFireAt, this.time + 0.4);
+          cmd.melee = false; cmd.meleeHold = false; // the rip WAS the F press
+        } else if (cmd.use && s.chokingId === undefined) {
+          // CHOKE: begin the squeeze — the channel itself ticks in the victim's
+          // grabbed block (where the hold is already being adjudicated).
+          s.chokingId = v.id;
+          v.chokeProgress = 0;
+          cmd.use = false; // eaten — no door opens on the same press
+        }
+      }
+    }
     // the axe is ISSUED KIT (V1) — a soldier without it on his rig has no
     // sci-fi returning weapon, he has a rifle. Gods carry it inherently:
     // a thrown weapon that comes home is exactly what a god's arm is for.
@@ -2454,6 +2529,7 @@ export class World {
         if (s.kind === 'human') this.emit({ type: 'announce', text: 'TAKEDOWN', big: false }); // the executor's reward (grabs are player-only)
         this.damageSoldier(pinned!, TAKEDOWN_DAMAGE, s.id, 'knife', false, true); // AP finisher, a knife-credited kill
         pinned!.grabbedUntil = undefined; pinned!.grabbedBy = undefined; pinned!.struggle = undefined; pinned!.ctrlStruggle = undefined;
+        pinned!.chokeProgress = undefined; s.chokingId = undefined;
         s.grabbingId = undefined; // the finisher is your whole action this tick
       } else {
         s.grabbingId = undefined; // not holding a live pin — go reach for a fresh one
@@ -5288,6 +5364,13 @@ export class World {
     if (!victim.alive || dmg <= 0) return;
     if (victim.god) return;                        // GOD MODE: nothing touches you
     if (this.time < victim.protectedUntil) return; // spawn protection (55B)
+    // §14.2: pain breaks the squeeze — shoot the choker and the capture stops
+    // (the hold itself survives; only the channel is lost).
+    if (victim.chokingId !== undefined) {
+      const choked = this.soldiers.get(victim.chokingId);
+      if (choked) choked.chokeProgress = undefined;
+      victim.chokingId = undefined;
+    }
     // THE OUTBREAK (OUTBREAK-SPEC §4): damage and infection are SEPARATE —
     // a bite that plate stops still contaminates. Claws and acid deliver
     // Viral Load to the living (humans and bots; machines are immune).

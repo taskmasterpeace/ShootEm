@@ -457,7 +457,10 @@ export class Hud {
         if (pcs && !pcs.locked) {
           hint.innerHTML = `${icon('rear')} CONTROL STRUGGLE — A/D steer the zone ${csTrackHtml(pcs, world.time)}`;
         } else if (pcs?.locked) {
-          hint.innerHTML = `${icon('rear')} LOCKED — press Z: TAKEDOWN`;
+          // §14.2 the outcome MENU is yours once control is taken
+          hint.innerHTML = s.chokingId !== undefined
+            ? `${icon('rear')} CHOKING — ${Math.round((pin!.chokeProgress ?? 0) * 100)}% · hold the grip`
+            : `${icon('rear')} LOCKED — Z takedown · F disarm · E choke`;
         } else {
           hint.innerHTML = `${icon('rear')} REAR CONTROL — press Z: TAKEDOWN`; // §16.3: hand behind a silhouette
         }
@@ -546,7 +549,9 @@ export class Hud {
         $('down-timer').innerHTML = ` — Z as the needle crosses the zone! ${csTrackHtml(dcs, world.time)}`;
       } else if (dcs?.locked) {
         db.querySelector('b')!.innerHTML = `${icon('escape')} CONTROLLED`;
-        $('down-timer').textContent = ' — he has full control. Brace.';
+        $('down-timer').textContent = (s.chokeProgress ?? 0) > 0
+          ? ` — being choked out… ${Math.round((s.chokeProgress ?? 0) * 100)}%`
+          : ' — he has full control. Brace.';
       } else {
         // §16.3: ESCAPE is the broken chain — the struggle wears the icon
         db.querySelector('b')!.innerHTML = `${icon('escape')} ${bite ? 'BITE STRUGGLE' : 'GRABBED'}`;
