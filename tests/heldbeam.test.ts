@@ -140,6 +140,29 @@ describe('§BEAMS — the held stream', () => {
     expect(flank.hp, 'the wall denies the split').toBe(flankHpAtWall);
   });
 
+  it('the pour DRAINS the tank — an empty god can no longer spray (Robert)', () => {
+    const { w, god, vic } = staged();
+    god.energy = 100;
+    // pour continuously; heat jams at 4s but energy keeps bleeding across
+    // jams (no regen while beaming) — after a while the tank is low
+    for (let i = 0; i < 60 * 3; i++) w.step(1 / 60, new Map([[god.id, cmd({ fire: true })]]));
+    expect(god.energy, 'the beam ate the tank').toBeLessThan(70);
+    // drain it to empty and the stream refuses even off-cooldown
+    god.energy = 0.2; god.beamJamUntil = 0; god.beamHeat = 0;
+    const hp0 = vic.hp;
+    for (let i = 0; i < 20; i++) w.step(1 / 60, new Map([[god.id, cmd({ fire: true })]]));
+    expect(vic.hp, 'an empty tank pours nothing').toBe(hp0);
+  });
+
+  it('a held stream STOPS at an enemy hull and damages it (no more passing through)', () => {
+    const { w, god } = staged(30);
+    const hull = w.spawnVehicle('buggy', 1, { x: 12, y: 0, z: 0 }); // enemy hull on the line, before the far witness
+    const hp0 = hull.hp;
+    god.energy = 100;
+    for (let i = 0; i < 30; i++) { god.energy = 100; w.step(1 / 60, new Map([[god.id, cmd({ fire: true })]])); }
+    expect(hull.hp, 'the beam drank into the steel instead of ghosting through').toBeLessThan(hp0);
+  });
+
   it('releasing the trigger stops the pour at once', () => {
     const { w, god, vic } = staged();
     for (let i = 0; i < 30; i++) w.step(1 / 60, new Map([[god.id, cmd({ fire: true })]]));

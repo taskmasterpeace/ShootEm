@@ -178,6 +178,7 @@ const CLASH_RATE = 0.0042;   // node t/sec per point of power differential
 const CLASH_SURGE = 40;      // surge adds this much power
 const CLASH_SURGE_DRAIN = 20; // stamina/sec while surging
 const CLASH_KNOCK_JAM = 1.5; // the sheared loser's emitter is knocked out this long
+const BEAM_DRAIN = 14;       // stamina/sec a held beam burns (Robert: can't spray forever)
 /** after breaking a hold you're briefly ungrabbable — no instant re-clinch. */
 const GRAB_IMMUNE = 1.0;
 /** §14.2 REAR TAKEDOWN: the finisher off a rear pin — an EXECUTION, so it blows
@@ -3026,7 +3027,8 @@ export class World {
       // M4: an ascended body runs on its GOD's tank rate when it has one —
       // the class stat underneath is irrelevant once you're wearing a god
       const regenMul = s.ascendant ? (LSWS[s.ascendant]?.energyRegen ?? 1) : (c.energyRegen ?? 1);
-      const rate = (c.ability === 'jetpack' && !grounded) || catchingBreath || s.sprinting || s.guarding || (s.meleeCharge ?? 0) > 0
+      const beaming = this.time < (s.beamingUntil ?? 0); // a live held beam burns, doesn't refill
+      const rate = (c.ability === 'jetpack' && !grounded) || catchingBreath || s.sprinting || s.guarding || beaming || (s.meleeCharge ?? 0) > 0
         ? 0
         : ENERGY_REGEN * regenMul;
       s.energy = Math.min(100, s.energy + rate * dt);
@@ -3266,8 +3268,12 @@ export class World {
     // LSW arms only (the def carries `held`; no soldier weapon ever will).
     if (def.held) {
       const jammed = this.time < (s.beamJamUntil ?? 0);
-      if (cmd.fire && !jammed && !swimming && !s.guarding && s.encasedUntil === undefined) {
+      // Robert: "it should take your energy — you shouldn't be able to sustain
+      // them as long." The pour now DRAINS the tank on top of the heat clock;
+      // an empty tank cuts the stream (a second, tighter governor on the spray).
+      if (cmd.fire && !jammed && !swimming && !s.guarding && s.encasedUntil === undefined && s.energy > 0.5) {
         s.protectedUntil = 0; // pouring is hostile action (55B)
+        s.energy = Math.max(0, s.energy - BEAM_DRAIN * dt);
         s.beamHeat = Math.min(1, (s.beamHeat ?? 0) + dt / def.held.sustain);
         if (s.beamHeat >= 1) {
           s.beamJamUntil = this.time + def.held.jam;
@@ -5603,6 +5609,17 @@ export class World {
     walk: for (let d = 1; d <= def.range; d += 1) {
       const px = s.pos.x + fx * d, pz = s.pos.z + fz * d;
       if (blocksShot(this.map.grid, px, pz, 1.3)) break;
+      // Robert: "it was going through vehicles." A hull is a wall to a beam —
+      // it DRINKS the pour and (unless the stream drills) STOPS the ray. A
+      // LANCE bores through; a SIPHON/TORRENT stops in the steel.
+      for (const v of this.vehicles.values()) {
+        if (!v.alive || v.team === s.team) continue;
+        if (Math.hypot(v.pos.x - px, v.pos.z - pz) > (VEHICLES[v.kind].radius ?? 2) + 0.4) continue;
+        this.damageVehicle(v, held.dps * dt, s.id, wid);
+        if (drills <= 0) break walk; // the stream stops in the hull
+        drills--;
+        break; // one hull per step
+      }
       for (const e of this.soldierIndex.near((1 - s.team) as Team, px, pz, catchR, BEAM_SCRATCH)) {
         if (!e.alive || e.id === s.id || drank.has(e.id)) continue;
         drank.add(e.id);

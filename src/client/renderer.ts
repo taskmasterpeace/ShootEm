@@ -251,6 +251,8 @@ export class Renderer {
   private clashNodes = new Map<string, THREE.Mesh>();
   /** row 246: pale ice quads over the water tiles Frostbite has frozen */
   private frostSheets = new Map<number, THREE.Mesh>();
+  /** held-beam impact glow beads riding each stream's endpoint (eye-candy) */
+  private heldBeamBeads = new Map<number, THREE.Mesh>();
   private flagMeshes: THREE.Group[] = [];
   private cpRings: THREE.Mesh[] = [];
   private hillRing: THREE.Mesh | null = null;
@@ -2701,6 +2703,17 @@ export class Renderer {
         walk: for (let d = 1; d <= hdef.range; d += 1) {
           const px = s.pos.x + fx * d, pz = s.pos.z + fz * d;
           if (blocksShot(world.map.grid, px, pz, 1.3)) { end = d; break; }
+          // the drawn stream STOPS at a hull, same as the sim's damage walk —
+          // the beam no longer visually passes through vehicles
+          for (const v of world.vehicles.values()) {
+            if (!v.alive || v.team === s.team) continue;
+            const vr = (VEHICLES[v.kind]?.radius ?? 2) + 0.4;
+            if ((v.pos.x - px) ** 2 + (v.pos.z - pz) ** 2 <= vr * vr) {
+              if (drills <= 0) { end = d; break walk; }
+              drills--;
+              break;
+            }
+          }
           for (const e of world.soldiers.values()) {
             if (!e.alive || e.team === s.team || seen.has(e.id)) continue;
             const dx = e.pos.x - px, dz = e.pos.z - pz;
@@ -2760,9 +2773,22 @@ export class Renderer {
         hm.position.set((ax + bx) / 2, 1.25, (az + bz) / 2);
         hm.scale.set(1 + Math.sin(world.time * 31) * 0.15, 1, Math.max(0.6, end - 0.8));
         hm.lookAt(bx, 1.1, bz);
-        if (Math.random() < 0.4) {
-          this.particles.emit({ pos: { x: bx, y: 1.1, z: bz }, count: 2, color: (hm.material as THREE.MeshBasicMaterial).color.getHex(), speed: 3.5, life: 0.18, spread: 0.7, up: 1.5, size: 0.3 });
+        // IMPACT EYE-CANDY (Robert: "put some eye candy on it like when it
+        // hits"): the endpoint SPLASHES — a hot white core spray fanned back
+        // toward the wielder plus a throbbing glow bead riding the hit point,
+        // so the beam READS as landing somewhere, not just existing.
+        const hitCol = (hm.material as THREE.MeshBasicMaterial).color.getHex();
+        this.particles.emit({ pos: { x: bx, y: 1.1, z: bz }, count: 3, color: hitCol, speed: 5, life: 0.2, spread: 1.0, up: 1.6, size: 0.34 });
+        if (Math.random() < 0.6) {
+          this.particles.emit({ pos: { x: bx, y: 1.1, z: bz }, count: 2, color: 0xffffff, speed: 2.5, life: 0.14, spread: 0.5, up: 0.8, size: 0.5 });
         }
+        let bead = this.heldBeamBeads.get(s.id);
+        if (!bead) {
+          bead = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6), new THREE.MeshBasicMaterial({ color: hitCol, transparent: true, opacity: 0.9, depthWrite: false }));
+          this.scene.add(bead); this.heldBeamBeads.set(s.id, bead);
+        }
+        bead.position.set(bx, 1.1, bz);
+        bead.scale.setScalar(0.8 + Math.sin(world.time * 34) * 0.35);
       }
       for (const [sid, m] of this.heldBeams) {
         if (!pouring.has(sid)) {
@@ -2774,6 +2800,8 @@ export class Renderer {
             for (const sm of subs2) { this.scene.remove(sm); (sm.material as THREE.Material).dispose(); sm.geometry.dispose(); }
             this.heldPrismSubs.delete(sid);
           }
+          const bead2 = this.heldBeamBeads.get(sid);
+          if (bead2) { this.scene.remove(bead2); (bead2.material as THREE.Material).dispose(); bead2.geometry.dispose(); this.heldBeamBeads.delete(sid); }
         }
       }
       // §BEAMS row 189: the CLASH NODES — a white-hot knot where two streams
