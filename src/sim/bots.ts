@@ -21,6 +21,7 @@ const IRON_SLAM_SCRATCH: Soldier[] = []; // W3.10 ravager slam query
 import { visionMult } from './weather';
 import { LSWS } from './lsw';
 import { threatAt } from './influence';
+import { dogWindowHesitation, indoorCivilianWaypoint, indoorGuardWaypoint, strongestDogScent } from './indoor-ai';
 
 const noCmd = (): PlayerCmd => ({
   moveX: 0, moveZ: 0, aimYaw: 0, fire: false, altFire: false, jump: false,
@@ -1104,6 +1105,9 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
   const sightRange = Math.max(TUNE.weatherFloor, acqRange * visionMult(w.weather));
   const target = findTarget(w, s, sightRange, acqRange);
   const goal = cachedObjective(w, s);
+  const indoorDest = !target && s.team === 1
+    ? indoorGuardWaypoint(w.indoorTactics, s.id, s.pos, s.floor, w.time)
+    : null;
   const dGoal = Math.hypot(goal.x - s.pos.x, goal.z - s.pos.z);
 
   // --- consider grabbing an ARMED vehicle for long trips (not in survival) ---
@@ -1185,7 +1189,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     s.botRepathAt = w.time + TUNE.repathBase + w.rng.next() * TUNE.repathJitter;
     // chasers hunt the target in tdm; anchors keep walking their objective;
     // a CTF runner with a ride in reach paths to the ride first
-    let dest = rideDest ?? (target && w.mode.id === 'tdm' && DOCTRINE[s.classId].chase
+    let dest = rideDest ?? indoorDest ?? (target && w.mode.id === 'tdm' && DOCTRINE[s.classId].chase
       ? target.pos
       : goal);
     // PER-LIFE LANE BIAS (Robert: "try something different"): on the long
@@ -1211,7 +1215,8 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     // on another storey overrides everything — you cannot duel through a
     // concrete floor, so the route IS the play.
     let destFloor = 0;
-    if (dest === goal && goal.y >= 3.9) destFloor = worldFloorForHeight(goal.y);
+    if (dest === indoorDest && indoorDest) destFloor = worldFloorForHeight(indoorDest.y);
+    else if (dest === goal && goal.y >= 3.9) destFloor = worldFloorForHeight(goal.y);
     else if (target && dest === target.pos) destFloor = target.floor;
     if (target && target.floor !== s.floor) { dest = target.pos; destFloor = target.floor; }
     // SUB-TILE DESTINATIONS GO DIRECT (the pacing-sentry fix): pathStep is
@@ -1676,8 +1681,19 @@ export function stepScientist(w: World, s: Soldier, dt: number) {
     }
   } else {
     if (leader && !leader.alive) s.botTargetId = -1; // escort went down — stay put
-    s.vel.x = 0;
-    s.vel.z = 0;
+    const shelter = indoorCivilianWaypoint(w.indoorTactics, s.id, s.pos, s.floor, w.time);
+    if (shelter) {
+      const shelterFloor = worldFloorForHeight(shelter.y);
+      const step = pathStep(w, s.pos, shelter, false, false, s.floor, shelterFloor, false) ?? shelter;
+      const dx = step.x - s.pos.x, dz = step.z - s.pos.z;
+      const dl = Math.hypot(dx, dz) || 1;
+      s.vel.x = (dx / dl) * 7.5;
+      s.vel.z = (dz / dl) * 7.5;
+      s.yaw = Math.atan2(dz, dx);
+    } else {
+      s.vel.x = 0;
+      s.vel.z = 0;
+    }
     // nervous glance around while hiding
     s.yaw += Math.sin(w.time * 0.7 + s.id) * 0.01;
   }
@@ -1742,6 +1758,28 @@ export function stepDog(w: World, s: Soldier, dt: number) {
       w.startMelee(s, wdef);
     }
   } else {
+    const scent = strongestDogScent(w.indoorTactics, handler.pos, handler.floor, w.time);
+    if (scent) {
+      if (!s.botGoal || w.time >= (s.botRepathAt ?? 0)) {
+        s.botRepathAt = w.time + 0.45;
+        s.botGoal = pathStep(w, s.pos, scent.pos, false, false, s.floor, scent.floor, false) ?? { ...scent.pos };
+      }
+      const dx = s.botGoal.x - s.pos.x, dz = s.botGoal.z - s.pos.z;
+      const dl = Math.hypot(dx, dz) || 1;
+      const speed = DOG_STATS.speed * (dogWindowHesitation(w.map, s.pos, s.botGoal, s.floor) ? 0.35 : 1);
+      s.yaw = Math.atan2(dz, dx);
+      s.vel.x = (dx / dl) * speed;
+      s.vel.z = (dz / dl) * speed;
+      w.pinged.add(scent.targetId);
+      const nextBark = w.indoorTactics?.nextBarkAt.get(s.id) ?? 0;
+      if (w.indoorTactics && w.time >= nextBark) {
+        w.indoorTactics.nextBarkAt.set(s.id, w.time + 5);
+        s.loudUntil = w.time + 1.5;
+        w.emit({ type: 'announce', text: `${s.name} HAS THE SCENT`, big: false });
+      }
+      w.stepSoldierPhysics(s, dt);
+      return;
+    }
     // all quiet (or the kill is done): return to heel off the handler's shoulder
     const dH = Math.hypot(handler.pos.x - s.pos.x, handler.pos.z - s.pos.z);
     if (dH > DOG_STATS.heelDist) {

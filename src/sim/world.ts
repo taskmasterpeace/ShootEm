@@ -37,6 +37,7 @@ import { SoldierIndex } from './spatial';
 import { generateScienceMission, type ScienceMissionSpec } from './science';
 import { generateScienceMap } from './science-map';
 import { createScienceRuntime, onScienceDeath, populateScienceMission, tryScienceInteraction, type ScienceMissionRuntime } from './science-runtime';
+import { createIndoorTacticalState, noteIndoorAlert, recordIndoorScent, type IndoorTacticalState } from './indoor-ai';
 
 const RESPAWN_DELAY = 4;
 /** THE OUTBREAK (§4): how fast an exposed soldier's Viral Load creeps toward
@@ -358,6 +359,8 @@ export class World {
   map: GameMap;
   mode: ModeState;
   science?: ScienceMissionRuntime;
+  /** Room/portal memory exists only on provenance-bearing whole buildings. */
+  indoorTactics?: IndoorTacticalState;
   rng: Rng;
   /** gravity for this battlefield — Europa and Triton fight in low-g */
   gravity: number;
@@ -470,6 +473,7 @@ export class World {
     // fallback for free play and any front this build doesn't know
     this.map = scienceLayout?.map ?? (opts.frontId ? generateFront(opts.frontId, opts.seed) : null)
       ?? generateMap(opts.seed, opts.mode, opts.theme ?? 'savanna');
+    this.indoorTactics = createIndoorTacticalState(this.map) ?? undefined;
     this.gravity = THEMES[this.map.theme].gravity;
     this.mode = initMode(opts.mode, this.map, opts.matchMinutes);
     if (opts.mode === 'paintball') this.weather.until = Infinity; // the yard stays sunny
@@ -1588,6 +1592,18 @@ export class World {
     this.pinged = recycled;
     this.pinged.clear();
     this.smoked.clear();
+
+    // Boots leave a short, bounded trail even when optics lose them to cloak
+    // or darkness. Outdoor battles never allocate this indoor machinery.
+    if (this.indoorTactics) {
+      let alertSource: Soldier | undefined;
+      for (const operator of this.soldiers.values()) {
+        if (!operator.alive || operator.team !== 0 || (operator.kind !== 'human' && operator.kind !== 'bot')) continue;
+        recordIndoorScent(this.indoorTactics, operator.id, { ...operator.pos, y: operator.floor * 4 }, this.time);
+        alertSource ??= operator;
+      }
+      if (this.science?.alarm && alertSource) noteIndoorAlert(this.indoorTactics, alertSource.pos, alertSource.floor, this.time);
+    }
 
     for (const s of this.soldiers.values()) {
       if (!s.alive) {
@@ -3563,6 +3579,12 @@ export class World {
       victim.nextFireAt = Math.max(victim.nextFireAt, this.time + MELEE_STAGGER);
       victim.pushX += ((victim.pos.x - s.pos.x) / dl) * 3;
       victim.pushZ += ((victim.pos.z - s.pos.z) / dl) * 3;
+      // A working dog's bite briefly hauls the victim back toward the jaws.
+      // Damage stays on the existing bite weapon; the added threat is space.
+      if (s.kind === 'dog') {
+        victim.pushX += ((s.pos.x - victim.pos.x) / dl) * 5;
+        victim.pushZ += ((s.pos.z - victim.pos.z) / dl) * 5;
+      }
       this.emit({ type: 'hit', pos: { ...victim.pos, y: 1 }, weapon: def.id, soldierId: s.id });
       this.damageSoldier(victim, strikeDmg, s.id, def.id);
     }
