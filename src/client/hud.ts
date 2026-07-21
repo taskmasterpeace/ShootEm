@@ -60,6 +60,8 @@ export class Hud {
   private equipSig = '';
   /** B1 weapon-cam: the weapon id currently baked into the plate */
   private wcamId = '';
+  /** ammo-dwindle: pip count currently in the DOM — rebuild only on a change */
+  private ammoPipCount = -1;
   private segMeter: SegMeter | null = null;
   private lswMeter: SegMeter | null = null;
 
@@ -220,6 +222,7 @@ export class Hud {
         // aboard, the plate shows the VEHICLE's readouts — the carried gun waits
         if (this.wcamId) { this.wcamId = ''; $('wcam-plate').classList.add('hidden'); }
         this.segMeter?.show(false);
+        $('ammo-pips').classList.add('hidden'); this.ammoPipCount = -1; // the mag pips wait too
         $('weapon-name').textContent = VEHICLES[v.kind].name;
         const ammoEl = $('ammo-count');
         ammoEl.classList.remove('reloading');
@@ -347,6 +350,7 @@ export class Hud {
         ammoEl.textContent = 'RELOADING';
         ammoEl.classList.add('reloading');
         ammoEl.classList.remove('low-ammo', 'no-ammo');
+        $('ammo-pips').classList.add('hidden'); // the reload SegMeter carries the beat
         const k = Math.min(1, Math.max(0, 1 - (s.reloadUntil - world.time) / def.reloadTime));
         this.segMeter!.set(k, k >= 1 ? 'ready' : 'active');
         this.segMeter!.show(true);
@@ -374,8 +378,31 @@ export class Hud {
         const ammoTag = ballistic && s.ammoType ? ` · ${s.ammoType.toUpperCase()}` : '';
         ammoEl.textContent = `${clip} / ${res}${ammoTag}`;
         // the counter itself warns you before the click of an empty mag
+        const lowMag = Number.isFinite(clipN) && clipN > 0 && clipN <= def.clip * 0.25;
         ammoEl.classList.toggle('no-ammo', Number.isFinite(clipN) && clipN === 0);
-        ammoEl.classList.toggle('low-ammo', Number.isFinite(clipN) && clipN > 0 && clipN <= def.clip * 0.25);
+        ammoEl.classList.toggle('low-ammo', lowMag);
+        // THE AMMO DWINDLE (Robert): the mag as PIPS that empty as you fire.
+        // Finite clips only (energy/∞ arms hide it). The pip STRIP is rebuilt
+        // only when the mag SIZE changes (weapon swap); per-shot we just flip
+        // pips to `spent`, so it's a couple of class toggles a frame, not a
+        // DOM rebuild. Big mags cap at 40 pips (each pip = a few rounds).
+        const pips = $('ammo-pips');
+        if (!Number.isFinite(clipN) || def.clip <= 1) {
+          pips.classList.add('hidden');
+          this.ammoPipCount = -1;
+        } else {
+          pips.classList.remove('hidden');
+          const shown = Math.min(def.clip, 40);
+          const perPip = def.clip / shown;             // rounds each pip stands for
+          if (this.ammoPipCount !== shown) {           // rebuild only on a size change
+            pips.innerHTML = Array.from({ length: shown }, () => '<i class="ap"></i>').join('');
+            this.ammoPipCount = shown;
+          }
+          const litPips = Math.ceil(clipN / perPip);   // how many pips remain lit
+          const kids = pips.children;
+          for (let i = 0; i < kids.length; i++) kids[i].classList.toggle('spent', i >= litPips);
+          pips.classList.toggle('low', lowMag);
+        }
         // OUTBREAK-SPEC §11.2: the round's tactical readout — its role plus
         // PENetration / NoiSE / FIRe-hazard / CORpse-denial ratings as 3-notch
         // mono bars, right under the mag where the eye already reads it (§16.4
