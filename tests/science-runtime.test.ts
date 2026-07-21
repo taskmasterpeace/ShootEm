@@ -115,6 +115,12 @@ describe('science mission objective compiler', () => {
     expect(scientists[0].botTargetId).toBe(operator.id);
   });
 
+  it('keeps captive pedestrians out of unrelated firefights', () => {
+    const world = missionWorld('steal');
+    expect(world.science?.civilianIds).toEqual([]);
+    expect([...world.soldiers.values()].filter((soldier) => soldier.kind === 'scientist')).toEqual([]);
+  });
+
   it('detection raises the alarm exactly once', () => {
     const world = missionWorld('steal');
     const operator = world.addSoldier('Operator', 'infantry', 0, 'human');

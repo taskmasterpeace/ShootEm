@@ -136,13 +136,15 @@ export function populateScienceMission(world: World, layout: ScienceMapLayout): 
     if (namedTarget) runtime.targetIds.push(guard.id);
   }
 
-  for (let i = 0; i < runtime.civilianSpawns.length; i++) {
-    const scientist = world.addScientist(runtime.civilianSpawns[i]);
-    scientist.floor = scientist.pos.y >= 4 ? 1 : 0;
-    scientist.name = ['Dr. Okafor', 'Dr. Chen', 'Dr. Reyes', 'Dr. Marin'][i] ?? `Dr. ${i + 1}`;
-    runtime.civilianIds.push(scientist.id);
+  if (runtime.spec.verb === 'rescue') {
+    for (let i = 0; i < runtime.civilianSpawns.length; i++) {
+      const scientist = world.addScientist(runtime.civilianSpawns[i]);
+      scientist.floor = scientist.pos.y >= 4 ? 1 : 0;
+      scientist.name = ['Dr. Okafor', 'Dr. Chen', 'Dr. Reyes', 'Dr. Marin'][i] ?? `Dr. ${i + 1}`;
+      runtime.civilianIds.push(scientist.id);
+    }
+    runtime.targetIds = runtime.civilianIds.slice(0, 2);
   }
-  if (runtime.spec.verb === 'rescue') runtime.targetIds = runtime.civilianIds.slice(0, 2);
 
   if (runtime.spec.verb === 'ambush') {
     const transport = world.spawnVehicle('transport', 1, runtime.convoyRoute[1]);
