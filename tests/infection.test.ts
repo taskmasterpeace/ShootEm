@@ -137,6 +137,28 @@ describe('outbreak: incubation and the turn (§4)', () => {
   });
 });
 
+describe('outbreak: emergent variants from the body (§7)', () => {
+  function riseFrom(classId: 'heavy' | 'infiltrator' | 'infantry') {
+    const w = makeWorld(true);
+    const man = w.addSoldier('Body', classId, 0, 'bot');
+    man.pos = { x: 0, y: 0, z: 0 };
+    w.damageSoldier(man, 1, -1, 'zombie_claw');
+    w.damageSoldier(man, 1, -1, 'zombie_claw'); // ≥40 hot
+    w.damageSoldier(man, 9999, -1, 'ar606');
+    let kind = '';
+    for (let i = 0; i < 60 * 15 && !kind; i++) {
+      w.step(1 / 60, new Map());
+      for (const e of w.takeEvents()) {
+        if (e.type === 'reanimated') kind = w.soldiers.get(e.soldierId ?? -1)?.kind ?? '';
+      }
+    }
+    return kind;
+  }
+  it('a plated heavy rises as a BRUTE', () => { expect(riseFrom('heavy')).toBe('brute'); });
+  it('a scout rises as a SPRINTER (the lean infected)', () => { expect(riseFrom('infiltrator')).toBe('sprinter'); });
+  it('a line trooper rises as a base shambler', () => { expect(riseFrom('infantry')).toBe('zombie'); });
+});
+
 describe('outbreak: pressure and levels (§3)', () => {
   it('a growing horde escalates the level; clearing it de-escalates', () => {
     const w = makeWorld(true);

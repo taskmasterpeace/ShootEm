@@ -27,6 +27,15 @@ const RESPAWN_DELAY = 4;
  *  conversion, per second. ~1.4 → a fresh 22-point bite incubates ~55s if
  *  untreated; two bites turn you in under 30. Medical care walks it back. */
 const INFECTION_CREEP = 1.4;
+/** §7 EMERGENT VARIANTS: the risen form is DERIVED from the body that fell —
+ *  a scout's quick frame becomes a SPRINTER (the lean infected), a heavy's
+ *  mass a BRUTE, everyone else a base shambler. Causal, not a roster roll. */
+function riseKind(classId: ClassId): ZedKind {
+  if (classId === 'infiltrator' || classId === 'pathfinder') return 'sprinter';
+  if (classId === 'heavy') return 'brute';
+  return 'zombie';
+}
+
 /** OUTBREAK LEVEL banners (§3.2), announced on escalation only */
 const OUTBREAK_LEVELS = [
   'SECTOR CLEAR',
@@ -207,7 +216,7 @@ export class World {
    *  flips this yet, so every existing match is byte-identical. */
   outbreakEnabled = false;
   /** exposed bodies on the reanimation clock (§6) — capped, oldest forgotten */
-  corpses: { pos: Vec3; reanimatesAt: number; neutralized: boolean; name: string }[] = [];
+  corpses: { pos: Vec3; reanimatesAt: number; neutralized: boolean; name: string; classId: ClassId }[] = [];
   /** OUTBREAK PRESSURE (§3): the authoritative severity of the sector, fed by
    *  live infected + unburned corpses + exposed soldiers. Drives the level. */
   outbreakPressure = 0;
@@ -4254,10 +4263,11 @@ export class World {
         // own side, coming for you (spec §4). Zero the strain so the death
         // path books no second corpse; the zombie IS the reanimation.
         const name = s.name;
+        const kind = riseKind(s.classId); // §7: the body decides the form
         s.viralLoad = 0;
         this.damageSoldier(s, 99999, -1, 'ar606'); // overkill: no downed crawl
         const open = nearestOpenTile(this.map.grid, s.pos.x, s.pos.z) ?? s.pos;
-        const z = this.addZombie('zombie', { x: open.x, y: 0, z: open.z });
+        const z = this.addZombie(kind, { x: open.x, y: 0, z: open.z });
         z.name = `${name} (turned)`;
         this.emit({ type: 'reanimated', pos: { ...z.pos }, soldierId: z.id });
         this.emit({ type: 'announce', text: `${name.toUpperCase()} HAS TURNED`, big: true });
@@ -4294,7 +4304,7 @@ export class World {
       if (c.neutralized) return false; // processed — off the books
       if (this.time < c.reanimatesAt) return true;
       const open = nearestOpenTile(this.map.grid, c.pos.x, c.pos.z) ?? c.pos;
-      const z = this.addZombie('zombie', { x: open.x, y: 0, z: open.z });
+      const z = this.addZombie(riseKind(c.classId), { x: open.x, y: 0, z: open.z });
       z.name = `${c.name} (risen)`; // the map tells the story — you know who that was
       this.emit({ type: 'reanimated', pos: { ...z.pos }, soldierId: z.id });
       this.emit({ type: 'announce', text: `${c.name.toUpperCase()} GOT BACK UP` });
@@ -4587,6 +4597,7 @@ export class World {
           reanimatesAt: this.time + 6 + (100 - (victim.viralLoad ?? 40)) * 0.08,
           neutralized: false,
           name: victim.name,
+          classId: victim.classId,             // §7: the variant is DERIVED from the body
         });
       }
       victim.viralLoad = 0; // whatever happens to the body, the NEXT print is clean

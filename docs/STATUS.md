@@ -261,7 +261,7 @@ Full spec: **`docs/OUTBREAK-SPEC.md`** (infection model, outbreak pressure/level
 | Outbreak Pressure + Levels 0-4 | 🔨 | **SHIPPED 2026-07-20**: `outbreakPressure` (live infected + unburned corpses×1.5 + exposed×0.5, eased) drives `outbreakLevel` 0-4 with a 3s confirmation window (§3.3); escalation announces; a color-climbing biohazard HUD chip. Sector-loss objective conversion still design |
 | Third-faction outbreak DURING a human-vs-human front | ❌ | zombies are hardcoded team 1 — a true third faction needs the team model widened (the spec's biggest structural ask) |
 | Clone infection tied to the reinforcement economy | ❌ | rides the clone economy (W3.3), itself unbuilt |
-| Emergent variants from casualties (heavy/lean/armored from the body that died) | ❌ | variants roll from spawn tables (`rollZedKind`), not from corpses |
+| Emergent variants from casualties (the body decides the form) | 🔨 | **SHIPPED 2026-07-20**: `riseKind(classId)` — a scout rises as a SPRINTER (lean), a heavy as a BRUTE, everyone else a base shambler; applies to both reanimated corpses and turned living. Armored/heavy-emergent full roster + mutation-field variants still design |
 | Environmental mutation fields (readable causes) | ❌ | none; Iron-Eater foundry site exists as a SCIENCE-MISSIONS location to reuse |
 | Ammunition TYPES (Ball / AP / Incendiary launch; TRC/SUB/EXP/BNR later) | ❌📋 | one ammo per weapon today; **a different axis than Wave 10.1's fire modes** (how it fires vs what it fires) — build as sisters |
 | Weapon HUD: ammo type, penetration, noise, fire hazard | ❌ | today's HUD shows clip/reserve only |
