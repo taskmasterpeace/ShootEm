@@ -12,7 +12,7 @@
 // governing what it already governs. Flanking, ambush, and checking corners
 // all come back the moment sight has a shape.
 // ---------------------------------------------------------------------------
-import { T_GRASS, losClear, tileAt } from './map';
+import { T_GRASS, losClear, losClearUpper, tileAt } from './map';
 import type { Soldier, Team } from './types';
 
 /** How far friendly eyes reach (mirrors the minimap; §8.8 weather taxes it). */
@@ -98,7 +98,7 @@ export function eyesSeePoint(grid: Uint8Array, eyes: Soldier[], x: number, z: nu
  *  are the standing clouds: they block the cone and the ring alike (a
  *  grenade that "affects visibility" — Robert — or it's just décor). Pings
  *  are electronic and the flag is public intel; smoke fools eyes, not radios. */
-export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<number>, s: Soldier, range = PERCEIVE_RANGE, smokes: SmokeBlob[] = [], revealed?: Set<number>): boolean {
+export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<number>, s: Soldier, range = PERCEIVE_RANGE, smokes: SmokeBlob[] = [], revealed?: Set<number>, grid2?: Uint8Array): boolean {
   if (s.cloaked && !pinged.has(s.id)) return false;   // cloak is TRUE
   if (s.carryingFlag !== -1) return true;             // objective intel is public
   if (pinged.has(s.id)) return true;
@@ -124,13 +124,19 @@ export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<numb
   if (revealed?.has(s.id)) range = Math.max(range, MUZZLE_REVEAL);
   // cone + ring, then the window truth: losClear marches at eye height 1.4 —
   // inside the T_SLIT firing band — so a defender framed in glass is SEEN,
-  // and a stalker behind your back past the ring is NOT
+  // and a stalker behind your back past the ring is NOT. When BOTH the eye and
+  // the target stand on the second storey (floor 1), the sight line rides the
+  // UPPER walls instead — losClearUpper marches grid2 at the nest band, so an
+  // upper wall between two upstairs soldiers hides them from each other and the
+  // ground plan below is not read by accident (sight-plan A3 step 2).
   return eyes.some((e) =>
     eyeSees(e, s.pos.x, s.pos.z, range) &&
     // an LSW is TOO BIG FOR SMOKE — the silhouette looms through the fog
     // (walls still hide it; an unanswerable boss is a griefer we wrote)
     (s.ascendant !== undefined || !smokeBlocks(e.pos.x, e.pos.z, s.pos.x, s.pos.z, smokes)) &&
-    losClear(grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x: s.pos.x, y: 1.4, z: s.pos.z }));
+    (grid2 !== undefined && e.floor === 1 && s.floor === 1
+      ? losClearUpper(grid2, { x: e.pos.x, y: 5.4, z: e.pos.z }, { x: s.pos.x, y: 5.4, z: s.pos.z })
+      : losClear(grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x: s.pos.x, y: 1.4, z: s.pos.z })));
 }
 
 /** Is `s` on `team`'s screen — seen now, or within the linger window?

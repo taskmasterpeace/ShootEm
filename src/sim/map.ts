@@ -302,6 +302,22 @@ export function losClear(grid: Uint8Array, a: Vec3, b: Vec3, y = 1.4): boolean {
   return true;
 }
 
+/** The UPSTAIRS counterpart to losClear: march the UPPER grid at the nest band
+ *  (y 5.4), where F2_WALL blocks the 4..8 storey and F2_SLIT passes only its
+ *  5.2–5.8 firing band. This is what makes two soldiers who are BOTH on a
+ *  second storey obey the upper walls between them, instead of reading the
+ *  ground floor's layout by accident (sight-plan A3 step 2). */
+export function losClearUpper(grid2: Uint8Array, a: Vec3, b: Vec3, y = 5.4): boolean {
+  const dx = b.x - a.x, dz = b.z - a.z;
+  const dist = Math.hypot(dx, dz);
+  const steps = Math.max(1, Math.ceil(dist / (TILE * 0.5)));
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps;
+    if (blocksShotUpper(grid2, a.x + dx * t, a.z + dz * t, y)) return false;
+  }
+  return true;
+}
+
 function setTile(grid: Uint8Array, tx: number, tz: number, v: number) {
   if (tx < 1 || tz < 1 || tx >= GRID - 1 || tz >= GRID - 1) return;
   grid[tz * GRID + tx] = v;
