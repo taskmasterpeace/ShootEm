@@ -149,6 +149,8 @@ Stated plainly: **darkness is what the player sees; visibility is what the GPU i
 
 ## PART B — STEEL
 
+> **Terminology updated by law (2026-07-20, later the same day):** `docs/OUTBREAK-SPEC.md` §12-16 locks the player-facing words — **STRIKE / GUARD / GRAPPLE** (same triangle as below: GUARD beats STRIKE, STRIKE beats GRAPPLE, GRAPPLE beats GUARD), charged melee = **Impact Charge**, rear grab = **Rear Control** resolved by the **Control Struggle** (attacker's Control Zone vs defender's Break Needle, best-of-three), zombie version = **Bite Struggle**. Where this plan says punch/block/grab, read STRIKE/GUARD/GRAPPLE; B3's grab design is superseded by the spec's richer Control Struggle. Everything structural below (the traps, the shipped swing engine, the integration points) stands.
+
 ### The surprise: the swing already works
 
 The melee **attack half is shipped and tested** — it is simply wired to nothing a player can hold:

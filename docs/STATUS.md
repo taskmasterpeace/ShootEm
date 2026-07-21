@@ -14,7 +14,8 @@ If you read one thing, read this. Everything below has a full row further down.
 **Combat feel:** the aim ring · accuracy-by-movement · ballistic falloff · tap-jump/hold-duck · tank hull wobble.
 **The death show:** death-cam director (varies by death) · gore/gibs · corpses lingering 20–30s · a kill-cam reward.
 **Sight (you just approved the fix):** 3D-shows-you / minimap-shows-team · contacts hold-then-fade instead of blinking · darkness outside your cone · house/maze line-of-sight · the second-storey fishbowl bug.
-**Melee:** punch / block / grab / stab (the swing engine exists, wired only to zombie claws).
+**Melee:** STRIKE / GUARD / GRAPPLE + Impact Charge + the Control Struggle (terminology now LAW per the outbreak spec; the swing engine exists, wired only to zombie claws).
+**The outbreak (new spec, §17):** infection/viral load · corpse lifecycle & reanimation · outbreak pressure/levels · zombies as a third faction mid-war · emergent variants · ammo TYPES (Ball/AP/Incendiary…) · flashlight interiors · Bite Struggle — all designed, none built.
 **The war:** the 3×3 board · killing the time-skip · the clone economy · pass escalation · **science missions** (now fully designed) · class-change requests · the two faction leaders · bots looking like robots.
 **The press:** AI-generated newspaper · the base TV newscast · the unnamed-soldier fiction.
 **Air & armor:** aircraft can't crash · no map wraparound · **planes don't read as high enough** (no shadow, HIGH sits below rooftops) · drive-by shooting · cars that handle like cars · seat-yield · rearm pads.
@@ -67,16 +68,17 @@ Full spec: **`PLAN 2026-07-20-sight-and-steel.md` § A**. Measured: the game dra
 | **BUG:** enemy corpses bypass the fog entirely | ❌ | `renderer.ts:1434` vs `:1472`. [#44](https://github.com/taskmasterpeace/ShootEm/issues/44) |
 | **BUG:** enemy vehicles are never fog-culled | ❌ | `renderer.ts:1662`. [#45](https://github.com/taskmasterpeace/ShootEm/issues/45) |
 
-## 4 · MELEE — punch, block, grab, stab
+## 4 · MELEE — STRIKE, GUARD, GRAPPLE
 
-Full spec: **`PLAN 2026-07-20-sight-and-steel.md` § B**. The surprise: the swing engine (windup, 90° arc, locked facing, stagger, lunge) **already ships** at `world.ts:2569-2619` — wired only to zombie claws.
+Implementation plan: **`PLAN 2026-07-20-sight-and-steel.md` § B** · **terminology and rules now LAW per `docs/OUTBREAK-SPEC.md` §12-16** (same triangle, locked words: GUARD beats STRIKE, STRIKE beats GRAPPLE, GRAPPLE beats GUARD; charged melee = **Impact Charge**; rear grab = **Rear Control** resolved by the **Control Struggle** best-of-three; vs zombies = **Bite Struggle**). The surprise stands: the swing engine (windup, 90° arc, locked facing, stagger, lunge) **already ships** at `world.ts:2569-2619` — wired only to zombie claws.
 
 | Ask | Status | Evidence / where |
 |---|---|---|
 | A real melee weapon + a melee key | ❌ | no melee weapon a class can carry; F is the thrown axe. W0.3 / [#47](https://github.com/taskmasterpeace/ShootEm/issues/47) |
-| Punch (fast) · Stab (committed, backstab = execution) | ❌ | swing engine exists; needs a weapon + backstab. [#47](https://github.com/taskmasterpeace/ShootEm/issues/47) |
-| Block (frontal arc, beats strikes) | ❌ | no defensive state anywhere. [#47](https://github.com/taskmasterpeace/ShootEm/issues/47) |
-| Grab (beats block, then finish or throw) | ❌ | only body-attach is dragging the downed. [#47](https://github.com/taskmasterpeace/ShootEm/issues/47) |
+| STRIKE (interrupts grabs, deals damage) | ❌ | swing engine exists; needs a weapon + key. [#47](https://github.com/taskmasterpeace/ShootEm/issues/47) |
+| GUARD (frontal arc, beats strikes) | ❌ | no defensive state anywhere. [#47](https://github.com/taskmasterpeace/ShootEm/issues/47) |
+| GRAPPLE → Rear Control → Control Struggle (zone vs needle, best-of-three) | ❌📋 | fully specced (OUTBREAK-SPEC §14-15); nearest substrate is the ice-encasement struggle meter (`world.ts:1310`). [#47](https://github.com/taskmasterpeace/ShootEm/issues/47) |
+| Impact Charge (wind-up → charged → maximum → overcharged, meter NEAR the action) | ❌📋 | specced §13; the sim already has a hold-charge-release mechanic on LSW arms (`charge:{t,mul}`, Eclipse) to generalize |
 | See it — the swing animation reads | 🔨 | slash ring VFX + the "slam"/"thrust" curves exist but are gated to gods/zeds. [#47](https://github.com/taskmasterpeace/ShootEm/issues/47) |
 
 ## 5 · HUD
@@ -225,6 +227,30 @@ The sim was **built** for this (deterministic, seeded, headless, already seriali
 | 3+ storey buildings | ❌ | tops out at 2 (typed `1|2`). DEFERRED by you |
 | Water that freezes into a crossable surface | 🔨 | ice is a surface; water never freezes |
 
+## 17 · THE OUTBREAK — zombies as a systemic third faction (spec landed 2026-07-20)
+
+Full spec: **`docs/OUTBREAK-SPEC.md`** (infection model, outbreak pressure/levels, corpse lifecycle, emergent variants, ammo types, melee UI, networking authority, 4-phase roadmap, acceptance criteria). Core promise: *the horde grows from casualties and contamination, not invisible spawn points.* Everything below is 📋 designed / ❌ unbuilt except where noted.
+
+| System | Status | Substrate that already ships |
+|---|---|---|
+| Base Shambler + rare Sprinter as the production roster | 🔨 | both exist (`ZOMBIE_STATS`: zombie 60hp, sprinter 40hp/15.5u/s); brute/bomber/stalker/spitter also ship but the spec scopes them OUT of the base implementation |
+| Shamblers at materially greater density (acceptance §21.17) | 🔨 | **the zombie bench + spatial index (#38) just proved ~790 shamblers inside the frame budget** — the perf groundwork is real; the spec's AI tiers/flow fields would push further |
+| Infection model (viralLoad, incubation, conversion; damage ≠ infection) | ❌ | nothing — no infection field exists in the sim |
+| Corpse lifecycle (fresh → incubating → critical → reanimated; lootable) | ❌ | corpses vanish in ~4s (`RESPAWN_DELAY`); pairs with backlog W2.4 (linger) + 10.4 (dropped weapons = the lootable half) |
+| Corpse burning / neutralization meter | ❌ | needs the fire system (W7.3 — `flammable` is declared, never consumed); incendiary→material interaction is exactly W7's fold |
+| Outbreak Pressure + Levels 0-4 + sector loss | ❌ | no pressure value; zombies appear only in survival/horde/safehouse via authored spawns |
+| Third-faction outbreak DURING a human-vs-human front | ❌ | zombies are hardcoded team 1 — a true third faction needs the team model widened (the spec's biggest structural ask) |
+| Clone infection tied to the reinforcement economy | ❌ | rides the clone economy (W3.3), itself unbuilt |
+| Emergent variants from casualties (heavy/lean/armored from the body that died) | ❌ | variants roll from spawn tables (`rollZedKind`), not from corpses |
+| Environmental mutation fields (readable causes) | ❌ | none; Iron-Eater foundry site exists as a SCIENCE-MISSIONS location to reuse |
+| Ammunition TYPES (Ball / AP / Incendiary launch; TRC/SUB/EXP/BNR later) | ❌📋 | one ammo per weapon today; **a different axis than Wave 10.1's fire modes** (how it fires vs what it fires) — build as sisters |
+| Weapon HUD: ammo type, penetration, noise, fire hazard | ❌ | today's HUD shows clip/reserve only |
+| Interior flashlight (vision cone as a tool; wakes dormant sprinters) | ❌📋 | composes directly with SIGHT (W0.2): the darkness cone A2 builds is the flashlight's world |
+| Networking authority for infection/grapples | 📋 | matches the netcode plan's server-authoritative model (OPT-AUDIT); grapple latency handling is new |
+| Analytics for tuning (§19) | 🔨 | the blackbox ships and is the rail; ammo diagnostics already queued (10.5) |
+
+**Sequencing note:** the spec's Phase 1 (Shambler+Sprinter, infection component, corpse timers, burning, Ball/AP/INC, the melee triangle) overlaps Wave 0.3 (#47), W2.4, W7.3, and 10.1/10.4/10.5 — build those as ONE campaign, not five.
+
 ---
 
 ## LOCKED DECISIONS (this session)
@@ -235,6 +261,12 @@ The sim was **built** for this (deterministic, seeded, headless, already seriali
 - **Beams:** LSW only. Soldiers never carry a continuous beam.
 - **Repo:** push only when you ask (last sync 2026-07-20); commits stay local between asks.
 
+**From the outbreak spec (§22.1 — these are LAW):**
+- Clones can become infected. Outbreaks are **condition-driven**, never fixed-time; the infected can emerge as a third faction during active fronts.
+- Shamblers are the horde's mass; **sprinters stay rare** (0.5–2%). Most variants emerge from casualties + environment, not rosters.
+- **Fire is the primary corpse-denial mechanic.** Ball / AP / Incendiary are the launch ammunition trio.
+- Melee is **STRIKE / GUARD / GRAPPLE**; rear grabs enter the **Control Struggle** (attacker's Control Zone vs defender's Break Needle, best-of-three); the horde's version is the **Bite Struggle**.
+
 ## STILL ON THE DECISION DESK (only you can answer)
 
 - Which image API funds the AI newspaper (W4.1).
@@ -242,6 +274,15 @@ The sim was **built** for this (deterministic, seeded, headless, already seriali
 - Can you field a **captured** enemy god, or is that too big a swing? (science-mission reward)
 - Science-mission stake: **permanent loss** on a failed run, or retry next window? (fear vs fairness)
 - Leader names/personalities sign-off before they're voiced (W3.7).
+
+**From the outbreak spec (§22.2):**
+- Does a perfect Break Hit give escape only, or an immediate **reversal** (defender takes control)?
+- Can players **haul infected corpses into enemy territory** — and what anti-grief/war-crime rules apply?
+- Who sees the exact incubation timer: everyone, or medics/recon only?
+- Does incendiary ignite corpses reliably, or do armor/wetness make it genuinely uncertain?
+- Do contaminated sectors **persist across sessions**, and for how long?
+- Which rear-grab outcomes are allowed in PvP at launch (drag / disarm / human shield / choke / takedown / throw)?
+- **The title on the spec is "DIVIDED STATES OF AMERICA"** — the repo, docs and menus all say **War World**. Rename, subtitle, or working-title? Nothing gets renamed until you call it.
 
 ---
 
@@ -271,6 +312,7 @@ The sim was **built** for this (deterministic, seeded, headless, already seriali
 | `MASTER-BACKLOG.md` | The loop document — everything owed, Waves 0–9 | REFERENCE | Living queue; "ALREADY DONE" shipped, all wave items unchecked |
 | `STATUS.md` | **This file** — everything asked for, done vs not | REFERENCE | The ledger you're reading |
 | `SCIENCE-MISSIONS.md` | Full science-mission design — 10 verbs × 10 sites × 50 effects | DESIGN | Written this session; unbuilt (BACKLOG W3.5) |
+| `OUTBREAK-SPEC.md` | The zombie outbreak / ammo types / melee combat & UI spec (Robert, 2026-07-20) | DESIGN | §22.1 decisions are LAW; STRIKE/GUARD/GRAPPLE naming supersedes older drafts; status in §17 |
 | `BLAST-AUDIT.md` | The two-zone explosion model + the C-9 concussion grenade | SHIPPED | Rings read the sim's own numbers; C-9 shipped |
 | `VO-DIRECTORS-NOTES.md` | Whisper-verified transcript of 160 VO takes | SHIPPED | All 160 clean, 0 off-script |
 | `plans/2026-07-18-lsw-embodiment.md` | Per-school LSW rig/prop/attackPose + movement dress | SHIPPED | Verified in code (EMBODY record, silhouette pass done) |
