@@ -73,6 +73,8 @@ export const cloneSeedFor = (f: FrontDef) => Math.round(CLONE_SEED * f.importanc
 export const CLONE_RECOVER = 60;
 export const SCIENCE_WINDOWS_PER_PASS = 2;
 export const GHOST_CLONE_BONUS = 10;
+export type ScienceCloneLossPolicy = 'spent-permanent' | 'retry-next-window';
+export const DEFAULT_SCIENCE_CLONE_LOSS_POLICY: ScienceCloneLossPolicy = 'spent-permanent';
 
 export interface ScienceBonuses {
   theaterClones: number;
@@ -186,6 +188,7 @@ export function applyScienceResult(
   frontId: string,
   result: ScienceMissionResult,
   now = Date.now(),
+  cloneLossPolicy: ScienceCloneLossPolicy = DEFAULT_SCIENCE_CLONE_LOSS_POLICY,
 ): boolean {
   const state = campaign.fronts[frontId];
   const front = FRONTS.find((candidate) => candidate.id === frontId);
@@ -194,8 +197,12 @@ export function applyScienceResult(
   if (campaign.appliedScienceMissionIds.length > 80) campaign.appliedScienceMissionIds.length = 80;
 
   const clonesBefore = state.clones;
-  state.clones = Math.max(0, state.clones - Math.max(0, Math.floor(result.clonesSpent)));
+  const burnsFailedSquad = result.won || cloneLossPolicy === 'spent-permanent';
+  if (burnsFailedSquad) state.clones = Math.max(0, state.clones - Math.max(0, Math.floor(result.clonesSpent)));
   const lines = [`SCIENCE ${result.id}: ${result.won ? 'operation complete' : 'operation failed'} at ${front.name}; ${result.clonesSpent} clone${result.clonesSpent === 1 ? '' : 's'} spent.`];
+  if (!result.won && cloneLossPolicy === 'retry-next-window') {
+    lines.push(`SCIENCE ${result.id}: failed squad allocation restored; the sortie window remains spent.`);
+  }
   if (result.ghost) {
     state.clones = Math.min(cloneSeedFor(front) + 80, state.clones + GHOST_CLONE_BONUS);
     lines.push(`SCIENCE ${result.id}: GHOST EXTRACTION — ${GHOST_CLONE_BONUS} clean sleeves recovered.`);

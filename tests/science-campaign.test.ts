@@ -63,6 +63,21 @@ describe('science campaign transactions', () => {
     expect(campaign.scienceBonuses).toEqual(bonuses);
   });
 
+  it('supports retry-next-window failure policy without burning the failed squad', () => {
+    const campaign = freshCampaign(1);
+    const state = campaign.fronts.bridge_delta;
+    const before = state.clones;
+
+    expect(applyScienceResult(
+      campaign,
+      'bridge_delta',
+      resultFixture({ id: 'SM-RETRY', won: false, clonesSpent: 3 }),
+      4,
+      'retry-next-window',
+    )).toBe(true);
+    expect(state.clones).toBe(before);
+  });
+
   it('ghost extraction grants a clone-efficiency bonus', () => {
     const campaign = freshCampaign(1);
     const state = campaign.fronts.bridge_delta;
