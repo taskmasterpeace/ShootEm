@@ -29,6 +29,10 @@ import { createBlackbox, stepBlackbox, type Blackbox } from './blackbox';
 import { clampWorld, halfDepth, halfWidth, tileIndex, tileToWorld, worldToTile, wrapWorld } from './map-geometry';
 import { ruleOnClassRequest } from './officer';
 import { SoldierIndex } from './spatial';
+import {
+  asElevationLevel, canWeaponReachElevation, collidesAtElevation, maxElevationFor, targetLockRangeAtElevation,
+  type ElevationLevel, type ElevationWeaponClass,
+} from './elevation';
 
 const RESPAWN_DELAY = 4;
 /** THE OUTBREAK (§4): how fast an exposed soldier's Viral Load creeps toward
@@ -2762,7 +2766,7 @@ export class World {
           // The same gate stands between the last dive and the door, so the
           // tap that lands you can never also throw you out.
           if (this.time >= s.nextAbilityAt) {
-            v.band = (v.band ?? 1) - 1;
+            v.band = asElevationLevel((v.band ?? 1) - 1);
             s.nextAbilityAt = this.time + 0.28;
           }
         } else if (!flightDef.flies || s.seat !== 0 || this.time >= s.nextAbilityAt) {
@@ -2772,7 +2776,7 @@ export class World {
       if (cmd.ability && s.seat === 0 && flightDef.flies && this.time >= v.spoolUntil
           && this.time >= s.nextAbilityAt) {
         // jets own band 3; rotors top out at 2 (the design's ceiling rule)
-        v.band = Math.min(flightDef.minAirspeed ? 3 : 2, (v.band ?? 0) + 1);
+        v.band = asElevationLevel(Math.min(maxElevationFor(flightDef), (v.band ?? 0) + 1));
         s.nextAbilityAt = this.time + 0.28;
       }
       // breacher depth toggle: deep is silent and passes under walls, but
@@ -2863,6 +2867,7 @@ export class World {
           vel: { x: Math.cos(yaw) * wdef.speed, y: 0, z: Math.sin(yaw) * wdef.speed },
           bornAt: this.time, ttl: wdef.range / wdef.speed, arc: false,
           airScaled: !!mgDef.flies,
+          elevationWeapon: 'aircraft',
         } as Projectile);
         this.emit({ type: 'shot', pos: { ...v.pos }, weapon: mgDef.altWeapon, soldierId: s.id });
       }
@@ -3764,6 +3769,7 @@ export class World {
     };
     for (const v of this.vehicles.values()) {
       if (v.team === s.team || !this.vehicleAirborne(v)) continue;
+      if (!canWeaponReachElevation('manpads', asElevationLevel(v.band))) continue;
       consider(v.pos, v);
     }
     // TRUE FLIGHT (§4.4 #5): an LSW under its own power IS an aircraft —
@@ -3789,7 +3795,7 @@ export class World {
       id: this.id(), weapon: 'sam_missile', ownerId: s.id, team: s.team,
       pos: { x: s.pos.x + Math.cos(yaw) * 0.8, y: s.pos.y + 1.6, z: s.pos.z + Math.sin(yaw) * 0.8 },
       vel: { x: Math.cos(yaw) * speed, y: 0, z: Math.sin(yaw) * speed },
-      bornAt: this.time, ttl: def.range / speed, arc: false, airScaled: true,
+      bornAt: this.time, ttl: def.range / speed, arc: false, airScaled: true, elevationWeapon: 'manpads',
       ...(flesh ? { homingSoldierId: target.id } : { homingVehicleId: target.id }),
     };
     this.launch(p);
@@ -3804,13 +3810,14 @@ export class World {
   hullLockTarget(v: Vehicle): Vehicle | Soldier | null {
     let best: Vehicle | Soldier | null = null;
     let bestD = WEAPONS.aa_missile.range;
-    const consider = (pos: Vec3, cand: Vehicle | Soldier) => {
+    const consider = (pos: Vec3, cand: Vehicle | Soldier, level: ElevationLevel = 2) => {
       const d = Math.hypot(pos.x - v.pos.x, pos.z - v.pos.z);
-      if (d < bestD) { best = cand; bestD = d; }
+      const lockRange = targetLockRangeAtElevation(WEAPONS.aa_missile.range, level, this.weather.intensity);
+      if (d < bestD && d < lockRange) { best = cand; bestD = d; }
     };
     for (const t of this.vehicles.values()) {
       if (t.team === v.team || !this.vehicleAirborne(t)) continue;
-      consider(t.pos, t);
+      consider(t.pos, t, asElevationLevel(t.band));
     }
     for (const e of this.soldiers.values()) {
       if (!e.alive || e.team === v.team || e.ascendant === undefined) continue;
@@ -3834,7 +3841,7 @@ export class World {
       id: this.id(), weapon: 'aa_missile', ownerId, team: v.team,
       pos: { x: v.pos.x + Math.cos(yaw) * 1.4, y: v.pos.y + 1.8, z: v.pos.z + Math.sin(yaw) * 1.4 },
       vel: { x: Math.cos(yaw) * speed, y: 0, z: Math.sin(yaw) * speed },
-      bornAt: this.time, ttl: def.range / speed, arc: false, airScaled: true,
+      bornAt: this.time, ttl: def.range / speed, arc: false, airScaled: true, elevationWeapon: 'lance',
       ...(flesh ? { homingSoldierId: target.id } : { homingVehicleId: target.id }),
     };
     this.launch(p);
@@ -3868,7 +3875,7 @@ export class World {
       const flare = this.gadgets.get(p.homingFlareId);
       if (!flare) { p.homingFlareId = undefined; return false; } // burnt out — fly dumb
       if (Math.hypot(flare.pos.x - p.pos.x, flare.pos.z - p.pos.z) < 2) {
-        this.explode(flare.pos, WEAPONS.sam_missile, p.ownerId, p.team, p.airScaled); // eats the decoy
+        this.explode(flare.pos, WEAPONS.sam_missile, p.ownerId, p.team, p.elevationWeapon ?? !!p.airScaled); // eats the decoy
         return true;
       }
       tx = flare.pos.x; tz = flare.pos.z;
@@ -3887,7 +3894,7 @@ export class World {
       const sam = p.weapon === 'sam_missile';
       if (sam && e.pos.y < 1.5) { p.homingSoldierId = undefined; return false; } // dove under the seeker head
       if (Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) < (sam ? 1.6 : 1.2)) {
-        this.explode({ ...e.pos }, sam ? WEAPONS.sam_missile : WEAPONS.flesh_glob, p.ownerId, p.team, p.airScaled);
+        this.explode({ ...e.pos }, sam ? WEAPONS.sam_missile : WEAPONS.flesh_glob, p.ownerId, p.team, p.elevationWeapon ?? !!p.airScaled);
         return true;
       }
       const speed = Math.hypot(p.vel.x, p.vel.z) || 1;
@@ -4628,7 +4635,7 @@ export class World {
         // 2+ soars the sanctuary above the roofline (BAND_ALT clears the
         // 8.15 rooftops); the deck (band 0) keeps its legacy taxi pass.
         // Cover crates and climb barricades sit UNDER the low-flight deck.
-        if (def.flies && v.band === 1 && this.buildingAt(nx, nz)) {
+        if (def.flies && collidesAtElevation(asElevationLevel(v.band), 1) && (v.band ?? 0) > 0 && this.buildingAt(nx, nz)) {
           const spd = Math.hypot(v.vel.x, v.vel.z);
           if (spd > 4 && this.time >= (v.nextCrashAt ?? 0)) {
             v.nextCrashAt = this.time + 0.5;
@@ -4746,6 +4753,7 @@ export class World {
         bornAt: this.time, ttl: wdef.range / wdef.speed, arc: false,
         // an aircraft's rounds live in ITS speed frame — see launch()
         airScaled: !!def.flies,
+        ...(def.flies ? { elevationWeapon: 'aircraft' as const } : {}),
       };
       this.launch(p);
       this.emit({ type: 'shot', pos: { ...p.pos }, weapon: def.weapon, soldierId: shooter.id });
@@ -4817,7 +4825,7 @@ export class World {
       // the CL-40's max-knockback round brings its own (hardcoding conc_nade
       // here would cap every concussion weapon at the hand grenade's shove)
       const def = WEAPONS[p.weapon]?.splash ? WEAPONS[p.weapon] : WEAPONS.conc_nade;
-      this.explode(p.pos, def, p.ownerId, p.team, p.airScaled);
+      this.explode(p.pos, def, p.ownerId, p.team, p.elevationWeapon ?? !!p.airScaled);
       for (const s of this.soldiers.values()) {
         if (!s.alive || s.vehicleId >= 0 || s.team === p.team) continue;
         if (this.time < s.protectedUntil) continue;
@@ -5050,7 +5058,7 @@ export class World {
           // per its material (soft cover shreds, masonry/metal shrug small arms —
           // the heavyOnly gate lives in damageWall). Ground hits (no mat) just splat.
           if (this.detonatePayload(p)) { /* payload delivered */ }
-          else if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team, p.airScaled);
+          else if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team, p.elevationWeapon ?? !!p.airScaled);
           else {
             // a TRAINING round marks the wall and stops there — paint has no
             // business breaching masonry (see WeaponDef.training)
@@ -5114,7 +5122,7 @@ export class World {
                 this.emit({ type: 'heal', pos: s.pos, soldierId: s.id });
               } else continue; // beam passes through clean, full-health allies
             } else if (def.splash > 0) {
-              this.explode(p.pos, def, p.ownerId, p.team, p.airScaled);
+              this.explode(p.pos, def, p.ownerId, p.team, p.elevationWeapon ?? !!p.airScaled);
             } else {
               // read the plate BEFORE the round resolves — damageSoldier eats
               // the armor, so asking afterward always says "bare"
@@ -5218,8 +5226,9 @@ export class World {
           // game for everything (the old y<3 rule), but bands 2-3 can only be
           // touched by AIR-SCALED ordnance — SAMs, MANPADS, and guns fired
           // from aircraft. A ground rifle can no longer clip a high bomber.
-          const vBand = v.band ?? 0;
-          const inReach = vBand <= 1 ? p.pos.y < 3 : p.airScaled === true;
+          const vBand = asElevationLevel(v.band);
+          const weaponClass: ElevationWeaponClass = p.elevationWeapon ?? (p.airScaled ? 'aircraft' : 'ground');
+          const inReach = canWeaponReachElevation(weaponClass, vBand) && (vBand > 1 || p.pos.y < 3);
           if (Math.hypot(v.pos.x - p.pos.x, v.pos.z - p.pos.z) < r + 0.3 && inReach) {
             if (def.heals && v.team === p.team) {
               if (v.hp < v.maxHp && p.weapon === 'repair') {
@@ -5230,7 +5239,7 @@ export class World {
               break;
             }
             if (v.team === p.team) break; // no friendly vehicle damage
-            if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team, p.airScaled);
+            if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team, p.elevationWeapon ?? !!p.airScaled);
             else {
               this.damageVehicle(v, def.damage, p.ownerId, p.weapon);
               this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, soldierId: p.ownerId });
@@ -5246,7 +5255,7 @@ export class World {
         for (const t of this.turrets.values()) {
           if (!t.alive || t.team === p.team) continue;
           if (Math.hypot(t.pos.x - p.pos.x, t.pos.z - p.pos.z) < 1.2 && p.pos.y < 2.4) {
-            if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team, p.airScaled);
+            if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team, p.elevationWeapon ?? !!p.airScaled);
             else this.damageTurret(t, def.damage);
             dead = true;
             break;
@@ -5286,7 +5295,7 @@ export class World {
 
       if (dead || this.time - p.bornAt > p.ttl) {
         if (!dead && this.detonatePayload(p)) { /* payload delivered at end of arc */ }
-        else if (!dead && def.splash > 0 && p.arc) this.explode(p.pos, def, p.ownerId, p.team, p.airScaled); // grenades detonate on timeout
+        else if (!dead && def.splash > 0 && p.arc) this.explode(p.pos, def, p.ownerId, p.team, p.elevationWeapon ?? !!p.airScaled); // grenades detonate on timeout
         // CLUSTER: burst into k bouncing submunitions (~40% dmg) on death
         if (def.cluster && !p.submunition) {
           for (let k = 0; k < def.cluster; k++) {
@@ -5449,7 +5458,7 @@ export class World {
     if (!alreadyDown) this.emit({ type: 'ragdoll', pos: { ...s.pos }, soldierId: s.id });
   }
 
-  explode(pos: Vec3, def: (typeof WEAPONS)[WeaponId], ownerId: number, team: Team, airBurst = false) {
+  explode(pos: Vec3, def: (typeof WEAPONS)[WeaponId], ownerId: number, team: Team, airBurst: boolean | ElevationWeaponClass = false) {
     // THE TWO ZONES (Robert: "a circle in the center, and a radius around
     // that… the closer you are, the more"). The lethal HEART — a direct-hit
     // class blow — reaches `killR`; from there damage falls smoothly to
@@ -5505,7 +5514,8 @@ export class World {
       if (!v.alive || v.team === team) continue;
       // SANCTUARY LAW: GROUND blasts stop at band 1 — a frag in the street
       // doesn't wound the high sky. An AIR-BURST (SAM/air ordnance) still does.
-      if ((v.band ?? 0) >= 2 && !airBurst) continue;
+      const weaponClass: ElevationWeaponClass = typeof airBurst === 'string' ? airBurst : airBurst ? 'aircraft' : 'ground';
+      if (!canWeaponReachElevation(weaponClass, asElevationLevel(v.band))) continue;
       const d = Math.hypot(v.pos.x - pos.x, v.pos.z - pos.z);
       if (d < def.splash + VEHICLES[v.kind].radius) {
         this.damageVehicle(v, (def.splashDamage + def.damage * 0.5) * (1 - d / (def.splash + 2)), ownerId, def.id);

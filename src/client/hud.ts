@@ -14,6 +14,7 @@ import type { World } from '../sim/world';
 import { OPERATION_COMPLICATIONS, OPERATION_EFFECTS, type OperationHull, type OperationManifest, type OperationPlan } from '../sim/operations';
 import type { OperationResult } from '../sim/operation-runtime';
 import type { SettlementReceipt } from './campaign';
+import { ELEVATION_LABEL, asElevationLevel, maxElevationFor } from '../sim/elevation';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -417,8 +418,11 @@ export class Hud {
         const flareTxt = flying ? ` · G flares ${'●'.repeat(Math.max(0, v.flares ?? 0)) || '—'}` : '';
         // B2 the ALT ladder (backlog 1.7c): which floor of the sky you own —
         // and at bands 2-3, the sanctuary reminder (only SAMs reach you)
-        const band = v.band ?? 0;
-        const altTxt = flying ? ` · ALT ${['▁', '▂', '▅', '█'][band]} ${band}/3${band >= 2 ? ' — SAM-only sky' : ''}` : '';
+        const band = asElevationLevel(v.band);
+        const ceiling = maxElevationFor(VEHICLES[v.kind]);
+        const altTxt = flying
+          ? ` · ALT ${ELEVATION_LABEL[band]} ${band}/${ceiling} · Q climb · E ${band > 0 ? 'dive' : 'exit'}${band >= 2 ? ' — AA-controlled airspace' : ''}`
+          : '';
         let locked = false;
         for (const p of world.projectiles.values()) {
           if (p.homingVehicleId === v.id) { locked = true; break; }

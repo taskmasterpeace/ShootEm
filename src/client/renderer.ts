@@ -19,6 +19,7 @@ import { ICE_HOLD_DRAIN, LSWS, STRUGGLE_HP, type LswDef } from '../sim/lsw';
 import { hash01 } from '../sim/rng';
 import { collapseStyleFor, type CollapseStyle } from './deathpose';
 import { buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp, buildSoldier, buildTurretMesh, buildVehicle, dressAsLsw } from './models';
+import { ELEVATION_ALT, asElevationLevel } from '../sim/elevation';
 
 const TRACER_COLORS: Record<string, number> = {
   bullet: 0xffd890, shell: 0xffb060, rocket: 0xff8840, plasma: 0x60c8ff,
@@ -2313,7 +2314,7 @@ export class Renderer {
         const hasPilot = v.seats[0] >= 0;
         const spoolLeft = Math.max(0, (v.spoolUntil ?? 0) - world.time);
         const k = hasPilot ? 1 - Math.min(1, spoolLeft / lift) : 0;
-        const cruiseF = [0.3, 1.9, 3.4, 3.4][Math.max(0, Math.min(3, v.band ?? 2))];
+        const cruiseF = ELEVATION_ALT[asElevationLevel(v.band ?? 2)];
         const target = 0.3 + k * (cruiseF - 0.3 + Math.sin(world.time * 2.2 + v.id) * 0.25 * k);
         const prev = this.flyerAlt.get(v.id) ?? 0.3;
         const alt = prev + (target - prev) * Math.min(1, dt * 2.2);
@@ -2339,13 +2340,12 @@ export class Renderer {
       // should VISUALLY feel like we're high"): band 2 finally clears the 8u
       // roofline its own comment promises, and band 3 is genuinely UP — the
       // sanctuary the sim now enforces reads as one.
-      const BAND_ALT = [0.12, 2.0, 8.6, 14.0];
       if (vdef.flies && v.kind !== 'flyer') {
         const lift = vdef.liftoffTime ?? 1.4;
         const hasPilot = v.seats[0] >= 0;
         const spoolLeft = Math.max(0, (v.spoolUntil ?? 0) - world.time);
         const k = hasPilot ? 1 - Math.min(1, spoolLeft / lift) : 0;
-        const cruise = BAND_ALT[Math.max(0, Math.min(3, v.band ?? 0))];
+        const cruise = ELEVATION_ALT[asElevationLevel(v.band)];
         const target = 0.12 + k * (cruise - 0.12 + Math.sin(world.time * 1.7 + v.id) * 0.18 * k);
         const prev = this.flyerAlt.get(v.id) ?? 0.12;
         const alt = prev + (target - prev) * Math.min(1, dt * 1.6);

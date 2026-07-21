@@ -698,7 +698,7 @@ export interface Vehicle {
    *  the air). Q climbs, E dives, and at band 0 the E key becomes the door.
    *  Continuous height is unreadable from a top-down camera; a BAND can be
    *  drawn. 0/absent for anything that doesn't fly. */
-  band?: number;
+  band?: import('./elevation').ElevationLevel;
   /** W5.1: the crash-scrape rate limit — a band-1 hull grinding a building
    *  takes speed-scaled damage at most once per half-second */
   nextCrashAt?: number;
@@ -779,6 +779,8 @@ export interface Projectile {
    *  shear the air war apart (at defaults 0.35 vs 0.8, jets outran their own
    *  rockets and no SAM could ever catch anyone). */
   airScaled?: boolean;
+  /** Vertical reach is independent of projectile speed scaling. */
+  elevationWeapon?: import('./elevation').ElevationWeaponClass;
   homingVehicleId?: number;
   /** heat-seeker: flare gadget that seduced it off the aircraft */
   homingFlareId?: number;

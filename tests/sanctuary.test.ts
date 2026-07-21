@@ -9,11 +9,12 @@ import { describe, expect, it } from 'vitest';
 import { WEAPONS } from '../src/sim/data';
 import type { Vehicle } from '../src/sim/types';
 import { World } from '../src/sim/world';
+import type { ElevationLevel } from '../src/sim/elevation';
 
 /** A PILOTED jet holding the given band, dead ahead of the shooter. (A
  *  pilotless hull correctly drops to band 0 — world.ts's parked rule — so the
  *  rig seats a pilot and freezes drive speed to keep the geometry still.) */
-function rig(band: number) {
+function rig(band: ElevationLevel) {
   const w = new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
   w.vehicleSpeedMul = 0; // hold position — this law is about ALTITUDE, not aim
   const jet = w.spawnVehicle('strikejet', 1, { x: 16, y: 0, z: 0 });
