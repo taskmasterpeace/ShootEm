@@ -237,7 +237,7 @@ export function stepScienceMission(world: World, dt: number): void {
     const detected = runtime.guardIds.some((id) => {
       const guard = world.soldiers.get(id);
       return guard?.alive && operators.some((operator) =>
-        perceivesNow(world.map.grid, [guard], world.pinged, operator, 32, world.smokeBlobs, undefined, world.map.grid2));
+        perceivesNow(world.map.grid, [guard], world.pinged, operator, 32, world.smokeBlobs, undefined, world.map.grid2, world.map.upperLayers));
     });
     if (detected) {
       runtime.alarm = true;

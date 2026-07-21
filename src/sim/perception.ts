@@ -106,7 +106,7 @@ export function eyesSeePoint(grid: Uint8Array, eyes: Soldier[], x: number, z: nu
  *  are the standing clouds: they block the cone and the ring alike (a
  *  grenade that "affects visibility" — Robert — or it's just décor). Pings
  *  are electronic and the flag is public intel; smoke fools eyes, not radios. */
-export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<number>, s: Soldier, range = PERCEIVE_RANGE, smokes: SmokeBlob[] = [], revealed?: Set<number>, grid2?: Uint8Array): boolean {
+export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<number>, s: Soldier, range = PERCEIVE_RANGE, smokes: SmokeBlob[] = [], revealed?: Set<number>, grid2?: Uint8Array, upperLayers?: Uint8Array[]): boolean {
   if (s.cloaked && !pinged.has(s.id)) return false;   // cloak is TRUE
   if (s.carryingFlag !== -1) return true;             // objective intel is public
   if (pinged.has(s.id)) return true;
@@ -118,7 +118,7 @@ export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<numb
   // normal cone+LOS path below. Without this floor guard every second storey
   // was a FISHBOWL — seen through every wall and roof by the whole enemy team
   // out to the vision budget (#43, sight-plan A3 step 1).
-  if (s.pos.y > 3 && (s.floor ?? 0) !== 1 &&
+  if (s.pos.y > 3 && (s.floor ?? 0) === 0 &&
       eyes.some((e) => Math.hypot(s.pos.x - e.pos.x, s.pos.z - e.pos.z) < range)) return true;
   // TALL GRASS (finish-list 18): standing in the long grass you are a RUMOR --
   // the cone loses you beyond 14u, and beyond the footstep RING itself if you
@@ -137,22 +137,43 @@ export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<numb
   // UPPER walls instead — losClearUpper marches grid2 at the nest band, so an
   // upper wall between two upstairs soldiers hides them from each other and the
   // ground plan below is not read by accident (sight-plan A3 step 2).
+  const upperFor = (floor: number): Uint8Array | undefined => {
+    if (floor <= 0) return undefined;
+    return upperLayers?.[floor - 1] ?? (floor === 1 ? grid2 : undefined);
+  };
+  const floorLos = (e: Soldier): boolean => {
+    const ef = e.floor ?? 0;
+    const sf = s.floor ?? 0;
+    if (ef === sf) {
+      if (ef === 0) return losClear(grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x: s.pos.x, y: 1.4, z: s.pos.z });
+      const layer = upperFor(ef);
+      return layer !== undefined
+        ? losClearUpper(layer, { x: e.pos.x, y: 5.4, z: e.pos.z }, { x: s.pos.x, y: 5.4, z: s.pos.z })
+        : losClear(grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x: s.pos.x, y: 1.4, z: s.pos.z });
+    }
+    if (ef === 0 || sf === 0) {
+      const upstairs = ef > 0 ? e : s;
+      const downstairs = ef === 0 ? e : s;
+      const layer = upperFor(upstairs.floor ?? 0);
+      return layer !== undefined
+        ? losCrossFloor(grid, layer,
+          { x: upstairs.pos.x, y: 5.4, z: upstairs.pos.z },
+          { x: downstairs.pos.x, y: 1.4, z: downstairs.pos.z })
+        : losClear(grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x: s.pos.x, y: 1.4, z: s.pos.z });
+    }
+    const eyeLayer = upperFor(ef);
+    const targetLayer = upperFor(sf);
+    if (!eyeLayer || !targetLayer) return false;
+    const mid = { x: (e.pos.x + s.pos.x) / 2, y: 5.4, z: (e.pos.z + s.pos.z) / 2 };
+    return losClearUpper(eyeLayer, { x: e.pos.x, y: 5.4, z: e.pos.z }, mid)
+      && losClearUpper(targetLayer, mid, { x: s.pos.x, y: 5.4, z: s.pos.z });
+  };
   return eyes.some((e) =>
     eyeSees(e, s.pos.x, s.pos.z, range) &&
     // an LSW is TOO BIG FOR SMOKE — the silhouette looms through the fog
     // (walls still hide it; an unanswerable boss is a griefer we wrote)
     (s.ascendant !== undefined || !smokeBlocks(e.pos.x, e.pos.z, s.pos.x, s.pos.z, smokes)) &&
-    (grid2 !== undefined && e.floor === 1 && s.floor === 1
-      ? losClearUpper(grid2, { x: e.pos.x, y: 5.4, z: e.pos.z }, { x: s.pos.x, y: 5.4, z: s.pos.z })
-      // sight-plan A3 step 4 — the CROSS-FLOOR SLANT: one end upstairs, one on
-      // the ground. The upstairs half marches the UPPER walls, the ground half
-      // the GROUND walls. Roof-peek: clutter near the perch is seen OVER; the
-      // floor-plan giveaway dies: interior rooms keep their own walls.
-      : grid2 !== undefined && (e.floor === 1) !== (s.floor === 1)
-        ? (e.floor === 1
-          ? losCrossFloor(grid, grid2, { x: e.pos.x, y: 5.4, z: e.pos.z }, { x: s.pos.x, y: 1.4, z: s.pos.z })
-          : losCrossFloor(grid, grid2, { x: s.pos.x, y: 5.4, z: s.pos.z }, { x: e.pos.x, y: 1.4, z: e.pos.z }))
-        : losClear(grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x: s.pos.x, y: 1.4, z: s.pos.z })));
+    floorLos(e));
 }
 
 /** Is `s` on `team`'s screen — seen now, or within the linger window?

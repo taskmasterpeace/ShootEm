@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
-import { CLIMB_H, F2_BALCONY, F2_RAIL_H, F2_RAIL_V, F2_SLIT, F2_WALL, F2_WELL, GRID, THIN_WALL, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_SECTION_SHUTTER, T_SECTION_SHUTTER_OPEN, T_SLIT, T_STAIRS_E, T_STAIRS_N, T_STAIRS_S, T_STAIRS_W, T_THIN_DOOR_H, T_THIN_DOOR_H_OPEN, T_THIN_DOOR_V, T_THIN_DOOR_V_OPEN, T_THIN_WALL_H, T_THIN_WALL_HV, T_THIN_WALL_V, T_WALL, T_WATER, TILE, WORLD, blocksShot, doorIsOpen, houseAt, isDoorTile, isWindowTile, losClear, surfaceAt, tileAt, windowIsBroken, windowSpansX } from '../sim/map';
+import { CLIMB_H, F2_BALCONY, F2_DOOR_H, F2_DOOR_H_OPEN, F2_DOOR_V, F2_DOOR_V_OPEN, F2_RAIL_H, F2_RAIL_V, F2_SHUTTER, F2_SHUTTER_OPEN, F2_SLIT, F2_STAIR_E, F2_STAIR_N, F2_STAIR_S, F2_STAIR_W, F2_THIN_WALL_H, F2_THIN_WALL_HV, F2_THIN_WALL_V, F2_WALL, F2_WELL, GRID, THIN_WALL, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_SECTION_SHUTTER, T_SECTION_SHUTTER_OPEN, T_SLIT, T_STAIRS_N, T_STAIRS_W, T_THIN_DOOR_H, T_THIN_DOOR_H_OPEN, T_THIN_DOOR_V, T_THIN_DOOR_V_OPEN, T_THIN_WALL_H, T_THIN_WALL_HV, T_THIN_WALL_V, T_WALL, T_WATER, TILE, WORLD, blocksShot, doorIsOpen, houseAt, isDoorTile, isWindowTile, losClear, surfaceAt, tileAt, windowIsBroken, windowSpansX } from '../sim/map';
+import { floorHeight, floorLayer } from '../sim/map-layers';
 import { materialForSurface, materialOf, type ImpactKind } from '../sim/materials';
 import { TORCH_MULT, classLinger, eyesSeePoint, perceivesNow, seenRecently, type SeenMark } from '../sim/perception';
 import { paintColorFor } from './onboarding';
@@ -333,7 +334,7 @@ export class Renderer {
   private roofs: { group: THREE.Group; mats: THREE.MeshStandardMaterial[]; house: { tx: number; tz: number; tw: number; th: number } }[] = [];
   /** second-storey shells (walls + floor slab) per two-storey house — faded
    *  like roofs when the focus stands on the ground floor beneath them */
-  private uppers: { group: THREE.Group; house: { tx: number; tz: number; tw: number; th: number }; mats: THREE.MeshStandardMaterial[] }[] = [];
+  private uppers: { group: THREE.Group; floor: number; house: { tx: number; tz: number; tw: number; th: number }; mats: THREE.MeshStandardMaterial[] }[] = [];
   private ladderMeshes: THREE.Group[] = [];
   /** persistent drill debris — capped FIFO so long sieges don't leak */
   private rubble: THREE.Mesh[] = [];
@@ -356,7 +357,7 @@ export class Renderer {
   private groundWet = 0;
   /** live door slabs — swung by grid state (E toggles it in the sim) */
   private doors: { mesh: THREE.Mesh; idx: number; spansX: boolean; base: THREE.Vector3 }[] = [];
-  private windows: { group: THREE.Group; pane: THREE.Mesh; idx: number }[] = [];
+  private windows: { group: THREE.Group; pane: THREE.Mesh; idx: number; floor: number }[] = [];
   /** the camera height actually used last frame (killcam duels exceed camDist)
    *  — overhead UI scales against it so names/meters hold constant SCREEN size */
   private viewDist = 30;
@@ -1066,7 +1067,7 @@ export class Renderer {
       group.position.set((x + 0.5) * TILE - WORLD / 2, 0, (z + 0.5) * TILE - WORLD / 2);
       if (!windowSpansX(tile)) group.rotation.y = Math.PI / 2;
       this.scene.add(group);
-      this.windows.push({ group, pane, idx: z * GRID + x });
+      this.windows.push({ group, pane, idx: z * GRID + x, floor: 0 });
     }
 
     // TALL GRASS (finish-list 18): crossed blades per tile, wind-still and
@@ -1211,50 +1212,93 @@ export class Renderer {
     for (const u of this.uppers) { this.scene.remove(u.group); u.group.traverse((o) => { const m = o as THREE.Mesh; m.geometry?.dispose(); }); u.mats.forEach((m) => m.dispose()); }
     this.uppers = [];
     for (const h of world.map.houses) {
-      if ((h as { floors?: number }).floors !== 2) continue;
-      const group = new THREE.Group();
-      const matU = new THREE.MeshStandardMaterial({ color: pal.wall, roughness: 0.9, transparent: true, opacity: 0.97 });
-      const matF = new THREE.MeshStandardMaterial({ color: 0x5a5148, roughness: 0.95, transparent: true, opacity: 0.97 });
-      for (let z = h.tz; z < h.tz + h.th; z++) {
-        for (let x = h.tx; x < h.tx + h.tw; x++) {
-          const t2 = world.map.grid2[z * GRID + x];
-          if (t2 === 0 /* F2_VOID */) continue;
-          const wx = (x + 0.5) * TILE - WORLD / 2, wz = (z + 0.5) * TILE - WORLD / 2;
-          if (t2 !== F2_WELL) {
-            const slab = new THREE.Mesh(new THREE.BoxGeometry(TILE, 0.25, TILE), matF);
-            slab.position.set(wx, 4.1, wz);
-            group.add(slab);
-          }
-          if (t2 === F2_WALL) {
-            const wall = new THREE.Mesh(new THREE.BoxGeometry(TILE, 3.75, TILE), matU);
-            wall.position.set(wx, 6.1, wz);
-            wall.castShadow = true;
-            group.add(wall);
-          } else if (t2 === F2_SLIT) {
-            const low = new THREE.Mesh(new THREE.BoxGeometry(TILE, 1.0, TILE), matU);
-            low.position.set(wx, 4.72, wz);
-            const high = new THREE.Mesh(new THREE.BoxGeometry(TILE, 2.2, TILE), matU);
-            high.position.set(wx, 6.9, wz);
-            low.castShadow = high.castShadow = true;
-            group.add(low, high);
-          } else if (t2 === F2_RAIL_H || t2 === F2_RAIL_V) {
-            const rail = new THREE.Mesh(new THREE.BoxGeometry(
-              t2 === F2_RAIL_H ? TILE : 0.14,
-              1.15,
-              t2 === F2_RAIL_H ? 0.14 : TILE,
-            ), matU);
-            rail.position.set(wx, 4.72, wz);
-            rail.castShadow = true;
-            group.add(rail);
-          } else if (t2 === F2_BALCONY) {
-            // The slab above is the deck. Keeping this explicit documents that
-            // balconies are real walkable upper tiles, not facade decoration.
+      const floors = (h as { floors?: number }).floors ?? 1;
+      for (let floor = 1; floor < floors; floor++) {
+        let layer: Uint8Array;
+        try { layer = floorLayer(world.map, floor); } catch { continue; }
+        const baseY = floorHeight(floor);
+        const group = new THREE.Group();
+        const matU = new THREE.MeshStandardMaterial({ color: pal.wall, roughness: 0.9, transparent: true, opacity: 0.97 });
+        const matF = new THREE.MeshStandardMaterial({ color: 0x5a5148, roughness: 0.95, transparent: true, opacity: 0.97 });
+        const frameMat = new THREE.MeshStandardMaterial({ color: 0x8a806d, metalness: 0.16, roughness: 0.68, transparent: true, opacity: 0.97 });
+        for (let z = h.tz; z < h.tz + h.th; z++) {
+          for (let x = h.tx; x < h.tx + h.tw; x++) {
+            const idx = z * GRID + x;
+            const tile = layer[idx];
+            if (tile === 0) continue;
+            const wx = (x + 0.5) * TILE - WORLD / 2, wz = (z + 0.5) * TILE - WORLD / 2;
+            if (tile !== F2_WELL) {
+              const slab = new THREE.Mesh(new THREE.BoxGeometry(TILE, 0.25, TILE), matF);
+              slab.position.set(wx, baseY + 0.1, wz);
+              group.add(slab);
+            }
+            if (tile === F2_WALL) {
+              const wall = new THREE.Mesh(new THREE.BoxGeometry(TILE, 3.75, TILE), matU);
+              wall.position.set(wx, baseY + 2.1, wz);
+              wall.castShadow = true;
+              group.add(wall);
+            } else if (tile === F2_SLIT) {
+              const low = new THREE.Mesh(new THREE.BoxGeometry(TILE, 1, TILE), matU);
+              low.position.set(wx, baseY + 0.72, wz);
+              const high = new THREE.Mesh(new THREE.BoxGeometry(TILE, 2.2, TILE), matU);
+              high.position.set(wx, baseY + 2.9, wz);
+              low.castShadow = high.castShadow = true;
+              group.add(low, high);
+            } else if (tile === F2_THIN_WALL_H || tile === F2_THIN_WALL_V || tile === F2_THIN_WALL_HV || tile === F2_SHUTTER) {
+              const addSpan = (spansX: boolean) => {
+                const wall = new THREE.Mesh(new THREE.BoxGeometry(spansX ? TILE : THIN_WALL, 4, spansX ? THIN_WALL : TILE), matU);
+                wall.position.set(wx, baseY + 2, wz); wall.castShadow = true; group.add(wall);
+              };
+              if (tile === F2_THIN_WALL_H || tile === F2_THIN_WALL_HV || tile === F2_SHUTTER) addSpan(true);
+              if (tile === F2_THIN_WALL_V || tile === F2_THIN_WALL_HV) addSpan(false);
+            } else if (isWindowTile(tile)) {
+              const window = new THREE.Group();
+              const spansX = windowSpansX(tile);
+              const addFrame = (width: number, height: number, depth: number, y: number, px = 0) => {
+                const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), frameMat);
+                mesh.position.set(px, y, 0); mesh.castShadow = true; window.add(mesh);
+              };
+              addFrame(TILE, 1, THIN_WALL, 0.5);
+              addFrame(TILE, 0.34, THIN_WALL, 3.83);
+              addFrame(0.16, 2.5, THIN_WALL, 2.25, -TILE * 0.44);
+              addFrame(0.16, 2.5, THIN_WALL, 2.25, TILE * 0.44);
+              const glassMat = new THREE.MeshStandardMaterial({
+                color: 0x8ed6df, emissive: 0x16383c, emissiveIntensity: 0.15,
+                transparent: true, opacity: 0.34, roughness: 0.12, side: THREE.DoubleSide, depthWrite: false,
+              });
+              const pane = new THREE.Mesh(new THREE.BoxGeometry(TILE * 0.82, 2.45, 0.07), glassMat);
+              pane.position.y = 2.25; pane.visible = !windowIsBroken(tile); pane.renderOrder = 3; window.add(pane);
+              window.position.set(wx, baseY, wz);
+              if (!spansX) window.rotation.y = Math.PI / 2;
+              group.add(window);
+              this.windows.push({ group: window, pane, idx, floor });
+            } else if (tile === F2_DOOR_H || tile === F2_DOOR_V) {
+              const spansX = tile === F2_DOOR_H;
+              const door = new THREE.Mesh(new THREE.BoxGeometry(spansX ? TILE : THIN_WALL, 2.2, spansX ? THIN_WALL : TILE), frameMat);
+              door.position.set(wx, baseY + 1.1, wz); door.castShadow = true; group.add(door);
+            } else if (tile === F2_DOOR_H_OPEN || tile === F2_DOOR_V_OPEN || tile === F2_SHUTTER_OPEN) {
+              // The opening is intentionally empty; the slab still carries the threshold.
+            } else if (tile === F2_RAIL_H || tile === F2_RAIL_V) {
+              const rail = new THREE.Mesh(new THREE.BoxGeometry(tile === F2_RAIL_H ? TILE : 0.14, 1.15, tile === F2_RAIL_H ? 0.14 : TILE), matU);
+              rail.position.set(wx, baseY + 0.72, wz); rail.castShadow = true; group.add(rail);
+            } else if (tile === F2_STAIR_N || tile === F2_STAIR_E || tile === F2_STAIR_S || tile === F2_STAIR_W) {
+              const stairs = new THREE.Group();
+              for (let step = 0; step < 8; step++) {
+                const tread = new THREE.Mesh(new THREE.BoxGeometry(TILE * 0.9, 0.18, TILE / 8), matF);
+                tread.position.set(0, step * 0.45, -TILE * 0.42 + step * TILE / 8); tread.castShadow = true; stairs.add(tread);
+              }
+              stairs.position.set(wx, baseY + 0.18, wz);
+              stairs.rotation.y = tile === F2_STAIR_E ? -Math.PI / 2 : tile === F2_STAIR_S ? Math.PI : tile === F2_STAIR_W ? Math.PI / 2 : 0;
+              group.add(stairs);
+            } else if (tile === F2_BALCONY) {
+              // The slab is the walkable balcony deck; rails define its edge.
+            }
           }
         }
+        group.renderOrder = 2 + floor;
+        this.scene.add(group);
+        this.uppers.push({ group, floor, house: h, mats: [matU, matF, frameMat] });
       }
-      group.renderOrder = 2;
-      this.scene.add(group);
-      this.uppers.push({ group, house: h, mats: [matU, matF] });
     }
 
     // DOORS: a slab per doorway that tracks grid state live — closed fills
@@ -1292,7 +1336,7 @@ export class Renderer {
     for (const h of world.map.houses) {
       const style = h.roof ?? 'flat';
       if (style === 'none') continue; // a shelled ruin is open to the sky
-      const roofY = h.floors === 2 ? 8.15 : 4.15;
+      const roofY = (h.floors ?? 1) * 4 + 0.15;
       const group = new THREE.Group();
       // ASSET-LIBRARY VARIETY (Robert: "feel like they came from an asset
       // library"): every house draws a roof colour from a curated pack —
@@ -1757,7 +1801,7 @@ export class Renderer {
       }
       for (const s of world.soldiers.values()) {
         if (!s.alive || s.team === localTeam) continue;
-        if (perceivesNow(world.map.grid, [local], world.pinged, s, fogRange, world.smokeBlobs, revealed, world.map.grid2)) {
+        if (perceivesNow(world.map.grid, [local], world.pinged, s, fogRange, world.smokeBlobs, revealed, world.map.grid2, world.map.upperLayers)) {
           this.localSeen.set(s.id, { t: world.time, x: s.pos.x, z: s.pos.z });
         }
       }
@@ -1790,7 +1834,9 @@ export class Renderer {
       d.mesh.position.z += (tz - d.mesh.position.z) * Math.min(1, dt * 10);
     }
     for (const window of this.windows) {
-      const tile = world.map.grid[window.idx];
+      const tile = window.floor === 0
+        ? world.map.grid[window.idx]
+        : floorLayer(world.map, window.floor)[window.idx];
       window.pane.visible = isWindowTile(tile) && !windowIsBroken(tile);
     }
 
@@ -1824,7 +1870,7 @@ export class Renderer {
             classLinger(focus.classId, focus.equipment.includes('tracking_optics')))) continue;
           const hIdx = houseAt(world.map.houses, s.pos.x, s.pos.z);
           if (hIdx < 0) continue;
-          const topFloor = world.map.houses[hIdx].floors === 2 ? 1 : 0;
+          const topFloor = Math.max(0, (world.map.houses[hIdx].floors ?? 1) - 1);
           if ((s.floor ?? 0) >= topFloor) revealRoof.add(hIdx);
           else revealUpper.add(hIdx);
         }
@@ -1838,7 +1884,7 @@ export class Renderer {
       const focus = world.soldiers.get(localId);
       for (const u of this.uppers) {
         const uIdx = world.map.houses.indexOf(u.house as typeof world.map.houses[number]);
-        const inThis = (focus && focus.floor === 0 &&
+        const inThis = (focus && focus.floor < u.floor &&
           houseAt(world.map.houses, focus.pos.x, focus.pos.z) === uIdx) || revealUpper.has(uIdx);
         const target = inThis ? 0.13 : 0.97;
         for (const m of u.mats) {

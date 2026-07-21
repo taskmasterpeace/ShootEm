@@ -127,7 +127,7 @@ export function cullSnapshotFor(w: World, snap: Snapshot, viewerId: number): Sna
     // would leak live coordinates through the linger window.
     const mark = w.lastSeen[team].get(s.id);
     const freshNow = (mark !== undefined && snap.time - mark.t < 0.001)
-      || perceivesNow(w.map.grid, eyes, w.pinged, s, range, [], undefined, w.map.grid2);
+      || perceivesNow(w.map.grid, eyes, w.pinged, s, range, [], undefined, w.map.grid2, w.map.upperLayers);
     if (freshNow) return [s];
     // §19.1 GHOSTS: within the linger you get the spot you LOST them —
     // frozen — never their live path behind the wall. Re-acquired = live.

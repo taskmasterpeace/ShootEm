@@ -408,6 +408,11 @@ export interface Soldier {
   lastKillerId: number;
   /** which storey this soldier stands on: 0 ground, 1 the grid2 layer (§8.4) */
   floor: number;
+  /** brief stair debounce; direction records an intentional reversal. */
+  stairUntil?: number;
+  stairDirection?: -1 | 1;
+  /** remembers travel through a multi-storey ladder shaft until an endpoint. */
+  ladderDirection?: -1 | 1;
   /** equipped gear ids (see EQUIPMENT in data.ts) — chosen at deploy, max 2 */
   equipment: string[];
   /** medikit auto-trigger armed (once per life) */

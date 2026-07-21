@@ -1,7 +1,18 @@
 import { AMMO_INFO, CLASSES, DOG_NAMES, DOG_STATS, EQUIPMENT, IRON_STATS, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
-import { CLIMB_H, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_GRASS, T_LADDER, T_METAL, T_METAL_DOOR, T_OPEN, T_RUBBLE, T_SLIT, T_THIN_WALL_H, T_THIN_WALL_HV, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, breakWindowTile, doorIsOpen, generateMap, isBlocked, isDoorTile, isWindowTile, losClear, nearestOpenTile, surfaceAt, thinTileBlocks, tileAt, toggleDoorType, upperBlocked, windowIsBroken, type GameMap } from './map';
-import { floorHeight, floorLayer } from './map-layers';
+import { CLIMB_H, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_GRASS, T_METAL, T_METAL_DOOR, T_OPEN, T_RUBBLE, T_SLIT, T_THIN_WALL_H, T_THIN_WALL_HV, T_WALL, T_WATER, TILE, WORLD, blocksShot, breakWindowTile, doorIsOpen, generateMap, isBlocked, isDoorTile, isWindowTile, losClear, nearestOpenTile, surfaceAt, thinTileBlocks, tileAt, toggleDoorType, windowIsBroken, type GameMap } from './map';
+import {
+  actorCanUseVerticalTransition,
+  floorBlocked,
+  floorExists,
+  floorHeight,
+  floorLayer,
+  hasFloorAt,
+  highestSupportedFloorBelow,
+  ladderWellAt,
+  shotBlockedAtHeight,
+  stairDirectionAt,
+} from './map-layers';
 import { materialOf, materialForSurface, DRILL_BASE } from './materials';
 import { Rng } from './rng';
 import {
@@ -1834,7 +1845,7 @@ export class World {
       for (const s of this.soldiers.values()) {
         if (s.team === team) continue;
         if (!s.alive) { this.lastSeen[team].delete(s.id); continue; }
-        if (perceivesNow(this.map.grid, eyes, this.pinged, s, range, this.smokeBlobs, revealed, this.map.grid2)) {
+        if (perceivesNow(this.map.grid, eyes, this.pinged, s, range, this.smokeBlobs, revealed, this.map.grid2, this.map.upperLayers)) {
           this.lastSeen[team].set(s.id, { t: this.time, x: s.pos.x, z: s.pos.z });
         }
       }
@@ -3837,16 +3848,16 @@ export class World {
       if (v) { s.pos.x = v.pos.x; s.pos.z = v.pos.z; s.pos.y = 0; }
       return;
     }
-    // THE SECOND STOREY (§8.4 Phase-2): upstairs the ground plane is y=4,
-    // movement is blocked by the grid2 layer, and stepping onto VOID is a
-    // fall — gravity walks you back to the ground floor.
-    if (s.floor === 1) {
-      if (s.pos.y > 4 || s.vel.y > 0) {
+    // INDEXED STOREYS: Level 2 remains the legacy grid2 rail while Level 3
+    // lives in upperLayers[1]. A void lands on the highest real slab below.
+    if (s.floor > 0) {
+      const deckY = floorHeight(s.floor);
+      if (s.pos.y > deckY || s.vel.y > 0) {
         s.vel.y -= this.gravity * dt;
-        s.pos.y = Math.max(4, s.pos.y + s.vel.y * dt);
-        if (s.pos.y === 4) s.vel.y = 0;
+        s.pos.y = Math.max(deckY, s.pos.y + s.vel.y * dt);
+        if (s.pos.y === deckY) s.vel.y = 0;
       } else {
-        s.pos.y = 4;
+        s.pos.y = deckY;
       }
       if (s.pushX !== 0 || s.pushZ !== 0) {
         const decay = Math.exp(-5 * dt);
@@ -3856,12 +3867,16 @@ export class World {
       }
       const nx = s.pos.x + (s.vel.x + s.pushX) * dt;
       const nz = s.pos.z + (s.vel.z + s.pushZ) * dt;
-      if (!upperBlocked(this.map.grid2, nx, s.pos.z)) s.pos.x = nx;
-      if (!upperBlocked(this.map.grid2, s.pos.x, nz)) s.pos.z = nz;
+      if (!floorBlocked(this.map, s.floor, nx, s.pos.z)) s.pos.x = nx;
+      if (!floorBlocked(this.map, s.floor, s.pos.x, nz)) s.pos.z = nz;
       s.pos.x = Math.max(-WORLD / 2 + 2, Math.min(WORLD / 2 - 2, s.pos.x));
       s.pos.z = Math.max(-WORLD / 2 + 2, Math.min(WORLD / 2 - 2, s.pos.z));
-      // off the edge? nothing under your boots — down you go
-      if (tileAt(this.map.grid2, s.pos.x, s.pos.z) === F2_VOID) s.floor = 0;
+      this.tryStairs(s);
+      if (s.floor > 0 && !hasFloorAt(this.map, s.floor, s.pos.x, s.pos.z)) {
+        s.floor = highestSupportedFloorBelow(this.map, s.floor, s.pos.x, s.pos.z);
+        s.pos.y = floorHeight(s.floor);
+        s.vel.y = 0;
+      }
       return;
     }
     // REVERSE GRAVITY (Gravity Warden): while lifted you FLOAT at ~2.2u —
@@ -3968,6 +3983,7 @@ export class World {
     if (!blockedZ) s.pos.z = nz;
     s.pos.x = Math.max(-WORLD / 2 + 2, Math.min(WORLD / 2 - 2, s.pos.x));
     s.pos.z = Math.max(-WORLD / 2 + 2, Math.min(WORLD / 2 - 2, s.pos.z));
+    if (!trueFlight && s.pos.y <= 0.05 && this.tryStairs(s)) return;
     // THE UNSTICK (statue law, defense in depth): whatever put a grounded
     // body ON a blocked tile — a leap landing, a door closed on the doorway,
     // a bad old spawn — it walks itself to the nearest open tile center.
@@ -3984,6 +4000,42 @@ export class World {
         s.pos.z += (dz / dl) * step;
       }
     }
+  }
+
+  /** Directional stair tiles are walked, not activated. Their arrow points
+   * uphill; reversing across the same flight descends. Momentum is retained. */
+  private tryStairs(s: Soldier): boolean {
+    if (!actorCanUseVerticalTransition(s.kind, 'stairs')) return false;
+    const stair = stairDirectionAt(this.map, s.floor, s.pos.x, s.pos.z);
+    if (!stair) return false;
+    const along = s.vel.x * stair.x + s.vel.z * stair.z;
+    if (Math.abs(along) < 0.05) return false;
+    const direction: -1 | 1 = along > 0 ? 1 : -1;
+    const reversing = s.stairDirection !== undefined && direction !== s.stairDirection;
+    if (!reversing && this.time < (s.stairUntil ?? 0)) return false;
+    const target = s.floor + direction;
+    if (target < 0 || !floorExists(this.map, target)) return false;
+    const other = stairDirectionAt(this.map, target, s.pos.x, s.pos.z);
+    if (!other || other.x !== stair.x || other.z !== stair.z || !hasFloorAt(this.map, target, s.pos.x, s.pos.z)) return false;
+    const tx = Math.floor((s.pos.x + WORLD / 2) / TILE);
+    const tz = Math.floor((s.pos.z + WORLD / 2) / TILE);
+    s.floor = target;
+    // Put the boots at the entry side of the next stacked flight. The tile is
+    // an abstract whole stair run; this gives continuous movement enough room
+    // to traverse another storey without teleporting or losing momentum.
+    const nextFloor = target + direction;
+    const nextStair = nextFloor >= 0 && floorExists(this.map, nextFloor)
+      ? stairDirectionAt(this.map, nextFloor, s.pos.x, s.pos.z)
+      : null;
+    const continues = nextStair?.x === stair.x && nextStair.z === stair.z;
+    const side = continues ? -direction : direction;
+    s.pos.x = (tx + 0.5) * TILE - WORLD / 2 + stair.x * side * TILE * 0.4;
+    s.pos.z = (tz + 0.5) * TILE - WORLD / 2 + stair.z * side * TILE * 0.4;
+    s.pos.y = floorHeight(target);
+    s.vel.y = 0;
+    s.stairDirection = direction;
+    s.stairUntil = this.time + 0.12;
+    return true;
   }
 
   /**
@@ -4147,31 +4199,35 @@ export class World {
   /** E on a ladder foot (or the well above it) climbs between storeys. The
    *  activation key again — same verb as doors and vehicles. */
   private tryLadder(s: Soldier): boolean {
+    if (!actorCanUseVerticalTransition(s.kind, 'ladder')) return false;
     for (const reach of [0, TILE * 0.6]) {
       const x = s.pos.x + Math.cos(s.yaw) * reach;
       const z = s.pos.z + Math.sin(s.yaw) * reach;
       const tx = Math.floor((x + WORLD / 2) / TILE);
       const tz = Math.floor((z + WORLD / 2) / TILE);
       if (tx < 1 || tz < 1 || tx >= GRID - 1 || tz >= GRID - 1) continue;
-      const idx = tz * GRID + tx;
-      if (s.floor === 0 && this.map.grid[idx] === T_LADDER && this.map.grid2[idx] === F2_WELL) {
-        s.floor = 1;
-        s.pos.x = (tx + 0.5) * TILE - WORLD / 2;
-        s.pos.z = (tz + 0.5) * TILE - WORLD / 2;
-        s.pos.y = 4;
-        s.vel.y = 0;
-        this.emit({ type: 'ladder', pos: { ...s.pos }, soldierId: s.id });
-        return true;
-      }
-      if (s.floor === 1 && this.map.grid2[idx] === F2_WELL) {
-        s.floor = 0;
-        s.pos.x = (tx + 0.5) * TILE - WORLD / 2;
-        s.pos.z = (tz + 0.5) * TILE - WORLD / 2;
-        s.pos.y = 0;
-        s.vel.y = 0;
-        this.emit({ type: 'ladder', pos: { ...s.pos }, soldierId: s.id });
-        return true;
-      }
+      if (!ladderWellAt(this.map, s.floor, x, z)) continue;
+      const canUp = floorExists(this.map, s.floor + 1)
+        && ladderWellAt(this.map, s.floor + 1, x, z);
+      const canDown = s.floor > 0 && ladderWellAt(this.map, s.floor - 1, x, z);
+      let direction = s.ladderDirection ?? (canUp ? 1 : -1);
+      if (direction > 0 && !canUp) direction = -1;
+      else if (direction < 0 && !canDown) direction = 1;
+      if ((direction > 0 && !canUp) || (direction < 0 && !canDown)) continue;
+      const target = s.floor + direction;
+      s.floor = target;
+      s.ladderDirection = direction as -1 | 1;
+      const targetCanUp = floorExists(this.map, target + 1)
+        && ladderWellAt(this.map, target + 1, x, z);
+      const targetCanDown = target > 0 && ladderWellAt(this.map, target - 1, x, z);
+      if (!targetCanUp) s.ladderDirection = -1;
+      else if (!targetCanDown) s.ladderDirection = 1;
+      s.pos.x = (tx + 0.5) * TILE - WORLD / 2;
+      s.pos.z = (tz + 0.5) * TILE - WORLD / 2;
+      s.pos.y = floorHeight(target);
+      s.vel.y = 0;
+      this.emit({ type: 'ladder', pos: { ...s.pos }, soldierId: s.id });
+      return true;
     }
     return false;
   }
@@ -4954,11 +5010,10 @@ export class World {
       // the floor. Bank shots around corners are now a skill.
       if (p.bounce && !dead && p.pos.y > 0.05) {
         const py = Math.max(p.pos.y, 0);
-        if (blocksShot(this.map.grid, p.pos.x, p.pos.z, py) ||
-            blocksShotUpper(this.map.grid2, p.pos.x, p.pos.z, p.pos.y)) {
+        if (shotBlockedAtHeight(this.map, p.pos.x, p.pos.z, py)) {
           const ox = p.pos.x - p.vel.x * dt, oz = p.pos.z - p.vel.z * dt;
-          const blockX = blocksShot(this.map.grid, p.pos.x, oz, py) || blocksShotUpper(this.map.grid2, p.pos.x, oz, p.pos.y);
-          const blockZ = blocksShot(this.map.grid, ox, p.pos.z, py) || blocksShotUpper(this.map.grid2, ox, p.pos.z, p.pos.y);
+          const blockX = shotBlockedAtHeight(this.map, p.pos.x, oz, py);
+          const blockZ = shotBlockedAtHeight(this.map, ox, p.pos.z, py);
           // reflect whichever axis ran into the wall; a clean corner clip
           // (neither axis alone blocked) sends it straight back
           if (blockX || !blockZ) { p.vel.x = -p.vel.x * 0.45; p.pos.x = ox; }
@@ -4969,8 +5024,7 @@ export class World {
       }
 
       // hit terrain (either storey's walls)
-      if (p.pos.y <= 0 || blocksShot(this.map.grid, p.pos.x, p.pos.z, Math.max(p.pos.y, 0)) ||
-          blocksShotUpper(this.map.grid2, p.pos.x, p.pos.z, p.pos.y)) {
+      if (p.pos.y <= 0 || shotBlockedAtHeight(this.map, p.pos.x, p.pos.z, Math.max(p.pos.y, 0))) {
         // SURFACE REACTION (materials): a wall hit resolves ricochet → penetrate
         // → impact. A ground hit (y<=0) always impacts. splash/payload rounds
         // (rockets, GLs) always impact — they detonate on any surface.

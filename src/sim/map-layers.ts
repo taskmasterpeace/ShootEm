@@ -1,5 +1,15 @@
 import {
+  F2_STAIR_E,
+  F2_STAIR_N,
+  F2_STAIR_S,
+  F2_STAIR_W,
   F2_VOID,
+  F2_WELL,
+  T_LADDER,
+  T_STAIRS_E,
+  T_STAIRS_N,
+  T_STAIRS_S,
+  T_STAIRS_W,
   blocksShot,
   blocksShotUpper,
   isBlocked,
@@ -8,6 +18,7 @@ import {
   GRID,
   type GameMap,
 } from './map';
+import type { SoldierKind } from './types';
 
 export const MAX_BUILDING_FLOORS = 3;
 export const STOREY_HEIGHT = 4;
@@ -61,6 +72,61 @@ export function floorShotBlocked(map: GameMap, floor: number, x: number, z: numb
   return blocksShotUpper(floorLayer(map, floor), x, z, y - (floor - 1) * STOREY_HEIGHT);
 }
 
+export function worldFloorForHeight(y: number): number {
+  return Math.max(0, Math.min(MAX_BUILDING_FLOORS - 1, Math.floor(Math.max(0, y) / STOREY_HEIGHT)));
+}
+
+/** Terrain collision at a world-space height, including the matching upper layer. */
+export function shotBlockedAtHeight(map: GameMap, x: number, z: number, y: number): boolean {
+  if (blocksShot(map.grid, x, z, y)) return true;
+  const floor = worldFloorForHeight(y);
+  return floor > 0 && floorExists(map, floor) && floorShotBlocked(map, floor, x, z, y);
+}
+
 export function hasFloorAt(map: GameMap, floor: number, x: number, z: number): boolean {
   return tileAtFloor(map, floor, x, z) !== F2_VOID;
+}
+
+export function floorExists(map: GameMap, floor: number): boolean {
+  if (floor === 0) return true;
+  if (floor === 1) return map.grid2.length > 0;
+  return floor < MAX_BUILDING_FLOORS && map.upperLayers?.[floor - 1] !== undefined;
+}
+
+export function highestSupportedFloorBelow(map: GameMap, floor: number, x: number, z: number): number {
+  for (let candidate = Math.min(floor - 1, MAX_BUILDING_FLOORS - 1); candidate > 0; candidate--) {
+    if (floorExists(map, candidate) && hasFloorAt(map, candidate, x, z)) return candidate;
+  }
+  return 0;
+}
+
+export type VerticalTransition = 'stairs' | 'ladder';
+
+/** Dogs understand a ramped stair flight. A rung ladder still requires hands. */
+export function actorCanUseVerticalTransition(kind: SoldierKind, transition: VerticalTransition): boolean {
+  return transition === 'stairs' || kind !== 'dog';
+}
+
+export interface StairDirection { x: -1 | 0 | 1; z: -1 | 0 | 1 }
+
+export function stairDirection(tile: number): StairDirection | null {
+  switch (tile) {
+    case T_STAIRS_N: case F2_STAIR_N: return { x: 0, z: -1 };
+    case T_STAIRS_E: case F2_STAIR_E: return { x: 1, z: 0 };
+    case T_STAIRS_S: case F2_STAIR_S: return { x: 0, z: 1 };
+    case T_STAIRS_W: case F2_STAIR_W: return { x: -1, z: 0 };
+    default: return null;
+  }
+}
+
+export function stairDirectionAt(map: GameMap, floor: number, x: number, z: number): StairDirection | null {
+  if (!floorExists(map, floor)) return null;
+  return stairDirection(tileAtFloor(map, floor, x, z));
+}
+
+export function ladderWellAt(map: GameMap, floor: number, x: number, z: number): boolean {
+  if (!floorExists(map, floor)) return false;
+  return floor === 0
+    ? tileAtFloor(map, 0, x, z) === T_LADDER
+    : tileAtFloor(map, floor, x, z) === F2_WELL;
 }

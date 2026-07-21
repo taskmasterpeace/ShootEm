@@ -1,5 +1,15 @@
 import { CLASSES, DOG_STATS, VEHICLES, WEAPONS, weaponNoiseRadius } from './data';
-import { F2_FLOOR, F2_SLIT, F2_VOID, F2_WALL, F2_WELL, GRID, T_CLIMB, T_COVER, T_GRASS, T_LADDER, T_METAL_DOOR, T_OPEN, T_RUBBLE, T_WATER, TILE, WORLD, doorIsOpen, isBlocked, isDoorTile, losClear, tileAt } from './map';
+import { GRID, T_CLIMB, T_COVER, T_GRASS, T_LADDER, T_METAL_DOOR, T_OPEN, T_RUBBLE, T_WATER, TILE, WORLD, doorIsOpen, isBlocked, isDoorTile, losClear, tileAt } from './map';
+import {
+  MAX_BUILDING_FLOORS,
+  floorBlocked,
+  floorExists,
+  floorHeight,
+  hasFloorAt,
+  ladderWellAt,
+  stairDirectionAt,
+  worldFloorForHeight,
+} from './map-layers';
 import { type ClassId, type PlayerCmd, type Soldier, type Team, type Vec3, type Vehicle, isIron, isZed } from './types';
 import { type World } from './world';
 import { BOT_TUNING as TUNE, DIFFICULTY } from './bot-tuning';
@@ -35,25 +45,25 @@ const toWorld = (t: number) => (t + 0.5) * TILE - WORLD / 2;
 const AREA = GRID * GRID;
 // two layers: index = floor·AREA + tile (the ground-only fast path uses
 // layer 0 exclusively, byte-identical to the classic single-layer walk)
-const bfsPrev = new Int32Array(AREA * 2);
-const bfsQ = new Int32Array(AREA * 2);
+const bfsPrev = new Int32Array(AREA * MAX_BUILDING_FLOORS);
+const bfsQ = new Int32Array(AREA * MAX_BUILDING_FLOORS);
 // A* scratch: g/f scores in INTEGER octile cost (straight 10, diagonal 14) so
 // the ordering is exact and replay-stable. Neither needs clearing between runs —
 // a slot is only ever read when bfsPrev marks that node visited this search.
-const aG = new Int32Array(AREA * 2);
-const aF = new Int32Array(AREA * 2);
+const aG = new Int32Array(AREA * MAX_BUILDING_FLOORS);
+const aF = new Int32Array(AREA * MAX_BUILDING_FLOORS);
 
 /** BFS from start tile to goal tile; returns the next reachable waypoint (LOS-smoothed) or null.
  *  `wheels` plans for a VEHICLE: doorways, ladders, and barricades come off
  *  the menu — a hull fits none of them (this is why bikes used to bury
  *  themselves in walls: the driver had a compass, never a map). */
-function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false, wheels = false, fromFloor = 0, toFloor = 0): (Vec3 & { climb?: boolean }) | null {
+function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false, wheels = false, fromFloor = 0, toFloor = 0, allowLadders = true): (Vec3 & { climb?: boolean }) | null {
   const grid = w.map.grid;
   const sx = toTile(from.x), sz = toTile(from.z);
   let gx = toTile(to.x), gz = toTile(to.z);
   // LADDER IQ: any storey in play routes through the layered walk below
   // (still a plain BFS — it runs far less often than this ground fast path).
-  if (fromFloor !== 0 || toFloor !== 0) return pathStepLayered(w, from, to, fromFloor, toFloor);
+  if (fromFloor !== 0 || toFloor !== 0) return pathStepLayered(w, from, to, fromFloor, toFloor, allowLadders);
   if (sx === gx && sz === gz) return null;
   // doors are PASSABLE to the planner: humans open them, monsters break them.
   // SHALLOW water is passable too — fords are routes now, not walls. DEEP
@@ -215,24 +225,32 @@ function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false, wheels = fal
  * well itself and the next move is the E press. Only invoked when a storey
  * is actually in play, so the classic ground walk stays untouched.
  */
-function pathStepLayered(w: World, from: Vec3, to: Vec3, fromFloor: number, toFloor: number): (Vec3 & { climb?: boolean }) | null {
+function pathStepLayered(w: World, from: Vec3, to: Vec3, fromFloor: number, toFloor: number, allowLadders: boolean): (Vec3 & { climb?: boolean }) | null {
   const grid = w.map.grid;
-  const g2 = w.map.grid2;
   const sx = toTile(from.x), sz = toTile(from.z);
   let gx = toTile(to.x), gz = toTile(to.z);
+  if (!floorExists(w.map, fromFloor) || !floorExists(w.map, toFloor)) return null;
   if (sx === gx && sz === gz && fromFloor === toFloor) return null;
   const openGround = (x: number, z: number) => {
     if (x < 0 || z < 0 || x >= GRID || z >= GRID) return false;
     const t = grid[z * GRID + x];
     return t === T_OPEN || (isDoorTile(t) && t !== T_METAL_DOOR) || t === T_WATER || t === T_LADDER || t === T_GRASS || t === T_RUBBLE;
   };
-  const openUpper = (x: number, z: number) => {
+  const openUpper = (floor: number, x: number, z: number) => {
     if (x < 0 || z < 0 || x >= GRID || z >= GRID) return false;
-    const t = g2[z * GRID + x];
-    return t === F2_FLOOR || t === F2_WELL;
+    const wx = toWorld(x), wz = toWorld(z);
+    return floorExists(w.map, floor) && hasFloorAt(w.map, floor, wx, wz)
+      && !floorBlocked(w.map, floor, wx, wz);
   };
-  const openAt = (f: number, x: number, z: number) => (f === 0 ? openGround(x, z) : openUpper(x, z));
-  const isWell = (t: number) => grid[t] === T_LADDER && g2[t] === F2_WELL;
+  const openAt = (f: number, x: number, z: number) => (f === 0 ? openGround(x, z) : openUpper(f, x, z));
+  const transitionAt = (floor: number, nextFloor: number, tile: number): 'ladder' | 'stairs' | null => {
+    if (nextFloor < 0 || nextFloor >= MAX_BUILDING_FLOORS || !floorExists(w.map, nextFloor)) return null;
+    const x = toWorld(tile % GRID), z = toWorld((tile / GRID) | 0);
+    if (allowLadders && ladderWellAt(w.map, floor, x, z) && ladderWellAt(w.map, nextFloor, x, z)) return 'ladder';
+    const a = stairDirectionAt(w.map, floor, x, z);
+    const b = stairDirectionAt(w.map, nextFloor, x, z);
+    return a && b && a.x === b.x && a.z === b.z ? 'stairs' : null;
+  };
 
   if (!openAt(toFloor, gx, gz)) {
     // the destination sits inside masonry on its own storey — spiral out
@@ -258,12 +276,12 @@ function pathStepLayered(w: World, from: Vec3, to: Vec3, fromFloor: number, toFl
   let found = false;
   const dirs = [1, -1, GRID, -GRID, GRID + 1, GRID - 1, -GRID + 1, -GRID - 1];
   let expanded = 0;
-  while (head < tail && expanded < AREA * 2) {
+  while (head < tail && expanded < AREA * MAX_BUILDING_FLOORS) {
     const cur = q[head++];
     expanded++;
     if (cur === goalIdx) { found = true; break; }
-    const f = cur >= AREA ? 1 : 0;
-    const t = cur - f * AREA;
+    const f = Math.floor(cur / AREA);
+    const t = cur % AREA;
     const cx = t % GRID, cz = (t / GRID) | 0;
     for (const d of dirs) {
       const nt = t + d;
@@ -275,9 +293,10 @@ function pathStepLayered(w: World, from: Vec3, to: Vec3, fromFloor: number, toFl
       prev[nIdx] = cur;
       q[tail++] = nIdx;
     }
-    // the well link: same tile, other storey, one E press apart
-    if (isWell(t)) {
-      const oIdx = (1 - f) * AREA + t;
+    // Same-tile vertical links: ladders require E; aligned stairs are walked.
+    for (const nf of [f - 1, f + 1]) {
+      if (!transitionAt(f, nf, t)) continue;
+      const oIdx = nf * AREA + t;
       if (prev[oIdx] === -1) { prev[oIdx] = cur; q[tail++] = oIdx; }
     }
   }
@@ -295,19 +314,25 @@ function pathStepLayered(w: World, from: Vec3, to: Vec3, fromFloor: number, toFl
   // after it (same tile, other storey) is the climb itself
   let cross = path.length;
   for (let i = 0; i < path.length; i++) {
-    if ((path[i] >= AREA ? 1 : 0) !== fromFloor) { cross = i; break; }
+    if (Math.floor(path[i] / AREA) !== fromFloor) { cross = i; break; }
   }
-  const y = fromFloor * 4;
+  const y = floorHeight(fromFloor);
   if (cross === 0) {
-    // standing ON the well already — the next move is the E press
-    return { x: toWorld(sx), y, z: toWorld(sz), climb: true };
+    const nextFloor = Math.floor(path[0] / AREA);
+    const transition = transitionAt(fromFloor, nextFloor, sz * GRID + sx);
+    let x = toWorld(sx), z = toWorld(sz);
+    if (transition === 'stairs') {
+      const stair = stairDirectionAt(w.map, fromFloor, x, z)!;
+      const direction = nextFloor > fromFloor ? 1 : -1;
+      x += stair.x * direction * TILE * 0.35;
+      z += stair.z * direction * TILE * 0.35;
+    }
+    return { x, y, z, climb: transition === 'ladder' };
   }
   const solid = fromFloor === 0
     ? (x: number, z: number) => isBlocked(grid, x, z)
-    : (x: number, z: number) => {
-      const t2 = tileAt(g2, x, z);
-      return t2 === F2_WALL || t2 === F2_SLIT || t2 === F2_VOID; // void = a fall, not a route
-    };
+    : (x: number, z: number) => floorBlocked(w.map, fromFloor, x, z)
+      || !hasFloorAt(w.map, fromFloor, x, z);
   const walkClearL = (bx: number, bz: number): boolean => {
     const dx = bx - from.x, dz = bz - from.z;
     const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / (TILE * 0.4)));
@@ -320,17 +345,24 @@ function pathStepLayered(w: World, from: Vec3, to: Vec3, fromFloor: number, toFl
     }
     return true;
   };
-  let target = path[0] - (path[0] >= AREA ? AREA : 0);
+  let target = path[0] % AREA;
   let targetI = 0;
   for (let i = Math.min(cross - 1, 24); i > 0; i--) {
-    const t = path[i] - (path[i] >= AREA ? AREA : 0);
+    const t = path[i] % AREA;
     const px = toWorld(t % GRID), pz = toWorld((t / GRID) | 0);
     if (walkClearL(px, pz)) { target = t; targetI = i; break; }
   }
-  return {
-    x: toWorld(target % GRID), y, z: toWorld((target / GRID) | 0),
-    climb: cross < path.length && targetI === cross - 1,
-  };
+  const atTransition = cross < path.length && targetI === cross - 1;
+  const nextFloor = atTransition ? Math.floor(path[cross] / AREA) : fromFloor;
+  const transition = atTransition ? transitionAt(fromFloor, nextFloor, target) : null;
+  let x = toWorld(target % GRID), z = toWorld((target / GRID) | 0);
+  if (transition === 'stairs') {
+    const stair = stairDirectionAt(w.map, fromFloor, x, z)!;
+    const direction = nextFloor > fromFloor ? 1 : -1;
+    x += stair.x * direction * TILE * 0.35;
+    z += stair.z * direction * TILE * 0.35;
+  }
+  return { x, y, z, climb: transition === 'ladder' };
 }
 
 // ---------- target selection ----------
@@ -1179,7 +1211,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     // on another storey overrides everything — you cannot duel through a
     // concrete floor, so the route IS the play.
     let destFloor = 0;
-    if (dest === goal && goal.y >= 3.9) destFloor = 1;
+    if (dest === goal && goal.y >= 3.9) destFloor = worldFloorForHeight(goal.y);
     else if (target && dest === target.pos) destFloor = target.floor;
     if (target && target.floor !== s.floor) { dest = target.pos; destFloor = target.floor; }
     // SUB-TILE DESTINATIONS GO DIRECT (the pacing-sentry fix): pathStep is
@@ -1234,9 +1266,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
       s.botRepathAt = 0;
     } else if (s.botGoal) {
       const dWell = Math.hypot(s.botGoal.x - s.pos.x, s.botGoal.z - s.pos.z);
-      const wellHere = s.floor === 0
-        ? tileAt(w.map.grid, s.botGoal.x, s.botGoal.z) === T_LADDER && tileAt(w.map.grid2, s.botGoal.x, s.botGoal.z) === F2_WELL
-        : tileAt(w.map.grid2, s.botGoal.x, s.botGoal.z) === F2_WELL;
+      const wellHere = ladderWellAt(w.map, s.floor, s.botGoal.x, s.botGoal.z);
       if (dWell < 1.7 && wellHere) cmd.use = true;
     }
   }
@@ -1698,8 +1728,9 @@ export function stepDog(w: World, s: Soldier, dt: number) {
     // chase & takedown — the horde's pathing, so walls don't save anyone
     if (!s.botGoal || w.time >= (s.botRepathAt ?? 0)) {
       s.botRepathAt = w.time + 0.5;
-      const clear = losClear(w.map.grid, s.pos, target.pos, 0.6);
-      s.botGoal = clear ? { ...target.pos } : (pathStep(w, s.pos, target.pos) ?? { ...target.pos });
+      const clear = s.floor === target.floor && losClear(w.map.grid, s.pos, target.pos, 0.6);
+      s.botGoal = clear ? { ...target.pos }
+        : (pathStep(w, s.pos, target.pos, false, false, s.floor, target.floor, false) ?? { ...target.pos });
     }
     const dx = s.botGoal.x - s.pos.x, dz = s.botGoal.z - s.pos.z;
     const dl = Math.hypot(dx, dz) || 1;
@@ -1717,8 +1748,9 @@ export function stepDog(w: World, s: Soldier, dt: number) {
       if (!s.botGoal || w.time >= (s.botRepathAt ?? 0) ||
           Math.hypot(s.botGoal.x - s.pos.x, s.botGoal.z - s.pos.z) < 1.5) {
         s.botRepathAt = w.time + 0.6;
-        const clear = losClear(w.map.grid, s.pos, handler.pos, 0.6);
-        s.botGoal = clear ? { ...handler.pos } : (pathStep(w, s.pos, handler.pos) ?? { ...handler.pos });
+        const clear = s.floor === handler.floor && losClear(w.map.grid, s.pos, handler.pos, 0.6);
+        s.botGoal = clear ? { ...handler.pos }
+          : (pathStep(w, s.pos, handler.pos, false, false, s.floor, handler.floor, false) ?? { ...handler.pos });
       }
       const dx = s.botGoal.x - s.pos.x, dz = s.botGoal.z - s.pos.z;
       const dl = Math.hypot(dx, dz) || 1;
