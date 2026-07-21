@@ -336,6 +336,17 @@ export class Hud {
       }
     }
 
+    // UI P0 (docs/UI-MASTER.md §2): YOU ARE DOWN — the bleedout clock and the
+    // way out, breathing red near the action. Revive channel shows its math.
+    const db = $('down-banner');
+    if (s.alive && s.downed) {
+      db.classList.remove('hidden');
+      const left = Math.max(0, (s.downedUntil ?? 0) - world.time);
+      $('down-timer').textContent = (s.reviveProgress ?? 0) > 0
+        ? `medic on you — ${Math.round((s.reviveProgress ?? 0) * 100)}% lifted`
+        : `bleeding out ${left.toFixed(0)}s · crawl — a medic can lift you`;
+    } else db.classList.add('hidden');
+
     // respawn overlay
     const ro = $('respawn-overlay');
     if (!s.alive) {

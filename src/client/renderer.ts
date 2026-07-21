@@ -1476,6 +1476,49 @@ export class Renderer {
       const surfing = surfBoard?.kind === 'hoverboard' && surfBoard.alive;
       mesh.visible = (s.alive || corpse) && (!inVehicle || surfing) && !dark && !(s.cloaked && s.team !== localTeam && s.id !== localId);
       if (!mesh.visible) continue;
+      // UI P0 (docs/UI-MASTER.md §2): a DOWNED FRIENDLY is marked — a pulsing
+      // amber ground ring under the body (enemies' downed stay unmarked: the
+      // hover-ring already skips them deliberately), and while a revive
+      // channels, a green arc CLOSES around the body — progress both the
+      // medic and the fallen can read. Stored on the mesh, self-cleaning.
+      {
+        const showDown = s.alive && !!s.downed && s.team === localTeam;
+        let dr = mesh.userData.downRing as THREE.Mesh | undefined;
+        if (showDown && !dr) {
+          dr = new THREE.Mesh(
+            new THREE.RingGeometry(0.9, 1.15, 28),
+            new THREE.MeshBasicMaterial({ color: 0xe8a33d, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false }),
+          );
+          dr.rotation.x = -Math.PI / 2;
+          dr.position.y = 0.06;
+          mesh.add(dr);
+          mesh.userData.downRing = dr;
+        } else if (!showDown && dr) {
+          mesh.remove(dr); dr.geometry.dispose(); (dr.material as THREE.Material).dispose();
+          mesh.userData.downRing = undefined;
+          dr = undefined;
+        }
+        if (dr) {
+          const urgency = Math.max(0, 1 - Math.max(0, ((s.downedUntil ?? 0) - world.time)) / 20);
+          (dr.material as THREE.MeshBasicMaterial).opacity = 0.3 + 0.3 * Math.abs(Math.sin(world.time * (2 + urgency * 6)));
+        }
+        const prog = s.alive && !!s.downed ? (s.reviveProgress ?? 0) : 0;
+        let ra = mesh.userData.reviveArc as THREE.Mesh | undefined;
+        if (prog > 0) {
+          if (ra) { mesh.remove(ra); ra.geometry.dispose(); (ra.material as THREE.Material).dispose(); }
+          ra = new THREE.Mesh(
+            new THREE.RingGeometry(1.25, 1.45, 28, 1, 0, prog * Math.PI * 2),
+            new THREE.MeshBasicMaterial({ color: 0x46d17a, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }),
+          );
+          ra.rotation.x = -Math.PI / 2;
+          ra.position.y = 0.07;
+          mesh.add(ra);
+          mesh.userData.reviveArc = ra;
+        } else if (ra) {
+          mesh.remove(ra); ra.geometry.dispose(); (ra.material as THREE.Material).dispose();
+          mesh.userData.reviveArc = undefined;
+        }
+      }
       // UI P0 (docs/UI-MASTER.md §5): SPAWN PROTECTION wears a visible shell —
       // a slow-turning wire sphere that thins as the window expires. Stored on
       // the mesh so body rebuilds tear it down with everything else.

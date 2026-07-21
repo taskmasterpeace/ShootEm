@@ -277,7 +277,7 @@ Full spec: **`docs/OUTBREAK-SPEC.md`** (infection model, outbreak pressure/level
 
 **`docs/UI-MASTER.md` is the one document**: every displayable state in the sim (a 100% sweep) × every shipped element in the client, with the visual treatment, the surface it lives on, and ✦ delight details throughout. Locked: near-the-action law, grenade **pip-refills**, **carrion birds** as the first animal, title **WAR WORLD: EARTH**.
 
-**P0 execution (2026-07-20, C2 first batch — all verified live):** ✅ the offline hover bug FIXED (tags + enemy rings work offline now) · ✅ grenade pips + cooldown sweep + the missing conc pouch · ✅ spawn-protection shell · ✅ MISSILE INBOUND warning + flares count · ✅ LSW drop countdown chip + tightening LZ dread ring. **Still open in P0:** the downed experience · the encased-struggle cracks · the charge-weapon ring (Impact Charge, lands with C3/#47).
+**P0 execution (2026-07-20, C2 — all verified live):** ✅ the offline hover bug FIXED (tags + enemy rings work offline now) · ✅ grenade pips + cooldown sweep + the missing conc pouch · ✅ spawn-protection shell · ✅ MISSILE INBOUND warning + flares count · ✅ LSW drop countdown chip + tightening LZ dread ring · ✅ **THE DOWNED EXPERIENCE** (breathing DOWN banner + bleedout clock, pulsing amber rings under downed friendlies, the green revive arc that closes with the channel — proof: `docs/reference/ui-p0-downed.png`). **Still open in P0:** the encased-struggle cracks · the charge-weapon ring (Impact Charge, lands with C3/#47).
 
 ## LOCKED DECISIONS (this session)
 

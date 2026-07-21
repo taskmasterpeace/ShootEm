@@ -49,9 +49,9 @@ Sim has the whole §4.3 system (`downed`, 20s bleedout, `reviveProgress`, `dragg
 
 | State | When | Where | The visual | Status |
 |---|---|---|---|---|
-| YOU are downed | instantly | fullscreen + body | edges desaturate + slow red pulse at the frame; banner `DOWN — CRAWL OR CRY OUT`; the 20s bleedout as a **draining ring around your own body**, not a corner timer | ❌ |
-| Teammate downed | instantly | world + minimap | a kneeling-man mark over the body (holds, then fades per the law), amber pulse on the minimap; ✦ their unit tag flips to a heartbeat trace that flattens as bleedout runs | ❌ |
-| Revive channel (3s E) | while channeling | target orbit | a ring closes around the downed body; **breaks visibly if the medic is shot** (the sim already resets it — show the snap) | ❌ |
+| YOU are downed | instantly | banner + body | **SHIPPED 2026-07-20**: breathing red `DOWN — bleeding out Ns · crawl — a medic can lift you` banner (flips to `medic on you — N% lifted` mid-revive) + the amber ground ring pulsing faster as the clock runs (✦ later: frame desaturation) | ✅ |
+| Teammate downed | instantly | world | **SHIPPED 2026-07-20**: pulsing amber ground ring under every downed friendly, urgency-paced (✦ later: minimap pulse + heartbeat tag) | ✅ |
+| Revive channel (3s E) | while channeling | target orbit | **SHIPPED 2026-07-20**: a green arc CLOSES around the body with the channel — both the medic and the fallen read it; the sim's reset-on-hit snaps it visibly | ✅ |
 | Being dragged | while dragged | body | ✦ heels carve two furrows in the dirt (decal pair) — read at command height instantly | ❌ |
 | Medibeam instant-lift | on revive | body | green surge already exists — add the body SNAPPING upright with a gasp SFX | 🔨 |
 
