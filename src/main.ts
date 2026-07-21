@@ -12,7 +12,7 @@ import { audio } from './client/audio';
 import { Chat } from './client/chat';
 import { pauseCodex, renderCodex } from './client/codex';
 import { StaticOverlay } from './client/effects';
-import { Hud } from './client/hud';
+import { Hud, setRankChip } from './client/hud';
 import { initGodMode } from './client/godmode';
 import { Input } from './client/input';
 import { MusicDirector } from './client/music';
@@ -20,7 +20,7 @@ import { Renderer } from './client/renderer';
 import { DamageText } from './client/damagetext';
 import { NetGame } from './client/net';
 import { MATCH_LINGER_LOCAL_MS, ReplayDirector } from './client/replay';
-import { MatchTracker, RANKS, loadDossier, rankFor, saveDossier, type Dossier } from './client/record';
+import { MatchTracker, RANKS, loadDossier, rankFor, rankInsignia, saveDossier, type Dossier } from './client/record';
 import { FRONTS, SCAR_TEXT, applyResult, bandOf, checkSeasonEnd, holdTheLine, loadCampaign, saveCampaign, type Campaign } from './client/campaign';
 import { fileIssue, renderIssueHTML, renderPressInto, loadPress } from './client/newspaper';
 import { RangeCourse, loadWall } from './client/range';
@@ -1006,7 +1006,12 @@ function wireMenuTabs() {
 }
 
 void loadDossier((($('player-name') as HTMLInputElement)?.value || 'Recruit').slice(0, 16))
-  .then((d) => { dossier = d; renderBarracks(); void saveDossier(d); });
+  .then((d) => {
+    dossier = d; renderBarracks(); void saveDossier(d);
+    // W3.9: the rank rides the in-match vitals from the moment the record loads
+    const r = rankFor(d.soldier.rankPoints);
+    setRankChip(rankInsignia(r.index), r.name);
+  });
 void RANKS; // ladder is part of the public record API
 
 // ---------------------------------------------------------------------------

@@ -71,6 +71,17 @@ export function rankFor(points: number): { name: string; index: number; next: nu
   return { name: RANKS[i].name, index: i, next: i + 1 < RANKS.length ? RANKS[i + 1].at : null };
 }
 
+/** W3.9 — the INSIGNIA, in the HUD's own mono vocabulary (no emoji):
+ *  enlisted wear chevrons (▴×1-6), senior NCOs a diamond over chevrons
+ *  (◆, ◆▴, ◆▴▴), officers wear bars (▮×1-5). A Private wears the dot —
+ *  everyone starts a mark. All fourteen are distinct at a glance. */
+export function rankInsignia(index: number): string {
+  if (index <= 0) return '·';
+  if (index <= 6) return '▴'.repeat(index);
+  if (index <= 8) return '◆' + '▴'.repeat(index - 7 + 1);
+  return '▮'.repeat(index - 8);
+}
+
 // ---- storage: IndexedDB, same pattern the Sound Lab proved -------------------
 const IDB_NAME = 'ww_dossier';
 const IDB_STORE = 'dossier';

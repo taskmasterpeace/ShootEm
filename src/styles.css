@@ -99,6 +99,10 @@ html, body {
 .stance-chip { display: inline-flex; align-items: center; gap: 0.25em; transition: opacity 0.2s; }
 .stance-chip.dim { opacity: 0.28; }
 #viral-chip { color: #7fa83c; letter-spacing: 0.06em; }
+/* W3.9 the RANK chip — identity in steel, never an alarm */
+#rank-chip { color: #8a9aa8; letter-spacing: 0.08em; font-size: 0.62rem; }
+#rank-chip.hidden { display: none; }
+#rank-glyphs { color: #e8a33d; letter-spacing: 0.12em; }
 #viral-chip.hot { color: #ff4736; animation: down-breathe 0.9s ease-in-out infinite; }
 #viral-chip.hidden { display: none; }
 

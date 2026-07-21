@@ -16,6 +16,16 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 /** A tactical-system waypoint drawn on the whole team's minimap. */
 interface Waypoint { x: number; z: number; until: number; by: string }
 
+/** W3.9 — rank insignia in the vitals row. Module-level (the boot path has
+ *  no Hud instance yet); hidden until a dossier exists. */
+export function setRankChip(insignia: string, name: string) {
+  const chip = document.getElementById('rank-chip');
+  if (!chip) return;
+  chip.classList.remove('hidden');
+  document.getElementById('rank-glyphs')!.textContent = insignia;
+  document.getElementById('rank-name')!.textContent = name.toUpperCase();
+}
+
 export class Hud {
   private killfeedEl = $('killfeed');
   private announceEl = $('announce');

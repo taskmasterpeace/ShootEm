@@ -108,7 +108,7 @@ Implementation plan: **`PLAN 2026-07-20-sight-and-steel.md` § B** · **terminol
 | **Vehicle** weapon recharge (see when the gun's ready) | ✅ | **shipped this session** (WPN cycle bar, `hud.ts`) |
 | Crew dots per seat + walk-up occupancy | ✅ | `hud.ts:209-226` |
 | Right-click command wheel (order bots) | ❌ | RMB is alt-fire; no order path. BACKLOG (E1) |
-| Rank insignia visible in match | ❌ | rank shows only in menus. BACKLOG W3.9 |
+| Rank insignia visible in match | ✅ | **DONE 2026-07-21 (W3.9).** `#rank-chip` rides the in-match vitals row: insignia in the mono vocabulary (`rankInsignia` — Private wears the dot, enlisted chevrons ▴×1-6, senior NCO ◆+chevrons, officers ▮×1-5; all 14 distinct) + the rank name, amber glyphs on steel text, set from the dossier at boot. `tests/rank-insignia.test.ts` (3); live: `· PRIVATE` in the vitals row beside EN/viral |
 | Altitude band readout when flying | ✅ | **SHIPPED (B2, row was stale).** The vehicle line reads `ALT ▁▂▅█ n/3` + the band-2/3 `— SAM-only sky` sanctuary reminder (`hud.ts` ~257). Live-verified in-match: `ALT ▅ 2/3 — SAM-only sky` |
 
 ## 6 · AIR & ARMOR
