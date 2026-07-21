@@ -800,9 +800,16 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
           if (meS && meS.vehicleKills > 0) yours.push(`⛨ hulls ×${meS.vehicleKills}`);
           if (meS && meS.healGiven > 0) yours.push(`✚ healed ${Math.round(meS.healGiven)}`);
           const moments = tracker.moments();
+          const nem = tracker.nemesis();
+          const prey = tracker.prey();
+          const duels = [
+            nem ? `<span>☠ nemesis — <b>${nem.name}</b> got you ×${nem.n}</span>` : '',
+            prey ? `<span>🎯 your prey — <b>${prey.name}</b> ×${prey.n}</span>` : '',
+          ].filter(Boolean).join('');
           hud.careerHtml += `<div id="aar-pane"><h3>After-Action Report</h3>
             ${wl.length ? `<div class="cp-row">${wl.map((w) => `<span>${w.weapon} <b>×${w.kills}</b></span>`).join('')}</div>` : ''}
             ${yours.length ? `<div class="cp-row" style="margin-top:0.3rem">${yours.map((y) => `<span>${y}</span>`).join('')}</div>` : ''}
+            ${duels ? `<div class="cp-row" style="margin-top:0.3rem">${duels}</div>` : ''}
             ${moments.length ? `<div class="cp-row" style="margin-top:0.3rem">${moments.map((m) => `<span class="aar-moment">${m}</span>`).join('')}</div>` : ''}
             <div class="cp-row" style="margin-top:0.3rem"><span>★ battle ace — <b>${ace.name}</b> ×${ace.kills}</span>
             ${longShot.d > 0 ? `<span>🎯 longest shot of the match — <b>${longShot.name}</b>, ${longShot.d.toFixed(0)}u</span>` : ''}</div>

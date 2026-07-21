@@ -147,6 +147,10 @@ export class MatchTracker {
   private grenadier = false;
   private avenged = false;
   private teammateDeaths: TeammateDeath[] = [];
+  /** AAR v2 (Robert: "way more details"): your duels — who you killed most
+   *  (your PREY) and who killed you most (your NEMESIS), off the DeathReport. */
+  private myVictims = new Map<string, number>();
+  private myKillers = new Map<string, number>();
   private hillHold = 0;
   private lowHpThisLife = false;
   private woundSurvived = false;
@@ -186,6 +190,7 @@ export class MatchTracker {
         this.kills++;
         const w = e.weaponName ?? 'unknown';
         this.byWeapon.set(w, (this.byWeapon.get(w) ?? 0) + 1);
+        if (e.victimName) this.myVictims.set(e.victimName, (this.myVictims.get(e.victimName) ?? 0) + 1);
         if (meS && e.pos) {
           const d = Math.hypot(e.pos.x - meS.pos.x, e.pos.z - meS.pos.z);
           if (d > this.longestHit) this.longestHit = Math.round(d * 10) / 10;
@@ -204,6 +209,7 @@ export class MatchTracker {
       if (e.victimName === this.me) {
         this.deaths++;
         this.lowHpThisLife = false; // that life's story ended
+        if (e.killerName && e.killerName !== this.me) this.myKillers.set(e.killerName, (this.myKillers.get(e.killerName) ?? 0) + 1);
       } else if (e.killerName && e.victimName && meS && e.killerTeam !== undefined && e.killerTeam !== meS.team) {
         // a teammate fell — remember who to hunt
         this.teammateDeaths.push({ killerName: e.killerName, victimName: e.victimName, at: world.time });
@@ -220,6 +226,20 @@ export class MatchTracker {
   }
 
   get longestHitDist(): number { return this.longestHit; }
+
+  /** Your NEMESIS (killed you most) and your PREY (you killed most) — the two
+   *  faces of the match's grudge, for the AAR. Ties break most-recent-first
+   *  via Map insertion order. */
+  nemesis(): { name: string; n: number } | null {
+    let best: { name: string; n: number } | null = null;
+    for (const [name, n] of this.myKillers) if (!best || n > best.n) best = { name, n };
+    return best && best.n >= 2 ? best : null; // one kill isn't a nemesis
+  }
+  prey(): { name: string; n: number } | null {
+    let best: { name: string; n: number } | null = null;
+    for (const [name, n] of this.myVictims) if (!best || n > best.n) best = { name, n };
+    return best && best.n >= 2 ? best : null;
+  }
 
   /** The match's story beats, as chips. */
   moments(): string[] {
