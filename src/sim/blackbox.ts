@@ -106,7 +106,7 @@ function member(w: World, s: Soldier, disp: number): BbMember {
     x: +s.pos.x.toFixed(1), z: +s.pos.z.toFixed(1),
     spd: +Math.hypot(s.vel.x, s.vel.z).toFixed(1),
     disp: +disp.toFixed(1),
-    blocked: isBlocked(w.map.grid, s.pos.x, s.pos.z),
+    blocked: isBlocked(w.map.grid, s.pos.x, s.pos.z, false, w.map.geometry),
     firing: s.nextFireAt > w.time - 3,
   };
   if (s.botGoal) m.goal = { x: +s.botGoal.x.toFixed(0), z: +s.botGoal.z.toFixed(0) };
@@ -160,7 +160,7 @@ export function stepBlackbox(w: World) {
       disps.set(s.id, disp === Infinity ? 99 : disp);
       const isStuck = disp < STUCK_DISP && Math.hypot(s.vel.x, s.vel.z) > STUCK_SPD;
       if (isStuck) stuck++;
-      if (isBlocked(w.map.grid, s.pos.x, s.pos.z)) blocked++;
+      if (isBlocked(w.map.grid, s.pos.x, s.pos.z, false, w.map.geometry)) blocked++;
       nextPrev.set(s.id, { x: s.pos.x, z: s.pos.z });
 
       // stuck incident: fires once when a body crosses PERSIST samples

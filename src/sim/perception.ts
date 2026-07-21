@@ -13,6 +13,7 @@
 // all come back the moment sight has a shape.
 // ---------------------------------------------------------------------------
 import { T_GRASS, losClear, losClearUpper, losCrossFloor, tileAt } from './map';
+import { LEGACY_GEOMETRY, type MapGeometry } from './map-geometry';
 import type { Soldier, Team } from './types';
 
 /** How far friendly eyes reach (mirrors the minimap; §8.8 weather taxes it). */
@@ -95,10 +96,13 @@ export function smokeBlocks(ax: number, az: number, bx: number, bz: number, smok
  *  ground grid at 1.4, so it is advisory today, but it keeps the call sites
  *  honest about height (a hull tests at ~1.8). Shared by cullSnapshotFor (the
  *  multiplayer path) and the renderer's local-play cull so they never diverge. */
-export function eyesSeePoint(grid: Uint8Array, eyes: Soldier[], x: number, z: number, range: number, y = 1.4): boolean {
+export function eyesSeePoint(
+  grid: Uint8Array, eyes: Soldier[], x: number, z: number, range: number, y = 1.4,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): boolean {
   return eyes.some((e) =>
     Math.hypot(x - e.pos.x, z - e.pos.z) < range &&
-    losClear(grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x, y, z }));
+    losClear(grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x, y, z }, 1.4, geometry));
 }
 
 /** Can this set of friendly eyes perceive enemy soldier `s` RIGHT NOW?
@@ -106,7 +110,11 @@ export function eyesSeePoint(grid: Uint8Array, eyes: Soldier[], x: number, z: nu
  *  are the standing clouds: they block the cone and the ring alike (a
  *  grenade that "affects visibility" — Robert — or it's just décor). Pings
  *  are electronic and the flag is public intel; smoke fools eyes, not radios. */
-export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<number>, s: Soldier, range = PERCEIVE_RANGE, smokes: SmokeBlob[] = [], revealed?: Set<number>, grid2?: Uint8Array): boolean {
+export function perceivesNow(
+  grid: Uint8Array, eyes: Soldier[], pinged: Set<number>, s: Soldier,
+  range = PERCEIVE_RANGE, smokes: SmokeBlob[] = [], revealed?: Set<number>, grid2?: Uint8Array,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): boolean {
   if (s.cloaked && !pinged.has(s.id)) return false;   // cloak is TRUE
   if (s.carryingFlag !== -1) return true;             // objective intel is public
   if (pinged.has(s.id)) return true;
@@ -124,7 +132,7 @@ export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<numb
   // the cone loses you beyond 14u, and beyond the footstep RING itself if you
   // DUCK. The truth-tellers: your own muzzle flash (revealed), a ping, the
   // flag in your hands (public, above) -- and an LSW never fits in the grass.
-  if (s.ascendant === undefined && !revealed?.has(s.id) && tileAt(grid, s.pos.x, s.pos.z) === T_GRASS) {
+  if (s.ascendant === undefined && !revealed?.has(s.id) && tileAt(grid, s.pos.x, s.pos.z, geometry) === T_GRASS) {
     range = Math.min(range, s.crouching ? RING : 14);
   }
   // MUZZLE FLASH cuts the murk (§8.8): a shooter is a bright tell, seen past
@@ -143,16 +151,16 @@ export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<numb
     // (walls still hide it; an unanswerable boss is a griefer we wrote)
     (s.ascendant !== undefined || !smokeBlocks(e.pos.x, e.pos.z, s.pos.x, s.pos.z, smokes)) &&
     (grid2 !== undefined && e.floor === 1 && s.floor === 1
-      ? losClearUpper(grid2, { x: e.pos.x, y: 5.4, z: e.pos.z }, { x: s.pos.x, y: 5.4, z: s.pos.z })
+      ? losClearUpper(grid2, { x: e.pos.x, y: 5.4, z: e.pos.z }, { x: s.pos.x, y: 5.4, z: s.pos.z }, 5.4, geometry)
       // sight-plan A3 step 4 — the CROSS-FLOOR SLANT: one end upstairs, one on
       // the ground. The upstairs half marches the UPPER walls, the ground half
       // the GROUND walls. Roof-peek: clutter near the perch is seen OVER; the
       // floor-plan giveaway dies: interior rooms keep their own walls.
       : grid2 !== undefined && (e.floor === 1) !== (s.floor === 1)
         ? (e.floor === 1
-          ? losCrossFloor(grid, grid2, { x: e.pos.x, y: 5.4, z: e.pos.z }, { x: s.pos.x, y: 1.4, z: s.pos.z })
-          : losCrossFloor(grid, grid2, { x: s.pos.x, y: 5.4, z: s.pos.z }, { x: e.pos.x, y: 1.4, z: e.pos.z }))
-        : losClear(grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x: s.pos.x, y: 1.4, z: s.pos.z })));
+          ? losCrossFloor(grid, grid2, { x: e.pos.x, y: 5.4, z: e.pos.z }, { x: s.pos.x, y: 1.4, z: s.pos.z }, geometry)
+          : losCrossFloor(grid, grid2, { x: s.pos.x, y: 5.4, z: s.pos.z }, { x: e.pos.x, y: 1.4, z: e.pos.z }, geometry))
+        : losClear(grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x: s.pos.x, y: 1.4, z: s.pos.z }, 1.4, geometry)));
 }
 
 /** Is `s` on `team`'s screen — seen now, or within the linger window?

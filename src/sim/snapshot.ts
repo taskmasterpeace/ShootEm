@@ -112,7 +112,7 @@ export function cullSnapshotFor(w: World, snap: Snapshot, viewerId: number): Sna
   const range = w.perceiveRange();
   const linger = viewer.equipment.includes('tracking_optics') ? SEEN_LINGER_GEARED : SEEN_LINGER;
   const eyes = [...w.soldiers.values()].filter((s) => s.alive && s.team === team);
-  const seesPoint = (x: number, z: number, y = 1.4) => eyesSeePoint(w.map.grid, eyes, x, z, range, y);
+  const seesPoint = (x: number, z: number, y = 1.4) => eyesSeePoint(w.map.grid, eyes, x, z, range, y, w.map.geometry);
 
   const soldiers = snap.soldiers.flatMap((s) => {
     if (s.team === team) return [s];
@@ -123,7 +123,7 @@ export function cullSnapshotFor(w: World, snap: Snapshot, viewerId: number): Sna
     // would leak live coordinates through the linger window.
     const mark = w.lastSeen[team].get(s.id);
     const freshNow = (mark !== undefined && snap.time - mark.t < 0.001)
-      || perceivesNow(w.map.grid, eyes, w.pinged, s, range, [], undefined, w.map.grid2);
+      || perceivesNow(w.map.grid, eyes, w.pinged, s, range, [], undefined, w.map.grid2, w.map.geometry);
     if (freshNow) return [s];
     // §19.1 GHOSTS: within the linger you get the spot you LOST them —
     // frozen — never their live path behind the wall. Re-acquired = live.

@@ -1637,7 +1637,7 @@ export class Renderer {
     /** Should an ENEMY thing at this spot be drawn? True (no local cull) for
      *  puppets/spectators; otherwise only where a friendly eye has LOS to it. */
     const enemyVisibleAt = (x: number, z: number, y = 1.4): boolean =>
-      fogEyes === null || eyesSeePoint(world.map.grid, fogEyes, x, z, fogRange, y);
+      fogEyes === null || eyesSeePoint(world.map.grid, fogEyes, x, z, fogRange, y, world.map.geometry);
 
     // C1 ROW 81 — THE SPLIT (Robert: "3D shows what YOU see; the minimap
     // shows what your TEAM sees"). The sim's lastSeen trail is the TEAM's
@@ -1658,7 +1658,7 @@ export class Renderer {
       }
       for (const s of world.soldiers.values()) {
         if (!s.alive || s.team === localTeam) continue;
-        if (perceivesNow(world.map.grid, [local], world.pinged, s, fogRange, world.smokeBlobs, revealed, world.map.grid2)) {
+        if (perceivesNow(world.map.grid, [local], world.pinged, s, fogRange, world.smokeBlobs, revealed, world.map.grid2, world.map.geometry)) {
           this.localSeen.set(s.id, { t: world.time, x: s.pos.x, z: s.pos.z });
         }
       }

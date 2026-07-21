@@ -193,7 +193,7 @@ git commit -m "feat: add map-owned geometry"
 - Consumes: `MapGeometry` and conversion/extents helpers from Task 1.
 - Produces: optional geometry argument on `tileAt`, `surfaceAt`, `houseAt`, `isBlocked`, `losClear`, `losClearUpper`, and path helpers; `SoldierIndex.resize(geometry)`.
 
-- [ ] **Step 1: Write failing rectangular runtime tests**
+- [x] **Step 1: Write failing rectangular runtime tests**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -221,13 +221,13 @@ describe('rectangular runtime geometry', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test and verify RED**
+- [x] **Step 2: Run the test and verify RED**
 
 Run: `npx vitest run tests/variable-map-runtime.test.ts`
 
 Expected: FAIL because queries and `SoldierIndex` still assume 300 units.
 
-- [ ] **Step 3: Thread geometry through map and runtime consumers**
+- [x] **Step 3: Thread geometry through map and runtime consumers**
 
 Keep legacy-compatible defaults:
 
@@ -254,13 +254,13 @@ Pass `this.map.geometry` to every runtime terrain query. Update bot BFS
 allocation/indexing to `cols × rows`; keep iteration order row-major so
 deterministic tie behavior remains stable.
 
-- [ ] **Step 4: Run targeted regression tests**
+- [x] **Step 4: Run targeted regression tests**
 
 Run: `npx vitest run tests/variable-map-runtime.test.ts tests/sim.test.ts tests/airwar.test.ts tests/botbrain.test.ts tests/bots-nav.test.ts tests/visionfade.test.ts tests/upperlos.test.ts tests/range.test.ts`
 
 Expected: PASS; legacy flight wrap and bot decisions retain their existing assertions.
 
-- [ ] **Step 5: Commit runtime geometry**
+- [x] **Step 5: Commit runtime geometry**
 
 ```bash
 git add src/sim/map.ts src/sim/spatial.ts src/sim/world.ts src/sim/bots.ts src/sim/perception.ts tests/variable-map-runtime.test.ts

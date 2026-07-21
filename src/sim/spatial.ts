@@ -19,11 +19,16 @@
 // bodies); every call site keeps its own alive/kind/vehicle filters.
 // ---------------------------------------------------------------------------
 import type { Soldier, Team } from './types';
+import {
+  LEGACY_GEOMETRY,
+  halfDepth,
+  halfWidth,
+  worldDepth,
+  worldWidth,
+  type MapGeometry,
+} from './map-geometry';
 
-const WORLD = 300;          // TILE 3 × GRID 100 (map.ts)
 const CELL = 10;            // u per cell → 30×30 buckets
-const COLS = Math.ceil(WORLD / CELL);
-const HALF = WORLD / 2;
 /** mid-tick drift allowance baked into every query rectangle (bodies are
  *  indexed at start-of-tick positions; call sites test live positions; a
  *  soldier walks ≤~0.5u a tick — a rare blink can out-run this, a one-tick,
@@ -33,8 +38,20 @@ const SLACK = 2;
 const byId = (a: Soldier, b: Soldier) => a.id - b.id;
 
 class TeamGrid {
-  private cells: Soldier[][] = Array.from({ length: COLS * COLS }, () => []);
+  private readonly cols: number;
+  private readonly rows: number;
+  private readonly halfX: number;
+  private readonly halfZ: number;
+  private cells: Soldier[][];
   private used: number[] = [];
+
+  constructor(geometry: MapGeometry) {
+    this.cols = Math.ceil(worldWidth(geometry) / CELL);
+    this.rows = Math.ceil(worldDepth(geometry) / CELL);
+    this.halfX = halfWidth(geometry);
+    this.halfZ = halfDepth(geometry);
+    this.cells = Array.from({ length: this.cols * this.rows }, () => []);
+  }
 
   clear(): void {
     for (const c of this.used) this.cells[c].length = 0;
@@ -48,22 +65,22 @@ class TeamGrid {
     // and stays alive (mirrors the applyCmd intent-clamp in world.ts).
     const px = Number.isFinite(s.pos.x) ? s.pos.x : 0;
     const pz = Number.isFinite(s.pos.z) ? s.pos.z : 0;
-    const cx = Math.min(COLS - 1, Math.max(0, Math.floor((px + HALF) / CELL)));
-    const cz = Math.min(COLS - 1, Math.max(0, Math.floor((pz + HALF) / CELL)));
-    const c = cz * COLS + cx;
+    const cx = Math.min(this.cols - 1, Math.max(0, Math.floor((px + this.halfX) / CELL)));
+    const cz = Math.min(this.rows - 1, Math.max(0, Math.floor((pz + this.halfZ) / CELL)));
+    const c = cz * this.cols + cx;
     if (this.cells[c].length === 0) this.used.push(c);
     this.cells[c].push(s); // push order per cell = ascending id (Map order)
   }
 
   collect(x: number, z: number, r: number, out: Soldier[]): void {
     const q = r + SLACK;
-    const x0 = Math.min(COLS - 1, Math.max(0, Math.floor((x - q + HALF) / CELL)));
-    const x1 = Math.min(COLS - 1, Math.max(0, Math.floor((x + q + HALF) / CELL)));
-    const z0 = Math.min(COLS - 1, Math.max(0, Math.floor((z - q + HALF) / CELL)));
-    const z1 = Math.min(COLS - 1, Math.max(0, Math.floor((z + q + HALF) / CELL)));
+    const x0 = Math.min(this.cols - 1, Math.max(0, Math.floor((x - q + this.halfX) / CELL)));
+    const x1 = Math.min(this.cols - 1, Math.max(0, Math.floor((x + q + this.halfX) / CELL)));
+    const z0 = Math.min(this.rows - 1, Math.max(0, Math.floor((z - q + this.halfZ) / CELL)));
+    const z1 = Math.min(this.rows - 1, Math.max(0, Math.floor((z + q + this.halfZ) / CELL)));
     for (let cz = z0; cz <= z1; cz++) {
       for (let cx = x0; cx <= x1; cx++) {
-        const cell = this.cells[cz * COLS + cx];
+        const cell = this.cells[cz * this.cols + cx];
         for (let i = 0; i < cell.length; i++) out.push(cell[i]);
       }
     }
@@ -75,13 +92,13 @@ class TeamGrid {
    *  lowest-id tie-break instead of relying on visit order). */
   forEach(x: number, z: number, r: number, cb: (s: Soldier) => void): void {
     const q = r + SLACK;
-    const x0 = Math.min(COLS - 1, Math.max(0, Math.floor((x - q + HALF) / CELL)));
-    const x1 = Math.min(COLS - 1, Math.max(0, Math.floor((x + q + HALF) / CELL)));
-    const z0 = Math.min(COLS - 1, Math.max(0, Math.floor((z - q + HALF) / CELL)));
-    const z1 = Math.min(COLS - 1, Math.max(0, Math.floor((z + q + HALF) / CELL)));
+    const x0 = Math.min(this.cols - 1, Math.max(0, Math.floor((x - q + this.halfX) / CELL)));
+    const x1 = Math.min(this.cols - 1, Math.max(0, Math.floor((x + q + this.halfX) / CELL)));
+    const z0 = Math.min(this.rows - 1, Math.max(0, Math.floor((z - q + this.halfZ) / CELL)));
+    const z1 = Math.min(this.rows - 1, Math.max(0, Math.floor((z + q + this.halfZ) / CELL)));
     for (let cz = z0; cz <= z1; cz++) {
       for (let cx = x0; cx <= x1; cx++) {
-        const cell = this.cells[cz * COLS + cx];
+        const cell = this.cells[cz * this.cols + cx];
         for (let i = 0; i < cell.length; i++) cb(cell[i]);
       }
     }
@@ -89,8 +106,12 @@ class TeamGrid {
 }
 
 export class SoldierIndex {
-  private grids: [TeamGrid, TeamGrid] = [new TeamGrid(), new TeamGrid()];
+  private grids: [TeamGrid, TeamGrid];
   private rosters: [Soldier[], Soldier[]] = [[], []];
+
+  constructor(geometry: MapGeometry = LEGACY_GEOMETRY) {
+    this.grids = [new TeamGrid(geometry), new TeamGrid(geometry)];
+  }
 
   /** O(S) refill at the top of step(). */
   rebuild(soldiers: Map<number, Soldier>): void {

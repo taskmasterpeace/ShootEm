@@ -6,7 +6,14 @@ import { fillRegions } from './chunks';
 import { THEMES } from './data';
 import type { ModeId, Team, ThemeId, Vec3, VehicleKind } from './types';
 import type { OperationPhaseKind, OperationScale, OperationSiteId } from './operations';
-import { LEGACY_GEOMETRY, type MapGeometry } from './map-geometry';
+import {
+  LEGACY_GEOMETRY,
+  inBounds as geometryInBounds,
+  tileIndex as geometryTileIndex,
+  tileToWorld as geometryTileToWorld,
+  worldToTile as geometryWorldToTile,
+  type MapGeometry,
+} from './map-geometry';
 
 export const TILE = 3;          // world units per tile (33C: standard fronts ~300u)
 export const GRID = 100;        // tiles per side
@@ -72,11 +79,15 @@ export const SURF_WHEELS: Record<number, number> = { [S_DIRT]: 1, [S_GRASS]: 1, 
 export const SURF_TRACKS: Record<number, number> = { [S_DIRT]: 1, [S_GRASS]: 1, [S_ICE]: 0.9, [S_GRIT]: 0.9, [S_PLATE]: 1, [S_WET]: 0.95, [S_MUD]: 0.85 };
 
 /** surface under a world position */
-export function surfaceAt(surface: Uint8Array, x: number, z: number): number {
-  const tx = Math.floor((x + WORLD / 2) / TILE);
-  const tz = Math.floor((z + WORLD / 2) / TILE);
-  if (tx < 0 || tz < 0 || tx >= GRID || tz >= GRID) return S_DIRT;
-  return surface[tz * GRID + tx];
+export function surfaceAt(
+  surface: Uint8Array,
+  x: number,
+  z: number,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): number {
+  const [tx, tz] = geometryWorldToTile(geometry, x, z);
+  if (!geometryInBounds(geometry, tx, tz)) return S_DIRT;
+  return surface[geometryTileIndex(geometry, tx, tz)];
 }
 
 /** which house (index into map.houses) contains this point, -1 = open sky */
@@ -112,9 +123,13 @@ export function pruneStrandedCrops(props: PropSpec[], grid: Uint8Array): PropSpe
   });
 }
 
-export function houseAt(houses: House[], x: number, z: number): number {
-  const tx = Math.floor((x + WORLD / 2) / TILE);
-  const tz = Math.floor((z + WORLD / 2) / TILE);
+export function houseAt(
+  houses: House[],
+  x: number,
+  z: number,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): number {
+  const [tx, tz] = geometryWorldToTile(geometry, x, z);
   for (let i = 0; i < houses.length; i++) {
     const h = houses[i];
     if (tx >= h.tx && tx < h.tx + h.tw && tz >= h.tz && tz < h.tz + h.th) return i;
@@ -231,15 +246,25 @@ export interface GameMap {
   };
 }
 
-export function tileAt(grid: Uint8Array, x: number, z: number): number {
-  const tx = Math.floor((x + WORLD / 2) / TILE);
-  const tz = Math.floor((z + WORLD / 2) / TILE);
-  if (tx < 0 || tz < 0 || tx >= GRID || tz >= GRID) return T_WALL;
-  return grid[tz * GRID + tx];
+export function tileAt(
+  grid: Uint8Array,
+  x: number,
+  z: number,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): number {
+  const [tx, tz] = geometryWorldToTile(geometry, x, z);
+  if (!geometryInBounds(geometry, tx, tz)) return T_WALL;
+  return grid[geometryTileIndex(geometry, tx, tz)];
 }
 
-export function isBlocked(grid: Uint8Array, x: number, z: number, hover = false): boolean {
-  const t = tileAt(grid, x, z);
+export function isBlocked(
+  grid: Uint8Array,
+  x: number,
+  z: number,
+  hover = false,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): boolean {
+  const t = tileAt(grid, x, z, geometry);
   if (t === T_WATER) return false;   // shallow: wadeable by everyone (slowly)
   if (t === T_DEEP) return !hover;   // deep: hover only — soldiers SWIM via their own physics
   // slits and CLOSED doors block movement always; open doors are a doorway.
@@ -255,9 +280,14 @@ export function isBlocked(grid: Uint8Array, x: number, z: number, hover = false)
  * doorway, a bad spawn) could otherwise never move again. Ring-by-ring scan
  * keeps it nearest-first; null means everything nearby is masonry too.
  */
-export function nearestOpenTile(grid: Uint8Array, x: number, z: number, maxR = 4): { x: number; z: number } | null {
-  const tx = Math.floor((x + WORLD / 2) / TILE);
-  const tz = Math.floor((z + WORLD / 2) / TILE);
+export function nearestOpenTile(
+  grid: Uint8Array,
+  x: number,
+  z: number,
+  maxR = 4,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): { x: number; z: number } | null {
+  const [tx, tz] = geometryWorldToTile(geometry, x, z);
   for (let r = 1; r <= maxR; r++) {
     let best: { x: number; z: number } | null = null;
     let bestD = Infinity;
@@ -265,10 +295,11 @@ export function nearestOpenTile(grid: Uint8Array, x: number, z: number, maxR = 4
       for (let dx = -r; dx <= r; dx++) {
         if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue; // this ring's shell only
         const nx = tx + dx, nz = tz + dz;
-        if (nx < 0 || nx >= GRID || nz < 0 || nz >= GRID) continue;
-        const cx = (nx + 0.5) * TILE - WORLD / 2;
-        const cz = (nz + 0.5) * TILE - WORLD / 2;
-        if (isBlocked(grid, cx, cz)) continue; // deep water is no refuge either
+        if (!geometryInBounds(geometry, nx, nz)) continue;
+        const center = geometryTileToWorld(geometry, nx, nz);
+        const cx = center.x;
+        const cz = center.z;
+        if (isBlocked(grid, cx, cz, false, geometry)) continue; // deep water is no refuge either
         const d = Math.hypot(cx - x, cz - z);
         if (d < bestD) { bestD = d; best = { x: cx, z: cz }; }
       }
@@ -279,8 +310,14 @@ export function nearestOpenTile(grid: Uint8Array, x: number, z: number, maxR = 4
 }
 
 /** Blocks projectiles/sight: walls always; cover and water never (shots fly over). */
-export function blocksShot(grid: Uint8Array, x: number, z: number, y: number): boolean {
-  const t = tileAt(grid, x, z);
+export function blocksShot(
+  grid: Uint8Array,
+  x: number,
+  z: number,
+  y: number,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): boolean {
+  const t = tileAt(grid, x, z, geometry);
   if (t === T_WALL) return y < WALL_H;   // walls are 4 units tall
   if (t === T_COVER) return y < COVER_H; // low cover
   if (t === T_SLIT) return !(y >= 1.2 && y <= 1.8); // the firing band — muzzle height passes
@@ -304,28 +341,45 @@ export const F2_SLIT = 3;   // upper window — fire band 5.2..5.8 (the sniper n
 export const F2_WELL = 4;   // the ladder well: walkable, E descends
 
 /** Upper-layer shot blocking — walls live in the 4..8 band. */
-export function blocksShotUpper(grid2: Uint8Array, x: number, z: number, y: number): boolean {
+export function blocksShotUpper(
+  grid2: Uint8Array,
+  x: number,
+  z: number,
+  y: number,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): boolean {
   if (y < 4 || y >= 8) return false;
-  const t = tileAt(grid2, x, z);
+  const t = tileAt(grid2, x, z, geometry);
   if (t === F2_WALL) return true;
   if (t === F2_SLIT) return !(y >= 5.2 && y <= 5.8);
   return false;
 }
 
 /** Is this upper tile standable? (Anything but void — walls stop you first.) */
-export const upperBlocked = (grid2: Uint8Array, x: number, z: number): boolean => {
-  const t = tileAt(grid2, x, z);
+export const upperBlocked = (
+  grid2: Uint8Array,
+  x: number,
+  z: number,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): boolean => {
+  const t = tileAt(grid2, x, z, geometry);
   return t === F2_WALL || t === F2_SLIT;
 };
 
 /** March a ray across the grid; true if line of sight is clear at the given height. */
-export function losClear(grid: Uint8Array, a: Vec3, b: Vec3, y = 1.4): boolean {
+export function losClear(
+  grid: Uint8Array,
+  a: Vec3,
+  b: Vec3,
+  y = 1.4,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): boolean {
   const dx = b.x - a.x, dz = b.z - a.z;
   const dist = Math.hypot(dx, dz);
-  const steps = Math.max(1, Math.ceil(dist / (TILE * 0.5)));
+  const steps = Math.max(1, Math.ceil(dist / (geometry.tile * 0.5)));
   for (let i = 1; i < steps; i++) {
     const t = i / steps;
-    if (blocksShot(grid, a.x + dx * t, a.z + dz * t, y)) return false;
+    if (blocksShot(grid, a.x + dx * t, a.z + dz * t, y, geometry)) return false;
   }
   return true;
 }
@@ -335,13 +389,19 @@ export function losClear(grid: Uint8Array, a: Vec3, b: Vec3, y = 1.4): boolean {
  *  5.2–5.8 firing band. This is what makes two soldiers who are BOTH on a
  *  second storey obey the upper walls between them, instead of reading the
  *  ground floor's layout by accident (sight-plan A3 step 2). */
-export function losClearUpper(grid2: Uint8Array, a: Vec3, b: Vec3, y = 5.4): boolean {
+export function losClearUpper(
+  grid2: Uint8Array,
+  a: Vec3,
+  b: Vec3,
+  y = 5.4,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): boolean {
   const dx = b.x - a.x, dz = b.z - a.z;
   const dist = Math.hypot(dx, dz);
-  const steps = Math.max(1, Math.ceil(dist / (TILE * 0.5)));
+  const steps = Math.max(1, Math.ceil(dist / (geometry.tile * 0.5)));
   for (let i = 1; i < steps; i++) {
     const t = i / steps;
-    if (blocksShotUpper(grid2, a.x + dx * t, a.z + dz * t, y)) return false;
+    if (blocksShotUpper(grid2, a.x + dx * t, a.z + dz * t, y, geometry)) return false;
   }
   return true;
 }
@@ -414,9 +474,12 @@ export const PAINTBALL_FIELDS = [
  *  is seen OVER — and kills the FLOOR-PLAN GIVEAWAY: an interior ground room
  *  still hides behind its own walls, so nobody reads the plan through the
  *  floor. `up` is the upstairs end, `dn` the ground end. */
-export function losCrossFloor(grid: Uint8Array, grid2: Uint8Array, up: Vec3, dn: Vec3): boolean {
+export function losCrossFloor(
+  grid: Uint8Array, grid2: Uint8Array, up: Vec3, dn: Vec3,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): boolean {
   const mid = { x: (up.x + dn.x) / 2, y: 0, z: (up.z + dn.z) / 2 };
-  return losClearUpper(grid2, up, mid) && losClear(grid, mid, dn);
+  return losClearUpper(grid2, up, mid, 5.4, geometry) && losClear(grid, mid, dn, 1.4, geometry);
 }
 
 export function generatePaintballField(seed: number, theme: ThemeId = 'savanna'): GameMap {
