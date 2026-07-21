@@ -5,7 +5,7 @@ import { classLinger, eyesSeePoint, seenRecently, type SeenMark } from '../sim/p
 import { paintColorFor } from './onboarding';
 import type { WeatherKind } from '../sim/weather';
 import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
-import { HAND_FRAG_REACH, meleeWindupFor, type World } from '../sim/world';
+import { HAND_FRAG_REACH, aimSpreadMul, meleeWindupFor, type World } from '../sim/world';
 import { audio, type SoundName } from './audio';
 import { BIOME_AUDIO } from './soundscape';
 import { settings } from './settings';
@@ -154,6 +154,35 @@ function buildCorpseMesh(): THREE.Group {
   return g;
 }
 
+// STATUS §1 / W1.2 — THE AIM RING (Robert: "an aim ring orbiting the character,
+// showing facing + accuracy bloom"). A faint orbit ring around the local player
+// with a two-arm WEDGE that points where you aim and OPENS with the cone: it
+// tightens when you crouch or hold still, and sprays wide when you sprint or
+// fire airborne — the readout for the accuracy-by-movement the sim now applies.
+// The literal spread is a fraction of a degree, so AIM_SCALE exaggerates it into
+// a cone the eye can actually read (an indicator, not a projected hitbox).
+const AIM_SCALE = 6;
+function buildAimRing(): THREE.Group {
+  const g = new THREE.Group();
+  const amber = 0xe8a33d;
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(1.05, 1.14, 40),
+    new THREE.MeshBasicMaterial({ color: amber, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false }),
+  );
+  ring.rotation.x = -Math.PI / 2; ring.position.y = 0.05;
+  g.add(ring);
+  const armGeo = new THREE.BoxGeometry(0.05, 0.02, 1.6);
+  const armMat = new THREE.MeshBasicMaterial({ color: amber, transparent: true, opacity: 0.72, depthWrite: false });
+  for (const name of ['aimL', 'aimR'] as const) {
+    const pivot = new THREE.Group(); pivot.name = name;
+    const arm = new THREE.Mesh(armGeo, armMat);
+    arm.position.set(0, 0.05, 1.35); // reaches out from the ring edge along the aim
+    pivot.add(arm);
+    g.add(pivot);
+  }
+  return g;
+}
+
 export class Renderer {
   scene = new THREE.Scene();
   camera: THREE.PerspectiveCamera;
@@ -207,6 +236,8 @@ export class Renderer {
   private battlefieldCorpses: { bornAt: number; mesh: THREE.Group }[] = [];
   private prevAlive = new Map<number, boolean>();
   private lastCorpseWorld: World | null = null;
+  /** STATUS §1: the local player's aim ring — facing + the live accuracy cone. */
+  private aimRing: THREE.Group | null = null;
   private spinners: THREE.Object3D[] = [];
   private beams: { mesh: THREE.Mesh; until: number }[] = [];
   private flagMeshes: THREE.Group[] = [];
@@ -1874,6 +1905,23 @@ export class Renderer {
       // into the ground instead of popping out of existence
       bc.mesh.visible = age >= CORPSE_REVEAL_DELAY;
       bc.mesh.position.y = -Math.max(0, age - (BATTLEFIELD_CORPSE_LINGER - 1)) * 0.5;
+    }
+
+    // STATUS §1 / W1.2 — the AIM RING follows the local player, facing where you
+    // aim, its wedge OPENING with the live accuracy cone (crouch tightens, a
+    // sprint or an airborne shot sprays). Hidden in a vehicle (you aim the
+    // turret), while dead, or on any replay/killcam.
+    if (local && local.alive && local.vehicleId < 0 && !this.replayView && !world.mode.over) {
+      if (!this.aimRing) { this.aimRing = buildAimRing(); this.scene.add(this.aimRing); }
+      this.aimRing.visible = true;
+      this.aimRing.position.set(local.pos.x, local.pos.y + 0.02, local.pos.z);
+      this.aimRing.rotation.y = -local.yaw; // sim yaw is math-angle; three rotates opposite
+      const wdef = WEAPONS[local.weapons[local.weaponIdx]];
+      const half = Math.min(0.55, (wdef?.spread ?? 0.03) * aimSpreadMul(local) * AIM_SCALE);
+      (this.aimRing.getObjectByName('aimL') as THREE.Object3D | null)?.rotation.set(0, half, 0);
+      (this.aimRing.getObjectByName('aimR') as THREE.Object3D | null)?.rotation.set(0, -half, 0);
+    } else if (this.aimRing) {
+      this.aimRing.visible = false;
     }
 
     // vehicles
