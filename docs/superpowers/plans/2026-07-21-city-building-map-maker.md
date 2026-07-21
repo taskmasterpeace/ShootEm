@@ -139,14 +139,14 @@ export function floorLayer(map: GameMap, floor: number): Uint8Array {
 - Produces `BuildingArchetype`, `BuildingUse`, `GeneratedBuilding`, `BuildingSocket`, `BuildingSection`, and `generateCityBuilding({ cityId, archetype, seed, floors, missionSection? })`.
 - `GeneratedBuilding` contains aligned `layers: string[][]`, `def: BuildingDef`, sockets, sections, provenance, and `validationSeed`.
 
-- [ ] **Step 1: Write a seed-matrix failing test** across all 19 archetypes, five footprint families, floors 1–3, and representative culture codes. Assert determinism, full exterior shell, one legal exit, aligned layers, at least one circulation path per upper storey, and `stencilConnected` ground space.
-- [ ] **Step 2: Run `npx vitest run tests/building-generator.test.ts`; confirm RED** on missing module.
-- [ ] **Step 3: Implement footprint and BSP room grammar** with exact bounded sizes: cottages 7–10×6–9; houses 10–15×8–12; apartments/offices 14–21×11–17; mall/factory 18–25×13–19. Emit thin exterior/interior walls, room doors, window rhythm, one main stair, and optional service ladder.
-- [ ] **Step 4: Implement archetype rules** for residential cottage/row-house/apartment/villa, commercial storefront/office/mall/hotel, industrial workshop/factory/depot/processing, civic clinic/research/government, and military barracks/armory/command/archive.
-- [ ] **Step 5: Implement complete-building mission sectioning** with shutters around inactive rooms, while retaining exterior layers and two active approaches except `single-choke` sections.
-- [ ] **Step 6: Add deterministic retry up to 8 sub-seeds and a compact known-valid two-storey fallback.**
-- [ ] **Step 7: Run generator, building, dynamic-house, and science-map tests plus typecheck; confirm GREEN.**
-- [ ] **Step 8: Commit with `git commit -m "feat: generate complete city buildings"`.**
+- [x] **Step 1: Write a seed-matrix failing test** across all 19 archetypes, five footprint families, floors 1–3, and representative culture codes. Assert determinism, full exterior shell, one legal exit, aligned layers, at least one circulation path per upper storey, and `stencilConnected` ground space.
+- [x] **Step 2: Run `npx vitest run tests/building-generator.test.ts`; confirm RED** on missing module.
+- [x] **Step 3: Implement footprint and BSP room grammar** with exact bounded sizes: cottages 7–10×6–9; houses 10–15×8–12; apartments/offices 14–21×11–17; mall/factory 18–25×13–19. Emit thin exterior/interior walls, room doors, window rhythm, one main stair, and optional service ladder.
+- [x] **Step 4: Implement archetype rules** for residential cottage/row-house/apartment/villa, commercial storefront/office/mall/hotel, industrial workshop/factory/depot/processing, civic clinic/research/government, and military barracks/armory/command/archive.
+- [x] **Step 5: Implement complete-building mission sectioning** with shutters around inactive rooms, while retaining exterior layers and two active approaches except `single-choke` sections.
+- [x] **Step 6: Add deterministic retry up to 8 sub-seeds and a compact known-valid two-storey fallback.**
+- [x] **Step 7: Run generator, building, dynamic-house, and science-map tests plus typecheck; confirm GREEN.**
+- [x] **Step 8: Commit with `git commit -m "feat: generate complete city buildings"`.**
 
 ### Task 4: Add Windows, Glass, Balconies, and Architectural Stamping
 

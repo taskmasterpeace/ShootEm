@@ -33,11 +33,14 @@ export interface BuildingDef {
   name: string;
   kind: 'house' | 'commercial' | 'industrial' | 'military' | 'ruin';
   /** 1 = single storey; 2 = the §8.4 Phase-2 experiment — rows2 rides above */
-  floors: 1 | 2;
+  floors: 1 | 2 | 3;
   rows: string[];
   /** the SECOND STOREY stencil (same width): '#' wall, 'S' window, '.' floor,
    *  'L' the ladder well (must sit over a ground-floor 'L'), ' ' void */
   rows2?: string[];
+  /** Whole-building grammar output. Index 0 aliases rows; index 1 aliases
+   * rows2. Index 2 is the optional third storey. Legacy definitions omit it. */
+  layers?: string[][];
   /** biome fit — the themes this building belongs in. Omitted = universal. */
   biomes?: ThemeId[];
 }
@@ -346,7 +349,10 @@ export const BUILDINGS: BuildingDef[] = [
   },
 ];
 
-const LEGEND = new Set(['#', 'M', 'S', 'D', '.', ' ', 'C', 'P', 'L']);
+const LEGEND = new Set([
+  '#', 'M', 'S', 'D', '.', ' ', 'C', 'P', 'L',
+  '-', '|', '+', 'h', 'v', '=', '!', 'A', 'B', 'R', 'X',
+]);
 export const isLegalStencilChar = (ch: string) => LEGEND.has(ch);
 
 // ---------------------------------------------------------------------------
@@ -675,7 +681,8 @@ export function stencilConnected(def: BuildingDef): boolean {
   const at = (x: number, z: number) => (def.rows[z] ?? '')[x] ?? ' ';
   // void is GROUND: stampBuilding leaves ' ' tiles as the terrain beneath,
   // so a breach in a ruin's wall is as real a door as a 'D'
-  const pass = (ch: string) => ch === '.' || ch === 'D' || ch === 'h' || ch === 'v' || ch === 'P' || ch === 'L' || ch === ' ';
+  const pass = (ch: string) => ch === '.' || ch === 'D' || ch === 'h' || ch === 'v'
+    || ch === 'P' || ch === 'L' || ch === 'A' || ch === 'B' || ch === ' ';
   // seed from EVERY entrance: all doors, plus any floor/void on the stencil
   // border (an open maw — hangars have no door, just a mouth; ruins have
   // breaches). Multi-pod buildings are legal as long as each pod owns a way
@@ -701,7 +708,8 @@ export function stencilConnected(def: BuildingDef): boolean {
   }
   for (let z = 0; z < h; z++)
     for (let x = 0; x < w; x++)
-      if ((at(x, z) === '.' || at(x, z) === 'P' || at(x, z) === 'L') && !seen.has(z * w + x)) return false;
+      if ((at(x, z) === '.' || at(x, z) === 'P' || at(x, z) === 'L' || at(x, z) === 'A' || at(x, z) === 'B')
+        && !seen.has(z * w + x)) return false;
   return true;
 }
 
