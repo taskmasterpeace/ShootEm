@@ -83,6 +83,11 @@ html, body {
   text-shadow: 0 2px 0 oklch(0 0 0 / 0.5), 0 0 34px oklch(0.76 0.16 74 / 0.18);
 }
 .game-title span { color: var(--accent); }
+/* THE OUTBREAK: the strain in your blood, counted where the vitals live */
+#viral-chip { color: #7fa83c; letter-spacing: 0.06em; }
+#viral-chip.hot { color: #ff4736; animation: down-breathe 0.9s ease-in-out infinite; }
+#viral-chip.hidden { display: none; }
+
 /* UI P0: YOU ARE DOWN — the bleedout speaks near the action, breathing red */
 #down-banner {
   position: fixed; left: 50%; top: 34%; transform: translateX(-50%);

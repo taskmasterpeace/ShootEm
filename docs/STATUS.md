@@ -255,8 +255,8 @@ Full spec: **`docs/OUTBREAK-SPEC.md`** (infection model, outbreak pressure/level
 |---|---|---|
 | Base Shambler + rare Sprinter as the production roster | 🔨 | both exist (`ZOMBIE_STATS`: zombie 60hp, sprinter 40hp/15.5u/s); brute/bomber/stalker/spitter also ship but the spec scopes them OUT of the base implementation |
 | Shamblers at materially greater density (acceptance §21.17) | 🔨 | **the zombie bench + spatial index (#38) just proved ~790 shamblers inside the frame budget** — the perf groundwork is real; the spec's AI tiers/flow fields would push further |
-| Infection model (viralLoad, incubation, conversion; damage ≠ infection) | ❌ | nothing — no infection field exists in the sim |
-| Corpse lifecycle (fresh → incubating → critical → reanimated; lootable) | ❌ | corpses vanish in ~4s (`RESPAWN_DELAY`); pairs with backlog W2.4 (linger) + 10.4 (dropped weapons = the lootable half) |
+| Infection model (viralLoad, damage ≠ infection) | 🔨 | **slice 1 SHIPPED 2026-07-20** (`world.ts` `outbreakEnabled`, default OFF): claws +22 / acid +14 Viral Load, plate no defense, EXPOSED HUD chip; `tests/infection.test.ts`. Incubation/treatment/resistance still design |
+| Corpse lifecycle → reanimation (exposed body rises on a clock; blasts deny) | 🔨 | **slice 1 SHIPPED 2026-07-20**: a ≥40-viral death books a corpse that rises as a named shambler (hotter = faster), explosions neutralize, `reanimated` event; full fresh→incubating→critical states still design. Pairs with W2.4/10.4 |
 | Corpse burning / neutralization meter | ❌ | needs the fire system (W7.3 — `flammable` is declared, never consumed); incendiary→material interaction is exactly W7's fold |
 | Outbreak Pressure + Levels 0-4 + sector loss | ❌ | no pressure value; zombies appear only in survival/horde/safehouse via authored spawns |
 | Third-faction outbreak DURING a human-vs-human front | ❌ | zombies are hardcoded team 1 — a true third faction needs the team model widened (the spec's biggest structural ask) |

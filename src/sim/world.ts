@@ -185,6 +185,13 @@ export class World {
   /** opt #38 (S2): the per-tick spatial index — rebuilt at the top of step();
    *  queries return id-sorted supersets, call sites keep their own filters */
   soldierIndex = new SoldierIndex();
+  /** THE OUTBREAK (OUTBREAK-SPEC): master switch — the machinery is inert
+   *  until conditions (or a mode/scenario) turn it on. Condition-driven
+   *  activation (Outbreak Pressure) is the next slice; nothing in the game
+   *  flips this yet, so every existing match is byte-identical. */
+  outbreakEnabled = false;
+  /** exposed bodies on the reanimation clock (§6) — capped, oldest forgotten */
+  corpses: { pos: Vec3; reanimatesAt: number; neutralized: boolean; name: string }[] = [];
   vehicles = new Map<number, Vehicle>();
   turrets = new Map<number, Turret>();
   projectiles = new Map<number, Projectile>();
@@ -1246,6 +1253,7 @@ export class World {
     if (!this.mode.over) this.stepLswDrops(); // §21.6: telegraphed LSW landings
     if (this.forceFields.length) this.stepForceFields(); // §4.4 #2: the pulls and the shoves
     this.stepCorpses(dt);                               // the dead finish falling
+    if (this.outbreakEnabled) this.stepOutbreak();      // and some get back up
     this.stepAntiAir();                                 // V3: the sky is never free
     if (this.blackHoles.length) this.stepBlackHoles(); // Oblivion's void (burst timing)
     // expired time bubbles pop quietly
@@ -4188,6 +4196,23 @@ export class World {
     }
   }
 
+  /** THE OUTBREAK (OUTBREAK-SPEC §6): the corpse clock. An exposed body left
+   *  unburned RISES as a base shambler where it fell (nudged to open ground —
+   *  the statue law applies to the dead too). Neutralized bodies stay down. */
+  stepOutbreak() {
+    if (!this.corpses.length) return;
+    this.corpses = this.corpses.filter((c) => {
+      if (c.neutralized) return false; // processed — off the books
+      if (this.time < c.reanimatesAt) return true;
+      const open = nearestOpenTile(this.map.grid, c.pos.x, c.pos.z) ?? c.pos;
+      const z = this.addZombie('zombie', { x: open.x, y: 0, z: open.z });
+      z.name = `${c.name} (risen)`; // the map tells the story — you know who that was
+      this.emit({ type: 'reanimated', pos: { ...z.pos }, soldierId: z.id });
+      this.emit({ type: 'announce', text: `${c.name.toUpperCase()} GOT BACK UP` });
+      return false;
+    });
+  }
+
   explode(pos: Vec3, def: (typeof WEAPONS)[WeaponId], ownerId: number, team: Team) {
     // THE TWO ZONES (Robert: "a circle in the center, and a radius around
     // that… the closer you are, the more"). The lethal HEART — a direct-hit
@@ -4195,6 +4220,14 @@ export class World {
     // nothing at the splash rim. The client draws these exact two radii, so
     // the ground rings tell the literal truth about who dies where.
     const killR = Math.min(def.splash * 0.4, 2.4);
+    // THE OUTBREAK (OUTBREAK-SPEC §6.2): a blast is corpse denial — any
+    // exposed body inside the splash is neutralized and never rises. (The
+    // fire system will join this when W7.3 lands; v1 speaks in explosions.)
+    if (this.outbreakEnabled && this.corpses.length) {
+      for (const c of this.corpses) {
+        if (!c.neutralized && Math.hypot(c.pos.x - pos.x, c.pos.z - pos.z) <= def.splash) c.neutralized = true;
+      }
+    }
     this.emit({ type: 'explosion', pos: { ...pos }, weapon: def.id, radius: def.splash, killRadius: killR });
     const owner = this.soldiers.get(ownerId);
     for (const s of this.soldiers.values()) {
@@ -4310,6 +4343,13 @@ export class World {
     if (!victim.alive || dmg <= 0) return;
     if (victim.god) return;                        // GOD MODE: nothing touches you
     if (this.time < victim.protectedUntil) return; // spawn protection (55B)
+    // THE OUTBREAK (OUTBREAK-SPEC §4): damage and infection are SEPARATE —
+    // a bite that plate stops still contaminates. Claws and acid deliver
+    // Viral Load to the living (humans and bots; machines are immune).
+    if (this.outbreakEnabled && (weapon === 'zombie_claw' || weapon === 'spitter_acid')
+        && (victim.kind === 'human' || victim.kind === 'bot')) {
+      victim.viralLoad = Math.min(100, (victim.viralLoad ?? 0) + (weapon === 'zombie_claw' ? 22 : 14));
+    }
     // DOMINATOR'S PSYCHIC LINK (§ finale): hurt one linked soldier and every
     // soldier on the same thread takes 60%. `viaLink` stops the shared pain
     // from feeding back on itself. Encased soldiers are off the wire.
@@ -4446,6 +4486,21 @@ export class World {
       const attacker = this.soldiers.get(attackerId);
       // the killcam frames the duel — remember who fired the killing blow
       victim.lastKillerId = attacker && attacker.id !== victim.id ? attacker.id : -1;
+      // THE OUTBREAK (OUTBREAK-SPEC §6): an exposed body is a FUTURE ENEMY.
+      // Dying hot (Viral Load ≥ 40) books a corpse on the reanimation clock —
+      // hotter turns faster. The reprint itself is clean (the printer filters
+      // the strain); it's the BODY left on the field that rises.
+      if (this.outbreakEnabled && (victim.kind === 'human' || victim.kind === 'bot')
+          && (victim.viralLoad ?? 0) >= 40) {
+        if (this.corpses.length >= 40) this.corpses.shift(); // oldest forgotten
+        this.corpses.push({
+          pos: { x: victim.pos.x, y: 0, z: victim.pos.z },
+          reanimatesAt: this.time + 6 + (100 - (victim.viralLoad ?? 40)) * 0.08,
+          neutralized: false,
+          name: victim.name,
+        });
+      }
+      victim.viralLoad = 0; // whatever happens to the body, the NEXT print is clean
       // SHUTDOWN (delight): ending a soldier on a tear is a whole-net moment
       if ((victim.streak ?? 0) >= 4 && attacker && attacker.id !== victim.id && !isZed(victim.kind)) {
         this.emit({ type: 'announce', text: `${attacker.name} SHUT DOWN ${victim.name} (×${victim.streak})` });

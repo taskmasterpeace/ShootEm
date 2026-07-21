@@ -490,6 +490,10 @@ export interface Soldier {
   botObjective?: Vec3 | null;
   botObjAt?: number;
   botObjFlag?: number;
+  /** THE OUTBREAK (OUTBREAK-SPEC §4): internal infection 0-100. Damage and
+   *  infection are SEPARATE — plate can stop the tissue damage and still be
+   *  contaminated. ≥40 at death books the corpse on the reanimation clock. */
+  viralLoad?: number;
   /** next sim time this bot may press E (one polite press, not a woodpecker) */
   botUseAt?: number;
   /** stuck detection: when this bot's ride stopped making progress */
@@ -748,6 +752,7 @@ export interface SimEvent {
     | 'downed'         // a soldier hit the ground bleeding — not dead yet
     | 'revived'        // someone got them back on their feet
     | 'melee_windup'   // a melee swing began — the client telegraphs the strike
+    | 'reanimated'     // THE OUTBREAK: an exposed corpse got back up (§6)
     | 'whistle'        // paintball referee: a round just started or ended
     | 'encased'        // a soldier was frozen alive in the ice block (§21.6)
     | 'lsw_active'     // a piloted LSW fired its signature (text = ascendant id)

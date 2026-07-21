@@ -336,6 +336,16 @@ export class Hud {
       }
     }
 
+    // THE OUTBREAK (OUTBREAK-SPEC §16): Viral Load reads with the vitals —
+    // sickly green while exposed, breathing red when a hot death would rise.
+    const vc = $('viral-chip');
+    const viral = s.viralLoad ?? 0;
+    if (viral > 0 && s.alive) {
+      vc.classList.remove('hidden');
+      vc.classList.toggle('hot', viral >= 40);
+      $('viral-num').textContent = String(Math.round(viral));
+    } else vc.classList.add('hidden');
+
     // UI P0 (docs/UI-MASTER.md §2): YOU ARE DOWN — the bleedout clock and the
     // way out, breathing red near the action. Revive channel shows its math.
     const db = $('down-banner');
