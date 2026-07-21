@@ -82,7 +82,13 @@ describe('indexed three-storey circulation', () => {
 
     const press = () => world.step(1 / 30, new Map([[soldier.id, command({ use: true })]]));
     const release = () => world.step(1 / 30, new Map());
-    press(); expect(soldier.floor).toBe(1); release();
+    press();
+    expect(soldier.floor).toBe(1);
+    soldier.vel.x = 9;
+    world.stepSoldierPhysics(soldier, 1 / 30);
+    expect(soldier.vel.x).toBe(0);
+    expect(soldier.ladderUntil).toBeGreaterThan(world.time);
+    release();
     press(); expect(soldier.floor).toBe(2); release();
     press(); expect(soldier.floor).toBe(1); release();
     press(); expect(soldier.floor).toBe(0);

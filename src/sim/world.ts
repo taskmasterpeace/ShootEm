@@ -2834,7 +2834,6 @@ export class World {
       }
       return;
     }
-
     // flying an FPV drone: the body kneels at the controller — cmd steers the
     // DRONE, and the soldier can't move, shoot, or throw until the link ends
     const fpv = this.getPilotedDrone(s.id);
@@ -3848,6 +3847,13 @@ export class World {
       if (v) { s.pos.x = v.pos.x; s.pos.z = v.pos.z; s.pos.y = 0; }
       return;
     }
+    if (this.time < (s.ladderUntil ?? 0)) {
+      s.vel.x = 0;
+      s.vel.y = 0;
+      s.vel.z = 0;
+      s.pos.y = floorHeight(s.floor);
+      return;
+    }
     // INDEXED STOREYS: Level 2 remains the legacy grid2 rail while Level 3
     // lives in upperLayers[1]. A void lands on the highest real slab below.
     if (s.floor > 0) {
@@ -4225,7 +4231,10 @@ export class World {
       s.pos.x = (tx + 0.5) * TILE - WORLD / 2;
       s.pos.z = (tz + 0.5) * TILE - WORLD / 2;
       s.pos.y = floorHeight(target);
+      s.vel.x = 0;
       s.vel.y = 0;
+      s.vel.z = 0;
+      s.ladderUntil = this.time + 0.35;
       this.emit({ type: 'ladder', pos: { ...s.pos }, soldierId: s.id });
       return true;
     }

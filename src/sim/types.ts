@@ -413,6 +413,8 @@ export interface Soldier {
   stairDirection?: -1 | 1;
   /** remembers travel through a multi-storey ladder shaft until an endpoint. */
   ladderDirection?: -1 | 1;
+  /** rung-climb movement lock; ladders are deliberate, unlike walked stairs. */
+  ladderUntil?: number;
   /** equipped gear ids (see EQUIPMENT in data.ts) — chosen at deploy, max 2 */
   equipment: string[];
   /** medikit auto-trigger armed (once per life) */
