@@ -486,25 +486,38 @@ describe('endless horde', () => {
     expect(zeds.length).toBeGreaterThan(0);
   });
 
-  it('rolls special zombies including rare sprinters at higher intensity', () => {
+  it('the horde is SHAMBLERS + rare sprinters — NO special variants (spec roster; Robert)', () => {
     const w = new World({ seed: 1234, mode: 'horde' });
     const a = w.addSoldier('A', 'heavy', 0, 'human');
     a.pos = { x: 0, y: 0, z: 0 };
     a.god = true; // immortal observer — immune to the now-live outbreak's turn
     const kinds = new Set<string>();
-    for (let i = 0; i < 60 * 120; i++) {
+    const seen = new Set<number>();
+    let shamblers = 0, sprinters = 0;
+    for (let i = 0; i < 60 * 180; i++) {
       a.hp = a.maxHp;
       w.step(1 / 60, new Map());
       for (const s of w.soldiers.values()) {
         if (s.kind !== 'human' && s.kind !== 'bot') {
           kinds.add(s.kind);
+          if (!seen.has(s.id)) { // count each spawned body once for the ratio
+            seen.add(s.id);
+            if (s.kind === 'sprinter') sprinters++; else if (s.kind === 'zombie') shamblers++;
+          }
           if (s.alive && i % 12 === 0) w.damageSoldier(s, 9999, a.id, 'ar606'); // keep the meat grinder turning
         }
       }
-      if (kinds.has('sprinter') && kinds.has('bomber') && kinds.has('brute') && kinds.has('spitter')) break;
     }
-    expect(kinds.has('sprinter')).toBe(true);
-    expect(kinds.has('bomber')).toBe(true);
+    // the special zombies are GONE from the spawned horde (they still exist as
+    // entities — riseKind + the iron race — just not in the flesh roster)
+    for (const special of ['brute', 'bomber', 'stalker', 'spitter']) {
+      expect(kinds.has(special), `${special} must never spawn in the horde`).toBe(false);
+    }
+    // the rare sprinter DOES show (the one you hear before you see), and
+    // shamblers are the overwhelming mass — the 1% law
+    expect(sprinters, 'the rare sprinter shows up over a long run').toBeGreaterThan(0);
+    expect(shamblers, 'shamblers are the mass').toBeGreaterThan(sprinters * 10);
+    expect(sprinters / (shamblers + sprinters), 'sprinters stay rare (~1%)').toBeLessThan(0.05);
   });
 
   it('sprinters are much faster than shamblers', () => {
