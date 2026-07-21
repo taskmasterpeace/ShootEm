@@ -282,7 +282,7 @@ export class Hud {
         // plain ball — and only on the ballistic weapons AP/INC actually
         // change. B cycles it; the tag is where the eye already reads the mag.
         const ballistic = def.tracer === 'bullet' || def.tracer === 'shell';
-        const ammoTag = ballistic && s.ammoType === 'ap' ? ' · AP' : ballistic && s.ammoType === 'inc' ? ' · INC' : '';
+        const ammoTag = ballistic && s.ammoType ? ` · ${s.ammoType.toUpperCase()}` : '';
         ammoEl.textContent = `${clip} / ${res}${ammoTag}`;
         // the counter itself warns you before the click of an empty mag
         ammoEl.classList.toggle('no-ammo', Number.isFinite(clipN) && clipN === 0);

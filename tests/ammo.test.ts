@@ -14,17 +14,17 @@ function idle(): PlayerCmd {
 }
 
 describe('ammo: the B cycle', () => {
-  it('walks ball → AP → INC → ball on each tap', () => {
+  it('walks the full roster ball → AP → INC → TRC → SUB → EXP → BNR → ball', () => {
     const w = new World({ seed: 3, mode: 'tdm', matchMinutes: 10 });
     const man = w.addSoldier('Gunner', 'infantry', 0, 'human');
     expect(man.ammoType).toBeUndefined(); // ball is the absent default
     const tap = () => w.step(1 / 60, new Map([[man.id, { ...idle(), cycleAmmo: true }]]));
+    for (const want of ['ap', 'inc', 'trc', 'sub', 'exp', 'bnr'] as const) {
+      tap();
+      expect(man.ammoType).toBe(want);
+    }
     tap();
-    expect(man.ammoType).toBe('ap');
-    tap();
-    expect(man.ammoType).toBe('inc');
-    tap();
-    expect(man.ammoType).toBeUndefined(); // back to ball
+    expect(man.ammoType).toBeUndefined(); // wraps back to ball
   });
 
   it('a god does not fumble with ammo boxes — the cycle is inert while ascendant', () => {
@@ -104,5 +104,66 @@ describe('ammo: incendiary is denial', () => {
     // the body was booked at ≥40 viral, then the same INC round neutralized it
     const live = w.corpses.filter((c) => !c.neutralized);
     expect(live.length).toBe(0);
+  });
+});
+
+describe('ammo: the Phase-3 roster (§11.1)', () => {
+  /** Fire `ammo` at a stationary zero-armor target and return the damage dealt.
+   *  Targets are HUMAN-kind (no AI) so they hold the firing line. */
+  function bleed(ammo: 'exp' | undefined, target: 'flesh' | 'zed') {
+    const w = new World({ seed: 7, mode: 'horde', matchMinutes: 10 });
+    w.outbreakEnabled = true;
+    const shooter = w.addSoldier('Shooter', 'infantry', 0, 'human');
+    shooter.pos = { x: 0, y: 0, z: 0 }; shooter.yaw = 0; shooter.ammoType = ammo;
+    let t: { hp: number };
+    if (target === 'zed') {
+      t = w.addZombie('brute', { x: 18, y: 0, z: 0 }); // armor 0, undead
+    } else {
+      const m = w.addSoldier('Mark', 'infantry', 1, 'human');
+      m.pos = { x: 18, y: 0, z: 0 }; m.armor = 0; m.maxArmor = 0; // bare living flesh
+      t = m;
+    }
+    const hp0 = t.hp;
+    for (let i = 0; i < 30 && t.hp === hp0; i++) {
+      w.step(1 / 60, new Map([[shooter.id, { ...idle(), aimYaw: 0, aimDist: 18, fire: true }]]));
+      w.takeEvents();
+    }
+    return hp0 - t.hp;
+  }
+
+  it('EXPANDING maws bare flesh but wilts on the undead', () => {
+    // vs an UNARMORED living body, EXP (×1.5) clearly beats plain ball
+    expect(bleed('exp', 'flesh')).toBeGreaterThan(bleed(undefined, 'flesh'));
+    // vs the dead (armored-or-undead branch, ×0.65), EXP does LESS than ball
+    expect(bleed('exp', 'zed')).toBeLessThan(bleed(undefined, 'zed'));
+  });
+
+  it('BIO-NEUTRALIZING denies the corpse without fire', () => {
+    const w = new World({ seed: 8, mode: 'horde', matchMinutes: 10 });
+    w.outbreakEnabled = true;
+    const victim = w.addSoldier('Exposed', 'infantry', 1, 'bot');
+    victim.pos = { x: 14, y: 0, z: 0 };
+    victim.viralLoad = 80; victim.hp = 20; victim.armor = 0;
+    const shooter = w.addSoldier('Chem', 'infantry', 0, 'human');
+    shooter.pos = { x: 0, y: 0, z: 0 }; shooter.yaw = 0; shooter.ammoType = 'bnr';
+    for (let i = 0; i < 60 * 3 && victim.alive; i++) {
+      w.step(1 / 60, new Map([[shooter.id, { ...idle(), aimYaw: 0, aimDist: 14, fire: true }]]));
+      w.takeEvents();
+    }
+    expect(victim.alive).toBe(false);
+    expect(w.corpses.filter((c) => !c.neutralized).length).toBe(0); // denied, no flame
+  });
+
+  it('TRACER marks the struck target', () => {
+    const w = new World({ seed: 9, mode: 'tdm', matchMinutes: 10 });
+    const shooter = w.addSoldier('Spotter', 'infantry', 0, 'human');
+    shooter.pos = { x: 0, y: 0, z: 0 }; shooter.yaw = 0; shooter.ammoType = 'trc';
+    const mark = w.addSoldier('Marked', 'infantry', 1, 'human'); // human = holds the line
+    mark.pos = { x: 16, y: 0, z: 0 };
+    for (let i = 0; i < 40 && !w.tagged.has(mark.id); i++) {
+      w.step(1 / 60, new Map([[shooter.id, { ...idle(), aimYaw: 0, aimDist: 16, fire: true }]]));
+      w.takeEvents();
+    }
+    expect(w.tagged.has(mark.id)).toBe(true); // pinned on the enemy screen
   });
 });

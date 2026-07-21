@@ -107,6 +107,11 @@ export function meleeWindupFor(kind: SoldierKind): number {
   return MELEE_WINDUP;
 }
 const ENERGY_REGEN = 14;
+/** OUTBREAK-SPEC §11: player-facing ammunition names for the AMMO announce. */
+const AMMO_LABEL: Record<string, string> = {
+  ball: 'STANDARD BALL', ap: 'ARMOR-PIERCING', inc: 'INCENDIARY',
+  trc: 'TRACER', sub: 'SUBSONIC', exp: 'EXPANDING', bnr: 'BIO-NEUTRALIZING',
+};
 /** GUARD (OUTBREAK-SPEC §12): stamina burned per second of holding the brace —
  *  from a full tank that's ~10s of block, and regen is paused while it's up. */
 const GUARD_DRAIN = 10;
@@ -2593,9 +2598,12 @@ export class World {
     // BALL (reliable) → AP (threads plate) → INCENDIARY (burns corpses, mauls
     // infected groups). A tactical choice, not a damage ladder.
     if (cmd.cycleAmmo && !s.ascendant) {
-      s.ammoType = s.ammoType === undefined ? 'ap' : s.ammoType === 'ap' ? 'inc' : undefined;
+      // ball → AP → INC → TRC → SUB → EXP → BNR → ball (§11.1, the full roster)
+      const order: (Soldier['ammoType'])[] = [undefined, 'ap', 'inc', 'trc', 'sub', 'exp', 'bnr'];
+      const i = order.indexOf(s.ammoType ?? undefined);
+      s.ammoType = order[(i + 1) % order.length];
       if (s.kind === 'human') {
-        const label = s.ammoType === 'ap' ? 'ARMOR-PIERCING' : s.ammoType === 'inc' ? 'INCENDIARY' : 'STANDARD BALL';
+        const label = AMMO_LABEL[s.ammoType ?? 'ball'];
         this.emit({ type: 'announce', text: `AMMO: ${label}`, big: false });
       }
     }
@@ -2793,15 +2801,22 @@ export class World {
     // identity armor exempt). INCENDIARY is denial: it burns corpses down and
     // savages the infected, at a soft-damage cost against the merely living.
     const ballistic = def.tracer === 'bullet' || def.tracer === 'shell';
-    const ap = ballistic && (s.ammoType === 'ap' || this.hasEquip(s, 'apRounds'));
-    const inc = ballistic && s.ammoType === 'inc';
-    const dm = ap ? dmgMul * 0.75 : inc ? dmgMul * 0.85 : dmgMul;
+    const at = ballistic ? s.ammoType : undefined; // ammo riders are ballistic-only
+    const ap = at === 'ap' || (ballistic && this.hasEquip(s, 'apRounds'));
+    const inc = at === 'inc';
+    // per-type damage scalar: AP −25% / INC −15% / SUB −20% / EXP −10% base
+    // (its bite is at the target) / BNR −40% (a denial round, not a killer).
+    const dm = dmgMul * (ap ? 0.75 : inc ? 0.85 : at === 'sub' ? 0.8 : at === 'exp' ? 0.9 : at === 'bnr' ? 0.6 : 1);
+    // the hit-time rider carried on the round (EXP/BNR/TRC resolve on contact)
+    const rider = at === 'exp' || at === 'bnr' || at === 'trc' ? at : undefined;
+    // SUBSONIC trades reach for silence — a shorter effective range.
+    const range = at === 'sub' ? def.range * 0.75 : def.range;
     // arc weapons are cursor-targeted like every thrown item: the shell LANDS
     // at aimDist instead of always lobbing to max range. (This is what made
     // the GL-40 unusable at anything but exactly 46u.)
-    const reach = def.arc ? Math.max(6, Math.min(aimDist ?? def.range, def.range)) : def.range;
+    const reach = def.arc ? Math.max(6, Math.min(aimDist ?? range, range)) : range;
     for (let p = 0; p < def.pellets; p++) {
-      this.throwProjectile(s, wid, 1.4, def.speed, def.arc, reach, 1, false, dm, ap, inc);
+      this.throwProjectile(s, wid, 1.4, def.speed, def.arc, reach, 1, false, dm, ap, inc, rider);
     }
     this.emit({ type: 'shot', pos: { ...s.pos, y: s.pos.y + 1.4 }, weapon: wid, soldierId: s.id });
   }
@@ -2919,7 +2934,7 @@ export class World {
    * LANDS at that distance instead of a fixed short ballistic. A caller can
    * pass a shorter reach for a soft toss (e.g. the hand-thrown frag).
    */
-  throwProjectile(s: Soldier, wid: WeaponId, muzzleY: number, speed: number, arc: boolean, reach = WEAPONS[wid].range, loft = 1, bounce = false, dmgMul = 1, pierceArmor = false, incendiary = false) {
+  throwProjectile(s: Soldier, wid: WeaponId, muzzleY: number, speed: number, arc: boolean, reach = WEAPONS[wid].range, loft = 1, bounce = false, dmgMul = 1, pierceArmor = false, incendiary = false, ammo?: 'exp' | 'bnr' | 'trc') {
     const def = WEAPONS[wid];
     const spread = (this.rng.next() - 0.5) * 2 * def.spread;
     const yaw = s.yaw + spread;
@@ -2953,6 +2968,7 @@ export class World {
       ...(dmgMul !== 1 ? { dmgMul } : {}),
       ...(pierceArmor ? { pierceArmor: true } : {}),
       ...(incendiary ? { incendiary: true } : {}),
+      ...(ammo ? { ammo } : {}),
     };
     // CARRY THE THROWER'S MOMENTUM (Robert: "you can outrun your own flame —
     // that's kinda crazy"). A flame stream is burning gas, not a bullet: it
@@ -4315,15 +4331,27 @@ export class World {
               // a burning round mauls the undead (×1.6) even as it does less to
               // the living. Denial over stopping-power, by design.
               const incMul = p.incendiary && isZed(s.kind) ? 1.6 : 1;
-              const dmg = def.damage * (shooter?.rageMul ?? 1) * (p.dmgMul ?? 1) * incMul;
+              // EXPANDING (§11): mushrooms in bare flesh (×1.5 vs an unarmored
+              // living target) but crumples on plate or dead tissue (×0.65 vs
+              // armor or any ZedKind). The anti-personnel round, made literal.
+              const expMul = p.ammo === 'exp'
+                ? (s.armor > 0 || isZed(s.kind) ? 0.65 : (s.kind === 'human' || s.kind === 'bot') ? 1.5 : 1)
+                : 1;
+              const dmg = def.damage * (shooter?.rageMul ?? 1) * (p.dmgMul ?? 1) * incMul * expMul;
               this.damageSoldier(s, dmg, p.ownerId, p.weapon, false, p.pierceArmor);
-              // INCENDIARY corpse denial (OUTBREAK-SPEC §6.2): the round burns
-              // the body where it lands — including the one it just dropped,
-              // booked this same frame — so an exposed kill never rises.
-              if (p.incendiary && this.outbreakEnabled && this.corpses.length) {
+              // INCENDIARY / BIO-NEUTRALIZING corpse denial (OUTBREAK-SPEC §6.2 /
+              // §11): fire OR chemistry burns/denies the body where it lands —
+              // including the one just dropped this frame — so it never rises.
+              if ((p.incendiary || p.ammo === 'bnr') && this.outbreakEnabled && this.corpses.length) {
                 for (const c of this.corpses) {
                   if (!c.neutralized && Math.hypot(c.pos.x - s.pos.x, c.pos.z - s.pos.z) <= 2.5) c.neutralized = true;
                 }
+              }
+              // TRACER (§11): the round MARKS what it hits — pinned on every
+              // enemy screen for a few seconds, at the cost of a loud signature.
+              if (p.ammo === 'trc' && s.team !== p.team) {
+                this.tagged.set(s.id, this.time + 4);
+                this.emit({ type: 'psi_ping', pos: { ...s.pos }, soldierId: p.ownerId });
               }
               this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, soldierId: p.ownerId, bare });
               // CHAIN: the round arcs to the nearest un-struck enemies (60% dmg each)

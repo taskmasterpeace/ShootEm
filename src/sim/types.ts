@@ -522,9 +522,12 @@ export interface Soldier {
    *  contaminated. ≥40 at death books the corpse on the reanimation clock. */
   viralLoad?: number;
   /** THE OUTBREAK (OUTBREAK-SPEC §11): the loaded ammunition TYPE, cycled with
-   *  B. 'ball' (default, absent) reliable all-rounder; 'ap' threads plate
-   *  (−soft damage); 'inc' burns corpses down and savages infected groups. */
-  ammoType?: 'ap' | 'inc';
+   *  B (ball → AP → INC → TRC → SUB → EXP → BNR → ball). 'ball' is the absent
+   *  default. 'ap' threads plate; 'inc' burns corpses + savages infected;
+   *  'trc' marks the target + is loud; 'sub' is quiet but short & weak; 'exp'
+   *  maws unarmored flesh but wilts on armor/undead; 'bnr' is chemical corpse
+   *  denial without fire, at low direct damage. */
+  ammoType?: 'ap' | 'inc' | 'trc' | 'sub' | 'exp' | 'bnr';
   /** next sim time this bot may press E (one polite press, not a woodpecker) */
   botUseAt?: number;
   /** stuck detection: when this bot's ride stopped making progress */
@@ -677,6 +680,11 @@ export interface Projectile {
    *  impact (denies reanimation like a blast) and savages the undead (+bonus
    *  vs any ZedKind), at a soft-damage cost against the merely living. */
   incendiary?: boolean;
+  /** OUTBREAK-SPEC §11: the hit-time ammunition rider — 'exp' (expanding: +vs
+   *  bare flesh, −vs armor/undead), 'bnr' (bio-neutralizing: denies the corpse
+   *  without fire), 'trc' (tracer: marks the struck target). AP/INC keep their
+   *  own dedicated flags above. */
+  ammo?: 'exp' | 'bnr' | 'trc';
   /** damage scalar carried by the round: charge boost × ricochet/penetrate decay */
   dmgMul?: number;
   /** ids already struck this flight — so a piercing round never double-hits one body */
