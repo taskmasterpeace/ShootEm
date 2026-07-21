@@ -4,6 +4,15 @@
 
 **The ritual per block (unchanged law):** build → gates (`npx tsc --noEmit && npx vitest run && npm run lint && npm run build`) → live/deterministic proof → flip the rows in the spec + STATUS.md → one commit per slice, stage by name → push. Marks are sidegrades. New sim behavior gates so existing matches stay byte-identical where the spec says so. **No purple, ever.** All new UI composes from `UX-LANGUAGE.md` primitives — no bespoke elements (Law 7).
 
+## PROGRESS (2026-07-21 — the coding run so far, all live-verified + pushed)
+
+- **✅ B1 THE HUD BUILD — DONE.** Weapon-cam plate (real 3D model, maker-tinted chrome) + THE ONE METER (segmented bar, amber lead-notch) carrying reload / Impact Charge / vehicle-WPN / LSW-signature; 2 of the 7 style violations killed. `b67cc18`, `cfa0a8b`.
+- **✅ B2 THE AIR FIX — DONE.** Sanctuary Law (`p.airScaled` gate — the no-band-gate bug fixed), BAND_ALT raised, cloud shelf y11-13, shadow altimeter, ALT chip. `472d864`, `a0cbe12`, `89e717c`. (Bomb fall-time + ring folds into B8.)
+- **🔨 B3 THE DEATH SHOW — started.** The DeathReport captures (weaponId/killerId/dist/timeAlive/killerVehicle now ride the death event; `Soldier.spawnedAt`), killfeed range + bleedout-weapon fix. `7002842`. Director branches / KILL cam / collapses still queued.
+- **🔨 B4 WEAPON MEMORY — slice 1 done.** The gun's plate engraves "N CONFIRMED · <longest>u" (family-gated) + hull-type stamps, off the DeathReport. `122dcc0`. Sim serial registry + drops = later slices.
+- **✅ SIDE FIXES.** THE ROSTER LAW (iron never with zombies unless opted in) `b234230`; DEATH RE-SELECT (pick class between prints) `c38766a`; THE AAR v1+v2 (per-weapon kills, longest shot, hulls, moments, **nemesis + prey duels**) `b04a195`+`f3f3172`.
+- **📄 Planning:** `PATTERN-REGISTRATION.md` (FORM P-1 personas → B10.5).
+
 | # | Block | Spec (the law) | Why this position |
 |---|---|---|---|
 | **B1** | **THE HUD BUILD** — the decided kit: the info-rich **segmented METER** component (amber lead-notch accent, number, state word, release hint) replacing EVERY fill readout (reload bar, LSW bar, grenade pip-sweep, Impact Charge text, vehicle WPN bar); the **weapon-cam plate** (live 3D model of the equipped gun, bottom-right) wearing the **manufacturer frame** (`parseBrand`, 6 empty shells in `docs/reference/hud/`); fix the **7 standing style violations** UX-LANGUAGE found. | UX-LANGUAGE §6/§8 + reference/hud/README | Fully decided by Robert (meter A, weapon-cam, per-maker frames). Everything downstream (nameplates, cards, death UI) lives in or on this. |
