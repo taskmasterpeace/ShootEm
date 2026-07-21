@@ -171,6 +171,7 @@ const GRAB_TETHER = 3.2;
 /** a whiffed grab (stuffed by a STRIKE, or grabbing air) occupies the clock. */
 const GRAB_RECOVER = 0.5;
 const GRAB_SCRATCH: Soldier[] = [];
+const BEAM_SCRATCH: Soldier[] = []; // §BEAMS held-stream ray walk
 /** after breaking a hold you're briefly ungrabbable — no instant re-clinch. */
 const GRAB_IMMUNE = 1.0;
 /** §14.2 REAR TAKEDOWN: the finisher off a rear pin — an EXECUTION, so it blows
@@ -3191,12 +3192,45 @@ export class World {
       } else s.burstLeft = 0; // dry mid-burst — the runner stops, the reload path below answers
     }
 
+    // §BEAMS (row 188) THE HELD STREAM: while the trigger is held the beam
+    // CONNECTS — a per-tick ray walks the aim line at chest height to the
+    // first wall or the first body and POURS dps·dt into it. No projectiles,
+    // no clip; the governor is HEAT — sustain to 100% and the emitter JAMS.
+    // LSW arms only (the def carries `held`; no soldier weapon ever will).
+    if (def.held) {
+      const jammed = this.time < (s.beamJamUntil ?? 0);
+      if (cmd.fire && !jammed && !swimming && !s.guarding && s.encasedUntil === undefined) {
+        s.protectedUntil = 0; // pouring is hostile action (55B)
+        s.beamHeat = Math.min(1, (s.beamHeat ?? 0) + dt / def.held.sustain);
+        if (s.beamHeat >= 1) {
+          s.beamJamUntil = this.time + def.held.jam;
+          this.emit({ type: 'beam_jam', pos: { ...s.pos }, soldierId: s.id });
+        }
+        s.beamingUntil = this.time + 0.1; // the renderer's stream window
+        // the ray walk: 1u steps at chest height, walls stop it, first body drinks
+        const fx = Math.cos(s.yaw), fz = Math.sin(s.yaw);
+        walk: for (let d = 1; d <= def.range; d += 1) {
+          const px = s.pos.x + fx * d, pz = s.pos.z + fz * d;
+          if (blocksShot(this.map.grid, px, pz, 1.3)) break;
+          for (const e of this.soldierIndex.near((1 - s.team) as Team, px, pz, 1.1, BEAM_SCRATCH)) {
+            if (!e.alive || e.id === s.id) continue;
+            this.damageSoldier(e, def.held.dps * dt, s.id, wid);
+            break walk; // the stream stops in the first body
+          }
+        }
+      } else {
+        // cooling: released, jammed, or interrupted — heat bleeds off
+        s.beamHeat = Math.max(0, (s.beamHeat ?? 0) - dt / (def.held.sustain * 0.7));
+      }
+      s.trigHeld = cmd.fire;
+      // a held arm never enters the projectile path — fall through to alt fire
+    }
     // firing — unless you are SWIMMING or bracing behind a raised GUARD (§12).
     // 10.1 FIRE MODES: auto rides the held trigger as ever; single / pump /
     // double / burst fire on the trigger EDGE — one press, one discipline.
     // Bots bypass the edge (a machine's finger taps perfectly at rof).
     const fmode = def.fireMode ?? 'auto';
-    const trigger = cmd.fire && (fmode === 'auto' || s.kind !== 'human' || !s.trigHeld);
+    const trigger = !def.held && cmd.fire && (fmode === 'auto' || s.kind !== 'human' || !s.trigHeld);
     if (trigger && !swimming && !s.guarding && s.reloadUntil === 0 && this.time >= s.nextFireAt) {
       if (s.clip[s.weaponIdx] > 0) {
         s.protectedUntil = 0; // hostile action ends spawn protection (55B)

@@ -150,7 +150,10 @@ export const LSW_ARMS: Record<WeaponId, WeaponDef> = {
   lsw_blitz: A({ id: 'lsw_blitz', name: 'Momentum Blade', damage: 30, rof: 3.4, speed: 200, spread: 0.01, range: 10, sound: 'claw', tracer: 'none', icon: '⚔' }),
   // ── THE BEAM SCHOOL — continuous energy, now with a profile per god ──
   lsw_reactor: A({ id: 'lsw_reactor', name: 'Feed-Beam', damage: 11, rof: 9, speed: 300, spread: 0.002, range: 46, sound: 'plasma', tracer: 'beam', icon: '🔆', beam: 'hose', ricochet: 1 }),
-  lsw_crimson: A({ id: 'lsw_crimson', name: 'Haemal Siphon', damage: 10, rof: 10, speed: 300, spread: 0.002, range: 40, sound: 'plasma', tracer: 'beam', icon: '🩸', beam: 'hose' }),
+  // §BEAMS row 188: the Siphon is the first HELD stream — a siphon POURS, it
+  // doesn't tap. dps 100 = the old 10 dmg × 10 rof (DPS-neutral conversion);
+  // the heat governor (4s pour → 2.5s jam) is the held-beam design itself.
+  lsw_crimson: A({ id: 'lsw_crimson', name: 'Haemal Siphon', damage: 10, rof: 10, speed: 300, spread: 0.002, range: 40, sound: 'plasma', tracer: 'beam', icon: '🩸', beam: 'hose', held: { dps: 100, sustain: 4, jam: 2.5 } }),
   lsw_magnetar: A({ id: 'lsw_magnetar', name: 'Induction Beam', damage: 12, rof: 8.5, speed: 300, spread: 0.002, range: 44, sound: 'plasma', tracer: 'beam', icon: '🧲', beam: 'ricochet', ricochet: 2 }),
   lsw_pulse: A({ id: 'lsw_pulse', name: 'Resonance Projector', damage: 13, rof: 7.5, speed: 300, spread: 0.002, range: 48, sound: 'plasma', tracer: 'beam', icon: '📢', beam: 'lance', pierce: 3 }),
   lsw_eclipse: A({ id: 'lsw_eclipse', name: 'Lightdrinker', damage: 12, rof: 8.5, speed: 300, spread: 0.002, range: 50, sound: 'plasma', tracer: 'beam', icon: '🌑', beam: 'charge', charge: { t: 1.0, mul: 3 } }),

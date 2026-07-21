@@ -134,6 +134,12 @@ export interface WeaponDef {
   beam?: 'zap' | 'lance' | 'charge' | 'hose' | 'ricochet';
   /** hold to charge: after t seconds the shot deals ×mul and reaches full profile */
   charge?: { t: number; mul: number };
+  /** §BEAMS (row 188) THE HELD STREAM — LSW arms only, soldiers never carry
+   *  one. While the trigger is held the beam CONNECTS: a per-tick ray pours
+   *  dps into the first wall or body on the aim line. No clip, no discrete
+   *  shots — the governor is HEAT: `sustain` seconds of continuous pour
+   *  jams the emitter for `jam` seconds. */
+  held?: { dps: number; sustain: number; jam: number };
   /** on death, burst into k submunitions (~40% dmg each) that bounce */
   cluster?: number;
   /** on soldier-hit, arc to n nearest extra enemies */
@@ -504,6 +510,12 @@ export interface Soldier {
    *  confirms (Z) while the needle overlaps it. Best-of-three — defender
    *  takes 2 → fights free; attacker takes 2 → `locked`, and only a LOCKED
    *  rear pin accepts the §14.2 finisher. Front pins never carry one. */
+  /** §BEAMS held-stream state: heat 0..1 (builds while pouring, cools when
+   *  not), the jam lockout, and the renderer's stream window (re-stamped
+   *  every pouring tick; the stream dies ~0.1s after the trigger lifts). */
+  beamHeat?: number;
+  beamJamUntil?: number;
+  beamingUntil?: number;
   /** §14.2 CHOKE (outcome menu): victim-side progress toward the silent
    *  capture (0..1) and the attacker-side link. Both transient — cleared on
    *  release, interrupt (the choker taking damage), death, or reset. */
@@ -891,6 +903,7 @@ export interface SimEvent {
     | 'disarm'         // §14.2 outcome: the held gun was RIPPED away (weapon = what fell)
     | 'choke_out'      // §14.2 outcome: choked to DOWNED — a silent capture, not a kill
     | 'grab_throw'     // §14.2 outcome: the locked body HEAVED along the attacker's facing
+    | 'beam_jam'       // §BEAMS: a held emitter overheated — locked out for its jam window
     | 'sprinter_wake'  // §7.1: a dormant sprinter just activated — the terror spike
     | 'corpse_critical' // §6: a booked corpse entered its final reanimation window
     | 'contamination'  // §8: a corpse pile curdled into a mutation-field nest

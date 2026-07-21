@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
-import { CLIMB_H, F2_SLIT, F2_WALL, F2_WELL, GRID, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt, losClear, surfaceAt, tileAt } from '../sim/map';
+import { CLIMB_H, F2_SLIT, F2_WALL, F2_WELL, GRID, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, houseAt, losClear, surfaceAt, tileAt } from '../sim/map';
 import { TORCH_MULT, classLinger, eyesSeePoint, perceivesNow, seenRecently, type SeenMark } from '../sim/perception';
 import { paintColorFor } from './onboarding';
 import type { WeatherKind } from '../sim/weather';
@@ -242,6 +242,9 @@ export class Renderer {
   private aimRing: THREE.Group | null = null;
   private spinners: THREE.Object3D[] = [];
   private beams: { mesh: THREE.Mesh; until: number }[] = [];
+  /** §BEAMS row 188: live HELD streams, one per pouring soldier — a unit
+   *  cylinder stretched muzzle→impact every frame while beamingUntil holds. */
+  private heldBeams = new Map<number, THREE.Mesh>();
   private flagMeshes: THREE.Group[] = [];
   private cpRings: THREE.Mesh[] = [];
   private hillRing: THREE.Mesh | null = null;
@@ -2607,6 +2610,57 @@ export class Renderer {
         const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
         if (m && 'opacity' in m) m.opacity = fade * 0.6;
       });
+    }
+
+    // §BEAMS row 188: HELD streams — while a soldier's beamingUntil holds, a
+    // cylinder connects the muzzle to the SAME walked endpoint the sim pours
+    // into (same walk, same math — what you see is what damages). The stream
+    // shivers, sparks at the impact, and dies ~0.1s after the trigger lifts.
+    {
+      const pouring = new Set<number>();
+      for (const s of world.soldiers.values()) {
+        if (s.beamingUntil === undefined || world.time > s.beamingUntil || !s.alive) continue;
+        const hdef = WEAPONS[s.weapons[s.weaponIdx]];
+        if (!hdef?.held) continue;
+        pouring.add(s.id);
+        let hm = this.heldBeams.get(s.id);
+        if (!hm) {
+          const tint = WEAPON_TINTS[hdef.id] ?? (s.ascendant ? LSWS[s.ascendant].color : undefined) ?? TRACER_COLORS.beam;
+          hm = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.09, 0.15, 1, 6, 1, true),
+            new THREE.MeshBasicMaterial({ color: tint, transparent: true, opacity: 0.85, depthWrite: false }),
+          );
+          hm.geometry.rotateX(Math.PI / 2); // unit length along +Z: lookAt + scale.z stretches it
+          this.scene.add(hm);
+          this.heldBeams.set(s.id, hm);
+        }
+        const fx = Math.cos(s.yaw), fz = Math.sin(s.yaw);
+        let end = hdef.range;
+        walk: for (let d = 1; d <= hdef.range; d += 1) {
+          const px = s.pos.x + fx * d, pz = s.pos.z + fz * d;
+          if (blocksShot(world.map.grid, px, pz, 1.3)) { end = d; break; }
+          for (const e of world.soldiers.values()) {
+            if (!e.alive || e.team === s.team) continue;
+            const dx = e.pos.x - px, dz = e.pos.z - pz;
+            if (dx * dx + dz * dz <= 1.21) { end = d; break walk; }
+          }
+        }
+        const ax = s.pos.x + fx * 0.8, az = s.pos.z + fz * 0.8;
+        const bx = s.pos.x + fx * end, bz = s.pos.z + fz * end;
+        hm.position.set((ax + bx) / 2, 1.25, (az + bz) / 2);
+        hm.scale.set(1 + Math.sin(world.time * 31) * 0.15, 1, Math.max(0.6, end - 0.8));
+        hm.lookAt(bx, 1.1, bz);
+        if (Math.random() < 0.4) {
+          this.particles.emit({ pos: { x: bx, y: 1.1, z: bz }, count: 2, color: (hm.material as THREE.MeshBasicMaterial).color.getHex(), speed: 3.5, life: 0.18, spread: 0.7, up: 1.5, size: 0.3 });
+        }
+      }
+      for (const [sid, m] of this.heldBeams) {
+        if (!pouring.has(sid)) {
+          this.scene.remove(m);
+          (m.material as THREE.Material).dispose(); m.geometry.dispose();
+          this.heldBeams.delete(sid);
+        }
+      }
     }
 
     // orbital beams fade out (k clamped: replay clocks run behind live time)
