@@ -878,7 +878,12 @@ export class World {
             const dx = e.pos.x - s.pos.x, dz = e.pos.z - s.pos.z, dd = Math.hypot(dx, dz);
             if (dd > r || dd < 0.01) continue;
             e.pushX += (dx / dd) * 18 * (sw > 0 ? 1.3 : 1); e.pushZ += (dz / dd) * 18 * (sw > 0 ? 1.3 : 1);
-            if (sw > 0) this.damageSoldier(e, lw.damage * (1 - dd / r), s.id, s.weapons[s.weaponIdx]); // ring falloff
+            if (sw > 0) {
+              this.damageSoldier(e, lw.damage * (1 - dd / r), s.id, s.weapons[s.weaponIdx]); // ring falloff
+              // W1.5: the heavy slam (Titan-class) is past the threshold — it
+              // FLIPS, it doesn't just shove. A plain leap stays travel.
+              this.maybeRagdoll(e, 18 * 1.3);
+            }
           }
           // the slam cracks masonry in the ring (heavy — breaches cover walls)
           if (sw > 0) {
@@ -4707,6 +4712,19 @@ export class World {
     return false;
   }
 
+  /** M1 THE RAGDOLL THRESHOLD (STATUS §1 / W1.5): a knockback impulse this big
+   *  flips a soldier into luggage until they get up — WHEREVER it comes from, not
+   *  just a blast. Gods are too heavy to flip; the encased already refused the
+   *  shove. Extends an existing tumble (never shortens it) and only rings the
+   *  'ragdoll' event on a fresh flip, so overlapping hits don't stutter it. */
+  maybeRagdoll(s: Soldier, applied: number) {
+    if (applied < RAGDOLL_AT || s.ascendant || s.encasedUntil !== undefined) return;
+    const until = this.time + 0.9 + Math.min(0.6, (applied - RAGDOLL_AT) * 0.05);
+    const alreadyDown = s.ragdollUntil !== undefined && this.time < s.ragdollUntil;
+    s.ragdollUntil = Math.max(s.ragdollUntil ?? 0, until);
+    if (!alreadyDown) this.emit({ type: 'ragdoll', pos: { ...s.pos }, soldierId: s.id });
+  }
+
   explode(pos: Vec3, def: (typeof WEAPONS)[WeaponId], ownerId: number, team: Team, airBurst = false) {
     // THE TWO ZONES (Robert: "a circle in the center, and a radius around
     // that… the closer you are, the more"). The lethal HEART — a direct-hit
@@ -4744,12 +4762,9 @@ export class World {
           s.pushX += ((s.pos.x - pos.x) / dl) * applied;
           s.pushZ += ((s.pos.z - pos.z) / dl) * applied;
           // M1 THE RAGDOLL THRESHOLD: enough blast and the body stops being
-          // yours — you tumble as luggage, then GET UP. Gods are too heavy
-          // to flip; power armor already refused the shove above.
-          if (applied >= RAGDOLL_AT && !s.ascendant && s.encasedUntil === undefined) {
-            s.ragdollUntil = this.time + 0.9 + Math.min(0.6, (applied - RAGDOLL_AT) * 0.05);
-            this.emit({ type: 'ragdoll', pos: { ...s.pos }, soldierId: s.id });
-          }
+          // yours — you tumble as luggage, then GET UP. (Now shared with the
+          // slam and any other big shove — see maybeRagdoll.)
+          this.maybeRagdoll(s, applied);
           // vertical pop capped at 6: artillery-class knockback (20+) would
           // otherwise launch soldiers into low-g orbit — the horizontal shove
           // carries the drama, the hop just sells the blast
