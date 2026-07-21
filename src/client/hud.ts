@@ -294,6 +294,21 @@ export class Hud {
           plate.classList.remove('hidden');
         } else plate.classList.add('hidden');
       }
+      // WEAPON MEMORY: the equipped gun's SERVICE RECORD, engraved on the plate
+      // every frame (it grows as you fight). Distance is FAMILY-GATED — the
+      // marksman line boasts its reach; a shotgun keeps the range off the face.
+      const tally = $('wcam-tally');
+      const led = this.gunLedger.get(wid);
+      if (led && led.kills > 0) {
+        const showRange = (def.tracer === 'bullet' || def.tracer === 'rail') && (def.range ?? 0) >= 40 && led.longest >= 20;
+        // hull stamps as short mono tags (no emoji — the house type law): the
+        // TYPES of vehicles this gun has killed, Robert's ask
+        const hulls = Object.entries(led.hulls).filter(([, n]) => (n ?? 0) > 0)
+          .map(([k, n]) => `${(VEHICLES[k as keyof typeof VEHICLES]?.name ?? k).slice(0, 4).toUpperCase()}${(n ?? 0) > 1 ? `×${n}` : ''}`).join(' ');
+        tally.innerHTML = `${led.kills} CONFIRMED${showRange ? ` · ${led.longest.toFixed(0)}u` : ''}`
+          + (hulls ? ` <span class="wt-hull">${hulls}</span>` : '');
+        tally.classList.remove('hidden');
+      } else tally.classList.add('hidden');
       // coach-ui: NO emoji in the lockup — the 🎯 rendered magenta (a house-law
       // violation) and full-color emoji broke the mono/stencil type system
       $('weapon-name').textContent = def.name;
@@ -857,10 +872,30 @@ export class Hud {
    *  runs backwards past us. */
   private prints = 1;
   private lastSimTime = 0;
+  /** WEAPON MEMORY slice 1 (Robert: "certain guns have the distance… the type
+   *  of vehicles they've taken out"): a per-weapon-id session ledger, fed from
+   *  the DeathReport stream, read by the weapon-cam plate. Client-side and
+   *  match-scoped for now; the sim-owned serial registry is the later slice. */
+  private gunLedger = new Map<string, { kills: number; longest: number; hulls: Partial<Record<string, number>> }>();
+  private ledgerFor(id: string) {
+    let g = this.gunLedger.get(id);
+    if (!g) { g = { kills: 0, longest: 0, hulls: {} }; this.gunLedger.set(id, g); }
+    return g;
+  }
 
   applyEvents(events: SimEvent[], world: World, localId: number, now: number) {
-    if (world.time < this.lastSimTime) this.prints = 1; // new match, first body
+    if (world.time < this.lastSimTime) { this.prints = 1; this.gunLedger.clear(); } // new match
     this.lastSimTime = world.time;
+    for (const e of events) {
+      // THE GUN REMEMBERS — only MY kills, keyed by the weapon that made them
+      if (e.type === 'death' && e.killerId === localId && e.weaponId) {
+        const g = this.ledgerFor(e.weaponId);
+        g.kills++;
+        if ((e.dist ?? 0) > g.longest) g.longest = Math.round((e.dist ?? 0) * 10) / 10;
+      } else if (e.type === 'vehicle_destroyed' && e.killerId === localId && e.weaponId && e.vehKind) {
+        this.ledgerFor(e.weaponId).hulls[e.vehKind] = (this.ledgerFor(e.weaponId).hulls[e.vehKind] ?? 0) + 1;
+      }
+    }
     for (const e of events) {
       if (e.type === 'death' && e.victimName) {
         const killerTeamCls = e.killerTeam !== undefined ? `t${e.killerTeam}` : 'zed';

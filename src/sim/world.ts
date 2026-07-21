@@ -5058,7 +5058,9 @@ export class World {
       // B1: a wreck goes on its owner team's bill at requisition value
       this.warLedger[v.team].hulls += VEHICLES[v.kind].cost ?? 1;
       v.respawnAt = this.time + VEHICLE_RESPAWN;
-      this.emit({ type: 'vehicle_destroyed', pos: { ...v.pos } });
+      // DEATH-DATA / weapon-memory: credit the kill so a gun can stamp the
+      // HULL TYPE it killed (Robert: "the type of vehicles they've taken out")
+      this.emit({ type: 'vehicle_destroyed', pos: { ...v.pos }, killerId: attackerId, weaponId: weapon, vehKind: v.kind });
       this.emit({ type: 'explosion', pos: { ...v.pos }, weapon: 'tank_cannon' });
       // occupants take heavy damage and are ejected
       for (const sid of v.seats) {

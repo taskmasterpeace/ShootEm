@@ -879,6 +879,8 @@ export interface SimEvent {
   overkill?: number;       // damage past 0 hp — the size of the blow
   timeAlive?: number;      // seconds the victim lived this print
   killerVehicle?: VehicleKind; // set when the killer was in a hull (roadkill / gun)
+  /** on 'vehicle_destroyed': the hull's type, so the killer's gun can stamp it */
+  vehKind?: VehicleKind;
 }
 
 export interface ModeState {

@@ -361,6 +361,15 @@ html, body {
   font-family: var(--font-mono); font-size: 0.56rem; letter-spacing: 0.14em;
   color: var(--muted); text-transform: uppercase;
 }
+/* WEAPON MEMORY: the service record stamped along the bottom of the plate */
+#wcam-tally {
+  position: absolute; left: 0; right: 0; bottom: 0; line-height: 1;
+  font-family: var(--font-mono); font-size: 0.58rem; letter-spacing: 0.06em;
+  color: var(--accent); text-align: left; padding: 2px 5px;
+  background: linear-gradient(0deg, oklch(0 0 0 / 0.72), transparent);
+}
+#wcam-tally.hidden { display: none; }
+#wcam-tally .wt-hull { color: var(--muted); }
 /* THE SEGMENTED METER (UX-LANGUAGE §8, DECIDED shape + amber lead-notch).
    One grammar: notches fill L→R, the top band burns hotter, the last notch
    flares red on overcharge, and the 2px lead-notch rides the exact edge. */
