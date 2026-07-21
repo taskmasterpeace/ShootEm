@@ -109,7 +109,7 @@ Implementation plan: **`PLAN 2026-07-20-sight-and-steel.md` § B** · **terminol
 | Crew dots per seat + walk-up occupancy | ✅ | `hud.ts:209-226` |
 | Right-click command wheel (order bots) | ❌ | RMB is alt-fire; no order path. BACKLOG (E1) |
 | Rank insignia visible in match | ❌ | rank shows only in menus. BACKLOG W3.9 |
-| Altitude band readout when flying | ❌ | HUD is band-blind. §8 below |
+| Altitude band readout when flying | ✅ | **SHIPPED (B2, row was stale).** The vehicle line reads `ALT ▁▂▅█ n/3` + the band-2/3 `— SAM-only sky` sanctuary reminder (`hud.ts` ~257). Live-verified in-match: `ALT ▅ 2/3 — SAM-only sky` |
 
 ## 6 · AIR & ARMOR
 
@@ -121,7 +121,7 @@ Implementation plan: **`PLAN 2026-07-20-sight-and-steel.md` § B** · **terminol
 | Flares vs heat-seekers | ✅ | `world.ts:2820`, bots pop them too |
 | Hoverboard drift / slip | ✅ | `world.ts:3526` |
 | Death frees the vehicle seat | ✅ | `world.ts:4409` |
-| **Planes read as HIGH enough** | ❌ | **new diagnosis:** aircraft cast NO shadow, no parallax scale, no camera lift, and the HIGH band (Y=5.4) sits *below* two-storey rooftops (8.15). §8. BACKLOG (new air item) |
+| **Planes read as HIGH enough** | ✅ | **SHIPPED (B2 trio, row was stale):** the SHADOW ALTIMETER (`89e717c` — fixed-wing hulls cast a ground blob that grows+fades with altitude; the hovering Kestrel exempt by design), the CLOUD SHELF (`a0cbe12` — band 3 flies IN the clouds), and REAL ALTITUDE (`472d864` — sanctuary law + `BAND_ALT [0.12, 2.0, 8.6, 14.0]`: band 2 renders *above* the 8.15 rooftops, band 3 at 14). The old diagnosis (no shadow / no parallax / HIGH below rooftops) is fully answered |
 | Aircraft can crash into terrain/buildings | ❌ | `flies` skips collision entirely (`world.ts:3553`). BACKLOG W5.1 |
 | Map wraparound for aircraft | ❌ | hard border clamp. BACKLOG W5.2 |
 | Drive-by shooting (personal weapon from a seat) | ❌ | seated fire never reaches `fireWeapon`. BACKLOG W5.4 |
