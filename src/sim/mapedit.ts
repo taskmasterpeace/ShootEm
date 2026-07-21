@@ -68,6 +68,13 @@ function cloneMap(m: GameMap): GameMap {
       objectives: m.operation.objectives.map((objective) => ({ ...objective, pos: { ...objective.pos } })),
       protectedZones: m.operation.protectedZones.map((zone) => ({ ...zone, pos: { ...zone.pos } })),
     } : undefined,
+    theater: m.theater ? {
+      ...m.theater,
+      domains: [...m.theater.domains],
+      routes: m.theater.routes.map((route) => ({ ...route, points: route.points.map((point) => ({ ...point })) })),
+      landingZones: m.theater.landingZones.map((zone) => ({ ...zone, pos: { ...zone.pos } })),
+      deepWater: [...m.theater.deepWater],
+    } : undefined,
   };
 }
 
@@ -192,6 +199,7 @@ export interface MapJSON {
   vehiclePads: VehiclePad[]; pickups: PickupSpawn[]; props: PropSpec[];
   zombieSpawns: Vec3[]; houses: House[]; theme: GameMap['theme'];
   operation?: GameMap['operation'];
+  theater?: GameMap['theater'];
   claims: TileClaim[];
 }
 
@@ -205,6 +213,7 @@ export function serializeDoc(doc: MakerDoc): MapJSON {
     controlPoints: m.controlPoints, vehiclePads: m.vehiclePads, pickups: m.pickups,
     props: m.props, zombieSpawns: m.zombieSpawns, houses: m.houses, theme: m.theme,
     operation: m.operation,
+    theater: m.theater,
     claims: doc.claims,
   };
 }
@@ -224,6 +233,7 @@ export function deserializeDoc(json: MapJSON): MakerDoc {
     props: json.props, zombieSpawns: json.zombieSpawns, houses: json.houses,
     gates: [], pads: [], propCovered: settleClaims(grid, json.claims),
     operation: json.operation,
+    theater: json.theater,
   };
   return {
     frontId: json.frontId, size: json.size, seed: json.seed, mode: 'tdm',

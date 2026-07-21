@@ -346,7 +346,7 @@ git commit -m "feat: render and edit rectangular theaters"
 - Produces: `TheaterId`, `TheaterDomain`, `TheaterRoute`, `LandingZone`, `TheaterMetadata`, `THEATER_DEFS`, `createTheaterBase`, `carveRoute`, `placeDomainPad`, `finalizeTheater`, `generateTheater`.
 - Consumes: geometry helpers, terrain constants, `Rng`, `GameMap`, `VehicleKind`.
 
-- [ ] **Step 1: Write failing catalog and base-builder tests**
+- [x] **Step 1: Write failing catalog and base-builder tests**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -373,13 +373,13 @@ describe('vehicle theater catalog', () => {
 });
 ```
 
-- [ ] **Step 2: Run the catalog test and verify RED**
+- [x] **Step 2: Run the catalog test and verify RED**
 
 Run: `npx vitest run tests/theaters.test.ts`
 
 Expected: FAIL because the theater modules do not exist.
 
-- [ ] **Step 3: Implement types, definitions, and builder invariants**
+- [x] **Step 3: Implement types, definitions, and builder invariants**
 
 ```ts
 export type TheaterId = 'city' | 'desert' | 'countryside' | 'mountain' | 'coastal' | 'ocean';
@@ -396,13 +396,13 @@ export interface TheaterMetadata {
 
 `createTheaterBase` allocates three layers, seals the rim, initializes empty entities, and attaches metadata. `carveRoute` stamps a disc of the declared width along each segment. `placeDomainPad` verifies surface/domain before appending. `finalizeTheater` validates layer lengths, prunes stale claims/props, and throws `theater <id> seed <seed>: <law>` on failure.
 
-- [ ] **Step 4: Run the catalog test**
+- [x] **Step 4: Run the catalog test**
 
 Run: `npx vitest run tests/theaters.test.ts -t "catalog|base"`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit theater infrastructure**
+- [x] **Step 5: Commit theater infrastructure**
 
 ```bash
 git add src/sim/theater-types.ts src/sim/theater-builder.ts src/sim/theaters.ts src/sim/map.ts tests/theaters.test.ts

@@ -6,6 +6,7 @@ import { fillRegions } from './chunks';
 import { THEMES } from './data';
 import type { ModeId, Team, ThemeId, Vec3, VehicleKind } from './types';
 import type { OperationPhaseKind, OperationScale, OperationSiteId } from './operations';
+import type { TheaterMetadata } from './theater-types';
 import {
   LEGACY_GEOMETRY,
   inBounds as geometryInBounds,
@@ -198,6 +199,8 @@ export interface GameMap {
   theme: ThemeId;
   /** Authoritative tile dimensions. Legacy battlefields are 100×100×3. */
   geometry: MapGeometry;
+  /** Vehicle-scale theater routes, landing zones, and domain metadata. */
+  theater?: TheaterMetadata;
   grid: Uint8Array; // GRID*GRID
   /** the SECOND STOREY (§8.4 Phase-2): F2_* per tile — void unless a
    *  two-storey building stamped an upper floor here. Static after gen. */
