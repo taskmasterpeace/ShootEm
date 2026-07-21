@@ -5,8 +5,8 @@
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
 import {
-  BAND_EDGE, FRONTS, SEASON_FRONTS_TO_WIN, applyResult, bandOf, checkSeasonEnd,
-  freshCampaign, holdTheLine,
+  BAND_EDGE, CLONE_RECOVER, FRONTS, SEASON_FRONTS_TO_WIN, applyResult, bandOf, checkSeasonEnd,
+  cloneSeedFor, freshCampaign, holdTheLine,
 } from '../src/client/campaign';
 
 describe('the Living Campaign', () => {
@@ -78,6 +78,31 @@ describe('the Living Campaign', () => {
     }
     expect(c.dispatch[0].text).toContain('ARMISTICE');
     expect(c.dispatch[0].simulated).toBe(false);
+  });
+
+  it('W3.3: clones are the currency — deaths spend, wins convoy, ZERO loses the front', () => {
+    const f = FRONTS[0];
+    const seed = cloneSeedFor(f);
+    const c = freshCampaign(1_700_000_000_000);
+    expect(c.fronts[f.id].clones).toBe(seed);
+    // a bloody WIN: deaths spend the vat, the convoy pays some back
+    applyResult(c, f.id, true, 1_700_000_100_000, 100);
+    expect(c.fronts[f.id].clones).toBe(seed - 100 + CLONE_RECOVER);
+    // grind it near the floor, then one more bloody day EMPTIES the vats
+    c.fronts[f.id].clones = 30;
+    const lines = applyResult(c, f.id, true, 1_700_000_200_000, 30);
+    expect(c.fronts[f.id].clones, 'the vats stand empty').toBe(0);
+    expect(c.fronts[f.id].control, 'no bodies to hold it — the front is LOST').toBe(-100);
+    expect(lines.some((l) => l.includes('run DRY')), 'the dispatch says so').toBe(true);
+  });
+
+  it('W3.3: the CRITICAL warning fires once as the reserve crosses a quarter', () => {
+    const f = FRONTS[0];
+    const seed = cloneSeedFor(f);
+    const c = freshCampaign(1_700_000_000_000);
+    c.fronts[f.id].clones = seed * 0.3;
+    const lines = applyResult(c, f.id, false, 1_700_000_100_000, Math.ceil(seed * 0.07));
+    expect(lines.some((l) => l.includes('CRITICAL')), 'the quartermaster warns').toBe(true);
   });
 
   it('W3.1: the war only moves while you play — an absence changes NOTHING', () => {

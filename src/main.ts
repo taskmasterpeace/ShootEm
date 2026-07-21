@@ -748,7 +748,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
         if (activeFrontId && campaign) {
           const front = campaign.fronts[activeFrontId];
           const before = front?.control ?? 0;
-          applyResult(campaign, activeFrontId, sum.won);
+          applyResult(campaign, activeFrontId, sum.won, Date.now(), sum.deaths ?? 0); // W3.3: your dead spend the front's clones
           if (front) {
             const d = front.control - before;
             const fname = FRONTS.find((f) => f.id === activeFrontId)?.name ?? activeFrontId;

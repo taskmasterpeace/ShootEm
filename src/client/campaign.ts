@@ -46,7 +46,19 @@ export type Band = 'coalition' | 'contested' | 'collective';
 export const bandOf = (control: number): Band =>
   control >= BAND_EDGE ? 'coalition' : control <= -BAND_EDGE ? 'collective' : 'contested';
 
-export interface FrontState { control: number; scarActive: boolean; lastBattleAt: number }
+export interface FrontState {
+  control: number; scarActive: boolean; lastBattleAt: number;
+  /** W3.3 CLONES ARE THE CURRENCY: the front's reprint reserve. Your side's
+   *  deaths in a battle here SPEND it; a win convoys some back; at ZERO the
+   *  front is LOST outright — no bodies left to hold the line. */
+  clones: number;
+}
+
+/** W3.3: a front's starting reserve scales with its importance. */
+export const CLONE_SEED = 400;
+export const cloneSeedFor = (f: FrontDef) => Math.round(CLONE_SEED * f.importance);
+/** a won battle convoys replacements in (never past the seed) */
+export const CLONE_RECOVER = 60;
 export interface Campaign {
   v: 1;
   season: number;
@@ -60,7 +72,7 @@ const LS_KEY = 'ww_campaign';
 
 export function freshCampaign(now = Date.now()): Campaign {
   const fronts: Record<string, FrontState> = {};
-  for (const f of FRONTS) fronts[f.id] = { control: 0, scarActive: false, lastBattleAt: 0 };
+  for (const f of FRONTS) fronts[f.id] = { control: 0, scarActive: false, lastBattleAt: 0, clones: cloneSeedFor(f) };
   return { v: 1, season: 1, updatedAt: now, fronts, dispatch: [] };
 }
 
@@ -70,7 +82,10 @@ export function loadCampaign(now = Date.now()): Campaign {
     if (raw) {
       const c = JSON.parse(raw) as Campaign;
       if (c.v === 1) {
-        for (const f of FRONTS) c.fronts[f.id] ??= { control: 0, scarActive: false, lastBattleAt: 0 };
+        for (const f of FRONTS) {
+          c.fronts[f.id] ??= { control: 0, scarActive: false, lastBattleAt: 0, clones: cloneSeedFor(f) };
+          c.fronts[f.id].clones ??= cloneSeedFor(f); // W3.3 migration: old saves get full reserves
+        }
         return c;
       }
     }
@@ -83,8 +98,9 @@ export function saveCampaign(c: Campaign) {
   try { localStorage.setItem(LS_KEY, JSON.stringify(c)); } catch { /* storage full — the war plays on */ }
 }
 
-/** Fold one battle into the war (22B). Returns the dispatch lines it wrote. */
-export function applyResult(c: Campaign, frontId: string, won: boolean | null, now = Date.now()): string[] {
+/** Fold one battle into the war (22B). `deaths` is YOUR side's body count —
+ *  W3.3 spends it from the front's clone reserve. Returns the dispatch lines. */
+export function applyResult(c: Campaign, frontId: string, won: boolean | null, now = Date.now(), deaths = 0): string[] {
   const def = FRONTS.find((f) => f.id === frontId);
   const st = c.fronts[frontId];
   if (!def || !st || won === null) return [];
@@ -93,6 +109,19 @@ export function applyResult(c: Campaign, frontId: string, won: boolean | null, n
   st.control = Math.max(-100, Math.min(100, Math.round((st.control + shift) * 10) / 10));
   st.lastBattleAt = now;
   const lines: string[] = [];
+  // W3.3 CLONES ARE THE CURRENCY: every one of your dead was a reprint the
+  // front paid for. A win convoys some replacements in; an empty vat is an
+  // empty line — the front falls outright, whatever the scoreboard said.
+  const seed = cloneSeedFor(def);
+  const clonesBefore = st.clones ?? seed;
+  st.clones = Math.max(0, clonesBefore - deaths);
+  if (won && st.clones > 0) st.clones = Math.min(seed, st.clones + CLONE_RECOVER);
+  if (st.clones === 0 && clonesBefore > 0) {
+    st.control = -100; // no bodies to hold it — the Collective walks in
+    lines.push(`${def.name} has run DRY of clones — the front is LOST. The vats stand empty.`);
+  } else if (st.clones > 0 && st.clones <= seed * 0.25 && clonesBefore > seed * 0.25) {
+    lines.push(`${def.name} reserves CRITICAL: ${Math.round(st.clones)} clones left in the vats.`);
+  }
   const after = bandOf(st.control);
   if (after !== before) {
     lines.push(after === 'contested'
@@ -139,7 +168,7 @@ export function checkSeasonEnd(c: Campaign, now = Date.now()): Armistice | null 
     { text: `ARMISTICE — Season ${season} is over. ${name} takes the war, holding ${held[winner]} of ten fronts. The theatre resets; the record remains.`, at: now, simulated: false },
   );
   if (c.dispatch.length > 60) c.dispatch.length = 60;
-  for (const f of FRONTS) c.fronts[f.id] = { control: 0, scarActive: false, lastBattleAt: 0 };
+  for (const f of FRONTS) c.fronts[f.id] = { control: 0, scarActive: false, lastBattleAt: 0, clones: cloneSeedFor(f) }; // the armistice refills the vats
   c.season = season + 1;
   return { winner, season, frontsHeld: held[winner] };
 }

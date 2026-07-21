@@ -14,7 +14,7 @@ import { isCoopMode, type AscendantId, type ClassId, type ModeId, type PlayerCmd
 import { LSWS } from '../sim/lsw';
 import { drainCmd, newCmdQueue, pushCmd, resetCmdQueue, type CmdQueueState } from './input-queue';
 import {
-  FRONTS, applyNudge, freshCampaign, stageOperation, type Campaign,
+  FRONTS, applyNudge, cloneSeedFor, freshCampaign, stageOperation, type Campaign,
 } from '../client/campaign';
 import {
   campaignSummary, keyOk, roomStatus, type WarroomCmd, type WarroomCmdResult, type WarroomStatus,
@@ -277,7 +277,10 @@ function loadServerCampaign(): Campaign {
   try {
     const c = JSON.parse(readFileSync(CAMPAIGN_FILE, 'utf8')) as Campaign;
     if (c.v === 1) {
-      for (const f of FRONTS) c.fronts[f.id] ??= { control: 0, scarActive: false, lastBattleAt: 0 };
+      for (const f of FRONTS) {
+        c.fronts[f.id] ??= { control: 0, scarActive: false, lastBattleAt: 0, clones: cloneSeedFor(f) };
+        c.fronts[f.id].clones ??= cloneSeedFor(f); // W3.3 migration
+      }
       return c;
     }
   } catch { /* fresh theatre — first boot or a mangled file */ }
