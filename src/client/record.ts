@@ -211,6 +211,29 @@ export class MatchTracker {
     }
   }
 
+  /** THE AAR VIEWS (Robert: "at the end of the match we need WAY more
+   *  details — we captured rich data, show rich stuff"). Read-only windows
+   *  into what the tracker already hoarded, for the closing screen. */
+  weaponLines(): { weapon: string; kills: number }[] {
+    return [...this.byWeapon].map(([weapon, kills]) => ({ weapon, kills }))
+      .sort((a, b) => b.kills - a.kills || a.weapon.localeCompare(b.weapon));
+  }
+
+  get longestHitDist(): number { return this.longestHit; }
+
+  /** The match's story beats, as chips. */
+  moments(): string[] {
+    const out: string[] = [];
+    if (this.firstBlood) out.push('🩸 FIRST BLOOD');
+    if (this.grenadier) out.push('💣 GRENADIER — doubled with the frag');
+    if (this.avenged) out.push('⚔ AVENGER — dropped a teammate\'s killer');
+    if (this.woundSurvived) out.push('🩹 WALKED IT OFF — back from under 10hp');
+    if (this.hillHold >= 20) out.push(`⛰ HELD THE HILL — ${Math.round(this.hillHold)}s`);
+    // multikill: the densest 4s window of frags across ALL weapons is caught
+    // by fragTimes only for launchers — read kill cadence from byWeapon totals
+    return out;
+  }
+
   /** Per-frame accumulation: hill holds and near-death survivals. */
   update(world: World, meId: number, dt: number) {
     const meS = world.soldiers.get(meId);

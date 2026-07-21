@@ -783,6 +783,32 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
           ${sum.journal.length ? `<p style="margin-top:0.5rem;color:var(--muted)">📖 ${sum.journal[0].text}</p>` : ''}
           ${extras}</div>`;
 
+        // THE AFTER-ACTION REPORT (Robert: "at the end of the match we need
+        // WAY more details — we captured rich data, show rich stuff"): the
+        // tracker's hoard + the roster's own counters, finally on screen.
+        if (tracker) {
+          const meS = world.soldiers.get(me.id);
+          const wl = tracker.weaponLines().slice(0, 4);
+          let ace = { name: '—', kills: 0 };
+          let longShot = { name: '—', d: 0 };
+          for (const s2 of world.humansAndBots()) {
+            if (s2.kills > ace.kills) ace = { name: s2.name, kills: s2.kills };
+            if (s2.longestKill > longShot.d) longShot = { name: s2.name, d: s2.longestKill };
+          }
+          const yours: string[] = [];
+          if (tracker.longestHitDist > 0) yours.push(`🎯 longest ${tracker.longestHitDist.toFixed(0)}u`);
+          if (meS && meS.vehicleKills > 0) yours.push(`⛨ hulls ×${meS.vehicleKills}`);
+          if (meS && meS.healGiven > 0) yours.push(`✚ healed ${Math.round(meS.healGiven)}`);
+          const moments = tracker.moments();
+          hud.careerHtml += `<div id="aar-pane"><h3>After-Action Report</h3>
+            ${wl.length ? `<div class="cp-row">${wl.map((w) => `<span>${w.weapon} <b>×${w.kills}</b></span>`).join('')}</div>` : ''}
+            ${yours.length ? `<div class="cp-row" style="margin-top:0.3rem">${yours.map((y) => `<span>${y}</span>`).join('')}</div>` : ''}
+            ${moments.length ? `<div class="cp-row" style="margin-top:0.3rem">${moments.map((m) => `<span class="aar-moment">${m}</span>`).join('')}</div>` : ''}
+            <div class="cp-row" style="margin-top:0.3rem"><span>★ battle ace — <b>${ace.name}</b> ×${ace.kills}</span>
+            ${longShot.d > 0 ? `<span>🎯 longest shot of the match — <b>${longShot.name}</b>, ${longShot.d.toFixed(0)}u</span>` : ''}</div>
+          </div>`;
+        }
+
         // N1 THE PRESS FILES (Robert: "we could literally make newspapers…
         // to show all the three things that happened"). One issue per battle:
         // the duel, the money, the field. Archived as data in the MAP tab.

@@ -764,6 +764,17 @@ html, body {
 #career-pane h3 { margin: 0 0 0.4rem; font-size: 0.75rem; letter-spacing: 0.07em; text-transform: uppercase; color: var(--accent); }
 #career-pane .cp-row { display: flex; gap: 1.1rem; flex-wrap: wrap; }
 
+/* THE AFTER-ACTION REPORT (Robert: "way more details") — steel sibling of
+   the career pane: your weapons, your numbers, the match's story beats. */
+#aar-pane {
+  margin-top: 0.6rem; padding: 0.8rem 1rem; border: 1px solid var(--border);
+  border-radius: var(--radius); background: oklch(0.18 0.018 74 / 0.5); font-size: 0.85rem;
+}
+#aar-pane h3 { margin: 0 0 0.4rem; font-size: 0.75rem; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+#aar-pane .cp-row { display: flex; gap: 1.1rem; flex-wrap: wrap; }
+#aar-pane b { color: var(--accent); font-weight: 600; }
+.aar-moment { border: 1px solid oklch(0.5 0.1 74 / 0.5); border-radius: 1px; padding: 0.05rem 0.4rem; background: oklch(0.2 0.03 74 / 0.4); }
+
 /* ── THE SCAR: the theater map is the front door (§8.5) ─────────────────── */
 #scar-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr); gap: 0.9rem; }
 #scar-wrap { position: relative; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
