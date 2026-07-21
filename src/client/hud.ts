@@ -46,6 +46,7 @@ export class Hud {
   /** B1 weapon-cam: the weapon id currently baked into the plate */
   private wcamId = '';
   private segMeter: SegMeter | null = null;
+  private lswMeter: SegMeter | null = null;
 
   constructor() {
     // M toggles the minimap between compact and the large tactical view
@@ -88,17 +89,20 @@ export class Hud {
     this.hullBar.innerHTML = '<div id="hull-fill"></div>';
     // THE SIGNATURE METER: an ascended pilot had NO cooldown readout anywhere —
     // nextLswActiveAt was never once read on the client (Robert, on Phantom:
-    // "he doesn't have a meter to tell me when he could phase again")
+    // "he doesn't have a meter to tell me when he could phase again").
+    // B1: it speaks the ONE METER grammar now — its own SegMeter instance.
     this.lswBar.id = 'lsw-bar';
-    this.lswBar.innerHTML = '<div id="lsw-fill"></div>';
     const wb = $('weapon-block');
     wb.appendChild(this.reloadBar);
     wb.appendChild(this.hullBar);
     wb.appendChild(this.lswBar);
     wb.appendChild(this.sysPips);
     // B1 THE ONE METER (UX-LANGUAGE §8, decided): the segmented bar with the
-    // amber lead-notch — reload and Impact Charge both speak through it
+    // amber lead-notch — reload, Impact Charge, and the vehicle WPN cycle all
+    // speak through it; the god's signature gets its own instance below
     this.segMeter = new SegMeter($('seg-meter'));
+    this.lswMeter = new SegMeter(this.lswBar);
+    this.lswMeter.show(false);
     // THE CREW ROW (Robert: "little dots to show how many people are in the
     // vehicle with you, by how many seats it could hold, and then how many
     // people are actually in it")
@@ -209,15 +213,16 @@ export class Hud {
         const period = wdef ? 1 / wdef.rof : 0;
         const wpnDead = (v.systems?.weapon ?? 1) <= 0;
         if (wdef && period >= 0.5 && !wpnDead) {
+          // THE ONE METER (§8): the mounted gun's recharge speaks the same
+          // segmented grammar as every other fill — green notches at READY
           const wait = Math.max(0, (v.nextFireAt ?? 0) - world.time);
           const ready = 1 - Math.min(1, wait / period);
-          this.reloadBar.style.display = 'block';
-          const rf = $('reload-fill');
-          rf.style.width = `${ready * 100}%`;
-          rf.style.background = ready >= 1 ? '#46d17a' : '#f5b21a'; // amber cycling, green READY
+          this.segMeter!.set(ready, ready >= 1 ? 'ready' : 'active');
+          this.segMeter!.show(true);
         } else {
-          this.reloadBar.style.display = 'none';
+          this.segMeter!.show(false);
         }
+        this.reloadBar.style.display = 'none'; // retired — the SegMeter carries it
         this.hullBar.style.display = 'block';
         const hf = $('hull-fill');
         hf.style.width = `${hullFrac * 100}%`;
@@ -377,17 +382,16 @@ export class Hud {
             : `${CLASSES[s.classId].abilityName} · ${bag || 'bag empty'}${altTxt} · X swaps`;
       }
 
-      // THE SIGNATURE METER: fills back toward ready. Hidden for mortals.
+      // THE SIGNATURE METER: fills back toward ready in the ONE grammar —
+      // green notches = press it. Hidden for mortals.
       if (god) {
         const cd = Math.max(0.001, god.activeCd);
         const left = Math.max(0, (s.nextLswActiveAt ?? 0) - world.time);
         const k = Math.max(0, Math.min(1, 1 - left / cd));
-        this.lswBar.style.display = 'block';
-        const lf = $('lsw-fill');
-        lf.style.width = `${k * 100}%`;
-        lf.style.background = k >= 1 ? '#46d17a' : '#e8a33d'; // green = press it
+        this.lswMeter!.set(k, k >= 1 ? 'ready' : 'active');
+        this.lswMeter!.show(true);
       } else {
-        this.lswBar.style.display = 'none';
+        this.lswMeter!.show(false);
       }
     }
 

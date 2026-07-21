@@ -647,11 +647,14 @@ html, body {
 /* the hull bar (crewed) and the god's signature meter — same grammar as the
    reload bar so the weapon block speaks one language. Both colour themselves
    from JS: hull by damage, the signature green the moment Q is ready. */
-#hull-bar, #lsw-bar {
+#hull-bar {
   display: none; width: 100%; height: 5px; margin-top: 0.3rem;
   background: oklch(0.25 0.02 80); border-radius: 2px; overflow: hidden;
 }
-#hull-fill, #lsw-fill { height: 100%; width: 0%; border-radius: 2px; transition: width 0.12s linear; }
+#hull-fill { height: 100%; width: 0%; border-radius: 2px; transition: width 0.12s linear; }
+/* B1: the signature meter is a SegMeter instance now — the .segmeter class
+   drives it; only the slot spacing lives here */
+#lsw-bar { width: 100%; margin-top: 0.3rem; }
 
 /* ammo counter warns before the empty click */
 #ammo-count.low-ammo { color: var(--accent); }
