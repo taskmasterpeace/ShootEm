@@ -389,6 +389,13 @@ export interface Soldier {
    *  deck, so for JET_BREATHER after touchdown the tank refuses to flow —
    *  landing is a commitment, not a trampoline bounce between hops */
   jetRestUntil?: number;
+  /** M1 CHARGED LEAP in flight — while true the arc is BALLISTIC: input
+   *  cannot steer it (the movement block skips its velocity overwrite).
+   *  Cleared the tick the ground clamp zeroes vel.y (either floor). */
+  leaping?: boolean;
+  /** the leap landed LOUD: until this time the soldier rings on recon
+   *  (merged into `pinged` each tick) and counts as noise to dormant ears */
+  loudUntil?: number;
   /** this soldier IS a Living Super Weapon (§21.6). Rides the wire free via
    *  the snapshot spread law — the renderer and brain read it, the sim
    *  treats it as a Soldier with a big HP pool and a special step. */
@@ -819,6 +826,8 @@ export interface SimEvent {
     | 'lsw_active'     // a piloted LSW fired its signature (text = ascendant id)
     | 'nade_bounce'    // a hand grenade kissed the ground — the tick before the bang
     | 'dash'           // M1: a soldier burst forward / tumbled sideways
+    | 'leap'           // M1: the coiled spring released — a charged ballistic leap
+    | 'leapland'       // M1: the leap ARRIVED — loud enough to ping the map
     | 'ragdoll'        // M1: blown past the knockback threshold — body is luggage
     | 'takedown'       // §14.2: a rear-control finisher landed on the pinned body
     | 'axe_throw'      // M5: the axe left the hand
@@ -953,6 +962,10 @@ export interface PlayerCmd {
   /** M1 DASH/ROLL: 0/absent none · 1 dash forward · 2 roll left · 3 roll right.
    *  Double-tap detection lives on the client; the sim only sees intent. */
   dash?: number;
+  /** M1 CHARGED LEAP (STATUS §1: "hold-and-release with a direction; land
+   *  loud, no air control"): 0/absent none · 0..1 = charge on release. The
+   *  direction is moveX/moveZ on the same cmd. Ground classes only. */
+  leap?: number;
   /** M5 MELEE / AXE: the F key, on RELEASE — throw it, recall it, or commit
    *  the (possibly charged) STRIKE. */
   melee?: boolean;

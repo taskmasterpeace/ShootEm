@@ -196,6 +196,13 @@ const ROLL_COST = 20;
 const DASH_IMPULSE = 16;   // decays e^-5t → ~3.2u of burst
 const ROLL_IMPULSE = 13;
 const DASH_CD = 0.9;
+// M1 CHARGED LEAP (STATUS §1: "hold-and-release with a direction; land loud,
+// no air control"): a coiled duck released as a ballistic spring.
+const LEAP_COST = 25;      // dash-priced — the tank is the ONE meter
+const LEAP_H_MIN = 9;      // horizontal u/s at zero charge…
+const LEAP_H_MAX = 15;     // …to full coil (~0.9s past the tap window)
+const LEAP_UP = 6.5;       // the vertical pop — ~0.6s of hang
+const LOUD_LAND = 0.9;     // seconds the arrival RINGS on recon (pings + wakes)
 // M1 RAGDOLL (Robert: "a knockback threshold that ragdolls us… and our
 // characters get up and we get control again"). Applied per-blast impulse at
 // or past this flips the body: conc (26) ragdolls out to ~2.5u, artillery
@@ -1621,6 +1628,10 @@ export class World {
       if (this.time >= until || !t || !t.alive) this.tagged.delete(id);
       else this.pinged.add(id);
     }
+    // M1: a LOUD LANDING rings for a beat — a leap arrival pings like gunfire
+    for (const s of this.soldiers.values()) {
+      if (s.alive && (s.loudUntil ?? 0) > this.time) this.pinged.add(s.id);
+    }
     this.applyReconCountermeasures();
     this.updateLastSeen();
     stepDirector(this, this.director); // §director: drift the pacing band
@@ -2160,6 +2171,15 @@ export class World {
       return;
     }
 
+    // M1 LEAP TOUCHDOWN: the ground clamp zeroes vel.y on ANY floor (0 or
+    // upstairs), so that zero IS the landing — and it lands LOUD: the ring
+    // window feeds `pinged` (recon merge in step) and dormant ears (bots.ts).
+    if (s.leaping && s.vel.y === 0) {
+      s.leaping = false;
+      s.loudUntil = this.time + LOUD_LAND;
+      this.emit({ type: 'leapland', pos: { ...s.pos }, soldierId: s.id });
+    }
+
     // M1 DASH & ROLL (Robert: "dashing forward, rolling to the sides"):
     // double-tap verbs from the client, paid from the stamina tank, gated by
     // one shared cooldown so they can't be chained into flight.
@@ -2182,6 +2202,29 @@ export class World {
           s.rollDir = side;
         }
         this.emit({ type: 'dash', pos: { ...s.pos }, soldierId: s.id });
+      }
+    }
+
+    // M1 THE CHARGED LEAP (STATUS §1): the duck was a COIL — releasing SPACE
+    // with a direction springs a ballistic arc. Paid like a dash, sharing the
+    // dash cooldown (the same "can't be chained into flight" law). Ground
+    // classes only — jetpacks and gods already own the sky. Once airborne the
+    // movement block below leaves vel alone: no air control, land where you
+    // aimed or learn to aim.
+    if ((cmd.leap ?? 0) > 0 && !s.downed && s.vehicleId < 0 && s.encasedUntil === undefined
+        && s.ascendant === undefined && CLASSES[s.classId]?.ability !== 'jetpack' && !s.leaping
+        && s.vel.y === 0 && this.time >= (s.nextDashAt ?? 0) && s.energy >= LEAP_COST) {
+      const len = Math.hypot(cmd.moveX, cmd.moveZ);
+      if (len > 0.01) {
+        s.energy -= LEAP_COST;
+        s.nextDashAt = this.time + DASH_CD;
+        const h = LEAP_H_MIN + (LEAP_H_MAX - LEAP_H_MIN) * Math.min(1, cmd.leap!);
+        s.vel.x = (cmd.moveX / len) * h;
+        s.vel.z = (cmd.moveZ / len) * h;
+        s.vel.y = LEAP_UP;
+        s.leaping = true;
+        s.crouching = false; // the spring released the coil
+        this.emit({ type: 'leap', pos: { ...s.pos }, soldierId: s.id });
       }
     }
 
@@ -2537,8 +2580,12 @@ export class World {
     // is 0/±1 per axis, so player feel is untouched.
     const len = Math.hypot(mx, mz);
     const k = len > 1 ? 1 / len : 1;
-    s.vel.x = mx * k * speed;
-    s.vel.z = mz * k * speed;
+    // M1 CHARGED LEAP mid-arc: the input does NOT write velocity — the arc is
+    // ballistic ("no air control"). Land where you aimed or learn to aim.
+    if (!s.leaping) {
+      s.vel.x = mx * k * speed;
+      s.vel.z = mz * k * speed;
+    }
 
     // jetpack (jump troopers) / hop for everyone. The FLIGHT ECONOMY
     // (Robert: "you can fly across the whole map without ever landing"):

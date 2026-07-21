@@ -41,7 +41,6 @@ If you read one thing, read this. Everything below has a full row further down.
 **Air & armor:** aircraft can't crash · no map wraparound · **planes don't read as high enough** (no shadow, HIGH sits below rooftops) · drive-by shooting · cars that handle like cars · seat-yield · rearm pads.
 **Weapons:** fire modes (single/auto/burst/**double-barrel**/pump) · per-family secondary fire · brand signature mechanics · and the Codex columns for all of it.
 **Beams:** continuous/held beams · **beam-vs-beam clash** · beam birth effects · the seven beam types.
-**Movement:** the charged leap.
 **Loot:** dropped weapons you can pick up off the dead.
 **Armed gods:** bow · spear · recall axe · summoners.
 **Multiplayer:** the whole server/netcode stack (the sim is built for it; nothing is wired).
@@ -198,7 +197,7 @@ Ground-truthed this session. **Beams draw** (as fast box tracers); everything in
 
 | Ask | Status | Evidence / where |
 |---|---|---|
-| Charged **leap** (hold-and-release with a direction; land loud, no air control) | ❌📋 | designed: space = tap-jump / hold-duck / hold+dir-leap. BACKLOG (new) |
+| Charged **leap** (hold-and-release with a direction; land loud, no air control) | ✅ | **DONE 2026-07-21.** SPACE's third face: hold past the tap window WITH a direction = the duck is a COIL; release springs a ballistic arc (charge ramps 9→15 u/s over 0.9s of coil, `leapChargeOnRelease` pure in `input.ts`). Costs 25, shares the dash cooldown, NO air control (`s.leaping` gates the vel overwrite), and lands LOUD: `loudUntil` pings recon like gunfire + wakes dormant sprinters (§7.1). `tests/space-input.test.ts` (+4), `movement-verbs.test.ts` (+2), `sim.test.ts` (+1); live-verified (counter-steer 30 ticks → velX untouched; landing ping true) |
 | Jetpack **commitment cost** (no regen airborne + a timeout after landing) | ✅ | full flight economy: burn-dry latch (relight at 35) + soft ceiling above 6u + ground-only regen + `JET_BREATHER` 1.0s post-landing pause (`world.ts` applyCmd; `tests/sim.test.ts` "landing is a COMMITMENT"). Gods exempt |
 | Dive-roll / mantle / slide-off-sprint | ❌📋 | later; slide rides the hoverboard slip system. BACKLOG (new) |
 

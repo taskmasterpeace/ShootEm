@@ -5,7 +5,7 @@
 // duck stays on C and nothing changes for it.
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
-import { SPACE_TAP_MS, resolveSpace } from '../src/client/input';
+import { LEAP_CHARGE_MS, SPACE_TAP_MS, leapChargeOnRelease, resolveSpace } from '../src/client/input';
 
 describe('resolveSpace — tap jump / hold duck (W1.3)', () => {
   it('a ground class: a quick tap jumps, a long hold ducks', () => {
@@ -26,5 +26,24 @@ describe('resolveSpace — tap jump / hold duck (W1.3)', () => {
     expect(resolveSpace(true, true, 999, false)).toEqual({ jump: true, crouch: false });
     // not held → nothing; the tap one-shot is ignored in held-mode
     expect(resolveSpace(true, false, 0, true)).toEqual({ jump: false, crouch: false });
+  });
+});
+
+describe('leapChargeOnRelease — the duck was a COIL (STATUS §1)', () => {
+  it('a tap is a jump, never a leap — even with a direction held', () => {
+    expect(leapChargeOnRelease(false, SPACE_TAP_MS - 1, true)).toBe(0);
+  });
+  it('a long hold with NO direction was just a duck', () => {
+    expect(leapChargeOnRelease(false, 800, false)).toBe(0);
+  });
+  it('a long hold WITH a direction springs — charge ramps with the coil', () => {
+    const half = leapChargeOnRelease(false, SPACE_TAP_MS + LEAP_CHARGE_MS / 2, true);
+    expect(half).toBeGreaterThan(0.4);
+    expect(half).toBeLessThan(0.6);
+    // a full coil caps at 1 — over-holding buys nothing extra
+    expect(leapChargeOnRelease(false, SPACE_TAP_MS + LEAP_CHARGE_MS * 3, true)).toBe(1);
+  });
+  it('held-thrust classes (jetpack / ascended) never leap off space', () => {
+    expect(leapChargeOnRelease(true, 9999, true)).toBe(0);
   });
 });

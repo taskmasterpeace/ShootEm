@@ -16,6 +16,20 @@ export function resolveSpace(
   return { jump: tapJumpFired, crouch: spaceHeld && heldMs >= SPACE_TAP_MS };
 }
 
+/** STATUS §1 — the third face of SPACE: hold past the tap window WITH a
+ *  direction and the duck is a COIL; releasing springs the CHARGED LEAP.
+ *  Time past the window ramps the charge to full over this many ms. */
+export const LEAP_CHARGE_MS = 900;
+/** Charge (0..1) a SPACE release carries. 0 = not a leap: a tap (that's the
+ *  jump), no direction held (that was just a duck), or a held-thrust class.
+ *  Pure, like resolveSpace — the contract lives in a test, not the DOM. */
+export function leapChargeOnRelease(
+  spaceHeldMode: boolean, heldMs: number, hasDir: boolean,
+): number {
+  if (spaceHeldMode || !hasDir || heldMs < SPACE_TAP_MS) return 0;
+  return Math.min(1, (heldMs - SPACE_TAP_MS) / LEAP_CHARGE_MS);
+}
+
 export class Input {
   private keys = new Set<string>();
   private mouse = { x: 0, y: 0, down: false, rightDown: false };
@@ -30,7 +44,7 @@ export class Input {
   grenadeLob = 1;
   /** F held: charging an Impact Charge (§13). Release commits the strike. */
   private meleeDown = false;
-  private oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false, dash: 0, melee: false, cycleAmmo: false, grapple: false, spaceJump: false };
+  private oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false, dash: 0, melee: false, cycleAmmo: false, grapple: false, spaceJump: false, leap: 0 };
   /** M2 double-tap tracker for dash/roll */
   private lastTap = { key: '', at: 0 };
   /** W1.3: when SPACE went down — a quick release jumps, a long hold ducks. */
@@ -100,8 +114,16 @@ export class Input {
       if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
       const k = e.key.toLowerCase();
       this.keys.delete(k);
-      // W1.3: a quick tap of SPACE is a JUMP (a long hold was a duck — no jump)
-      if (k === ' ' && performance.now() - this.spaceDownAt < SPACE_TAP_MS) this.oneShot.spaceJump = true;
+      // W1.3: a quick tap of SPACE is a JUMP; a long hold was a duck — and if
+      // a direction is still held at release, the duck was a COIL: leap.
+      if (k === ' ') {
+        const held = performance.now() - this.spaceDownAt;
+        if (held < SPACE_TAP_MS) this.oneShot.spaceJump = true;
+        else {
+          const hasDir = this.keys.has('w') || this.keys.has('a') || this.keys.has('s') || this.keys.has('d');
+          this.oneShot.leap = leapChargeOnRelease(false, held, hasDir);
+        }
+      }
       if (k === 'g' && this.grenadeAiming) { this.grenadeAiming = false; this.oneShot.grenade = true; }
       if (k === 'f' && this.meleeDown) { this.meleeDown = false; this.oneShot.melee = true; } // release = commit (§13)
       if (k === 'tab') this.scoreboardHeld = false;
@@ -214,12 +236,13 @@ export class Input {
       nadeCycle: this.oneShot.nadeCycle,
       sprint: this.keys.has('shift'), // M2: hold to run — the tank pays
       dash: this.oneShot.dash,
+      leap: spaceHeldMode ? 0 : this.oneShot.leap, // §1: the coil released
       melee: this.oneShot.melee,   // M5: F released — throw/recall/commit
       meleeHold: this.meleeDown,   // §13: F held — charging the Power Strike
       cycleAmmo: this.oneShot.cycleAmmo, // B — ball/AP/incendiary
       grapple: this.oneShot.grapple,     // Z — the grab
     };
-    this.oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false, dash: 0, melee: false, cycleAmmo: false, grapple: false, spaceJump: false };
+    this.oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false, dash: 0, melee: false, cycleAmmo: false, grapple: false, spaceJump: false, leap: 0 };
     // any mouse/keyboard input hands the wheel back to the desk
     if (cmd.moveX || cmd.moveZ || cmd.fire || this.mouse.down) this.gamepadActive = false;
     this.pollGamepad(local, cmd);

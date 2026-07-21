@@ -4082,6 +4082,20 @@ export class Renderer {
           if (e.pos) this.particles.emit({ pos: { x: e.pos.x, y: 0.9, z: e.pos.z }, count: 7, color: 0xdfe9f2, speed: 7, life: 0.28, spread: 0.6, up: 0.4, gravity: 0 });
           break;
         }
+        case 'leap': {
+          // the coil released — a kick of dirt where the spring left the deck
+          if (e.pos) this.particles.emit({ pos: { x: e.pos.x, y: 0.3, z: e.pos.z }, count: 8, color: 0xcdb98f, speed: 5, life: 0.35, spread: 0.9, up: 1.4, gravity: 6 });
+          if (e.soldierId === localId) audio.play('gravlift', { volume: 0.3, rate: 1.35 });
+          break;
+        }
+        case 'leapland': {
+          // the LOUD landing — a dust ring and a flat thump. The map heard it.
+          if (e.pos) {
+            this.particles.emit({ pos: { x: e.pos.x, y: 0.25, z: e.pos.z }, count: 14, color: 0x9a8a68, speed: 6, life: 0.45, spread: 1.4, up: 0.8, gravity: 9 });
+            audio.play('thump', { pos: e.pos, volume: 0.5, rate: 0.8 });
+          }
+          break;
+        }
         case 'corpse_slam': {
           // A BODY MEETS MASONRY (Robert: "knock you into a wall or
           // something?"). Dust off the wall, a smear where it hit, and the

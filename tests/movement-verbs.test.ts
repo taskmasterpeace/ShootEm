@@ -96,6 +96,35 @@ describe('M1 — sprint, dash, roll, ragdoll', () => {
     expect(g.ragdollUntil).toBeUndefined();
   });
 
+  it('CHARGED LEAP: ballistic, paid, deaf to mid-air steering — and lands LOUD', () => {
+    const w = quiet(); const s = spawn(w);
+    w.step(1 / 60, new Map([[s.id, cmd({ leap: 1, moveX: 1 })]]));  // the spring
+    expect(s.leaping, 'airborne on the arc').toBe(true);
+    expect(s.vel.y, 'the pop is upward').toBeGreaterThan(0);
+    expect(s.energy, 'the tank paid the dash price').toBeLessThanOrEqual(75.5);
+    // mid-air: slam the stick the OTHER way — the arc does not care
+    for (let i = 0; i < 30; i++) w.step(1 / 60, new Map([[s.id, cmd({ moveX: -1 })]]));
+    expect(s.vel.x, 'no air control: still flying +x').toBeGreaterThan(0);
+    // ride it down
+    let guard = 0;
+    while (s.leaping && guard++ < 600) w.step(1 / 60, new Map([[s.id, cmd({ moveX: -1 })]]));
+    expect(s.leaping, 'the ground ends the arc').toBe(false);
+    expect(s.pos.x, 'the leap MOVED him').toBeGreaterThan(2);
+    // the landing RINGS: loudUntil holds and recon pings him
+    expect(s.loudUntil ?? 0).toBeGreaterThan(w.time);
+    expect(w.pinged.has(s.id), 'a loud arrival pings like gunfire').toBe(true);
+  });
+
+  it('the leap shares the dash cooldown — no chaining into flight', () => {
+    const w = quiet(); const s = spawn(w);
+    w.step(1 / 60, new Map([[s.id, cmd({ leap: 1, moveX: 1 })]]));
+    let guard = 0;
+    while (s.leaping && guard++ < 600) w.step(1 / 60, new Map([[s.id, cmd()]]));
+    // instant re-leap: the shared cooldown refuses
+    w.step(1 / 60, new Map([[s.id, cmd({ leap: 1, moveX: 1 })]]));
+    expect(s.leaping, 'the cooldown holds the second spring').toBe(false);
+  });
+
   it('STAT-GATED REGEN: the pathfinder refills faster than the heavy', () => {
     const w1 = quiet(); const path = spawn(w1, 'pathfinder');
     const w2 = quiet(); const heavy = spawn(w2, 'heavy');

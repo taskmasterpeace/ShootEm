@@ -547,6 +547,27 @@ describe('endless horde', () => {
     expect(sprinter.dormant).toBe(false);
   });
 
+  it('a LOUD leap landing wakes a dormant sprinter (§7.1 noise)', () => {
+    const w = new World({ seed: 42, mode: 'horde' });
+    w.outbreakEnabled = true;
+    const a = w.addSoldier('A', 'infantry', 0, 'human');
+    const far = { x: 40, y: 0, z: 40 };
+    const sprinter = w.addZombie('sprinter', far);
+    // inside the NOISE ring (18) but outside NEAR (7) and SIGHT (12): only
+    // sound can reach it — and this survivor is silent
+    a.pos = { x: far.x + 15, y: 0, z: far.z };
+    for (let i = 0; i < 30; i++) w.step(1 / 60, new Map());
+    expect(sprinter.dormant, 'quiet feet leave it asleep').toBe(true);
+    // the survivor ARRIVES — a charged leap thuds down beside it
+    a.loudUntil = w.time + 0.9;
+    let woke = false;
+    for (let i = 0; i < 30 && !woke; i++) {
+      w.step(1 / 60, new Map());
+      for (const e of w.takeEvents()) if (e.type === 'sprinter_wake' && e.soldierId === sprinter.id) woke = true;
+    }
+    expect(woke, 'the thud carried').toBe(true);
+  });
+
   it('bombers explode on death and damage nearby players', () => {
     const w = new World({ seed: 42, mode: 'horde' });
     const a = w.addSoldier('A', 'infantry', 0, 'human');
