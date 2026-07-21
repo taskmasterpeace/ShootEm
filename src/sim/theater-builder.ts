@@ -20,6 +20,13 @@ const SURFACE_BY_THEME = {
   hardpan: S_DIRT,
 } as const;
 
+/** Minimum whole-tile corridor for one hull or two opposing hulls to pass. */
+export function requiredLaneTiles(maxHullRadius: number, passing: boolean, tile = 3): number {
+  const hullWidth = maxHullRadius * 2;
+  const clearance = passing ? hullWidth * 2 + 3 : hullWidth + 2;
+  return Math.max(1, Math.ceil(clearance / tile));
+}
+
 function spawnRing(map: GameMap, center: Vec3): Vec3[] {
   const [cx, cz] = worldToTile(map.geometry, center.x, center.z);
   return Array.from({ length: 8 }, (_, index) => {
@@ -122,7 +129,9 @@ export function finalizeTheater(map: GameMap): GameMap {
   for (let z = 0; z < map.geometry.rows; z++) {
     if (map.grid[z * map.geometry.cols] === T_OPEN || map.grid[z * map.geometry.cols + map.geometry.cols - 1] === T_OPEN) fail('unsealed east/west rim');
   }
-  map.propCovered = [...new Set(map.propCovered.filter((index) => index >= 0 && index < geometryLength(map.geometry)))];
+  map.propCovered = [...new Set(map.propCovered.filter((index) =>
+    index >= 0 && index < geometryLength(map.geometry) && map.grid[index] !== T_OPEN && map.grid[index] !== T_WATER && map.grid[index] !== T_DEEP,
+  ))];
   if (map.theater) map.theater.deepWater = [...map.grid.entries()].filter(([, tile]) => tile === T_DEEP).map(([index]) => index);
   return map;
 }

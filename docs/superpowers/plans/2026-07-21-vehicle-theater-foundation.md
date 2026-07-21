@@ -420,7 +420,7 @@ git commit -m "feat: add vehicle theater catalog"
 - Consumes: Task 4 builder functions and existing building stencils.
 - Produces: `generateCityTheater(seed)`, `generateDesertTheater(seed)`, `generateCountrysideTheater(seed)`.
 
-- [ ] **Step 1: Add failing land-family laws over ten seeds**
+- [x] **Step 1: Add failing land-family laws over ten seeds**
 
 ```ts
 const seeds = [7, 31, 42, 99, 4207, 5150, 7749, 1337, 90210, 606];
@@ -442,13 +442,13 @@ it('city has districts and two heavy through-routes but is not a dogfight site',
 });
 ```
 
-- [ ] **Step 2: Run land-family tests and verify RED**
+- [x] **Step 2: Run land-family tests and verify RED**
 
 Run: `npx vitest run tests/theaters.test.ts -t "city|desert|countryside|land"`
 
 Expected: FAIL because generators and validators are absent.
 
-- [ ] **Step 3: Implement the three distinct grammars**
+- [x] **Step 3: Implement the three distinct grammars**
 
 City: stamp a 12-tile primary avenue cross, two 8-tile bypasses, 16–24 deterministic blocks with existing commercial/residential/industrial buildings, three named districts, bases on opposite avenue ends, and two 30-tile-wide air approaches that terminate outside the dense core.
 
@@ -458,13 +458,13 @@ Countryside: carve a primary paved S-route plus two farm tracks; stamp 3–5 vil
 
 Use deterministic counts derived only from `Rng(seed)`. Mirror strategic assets by team, then allow cosmetic asymmetry. Every road width comes from `requiredLaneTiles(maxHullRadius, passing)` instead of a literal smaller than the Ares clearance.
 
-- [ ] **Step 4: Run land and legacy map laws**
+- [x] **Step 4: Run land and legacy map laws**
 
 Run: `npx vitest run tests/theaters.test.ts tests/fronts.test.ts tests/buildings.test.ts tests/walls.test.ts`
 
 Expected: PASS across all 30 land-theater seeds and all legacy fronts.
 
-- [ ] **Step 5: Commit land theaters**
+- [x] **Step 5: Commit land theaters**
 
 ```bash
 git add src/sim/theaters/land.ts src/sim/theaters.ts tests/theaters.test.ts

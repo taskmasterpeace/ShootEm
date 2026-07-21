@@ -1,6 +1,7 @@
 import { addLandingZone, carveRoute, createTheaterBase, finalizeTheater, routePoints } from './theater-builder';
 import type { GameMap } from './map';
 import type { TheaterDef, TheaterId } from './theater-types';
+import { generateCityTheater, generateCountrysideTheater, generateDesertTheater } from './theaters/land';
 
 export const THEATER_DEFS: Record<TheaterId, TheaterDef> = {
   city: { id: 'city', name: 'Iron Meridian', geometry: { cols: 200, rows: 200, tile: 3 }, theme: 'starship', domains: ['foot', 'ground', 'air'], freeDogfight: false, defaultPads: ['tank', 'apc', 'flyer'] },
@@ -27,6 +28,9 @@ function generateCatalogBase(id: TheaterId, seed: number): GameMap {
 }
 
 export function generateTheater(id: TheaterId, seed: number): GameMap {
+  if (id === 'city') return generateCityTheater(THEATER_DEFS.city, seed);
+  if (id === 'desert') return generateDesertTheater(THEATER_DEFS.desert, seed);
+  if (id === 'countryside') return generateCountrysideTheater(THEATER_DEFS.countryside, seed);
   return generateCatalogBase(id, seed);
 }
 
