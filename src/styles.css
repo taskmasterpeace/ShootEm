@@ -83,6 +83,11 @@ html, body {
   text-shadow: 0 2px 0 oklch(0 0 0 / 0.5), 0 0 34px oklch(0.76 0.16 74 / 0.18);
 }
 .game-title span { color: var(--accent); }
+/* the theater designator — EARTH is where this war happens (locked 2026-07-20) */
+.game-title .title-earth {
+  color: var(--muted); font-size: 0.42em; letter-spacing: 0.18em;
+  vertical-align: 0.52em; margin-left: 0.18em;
+}
 .tagline {
   color: var(--muted); margin: 0.55rem 0 1.6rem;
   font-size: 0.82rem; letter-spacing: 0.22em; text-transform: uppercase;

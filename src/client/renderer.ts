@@ -186,6 +186,9 @@ export class Renderer {
   private pingMarkers = new Map<number, THREE.Sprite>();   // revealed enemies get a chevron
   private pingTexture: THREE.Texture | null = null;
   private sweepRings: { mesh: THREE.Mesh; born: number }[] = []; // sensor-station radar pulses
+  /** ✦ sonic-boom vapor rings (afterburner at speed) + per-hull burner edge memory */
+  private boomRings: { mesh: THREE.Mesh; born: number }[] = [];
+  private burnerWas = new Map<number, boolean>();
   private nextSweepAt = new Map<number, number>();          // vehicle id → next sweep time
   private ecmRings = new Map<number, THREE.Mesh>();         // crewed ECM jam-radius rings
   private nextSmokeAt = new Map<number, number>();          // vehicle id → next damage-smoke puff
@@ -1710,14 +1713,42 @@ export class Renderer {
         const alt = prev + (target - prev) * Math.min(1, dt * 1.6);
         this.flyerAlt.set(v.id, alt);
         hoverBob = alt;
-        // the burner shows: the thrust flame stretches while it's lit
+        // the burner shows: the thrust flame STRETCHES on the thrust axis
+        // (a lance of fire, not a bigger candle) and flickers at 30Hz
         for (const tn of ['thrustL', 'thrustR']) {
           const fl = mesh.getObjectByName(tn);
           if (fl) {
-            const want = v.burnerOn ? 2.1 : 1;
+            const want = v.burnerOn ? 2.6 : 1;
             const cur = (fl.scale.x + (want - fl.scale.x) * Math.min(1, dt * 8));
-            fl.scale.setScalar(cur);
+            const flick = v.burnerOn ? 1 + Math.sin(world.time * 60 + v.id) * 0.12 : 1;
+            fl.scale.set(cur * flick, 0.65 + cur * 0.35, 0.65 + cur * 0.35);
           }
+        }
+        // ✦ THE SOUND BARRIER BREAKS (Robert: "I want the ring showing that
+        // it's breaking the sound barrier"): the tick the afterburner lights
+        // at real airspeed, a white vapor cone-ring snaps perpendicular to
+        // the fuselage, expands and shreds, with a double-crack boom. Once
+        // per burn — the ring is the receipt for the commitment.
+        {
+          const wasBurning = this.burnerWas.get(v.id) ?? false;
+          const speed = Math.hypot(v.vel.x, v.vel.z);
+          if (v.burnerOn && !wasBurning && speed > vdef.speed * 0.55) {
+            const geo = new THREE.RingGeometry(0.7, 1.5, 26);
+            const mat2 = new THREE.MeshBasicMaterial({
+              color: 0xf4f8ff, transparent: true, opacity: 0.85,
+              side: THREE.DoubleSide, depthWrite: false,
+            });
+            const ring = new THREE.Mesh(geo, mat2);
+            ring.position.set(v.pos.x, hoverBob, v.pos.z);
+            // plane faces the direction of flight: ring lies perpendicular
+            ring.rotation.set(0, -v.yaw + Math.PI / 2, 0);
+            this.scene.add(ring);
+            this.boomRings.push({ mesh: ring, born: world.time });
+            // the double-crack: two thumps a hair apart, the second softer
+            audio.play('thump', { pos: v.pos, volume: 0.9 });
+            setTimeout(() => audio.play('thump', { pos: { ...v.pos }, volume: 0.45 }), 90);
+          }
+          this.burnerWas.set(v.id, !!v.burnerOn);
         }
       }
       mesh.position.set(v.pos.x, hoverBob, v.pos.z);
@@ -2228,6 +2259,19 @@ export class Renderer {
         sw.mesh.geometry.dispose();
         (sw.mesh.material as THREE.Material).dispose();
         this.sweepRings.splice(i, 1);
+      }
+    }
+    // ✦ sonic-boom rings: snap out fast, shred as they die (0.4s life)
+    for (let i = this.boomRings.length - 1; i >= 0; i--) {
+      const br = this.boomRings[i];
+      const k = Math.min(1, Math.max(0, (world.time - br.born) / 0.4));
+      br.mesh.scale.setScalar(1 + k * 4.5);
+      (br.mesh.material as THREE.MeshBasicMaterial).opacity = 0.85 * (1 - k) * (1 - k);
+      if (k >= 1) {
+        this.scene.remove(br.mesh);
+        br.mesh.geometry.dispose();
+        (br.mesh.material as THREE.Material).dispose();
+        this.boomRings.splice(i, 1);
       }
     }
     // drop ECM rings whose vehicles died or despawned

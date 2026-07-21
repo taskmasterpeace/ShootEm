@@ -7,6 +7,26 @@
 
 ---
 
+## THE ROAD TO ZERO — the resolution plan (added 2026-07-20)
+
+The plan that resolves 100% of this ledger. Eight campaigns, dependency-ordered; each is a `/loop` diet of `docs/MASTER-BACKLOG.md` items with the gates + proof ritual baked in. **Run order matters** — early campaigns are substrate for later ones.
+
+| # | Campaign | What it clears | Board items | Rough size |
+|---|---|---|---|---|
+| C1 | **SIGHT** | the visibility rewrite: per-viewer bodies, hold-then-fade marks, the dark, house LOS, 3 bugs | W0.1-0.2, [#43-46](https://github.com/taskmasterpeace/ShootEm/issues) | 2-3 sessions |
+| C2 | **UI P0** | every shipped-system-with-no-readout in `docs/UI-MASTER.md` P0 (hover bug, grenade pips, downed experience, missile lock, struggle, protection, LSW drop) | UI-MASTER §13,3,2,8,6,5,7 | 2-3 sessions |
+| C3 | **COMBAT FEEL** | accuracy ladder + aim ring + falloff + spacebar verbs + ragdoll fix + tank rock + Impact Charge ring | W1.1-1.7, UI-MASTER §4 | 3-4 sessions |
+| C4 | **STEEL + OUTBREAK Phase 1** | melee triangle (locked terms) + infection component + corpse lifecycle + fire/neutralization + Ball/AP/INC ammo + dropped weapons + ammo diagnostics→cut | W0.3/#47, 10.11, W2.4, 10.4, 10.5, W7.3 | 4-6 sessions |
+| C5 | **THE DEATH SHOW + AIR** | death-cam director, gore, kill cam + aircraft crash, altitude legibility (sonic boom lands here), AA bands, drive-by, seat yield, rearm pads | W2.1-2.5, W5.1-5.6, 10.7, 10.8, UI-MASTER §8 | 4-5 sessions |
+| C6 | **THE WAR** | time-skip deletion, 3×3 board, clone economy, pass escalation, science missions v1, leaders, class-change, bots-as-robots, rank, press (AI paper + TV) | W3.1-3.10, W4.1-4.3 | 6-8 sessions |
+| C7 | **THE SOLDIER + WORLD** | papercraft port (4 moves), SURF fold, slick ice, impact VFX, weapon-family holds, fire modes + brand mechanics + armed gods + beams/clash | W6, W7.1-7.4, 10.1, 10.2, 10.6 | 5-7 sessions |
+| C8 | **PERF + NET + POLISH** | remaining audit issues [#2-#42] in board order (bench-tracked per fix), multiplayer staged stack, UI P1/P2 + all ✦ delights, memorable details W9 | 8.1-8.2, 10.10, W9, UI-MASTER P1-P2 | ongoing |
+
+**The loop line:** `/loop` work `docs/MASTER-BACKLOG.md` campaign-by-campaign in the order above; per item: gates (tsc/vitest/lint/build) → on-screen proof in `docs/reference/` → bench-track if perf → check the box with the commit hash → update THIS ledger's row. A campaign is done when its every row here reads ✅.
+**Standing rules:** decisions on the desk stay Robert's · no purple · marks are sidegrades · push on ask.
+
+---
+
 ## THE SHORT LIST — what you asked for that is NOT done
 
 If you read one thing, read this. Everything below has a full row further down.
@@ -253,8 +273,14 @@ Full spec: **`docs/OUTBREAK-SPEC.md`** (infection model, outbreak pressure/level
 
 ---
 
+## 18 · THE UI (master display inventory — audited 2026-07-20)
+
+**`docs/UI-MASTER.md` is the one document**: every displayable state in the sim (a 100% sweep) × every shipped element in the client, with the visual treatment, the surface it lives on, and ✦ delight details throughout. Headlines: the HUD's foundations are strong (ring/ammo/vehicle block/minimap/codex all ✅) but **eight shipped systems have zero readout** (grenade cooldown, the entire downed experience, missile lock, the encased struggle, spawn protection, charge weapons, LSW drop countdown, victim-side marks) — that's UI-MASTER's P0. Plus one real bug found: **hover tags/enemy rings never appear offline** (`setHover` only wired in the net loop). Locked: near-the-action law, grenade **pip-refills**, **carrion birds** as the first animal, title **WAR WORLD: EARTH**.
+
 ## LOCKED DECISIONS (this session)
 
+- **The title is WAR WORLD: EARTH** (Robert, 2026-07-20). The DSOA letterhead on the outbreak spec was the doc template's, not a rename.
+- **UI law: near the action** — meters orbit the body/target/reticle; corners keep summaries. Grenade cooldown = **pip refills**. First new animal = **carrion birds** (the corpse-intel layer).
 - **Sight:** 3D view = your eyes, minimap = team intel. Contacts **hold, then fade** — never blink out.
 - **Science mission squad size:** scales **1 → 8** clones with difficulty (1 = knife-edge solo, 8 = forgiving assault).
 - **Ammo cut:** **25%** on reserves — but the **diagnostics pass runs first** and validates it before it lands.
@@ -282,7 +308,7 @@ Full spec: **`docs/OUTBREAK-SPEC.md`** (infection model, outbreak pressure/level
 - Does incendiary ignite corpses reliably, or do armor/wetness make it genuinely uncertain?
 - Do contaminated sectors **persist across sessions**, and for how long?
 - Which rear-grab outcomes are allowed in PvP at launch (drag / disarm / human shield / choke / takedown / throw)?
-- **The title on the spec is "DIVIDED STATES OF AMERICA"** — the repo, docs and menus all say **War World**. Rename, subtitle, or working-title? Nothing gets renamed until you call it.
+- ~~The DSOA-vs-War-World title~~ **RESOLVED: WAR WORLD: EARTH** (see Locked Decisions).
 
 ---
 
@@ -313,6 +339,7 @@ Full spec: **`docs/OUTBREAK-SPEC.md`** (infection model, outbreak pressure/level
 | `STATUS.md` | **This file** — everything asked for, done vs not | REFERENCE | The ledger you're reading |
 | `SCIENCE-MISSIONS.md` | Full science-mission design — 10 verbs × 10 sites × 50 effects | DESIGN | Written this session; unbuilt (BACKLOG W3.5) |
 | `OUTBREAK-SPEC.md` | The zombie outbreak / ammo types / melee combat & UI spec (Robert, 2026-07-20) | DESIGN | §22.1 decisions are LAW; STRIKE/GUARD/GRAPPLE naming supersedes older drafts; status in §17 |
+| `UI-MASTER.md` | THE master display inventory — every state × every surface × the visual, with delight details | REFERENCE | Supersedes UI-AND-RESOURCES as the display doc; P0/P1/P2 build order; §18 |
 | `BLAST-AUDIT.md` | The two-zone explosion model + the C-9 concussion grenade | SHIPPED | Rings read the sim's own numbers; C-9 shipped |
 | `VO-DIRECTORS-NOTES.md` | Whisper-verified transcript of 160 VO takes | SHIPPED | All 160 clean, 0 off-script |
 | `plans/2026-07-18-lsw-embodiment.md` | Per-school LSW rig/prop/attackPose + movement dress | SHIPPED | Verified in code (EMBODY record, silhouette pass done) |
