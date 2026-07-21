@@ -1,4 +1,4 @@
-import { CLASSES, EQUIPMENT, MODE_INFO, TEAM_NAMES, VEHICLES, WEAPONS } from '../sim/data';
+import { AMMO_INFO, CLASSES, EQUIPMENT, MODE_INFO, TEAM_NAMES, VEHICLES, WEAPONS } from '../sim/data';
 import { LSWS, VO_LINES } from '../sim/lsw';
 import { earshotFor } from './audio';
 import { GRID, T_CLIMB, T_WALL, WORLD, losClear, houseAt } from '../sim/map';
@@ -349,6 +349,20 @@ export class Hud {
         // the counter itself warns you before the click of an empty mag
         ammoEl.classList.toggle('no-ammo', Number.isFinite(clipN) && clipN === 0);
         ammoEl.classList.toggle('low-ammo', Number.isFinite(clipN) && clipN > 0 && clipN <= def.clip * 0.25);
+        // OUTBREAK-SPEC §11.2: the round's tactical readout — its role plus
+        // PENetration / NoiSE / FIRe-hazard / CORpse-denial ratings as 3-notch
+        // mono bars, right under the mag where the eye already reads it (§16.4
+        // "keep it near the action"). Ballistic weapons only; the tag hides for
+        // energy/beam arms that ignore the ammo rider.
+        const infoEl = $('ammo-info');
+        if (ballistic) {
+          const ai = AMMO_INFO[s.ammoType ?? 'ball'];
+          const bar = (n: number) => '▮'.repeat(n) + '▯'.repeat(3 - n);
+          infoEl.textContent = `${ai.role} · PEN${bar(ai.pen)} NSE${bar(ai.noise)} FIR${bar(ai.fire)} COR${bar(ai.corpse)}`;
+          infoEl.classList.remove('hidden');
+        } else {
+          infoEl.classList.add('hidden');
+        }
       }
       // secondary fire (right mouse) rides the weapon in hand — show its tank
       const alt = def.alt;

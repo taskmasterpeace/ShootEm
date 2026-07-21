@@ -191,6 +191,23 @@ export const LSW_ARMS: Record<WeaponId, WeaponDef> = {
 
 export const WEAPONS: Record<WeaponId, WeaponDef> = { ...buildArsenal(), ...CORE_WEAPONS, ...LSW_ARMS };
 
+/** OUTBREAK-SPEC §11.2 — the loaded round's tactical readout for the weapon
+ *  HUD. `pen`/`noise`/`fire`/`corpse` are 0–3 legibility levels grounded in the
+ *  actual ballistic behaviour (`world.ts`): AP's plate bite and light-cover
+ *  punch, SUB's hush + range cut, TRC's loud target mark, INC/BNR corpse denial,
+ *  EXP's soft-tissue maw. `role` is the one-word job; `label` is the full name,
+ *  shared with the B-cycle toast so the two never drift. */
+export interface AmmoInfo { label: string; role: string; pen: number; noise: number; fire: number; corpse: number }
+export const AMMO_INFO: Record<string, AmmoInfo> = {
+  ball: { label: 'STANDARD BALL',    role: 'GENERAL', pen: 1, noise: 2, fire: 0, corpse: 0 },
+  ap:   { label: 'ARMOR-PIERCING',   role: 'ARMOR',   pen: 3, noise: 2, fire: 0, corpse: 0 },
+  inc:  { label: 'INCENDIARY',       role: 'BURN',    pen: 1, noise: 2, fire: 3, corpse: 3 },
+  trc:  { label: 'TRACER',           role: 'SPOT',    pen: 1, noise: 3, fire: 0, corpse: 0 },
+  sub:  { label: 'SUBSONIC',         role: 'QUIET',   pen: 0, noise: 0, fire: 0, corpse: 0 },
+  exp:  { label: 'EXPANDING',        role: 'FLESH',   pen: 0, noise: 2, fire: 0, corpse: 0 },
+  bnr:  { label: 'BIO-NEUTRALIZING', role: 'DENIAL',  pen: 1, noise: 2, fire: 0, corpse: 3 },
+};
+
 export const CLASSES: Record<ClassId, ClassDef> = {
   infantry: {
     id: 'infantry', name: 'Infantry', desc: 'Balanced rifleman. Extra frag grenades.',

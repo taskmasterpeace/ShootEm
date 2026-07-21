@@ -1,4 +1,4 @@
-import { CLASSES, DOG_NAMES, DOG_STATS, EQUIPMENT, IRON_STATS, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
+import { AMMO_INFO, CLASSES, DOG_NAMES, DOG_STATS, EQUIPMENT, IRON_STATS, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
 import { CLIMB_H, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_RUBBLE, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, nearestOpenTile, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
 import { materialOf, DRILL_BASE } from './materials';
@@ -112,10 +112,6 @@ export function meleeWindupFor(kind: SoldierKind): number {
 }
 const ENERGY_REGEN = 14;
 /** OUTBREAK-SPEC §11: player-facing ammunition names for the AMMO announce. */
-const AMMO_LABEL: Record<string, string> = {
-  ball: 'STANDARD BALL', ap: 'ARMOR-PIERCING', inc: 'INCENDIARY',
-  trc: 'TRACER', sub: 'SUBSONIC', exp: 'EXPANDING', bnr: 'BIO-NEUTRALIZING',
-};
 /** GUARD (OUTBREAK-SPEC §12): stamina burned per second of holding the brace —
  *  from a full tank that's ~10s of block, and regen is paused while it's up. */
 const GUARD_DRAIN = 10;
@@ -2636,7 +2632,7 @@ export class World {
       const i = order.indexOf(s.ammoType ?? undefined);
       s.ammoType = order[(i + 1) % order.length];
       if (s.kind === 'human') {
-        const label = AMMO_LABEL[s.ammoType ?? 'ball'];
+        const label = AMMO_INFO[s.ammoType ?? 'ball'].label;
         this.emit({ type: 'announce', text: `AMMO: ${label}`, big: false });
       }
     }

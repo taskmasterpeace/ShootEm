@@ -391,6 +391,11 @@ html, body {
 #weapon-name { font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; font-size: 0.9rem; }
 #ammo-count { font-family: var(--font-mono); font-size: 1.5rem; color: var(--accent); letter-spacing: 0.03em; }
 #ammo-count.reloading { color: var(--muted); font-size: 0.95rem; }
+/* OUTBREAK-SPEC §11.2: the round's tactical readout under the mag — mono, muted
+   so it sits beneath the amber count; the filled ▮ vs empty ▯ notches carry the
+   rating at a glance without competing for the eye. */
+#ammo-info { font-family: var(--font-mono); font-size: 0.6rem; color: var(--muted); letter-spacing: 0.05em; margin-top: 1px; white-space: nowrap; }
+#ammo-info.hidden { display: none; }
 #ability-hint { color: var(--muted); font-size: 0.72rem; margin-top: 0.3rem; font-family: var(--font-mono); }
 
 #minimap {
