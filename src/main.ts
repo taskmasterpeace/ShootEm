@@ -21,7 +21,7 @@ import { DamageText } from './client/damagetext';
 import { NetGame } from './client/net';
 import { MATCH_LINGER_LOCAL_MS, ReplayDirector } from './client/replay';
 import { MatchTracker, RANKS, loadDossier, rankFor, rankInsignia, saveDossier, type Dossier } from './client/record';
-import { FRONTS, SCAR_TEXT, applyResult, bandOf, checkSeasonEnd, holdTheLine, loadCampaign, saveCampaign, type Campaign } from './client/campaign';
+import { FRONTS, SCAR_TEXT, applyResult, bandOf, checkSeasonEnd, consumeOperationBattleBonuses, holdTheLine, loadCampaign, operationBattleBonuses, saveCampaign, type Campaign } from './client/campaign';
 import { fileIssue, renderIssueHTML, renderPressInto, loadPress } from './client/newspaper';
 import { RangeCourse, loadWall } from './client/range';
 import { RingDrill } from './client/ringdrill';
@@ -453,7 +453,12 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     // W3.4 PASS ESCALATION: a campaign battle fights at the front's pass —
     // P1 no gods, P2 their stable only, P3 both. Off the map: everything.
     lswPass: activeFrontId ? (campaign?.fronts[activeFrontId]?.pass ?? 3) : 3,
+    operationBonuses: activeFrontId && campaign ? operationBattleBonuses(campaign, activeFrontId) : undefined,
   });
+  if (activeFrontId && campaign) {
+    consumeOperationBattleBonuses(campaign, activeFrontId);
+    saveCampaign(campaign);
+  }
   // carry the feel knobs into the match (Robert's global speed control)
   world.projectileSpeedMul = settings.projectileSpeed;
   world.moveSpeedMul = settings.moveSpeed;

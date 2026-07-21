@@ -14,7 +14,7 @@ import { stepMode, initMode } from './modes';
 import { generateFront } from './fronts';
 import { generateOperationMap } from './operation-map';
 import { createOperationRuntime, stepWorldOperation, type OperationRuntimeState } from './operation-runtime';
-import type { OperationHull, OperationManifest, OperationPlan } from './operations';
+import { AIR_KINDS, type OperationBattleBonuses, type OperationHull, type OperationManifest, type OperationPlan } from './operations';
 import { LSW_BRAINS } from './lsw/index';
 import { ICE_HOLD, ICE_HOLD_DRAIN, LSWS, STRUGGLE_HP, STRUGGLE_SECS, THREAT, lswAllowed, lswsForTeam } from './lsw';
 import { stepBot, stepDog, stepIron, stepScientist, stepZombie } from './bots';
@@ -328,6 +328,7 @@ export interface WorldOptions {
   operation?: OperationPlan;
   operationManifest?: OperationManifest;
   operationInventory?: OperationHull[];
+  operationBonuses?: OperationBattleBonuses;
 }
 
 /** Custom deploy loadout: armory weapons + up to two equipment picks. */
@@ -451,6 +452,12 @@ export class World {
   operation?: OperationRuntimeState;
   /** Protected-zone damage accumulated for the no-collateral settlement. */
   operationCollateral = 0;
+  operationRequisitionDiscount = 0;
+  operationEarlyWarningSeconds = 0;
+  operationFogLiftUntil = 0;
+  operationRepairPadPos?: Vec3;
+  operationBridgeAccess = false;
+  operationArtillery = 0;
 
   constructor(public opts: WorldOptions) {
     this.rng = new Rng(opts.seed ^ 0xbeef);
@@ -481,6 +488,7 @@ export class World {
         this.materiel[t] = Math.min(14, this.materiel[t] + Math.min(3, Math.max(0, opts.moraleBoost[t])));
       }
     }
+    if (opts.operationBonuses) this.applyOperationBattleBonuses(opts.operationBonuses);
     this.map.vehiclePads.forEach((pad, padId) => {
       if (isCoopMode(opts.mode) && pad.kind !== 'ambulance' && pad.kind !== 'emplacement') return;
       const vehicle = this.spawnVehicle(pad.kind, pad.team, pad.pos, padId);
@@ -497,6 +505,56 @@ export class World {
       this.nextId++;
     }
     this.refreshHomeDoors(); // base-zone doors learn whose base they serve
+  }
+
+  private applyOperationBattleBonuses(bonuses: OperationBattleBonuses) {
+    this.materiel[0] = Math.min(14, this.materiel[0] + bonuses.openingMateriel);
+    this.materiel[1] = Math.max(0, this.materiel[1] - bonuses.enemyMaterielPenalty);
+    this.operationRequisitionDiscount = bonuses.requisitionDiscount;
+    this.operationEarlyWarningSeconds = bonuses.earlyWarningSeconds;
+    this.operationFogLiftUntil = bonuses.fogLiftSeconds;
+    this.operationBridgeAccess = bonuses.bridgeAccess;
+    this.operationArtillery = bonuses.artillery;
+
+    if (bonuses.denyEnemyAir) {
+      this.map.vehiclePads = this.map.vehiclePads.filter((pad) => pad.team !== 1 || !AIR_KINDS.has(pad.kind));
+    }
+    const home = this.map.vehiclePads.find((pad) => pad.team === 0)?.pos ?? this.map.basePos[0];
+    const addPad = (kind: VehicleKind, dx: number, dz: number) => {
+      if (!this.map.vehiclePads.some((pad) => pad.team === 0 && pad.kind === kind)) {
+        this.map.vehiclePads.push({ kind, team: 0, pos: { x: home.x + dx, y: 0, z: home.z + dz } });
+      }
+    };
+    if (bonuses.samCover) addPad('aatrack', 0, 3);
+    if (bonuses.cas) addPad('strikejet', 0, -3);
+    if (bonuses.escortWing) addPad('interceptor', 3, 0);
+    if (bonuses.coastalCover) addPad('emplacement', -3, 0);
+    if (bonuses.rearmPad) this.map.pickups.push({ type: 'ammo', pos: { ...home } });
+    if (bonuses.repairPad) this.operationRepairPadPos = { ...home };
+    if (bonuses.forwardSpawn && this.map.controlPoints[0]) {
+      const forward = { ...this.map.controlPoints[0].pos };
+      this.map.spawns[0] = this.map.spawns[0].map(() => ({ ...forward }));
+    }
+    const hazardCenter = this.map.controlPoints[0]?.pos ?? this.map.hillPos;
+    for (let i = 0; i < bonuses.hazards; i++) {
+      const angle = (i / Math.max(1, bonuses.hazards)) * Math.PI * 2;
+      const id = this.id();
+      this.mines.set(id, {
+        id, team: 0, ownerId: -1, armedAt: 0,
+        pos: { x: hazardCenter.x + Math.cos(angle) * 3, y: 0, z: hazardCenter.z + Math.sin(angle) * 3 },
+      });
+    }
+    if (bonuses.earlyWarningSeconds > 0) {
+      this.emit({ type: 'announce', text: `EARLY WARNING — enemy air manifest visible ${bonuses.earlyWarningSeconds}s out.` });
+    }
+  }
+
+  callOperationArtillery(pos: Vec3, team: Team): boolean {
+    if (this.operationArtillery <= 0) return false;
+    this.operationArtillery--;
+    this.emit({ type: 'orbital_strike', pos: { ...pos }, team, text: 'OFF-MAP BATTERY — SHOT OUT' });
+    this.explode({ ...pos }, WEAPONS.gl, -1, team);
+    return true;
   }
 
   /** Does this soldier carry the given equipment effect? */

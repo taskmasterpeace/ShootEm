@@ -249,6 +249,25 @@ export interface OperationManifest {
   support: OperationSupport;
 }
 
+export interface OperationBattleBonuses {
+  openingMateriel: number;
+  enemyMaterielPenalty: number;
+  requisitionDiscount: number;
+  denyEnemyAir: boolean;
+  earlyWarningSeconds: number;
+  fogLiftSeconds: number;
+  forwardSpawn: boolean;
+  repairPad: boolean;
+  rearmPad: boolean;
+  bridgeAccess: boolean;
+  samCover: boolean;
+  cas: boolean;
+  escortWing: boolean;
+  artillery: number;
+  hazards: number;
+  coastalCover: boolean;
+}
+
 export const LAND_KINDS: ReadonlySet<VehicleKind> = new Set(['buggy', 'tank', 'apc', 'bike', 'aatrack', 'transport', 'ambulance', 'tunneler', 'emplacement', 'mech']);
 export const AIR_KINDS: ReadonlySet<VehicleKind> = new Set(['flyer', 'strikejet', 'interceptor', 'bomber']);
 export const SEA_KINDS: ReadonlySet<VehicleKind> = new Set(['boat']);

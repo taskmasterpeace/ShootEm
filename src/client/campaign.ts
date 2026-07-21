@@ -7,6 +7,7 @@ import {
   type OperationHull,
   type OperationManifest,
   type OperationPlan,
+  type OperationBattleBonuses,
 } from '../sim/operations';
 import type { OperationResult } from '../sim/operation-runtime';
 
@@ -446,6 +447,41 @@ export function settleCampaignOperation(campaign: Campaign, result: OperationRes
   campaign.operationHistory.push({ operationId: result.operationId, won: result.won, effect: active.plan.effect, settledAt: now, receipt });
   campaign.activeOperation = null;
   return receipt;
+}
+
+export function operationBattleBonuses(campaign: Campaign, frontId: string): OperationBattleBonuses {
+  const applies = (modifier: CampaignModifier) => !modifier.frontId || modifier.frontId === frontId;
+  const modifiers = campaign.modifiers.filter(applies);
+  const value = (id: OperationEffectId) => modifiers.filter((modifier) => modifier.id === id).reduce((sum, modifier) => sum + modifier.value, 0);
+  const has = (id: OperationEffectId) => modifiers.some((modifier) => modifier.id === id);
+  const facility = (id: OperationEffectId) => campaign.facilities.includes(id);
+  return {
+    openingMateriel: value('steal_opening_purse') + (facility('capture_fuel_farm') ? 2 : 0),
+    enemyMaterielPenalty: value('steal_opening_purse'),
+    requisitionDiscount: Math.min(0.5, value('cheaper_requisition') + (facility('capture_fuel_farm') ? 0.15 : 0)),
+    denyEnemyAir: has('ground_enemy_air') || has('no_fly_zone'),
+    earlyWarningSeconds: has('early_warning') || facility('capture_radar') ? 30 : 0,
+    fogLiftSeconds: campaign.intel.includes('opening_fog_lift') ? 30 : 0,
+    forwardSpawn: has('forward_base') || facility('capture_rail_hub'),
+    repairPad: facility('capture_repair_depot'),
+    rearmPad: has('rearm_pads'),
+    bridgeAccess: facility('capture_bridge'),
+    samCover: facility('capture_sam') || has('no_fly_zone'),
+    cas: facility('capture_airfield') || has('cas_allotment'),
+    escortWing: has('escort_wing'),
+    artillery: Math.max(0, Math.round(value('artillery_barrage'))),
+    hazards: Math.max(0, Math.round(value('preplaced_hazards'))),
+    coastalCover: has('coastal_cover'),
+  };
+}
+
+export function consumeOperationBattleBonuses(campaign: Campaign, frontId: string) {
+  for (let i = campaign.modifiers.length - 1; i >= 0; i--) {
+    const modifier = campaign.modifiers[i];
+    if (modifier.scope !== 'next_battle' || (modifier.frontId && modifier.frontId !== frontId)) continue;
+    modifier.uses--;
+    if (modifier.uses <= 0) campaign.modifiers.splice(i, 1);
+  }
 }
 
 /** Fold one battle into the war (22B). `deaths` is YOUR side's body count —
