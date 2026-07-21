@@ -3647,6 +3647,41 @@ export class Renderer {
       if (j.armR) j.armR.rotation.z += 0.4 * k;
       if (j.head) j.head.rotation.z = -0.15 * k;
     }
+    // THE GUARD BRACE (§12 made visible — C-1 slice 2): a raised guard was
+    // INVISIBLE; the whole triangle's most defensive verb read as standing
+    // still. Held V now shows: both arms rise into a cross-brace, the
+    // forearm folds across, chin tucks behind the arms, the stance sets
+    // low, and the gun leaves the hands (the sim already lowered it).
+    // Blended so the raise/drop is a deliberate act, not a pop.
+    if (!zed && s.kind !== 'scientist') {
+      const gb = (mesh.userData.guardBlend ??= { v: 0 }) as { v: number };
+      gb.v += ((s.guarding && !s.downed ? 1 : 0) - gb.v) * Math.min(1, this.frameDt * 8);
+      if (gb.v > 0.02) {
+        const g = gb.v;
+        if (j.armL) j.armL.rotation.z = j.armL.rotation.z * (1 - g) + 1.35 * g;
+        if (j.armR) j.armR.rotation.z = j.armR.rotation.z * (1 - g) + 1.15 * g;
+        if (j.elbowR) j.elbowR.rotation.z += 0.9 * g;   // forearm folds across the face
+        if (j.head) j.head.rotation.z = j.head.rotation.z * (1 - g) + -0.12 * g;
+        mesh.position.y -= 0.05 * g;                     // the stance sets
+        if (j.gun) j.gun.visible = g < 0.5;              // the brace owns the hands
+      }
+    }
+    // THE GRAPPLE HOLD (§14 made visible): the grabber WRAPS — arms closed
+    // around the target, body leaning INTO the hold — and the grabbed body
+    // WRITHES, arms clawing alternately, head thrashing: the mash-to-break
+    // struggle you can finally SEE. (Latched shamblers ride the same read.)
+    if (s.grabbingId !== undefined && world.soldiers.has(s.grabbingId)) {
+      if (j.armL) j.armL.rotation.z = 1.05;
+      if (j.armR) j.armR.rotation.z = 0.95;
+      mesh.rotation.z += 0.14;
+    }
+    if (s.grabbedBy !== undefined && s.alive) {
+      const shake = Math.sin(t * 17 + s.id);
+      if (j.armL) j.armL.rotation.z = 1.4 + shake * 0.35;
+      if (j.armR) j.armR.rotation.z = 0.7 - shake * 0.35;
+      if (j.head) j.head.rotation.z = shake * 0.16;
+      mesh.rotation.y += shake * 0.07;                   // the writhe
+    }
     // THE MANTLE VAULT: a grounded hop crossing LOW COVER plants the lead
     // hand and tucks the trail leg — the vault the movement system already
     // performs (blocksAir passes T_COVER above 0.9u) finally shows on the
