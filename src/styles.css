@@ -93,6 +93,11 @@ html, body {
 /* THE OUTBREAK: the strain in your blood, counted where the vitals live */
 /* §16.3 THE ICON LANGUAGE — one vocabulary, inherits its line's color */
 .ww-ico { width: 1em; height: 1em; vertical-align: -0.15em; display: inline-block; }
+/* §16.2 the MELEE STANCE LINE — readiness chips; dim = not now */
+#stance-line { display: flex; gap: 0.7rem; font-size: 0.62rem; letter-spacing: 0.08em; color: #e8a33d; opacity: 0.85; margin-top: 0.15rem; }
+#stance-line.hidden { display: none; }
+.stance-chip { display: inline-flex; align-items: center; gap: 0.25em; transition: opacity 0.2s; }
+.stance-chip.dim { opacity: 0.28; }
 #viral-chip { color: #7fa83c; letter-spacing: 0.06em; }
 #viral-chip.hot { color: #ff4736; animation: down-breathe 0.9s ease-in-out infinite; }
 #viral-chip.hidden { display: none; }

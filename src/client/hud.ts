@@ -57,6 +57,15 @@ export class Hud {
     // §16.3: the viral chip wears the biohazard from the ONE icon vocabulary
     const vIco = document.getElementById('viral-ico');
     if (vIco) vIco.innerHTML = icon('infection');
+    // §16.2 the MELEE STANCE LINE — built once (static icons), dimmed per
+    // frame. STRIKE and GRAPPLE mount the vocabulary's last two glyphs.
+    const stance = document.getElementById('stance-line');
+    if (stance) {
+      stance.innerHTML =
+        `<span class="stance-chip" id="stance-strike">${icon('strike')}F STRIKE</span>` +
+        `<span class="stance-chip" id="stance-guard">${icon('guard')}V GUARD</span>` +
+        `<span class="stance-chip" id="stance-grapple">${icon('grapple')}Z GRAPPLE</span>`;
+    }
     // M toggles the minimap between compact and the large tactical view
     window.addEventListener('keydown', (e) => {
       if ((e.target as HTMLElement)?.tagName === 'INPUT' || e.repeat) return;
@@ -431,6 +440,21 @@ export class Hud {
           : god
             ? `Q · ${god.activeLabel}`
             : `${CLASSES[s.classId].abilityName} · ${bag || 'bag empty'}${altTxt} · X swaps`;
+      }
+
+      // §16.2 the STANCE LINE: melee readiness at a glance — dim = not now.
+      // STRIKE and GRAPPLE share the sim's own gates (meleeStrikeAt +
+      // nextFireAt — the grab lunge books nextFireAt too, world.ts §14);
+      // GUARD dims with an empty tank (the meter IS the mechanic). Hidden
+      // where melee isn't yours to use: vehicles, gods, the dead.
+      const stanceEl = $('stance-line');
+      const stanceOn = s.alive && s.vehicleId < 0 && s.ascendant === undefined;
+      stanceEl.classList.toggle('hidden', !stanceOn);
+      if (stanceOn) {
+        const meleeFree = s.meleeStrikeAt === 0 && world.time >= s.nextFireAt;
+        $('stance-strike').classList.toggle('dim', !meleeFree);
+        $('stance-guard').classList.toggle('dim', s.energy <= 0.5);
+        $('stance-grapple').classList.toggle('dim', !meleeFree);
       }
 
       // THE SIGNATURE METER: fills back toward ready in the ONE grammar —
