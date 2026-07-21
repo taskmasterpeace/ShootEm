@@ -325,16 +325,22 @@ export function scienceObjectiveText(runtime: ScienceMissionRuntime): string {
   return `${objective.label} — ${progress}`;
 }
 
-export function scienceResult(runtime: ScienceMissionRuntime): {
-  success: boolean;
+export interface ScienceMissionResult {
+  id: string;
+  won: boolean;
   ghost: boolean;
   clonesSpent: number;
   clonesRemaining: number;
-} {
+  reward: ScienceMissionSpec['reward'];
+}
+
+export function scienceResult(runtime: ScienceMissionRuntime): ScienceMissionResult {
   return {
-    success: runtime.phase === 'won',
+    id: runtime.spec.id,
+    won: runtime.phase === 'won',
     ghost: runtime.phase === 'won' && runtime.detections === 0,
     clonesSpent: runtime.clonesSpent,
     clonesRemaining: runtime.clonesRemaining,
+    reward: runtime.spec.reward,
   };
 }

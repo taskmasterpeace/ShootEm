@@ -1,4 +1,6 @@
 import type { ModeId, ThemeId } from '../sim/types';
+import { scienceReward } from '../sim/science';
+import type { ScienceMissionResult } from '../sim/science-runtime';
 
 // ---------------------------------------------------------------------------
 // The Living Campaign v1 (DD §8.5) — the Scar goes live. Ten named fronts,
@@ -56,6 +58,12 @@ export interface FrontState {
    *  P2 = the enemy stable wakes, P3 = both stables loose. Advances one
    *  pass per battle fought on the front; the armistice resets it. */
   pass: 1 | 2 | 3;
+  /** Two science sorties are available for each escalation pass. */
+  scienceWindows: number;
+  scienceWindowPass: 1 | 2 | 3;
+  /** Reward counters with direct campaign meaning, displayed in the Scar UI. */
+  enemyClonePressure: number;
+  cloneInsurance: number;
 }
 
 /** W3.3: a front's starting reserve scales with its importance. */
@@ -63,6 +71,31 @@ export const CLONE_SEED = 400;
 export const cloneSeedFor = (f: FrontDef) => Math.round(CLONE_SEED * f.importance);
 /** a won battle convoys replacements in (never past the seed) */
 export const CLONE_RECOVER = 60;
+export const SCIENCE_WINDOWS_PER_PASS = 2;
+export const GHOST_CLONE_BONUS = 10;
+
+export interface ScienceBonuses {
+  theaterClones: number;
+  morale: number;
+  openingMateriel: number;
+  requisitionDiscounts: number;
+  enemyReinforcementCuts: number;
+  weatherPicks: number;
+  rosterIntel: number;
+  lswAssignments: number;
+}
+
+const freshScienceBonuses = (): ScienceBonuses => ({
+  theaterClones: 0,
+  morale: 0,
+  openingMateriel: 0,
+  requisitionDiscounts: 0,
+  enemyReinforcementCuts: 0,
+  weatherPicks: 0,
+  rosterIntel: 0,
+  lswAssignments: 0,
+});
+
 export interface Campaign {
   v: 1;
   season: number;
@@ -70,14 +103,24 @@ export interface Campaign {
   fronts: Record<string, FrontState>;
   /** the Morning Dispatch: latest campaign lines, newest first */
   dispatch: { text: string; at: number; simulated: boolean }[];
+  scienceBonuses: ScienceBonuses;
+  /** Idempotency ledger: a browser retry may report the same sortie once. */
+  appliedScienceMissionIds: string[];
 }
 
 const LS_KEY = 'ww_campaign';
 
 export function freshCampaign(now = Date.now()): Campaign {
   const fronts: Record<string, FrontState> = {};
-  for (const f of FRONTS) fronts[f.id] = { control: 0, scarActive: false, lastBattleAt: 0, clones: cloneSeedFor(f), pass: 1 };
-  return { v: 1, season: 1, updatedAt: now, fronts, dispatch: [] };
+  for (const f of FRONTS) fronts[f.id] = {
+    control: 0, scarActive: false, lastBattleAt: 0, clones: cloneSeedFor(f), pass: 1,
+    scienceWindows: SCIENCE_WINDOWS_PER_PASS, scienceWindowPass: 1,
+    enemyClonePressure: 0, cloneInsurance: 0,
+  };
+  return {
+    v: 1, season: 1, updatedAt: now, fronts, dispatch: [],
+    scienceBonuses: freshScienceBonuses(), appliedScienceMissionIds: [],
+  };
 }
 
 export function loadCampaign(now = Date.now()): Campaign {
@@ -87,10 +130,20 @@ export function loadCampaign(now = Date.now()): Campaign {
       const c = JSON.parse(raw) as Campaign;
       if (c.v === 1) {
         for (const f of FRONTS) {
-          c.fronts[f.id] ??= { control: 0, scarActive: false, lastBattleAt: 0, clones: cloneSeedFor(f), pass: 1 };
+          c.fronts[f.id] ??= {
+            control: 0, scarActive: false, lastBattleAt: 0, clones: cloneSeedFor(f), pass: 1,
+            scienceWindows: SCIENCE_WINDOWS_PER_PASS, scienceWindowPass: 1,
+            enemyClonePressure: 0, cloneInsurance: 0,
+          };
           c.fronts[f.id].clones ??= cloneSeedFor(f); // W3.3 migration: old saves get full reserves
           c.fronts[f.id].pass ??= 1;                 // W3.4 migration: the war starts at pass one
+          c.fronts[f.id].scienceWindows ??= SCIENCE_WINDOWS_PER_PASS;
+          c.fronts[f.id].scienceWindowPass ??= c.fronts[f.id].pass;
+          c.fronts[f.id].enemyClonePressure ??= 0;
+          c.fronts[f.id].cloneInsurance ??= 0;
         }
+        c.scienceBonuses = { ...freshScienceBonuses(), ...(c.scienceBonuses ?? {}) };
+        c.appliedScienceMissionIds ??= [];
         return c;
       }
     }
@@ -101,6 +154,80 @@ export function loadCampaign(now = Date.now()): Campaign {
 export function saveCampaign(c: Campaign) {
   c.updatedAt = Date.now();
   try { localStorage.setItem(LS_KEY, JSON.stringify(c)); } catch { /* storage full — the war plays on */ }
+}
+
+function refreshScienceWindows(state: FrontState, pass: 1 | 2 | 3): void {
+  if (state.scienceWindowPass === pass) return;
+  state.scienceWindowPass = pass;
+  state.scienceWindows = SCIENCE_WINDOWS_PER_PASS;
+}
+
+export function scienceWindowsFor(campaign: Campaign, frontId: string, pass?: 1 | 2 | 3): number {
+  const state = campaign.fronts[frontId];
+  if (!state) return 0;
+  refreshScienceWindows(state, pass ?? state.pass);
+  return state.scienceWindows;
+}
+
+/** Reserve one sortie window. Launch flow calls this before constructing World. */
+export function spendScienceWindow(campaign: Campaign, frontId: string, pass?: 1 | 2 | 3): boolean {
+  const state = campaign.fronts[frontId];
+  if (!state) return false;
+  const activePass = pass ?? state.pass;
+  refreshScienceWindows(state, activePass);
+  if (state.scienceWindows <= 0) return false;
+  state.scienceWindows--;
+  return true;
+}
+
+/** Fold a science sortie into the same numbers the Scar and battle setup read. */
+export function applyScienceResult(
+  campaign: Campaign,
+  frontId: string,
+  result: ScienceMissionResult,
+  now = Date.now(),
+): boolean {
+  const state = campaign.fronts[frontId];
+  const front = FRONTS.find((candidate) => candidate.id === frontId);
+  if (!state || !front || campaign.appliedScienceMissionIds.includes(result.id)) return false;
+  campaign.appliedScienceMissionIds.unshift(result.id);
+  if (campaign.appliedScienceMissionIds.length > 80) campaign.appliedScienceMissionIds.length = 80;
+
+  const clonesBefore = state.clones;
+  state.clones = Math.max(0, state.clones - Math.max(0, Math.floor(result.clonesSpent)));
+  const lines = [`SCIENCE ${result.id}: ${result.won ? 'operation complete' : 'operation failed'} at ${front.name}; ${result.clonesSpent} clone${result.clonesSpent === 1 ? '' : 's'} spent.`];
+  if (result.ghost) {
+    state.clones = Math.min(cloneSeedFor(front) + 80, state.clones + GHOST_CLONE_BONUS);
+    lines.push(`SCIENCE ${result.id}: GHOST EXTRACTION — ${GHOST_CLONE_BONUS} clean sleeves recovered.`);
+  }
+
+  if (result.won) {
+    switch (result.reward) {
+      case 'front-reinforcement':
+        state.clones = Math.min(cloneSeedFor(front) + 80, state.clones + 40);
+        break;
+      case 'theater-reinforcement': campaign.scienceBonuses.theaterClones += 25; break;
+      case 'enemy-clone-drain': state.enemyClonePressure += 30; break;
+      case 'clone-insurance': state.cloneInsurance += 1; break;
+      case 'front-breakthrough': state.control = Math.min(100, state.control + 6); break;
+      case 'morale-cache': campaign.scienceBonuses.morale += 1; break;
+      case 'opening-materiel': campaign.scienceBonuses.openingMateriel += 2; break;
+      case 'requisition-discount': campaign.scienceBonuses.requisitionDiscounts += 1; break;
+      case 'deny-reinforcements': campaign.scienceBonuses.enemyReinforcementCuts += 1; break;
+      case 'weather-pick': campaign.scienceBonuses.weatherPicks += 1; break;
+      case 'roster-intel': campaign.scienceBonuses.rosterIntel += 1; break;
+      case 'lsw-assignment': campaign.scienceBonuses.lswAssignments += 1; break;
+    }
+    lines.push(`SCIENCE ${result.id}: reward secured — ${scienceReward(result.reward).label}.`);
+  }
+  if (state.clones === 0 && clonesBefore > 0) {
+    state.control = -100;
+    lines.push(`SCIENCE ${result.id}: ${front.name} ran DRY during the operation — the front is lost.`);
+  }
+  state.lastBattleAt = now;
+  for (const text of lines) campaign.dispatch.unshift({ text, at: now, simulated: false });
+  if (campaign.dispatch.length > 60) campaign.dispatch.length = 60;
+  return true;
 }
 
 /** Fold one battle into the war (22B). `deaths` is YOUR side's body count —
@@ -181,7 +308,11 @@ export function checkSeasonEnd(c: Campaign, now = Date.now()): Armistice | null 
     { text: `ARMISTICE — Season ${season} is over. ${name} takes the war, holding ${held[winner]} of ten fronts. The theatre resets; the record remains.`, at: now, simulated: false },
   );
   if (c.dispatch.length > 60) c.dispatch.length = 60;
-  for (const f of FRONTS) c.fronts[f.id] = { control: 0, scarActive: false, lastBattleAt: 0, clones: cloneSeedFor(f), pass: 1 }; // the armistice refills the vats and calms the war
+  for (const f of FRONTS) c.fronts[f.id] = {
+    control: 0, scarActive: false, lastBattleAt: 0, clones: cloneSeedFor(f), pass: 1,
+    scienceWindows: SCIENCE_WINDOWS_PER_PASS, scienceWindowPass: 1,
+    enemyClonePressure: 0, cloneInsurance: 0,
+  }; // the armistice refills the vats and calms the war
   c.season = season + 1;
   return { winner, season, frontsHeld: held[winner] };
 }

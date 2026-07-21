@@ -334,7 +334,7 @@ git commit -m "feat: make science missions playable"
 - Produces: `SCIENCE_WINDOWS_PER_PASS`, `scienceWindowsFor`, `spendScienceWindow`, `applyScienceResult`.
 - Consumes: `ScienceMissionSpec`, `ScienceMissionResult`, `SCIENCE_REWARDS`.
 
-- [ ] **Step 1: Write failing campaign transaction tests**
+- [x] **Step 1: Write failing campaign transaction tests**
 
 ```ts
 it('spends one of two windows and replenishes on a new pass', () => {
@@ -355,23 +355,23 @@ it('applies a successful result exactly once', () => {
 });
 ```
 
-- [ ] **Step 2: Run campaign tests and verify RED**
+- [x] **Step 2: Run campaign tests and verify RED**
 
 Run: `npx vitest run tests/science-campaign.test.ts`
 
 Expected: FAIL on missing science campaign helpers.
 
-- [ ] **Step 3: Implement migration, windows, idempotency, and reward adapters**
+- [x] **Step 3: Implement migration, windows, idempotency, and reward adapters**
 
 Store applied mission IDs in a capped campaign list. On result: subtract `clonesSpent`; add ghost bonus; if won, apply the selected reward to a value visible on the front/campaign record; prepend signed dispatch lines; return `false` for an already-applied ID. Keep `applyResult` behavior unchanged for ordinary battles.
 
-- [ ] **Step 4: Run campaign suites and typecheck**
+- [x] **Step 4: Run campaign suites and typecheck**
 
 Run: `npx vitest run tests/science-campaign.test.ts tests/campaign.test.ts tests/warledger.test.ts && npx tsc --noEmit`
 
 Expected: all tests PASS and TypeScript exits 0.
 
-- [ ] **Step 5: Commit campaign integration**
+- [x] **Step 5: Commit campaign integration**
 
 ```powershell
 git add src/client/campaign.ts tests/science-campaign.test.ts

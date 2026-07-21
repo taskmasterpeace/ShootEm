@@ -277,11 +277,18 @@ function loadServerCampaign(): Campaign {
   try {
     const c = JSON.parse(readFileSync(CAMPAIGN_FILE, 'utf8')) as Campaign;
     if (c.v === 1) {
+      const baseline = freshCampaign();
       for (const f of FRONTS) {
-        c.fronts[f.id] ??= { control: 0, scarActive: false, lastBattleAt: 0, clones: cloneSeedFor(f), pass: 1 };
+        c.fronts[f.id] ??= baseline.fronts[f.id];
         c.fronts[f.id].clones ??= cloneSeedFor(f); // W3.3 migration
         c.fronts[f.id].pass ??= 1;                 // W3.4 migration
+        c.fronts[f.id].scienceWindows ??= baseline.fronts[f.id].scienceWindows;
+        c.fronts[f.id].scienceWindowPass ??= c.fronts[f.id].pass;
+        c.fronts[f.id].enemyClonePressure ??= 0;
+        c.fronts[f.id].cloneInsurance ??= 0;
       }
+      c.scienceBonuses ??= baseline.scienceBonuses;
+      c.appliedScienceMissionIds ??= [];
       return c;
     }
   } catch { /* fresh theatre — first boot or a mangled file */ }
