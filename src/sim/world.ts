@@ -20,6 +20,7 @@ import { THEME_WEATHER, airGrounded, moveMult, visionMult, weatherAnnounce, type
 import { newDirector, stepDirector, type DirectorState } from './director';
 import { buildInfluence, newInfluence, type InfluenceField } from './influence';
 import { createBlackbox, stepBlackbox, type Blackbox } from './blackbox';
+import { ruleOnClassRequest } from './officer';
 import { SoldierIndex } from './spatial';
 
 const RESPAWN_DELAY = 4;
@@ -1225,6 +1226,22 @@ export class World {
   redeployAs(s: Soldier, classId: ClassId, loadout?: Loadout): boolean {
     if (s.alive || (s.kind !== 'human' && s.kind !== 'bot')) return false;
     if (!CLASSES[classId]) return false;
+    // W3.6 CLASS CHANGE BY REQUEST: the officer rules on it. The LIVE roster
+    // (the requester excluded) is the evidence; infantry is always signed.
+    // Keeping your CURRENT posting is never a request — re-clicking it holds.
+    if (classId !== s.classId) {
+      const counts: Partial<Record<ClassId, number>> = {};
+      let teamSize = 0;
+      for (const t of this.soldiers.values()) {
+        if (t.team !== s.team || t.id === s.id) continue;
+        if (t.kind !== 'human' && t.kind !== 'bot') continue;
+        teamSize++;
+        counts[t.classId] = (counts[t.classId] ?? 0) + 1;
+      }
+      const ruling = ruleOnClassRequest(counts, classId, teamSize + 1);
+      if (s.kind === 'human') this.emit({ type: 'announce', text: ruling.reason, big: false });
+      if (!ruling.approved) return false;
+    }
     const c = CLASSES[classId];
     s.classId = classId;
     s.weapons = [
