@@ -341,6 +341,7 @@ Full spec: **`docs/OUTBREAK-SPEC.md`** (infection model, outbreak pressure/level
 | `STATUS.md` | **This file** — everything asked for, done vs not | REFERENCE | The ledger you're reading |
 | `SCIENCE-MISSIONS.md` | Full science-mission design — 10 verbs × 10 sites × 50 effects | DESIGN | Written this session; unbuilt (BACKLOG W3.5) |
 | `OUTBREAK-SPEC.md` | The zombie outbreak / ammo types / melee combat & UI spec (Robert, 2026-07-20) | DESIGN | §22.1 decisions are LAW; STRIKE/GUARD/GRAPPLE naming supersedes older drafts; status in §17 |
+| `OUTBREAK-IMPLEMENTATION.md` | **The update doc** — every spec §, acceptance criterion & locked decision → shipped/blocked, with file+test pointers | STATUS | THE completion ledger for the outbreak goal; 3 honest structural gaps named (third faction, PvP Control Struggle, dedicated-server infra) |
 | `UI-MASTER.md` | THE master display inventory — every state × every surface × the visual, with delight details | REFERENCE | Supersedes UI-AND-RESOURCES as the display doc; P0/P1/P2 build order; §18 |
 | `BLAST-AUDIT.md` | The two-zone explosion model + the C-9 concussion grenade | SHIPPED | Rings read the sim's own numbers; C-9 shipped |
 | `VO-DIRECTORS-NOTES.md` | Whisper-verified transcript of 160 VO takes | SHIPPED | All 160 clean, 0 off-script |
