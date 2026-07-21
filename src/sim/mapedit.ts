@@ -57,6 +57,11 @@ function cloneMap(m: GameMap): GameMap {
     gates: m.gates.map((g) => ({ a: { ...g.a }, b: { ...g.b } })),
     pads: m.pads.map((p) => ({ pos: { ...p.pos }, dir: { ...p.dir } })),
     propCovered: m.propCovered.slice(),
+    operation: m.operation ? {
+      ...m.operation,
+      objectives: m.operation.objectives.map((objective) => ({ ...objective, pos: { ...objective.pos } })),
+      protectedZones: m.operation.protectedZones.map((zone) => ({ ...zone, pos: { ...zone.pos } })),
+    } : undefined,
   };
 }
 
@@ -137,6 +142,7 @@ export interface MapJSON {
   hillPos: Vec3; controlPoints: { name: string; pos: Vec3 }[];
   vehiclePads: VehiclePad[]; pickups: PickupSpawn[]; props: PropSpec[];
   zombieSpawns: Vec3[]; houses: House[]; theme: GameMap['theme'];
+  operation?: GameMap['operation'];
   claims: TileClaim[];
 }
 
@@ -148,6 +154,7 @@ export function serializeDoc(doc: MakerDoc): MapJSON {
     basePos: m.basePos, spawns: m.spawns, flagPos: m.flagPos, hillPos: m.hillPos,
     controlPoints: m.controlPoints, vehiclePads: m.vehiclePads, pickups: m.pickups,
     props: m.props, zombieSpawns: m.zombieSpawns, houses: m.houses, theme: m.theme,
+    operation: m.operation,
     claims: doc.claims,
   };
 }
@@ -162,6 +169,7 @@ export function deserializeDoc(json: MapJSON): MakerDoc {
     controlPoints: json.controlPoints, vehiclePads: json.vehiclePads, pickups: json.pickups,
     props: json.props, zombieSpawns: json.zombieSpawns, houses: json.houses,
     gates: [], pads: [], propCovered: settleClaims(grid, json.claims),
+    operation: json.operation,
   };
   return {
     frontId: json.frontId, size: json.size, seed: json.seed, mode: 'tdm',

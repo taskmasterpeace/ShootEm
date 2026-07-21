@@ -5,6 +5,7 @@ import { carveInterior } from './interior';
 import { fillRegions } from './chunks';
 import { THEMES } from './data';
 import type { ModeId, Team, ThemeId, Vec3, VehicleKind } from './types';
+import type { OperationPhaseKind, OperationScale, OperationSiteId } from './operations';
 
 export const TILE = 3;          // world units per tile (33C: standard fronts ~300u)
 export const GRID = 100;        // tiles per side
@@ -201,6 +202,23 @@ export interface GameMap {
    *  never re-derives footprints — the drift that caused every invisible-wall
    *  bug is structurally impossible. Guarded by tests/walls.test.ts. */
   propCovered: number[];
+  /** Military Operations metadata. Stock modes ignore it; the objective
+   * runtime consumes this serializable layer without reverse-engineering
+   * control-point labels or map geometry. */
+  operation?: {
+    operationId: string;
+    site: OperationSiteId;
+    scale: OperationScale;
+    objectives: Array<{
+      id: string;
+      phaseId: string;
+      kind: OperationPhaseKind;
+      pos: Vec3;
+      radius: number;
+      targetPropIndex?: number;
+    }>;
+    protectedZones: Array<{ pos: Vec3; radius: number }>;
+  };
 }
 
 export function tileAt(grid: Uint8Array, x: number, z: number): number {

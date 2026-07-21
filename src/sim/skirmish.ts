@@ -22,6 +22,7 @@ import {
 import { boxFor } from './fronts';
 import { Rng } from './rng';
 import type { Team, ThemeId, Vec3, VehicleKind } from './types';
+import type { OperationSiteId } from './operations';
 
 // ---------------------------------------------------------------------------
 // the kit — the fronts' primitives, distilled for one purpose
@@ -142,7 +143,13 @@ const CP_NAME: Record<string, string> = {
 // ---------------------------------------------------------------------------
 // THE BUILDER
 // ---------------------------------------------------------------------------
-export function generateSkirmishMap(theme: ThemeId, seed: number): GameMap {
+export interface SkirmishOperationProfile {
+  site: OperationSiteId;
+  objectiveLabels: string[];
+  vehicleKinds: VehicleKind[];
+}
+
+export function generateSkirmishMap(theme: ThemeId, seed: number, profile?: SkirmishOperationProfile): GameMap {
   const box = boxFor('small'); // 62×62 — the squad-scale pocket
   const carved = theme === 'asteroid';
   const baseSurf = theme === 'savanna' ? S_GRASS : theme === 'titan' ? S_GRIT : theme === 'starship' ? S_PLATE
@@ -317,7 +324,7 @@ export function generateSkirmishMap(theme: ThemeId, seed: number): GameMap {
 
   const cpFor = (s: { def: BuildingDef; tx: number; tz: number }) =>
     ({ name: CP_NAME[s.def.id] ?? 'SITE', pos: tw(s.tx, s.tz) });
-  return {
+  const map: GameMap = {
     seed, theme, grid, grid2: d.grid2, surface,
     basePos: [tw(btx[0], midZ), tw(btx[1], midZ)],
     spawns: [spawnRing(btx[0], midZ), spawnRing(btx[1], midZ)],
@@ -327,4 +334,21 @@ export function generateSkirmishMap(theme: ThemeId, seed: number): GameMap {
     vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns,
     houses: d.houses, gates: [], pads: [], propCovered: settle(grid, claims),
   };
+  if (!profile) return map;
+
+  const objectivePositions = [tw(C, C + 2), ...supports.map((s) => tw(s.tx, s.tz))];
+  map.controlPoints = profile.objectiveLabels.map((name, i) => ({
+    name: name.toUpperCase(),
+    pos: { ...objectivePositions[i % objectivePositions.length] },
+  }));
+  const safePads = map.vehiclePads.filter((pad) => pad.team === 0);
+  map.vehiclePads = [
+    ...profile.vehicleKinds.map((kind, i) => ({
+      kind,
+      team: 0 as const,
+      pos: { ...safePads[i % safePads.length].pos },
+    })),
+    ...map.vehiclePads.filter((pad) => pad.team === 1),
+  ];
+  return map;
 }
