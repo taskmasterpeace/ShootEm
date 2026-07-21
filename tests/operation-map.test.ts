@@ -12,6 +12,7 @@ import {
   type OperationSiteId,
 } from '../src/sim/operations';
 import type { GameMap } from '../src/sim/map';
+import { T_WATER, tileAt } from '../src/sim/map';
 
 const hulls: OperationHull[] = [
   { id: 'ares-01', kind: 'tank', name: 'Ares One', status: 'available' },
@@ -63,6 +64,9 @@ describe('Operation mission grounds', () => {
     const map = generateOperationMap(planFor('port', 'large', 7749), manifest, hulls);
     const kinds = map.vehiclePads.filter((pad) => pad.team === 0).map((pad) => pad.kind);
     for (const hull of hulls) expect(kinds).toContain(hull.kind);
+    const pike = map.vehiclePads.find((pad) => pad.operationHullId === 'pike-01');
+    expect(pike).toBeTruthy();
+    expect(tileAt(map.grid, pike!.pos.x, pike!.pos.z)).toBe(T_WATER);
   });
 
   it('keeps objective metadata through Map Maker serialization', () => {

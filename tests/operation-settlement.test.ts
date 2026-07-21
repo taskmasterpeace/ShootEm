@@ -67,6 +67,7 @@ describe('Operation campaign state', () => {
     expect(campaign.treasury).toBe(OPERATION_TREASURY_SEED);
     expect(campaign.motorPool).toHaveLength(Object.values(MOTOR_POOL_SEED).reduce((sum, count) => sum + count, 0));
     expect(new Set(campaign.motorPool.map((hull) => hull.id)).size).toBe(campaign.motorPool.length);
+    expect(new Set(campaign.motorPool.map((hull) => hull.name)).size).toBe(campaign.motorPool.length);
     expect(campaign.motorPool.every((hull) => hull.name.length > 3 && hull.status === 'available')).toBe(true);
     expect(Object.keys(campaign.operationWindows)).toHaveLength(FRONTS.length * 3);
   });

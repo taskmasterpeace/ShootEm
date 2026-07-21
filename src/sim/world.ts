@@ -473,6 +473,9 @@ export class World {
     if (opts.operation) {
       this.operation = createOperationRuntime(opts.operation);
       this.mode.timeLeft = Infinity;
+      if (this.operation.setup.weather === 'storm') {
+        this.weather = { kind: 'storm', intensity: 0.9, until: Infinity };
+      }
     }
     if (opts.mode === 'paintball') this.weather.until = Infinity; // the yard stays sunny
     // THE OUTBREAK plays LIVE in the horde modes — where the dead already walk,
@@ -489,11 +492,17 @@ export class World {
       }
     }
     if (opts.operationBonuses) this.applyOperationBattleBonuses(opts.operationBonuses);
+    if (opts.operationManifest?.support === 'artillery') this.operationArtillery++;
+    if (opts.operationManifest?.support === 'cas' && this.operation?.setup.deniedSupport !== 'cas') {
+      const home = this.map.vehiclePads.find((pad) => pad.team === 0)?.pos ?? this.map.basePos[0];
+      this.map.vehiclePads.push({ kind: 'strikejet', team: 0, pos: { x: home.x + 3, y: 0, z: home.z - 3 } });
+    }
     this.map.vehiclePads.forEach((pad, padId) => {
       if (isCoopMode(opts.mode) && pad.kind !== 'ambulance' && pad.kind !== 'emplacement') return;
       const vehicle = this.spawnVehicle(pad.kind, pad.team, pad.pos, padId);
       vehicle.operationHullId = pad.operationHullId;
       vehicle.operationObjectiveId = pad.operationObjectiveId;
+      vehicle.operationPrize = pad.operationPrize;
     });
     if (opts.mode === 'safehouse' && this.map.houses.length) {
       const house = this.map.houses[this.rng.int(0, this.map.houses.length - 1)];
@@ -503,6 +512,11 @@ export class World {
     for (const p of this.map.pickups) {
       this.pickups.set(this.nextId, { id: this.nextId, type: p.type, pos: { ...p.pos }, respawnAt: 0 });
       this.nextId++;
+    }
+    if (this.operation?.setup.defenderLswRequired) {
+      const objective = this.map.operation?.objectives[0]?.pos ?? this.map.hillPos;
+      const defenders = lswsForTeam(1);
+      if (defenders.length > 0) this.addLsw(defenders[this.rng.int(0, defenders.length - 1)], 1, objective);
     }
     this.refreshHomeDoors(); // base-zone doors learn whose base they serve
   }
@@ -529,6 +543,7 @@ export class World {
     if (bonuses.cas) addPad('strikejet', 0, -3);
     if (bonuses.escortWing) addPad('interceptor', 3, 0);
     if (bonuses.coastalCover) addPad('emplacement', -3, 0);
+    if (bonuses.navalSupport) addPad('boat', -3, -3);
     if (bonuses.rearmPad) this.map.pickups.push({ type: 'ammo', pos: { ...home } });
     if (bonuses.repairPad) this.operationRepairPadPos = { ...home };
     if (bonuses.forwardSpawn && this.map.controlPoints[0]) {
@@ -4428,6 +4443,7 @@ export class World {
 
   stepVehicle(v: Vehicle, cmds: Map<number, PlayerCmd>, dt: number) {
     if (!v.alive) {
+      if (this.operation) return; // an Operation has a finite manifest; wrecks do not print back in
       if (this.time >= v.respawnAt && !this.mode.over) {
         // co-op support vehicles respawn too; battle vehicles only outside co-op
         const support = v.kind === 'ambulance' || v.kind === 'emplacement';
@@ -5423,6 +5439,10 @@ export class World {
     // nothing at the splash rim. The client draws these exact two radii, so
     // the ground rings tell the literal truth about who dies where.
     const killR = Math.min(def.splash * 0.4, 2.4);
+    if (team === 0 && def.splash > 0 && this.operation?.plan.complication === 'no_collateral') {
+      const protectedHit = this.map.operation?.protectedZones.some((zone) => Math.hypot(zone.pos.x - pos.x, zone.pos.z - pos.z) <= zone.radius);
+      if (protectedHit) this.operationCollateral++;
+    }
     // THE OUTBREAK (OUTBREAK-SPEC §6.2): a blast is corpse denial — any
     // exposed body inside the splash is neutralized and never rises. (The
     // fire system will join this when W7.3 lands; v1 speaks in explosions.)

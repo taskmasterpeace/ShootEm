@@ -739,6 +739,8 @@ export interface Vehicle {
   operationHullId?: string;
   /** Runtime objective identity when this hull is the defended target. */
   operationObjectiveId?: string;
+  /** Scorched-earth prize: losing this friendly asset fails the Operation. */
+  operationPrize?: boolean;
 }
 
 export interface Turret {

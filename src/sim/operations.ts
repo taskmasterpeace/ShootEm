@@ -210,7 +210,12 @@ export function generateOperation(input: GenerateOperationInput): OperationPlan 
   const verb = signature ? verbById(signature.verb) : rng.pick(OPERATION_VERBS);
   const domains = signature ? [...signature.domains] : [verb.domain];
   const site = rng.pick(signature?.sites ?? verb.sites);
-  const complication = rng.pick(OPERATION_COMPLICATIONS).id;
+  const eligibleComplications = OPERATION_COMPLICATIONS.filter((entry) => {
+    if (entry.id === 'god_on_objective' && input.pass === 1) return false;
+    if (entry.id === 'one_airframe' && !domains.includes('air')) return false;
+    return true;
+  });
+  const complication = rng.pick(eligibleComplications).id;
   const effects = OPERATION_EFFECTS.filter((entry) => input.pass === 1
     ? entry.category === 'territory' || entry.category === 'materiel'
     : input.pass === 2 ? entry.category !== 'doctrine' : true);
@@ -220,11 +225,12 @@ export function generateOperation(input: GenerateOperationInput): OperationPlan 
   const phases = templates.map((entry, index): OperationPhase => ({ ...entry, id: `${verb.id}:${index + 1}` }));
   const requirements = Object.fromEntries(domains.map((domain) => [domain, 1])) as Partial<Record<OperationDomain, number>>;
   const frontName = input.frontName?.trim() || input.frontId.replaceAll('_', ' ');
-  const support = signature?.authorizedSupport ?? [
+  const baseSupport: OperationSupport[] = signature ? [...signature.authorizedSupport] : [
     'none',
     ...(verb.domain === 'land' ? ['artillery' as const] : []),
     ...(verb.domain === 'air' && complication !== 'air_cover_denied' ? ['cas' as const] : []),
   ];
+  const support = complication === 'air_cover_denied' ? baseSupport.filter((entry) => entry !== 'cas') : baseSupport;
   const recommendedCost = signature?.recommendedCost ?? 4;
   return {
     id: `${input.frontId}:p${input.pass}:${seed}`,
@@ -266,6 +272,7 @@ export interface OperationBattleBonuses {
   artillery: number;
   hazards: number;
   coastalCover: boolean;
+  navalSupport: boolean;
 }
 
 export const LAND_KINDS: ReadonlySet<VehicleKind> = new Set(['buggy', 'tank', 'apc', 'bike', 'aatrack', 'transport', 'ambulance', 'tunneler', 'emplacement', 'mech']);

@@ -152,6 +152,8 @@ export interface VehiclePad {
   operationHullId?: string;
   /** Destructible mission target carried by this pad's spawned vehicle. */
   operationObjectiveId?: string;
+  /** Scorched-earth prize the attacking force must keep alive. */
+  operationPrize?: boolean;
 }
 
 export interface PickupSpawn {

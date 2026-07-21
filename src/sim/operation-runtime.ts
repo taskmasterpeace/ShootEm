@@ -57,6 +57,7 @@ export interface OperationRuntimeState {
   completedPhaseIds: string[];
   elapsed: number;
   collateral: number;
+  destroyedHullIds: string[];
   result: OperationResult | null;
   setup: {
     weather?: 'storm';
@@ -86,6 +87,7 @@ export function createOperationRuntime(plan: OperationPlan): OperationRuntimeSta
     completedPhaseIds: [],
     elapsed: 0,
     collateral: 0,
+    destroyedHullIds: [],
     result: null,
     setup: {
       ...(plan.complication === 'storm' ? { weather: 'storm' as const } : {}),
@@ -97,8 +99,9 @@ export function createOperationRuntime(plan: OperationPlan): OperationRuntimeSta
 }
 
 function finish(state: OperationRuntimeState, observation: OperationObservation, won: boolean, reason?: OperationFailureReason): OperationResult {
-  const destroyedHullIds = observation.hulls.filter((hull) => !hull.alive).map((hull) => hull.hullId);
-  const survivingHullIds = observation.hulls.filter((hull) => hull.alive).map((hull) => hull.hullId);
+  const destroyedHullIds = [...new Set([...state.destroyedHullIds, ...observation.hulls.filter((hull) => !hull.alive).map((hull) => hull.hullId)])];
+  const destroyed = new Set(destroyedHullIds);
+  const survivingHullIds = observation.hulls.filter((hull) => hull.alive && !destroyed.has(hull.hullId)).map((hull) => hull.hullId);
   const result: OperationResult = {
     operationId: state.plan.id,
     won,
@@ -116,6 +119,7 @@ function finish(state: OperationRuntimeState, observation: OperationObservation,
 
 export function stepOperation(state: OperationRuntimeState, observation: OperationObservation, dt: number): OperationRuntimeEvent[] {
   if (state.result) return [];
+  for (const hull of observation.hulls) if (!hull.alive && !state.destroyedHullIds.includes(hull.hullId)) state.destroyedHullIds.push(hull.hullId);
   state.elapsed += Math.max(0, dt);
   state.collateral = Math.max(state.collateral, observation.collateral);
 
@@ -220,9 +224,11 @@ export function observeWorldOperation(world: World): OperationObservation {
   }
   const target = [...world.vehicles.values()].find((vehicle) => vehicle.operationObjectiveId === objective.id);
   observation.phase.targetDestroyed = target !== undefined && !target.alive;
+  const scorchedPrize = [...world.vehicles.values()].find((vehicle) => vehicle.operationPrize);
+  observation.scorchedTargetDestroyed = scorchedPrize !== undefined && !scorchedPrize.alive;
   observation.hulls = (world.opts.operationInventory ?? []).filter((hull) => world.opts.operationManifest?.hullIds.includes(hull.id)).map((hull) => ({
     hullId: hull.id,
-    alive: [...world.vehicles.values()].some((vehicle) => vehicle.operationHullId === hull.id && vehicle.alive),
+    alive: [...world.vehicles.values()].some((vehicle) => vehicle.operationHullId === hull.id && vehicle.alive && vehicle.team === 0),
   }));
   observation.criticalAirframesAlive = observation.hulls.filter((hull) => {
     const source = world.opts.operationInventory?.find((entry) => entry.id === hull.hullId);

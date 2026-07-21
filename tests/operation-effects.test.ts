@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { consumeOperationBattleBonuses, freshCampaign, operationBattleBonuses } from '../src/client/campaign';
+import { applyResult, consumeOperationBattleBonuses, freshCampaign, operationBattleBonuses } from '../src/client/campaign';
 import { generateOperation, type OperationHull, type OperationManifest } from '../src/sim/operations';
 import { World } from '../src/sim/world';
 
@@ -45,6 +45,7 @@ describe('Operation rewards enter the next battle', () => {
       artillery: 1,
       hazards: 3,
       coastalCover: false,
+      navalSupport: false,
     });
   });
 
@@ -95,5 +96,29 @@ describe('Operation rewards enter the next battle', () => {
     expect(campaign.modifiers.some((modifier) => modifier.scope === 'next_battle' && modifier.frontId === 'highland_pass')).toBe(false);
     expect(campaign.modifiers.some((modifier) => modifier.scope === 'season')).toBe(true);
     expect(campaign.facilities).toContain('capture_airfield');
+  });
+
+  it('turns the remaining strategic rewards into concrete battle or campaign advantages', () => {
+    const campaign = freshCampaign(1000);
+    campaign.facilities.push('capture_port', 'capture_forge', 'capture_clone_hub');
+    campaign.modifiers.push(
+      { id: 'open_supply_route', scope: 'front', uses: 1, value: 1, frontId: 'eastern_plains' },
+      { id: 'deny_supply_route', scope: 'front', uses: 1, value: -1, frontId: 'eastern_plains' },
+      { id: 'hold_chokepoint', scope: 'front', uses: 1, value: 1, frontId: 'eastern_plains' },
+      { id: 'air_superiority_control', scope: 'season', uses: -1, value: 1, frontId: 'eastern_plains' },
+      { id: 'carrier_slot', scope: 'season', uses: -1, value: 1, frontId: 'eastern_plains' },
+    );
+    campaign.doctrine.push('doctrine_node', 'vehicle_retrofit');
+    campaign.intel.push('reveal_manifest', 'see_enemy_books');
+    const bonuses = operationBattleBonuses(campaign, 'eastern_plains');
+    expect(bonuses).toMatchObject({
+      openingMateriel: 1, enemyMaterielPenalty: 2, requisitionDiscount: 0.2,
+      denyEnemyAir: true, earlyWarningSeconds: 30, repairPad: true,
+      cas: true, escortWing: true, hazards: 1, navalSupport: true,
+    });
+
+    campaign.fronts.eastern_plains.clones = 100;
+    applyResult(campaign, 'eastern_plains', true, 2000, 0);
+    expect(campaign.fronts.eastern_plains.clones).toBe(200); // standard 60 + clone-hub 40
   });
 });

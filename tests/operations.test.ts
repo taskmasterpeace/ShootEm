@@ -88,6 +88,17 @@ describe('Military Operation generation', () => {
       }
     }
   });
+
+  it('only assigns complications to Operations that can actually satisfy them', () => {
+    for (const pass of [1, 2, 3] as const) {
+      for (let seed = 1; seed <= 500; seed++) {
+        const plan = generateOperation({ seed, pass, frontId: 'the_port', frontName: 'The Port' });
+        if (plan.complication === 'god_on_objective') expect(pass).toBeGreaterThanOrEqual(2);
+        if (plan.complication === 'one_airframe') expect(plan.domains).toContain('air');
+        if (plan.complication === 'air_cover_denied') expect(plan.authorizedSupport).not.toContain('cas');
+      }
+    }
+  });
 });
 
 describe('Operation manifest', () => {

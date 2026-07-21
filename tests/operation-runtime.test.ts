@@ -16,6 +16,7 @@ import {
   type OperationVerbDef,
 } from '../src/sim/operations';
 import { World } from '../src/sim/world';
+import { WEAPONS } from '../src/sim/data';
 
 function planForVerb(verb: OperationVerbDef, complication: OperationPlan['complication'] = 'storm'): OperationPlan {
   const base = generateOperation({ seed: 4207, frontId: 'eastern_plains', frontName: 'Eastern Plains', pass: 1 });
@@ -79,6 +80,18 @@ describe('the fifteen Operation verbs', () => {
     expect(state.result).toBeNull();
     finish(state);
     expect(state.result?.won).toBe(true);
+  });
+
+  it('remembers a named hull loss across later phases even if an observation becomes stale', () => {
+    const plan = generateOperation({ seed: 9, frontId: 'highland_pass', frontName: 'Highland Pass', pass: 2, signatureId: 'hammer' });
+    const state = createOperationRuntime(plan);
+    const first = successObservation(plan.phases[0]);
+    first.hulls = [{ hullId: 'ares-01', alive: false }, { hullId: 'falcon-01', alive: true }];
+    stepOperation(state, first, 1);
+    const second = successObservation(plan.phases[1]);
+    second.hulls = [{ hullId: 'ares-01', alive: true }, { hullId: 'falcon-01', alive: true }];
+    stepOperation(state, second, 6);
+    expect(state.result).toMatchObject({ destroyedHullIds: ['ares-01'], survivingHullIds: ['falcon-01'], cleanSheet: false });
   });
 });
 
@@ -165,5 +178,65 @@ describe('World Operation integration', () => {
     world.damageVehicle(target!, 9999, -1, 'tank_cannon');
     world.step(0.1, new Map());
     expect(world.operation?.result).toMatchObject({ won: true });
+  });
+
+  it('applies authorized support and enforces denied air cover', () => {
+    const base = planForVerb(OPERATION_VERBS[0]);
+    const hulls: OperationHull[] = [{ id: 'ares-01', kind: 'tank', name: 'Ares One', status: 'available' }];
+    const artilleryPlan: OperationPlan = { ...base, authorizedSupport: ['none', 'artillery'] };
+    const artillery = new World({
+      seed: base.seed, mode: 'conquest', operation: artilleryPlan,
+      operationManifest: { hullIds: ['ares-01'], ammunition: 1, support: 'artillery' }, operationInventory: hulls,
+    });
+    expect(artillery.operationArtillery).toBe(1);
+
+    const deniedPlan: OperationPlan = { ...base, complication: 'air_cover_denied', authorizedSupport: ['none', 'cas'] };
+    const denied = new World({
+      seed: base.seed, mode: 'conquest', operation: deniedPlan,
+      operationManifest: { hullIds: ['ares-01'], ammunition: 1, support: 'cas' }, operationInventory: hulls,
+    });
+    expect([...denied.vehicles.values()].some((vehicle) => vehicle.team === 0 && vehicle.kind === 'strikejet')).toBe(false);
+  });
+
+  it('places a hostile god on the objective', () => {
+    const plan = { ...planForVerb(OPERATION_VERBS[0], 'god_on_objective'), pass: 2 as const };
+    const hulls: OperationHull[] = [{ id: 'ares-01', kind: 'tank', name: 'Ares One', status: 'available' }];
+    const world = new World({
+      seed: plan.seed, mode: 'conquest', lswPass: 2, operation: plan,
+      operationManifest: { hullIds: ['ares-01'], ammunition: 1, support: 'none' }, operationInventory: hulls,
+    });
+    const god = [...world.soldiers.values()].find((soldier) => soldier.team === 1 && soldier.ascendant);
+    expect(god).toBeTruthy();
+    expect(Math.hypot(god!.pos.x - world.map.operation!.objectives[0].pos.x, god!.pos.z - world.map.operation!.objectives[0].pos.z)).toBeLessThan(1);
+  });
+
+  it('fails when the live scorched-earth prize is destroyed', () => {
+    const plan = planForVerb(OPERATION_VERBS[0], 'scorched_earth');
+    const hulls: OperationHull[] = [{ id: 'ares-01', kind: 'tank', name: 'Ares One', status: 'available' }];
+    const world = new World({
+      seed: plan.seed, mode: 'conquest', operation: plan,
+      operationManifest: { hullIds: ['ares-01'], ammunition: 1, support: 'none' }, operationInventory: hulls,
+    });
+    world.addSoldier('Reyes', 'infantry', 0, 'human');
+    const prize = [...world.vehicles.values()].find((vehicle) => vehicle.operationPrize);
+    expect(prize).toBeTruthy();
+    world.damageVehicle(prize!, 9999, -1, 'tank_cannon');
+    world.step(0.1, new Map());
+    expect(world.operation?.result).toMatchObject({ won: false, reason: 'prize_destroyed' });
+  });
+
+  it('counts friendly explosions in a protected zone as collateral', () => {
+    const plan = planForVerb(OPERATION_VERBS[0], 'no_collateral');
+    const hulls: OperationHull[] = [{ id: 'ares-01', kind: 'tank', name: 'Ares One', status: 'available' }];
+    const world = new World({
+      seed: plan.seed, mode: 'conquest', operation: plan,
+      operationManifest: { hullIds: ['ares-01'], ammunition: 1, support: 'none' }, operationInventory: hulls,
+    });
+    const me = world.addSoldier('Reyes', 'infantry', 0, 'human');
+    const zone = world.map.operation!.protectedZones[0];
+    world.explode(zone.pos, WEAPONS.gl, me.id, 0);
+    world.step(0.1, new Map());
+    expect(world.operationCollateral).toBe(1);
+    expect(world.operation?.collateral).toBe(1);
   });
 });

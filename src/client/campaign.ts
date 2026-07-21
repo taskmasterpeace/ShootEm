@@ -162,12 +162,14 @@ const HULL_CALLSIGNS = ['Aegis', 'Bastion', 'Cinder', 'Dauntless', 'Ember', 'Fur
 
 export function freshMotorPool(): MotorPoolHull[] {
   const pool: MotorPoolHull[] = [];
+  let serial = 0;
   for (const [kind, count] of Object.entries(MOTOR_POOL_SEED) as [keyof typeof MOTOR_POOL_SEED, number][]) {
     for (let i = 0; i < count; i++) {
+      const registry = serial++;
       pool.push({
         id: `${kind}-${String(i + 1).padStart(2, '0')}`,
         kind,
-        name: `${HULL_CALLSIGNS[i % HULL_CALLSIGNS.length]} ${String(i + 1).padStart(2, '0')}`,
+        name: `${HULL_CALLSIGNS[registry % HULL_CALLSIGNS.length]} ${String(registry + 1).padStart(2, '0')}`,
         status: 'available',
         sorties: 0,
         killsByKind: {},
@@ -458,22 +460,29 @@ export function operationBattleBonuses(campaign: Campaign, frontId: string): Ope
   const has = (id: OperationEffectId) => modifiers.some((modifier) => modifier.id === id);
   const facility = (id: OperationEffectId) => campaign.facilities.includes(id);
   return {
-    openingMateriel: value('steal_opening_purse') + (facility('capture_fuel_farm') ? 2 : 0),
-    enemyMaterielPenalty: value('steal_opening_purse'),
-    requisitionDiscount: Math.min(0.5, value('cheaper_requisition') + (facility('capture_fuel_farm') ? 0.15 : 0)),
-    denyEnemyAir: has('ground_enemy_air') || has('no_fly_zone'),
-    earlyWarningSeconds: has('early_warning') || facility('capture_radar') ? 30 : 0,
-    fogLiftSeconds: campaign.intel.includes('opening_fog_lift') ? 30 : 0,
-    forwardSpawn: has('forward_base') || facility('capture_rail_hub'),
-    repairPad: facility('capture_repair_depot'),
+    openingMateriel: value('steal_opening_purse') + Math.max(0, value('open_supply_route'))
+      + (facility('capture_fuel_farm') ? 2 : 0) + (has('courier_headline') ? 1 : 0),
+    enemyMaterielPenalty: value('steal_opening_purse') + Math.max(0, -value('deny_supply_route'))
+      + Math.max(0, -value('sink_convoy')) + (has('split_front') ? 1 : 0)
+      + (has('submarine_picket') ? 1 : 0) + (campaign.intel.includes('see_enemy_books') ? 1 : 0),
+    requisitionDiscount: Math.min(0.5, value('cheaper_requisition')
+      + (facility('capture_fuel_farm') ? 0.15 : 0) + (facility('capture_forge') ? 0.1 : 0)
+      + (campaign.doctrine.includes('doctrine_node') ? 0.05 : 0) + (campaign.doctrine.includes('vehicle_retrofit') ? 0.05 : 0)),
+    denyEnemyAir: has('ground_enemy_air') || has('no_fly_zone') || has('air_superiority_control') || has('deny_enemy_cas'),
+    earlyWarningSeconds: has('early_warning') || has('seize_high_ground') || has('submarine_picket')
+      || facility('capture_radar') || campaign.intel.includes('reveal_manifest') || campaign.intel.includes('radio_intercept') ? 30 : 0,
+    fogLiftSeconds: campaign.intel.includes('opening_fog_lift') || campaign.intel.includes('nemesis_file') ? 30 : 0,
+    forwardSpawn: has('forward_base') || has('claim_midfield') || facility('capture_rail_hub'),
+    repairPad: facility('capture_repair_depot') || has('veteran_recovery') || campaign.doctrine.includes('vehicle_retrofit'),
     rearmPad: has('rearm_pads'),
     bridgeAccess: facility('capture_bridge'),
     samCover: facility('capture_sam') || has('no_fly_zone'),
-    cas: facility('capture_airfield') || has('cas_allotment'),
-    escortWing: has('escort_wing'),
+    cas: facility('capture_airfield') || has('cas_allotment') || has('carrier_slot'),
+    escortWing: has('escort_wing') || has('carrier_slot'),
     artillery: Math.max(0, Math.round(value('artillery_barrage'))),
-    hazards: Math.max(0, Math.round(value('preplaced_hazards'))),
+    hazards: Math.max(0, Math.round(value('preplaced_hazards'))) + (has('hold_chokepoint') ? 1 : 0),
     coastalCover: has('coastal_cover'),
+    navalSupport: facility('capture_port') || has('sea_control') || has('carrier_slot') || has('submarine_picket'),
   };
 }
 
@@ -503,7 +512,7 @@ export function applyResult(c: Campaign, frontId: string, won: boolean | null, n
   const seed = cloneSeedFor(def);
   const clonesBefore = st.clones ?? seed;
   st.clones = Math.max(0, clonesBefore - deaths);
-  if (won && st.clones > 0) st.clones = Math.min(seed, st.clones + CLONE_RECOVER);
+  if (won && st.clones > 0) st.clones = Math.min(seed, st.clones + CLONE_RECOVER + (c.facilities.includes('capture_clone_hub') ? 40 : 0));
   if (st.clones === 0 && clonesBefore > 0) {
     st.control = -100; // no bodies to hold it — the Collective walks in
     lines.push(`${def.name} has run DRY of clones — the front is LOST. The vats stand empty.`);
