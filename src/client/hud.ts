@@ -491,6 +491,14 @@ export class Hud {
       const name = LSWS[p.id]?.name?.toUpperCase() ?? 'LSW';
       chips += `<div class="obj-chip ${p.team === localTeam ? 't0' : 't1'}">☄ ${name} INBOUND ${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}</div>`;
     }
+    // THE OUTBREAK (OUTBREAK-SPEC §3.2): the sector's biohazard status — a
+    // colored alert chip that climbs yellow→orange→red as the level rises.
+    if (world.outbreakEnabled && (world.outbreakLevel ?? 0) > 0) {
+      const lvl = world.outbreakLevel;
+      const label = ['', 'SUSPECTED', 'OUTBREAK', 'CONTAINMENT FAILURE', 'SECTOR LOST'][lvl];
+      const tone = lvl >= 3 ? 't1' : 'neutral';
+      chips += `<div class="obj-chip ${tone} biohazard lvl${lvl}">☣ L${lvl} · ${label}</div>`;
+    }
     bar.innerHTML = chips;
     $('mode-status').textContent = MODE_INFO[m.id].name;
     // §8.8 the sky, on the record — amber when it's costing you something

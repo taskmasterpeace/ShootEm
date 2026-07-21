@@ -137,6 +137,31 @@ describe('outbreak: incubation and the turn (§4)', () => {
   });
 });
 
+describe('outbreak: pressure and levels (§3)', () => {
+  it('a growing horde escalates the level; clearing it de-escalates', () => {
+    const w = makeWorld(true);
+    const sp = w.map.zombieSpawns[0] ?? { x: 0, y: 0, z: 0 };
+    expect(w.outbreakLevel).toBe(0);
+    const zeds = [];
+    for (let i = 0; i < 30; i++) zeds.push(w.addZombie('zombie', { x: sp.x + (i % 6), y: 0, z: sp.z + Math.floor(i / 6) }));
+    for (let i = 0; i < 60 * 10; i++) { w.step(1 / 60, new Map()); w.takeEvents(); }
+    expect(w.outbreakLevel).toBeGreaterThanOrEqual(3); // 30 infected = high pressure
+    // wipe them and let it settle
+    for (const z of zeds) { z.alive = false; }
+    for (let i = 0; i < 60 * 15; i++) { w.step(1 / 60, new Map()); w.takeEvents(); }
+    expect(w.outbreakLevel).toBeLessThan(3); // pressure drained
+  });
+
+  it('the level stays 0 with the outbreak off, no matter the horde', () => {
+    const w = makeWorld(false);
+    const sp = w.map.zombieSpawns[0] ?? { x: 0, y: 0, z: 0 };
+    for (let i = 0; i < 20; i++) w.addZombie('zombie', { x: sp.x, y: 0, z: sp.z });
+    for (let i = 0; i < 60 * 8; i++) { w.step(1 / 60, new Map()); w.takeEvents(); }
+    expect(w.outbreakLevel).toBe(0);
+    expect(w.outbreakPressure).toBe(0);
+  });
+});
+
 describe('outbreak: inert by default (the byte-identical law)', () => {
   it('two full matches, outbreak off — no corpses, no viral, ever', () => {
     const w = makeWorld(false);

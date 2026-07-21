@@ -27,6 +27,14 @@ const RESPAWN_DELAY = 4;
  *  conversion, per second. ~1.4 → a fresh 22-point bite incubates ~55s if
  *  untreated; two bites turn you in under 30. Medical care walks it back. */
 const INFECTION_CREEP = 1.4;
+/** OUTBREAK LEVEL banners (§3.2), announced on escalation only */
+const OUTBREAK_LEVELS = [
+  'SECTOR CLEAR',
+  'OUTBREAK LEVEL 1 — SUSPECTED EXPOSURE',
+  'OUTBREAK LEVEL 2 — CONFIRMED OUTBREAK',
+  'OUTBREAK LEVEL 3 — CONTAINMENT FAILURE',
+  'OUTBREAK LEVEL 4 — SECTOR LOST',
+] as const;
 
 // opt #38 (S2): caller-owned scratch for spatial-index queries — one per call
 // site so nested resolution (a hit → explode → …) can never clobber a live
@@ -200,6 +208,13 @@ export class World {
   outbreakEnabled = false;
   /** exposed bodies on the reanimation clock (§6) — capped, oldest forgotten */
   corpses: { pos: Vec3; reanimatesAt: number; neutralized: boolean; name: string }[] = [];
+  /** OUTBREAK PRESSURE (§3): the authoritative severity of the sector, fed by
+   *  live infected + unburned corpses + exposed soldiers. Drives the level. */
+  outbreakPressure = 0;
+  /** OUTBREAK LEVEL 0-4 (§3.2): Clear→Suspected→Confirmed→Failure→Sector Lost.
+   *  Hysteresis (§3.3) keeps it from oscillating on a single kill. */
+  outbreakLevel = 0;
+  private outbreakLevelSince = 0;
   vehicles = new Map<number, Vehicle>();
   turrets = new Map<number, Turret>();
   projectiles = new Map<number, Projectile>();
@@ -4248,6 +4263,31 @@ export class World {
         this.emit({ type: 'announce', text: `${name.toUpperCase()} HAS TURNED`, big: true });
       }
     }
+    // OUTBREAK PRESSURE (§3.1): count the sector's contagion. Live infected
+    // are the visible threat; unburned corpses are the future one (weighted
+    // heavier — an unprocessed body is a promise); exposed soldiers are the
+    // slow leak. Cheap: the index already partitioned the roster by team.
+    let infected = 0, exposed = 0;
+    for (const s of this.soldiers.values()) {
+      if (!s.alive) continue;
+      if (isZed(s.kind)) infected++;
+      else if ((s.viralLoad ?? 0) > 0) exposed++;
+    }
+    const pressure = infected + this.corpses.length * 1.5 + exposed * 0.5;
+    // ease toward the reading so a single kill can't jolt the level (§3.3)
+    this.outbreakPressure += (pressure - this.outbreakPressure) * Math.min(1, dt * 0.5);
+    // level bands with a 3s confirmation window before any change commits
+    const p = this.outbreakPressure;
+    const want = p >= 24 ? 4 : p >= 12 ? 3 : p >= 5 ? 2 : p >= 1 ? 1 : 0;
+    if (want !== this.outbreakLevel) {
+      if (this.time - this.outbreakLevelSince > 3) {
+        const rising = want > this.outbreakLevel;
+        this.outbreakLevel = want;
+        this.outbreakLevelSince = this.time;
+        if (rising) this.emit({ type: 'announce', text: OUTBREAK_LEVELS[want], big: want >= 3 });
+      }
+    } else this.outbreakLevelSince = this.time;
+
     // the dead: the corpse clock
     if (!this.corpses.length) return;
     this.corpses = this.corpses.filter((c) => {

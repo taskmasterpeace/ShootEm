@@ -83,6 +83,13 @@ html, body {
   text-shadow: 0 2px 0 oklch(0 0 0 / 0.5), 0 0 34px oklch(0.76 0.16 74 / 0.18);
 }
 .game-title span { color: var(--accent); }
+/* THE OUTBREAK: the sector biohazard chip climbs the alert ladder */
+.obj-chip.biohazard { letter-spacing: 0.08em; }
+.obj-chip.biohazard.lvl1 { color: #e8d34d; border-color: #e8d34d; }
+.obj-chip.biohazard.lvl2 { color: #e8a33d; border-color: #e8a33d; }
+.obj-chip.biohazard.lvl3 { color: #ff7a1a; border-color: #ff7a1a; animation: down-breathe 1.2s ease-in-out infinite; }
+.obj-chip.biohazard.lvl4 { color: #ff4736; border-color: #ff4736; animation: down-breathe 0.7s ease-in-out infinite; }
+
 /* THE OUTBREAK: the strain in your blood, counted where the vitals live */
 #viral-chip { color: #7fa83c; letter-spacing: 0.06em; }
 #viral-chip.hot { color: #ff4736; animation: down-breathe 0.9s ease-in-out infinite; }
