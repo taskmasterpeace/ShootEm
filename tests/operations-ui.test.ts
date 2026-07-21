@@ -60,6 +60,15 @@ describe('Operations board', () => {
     expect(blocked.status).toBe('blocked');
     expect(renderOperationsBoard(blocked)).toContain(otherPlan.codename);
   });
+
+  it('uses singular manifest copy when one named hull is staged', () => {
+    const campaign = freshCampaign(1000);
+    const plan = operationForFront(campaign, 'bridge_delta');
+    const manifest = createSuggestedManifest(plan, campaign.motorPool);
+    expect(manifest.hullIds).toHaveLength(1);
+    expect(stageCampaignOperation(campaign, plan, manifest, 2000).ok).toBe(true);
+    expect(buildOperationBoardModel(campaign, 'bridge_delta').statusDetail).toBe('1 hull committed · 4 materiel charged');
+  });
 });
 
 describe('Manifest planner', () => {

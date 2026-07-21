@@ -80,7 +80,8 @@ export function buildOperationBoardModel(campaign: Campaign, frontId: string): O
     statusDetail = `Pass ${plan.pass} window spent`;
   } else if (active?.plan.id === plan.id) {
     status = 'staged';
-    statusDetail = `${active.manifest.hullIds.length} hulls committed · ${active.charged} materiel charged`;
+    const hullCount = active.manifest.hullIds.length;
+    statusDetail = `${hullCount} ${hullCount === 1 ? 'hull' : 'hulls'} committed · ${active.charged} materiel charged`;
   } else if (active) {
     status = 'blocked';
     statusDetail = `Operation ${active.plan.codename} is already staged at ${FRONTS.find((entry) => entry.id === active.plan.frontId)?.name ?? active.plan.frontId}`;
