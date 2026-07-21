@@ -105,6 +105,20 @@ describe('the Living Campaign', () => {
     expect(lines.some((l) => l.includes('CRITICAL')), 'the quartermaster warns').toBe(true);
   });
 
+  it('W3.4: every battle digs the front one PASS deeper, capping at three', () => {
+    const f = FRONTS[0];
+    const c = freshCampaign(1_700_000_000_000);
+    expect(c.fronts[f.id].pass, 'the war starts asleep').toBe(1);
+    const l1 = applyResult(c, f.id, true, 1_700_000_100_000, 0);
+    expect(c.fronts[f.id].pass).toBe(2);
+    expect(l1.some((l) => l.includes('PASS 2')), 'their stable is awake').toBe(true);
+    const l2 = applyResult(c, f.id, false, 1_700_000_200_000, 0);
+    expect(c.fronts[f.id].pass).toBe(3);
+    expect(l2.some((l) => l.includes('PASS 3')), 'both stables are loose').toBe(true);
+    applyResult(c, f.id, true, 1_700_000_300_000, 0);
+    expect(c.fronts[f.id].pass, 'three is the ceiling').toBe(3);
+  });
+
   it('W3.1: the war only moves while you play — an absence changes NOTHING', () => {
     const HOUR = 3600_000;
     const t0 = 1_700_000_000_000;

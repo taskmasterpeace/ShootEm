@@ -450,6 +450,9 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     // lobby's headcount earns — the size rides the id (front@size) so
     // world.ts stays the LSW dev's untouched file.
     frontId: activeFrontId ? `${activeFrontId}@${mapSizeForPlayers(botsPerTeam)}` : undefined,
+    // W3.4 PASS ESCALATION: a campaign battle fights at the front's pass —
+    // P1 no gods, P2 their stable only, P3 both. Off the map: everything.
+    lswPass: activeFrontId ? (campaign?.fronts[activeFrontId]?.pass ?? 3) : 3,
   });
   // carry the feel knobs into the match (Robert's global speed control)
   world.projectileSpeedMul = settings.projectileSpeed;

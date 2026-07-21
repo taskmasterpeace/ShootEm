@@ -299,6 +299,11 @@ export interface WorldOptions {
   /** §8.2 authored ground: a Scar front id deploys onto ITS terrain, not a
    *  recipe scatter. Unknown/absent → the classic generator. */
   frontId?: string;
+  /** W3.4 PASS ESCALATION: the front's pass gates the stables. 1 = no gods
+   *  at all; 2 = only the ENEMY stable answers (the war escalates AT you
+   *  before it escalates FOR you); 3/absent = both — quick matches off the
+   *  campaign map keep today's behavior. */
+  lswPass?: 1 | 2 | 3;
 }
 
 /** Custom deploy loadout: armory weapons + up to two equipment picks. */
@@ -701,6 +706,13 @@ export class World {
    */
   requestLsw(id: AscendantId, team: Team, callerId = -1): boolean {
     if (!lswAllowed(this.mode.id)) return false;
+    // W3.4 PASS ESCALATION: the front's pass gates the stables. P1 = the
+    // gods sleep; P2 = only the ENEMY stable (team 1, the Collective)
+    // answers — the war escalates AT you before it escalates FOR you;
+    // P3/absent = both stables are loose (every off-campaign match).
+    const pass = this.opts.lswPass ?? 3;
+    if (pass <= 1) return false;
+    if (pass === 2 && team === 0) return false;
     const def = LSWS[id];
     if (def.faction !== team) return false; // a stable answers only its own faction
     // refuse a second of the same faction — live OR already inbound

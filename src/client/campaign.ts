@@ -52,6 +52,10 @@ export interface FrontState {
    *  deaths in a battle here SPEND it; a win convoys some back; at ZERO the
    *  front is LOST outright — no bodies left to hold the line. */
   clones: number;
+  /** W3.4 PASS ESCALATION: how deep the war has dug in here. P1 = no gods,
+   *  P2 = the enemy stable wakes, P3 = both stables loose. Advances one
+   *  pass per battle fought on the front; the armistice resets it. */
+  pass: 1 | 2 | 3;
 }
 
 /** W3.3: a front's starting reserve scales with its importance. */
@@ -72,7 +76,7 @@ const LS_KEY = 'ww_campaign';
 
 export function freshCampaign(now = Date.now()): Campaign {
   const fronts: Record<string, FrontState> = {};
-  for (const f of FRONTS) fronts[f.id] = { control: 0, scarActive: false, lastBattleAt: 0, clones: cloneSeedFor(f) };
+  for (const f of FRONTS) fronts[f.id] = { control: 0, scarActive: false, lastBattleAt: 0, clones: cloneSeedFor(f), pass: 1 };
   return { v: 1, season: 1, updatedAt: now, fronts, dispatch: [] };
 }
 
@@ -83,8 +87,9 @@ export function loadCampaign(now = Date.now()): Campaign {
       const c = JSON.parse(raw) as Campaign;
       if (c.v === 1) {
         for (const f of FRONTS) {
-          c.fronts[f.id] ??= { control: 0, scarActive: false, lastBattleAt: 0, clones: cloneSeedFor(f) };
+          c.fronts[f.id] ??= { control: 0, scarActive: false, lastBattleAt: 0, clones: cloneSeedFor(f), pass: 1 };
           c.fronts[f.id].clones ??= cloneSeedFor(f); // W3.3 migration: old saves get full reserves
+          c.fronts[f.id].pass ??= 1;                 // W3.4 migration: the war starts at pass one
         }
         return c;
       }
@@ -121,6 +126,14 @@ export function applyResult(c: Campaign, frontId: string, won: boolean | null, n
     lines.push(`${def.name} has run DRY of clones — the front is LOST. The vats stand empty.`);
   } else if (st.clones > 0 && st.clones <= seed * 0.25 && clonesBefore > seed * 0.25) {
     lines.push(`${def.name} reserves CRITICAL: ${Math.round(st.clones)} clones left in the vats.`);
+  }
+  // W3.4: every battle digs the front one PASS deeper — the stables wake
+  const prevPass = st.pass ?? 1;
+  st.pass = Math.min(3, prevPass + 1) as 1 | 2 | 3;
+  if (st.pass !== prevPass) {
+    lines.push(st.pass === 2
+      ? `${def.name} escalates — PASS 2: their stable is awake.`
+      : `${def.name} escalates — PASS 3: both stables are loose.`);
   }
   const after = bandOf(st.control);
   if (after !== before) {
@@ -168,7 +181,7 @@ export function checkSeasonEnd(c: Campaign, now = Date.now()): Armistice | null 
     { text: `ARMISTICE — Season ${season} is over. ${name} takes the war, holding ${held[winner]} of ten fronts. The theatre resets; the record remains.`, at: now, simulated: false },
   );
   if (c.dispatch.length > 60) c.dispatch.length = 60;
-  for (const f of FRONTS) c.fronts[f.id] = { control: 0, scarActive: false, lastBattleAt: 0, clones: cloneSeedFor(f) }; // the armistice refills the vats
+  for (const f of FRONTS) c.fronts[f.id] = { control: 0, scarActive: false, lastBattleAt: 0, clones: cloneSeedFor(f), pass: 1 }; // the armistice refills the vats and calms the war
   c.season = season + 1;
   return { winner, season, frontsHeld: held[winner] };
 }

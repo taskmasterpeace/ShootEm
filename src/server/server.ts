@@ -278,8 +278,9 @@ function loadServerCampaign(): Campaign {
     const c = JSON.parse(readFileSync(CAMPAIGN_FILE, 'utf8')) as Campaign;
     if (c.v === 1) {
       for (const f of FRONTS) {
-        c.fronts[f.id] ??= { control: 0, scarActive: false, lastBattleAt: 0, clones: cloneSeedFor(f) };
+        c.fronts[f.id] ??= { control: 0, scarActive: false, lastBattleAt: 0, clones: cloneSeedFor(f), pass: 1 };
         c.fronts[f.id].clones ??= cloneSeedFor(f); // W3.3 migration
+        c.fronts[f.id].pass ??= 1;                 // W3.4 migration
       }
       return c;
     }
