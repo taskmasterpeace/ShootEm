@@ -33,7 +33,7 @@ If you read one thing, read this. Everything below has a full row further down.
 
 **Combat feel:** the aim ring · accuracy-by-movement · ballistic falloff · tap-jump/hold-duck · tank hull wobble.
 **The death show:** death-cam director (varies by death) · gore/gibs · corpses lingering 20–30s · a kill-cam reward.
-**Sight (you just approved the fix):** 3D-shows-you / minimap-shows-team · contacts hold-then-fade instead of blinking · darkness outside your cone · house/maze line-of-sight. *(The three fog BUGS are now fixed 2026-07-21: the second-storey fishbowl #43, corpses bypassing fog #44, vehicles never fog-culled #45.)*
+**Sight (you just approved the fix):** 3D-shows-you / minimap-shows-team · darkness outside your cone. *(Fixed 2026-07-21: the three fog BUGS — fishbowl #43, corpses #44, vehicles #45 — plus upstairs-vs-upstairs house LOS and **contacts now hold-then-fade instead of blinking** on both the 3D view and the minimap.)*
 **Melee:** STRIKE / GUARD / GRAPPLE + Impact Charge + the Control Struggle (terminology now LAW per the outbreak spec; the swing engine exists, wired only to zombie claws).
 **The outbreak (new spec, §17):** infection/viral load ✅ · corpse lifecycle & reanimation ✅ · outbreak pressure/levels ✅ · emergent variants ✅ · ammo TYPES (Ball/AP/Incendiary) ✅ — all SHIPPED 2026-07-20, live in horde/survival/safehouse. Still design: zombies as a third faction mid-war · flashlight interiors · Bite Struggle · mixed magazines.
 **The war:** the 3×3 board · killing the time-skip · the clone economy · pass escalation · **science missions** (now fully designed) · class-change requests · the two faction leaders · bots looking like robots.
@@ -81,7 +81,7 @@ Full spec: **`PLAN 2026-07-20-sight-and-steel.md` § A**. Measured: the game dra
 | Ask | Status | Evidence / where |
 |---|---|---|
 | 3D view shows what **you** see; minimap shows what your **team** sees | 🎯→❌ | you love it; not built. BACKLOG W0.2 / [#46](https://github.com/taskmasterpeace/ShootEm/issues/46) |
-| Contacts **hold then fade** — never blink/pop out | ❌ | today the ghost is a translucent jogging body; the new mark holds, then dissolves (your 2026-07-20 refinement). W0.2 |
+| Contacts **hold then fade** — never blink/pop out | ✅ | **DONE 2026-07-21.** 3D view: the ghost FREEZES at the lost-position and dissolves over the per-class linger (`renderer.ts` ghostAlpha, `tests/visibility.test.ts` "ghosts freeze"). Minimap: hostiles no longer pop off — each holds at its last-drawn spot and fades over the same `classLinger`, then prunes at `MAX_LINGER` (`hud.ts` `minimapContacts`). Live-verified via `window.__ww.hud`. (The separate 3D-vs-team-view split stays row above.) W0.2 |
 | The world outside your cone goes **dark** | ❌ | no darkness machinery; the cheap path is shader injection (zero draws). W0.2 |
 | In a house/maze, see what you can see and no more | 🔨 | ground-floor LOS good; **upstairs-vs-upstairs now obeys the UPPER walls** (2026-07-21, sight-plan A3 step 2 — `losClearUpper`/`grid2` wired into `perceivesNow`, `tests/upperlos.test.ts`). Roof-peek + the floor-plan giveaway (A3 step 4) remain. W0.3 |
 | **BUG:** any second storey is a fishbowl — seen through walls by the whole enemy team | ✅ | **FIXED 2026-07-21** (sight-plan A3 step 1): the skyline rule now guards on `(s.floor ?? 0) !== 1` — a jet or jump-trooper still skylines, but an UPSTAIRS body obeys cone+LOS. `perception.ts:94`, `tests/fishbowl.test.ts`. [#43](https://github.com/taskmasterpeace/ShootEm/issues/43) |

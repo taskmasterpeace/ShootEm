@@ -7,6 +7,7 @@ import { drawGrade, drawNumber, RING_COLORS } from './ring';
 import { weaponPortrait } from './weaponcam';
 import { weaponBrand } from './models/weapons';
 import { SegMeter } from './segmeter';
+import { classLinger, MAX_LINGER } from '../sim/perception';
 import type { World } from '../sim/world';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -21,6 +22,9 @@ export class Hud {
   private minimapEl = $('minimap') as HTMLCanvasElement;
   private minimapCtx = this.minimapEl.getContext('2d')!;
   private mapBg: HTMLCanvasElement | null = null;
+  /** HOLD-THEN-FADE: where the minimap last showed each hostile, and when — a
+   *  lost contact dissolves from here instead of blinking off (W0.2). */
+  private minimapContacts = new Map<number, { x: number; z: number; t: number }>();
   private waypoints: Waypoint[] = [];
   private lastTime = 0;
   /** set true when the local player carries the Tactical System */
@@ -728,7 +732,24 @@ export class Hud {
         continue;
       }
       if (s.team !== local.team) {
-        if (!seesEnemy(s)) continue;
+        if (!seesEnemy(s)) {
+          // HOLD THEN FADE (W0.2, Robert §11 row 6: "when you look away they
+          // should fade over ~5s… never blink"). A hostile the map just lost
+          // does not pop off — it holds at the spot the map last had it and
+          // DISSOLVES over the same per-class linger the 3D ghost uses. A cloak
+          // engaging mid-fade cuts it (cloak is TRUE).
+          const mk = this.minimapContacts.get(s.id);
+          if (mk && !s.cloaked) {
+            const age = world.time - mk.t;
+            const linger = classLinger(local.classId, local.equipment.includes('tracking_optics'));
+            if (age <= linger) {
+              ctx.globalAlpha = Math.max(0.12, 1 - age / linger);
+              tri(mk.x, mk.z, s.team === 0 ? '#e8a33d' : '#3dbde8');
+              ctx.globalAlpha = 1;
+            }
+          }
+          continue;
+        }
         if (s.cloaked && hasIR) {
           // IR ghost outline rather than a solid contact
           const [px, py] = toMap(s.pos.x, s.pos.z);
@@ -749,7 +770,13 @@ export class Hud {
         if (eh >= 0 && !world.pinged.has(s.id) &&
             eh !== houseAt(world.map.houses, local.pos.x, local.pos.z)) continue;
         tri(s.pos.x, s.pos.z, s.team === 0 ? '#e8a33d' : '#3dbde8'); // hostile = triangle
+        // remember this spot so the contact fades from HERE when the map loses it
+        this.minimapContacts.set(s.id, { x: s.pos.x, z: s.pos.z, t: world.time });
       }
+    }
+    // drop marks past the longest possible fade so the map memory stays bounded
+    for (const [id, mk] of this.minimapContacts) {
+      if (world.time - mk.t > MAX_LINGER) this.minimapContacts.delete(id);
     }
 
     // vehicles: friendlies always; enemies when seen, or when their ECM is slagged
