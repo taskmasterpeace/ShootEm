@@ -2467,6 +2467,21 @@ export class World {
           s.grabbingId = undefined;
           s.nextFireAt = Math.max(s.nextFireAt, this.time + 0.4);
           cmd.melee = false; cmd.meleeHold = false; // the rip WAS the F press
+        } else if (cmd.jump) {
+          // THROW: the heave — the body is HURLED along YOUR facing, ballistic
+          // and ragdolling where it lands. No damage, no strip: the throw is a
+          // POSITIONAL verb — into the horde, off the roof, out of his cover.
+          const fx = Math.cos(s.yaw), fz = Math.sin(s.yaw);
+          v.pushX += fx * 13; v.pushZ += fz * 13;
+          v.vel.y = Math.max(v.vel.y, 4.2);
+          v.ragdollUntil = this.time + 0.9; // luggage until the get-up
+          v.grabbedUntil = undefined; v.grabbedBy = undefined; v.struggle = undefined; v.ctrlStruggle = undefined;
+          v.grabImmuneUntil = this.time + GRAB_IMMUNE;
+          v.chokeProgress = undefined; s.chokingId = undefined;
+          s.grabbingId = undefined;
+          s.nextFireAt = Math.max(s.nextFireAt, this.time + 0.5); // the heave is your action
+          this.emit({ type: 'grab_throw', pos: { ...v.pos }, soldierId: v.id });
+          cmd.jump = false; // the throw WAS the space press — no hop rides along
         } else if (cmd.use && s.chokingId === undefined) {
           // CHOKE: begin the squeeze — the channel itself ticks in the victim's
           // grabbed block (where the hold is already being adjudicated).

@@ -71,6 +71,21 @@ describe('§14.2 the outcome menu (locked rear hold)', () => {
     expect(a.grabbingId).toBeUndefined();
   });
 
+  it('SPACE THROWS: the body is heaved along the facing, ragdolling — a positional verb', () => {
+    const { w, a, v } = lockedStaged();
+    const guns0 = v.weapons.length;
+    for (let i = 0; i < 32; i++) w.step(1 / 60, new Map());
+    w.step(1 / 60, new Map([[a.id, cmd({ jump: true })]]));
+    expect(v.pushX, 'hurled along the attacker facing (+x)').toBeGreaterThan(8);
+    expect(v.vel.y, 'ballistic — the heave has an arc').toBeGreaterThan(2);
+    expect(v.ragdollUntil ?? 0, 'luggage until the get-up').toBeGreaterThan(w.time);
+    expect(v.alive, 'no damage — placement IS the payoff').toBe(true);
+    expect(v.weapons.length, 'nothing stripped').toBe(guns0);
+    expect(v.grabbedBy, 'the hold ends with the heave').toBeUndefined();
+    expect(v.grabImmuneUntil).toBeGreaterThan(w.time);
+    expect(a.grabbingId).toBeUndefined();
+  });
+
   it('an UNLOCKED hold offers nothing: F swings no rip, E opens no squeeze', () => {
     const w = new World({ seed: 1, mode: 'tdm', matchMinutes: 10 });
     const a = w.addSoldier('Att', 'infantry', 0, 'human');

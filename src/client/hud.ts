@@ -460,7 +460,7 @@ export class Hud {
           // §14.2 the outcome MENU is yours once control is taken
           hint.innerHTML = s.chokingId !== undefined
             ? `${icon('rear')} CHOKING — ${Math.round((pin!.chokeProgress ?? 0) * 100)}% · hold the grip`
-            : `${icon('rear')} LOCKED — Z takedown · F disarm · E choke`;
+            : `${icon('rear')} LOCKED — Z takedown · F disarm · E choke · SPACE throw`;
         } else {
           hint.innerHTML = `${icon('rear')} REAR CONTROL — press Z: TAKEDOWN`; // §16.3: hand behind a silhouette
         }

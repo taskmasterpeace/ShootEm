@@ -890,6 +890,7 @@ export interface SimEvent {
     | 'struggle_lock'  // §15: attacker took best-of-three — the hold is LOCKED, finisher live
     | 'disarm'         // §14.2 outcome: the held gun was RIPPED away (weapon = what fell)
     | 'choke_out'      // §14.2 outcome: choked to DOWNED — a silent capture, not a kill
+    | 'grab_throw'     // §14.2 outcome: the locked body HEAVED along the attacker's facing
     | 'sprinter_wake'  // §7.1: a dormant sprinter just activated — the terror spike
     | 'corpse_critical' // §6: a booked corpse entered its final reanimation window
     | 'contamination'  // §8: a corpse pile curdled into a mutation-field nest
