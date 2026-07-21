@@ -127,6 +127,7 @@ export function buildArsenal(): Record<WeaponId, WeaponDef> {
           sound: base.sound,
           tracer: base.tracer,
           fireMode: base.fireMode, // 10.1: the family's trigger discipline rides every variant
+          brand: brand.key,        // row 178: the manufacturer — and its firing SIGNATURE
           alt: base.alt,           // row 177: the family's under-barrel surprise rides too
         };
       }

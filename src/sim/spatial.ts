@@ -42,8 +42,14 @@ class TeamGrid {
   }
 
   add(s: Soldier): void {
-    const cx = Math.min(COLS - 1, Math.max(0, Math.floor((s.pos.x + HALF) / CELL)));
-    const cz = Math.min(COLS - 1, Math.max(0, Math.floor((s.pos.z + HALF) / CELL)));
+    // SEAM SANITIZER (defense in depth): a non-finite position must never
+    // crash the index — Math.min/max let NaN through to an undefined cell.
+    // A NaN body is a bug upstream, but the spatial grid clamps it to origin
+    // and stays alive (mirrors the applyCmd intent-clamp in world.ts).
+    const px = Number.isFinite(s.pos.x) ? s.pos.x : 0;
+    const pz = Number.isFinite(s.pos.z) ? s.pos.z : 0;
+    const cx = Math.min(COLS - 1, Math.max(0, Math.floor((px + HALF) / CELL)));
+    const cz = Math.min(COLS - 1, Math.max(0, Math.floor((pz + HALF) / CELL)));
     const c = cz * COLS + cx;
     if (this.cells[c].length === 0) this.used.push(c);
     this.cells[c].push(s); // push order per cell = ascending id (Map order)

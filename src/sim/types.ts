@@ -59,6 +59,15 @@ export interface WeaponDef {
    *  balance sheet doesn't. Bots bypass trigger discipline (a machine's
    *  finger taps perfectly). */
   fireMode?: 'single' | 'auto' | 'burst2' | 'burst3' | 'double' | 'pump';
+  /** 10.1 row 178 — the MANUFACTURER, and with it the brand SIGNATURE: a
+   *  firing behavior, not a stat curve. maklov = TRUE ISSUE (moving costs
+   *  25% less accuracy) · kuchler = HOT HALF (the back half of the mag runs
+   *  10% faster) · titan = CONCUSSIVE (every round shoves) · harkov =
+   *  MATCH-GRADE (no ballistic falloff — the round carries) · ceres = DEEP
+   *  POCKETS (special pools pay 25% less per reload) · kamenel = HOT LOADS
+   *  (+15% muzzle speed). Core class weapons carry NO brand — bots and the
+   *  threat-measure arena never feel any of this. */
+  brand?: string;
   /** projectile speed in units/s; >=200 renders as an instant tracer */
   speed: number;
   /** radians of cone spread */

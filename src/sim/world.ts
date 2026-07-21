@@ -2203,7 +2203,8 @@ export class World {
         if (Number.isFinite(s.reserve[s.weaponIdx])) s.reserve[s.weaponIdx] -= take;
       } else {
         take = Math.min(need, pool);
-        s.ammoPools![special] = pool - take;
+        // row 178: ceres DEEP POCKETS — the pool pays 25% less per reload
+        s.ammoPools![special] = pool - (def.brand === 'ceres' ? Math.ceil(take * 0.75) : take);
       }
     } else {
       take = Math.min(need, s.reserve[s.weaponIdx]);
@@ -3088,7 +3089,9 @@ export class World {
   }
 
   fireSoldierWeapon(s: Soldier, wid: WeaponId, def = WEAPONS[wid], aimDist?: number, dmgMul = 1) {
-    s.nextFireAt = this.time + 1 / def.rof;
+    // row 178: kuchler HOT HALF — the back half of the mag runs 10% faster
+    const hot = def.brand === 'kuchler' && s.clip[s.weaponIdx] <= def.clip / 2 ? 1.1 : 1;
+    s.nextFireAt = this.time + 1 / (def.rof * hot);
     if (Number.isFinite(s.clip[s.weaponIdx])) s.clip[s.weaponIdx]--;
     if (s.cloaked) s.cloaked = false;
 
@@ -3243,8 +3246,13 @@ export class World {
    */
   throwProjectile(s: Soldier, wid: WeaponId, muzzleY: number, speed: number, arc: boolean, reach = WEAPONS[wid].range, loft = 1, bounce = false, dmgMul = 1, pierceArmor = false, incendiary = false, ammo?: 'exp' | 'bnr' | 'trc') {
     const def = WEAPONS[wid];
+    // 10.1 row 178 brand signatures at the muzzle: maklov TRUE ISSUE shoots
+    // straighter on the move; kamenel HOT LOADS leave 15% faster (flatter
+    // leads). Core weapons carry no brand — nothing here moves for them.
+    if (def.brand === 'kamenel') speed *= 1.15;
     // W1.1: stance + motion bend the cone (crouch braces, sprint/airborne spray)
-    const spread = (this.rng.next() - 0.5) * 2 * def.spread * aimSpreadMul(s);
+    const spread = (this.rng.next() - 0.5) * 2 * def.spread * aimSpreadMul(s)
+      * (def.brand === 'maklov' ? 0.75 : 1);
     const yaw = s.yaw + spread;
     // Arc launch: pick vy so the shell returns to the ground exactly when it
     // has travelled `reach` horizontally. Flight time t = reach/speed; solving
@@ -4657,6 +4665,13 @@ export class World {
               s.pushX += (p.vel.x / kl) * def.knockback;
               s.pushZ += (p.vel.z / kl) * def.knockback;
               if (s.pos.y < 0.2) s.vel.y = Math.max(s.vel.y, def.knockback * 0.35);
+            } else if (def.brand === 'titan' && !this.hasEquip(s, 'noKnockback')) {
+              // row 178: titan CONCUSSIVE — a light HORIZONTAL nudge where the
+              // def carries no knockback (no vertical pop: that's for the real
+              // heavy weapons). Every titan hit is a small argument.
+              const kl = Math.hypot(p.vel.x, p.vel.z) || 1;
+              s.pushX += (p.vel.x / kl) * 2.2;
+              s.pushZ += (p.vel.z / kl) * 2.2;
             }
             if (def.heals) {
               if (s.downed) {
@@ -4705,7 +4720,8 @@ export class World {
               // W1.4: a bullet tires with distance flown (energy weapons exempt).
               // Distance ≈ flight time × muzzle speed — no per-round origin to store.
               const traveled = (this.time - p.bornAt) * Math.hypot(p.vel.x, p.vel.z);
-              const fall = ballisticFalloff(def.tracer, def.range, traveled);
+              // row 178: harkov MATCH-GRADE rounds CARRY — no ballistic falloff
+              const fall = def.brand === 'harkov' ? 1 : ballisticFalloff(def.tracer, def.range, traveled);
               const dmg = def.damage * (shooter?.rageMul ?? 1) * (p.dmgMul ?? 1) * incMul * expMul * fall;
               this.damageSoldier(s, dmg, p.ownerId, p.weapon, false, p.pierceArmor);
               // CORPSE DENIAL (OUTBREAK-SPEC §6.1/§6.2/§11): fire and chemistry
