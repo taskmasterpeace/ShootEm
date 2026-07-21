@@ -1359,7 +1359,7 @@ export class World {
     s.medikitReady = true;
     s.meleeStrikeAt = 0; s.meleeWeapon = ''; // no swing survives a respawn
     s.meleeCharge = 0; s.meleeChargeMul = undefined; // and no half-built Power Strike
-    s.guarding = false; s.grabbedUntil = undefined; s.grabbedBy = undefined; s.ctrlStruggle = undefined; s.chokeProgress = undefined; s.chokingId = undefined; // no hold survives it either
+    s.guarding = false; s.grabbedUntil = undefined; s.grabbedBy = undefined; s.ctrlStruggle = undefined; s.chokeProgress = undefined; s.chokingId = undefined; s.humanShield = undefined; // no hold survives it either
     // mobile spawn: a crewed APC or transport with a LIVE comms system
     const mobile = [...this.vehicles.values()].find(
       (v) => v.alive && v.team === s.team && VEHICLES[v.kind].mobileSpawn &&
@@ -1717,7 +1717,7 @@ export class World {
             if (s.alive) { s.pushX += ((grabber.pos.x - s.pos.x) / dl) * 3; s.pushZ += ((grabber.pos.z - s.pos.z) / dl) * 3; }
           }
           s.grabbedUntil = undefined; s.grabbedBy = undefined; s.struggle = undefined; s.ctrlStruggle = undefined;
-          s.chokeProgress = undefined;
+          s.chokeProgress = undefined; s.humanShield = undefined;
           if (grabber && grabber.chokingId === s.id) grabber.chokingId = undefined;
           s.grabImmuneUntil = this.time + GRAB_IMMUNE; // no instant re-clinch
           this.emit({ type: 'grab_break', pos: { ...s.pos }, soldierId: s.id });
@@ -2499,7 +2499,7 @@ export class World {
           v.ragdollUntil = this.time + 0.9; // luggage until the get-up
           v.grabbedUntil = undefined; v.grabbedBy = undefined; v.struggle = undefined; v.ctrlStruggle = undefined;
           v.grabImmuneUntil = this.time + GRAB_IMMUNE;
-          v.chokeProgress = undefined; s.chokingId = undefined;
+          v.chokeProgress = undefined; v.humanShield = undefined; s.chokingId = undefined;
           s.grabbingId = undefined;
           s.nextFireAt = Math.max(s.nextFireAt, this.time + 0.5); // the heave is your action
           this.emit({ type: 'grab_throw', pos: { ...v.pos }, soldierId: v.id });
@@ -2510,7 +2510,22 @@ export class World {
           s.chokingId = v.id;
           v.chokeProgress = 0;
           cmd.use = false; // eaten — no door opens on the same press
+        } else if (s.chokingId === undefined) {
+          // HUMAN SHIELD (§14.2, the menu's fourth living verb): no finisher
+          // chosen — the captive IS your cover. Haul him to your FRONT and
+          // hold him there; you can walk (WASD) with him welded ahead, and
+          // frontal fire aimed at YOU redirects into him (damageSoldier). It
+          // lasts as long as you keep the pin: a menu key ends it into its
+          // own outcome, his death or a break ends it the hard way.
+          v.humanShield = true;
+          const sfx = Math.cos(s.yaw), sfz = Math.sin(s.yaw);
+          v.pos.x = s.pos.x + sfx * 1.0;
+          v.pos.z = s.pos.z + sfz * 1.0;
+          v.yaw = s.yaw;
+          v.vel.x = 0; v.vel.z = 0;
+          v.grabbedUntil = Math.max(v.grabbedUntil ?? 0, this.time + 0.3); // the clamp outlives the lock clock
         }
+        if (s.chokingId !== undefined) v.humanShield = false; // choking ≠ shielding
       }
     }
     // the axe is ISSUED KIT (V1) — a soldier without it on his rig has no
@@ -2566,7 +2581,7 @@ export class World {
         if (s.kind === 'human') this.emit({ type: 'announce', text: 'TAKEDOWN', big: false }); // the executor's reward (grabs are player-only)
         this.damageSoldier(pinned!, TAKEDOWN_DAMAGE, s.id, 'knife', false, true); // AP finisher, a knife-credited kill
         pinned!.grabbedUntil = undefined; pinned!.grabbedBy = undefined; pinned!.struggle = undefined; pinned!.ctrlStruggle = undefined;
-        pinned!.chokeProgress = undefined; s.chokingId = undefined;
+        pinned!.chokeProgress = undefined; pinned!.humanShield = undefined; s.chokingId = undefined;
         s.grabbingId = undefined; // the finisher is your whole action this tick
       } else {
         s.grabbingId = undefined; // not holding a live pin — go reach for a fresh one
@@ -5550,6 +5565,21 @@ export class World {
     if (!victim.alive || dmg <= 0) return;
     if (victim.god) return;                        // GOD MODE: nothing touches you
     if (this.time < victim.protectedUntil) return; // spawn protection (55B)
+    // §14.2 HUMAN SHIELD: a shot at a holder from his shield's FRONT arc hits
+    // the captive instead. The body is welded to his front, so this is the
+    // physical truth — the round meets flesh before it meets him. Rear/flank
+    // shots slip past the shield and land on the holder as normal.
+    if (victim.grabbingId !== undefined && !viaLink) {
+      const shield = this.soldiers.get(victim.grabbingId);
+      const atk = attackerId >= 0 ? this.soldiers.get(attackerId) : undefined;
+      if (shield?.humanShield && shield.alive && atk) {
+        const fx = Math.cos(victim.yaw), fz = Math.sin(victim.yaw);
+        if ((atk.pos.x - victim.pos.x) * fx + (atk.pos.z - victim.pos.z) * fz > 0) {
+          this.damageSoldier(shield, dmg, attackerId, weapon, true, pierceArmor);
+          return;
+        }
+      }
+    }
     // §14.2: pain breaks the squeeze — shoot the choker and the capture stops
     // (the hold itself survives; only the channel is lost).
     if (victim.chokingId !== undefined) {

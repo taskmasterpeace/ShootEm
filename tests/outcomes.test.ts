@@ -86,6 +86,43 @@ describe('§14.2 the outcome menu (locked rear hold)', () => {
     expect(a.grabbingId).toBeUndefined();
   });
 
+  it('HUMAN SHIELD: a locked hold with no verb welds the captive to your front and eats frontal fire', () => {
+    const { w, a, v } = lockedStaged();
+    for (let i = 0; i < 6; i++) w.step(1 / 60, new Map([[a.id, cmd()]])); // hold, press nothing
+    expect(v.humanShield, 'no verb → the captive is your cover').toBe(true);
+    // welded to the holder's front (a faces +x, so v sits ~1u east of a)
+    expect(v.pos.x - a.pos.x).toBeGreaterThan(0.7);
+    // an attacker IN FRONT shoots the holder — the shield takes it
+    const foe = w.addSoldier('Foe', 'infantry', 1, 'human');
+    foe.pos = { x: 10, y: 0, z: 0 }; foe.protectedUntil = 0; // downrange, in front of a
+    const aHp0 = a.hp, vHp0 = v.hp;
+    w.step(1 / 60, new Map([[a.id, cmd()]]));
+    w.damageSoldier(a, 40, foe.id, 'ar606');
+    expect(a.hp, 'the holder is covered').toBe(aHp0);
+    expect(v.hp, 'the captive ate the round').toBeLessThan(vHp0);
+  });
+
+  it('HUMAN SHIELD: a shot from BEHIND slips past the shield onto the holder', () => {
+    const { w, a, v } = lockedStaged();
+    for (let i = 0; i < 6; i++) w.step(1 / 60, new Map([[a.id, cmd()]]));
+    expect(v.humanShield).toBe(true);
+    const backFoe = w.addSoldier('Back', 'infantry', 1, 'human');
+    backFoe.pos = { x: -10, y: 0, z: 0 }; backFoe.protectedUntil = 0; // behind a (who faces +x)
+    const aHp0 = a.hp;
+    w.damageSoldier(a, 40, backFoe.id, 'ar606');
+    expect(a.hp, 'no cover from the rear — the holder bleeds').toBeLessThan(aHp0);
+  });
+
+  it('HUMAN SHIELD ends when you pick a verb — throwing the shield clears the flag', () => {
+    const { w, a, v } = lockedStaged();
+    for (let i = 0; i < 6; i++) w.step(1 / 60, new Map([[a.id, cmd()]]));
+    expect(v.humanShield).toBe(true);
+    for (let i = 0; i < 32; i++) w.step(1 / 60, new Map());
+    w.step(1 / 60, new Map([[a.id, cmd({ jump: true })]])); // THROW
+    expect(v.humanShield, 'the heave clears the shield state').toBeFalsy();
+    expect(v.grabbedBy).toBeUndefined();
+  });
+
   it('an UNLOCKED hold offers nothing: F swings no rip, E opens no squeeze', () => {
     const w = new World({ seed: 1, mode: 'tdm', matchMinutes: 10 });
     const a = w.addSoldier('Att', 'infantry', 0, 'human');

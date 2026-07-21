@@ -532,6 +532,10 @@ export interface Soldier {
    *  release, interrupt (the choker taking damage), death, or reset. */
   chokeProgress?: number;
   chokingId?: number;
+  /** §14.2 HUMAN SHIELD: set on the VICTIM while a locked-pin holder uses them
+   *  as cover — hauled to the holder's front, and frontal fire aimed at the
+   *  holder redirects into this body. Transient; cleared with the hold. */
+  humanShield?: boolean;
   ctrlStruggle?: {
     round: number; attWins: number; defWins: number;
     /** sim-time the current round's needle started — needle position is a
