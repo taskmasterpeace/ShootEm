@@ -50,6 +50,15 @@ export interface WeaponDef {
   damage: number;
   /** shots per second */
   rof: number;
+  /** 10.1 FIRE MODE — the missing axis (absent = auto, today's behavior).
+   *  single/pump fire on the trigger EDGE (one round per press — pump is a
+   *  single with a working action, its cadence already in rof); burst2/3
+   *  spend their whole n/rof cycle up front (n rounds at triple cadence,
+   *  then the wait); double fires BOTH barrels on one press and pays 2/rof.
+   *  Every mode is DPS-NEUTRAL by construction — the feel changes, the
+   *  balance sheet doesn't. Bots bypass trigger discipline (a machine's
+   *  finger taps perfectly). */
+  fireMode?: 'single' | 'auto' | 'burst2' | 'burst3' | 'double' | 'pump';
   /** projectile speed in units/s; >=200 renders as an instant tracer */
   speed: number;
   /** radians of cone spread */
@@ -396,6 +405,13 @@ export interface Soldier {
   statDry?: number;        // trigger pulled on a truly empty gun
   nextDryAt?: number;      // rate-limit clock so a held trigger counts ~2/s
   statSecondaryT?: number; // seconds spent holding the sidearm (slot 2)
+  /** 10.1 FIRE MODES — the trigger bookkeeping. trigHeld is the rising-edge
+   *  latch (single/pump/double/burst fire per PRESS); the burst runner
+   *  delivers rounds 2..n on its own clock and closes the n/rof cycle. */
+  trigHeld?: boolean;
+  burstLeft?: number;
+  nextBurstShotAt?: number;
+  burstStartAt?: number;
   /** M1 CHARGED LEAP in flight — while true the arc is BALLISTIC: input
    *  cannot steer it (the movement block skips its velocity overwrite).
    *  Cleared the tick the ground clamp zeroes vel.y (either floor). */

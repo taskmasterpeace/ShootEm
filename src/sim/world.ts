@@ -2960,8 +2960,29 @@ export class World {
       if (s.nextGrenadeAt !== grenadeGateBefore) s.protectedUntil = 0;
     }
 
-    // firing — unless you are SWIMMING or bracing behind a raised GUARD (§12)
-    if (cmd.fire && !swimming && !s.guarding && s.reloadUntil === 0 && this.time >= s.nextFireAt) {
+    // 10.1 THE BURST RUNNER: rounds 2..n of a burst arrive on their own
+    // clock, trigger-free; the LAST round closes the books on the whole
+    // n/rof cycle (DPS-neutral — the burst spends its budget up front).
+    if ((s.burstLeft ?? 0) > 0 && this.time >= (s.nextBurstShotAt ?? 0)
+        && s.reloadUntil === 0 && !swimming && !s.guarding) {
+      if (s.clip[s.weaponIdx] > 0) {
+        this.fireSoldierWeapon(s, wid, def, cmd.aimDist);
+        s.burstLeft = (s.burstLeft ?? 1) - 1;
+        s.nextBurstShotAt = this.time + 1 / (def.rof * 3);
+        if (s.burstLeft === 0) {
+          const n = def.fireMode === 'burst3' ? 3 : 2;
+          s.nextFireAt = Math.max(s.nextFireAt, (s.burstStartAt ?? this.time) + n / def.rof);
+        }
+      } else s.burstLeft = 0; // dry mid-burst — the runner stops, the reload path below answers
+    }
+
+    // firing — unless you are SWIMMING or bracing behind a raised GUARD (§12).
+    // 10.1 FIRE MODES: auto rides the held trigger as ever; single / pump /
+    // double / burst fire on the trigger EDGE — one press, one discipline.
+    // Bots bypass the edge (a machine's finger taps perfectly at rof).
+    const fmode = def.fireMode ?? 'auto';
+    const trigger = cmd.fire && (fmode === 'auto' || s.kind !== 'human' || !s.trigHeld);
+    if (trigger && !swimming && !s.guarding && s.reloadUntil === 0 && this.time >= s.nextFireAt) {
       if (s.clip[s.weaponIdx] > 0) {
         s.protectedUntil = 0; // hostile action ends spawn protection (55B)
         // CHARGE: a charge weapon winds up before it releases — start the hold on
@@ -2972,6 +2993,18 @@ export class World {
             this.fireSoldierWeapon(s, wid, def, cmd.aimDist, def.charge.mul);
             s.chargeStart = undefined;
           }
+        } else if (fmode === 'burst2' || fmode === 'burst3') {
+          // round 1 now; the runner above delivers the rest
+          this.fireSoldierWeapon(s, wid, def, cmd.aimDist);
+          s.burstLeft = (fmode === 'burst3' ? 3 : 2) - 1;
+          s.burstStartAt = this.time;
+          s.nextBurstShotAt = this.time + 1 / (def.rof * 3);
+        } else if (fmode === 'double') {
+          // BOTH BARRELS (Robert: "two rounds at a time — a heck of an
+          // edge"): one press, two rounds, and the pair pays 2/rof.
+          this.fireSoldierWeapon(s, wid, def, cmd.aimDist);
+          if (s.clip[s.weaponIdx] > 0) this.fireSoldierWeapon(s, wid, def, cmd.aimDist);
+          s.nextFireAt = Math.max(s.nextFireAt, this.time + 2 / def.rof);
         } else {
           this.fireSoldierWeapon(s, wid, def, cmd.aimDist);
         }
@@ -2996,6 +3029,7 @@ export class World {
       }
       s.chargeStart = undefined;
     }
+    s.trigHeld = cmd.fire; // 10.1: the rising-edge latch (single/pump/double/burst)
 
     // SECONDARY FIRE (right mouse): the under-barrel surprise. It rides the
     // weapon in hand — holster the weapon and the surprise holsters too.

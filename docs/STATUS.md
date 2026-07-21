@@ -172,8 +172,8 @@ You have 200 weapons with 200 stat lines and **one firing behavior**. That's the
 
 | Ask | Status | Evidence / where |
 |---|---|---|
-| Fire modes: single / auto / burst-2/3 / **double-barrel** / charge / pump | ❌📋 | designed; no fire-mode property today. BACKLOG (new) |
-| Double-barrel · auto-shotgun · two-round-burst rifle | ❌ | subsumed by fire modes. BACKLOG (new) |
+| Fire modes: single / auto / burst-2/3 / **double-barrel** / charge / pump | ✅ | **DONE 2026-07-21 (10.1 slice 1).** `WeaponDef.fireMode` (absent = auto): single/pump fire on the trigger EDGE (one press one round; pump's action lives in its rof), burst-2/3 spend the whole n/rof cycle up front (round 1 on press, the RUNNER delivers the rest at 3× cadence), double fires BOTH barrels and pays 2/rof; charge pre-existed. **Every mode is DPS-NEUTRAL by construction** — feel changes, balance sheet doesn't; bots bypass trigger discipline (perfect taps), so threat-measure never moves. `tests/firemodes.test.ts` (5) |
+| Double-barrel · auto-shotgun · two-round-burst rifle | ✅ | **DONE 2026-07-21.** Real guns via family disciplines carried through the arsenal generator: **Scatter Pack = THE DOUBLE-BARREL** (both barrels, one press), Shotgun+Slugger = pump, **Carbine = the two-round-burst rifle** ("a heck of an edge"), CAW-8 + SMG stay full-auto (THE auto-shotgun lives), P9 = single. Live: scatter press → clip −2, held → no spam |
 | Per-family **secondary fire** | ❌ | only 4 weapons have alt-fire (`world.ts:2500`). BACKLOG (new) |
 | Brand **signature mechanics** (not just stat curves) | ❌📋 | designed: each brand carries a firing behavior. BACKLOG (new) |
 | Codex shows fire-mode + secondary columns | ❌ | needs the data to exist first. BACKLOG (new) |
