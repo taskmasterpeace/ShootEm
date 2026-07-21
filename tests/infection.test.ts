@@ -102,6 +102,41 @@ describe('outbreak: the corpse clock', () => {
   });
 });
 
+describe('outbreak: incubation and the turn (§4)', () => {
+  it('an exposed soldier untreated creeps toward conversion and TURNS', () => {
+    const w = makeWorld(true);
+    const man = w.addSoldier('Carrier', 'infantry', 0, 'bot');
+    man.pos = { x: 0, y: 0, z: 0 };
+    man.viralLoad = 70; // heavily exposed, unattended
+    let turned = false;
+    for (let i = 0; i < 60 * 40 && !turned; i++) {
+      w.step(1 / 60, new Map());
+      for (const e of w.takeEvents()) {
+        if (e.type === 'reanimated') { const z = w.soldiers.get(e.soldierId ?? -1); if (z?.name.includes('Carrier') && z.name.includes('turned')) turned = true; }
+      }
+    }
+    expect(turned).toBe(true);
+  });
+
+  it('a medic self-stim walks the strain back down (§3.1 treatment)', () => {
+    const w = makeWorld(true);
+    const medic = w.addSoldier('Doc', 'medic', 0, 'human');
+    medic.viralLoad = 50; medic.energy = 100; medic.hp = medic.maxHp;
+    const cmd = new Map([[medic.id, { moveX: 0, moveZ: 0, aimYaw: 0, fire: false, altFire: false, jump: false, use: false, ability: true, reload: false, grenade: false, weaponSlot: -1 }]]);
+    w.step(1 / 60, cmd);
+    expect(medic.viralLoad!).toBeLessThan(50);
+  });
+
+  it('the creep is INERT with the outbreak off', () => {
+    const w = makeWorld(false);
+    const man = w.addSoldier('Frozen', 'infantry', 0, 'bot');
+    man.viralLoad = 90;
+    for (let i = 0; i < 60 * 20; i++) { w.step(1 / 60, new Map()); w.takeEvents(); }
+    expect(man.viralLoad).toBe(90); // untouched
+    expect(man.alive).toBe(true);
+  });
+});
+
 describe('outbreak: inert by default (the byte-identical law)', () => {
   it('two full matches, outbreak off — no corpses, no viral, ever', () => {
     const w = makeWorld(false);

@@ -456,6 +456,7 @@ describe('endless horde', () => {
     const w = new World({ seed: 42, mode: 'horde' });
     const a = w.addSoldier('A', 'heavy', 0, 'human');
     a.pos = { x: 0, y: 0, z: 0 };
+    a.god = true; // an immortal OBSERVER — and the outbreak (now live in horde) can't turn a god
     const keepAlive = () => { a.hp = a.maxHp; }; // survive for observation
     const seenCounts: number[] = [];
     for (let i = 0; i < 60 * 40; i++) {
@@ -474,6 +475,7 @@ describe('endless horde', () => {
     const w = new World({ seed: 1234, mode: 'horde' });
     const a = w.addSoldier('A', 'heavy', 0, 'human');
     a.pos = { x: 0, y: 0, z: 0 };
+    a.god = true; // immortal observer — immune to the now-live outbreak's turn
     const kinds = new Set<string>();
     for (let i = 0; i < 60 * 120; i++) {
       a.hp = a.maxHp;

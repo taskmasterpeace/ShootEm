@@ -23,6 +23,10 @@ import { createBlackbox, stepBlackbox, type Blackbox } from './blackbox';
 import { SoldierIndex } from './spatial';
 
 const RESPAWN_DELAY = 4;
+/** THE OUTBREAK (§4): how fast an exposed soldier's Viral Load creeps toward
+ *  conversion, per second. ~1.4 → a fresh 22-point bite incubates ~55s if
+ *  untreated; two bites turn you in under 30. Medical care walks it back. */
+const INFECTION_CREEP = 1.4;
 
 // opt #38 (S2): caller-owned scratch for spatial-index queries — one per call
 // site so nested resolution (a hit → explode → …) can never clobber a live
@@ -155,6 +159,10 @@ export interface WorldOptions {
    *  per team, capped in the constructor so it never floods the economy */
   moraleBoost?: [number, number];
   matchMinutes?: number;
+  /** THE OUTBREAK: force the infection/reanimation layer on (or off) rather
+   *  than letting the mode decide — for scenarios, tests, and the future
+   *  condition-driven war-front outbreak (§2.1). */
+  outbreak?: boolean;
   /** battlefield environment — drives map flavor and gravity */
   theme?: ThemeId;
   /** §8.2 authored ground: a Scar front id deploys onto ITS terrain, not a
@@ -258,6 +266,10 @@ export class World {
     this.gravity = THEMES[this.map.theme].gravity;
     this.mode = initMode(opts.mode, this.map, opts.matchMinutes);
     if (opts.mode === 'paintball') this.weather.until = Infinity; // the yard stays sunny
+    // THE OUTBREAK plays LIVE in the horde modes — where the dead already walk,
+    // the fallen now rise with them (opts.outbreak forces it on elsewhere).
+    // The war-front outbreak (condition-driven, §2.1) is a later slice.
+    this.outbreakEnabled = opts.outbreak ?? (opts.mode === 'horde' || opts.mode === 'survival' || opts.mode === 'safehouse');
     // vehicles on pads. Co-op zombie modes field only squad support —
     // the ambulance and the emplacement guns — no armor column.
     // B1: morale arrives as opening materiel — an army that believes fights
@@ -1253,7 +1265,7 @@ export class World {
     if (!this.mode.over) this.stepLswDrops(); // §21.6: telegraphed LSW landings
     if (this.forceFields.length) this.stepForceFields(); // §4.4 #2: the pulls and the shoves
     this.stepCorpses(dt);                               // the dead finish falling
-    if (this.outbreakEnabled) this.stepOutbreak();      // and some get back up
+    if (this.outbreakEnabled) this.stepOutbreak(dt);    // the living incubate, the dead rise
     this.stepAntiAir();                                 // V3: the sky is never free
     if (this.blackHoles.length) this.stepBlackHoles(); // Oblivion's void (burst timing)
     // expired time bubbles pop quietly
@@ -2282,9 +2294,13 @@ export class World {
       s.energy = Math.min(100, s.energy + rate * dt);
     }
 
-    // medic self-stim
-    if (cmd.ability && c.ability === 'heal' && this.time >= s.nextAbilityAt && s.energy >= 50 && s.hp < s.maxHp) {
+    // medic self-stim — also the field cure: it walks the strain back (§3.1
+    // "medical treatment" reduces Viral Load), so a bitten medic can stim even
+    // at full health to buy incubation time
+    if (cmd.ability && c.ability === 'heal' && this.time >= s.nextAbilityAt && s.energy >= 50
+        && (s.hp < s.maxHp || (s.viralLoad ?? 0) > 0)) {
       s.hp = Math.min(s.maxHp, s.hp + 45);
+      if (s.viralLoad) s.viralLoad = Math.max(0, s.viralLoad - 40);
       s.energy -= 50;
       s.nextAbilityAt = this.time + 1;
       this.emit({ type: 'heal', pos: s.pos, soldierId: s.id });
@@ -4022,16 +4038,20 @@ export class World {
                 }
                 continue;
               }
-              if (s.hp < s.maxHp) {
+              // a heal beam also treats the strain (§3.1) — so a full-health
+              // but EXPOSED ally is still worth beaming
+              const treatable = (s.viralLoad ?? 0) > 0;
+              if (s.hp < s.maxHp || treatable) {
                 const healed = Math.min(s.maxHp - s.hp, def.damage);
                 s.hp += healed;
+                if (s.viralLoad) s.viralLoad = Math.max(0, s.viralLoad - def.damage * 0.6);
                 const healer = this.soldiers.get(p.ownerId);
                 if (healer) {
                   healer.score += 2;
                   healer.healGiven += healed; // trophy ledger
                 }
                 this.emit({ type: 'heal', pos: s.pos, soldierId: s.id });
-              } else continue; // beam passes through full-health allies
+              } else continue; // beam passes through clean, full-health allies
             } else if (def.splash > 0) {
               this.explode(p.pos, def, p.ownerId, p.team);
             } else {
@@ -4196,10 +4216,39 @@ export class World {
     }
   }
 
-  /** THE OUTBREAK (OUTBREAK-SPEC §6): the corpse clock. An exposed body left
-   *  unburned RISES as a base shambler where it fell (nudged to open ground —
-   *  the statue law applies to the dead too). Neutralized bodies stay down. */
-  stepOutbreak() {
+  /** THE OUTBREAK (OUTBREAK-SPEC §4/§6): the living incubate, the dead rise.
+   *  INCUBATION — an exposed soldier's Viral Load creeps up on its own
+   *  (§4 infectionRate); cross 100 and they TURN where they stand (the horror
+   *  the spec wants: your own body, your own side, coming for you). Treatment
+   *  (medkit/medibeam, handled at the heal sites) walks it back down. */
+  stepOutbreak(dt: number) {
+    // the living: incubate, and mark who crosses the line (collect first —
+    // converting mutates the soldier map, so never do it mid-iteration)
+    let turners: Soldier[] | null = null;
+    for (const s of this.soldiers.values()) {
+      if (!s.alive || (s.kind !== 'human' && s.kind !== 'bot')) continue;
+      const vl = s.viralLoad ?? 0;
+      if (vl <= 0) continue;
+      const next = vl + INFECTION_CREEP * dt; // resistance not modeled yet — flat creep
+      if (next >= 100) (turners ??= []).push(s);
+      else s.viralLoad = next;
+    }
+    if (turners) {
+      for (const s of turners) {
+        // TURNING → the body is lost to the strain and rises here, now: your
+        // own side, coming for you (spec §4). Zero the strain so the death
+        // path books no second corpse; the zombie IS the reanimation.
+        const name = s.name;
+        s.viralLoad = 0;
+        this.damageSoldier(s, 99999, -1, 'ar606'); // overkill: no downed crawl
+        const open = nearestOpenTile(this.map.grid, s.pos.x, s.pos.z) ?? s.pos;
+        const z = this.addZombie('zombie', { x: open.x, y: 0, z: open.z });
+        z.name = `${name} (turned)`;
+        this.emit({ type: 'reanimated', pos: { ...z.pos }, soldierId: z.id });
+        this.emit({ type: 'announce', text: `${name.toUpperCase()} HAS TURNED`, big: true });
+      }
+    }
+    // the dead: the corpse clock
     if (!this.corpses.length) return;
     this.corpses = this.corpses.filter((c) => {
       if (c.neutralized) return false; // processed — off the books
