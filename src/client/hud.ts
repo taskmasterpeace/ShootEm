@@ -4,6 +4,9 @@ import { earshotFor } from './audio';
 import { GRID, T_CLIMB, T_WALL, WORLD, losClear, houseAt } from '../sim/map';
 import { isZed, type SimEvent, type Soldier, type Team } from '../sim/types';
 import { drawGrade, drawNumber, RING_COLORS } from './ring';
+import { weaponPortrait } from './weaponcam';
+import { weaponBrand } from './models/weapons';
+import { SegMeter } from './segmeter';
 import type { World } from '../sim/world';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -40,6 +43,9 @@ export class Hud {
   private wasAlive = false;
   private psiFlashUntil = 0;
   private equipSig = '';
+  /** B1 weapon-cam: the weapon id currently baked into the plate */
+  private wcamId = '';
+  private segMeter: SegMeter | null = null;
 
   constructor() {
     // M toggles the minimap between compact and the large tactical view
@@ -90,6 +96,9 @@ export class Hud {
     wb.appendChild(this.hullBar);
     wb.appendChild(this.lswBar);
     wb.appendChild(this.sysPips);
+    // B1 THE ONE METER (UX-LANGUAGE §8, decided): the segmented bar with the
+    // amber lead-notch — reload and Impact Charge both speak through it
+    this.segMeter = new SegMeter($('seg-meter'));
     // THE CREW ROW (Robert: "little dots to show how many people are in the
     // vehicle with you, by how many seats it could hold, and then how many
     // people are actually in it")
@@ -177,6 +186,9 @@ export class Hud {
     if (inVehicle) {
       const v = world.vehicles.get(s.vehicleId);
       if (v) {
+        // aboard, the plate shows the VEHICLE's readouts — the carried gun waits
+        if (this.wcamId) { this.wcamId = ''; $('wcam-plate').classList.add('hidden'); }
+        this.segMeter?.show(false);
         $('weapon-name').textContent = VEHICLES[v.kind].name;
         const ammoEl = $('ammo-count');
         ammoEl.classList.remove('reloading');
@@ -257,24 +269,46 @@ export class Hud {
       this.sysPips.style.display = 'none';
       this.crewPips.style.display = 'none';
       this.hullBar.style.display = 'none';
-      const def = WEAPONS[s.weapons[s.weaponIdx]];
+      const wid = s.weapons[s.weaponIdx];
+      const def = WEAPONS[wid];
+      // B1 THE WEAPON-CAM (Robert: "I wanna see what I'm using"): the plate
+      // shows the EXACT equipped model — baked once per id, maker-tinted chrome
+      if (wid !== this.wcamId) {
+        this.wcamId = wid;
+        const url = weaponPortrait(wid);
+        const plate = $('wcam-plate');
+        if (url) {
+          ($('wcam-img') as HTMLImageElement).src = url;
+          const brand = weaponBrand(wid);
+          $('wcam-brand').textContent = brand.key.toUpperCase();
+          plate.style.setProperty('--wcam-tint', `#${brand.tint.toString(16).padStart(6, '0')}`);
+          plate.classList.remove('hidden');
+        } else plate.classList.add('hidden');
+      }
       // coach-ui: NO emoji in the lockup — the 🎯 rendered magenta (a house-law
       // violation) and full-color emoji broke the mono/stencil type system
       $('weapon-name').textContent = def.name;
       const ammoEl = $('ammo-count');
+      // THE ONE METER (§8): reload first (they're exclusive), else the Impact
+      // Charge — same segmented bar, same lead-notch, whatever it's measuring
+      const meterCharge = s.meleeCharge ?? 0;
       if (s.reloadUntil > 0) {
         ammoEl.textContent = 'RELOADING';
         ammoEl.classList.add('reloading');
         ammoEl.classList.remove('low-ammo', 'no-ammo');
-        // reload progress bar fills toward ready
-        this.reloadBar.style.display = 'block';
         const k = Math.min(1, Math.max(0, 1 - (s.reloadUntil - world.time) / def.reloadTime));
-        const rfill = $('reload-fill');
-        rfill.style.width = `${k * 100}%`;
-        rfill.style.background = ''; // the vehicle WPN meter tints this — reclaim the default
+        this.segMeter!.set(k, k >= 1 ? 'ready' : 'active');
+        this.segMeter!.show(true);
+        this.reloadBar.style.display = 'none'; // the old bar retires from the soldier branch
       } else {
         ammoEl.classList.remove('reloading');
         this.reloadBar.style.display = 'none';
+        // the Impact Charge speaks through the SAME bar the reload uses —
+        // one meter, whatever it happens to be measuring (§8)
+        if (meterCharge > 0.02) {
+          this.segMeter!.set(Math.min(meterCharge, 1.12), meterCharge >= 1.3 ? 'over' : meterCharge >= 0.71 ? 'max' : 'active');
+          this.segMeter!.show(true);
+        } else this.segMeter!.show(false);
         const clipN = s.clip[s.weaponIdx];
         const clip = Number.isFinite(clipN) ? clipN : '∞';
         const res = Number.isFinite(s.reserve[s.weaponIdx]) ? s.reserve[s.weaponIdx] : '∞';
@@ -329,11 +363,10 @@ export class Hud {
         hint.textContent = '⛊ GUARD — bracing · release V to lower';
         hint.classList.add('warn');
       } else if (charge > 0.02) {
-        // IMPACT CHARGE (OUTBREAK-SPEC §13): the Power Strike meter, right on
-        // the action line. Bands name themselves; overcharge flashes the warn.
-        const band = charge >= 1.3 ? 'OVERCHARGE — release!' : charge >= 0.7 ? 'MAXIMUM' : charge >= 0.3 ? 'HEAVY' : 'quick';
-        const filled = Math.min(5, Math.round(Math.min(charge, 1) * 5));
-        hint.textContent = `⚔ IMPACT ${'▮'.repeat(filled)}${'▯'.repeat(5 - filled)} ${band}`;
+        // IMPACT CHARGE (§13): the SEGMENTED METER carries the fill now (§8,
+        // one meter law) — the hint keeps only the state word.
+        const band = charge >= 1.3 ? 'OVERCHARGE — release!' : charge >= 0.7 ? 'MAXIMUM' : charge >= 0.3 ? 'HEAVY' : 'wind-up';
+        hint.textContent = `⚔ IMPACT CHARGE — ${band}`;
         hint.classList.toggle('warn', charge >= 1.3);
       } else {
         hint.classList.remove('warn');

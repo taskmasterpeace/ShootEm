@@ -45,8 +45,15 @@
       <div id="hud-bottom-right">
         <canvas id="minimap" width="440" height="440"></canvas>
         <div id="weapon-block">
+          <!-- B1 THE WEAPON-CAM (Robert: "I wanna see what I'm using"): the
+               EXACT equipped model, baked per weapon id, maker-tinted chrome -->
+          <div id="wcam-plate" class="hidden">
+            <img id="wcam-img" alt="" draggable="false">
+            <span id="wcam-brand">MAKLOV</span>
+          </div>
           <div id="weapon-name">AR-606</div>
           <div id="ammo-count">30 / 120</div>
+          <div id="seg-meter" class="hidden"></div>
           <div id="ability-hint"></div>
         </div>
       </div>

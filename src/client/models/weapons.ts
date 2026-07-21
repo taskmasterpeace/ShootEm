@@ -711,6 +711,14 @@ function parseBrand(id: string): string {
   return BRAND_STYLES[cand] ? cand : 'maklov';
 }
 
+/** The maker's public face (B1 weapon-cam chrome + weapon cards): brand key +
+ *  the furniture tint the HUD may wear. One source — the same table that
+ *  shapes the gun shapes its chrome. */
+export function weaponBrand(id: string): { key: string; tint: number } {
+  const st = BRAND_STYLES[parseBrand(id)];
+  return { key: st.key, tint: st.furniture };
+}
+
 /** The armory's front door: one deterministic Group per weapon id.
  *  Root is named 'gun' (the animator's contract) and faces +X. Unknown ids
  *  still build honestly — family off the id prefix, mark off the tail. */

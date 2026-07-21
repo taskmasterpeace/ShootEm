@@ -346,6 +346,38 @@ html, body {
 }
 #weapon-block::before { top: -1px; left: -1px; border-top-width: 2px; border-left-width: 2px; }
 #weapon-block::after { bottom: -1px; right: -1px; border-bottom-width: 2px; border-right-width: 2px; }
+/* B1 THE WEAPON-CAM PLATE — the exact equipped model in a maker-tinted bay.
+   The border tint is set from BRAND_STYLES by the HUD; the brand tag stamps
+   the maker's name on the bay like a data plate. */
+#wcam-plate {
+  position: relative; margin-bottom: 0.45rem;
+  background: oklch(0.115 0.012 74); border: 1px solid var(--wcam-tint, var(--border));
+  border-radius: var(--radius); overflow: hidden; line-height: 0;
+}
+#wcam-plate img { width: 100%; height: auto; display: block; }
+#wcam-brand {
+  position: absolute; top: 3px; right: 5px; line-height: 1;
+  font-family: var(--font-mono); font-size: 0.56rem; letter-spacing: 0.14em;
+  color: var(--muted); text-transform: uppercase;
+}
+/* THE SEGMENTED METER (UX-LANGUAGE §8, DECIDED shape + amber lead-notch).
+   One grammar: notches fill L→R, the top band burns hotter, the last notch
+   flares red on overcharge, and the 2px lead-notch rides the exact edge. */
+.segmeter {
+  position: relative; display: flex; gap: 2px; height: 8px; margin-top: 0.35rem;
+}
+.segmeter i { flex: 1; background: oklch(0.26 0.015 74); border-radius: 1px; }
+.segmeter i.on { background: var(--accent); }
+.segmeter i.hot { background: oklch(0.85 0.15 82); }
+.segmeter i.ready { background: var(--ok); }
+.segmeter i.over { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+.segmeter b {
+  position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--accent);
+  box-shadow: 0 0 4px oklch(0.78 0.16 74 / 0.8); transform: translateX(-1px);
+}
+.segmeter b.over { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+.segmeter.hidden { display: none; }
+
 #weapon-name { font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; font-size: 0.9rem; }
 #ammo-count { font-family: var(--font-mono); font-size: 1.5rem; color: var(--accent); letter-spacing: 0.03em; }
 #ammo-count.reloading { color: var(--muted); font-size: 0.95rem; }
