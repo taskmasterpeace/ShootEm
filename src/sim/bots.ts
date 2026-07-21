@@ -1830,8 +1830,11 @@ export function stepZombie(w: World, s: Soldier, dt: number) {
   if (s.kind === 'sprinter' && s.dormant) {
     const firedRecently = best.nextFireAt > w.time && best.nextFireAt - w.time < 0.6;
     const landedLoud = (best.loudUntil ?? 0) > w.time; // M1: a leap ARRIVED nearby
+    // §10: a lit TORCH is a beacon — it doubles the radius a sleeping
+    // sprinter notices you at (still needs the sight line: light, not sound)
+    const sightR = best.torchOn ? SPRINTER_WAKE_SIGHT * 2 : SPRINTER_WAKE_SIGHT;
     const wake = bestD < SPRINTER_WAKE_NEAR
-      || (bestD < SPRINTER_WAKE_SIGHT && losClear(w.map.grid, { ...s.pos, y: 1.2 }, { ...best.pos, y: 1.2 }))
+      || (bestD < sightR && losClear(w.map.grid, { ...s.pos, y: 1.2 }, { ...best.pos, y: 1.2 }))
       || (bestD < SPRINTER_WAKE_NOISE && (firedRecently || landedLoud));
     if (wake) {
       s.dormant = false;

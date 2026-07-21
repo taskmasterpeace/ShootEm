@@ -26,6 +26,7 @@ import { fileIssue, renderIssueHTML, renderPressInto, loadPress } from './client
 import { RangeCourse, loadWall } from './client/range';
 import { RingDrill } from './client/ringdrill';
 import { loadSettings, saveSettings, settings, type BloodLevel, type DarknessLevel } from './client/settings';
+import { darknessUniforms } from './client/darkness';
 
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -620,7 +621,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     mode === 'report'
       ? `${blackboxReport(world.blackbox)}\n${ammoReport(world)}` // §13: the ammo economy rides the report
       : { samples: world.blackbox.samples, incidents: world.blackbox.incidents };
-  (window as unknown as Record<string, unknown>).__ww = { world, me, renderer, hud, input, audio, recorder: director.recorder, replay: director.player, director, crowd, blackbox }; // debug/testing handle
+  (window as unknown as Record<string, unknown>).__ww = { world, me, renderer, hud, input, audio, recorder: director.recorder, replay: director.player, director, crowd, blackbox, darkness: darknessUniforms }; // debug/testing handle (darkness: live cone uniforms — eval-side imports get FRESH module instances, this doesn't)
 
   const FIXED = 1 / 60;
   let acc = 0;

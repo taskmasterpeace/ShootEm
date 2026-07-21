@@ -403,6 +403,10 @@ export interface Soldier {
   /** the leap landed LOUD: until this time the soldier rings on recon
    *  (merged into `pinged` each tick) and counts as noise to dormant ears */
   loudUntil?: number;
+  /** THE FLASHLIGHT (§10): T toggles. A lit torch extends this eye's CONE
+   *  (perception TORCH_MULT) and the local darkness beam — but light gives
+   *  you away: dormant sprinters wake on it at twice their sight radius. */
+  torchOn?: boolean;
   /** this soldier IS a Living Super Weapon (§21.6). Rides the wire free via
    *  the snapshot spread law — the renderer and brain read it, the sim
    *  treats it as a Soldier with a big HP pool and a special step. */
@@ -840,6 +844,7 @@ export interface SimEvent {
     | 'dash'           // M1: a soldier burst forward / tumbled sideways
     | 'leap'           // M1: the coiled spring released — a charged ballistic leap
     | 'leapland'       // M1: the leap ARRIVED — loud enough to ping the map
+    | 'torch'          // §10: a flashlight clicked on or off
     | 'ragdoll'        // M1: blown past the knockback threshold — body is luggage
     | 'takedown'       // §14.2: a rear-control finisher landed on the pinned body
     | 'axe_throw'      // M5: the axe left the hand
@@ -1004,6 +1009,8 @@ export interface PlayerCmd {
   /** THE GRAPPLE (OUTBREAK-SPEC §12/§14): one-frame tap — a close-range grab
    *  that bypasses a GUARD and pins the target. Z on the keyboard. */
   grapple?: boolean;
+  /** THE FLASHLIGHT (§10): one-frame tap toggles the torch. T on the keyboard. */
+  torch?: boolean;
   /** THE OUTBREAK (OUTBREAK-SPEC §11): one-frame tap to cycle ammunition TYPE
    *  ball → armor-piercing → incendiary. B on the keyboard. */
   cycleAmmo?: boolean;

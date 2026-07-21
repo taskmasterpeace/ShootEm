@@ -44,7 +44,7 @@ export class Input {
   grenadeLob = 1;
   /** F held: charging an Impact Charge (§13). Release commits the strike. */
   private meleeDown = false;
-  private oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false, dash: 0, melee: false, cycleAmmo: false, grapple: false, spaceJump: false, leap: 0 };
+  private oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false, dash: 0, melee: false, cycleAmmo: false, grapple: false, spaceJump: false, leap: 0, torch: false };
   /** M2 double-tap tracker for dash/roll */
   private lastTap = { key: '', at: 0 };
   /** W1.3: when SPACE went down — a quick release jumps, a long hold ducks. */
@@ -106,6 +106,7 @@ export class Input {
       if (k === 'x') this.oneShot.nadeCycle = true; // rotate the grenade bag
       if (k === 'b') this.oneShot.cycleAmmo = true; // ammo TYPE: ball → AP → INC
       if (k === 'z') this.oneShot.grapple = true;   // GRAPPLE: grab (beats GUARD) §12
+      if (k === 't') this.oneShot.torch = true;     // FLASHLIGHT toggle (§10)
       if (k === 'f') this.meleeDown = true;         // hold to charge (§13); release commits
       if (k >= '1' && k <= '3') this.oneShot.weaponSlot = parseInt(k) - 1;
       if (k === 'tab') { this.scoreboardHeld = true; e.preventDefault(); }
@@ -241,8 +242,9 @@ export class Input {
       meleeHold: this.meleeDown,   // §13: F held — charging the Power Strike
       cycleAmmo: this.oneShot.cycleAmmo, // B — ball/AP/incendiary
       grapple: this.oneShot.grapple,     // Z — the grab
+      torch: this.oneShot.torch,         // T — the flashlight (§10)
     };
-    this.oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false, dash: 0, melee: false, cycleAmmo: false, grapple: false, spaceJump: false, leap: 0 };
+    this.oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false, dash: 0, melee: false, cycleAmmo: false, grapple: false, spaceJump: false, leap: 0, torch: false };
     // any mouse/keyboard input hands the wheel back to the desk
     if (cmd.moveX || cmd.moveZ || cmd.fire || this.mouse.down) this.gamepadActive = false;
     this.pollGamepad(local, cmd);

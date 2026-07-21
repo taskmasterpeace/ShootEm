@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
 import { CLIMB_H, F2_SLIT, F2_WALL, F2_WELL, GRID, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt, losClear, surfaceAt, tileAt } from '../sim/map';
-import { classLinger, eyesSeePoint, seenRecently, type SeenMark } from '../sim/perception';
+import { TORCH_MULT, classLinger, eyesSeePoint, seenRecently, type SeenMark } from '../sim/perception';
 import { paintColorFor } from './onboarding';
 import type { WeatherKind } from '../sim/weather';
 import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
@@ -1363,7 +1363,10 @@ export class Renderer {
     if ((this.darkSweepN++ % 90) === 0) sweepDarkness(this.scene);
     const dl = settings.darkness ?? 'subtle';
     const floor = local && local.alive && dl !== 'off' ? darknessFloor(dl) : 1;
-    setDarknessFrame(local?.pos.x ?? 0, 0, local?.pos.z ?? 0, local?.yaw ?? 0, world.perceiveRange(), floor);
+    // §10: a lit torch stretches the visible beam exactly as far as it
+    // stretches the sim's eye (TORCH_MULT — one law, two surfaces)
+    const eyeRange = world.perceiveRange() * (local?.torchOn ? TORCH_MULT : 1);
+    setDarknessFrame(local?.pos.x ?? 0, 0, local?.pos.z ?? 0, local?.yaw ?? 0, eyeRange, floor);
 
     // LOCAL FOG for the trail-less (§19.1). Living enemies ride the sim's
     // per-tick lastSeen trail, but the two things that carry NO trail — enemy
@@ -4114,6 +4117,9 @@ export class Renderer {
           }
           break;
         }
+        case 'torch': // §10: the flashlight clicks
+          if (e.soldierId === localId) audio.play('ui_click', { volume: 0.4, rate: 1.3 });
+          break;
         case 'corpse_slam': {
           // A BODY MEETS MASONRY (Robert: "knock you into a wall or
           // something?"). Dust off the wall, a smear where it hit, and the

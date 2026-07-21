@@ -51,11 +51,19 @@ export function classLinger(classId: string, hasOptics: boolean): number {
  *  ghost freezes at the spot you lost them, never trailing their live path. */
 export interface SeenMark { t: number; x: number; z: number }
 
+/** THE FLASHLIGHT (§10 / STATUS "vision cone as a tool"): a lit torch buys
+ *  the CONE this much extra reach — the beam, not the back sensor (the RING
+ *  is untouched: a torch points where you look). The price is paid in
+ *  bots.ts: light gives you away — dormant sprinters wake on a torch at
+ *  twice their sight radius. */
+export const TORCH_MULT = 1.35;
+
 /** Can this single eye see the point? Ring first (the 360 sensor helmet
  *  doubles it — the paranoid pick, §19.2), then the facing cone. */
 function eyeSees(e: Soldier, x: number, z: number, range: number): boolean {
   const d = Math.hypot(x - e.pos.x, z - e.pos.z);
   if (d < (e.equipment.includes('sensor_360') ? RING * 2 : RING)) return true;
+  if (e.torchOn) range *= TORCH_MULT; // the beam reaches further than the eye
   if (d >= range) return false;
   let diff = Math.abs(Math.atan2(z - e.pos.z, x - e.pos.x) - e.yaw) % (Math.PI * 2);
   if (diff > Math.PI) diff = Math.PI * 2 - diff;

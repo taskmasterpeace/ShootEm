@@ -2623,6 +2623,14 @@ export class World {
     }
     if (s.jetSpent && s.energy >= 35) s.jetSpent = false; // recovered enough to relight
 
+    // THE FLASHLIGHT (§10): T toggles. The beam buys the CONE extra reach
+    // (perception.ts TORCH_MULT) and stretches the local darkness — but
+    // light gives you away: dormant sprinters wake on it (bots.ts).
+    if (cmd.torch) {
+      s.torchOn = !s.torchOn;
+      this.emit({ type: 'torch', pos: { ...s.pos }, soldierId: s.id });
+    }
+
     // cloak toggle
     if (cmd.ability && c.ability === 'cloak' && this.time >= s.nextAbilityAt) {
       s.cloaked = !s.cloaked;
