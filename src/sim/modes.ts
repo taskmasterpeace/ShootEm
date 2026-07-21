@@ -424,12 +424,16 @@ function stepSurvival(w: World, _dt: number) {
     for (let i = 0; i < count; i++) {
       const sp = w.map.zombieSpawns[w.rng.int(0, w.map.zombieSpawns.length - 1)];
       const jitter = { x: sp.x + w.rng.range(-2, 2), y: 0, z: sp.z + w.rng.range(-2, 2) };
-      // THE THIRD ACT (DD SS20, finish-list 12): from wave 4 the Iron
-      // Eaters join the horde -- a quarter of every wave is scrap that
-      // stood up, and the mix deepens as the waves do.
-      const z = wave >= 4 && i % 4 === 3
+      // THE ROSTER LAW (Robert: "the iron eater should NEVER be with the
+      // zombies"): the flesh horde fights alone by default. 'iron' fields
+      // only the machine race; 'both' is the OPT-IN that restores THE THIRD
+      // ACT (DD SS20) — from wave 4 a quarter of every wave is scrap.
+      const roster = w.opts.hordeRoster ?? 'zombies';
+      const z = roster === 'iron'
         ? w.addIronEater(rollIronKind(w, wave), jitter)
-        : w.addZombie(rollZedKind(w, wave), jitter);
+        : roster === 'both' && wave >= 4 && i % 4 === 3
+          ? w.addIronEater(rollIronKind(w, wave), jitter)
+          : w.addZombie(rollZedKind(w, wave), jitter);
       // waves scale hp
       z.hp *= 1 + wave * 0.12;
       z.maxHp = z.hp;
@@ -556,11 +560,15 @@ function stepHorde(w: World, _dt: number) {
     for (let i = 0; i < burst; i++) {
       const sp = w.map.zombieSpawns[w.rng.int(0, w.map.zombieSpawns.length - 1)];
       const jitter = { x: sp.x + w.rng.range(-2, 2), y: 0, z: sp.z + w.rng.range(-2, 2) };
-      // THE THIRD ACT (DD SS20): from intensity 4 the Iron Eaters join --
-      // a quarter of the pressure is scrap that stood up
-      const z = intensity >= 4 && w.rng.next() < 0.25
+      // THE ROSTER LAW: zombies-only by default; 'iron' is all machine;
+      // 'both' opts back into THE THIRD ACT (DD SS20) — from intensity 4
+      // a quarter of the pressure is scrap that stood up.
+      const roster = w.opts.hordeRoster ?? 'zombies';
+      const z = roster === 'iron'
         ? w.addIronEater(rollIronKind(w, intensity), jitter)
-        : w.addZombie(rollZedKind(w, intensity), jitter);
+        : roster === 'both' && intensity >= 4 && w.rng.next() < 0.25
+          ? w.addIronEater(rollIronKind(w, intensity), jitter)
+          : w.addZombie(rollZedKind(w, intensity), jitter);
       z.hp *= 1 + (intensity - 1) * 0.08;
       z.maxHp = z.hp;
     }

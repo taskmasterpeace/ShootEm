@@ -237,6 +237,11 @@ export interface WorldOptions {
    *  than letting the mode decide — for scenarios, tests, and the future
    *  condition-driven war-front outbreak (§2.1). */
   outbreak?: boolean;
+  /** THE HORDE ROSTER (Robert: "the iron eater should NEVER be with the
+   *  zombies — let it specify: iron eaters, zombies, or both"). Default
+   *  'zombies' — the flesh horde fights alone; 'iron' fields only the machine
+   *  race; 'both' restores the wave-4 quarter-mix as an OPT-IN. */
+  hordeRoster?: 'zombies' | 'iron' | 'both';
   /** battlefield environment — drives map flavor and gravity */
   theme?: ThemeId;
   /** §8.2 authored ground: a Scar front id deploys onto ITS terrain, not a

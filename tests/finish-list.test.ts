@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { WEAPONS } from '../src/sim/data';
 import { LSWS } from '../src/sim/lsw';
 import { objectiveFor } from '../src/sim/bots';
+import { isIron } from '../src/sim/types';
 import { World } from '../src/sim/world';
 
 const quiet = () => new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
@@ -220,8 +221,9 @@ describe('#12 THE IRON EATERS — junk that learned a body plan (DD §20)', () =
     void rat;
   });
 
-  it('THE THIRD ACT: from wave 4 the horde brings scrap', () => {
-    const w = new World({ seed: 42, mode: 'survival', botsPerTeam: 0 });
+  it('THE THIRD ACT is an OPT-IN: roster "both" brings scrap from wave 4', () => {
+    // Robert's roster law: iron NEVER mixes with zombies unless asked for
+    const w = new World({ seed: 42, mode: 'survival', botsPerTeam: 0, hordeRoster: 'both' });
     const h = w.addSoldier('H', 'infantry', 0, 'human');
     h.alive = true;
     w.mode.wave = 3; // the next wave rolled is 4
@@ -230,6 +232,31 @@ describe('#12 THE IRON EATERS — junk that learned a body plan (DD §20)', () =
     const iron = [...w.soldiers.values()].filter((s) => s.kind === 'scraprat' || s.kind === 'junkhound' || s.kind === 'weaver' || s.kind === 'ravager');
     expect(iron.length, 'a quarter of wave 4 is scrap that stood up').toBeGreaterThan(0);
     expect(iron.every((s) => s.armor > 0), 'every beast arrives PLATED').toBe(true);
+  });
+
+  it('THE ROSTER LAW: by default the iron eater is NEVER with the zombies', () => {
+    const w = new World({ seed: 42, mode: 'survival', botsPerTeam: 0 }); // default roster
+    const h = w.addSoldier('H', 'infantry', 0, 'human');
+    h.alive = true;
+    for (let wave = 3; wave <= 6; wave++) { // roll waves 4-7 — the old mixing window
+      w.mode.wave = wave;
+      w.mode.nextWaveAt = 0;
+      w.step(1 / 60, new Map());
+    }
+    const iron = [...w.soldiers.values()].filter((s) => isIron(s.kind));
+    expect(iron.length, 'the flesh horde fights alone').toBe(0);
+  });
+
+  it('THE ROSTER LAW: "iron" fields ONLY the machine race', () => {
+    const w = new World({ seed: 42, mode: 'survival', botsPerTeam: 0, hordeRoster: 'iron' });
+    const h = w.addSoldier('H', 'infantry', 0, 'human');
+    h.alive = true;
+    w.mode.wave = 0; // even wave 1 — no zombies, ever
+    w.mode.nextWaveAt = 0;
+    w.step(1 / 60, new Map());
+    const spawned = [...w.soldiers.values()].filter((s) => s.team === 1 && s.kind !== 'human' && s.kind !== 'bot');
+    expect(spawned.length).toBeGreaterThan(0);
+    expect(spawned.every((s) => isIron(s.kind)), 'all scrap, no flesh').toBe(true);
   });
 });
 

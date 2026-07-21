@@ -49,6 +49,8 @@ let seedOverride: number | undefined;
 let difficulty: Difficulty = 'veteran';
 let botsPerTeam = 12; // 32B: 12v12 target — bots fill every open position
 let matchMinutes = 15;
+/** THE ROSTER LAW (Robert): zombies fight alone unless the player opts in. */
+let hordeRoster: 'zombies' | 'iron' | 'both' = 'zombies';
 let running = false;
 
 /** The player's armory picks ('' = class issue weapon). Chosen through the
@@ -241,6 +243,7 @@ function wireSetupControls() {
   };
   wirePills('difficulty-select', (v) => { difficulty = v as Difficulty; });
   wirePills('length-select', (v) => { matchMinutes = parseInt(v); });
+  wirePills('roster-select', (v) => { hordeRoster = v as typeof hordeRoster; });
   const count = $('bots-count');
   $('bots-minus').onclick = () => {
     botsPerTeam = Math.max(0, botsPerTeam - 1);
@@ -266,9 +269,12 @@ function buildMenu() {
       audio.play('ui_click');
       modeRow.querySelectorAll('.select-card').forEach((c) => c.classList.remove('selected'));
       card.classList.add('selected');
+      // THE ROSTER LAW: the horde-composition pick only exists where a horde does
+      $('roster-block').style.display = (id === 'horde' || id === 'survival') ? '' : 'none';
     };
     modeRow.appendChild(card);
   });
+  $('roster-block').style.display = (selectedMode === 'horde' || selectedMode === 'survival') ? '' : 'none';
 
   const classRow = $('class-select');
   classRow.innerHTML = '';
@@ -436,6 +442,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   seedOverride = undefined;
   const world = new World({
     seed, mode: selectedMode, difficulty, botsPerTeam, matchMinutes, theme: selectedTheme,
+    hordeRoster, // THE ROSTER LAW: iron never mixes with zombies unless asked
     // B1: banked morale opens the stable richer for YOUR side (capped in-world)
     moraleBoost: [Math.min(3, dossier?.soldier.morale ?? 0), 0],
     // §8.2+33C: a Scar deploy lands on AUTHORED ground, at the tier the
