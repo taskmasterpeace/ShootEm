@@ -35,7 +35,7 @@
 - Produces: `ScienceVerb`, `ScienceSite`, `ScienceComplication`, `ScienceRewardId`, `ScienceMissionSpec`, `SCIENCE_VERBS`, `SCIENCE_SITES`, `SCIENCE_REWARDS`, `generateScienceMission(seed, options?)`, and `validateScienceMission(spec)`.
 - Consumes: `Rng` from `src/sim/rng.ts`, `ThemeId` from `src/sim/types.ts`.
 
-- [ ] **Step 1: Write generator tests for coverage, bounds, and determinism**
+- [x] **Step 1: Write generator tests for coverage, bounds, and determinism**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -67,13 +67,13 @@ describe('science mission generator', () => {
 });
 ```
 
-- [ ] **Step 2: Run the generator test and verify RED**
+- [x] **Step 2: Run the generator test and verify RED**
 
 Run: `npx vitest run tests/science-generator.test.ts`
 
 Expected: FAIL because `src/sim/science.ts` does not exist.
 
-- [ ] **Step 3: Implement the typed generator**
+- [x] **Step 3: Implement the typed generator**
 
 ```ts
 export const SCIENCE_VERBS = ['assassinate', 'steal', 'raid', 'deny', 'rescue', 'infiltrate', 'ambush', 'hold', 'hunt', 'decapitate'] as const;
@@ -109,13 +109,13 @@ export function generateScienceMission(seed: number, options: ScienceMissionOpti
 }
 ```
 
-- [ ] **Step 4: Run generator tests and the typecheck**
+- [x] **Step 4: Run generator tests and the typecheck**
 
 Run: `npx vitest run tests/science-generator.test.ts && npx tsc --noEmit`
 
 Expected: generator tests PASS and TypeScript exits 0.
 
-- [ ] **Step 5: Commit the generator slice**
+- [x] **Step 5: Commit the generator slice**
 
 ```powershell
 git add src/sim/science.ts tests/science-generator.test.ts
