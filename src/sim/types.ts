@@ -439,6 +439,9 @@ export interface Soldier {
   grabbedUntil?: number;
   /** who threw the grab (credit + the hold's tether anchor). */
   grabbedBy?: number;
+  /** the body YOU currently hold in a rear pin — a second grapple executes the
+   *  §14.2 takedown on it (grabber-side link; self-corrects if the pin lapses). */
+  grabbingId?: number;
   /** brief post-escape window during which this body can't be re-grabbed — no
    *  instant re-clinch / chain-lock after you fight free. */
   grabImmuneUntil?: number;
@@ -813,6 +816,7 @@ export interface SimEvent {
     | 'nade_bounce'    // a hand grenade kissed the ground — the tick before the bang
     | 'dash'           // M1: a soldier burst forward / tumbled sideways
     | 'ragdoll'        // M1: blown past the knockback threshold — body is luggage
+    | 'takedown'       // §14.2: a rear-control finisher landed on the pinned body
     | 'axe_throw'      // M5: the axe left the hand
     | 'axe_stick'      // M5: it bit something and stayed there
     | 'axe_recall'     // M5: it tore free and is flying home

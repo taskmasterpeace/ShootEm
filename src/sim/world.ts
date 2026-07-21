@@ -172,6 +172,12 @@ const GRAB_RECOVER = 0.5;
 const GRAB_SCRATCH: Soldier[] = [];
 /** after breaking a hold you're briefly ungrabbable — no instant re-clinch. */
 const GRAB_IMMUNE = 1.0;
+/** §14.2 REAR TAKEDOWN: the finisher off a rear pin — an EXECUTION, so it blows
+ *  well past zero (overkill) and the body drops for good instead of crawling
+ *  (§4.3's own overkill rule skips the downed state). Armour-piercing — rear
+ *  control bypasses plate. The pin's GRAB_RECOVER delay before a second grapple
+ *  gives the victim a struggle window; gods are exempt (too big to take down). */
+const TAKEDOWN_DAMAGE = 500;
 /** BITE STRUGGLE (OUTBREAK-SPEC §15.5): a zombie's grip HOLDS this long — win
  *  the struggle before it lapses or the bite lands. Sprinters snap faster,
  *  brutes clamp longer (scaled per-kind at the grab). */
@@ -2217,38 +2223,52 @@ export class World {
     if (cmd.grapple && !s.downed && s.vehicleId < 0 && s.encasedUntil === undefined
         && s.grabbedUntil === undefined && this.time >= s.nextFireAt && !s.guarding) {
       s.nextFireAt = this.time + GRAB_RECOVER; // the lunge for the grab occupies you
-      let target: Soldier | undefined;
-      let bestD = GRAB_RANGE + 0.3;
-      for (const e of this.soldierIndex.near((1 - s.team) as Team, s.pos.x, s.pos.z, GRAB_RANGE + 0.3, GRAB_SCRATCH)) {
-        if (!e.alive || e.grabbedUntil !== undefined || e.encasedUntil !== undefined
-            || this.time < (e.grabImmuneUntil ?? 0)) continue;
-        const dx = e.pos.x - s.pos.x, dz = e.pos.z - s.pos.z;
-        const d = Math.hypot(dx, dz);
-        if (d > bestD) continue;
-        const raw = Math.atan2(dz, dx) - s.yaw;
-        const ang = Math.atan2(Math.sin(raw), Math.cos(raw));
-        if (Math.abs(ang) > GRAB_CONE / 2 && d > 0.5) continue;
-        target = e; bestD = d;
-      }
-      if (target) {
-        if (target.meleeStrikeAt > 0) {
-          // STRIKE BEATS GRAPPLE: he's mid-swing — the grab is stuffed and the
-          // grabber eats the stagger for over-committing into a live blade.
-          s.nextFireAt = Math.max(s.nextFireAt, this.time + GRAB_HOLD * 0.5);
-          const dl = Math.max(bestD, 0.5);
-          s.pushX += ((s.pos.x - target.pos.x) / dl) * 4;
-          s.pushZ += ((s.pos.z - target.pos.z) / dl) * 4;
-          this.emit({ type: 'grab_break', pos: { ...target.pos }, soldierId: target.id });
-        } else {
-          // the hold lands. GRAPPLE BEATS GUARD: the brace is bypassed AND
-          // dropped — a pinned body can't block what comes next.
-          target.grabbedUntil = this.time + GRAB_HOLD;
-          target.grabbedBy = s.id;
-          target.struggle = 0;
-          target.guarding = false;
-          target.meleeStrikeAt = 0; target.meleeWeapon = ''; // any windup of his dies in the clinch
-          target.vel = { x: 0, y: 0, z: 0 };
-          this.emit({ type: 'grabbed', pos: { ...target.pos }, soldierId: target.id });
+      // §14.2 REAR TAKEDOWN: if you already have rear control, a second grapple
+      // commits the FINISHER on that body instead of reaching for a new hold —
+      // heavy, armour-piercing, unblockable. Gods are too big to take down.
+      const pinned = s.grabbingId !== undefined ? this.soldiers.get(s.grabbingId) : undefined;
+      const holding = !!pinned && pinned.alive && pinned.grabbedBy === s.id && pinned.grabbedUntil !== undefined;
+      if (holding && !pinned!.ascendant) {
+        this.emit({ type: 'takedown', pos: { ...pinned!.pos }, soldierId: pinned!.id });
+        this.damageSoldier(pinned!, TAKEDOWN_DAMAGE, s.id, 'knife', false, true); // AP finisher, a knife-credited kill
+        pinned!.grabbedUntil = undefined; pinned!.grabbedBy = undefined; pinned!.struggle = undefined;
+        s.grabbingId = undefined; // the finisher is your whole action this tick
+      } else {
+        s.grabbingId = undefined; // not holding a live pin — go reach for a fresh one
+        let target: Soldier | undefined;
+        let bestD = GRAB_RANGE + 0.3;
+        for (const e of this.soldierIndex.near((1 - s.team) as Team, s.pos.x, s.pos.z, GRAB_RANGE + 0.3, GRAB_SCRATCH)) {
+          if (!e.alive || e.grabbedUntil !== undefined || e.encasedUntil !== undefined
+              || this.time < (e.grabImmuneUntil ?? 0)) continue;
+          const dx = e.pos.x - s.pos.x, dz = e.pos.z - s.pos.z;
+          const d = Math.hypot(dx, dz);
+          if (d > bestD) continue;
+          const raw = Math.atan2(dz, dx) - s.yaw;
+          const ang = Math.atan2(Math.sin(raw), Math.cos(raw));
+          if (Math.abs(ang) > GRAB_CONE / 2 && d > 0.5) continue;
+          target = e; bestD = d;
+        }
+        if (target) {
+          if (target.meleeStrikeAt > 0) {
+            // STRIKE BEATS GRAPPLE: he's mid-swing — the grab is stuffed and the
+            // grabber eats the stagger for over-committing into a live blade.
+            s.nextFireAt = Math.max(s.nextFireAt, this.time + GRAB_HOLD * 0.5);
+            const dl = Math.max(bestD, 0.5);
+            s.pushX += ((s.pos.x - target.pos.x) / dl) * 4;
+            s.pushZ += ((s.pos.z - target.pos.z) / dl) * 4;
+            this.emit({ type: 'grab_break', pos: { ...target.pos }, soldierId: target.id });
+          } else {
+            // the hold lands. GRAPPLE BEATS GUARD: the brace is bypassed AND
+            // dropped — a pinned body can't block what comes next.
+            target.grabbedUntil = this.time + GRAB_HOLD;
+            target.grabbedBy = s.id;
+            s.grabbingId = target.id; // rear control — a second grapple executes the §14.2 takedown
+            target.struggle = 0;
+            target.guarding = false;
+            target.meleeStrikeAt = 0; target.meleeWeapon = ''; // any windup of his dies in the clinch
+            target.vel = { x: 0, y: 0, z: 0 };
+            this.emit({ type: 'grabbed', pos: { ...target.pos }, soldierId: target.id });
+          }
         }
       }
     }
