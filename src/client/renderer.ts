@@ -4028,6 +4028,17 @@ export class Renderer {
               const full = settings.blood === 'full';
               this.particles.emit({ pos: { ...e.pos, y: 1 }, count: full ? 22 : 12, color: 0xa03030, speed: 5, life: 0.6, spread: 0.5, up: 4 });
               this.spawnSplat(e.pos, 0x5e1010, full ? 0.85 : 0.5);
+              // GORE / GIBS (STATUS §2, the death show): a VIOLENT death — an
+              // explosive, or a heavy round that overkills — doesn't just splash,
+              // it comes APART. Chunky flesh bits arc out and fall (high gravity,
+              // long life), over a wetter mist and a wider pool. Still gated on
+              // the blood setting, so reduced-gore players never see it.
+              const wd = e.weaponId ? WEAPONS[e.weaponId] : undefined;
+              if (wd && ((wd.splash ?? 0) > 0 || wd.damage >= 40)) {
+                this.particles.emit({ pos: { ...e.pos, y: 1 }, count: full ? 14 : 8, color: 0x7a1e1e, speed: 7, life: 0.85, spread: 0.7, up: 5, gravity: 14, size: full ? 0.34 : 0.28 }); // the chunks
+                this.particles.emit({ pos: { ...e.pos, y: 1.1 }, count: full ? 16 : 9, color: 0xb84040, speed: 6, life: 0.4, spread: 0.6, up: 4.5, gravity: 8, size: 0.15 }); // wet mist
+                this.spawnSplat(e.pos, 0x4a0e0e, full ? 1.2 : 0.8); // a wider pool
+              }
             }
             // each class has its own death cry; zombies/scientist use the generic
             const cry = e.classId ? (`death_${e.classId}` as SoundName) : 'death';
