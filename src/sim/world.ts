@@ -20,8 +20,15 @@ import { THEME_WEATHER, airGrounded, moveMult, visionMult, weatherAnnounce, type
 import { newDirector, stepDirector, type DirectorState } from './director';
 import { buildInfluence, newInfluence, type InfluenceField } from './influence';
 import { createBlackbox, stepBlackbox, type Blackbox } from './blackbox';
+import { SoldierIndex } from './spatial';
 
 const RESPAWN_DELAY = 4;
+
+// opt #38 (S2): caller-owned scratch for spatial-index queries — one per call
+// site so nested resolution (a hit → explode → …) can never clobber a live
+// iteration; never held across ticks
+const PROJ_SCRATCH: Soldier[] = [];
+const MELEE_SCRATCH: Soldier[] = [];
 const VEHICLE_RESPAWN = 22;
 // §8.1a requisition law — you signed the hull out; the manifest doesn't care that you died
 const HOTWIRE_ABANDON = 90;  // an enemy hull must sit crewless this long before it can be stolen
@@ -175,6 +182,9 @@ export class World {
   /** gravity for this battlefield — Europa and Triton fight in low-g */
   gravity: number;
   soldiers = new Map<number, Soldier>();
+  /** opt #38 (S2): the per-tick spatial index — rebuilt at the top of step();
+   *  queries return id-sorted supersets, call sites keep their own filters */
+  soldierIndex = new SoldierIndex();
   vehicles = new Map<number, Vehicle>();
   turrets = new Map<number, Turret>();
   projectiles = new Map<number, Projectile>();
@@ -424,6 +434,7 @@ export class World {
       s.squadId = team * 100 + Math.floor(mates / 4);
     }
     this.soldiers.set(s.id, s);
+    this.soldierIndex.add(s); // queryable the tick it spawns (opt #38)
     this.spawn(s);
     return s;
   }
@@ -938,6 +949,7 @@ export class World {
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
     this.soldiers.set(s.id, s);
+    this.soldierIndex.add(s); // queryable the tick it spawns (opt #38)
     this.emit({ type: 'respawn', pos: s.pos, soldierId: s.id });
     return s;
   }
@@ -962,6 +974,7 @@ export class World {
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
     this.soldiers.set(s.id, s);
+    this.soldierIndex.add(s); // queryable the tick it spawns (opt #38)
     return s;
   }
 
@@ -986,6 +999,7 @@ export class World {
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
     this.soldiers.set(s.id, s);
+    this.soldierIndex.add(s); // queryable the tick it spawns (opt #38)
     return s;
   }
 
@@ -1013,6 +1027,7 @@ export class World {
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
     this.soldiers.set(s.id, s);
+    this.soldierIndex.add(s); // queryable the tick it spawns (opt #38)
     return s;
   }
 
@@ -1216,6 +1231,10 @@ export class World {
       }
       return;
     }
+    // opt #38 (S2): refill the soldier index once, up front — every hot scan
+    // this tick (zombie targeting, findTarget, projectiles, melee, separation)
+    // queries it instead of walking the whole roster
+    this.soldierIndex.rebuild(this.soldiers);
     if (!this.mode.over) stepMode(this, dt);
     stepBlackbox(this); // the crowd flight recorder samples on its own 2s clock
     this.stepHomeDoors(); // base doors open for their own; shut behind them
@@ -2592,9 +2611,11 @@ export class World {
     s.pushZ += Math.sin(s.meleeYaw) * MELEE_LUNGE;
     this.emit({ type: 'shot', pos: { ...s.pos }, weapon: def.id, soldierId: s.id });
     // everyone in the front wedge, nearest first, capped at MELEE_MAX_TARGETS
+    // (opt #38/S2: the wedge is ≤ range+0.6u — with 800 zeds swinging, the
+    // full-roster sweep here was a real slice of the horde cliff)
     const caught: { victim: Soldier; d: number }[] = [];
-    for (const other of this.soldiers.values()) {
-      if (!other.alive || other.team === s.team) continue;
+    for (const other of this.soldierIndex.near((1 - s.team) as Team, s.pos.x, s.pos.z, def.range + 0.6, MELEE_SCRATCH)) {
+      if (!other.alive) continue;
       const dx = other.pos.x - s.pos.x, dz = other.pos.z - s.pos.z;
       const d = Math.hypot(dx, dz);
       if (d > def.range + 0.6) continue;
@@ -3962,12 +3983,13 @@ export class World {
         }
       }
 
-      // hit soldiers
+      // hit soldiers — opt #38 (S2): a heal beam touches its OWN side, a round
+      // its enemies; only bodies within the 0.9u hit radius can connect, and
+      // the id-sorted per-team query keeps first-hit order identical
       if (!dead) {
-        for (const s of this.soldiers.values()) {
+        const targetTeam = (def.heals ? p.team : 1 - p.team) as Team;
+        for (const s of this.soldierIndex.near(targetTeam, p.pos.x, p.pos.z, 1.2, PROJ_SCRATCH)) {
           if (!s.alive || s.vehicleId >= 0) continue;
-          const friendly = s.team === p.team;
-          if (def.heals ? !friendly : friendly) continue;
           if (s.id === p.ownerId) continue;
           if (p.hit?.includes(s.id)) continue; // pierce: never double-hit a body this flight
           const dy = (s.pos.y + 1.2) - p.pos.y;
@@ -4036,8 +4058,9 @@ export class World {
               }
             }
             // the RG-2 tag dart: sting like a bee, then GLOW — pinned on
-            // every enemy screen until the dart burns out (stealth suit wins)
-            if (def.tagsTarget && !friendly) {
+            // every enemy screen until the dart burns out (stealth suit wins).
+            // (the per-team query already guarantees non-heal hits are enemies)
+            if (def.tagsTarget && s.team !== p.team) {
               this.tagged.set(s.id, this.time + 5);
               this.emit({ type: 'psi_ping', pos: { ...s.pos }, soldierId: p.ownerId });
             }

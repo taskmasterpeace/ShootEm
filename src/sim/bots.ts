@@ -3,6 +3,10 @@ import { F2_FLOOR, F2_SLIT, F2_VOID, F2_WALL, F2_WELL, GRID, T_CLIMB, T_COVER, T
 import { type ClassId, type PlayerCmd, type Soldier, type Team, type Vec3, type Vehicle, isZed } from './types';
 import { type World } from './world';
 import { BOT_TUNING as TUNE, DIFFICULTY } from './bot-tuning';
+
+// opt #38 (S2): caller-owned scratch for spatial-index queries — one per call
+// site so no query can clobber another mid-iteration; never held across ticks
+const SEP_SCRATCH: Soldier[] = [];
 import { visionMult } from './weather';
 import { LSWS } from './lsw';
 import { threatAt } from './influence';
@@ -333,8 +337,13 @@ function findTarget(w: World, s: Soldier, maxRange: number, pingRange = maxRange
   if (s.blindUntil !== undefined && w.time < s.blindUntil) return null;
   let best: Soldier | null = null;
   let bestD = Infinity;
-  for (const e of w.soldiers.values()) {
-    if (!e.alive || e.team === s.team || e.vehicleId >= 0) continue;
+  // opt #38 (S2): only ENEMY bodies within the acquire reach can pass the
+  // gates below. forEach, not near — a 66u acquire against a dense horde
+  // collects hundreds, and sorting them per bot per tick is dearer than the
+  // scan this replaces. The explicit lowest-id tie-break at the bottom keeps
+  // the old ascending-scan winner under the grid's own visit order.
+  w.soldierIndex.forEach((1 - s.team) as Team, s.pos.x, s.pos.z, Math.max(maxRange, pingRange), (e) => {
+    if (!e.alive || e.vehicleId >= 0) return;
     // LAST tick's marks, not this tick's: the recon pass that fills `pinged`
     // (beacons, drones, cameras, psi scans) runs AFTER the bot brains, so
     // reading it live always saw an empty set and every ping-aware branch below
@@ -349,7 +358,7 @@ function findTarget(w: World, s: Soldier, maxRange: number, pingRange = maxRange
     if (!pinged && e.ascendant === undefined && tileAt(w.map.grid, e.pos.x, e.pos.z) === T_GRASS) {
       reach = Math.min(reach, e.crouching ? TUNE.grassCrouched : TUNE.grassRumor);
     }
-    if (d >= reach) continue; // past the eye AND unmarked
+    if (d >= reach) return; // past the eye AND unmarked
     // THE FACING CONE (the last piece of perception parity): a bot's eyes point
     // where its gun points. Past the footstep RING it only sees inside the same
     // ~130° cone the player's own eyes use (perception.ts CONE_HALF) — bots used
@@ -358,9 +367,9 @@ function findTarget(w: World, s: Soldier, maxRange: number, pingRange = maxRange
     if (!pinged && !s.ascendant && d > TUNE.ringClose) {
       let off = Math.abs(Math.atan2(e.pos.z - s.pos.z, e.pos.x - s.pos.x) - s.yaw) % (Math.PI * 2);
       if (off > Math.PI) off = Math.PI * 2 - off;
-      if (off > TUNE.coneHalf) continue; // behind him — walk on by
+      if (off > TUNE.coneHalf) return; // behind him — walk on by
     }
-    if (e.cloaked && d > TUNE.cloakReveal && !pinged) continue; // cloak is TRUE unless a mark reveals it
+    if (e.cloaked && d > TUNE.cloakReveal && !pinged) return; // cloak is TRUE unless a mark reveals it
     // sightClear = walls AND smoke — a bot must not track through the cloud
     // a player just paid a grenade to stand up (Robert: smoke AFFECTS
     // visibility, for every pair of eyes on the field). EXCEPT: an LSW is
@@ -373,16 +382,17 @@ function findTarget(w: World, s: Soldier, maxRange: number, pingRange = maxRange
     const seen = (s.ascendant !== undefined || e.ascendant !== undefined)
       ? losClear(w.map.grid, { x: s.pos.x, y: 1.4, z: s.pos.z }, { x: e.pos.x, y: 1.4, z: e.pos.z })
       : w.sightClear(s.pos, e.pos);
-    if (!seen) continue;
+    if (!seen) return;
     // NEMESIS (delight): a grudge weights the pick toward the enemy who last
     // killed you — you HUNT the bot that's been hunting you. A bias, not an
     // override: a much-closer threat still wins, so it never tunnel-visions.
     const score = d * (e.id === s.lastKillerId ? 0.6 : 1);
-    if (score < bestD) {
+    // strict < plus lowest-id tie-break = the old ascending scan's winner
+    if (score < bestD || (score === bestD && best !== null && e.id < best.id)) {
       best = e;
       bestD = score;
     }
-  }
+  });
   return best;
 }
 
@@ -1508,8 +1518,12 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
   let sepX = 0, sepZ = 0;
   const SEP_R = TUNE.sepRadius; // personal space (widened from 3u so a converging crowd spreads)
   let nearest = Infinity, nearX = 0, nearZ = 0;
-  for (const o of w.humansAndBots()) {
-    if (o.id === s.id || !o.alive || o.team !== s.team) continue;
+  // opt #38 (S2): same-team neighbors inside SEP_R only — was a full
+  // humansAndBots() allocation + roster walk per bot per tick. The id-sorted
+  // query keeps the float-sum order (and therefore the shove) byte-identical.
+  for (const o of w.soldierIndex.near(s.team, s.pos.x, s.pos.z, SEP_R, SEP_SCRATCH)) {
+    if (o.kind !== 'human' && o.kind !== 'bot') continue;
+    if (o.id === s.id || !o.alive) continue;
     if (o.floor !== s.floor) continue; // a storey apart is not a crowd
     const dx = s.pos.x - o.pos.x, dz = s.pos.z - o.pos.z;
     const d = Math.hypot(dx, dz);
@@ -1737,11 +1751,15 @@ export function stepIron(w: World, s: Soldier, dt: number) {
 }
 
 export function stepZombie(w: World, s: Soldier, dt: number) {
-  // find nearest living human/bot
+  // find nearest living human/bot — the horde's hottest loop (opt #38/S2:
+  // 800 zeds × a full 812-body Map walk per tick WAS the frame-budget
+  // cliff). The enemy ROSTER is ~12 bodies: a plain loop over it is 65×
+  // less work, allocation-free, and byte-identical to the old scan (same
+  // filtered set, same ascending-id order, same strict-< winner).
   let best: Soldier | null = null;
   let bestD = Infinity;
-  for (const e of w.soldiers.values()) {
-    if (!e.alive || e.team === s.team || (e.kind !== 'human' && e.kind !== 'bot')) continue;
+  for (const e of w.soldierIndex.roster((1 - s.team) as Team)) {
+    if (!e.alive || (e.kind !== 'human' && e.kind !== 'bot')) continue;
     const d = Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z);
     if (d < bestD) { best = e; bestD = d; }
   }
