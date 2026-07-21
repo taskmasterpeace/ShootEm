@@ -85,6 +85,31 @@ describe('§BEAMS — the held stream', () => {
     expect(god.beamHeat).toBe(0);
   });
 
+  it('LANCE (Resonance Projector): the stream DRILLS through bodies in file', () => {
+    const { w, god } = staged();
+    god.ascendant = 'pulse';
+    god.weapons = ['lsw_pulse']; god.clip = [Infinity]; god.reserve = [Infinity]; god.weaponIdx = 0;
+    // two more witnesses standing in file BEHIND the first
+    const mid = w.addSoldier('Mid', 'infantry', 1, 'human');
+    mid.pos = { x: 16, y: 0, z: 0 }; mid.protectedUntil = 0; mid.hp = 100;
+    const far = w.addSoldier('Far', 'infantry', 1, 'human');
+    far.pos = { x: 20, y: 0, z: 0 }; far.protectedUntil = 0; far.hp = 100;
+    w.step(1 / 60, new Map());
+    for (let i = 0; i < 30; i++) w.step(1 / 60, new Map([[god.id, cmd({ fire: true })]]));
+    expect(mid.hp, 'the SECOND body drank too — the lance drills').toBeLessThan(100);
+    expect(far.hp, 'and the THIRD — pierce 3 carries the file').toBeLessThan(100);
+  });
+
+  it('TORRENT (Feed-Beam): the flood catches wide of the line', () => {
+    const { w, god, vic } = staged();
+    god.ascendant = 'reactor';
+    god.weapons = ['lsw_reactor']; god.clip = [Infinity]; god.reserve = [Infinity]; god.weaponIdx = 0;
+    vic.pos = { x: 12, y: 0, z: 1.4 }; // 1.4u OFF the ray — outside a Siphon's 1.1 catch
+    w.step(1 / 60, new Map());
+    for (let i = 0; i < 30; i++) w.step(1 / 60, new Map([[god.id, cmd({ fire: true })]]));
+    expect(vic.hp, 'the 1.6u flood catches what a tight beam misses').toBeLessThan(100);
+  });
+
   it('releasing the trigger stops the pour at once', () => {
     const { w, god, vic } = staged();
     for (let i = 0; i < 30; i++) w.step(1 / 60, new Map([[god.id, cmd({ fire: true })]]));

@@ -2635,14 +2635,24 @@ export class Renderer {
           this.heldBeams.set(s.id, hm);
         }
         const fx = Math.cos(s.yaw), fz = Math.sin(s.yaw);
+        // the SAME style walk the sim pours with: a LANCE's stream drills
+        // visibly through its pierce count, a TORRENT catches at its width —
+        // the drawn endpoint must never lie about who's drinking.
+        const catchR2 = (hdef.held.catchR ?? 1.1) ** 2;
+        let drills = hdef.held.pierce ?? 0;
+        const seen = new Set<number>();
         let end = hdef.range;
         walk: for (let d = 1; d <= hdef.range; d += 1) {
           const px = s.pos.x + fx * d, pz = s.pos.z + fz * d;
           if (blocksShot(world.map.grid, px, pz, 1.3)) { end = d; break; }
           for (const e of world.soldiers.values()) {
-            if (!e.alive || e.team === s.team) continue;
+            if (!e.alive || e.team === s.team || seen.has(e.id)) continue;
             const dx = e.pos.x - px, dz = e.pos.z - pz;
-            if (dx * dx + dz * dz <= 1.21) { end = d; break walk; }
+            if (dx * dx + dz * dz <= catchR2) {
+              seen.add(e.id);
+              if (drills <= 0) { end = d; break walk; }
+              drills--;
+            }
           }
         }
         const ax = s.pos.x + fx * 0.8, az = s.pos.z + fz * 0.8;

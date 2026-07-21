@@ -3207,15 +3207,23 @@ export class World {
           this.emit({ type: 'beam_jam', pos: { ...s.pos }, soldierId: s.id });
         }
         s.beamingUntil = this.time + 0.1; // the renderer's stream window
-        // the ray walk: 1u steps at chest height, walls stop it, first body drinks
+        // the ray walk: 1u steps at chest height, walls stop it. The STYLE
+        // decides what a body does to the stream — a SIPHON stops in the
+        // first (drinks one), a LANCE drills through up to `pierce` bodies
+        // (each drinks full dps·dt), a TORRENT catches wide (`catchR`).
         const fx = Math.cos(s.yaw), fz = Math.sin(s.yaw);
+        const catchR = def.held.catchR ?? 1.1;
+        let drills = def.held.pierce ?? 0; // bodies the stream may pass THROUGH
+        const drank = new Set<number>();   // a body drinks once per tick, not per step
         walk: for (let d = 1; d <= def.range; d += 1) {
           const px = s.pos.x + fx * d, pz = s.pos.z + fz * d;
           if (blocksShot(this.map.grid, px, pz, 1.3)) break;
-          for (const e of this.soldierIndex.near((1 - s.team) as Team, px, pz, 1.1, BEAM_SCRATCH)) {
-            if (!e.alive || e.id === s.id) continue;
+          for (const e of this.soldierIndex.near((1 - s.team) as Team, px, pz, catchR, BEAM_SCRATCH)) {
+            if (!e.alive || e.id === s.id || drank.has(e.id)) continue;
+            drank.add(e.id);
             this.damageSoldier(e, def.held.dps * dt, s.id, wid);
-            break walk; // the stream stops in the first body
+            if (drills <= 0) break walk; // the stream stops in this body
+            drills--;                    // the LANCE drills on to the next
           }
         }
       } else {

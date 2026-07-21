@@ -149,13 +149,19 @@ export const LSW_ARMS: Record<WeaponId, WeaponDef> = {
   lsw_gargoyle: A({ id: 'lsw_gargoyle', name: 'Stone Talons', damage: 48, rof: 2.1, speed: 200, spread: 0.01, range: 11, sound: 'claw', tracer: 'none', icon: '🦅' }),
   lsw_blitz: A({ id: 'lsw_blitz', name: 'Momentum Blade', damage: 30, rof: 3.4, speed: 200, spread: 0.01, range: 10, sound: 'claw', tracer: 'none', icon: '⚔' }),
   // ── THE BEAM SCHOOL — continuous energy, now with a profile per god ──
-  lsw_reactor: A({ id: 'lsw_reactor', name: 'Feed-Beam', damage: 11, rof: 9, speed: 300, spread: 0.002, range: 46, sound: 'plasma', tracer: 'beam', icon: '🔆', beam: 'hose', ricochet: 1 }),
+  // §BEAMS row 192 TORRENT: the Feed-Beam is a FLOOD — held, wide catch
+  // (1.6u vs the 1.1 default), dps 99 = the old 11×9. Easy to keep ON a
+  // dodging target; the trade is the same heat clock as everyone.
+  lsw_reactor: A({ id: 'lsw_reactor', name: 'Feed-Beam', damage: 11, rof: 9, speed: 300, spread: 0.002, range: 46, sound: 'plasma', tracer: 'beam', icon: '🔆', beam: 'hose', ricochet: 1, held: { dps: 99, sustain: 3, jam: 2.5, catchR: 1.6 } }),
   // §BEAMS row 188: the Siphon is the first HELD stream — a siphon POURS, it
   // doesn't tap. dps 100 = the old 10 dmg × 10 rof (DPS-neutral conversion);
   // the heat governor (4s pour → 2.5s jam) is the held-beam design itself.
   lsw_crimson: A({ id: 'lsw_crimson', name: 'Haemal Siphon', damage: 10, rof: 10, speed: 300, spread: 0.002, range: 40, sound: 'plasma', tracer: 'beam', icon: '🩸', beam: 'hose', held: { dps: 100, sustain: 4, jam: 2.5 } }),
   lsw_magnetar: A({ id: 'lsw_magnetar', name: 'Induction Beam', damage: 12, rof: 8.5, speed: 300, spread: 0.002, range: 44, sound: 'plasma', tracer: 'beam', icon: '🧲', beam: 'ricochet', ricochet: 2 }),
-  lsw_pulse: A({ id: 'lsw_pulse', name: 'Resonance Projector', damage: 13, rof: 7.5, speed: 300, spread: 0.002, range: 48, sound: 'plasma', tracer: 'beam', icon: '📢', beam: 'lance', pierce: 3 }),
+  // §BEAMS row 192 LANCE: the Resonance Projector DRILLS — held, pierces
+  // through up to 3 bodies (each drinks full dps·dt; walls still stop
+  // it), dps 98 ≈ the old 13×7.5. Runs hotter: 3.5s pour, 3s jam.
+  lsw_pulse: A({ id: 'lsw_pulse', name: 'Resonance Projector', damage: 13, rof: 7.5, speed: 300, spread: 0.002, range: 48, sound: 'plasma', tracer: 'beam', icon: '📢', beam: 'lance', pierce: 3, held: { dps: 98, sustain: 3.5, jam: 3, pierce: 3 } }),
   lsw_eclipse: A({ id: 'lsw_eclipse', name: 'Lightdrinker', damage: 12, rof: 8.5, speed: 300, spread: 0.002, range: 50, sound: 'plasma', tracer: 'beam', icon: '🌑', beam: 'charge', charge: { t: 1.0, mul: 3 } }),
   lsw_frostbite: A({ id: 'lsw_frostbite', name: 'Cryo-Stream', damage: 11, rof: 9, speed: 300, spread: 0.002, range: 42, sound: 'plasma', tracer: 'beam', icon: '❄', beam: 'hose' }),
   lsw_sniperhawk: A({ id: 'lsw_sniperhawk', name: 'The Long Rail', damage: 88, rof: 1.15, speed: 300, spread: 0.001, range: 110, sound: 'rail', tracer: 'rail', icon: '🎯', pierce: 4, pierceArmor: true }),

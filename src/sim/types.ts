@@ -139,7 +139,14 @@ export interface WeaponDef {
    *  dps into the first wall or body on the aim line. No clip, no discrete
    *  shots — the governor is HEAT: `sustain` seconds of continuous pour
    *  jams the emitter for `jam` seconds. */
-  held?: { dps: number; sustain: number; jam: number };
+  held?: {
+    dps: number; sustain: number; jam: number;
+    /** LANCE: the stream DRILLS — keeps walking through up to n bodies
+     *  (each drinks full dps·dt) before it stops. Walls always stop it. */
+    pierce?: number;
+    /** TORRENT: the flood — catch radius around the ray (default 1.1u). */
+    catchR?: number;
+  };
   /** on death, burst into k submunitions (~40% dmg each) that bounce */
   cluster?: number;
   /** on soldier-hit, arc to n nearest extra enemies */
