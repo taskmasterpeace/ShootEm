@@ -229,7 +229,7 @@ git commit -m "feat: add compact science mission sites"
 - Adds `science?: ScienceMissionRuntime` to `World`.
 - Produces: `createScienceRuntime`, `populateScienceMission`, `stepScienceMission`, `tryScienceInteraction`, `onScienceDeath`, `scienceObjectiveText`, `scienceResult`.
 
-- [ ] **Step 1: Write failing runtime tests for every compiled verb**
+- [x] **Step 1: Write failing runtime tests for every compiled verb**
 
 Use table tests to assert the primitive created by each verb:
 
@@ -248,7 +248,7 @@ it.each(Object.entries(primitive))('%s compiles to %s', (verb, kind) => {
 
 Add separate tests that interaction progress unlocks extraction, Rescue attaches named scientist actors, detection raises alarm exactly once, and returning to extraction wins only after the primary objective is complete.
 
-- [ ] **Step 2: Write failing clone-loop tests**
+- [x] **Step 2: Write failing clone-loop tests**
 
 ```ts
 it('burns one clone and reprints at the field printer without a downed wait', () => {
@@ -273,13 +273,13 @@ it('the final clone ends the operation with no reprint', () => {
 });
 ```
 
-- [ ] **Step 3: Run runtime tests and verify RED**
+- [x] **Step 3: Run runtime tests and verify RED**
 
 Run: `npx vitest run tests/science-runtime.test.ts`
 
 Expected: FAIL because science mode/runtime is absent.
 
-- [ ] **Step 4: Implement runtime population and shared objective state machine**
+- [x] **Step 4: Implement runtime population and shared objective state machine**
 
 ```ts
 export interface ScienceMissionRuntime {
@@ -300,21 +300,21 @@ export interface ScienceMissionRuntime {
 
 Populate ordinary bots at guard sockets, named officer bots for eliminate objectives, scientist actors for rescue, zombies for quarantine/third-party, and an existing transport vehicle for ambush. `stepScienceMission` evaluates perception, objective completion, hold clocks, extraction, and deterministic scripted beats.
 
-- [ ] **Step 5: Integrate science mode into World without changing other mode behavior**
+- [x] **Step 5: Integrate science mode into World without changing other mode behavior**
 
 Generate the science map before `initMode`, skip normal vehicle-map assumptions where needed, call `populateScienceMission` after world collections exist, route `E` through `tryScienceInteraction` after downed aid and before doors, call `onScienceDeath` once in the lethal branch, use the field-printer spawn list in `spawn`, and call `stepScienceMission` from `stepMode`.
 
-- [ ] **Step 6: Give science guards stable mission goals**
+- [x] **Step 6: Give science guards stable mission goals**
 
 Add a `science` case to bot objective selection: team 1 holds runtime guard/objective sockets; any friendly mission NPC follows its existing target or extraction behavior. Keep combat, weapons, perception, pathfinding, doors, and ladders unchanged.
 
-- [ ] **Step 7: Run focused runtime and regression tests**
+- [x] **Step 7: Run focused runtime and regression tests**
 
 Run: `npx vitest run tests/science-runtime.test.ts tests/sim.test.ts tests/bots-nav.test.ts tests/downed.test.ts tests/reprint.test.ts tests/visibility.test.ts tests/twostory.test.ts`
 
 Expected: all listed test files PASS.
 
-- [ ] **Step 8: Commit the runtime slice**
+- [x] **Step 8: Commit the runtime slice**
 
 ```powershell
 git add src/sim/types.ts src/sim/world.ts src/sim/modes.ts src/sim/bots.ts src/sim/science-runtime.ts tests/science-runtime.test.ts

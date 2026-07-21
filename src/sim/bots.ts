@@ -1,5 +1,5 @@
 import { CLASSES, DOG_STATS, VEHICLES, WEAPONS } from './data';
-import { F2_FLOOR, F2_SLIT, F2_VOID, F2_WALL, F2_WELL, GRID, T_CLIMB, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_OPEN, T_RUBBLE, T_WATER, TILE, WORLD, isBlocked, losClear, tileAt } from './map';
+import { F2_FLOOR, F2_SLIT, F2_VOID, F2_WALL, F2_WELL, GRID, T_CLIMB, T_COVER, T_GRASS, T_LADDER, T_METAL_DOOR, T_OPEN, T_RUBBLE, T_WATER, TILE, WORLD, doorIsOpen, isBlocked, isDoorTile, losClear, tileAt } from './map';
 import { type ClassId, type PlayerCmd, type Soldier, type Team, type Vec3, type Vehicle, isIron, isZed } from './types';
 import { type World } from './world';
 import { BOT_TUNING as TUNE, DIFFICULTY } from './bot-tuning';
@@ -76,7 +76,7 @@ function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false, wheels = fal
       // not seal") and RUBBLE is a breached wall (destruction only ever OPENS a
       // path); the planner treated both as sealed, so bots detoured around
       // forests and never exploited a hole a teammate drilled.
-      return t === T_OPEN || t === T_DOOR || t === T_DOOR_OPEN || t === T_WATER || t === T_LADDER || t === T_GRASS || t === T_RUBBLE || (canClimb && t === T_CLIMB);
+      return t === T_OPEN || (isDoorTile(t) && t !== T_METAL_DOOR) || t === T_WATER || t === T_LADDER || t === T_GRASS || t === T_RUBBLE || (canClimb && t === T_CLIMB);
     };
   if (!open(gx, gz)) {
     // the objective landed inside a structure (buildings stamp everywhere
@@ -224,7 +224,7 @@ function pathStepLayered(w: World, from: Vec3, to: Vec3, fromFloor: number, toFl
   const openGround = (x: number, z: number) => {
     if (x < 0 || z < 0 || x >= GRID || z >= GRID) return false;
     const t = grid[z * GRID + x];
-    return t === T_OPEN || t === T_DOOR || t === T_DOOR_OPEN || t === T_WATER || t === T_LADDER || t === T_GRASS || t === T_RUBBLE;
+    return t === T_OPEN || (isDoorTile(t) && t !== T_METAL_DOOR) || t === T_WATER || t === T_LADDER || t === T_GRASS || t === T_RUBBLE;
   };
   const openUpper = (x: number, z: number) => {
     if (x < 0 || z < 0 || x >= GRID || z >= GRID) return false;
@@ -740,6 +740,17 @@ export function objectiveFor(w: World, s: Soldier): Vec3 {
       const r = 5 + (s.id % 3) * 2.5;
       return { x: sci.pos.x + Math.cos(a) * r, y: 0, z: sci.pos.z + Math.sin(a) * r };
     }
+    case 'science': {
+      const science = w.science;
+      if (!science) return w.map.hillPos;
+      if (s.team === 1) {
+        const assigned = science.guardPosts[Math.abs(science.guardIds.indexOf(s.id)) % science.guardPosts.length];
+        return assigned ?? w.map.basePos[1];
+      }
+      if (science.phase === 'extract') return science.extraction;
+      const socket = science.objective.pos[Math.min(science.objective.pos.length - 1, Math.floor(science.objective.progress))];
+      return socket ?? science.extraction;
+    }
     case 'paintball': {
       // §14: the prey runs the tag circuit; the pack converges on the prey
       const hunted = m.huntedTeam ?? 1;
@@ -800,7 +811,8 @@ function doorAhead(w: World, pos: Vec3, yaw: number): number {
     const tx = Math.floor((x + WORLD / 2) / TILE);
     const tz = Math.floor((z + WORLD / 2) / TILE);
     if (tx < 1 || tz < 1 || tx >= GRID - 1 || tz >= GRID - 1) continue;
-    if (w.map.grid[tz * GRID + tx] === T_DOOR) return tz * GRID + tx;
+    const tile = w.map.grid[tz * GRID + tx];
+    if (isDoorTile(tile) && !doorIsOpen(tile) && tile !== T_METAL_DOOR) return tz * GRID + tx;
   }
   return -1;
 }

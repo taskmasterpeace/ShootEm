@@ -1,6 +1,6 @@
 export type Team = 0 | 1; // 0 = United Front (amber), 1 = Collective (cyan). Survival: all players team 0.
 
-export type ModeId = 'tdm' | 'ctf' | 'koth' | 'conquest' | 'survival' | 'horde' | 'safehouse' | 'range' | 'paintball';
+export type ModeId = 'tdm' | 'ctf' | 'koth' | 'conquest' | 'survival' | 'horde' | 'safehouse' | 'science' | 'range' | 'paintball';
 
 /** Battlefield environments — the war spans the solar system. */
 export type ThemeId = 'savanna' | 'starship' | 'asteroid' | 'europa' | 'titan' | 'triton' | 'hardpan';
@@ -1057,7 +1057,7 @@ export interface ModeState {
 
 /** Modes where all players share team 0 against the undead. */
 export function isCoopMode(id: ModeId): boolean {
-  return id === 'survival' || id === 'horde' || id === 'safehouse';
+  return id === 'survival' || id === 'horde' || id === 'safehouse' || id === 'science';
 }
 
 export interface PlayerCmd {

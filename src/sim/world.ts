@@ -1,6 +1,6 @@
 import { AMMO_INFO, CLASSES, DOG_NAMES, DOG_STATS, EQUIPMENT, IRON_STATS, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
-import { CLIMB_H, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_METAL_DOOR, T_OPEN, T_RUBBLE, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, nearestOpenTile, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
+import { CLIMB_H, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_METAL_DOOR, T_OPEN, T_RUBBLE, T_SLIT, T_THIN_WALL_H, T_THIN_WALL_HV, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, doorIsOpen, generateMap, isBlocked, isDoorTile, losClear, nearestOpenTile, surfaceAt, tileAt, toggleDoorType, upperBlocked, type GameMap } from './map';
 import { materialOf, materialForSurface, DRILL_BASE } from './materials';
 import { Rng } from './rng';
 import {
@@ -22,6 +22,9 @@ import { buildInfluence, newInfluence, type InfluenceField } from './influence';
 import { createBlackbox, stepBlackbox, type Blackbox } from './blackbox';
 import { ruleOnClassRequest } from './officer';
 import { SoldierIndex } from './spatial';
+import { generateScienceMission, type ScienceMissionSpec } from './science';
+import { generateScienceMap } from './science-map';
+import { createScienceRuntime, onScienceDeath, populateScienceMission, tryScienceInteraction, type ScienceMissionRuntime } from './science-runtime';
 
 const RESPAWN_DELAY = 4;
 /** THE OUTBREAK (§4): how fast an exposed soldier's Viral Load creeps toward
@@ -322,6 +325,8 @@ export interface WorldOptions {
    *  before it escalates FOR you); 3/absent = both — quick matches off the
    *  campaign map keep today's behavior. */
   lswPass?: 1 | 2 | 3;
+  /** Compact science operation compiled into this world's map and runtime. */
+  scienceMission?: ScienceMissionSpec;
 }
 
 /** Custom deploy loadout: armory weapons + up to two equipment picks. */
@@ -340,6 +345,7 @@ export class World {
   tick = 0;
   map: GameMap;
   mode: ModeState;
+  science?: ScienceMissionRuntime;
   rng: Rng;
   /** gravity for this battlefield — Europa and Triton fight in low-g */
   gravity: number;
@@ -444,9 +450,13 @@ export class World {
 
   constructor(public opts: WorldOptions) {
     this.rng = new Rng(opts.seed ^ 0xbeef);
+    const scienceSpec = opts.mode === 'science'
+      ? (opts.scienceMission ?? generateScienceMission(opts.seed))
+      : undefined;
+    const scienceLayout = scienceSpec ? generateScienceMap(scienceSpec) : undefined;
     // authored front ground first (§8.2); the recipe generator is the
     // fallback for free play and any front this build doesn't know
-    this.map = (opts.frontId ? generateFront(opts.frontId, opts.seed) : null)
+    this.map = scienceLayout?.map ?? (opts.frontId ? generateFront(opts.frontId, opts.seed) : null)
       ?? generateMap(opts.seed, opts.mode, opts.theme ?? 'savanna');
     this.gravity = THEMES[this.map.theme].gravity;
     this.mode = initMode(opts.mode, this.map, opts.matchMinutes);
@@ -468,6 +478,10 @@ export class World {
       if (isCoopMode(opts.mode) && pad.kind !== 'ambulance' && pad.kind !== 'emplacement') return;
       this.spawnVehicle(pad.kind, pad.team, pad.pos, padId);
     });
+    if (scienceSpec && scienceLayout) {
+      this.science = createScienceRuntime(scienceSpec, scienceLayout);
+      populateScienceMission(this, scienceLayout);
+    }
     if (opts.mode === 'safehouse' && this.map.houses.length) {
       const house = this.map.houses[this.rng.int(0, this.map.houses.length - 1)];
       const sci = this.addScientist(house.center);
@@ -500,7 +514,7 @@ export class World {
    */
   damageDoor(idx: number, dmg: number, byId = -1): boolean {
     const t = this.map.grid[idx];
-    if ((t !== T_DOOR && t !== T_DOOR_OPEN) || dmg <= 0) return false;
+    if (!isDoorTile(t) || t === T_METAL_DOOR || dmg <= 0) return false;
     const tx = idx % GRID, tz = (idx / GRID) | 0;
     const pos = { x: (tx + 0.5) * TILE - WORLD / 2, y: 1, z: (tz + 0.5) * TILE - WORLD / 2 };
     const hp = (this.doorHp.get(idx) ?? DOOR_HP) - dmg;
@@ -552,7 +566,8 @@ export class World {
     // this system eats destructible structure/cover/rubble — NOT metal (drill
     // only), doors (damageDoor), water or open ground. HP + the heavy gate now
     // come from the MATERIALS table (one source of truth).
-    const destructible = t === T_COVER || t === T_WALL || t === T_SLIT || t === T_CLIMB || rubble;
+    const destructible = t === T_COVER || t === T_WALL || t === T_SLIT || t === T_CLIMB
+      || (t >= T_THIN_WALL_H && t <= T_THIN_WALL_HV) || rubble;
     if (!destructible) return;
     const mat = materialOf(t);
     if (mat.heavyOnly && !heavy) return;                 // masonry/stone shrug off small arms
@@ -578,7 +593,7 @@ export class World {
   private damageSurface(x: number, z: number, dmg: number, heavy: boolean, byId: number) {
     const tx = Math.floor((x + WORLD / 2) / TILE), tz = Math.floor((z + WORLD / 2) / TILE);
     const t = this.map.grid[tz * GRID + tx];
-    if (t === T_DOOR || t === T_DOOR_OPEN) this.damageDoor(tz * GRID + tx, dmg, byId);
+    if (isDoorTile(t) && t !== T_METAL_DOOR) this.damageDoor(tz * GRID + tx, dmg, byId);
     else this.damageWall(tx, tz, dmg, heavy);
   }
 
@@ -1352,10 +1367,10 @@ export class World {
     s.meleeCharge = 0; s.meleeChargeMul = undefined; // and no half-built Power Strike
     s.guarding = false; s.grabbedUntil = undefined; s.grabbedBy = undefined; s.ctrlStruggle = undefined; s.chokeProgress = undefined; s.chokingId = undefined; s.humanShield = undefined; // no hold survives it either
     // mobile spawn: a crewed APC or transport with a LIVE comms system
-    const mobile = [...this.vehicles.values()].find(
+    const mobile = this.opts.mode !== 'science' ? [...this.vehicles.values()].find(
       (v) => v.alive && v.team === s.team && VEHICLES[v.kind].mobileSpawn &&
         v.systems.comms > 0 && v.seats.some((id) => id >= 0),
-    );
+    ) : undefined;
     // enemy-aware spawn selection (55B): of the team's ring points, take the
     // one farthest from any living enemy — never drop a soldier in a lap.
     // A small random tiebreak keeps the ring from becoming one hot corner.
@@ -1388,7 +1403,7 @@ export class World {
     // beats the ring. This is what makes reaching a downed teammate a
     // decision instead of a formality.
     let matePos: Vec3 | null = null;
-    if (s.squadId !== undefined && !isZed(s.kind)) {
+    if (this.opts.mode !== 'science' && s.squadId !== undefined && !isZed(s.kind)) {
       for (const m of this.soldiers.values()) {
         if (!m.alive || m.downed || m.id === s.id || m.team !== s.team || m.squadId !== s.squadId) continue;
         let safe = true;
@@ -1403,7 +1418,9 @@ export class World {
       }
     }
     // the APC is a door, not a clown car — a third rides it, not half
-    const base = matePos ?? (mobile && this.rng.next() < 0.33 ? mobile.pos : ringPick);
+    const base = this.opts.mode === 'science' && s.team === 0 && this.science
+      ? this.science.entry
+      : matePos ?? (mobile && this.rng.next() < 0.33 ? mobile.pos : ringPick);
     // THE STATUE LAW, part two: the blind ±2.6u scatter could land a body
     // INSIDE base masonry — where the integrator (destination checks only)
     // vetoes every step forever. Roll until the boots find open ground; a
@@ -2276,7 +2293,8 @@ export class World {
    *  (cover crates and climb barricades sit under the low-flight deck). */
   private buildingAt(x: number, z: number): boolean {
     const t = tileAt(this.map.grid, x, z);
-    return t === T_WALL || t === T_SLIT || t === T_DOOR || t === T_METAL || t === T_METAL_DOOR;
+    return t === T_WALL || t === T_SLIT || t === T_DOOR || t === T_METAL || t === T_METAL_DOOR
+      || (t >= T_THIN_WALL_H && t <= T_THIN_WALL_HV && blocksShot(this.map.grid, x, z, 2));
   }
 
   /** §11.3: the type this reload would LOAD — the selected special when the
@@ -2838,6 +2856,8 @@ export class World {
       if (this.tryDownedAid(s, cmd, dt)) {
         // E next to a downed teammate outranks every other door handle:
         // moving hauls the body with you, standing still channels a revive
+      } else if (this.science && tryScienceInteraction(this, s, dt)) {
+        // mission terminals, charges, stores, and researcher attachment
       } else if (this.opts.mode === 'safehouse' && this.toggleEscort(s)) {
         // E next to the scientist toggles escort instead of vehicle entry
       } else if (this.tryWarpBeacon(s)) {
@@ -4028,7 +4048,7 @@ export class World {
       if (tx < 1 || tz < 1 || tx >= GRID - 1 || tz >= GRID - 1) continue;
       const idx = tz * GRID + tx;
       const t = this.map.grid[idx];
-      if (t !== T_DOOR && t !== T_DOOR_OPEN) continue;
+      if (!isDoorTile(t) || t === T_METAL_DOOR) continue;
       this.toggleDoorTile(idx, s.id);
       return true;
     }
@@ -4040,7 +4060,7 @@ export class World {
    *  one event, whoever the hand was. */
   private toggleDoorTile(idx: number, soldierId: number) {
     const t = this.map.grid[idx];
-    this.map.grid[idx] = t === T_DOOR ? T_DOOR_OPEN : T_DOOR;
+    this.map.grid[idx] = toggleDoorType(t);
     if (this.doorChanges.indexOf(idx) < 0) this.doorChanges.push(idx);
     this.emit({
       type: 'door', tile: idx, soldierId,
@@ -4056,12 +4076,13 @@ export class World {
   private nextHomeDoorAt = 0;
   refreshHomeDoors() {
     this.homeDoors = [];
+    if (this.opts.mode === 'science') return; // infiltration doors belong to the operator, not base automation
     const R = 42; // the base zone: today's spawn yards, tomorrow's compounds
     for (let z = 1; z < GRID - 1; z++) {
       for (let x = 1; x < GRID - 1; x++) {
         const idx = z * GRID + x;
         const t = this.map.grid[idx];
-        if (t !== T_DOOR && t !== T_DOOR_OPEN) continue;
+        if (!isDoorTile(t) || t === T_METAL_DOOR) continue;
         const wx = (x + 0.5) * TILE - WORLD / 2, wz = (z + 0.5) * TILE - WORLD / 2;
         for (const team of [0, 1] as const) {
           const b = this.map.basePos[team];
@@ -4075,7 +4096,7 @@ export class World {
     this.nextHomeDoorAt = this.time + 0.15;
     for (const d of this.homeDoors) {
       const t = this.map.grid[d.idx];
-      if (t !== T_DOOR && t !== T_DOOR_OPEN) continue; // breached away — the hole stays a hole
+      if (!isDoorTile(t) || t === T_METAL_DOOR) continue; // breached away — the hole stays a hole
       const x = ((d.idx % GRID) + 0.5) * TILE - WORLD / 2;
       const z = (Math.floor(d.idx / GRID) + 0.5) * TILE - WORLD / 2;
       let ownerNear = false, anyoneInDoorway = false;
@@ -4084,10 +4105,10 @@ export class World {
         const dd = Math.hypot(s.pos.x - x, s.pos.z - z);
         if (dd < 1.6) anyoneInDoorway = true; // never slam a door through a body
         // hysteresis: opens at a stride, lets go a stride and a half later
-        if (s.team === d.team && dd < (t === T_DOOR ? 2.6 : 3.9)) ownerNear = true;
+        if (s.team === d.team && dd < (!doorIsOpen(t) ? 2.6 : 3.9)) ownerNear = true;
       }
-      if (t === T_DOOR && ownerNear) this.toggleDoorTile(d.idx, -1);
-      else if (t === T_DOOR_OPEN && !ownerNear && !anyoneInDoorway) this.toggleDoorTile(d.idx, -1);
+      if (!doorIsOpen(t) && ownerNear) this.toggleDoorTile(d.idx, -1);
+      else if (doorIsOpen(t) && !ownerNear && !anyoneInDoorway) this.toggleDoorTile(d.idx, -1);
     }
   }
 
@@ -5414,7 +5435,7 @@ export class World {
           const g = this.map.grid[idx];
           const d = Math.hypot((tx + 0.5) * TILE - WORLD / 2 - pos.x, (tz + 0.5) * TILE - WORLD / 2 - pos.z);
           if (d >= def.splash + TILE * 0.5) continue;
-          if (g === T_DOOR || g === T_DOOR_OPEN) {
+          if (isDoorTile(g) && g !== T_METAL_DOOR) {
             // ×1.5: dumb wood takes a blast worse than a dodging soldier does
             this.damageDoor(idx, (def.splashDamage + def.damage * 0.5) * 1.5 * (1 - d / (def.splash + TILE)), ownerId);
           } else {
@@ -5761,7 +5782,7 @@ export class World {
       // over (they're targets, not casualties), and OVERKILL — damage that
       // blows well past zero — skips the crawl: a tank shell leaves nothing
       // to drag to cover.
-      if (!victim.downed && !victim.dummy && victim.hp > -DOWNED_HP && victim.decoyOf === undefined &&
+      if (this.opts.mode !== 'science' && !victim.downed && !victim.dummy && victim.hp > -DOWNED_HP && victim.decoyOf === undefined &&
           (victim.kind === 'human' || victim.kind === 'bot')) {
         // (a Mirage decoy never crawls — an illusion POPS, it doesn't bleed)
         this.downSoldier(victim, attackerId);
@@ -5781,6 +5802,7 @@ export class World {
       victim.downedUntil = 0;
       victim.reviveProgress = 0;
       victim.respawnAt = this.time + (isZed(victim.kind) ? 2 : RESPAWN_DELAY);
+      onScienceDeath(this, victim, attackerId);
       // A GHOST MAY NOT HOLD A CHAIR. Death used to leave the victim's id in
       // v.seats forever — spawn() cleared the SOLDIER's fields at respawn but
       // never the hull's manifest. A killed rider bricked the seat for the

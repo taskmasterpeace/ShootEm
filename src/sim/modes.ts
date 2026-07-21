@@ -2,6 +2,7 @@ import { TEAM_NAMES, WEAPONS } from './data';
 import { losClear, type GameMap } from './map';
 import { isZed, type ModeId, type ModeState, type Team, type ZedKind, type IronKind } from './types';
 import type { World } from './world';
+import { stepScienceMission } from './science-runtime';
 
 const MATCH_TIME = 15 * 60;
 
@@ -78,6 +79,10 @@ export function initMode(id: ModeId, map: GameMap, minutes?: number): ModeState 
       m.alertUntil = 0;
       m.alert = false;
       break;
+    case 'science':
+      m.timeLeft = Infinity;
+      m.target = 0;
+      break;
   }
   return m;
 }
@@ -110,6 +115,7 @@ export function stepMode(w: World, dt: number) {
     case 'survival': stepSurvival(w, dt); break;
     case 'horde': stepHorde(w, dt); break;
     case 'safehouse': stepSafehouse(w, dt); break;
+    case 'science': stepScienceMission(w, dt); break;
     case 'paintball': stepPaintball(w, dt); break;
     case 'range': break; // no clock, no whistle — just the work
   }
