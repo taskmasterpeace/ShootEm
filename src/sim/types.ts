@@ -716,10 +716,15 @@ export interface Projectile {
 
 export interface Pickup {
   id: number;
-  type: 'medkit' | 'ammo' | 'flamer' | 'energy' | 'orbital';
+  type: 'medkit' | 'ammo' | 'flamer' | 'energy' | 'orbital' | 'weapon';
   pos: Vec3;
   respawnAt: number; // 0 = available
   oneShot?: boolean; // supply-pod loot vanishes after use
+  /** LOOT (STATUS short-list): the gun a dead soldier dropped. Granted into
+   *  the special slot on walk-over, or refills a matching carried gun. */
+  weaponId?: WeaponId;
+  /** battlefield hygiene: a dropped gun evaporates at this time */
+  expiresAt?: number;
 }
 
 export type GadgetType =

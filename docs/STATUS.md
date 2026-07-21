@@ -41,7 +41,6 @@ If you read one thing, read this. Everything below has a full row further down.
 **Air & armor:** aircraft can't crash · no map wraparound · **planes don't read as high enough** (no shadow, HIGH sits below rooftops) · drive-by shooting · cars that handle like cars · seat-yield · rearm pads.
 **Weapons:** fire modes (single/auto/burst/**double-barrel**/pump) · per-family secondary fire · brand signature mechanics · and the Codex columns for all of it.
 **Beams:** continuous/held beams · **beam-vs-beam clash** · beam birth effects · the seven beam types.
-**Loot:** dropped weapons you can pick up off the dead.
 **Armed gods:** bow · spear · recall axe · summoners.
 **Multiplayer:** the whole server/netcode stack (the sim is built for it; nothing is wired).
 **Ammo:** the diagnostics pass, then the 25% cut.
@@ -205,8 +204,8 @@ Ground-truthed this session. **Beams draw** (as fast box tracers); everything in
 
 | Ask | Status | Evidence / where |
 |---|---|---|
-| Weapon shows on the body when you die; others pick it up | ❌📋 | pickup system exists (medkits/ammo); dropped-weapon entity doesn't. BACKLOG (new) |
-| Bodies last longer (so loot reads as loot) | ❌ | same as W2.4 (4s → 20–30s) |
+| Weapon shows on the body when you die; others pick it up | ✅ | **DONE 2026-07-21.** A dead human/bot drops its PRIMARY beside the body as a `type:'weapon'` pickup (gunmetal+glint mesh, bobbing): walk-over loads it into the special slot, a matching carried gun makes it an AMMO run; issue ar606 never drops, 20s despawn, 12-drop field cap, humans-only scavenge (threat-measure guard — bots drop but don't loot). Rides the snapshot free. Also fixed: consumed pickups' meshes never left the scene (supply-pod ghosts). `tests/loot.test.ts` (6); live-verified end-to-end |
+| Bodies last longer (so loot reads as loot) | ✅ | **DONE 2026-07-21** (`38aa67c`) — battlefield corpses linger 24s in tdm/ctf, outbreak corpses live their full incubation on-field (`491dab6`) |
 | Lower ammo (**25%** reserve cut) so fights end in pistols | ❌📋 | **locked at 25%**, but MEASURE FIRST. BACKLOG (new) |
 | Ammo **diagnostics** (rounds fired, reloads, dry-clicks, secondary time) | ❌📋 | teach the blackbox to log it; run before the cut. BACKLOG (new, ordered before the cut) |
 

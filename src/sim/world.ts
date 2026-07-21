@@ -249,6 +249,12 @@ const JET_DRAIN = 30;
 const JET_THRUST = 9.5;
 const JET_BREATHER = 1.0; // seconds after touchdown before jet fuel flows again
 const PICKUP_RESPAWN = 18;
+// LOOT (STATUS short-list: "dropped weapons you can pick up off the dead"):
+// a fallen fighter's primary stays on the field for a while. The issue rifle
+// is beneath scavenging, and the field tidies itself past the cap.
+const LOOT_DESPAWN = 20;
+const LOOT_MAX = 12;
+const LOOT_EXCLUDED = new Set<string>(['ar606']);
 
 // ---- anti-air: MANPADS vs flyer ----
 const MANPADS_ROUNDS = 2;    // missiles per life
@@ -5080,6 +5086,26 @@ export class World {
       // with WHAT (DEATH-DATA: the killcam label names the weapon now)
       victim.lastKillerId = attacker && attacker.id !== victim.id ? attacker.id : -1;
       victim.lastKillWeapon = weapon;
+      // LOOT: the dead man's PRIMARY hits the dirt beside him — kill the
+      // heavy, take the autocannon. Claws never drop (not human kit), gods
+      // take their arms with them, and the issue rifle stays beneath notice.
+      if ((victim.kind === 'human' || victim.kind === 'bot') && victim.ascendant === undefined) {
+        const wid = victim.weapons[0];
+        if (wid && !LOOT_EXCLUDED.has(wid)) {
+          let drops = 0; let oldest: Pickup | undefined;
+          for (const pk of this.pickups.values()) {
+            if (pk.type === 'weapon') { drops++; oldest ??= pk; }
+          }
+          if (drops >= LOOT_MAX && oldest) this.pickups.delete(oldest.id);
+          const a = ((victim.id % 8) / 8) * Math.PI * 2; // deterministic scatter
+          const pk: Pickup = {
+            id: this.id(), type: 'weapon', weaponId: wid,
+            pos: { x: victim.pos.x + Math.cos(a) * 0.7, y: 0, z: victim.pos.z + Math.sin(a) * 0.7 },
+            respawnAt: 0, oneShot: true, expiresAt: this.time + LOOT_DESPAWN,
+          };
+          this.pickups.set(pk.id, pk);
+        }
+      }
       // THE OUTBREAK (OUTBREAK-SPEC §6): an exposed body is a FUTURE ENEMY.
       // Dying hot (Viral Load ≥ 40) books a corpse on the reanimation clock —
       // hotter turns faster. The reprint itself is clean (the printer filters
@@ -5262,6 +5288,11 @@ export class World {
 
   stepPickups(_dt: number) {
     for (const pk of this.pickups.values()) {
+      // battlefield hygiene: dropped guns evaporate — nobody wanted it enough
+      if (pk.expiresAt !== undefined && this.time >= pk.expiresAt) {
+        this.pickups.delete(pk.id);
+        continue;
+      }
       if (pk.respawnAt > 0) {
         if (this.time >= pk.respawnAt) pk.respawnAt = 0;
         continue;
@@ -5295,6 +5326,30 @@ export class World {
               s.reserve[i] = WEAPONS.flamer.reserve;
             }
             used = true;
+          }
+          // LOOT: a dropped gun. HUMANS ONLY for now — a bot scavenging
+          // reserve mid-ring would lean on the threat-measure bands (bots
+          // still DROP, so the player's revenge loop works both ways later).
+          if (pk.type === 'weapon' && pk.weaponId && s.kind === 'human' && s.ascendant === undefined) {
+            const def = WEAPONS[pk.weaponId];
+            const have = s.weapons.indexOf(pk.weaponId);
+            if (have >= 0) {
+              // a matching gun is an AMMO run — take the dead man's mags
+              const below = s.clip[have] < def.clip
+                || (Number.isFinite(def.reserve) && s.reserve[have] < def.reserve);
+              if (below) {
+                s.clip[have] = def.clip;
+                if (Number.isFinite(def.reserve)) s.reserve[have] = def.reserve;
+                used = true;
+              }
+            } else if (s.weapons.length < 3) {
+              // the special slot takes it, loaded
+              s.weapons.push(pk.weaponId);
+              s.clip.push(def.clip);
+              s.reserve.push(def.reserve);
+              used = true;
+            }
+            // a different special already rides slot 3 → leave it lying there
           }
           if (used) {
             if (pk.oneShot) this.pickups.delete(pk.id);

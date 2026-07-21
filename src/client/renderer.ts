@@ -2375,6 +2375,14 @@ export class Renderer {
       mesh.position.set(pk.pos.x, 0.5 + Math.sin(world.time * 2.5 + pk.id) * 0.15, pk.pos.z);
       mesh.rotation.y = world.time * 1.2;
     }
+    // consumed one-shots and expired loot must leave the SCENE too (this
+    // sweep was missing — supply-pod crates ghosted forever once taken)
+    for (const [id, mesh] of this.pickupMeshes) {
+      if (!world.pickups.has(id)) {
+        this.scene.remove(mesh);
+        this.pickupMeshes.delete(id);
+      }
+    }
 
     // mines
     for (const m of world.mines.values()) {

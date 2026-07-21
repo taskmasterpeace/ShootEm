@@ -346,6 +346,18 @@ export function buildPickup(type: string): THREE.Group {
     case 'energy':
       m = cyl(0.3, 0.3, 0.7, mat(0x3888c8, { emissive: 0x3888c8 }), 8);
       break;
+    case 'weapon': {
+      // LOOT — a dropped gun: receiver + barrel in gunmetal, one amber glint
+      // so the eye finds it in the grass
+      m = box(0.85, 0.22, 0.26, mat(0x4a5058, { metal: 0.8 }));
+      const barrel = cyl(0.05, 0.05, 0.55, mat(0x363c44, { metal: 0.9 }), 6);
+      barrel.rotation.z = Math.PI / 2;
+      barrel.position.set(0.55, 0.38, 0);
+      const glint = box(0.16, 0.1, 0.3, mat(0xe8a33d, { emissive: 0xe8a33d }));
+      glint.position.set(-0.25, 0.42, 0);
+      g.add(barrel, glint);
+      break;
+    }
     default: // flamer
       m = cyl(0.25, 0.25, 0.8, mat(0xc86428, { emissive: 0xc84818 }), 8);
       m.rotation.z = Math.PI / 2;
