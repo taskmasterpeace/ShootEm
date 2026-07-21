@@ -150,3 +150,59 @@ Two tracks run in parallel: the **COMBAT TRACK** (the loop's lane, keeps the gam
 ---
 
 *Nothing above is being built yet. On his review: the COMBAT track resumes at C-1 (the rig pass) and the META track opens at M-1 (the war chest) — folded into `docs/MASTER-BACKLOG.md` as ritual rows, one gated slice at a time.*
+
+---
+
+# META-LAYER v3 — THE BIG REVIEW (2026-07-21 pm, Robert's firehose)
+
+Robert reviewed everything, played the beam gods, gave the data he'd promised (`Country Master Sheet` CSVs + the whole **`D:\git\COF`** story universe), and dumped a large vision plus a ChatGPT-organized **Goals 09-18** architecture. His framing: *"some of this is trash... but our countries and cities and story is key,"* and — critically — **"I almost wanna have multiple agents working on this. You just tell me what I could tell them to do and you don't touch. Like, the UI/UX, you gotta do that."**
+
+So the work splits into **two lanes**: what **Claude builds** (combat/UI/UX, hands-on) and what **Robert dispatches to other agents** (the strategy spine — I write the specs, he runs them).
+
+## A · DECISIONS LOCKED THIS PASS (additive to v2)
+
+- **The game in one line (his synthesis, blessed):** a persistent global war where you **enlist under a country** and serve three paths — **Operations** (combined-arms war, risks materiel), **Expeditions** (small science, risks reprints/discoveries), **Private Matters** (solo/2-player personal, risks your name/gun/body). Operations capture sites -> Expeditions unlock tools -> Private Matters recover people/property -> the newspaper records it -> the next Operation starts changed.
+- **Matchmaking correction (important):** countries give IDENTITY; **COALITIONS give matchmaking** (a few wartime coalitions assemble teams so 168 countries != 168 dead queues). Every battle still 2-sided (v2 law holds).
+- **Detective idea is NOT a fourth game** — combat-first personal casework: Lead -> Pursuit -> Resolution on systems we already have.
+- **Secretary of War = a 3-layer hierarchy:** Secretary (treasury %, priority front, doctrine) -> Theater Commander (front ops) -> **Operation Officer** (buys the match manifest). The **right-click command wheel (row 110) is the Operation Officer's tool.** Launch order: AI/default doctrine -> human Officers -> public ledger -> safeguards -> elected Secretary.
+- **Individual stats = PROFICIENCIES, never a hidden aim-roll** (firm — aiming stays the player's job): Weapon Handling, Endurance, Melee, Field Medicine, Engineering, Science, Driving, Piloting, Investigation, Nerve. STR set; **AGL confirmed** (his Spider-Man leaping -> tie to the shipped leap/slide). Bonuses 5-10%; newbies stay competitive. **NO gender/ethnicity combat modifiers.** He REJECTED "GRIT" (seen elsewhere). Health derives from STR around today's average. Apply it INTELLIGENTLY (no per-tick juggling that slows the sim).
+- **Locker = life outside the war:** ISSUE (replaceable) / serialized OWNED (drops, persists, recoverable — a lost gun reappears in another player's hands / black market / recovery mission) / MISSION tools (extract) / IRREPLACEABLE mementos. Everyone gets one immediately.
+- **The PRINT LIBRARY (new, big):** the cloning vat's second use — buy prints (classes/personalities). Start with ONE; acquire more; a print can be permanently an LSW ("Pokemon shit"), carry a zombie gene, or a small chosen ability. Aging-cream lore = clone reaches adult fast (COF canon).
+- **Pets** — dogs + **birds**; cloneable. **Buildings: TWO+ uses each** (radius / inside / a third). Engineering Bay = its own building (research + character gear); Factory folds in.
+- **Newspaper = persistent world memory:** After-Action Extra per match + Daily National Edition (front map, treasury, obituaries, MIA, **lost serialized weapons**, wanted notices) — **clicking a story launches its mission.** Kill a pedestrian on a personal mission -> sued / in the paper. Facts first, per-country spin second.
+- **Indoor generation by SHT city types** — residential / commercial / industrial. *"Actually use the city types from Superhero Tactics. BOOM."*
+
+## B · WHAT CLAUDE BUILDS NEXT (combat/UI lane — hands-on, gated)
+
+1. **Guns too big on screen** — *"take a screenshot... taking up too much of the screen."* Shrink the viewmodel/weapon-cam. FIRST. (BEAM bugs already fixed this turn: through-vehicles, energy drain, impact splash.)
+2. **Kill the melee minigame; rebuild the feel** — remove the Control Struggle needle game ("eliminate the minigame", said twice). Keep: grab-from-behind, win-the-grab-they-can't-loose, human shield, disarm/choke/throw. Add: break-out **knocks the grabber back** (anti-spam) + **rock-paper-scissors when even, else the stronger wins** + a **pulse-ring UI** (arc around you, blue both sides when blocking, PULSES outward when you reach to grab).
+3. **The authored HUD element system is unused** — *"I feel like that died."* Wire it in; **show AMMO as a dwindling segmented bar** (like the reload meter, rounds ticking down — ideally the actual bullets, by gun/ammo type).
+4. **Beam feel — the Kamehameha** — a slower **projectile-front** stream that LAGS your aim (harder to redirect), charge + width control, force-vs-pierce ratings; needs a real **beam lab**.
+5. **Unify the HARNESS** — one test bed: weapons/abilities/melee, **regenerating dummies**, sneak-up scenarios (1/2/3 in a room), switchable **sounds** (shotgun, reload-by-type). Unblocks HIS testing ("I'm kind of stuck, all I can do is play").
+6. **Bilateral fire** (beams/projectiles from left AND right; Magnetar's center-fire he liked) + melee weapon models (knife/katana) -> codex.
+7. **Force-field capsule power** — a character-worn bubble that soaks fire (ice character firing icicles from inside). Reuses the shield gadget.
+8. **Combat-sim modes** (his testing method + fun): hoverboard **RACING** (ghosts, visible track, on-screen announcer words) + tank **COMBAT** (Atari-style, low-vis field, dust, pickup ammo). Double as the test bed.
+
+## C · WHAT ROBERT DISPATCHES TO OTHER AGENTS (strategy spine — I write specs, you run them)
+
+Each is a self-contained brief for a capable agent, armed with the CSVs + `D:\git\COF` + this doc:
+
+- **AGENT-1 Nations & Coalitions** — ingest the two CSVs to typed WW data; enlistment (country+city+president+slogan+culture region); the coalition matchmaking layer. Absorb, lean.
+- **AGENT-2 City-data mission generator** — `Mission Weight = Base x Local Need x Unresolved Consequence x Career Fit x Front Relevance x Variety` over city attributes; the story->mission board.
+- **AGENT-3 The garrison town** — modular national garrison (8-12 kits), 7 stations, 30-second-walk + quick-menu, two-uses-per-building.
+- **AGENT-4 Newspaper-as-memory** — After-Action + Daily National editions over real facts; click-to-launch-mission; per-country spin. Builds on the shipped Front Courier.
+- **AGENT-5 COF lore integration** — read `D:\git\COF` (bible/canon/prose); WW as an alternative-timeline slice; the naming pass that replaces placeholders; aging-cream/print/LSW-gene lore. Pairs with Robert; a creative (Fable) model fits.
+- **AGENT-6 Stats/proficiency system** — the 10 proficiencies, a PERF-SAFE application model (design before code), occupation->starting-proficiency, the 5-10% band, health-from-STR.
+
+**The vertical slice to prove it all:** one nation + one coalition enemy + one garrison + one president/newspaper + one front + default doctrine + one Officer procurement phase + one Operation + one Expedition + one lost serialized weapon + one solo recovery Private Matter + one newspaper chain linking all three. *Capture an airfield -> science Expedition -> lose a gun/person -> newspaper story -> pursue & recover -> return to a changed garrison.*
+
+## D · ROBERT'S DIRECT QUESTIONS — ANSWERED
+
+- **GitHub health:** green — main synced with origin, tree clean, 471 commits, 5.1 MiB pack. Stale `worktree-agent-*` + `feature/maps`/`lsw-combat`/`ascendants-wave1` branches are prunable (cosmetic).
+- **Another AI on a worktree:** `git worktree add ../ww-nations -b agent/nations` = an isolated checkout on its own branch; merge by PR when green. This repo already uses that pattern. I can also spawn my own sub-agents in worktrees for research/scoping.
+- **The Fable model:** say when — I can run sub-agents on it; it fits the lore/design briefs (AGENT-5).
+- **The spreadsheet:** received. Both CSVs read + logged. The naming pass (AGENT-5) replaces placeholders from them.
+
+## E · WHAT I'M NOT DOING (still)
+
+Not building the strategy spine solo (§C is yours to dispatch). Not renaming factions until the COF pass. Not touching the 2-sided combat law. **Next hands-on: guns-too-big, then the melee-minigame removal + pulse-ring.** §B is mine to ship one gated slice at a time; §C is specs awaiting your agents.
