@@ -237,7 +237,7 @@ The sim was **built** for this (deterministic, seeded, headless, already seriali
 |---|---|---|
 | Trees | ✅ | procedural + GLB, forest regions |
 | Materials: SURF fold (one movement source) | 🔨 | table exists; movement still on legacy tables. BACKLOG W7.1 |
-| Ice is slick (momentum carry) | 🔨 | `slick` flag is dead data. BACKLOG W7.2 |
+| Ice is slick (momentum carry) | ✅ | **DONE 2026-07-21** — the `slick` flag is live. On a slick floor (`materialForSurface(...).slick`, grounded) the boots don't BITE: velocity EASES toward intent on push-off (grip ~0.075/tick) and COASTS on release (~0.98/tick drag) instead of snapping — you skate, overshoot the corner, a shove sends you sliding. Ice-only; dirt/every other surface keeps the instant go/stop (player feel untouched). `tests/ice.test.ts` (4). Live: ice first-step 0.63 u/s vs dirt 8.4, glide 8.33, release coasts 3.1u while dirt stops dead. Pairs with row 246 (a frozen water tile becomes this surface). |
 | Fire / burnable wood | ❌ | `flammable` declared, never consumed. BACKLOG W7.3 |
 | Per-material impact VFX | 🔨 | only drill sparks read it. BACKLOG W7.4 |
 | Non-lethal training rounds | ✅ | `training` flag, the yard survives |

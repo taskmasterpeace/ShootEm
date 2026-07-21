@@ -1,7 +1,7 @@
 import { AMMO_INFO, CLASSES, DOG_NAMES, DOG_STATS, EQUIPMENT, IRON_STATS, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
 import { CLIMB_H, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_METAL_DOOR, T_OPEN, T_RUBBLE, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, nearestOpenTile, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
-import { materialOf, DRILL_BASE } from './materials';
+import { materialOf, materialForSurface, DRILL_BASE } from './materials';
 import { Rng } from './rng';
 import {
   SYSTEM_IDS, isCoopMode, isZed,
@@ -2938,8 +2938,31 @@ export class World {
     // M1 CHARGED LEAP mid-arc: the input does NOT write velocity — the arc is
     // ballistic ("no air control"). Land where you aimed or learn to aim.
     if (!s.leaping) {
-      s.vel.x = mx * k * speed;
-      s.vel.z = mz * k * speed;
+      const tvx = mx * k * speed, tvz = mz * k * speed;
+      // ICE IS SLICK (row 240 — the `slick` flag was dead data): on a slick
+      // floor the boots don't BITE. Instead of snapping velocity to intent,
+      // it EASES toward it (low grip) and COASTS when you let go — you skate,
+      // you overshoot the corner, a shove sends you sliding. Grounded only;
+      // the airborne arc and the leap own their own physics.
+      const slick = s.pos.y <= 0.05
+        && materialForSurface(surfaceAt(this.map.surface, s.pos.x, s.pos.z)).slick === true;
+      if (slick) {
+        if (len > 0.01) {
+          // pushing off: the boots EASE toward intent, never snap (low grip)
+          const grip = Math.min(1, dt * 4.5);
+          s.vel.x += (tvx - s.vel.x) * grip;
+          s.vel.z += (tvz - s.vel.z) * grip;
+        } else {
+          // COASTING with no input: ice has almost no friction — a long glide
+          // that bleeds off slowly (~0.98/tick), not a dead stop.
+          const drag = Math.max(0, 1 - dt * 1.2);
+          s.vel.x *= drag;
+          s.vel.z *= drag;
+        }
+      } else {
+        s.vel.x = tvx;
+        s.vel.z = tvz;
+      }
     }
 
     // jetpack (jump troopers) / hop for everyone. The FLIGHT ECONOMY
