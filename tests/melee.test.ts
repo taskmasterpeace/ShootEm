@@ -351,6 +351,98 @@ describe('the GRAPPLE (§12/§14) — beats GUARD, loses to STRIKE', () => {
 });
 
 // ---------------------------------------------------------------------------
+// BITE STRUGGLE (OUTBREAK-SPEC §15.5): the zombie's version of the grapple. A
+// zombie latches on, its grip GNAWS Viral Load, and failing to break in time
+// is a full bite (damage + infection). Break free by mashing MOVE. A brief
+// post-escape immunity stops the horde from chain-locking you.
+// ---------------------------------------------------------------------------
+describe('BITE STRUGGLE (§15.5) — the zombie clinch', () => {
+  function pinnedByZed(kind: 'zombie' | 'sprinter' | 'brute' = 'zombie') {
+    const w = new World({ seed: 60, mode: 'horde' });
+    w.outbreakEnabled = true;
+    const man = w.addSoldier('Prey', 'infantry', 0, 'human');
+    man.pos = { x: 0, y: 0, z: 0 };
+    const zed = w.addZombie(kind, { x: 1, y: 0, z: 0 });
+    const ok = w.beginBiteStruggle(zed, man);
+    return { w, man, zed, ok };
+  }
+
+  it('a zombie latches on — the survivor is pinned in the clinch', () => {
+    const { man, zed, ok } = pinnedByZed();
+    expect(ok).toBe(true);
+    expect(man.grabbedUntil ?? 0).toBeGreaterThan(0);
+    expect(man.grabbedBy).toBe(zed.id);
+  });
+
+  it('the grip gnaws — Viral Load climbs while you are held', () => {
+    const { w, man } = pinnedByZed();
+    const before = man.viralLoad ?? 0;
+    run(w, new Map(), 0.5); // held, not struggling
+    expect(man.viralLoad ?? 0).toBeGreaterThan(before);
+  });
+
+  it('failing the struggle lands the bite — damage AND a Viral spike', () => {
+    const { w, man } = pinnedByZed();
+    const hp0 = man.hp;
+    run(w, new Map(), 2.2); // never struggle — the jaws close
+    expect(man.grabbedUntil).toBeUndefined();
+    expect(man.hp).toBeLessThan(hp0);
+    expect(man.viralLoad ?? 0).toBeGreaterThan(20); // gnaw + the bite's injection
+  });
+
+  it('mashing MOVE breaks the clinch before the bite', () => {
+    const { w, man } = pinnedByZed();
+    const hp0 = man.hp;
+    for (let i = 0; i < Math.round(2 * 60) && man.grabbedUntil !== undefined; i++) {
+      w.step(DT, new Map([[man.id, cmd({ moveX: 1 })]]));
+      w.takeEvents();
+    }
+    expect(man.grabbedUntil).toBeUndefined();
+    expect(man.hp).toBe(hp0); // clean escape — no bite landed
+  });
+
+  it('a broken clinch grants brief immunity — no instant re-grab', () => {
+    const { w, man, zed } = pinnedByZed();
+    // struggle free
+    for (let i = 0; i < Math.round(2 * 60) && man.grabbedUntil !== undefined; i++) {
+      w.step(DT, new Map([[man.id, cmd({ moveX: 1 })]]));
+      w.takeEvents();
+    }
+    expect(man.grabbedUntil).toBeUndefined();
+    expect(w.beginBiteStruggle(zed, man)).toBe(false); // still immune
+  });
+
+  it('a god shrugs off the clinch entirely', () => {
+    const w = new World({ seed: 61, mode: 'horde' });
+    w.outbreakEnabled = true;
+    const god = w.addSoldier('Titan', 'infantry', 0, 'human');
+    god.god = true; god.pos = { x: 0, y: 0, z: 0 };
+    const zed = w.addZombie('zombie', { x: 1, y: 0, z: 0 });
+    expect(w.beginBiteStruggle(zed, god)).toBe(false);
+    expect(god.grabbedUntil).toBeUndefined();
+  });
+
+  it('the horde AI actually initiates the clinch on a survivor', () => {
+    const w = new World({ seed: 62, mode: 'horde' });
+    w.outbreakEnabled = true;
+    const man = w.addSoldier('Lone', 'infantry', 0, 'human');
+    man.pos = { x: 0, y: 0, z: 0 };
+    man.hp = 100000; man.maxHp = 100000; // survive long enough to be grabbed
+    // a ring of shamblers — several will be id%4 "grabbers"
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      w.addZombie('zombie', { x: Math.cos(a) * 1.4, y: 0, z: Math.sin(a) * 1.4 });
+    }
+    let grabbed = false;
+    for (let i = 0; i < 60 * 4 && !grabbed; i++) {
+      w.step(DT, new Map()); // the survivor just stands and takes it
+      for (const e of w.takeEvents()) if (e.type === 'grabbed' && e.soldierId === man.id) grabbed = true;
+    }
+    expect(grabbed).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // IMPACT CHARGE (OUTBREAK-SPEC §13): HOLD F to wind up a Power Strike, release
 // to commit. A tap is a quick strike; a full charge lands ~2.4×; overholding
 // FUMBLES the blow and bleeds the tank. The charge lives in the sim (F is now

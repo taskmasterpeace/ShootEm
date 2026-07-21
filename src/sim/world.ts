@@ -129,6 +129,17 @@ const GRAB_TETHER = 3.2;
 /** a whiffed grab (stuffed by a STRIKE, or grabbing air) occupies the clock. */
 const GRAB_RECOVER = 0.5;
 const GRAB_SCRATCH: Soldier[] = [];
+/** after breaking a hold you're briefly ungrabbable — no instant re-clinch. */
+const GRAB_IMMUNE = 1.0;
+/** BITE STRUGGLE (OUTBREAK-SPEC §15.5): a zombie's grip HOLDS this long — win
+ *  the struggle before it lapses or the bite lands. Sprinters snap faster,
+ *  brutes clamp longer (scaled per-kind at the grab). */
+const BITE_HOLD = 1.8;
+/** Viral Load gnawed per second while a zombie has you in its jaws. */
+const BITE_GNAW = 9;
+/** the bite that lands if you FAIL to break the hold in time (plus the claw's
+ *  own Viral injection through damageSoldier). */
+const BITE_DAMAGE = 16;
 // M1 movement verbs (Robert: "dashing forward, rolling to the sides… run…
 // but we should have a stamina"): all paid from the ONE energy tank.
 const SPRINT_MULT = 1.35;
@@ -1449,8 +1460,16 @@ export class World {
         const struggling = !!cmd && (cmd.moveX !== 0 || cmd.moveZ !== 0 || cmd.fire || cmd.jump);
         s.vel = { x: 0, y: 0, z: 0 };
         if (struggling) s.struggle = (s.struggle ?? 0) + dt / GRAB_STRUGGLE_SECS;
+        // BITE STRUGGLE (OUTBREAK-SPEC §15.5): a ZOMBIE's grip gnaws — Viral
+        // Load climbs the whole time it has you, so a slow escape still costs.
+        const byZed = !!grabber && isZed(grabber.kind);
+        if (byZed && this.outbreakEnabled && (s.kind === 'human' || s.kind === 'bot')) {
+          const gnaw = BITE_GNAW * (grabber!.kind === 'brute' ? 1.3 : 1);
+          s.viralLoad = Math.min(100, (s.viralLoad ?? 0) + gnaw * dt);
+        }
         const broke = (s.struggle ?? 0) >= 1;
-        if (broke || gone || this.time >= s.grabbedUntil) {
+        const timedOut = this.time >= s.grabbedUntil;
+        if (broke || gone || timedOut) {
           // a body that FOUGHT free (vs one the timer released) rebounds on the
           // grabber — a reversal-lite: it jars his grip and shoves him back.
           if (broke && grabber && grabber.alive) {
@@ -1458,8 +1477,15 @@ export class World {
             const dl = Math.max(Math.hypot(grabber.pos.x - s.pos.x, grabber.pos.z - s.pos.z), 0.5);
             grabber.pushX += ((grabber.pos.x - s.pos.x) / dl) * 4;
             grabber.pushZ += ((grabber.pos.z - s.pos.z) / dl) * 4;
+          } else if (byZed && timedOut && !broke && grabber && this.outbreakEnabled) {
+            // you FAILED to break the Bite Struggle in time — the jaws close:
+            // bite damage (+ the claw's Viral injection) and a shove toward it.
+            const dl = Math.max(Math.hypot(grabber.pos.x - s.pos.x, grabber.pos.z - s.pos.z), 0.5);
+            this.damageSoldier(s, BITE_DAMAGE, grabber.id, 'zombie_claw');
+            if (s.alive) { s.pushX += ((grabber.pos.x - s.pos.x) / dl) * 3; s.pushZ += ((grabber.pos.z - s.pos.z) / dl) * 3; }
           }
           s.grabbedUntil = undefined; s.grabbedBy = undefined; s.struggle = undefined;
+          s.grabImmuneUntil = this.time + GRAB_IMMUNE; // no instant re-clinch
           this.emit({ type: 'grab_break', pos: { ...s.pos }, soldierId: s.id });
         }
         continue; // held (or just released): nothing else acts this tick
@@ -2115,7 +2141,8 @@ export class World {
       let target: Soldier | undefined;
       let bestD = GRAB_RANGE + 0.3;
       for (const e of this.soldierIndex.near((1 - s.team) as Team, s.pos.x, s.pos.z, GRAB_RANGE + 0.3, GRAB_SCRATCH)) {
-        if (!e.alive || e.grabbedUntil !== undefined || e.encasedUntil !== undefined) continue;
+        if (!e.alive || e.grabbedUntil !== undefined || e.encasedUntil !== undefined
+            || this.time < (e.grabImmuneUntil ?? 0)) continue;
         const dx = e.pos.x - s.pos.x, dz = e.pos.z - s.pos.z;
         const d = Math.hypot(dx, dz);
         if (d > bestD) continue;
@@ -2789,6 +2816,30 @@ export class World {
     s.meleeYaw = s.yaw;
     s.meleeWeapon = def.id;
     this.emit({ type: 'melee_windup', pos: { ...s.pos }, weapon: def.id, soldierId: s.id });
+  }
+
+  /**
+   * BITE STRUGGLE (OUTBREAK-SPEC §15.5): a zombie latches on instead of clawing.
+   * It pins the survivor in the same hold a player GRAPPLE uses (rooted, mash
+   * to break) — but the grip GNAWS Viral Load, and failing to break in time is
+   * a full bite. Sprinters clamp briefly (snap timing), brutes clamp longer.
+   * Returns true if the bite landed a hold (so the caller can pace the zed).
+   */
+  beginBiteStruggle(zed: Soldier, victim: Soldier): boolean {
+    if (!this.outbreakEnabled) return false;
+    if (victim.kind !== 'human' && victim.kind !== 'bot') return false;
+    if (victim.god || victim.ascendant !== undefined || victim.downed) return false;
+    if (victim.grabbedUntil !== undefined || victim.encasedUntil !== undefined) return false;
+    if (this.time < (victim.grabImmuneUntil ?? 0)) return false;
+    const hold = BITE_HOLD * (zed.kind === 'sprinter' ? 0.7 : zed.kind === 'brute' ? 1.3 : 1);
+    victim.grabbedUntil = this.time + hold;
+    victim.grabbedBy = zed.id;
+    victim.struggle = 0;
+    victim.guarding = false;
+    victim.vel = { x: 0, y: 0, z: 0 };
+    zed.nextFireAt = this.time + hold + 0.4; // the zed is busy gnawing — no re-grab spam
+    this.emit({ type: 'grabbed', pos: { ...victim.pos }, soldierId: victim.id });
+    return true;
   }
 
   /**

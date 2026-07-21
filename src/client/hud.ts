@@ -2,7 +2,7 @@ import { CLASSES, EQUIPMENT, MODE_INFO, TEAM_NAMES, VEHICLES, WEAPONS } from '..
 import { LSWS, VO_LINES } from '../sim/lsw';
 import { earshotFor } from './audio';
 import { GRID, T_CLIMB, T_WALL, WORLD, losClear, houseAt } from '../sim/map';
-import type { SimEvent, Soldier, Team } from '../sim/types';
+import { isZed, type SimEvent, type Soldier, type Team } from '../sim/types';
 import { drawGrade, drawNumber, RING_COLORS } from './ring';
 import type { World } from '../sim/world';
 
@@ -383,11 +383,16 @@ export class Hud {
         : `bleeding out ${left.toFixed(0)}s · crawl — a medic can lift you`;
     } else if (s.alive && s.grabbedUntil !== undefined) {
       // GRABBED (OUTBREAK-SPEC §14): pinned. The banner turns into the struggle
-      // prompt — mash the sticks and watch the break meter climb.
+      // prompt — mash the sticks and watch the break meter climb. A zombie's
+      // grip is a BITE STRUGGLE (§15.5): break it before the jaws close.
+      const grabber = s.grabbedBy != null ? world.soldiers.get(s.grabbedBy) : undefined;
+      const bite = !!grabber && isZed(grabber.kind);
       db.classList.remove('hidden');
-      db.querySelector('b')!.textContent = 'GRABBED';
+      db.querySelector('b')!.textContent = bite ? 'BITE STRUGGLE' : 'GRABBED';
       const pct = Math.round(Math.min(1, s.struggle ?? 0) * 100);
-      $('down-timer').textContent = ` — mash MOVE to break free · ${pct}%`;
+      $('down-timer').textContent = bite
+        ? ` — mash MOVE before the bite! · ${pct}%`
+        : ` — mash MOVE to break free · ${pct}%`;
     } else db.classList.add('hidden');
 
     // respawn overlay

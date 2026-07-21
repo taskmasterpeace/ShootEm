@@ -1901,9 +1901,17 @@ export function stepZombie(w: World, s: Soldier, dt: number) {
       return;
     }
     if (bestD < wdef.range + 0.5 && w.time >= s.nextFireAt) {
-      // claws are a SWING now: windup telegraph → arc strike → recover.
-      // startMelee owns the rof pacing; prey that steps out of the arc is safe.
-      w.startMelee(s, wdef);
+      // BITE STRUGGLE (OUTBREAK-SPEC §15.5): a slice of the horde LATCHES ON
+      // instead of swinging. "Grabbers" are chosen by id (no RNG draw — the
+      // seeded stream must not shift under a terrain-coupled harness) so ~1 in
+      // 4 infected clamp; spitters/bombers never grab. beginBiteStruggle does
+      // the eligibility gate (gods/ascendants/immune fall through to the claw).
+      const grabber = w.outbreakEnabled && s.kind !== 'spitter' && s.kind !== 'bomber' && s.id % 4 === 0;
+      if (!grabber || !w.beginBiteStruggle(s, best)) {
+        // claws are a SWING now: windup telegraph → arc strike → recover.
+        // startMelee owns the rof pacing; prey that steps out of the arc is safe.
+        w.startMelee(s, wdef);
+      }
     }
   }
   w.stepSoldierPhysics(s, dt);

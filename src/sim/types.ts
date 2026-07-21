@@ -434,6 +434,9 @@ export interface Soldier {
   grabbedUntil?: number;
   /** who threw the grab (credit + the hold's tether anchor). */
   grabbedBy?: number;
+  /** brief post-escape window during which this body can't be re-grabbed — no
+   *  instant re-clinch / chain-lock after you fight free. */
+  grabImmuneUntil?: number;
   /** THE SQUAD (§15, finish-list #14): the fireteam this soldier deploys
    *  with — 2-4 bodies who share a spawn and read each other. Offline your
    *  friendly bots ARE your squad. Rides the wire free. */
