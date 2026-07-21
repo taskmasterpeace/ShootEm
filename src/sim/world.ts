@@ -4186,8 +4186,8 @@ export class World {
     if (tx < 0 || tz < 0 || tx >= GRID || tz >= GRID) return false;
     const idx = tz * GRID + tx;
     const before = layer[idx];
-    if (!isWindowTile(before) || windowIsBroken(before)) return false;
-    layer[idx] = breakWindowTile(before);
+    if (!isWindowTile(before, floor > 0) || windowIsBroken(before, floor > 0)) return false;
+    layer[idx] = breakWindowTile(before, floor > 0);
     const packed = floor * GRID * GRID + idx;
     if (!this.glassChanges.includes(packed)) this.glassChanges.push(packed);
     this.emit({
@@ -5008,7 +5008,7 @@ export class World {
         try {
           const layer = floorLayer(this.map, floor);
           const pane = tileAt(layer, p.pos.x, p.pos.z);
-          if (isWindowTile(pane) && !windowIsBroken(pane) && thinTileBlocks(pane, p.pos.x, p.pos.z)
+          if (isWindowTile(pane, floor > 0) && !windowIsBroken(pane, floor > 0) && thinTileBlocks(pane, p.pos.x, p.pos.z)
             && this.shatterWindowAt(p.pos.x, p.pos.z, floor)) dead = true;
         } catch { /* projectile is above an unallocated storey */ }
         if (dead) { this.projectiles.delete(id); continue; }

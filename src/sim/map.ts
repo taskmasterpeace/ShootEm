@@ -206,6 +206,20 @@ export interface BuildingMapMeta {
   grammarVersion: number;
   floors: 1 | 2 | 3;
   activeSection?: string;
+  seed?: number;
+  footprint?: string;
+  origin?: { tx: number; tz: number };
+  width?: number;
+  height?: number;
+  sockets?: {
+    id: string;
+    kind: 'entry' | 'exit' | 'objective' | 'guard' | 'civilian' | 'dog-handler' | 'reinforcement';
+    x: number; z: number; floor: number; sectionId: 'west' | 'east'; required: boolean;
+  }[];
+  sections?: {
+    id: 'west' | 'east'; active: boolean;
+    tiles: { x: number; z: number; floor: number }[];
+  }[];
 }
 
 export interface GameMap {
@@ -270,29 +284,33 @@ export function doorIsOpen(tile: number): boolean {
   return tile === T_DOOR_OPEN || tile === T_THIN_DOOR_H_OPEN || tile === T_THIN_DOOR_V_OPEN;
 }
 
-export function isWindowTile(tile: number): boolean {
-  return tile === T_WINDOW_H || tile === T_WINDOW_V
-    || tile === T_WINDOW_H_BROKEN || tile === T_WINDOW_V_BROKEN
-    || tile === F2_WINDOW_H || tile === F2_WINDOW_V
-    || tile === F2_WINDOW_H_BROKEN || tile === F2_WINDOW_V_BROKEN;
+export function isWindowTile(tile: number, upper = false): boolean {
+  return upper
+    ? tile === F2_WINDOW_H || tile === F2_WINDOW_V || tile === F2_WINDOW_H_BROKEN || tile === F2_WINDOW_V_BROKEN
+    : tile === T_WINDOW_H || tile === T_WINDOW_V || tile === T_WINDOW_H_BROKEN || tile === T_WINDOW_V_BROKEN;
 }
 
-export function windowIsBroken(tile: number): boolean {
-  return tile === T_WINDOW_H_BROKEN || tile === T_WINDOW_V_BROKEN
-    || tile === F2_WINDOW_H_BROKEN || tile === F2_WINDOW_V_BROKEN;
+export function windowIsBroken(tile: number, upper = false): boolean {
+  return upper
+    ? tile === F2_WINDOW_H_BROKEN || tile === F2_WINDOW_V_BROKEN
+    : tile === T_WINDOW_H_BROKEN || tile === T_WINDOW_V_BROKEN;
 }
 
-export function breakWindowTile(tile: number): number {
+export function breakWindowTile(tile: number, upper = false): number {
+  if (upper) {
+    if (tile === F2_WINDOW_H) return F2_WINDOW_H_BROKEN;
+    if (tile === F2_WINDOW_V) return F2_WINDOW_V_BROKEN;
+    return tile;
+  }
   if (tile === T_WINDOW_H) return T_WINDOW_H_BROKEN;
   if (tile === T_WINDOW_V) return T_WINDOW_V_BROKEN;
-  if (tile === F2_WINDOW_H) return F2_WINDOW_H_BROKEN;
-  if (tile === F2_WINDOW_V) return F2_WINDOW_V_BROKEN;
   return tile;
 }
 
-export function windowSpansX(tile: number): boolean {
-  return tile === T_WINDOW_H || tile === T_WINDOW_H_BROKEN
-    || tile === F2_WINDOW_H || tile === F2_WINDOW_H_BROKEN;
+export function windowSpansX(tile: number, upper = false): boolean {
+  return upper
+    ? tile === F2_WINDOW_H || tile === F2_WINDOW_H_BROKEN
+    : tile === T_WINDOW_H || tile === T_WINDOW_H_BROKEN;
 }
 
 /** Toggle a door while retaining the explicit orientation of thin doors. */

@@ -206,7 +206,7 @@ export function applySnapshot(w: World, snap: Snapshot) {
       const idx = packed % (GRID * GRID);
       try {
         const layer = floorLayer(w.map, floor);
-        if (isWindowTile(layer[idx])) layer[idx] = breakWindowTile(layer[idx]);
+        if (isWindowTile(layer[idx], floor > 0)) layer[idx] = breakWindowTile(layer[idx], floor > 0);
       } catch { /* snapshot references a floor this legacy puppet did not allocate */ }
     }
     w.glassChanges = [...snap.glass];

@@ -209,7 +209,6 @@ function chooseNearCenter(cells: { x: number; z: number }[], width: number, heig
   return sorted[0];
 }
 
-function cloneGrid(grid: Grid): Grid { return grid.map((row) => row.slice()); }
 const toRows = (grid: Grid) => grid.map((row) => row.join(''));
 
 function addSouthBalcony(grids: Grid[]): void {
@@ -345,8 +344,17 @@ function generateAttempt(options: GenerateCityBuildingOptions, validationSeed: n
   const city = cityProfile(options.cityId);
   const architecture = architectureProfile(options.cityId, validationSeed);
   const rng = new Rng(validationSeed ^ 0xb17d1a6);
-  const width = rng.int(spec.width[0], spec.width[1]);
-  const height = rng.int(spec.height[0], spec.height[1]);
+  let width = rng.int(spec.width[0], spec.width[1]);
+  let height = rng.int(spec.height[0], spec.height[1]);
+  // Multi-storey buildings spend the same authoring/runtime tile budget over
+  // every layer. Keep the recognizable long industrial/commercial footprint,
+  // then trim the shorter axis until three complete storeys remain under the
+  // 650-cell law (with a small balcony reserve).
+  const perFloorBudget = Math.floor((650 - Math.max(0, options.floors - 1) * 14) / options.floors);
+  while (width * height > perFloorBudget && (width > 10 || height > 6)) {
+    if (height > 6 && (height / spec.height[0] >= width / spec.width[0] || width <= 10)) height--;
+    else if (width > 10) width--;
+  }
   const footprint = options.footprint ?? pickFootprint(architecture, rng);
   const mask = makeMask(width, height, footprint);
   const ground = shell(mask, spec.windowEvery);
@@ -377,6 +385,18 @@ function generateAttempt(options: GenerateCityBuildingOptions, validationSeed: n
   const fullLayers = grids.map(toRows);
   if (!fullLayers.every(buildingLayerConnected)) throw new Error('circulation disconnected a floor');
   const layers = applySectionShutters(fullLayers, options.missionSection);
+  const occupiedTiles = layers.reduce((total, rows) => total
+    + rows.reduce((count, row) => count + [...row].filter((char) => char !== ' ').length, 0), 0);
+  let facadeSegments = 0;
+  for (const rows of layers) for (let z = 0; z < rows.length; z++) for (let x = 0; x < width; x++) {
+    if ((rows[z]?.[x] ?? ' ') === ' ') continue;
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      if ((rows[z + dz]?.[x + dx] ?? ' ') === ' ') facadeSegments++;
+    }
+  }
+  if (occupiedTiles > 650 || facadeSegments > 220) {
+    throw new Error(`building budget exceeded: ${occupiedTiles}/650 occupied, ${facadeSegments}/220 facade`);
+  }
   const kind: BuildingDef['kind'] = spec.use === 'residential' ? 'house'
     : spec.use === 'industrial' ? 'industrial'
       : spec.use === 'military' ? 'military' : 'commercial';
@@ -428,6 +448,6 @@ export function generateCityBuilding(options: GenerateCityBuildingOptions): Gene
   // A compact known-valid fallback is preferable to losing a mission window.
   try { return generateAttempt({ ...options, footprint: 'rectangle' }, (options.seed ^ 0x5afe71) >>> 0); }
   catch (error) {
-    throw new Error(`city building generation failed after fallback: ${(error as Error).message}; first failure: ${last?.message ?? 'unknown'}`);
+    throw new Error(`city building generation failed after fallback: ${(error as Error).message}; first failure: ${last?.message ?? 'unknown'}`, { cause: error });
   }
 }

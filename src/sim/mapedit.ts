@@ -15,6 +15,7 @@ import {
   type BuildingMapMeta, type GameMap, type PropSpec, type PickupSpawn, type VehiclePad, type House, type TileClaim,
 } from './map';
 import { ensureUpperFloor } from './map-layers';
+import { buildingAuthoringLayoutFromMap, validateWholeBuilding } from './building-navigation';
 import { BUILDINGS, stampBuilding, type BuildingDef, type StampCtx } from './buildings';
 import { FRONT_STENCILS, frontWalkable, generateFront, boxFor, type MapSize } from './fronts';
 import { generateSkirmishMap } from './skirmish';
@@ -49,7 +50,7 @@ function cloneMap(m: GameMap): GameMap {
     seed: m.seed, theme: m.theme,
     grid: m.grid.slice(), grid2, surface: m.surface.slice(),
     ...(upperLayers ? { upperLayers } : {}),
-    ...(m.buildingMeta ? { buildingMeta: { ...m.buildingMeta } } : {}),
+    ...(m.buildingMeta ? { buildingMeta: structuredClone(m.buildingMeta) } : {}),
     basePos: [{ ...m.basePos[0] }, { ...m.basePos[1] }],
     spawns: [m.spawns[0].map((s) => ({ ...s })), m.spawns[1].map((s) => ({ ...s }))],
     flagPos: [{ ...m.flagPos[0] }, { ...m.flagPos[1] }],
@@ -160,7 +161,7 @@ export function serializeDoc(doc: MakerDoc): MapJSONV2 {
     v: 2, frontId: doc.frontId, size: doc.size, seed: doc.seed,
     grid: [...m.grid], grid2: [...m.grid2], surface: [...m.surface],
     upperLayers: (m.upperLayers ?? [m.grid2]).map((layer) => [...layer]),
-    ...(m.buildingMeta ? { buildingMeta: { ...m.buildingMeta } } : {}),
+    ...(m.buildingMeta ? { buildingMeta: structuredClone(m.buildingMeta) } : {}),
     basePos: m.basePos, spawns: m.spawns, flagPos: m.flagPos, hillPos: m.hillPos,
     controlPoints: m.controlPoints, vehiclePads: m.vehiclePads, pickups: m.pickups,
     props: m.props, zombieSpawns: m.zombieSpawns, houses: m.houses, theme: m.theme,
@@ -178,7 +179,7 @@ export function deserializeDoc(json: MapJSON): MakerDoc {
     seed: json.seed, theme: json.theme,
     grid, grid2, surface: Uint8Array.from(json.surface),
     ...(upperLayers ? { upperLayers } : {}),
-    ...(json.v === 2 && json.buildingMeta ? { buildingMeta: { ...json.buildingMeta } } : {}),
+    ...(json.v === 2 && json.buildingMeta ? { buildingMeta: structuredClone(json.buildingMeta) } : {}),
     basePos: json.basePos, spawns: json.spawns, flagPos: json.flagPos, hillPos: json.hillPos,
     controlPoints: json.controlPoints, vehiclePads: json.vehiclePads, pickups: json.pickups,
     props: json.props, zombieSpawns: json.zombieSpawns, houses: json.houses,
@@ -549,6 +550,23 @@ export function validateDoc(doc: MakerDoc): LawReport {
     if (!m.props.some((p) => Math.hypot(p.pos.x - x, p.pos.z - z) < 1.6 + p.scale * 1.2)) ghost.push([i % GRID, Math.floor(i / GRID)]);
   }
   if (ghost.length) issues.push({ law: 'WALLS', detail: `${ghost.length} claimed tiles with no prop standing on them`, tiles: ghost.slice(0, 12) });
+
+  // Whole-building laws are opt-in through generator provenance. Legacy v1
+  // maps keep exactly the six reports above; authored city buildings gain
+  // floor-aware structural and content diagnostics.
+  const authored = buildingAuthoringLayoutFromMap(m);
+  if (authored) {
+    const report = validateWholeBuilding(authored.layout);
+    for (const buildingIssue of report.issues) {
+      issues.push({
+        law: buildingIssue.law,
+        detail: buildingIssue.floor === undefined
+          ? buildingIssue.detail
+          : `Level ${buildingIssue.floor + 1}: ${buildingIssue.detail}`,
+        tiles: buildingIssue.tiles.map((tile) => [tile.x + authored.origin.tx, tile.z + authored.origin.tz]),
+      });
+    }
+  }
 
   return { ok: issues.length === 0, issues, seen };
 }

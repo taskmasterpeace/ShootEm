@@ -188,14 +188,14 @@ export function floorLayer(map: GameMap, floor: number): Uint8Array {
 - Produces `transitionAt(map, floor, x, z)`, storey-aware `losBetweenFloors`, and stair graph edges.
 - Ladder remains `E`; stair transitions on crossing its oriented center and preserves velocity/facing.
 
-- [ ] **Step 1: Write failing movement tests** for ground→Level 2→Level 3 and back by stairs, ladder requiring `E`, momentum preservation on stairs, explicit climb lock on ladder, falling to the highest lower slab, and no transition beyond floors 0–2.
-- [ ] **Step 2: Write failing bot/dog tests** proving guards path through stairs, permitted guards can use ladders, dogs use stairs, and dogs reject ladder-only targets.
-- [ ] **Step 3: Run focused tests and confirm RED.**
-- [ ] **Step 4: Generalize movement, projectile height bands, perception, cross-floor LOS, and objective floor checks** from boolean `floor === 1` logic to indexed layers.
-- [ ] **Step 5: Add automatic oriented stair transition and timed ladder state.** Use y values `0`, `4`, and `8`; stairs preserve x/z velocity, ladders zero it during the climb.
-- [ ] **Step 6: Render stair runs and every upper storey, then generalize per-building cutaway** so storeys above the focused actor fade while adjacent buildings remain intact.
-- [ ] **Step 7: Run focused tests, all existing ladder/two-storey/upper-LOS tests, visual tests, and typecheck; confirm GREEN.**
-- [ ] **Step 8: Commit with `git commit -m "feat: add three-storey circulation"`.**
+- [x] **Step 1: Write failing movement tests** for ground→Level 2→Level 3 and back by stairs, ladder requiring `E`, momentum preservation on stairs, explicit climb lock on ladder, falling to the highest lower slab, and no transition beyond floors 0–2.
+- [x] **Step 2: Write failing bot/dog tests** proving guards path through stairs, permitted guards can use ladders, dogs use stairs, and dogs reject ladder-only targets.
+- [x] **Step 3: Run focused tests and confirm RED.**
+- [x] **Step 4: Generalize movement, projectile height bands, perception, cross-floor LOS, and objective floor checks** from boolean `floor === 1` logic to indexed layers.
+- [x] **Step 5: Add automatic oriented stair transition and timed ladder state.** Use y values `0`, `4`, and `8`; stairs preserve x/z velocity, ladders zero it during the climb.
+- [x] **Step 6: Render stair runs and every upper storey, then generalize per-building cutaway** so storeys above the focused actor fade while adjacent buildings remain intact.
+- [x] **Step 7: Run focused tests, all existing ladder/two-storey/upper-LOS tests, visual tests, and typecheck; confirm GREEN.**
+- [x] **Step 8: Commit with `git commit -m "feat: add three-storey circulation"`.**
 
 ### Task 6: Derive Building Navigation and Authoring Laws
 
@@ -209,13 +209,13 @@ export function floorLayer(map: GameMap, floor: number): Uint8Array {
 - Produces `deriveBuildingGraph(map, houseId)`, `validateBuilding(map, metadata)`, `BuildingGraph`, `BuildingRoom`, `BuildingPortal`, and floor-aware `BuildingLawIssue`.
 - Law issues carry `{ law, detail, floor, tiles }`.
 
-- [ ] **Step 1: Write failing fixtures** for a valid three-storey villa and one invalid fixture per STRUCTURE, ROOMS, CIRCULATION, FACADE, GLASS, SECTIONS, ENCOUNTERS, and PERFORMANCE law.
-- [ ] **Step 2: Run focused tests and confirm RED.**
-- [ ] **Step 3: Flood-fill rooms per floor and derive door/window/stair/ladder portals.** Construct cross-floor edges only from aligned circulation pairs.
-- [ ] **Step 4: Implement all eight laws** with exact budgets: maximum 3 storeys, 650 occupied tiles per building, 220 facade segments, 48 encounter sockets, and 16 NPCs in a science operation's initial wave.
-- [ ] **Step 5: Merge building issues into `validateDoc`** without changing the six legacy law results for v1 maps.
-- [ ] **Step 6: Run focused tests plus existing map/front law suites and typecheck; confirm GREEN.**
-- [ ] **Step 7: Commit with `git commit -m "feat: validate whole building maps"`.**
+- [x] **Step 1: Write failing fixtures** for a valid three-storey villa and one invalid fixture per STRUCTURE, ROOMS, CIRCULATION, FACADE, GLASS, SECTIONS, ENCOUNTERS, and PERFORMANCE law.
+- [x] **Step 2: Run focused tests and confirm RED.**
+- [x] **Step 3: Flood-fill rooms per floor and derive door/window/stair/ladder portals.** Construct cross-floor edges only from aligned circulation pairs.
+- [x] **Step 4: Implement all eight laws** with exact budgets: maximum 3 storeys, 650 occupied tiles per building, 220 facade segments, 48 encounter sockets, and 16 NPCs in a science operation's initial wave.
+- [x] **Step 5: Merge building issues into `validateDoc`** without changing the six legacy law results for v1 maps.
+- [x] **Step 6: Run focused tests plus existing map/front law suites and typecheck; confirm GREEN.**
+- [x] **Step 7: Commit with `git commit -m "feat: validate whole building maps"`.**
 
 ### Task 7: Scale Science Encounters to Print Reserve
 

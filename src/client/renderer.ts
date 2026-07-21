@@ -1251,9 +1251,9 @@ export class Renderer {
               };
               if (tile === F2_THIN_WALL_H || tile === F2_THIN_WALL_HV || tile === F2_SHUTTER) addSpan(true);
               if (tile === F2_THIN_WALL_V || tile === F2_THIN_WALL_HV) addSpan(false);
-            } else if (isWindowTile(tile)) {
+            } else if (isWindowTile(tile, true)) {
               const window = new THREE.Group();
-              const spansX = windowSpansX(tile);
+              const spansX = windowSpansX(tile, true);
               const addFrame = (width: number, height: number, depth: number, y: number, px = 0) => {
                 const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), frameMat);
                 mesh.position.set(px, y, 0); mesh.castShadow = true; window.add(mesh);
@@ -1267,7 +1267,7 @@ export class Renderer {
                 transparent: true, opacity: 0.34, roughness: 0.12, side: THREE.DoubleSide, depthWrite: false,
               });
               const pane = new THREE.Mesh(new THREE.BoxGeometry(TILE * 0.82, 2.45, 0.07), glassMat);
-              pane.position.y = 2.25; pane.visible = !windowIsBroken(tile); pane.renderOrder = 3; window.add(pane);
+              pane.position.y = 2.25; pane.visible = !windowIsBroken(tile, true); pane.renderOrder = 3; window.add(pane);
               window.position.set(wx, baseY, wz);
               if (!spansX) window.rotation.y = Math.PI / 2;
               group.add(window);
@@ -1837,7 +1837,7 @@ export class Renderer {
       const tile = window.floor === 0
         ? world.map.grid[window.idx]
         : floorLayer(world.map, window.floor)[window.idx];
-      window.pane.visible = isWindowTile(tile) && !windowIsBroken(tile);
+      window.pane.visible = isWindowTile(tile, window.floor > 0) && !windowIsBroken(tile, window.floor > 0);
     }
 
     // THE EARS' WORLD MODEL: walls between you and a sound muffle it (the
