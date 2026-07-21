@@ -29,6 +29,7 @@ import { createBlackbox, stepBlackbox, type Blackbox } from './blackbox';
 import { clampWorld, halfDepth, halfWidth, tileIndex, tileToWorld, worldToTile, wrapWorld } from './map-geometry';
 import { ruleOnClassRequest } from './officer';
 import { SoldierIndex } from './spatial';
+import { createVehicleTelemetry, recordVehicleEvent, stepVehicleTelemetry, type VehicleTelemetry } from './vehicle-telemetry';
 import {
   asElevationLevel, canWeaponReachElevation, collidesAtElevation, maxElevationFor, targetLockRangeAtElevation,
   type ElevationLevel, type ElevationWeaponClass,
@@ -452,7 +453,10 @@ export class World {
   /** THE BLACK BOX (Robert: "put the tools in there") — always-on crowd flight
    *  recorder: 2s-cadence spread/near-base/stuck time series + persisted-knot
    *  and stuck-body incidents. Read via __ww.blackbox(). See sim/blackbox.ts. */
-  blackbox: Blackbox = createBlackbox();
+  vehicleTelemetry: VehicleTelemetry = createVehicleTelemetry();
+  blackbox: Blackbox = createBlackbox(this.vehicleTelemetry);
+  /** Last commanded hull speed, sampled by the vehicle black box. */
+  vehicleCommandedSpeed = new Map<number, number>();
   /** §13 AMMO DIAGNOSTICS: per-weapon shot tally for the blackbox's ammo
    *  report (authoritative-side only — never rides the snapshot). */
   ammoShotsByWeapon = new Map<string, number>();
@@ -1611,6 +1615,7 @@ export class World {
       else stepMode(this, dt);
     }
     stepBlackbox(this); // the crowd flight recorder samples on its own 2s clock
+    stepVehicleTelemetry(this);
     this.stepHomeDoors(); // base doors open for their own; shut behind them
     // the materiel drip (§17): war production never stops, it just crawls
     if (this.time >= this.nextMaterielDripAt) {
@@ -4381,9 +4386,15 @@ export class World {
   }
 
   exitVehicle(s: Soldier, v: Vehicle) {
+    const airborne = !!VEHICLES[v.kind].flies && (v.band ?? 0) > 0;
     v.seats[s.seat] = -1;
     // last one out starts the abandonment clock — hotwire and write-off run on it
     if (!v.seats.some((id) => id >= 0)) v.abandonedAt = this.time;
+    recordVehicleEvent(this.vehicleTelemetry, {
+      kind: airborne ? 'bailout' : 'abandon', t: this.time, vehicleId: v.id, vehicleKind: v.kind,
+      theaterId: this.map.theater?.id ?? 'classic', seed: this.map.seed,
+      x: v.pos.x, z: v.pos.z, detail: s.name,
+    });
     s.vehicleId = -1;
     s.seat = -1;
     const side = v.yaw + Math.PI / 2;
@@ -4512,6 +4523,7 @@ export class World {
       if (driverCmd.use && driver && this.time - driver.enteredVehicleAt > 0.3
           && !(VEHICLES[v.kind].flies && (v.band ?? 0) > 0)) this.exitVehicle(driver, v);
     }
+    this.vehicleCommandedSpeed.set(v.id, driverCmd && !stunned ? Math.abs(driverCmd.moveZ) * def.speed : 0);
 
     // a manned gunner station overrides the driver's trigger (transport)
     const gunner = this.crewAt(v, 'gunner');
@@ -4641,6 +4653,11 @@ export class World {
           if (spd > 4 && this.time >= (v.nextCrashAt ?? 0)) {
             v.nextCrashAt = this.time + 0.5;
             this.damageVehicle(v, 12 + spd * 2.2, -1, 'crash');
+            recordVehicleEvent(this.vehicleTelemetry, {
+              kind: 'crash', t: this.time, vehicleId: v.id, vehicleKind: v.kind,
+              theaterId: this.map.theater?.id ?? 'classic', seed: this.map.seed,
+              x: nx, z: nz, detail: `${spd.toFixed(1)}u/s`,
+            });
             this.emit({ type: 'explosion', pos: { x: nx, y: 2, z: nz }, weapon: 'gl' });
           }
           v.vel.x *= -0.25; // the wall wins — the hull rebuffs
@@ -4691,9 +4708,15 @@ export class World {
       // taxiing off the map is not a maneuver). Seam distances don't wrap:
       // a SAM reads the long way round, which is the price of the trick.
       if (def.flies && (v.band ?? 0) > 0) {
+        const beforeX = v.pos.x, beforeZ = v.pos.z;
         const wrapped = wrapWorld(this.map.geometry, v.pos, 1);
         v.pos.x = wrapped.x;
         v.pos.z = wrapped.z;
+        if (beforeX !== wrapped.x || beforeZ !== wrapped.z) recordVehicleEvent(this.vehicleTelemetry, {
+          kind: 'boundary_wrap', t: this.time, vehicleId: v.id, vehicleKind: v.kind,
+          theaterId: this.map.theater?.id ?? 'classic', seed: this.map.seed,
+          x: wrapped.x, z: wrapped.z,
+        });
       } else {
         const clamped = clampWorld(this.map.geometry, v.pos, 3);
         v.pos.x = clamped.x;
@@ -4757,6 +4780,11 @@ export class World {
         ...(def.flies ? { elevationWeapon: 'aircraft' as const } : {}),
       };
       this.launch(p);
+      recordVehicleEvent(this.vehicleTelemetry, {
+        kind: 'shot', t: this.time, vehicleId: v.id, vehicleKind: v.kind,
+        theaterId: this.map.theater?.id ?? 'classic', seed: this.map.seed,
+        x: v.pos.x, z: v.pos.z, detail: def.weapon,
+      });
       this.emit({ type: 'shot', pos: { ...p.pos }, weapon: def.weapon, soldierId: shooter.id });
     }
   }
@@ -5243,6 +5271,13 @@ export class World {
             if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team, p.elevationWeapon ?? !!p.airScaled);
             else {
               this.damageVehicle(v, def.damage, p.ownerId, p.weapon);
+              const attacker = this.soldiers.get(p.ownerId);
+              const attackerHull = attacker?.vehicleId !== undefined && attacker.vehicleId >= 0 ? this.vehicles.get(attacker.vehicleId) : undefined;
+              if (attackerHull) recordVehicleEvent(this.vehicleTelemetry, {
+                kind: 'hit', t: this.time, vehicleId: attackerHull.id, vehicleKind: attackerHull.kind,
+                theaterId: this.map.theater?.id ?? 'classic', seed: this.map.seed,
+                x: v.pos.x, z: v.pos.z, detail: v.kind,
+              });
               this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, soldierId: p.ownerId });
             }
             dead = true;
@@ -6097,6 +6132,11 @@ export class World {
     if (v.hp <= 0) {
       v.hp = 0;
       v.alive = false;
+      recordVehicleEvent(this.vehicleTelemetry, {
+        kind: 'loss', t: this.time, vehicleId: v.id, vehicleKind: v.kind,
+        theaterId: this.map.theater?.id ?? 'classic', seed: this.map.seed,
+        x: v.pos.x, z: v.pos.z, detail: weapon,
+      });
       // B1: a wreck goes on its owner team's bill at requisition value
       this.warLedger[v.team].hulls += VEHICLES[v.kind].cost ?? 1;
       v.respawnAt = this.time + VEHICLE_RESPAWN;

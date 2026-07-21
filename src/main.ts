@@ -4,6 +4,7 @@ import { isCoopMode, type ClassId, type ModeId, type PlayerCmd, type Team, type 
 import { LSWS, lswAllowed, lswsForTeam } from './sim/lsw';
 import { World, type Difficulty, type Loadout } from './sim/world';
 import { ammoReport, blackboxReport, type BbIncident, type BbSample } from './sim/blackbox';
+import { vehicleTelemetryReport, vehicleTelemetrySnapshot, type VehicleTelemetrySnapshot } from './sim/vehicle-telemetry';
 import { mapSizeForPlayers } from './sim/fronts';
 import { WEATHER_MODS } from './sim/weather';
 import { mountOnboarding, onMatchEnd, paintballConfig } from './client/onboarding';
@@ -429,15 +430,16 @@ function saveFlight() {
       scores: flightWorld.mode.scores,
       samples: flightWorld.blackbox.samples,
       incidents: flightWorld.blackbox.incidents,
+      vehicles: vehicleTelemetrySnapshot(flightWorld.vehicleTelemetry),
     }));
   } catch { /* storage full or blocked — the log is a luxury, never a crash */ }
 }
 (window as unknown as Record<string, unknown>).__flight = (mode?: 'raw') => {
   const raw = localStorage.getItem('ww:lastFlight');
   if (!raw) return 'no stored flight — play a match first';
-  const f = JSON.parse(raw) as { at: string; mode: string; simTime: number; scores: number[]; samples: BbSample[]; incidents: BbIncident[] };
+  const f = JSON.parse(raw) as { at: string; mode: string; simTime: number; scores: number[]; samples: BbSample[]; incidents: BbIncident[]; vehicles?: VehicleTelemetrySnapshot };
   if (mode === 'raw') return f;
-  return `LAST FLIGHT — ${f.mode} · ${f.simTime}s sim · scores ${f.scores.join(':')} · saved ${f.at}\n${blackboxReport(f)}`;
+  return `LAST FLIGHT — ${f.mode} · ${f.simTime}s sim · scores ${f.scores.join(':')} · saved ${f.at}\n${blackboxReport(f)}${f.vehicles ? `\n${vehicleTelemetryReport(f.vehicles)}` : ''}`;
 };
 
 function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: Input, name: string, endGame: () => void) {
@@ -635,8 +637,8 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   // Each new incident also console.warns live (see the frame loop below).
   const blackbox = (mode?: 'report') =>
     mode === 'report'
-      ? `${blackboxReport(world.blackbox)}\n${ammoReport(world)}` // §13: the ammo economy rides the report
-      : { samples: world.blackbox.samples, incidents: world.blackbox.incidents };
+      ? `${blackboxReport(world.blackbox)}\n${vehicleTelemetryReport(world.vehicleTelemetry)}\n${ammoReport(world)}` // §13: the ammo economy rides the report
+      : { samples: world.blackbox.samples, incidents: world.blackbox.incidents, vehicles: vehicleTelemetrySnapshot(world.vehicleTelemetry) };
   (window as unknown as Record<string, unknown>).__ww = { world, me, renderer, hud, input, audio, recorder: director.recorder, replay: director.player, director, crowd, blackbox, darkness: darknessUniforms }; // debug/testing handle (darkness: live cone uniforms — eval-side imports get FRESH module instances, this doesn't)
 
   const FIXED = 1 / 60;

@@ -14,6 +14,7 @@ import { LSWS } from './lsw';
 import { threatAt } from './influence';
 import type { TheaterDomain, TheaterRoute } from './theater-types';
 import { asElevationLevel } from './elevation';
+import { recordVehicleEvent } from './vehicle-telemetry';
 
 const noCmd = (): PlayerCmd => ({
   moveX: 0, moveZ: 0, aimYaw: 0, fire: false, altFire: false, jump: false,
@@ -918,7 +919,14 @@ export function vehicleWaypoint(_w: World, s: Soldier, vehicle: Vehicle, route: 
   if (Math.hypot(route.points[index].x - vehicle.pos.x, route.points[index].z - vehicle.pos.z) <= threshold) {
     const next = index + dir;
     if (next < 0 || next >= route.points.length) {
-      s.botVehicleRouteCompleted = true;
+      if (!s.botVehicleRouteCompleted) {
+        s.botVehicleRouteCompleted = true;
+        recordVehicleEvent(_w.vehicleTelemetry, {
+          kind: 'route_complete', t: _w.time, vehicleId: vehicle.id, vehicleKind: vehicle.kind,
+          theaterId: _w.map.theater?.id ?? 'classic', seed: _w.map.seed,
+          x: vehicle.pos.x, z: vehicle.pos.z, detail: route.id,
+        });
+      }
       s.botVehicleRouteDir = dir === 1 ? -1 : 1;
       index = Math.max(0, Math.min(route.points.length - 1, index - dir));
     } else {

@@ -22,6 +22,7 @@
 import { isBlocked } from './map';
 import type { Soldier } from './types';
 import type { World } from './world';
+import type { VehicleTelemetry } from './vehicle-telemetry';
 
 export const BB_SAMPLE_EVERY = 2;   // seconds of sim time between samples
 export const BB_MAX_SAMPLES = 600;  // ring buffer ≈ 20 minutes
@@ -78,13 +79,14 @@ export interface Blackbox {
   /** consecutive knotted samples per team */
   knotRuns: [number, number];
   lastKnotFiledAt: [number, number];
+  vehicles: VehicleTelemetry;
 }
 
-export function createBlackbox(): Blackbox {
+export function createBlackbox(vehicles: VehicleTelemetry): Blackbox {
   return {
     nextAt: BB_SAMPLE_EVERY, samples: [], incidents: [],
     prev: new Map(), stuckRuns: new Map(),
-    knotRuns: [0, 0], lastKnotFiledAt: [-Infinity, -Infinity],
+    knotRuns: [0, 0], lastKnotFiledAt: [-Infinity, -Infinity], vehicles,
   };
 }
 
