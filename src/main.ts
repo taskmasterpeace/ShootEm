@@ -21,7 +21,7 @@ import { DamageText } from './client/damagetext';
 import { NetGame } from './client/net';
 import { MATCH_LINGER_LOCAL_MS, ReplayDirector } from './client/replay';
 import { MatchTracker, RANKS, loadDossier, rankFor, saveDossier, type Dossier } from './client/record';
-import { FRONTS, SCAR_TEXT, applyResult, bandOf, checkSeasonEnd, loadCampaign, saveCampaign, simulateTimeSkip, type Campaign } from './client/campaign';
+import { FRONTS, SCAR_TEXT, applyResult, bandOf, checkSeasonEnd, holdTheLine, loadCampaign, saveCampaign, type Campaign } from './client/campaign';
 import { fileIssue, renderIssueHTML, renderPressInto, loadPress } from './client/newspaper';
 import { RangeCourse, loadWall } from './client/range';
 import { RingDrill } from './client/ringdrill';
@@ -1012,14 +1012,15 @@ void RANKS; // ladder is part of the public record API
 // ---------------------------------------------------------------------------
 // The Scar (§8.5): the theater map IS the front-selection screen. Markers are
 // live overlays on the painted art; control moves with your battles (22B);
-// absence is simulated honestly on launch (27B).
+// W3.1: the war only moves while you play — an absence writes ONE honest
+// "the fronts held" line and touches nothing.
 // ---------------------------------------------------------------------------
 let campaign: Campaign | null = null;
 let scarMarkers: Record<string, { n: number; name: string; x: number; y: number }> | null = null;
 
 async function initCampaign() {
   campaign = loadCampaign();
-  simulateTimeSkip(campaign);
+  holdTheLine(campaign);
   saveCampaign(campaign); // always: the absence clock starts at first boot
   try {
     scarMarkers = (await (await fetch('/scar-markers.json')).json()).fronts;

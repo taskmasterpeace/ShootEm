@@ -1,11 +1,12 @@
 // ---------------------------------------------------------------------------
 // The Living Campaign v1 (§8.5): banded control (22B), mode/importance
-// weighting, scars on deep holds, and the honest deterministic time-skip (27B).
+// weighting, scars on deep holds — and W3.1's law: the war only moves while
+// you play (the 27B simulated time-skip is dead; absence changes nothing).
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
 import {
   BAND_EDGE, FRONTS, SEASON_FRONTS_TO_WIN, applyResult, bandOf, checkSeasonEnd,
-  freshCampaign, simulateTimeSkip,
+  freshCampaign, holdTheLine,
 } from '../src/client/campaign';
 
 describe('the Living Campaign', () => {
@@ -79,26 +80,20 @@ describe('the Living Campaign', () => {
     expect(c.dispatch[0].simulated).toBe(false);
   });
 
-  it('the time-skip is deterministic, capped, and labeled simulated (27B)', () => {
+  it('W3.1: the war only moves while you play — an absence changes NOTHING', () => {
     const HOUR = 3600_000;
     const t0 = 1_700_000_000_000;
-    const away = t0 + 26 * HOUR;
     const a = freshCampaign(t0);
+    const before = JSON.parse(JSON.stringify(a.fronts));
+    // a month away: every front holds exactly where you left it
+    const lines = holdTheLine(a, t0 + 30 * 24 * HOUR);
+    expect(a.fronts).toEqual(before);
+    expect(lines.length).toBe(1);
+    expect(lines[0]).toContain('HELD');
+    expect(a.dispatch[0].simulated, 'the held line is TRUE, not simulated').toBe(false);
+    // under an hour away: not even the line — you barely left
     const b = freshCampaign(t0);
-    const linesA = simulateTimeSkip(a, away);
-    const linesB = simulateTimeSkip(b, away);
-    // same absence → identical simulated history on both "machines"
-    expect(a.fronts).toEqual(b.fronts);
-    expect(linesA).toEqual(linesB);
-    for (const d of a.dispatch) expect(d.simulated).toBe(true);
-    // capped: a month away drifts no front more than 4 blocks × 4 × importance
-    const c = freshCampaign(t0);
-    simulateTimeSkip(c, t0 + 30 * 24 * HOUR);
-    for (const f of FRONTS) {
-      expect(Math.abs(c.fronts[f.id].control)).toBeLessThanOrEqual(4 * 4 * f.importance + 0.001);
-    }
-    // under an hour away: nothing happens
-    const d = freshCampaign(t0);
-    expect(simulateTimeSkip(d, t0 + HOUR / 2)).toEqual([]);
+    expect(holdTheLine(b, t0 + HOUR / 2)).toEqual([]);
+    expect(b.fronts).toEqual(before);
   });
 });

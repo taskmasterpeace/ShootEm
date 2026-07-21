@@ -212,40 +212,17 @@ export const SCAR_TEXT: Record<FrontDef['scar'], string> = {
 };
 
 /**
- * 27B — the HONEST offline overnight. A local game cannot fight while the
- * program is closed, so on launch we run a capped, DETERMINISTIC time-skip
- * (seeded by the elapsed calendar blocks) and label every outcome simulated.
+ * W3.1 — THE WAR ONLY MOVES WHILE YOU PLAY. Robert killed the time-skip
+ * (27B's simulated overnight): an offline war fighting itself made the
+ * theater read as weather, not a war he was IN. Coming back after an
+ * absence now writes ONE honest line — the fronts held, because nobody
+ * fought — and touches no front. Your last map is exactly the map.
  */
-export function simulateTimeSkip(c: Campaign, now = Date.now()): string[] {
+export function holdTheLine(c: Campaign, now = Date.now()): string[] {
   const HOUR = 3600_000;
-  const elapsed = now - c.updatedAt;
-  if (elapsed < HOUR) return [];
-  // one block per 6h away, capped at 4 (a week away ≠ a lost war)
-  const blocks = Math.min(4, Math.floor(elapsed / (6 * HOUR)) || 1);
-  const lines: string[] = [];
-  for (let b = 0; b < blocks; b++) {
-    // deterministic: seed from the absolute 6h block index — replaying the
-    // same launch after the same absence writes the same history
-    const blockIdx = Math.floor(c.updatedAt / (6 * HOUR)) + b + 1;
-    for (let fi = 0; fi < FRONTS.length; fi++) {
-      const f = FRONTS[fi];
-      const st = c.fronts[f.id];
-      // xorshift-ish hash of (block, front) — stable, no Math.random
-      let h = (blockIdx * 2654435761 ^ (fi + 1) * 40503) >>> 0;
-      h ^= h << 13; h >>>= 0; h ^= h >> 17; h ^= h << 5; h >>>= 0;
-      const drift = ((h % 9) - 4) * f.importance; // −4..+4, weighted
-      if (drift === 0) continue;
-      const before = bandOf(st.control);
-      st.control = Math.max(-100, Math.min(100, Math.round((st.control + drift) * 10) / 10));
-      const after = bandOf(st.control);
-      if (after !== before) {
-        lines.push(`While you were gone (simulated): ${f.name} ${after === 'contested' ? 'fell contested' : `went ${after === 'coalition' ? 'United Front' : 'Collective'}`}.`);
-      }
-    }
-  }
-  if (lines.length === 0 && blocks > 0) lines.push('While you were gone (simulated): the fronts held. Quiet night.');
-  const at = now;
-  for (const text of lines) c.dispatch.unshift({ text, at, simulated: true });
+  if (now - c.updatedAt < HOUR) return [];
+  const line = 'While you were away: the fronts HELD. The war only moves while you fight.';
+  c.dispatch.unshift({ text: line, at: now, simulated: false });
   if (c.dispatch.length > 60) c.dispatch.length = 60;
-  return lines;
+  return [line];
 }

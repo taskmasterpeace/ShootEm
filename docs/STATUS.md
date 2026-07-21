@@ -137,7 +137,7 @@ Full law: **`docs/WAR.md`**. Almost all of it is 📋 DESIGN — the substrate (
 | Ask | Status | Evidence / where |
 |---|---|---|
 | Enlist once; 3×3 board (three fronts × three passes) | ❌ | ships as a flat ten-front campaign. BACKLOG W3.2 |
-| Kill the time-skip (war only moves while you play) | ❌ | `simulateTimeSkip` still called every boot. BACKLOG W3.1 |
+| Kill the time-skip (war only moves while you play) | ✅ | **DONE 2026-07-21 (W3.1).** `simulateTimeSkip` is DEAD (deleted, not bypassed) — boot now calls `holdTheLine`: after >1h away it writes ONE honest line ("the fronts HELD. The war only moves while you fight", `simulated:false` because it's TRUE) and touches no front. Your last map is exactly the map. `tests/campaign.test.ts` rewritten to pin the new law (a month away changes NOTHING); live: 48h rewind + reboot → the held line, fronts intact |
 | Clones are the currency (per-front reserves, front lost at zero) | ❌ | clones are scenery only. BACKLOG W3.3 |
 | Pass escalation (P1 no gods → P2 enemy gods → P3 both) | ❌ | no pass concept in code. BACKLOG W3.4 |
 | **Science missions** | ❌📋 | **now fully designed** — `docs/SCIENCE-MISSIONS.md` (10 verbs × 10 sites × 50 effects). BACKLOG W3.5 |
