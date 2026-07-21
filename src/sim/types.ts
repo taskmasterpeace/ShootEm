@@ -915,6 +915,8 @@ export interface SimEvent {
     | 'choke_out'      // §14.2 outcome: choked to DOWNED — a silent capture, not a kill
     | 'grab_throw'     // §14.2 outcome: the locked body HEAVED along the attacker's facing
     | 'beam_jam'       // §BEAMS: a held emitter overheated — locked out for its jam window
+    | 'beam_clash'       // §BEAMS row 189: two streams crossed — the struggle node is born
+    | 'beam_clash_break' // §BEAMS row 189: the node reached a wielder — soldierId was SHEARED
     | 'sprinter_wake'  // §7.1: a dormant sprinter just activated — the terror spike
     | 'corpse_critical' // §6: a booked corpse entered its final reanimation window
     | 'contamination'  // §8: a corpse pile curdled into a mutation-field nest

@@ -247,6 +247,8 @@ export class Renderer {
   private heldBeams = new Map<number, THREE.Mesh>();
   /** PRISM sub-rays fanned from the node body — thin children of a held stream */
   private heldPrismSubs = new Map<number, THREE.Mesh[]>();
+  /** §BEAMS row 189: clash-node meshes keyed by the sim's clash key */
+  private clashNodes = new Map<string, THREE.Mesh>();
   private flagMeshes: THREE.Group[] = [];
   private cpRings: THREE.Mesh[] = [];
   private hillRing: THREE.Mesh | null = null;
@@ -2637,6 +2639,26 @@ export class Renderer {
           this.heldBeams.set(s.id, hm);
         }
         const fx = Math.cos(s.yaw), fz = Math.sin(s.yaw);
+        // §BEAMS row 189: a stream locked in a CLASH pours into the node —
+        // both streams draw to it and the style walk is suspended (the sim
+        // isn't damaging bodies either; the node eats both).
+        let clashPt: { x: number; z: number } | undefined;
+        for (const c of world.beamClashes.values()) {
+          if (c.aId === s.id || c.bId === s.id) { clashPt = c; break; }
+        }
+        if (clashPt) {
+          const clen = Math.max(0.6, Math.hypot(clashPt.x - s.pos.x, clashPt.z - s.pos.z) - 0.8);
+          const cax = s.pos.x + fx * 0.8, caz = s.pos.z + fz * 0.8;
+          hm.position.set((cax + clashPt.x) / 2, 1.25, (caz + clashPt.z) / 2);
+          hm.scale.set(1 + Math.sin(world.time * 40) * 0.25, 1, clen);
+          hm.lookAt(clashPt.x, 1.25, clashPt.z);
+          const subsC = this.heldPrismSubs.get(s.id);
+          if (subsC) {
+            for (const sm of subsC) { this.scene.remove(sm); (sm.material as THREE.Material).dispose(); sm.geometry.dispose(); }
+            this.heldPrismSubs.delete(s.id);
+          }
+          continue; // the clash pass below draws the node itself
+        }
         // the SAME style walk the sim pours with: a LANCE's stream drills
         // visibly through its pierce count, a TORRENT catches at its width —
         // the drawn endpoint must never lie about who's drinking.
@@ -2721,6 +2743,34 @@ export class Renderer {
             for (const sm of subs2) { this.scene.remove(sm); (sm.material as THREE.Material).dispose(); sm.geometry.dispose(); }
             this.heldPrismSubs.delete(sid);
           }
+        }
+      }
+      // §BEAMS row 189: the CLASH NODES — a white-hot knot where two streams
+      // meet, throbbing hard, hemorrhaging sparks. Lives exactly as long as
+      // the sim's clash does.
+      const liveClash = new Set<string>();
+      for (const [key, c] of world.beamClashes) {
+        liveClash.add(key);
+        let nm = this.clashNodes.get(key);
+        if (!nm) {
+          nm = new THREE.Mesh(
+            new THREE.SphereGeometry(0.55, 10, 8),
+            new THREE.MeshBasicMaterial({ color: 0xfff6d8, transparent: true, opacity: 0.95, depthWrite: false }),
+          );
+          this.scene.add(nm);
+          this.clashNodes.set(key, nm);
+        }
+        nm.position.set(c.x, 1.25, c.z);
+        const throb = 1 + Math.sin(world.time * 26) * 0.3;
+        nm.scale.setScalar(throb);
+        if (Math.random() < 0.7) {
+          this.particles.emit({ pos: { x: c.x, y: 1.25, z: c.z }, count: 3, color: 0xffe9a0, speed: 6, life: 0.25, spread: 1.2, up: 2, size: 0.32 });
+        }
+      }
+      for (const [key, nm] of this.clashNodes) {
+        if (!liveClash.has(key)) {
+          this.scene.remove(nm); (nm.material as THREE.Material).dispose(); nm.geometry.dispose();
+          this.clashNodes.delete(key);
         }
       }
     }

@@ -172,6 +172,12 @@ const GRAB_TETHER = 3.2;
 const GRAB_RECOVER = 0.5;
 const GRAB_SCRATCH: Soldier[] = [];
 const BEAM_SCRATCH: Soldier[] = []; // §BEAMS held-stream ray walk
+/** §BEAMS row 189 clash tuning: node walk rate per unit of power gap, the
+ *  surge bonus (sprint held, stamina-fed), and the off-axis knock. */
+const CLASH_RATE = 0.0042;   // node t/sec per point of power differential
+const CLASH_SURGE = 40;      // surge adds this much power
+const CLASH_SURGE_DRAIN = 20; // stamina/sec while surging
+const CLASH_KNOCK_JAM = 1.5; // the sheared loser's emitter is knocked out this long
 /** after breaking a hold you're briefly ungrabbable — no instant re-clinch. */
 const GRAB_IMMUNE = 1.0;
 /** §14.2 REAR TAKEDOWN: the finisher off a rear pin — an EXECUTION, so it blows
@@ -362,6 +368,12 @@ export class World {
   outbreakEnabled = false;
   /** exposed bodies on the reanimation clock (§6) — capped, oldest forgotten */
   corpses: { pos: Vec3; reanimatesAt: number; neutralized: boolean; name: string; classId: ClassId; warned?: boolean; burn?: number }[] = [];
+  /** §BEAMS row 189: this tick's registered held streams (cleared each step) */
+  private tickBeams: { s: Soldier; def: WeaponDef; wid: WeaponId; surge: boolean }[] = [];
+  /** live beam-vs-beam CLASHES keyed 'aId-bId' (a<b). t = the node's position
+   *  along the A→B axis (0 = at A, 1 = at B); it walks toward the WEAKER
+   *  wielder. Public: the renderer draws both streams INTO the node. */
+  beamClashes = new Map<string, { aId: number; bId: number; t: number; x: number; z: number }>();
   /** OUTBREAK PRESSURE (§3): the authoritative severity of the sector, fed by
    *  live infected + unburned corpses + exposed soldiers. Drives the level. */
   outbreakPressure = 0;
@@ -1731,6 +1743,10 @@ export class World {
       this.stepSoldierPhysics(s, dt);
       if (s.draggingId >= 0) this.stepDrag(s); // haul the body after we've moved
     }
+
+    // §BEAMS row 189: resolve this tick's held streams — clashes first, then
+    // the unpaired pours run their damage walk.
+    this.resolveHeldBeams(dt);
 
     // purge removed zombies (dogs are soldiers — they wait for their respawn, not the bin)
     for (const [id, s] of this.soldiers) {
@@ -3207,47 +3223,12 @@ export class World {
           this.emit({ type: 'beam_jam', pos: { ...s.pos }, soldierId: s.id });
         }
         s.beamingUntil = this.time + 0.1; // the renderer's stream window
-        // the ray walk: 1u steps at chest height, walls stop it. The STYLE
-        // decides what a body does to the stream — a SIPHON stops in the
-        // first (drinks one), a LANCE drills through up to `pierce` bodies
-        // (each drinks full dps·dt), a TORRENT catches wide (`catchR`).
-        const fx = Math.cos(s.yaw), fz = Math.sin(s.yaw);
-        const catchR = def.held.catchR ?? 1.1;
-        let drills = def.held.pierce ?? 0; // bodies the stream may pass THROUGH
-        const drank = new Set<number>();   // a body drinks once per tick, not per step
-        let node: Soldier | undefined;     // PRISM: the body the stream stopped in
-        walk: for (let d = 1; d <= def.range; d += 1) {
-          const px = s.pos.x + fx * d, pz = s.pos.z + fz * d;
-          if (blocksShot(this.map.grid, px, pz, 1.3)) break;
-          for (const e of this.soldierIndex.near((1 - s.team) as Team, px, pz, catchR, BEAM_SCRATCH)) {
-            if (!e.alive || e.id === s.id || drank.has(e.id)) continue;
-            drank.add(e.id);
-            this.damageSoldier(e, def.held.dps * dt, s.id, wid);
-            if (drills <= 0) { node = e; break walk; } // the stream stops in this body
-            drills--;                    // the LANCE drills on to the next
-          }
-        }
-        // PRISM: the stopped-in body is a NODE — the stream FANS to the
-        // nearest `count` enemies in radius with a clear line from the node,
-        // each drinking `frac` of the pour. Nearest-first with an id
-        // tiebreak, so sim and renderer always pick the same fan.
-        if (node && def.held.prism) {
-          const pr = def.held.prism;
-          const cands: { e: Soldier; d2: number }[] = [];
-          for (const e of this.soldierIndex.near((1 - s.team) as Team, node.pos.x, node.pos.z, pr.radius, BEAM_SCRATCH)) {
-            if (!e.alive || e.id === node.id || drank.has(e.id)) continue;
-            const dx = e.pos.x - node.pos.x, dz = e.pos.z - node.pos.z;
-            cands.push({ e, d2: dx * dx + dz * dz });
-          }
-          cands.sort((a, b) => a.d2 - b.d2 || a.e.id - b.e.id);
-          let fans = 0;
-          for (const c of cands) {
-            if (fans >= pr.count) break;
-            if (!losClear(this.map.grid, node.pos, c.e.pos, 1.3)) continue;
-            this.damageSoldier(c.e, def.held.dps * pr.frac * dt, s.id, wid);
-            fans++;
-          }
-        }
+        // §BEAMS row 189: the pour is REGISTERED, not resolved — the post-pass
+        // (resolveHeldBeams) first checks whether this stream CROSSES an
+        // enemy stream. Crossed streams CLASH (pouring into each other, not
+        // into bodies); only unpaired streams run the damage walk. SURGE =
+        // sprint held while pouring (stamina burns, the clash node shoves).
+        this.tickBeams.push({ s, def, wid, surge: !!cmd.sprint && s.energy > 1 });
       } else {
         // cooling: released, jammed, or interrupted — heat bleeds off
         s.beamHeat = Math.max(0, (s.beamHeat ?? 0) - dt / (def.held.sustain * 0.7));
@@ -5437,6 +5418,127 @@ export class World {
     s.struggle = undefined;
     this.emit({ type: 'revived', pos: { ...s.pos }, soldierId: s.id }); // "the ice gives"
     if (cost > 0) this.damageSoldier(s, cost, froze, 'bleedout');
+  }
+
+  /** §BEAMS row 189 — the post-pass. Crossed enemy streams CLASH: a node
+   *  spawns on the wielder axis and WALKS toward the weaker side (power =
+   *  dps + surge); reaching an end SHEARS through — the loser's emitter is
+   *  knocked out and staggered. Clashing streams pour into each other, so
+   *  neither damages bodies. Unpaired streams run the normal style walk. */
+  private resolveHeldBeams(dt: number) {
+    const beams = this.tickBeams;
+    this.tickBeams = [];
+    // wall-limited reach for every stream (bodies don't matter for crossing)
+    const reach = (b: (typeof beams)[number]) => {
+      const fx = Math.cos(b.s.yaw), fz = Math.sin(b.s.yaw);
+      let end = b.def.range;
+      for (let d = 1; d <= b.def.range; d += 1) {
+        if (blocksShot(this.map.grid, b.s.pos.x + fx * d, b.s.pos.z + fz * d, 1.3)) { end = d; break; }
+      }
+      return { fx, fz, end };
+    };
+    const rays = beams.map((b) => ({ b, ...reach(b) }));
+    // pair crossings: lowest-id pair wins; one clash per wielder
+    const inClash = new Set<number>();
+    const liveKeys = new Set<string>();
+    for (let i = 0; i < rays.length; i++) {
+      for (let j = i + 1; j < rays.length; j++) {
+        const A = rays[i], B = rays[j];
+        if (A.b.s.team === B.b.s.team) continue;
+        if (inClash.has(A.b.s.id) || inClash.has(B.b.s.id)) continue;
+        // 2D segment intersection of the two walked rays
+        const denom = A.fx * B.fz - A.fz * B.fx;
+        if (Math.abs(denom) < 1e-6) continue; // parallel streams pass
+        const dx = B.b.s.pos.x - A.b.s.pos.x, dz = B.b.s.pos.z - A.b.s.pos.z;
+        const tA = (dx * B.fz - dz * B.fx) / denom;
+        const tB = (dx * A.fz - dz * A.fx) / denom;
+        if (tA < 0.5 || tA > A.end || tB < 0.5 || tB > B.end) continue;
+        const [aRay, bRay] = A.b.s.id < B.b.s.id ? [A, B] : [B, A];
+        const key = `${aRay.b.s.id}-${bRay.b.s.id}`;
+        let clash = this.beamClashes.get(key);
+        if (!clash) {
+          clash = { aId: aRay.b.s.id, bId: bRay.b.s.id, t: 0.5, x: 0, z: 0 };
+          this.beamClashes.set(key, clash);
+          this.emit({ type: 'beam_clash', pos: { x: A.b.s.pos.x + A.fx * tA, y: 1.3, z: A.b.s.pos.z + A.fz * tA }, soldierId: aRay.b.s.id });
+        }
+        liveKeys.add(key);
+        inClash.add(A.b.s.id); inClash.add(B.b.s.id);
+        // POWER: dps + surge (stamina-fed). The node walks toward the weaker.
+        const pow = (r: typeof A) => {
+          let pwr = r.b.def.held!.dps;
+          if (r.b.surge) {
+            pwr += CLASH_SURGE;
+            r.b.s.energy = Math.max(0, r.b.s.energy - CLASH_SURGE_DRAIN * dt);
+          }
+          return pwr;
+        };
+        const pA = pow(aRay), pB = pow(bRay);
+        clash.t = Math.max(0, Math.min(1, clash.t + (pA - pB) * CLASH_RATE * dt));
+        // the node sits on the wielder axis at t
+        clash.x = aRay.b.s.pos.x + (bRay.b.s.pos.x - aRay.b.s.pos.x) * clash.t;
+        clash.z = aRay.b.s.pos.z + (bRay.b.s.pos.z - aRay.b.s.pos.z) * clash.t;
+        // SHEAR: the node reached a wielder — their beam is knocked off-axis
+        const loser = clash.t >= 0.92 ? bRay.b.s : clash.t <= 0.08 ? aRay.b.s : undefined;
+        if (loser) {
+          loser.beamJamUntil = this.time + CLASH_KNOCK_JAM;
+          loser.beamHeat = 1;
+          const winner = loser === aRay.b.s ? bRay.b.s : aRay.b.s;
+          const dl = Math.max(Math.hypot(loser.pos.x - winner.pos.x, loser.pos.z - winner.pos.z), 0.5);
+          loser.pushX += ((loser.pos.x - winner.pos.x) / dl) * 6;
+          loser.pushZ += ((loser.pos.z - winner.pos.z) / dl) * 6;
+          this.emit({ type: 'beam_clash_break', pos: { ...loser.pos }, soldierId: loser.id });
+          this.beamClashes.delete(key);
+          liveKeys.delete(key);
+        }
+      }
+    }
+    // clashes whose streams stopped crossing (released, jammed, died, moved
+    // apart) dissolve without penalty — stepping out is a legitimate play
+    for (const key of this.beamClashes.keys()) if (!liveKeys.has(key)) this.beamClashes.delete(key);
+    // unpaired streams pour into the world
+    for (const r of rays) {
+      if (inClash.has(r.b.s.id)) continue;
+      this.pourHeldBeam(r.b.s, r.b.def, r.b.wid, dt, r.fx, r.fz);
+    }
+  }
+
+  /** the style walk (SIPHON stops / LANCE drills / TORRENT floods / PRISM
+   *  fans) — the damage half of a held stream, run only when it isn't
+   *  locked in a clash. */
+  private pourHeldBeam(s: Soldier, def: WeaponDef, wid: WeaponId, dt: number, fx: number, fz: number) {
+    const held = def.held!;
+    const catchR = held.catchR ?? 1.1;
+    let drills = held.pierce ?? 0;
+    const drank = new Set<number>();
+    let node: Soldier | undefined;
+    walk: for (let d = 1; d <= def.range; d += 1) {
+      const px = s.pos.x + fx * d, pz = s.pos.z + fz * d;
+      if (blocksShot(this.map.grid, px, pz, 1.3)) break;
+      for (const e of this.soldierIndex.near((1 - s.team) as Team, px, pz, catchR, BEAM_SCRATCH)) {
+        if (!e.alive || e.id === s.id || drank.has(e.id)) continue;
+        drank.add(e.id);
+        this.damageSoldier(e, held.dps * dt, s.id, wid);
+        if (drills <= 0) { node = e; break walk; }
+        drills--;
+      }
+    }
+    if (node && held.prism) {
+      const pr = held.prism;
+      const cands: { e: Soldier; d2: number }[] = [];
+      for (const e of this.soldierIndex.near((1 - s.team) as Team, node.pos.x, node.pos.z, pr.radius, BEAM_SCRATCH)) {
+        if (!e.alive || e.id === node.id || drank.has(e.id)) continue;
+        const dx = e.pos.x - node.pos.x, dz = e.pos.z - node.pos.z;
+        cands.push({ e, d2: dx * dx + dz * dz });
+      }
+      cands.sort((a, b) => a.d2 - b.d2 || a.e.id - b.e.id);
+      let fans = 0;
+      for (const c of cands) {
+        if (fans >= pr.count) break;
+        if (!losClear(this.map.grid, node.pos, c.e.pos, 1.3)) continue;
+        this.damageSoldier(c.e, held.dps * pr.frac * dt, s.id, wid);
+        fans++;
+      }
+    }
   }
 
   damageSoldier(victim: Soldier, dmg: number, attackerId: number, weapon: WeaponId, viaLink = false, pierceArmor = false) {
