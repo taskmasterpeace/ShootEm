@@ -257,6 +257,9 @@ export class Renderer {
    *  and a persistent guard arc under the local player. */
   private grabPulses: { mesh: THREE.Mesh; born: number; x: number; z: number }[] = [];
   private guardArc: THREE.Mesh | null = null;
+  /** THE GROUND SPREAD CIRCLE (Robert): a ring at the aim point sized to the
+   *  live weapon spread — "where your bullets land," shotgun wide, pistol tight. */
+  private spreadRing: THREE.Mesh | null = null;
   private flagMeshes: THREE.Group[] = [];
   private cpRings: THREE.Mesh[] = [];
   private hillRing: THREE.Mesh | null = null;
@@ -1326,6 +1329,38 @@ export class Renderer {
       (arc.material as THREE.MeshBasicMaterial).opacity = 0.4 + Math.sin(t * 8) * 0.12; // a soft brace pulse
     } else if (this.guardArc) {
       this.guardArc.visible = false;
+    }
+    // THE GROUND SPREAD CIRCLE (Robert: "a circle on the ground… it auto-sizes
+    // to the spread radius, rotates around you — where your bullets land, keeps
+    // the system honest"). A thin ring at the aim point ahead of the player,
+    // its RADIUS read straight off the weapon's own `spread` at that distance —
+    // shotgun blooms wide, pistol stays a dot. Hidden aboard vehicles, for
+    // spreadless/beam arms, and for gods (their aim isn't a cone).
+    const wid = local?.weapons[local.weaponIdx];
+    const wdef = wid ? WEAPONS[wid] : undefined;
+    const showSpread = !!local && local.alive && local.vehicleId < 0 && !local.ascendant
+      && !!wdef && wdef.spread > 0.001 && wdef.range > 3 && wdef.tracer !== 'beam';
+    if (showSpread) {
+      if (!this.spreadRing) {
+        this.spreadRing = new THREE.Mesh(
+          new THREE.RingGeometry(0.9, 1.0, 40),
+          new THREE.MeshBasicMaterial({ color: 0xe8a33d, transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false }),
+        );
+        this.spreadRing.rotation.x = -Math.PI / 2;
+        this.scene.add(this.spreadRing);
+      }
+      const ring = this.spreadRing;
+      ring.visible = true;
+      // aim distance: a representative reach (60% of range, capped) — v1 fixed;
+      // the "choose how far" knob lands with the reticle-picker slice.
+      const dist = Math.min(wdef!.range * 0.6, 22);
+      const radius = Math.max(0.18, Math.tan(wdef!.spread) * dist); // spread cone → ground radius
+      const ax = local!.pos.x + Math.cos(local!.yaw) * dist;
+      const az = local!.pos.z + Math.sin(local!.yaw) * dist;
+      ring.position.set(ax, 0.05, az);
+      ring.scale.set(radius, radius, 1); // ring is in XY (pre X-flip) so x,y scale the disc
+    } else if (this.spreadRing) {
+      this.spreadRing.visible = false;
     }
   }
 
