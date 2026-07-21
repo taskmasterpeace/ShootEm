@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { WEAPONS } from '../src/sim/data';
-import type { PlayerCmd, SimEvent } from '../src/sim/types';
+import type { PlayerCmd, SimEvent, Soldier } from '../src/sim/types';
 import { MELEE_STAGGER, World } from '../src/sim/world';
 
 // ---------------------------------------------------------------------------
@@ -265,5 +265,87 @@ describe('the GUARD (§12) — beats STRIKE', () => {
     const clip0 = man.clip[man.weaponIdx];
     run(w, new Map([[man.id, cmd({ guard: true, fire: true, aimYaw: 0 })]]), 0.5);
     expect(man.clip[man.weaponIdx]).toBe(clip0); // the trigger did nothing
+  });
+});
+
+// ---------------------------------------------------------------------------
+// THE MELEE TRIANGLE (OUTBREAK-SPEC §12/§14), slice 3 — GRAPPLE. Z is a close
+// grab that BYPASSES a raised guard (grapple beats guard) and pins the target
+// in a hold they must STRUGGLE out of — unless they were mid-STRIKE, which
+// stuffs the grab (strike beats grapple). The whole triangle now closes.
+// ---------------------------------------------------------------------------
+describe('the GRAPPLE (§12/§14) — beats GUARD, loses to STRIKE', () => {
+  /** A team-0 grabber at the origin lunges Z at a team-1 body 1.6u ahead. */
+  function landGrab(prep?: (target: Soldier, w: World) => void) {
+    const w = new World({ seed: 40, mode: 'tdm' });
+    const grabber = w.addSoldier('Vice', 'infantry', 0, 'human');
+    grabber.pos = { x: 0, y: 0, z: 0 };
+    const target = dummy(w, 1.6, 0); // team-1 human in reach, dead ahead
+    prep?.(target, w);
+    w.step(DT, new Map([[grabber.id, cmd({ grapple: true, aimYaw: 0 })]]));
+    const events = w.takeEvents();
+    return { w, grabber, target, events };
+  }
+
+  it('a grab lands: the target is pinned and rooted', () => {
+    const { target, events } = landGrab();
+    expect(target.grabbedUntil ?? 0).toBeGreaterThan(0);
+    expect(events.some((e) => e.type === 'grabbed' && e.soldierId === target.id)).toBe(true);
+  });
+
+  it('GRAPPLE BEATS GUARD: the grab bypasses a raised brace and drops it', () => {
+    const w = new World({ seed: 41, mode: 'tdm' });
+    const grabber = w.addSoldier('Vice', 'infantry', 0, 'human');
+    grabber.pos = { x: 0, y: 0, z: 0 };
+    const target = dummy(w, 1.6, 0);
+    // the target braces, facing the grabber (π = attacker is to his west)
+    run(w, new Map([[target.id, cmd({ guard: true, aimYaw: Math.PI })]]), 0.3);
+    expect(target.guarding).toBe(true);
+    // now the grab, guard still held
+    w.step(DT, new Map([
+      [grabber.id, cmd({ grapple: true, aimYaw: 0 })],
+      [target.id, cmd({ guard: true, aimYaw: Math.PI })],
+    ]));
+    expect(target.grabbedUntil ?? 0).toBeGreaterThan(0); // the block did not stop it
+    expect(target.guarding).toBe(false);                 // and the brace was torn down
+  });
+
+  it('STRIKE BEATS GRAPPLE: a target mid-swing stuffs the grab', () => {
+    const { target, grabber, events } = landGrab((t, w) => {
+      t.meleeStrikeAt = w.time + 0.2; // caught him already swinging
+      t.meleeWeapon = 'zombie_claw';
+    });
+    expect(target.grabbedUntil).toBeUndefined();          // no hold landed
+    expect(events.some((e) => e.type === 'grab_break')).toBe(true);
+    expect(grabber.pushX).toBeLessThan(0);                // shoved back off the blade
+  });
+
+  it('STRUGGLE breaks the hold early — and rebounds on the grabber', () => {
+    const { w, grabber, target } = landGrab();
+    const lapseAt = target.grabbedUntil!;
+    let freedAt = -1;
+    for (let i = 0; i < Math.round(1.5 * 60) && target.grabbedUntil !== undefined; i++) {
+      w.step(DT, new Map([[target.id, cmd({ moveX: 1 })]])); // mash out
+      w.takeEvents();
+      if (target.grabbedUntil === undefined) freedAt = w.time;
+    }
+    expect(target.grabbedUntil).toBeUndefined();
+    expect(freedAt).toBeGreaterThan(0);
+    expect(freedAt).toBeLessThan(lapseAt);   // broke free BEFORE the timer would lapse
+    expect(grabber.pushX).toBeLessThan(0);   // the reversal shoved the grabber back
+  });
+
+  it('an unresisted hold simply lapses on its timer', () => {
+    const { w, target } = landGrab();
+    run(w, new Map(), 1.9); // do nothing — wait it out (> GRAB_HOLD)
+    expect(target.grabbedUntil).toBeUndefined();
+    expect(target.alive).toBe(true); // a pin is not a kill
+  });
+
+  it('a pinned body is NOT damage-shielded — the hold sets up a punish', () => {
+    const { w, target } = landGrab();
+    const hp0 = target.hp;
+    w.damageSoldier(target, 20, -1, 'ar606'); // unlike the ice, a grab lets it land
+    expect(target.hp).toBeLessThan(hp0);
   });
 });

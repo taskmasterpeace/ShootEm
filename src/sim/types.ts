@@ -426,6 +426,14 @@ export interface Soldier {
    *  staggers and shoves the attacker (GUARD beats STRIKE). Slows you, drains
    *  stamina, and lowers your gun (no fire, no strike of your own while up). */
   guarding?: boolean;
+  /** THE GRAPPLE (OUTBREAK-SPEC §12/§14): world time this body is PINNED until
+   *  by a grab. A grab bypasses (and drops) a GUARD — GRAPPLE beats GUARD. The
+   *  held body is rooted and can only STRUGGLE (mash move/fire) to break early;
+   *  it is NOT damage-shielded — a pinned enemy can be punished. Reuses
+   *  `struggle` for the break meter (a body is never both encased and grabbed). */
+  grabbedUntil?: number;
+  /** who threw the grab (credit + the hold's tether anchor). */
+  grabbedBy?: number;
   /** THE SQUAD (§15, finish-list #14): the fireteam this soldier deploys
    *  with — 2-4 bodies who share a spawn and read each other. Offline your
    *  friendly bots ARE your squad. Rides the wire free. */
@@ -766,6 +774,8 @@ export interface SimEvent {
     | 'revived'        // someone got them back on their feet
     | 'melee_windup'   // a melee swing began — the client telegraphs the strike
     | 'melee_block'    // §12: a raised GUARD caught a STRIKE — sparks, a parry ring
+    | 'grabbed'        // §14: a grapple landed — the target is pinned in a hold
+    | 'grab_break'     // §14: a pinned body struggled or slipped free of the hold
     | 'reanimated'     // THE OUTBREAK: an exposed corpse got back up (§6)
     | 'whistle'        // paintball referee: a round just started or ended
     | 'encased'        // a soldier was frozen alive in the ice block (§21.6)
@@ -913,6 +923,9 @@ export interface PlayerCmd {
   /** THE GUARD (OUTBREAK-SPEC §12): HELD brace that blocks & parries frontal
    *  melee STRIKEs. V on the keyboard. */
   guard?: boolean;
+  /** THE GRAPPLE (OUTBREAK-SPEC §12/§14): one-frame tap — a close-range grab
+   *  that bypasses a GUARD and pins the target. Z on the keyboard. */
+  grapple?: boolean;
   /** THE OUTBREAK (OUTBREAK-SPEC §11): one-frame tap to cycle ammunition TYPE
    *  ball → armor-piercing → incendiary. B on the keyboard. */
   cycleAmmo?: boolean;

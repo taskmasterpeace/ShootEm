@@ -368,10 +368,18 @@ export class Hud {
     const db = $('down-banner');
     if (s.alive && s.downed) {
       db.classList.remove('hidden');
+      db.querySelector('b')!.textContent = 'DOWN';
       const left = Math.max(0, (s.downedUntil ?? 0) - world.time);
       $('down-timer').textContent = (s.reviveProgress ?? 0) > 0
         ? `medic on you — ${Math.round((s.reviveProgress ?? 0) * 100)}% lifted`
         : `bleeding out ${left.toFixed(0)}s · crawl — a medic can lift you`;
+    } else if (s.alive && s.grabbedUntil !== undefined) {
+      // GRABBED (OUTBREAK-SPEC §14): pinned. The banner turns into the struggle
+      // prompt — mash the sticks and watch the break meter climb.
+      db.classList.remove('hidden');
+      db.querySelector('b')!.textContent = 'GRABBED';
+      const pct = Math.round(Math.min(1, s.struggle ?? 0) * 100);
+      $('down-timer').textContent = ` — mash MOVE to break free · ${pct}%`;
     } else db.classList.add('hidden');
 
     // respawn overlay

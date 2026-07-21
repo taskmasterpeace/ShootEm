@@ -101,6 +101,19 @@ const GUARD_SOAK = 0.12;
 const GUARD_PARRY_STAGGER = 0.5;
 /** the frontal cone a raised guard covers (150° total) — flanks slip past. */
 const GUARD_ARC = (5 * Math.PI) / 6;
+/** GRAPPLE (OUTBREAK-SPEC §12/§14): a grab reaches this far to lock on. */
+const GRAB_RANGE = 2.0;
+/** the frontal cone a grab can seize through (120° — you grab what you face). */
+const GRAB_CONE = (2 * Math.PI) / 3;
+/** seconds a body stays PINNED before the hold naturally lapses. */
+const GRAB_HOLD = 1.6;
+/** mashing move/fire breaks the pin in this long — faster than waiting it out. */
+const GRAB_STRUGGLE_SECS = 1.2;
+/** if the grabber strays past this from the pinned body, the hold slips. */
+const GRAB_TETHER = 3.2;
+/** a whiffed grab (stuffed by a STRIKE, or grabbing air) occupies the clock. */
+const GRAB_RECOVER = 0.5;
+const GRAB_SCRATCH: Soldier[] = [];
 // M1 movement verbs (Robert: "dashing forward, rolling to the sides… run…
 // but we should have a stamina"): all paid from the ONE energy tank.
 const SPRINT_MULT = 1.35;
@@ -1143,6 +1156,7 @@ export class World {
     s.manpads = this.hasEquip(s, 'samLauncher') ? MANPADS_ROUNDS : 0;
     s.medikitReady = true;
     s.meleeStrikeAt = 0; s.meleeWeapon = ''; // no swing survives a respawn
+    s.guarding = false; s.grabbedUntil = undefined; s.grabbedBy = undefined; // no hold survives it either
     // mobile spawn: a crewed APC or transport with a LIVE comms system
     const mobile = [...this.vehicles.values()].find(
       (v) => v.alive && v.team === s.team && VEHICLES[v.kind].mobileSpawn &&
@@ -1405,6 +1419,34 @@ export class World {
         }
         if (this.time >= s.encasedUntil) this.freeFromIce(s, 0); // the ice melts, free at no cost
         continue; // an ice block does nothing else
+      }
+      // GRABBED (OUTBREAK-SPEC §14): pinned in a hold. Rooted — no move, no
+      // brain, no trigger — but UNLIKE the ice you can still be hit (a pinned
+      // enemy is there to be punished). STRUGGLE (any move/fire input) breaks
+      // it early; otherwise the hold lapses on its timer. The grip also slips
+      // if the grabber dies or is dragged out of tether range.
+      if (s.grabbedUntil !== undefined) {
+        const grabber = s.grabbedBy !== undefined ? this.soldiers.get(s.grabbedBy) : undefined;
+        const gone = !grabber || !grabber.alive
+          || Math.hypot(grabber.pos.x - s.pos.x, grabber.pos.z - s.pos.z) > GRAB_TETHER;
+        const cmd = cmds.get(s.id);
+        const struggling = !!cmd && (cmd.moveX !== 0 || cmd.moveZ !== 0 || cmd.fire || cmd.jump);
+        s.vel = { x: 0, y: 0, z: 0 };
+        if (struggling) s.struggle = (s.struggle ?? 0) + dt / GRAB_STRUGGLE_SECS;
+        const broke = (s.struggle ?? 0) >= 1;
+        if (broke || gone || this.time >= s.grabbedUntil) {
+          // a body that FOUGHT free (vs one the timer released) rebounds on the
+          // grabber — a reversal-lite: it jars his grip and shoves him back.
+          if (broke && grabber && grabber.alive) {
+            grabber.nextFireAt = Math.max(grabber.nextFireAt, this.time + MELEE_STAGGER);
+            const dl = Math.max(Math.hypot(grabber.pos.x - s.pos.x, grabber.pos.z - s.pos.z), 0.5);
+            grabber.pushX += ((grabber.pos.x - s.pos.x) / dl) * 4;
+            grabber.pushZ += ((grabber.pos.z - s.pos.z) / dl) * 4;
+          }
+          s.grabbedUntil = undefined; s.grabbedBy = undefined; s.struggle = undefined;
+          this.emit({ type: 'grab_break', pos: { ...s.pos }, soldierId: s.id });
+        }
+        continue; // held (or just released): nothing else acts this tick
       }
       s.draggingId = -1; // the drag grip is re-asserted every tick by the E-hold
       // Reactor's overcharge burns out — hand back the borrowed multiplier
@@ -2035,6 +2077,47 @@ export class World {
       // guarded or whiffed STRIKE reads the same whoever threw it. Shares the
       // fire clock: you can't knife and shoot in the same beat.
       this.startMelee(s, WEAPONS.knife);
+    }
+
+    // THE GRAPPLE (OUTBREAK-SPEC §12/§14): a close grab. It bypasses a raised
+    // GUARD (grab beats block) and pins the target — but a target already
+    // swinging a STRIKE stuffs it (STRIKE beats GRAPPLE). Shares the fire clock.
+    if (cmd.grapple && !s.downed && s.vehicleId < 0 && s.encasedUntil === undefined
+        && s.grabbedUntil === undefined && this.time >= s.nextFireAt && !s.guarding) {
+      s.nextFireAt = this.time + GRAB_RECOVER; // the lunge for the grab occupies you
+      let target: Soldier | undefined;
+      let bestD = GRAB_RANGE + 0.3;
+      for (const e of this.soldierIndex.near((1 - s.team) as Team, s.pos.x, s.pos.z, GRAB_RANGE + 0.3, GRAB_SCRATCH)) {
+        if (!e.alive || e.grabbedUntil !== undefined || e.encasedUntil !== undefined) continue;
+        const dx = e.pos.x - s.pos.x, dz = e.pos.z - s.pos.z;
+        const d = Math.hypot(dx, dz);
+        if (d > bestD) continue;
+        const raw = Math.atan2(dz, dx) - s.yaw;
+        const ang = Math.atan2(Math.sin(raw), Math.cos(raw));
+        if (Math.abs(ang) > GRAB_CONE / 2 && d > 0.5) continue;
+        target = e; bestD = d;
+      }
+      if (target) {
+        if (target.meleeStrikeAt > 0) {
+          // STRIKE BEATS GRAPPLE: he's mid-swing — the grab is stuffed and the
+          // grabber eats the stagger for over-committing into a live blade.
+          s.nextFireAt = Math.max(s.nextFireAt, this.time + GRAB_HOLD * 0.5);
+          const dl = Math.max(bestD, 0.5);
+          s.pushX += ((s.pos.x - target.pos.x) / dl) * 4;
+          s.pushZ += ((s.pos.z - target.pos.z) / dl) * 4;
+          this.emit({ type: 'grab_break', pos: { ...target.pos }, soldierId: target.id });
+        } else {
+          // the hold lands. GRAPPLE BEATS GUARD: the brace is bypassed AND
+          // dropped — a pinned body can't block what comes next.
+          target.grabbedUntil = this.time + GRAB_HOLD;
+          target.grabbedBy = s.id;
+          target.struggle = 0;
+          target.guarding = false;
+          target.meleeStrikeAt = 0; target.meleeWeapon = ''; // any windup of his dies in the clinch
+          target.vel = { x: 0, y: 0, z: 0 };
+          this.emit({ type: 'grabbed', pos: { ...target.pos }, soldierId: target.id });
+        }
+      }
     }
 
     // §4.3: downed soldiers crawl — quarter speed, no trigger, no toys, no doors.
