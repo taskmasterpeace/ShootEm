@@ -501,13 +501,13 @@ git commit -m "feat: launch science missions from the war"
 **Interfaces:**
 - Produces no new runtime API; validates and documents the shipped contract.
 
-- [ ] **Step 1: Run the focused complete science suite**
+- [x] **Step 1: Run the focused complete science suite**
 
 Run: `npx vitest run tests/science-generator.test.ts tests/science-map.test.ts tests/science-runtime.test.ts tests/science-campaign.test.ts tests/science-presentation.test.ts tests/science-flow.test.ts`
 
 Expected: all science tests PASS with zero failures.
 
-- [ ] **Step 2: Verify Building Lab and live game**
+- [x] **Step 2: Verify Building Lab and live game**
 
 Run the Vite app, inspect at least clone vault, officer villa, and quarantine zone in Building Lab or a science selector, then drive `window.__ww` through:
 
@@ -519,11 +519,11 @@ Run the Vite app, inspect at least clone vault, officer villa, and quarantine zo
 
 Record exact observations and any fixes in the shipping log. Any discovered bug first receives a failing regression test.
 
-- [ ] **Step 3: Update the locked science document with shipped behavior**
+- [x] **Step 3: Update the locked science document with shipped behavior**
 
 Mark the production slice shipped, list controls and campaign window rules, describe the configurable failure policy, and distinguish implemented rewards from future catalog expansion without vague placeholders.
 
-- [ ] **Step 4: Run all four fresh repository gates**
+- [x] **Step 4: Run all four fresh repository gates**
 
 ```powershell
 npx tsc --noEmit
@@ -534,7 +534,7 @@ npm run build
 
 Expected: all commands exit 0; Vitest reports zero failing files/tests; lint reports zero errors; Vite emits the bundle.
 
-- [ ] **Step 5: Review requirements and repository diff**
+- [x] **Step 5: Review requirements and repository diff**
 
 Run:
 
@@ -546,7 +546,7 @@ git log --oneline -10
 
 Confirm all ten verbs/sites, clone loop, maps, doors/floors, pedestrians, scripts, campaign, rewards, and Courier are represented by code and tests. Confirm no unrelated main-worktree files are present.
 
-- [ ] **Step 6: Commit final verification/docs slice**
+- [x] **Step 6: Commit final verification/docs slice**
 
 ```powershell
 git add docs/SCIENCE-MISSIONS.md docs/SHIPPING-LOG.md docs/superpowers/plans/2026-07-21-science-missions.md src/harness/harness.ts

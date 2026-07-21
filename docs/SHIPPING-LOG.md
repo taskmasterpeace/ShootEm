@@ -4,6 +4,65 @@ The public record of what shipped, written for players and backers — not engin
 
 ---
 
+## v0.10.0 — 2026-07-21 · "Science Has a Body Count"
+
+### New
+
+- **Science Missions are playable.** Ten verbs combine with ten compact sites,
+  six complications, 1–8 committed clones, ordinary War World guns/classes,
+  manual doors, guards, rescue scientists, moving transports, LSW security,
+  quarantine zombies, objective scripting, extraction, and an immediate field
+  printer reprint loop.
+- **The rooms fit the fight.** Science stencils use thin oriented walls and
+  door-like slabs instead of battle-map masonry blocks. The officer's villa is
+  always a real two-storey job with a required upstairs objective and a
+  downstairs extraction.
+- **Science reaches the war.** Each front grants two sortie windows per pass.
+  Clone loss, Ghost bonuses, reward banks, control/clones, Morning Dispatch,
+  and Front Courier issues share the existing campaign save and are applied
+  once per operation ID. Free Play remains consequence-free.
+- **The Scar shows the books.** The selected front shows its operation,
+  committed prints, payment, windows, enemy-print pressure, and insurance; the
+  theater science bank exposes every persisted strategic reward counter.
+
+### Verification record
+
+- Browser playtest launched `SM-5EPM · STEAL · OFFICER VILLA` with four live
+  clone pips and the opening-materiel payment, `SM-62QM · DENY · QUARANTINE
+  ZONE` with three denial points and the third-party substrate, and `SM-0Q3D ·
+  HOLD · CLONE VAULT` under the live storm system. All three rendered the field
+  printer, compact perimeter, thin building shell, objective rail, minimap, and
+  mission card with zero console warnings.
+- The focused production suite passes **80 checks across six files**. It drives
+  every verb from primary objective through extraction; proves villa floor
+  separation; alarm and reinforcement transitions; Rescue captives; moving
+  convoy failure; clone-pip decrement; 0.25-second printer reprint; final-clone
+  failure; two-window refresh; permanent and retry-next-window clone policies;
+  idempotent campaign/Courier closeout; all twelve reward adapters; and escaped
+  newspaper/HUD copy.
+- Fresh release gates pass: TypeScript emits no diagnostics; the full suite is
+  **138 files / 1,625 tests** green; ESLint reports zero errors; and Vite emits
+  the production bundle (including the dedicated science chunk).
+
+### Fixed during production playtest
+
+- Compact sites initially buried the unused 100×100 world under roughly 9,400
+  wall tiles. They now use one bounded perimeter and keep total solid masonry
+  below 300 tiles, eliminating the static-geometry spike without opening an
+  escape route.
+- Villa objective sockets originally lived only on the ground floor, and an E
+  interaction directly beneath an upper marker could count. The required
+  socket now lives at `y=4`, actors carry the correct floor, ladder reachability
+  is verified, and cross-floor interactions are rejected.
+- Decorative scientist actors on unrelated verbs spawned as friendlies, so
+  security opened fire on them at mission start. Captives now spawn only for
+  Rescue, where their survival is an actual fail condition.
+- Alarm-net now starts hot and schedules its response team. The no-kill clause
+  now permits the named required target while correctly failing on collateral
+  security.
+
+---
+
 ## v0.9.0 — 2026-07-21 · "The Air War to The Outbreak"
 
 **Momentum: 43 commits in 37 hours.** 547 files touched, ~8,000 lines added, the automated battle-test suite grew to **1,355 passing checks**, and the download shrank **73%** — all between the afternoon of July 20 and the small hours of July 21.

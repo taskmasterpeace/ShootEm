@@ -1,5 +1,93 @@
-# SCIENCE MISSIONS — the design
-### Locked 2026-07-20. The Hotline-Miami-tight side ops that make the science layer load-bearing. Tracked as BACKLOG W3.5. Not built yet — this is the spec.
+# SCIENCE MISSIONS — shipped v1 and catalog direction
+### Locked 2026-07-20 · production slice shipped 2026-07-21 on `codex/science-missions`.
+
+## SHIPPED PRODUCTION SLICE
+
+Science Missions is now a native offline War World mode. Free Play exposes a
+**Science Mission** card; every selected campaign front exposes a deterministic
+**Science Window** briefing. The mode reuses the live weapon catalog, movement,
+perception, bots, vehicles, LSWs, scientists, zombies, doors, second storeys,
+HUD, campaign save, and Front Courier.
+
+### How to play
+
+- Pick **Science Mission** under Deploy, set **Mission Clone Stock** from 1–8,
+  choose class/loadout/environment, and deploy; or select a front on **Map** and
+  use **Run Science Mission**.
+- Movement, aim, fire, reload, crouch, equipment, and melee are the normal War
+  World controls. Press **E** to open mission doors, secure terminals/stores,
+  arm denial points, attach captives, and use the villa stair/ladder well.
+- Complete the primary, then return to the field printer/transport beacon. The
+  mission card and top objective rail show objective progress, alarm/ghost
+  state, payment, and live clone pips.
+- Death skips the ordinary downed wait. One committed print burns and the next
+  body appears at the field printer after 0.25 seconds. Spending the final print
+  fails the operation immediately. A zero-death win is a **Ghost Run** and
+  recovers ten clean sleeves for the front.
+
+### Exact v1 mission rules
+
+| Verb | Shipped objective |
+|---|---|
+| Assassinate | Eliminate one named program director. |
+| Steal | Secure one program core interaction, then extract. Carry encumbrance is catalog expansion, not v1. |
+| Raid | Secure three clone-store markers. |
+| Deny | Arm three denial markers with E, then extract. |
+| Rescue | Attach and extract two living named scientist captives; losing either fails the job. |
+| Infiltrate | Reach and secure the terminal; detection raises the alarm and forfeits Ghost status. |
+| Ambush | Destroy the moving transport and its three target guards before the convoy exits. |
+| Hold | Occupy the uplink for twelve seconds, then extract. |
+| Hunt | Eliminate one named loose asset. |
+| Decapitate | Eliminate three named program officers. |
+
+All ten site profiles ship. They are compact bounded pockets with thin oriented
+walls, door-like manual doors, objective/guard sockets, and one safe printer.
+The **officer villa always has two storeys**: at least one required objective is
+upstairs, the stair well is traversable, and extraction remains downstairs.
+Quarantine jobs reuse the zombie substrate; Rescue is the only verb that deals
+captives into the firefight, preventing unrelated guards from massacring
+decorative scientists at mission start.
+
+The six complications are executable rules: alarm-net starts hot and schedules
+a response team; god-on-guard requests the existing Plaguebearer; storm applies
+the live weather system; third-party and quarantine add zombies; no-kill fails
+on collateral guards but permits required targets; one-life clamps the squad to
+one print.
+
+### Campaign windows, loss policy, and aftermath
+
+- Every front gets **two science windows per pass**. Launching spends a window;
+  quitting or failing does not refund it. Advancing the front to a new pass
+  refreshes the two windows. Free Play never mutates campaign state.
+- `DEFAULT_SCIENCE_CLONE_LOSS_POLICY` is `spent-permanent`: deaths on successful
+  or failed campaign runs permanently reduce that front's reserve. The campaign
+  adapter also supports `retry-next-window`, which restores a failed squad's
+  clone allocation while still spending the sortie window. The runtime and
+  mission result format do not change between policies.
+- Result application is idempotent by operation ID. A completed operation
+  writes one Morning Dispatch transaction and one normal `PressIssue` with the
+  operation, clone bill, Ghost/alarm result, and reward.
+
+### Shipped rewards versus the larger catalog
+
+The v1 generator draws from twelve typed, persisted reward adapters. Two act
+immediately: **Front Reinforcement** adds 40 front clones and **Front
+Breakthrough** moves control +6. A Ghost Run independently returns ten front
+clones. The other ten adapters are explicit strategic banks shown on the Scar: theater clones,
+enemy print pressure, clone insurance, morale, opening materiel, requisition
+discounts, reinforcement cuts, weather picks, roster intel, and LSW assignment
+rights. Those banks persist and are reported; ordinary-battle spend/selection
+UI for those banked rights is the next campaign-consumer slice and is not
+silently simulated in v1.
+
+The fifty-effect lists below remain catalog direction. Weapon-family tech,
+captured gods, retrofit selection, carried-core encumbrance, greedy variable
+raid loot, generated briefing art, and friends-only co-op are not claimed as
+part of this production slice.
+
+---
+
+## LOCKED CATALOG DIRECTION
 
 > **What a mission IS.** A small map, a hard job, and a squad of clones you are *spending*. You allocate **1–8 clones** to a run (the difficulty dial). Die and you restart instantly — no menu, no loading, Hotline-tight — but **each death burns one clone from that squad.** Run the squad dry and the mission fails; those clones are gone from the war reserve for good. A great player spends one clone where a sloppy player spends six, and a **ghost run (zero deaths) pays a bonus.** That single rule gives free-feeling retries, real stakes, and a score chase — all off the clone economy (W3.3), which is why the two are built together.
 
