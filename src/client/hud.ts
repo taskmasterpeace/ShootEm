@@ -1,4 +1,4 @@
-import { AMMO_INFO, CLASSES, EQUIPMENT, MODE_INFO, TEAM_NAMES, VEHICLES, WEAPONS } from '../sim/data';
+import { AMMO_INFO, CLASSES, EQUIPMENT, MODE_INFO, TEAM_NAMES, VEHICLES, WEAPONS, weaponProfile } from '../sim/data';
 import { LSWS, VO_LINES } from '../sim/lsw';
 import { audio, earshotFor } from './audio';
 import { icon } from './icons';
@@ -463,19 +463,20 @@ export class Hud {
           for (let i = 0; i < kids.length; i++) kids[i].classList.toggle('spent', i >= litPips);
           pips.classList.toggle('low', lowMag);
         }
-        // OUTBREAK-SPEC §11.2: the round's tactical readout — its role plus
+        // OUTBREAK-SPEC §11.2: the WEAPON'S tactical fingerprint — its role plus
         // PENetration / NoiSE / FIRe-hazard / CORpse-denial ratings as 3-notch
         // mono bars, right under the mag where the eye already reads it (§16.4
-        // "keep it near the action"). Ballistic weapons only; the tag hides for
-        // energy/beam arms that ignore the ammo rider.
+        // "keep it near the action"). Now WEAPON-derived (a silenced SMG and a
+        // tank cannon no longer read identical) and shown for EVERY offensive
+        // arm — the flamethrower's FIR▮▮▮ and the laser's NSE▯▯▯ are the point.
+        // Melee and the medi-beam have no report to read, so they stay quiet.
         const infoEl = $('ammo-info');
-        if (ballistic) {
-          const at = s.ammoType ?? 'ball';
-          const ai = AMMO_INFO[at];
+        if (def.tracer !== 'none' && !def.heals) {
+          const prof = weaponProfile(def, ballistic ? (s.ammoType ?? 'ball') : undefined);
           const bar = (n: number) => '▮'.repeat(n) + '▯'.repeat(3 - n);
           // §16.3: AP wears the pointed round, INC wears the flame
-          const ico = at === 'ap' ? icon('ap') : at === 'inc' ? icon('incendiary') : '';
-          infoEl.innerHTML = `${ico}${ai.role} · PEN${bar(ai.pen)} NSE${bar(ai.noise)} FIR${bar(ai.fire)} COR${bar(ai.corpse)}`;
+          const ico = ballistic && s.ammoType === 'ap' ? icon('ap') : ballistic && s.ammoType === 'inc' ? icon('incendiary') : '';
+          infoEl.innerHTML = `${ico}${prof.role} · PEN${bar(prof.pen)} NSE${bar(prof.noise)} FIR${bar(prof.fire)} COR${bar(prof.corpse)}`;
           infoEl.classList.remove('hidden');
         } else {
           infoEl.classList.add('hidden');
