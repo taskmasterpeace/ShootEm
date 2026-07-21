@@ -164,7 +164,7 @@ into `docs/UI-BIBLE.md` / `docs/META-LAYER.md`.
 2. **Vehicle-TYPE kills shown** — `hud.ts:1139`: per-weapon `hulls[vehKind]` tally (which HULL TYPES this gun killed) + the AAR vehicle-buster award (`hud.ts:1054`).
 3. **Weapons in a UI room** — `armory.html` (the visual armory) + the in-match weapon-cam plate (`wcam-plate`, now bible-capped).
 4. **Re-select loadout after death** — the respawn re-select rack (`hud.ts:656` `respawn-reselect-hint`, quick modes).
-5. **Way more end-of-match detail** — the rich AAR: MVP/Top Gun/Longest Shot/vehicle-buster/medic awards + ledgers (`hud.ts:1043-1054`).
+5. **Way more end-of-match detail** — the rich AAR: MVP/Top Gun/Longest Shot/vehicle-buster/medic awards + ledgers (`hud.ts:1043-1054`). **ENRICHED 2026-07-21** (Robert: "way more details, bro"): the scoreboard now carries **Long** (longest kill) + **Wreck** (vehicles destroyed) per player, and a new **YOUR ARSENAL — this deployment** panel (`renderArsenal`) banks the gun ledger into an after-action table — every weapon you scored with, its kill count, the LONGEST shot it landed, and the vehicle TYPES it wrecked (e.g. `RG-2 Railgun · 3 · 118u`, `GL-40 · 2 · ARES TANK×2, BASTION APC`).
 6. **Iron eaters NEVER with zombies + endless selector** — the horde roster selector (`index.html:193-196`: Zombies / Iron Eaters / Both) with the never-mixed spawn law.
 
 ### THE BLOCKER DECLARATION (the goal's terminal state)

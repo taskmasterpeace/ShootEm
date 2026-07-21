@@ -790,6 +790,12 @@ html, body {
 .trophy .t-name.t1 { color: var(--team1); }
 .trophy .t-detail { color: var(--muted); font-size: 0.7rem; font-variant-numeric: tabular-nums; }
 
+/* YOUR ARSENAL — the per-weapon after-action (inherits #scoreboard table look) */
+.arsenal { margin-top: 1.1rem; }
+.arsenal h3 { font-family: var(--font-display); font-weight: 400; font-size: 0.82rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); margin-bottom: 0.4rem; }
+.arsenal td:first-child { font-weight: 600; }
+.arsenal td { color: var(--muted); }
+
 /* ============ REPLAY / KILLCAM ============ */
 #replay-banner {
   position: absolute; top: 4.4rem; left: 50%; transform: translateX(-50%);

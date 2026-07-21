@@ -1060,16 +1060,37 @@ export class Hud {
     ).join('')}</div>`;
   }
 
+  /** "YOUR ARSENAL — this deployment" (Robert: "way more details… we captured
+   *  rich data, show some rich stuff"): the local player's per-weapon record
+   *  from the gun ledger — kills, the LONGEST shot each gun landed, and the
+   *  vehicle TYPES it wrecked. The play-time weapon-cam plate, banked and
+   *  totalled for the after-action. */
+  private renderArsenal(): string {
+    const guns = [...this.gunLedger.entries()]
+      .filter(([, g]) => g.kills > 0 || Object.keys(g.hulls).length > 0)
+      .sort((a, b) => b[1].kills - a[1].kills || b[1].longest - a[1].longest);
+    if (!guns.length) return '';
+    const rows = guns.map(([id, g]) => {
+      const name = WEAPONS[id as keyof typeof WEAPONS]?.name ?? id;
+      const hulls = Object.entries(g.hulls).filter(([, n]) => (n ?? 0) > 0)
+        .map(([k, n]) => `${(VEHICLES[k as keyof typeof VEHICLES]?.name ?? k).toUpperCase()}${(n ?? 0) > 1 ? `×${n}` : ''}`).join(', ');
+      return `<tr><td>${name}</td><td>${g.kills || '—'}</td><td>${g.longest > 0 ? g.longest.toFixed(0) + 'u' : '—'}</td><td>${hulls || '—'}</td></tr>`;
+    }).join('');
+    return `<div class="arsenal"><h3>Your Arsenal — this deployment</h3><table>` +
+      `<tr><th>Weapon</th><th>Kills</th><th>Longest</th><th>Hulls wrecked</th></tr>${rows}</table></div>`;
+  }
+
   private renderScoreboard(world: World, localId: number) {
     const sb = $('scoreboard');
     const m = world.mode;
     const soldiers = world.humansAndBots().sort((a, b) => b.score - a.score || b.kills - a.kills);
     const row = (s: Soldier) =>
-      `<tr class="${s.id === localId ? 'me' : ''}"><td>${s.name}</td><td>${CLASSES[s.classId].name}</td><td>${s.kills}</td><td>${s.deaths}</td><td>${Math.floor(s.score)}</td></tr>`;
+      `<tr class="${s.id === localId ? 'me' : ''}"><td>${s.name}</td><td>${CLASSES[s.classId].name}</td><td>${s.kills}</td><td>${s.deaths}</td>` +
+      `<td>${s.longestKill > 0 ? s.longestKill.toFixed(0) + 'u' : '—'}</td><td>${s.vehicleKills || '—'}</td><td>${Math.floor(s.score)}</td></tr>`;
     let html = `<h2>${MODE_INFO[m.id].name}${m.over ? ` — ${m.winner === -1 ? 'Draw' : TEAM_NAMES[m.winner as Team] + ' wins'}` : ''}</h2>`;
     if (m.over) html += this.renderTrophies(world); // the honors roll
     html += `<table>
-      <tr><th>Callsign</th><th>Class</th><th>K</th><th>D</th><th>Score</th></tr>`;
+      <tr><th>Callsign</th><th>Class</th><th>K</th><th>D</th><th title="Longest kill">Long</th><th title="Vehicles wrecked">Wreck</th><th>Score</th></tr>`;
     if (m.id === 'survival' || m.id === 'horde' || m.id === 'safehouse') {
       html += soldiers.map(row).join('');
     } else {
@@ -1081,12 +1102,13 @@ export class Hud {
           if (s.team !== team) continue;
           if (s.kind === 'human') flesh += s.deaths; else chrome += s.deaths;
         }
-        html += `<tr class="team-head t${team}"><td colspan="5">${TEAM_NAMES[team]} — ${Math.floor(m.scores[team])}` +
+        html += `<tr class="team-head t${team}"><td colspan="7">${TEAM_NAMES[team]} — ${Math.floor(m.scores[team])}` +
           `<span style="float:right;font-size:0.78em;color:var(--muted)">LOSSES — FLESH ${flesh} · CHROME ${chrome}</span></td></tr>`;
         html += soldiers.filter((s) => s.team === team).map(row).join('');
       }
     }
     html += '</table>';
+    if (m.over) html += this.renderArsenal(); // your per-weapon record — the rich after-action
     if (m.over && this.careerHtml) html += this.careerHtml; // §3.4: what this match added
     if (m.over) html += `<p style="margin-top:1rem;color:var(--muted)">Returning to menu…</p>`;
     sb.innerHTML = html;
