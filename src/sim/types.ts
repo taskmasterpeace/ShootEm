@@ -623,6 +623,9 @@ export interface Vehicle {
    *  Continuous height is unreadable from a top-down camera; a BAND can be
    *  drawn. 0/absent for anything that doesn't fly. */
   band?: number;
+  /** W5.1: the crash-scrape rate limit — a band-1 hull grinding a building
+   *  takes speed-scaled damage at most once per half-second */
+  nextCrashAt?: number;
   /** J1: the alt-fire weapon's own cadence clock (Vulture strafing MG) */
   nextAltFireAt?: number;
   /** J1: afterburner lit this tick — the renderer scales the flame off it */

@@ -1,6 +1,6 @@
 import { AMMO_INFO, CLASSES, DOG_NAMES, DOG_STATS, EQUIPMENT, IRON_STATS, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
-import { CLIMB_H, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_RUBBLE, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, nearestOpenTile, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
+import { CLIMB_H, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_METAL_DOOR, T_OPEN, T_RUBBLE, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, generateMap, isBlocked, losClear, nearestOpenTile, surfaceAt, tileAt, upperBlocked, type GameMap } from './map';
 import { materialOf, DRILL_BASE } from './materials';
 import { Rng } from './rng';
 import {
@@ -2154,6 +2154,13 @@ export class World {
 
   // ---------- soldiers ----------
 
+  /** W5.1: tiles TALL enough to swat a band-1 hull — building fabric only
+   *  (cover crates and climb barricades sit under the low-flight deck). */
+  private buildingAt(x: number, z: number): boolean {
+    const t = tileAt(this.map.grid, x, z);
+    return t === T_WALL || t === T_SLIT || t === T_DOOR || t === T_METAL || t === T_METAL_DOOR;
+  }
+
   /** §11.3: the type this reload would LOAD — the selected special when the
    *  weapon in hand takes ammo riders (ballistic), else none (= ball). */
   private specialAmmoSelected(s: Soldier, def: (typeof WEAPONS)[WeaponId]) {
@@ -4091,10 +4098,27 @@ export class World {
       const stormGrounded = def.flies && airGrounded(this.weather) &&
         !isBlocked(this.map.grid, v.pos.x, v.pos.z, true);
       if ((def.flies && !stormGrounded) || (def.digs && v.burrowed)) {
-        // flyers soar over everything; a deep breacher passes UNDER it all —
-        // walls, cover, even water. Only the map border stops either.
-        v.pos.x = nx;
-        v.pos.z = nz;
+        // W5.1 THE SKYLINE IS REAL: at band 1 (low flight, ~2u) a hull can
+        // meet a BUILDING — walls, slits, doorframes, metal. Speed-scaled
+        // hull damage and a hard rebuff, one scrape per half-second. Band
+        // 2+ soars the sanctuary above the roofline (BAND_ALT clears the
+        // 8.15 rooftops); the deck (band 0) keeps its legacy taxi pass.
+        // Cover crates and climb barricades sit UNDER the low-flight deck.
+        if (def.flies && v.band === 1 && this.buildingAt(nx, nz)) {
+          const spd = Math.hypot(v.vel.x, v.vel.z);
+          if (spd > 4 && this.time >= (v.nextCrashAt ?? 0)) {
+            v.nextCrashAt = this.time + 0.5;
+            this.damageVehicle(v, 12 + spd * 2.2, -1, 'crash');
+            this.emit({ type: 'explosion', pos: { x: nx, y: 2, z: nz }, weapon: 'gl' });
+          }
+          v.vel.x *= -0.25; // the wall wins — the hull rebuffs
+          v.vel.z *= -0.25;
+        } else {
+          // flyers soar over everything else; a deep breacher passes UNDER
+          // it all — walls, cover, even water. Only the map border stops it.
+          v.pos.x = nx;
+          v.pos.z = nz;
+        }
       } else {
         // tunneler grinds the wall ahead into rubble instead of stopping
         if (def.digs && Math.abs(throttle) > 0.1 && this.time >= v.nextDigAt) {
