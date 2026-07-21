@@ -148,6 +148,12 @@ export function populateScienceMission(world: World, layout: ScienceMapLayout): 
     const transport = world.spawnVehicle('transport', 1, runtime.convoyRoute[1]);
     runtime.vehicleTargetIds.push(transport.id);
   }
+  if (runtime.spec.complication === 'alarm-net') {
+    runtime.alarm = true;
+    runtime.detections = 1;
+    runtime.reinforcementAt = world.time + 4;
+    world.emit({ type: 'announce', text: 'ALARM NET LIVE — SECURITY IS MOBILIZING', big: true });
+  }
   if (runtime.spec.complication === 'storm') {
     world.weather = { kind: 'storm', intensity: 0.85, until: Infinity };
   }
@@ -300,7 +306,8 @@ export function stepScienceMission(world: World, dt: number): void {
 export function onScienceDeath(world: World, victim: Soldier, attackerId = -1): boolean {
   const runtime = world.science;
   const attacker = world.soldiers.get(attackerId);
-  if (runtime?.spec.complication === 'no-kill' && victim.team === 1 && attacker?.team === 0) {
+  const isRequiredTarget = runtime?.targetIds.includes(victim.id) ?? false;
+  if (runtime?.spec.complication === 'no-kill' && victim.team === 1 && attacker?.team === 0 && !isRequiredTarget) {
     failScience(world, 'NO-KILL CLAUSE BROKEN — OPERATION FAILED');
   }
   if (!runtime || victim.team !== 0 || victim.kind !== 'human' || runtime.phase === 'won' || runtime.phase === 'failed') return false;

@@ -141,6 +141,38 @@ describe('science mission objective compiler', () => {
     expect(world.science?.guardIds).toHaveLength(originalGuards + 3);
   });
 
+  it('alarm-net complications begin hot and schedule the response team', () => {
+    const scienceMission = generateScienceMission(7310, {
+      verb: 'steal', site: 'comms-relay', complication: 'alarm-net', squadSize: 4,
+    });
+    const world = new World({ seed: scienceMission.seed, mode: 'science', scienceMission });
+
+    expect(world.science?.alarm).toBe(true);
+    expect(world.science?.detections).toBe(1);
+    expect(world.science?.reinforcementAt).toBe(world.time + 4);
+  });
+
+  it('a no-kill clause permits the named target but fails on collateral guards', () => {
+    const objectiveMission = generateScienceMission(7311, {
+      verb: 'assassinate', site: 'officer-villa', complication: 'no-kill', squadSize: 4,
+    });
+    const objectiveWorld = new World({ seed: objectiveMission.seed, mode: 'science', scienceMission: objectiveMission });
+    const operator = objectiveWorld.addSoldier('Operator', 'infiltrator', 0, 'human');
+    const target = objectiveWorld.soldiers.get(objectiveWorld.science!.targetIds[0])!;
+    objectiveWorld.damageSoldier(target, 9999, operator.id, 'ar606');
+    stepScienceMission(objectiveWorld, 1 / 60);
+    expect(objectiveWorld.science?.phase).toBe('extract');
+
+    const collateralMission = generateScienceMission(7312, {
+      verb: 'steal', site: 'research-annex', complication: 'no-kill', squadSize: 4,
+    });
+    const collateralWorld = new World({ seed: collateralMission.seed, mode: 'science', scienceMission: collateralMission });
+    const secondOperator = collateralWorld.addSoldier('Operator', 'infiltrator', 0, 'human');
+    const guard = collateralWorld.soldiers.get(collateralWorld.science!.guardIds[0])!;
+    collateralWorld.damageSoldier(guard, 9999, secondOperator.id, 'ar606');
+    expect(collateralWorld.science?.phase).toBe('failed');
+  });
+
   it('ambush requires the convoy and escort detail, while the convoy moves toward escape', () => {
     const world = missionWorld('ambush');
     const runtime = world.science!;
