@@ -341,6 +341,8 @@ export interface Soldier {
   /** DEATH-DATA: sim time this print stood up — powers time-alive on death
    *  (the spawn-kill branch of the killcam director) */
   spawnedAt?: number;
+  /** the weapon that landed the killing blow — the killcam names it */
+  lastKillWeapon?: WeaponId;
   /** vehicles destroyed */
   vehicleKills: number;
   /** hit points healed into allies */

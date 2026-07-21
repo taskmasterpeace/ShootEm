@@ -4935,8 +4935,10 @@ export class World {
         victim.seat = -1;
       }
       const attacker = this.soldiers.get(attackerId);
-      // the killcam frames the duel — remember who fired the killing blow
+      // the killcam frames the duel — remember who fired the killing blow AND
+      // with WHAT (DEATH-DATA: the killcam label names the weapon now)
       victim.lastKillerId = attacker && attacker.id !== victim.id ? attacker.id : -1;
+      victim.lastKillWeapon = weapon;
       // THE OUTBREAK (OUTBREAK-SPEC §6): an exposed body is a FUTURE ENEMY.
       // Dying hot (Viral Load ≥ 40) books a corpse on the reanimation clock —
       // hotter turns faster. The reprint itself is clean (the printer filters

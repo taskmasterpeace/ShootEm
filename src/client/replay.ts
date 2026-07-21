@@ -1,4 +1,5 @@
 import { applySnapshot, createPuppetWorld, takeSnapshot, type Snapshot } from '../sim/snapshot';
+import { WEAPONS } from '../sim/data';
 import type { ModeId, PlayerCmd, ThemeId } from '../sim/types';
 import type { World } from '../sim/world';
 
@@ -239,7 +240,15 @@ export class ReplayDirector {
       this.killerId = me.lastKillerId;
       const killer = this.killerId >= 0 ? world.soldiers.get(this.killerId) : undefined;
       const range = killer ? Math.round(Math.hypot(killer.pos.x - me.pos.x, killer.pos.z - me.pos.z)) : 0;
-      const label = killer ? `☠ Killed by ${killer.name} · ${range}u` : '☠ Killcam';
+      // DEATH-DATA: name the WEAPON, and open THE AUTOPSY on a precision kill
+      // (a laser/rail hit from range) — the terminal-UI framing for the shots
+      // that deserve a card, not just a straddle.
+      const wdef = me.lastKillWeapon ? WEAPONS[me.lastKillWeapon] : undefined;
+      const wName = wdef?.name ? ` · ${wdef.name}` : '';
+      const autopsy = !!wdef && (wdef.tracer === 'rail' || wdef.tracer === 'beam') && range >= 30;
+      const label = killer
+        ? `${autopsy ? '⌖ AUTOPSY — ' : '☠ Killed by '}${killer.name}${wName} · ${range}u`
+        : '☠ Killcam';
       // open on the run-up, and run PAST the death into footage that does not
       // exist yet — the recorder fills it in while we watch (see KILLCAM_PRE)
       this.deathT = world.time;
