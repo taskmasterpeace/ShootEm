@@ -10,6 +10,19 @@
 
 Ranked by payoff-per-effort. Quick wins first.
 
+### ✅ CLOSED (all byte-identical — 1560 tests + twin-run gate green each)
+
+**Prior:** #1 (audio Opus), #3 (input queue), #5 (objective cache 2-4 Hz), #38 (uniform spatial grid).
+
+**This pass (2026-07-21)** — measured before/after on `tools/zombie-bench.ts` (horde) + the new `tools/combat-bench.ts` (12v12 conquest), min-of-4:
+- **#11 (S8) encased-body set** — `groundBlocked` no longer walks the roster hunting ice (O(S²)→short list). The headline: **N=240 horde −30%**, and it flattened the whole curve.
+- **#10 (S6) parked-hull drivetrain skip** — 32/34 hulls sit idle; they skip the drivetrain. **Vehicle-dominated −33%**, ~5% of a 12v12 step (a fixed ~0.02 ms/tick).
+- **#8 (S7) humansAndBots() cache** — match-stable roster memoized. **N=240 −4%** (the big separation win was already banked by #38; this is the residual).
+- **#9 (S5) losClearXZ** — kills ~11.5k perception object-allocs/tick. Byte-identical; no headless delta (GC didn't fire), a preventive browser GC-pressure win.
+- **#27 (S9) possession-scan gate** — one counter skips the 3 expiry scans (one walks the full roster) when nothing is possessed. Byte-identical; µs-level, below the bench floor.
+
+**Cumulative (all 5 vs pre-campaign):** horde N=120 **−22%**, N=240 **−37%**; the superlinear O(S²) tail (1.80×→1.46× for 2× bodies) is gone. Vehicle-dominated combat **−33%**. Remaining sim tickets (#2 S1, plus the folds in #27) are now µs-level or throttled by #5 — **further gains are in the renderer (R-series) and netcode (N-series), not the sim tick.**
+
 | # | Fix | Where | Payoff | Effort | § |
 |---|-----|-------|--------|--------|---|
 | 1 | Encode audio WAV → Opus, prune dist WAVs | `audio.ts:340` | dist 175 MB → ~30 MB (audio 132 → ~9 MB) | hours | L3 |

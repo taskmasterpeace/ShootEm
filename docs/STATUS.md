@@ -44,7 +44,7 @@ If you read one thing, read this. Everything below has a full row further down.
 **Armed gods:** bow · spear · recall axe · summoners.
 **Multiplayer:** the whole server/netcode stack (the sim is built for it; nothing is wired).
 **Ammo:** the diagnostics pass, then the 25% cut.
-**Optimization:** 42 findings, [issues #1–#42](https://github.com/taskmasterpeace/ShootEm/issues) — none started.
+**Optimization:** 42 findings. **9 closed, all byte-identical** — prior: #1/#3/#5/#38; this pass: **#11 (encased O(S²), −30% horde), #10 (parked hulls, −33% veh-combat), #8 (roster cache), #9 (perception allocs), #27 (possession-scan gate)**. Cumulative **−37% at N=240 horde**, the superlinear O(S²) tail gone. Remaining wins are renderer/netcode, not the sim tick (`docs/OPTIMIZATION-AUDIT.md` § CLOSED).
 
 ---
 
