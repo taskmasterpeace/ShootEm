@@ -122,6 +122,33 @@ const POSE_TO_SCHOOL: Record<NonNullable<LswDef['attackPose']>, CastSchool> = {
   LOB: 'lob', BRACE: 'brace', SHOULDER: 'shoulder', FLICK: 'flick',
 };
 
+// OUTBREAK §6/§1 — THE VISIBLE CORPSE. A booked body must never be an invisible
+// spawn point: it lingers where it fell and, in its final seconds, THRASHES
+// before it rises. A cheap prone form authored flat (no standing-rig pivot to
+// fight), sharing one set of geometry + one dead-tinted material, so forty of
+// them cost almost nothing.
+const CORPSE_REVEAL_DELAY = 3.7; // stay hidden until the dead-soldier mesh clears (RESPAWN_DELAY 4s)
+const CORPSE_CRIT = 2;           // the final thrash window, matching sim CORPSE_CRITICAL_WINDOW
+let _corpseGeo: { torso: THREE.BoxGeometry; head: THREE.SphereGeometry; limb: THREE.BoxGeometry } | null = null;
+let _corpseMat: THREE.MeshLambertMaterial | null = null;
+function buildCorpseMesh(): THREE.Group {
+  if (!_corpseGeo) {
+    _corpseGeo = {
+      torso: new THREE.BoxGeometry(0.5, 0.26, 0.92),
+      head: new THREE.SphereGeometry(0.16, 8, 6),
+      limb: new THREE.BoxGeometry(0.13, 0.13, 0.58),
+    };
+    _corpseMat = new THREE.MeshLambertMaterial({ color: 0x4a4034 }); // desaturated, dead — no purple
+  }
+  const g = new THREE.Group();
+  const torso = new THREE.Mesh(_corpseGeo.torso, _corpseMat!); torso.position.set(0, 0.16, 0);
+  const head = new THREE.Mesh(_corpseGeo.head, _corpseMat!); head.position.set(0, 0.15, 0.58);
+  const mk = (x: number, z: number) => { const m = new THREE.Mesh(_corpseGeo!.limb, _corpseMat!); m.position.set(x, 0.1, z); return m; };
+  g.add(torso, head, mk(0.32, 0.16), mk(-0.32, 0.16), mk(0.15, -0.5), mk(-0.15, -0.5));
+  g.rotation.y = Math.random() * Math.PI * 2; // varied facing — this is presentation, not sim
+  return g;
+}
+
 export class Renderer {
   scene = new THREE.Scene();
   camera: THREE.PerspectiveCamera;
@@ -167,6 +194,9 @@ export class Renderer {
   private pickupMeshes = new Map<number, THREE.Group>();
   private mineMeshes = new Map<number, THREE.Mesh>();
   private gadgetMeshes = new Map<number, THREE.Group>();
+  /** OUTBREAK §6: prone meshes for the incubating corpses, keyed by the corpse
+   *  object itself (they carry no id). bornAt gates the reveal handoff. */
+  private corpseMeshes = new Map<World['corpses'][number], { mesh: THREE.Group; bornAt: number }>();
   private spinners: THREE.Object3D[] = [];
   private beams: { mesh: THREE.Mesh; until: number }[] = [];
   private flagMeshes: THREE.Group[] = [];
@@ -1764,6 +1794,40 @@ export class Renderer {
         this.soldierMeshes.delete(id);
         this.meleeTelegraphs.delete(id);
       }
+    }
+
+    // OUTBREAK §6/§1 — the INCUBATING CORPSES draw as prone bodies (local play;
+    // a puppet already has a culled snapshot). Each lingers where it fell, then
+    // THRASHES in its final seconds before it rises — so the horde is seen to
+    // grow from a body, never a blank spawn. Hidden until the dead-soldier mesh
+    // has cleared (RESPAWN_DELAY), so there is never a doubled corpse.
+    const liveCorpses = new Set<World['corpses'][number]>();
+    if (!world.puppet) {
+      for (const c of world.corpses) {
+        if (c.neutralized) continue;
+        liveCorpses.add(c);
+        let entry = this.corpseMeshes.get(c);
+        if (!entry) {
+          const cm = buildCorpseMesh();
+          cm.position.set(c.pos.x, 0, c.pos.z);
+          this.scene.add(cm);
+          entry = { mesh: cm, bornAt: world.time };
+          this.corpseMeshes.set(c, entry);
+        }
+        const revealed = world.time - entry.bornAt >= CORPSE_REVEAL_DELAY;
+        entry.mesh.visible = revealed;
+        if (revealed) {
+          // still early, convulsing hard in the last CORPSE_CRIT seconds
+          const crit = Math.max(0, Math.min(1, 1 - (c.reanimatesAt - world.time) / CORPSE_CRIT));
+          const amp = 0.015 + crit * 0.34;
+          const f = 3 + crit * 22;
+          entry.mesh.rotation.z = Math.sin(world.time * f + entry.bornAt * 7) * amp;
+          entry.mesh.position.y = Math.abs(Math.sin(world.time * f * 0.7)) * crit * 0.13;
+        }
+      }
+    }
+    for (const [c, entry] of this.corpseMeshes) {
+      if (!liveCorpses.has(c)) { this.scene.remove(entry.mesh); this.corpseMeshes.delete(c); }
     }
 
     // vehicles

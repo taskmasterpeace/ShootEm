@@ -70,7 +70,7 @@ If you read one thing, read this. Everything below has a full row further down.
 | Death-cam **director** — different shot per death (bullet path / autopsy / wide / spawn-cut) | 🔨 | one fixed presentation shipped (hit-stop + duel framing, c95c707); no branching. BACKLOG W2.1 |
 | Deaths differ by weapon in the **animation** (fire collapse, laser drop-straight, melee spin) | 🔨 | knockback already varies; the collapse pose doesn't. BACKLOG W2.2 |
 | Gore / gibs on overkill + explosives | ❌ | no gib code anywhere. BACKLOG W2.3 |
-| Corpses linger 20–30s (a fought-on battlefield) | ❌ | ~4s today (`RESPAWN_DELAY`). BACKLOG W2.4 |
+| Corpses linger 20–30s (a fought-on battlefield) | 🔨 | **OUTBREAK corpses now render + linger** their full incubation (2026-07-21): a booked body draws as a prone form that lies still, then THRASHES in its final seconds before it rises — the horde grows from a body you can SEE, not a blank spawn (§1/§6). `renderer.ts` `corpseMeshes`, `docs/reference/outbreak/`. Regular-mode (non-outbreak) death linger past `RESPAWN_DELAY` (~4s) is the remaining half. BACKLOG W2.4 |
 | A **kill** cam — reward a great kill, not just the death | ❌ | replay is victim-only. BACKLOG W2.5 |
 | Blood past armor, sparks off plate | ✅ | `bare` flag on hit events, `renderer.ts:3536` |
 
