@@ -5379,7 +5379,19 @@ export class World {
         attacker.score += isZed(victim.kind) ? ZOMBIE_STATS[victim.kind].score : 10;
         // trophy ledger: how far did that shot travel?
         const range = Math.hypot(victim.pos.x - attacker.pos.x, victim.pos.z - attacker.pos.z);
-        if (range > attacker.longestKill) attacker.longestKill = Math.round(range * 10) / 10;
+        const newBest = range > attacker.longestKill;
+        if (newBest) attacker.longestKill = Math.round(range * 10) / 10;
+        // W2.5 THE KILL CONFIRM — reward a great kill, not just the death.
+        // Addressed to the KILLER alone (his HUD, his flourish — never a
+        // screen takeover while he's alive and fighting): the name, the
+        // range, and the spice (a NEW LONGEST rings louder). Humans only —
+        // a bot needs no applause.
+        if (attacker.kind === 'human' && !isZed(victim.kind)) {
+          this.emit({
+            type: 'kill_confirm', soldierId: attacker.id, text: victim.name,
+            amount: Math.round(range), weapon, big: newBest && range > 20,
+          });
+        }
       }
       // bombers go out with a bang — hurts whoever is close on the other team
       if (victim.kind === 'bomber') this.bomberDetonate(victim);

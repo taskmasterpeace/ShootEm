@@ -1,6 +1,6 @@
 import { AMMO_INFO, CLASSES, EQUIPMENT, MODE_INFO, TEAM_NAMES, VEHICLES, WEAPONS } from '../sim/data';
 import { LSWS, VO_LINES } from '../sim/lsw';
-import { earshotFor } from './audio';
+import { audio, earshotFor } from './audio';
 import { icon } from './icons';
 import { GRID, T_CLIMB, T_WALL, WORLD, losClear, houseAt } from '../sim/map';
 import { isZed, type SimEvent, type Soldier, type Team } from '../sim/types';
@@ -1039,6 +1039,21 @@ export class Hud {
         this.announce(`REPRINTED — PRINT ${this.prints}`, false, now);
       }
       if (e.type === 'psi_ping' && e.soldierId === localId) this.psiFlashUntil = now + 1;
+      // W2.5 THE KILL CONFIRM: the killer's own line — name · range · spice.
+      // Rides its own element under the reticle; the announce banner is
+      // never blocked, the screen is never taken.
+      if (e.type === 'kill_confirm' && e.soldierId === localId && e.text) {
+        const s2 = world.soldiers.get(localId);
+        const streak = s2?.streak ?? 0;
+        const spice = e.big ? ' — NEW LONGEST' : streak >= 2 ? ` · ×${streak}` : '';
+        const el = $('kill-confirm');
+        el.textContent = `✕ ${e.text.toUpperCase()} · ${e.amount ?? 0}u${spice}`;
+        el.classList.toggle('best', !!e.big);
+        el.classList.remove('show');
+        void el.offsetWidth; // restart the animation
+        el.classList.add('show');
+        audio.play('hitmarker', { volume: 0.5, rate: 0.7 }); // a lower, heavier tick than the hit ✕
+      }
       if ((e.type === 'announce' || e.type === 'flag_taken' || e.type === 'flag_captured' ||
            e.type === 'flag_returned' || e.type === 'point_captured' || e.type === 'wave_start' ||
            e.type === 'match_over' || e.type === 'pod_incoming' || e.type === 'beacon_planted' ||

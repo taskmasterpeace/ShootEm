@@ -878,6 +878,7 @@ export interface SimEvent {
     | 'leap'           // M1: the coiled spring released — a charged ballistic leap
     | 'leapland'       // M1: the leap ARRIVED — loud enough to ping the map
     | 'torch'          // §10: a flashlight clicked on or off
+    | 'kill_confirm'   // W2.5: addressed to the KILLER — name, range, the spice
     | 'ragdoll'        // M1: blown past the knockback threshold — body is luggage
     | 'takedown'       // §14.2: a rear-control finisher landed on the pinned body
     | 'axe_throw'      // M5: the axe left the hand

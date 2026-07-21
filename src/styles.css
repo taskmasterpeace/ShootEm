@@ -426,6 +426,21 @@ html, body {
 #hitmarker.show { animation: hm 0.18s ease-out; }
 @keyframes hm { 0% { opacity: 1; transform: translate(-50%, -50%) scale(1.25); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); } }
 
+/* W2.5 the KILL CONFIRM — the killer's own line under the reticle */
+#kill-confirm {
+  position: absolute; left: 50%; top: calc(50% + 2.2rem); transform: translateX(-50%);
+  font-size: 0.72rem; letter-spacing: 0.1em; color: #e8a33d; opacity: 0;
+  font-weight: 600; white-space: nowrap; text-shadow: 0 1px 2px rgb(0 0 0 / 60%);
+}
+#kill-confirm.best { color: #ffd257; }
+#kill-confirm.show { animation: kc 1.6s ease-out; }
+@keyframes kc {
+  0% { opacity: 0; transform: translateX(-50%) translateY(6px); }
+  12% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  78% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 #respawn-overlay {
   position: absolute; inset: 0; display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 0.5rem;
