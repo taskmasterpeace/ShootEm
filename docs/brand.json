@@ -1,0 +1,23 @@
+{
+  "name": "War World: Earth",
+  "tagline": "A modern reimagining of Infantry Online",
+  "colors": {
+    "bg": "oklch(0.13 0.013 74)",
+    "bgDeep": "oklch(0.09 0.011 74)",
+    "card": "oklch(0.175 0.017 74)",
+    "border": "oklch(0.34 0.018 74)",
+    "text": "oklch(0.93 0.01 80)",
+    "muted": "oklch(0.63 0.03 78)",
+    "accent": "oklch(0.78 0.16 74)",
+    "accentHex": "#e8a33d",
+    "danger": "oklch(0.63 0.22 25)",
+    "ok": "oklch(0.74 0.16 145)",
+    "forbidden": "purple — never, in anything"
+  },
+  "fonts": {
+    "display": "'Saira Stencil One', 'Oswald', system-ui, sans-serif",
+    "ui": "'Oswald', system-ui, sans-serif",
+    "mono": "'Share Tech Mono', ui-monospace, Consolas, monospace"
+  },
+  "style": "tactical field-terminal: hard edges (2px radius), stencil headers, mono telemetry, amber the one signal colour"
+}
