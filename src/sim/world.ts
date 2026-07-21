@@ -29,6 +29,11 @@ const RESPAWN_DELAY = 4;
 const INFECTION_CREEP = 1.4;
 /** §6: the final CRITICAL window before a corpse rises — the last-chance alert. */
 const CORPSE_CRITICAL_WINDOW = 2;
+/** §6.1: fire is METERED, not a magic delete — one incendiary hit adds this to
+ *  a corpse's burn meter; at 1.0 the body is consumed and can't rise. ~2 hits
+ *  to full, so denial takes a real (brief) burn. Chemistry (BNR) and a blast's
+ *  complete destruction stay instant (§6.2). Tunable. */
+const INC_BURN_PER_HIT = 0.5;
 /** §8: how close bodies must pile before they anchor a contamination NEST. */
 const NEST_RADIUS = 6;
 /** §7 EMERGENT VARIANTS: the risen form is DERIVED from the body that fell —
@@ -274,7 +279,7 @@ export class World {
    *  flips this yet, so every existing match is byte-identical. */
   outbreakEnabled = false;
   /** exposed bodies on the reanimation clock (§6) — capped, oldest forgotten */
-  corpses: { pos: Vec3; reanimatesAt: number; neutralized: boolean; name: string; classId: ClassId; warned?: boolean }[] = [];
+  corpses: { pos: Vec3; reanimatesAt: number; neutralized: boolean; name: string; classId: ClassId; warned?: boolean; burn?: number }[] = [];
   /** OUTBREAK PRESSURE (§3): the authoritative severity of the sector, fed by
    *  live infected + unburned corpses + exposed soldiers. Drives the level. */
   outbreakPressure = 0;
@@ -4368,12 +4373,21 @@ export class World {
                 : 1;
               const dmg = def.damage * (shooter?.rageMul ?? 1) * (p.dmgMul ?? 1) * incMul * expMul;
               this.damageSoldier(s, dmg, p.ownerId, p.weapon, false, p.pierceArmor);
-              // INCENDIARY / BIO-NEUTRALIZING corpse denial (OUTBREAK-SPEC §6.2 /
-              // §11): fire OR chemistry burns/denies the body where it lands —
-              // including the one just dropped this frame — so it never rises.
+              // CORPSE DENIAL (OUTBREAK-SPEC §6.1/§6.2/§11): fire and chemistry
+              // deny the body where they land — including the one just dropped
+              // this frame. But fire is METERED, not instant (§6.1): incendiary
+              // fills a burn meter over sustained exposure (~2 hits), while the
+              // dedicated chemical round (BNR, §6.2) denies outright. Complete
+              // destruction by a blast stays instant at the explode() site.
               if ((p.incendiary || p.ammo === 'bnr') && this.outbreakEnabled && this.corpses.length) {
                 for (const c of this.corpses) {
-                  if (!c.neutralized && Math.hypot(c.pos.x - s.pos.x, c.pos.z - s.pos.z) <= 2.5) c.neutralized = true;
+                  if (c.neutralized || Math.hypot(c.pos.x - s.pos.x, c.pos.z - s.pos.z) > 2.5) continue;
+                  if (p.ammo === 'bnr') {
+                    c.neutralized = true; // dedicated chemistry — the specialist tool
+                  } else {
+                    c.burn = (c.burn ?? 0) + INC_BURN_PER_HIT; // §6.1 the burn meter
+                    if (c.burn >= 1) c.neutralized = true;
+                  }
                 }
               }
               // TRACER (§11): the round MARKS what it hits — pinned on every

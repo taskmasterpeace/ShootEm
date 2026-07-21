@@ -85,25 +85,39 @@ describe('ammo: incendiary is denial', () => {
     expect(bleed('inc')).toBeGreaterThan(bleed(undefined));
   });
 
-  it('an INC kill burns the body — a hot corpse booked this frame never rises', () => {
+  it('INC is METERED denial (§6.1) — one hot round starts the burn, a sustained torch finishes it', () => {
     const w = new World({ seed: 9, mode: 'horde', matchMinutes: 10 });
     w.outbreakEnabled = true;
-    const victim = w.addSoldier('Exposed', 'infantry', 1, 'bot');
+    // the doomed body: one INC round drops it and books a hot corpse
+    const victim = w.addSoldier('Exposed', 'infantry', 1, 'human');
     victim.pos = { x: 14, y: 0, z: 0 };
     victim.viralLoad = 80;           // hot enough to book on death
     victim.hp = 6; victim.armor = 0; // one INC round finishes him
+    // a tanky bystander a hair behind soaks the follow-up rounds so the torch's
+    // fire keeps landing next to the fresh corpse (a bare body isn't a target)
+    const bystander = w.addSoldier('Nearby', 'infantry', 1, 'human');
+    bystander.pos = { x: 14.7, y: 0, z: 0 }; bystander.hp = 900; bystander.maxHp = 900; bystander.armor = 0;
     const shooter = w.addSoldier('Torch', 'infantry', 0, 'human');
     shooter.pos = { x: 0, y: 0, z: 0 };
     shooter.yaw = 0;
     shooter.ammoType = 'inc';
-    for (let i = 0; i < 60 * 2 && victim.alive; i++) {
+    for (let i = 0; i < 60 * 3 && victim.alive; i++) {
       w.step(1 / 60, new Map([[shooter.id, { ...idle(), aimYaw: 0, aimDist: 14, fire: true }]]));
       w.takeEvents();
     }
     expect(victim.alive).toBe(false);
-    // the body was booked at ≥40 viral, then the same INC round neutralized it
-    const live = w.corpses.filter((c) => !c.neutralized);
-    expect(live.length).toBe(0);
+    const corpse = w.corpses.find((c) => c.name === 'Exposed');
+    expect(corpse, 'a hot corpse was booked').toBeDefined();
+    // §6.1: the killing round STARTED the burn but did not delete the body in one
+    expect(corpse!.burn ?? 0).toBeGreaterThan(0);
+    expect(corpse!.burn ?? 0).toBeLessThan(1);
+    expect(corpse!.neutralized).toBe(false);
+    // sustained fire beside the corpse fills the meter → denied, it never rises
+    for (let i = 0; i < 60 * 3 && !corpse!.neutralized; i++) {
+      w.step(1 / 60, new Map([[shooter.id, { ...idle(), aimYaw: 0, aimDist: 15, fire: true }]]));
+      w.takeEvents();
+    }
+    expect(corpse!.neutralized, 'a sustained torch consumes the body').toBe(true);
   });
 });
 
