@@ -309,8 +309,8 @@ npm run build
 
 Expected: all commands exit 0, full Vitest count has zero failures, lint has zero errors, and Vite emits the bundle.
 
-- [ ] **Step 7: Verify `git diff --check`, branch status, `main...HEAD`, no untracked production files, no original-checkout mutations, and no push.**
-- [ ] **Step 8: Commit documentation and any verified final regressions** with focused messages, ending with `git commit -m "docs: ship city building map maker"` for the doc-only slice.
+- [x] **Step 7: Verify `git diff --check`, branch status, `main...HEAD`, no untracked production files, no original-checkout mutations, and no push.**
+- [x] **Step 8: Commit documentation and any verified final regressions** with focused messages, ending with `git commit -m "docs: ship city building map maker"` for the doc-only slice.
 
 ---
 
