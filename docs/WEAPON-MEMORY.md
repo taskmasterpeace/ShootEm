@@ -25,10 +25,15 @@ interface GunRecord {
   tallies: { name: string; n: number; lastAt: number }[];  // the ledger, capped
   vehicleStamps: Partial<Record<VehicleKind, number>>;     // nose-art silhouettes
   lswStamps: number;       // gods felled by this piece — skull-tier
+  /** Robert (2026-07-21): "certain guns have the distance — how far away they
+   *  shot somebody." The piece's own record shot: distance + who took it. */
+  longestKill?: { dist: number; victim: string; at: number };
   forgedAt: number;        // sim time of issue
   owners: string[];        // chain of custody, last 3 names
 }
 ```
+
+**The distance line (Robert, 2026-07-21):** every gun tracks its own `longestKill` (distance in units, victim, when). Distance is already computed at kill-credit time for the soldier trophy (`longestKill` on Soldier) — the gun's chisel reads the same number, zero new math. **Display is FAMILY-GATED — "certain guns":** marksman/sniper/rail families wear the range line proudly on the nameplate (`LONGEST: 87u — VEX`); SMGs/shotguns keep it in the inspect ledger only (a 9u shotgun record is not a boast). The family gate lives in display, not capture — every piece records it.
 
 ### 1.2 The tally cap and retention policy
 
