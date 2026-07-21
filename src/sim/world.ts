@@ -4011,6 +4011,11 @@ export class World {
     const driverCmd = driver && driver.alive
       ? (cmds.get(driver.id) ?? (driver.kind === 'bot' ? stepBot(this, driver, dt) : undefined))
       : undefined;
+    // W5.5 THE HANDBRAKE: SPACE on a slip-equipped ground hull breaks rear
+    // grip — the tail steps out (lateral bleed slows 3×), the nose whips
+    // (turn ×1.6), the engine drags (×0.5). Human drivers only: a bot yanking
+    // it would look like a malfunction, not a maneuver.
+    const handbrake = !!driverCmd?.jump && !!def.slip && !def.flies && driver?.kind === 'human';
     if (driverCmd && !stunned) {
       throttle = -driverCmd.moveZ; // W = forward
       turn = driverCmd.moveX;
@@ -4066,7 +4071,7 @@ export class World {
         // §8.8 weather drags the drivetrain — dust chokes wheels, snow buries them
         * (def.hover || def.flies ? 1
           : moveMult(this.weather, def.strider ? 'soldier' : tracked ? 'tracks' : 'wheels'));
-      v.yaw += turn * def.turnRate * dt * (throttle < 0 ? -1 : 1);
+      v.yaw += turn * def.turnRate * (handbrake ? 1.6 : 1) * dt * (throttle < 0 ? -1 : 1);
       // V2 FIXED WING: a jet has a stall floor. Whatever the stick says, it
       // never flies slower than minAirspeed × top — and it can never reverse.
       // Let go and you keep going: attack runs become PASSES, and the pilot
@@ -4104,7 +4109,8 @@ export class World {
         }
       }
       const wing = stall > 0 ? Math.max(stall, Math.max(0, throttle)) : throttle;
-      const targetSpeed = wing * def.speed * engineMult * depthMult * surfMult * this.vehicleSpeedMul * burner * (wing < 0 ? 0.5 : 1);
+      const targetSpeed = wing * def.speed * engineMult * depthMult * surfMult * this.vehicleSpeedMul * burner
+        * (wing < 0 ? 0.5 : 1) * (handbrake ? 0.5 : 1); // W5.5: the brake drags
       const accel = 18;
       const curSpeed = Math.cos(v.yaw) * v.vel.x + Math.sin(v.yaw) * v.vel.z;
       const newSpeed = curSpeed + Math.max(-accel * dt, Math.min(accel * dt, targetSpeed - curSpeed));
@@ -4120,7 +4126,8 @@ export class World {
         // as a dead engine on the stick — 4% throttle authority.
         const latX = v.vel.x - fwdX * curSpeed;
         const latZ = v.vel.z - fwdZ * curSpeed;
-        const keep = Math.exp(-def.slip * dt); // frame-rate honest
+        // W5.5: the handbrake breaks rear grip — sideways survives 3× longer
+        const keep = Math.exp(-(handbrake ? def.slip * 0.3 : def.slip) * dt); // frame-rate honest
         v.vel.x = fwdX * newSpeed + latX * keep;
         v.vel.z = fwdZ * newSpeed + latZ * keep;
       } else {

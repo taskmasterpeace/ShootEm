@@ -259,7 +259,11 @@ export const CLASSES: Record<ClassId, ClassDef> = {
 // Subsystem hp sits near 10% of hull so systems genuinely break DURING a
 // fight (engines die, guns jam, sensors go dark) well before the wreck.
 export const VEHICLES: Record<VehicleKind, VehicleDef> = {
-  buggy: { kind: 'buggy', name: 'Scout Buggy', cost: 1, hp: 95, speed: 19, turnRate: 2.6, weapon: 'buggy_mg', seats: 2, mobileSpawn: false, radius: 1.6, systemHp: 24 },
+  // W5.5 CARS HANDLE LIKE CARS: the wheeled runabouts ride the slip dial —
+  // momentum carries through a hard turn (~0.3-0.5s of slide), and SPACE is
+  // the HANDBRAKE (rear grip breaks, the tail steps out). Tracks/striders
+  // stay on rails: a tank corners like a tank ON PURPOSE.
+  buggy: { kind: 'buggy', name: 'Scout Buggy', cost: 1, hp: 95, speed: 19, turnRate: 2.6, weapon: 'buggy_mg', seats: 2, mobileSpawn: false, radius: 1.6, systemHp: 24, slip: 2.4 },
   // The Ares is a crewed weapons platform: driver/gunner + sensors + ECM +
   // comms stations, plus 4 passenger benches for when leg work is required.
   // Every subsystem has its own hit points — tanks break in many ways.
@@ -280,6 +284,7 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
   bike: {
     kind: 'bike', name: 'Jackal Recon Bike', cost: 1, hp: 85, speed: 26, turnRate: 3.4,
     weapon: 'bike_mg', seats: 1, mobileSpawn: false, radius: 1.1, systemHp: 15,
+    slip: 2.0, // W5.5: two wheels slide furthest — commit to the lean
   },
   flyer: {
     kind: 'flyer', name: 'Kestrel Gunship', cost: 2, hp: 48, speed: 24, turnRate: 2.8,
@@ -334,6 +339,7 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
     kind: 'transport', name: 'Atlas Transport', cost: 3, hp: 520, speed: 12, turnRate: 1.6,
     weapon: 'transport_mg', seats: 9, mobileSpawn: true, radius: 2.6,
     crew: ['gunner', 'sensors', 'ecm', 'comms'], systemHp: 52,
+    slip: 3.4, // W5.5: a loaded truck leans, briefly — grip wins fast
   },
   ambulance: {
     kind: 'ambulance', name: 'Mercy Field Ambulance', cost: 2, hp: 240, speed: 17, turnRate: 2.2,

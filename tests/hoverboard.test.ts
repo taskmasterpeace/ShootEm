@@ -42,10 +42,15 @@ function slipAngle(v: { yaw: number; vel: { x: number; z: number } }): number {
   return Math.abs(d);
 }
 
-describe('the hoverboard is slippery — and only the hoverboard', () => {
-  it('the board declares slip; the wheeled and tracked fleet stays on rails', () => {
+describe('the hoverboard is slippery — the SLIPPERIEST of the fleet', () => {
+  // W5.5 changed the old law: the wheeled runabouts now ride the slip dial
+  // too ("cars handle like cars"). The board keeps its crown among fast
+  // movers — grippier than the bike, looser than the truck — and TRACKS
+  // stay on rails: a tank corners like a tank on purpose.
+  it('the board out-slides the wheels; the tracked fleet stays on rails', () => {
     expect(VEHICLES.hoverboard.slip).toBeGreaterThan(0);
-    for (const kind of ['buggy', 'tank', 'apc', 'bike'] as VehicleKind[]) {
+    expect(VEHICLES.hoverboard.slip!, 'the board slides longer than the truck').toBeLessThan(VEHICLES.transport.slip!);
+    for (const kind of ['tank', 'apc'] as VehicleKind[]) {
       expect(VEHICLES[kind].slip, `${kind} must not drift`).toBeUndefined();
     }
   });
@@ -62,11 +67,11 @@ describe('the hoverboard is slippery — and only the hoverboard', () => {
       .toBeGreaterThan(0.25);
   });
 
-  it('the same carve on a BUGGY grips instantly — rails are still rails', () => {
-    const { w, p, v } = ride('buggy');
+  it('the same carve on a TANK grips instantly — tracks are still rails', () => {
+    const { w, p, v } = ride('tank');
     run(w, p, cmd({ moveZ: -1 }), 2);
     run(w, p, cmd({ moveZ: -1, moveX: 1 }), 0.25);
-    expect(slipAngle(v), 'a wheeled hull must not have gained drift').toBeLessThan(0.03);
+    expect(slipAngle(v), 'a tracked hull must not have gained drift').toBeLessThan(0.03);
   });
 
   it('SLIPPERY, NOT SOAP: hold the line after the carve and the board bites', () => {
