@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
-import { CLIMB_H, F2_SLIT, F2_WALL, F2_WELL, GRID, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, houseAt, losClear, surfaceAt, tileAt } from '../sim/map';
+import { CLIMB_H, F2_SLIT, F2_WALL, F2_WELL, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, blocksShot, houseAt, losClear, surfaceAt, tileAt } from '../sim/map';
+import { halfDepth, halfWidth, tileToWorld, worldDepth, worldToTile, worldWidth } from '../sim/map-geometry';
 import { materialForSurface, materialOf, type ImpactKind } from '../sim/materials';
 import { TORCH_MULT, classLinger, eyesSeePoint, perceivesNow, seenRecently, type SeenMark } from '../sim/perception';
 import { paintColorFor } from './onboarding';
@@ -481,12 +482,13 @@ export class Renderer {
       k === 'clear' ? 0.42 : k === 'night' ? 0.26 : k === 'fog' ? 0.22 :
       0.55 + 0.3 * hard;
     if (this.cloudMat) this.cloudMat.opacity += (cloudTarget - this.cloudMat.opacity) * Math.min(1, dt * 1.5);
-    const wrap = WORLD / 2 + 80;
+    const wrapX = halfWidth(world.map.geometry) + 80;
+    const wrapZ = halfDepth(world.map.geometry) + 80;
     for (const c of this.clouds) {
       c.mesh.position.x += c.drift * dt;
       c.mesh.position.z += c.drift * 0.3 * dt;
-      if (c.mesh.position.x > wrap) c.mesh.position.x = -wrap;
-      if (c.mesh.position.z > wrap) c.mesh.position.z = -wrap;
+      if (c.mesh.position.x > wrapX) c.mesh.position.x = -wrapX;
+      if (c.mesh.position.z > wrapZ) c.mesh.position.z = -wrapZ;
     }
 
     // atmosphere grading toward the front's mood
@@ -783,6 +785,10 @@ export class Renderer {
 
   buildStaticWorld(world: World) {
     const pal = THEME_PALETTES[world.map.theme] ?? THEME_PALETTES.savanna;
+    const geometry = world.map.geometry;
+    const { cols, rows, tile } = geometry;
+    const width = worldWidth(geometry);
+    const depth = worldDepth(geometry);
     // sky + atmosphere per environment — kept as MUTABLE baselines so the
     // weather pass (§8.8) can tax them and always find its way back to clear
     this.scene.fog = new THREE.Fog(pal.fog, pal.fogNear, pal.fogFar);
@@ -822,7 +828,7 @@ export class Renderer {
       const geo = new THREE.IcosahedronGeometry(1, 0);
       const m = new THREE.Mesh(geo, this.cloudMat);
       m.scale.set(9 + cloudRng(i) * 10, 2 + cloudRng(i + 50) * 1.6, 6 + cloudRng(i + 99) * 8);
-      m.position.set((cloudRng(i + 7) - 0.5) * (WORLD + 80), 48 + cloudRng(i + 13) * 20, (cloudRng(i + 31) - 0.5) * (WORLD + 80));
+      m.position.set((cloudRng(i + 7) - 0.5) * (width + 80), 48 + cloudRng(i + 13) * 20, (cloudRng(i + 31) - 0.5) * (depth + 80));
       m.rotation.y = cloudRng(i + 43) * Math.PI;
       m.castShadow = false; m.receiveShadow = false;
       this.scene.add(m);
@@ -843,7 +849,7 @@ export class Renderer {
       const geo = new THREE.IcosahedronGeometry(1, 0);
       const m = new THREE.Mesh(geo, this.shelfMat);
       m.scale.set(11 + cloudRng(i + 200) * 12, 1.1 + cloudRng(i + 250) * 0.8, 9 + cloudRng(i + 299) * 10);
-      m.position.set((cloudRng(i + 207) - 0.5) * (WORLD + 60), 11 + cloudRng(i + 213) * 2, (cloudRng(i + 231) - 0.5) * (WORLD + 60));
+      m.position.set((cloudRng(i + 207) - 0.5) * (width + 60), 11 + cloudRng(i + 213) * 2, (cloudRng(i + 231) - 0.5) * (depth + 60));
       m.rotation.y = cloudRng(i + 243) * Math.PI;
       m.castShadow = false; m.receiveShadow = false;
       this.scene.add(m);
@@ -859,10 +865,12 @@ export class Renderer {
     const cvs = document.createElement('canvas');
     cvs.width = cvs.height = 1024;
     const ctx = cvs.getContext('2d')!;
-    const px = 1024 / GRID;
-    for (let z = 0; z < GRID; z++) {
-      for (let x = 0; x < GRID; x++) {
-        const t = world.map.grid[z * GRID + x];
+    const pxX = 1024 / cols;
+    const pxZ = 1024 / rows;
+    for (let z = 0; z < rows; z++) {
+      for (let x = 0; x < cols; x++) {
+        const idx = z * cols + x;
+        const t = world.map.grid[idx];
         const n = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453;
         const r = n - Math.floor(n);
         ctx.fillStyle = t === T_WATER || t === T_DEEP ? pal.water(r) : t === T_GRASS ? '#6b7c40' : pal.open(r);
@@ -870,25 +878,25 @@ export class Renderer {
           // deep channel: the same water, drowned darker
           ctx.fillStyle = pal.water(r).replace(/\d+/g, (n) => String(Math.round(Number(n) * 0.55)));
         }
-        ctx.fillRect(x * px, z * px, px + 1, px + 1);
+        ctx.fillRect(x * pxX, z * pxZ, pxX + 1, pxZ + 1);
         // §8.6 surface tints: the ground SHOWS what it does to your boots
         if (t !== T_WATER && t !== T_DEEP) {
-          const sf = world.map.surface[z * GRID + x];
+          const sf = world.map.surface[idx];
           const tint = sf === S_MUD ? 'rgba(62,44,26,0.55)'
             : sf === S_ICE ? 'rgba(190,220,235,0.28)'
             : sf === S_PLATE ? 'rgba(120,130,145,0.22)'
             : sf === S_GRIT ? 'rgba(150,120,70,0.18)'
             : sf === S_WET ? 'rgba(60,110,120,0.16)'
             : null;
-          if (tint) { ctx.fillStyle = tint; ctx.fillRect(x * px, z * px, px + 1, px + 1); }
+          if (tint) { ctx.fillStyle = tint; ctx.fillRect(x * pxX, z * pxZ, pxX + 1, pxZ + 1); }
         }
       }
     }
     // base tint
     for (const team of [0, 1] as Team[]) {
       const b = world.map.basePos[team];
-      const cx = ((b.x + WORLD / 2) / WORLD) * 1024;
-      const cz = ((b.z + WORLD / 2) / WORLD) * 1024;
+      const cx = ((b.x + halfWidth(geometry)) / width) * 1024;
+      const cz = ((b.z + halfDepth(geometry)) / depth) * 1024;
       const grad = ctx.createRadialGradient(cx, cz, 6, cx, cz, 70);
       const col = team === 0 ? '232, 163, 61' : '61, 189, 232';
       grad.addColorStop(0, `rgba(${col}, 0.35)`);
@@ -900,7 +908,7 @@ export class Renderer {
     tex.colorSpace = THREE.SRGBColorSpace;
     this.groundMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95 });
     this.groundWet = 0;
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(WORLD, WORLD), this.groundMat);
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), this.groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     this.scene.add(ground);
@@ -922,9 +930,9 @@ export class Renderer {
     const doorTiles: [number, number][] = [];
     const ladderTiles: [number, number][] = [];
     let unknownWarned = false;
-    for (let z = 0; z < GRID; z++) {
-      for (let x = 0; x < GRID; x++) {
-        const idx = z * GRID + x;
+    for (let z = 0; z < rows; z++) {
+      for (let x = 0; x < cols; x++) {
+        const idx = z * cols + x;
         const t = world.map.grid[idx];
         if (t === T_OPEN || t === T_WATER || t === T_DEEP || t === T_LADDER || covered.has(idx)) continue;
         if (t === T_GRASS) {
@@ -963,7 +971,7 @@ export class Renderer {
         const bit = h.maskRows?.[dz];
         for (let dx = 0; dx < h.tw; dx++) {
           if (bit !== undefined && !(bit & (1 << dx))) continue; // shaped by footprint
-          houseTint.set((h.tz + dz) * GRID + (h.tx + dx), wc);
+          houseTint.set((h.tz + dz) * cols + (h.tx + dx), wc);
         }
       }
     }
@@ -975,13 +983,14 @@ export class Renderer {
     const wallBase = new THREE.Color(pal.wall);
     const tintCol = new THREE.Color();
     wallTiles.forEach(([x, z], i) => {
-      m4.setPosition((x + 0.5) * TILE - WORLD / 2, 2, (z + 0.5) * TILE - WORLD / 2);
+      const center = tileToWorld(geometry, x, z);
+      m4.setPosition(center.x, 2, center.z);
       wallInst.setMatrixAt(i, m4);
-      const tint = houseTint.get(z * GRID + x);
+      const tint = houseTint.get(z * cols + x);
       // base material is white, so the instance colour is the final albedo:
       // house tile → its stucco shade, everything else → the theme wall colour
       wallInst.setColorAt(i, tint !== undefined ? tintCol.setHex(tint) : wallBase);
-      this.wallInstanceByTile.set(z * GRID + x, i); // so the tunneler can grind it away
+      this.wallInstanceByTile.set(z * cols + x, i); // so the tunneler can grind it away
     });
     if (wallInst.instanceColor) wallInst.instanceColor.needsUpdate = true;
     this.scene.add(wallInst);
@@ -1000,7 +1009,7 @@ export class Renderer {
       const gq = new THREE.Quaternion();
       const gs = new THREE.Vector3(1, 1, 1);
       grassTiles.forEach(([x, z], i) => {
-        const wx = (x + 0.5) * TILE - WORLD / 2, wz = (z + 0.5) * TILE - WORLD / 2;
+        const { x: wx, z: wz } = tileToWorld(geometry, x, z);
         const a = ((x * 31 + z * 17) % 7) / 7 * Math.PI; // deterministic lean
         for (let b = 0; b < 2; b++) {
           gq.setFromAxisAngle(new THREE.Vector3(0, 1, 0), a + b * Math.PI / 2);
@@ -1016,9 +1025,10 @@ export class Renderer {
     const coverInst = new THREE.InstancedMesh(new THREE.BoxGeometry(TILE * 0.95, 1.2, TILE * 0.95), coverMat, Math.max(coverTiles.length, 1));
     coverInst.castShadow = true;
     coverTiles.forEach(([x, z], i) => {
-      m4.setPosition((x + 0.5) * TILE - WORLD / 2, 0.6, (z + 0.5) * TILE - WORLD / 2);
+      const center = tileToWorld(geometry, x, z);
+      m4.setPosition(center.x, 0.6, center.z);
       coverInst.setMatrixAt(i, m4);
-      this.coverInstanceByTile.set(z * GRID + x, i);
+      this.coverInstanceByTile.set(z * cols + x, i);
     });
     this.scene.add(coverInst);
     this.coverInst = coverInst;
@@ -1036,11 +1046,12 @@ export class Renderer {
     const climbLipInst = new THREE.InstancedMesh(new THREE.BoxGeometry(TILE * 1.16, 0.18, TILE * 1.16), lipMat, Math.max(climbTiles.length, 1));
     climbLipInst.castShadow = true;
     climbTiles.forEach(([x, z], i) => {
-      m4.setPosition((x + 0.5) * TILE - WORLD / 2, CLIMB_H / 2, (z + 0.5) * TILE - WORLD / 2);
+      const center = tileToWorld(geometry, x, z);
+      m4.setPosition(center.x, CLIMB_H / 2, center.z);
       climbInst.setMatrixAt(i, m4);
-      m4.setPosition((x + 0.5) * TILE - WORLD / 2, CLIMB_H - 0.09, (z + 0.5) * TILE - WORLD / 2);
+      m4.setPosition(center.x, CLIMB_H - 0.09, center.z);
       climbLipInst.setMatrixAt(i, m4);
-      this.climbInstanceByTile.set(z * GRID + x, i); // drill food — collapses like walls
+      this.climbInstanceByTile.set(z * cols + x, i); // drill food — collapses like walls
     });
     this.scene.add(climbInst, climbLipInst);
     this.climbInst = climbInst;
@@ -1053,9 +1064,10 @@ export class Renderer {
       const highInst = new THREE.InstancedMesh(new THREE.BoxGeometry(TILE, 2.2, TILE), wallMat, slitTiles.length);
       lowInst.castShadow = highInst.castShadow = true;
       slitTiles.forEach(([x, z], i) => {
-        m4.setPosition((x + 0.5) * TILE - WORLD / 2, 0.6, (z + 0.5) * TILE - WORLD / 2);
+        const center = tileToWorld(geometry, x, z);
+        m4.setPosition(center.x, 0.6, center.z);
         lowInst.setMatrixAt(i, m4);
-        m4.setPosition((x + 0.5) * TILE - WORLD / 2, 2.9, (z + 0.5) * TILE - WORLD / 2);
+        m4.setPosition(center.x, 2.9, center.z);
         highInst.setMatrixAt(i, m4);
       });
       this.scene.add(lowInst, highInst);
@@ -1067,16 +1079,17 @@ export class Renderer {
       const metalInst = new THREE.InstancedMesh(new THREE.BoxGeometry(TILE, 4, TILE), metalMat, metalTiles.length);
       metalInst.castShadow = metalInst.receiveShadow = true;
       metalTiles.forEach(([x, z], i) => {
-        m4.setPosition((x + 0.5) * TILE - WORLD / 2, 2, (z + 0.5) * TILE - WORLD / 2);
+        const center = tileToWorld(geometry, x, z);
+        m4.setPosition(center.x, 2, center.z);
         metalInst.setMatrixAt(i, m4);
       });
       this.scene.add(metalInst);
     }
 
     // LADDERS: rails + rungs at every ladder foot — the climb to the storey above
-    for (let z = 0; z < GRID; z++)
-      for (let x = 0; x < GRID; x++)
-        if (world.map.grid[z * GRID + x] === T_LADDER) ladderTiles.push([x, z]);
+    for (let z = 0; z < rows; z++)
+      for (let x = 0; x < cols; x++)
+        if (world.map.grid[z * cols + x] === T_LADDER) ladderTiles.push([x, z]);
     for (const g of this.ladderMeshes) { this.scene.remove(g); g.traverse((o) => (o as THREE.Mesh).geometry?.dispose()); }
     this.ladderMeshes = [];
     for (const c of this.rubble) { this.scene.remove(c); c.geometry.dispose(); }
@@ -1091,7 +1104,7 @@ export class Renderer {
       const runSpan = TILE * 0.8;
       for (const [x, z] of ladderTiles) {
         const g = new THREE.Group();
-        const wx = (x + 0.5) * TILE - WORLD / 2, wz = (z + 0.5) * TILE - WORLD / 2;
+        const { x: wx, z: wz } = tileToWorld(geometry, x, z);
         for (let i = 0; i < STEPS; i++) {
           const tread = new THREE.Mesh(new THREE.BoxGeometry(TILE * 0.62, 0.14, 0.5), railMat);
           tread.position.set(0, ((i + 1) / STEPS) * 4 - 0.07, TILE * 0.36 - (i + 0.5) * (runSpan / STEPS));
@@ -1110,11 +1123,11 @@ export class Renderer {
         g.position.set(wx, 0, wz);
         // the climb tops out against the nearest solid neighbor, like the
         // old leaned ladder did — the top step lands at the wall side
-        const idx = z * GRID + x;
+        const idx = z * cols + x;
         const solid = (t: number) => t === T_WALL || t === T_METAL || t === T_SLIT;
         if (solid(world.map.grid[idx - 1])) g.rotation.y = Math.PI / 2;
         else if (solid(world.map.grid[idx + 1])) g.rotation.y = -Math.PI / 2;
-        else if (solid(world.map.grid[idx - GRID])) g.rotation.y = 0;
+        else if (solid(world.map.grid[idx - cols])) g.rotation.y = 0;
         else g.rotation.y = Math.PI;
         g.traverse((o) => { (o as THREE.Mesh).castShadow = true; });
         this.scene.add(g);
@@ -1135,9 +1148,9 @@ export class Renderer {
       const matF = new THREE.MeshStandardMaterial({ color: 0x5a5148, roughness: 0.95, transparent: true, opacity: 0.97 });
       for (let z = h.tz; z < h.tz + h.th; z++) {
         for (let x = h.tx; x < h.tx + h.tw; x++) {
-          const t2 = world.map.grid2[z * GRID + x];
+          const t2 = world.map.grid2[z * cols + x];
           if (t2 === 0 /* F2_VOID */) continue;
-          const wx = (x + 0.5) * TILE - WORLD / 2, wz = (z + 0.5) * TILE - WORLD / 2;
+          const { x: wx, z: wz } = tileToWorld(geometry, x, z);
           if (t2 !== F2_WELL) {
             const slab = new THREE.Mesh(new THREE.BoxGeometry(TILE, 0.25, TILE), matF);
             slab.position.set(wx, 4.1, wz);
@@ -1169,7 +1182,7 @@ export class Renderer {
     this.doors = [];
     const doorMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2a, roughness: 0.8 });
     for (const [x, z] of doorTiles) {
-      const idx = z * GRID + x;
+      const idx = z * cols + x;
       // orientation: neighbors solid left/right => the door spans X
       const solid = (t: number) => t === T_WALL || t === T_METAL || t === T_SLIT || t === T_DOOR || t === T_DOOR_OPEN;
       const spansX = solid(world.map.grid[idx - 1]) || solid(world.map.grid[idx + 1]);
@@ -1177,7 +1190,8 @@ export class Renderer {
         new THREE.BoxGeometry(spansX ? TILE : 0.35, 2.2, spansX ? 0.35 : TILE),
         doorMat.clone(),
       );
-      mesh.position.set((x + 0.5) * TILE - WORLD / 2, 1.1, (z + 0.5) * TILE - WORLD / 2);
+      const center = tileToWorld(geometry, x, z);
+      mesh.position.set(center.x, 1.1, center.z);
       mesh.castShadow = true;
       this.scene.add(mesh);
       this.doors.push({ mesh, idx, spansX, base: mesh.position.clone() });
@@ -1210,8 +1224,8 @@ export class Renderer {
         color: roofHex, roughness: 0.82, transparent: true, opacity: 0.97,
       });
       const mats = [rmat];
-      const cx = (h.tx + h.tw / 2) * TILE - WORLD / 2;
-      const cz = (h.tz + h.th / 2) * TILE - WORLD / 2;
+      const cx = (h.tx + h.tw / 2) * tile - halfWidth(geometry);
+      const cz = (h.tz + h.th / 2) * tile - halfDepth(geometry);
       const covered = (rx: number, rz: number) =>
         !h.maskRows || ((h.maskRows[rz] ?? 0) & (1 << rx)) !== 0;
       if (style === 'gable') {
@@ -1257,7 +1271,7 @@ export class Renderer {
           for (let rx = 0; rx < h.tw; rx++) {
             if (!covered(rx, rz)) continue;
             const slab = new THREE.Mesh(new THREE.BoxGeometry(TILE, 0.3, TILE), rmat);
-            slab.position.set((h.tx + rx + 0.5) * TILE - WORLD / 2 - cx, 0, (h.tz + rz + 0.5) * TILE - WORLD / 2 - cz);
+            slab.position.set((h.tx + rx + 0.5) * tile - halfWidth(geometry) - cx, 0, (h.tz + rz + 0.5) * tile - halfDepth(geometry) - cz);
             slab.castShadow = true;
             group.add(slab);
           }
@@ -1301,7 +1315,8 @@ export class Renderer {
     for (const idx of world.breached) {
       this.collapseTile(idx);
       if (world.map.grid[idx] !== T_OPEN) {
-        this.breachPile((idx % GRID + 0.5) * TILE - WORLD / 2, (Math.floor(idx / GRID) + 0.5) * TILE - WORLD / 2);
+        const center = tileToWorld(geometry, idx % cols, Math.floor(idx / cols));
+        this.breachPile(center.x, center.z);
       }
     }
 
@@ -1695,7 +1710,7 @@ export class Renderer {
     // audio engine asks this test per shot), and the weather dulls the whole
     // battlefield — §8.8's sound column, finally real
     audio.occlusionTest = (p) => !losClear(world.map.grid,
-      { x: audio.listener.x, y: 1.4, z: audio.listener.z }, { x: p.x, y: 1.4, z: p.z });
+      { x: audio.listener.x, y: 1.4, z: audio.listener.z }, { x: p.x, y: 1.4, z: p.z }, 1.4, world.map.geometry);
     {
       const wk = world.weather?.kind;
       audio.weatherDull = (wk === 'snow' ? 0.5 : wk === 'storm' ? 0.4 : wk === 'rain' ? 0.25 : wk === 'dust' ? 0.2 : 0)
@@ -1719,7 +1734,7 @@ export class Renderer {
           if (!s.alive || s.team === focus.team || s.vehicleId >= 0) continue;
           if (!world.puppet && !seenRecently(world.lastSeen, world.pinged, focus.team, s, world.time,
             classLinger(focus.classId, focus.equipment.includes('tracking_optics')))) continue;
-          const hIdx = houseAt(world.map.houses, s.pos.x, s.pos.z);
+          const hIdx = houseAt(world.map.houses, s.pos.x, s.pos.z, world.map.geometry);
           if (hIdx < 0) continue;
           const topFloor = world.map.houses[hIdx].floors === 2 ? 1 : 0;
           if ((s.floor ?? 0) >= topFloor) revealRoof.add(hIdx);
@@ -1736,7 +1751,7 @@ export class Renderer {
       for (const u of this.uppers) {
         const uIdx = world.map.houses.indexOf(u.house as typeof world.map.houses[number]);
         const inThis = (focus && focus.floor === 0 &&
-          houseAt(world.map.houses, focus.pos.x, focus.pos.z) === uIdx) || revealUpper.has(uIdx);
+          houseAt(world.map.houses, focus.pos.x, focus.pos.z, world.map.geometry) === uIdx) || revealUpper.has(uIdx);
         const target = inThis ? 0.13 : 0.97;
         for (const m of u.mats) {
           m.opacity += (target - m.opacity) * Math.min(1, dt * 8);
@@ -1752,15 +1767,16 @@ export class Renderer {
     // saw it). Distance is to the house RECT, so long walls peek too.
     if (this.roofs.length) {
       const focus = world.soldiers.get(localId);
-      const inHouse = focus ? houseAt(world.map.houses, focus.pos.x, focus.pos.z) : -1;
+      const inHouse = focus ? houseAt(world.map.houses, focus.pos.x, focus.pos.z, world.map.geometry) : -1;
       for (const r of this.roofs) {
         const hIdx = world.map.houses.indexOf(r.house as typeof world.map.houses[number]);
         let open = hIdx === inHouse || revealRoof.has(hIdx);
         if (!open && focus) {
           const h = r.house;
-          const x0 = h.tx * TILE - WORLD / 2, z0 = h.tz * TILE - WORLD / 2;
-          const dx = Math.max(x0 - focus.pos.x, 0, focus.pos.x - (x0 + h.tw * TILE));
-          const dz = Math.max(z0 - focus.pos.z, 0, focus.pos.z - (z0 + h.th * TILE));
+          const x0 = h.tx * world.map.geometry.tile - halfWidth(world.map.geometry);
+          const z0 = h.tz * world.map.geometry.tile - halfDepth(world.map.geometry);
+          const dx = Math.max(x0 - focus.pos.x, 0, focus.pos.x - (x0 + h.tw * world.map.geometry.tile));
+          const dz = Math.max(z0 - focus.pos.z, 0, focus.pos.z - (z0 + h.th * world.map.geometry.tile));
           open = dx * dx + dz * dz < 4.5 * 4.5;
         }
         const target = open ? 0.12 : 0.97;
@@ -2064,7 +2080,8 @@ export class Renderer {
       mesh.position.set(ghost?.x ?? s.pos.x, s.pos.y, ghost?.z ?? s.pos.z);
       // in the water: waders splash at boot height, swimmers sink to the neck
       {
-        const wt = world.map.grid[Math.floor((s.pos.z + WORLD / 2) / TILE) * GRID + Math.floor((s.pos.x + WORLD / 2) / TILE)];
+        const [tx, tz] = worldToTile(world.map.geometry, s.pos.x, s.pos.z);
+        const wt = world.map.grid[tz * world.map.geometry.cols + tx];
         if (wt === T_DEEP && s.pos.y < 0.5) {
           mesh.position.y -= 0.95 - Math.sin(world.time * 2.2 + s.id) * 0.06; // swimming: chin on the waterline
           if ((s.vel.x !== 0 || s.vel.z !== 0) && Math.random() < 0.15) {
@@ -2183,8 +2200,9 @@ export class Renderer {
             new THREE.MeshBasicMaterial({ color: 0xcfeaf5, transparent: true, opacity: 0.62, depthWrite: false }),
           );
           sheet.rotation.x = -Math.PI / 2;
-          const tx = idx % GRID, tz = Math.floor(idx / GRID);
-          sheet.position.set(tx * TILE - WORLD / 2 + TILE / 2, 0.06, tz * TILE - WORLD / 2 + TILE / 2);
+          const tx = idx % world.map.geometry.cols, tz = Math.floor(idx / world.map.geometry.cols);
+          const center = tileToWorld(world.map.geometry, tx, tz);
+          sheet.position.set(center.x, 0.06, center.z);
           this.scene.add(sheet);
           this.frostSheets.set(idx, sheet);
         }
@@ -2942,7 +2960,7 @@ export class Renderer {
         let nodeE: (typeof s) | undefined; // PRISM: the body the stream stopped in
         walk: for (let d = 1; d <= hdef.range; d += 1) {
           const px = s.pos.x + fx * d, pz = s.pos.z + fz * d;
-          if (blocksShot(world.map.grid, px, pz, 1.3)) { end = d; break; }
+          if (blocksShot(world.map.grid, px, pz, 1.3, world.map.geometry)) { end = d; break; }
           // the drawn stream STOPS at a hull, same as the sim's damage walk —
           // the beam no longer visually passes through vehicles
           for (const v of world.vehicles.values()) {
@@ -2980,7 +2998,7 @@ export class Renderer {
           let fans = 0;
           for (const c of cands) {
             if (fans >= pr.count) break;
-            if (!losClear(world.map.grid, nodeE.pos, c.e.pos, 1.3)) continue;
+            if (!losClear(world.map.grid, nodeE.pos, c.e.pos, 1.3, world.map.geometry)) continue;
             subsWanted.push({ x: c.e.pos.x, z: c.e.pos.z });
             fans++;
           }
@@ -4230,7 +4248,7 @@ export class Renderer {
     // performs (blocksAir passes T_COVER above 0.9u) finally shows on the
     // body. Gated to the hop arc so a plain jump in the open stays a jump.
     if (!zed && !s.ascendant && s.pos.y > 0.35 && s.pos.y < 1.4 && s.vehicleId < 0) {
-      const overCover = tileAt(world.map.grid, s.pos.x, s.pos.z) === T_COVER;
+      const overCover = tileAt(world.map.grid, s.pos.x, s.pos.z, world.map.geometry) === T_COVER;
       if (overCover) {
         if (j.armL) { j.armL.rotation.z = 1.25; }        // lead hand plants down-forward
         if (j.legL) j.legL.rotation.z = 0.9;             // lead leg clears
@@ -4712,9 +4730,9 @@ export class Renderer {
               // its fabric (wall→dust, door→splinter, metal→spark, water→splash),
               // open ground as the SURFACE you'd walk on (ice→shatter, deck→
               // spark, grass→rustle, dirt→puff). No more three-bucket lumping.
-              const t = tileAt(world.map.grid, e.pos.x, e.pos.z);
+              const t = tileAt(world.map.grid, e.pos.x, e.pos.z, world.map.geometry);
               const onFloor = t === T_OPEN || t === T_LADDER;
-              const mat = onFloor ? materialForSurface(surfaceAt(world.map.surface, e.pos.x, e.pos.z)) : materialOf(t);
+              const mat = onFloor ? materialForSurface(surfaceAt(world.map.surface, e.pos.x, e.pos.z, world.map.geometry)) : materialOf(t);
               this.spawnImpactFx(mat.impact, e.pos);
             }
           }

@@ -2,8 +2,9 @@ import { AMMO_INFO, CLASSES, EQUIPMENT, MODE_INFO, TEAM_NAMES, VEHICLES, WEAPONS
 import { LSWS, VO_LINES } from '../sim/lsw';
 import { audio, earshotFor } from './audio';
 import { icon } from './icons';
-import { GRID, T_CLIMB, T_WALL, WORLD, losClear, houseAt } from '../sim/map';
-import { isZed, type SimEvent, type Soldier, type Team } from '../sim/types';
+import { T_CLIMB, T_WALL, losClear, houseAt } from '../sim/map';
+import { LEGACY_GEOMETRY, halfDepth, halfWidth, worldDepth, worldWidth, type MapGeometry } from '../sim/map-geometry';
+import { isZed, type SimEvent, type Soldier, type Team, type Vec3 } from '../sim/types';
 import { drawGrade, drawNumber, RING_COLORS } from './ring';
 import { weaponPortrait } from './weaponcam';
 import { weaponBrand } from './models/weapons';
@@ -15,6 +16,21 @@ import type { OperationResult } from '../sim/operation-runtime';
 import type { SettlementReceipt } from './campaign';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+
+export function minimapPoint(geometry: MapGeometry, size: number, pos: Vec3): [number, number] {
+  return [
+    ((pos.x + halfWidth(geometry)) / worldWidth(geometry)) * size,
+    ((pos.z + halfDepth(geometry)) / worldDepth(geometry)) * size,
+  ];
+}
+
+export function minimapWorldPoint(geometry: MapGeometry, size: number, x: number, z: number): Vec3 {
+  return {
+    x: (x / size) * worldWidth(geometry) - halfWidth(geometry),
+    y: 0,
+    z: (z / size) * worldDepth(geometry) - halfDepth(geometry),
+  };
+}
 
 type OperationHudEvent = SimEvent & { type: 'operation_phase' | 'operation_progress' | 'operation_complete' };
 
@@ -99,6 +115,8 @@ export class Hud {
   private minimapEl = $('minimap') as HTMLCanvasElement;
   private minimapCtx = this.minimapEl.getContext('2d')!;
   private mapBg: HTMLCanvasElement | null = null;
+  private mapBgGeometry = '';
+  private minimapGeometry: MapGeometry = { ...LEGACY_GEOMETRY };
   /** HOLD-THEN-FADE: where the minimap last showed each hostile, and when — a
    *  lost contact dissolves from here instead of blinking off (W0.2). */
   private minimapContacts = new Map<number, { x: number; z: number; t: number }>();
@@ -162,10 +180,9 @@ export class Hud {
       const S = this.minimapEl.width;
       const mx = ((e.clientX - rect.left) / rect.width) * S;
       const mz = ((e.clientY - rect.top) / rect.height) * S;
-      const wx = (mx / S) * WORLD - WORLD / 2;
-      const wz = (mz / S) * WORLD - WORLD / 2;
-      this.addWaypoint(wx, wz, 'you');
-      this.onWaypoint(wx, wz);
+      const point = minimapWorldPoint(this.minimapGeometry, S, mx, mz);
+      this.addWaypoint(point.x, point.z, 'you');
+      this.onWaypoint(point.x, point.z);
     });
 
     // damage/heal vignette overlay
@@ -892,28 +909,33 @@ export class Hud {
   private updateMinimap(world: World, local: Soldier) {
     const ctx = this.minimapCtx;
     const S = 220;
+    const geometry = world.map.geometry;
+    this.minimapGeometry = geometry;
+    const geometryKey = `${geometry.cols}x${geometry.rows}x${geometry.tile}:${world.map.seed}`;
     // canvas is 440×440 rendered in 220-space at 2× — crisp at both map sizes
     ctx.setTransform(2, 0, 0, 2, 0, 0);
-    if (!this.mapBg) {
+    if (!this.mapBg || this.mapBgGeometry !== geometryKey) {
+      this.mapBgGeometry = geometryKey;
       this.mapBg = document.createElement('canvas');
       this.mapBg.width = this.mapBg.height = S;
       const b = this.mapBg.getContext('2d')!;
       b.fillStyle = 'rgba(20, 22, 18, 0.9)';
       b.fillRect(0, 0, S, S);
-      const px = S / GRID;
+      const pxX = S / geometry.cols;
+      const pxZ = S / geometry.rows;
       // walls solid, CLIMB barricades (§8.7) fainter — the minimap tells a
       // jump trooper where the flank routes are at a glance
-      for (let z = 0; z < GRID; z++)
-        for (let x = 0; x < GRID; x++) {
-          const t = world.map.grid[z * GRID + x];
+      for (let z = 0; z < geometry.rows; z++)
+        for (let x = 0; x < geometry.cols; x++) {
+          const t = world.map.grid[z * geometry.cols + x];
           if (t !== T_WALL && t !== T_CLIMB) continue;
           b.fillStyle = t === T_WALL ? 'rgba(150, 145, 120, 0.55)' : 'rgba(150, 145, 120, 0.3)';
-          b.fillRect(x * px, z * px, px, px);
+          b.fillRect(x * pxX, z * pxZ, pxX, pxZ);
         }
     }
     ctx.clearRect(0, 0, S, S);
     ctx.drawImage(this.mapBg, 0, 0);
-    const toMap = (wx: number, wz: number) => [((wx + WORLD / 2) / WORLD) * S, ((wz + WORLD / 2) / WORLD) * S] as const;
+    const toMap = (wx: number, wz: number) => minimapPoint(geometry, S, { x: wx, y: 0, z: wz });
     const dot = (wx: number, wz: number, color: string, r = 2.5) => {
       const [x, y] = toMap(wx, wz);
       ctx.fillStyle = color;
@@ -969,7 +991,7 @@ export class Hud {
     }
     const eyeSees = (from: Soldier, s: Soldier, range: number) => {
       const d = Math.hypot(s.pos.x - from.pos.x, s.pos.z - from.pos.z);
-      return d < range && losClear(grid, { ...from.pos, y: 1.4 }, { ...s.pos, y: 1.4 });
+      return d < range && losClear(grid, { ...from.pos, y: 1.4 }, { ...s.pos, y: 1.4 }, 1.4, geometry);
     };
     const seesEnemy = (s: Soldier): boolean => {
       if (world.smoked.has(s.id)) return Math.hypot(s.pos.x - local.pos.x, s.pos.z - local.pos.z) < 8;
@@ -1039,9 +1061,9 @@ export class Hud {
       else {
         // concealment rule (§8.4/MAP-STRATEGY): an enemy under a roof is OFF
         // your map unless pinged — or you're inside the same building
-        const eh = houseAt(world.map.houses, s.pos.x, s.pos.z);
+        const eh = houseAt(world.map.houses, s.pos.x, s.pos.z, geometry);
         if (eh >= 0 && !world.pinged.has(s.id) &&
-            eh !== houseAt(world.map.houses, local.pos.x, local.pos.z)) continue;
+            eh !== houseAt(world.map.houses, local.pos.x, local.pos.z, geometry)) continue;
         tri(s.pos.x, s.pos.z, s.team === 0 ? '#e8a33d' : '#3dbde8'); // hostile = triangle
         // remember this spot so the contact fades from HERE when the map loses it
         this.minimapContacts.set(s.id, { x: s.pos.x, z: s.pos.z, t: world.time });
@@ -1059,9 +1081,9 @@ export class Hud {
         if (v.burrowed) continue; // a deep breacher is under the war — no sensor reads it
         const ecmDead = v.systems && v.systems.ecm <= 0;
         const d = Math.hypot(v.pos.x - local.pos.x, v.pos.z - local.pos.z);
-        const seen = (d < 60 && losClear(grid, { ...local.pos, y: 1.4 }, { ...v.pos, y: 1.8 })) ||
+        const seen = (d < 60 && losClear(grid, { ...local.pos, y: 1.4 }, { ...v.pos, y: 1.8 }, 1.4, geometry)) ||
           mates.some((mt) => Math.hypot(v.pos.x - mt.pos.x, v.pos.z - mt.pos.z) < 55 &&
-            losClear(grid, { ...mt.pos, y: 1.4 }, { ...v.pos, y: 1.8 }));
+            losClear(grid, { ...mt.pos, y: 1.4 }, { ...v.pos, y: 1.8 }, 1.4, geometry));
         if (!ecmDead && !seen) continue;
       }
       // friendly burrowed breachers read dimmed — the team knows, the enemy doesn't

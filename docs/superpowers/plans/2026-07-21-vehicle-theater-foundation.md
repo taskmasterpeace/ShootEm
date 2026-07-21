@@ -282,7 +282,7 @@ git commit -m "feat: honor rectangular maps in the simulation"
 - Consumes: `GameMap.geometry` and Task 1 helpers.
 - Produces: `minimapPoint(geometry, size, worldPos)`, `blankGeometryDoc(geometry, seed, theme)`, and geometry-preserving Map Maker documents.
 
-- [ ] **Step 1: Add failing projection and rectangular editor tests**
+- [x] **Step 1: Add failing projection and rectangular editor tests**
 
 ```ts
 import { minimapPoint } from '../src/client/hud';
@@ -302,13 +302,13 @@ it('round-trips and validates a 900x600 Map Maker document', () => {
 });
 ```
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [x] **Step 2: Run focused tests and verify RED**
 
 Run: `npx vitest run tests/map-geometry.test.ts tests/mapedit.test.ts tests/rectangular-presentation.test.ts`
 
 Expected: FAIL because projection and rectangular documents do not exist.
 
-- [ ] **Step 3: Implement rectangular presentation and editing**
+- [x] **Step 3: Implement rectangular presentation and editing**
 
 Use `cols`, `rows`, `worldWidth`, and `worldDepth` independently:
 
@@ -320,13 +320,13 @@ export function minimapPoint(g: MapGeometry, size: number, p: Vec3): [number, nu
 
 Renderer terrain planes use `PlaneGeometry(worldWidth(g), worldDepth(g))`; loops index `z * g.cols + x`; clouds distribute across the two extents; breach/rubble lookup uses `g.cols`. Map Maker chooses pixels from both dimensions, sizes its canvas `cols × rows`, converts pointer positions independently, and shows `600 × 900u` in the document header. `validateDoc` allocates and floods `geometryLength(g)` cells.
 
-- [ ] **Step 4: Run presentation/editor regressions**
+- [x] **Step 4: Run presentation/editor regressions**
 
 Run: `npx vitest run tests/map-geometry.test.ts tests/mapedit.test.ts tests/rectangular-presentation.test.ts tests/walls.test.ts tests/visual.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit rectangular presentation**
+- [x] **Step 5: Commit rectangular presentation**
 
 ```bash
 git add src/client/renderer.ts src/client/hud.ts src/harness/mapmaker.ts src/sim/mapedit.ts tests/map-geometry.test.ts tests/mapedit.test.ts tests/rectangular-presentation.test.ts
