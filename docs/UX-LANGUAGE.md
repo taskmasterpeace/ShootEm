@@ -659,6 +659,8 @@ A PR that adds a display element without its §7 row does not merge.
 - Added **VEIL** — vignettes/static/blind had no primitive.
 - Added **SHEET** — the codex/scoreboard table pattern, screens-only.
 - Canonized the charge ladder as WIND-UP/HEAVY/MAXIMUM/OVERCHARGE (HEAVY supersedes spec CHARGED; matches shipped bands).
+- **2026-07-21 (WEAPON-CARDS.md):** §6's manufacturer-skin scope widened from "the weapon block ONLY" to **the weapon block + weapon cards** — a card is the gun's paper twin and wears the same maker chrome (vector chrome derived from `BRAND_STYLES`; the 512×224 frame shells stay HUD-only).
+- **2026-07-21 (WEAPON-CARDS.md):** §8's one-meter law gains an explicit exemption for **static stat-bars on cards** — a printed spec-sheet bar (DMG/RATE/DPS/RNG/CLIP, never animating, never derived-live) is PRINT, not telemetry; the law governs meters that MOVE.
 
 **Standing violations to burn down (each is a small fix, none blocks new work):**
 | Violation | Where | Fix |
