@@ -148,6 +148,10 @@ export interface VehiclePad {
   kind: VehicleKind;
   team: Team;
   pos: Vec3;
+  /** Named national-pool hull committed to this Operation pad. */
+  operationHullId?: string;
+  /** Destructible mission target carried by this pad's spawned vehicle. */
+  operationObjectiveId?: string;
 }
 
 export interface PickupSpawn {

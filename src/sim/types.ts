@@ -735,6 +735,10 @@ export interface Vehicle {
   overloadAt?: number;
   overloadBy?: number;
   overloadTeam?: Team;
+  /** Stable national motor-pool identity for Operation settlement. */
+  operationHullId?: string;
+  /** Runtime objective identity when this hull is the defended target. */
+  operationObjectiveId?: string;
 }
 
 export interface Turret {
@@ -953,7 +957,8 @@ export interface SimEvent {
     | 'bomb_away'      // V4: the bay opened
     | 'nuke_armed'     // V4: the warhead is live and everyone can hear it
     | 'damage'         // a number worth showing floated off a victim (see amount/armorHit)
-    | 'vo';            // a spoken line: text = sound slot; pos = positional speech, absent = announcer net
+    | 'vo'             // a spoken line: text = sound slot; pos = positional speech, absent = announcer net
+    | 'operation_phase' | 'operation_progress' | 'operation_complete';
   pos?: Vec3;
   weapon?: WeaponId;
   /** On an 'explosion': the two rings the client draws — `killRadius` is the
@@ -995,6 +1000,10 @@ export interface SimEvent {
   team?: Team;
   text?: string;
   big?: boolean;
+  operationId?: string;
+  phaseId?: string;
+  progress?: number;
+  won?: boolean;
   /** which subsystem for 'system_damaged' */
   system?: SystemId;
   /** grid tile index for 'dig' */

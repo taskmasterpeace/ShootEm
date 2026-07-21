@@ -146,7 +146,7 @@ const CP_NAME: Record<string, string> = {
 export interface SkirmishOperationProfile {
   site: OperationSiteId;
   objectiveLabels: string[];
-  vehicleKinds: VehicleKind[];
+  vehicles: Array<{ id: string; kind: VehicleKind }>;
 }
 
 export function generateSkirmishMap(theme: ThemeId, seed: number, profile?: SkirmishOperationProfile): GameMap {
@@ -343,10 +343,11 @@ export function generateSkirmishMap(theme: ThemeId, seed: number, profile?: Skir
   }));
   const safePads = map.vehiclePads.filter((pad) => pad.team === 0);
   map.vehiclePads = [
-    ...profile.vehicleKinds.map((kind, i) => ({
-      kind,
+    ...profile.vehicles.map((vehicle, i) => ({
+      kind: vehicle.kind,
       team: 0 as const,
       pos: { ...safePads[i % safePads.length].pos },
+      operationHullId: vehicle.id,
     })),
     ...map.vehiclePads.filter((pad) => pad.team === 1),
   ];

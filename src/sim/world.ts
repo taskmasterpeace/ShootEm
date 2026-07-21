@@ -12,6 +12,9 @@ import {
   type Vehicle, type VehicleKind, type VehicleSystems, type WeaponId, type ZedKind, isIron, type IronKind } from './types';
 import { stepMode, initMode } from './modes';
 import { generateFront } from './fronts';
+import { generateOperationMap } from './operation-map';
+import { createOperationRuntime, stepWorldOperation, type OperationRuntimeState } from './operation-runtime';
+import type { OperationHull, OperationManifest, OperationPlan } from './operations';
 import { LSW_BRAINS } from './lsw/index';
 import { ICE_HOLD, ICE_HOLD_DRAIN, LSWS, STRUGGLE_HP, STRUGGLE_SECS, THREAT, lswAllowed, lswsForTeam } from './lsw';
 import { stepBot, stepDog, stepIron, stepScientist, stepZombie } from './bots';
@@ -322,6 +325,9 @@ export interface WorldOptions {
    *  before it escalates FOR you); 3/absent = both — quick matches off the
    *  campaign map keep today's behavior. */
   lswPass?: 1 | 2 | 3;
+  operation?: OperationPlan;
+  operationManifest?: OperationManifest;
+  operationInventory?: OperationHull[];
 }
 
 /** Custom deploy loadout: armory weapons + up to two equipment picks. */
@@ -441,15 +447,26 @@ export class World {
    *  campaign vat DOUBLE (the reprint AND the risen body). */
   viralDeaths: [number, number] = [0, 0];
   private nextId = 1;
+  /** Present only for a Military Operation; stock matches never touch it. */
+  operation?: OperationRuntimeState;
+  /** Protected-zone damage accumulated for the no-collateral settlement. */
+  operationCollateral = 0;
 
   constructor(public opts: WorldOptions) {
     this.rng = new Rng(opts.seed ^ 0xbeef);
     // authored front ground first (§8.2); the recipe generator is the
     // fallback for free play and any front this build doesn't know
-    this.map = (opts.frontId ? generateFront(opts.frontId, opts.seed) : null)
+    this.map = (opts.operation && opts.operationManifest && opts.operationInventory
+      ? generateOperationMap(opts.operation, opts.operationManifest, opts.operationInventory)
+      : null)
+      ?? (opts.frontId ? generateFront(opts.frontId, opts.seed) : null)
       ?? generateMap(opts.seed, opts.mode, opts.theme ?? 'savanna');
     this.gravity = THEMES[this.map.theme].gravity;
     this.mode = initMode(opts.mode, this.map, opts.matchMinutes);
+    if (opts.operation) {
+      this.operation = createOperationRuntime(opts.operation);
+      this.mode.timeLeft = Infinity;
+    }
     if (opts.mode === 'paintball') this.weather.until = Infinity; // the yard stays sunny
     // THE OUTBREAK plays LIVE in the horde modes — where the dead already walk,
     // the fallen now rise with them (opts.outbreak forces it on elsewhere).
@@ -466,7 +483,9 @@ export class World {
     }
     this.map.vehiclePads.forEach((pad, padId) => {
       if (isCoopMode(opts.mode) && pad.kind !== 'ambulance' && pad.kind !== 'emplacement') return;
-      this.spawnVehicle(pad.kind, pad.team, pad.pos, padId);
+      const vehicle = this.spawnVehicle(pad.kind, pad.team, pad.pos, padId);
+      vehicle.operationHullId = pad.operationHullId;
+      vehicle.operationObjectiveId = pad.operationObjectiveId;
     });
     if (opts.mode === 'safehouse' && this.map.houses.length) {
       const house = this.map.houses[this.rng.int(0, this.map.houses.length - 1)];
@@ -1495,7 +1514,10 @@ export class World {
     // this tick (zombie targeting, findTarget, projectiles, melee, separation)
     // queries it instead of walking the whole roster
     this.soldierIndex.rebuild(this.soldiers);
-    if (!this.mode.over) stepMode(this, dt);
+    if (!this.mode.over) {
+      if (this.operation) stepWorldOperation(this, dt);
+      else stepMode(this, dt);
+    }
     stepBlackbox(this); // the crowd flight recorder samples on its own 2s clock
     this.stepHomeDoors(); // base doors open for their own; shut behind them
     // the materiel drip (§17): war production never stops, it just crawls

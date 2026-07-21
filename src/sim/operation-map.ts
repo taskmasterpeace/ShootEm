@@ -68,11 +68,11 @@ function cloneMap(map: GameMap): GameMap {
   };
 }
 
-function selectedKinds(manifest: OperationManifest, inventory: readonly OperationHull[]): VehicleKind[] {
+function selectedHulls(manifest: OperationManifest, inventory: readonly OperationHull[]): Array<{ id: string; kind: VehicleKind }> {
   const byId = new Map(inventory.map((hull) => [hull.id, hull]));
   return [...new Set(manifest.hullIds)].flatMap((id) => {
     const hull = byId.get(id);
-    return hull?.status === 'available' ? [hull.kind] : [];
+    return hull?.status === 'available' ? [{ id: hull.id, kind: hull.kind }] : [];
   });
 }
 
@@ -97,12 +97,17 @@ function objectiveMetadata(plan: OperationPlan, map: GameMap): NonNullable<GameM
   };
 }
 
-function dressPads(map: GameMap, kinds: VehicleKind[]) {
-  if (kinds.length === 0) return;
+function dressPads(map: GameMap, hulls: Array<{ id: string; kind: VehicleKind }>) {
+  if (hulls.length === 0) return;
   const safe = map.vehiclePads.filter((pad) => pad.team === 0);
   if (safe.length === 0) return;
   map.vehiclePads = [
-    ...kinds.map((kind, index) => ({ kind, team: 0 as const, pos: { ...safe[index % safe.length].pos } })),
+    ...hulls.map((hull, index) => ({
+      kind: hull.kind,
+      team: 0 as const,
+      pos: { ...safe[index % safe.length].pos },
+      operationHullId: hull.id,
+    })),
     ...map.vehiclePads.filter((pad) => pad.team === 1),
   ];
 }
@@ -112,14 +117,17 @@ export function generateOperationMap(
   manifest: OperationManifest,
   inventory: readonly OperationHull[],
 ): GameMap {
-  const kinds = selectedKinds(manifest, inventory);
+  const hulls = selectedHulls(manifest, inventory);
   if (plan.scale === 'skirmish') {
     const map = generateSkirmishMap(SITE_THEME[plan.site], plan.seed, {
       site: plan.site,
       objectiveLabels: plan.phases.map((phase) => phase.label),
-      vehicleKinds: kinds,
+      vehicles: hulls,
     });
     map.operation = objectiveMetadata(plan, map);
+    for (const objective of map.operation.objectives) {
+      if (objective.kind === 'destroy') map.vehiclePads.push({ kind: 'emplacement', team: 1, pos: { ...objective.pos }, operationObjectiveId: objective.id });
+    }
     return map;
   }
 
@@ -134,7 +142,10 @@ export function generateOperationMap(
     name: phase.label.toUpperCase(),
     pos: { ...(generated.controlPoints[index % generated.controlPoints.length]?.pos ?? generated.hillPos) },
   }));
-  dressPads(map, kinds);
+  dressPads(map, hulls);
   map.operation = objectiveMetadata(plan, map);
+  for (const objective of map.operation.objectives) {
+    if (objective.kind === 'destroy') map.vehiclePads.push({ kind: 'emplacement', team: 1, pos: { ...objective.pos }, operationObjectiveId: objective.id });
+  }
   return map;
 }
