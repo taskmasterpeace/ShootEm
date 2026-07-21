@@ -12,7 +12,7 @@
 // governing what it already governs. Flanking, ambush, and checking corners
 // all come back the moment sight has a shape.
 // ---------------------------------------------------------------------------
-import { T_GRASS, losClear, losClearUpper, tileAt } from './map';
+import { T_GRASS, losClear, losClearUpper, losCrossFloor, tileAt } from './map';
 import type { Soldier, Team } from './types';
 
 /** How far friendly eyes reach (mirrors the minimap; §8.8 weather taxes it). */
@@ -144,7 +144,15 @@ export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<numb
     (s.ascendant !== undefined || !smokeBlocks(e.pos.x, e.pos.z, s.pos.x, s.pos.z, smokes)) &&
     (grid2 !== undefined && e.floor === 1 && s.floor === 1
       ? losClearUpper(grid2, { x: e.pos.x, y: 5.4, z: e.pos.z }, { x: s.pos.x, y: 5.4, z: s.pos.z })
-      : losClear(grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x: s.pos.x, y: 1.4, z: s.pos.z })));
+      // sight-plan A3 step 4 — the CROSS-FLOOR SLANT: one end upstairs, one on
+      // the ground. The upstairs half marches the UPPER walls, the ground half
+      // the GROUND walls. Roof-peek: clutter near the perch is seen OVER; the
+      // floor-plan giveaway dies: interior rooms keep their own walls.
+      : grid2 !== undefined && (e.floor === 1) !== (s.floor === 1)
+        ? (e.floor === 1
+          ? losCrossFloor(grid, grid2, { x: e.pos.x, y: 5.4, z: e.pos.z }, { x: s.pos.x, y: 1.4, z: s.pos.z })
+          : losCrossFloor(grid, grid2, { x: s.pos.x, y: 5.4, z: s.pos.z }, { x: e.pos.x, y: 1.4, z: e.pos.z }))
+        : losClear(grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x: s.pos.x, y: 1.4, z: s.pos.z })));
 }
 
 /** Is `s` on `team`'s screen — seen now, or within the linger window?

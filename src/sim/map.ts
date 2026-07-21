@@ -379,6 +379,18 @@ export const PAINTBALL_FIELDS = [
 /** A paintball field: one small walled arena carved out of a sealed map —
  *  Brawl-Stars scale, mirrored cover for fairness, three tag points for the
  *  prey, corner spawns for the pack. Everything outside the fence is wall. */
+/** sight-plan A3 step 4 — the CROSS-FLOOR SLANT. An upstairs eye and a
+ *  ground body see each other only if the UPSTAIRS HALF of the line clears
+ *  the UPPER walls and the GROUND HALF clears the GROUND walls (split at the
+ *  midpoint). The split buys the ROOF-PEEK — ground clutter near the perch
+ *  is seen OVER — and kills the FLOOR-PLAN GIVEAWAY: an interior ground room
+ *  still hides behind its own walls, so nobody reads the plan through the
+ *  floor. `up` is the upstairs end, `dn` the ground end. */
+export function losCrossFloor(grid: Uint8Array, grid2: Uint8Array, up: Vec3, dn: Vec3): boolean {
+  const mid = { x: (up.x + dn.x) / 2, y: 0, z: (up.z + dn.z) / 2 };
+  return losClearUpper(grid2, up, mid) && losClear(grid, mid, dn);
+}
+
 export function generatePaintballField(seed: number, theme: ThemeId = 'savanna'): GameMap {
   const rng = new Rng(seed);
   const grid = new Uint8Array(GRID * GRID).fill(T_WALL); // sealed world…

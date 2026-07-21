@@ -58,3 +58,62 @@ describe('sight-plan A3 step 2 — upstairs obeys the UPPER walls', () => {
     expect(sees(w, a, b, false)).toBe(true);        // …but ground LOS is clear, so still seen
   });
 });
+
+// ---------------------------------------------------------------------------
+// A3 STEP 4 — the CROSS-FLOOR SLANT. One end upstairs, one on the ground:
+// the upstairs half of the line marches the UPPER walls, the ground half the
+// GROUND walls (split at the midpoint). Ground clutter near the perch is seen
+// OVER (the roof-peek); a wall near the ground body still covers him; an
+// interior room keeps its own walls (the floor-plan giveaway is dead).
+// ---------------------------------------------------------------------------
+describe('sight-plan A3 step 4 — the cross-floor slant', () => {
+  /** eye UPSTAIRS at cx-3 (floor 1), target on the GROUND at cx+3 */
+  function slant() {
+    const { w, a, b } = loft();
+    const cz = Math.floor(GRID / 2), cx = Math.floor(GRID / 2);
+    b.pos = { x: at(cx + 3), y: 0, z: at(cz) }; b.floor = 0; // grounded target
+    return { w, a, b, cz, cx };
+  }
+  const T_WALL_ = 1; // ground wall tile value (T_WALL)
+
+  it('clear slant: the upstairs eye sees the ground body', () => {
+    const { w, a, b } = slant();
+    expect(sees(w, a, b, true)).toBe(true);
+  });
+
+  it('ROOF-PEEK: ground clutter near the PERCH is seen over', () => {
+    const { w, a, b, cz, cx } = slant();
+    w.map.grid[cz * GRID + cx - 2] = T_WALL_; // ground wall in the EYE half
+    expect(sees(w, a, b, true)).toBe(true);   // peeked over from above
+  });
+
+  it('a ground wall near the TARGET still covers him', () => {
+    const { w, a, b, cz, cx } = slant();
+    w.map.grid[cz * GRID + cx + 2] = T_WALL_; // ground wall in the TARGET half
+    expect(sees(w, a, b, true)).toBe(false);
+  });
+
+  it('your own UPPER wall still blinds the perch', () => {
+    const { w, a, b, cz, cx } = slant();
+    w.map.grid2[cz * GRID + cx - 2] = F2_WALL; // upper wall in the EYE half
+    expect(sees(w, a, b, true)).toBe(false);
+  });
+
+  it('the slant is END-anchored, not viewer-anchored — the same walls rule both looks', () => {
+    const { w, a, b, cz, cx } = slant();
+    // swap roles: the GROUND man is now the eye looking up at the perch.
+    // The LINE is the same line — a full-height ground wall near the GROUND
+    // end blocks (the slant is still low there, whoever is looking)…
+    b.yaw = Math.PI; // b (ground) faces WEST (−x) toward the perch at cx−3
+    w.map.grid[cz * GRID + cx + 2] = T_WALL_; // ground clutter near the ground END
+    expect(sees(w, b, a, true)).toBe(false);
+    // …and ground clutter near the UPPER end is under the slant — seen over
+    // from below exactly as it was peeked over from above.
+    w.map.grid[cz * GRID + cx + 2] = 0;
+    w.map.grid[cz * GRID + cx - 2] = T_WALL_; // ground clutter near the perch
+    expect(sees(w, b, a, true)).toBe(true);
+    // the perch's own UPPER wall hides the upstairs body from below too
+    w.map.grid2[cz * GRID + cx - 2] = F2_WALL;
+    expect(sees(w, b, a, true)).toBe(false);
+  });
+});
