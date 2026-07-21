@@ -13,6 +13,8 @@ import {
 import { stepMode, initMode } from './modes';
 import { generateFront } from './fronts';
 import { generateOperationMap } from './operation-map';
+import { generateTheater } from './theaters';
+import type { TheaterId } from './theater-types';
 import { operationWaterSpawns } from './operation-pads';
 import { createOperationRuntime, stepWorldOperation, type OperationRuntimeState } from './operation-runtime';
 import { AIR_KINDS, type OperationBattleBonuses, type OperationHull, type OperationManifest, type OperationPlan } from './operations';
@@ -304,6 +306,8 @@ export interface WorldOptions {
   mode: ModeId;
   /** Pre-built deterministic ground for scenarios, tools, and authored theater launches. */
   map?: GameMap;
+  /** Vehicle-scale theater source. Explicit maps and Operation maps win. */
+  theaterId?: TheaterId;
   botsPerTeam?: number;
   difficulty?: Difficulty;
   /** B1: morale banked by underfunded victories opens the stable richer —
@@ -470,6 +474,7 @@ export class World {
     this.map = opts.map ?? ((opts.operation && opts.operationManifest && opts.operationInventory
       ? generateOperationMap(opts.operation, opts.operationManifest, opts.operationInventory)
       : null)
+      ?? (opts.theaterId ? generateTheater(opts.theaterId, opts.seed) : null)
       ?? (opts.frontId ? generateFront(opts.frontId, opts.seed) : null)
       ?? generateMap(opts.seed, opts.mode, opts.theme ?? 'savanna'));
     this.soldierIndex = new SoldierIndex(this.map.geometry);

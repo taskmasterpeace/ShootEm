@@ -135,6 +135,14 @@ export function generateCountrysideTheater(def: TheaterDef, seed: number): GameM
         setTile(map, x, zz, T_COVER); setTile(map, Math.min(map.geometry.cols - 2, x + w), zz, T_COVER);
       }
       if ((x + z) % 3 === 0) stampRect(map, x + 3, z + 3, Math.max(2, w - 6), Math.max(2, h - 6), T_GRASS);
+      // Every hedged field has opposing tractor gates. Besides being readable
+      // vehicle access, this prevents decorative crop plots becoming sealed
+      // infantry islands under the shared map reachability law.
+      const gateX = x + Math.floor(w / 2);
+      for (let dx = -1; dx <= 1; dx++) {
+        setTile(map, gateX + dx, z, T_OPEN);
+        setTile(map, gateX + dx, Math.min(map.geometry.rows - 2, z + h), T_OPEN);
+      }
     }
   }
   // Two dense woodlots sit outside the three vehicle corridors.

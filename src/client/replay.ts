@@ -2,6 +2,7 @@ import { applySnapshot, createPuppetWorld, takeSnapshot, type Snapshot } from '.
 import { WEAPONS } from '../sim/data';
 import type { ModeId, PlayerCmd, ThemeId } from '../sim/types';
 import type { World } from '../sim/world';
+import type { TheaterId } from '../sim/theater-types';
 
 const EMPTY_CMDS = new Map<number, PlayerCmd>();
 
@@ -136,8 +137,8 @@ export class ReplayPlayer {
   private idx = 0;
   private clock = 0; // playback time, in recorded-world seconds
 
-  constructor(seed: number, mode: ModeId, theme: ThemeId | undefined) {
-    this.world = createPuppetWorld(seed, mode, theme);
+  constructor(seed: number, mode: ModeId, theme: ThemeId | undefined, theaterId?: TheaterId, mapIdentity?: string) {
+    this.world = createPuppetWorld(seed, mode, theme, theaterId, mapIdentity);
   }
 
   /** Recorded time to stop at. Set for a STREAMING clip whose tail has not
@@ -240,8 +241,8 @@ export class ReplayDirector {
    *  death (tight autopsy → wide blast). The caller reads it while killcamActive. */
   killcamCam = KILLCAM_CAM;
 
-  constructor(seed: number, mode: ModeId, theme: ThemeId | undefined) {
-    this.player = new ReplayPlayer(seed, mode, theme);
+  constructor(seed: number, mode: ModeId, theme: ThemeId | undefined, theaterId?: TheaterId, mapIdentity?: string) {
+    this.player = new ReplayPlayer(seed, mode, theme, theaterId, mapIdentity);
   }
 
   /** True once the post-match highlight loop has taken over. */

@@ -84,7 +84,7 @@ describe('Operation mission grounds', () => {
     const pikes = map.vehiclePads.filter((pad) => pad.operationHullId?.startsWith('pike-'));
     expect(pikes).toHaveLength(3);
     expect(new Set(pikes.map((pad) => `${pad.pos.x}:${pad.pos.z}`)).size).toBe(3);
-    for (const pike of pikes) expect(tileAt(map.grid, pike.pos.x, pike.pos.z)).toBe(T_WATER);
+    for (const pike of pikes) expect(tileAt(map.grid, pike.pos.x, pike.pos.z, map.geometry)).toBe(T_WATER);
   });
 
   it('keeps every skirmish Pike on a distinct water spawn', () => {
@@ -92,7 +92,7 @@ describe('Operation mission grounds', () => {
     const pikes = map.vehiclePads.filter((pad) => pad.operationHullId?.startsWith('pike-'));
     expect(pikes).toHaveLength(3);
     expect(new Set(pikes.map((pad) => `${pad.pos.x}:${pad.pos.z}`)).size).toBe(3);
-    for (const pike of pikes) expect(tileAt(map.grid, pike.pos.x, pike.pos.z)).toBe(T_WATER);
+    for (const pike of pikes) expect(tileAt(map.grid, pike.pos.x, pike.pos.z, map.geometry)).toBe(T_WATER);
   });
 
   it('keeps objective metadata through Map Maker serialization', () => {
@@ -142,7 +142,7 @@ describe('Operation mission grounds', () => {
     const map = generateOperationMap(plan, seaManifest, hulls);
     const boats = map.vehiclePads.filter((pad) => pad.team === 1 && pad.kind === 'boat');
     expect(boats.length).toBeGreaterThanOrEqual(1);
-    for (const boat of boats) expect(tileAt(map.grid, boat.pos.x, boat.pos.z)).toBe(T_WATER);
+    for (const boat of boats) expect(tileAt(map.grid, boat.pos.x, boat.pos.z, map.geometry)).toBe(T_WATER);
   });
 
   it('does not mutate an earlier generated map while dressing another', () => {

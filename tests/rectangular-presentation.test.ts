@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { minimapPoint } from '../src/client/hud';
-import { T_WALL, addPad, blankGeometryDoc, deserializeDoc, paintTile, serializeDoc, validateDoc } from '../src/sim/mapedit';
+import { T_WALL, addPad, blankGeometryDoc, deserializeDoc, loadTheater, paintTile, serializeDoc, validateDoc } from '../src/sim/mapedit';
 import { tileIndex, tileToWorld } from '../src/sim/map-geometry';
 
 describe('rectangular presentation and authoring', () => {
@@ -23,5 +23,12 @@ describe('rectangular presentation and authoring', () => {
     expect(doc.map.vehiclePads[0].pos).toEqual(tileToWorld(geometry, 260, 150));
     expect(validateDoc(doc).ok).toBe(true);
     expect(deserializeDoc(serializeDoc(doc)).map.geometry).toEqual(geometry);
+  });
+
+  it.each(['city', 'desert', 'countryside', 'mountain', 'coastal', 'ocean'] as const)('loads the %s theater into Map Maker', (id) => {
+    const doc = loadTheater(id, 77);
+    expect(doc.frontId).toBe(`theater:${id}`);
+    expect(doc.map.theater?.id).toBe(id);
+    expect(deserializeDoc(serializeDoc(doc)).map.theater?.id).toBe(id);
   });
 });

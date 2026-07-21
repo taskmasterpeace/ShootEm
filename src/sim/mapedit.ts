@@ -19,6 +19,8 @@ import { FRONT_STENCILS, frontWalkable, generateFront, boxFor, type MapSize } fr
 import { generateSkirmishMap } from './skirmish';
 import { Rng } from './rng';
 import type { Team, ThemeId, VehicleKind, Vec3 } from './types';
+import { generateTheater } from './theaters';
+import type { TheaterId } from './theater-types';
 import {
   LEGACY_GEOMETRY, geometryLength, tileIndex,
   tileToWorld as geometryTileToWorld, validateGeometry,
@@ -144,6 +146,18 @@ export function blankDoc(size: MapSize, seed: number, theme: GameMap['theme'] = 
     gates: [], pads: [], propCovered: [],
   };
   return { frontId: null, size, seed, mode: 'tdm', map, claims: [], rng: new Rng(seed ^ 0x5eed), undoStack: [], redoStack: [] };
+}
+
+/** Load one of the six vehicle-scale theaters as a fully editable document. */
+export function loadTheater(theaterId: TheaterId, seed: number): MakerDoc {
+  const map = generateTheater(theaterId, seed);
+  return {
+    frontId: `theater:${theaterId}`, size: 'large', seed, mode: 'operation',
+    map: cloneMap(map),
+    claims: map.propCovered.map((idx) => ({ idx, t: map.grid[idx] })),
+    rng: new Rng(seed ^ 0x5eed),
+    undoStack: [], redoStack: [],
+  };
 }
 
 /** A geometry-sized blank theater: sealed one-tile rim and open interior. */
@@ -596,7 +610,7 @@ export function validateDoc(doc: MakerDoc): LawReport {
   // 6 · NO INVISIBLE WALLS — every claimed tile blocks AND has its prop
   const ghost: [number, number][] = [];
   for (const i of m.propCovered) {
-    if (m.grid[i] !== T_WALL && m.grid[i] !== T_COVER) { ghost.push([i % cols, Math.floor(i / cols)]); continue; }
+    if (frontWalkable(m.grid[i])) { ghost.push([i % cols, Math.floor(i / cols)]); continue; }
     const { x, z } = tileToWorld(m, i % cols, Math.floor(i / cols));
     if (!m.props.some((p) => Math.hypot(p.pos.x - x, p.pos.z - z) < 1.6 + p.scale * 1.2)) ghost.push([i % cols, Math.floor(i / cols)]);
   }

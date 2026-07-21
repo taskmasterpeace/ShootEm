@@ -7,6 +7,7 @@ import {
   SEA_KINDS,
   generateOperation,
   validateManifest,
+  theaterForOperation,
   type OperationDomain,
   type OperationHull,
   type OperationManifest,
@@ -14,6 +15,8 @@ import {
   type OperationSupport,
 } from '../sim/operations';
 import { FRONTS, operationWindowKey, type Campaign } from './campaign';
+import { LEGACY_GEOMETRY, worldDepth, worldWidth } from '../sim/map-geometry';
+import { THEATER_DEFS } from '../sim/theaters';
 
 export type OperationBoardStatus = 'available' | 'staged' | 'spent' | 'blocked';
 
@@ -126,6 +129,11 @@ function statusAction(model: OperationBoardModel): string {
 
 export function renderOperationsBoard(model: OperationBoardModel): string {
   const { plan } = model;
+  const theaterId = theaterForOperation(plan);
+  const theater = theaterId ? THEATER_DEFS[theaterId] : null;
+  const geometry = theater?.geometry ?? LEGACY_GEOMETRY;
+  const theaterDomains = theater?.domains.map((domain) => domain.toUpperCase()).join(' / ') ?? 'FOOT / GROUND';
+  const weather = plan.complication === 'storm' ? 'STORM' : 'VARIABLE';
   const phases = plan.phases.map((phase, index) =>
     `<li><span class="op-phase-index mono">${String(index + 1).padStart(2, '0')}</span><span><b>${escapeHtml(phase.label)}</b><small>${escapeHtml(phase.kind.toUpperCase())} · ${escapeHtml(phase.domain.toUpperCase())}</small></span></li>`).join('');
   const domains = plan.domains.map((domain) => `<span class="op-domain op-domain-${domain}">${escapeHtml(domain.toUpperCase())}</span>`).join('');
@@ -135,6 +143,12 @@ export function renderOperationsBoard(model: OperationBoardModel): string {
       <div class="op-scale">${escapeHtml(plan.scale.toUpperCase())}</div>
     </header>
     <div class="op-domains">${domains}</div>
+    <div class="op-theater">
+      <span class="op-eyebrow">THEATER</span>
+      <b>${escapeHtml(theater?.name ?? 'Classic Skirmish Ground')}</b>
+      <small class="mono">${worldWidth(geometry)}Ã—${worldDepth(geometry)}u Â· ${escapeHtml(theaterDomains)} Â· WEATHER ${weather}</small>
+      <small>GROUND / BUILDING / SKY / CLOUDS</small>
+    </div>
     <p class="op-brief">${escapeHtml(plan.briefing)}</p>
     <ol class="op-phases">${phases}</ol>
     <dl class="op-intel">

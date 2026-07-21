@@ -32,7 +32,7 @@ import { Rng } from './rng';
 import { LEGACY_GEOMETRY } from './map-geometry';
 import {
   GRID, TILE, WORLD, houseAt,
-  T_OPEN, T_WALL, T_COVER, T_WATER, T_DEEP, T_DOOR, T_METAL, T_LADDER, T_CLIMB,
+  T_OPEN, T_WALL, T_COVER, T_WATER, T_DEEP, T_DOOR, T_METAL, T_LADDER, T_CLIMB, T_GRASS, T_RUBBLE,
   S_DIRT, S_GRASS, S_ICE, S_GRIT, S_PLATE, S_WET, S_MUD,
   type GameMap, type PropSpec, type PickupSpawn, type VehiclePad, type House, type TileClaim,
 } from './map';
@@ -1980,5 +1980,5 @@ export const FRONT_STENCILS: BuildingDef[] = [THE_KEEP, LAB_TOWER, CONTROL_ROOM,
  *  walls do NOT (they're the airborne's shortcut, never the only road). */
 export function frontWalkable(t: number): boolean {
   return t === T_OPEN || t === T_WATER || t === T_DEEP || t === T_DOOR
-    || t === 6 /* T_DOOR_OPEN */ || t === T_LADDER;
+    || t === 6 /* T_DOOR_OPEN */ || t === T_LADDER || t === T_GRASS || t === T_RUBBLE;
 }

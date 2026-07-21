@@ -35,6 +35,30 @@ function moveBase(map: GameMap, team: 0 | 1, tx: number, tz: number): void {
   });
 }
 
+function sealMountainPockets(map: GameMap): void {
+  const [sx, sz] = [10, Math.floor(map.geometry.rows / 2)];
+  const seen = new Uint8Array(map.grid.length);
+  const queue = [tileIndex(map.geometry, sx, sz)];
+  seen[queue[0]] = 1;
+  while (queue.length) {
+    const index = queue.pop()!;
+    const x = index % map.geometry.cols;
+    const z = Math.floor(index / map.geometry.cols);
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      const nx = x + dx, nz = z + dz;
+      if (!inBounds(map.geometry, nx, nz)) continue;
+      const next = tileIndex(map.geometry, nx, nz);
+      if (!seen[next] && map.grid[next] === T_OPEN) { seen[next] = 1; queue.push(next); }
+    }
+  }
+  // Noise at overlapping massif edges can leave one-cell caves that have no
+  // entrance and no gameplay. Make them solid mountain instead of orphaned
+  // walkable terrain.
+  for (let index = 0; index < map.grid.length; index++) {
+    if (map.grid[index] === T_OPEN && !seen[index]) map.grid[index] = T_METAL;
+  }
+}
+
 export function generateMountainTheater(def: TheaterDef, seed: number): GameMap {
   const map = createTheaterBase(def, seed);
   const rng = seededTheaterRng(map);
@@ -59,6 +83,7 @@ export function generateMountainTheater(def: TheaterDef, seed: number): GameMap 
   carveRoute(map, { id: 'mountain:ridge', domain: 'ground', width: laneWidth(map, 1), points: routePoints(map, [[0.03, 0.5], [0.3, 0.2], [0.72, 0.18], [0.97, 0.5]]) });
   carveRoute(map, { id: 'mountain:valley', domain: 'ground', width: laneWidth(map, 2), points: routePoints(map, [[0.03, 0.5], [0.32, 0.78], [0.68, 0.82], [0.97, 0.5]]) });
   carveRoute(map, { id: 'mountain:north-south-air', domain: 'air', width: 105, points: routePoints(map, [[0.5, 0.01], [0.42, 0.33], [0.58, 0.67], [0.5, 0.99]]) });
+  sealMountainPockets(map);
   map.controlPoints = [
     { name: 'HIGH PASS', pos: routePoints(map, [[0.5, 0.5]])[0] },
     { name: 'RIDGE BATTERY', pos: routePoints(map, [[0.65, 0.18]])[0] },

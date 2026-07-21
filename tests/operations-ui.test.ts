@@ -43,6 +43,9 @@ describe('Operations board', () => {
     for (const domain of model.plan.domains) expect(html).toContain(domain.toUpperCase());
     expect(html).toContain(`LAUNCH ${model.plan.launchCost}`);
     expect(html).toContain('PLAN MANIFEST');
+    expect(html).toMatch(/THEATER/);
+    expect(html).toMatch(/\d+Ã—\d+u/);
+    expect(html).toContain('GROUND / BUILDING / SKY / CLOUDS');
   });
 
   it('locks a spent window and identifies an Operation already staged elsewhere', () => {

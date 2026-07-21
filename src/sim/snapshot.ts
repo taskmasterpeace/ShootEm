@@ -3,6 +3,8 @@ import { SEEN_LINGER, SEEN_LINGER_GEARED, eyesSeePoint, perceivesNow, seenRecent
 import type { WeatherState } from './weather';
 import type { Gadget, Mine, ModeId, ModeState, Pickup, Projectile, SimEvent, Soldier, ThemeId, Turret, Vehicle } from './types';
 import { World } from './world';
+import { assertMapIdentity, mapIdentity } from './map-identity';
+import type { TheaterId } from './theater-types';
 
 /**
  * A puppet world renders authoritative snapshots without simulating: same
@@ -10,8 +12,27 @@ import { World } from './world';
  * applySnapshot is the only source of truth. Used by the multiplayer client
  * and the replay player — one recipe, one home.
  */
-export function createPuppetWorld(seed: number, mode: ModeId, theme: ThemeId | undefined): World {
-  const w = new World({ seed, mode, theme });
+export interface MapHandshake {
+  theaterId?: TheaterId;
+  mapIdentity: string;
+}
+
+export function mapHandshake(world: World): MapHandshake {
+  return {
+    ...(world.map.theater ? { theaterId: world.map.theater.id } : {}),
+    mapIdentity: mapIdentity(world.map),
+  };
+}
+
+export function createPuppetWorld(
+  seed: number,
+  mode: ModeId,
+  theme: ThemeId | undefined,
+  theaterId?: TheaterId,
+  expectedMapIdentity?: string,
+): World {
+  const w = new World({ seed, mode, theme, theaterId });
+  if (expectedMapIdentity) assertMapIdentity(w.map, expectedMapIdentity);
   w.puppet = true;
   w.soldiers.clear();
   w.vehicles.clear();

@@ -9,7 +9,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
 import { World, type Loadout } from '../sim/world';
-import { cullSnapshotFor, takeSnapshot, wireRound } from '../sim/snapshot';
+import { cullSnapshotFor, mapHandshake, takeSnapshot, wireRound } from '../sim/snapshot';
 import { isCoopMode, type AscendantId, type ClassId, type ModeId, type PlayerCmd, type ThemeId } from '../sim/types';
 import { LSWS } from '../sim/lsw';
 import { drainCmd, newCmdQueue, pushCmd, resetCmdQueue, type CmdQueueState } from './input-queue';
@@ -116,7 +116,10 @@ class Room {
     const soldier = this.world.addSoldier(name.slice(0, 16) || 'Recruit', classId, team, 'human', loadout);
     const client: Client = { ws, soldierId: soldier.id, name: soldier.name, inputs: newCmdQueue() };
     this.clients.add(client);
-    ws.send(JSON.stringify({ t: 'welcome', id: soldier.id, seed: this.world.opts.seed, mode: this.mode, theme: this.theme }));
+    ws.send(JSON.stringify({
+      t: 'welcome', id: soldier.id, seed: this.world.opts.seed, mode: this.mode, theme: this.theme,
+      ...mapHandshake(this.world),
+    }));
     // deliver any comms stored for this callsign while they were offline
     const mail = mailbox.get(soldier.name.toLowerCase());
     if (mail?.length) {
@@ -213,7 +216,10 @@ class Room {
       c.soldierId = soldier.id;
       resetCmdQueue(c.inputs);
       if (c.ws.readyState === WebSocket.OPEN) {
-        c.ws.send(JSON.stringify({ t: 'welcome', id: soldier.id, seed, mode: this.mode, theme: this.theme }));
+        c.ws.send(JSON.stringify({
+          t: 'welcome', id: soldier.id, seed, mode: this.mode, theme: this.theme,
+          ...mapHandshake(this.world),
+        }));
       }
     }
     console.log(`[room:${this.mode}] match restarted (seed ${seed})`);

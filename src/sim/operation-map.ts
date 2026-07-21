@@ -1,5 +1,6 @@
 import { generateFront, type MapSize } from './fronts';
-import { GRID, T_DEEP, T_WATER, TILE, WORLD, houseAt, isBlocked, type GameMap } from './map';
+import { T_DEEP, T_WATER, houseAt, isBlocked, type GameMap } from './map';
+import { inBounds, tileIndex, tileToWorld, worldToTile } from './map-geometry';
 import { generateSkirmishMap } from './skirmish';
 import { dressOperationPads, operationWaterSpawns } from './operation-pads';
 import type { ThemeId, VehicleKind } from './types';
@@ -9,7 +10,8 @@ import type {
   OperationPlan,
   OperationSiteId,
 } from './operations';
-import { AIR_KINDS } from './operations';
+import { AIR_KINDS, operationRequiresVehicleTheater, siteTheater, theaterForOperation } from './operations';
+import { generateTheater } from './theaters';
 
 const SITE_FRONT: Record<OperationSiteId, string> = {
   front_line: 'eastern_plains',
@@ -46,6 +48,13 @@ function cloneMap(map: GameMap): GameMap {
   return {
     ...map,
     geometry: { ...map.geometry },
+    theater: map.theater ? {
+      ...map.theater,
+      domains: [...map.theater.domains],
+      routes: map.theater.routes.map((route) => ({ ...route, points: route.points.map((point) => ({ ...point })) })),
+      landingZones: map.theater.landingZones.map((zone) => ({ ...zone, pos: { ...zone.pos } })),
+      deepWater: [...map.theater.deepWater],
+    } : undefined,
     grid: map.grid.slice(),
     grid2: map.grid2.slice(),
     surface: map.surface.slice(),
@@ -104,17 +113,16 @@ function objectiveMetadata(plan: OperationPlan, map: GameMap): NonNullable<GameM
 function destroyTargetPositions(map: GameMap, objective: NonNullable<GameMap['operation']>['objectives'][number]) {
   const count = Math.max(1, objective.targetCount ?? 1);
   const candidates: Array<{ x: number; y: number; z: number; angle: number }> = [];
-  const tx = Math.floor((objective.pos.x + WORLD / 2) / TILE);
-  const tz = Math.floor((objective.pos.z + WORLD / 2) / TILE);
-  const rings = Math.max(2, Math.ceil(objective.radius / TILE));
+  const [tx, tz] = worldToTile(map.geometry, objective.pos.x, objective.pos.z);
+  const rings = Math.max(2, Math.ceil(objective.radius / map.geometry.tile));
   for (let dz = -rings; dz <= rings; dz++) for (let dx = -rings; dx <= rings; dx++) {
     const x = tx + dx;
     const z = tz + dz;
-    if (x < 1 || z < 1 || x >= GRID - 1 || z >= GRID - 1) continue;
-    const pos = { x: (x + 0.5) * TILE - WORLD / 2, y: 0, z: (z + 0.5) * TILE - WORLD / 2 };
+    if (!inBounds(map.geometry, x, z) || x < 1 || z < 1 || x >= map.geometry.cols - 1 || z >= map.geometry.rows - 1) continue;
+    const pos = tileToWorld(map.geometry, x, z);
     if (Math.hypot(pos.x - objective.pos.x, pos.z - objective.pos.z) > objective.radius) continue;
-    const tile = map.grid[z * GRID + x];
-    if (tile === T_WATER || tile === T_DEEP || isBlocked(map.grid, pos.x, pos.z)) continue;
+    const tile = map.grid[tileIndex(map.geometry, x, z)];
+    if (tile === T_WATER || tile === T_DEEP || isBlocked(map.grid, pos.x, pos.z, false, map.geometry)) continue;
     candidates.push({ ...pos, angle: Math.atan2(pos.z - objective.pos.z, pos.x - objective.pos.x) });
   }
   candidates.sort((a, b) => a.angle - b.angle || Math.hypot(a.x - objective.pos.x, a.z - objective.pos.z) - Math.hypot(b.x - objective.pos.x, b.z - objective.pos.z));
@@ -139,11 +147,11 @@ function enemyAirSpawns(map: GameMap) {
   const home = map.basePos[1];
   const used = new Set(map.vehiclePads.map((pad) => `${pad.pos.x.toFixed(3)}:${pad.pos.z.toFixed(3)}`));
   const candidates: Array<{ x: number; y: number; z: number }> = [];
-  for (let z = 1; z < GRID - 1; z++) for (let x = 1; x < GRID - 1; x++) {
-    const pos = { x: (x + 0.5) * TILE - WORLD / 2, y: 0, z: (z + 0.5) * TILE - WORLD / 2 };
+  for (let z = 1; z < map.geometry.rows - 1; z++) for (let x = 1; x < map.geometry.cols - 1; x++) {
+    const pos = tileToWorld(map.geometry, x, z);
     const key = `${pos.x.toFixed(3)}:${pos.z.toFixed(3)}`;
-    if (used.has(key) || isBlocked(map.grid, pos.x, pos.z) || houseAt(map.houses, pos.x, pos.z) >= 0) continue;
-    const tile = map.grid[z * GRID + x];
+    if (used.has(key) || isBlocked(map.grid, pos.x, pos.z, false, map.geometry) || houseAt(map.houses, pos.x, pos.z) >= 0) continue;
+    const tile = map.grid[tileIndex(map.geometry, x, z)];
     if (tile === T_WATER || tile === T_DEEP) continue;
     candidates.push(pos);
   }
@@ -188,6 +196,20 @@ export function generateOperationMap(
   inventory: readonly OperationHull[],
 ): GameMap {
   const hulls = selectedHulls(manifest, inventory);
+  const selectedTheater = theaterForOperation(plan);
+  if (selectedTheater || operationRequiresVehicleTheater(plan, manifest, inventory)) {
+    const map = generateTheater(selectedTheater ?? siteTheater(plan.site), plan.seed);
+    map.controlPoints = plan.phases.map((phase, index) => ({
+      name: phase.label.toUpperCase(),
+      pos: { ...(map.controlPoints[index % map.controlPoints.length]?.pos ?? map.hillPos) },
+    }));
+    dressOperationPads(map, hulls);
+    map.operation = objectiveMetadata(plan, map);
+    dressEnemyDomains(map, plan);
+    dressDestroyTargets(map);
+    dressComplication(map, plan);
+    return map;
+  }
   if (plan.scale === 'skirmish') {
     const map = generateSkirmishMap(SITE_THEME[plan.site], plan.seed, {
       site: plan.site,

@@ -5,7 +5,7 @@
 // one-click 3D preview of the map you're actually editing.
 // ---------------------------------------------------------------------------
 import {
-  loadFront, loadSkirmish, blankDoc, serializeDoc, deserializeDoc, validateDoc,
+  loadFront, loadSkirmish, loadTheater, blankDoc, serializeDoc, deserializeDoc, validateDoc,
   paintTile, paintSurface, placeProp, erasePropAt,
   addControlPoint, addPickup, addPad, addMouth, moveObject, deleteObject, pickObject, objectPos,
   stamp, deleteHouse, undo, redo, buildingById,
@@ -22,6 +22,8 @@ import { FRONTS } from '../client/campaign';
 import type { MapSize } from '../sim/fronts';
 import type { GameMap } from '../sim/map';
 import type { VehicleKind } from '../sim/types';
+import { THEATER_DEFS } from '../sim/theaters';
+import type { TheaterId } from '../sim/theater-types';
 
 // ---------------------------------------------------------------------------
 // palette — reads EXACTLY like the atlas (same alphabet, same colors)
@@ -89,6 +91,7 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
         <option value="sk:triton">❄️ Triton station</option>
         <option value="sk:asteroid">☄️ Asteroid mine</option>
       </optgroup>
+      <optgroup label="Vehicle theaters">${Object.values(THEATER_DEFS).map((theater) => `<option value="th:${theater.id}">${theater.name} · ${theater.id}</option>`).join('')}</optgroup>
     </select>
     <select id="mk-size">
       <option value="small">small · ≤6/team</option>
@@ -515,6 +518,9 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
     const v = frontSel.value;
     if (v.startsWith('sk:')) {
       doc = loadSkirmish(v.slice(3) as import('../sim/types').ThemeId, Number(seedIn.value) >>> 0);
+      sel = null; report = validateDoc(doc); afterOp();
+    } else if (v.startsWith('th:')) {
+      doc = loadTheater(v.slice(3) as TheaterId, Number(seedIn.value) >>> 0);
       sel = null; report = validateDoc(doc); afterOp();
     } else {
       loadInto(v, sizeSel.value as MapSize, Number(seedIn.value) >>> 0);

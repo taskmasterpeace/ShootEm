@@ -1,6 +1,7 @@
 import { VEHICLES } from './data';
 import { Rng } from './rng';
 import type { VehicleKind } from './types';
+import type { TheaterId } from './theater-types';
 
 export type OperationDomain = 'land' | 'air' | 'sea';
 export type OperationScale = 'skirmish' | 'standard' | 'large';
@@ -285,6 +286,50 @@ export const AIR_KINDS: ReadonlySet<VehicleKind> = new Set(['flyer', 'strikejet'
 export const SEA_KINDS: ReadonlySet<VehicleKind> = new Set(['boat']);
 const DOMAIN_KINDS: Record<OperationDomain, ReadonlySet<VehicleKind>> = { land: LAND_KINDS, air: AIR_KINDS, sea: SEA_KINDS };
 const NAVIGABLE_SITES: ReadonlySet<OperationSiteId> = new Set(['river_crossing', 'coastal_battery', 'port', 'carrier_anchorage']);
+
+const SITE_THEATER: Record<OperationSiteId, TheaterId> = {
+  front_line: 'countryside',
+  strongpoint: 'desert',
+  river_crossing: 'coastal',
+  supply_depot: 'desert',
+  rail_hub: 'city',
+  airfield: 'desert',
+  coastal_battery: 'coastal',
+  port: 'coastal',
+  carrier_anchorage: 'ocean',
+  mountain_pass: 'mountain',
+};
+
+const FIXED_WING_VERBS: ReadonlySet<OperationVerbId> = new Set([
+  'air_superiority', 'close_air_support', 'strategic_strike', 'intercept',
+]);
+
+/** Resolve the authored vehicle-scale battlefield for an Operation plan. */
+export function theaterForOperation(plan: OperationPlan): TheaterId | null {
+  const legacySkirmish = plan.scale === 'skirmish'
+    && plan.domains.length === 1
+    && plan.domains[0] === 'land'
+    && (plan.verb === 'spearhead' || plan.verb === 'siege');
+  if (legacySkirmish) return null;
+  if (plan.site === 'rail_hub' && FIXED_WING_VERBS.has(plan.verb)) return 'countryside';
+  return SITE_THEATER[plan.site];
+}
+
+/** True when committed forces need the larger route, airspace, or water laws. */
+export function operationRequiresVehicleTheater(
+  plan: OperationPlan,
+  manifest: OperationManifest,
+  inventory: readonly OperationHull[],
+): boolean {
+  if (theaterForOperation(plan)) return true;
+  const selected = new Set(manifest.hullIds);
+  return inventory.some((hull) => selected.has(hull.id) && (AIR_KINDS.has(hull.kind) || SEA_KINDS.has(hull.kind)));
+}
+
+/** Internal fallback for a legacy-shaped plan whose manifest still needs scale. */
+export function siteTheater(site: OperationSiteId): TheaterId {
+  return SITE_THEATER[site];
+}
 
 export function manifestCost(manifest: OperationManifest, inventory: readonly OperationHull[]): number {
   const byId = new Map(inventory.map((hull) => [hull.id, hull]));

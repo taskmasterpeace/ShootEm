@@ -1,4 +1,5 @@
-import { GRID, T_WATER, TILE, WORLD, tileAt, type GameMap } from './map';
+import { T_DEEP, T_WATER, tileAt, type GameMap } from './map';
+import { tileIndex, tileToWorld } from './map-geometry';
 import type { Team, VehicleKind } from './types';
 
 export interface OperationPadHull {
@@ -22,12 +23,13 @@ export function operationWaterSpawns(map: GameMap, team: Team = 0): Array<{ x: n
   };
 
   for (const pad of map.vehiclePads) {
-    if (pad.team === team && pad.kind === 'boat' && tileAt(map.grid, pad.pos.x, pad.pos.z) === T_WATER) add(pad.pos);
+    if (pad.team === team && pad.kind === 'boat' && [T_WATER, T_DEEP].includes(tileAt(map.grid, pad.pos.x, pad.pos.z, map.geometry))) add(pad.pos);
   }
   const tiles: Array<{ x: number; y: number; z: number }> = [];
-  for (let z = 0; z < GRID; z++) for (let x = 0; x < GRID; x++) {
-    if (map.grid[z * GRID + x] !== T_WATER) continue;
-    tiles.push({ x: (x + 0.5) * TILE - WORLD / 2, y: 0, z: (z + 0.5) * TILE - WORLD / 2 });
+  for (let z = 0; z < map.geometry.rows; z++) for (let x = 0; x < map.geometry.cols; x++) {
+    const tile = map.grid[tileIndex(map.geometry, x, z)];
+    if (tile !== T_WATER && tile !== T_DEEP) continue;
+    tiles.push(tileToWorld(map.geometry, x, z));
   }
   tiles.sort((a, b) => ((a.x - home.x) ** 2 + (a.z - home.z) ** 2) - ((b.x - home.x) ** 2 + (b.z - home.z) ** 2));
   for (const pos of tiles) add(pos);
