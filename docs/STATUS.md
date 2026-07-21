@@ -207,7 +207,7 @@ Ground-truthed this session. **Beams draw** (as fast box tracers); everything in
 | Weapon shows on the body when you die; others pick it up | ✅ | **DONE 2026-07-21.** A dead human/bot drops its PRIMARY beside the body as a `type:'weapon'` pickup (gunmetal+glint mesh, bobbing): walk-over loads it into the special slot, a matching carried gun makes it an AMMO run; issue ar606 never drops, 20s despawn, 12-drop field cap, humans-only scavenge (threat-measure guard — bots drop but don't loot). Rides the snapshot free. Also fixed: consumed pickups' meshes never left the scene (supply-pod ghosts). `tests/loot.test.ts` (6); live-verified end-to-end |
 | Bodies last longer (so loot reads as loot) | ✅ | **DONE 2026-07-21** (`38aa67c`) — battlefield corpses linger 24s in tdm/ctf, outbreak corpses live their full incubation on-field (`491dab6`) |
 | Lower ammo (**25%** reserve cut) so fights end in pistols | ❌📋 | **locked at 25%**, but MEASURE FIRST. BACKLOG (new) |
-| Ammo **diagnostics** (rounds fired, reloads, dry-clicks, secondary time) | ❌📋 | teach the blackbox to log it; run before the cut. BACKLOG (new, ordered before the cut) |
+| Ammo **diagnostics** (rounds fired, reloads, dry-clicks, secondary time) | ✅ | **DONE 2026-07-21.** Per-soldier counters in the sim (`statShots`/`statReloads`/`statDry` rate-limited/`statSecondaryT`, mortals only — claws never count) + per-weapon tally (`world.ammoShotsByWeapon`); `ammoReport` (blackbox.ts) rides `__ww.blackbox('report')` with humans split out. `tests/ammo-diag.test.ts` (5); live: 45 sim-s of war → 470 shots/19 reloads by weapon. **The 25% cut (row above) is now measurable — run real matches and read the box before cutting** |
 
 ## 14 · ARMED GODS
 

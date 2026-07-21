@@ -3,7 +3,7 @@ import { CLASS_ARMORY, familyWeapons } from './sim/arsenal';
 import { isCoopMode, type ClassId, type ModeId, type PlayerCmd, type Team, type ThemeId, type WeaponDef, type WeaponFamily, type WeaponId } from './sim/types';
 import { LSWS, lswAllowed, lswsForTeam } from './sim/lsw';
 import { World, type Difficulty, type Loadout } from './sim/world';
-import { blackboxReport, type BbIncident, type BbSample } from './sim/blackbox';
+import { ammoReport, blackboxReport, type BbIncident, type BbSample } from './sim/blackbox';
 import { mapSizeForPlayers } from './sim/fronts';
 import { WEATHER_MODS } from './sim/weather';
 import { mountOnboarding, onMatchEnd, paintballConfig } from './client/onboarding';
@@ -617,7 +617,9 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   //   __ww.blackbox('report')  → compact table + incident lines
   // Each new incident also console.warns live (see the frame loop below).
   const blackbox = (mode?: 'report') =>
-    mode === 'report' ? blackboxReport(world.blackbox) : { samples: world.blackbox.samples, incidents: world.blackbox.incidents };
+    mode === 'report'
+      ? `${blackboxReport(world.blackbox)}\n${ammoReport(world)}` // §13: the ammo economy rides the report
+      : { samples: world.blackbox.samples, incidents: world.blackbox.incidents };
   (window as unknown as Record<string, unknown>).__ww = { world, me, renderer, hud, input, audio, recorder: director.recorder, replay: director.player, director, crowd, blackbox }; // debug/testing handle
 
   const FIXED = 1 / 60;

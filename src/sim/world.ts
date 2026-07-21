@@ -398,6 +398,9 @@ export class World {
    *  recorder: 2s-cadence spread/near-base/stuck time series + persisted-knot
    *  and stuck-body incidents. Read via __ww.blackbox(). See sim/blackbox.ts. */
   blackbox: Blackbox = createBlackbox();
+  /** §13 AMMO DIAGNOSTICS: per-weapon shot tally for the blackbox's ammo
+   *  report (authoritative-side only — never rides the snapshot). */
+  ammoShotsByWeapon = new Map<string, number>();
   private nextId = 1;
 
   constructor(public opts: WorldOptions) {
@@ -2531,7 +2534,12 @@ export class World {
     // bot brains, probes) would have hit it.
     if (cmd.reload && s.clip[s.weaponIdx] < def.clip && s.reserve[s.weaponIdx] > 0 && s.reloadUntil === 0) {
       s.reloadUntil = this.time + def.reloadTime;
+      s.statReloads = (s.statReloads ?? 0) + 1; // §13: manual reload
       this.emit({ type: 'reload', pos: s.pos, soldierId: s.id });
+    }
+    // §13: time on the SIDEARM — the "fights end in pistols" measure
+    if (s.weaponIdx === 1 && (s.kind === 'human' || s.kind === 'bot')) {
+      s.statSecondaryT = (s.statSecondaryT ?? 0) + dt;
     }
     if (s.reloadUntil > 0 && this.time >= s.reloadUntil) {
       const need = def.clip - s.clip[s.weaponIdx];
@@ -2872,7 +2880,13 @@ export class World {
         }
       } else if (s.reserve[s.weaponIdx] > 0) {
         s.reloadUntil = this.time + def.reloadTime;
+        s.statReloads = (s.statReloads ?? 0) + 1; // §13: auto-reload on empty
         this.emit({ type: 'reload', pos: s.pos, soldierId: s.id });
+      } else if (this.time >= (s.nextDryAt ?? 0)) {
+        // §13 DIAGNOSTICS: a TRULY dry gun — no mag, no reserve. The click
+        // is the datum the 25% reserve cut will be judged against.
+        s.statDry = (s.statDry ?? 0) + 1;
+        s.nextDryAt = this.time + 0.5;
       }
     } else if (s.chargeStart !== undefined && !swimming) {
       // trigger released (or interrupted) mid-charge: loose a partial-charge
@@ -2950,6 +2964,12 @@ export class World {
     if (def.range <= 2.5) { // melee (zombie claws) — starts a swing, not a hit
       this.startMelee(s, def);
       return;
+    }
+    // §13 AMMO DIAGNOSTICS: every round that leaves a mortal's mag is a
+    // datum — the 25% reserve cut gets judged against these numbers
+    if (s.kind === 'human' || s.kind === 'bot') {
+      s.statShots = (s.statShots ?? 0) + 1;
+      this.ammoShotsByWeapon.set(wid, (this.ammoShotsByWeapon.get(wid) ?? 0) + 1);
     }
     // AMMUNITION TYPE (OUTBREAK-SPEC §11) + the AP-rounds equipment stack on
     // BALLISTIC weapons only (bullet/shell — no energy AP). AP threads issued

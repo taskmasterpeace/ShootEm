@@ -389,6 +389,13 @@ export interface Soldier {
    *  deck, so for JET_BREATHER after touchdown the tank refuses to flow —
    *  landing is a commitment, not a trampoline bounce between hops */
   jetRestUntil?: number;
+  /** §13 AMMO DIAGNOSTICS (measure before the 25% reserve cut) — per-match
+   *  counters the blackbox aggregates. Mortals only; claws never count. */
+  statShots?: number;      // rounds that left a mag
+  statReloads?: number;    // reloads STARTED (manual + auto-on-empty)
+  statDry?: number;        // trigger pulled on a truly empty gun
+  nextDryAt?: number;      // rate-limit clock so a held trigger counts ~2/s
+  statSecondaryT?: number; // seconds spent holding the sidearm (slot 2)
   /** M1 CHARGED LEAP in flight — while true the arc is BALLISTIC: input
    *  cannot steer it (the movement block skips its velocity overwrite).
    *  Cleared the tick the ground clamp zeroes vel.y (either floor). */

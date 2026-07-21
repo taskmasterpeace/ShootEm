@@ -207,6 +207,29 @@ export function stepBlackbox(w: World) {
   if (bb.samples.length > BB_MAX_SAMPLES) bb.samples.shift();
 }
 
+/** §13 AMMO DIAGNOSTICS — the economy read the locked-but-unmeasured 25%
+ *  reserve cut is judged against: rounds fired, reloads, dry-clicks, and
+ *  sidearm time, humans split out (bots shoot 10x more and would drown the
+ *  signal). Appended to __ww.blackbox('report'). */
+export function ammoReport(w: World): string {
+  let shots = 0, hShots = 0, reloads = 0, hReloads = 0, dry = 0, hDry = 0, sideT = 0, hSideT = 0;
+  for (const s of w.soldiers.values()) {
+    if (s.kind !== 'human' && s.kind !== 'bot') continue;
+    shots += s.statShots ?? 0; reloads += s.statReloads ?? 0;
+    dry += s.statDry ?? 0; sideT += s.statSecondaryT ?? 0;
+    if (s.kind === 'human') {
+      hShots += s.statShots ?? 0; hReloads += s.statReloads ?? 0;
+      hDry += s.statDry ?? 0; hSideT += s.statSecondaryT ?? 0;
+    }
+  }
+  const per = [...w.ammoShotsByWeapon.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8)
+    .map(([id, n]) => `${id} ${n}`).join(' · ');
+  return [
+    `AMMO — ${Math.round(w.time)}s: shots ${shots} (humans ${hShots}) · reloads ${reloads} (h ${hReloads}) · dry-clicks ${dry} (h ${hDry}) · sidearm ${sideT.toFixed(1)}s (h ${hSideT.toFixed(1)}s)`,
+    `  by weapon: ${per || '—'}`,
+  ].join('\n');
+}
+
 /** Compact human summary — what __ww.blackbox('report') prints. Accepts a
  *  live Blackbox or a stored flight (just samples + incidents), so the
  *  post-match reader can render a log that outlived its match. */
