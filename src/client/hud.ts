@@ -440,6 +440,11 @@ export class Hud {
       $('respawn-timer').textContent = world.mode.over ? ''
         : paintball ? 'you sit this round — back at the whistle'
         : `Respawning in ${t.toFixed(1)}s`;
+      // DEATH RE-SELECT: the class rack rides the wait (not in paintball —
+      // the yard has markers, not classes; and not once the match is over)
+      const rackOn = !paintball && !world.mode.over;
+      $('respawn-classes').classList.toggle('hidden', !rackOn);
+      $('respawn-reselect-hint').classList.toggle('hidden', !rackOn);
     } else ro.classList.add('hidden');
 
     // context hint: vehicles, or the scientist escort in safehouse

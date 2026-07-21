@@ -4,7 +4,7 @@
 // lands next: every feature gets a law here so "finished" stays finished.
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
-import { WEAPONS } from '../src/sim/data';
+import { CLASSES, WEAPONS } from '../src/sim/data';
 import { LSWS } from '../src/sim/lsw';
 import { objectiveFor } from '../src/sim/bots';
 import { isIron } from '../src/sim/types';
@@ -257,6 +257,27 @@ describe('#12 THE IRON EATERS — junk that learned a body plan (DD §20)', () =
     const spawned = [...w.soldiers.values()].filter((s) => s.team === 1 && s.kind !== 'human' && s.kind !== 'bot');
     expect(spawned.length).toBeGreaterThan(0);
     expect(spawned.every((s) => isIron(s.kind)), 'all scrap, no flesh').toBe(true);
+  });
+});
+
+describe('DEATH RE-SELECT — pick your kit between prints (Robert 2026-07-21)', () => {
+  it('a dead soldier re-signs; the next print carries the new class', () => {
+    const w = quiet();
+    const man = w.addSoldier('Flex', 'infantry', 0, 'human');
+    w.damageSoldier(man, 9999, -1, 'ar606');
+    expect(man.alive).toBe(false);
+    expect(w.redeployAs(man, 'medic')).toBe(true);
+    w.spawn(man);
+    expect(man.classId).toBe('medic');
+    expect(man.maxHp).toBe(CLASSES.medic.hp);
+    expect(man.weapons[0]).toBe(CLASSES.medic.primary);
+  });
+
+  it('the living are refused — kit changes happen at the printer, not mid-fight', () => {
+    const w = quiet();
+    const man = w.addSoldier('Solid', 'infantry', 0, 'human');
+    expect(w.redeployAs(man, 'medic')).toBe(false);
+    expect(man.classId).toBe('infantry');
   });
 });
 

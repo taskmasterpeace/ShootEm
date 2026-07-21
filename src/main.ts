@@ -460,6 +460,27 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   window.addEventListener('beforeunload', saveFlight);
   const me = world.addSoldier(name, selectedClass, 0, 'human', currentLoadout());
   applyScarMods(world, activeFrontId); // §8.5: the front's wound shapes the field
+  // DEATH RE-SELECT (Robert: "select my stuff after every time I die and just
+  // continue on"): the K.I.A. overlay grows a class rack. Clicking while dead
+  // re-signs the next print — spawn() derives the whole kit from the choice.
+  {
+    const rack = $('respawn-classes');
+    rack.innerHTML = '';
+    (Object.keys(CLASSES) as ClassId[]).forEach((id) => {
+      const b = document.createElement('button');
+      b.className = `respawn-class${id === selectedClass ? ' selected' : ''}`;
+      b.innerHTML = `<span class="rc-icon">${CLASS_ICONS[id]}</span><span class="rc-name">${CLASSES[id].name}</span>`;
+      b.onclick = () => {
+        if (me.alive) return; // the living change kit at the printer, not mid-fight
+        if (world.redeployAs(me, id)) {
+          audio.play('ui_click');
+          rack.querySelectorAll('.respawn-class').forEach((el) => el.classList.remove('selected'));
+          b.classList.add('selected');
+        }
+      };
+      rack.appendChild(b);
+    });
+  }
   // GOD MODE (testing): backtick opens the stable and you can wear anything
   initGodMode(() => world, () => me);
   // THE STABLE (finish-list #3/#4): the officer's V channel. SP wires

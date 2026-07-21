@@ -1145,6 +1145,24 @@ export class World {
     return s;
   }
 
+  /** DEATH RE-SELECT (Robert: "I should be able to select my stuff after
+   *  every time I die, and just continue on"). While the body waits on the
+   *  respawn clock, re-sign as another class/loadout — spawn() derives the
+   *  whole kit from these fields, so the change simply IS the next deploy.
+   *  The living are refused: kit changes happen at the printer, not mid-fight. */
+  redeployAs(s: Soldier, classId: ClassId, loadout?: Loadout): boolean {
+    if (s.alive || (s.kind !== 'human' && s.kind !== 'bot')) return false;
+    if (!CLASSES[classId]) return false;
+    const c = CLASSES[classId];
+    s.classId = classId;
+    s.weapons = [
+      loadout?.primary && WEAPONS[loadout.primary] ? loadout.primary : c.primary,
+      loadout?.secondary && WEAPONS[loadout.secondary] ? loadout.secondary : c.secondary,
+    ];
+    s.equipment = (loadout?.equipment ?? []).filter((id) => EQUIPMENT[id]).slice(0, 2);
+    return true;
+  }
+
   spawn(s: Soldier) {
     s.floor = 0;
     // K9s don't draw from the armory or the spawn queue like people do —
