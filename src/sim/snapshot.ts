@@ -166,6 +166,7 @@ export function applySnapshot(w: World, snap: Snapshot) {
     w.soldiers.set(sd.id, next);
   }
   for (const id of [...w.soldiers.keys()]) if (!seen.has(id)) w.soldiers.delete(id);
+  w.invalidateRoster(); // opt #8: puppet prune may drop a human/bot — drop the cache
 
   syncMap(w.vehicles, snap.vehicles);
   syncMap(w.turrets, snap.turrets);

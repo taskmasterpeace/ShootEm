@@ -353,6 +353,13 @@ export class World {
    *  reads this short list. Recompute (not a counter) is drift-proof under
    *  network deletes; an ice block's position is fixed for its life. */
   private encasedBodies: Soldier[] = [];
+  /** opt #8 (S7): cached humansAndBots() roster. The filtered set (human|bot,
+   *  non-dummy) is stable within a match — humans/bots enter ONLY via addSoldier
+   *  (deaths keep them in the Map for respawn; the internal deletes are all
+   *  dogs/zombies/iron, filtered out here), so zombie top-up never dirties it.
+   *  addSoldier clears it; external removals (server disconnect / puppet prune)
+   *  call invalidateRoster(). Callers must not mutate the returned array. */
+  private rosterCache: Soldier[] | null = null;
   /** THE OUTBREAK (OUTBREAK-SPEC): master switch — the machinery is inert
    *  until conditions (or a mode/scenario) turn it on. Condition-driven
    *  activation (Outbreak Pressure) is the next slice; nothing in the game
@@ -645,6 +652,7 @@ export class World {
     }
     this.soldiers.set(s.id, s);
     this.soldierIndex.add(s); // queryable the tick it spawns (opt #38)
+    this.rosterCache = null;  // opt #8: the ONLY human/bot add site — drop the cache
     this.spawn(s);
     return s;
   }
@@ -6159,8 +6167,18 @@ export class World {
     // PEOPLE, not furniture (F.1): a range DUMMY is a target, never a roster
     // entry — dummies inflated the yard's headcount (the human drew HUNTER
     // both rounds) and held squad-wipe checks "alive" after everyone fell.
-    return [...this.soldiers.values()].filter((s) => (s.kind === 'human' || s.kind === 'bot') && !s.dummy);
+    // opt #8 (S7): the filtered list is match-stable — build once, reuse until
+    // the roster changes. Modes/objective sites hit this up to ~10×/tick.
+    if (!this.rosterCache) {
+      this.rosterCache = [...this.soldiers.values()].filter((s) => (s.kind === 'human' || s.kind === 'bot') && !s.dummy);
+    }
+    return this.rosterCache;
   }
+
+  /** opt #8 (S7): drop the humansAndBots cache — call after adding or removing a
+   *  human/bot from `soldiers` OUTSIDE addSoldier (server disconnect, puppet
+   *  prune). Cheap and idempotent; the next humansAndBots() rebuilds. */
+  invalidateRoster() { this.rosterCache = null; }
 
   livingEnemiesOf(team: Team): Soldier[] {
     return [...this.soldiers.values()].filter((s) => s.alive && s.team !== team);
