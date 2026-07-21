@@ -52,7 +52,7 @@
 - Produces: `CountryMapProfile`, `CityMapProfile`, `CITY_MAP_PROFILES`, `COUNTRY_MAP_PROFILES`, `cityProfile(id)`, and `architectureProfile(cityId, seed)`.
 - `architectureProfile` returns `{ facade, courtyardWeight, balconyWeight, glassWeight, security, guardDiscipline, dogWeight, districtWeights }` with every weight in `[0, 1]`.
 
-- [ ] **Step 1: Write the failing data-contract tests**
+- [x] **Step 1: Write the failing data-contract tests**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -76,9 +76,9 @@ describe('map culture data', () => {
 });
 ```
 
-- [ ] **Step 2: Run `npx vitest run tests/city-profile.test.ts` and confirm RED** — expected failure: module `../src/sim/city-profile` does not exist.
-- [ ] **Step 3: Implement a dependency-free CSV parser/normalizer** that accepts explicit `--countries`, `--cities`, and `--out` arguments, trims keys/values, skips explanatory rows, canonicalizes `Mega City ` / `Small Town `, joins cities by normalized country name (including the explicit `DR Congo` alias), and writes stable sorted JSON containing only spec fields.
-- [ ] **Step 4: Run the normalizer against the two supplied files**
+- [x] **Step 2: Run `npx vitest run tests/city-profile.test.ts` and confirm RED** — expected failure: module `../src/sim/city-profile` does not exist.
+- [x] **Step 3: Implement a dependency-free CSV parser/normalizer** that accepts explicit `--countries`, `--cities`, and `--out` arguments, trims keys/values, skips explanatory rows, canonicalizes `Mega City ` / `Small Town `, joins cities by normalized country name (including the explicit `DR Congo` alias), and writes stable sorted JSON containing only spec fields.
+- [x] **Step 4: Run the normalizer against the two supplied files**
 
 ```powershell
 node tools/import-map-culture-data.mjs --countries "C:/Users/taskm/Downloads/Country Master Sheet - Country.csv" --cities "C:/Users/taskm/Downloads/Country Master Sheet - Cities.csv" --out src/data
@@ -86,9 +86,9 @@ node tools/import-map-culture-data.mjs --countries "C:/Users/taskm/Downloads/Cou
 
 Expected: `168 countries; 1050 cities; 0 missing country joins` and two generated JSON files.
 
-- [ ] **Step 5: Implement `city-profile.ts`** using JSON imports, exact typed coercion, a `Map` lookup, `clamp01`, stable city IDs `${countryCode}:${slug(name)}`, documented culture facade tables, tag-based district weights, and country-rating security/dog/glass modifiers.
-- [ ] **Step 6: Run the focused test and `npx tsc --noEmit`; confirm GREEN.**
-- [ ] **Step 7: Commit explicit files** with `git commit -m "feat: add city architecture profiles"`.
+- [x] **Step 5: Implement `city-profile.ts`** using JSON imports, exact typed coercion, a `Map` lookup, `clamp01`, stable city IDs `${countryCode}:${slug(name)}`, documented culture facade tables, tag-based district weights, and country-rating security/dog/glass modifiers.
+- [x] **Step 6: Run the focused test and `npx tsc --noEmit`; confirm GREEN.**
+- [x] **Step 7: Commit explicit files** with `git commit -m "feat: add city architecture profiles"`.
 
 ### Task 2: Add Compatible Indexed Floor Layers
 
@@ -105,9 +105,9 @@ Expected: `168 countries; 1050 cities; 0 missing country joins` and two generate
 - `GameMap.upperLayers?: Uint8Array[]`; logical floor 1 always resolves to `upperLayers?.[0] ?? grid2`.
 - Map JSON v2 adds `upperLayers: number[][]` and optional `buildingMeta`; deserializer accepts v1.
 
-- [ ] **Step 1: Write failing tests** proving floor 1 aliases `grid2`, floor 2 allocates independently, three-storey v2 round-trips, and a v1 fixture upgrades with no Level 3 allocation.
-- [ ] **Step 2: Run the two focused files and confirm RED** on missing helpers and v2 fields.
-- [ ] **Step 3: Implement `map-layers.ts`** with this selection law:
+- [x] **Step 1: Write failing tests** proving floor 1 aliases `grid2`, floor 2 allocates independently, three-storey v2 round-trips, and a v1 fixture upgrades with no Level 3 allocation.
+- [x] **Step 2: Run the two focused files and confirm RED** on missing helpers and v2 fields.
+- [x] **Step 3: Implement `map-layers.ts`** with this selection law:
 
 ```ts
 export const MAX_BUILDING_FLOORS = 3;
@@ -123,10 +123,10 @@ export function floorLayer(map: GameMap, floor: number): Uint8Array {
 
 `ensureUpperFloor` validates integer floors 1–2, creates `upperLayers` with `grid2` at index 0, and allocates exactly `GRID * GRID` bytes.
 
-- [ ] **Step 4: Add the optional map metadata and v2 serializer** while preserving v1 import. Clone every upper layer and building metadata in undo snapshots.
-- [ ] **Step 5: Replace new multi-floor code paths with floor helpers; do not mass-rewrite legacy ground generators.**
-- [ ] **Step 6: Run focused tests plus existing `tests/mapedit.test.ts`, `tests/twostory.test.ts`, and typecheck; confirm GREEN.**
-- [ ] **Step 7: Commit with `git commit -m "feat: add three-storey map layers"`.**
+- [x] **Step 4: Add the optional map metadata and v2 serializer** while preserving v1 import. Clone every upper layer and building metadata in undo snapshots.
+- [x] **Step 5: Replace new multi-floor code paths with floor helpers; do not mass-rewrite legacy ground generators.**
+- [x] **Step 6: Run focused tests plus existing `tests/mapedit.test.ts`, `tests/twostory.test.ts`, and typecheck; confirm GREEN.**
+- [x] **Step 7: Commit with `git commit -m "feat: add three-storey map layers"`.**
 
 ### Task 3: Generate Complete City Buildings
 

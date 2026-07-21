@@ -176,7 +176,7 @@ export interface House {
   door: Vec3;
   /** footprint in tiles — roofs, concealment, and interior checks key off this */
   tx: number; tz: number; tw: number; th: number;
-  /** 2 = has a second storey (roof sits at 8, not 4) */
+  /** occupied storeys, 1–3 (roof sits at floors * 4) */
   floors?: number;
   /** roof style, decided by the building's kind — gable for whole-rect
    *  houses, parapet lips for commercial, vents for industry, none on ruins */
@@ -186,6 +186,16 @@ export interface House {
   maskRows?: number[];
 }
 
+/** Provenance for maps authored by the whole-building grammar. Optional so
+ * every legacy battle map keeps its original allocation and serialized shape. */
+export interface BuildingMapMeta {
+  cityId: string;
+  archetype: string;
+  grammarVersion: number;
+  floors: 1 | 2 | 3;
+  activeSection?: string;
+}
+
 export interface GameMap {
   seed: number;
   theme: ThemeId;
@@ -193,6 +203,11 @@ export interface GameMap {
   /** the SECOND STOREY (§8.4 Phase-2): F2_* per tile — void unless a
    *  two-storey building stamped an upper floor here. Static after gen. */
   grid2: Uint8Array;
+  /** Indexed upper storeys for new building maps. Index 0 is the same logical
+   * Level 2 content as grid2; index 1 is Level 3. Absent on legacy maps. */
+  upperLayers?: Uint8Array[];
+  /** Authoring/generator provenance; absent on legacy battle maps. */
+  buildingMeta?: BuildingMapMeta;
   /** the SURFACE layer (§8.6): S_* per tile — movement, sound, and tracks */
   surface: Uint8Array;
   basePos: [Vec3, Vec3];

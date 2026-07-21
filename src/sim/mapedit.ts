@@ -12,8 +12,9 @@
 import {
   GRID, TILE, WORLD, houseAt,
   T_OPEN, T_WALL, T_COVER, T_WATER, T_DEEP, T_SLIT, T_DOOR, T_DOOR_OPEN, T_METAL, T_LADDER, T_CLIMB,
-  type GameMap, type PropSpec, type PickupSpawn, type VehiclePad, type House, type TileClaim,
+  type BuildingMapMeta, type GameMap, type PropSpec, type PickupSpawn, type VehiclePad, type House, type TileClaim,
 } from './map';
+import { ensureUpperFloor } from './map-layers';
 import { BUILDINGS, stampBuilding, type BuildingDef, type StampCtx } from './buildings';
 import { FRONT_STENCILS, frontWalkable, generateFront, boxFor, type MapSize } from './fronts';
 import { generateSkirmishMap } from './skirmish';
@@ -41,9 +42,14 @@ const worldToTile = (x: number, z: number): [number, number] =>
   [Math.floor((x + WORLD / 2) / TILE), Math.floor((z + WORLD / 2) / TILE)];
 
 function cloneMap(m: GameMap): GameMap {
+  const upperLayers = m.upperLayers?.map((layer) => layer.slice());
+  const grid2 = upperLayers?.[0] ?? m.grid2.slice();
+  if (upperLayers) upperLayers[0] = grid2;
   return {
     seed: m.seed, theme: m.theme,
-    grid: m.grid.slice(), grid2: m.grid2.slice(), surface: m.surface.slice(),
+    grid: m.grid.slice(), grid2, surface: m.surface.slice(),
+    ...(upperLayers ? { upperLayers } : {}),
+    ...(m.buildingMeta ? { buildingMeta: { ...m.buildingMeta } } : {}),
     basePos: [{ ...m.basePos[0] }, { ...m.basePos[1] }],
     spawns: [m.spawns[0].map((s) => ({ ...s })), m.spawns[1].map((s) => ({ ...s }))],
     flagPos: [{ ...m.flagPos[0] }, { ...m.flagPos[1] }],
@@ -130,8 +136,8 @@ export function blankDoc(size: MapSize, seed: number, theme: GameMap['theme'] = 
 // ---------------------------------------------------------------------------
 // undo / redo — full-doc snapshots (a dev tool can afford them)
 // ---------------------------------------------------------------------------
-export interface MapJSON {
-  v: 1; frontId: string | null; size: MapSize; seed: number;
+interface MapJSONBase {
+  frontId: string | null; size: MapSize; seed: number;
   grid: number[]; grid2: number[]; surface: number[];
   basePos: [Vec3, Vec3]; spawns: [Vec3[], Vec3[]]; flagPos: [Vec3, Vec3];
   hillPos: Vec3; controlPoints: { name: string; pos: Vec3 }[];
@@ -140,11 +146,21 @@ export interface MapJSON {
   claims: TileClaim[];
 }
 
-export function serializeDoc(doc: MakerDoc): MapJSON {
+export interface MapJSONV1 extends MapJSONBase { v: 1 }
+export interface MapJSONV2 extends MapJSONBase {
+  v: 2;
+  upperLayers: number[][];
+  buildingMeta?: BuildingMapMeta;
+}
+export type MapJSON = MapJSONV1 | MapJSONV2;
+
+export function serializeDoc(doc: MakerDoc): MapJSONV2 {
   const m = doc.map;
   return {
-    v: 1, frontId: doc.frontId, size: doc.size, seed: doc.seed,
+    v: 2, frontId: doc.frontId, size: doc.size, seed: doc.seed,
     grid: [...m.grid], grid2: [...m.grid2], surface: [...m.surface],
+    upperLayers: (m.upperLayers ?? [m.grid2]).map((layer) => [...layer]),
+    ...(m.buildingMeta ? { buildingMeta: { ...m.buildingMeta } } : {}),
     basePos: m.basePos, spawns: m.spawns, flagPos: m.flagPos, hillPos: m.hillPos,
     controlPoints: m.controlPoints, vehiclePads: m.vehiclePads, pickups: m.pickups,
     props: m.props, zombieSpawns: m.zombieSpawns, houses: m.houses, theme: m.theme,
@@ -153,11 +169,16 @@ export function serializeDoc(doc: MakerDoc): MapJSON {
 }
 
 export function deserializeDoc(json: MapJSON): MakerDoc {
-  if (json.v !== 1) throw new Error(`mapedit: can't read doc version ${(json as { v?: number }).v}`);
+  if (json.v !== 1 && json.v !== 2) throw new Error(`mapedit: can't read doc version ${(json as { v?: number }).v}`);
   const grid = Uint8Array.from(json.grid);
+  const upperLayers = json.v === 2 ? json.upperLayers.map((layer) => Uint8Array.from(layer)) : undefined;
+  const grid2 = upperLayers?.[0] ?? Uint8Array.from(json.grid2);
+  if (upperLayers) upperLayers[0] = grid2;
   const map: GameMap = {
     seed: json.seed, theme: json.theme,
-    grid, grid2: Uint8Array.from(json.grid2), surface: Uint8Array.from(json.surface),
+    grid, grid2, surface: Uint8Array.from(json.surface),
+    ...(upperLayers ? { upperLayers } : {}),
+    ...(json.v === 2 && json.buildingMeta ? { buildingMeta: { ...json.buildingMeta } } : {}),
     basePos: json.basePos, spawns: json.spawns, flagPos: json.flagPos, hillPos: json.hillPos,
     controlPoints: json.controlPoints, vehiclePads: json.vehiclePads, pickups: json.pickups,
     props: json.props, zombieSpawns: json.zombieSpawns, houses: json.houses,
@@ -224,6 +245,18 @@ export function paintTile(doc: MakerDoc, tx: number, tz: number, tile: number, b
     idxs.push(z * GRID + x);
   }
   afterGridWrite(doc, idxs);
+}
+
+/** Paint an indexed upper storey. This is deliberately separate from ground
+ * terrain painting: upper values are F2_* architecture codes, not T_* land. */
+export function paintFloorTile(doc: MakerDoc, floor: 1 | 2, tx: number, tz: number, tile: number, brush = 1) {
+  pushUndo(doc);
+  const layer = ensureUpperFloor(doc.map, floor);
+  const r = Math.floor(brush / 2);
+  for (let z = tz - r; z <= tz + r; z++) for (let x = tx - r; x <= tx + r; x++) {
+    if (x < 1 || z < 1 || x >= GRID - 1 || z >= GRID - 1) continue;
+    layer[z * GRID + x] = tile;
+  }
 }
 
 /** paint the SURFACE layer (movement/sound/paint), same brush model. */
@@ -401,6 +434,7 @@ export function deleteHouse(doc: MakerDoc, index: number): boolean {
       if (x < 1 || z < 1 || x >= GRID - 1 || z >= GRID - 1) continue;
       m.grid[z * GRID + x] = T_OPEN;
       m.grid2[z * GRID + x] = 0;
+      for (const layer of m.upperLayers ?? []) layer[z * GRID + x] = 0;
     }
   }
   const inside = (p: Vec3) => {
