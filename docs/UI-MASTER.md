@@ -94,7 +94,7 @@ Sim has the whole §4.3 system (`downed`, 20s bleedout, `reviveProgress`, `dragg
 
 One horizontal strip of small square chips above the stamina bar, each with an icon + radial-wipe timer. **Feed it everything:** overcharge (Reactor/Steel Weaver), time-field SLOWED, possession clock, EMP-stunned (in vehicle), encased, protected, marked, pinged, tagged, smoked, psi-linked. Chips appear on gain (slide in), radial-wipe down, and **fade — never pop** (Law 6). Enemy-sourced chips wear signal-red edges; buffs wear amber. ❌ (nothing exists — this is the single highest-leverage NEW element in this document.)
 
-**The encased-in-ice struggle** gets special treatment (it's a minigame with zero UI today): the ice block is shipped; add a **crack-pattern that spreads with your mash progress** (`struggle` 0..1 drives crack decals on the ice mesh) + the drain choice as two hair-labels: `MASH — break at −45` / `HOLD — bleed 2.5/s`. The ice itself is the meter. ❌
+**The encased-in-ice struggle** gets special treatment (it's a minigame with zero UI today): the ice block is shipped; add a **crack-pattern that spreads with your mash progress** (`struggle` 0..1 drives crack decals on the ice mesh) + the drain choice as two hair-labels: `MASH — break at −45` / `HOLD — bleed 2.5/s`. The ice itself is the meter. ✅ **DONE 2026-07-21** — a jagged crack web (`makeIceCrackGeo`) rides the block, opacity = `struggle`, the ice stressing brighter (emissive climbs) as it nears breaking; the two hair-labels float over your own body (`MASH — BREAK −45` amber / `HOLD — BLEED 2.5/s` steel), reading the sim's `STRUGGLE_HP`/`ICE_HOLD_DRAIN`. `renderer.ts` `updateIceBlock`; `tests/encased-struggle.test.ts` (2).
 
 ## 7 · LSW — piloting and facing gods
 
@@ -176,7 +176,7 @@ One horizontal strip of small square chips above the stamina bar, each with an i
 
 ## PRIORITY ORDER (what the loop builds, in order)
 
-**P0 — the criminal gaps (shipped systems with zero readout):** the hover wiring bug (§13) · grenade pip-refill + missing conc pouch (§3) · the downed experience (§2) · MISSILE INBOUND + SAM lock diamond (§3/§8) · encased struggle cracks (§6) · spawn-protection shimmer (§5) · LSW drop countdown + LZ ring (§7).
+**P0 — the criminal gaps (shipped systems with zero readout):** the hover wiring bug (§13) · grenade pip-refill + missing conc pouch (§3) · the downed experience (§2) · MISSILE INBOUND + SAM lock diamond (§3/§8) · ~~encased struggle cracks (§6)~~ ✅ **DONE 2026-07-21** · spawn-protection shimmer (§5) · LSW drop countdown + LZ ring (§7).
 **P1 — the new grammars:** the status-effect strip (§6) · the charge ring / Impact Charge (§4) · afterburner + sonic boom (§8) · force-field bodies + labels (§9) · altitude ladder + flares/bombs pips (§8) · victim-side marks (§5).
 **P2 — the aura layer:** carrion birds (§11) · conquest/CTF progress fills (§12) · materiel chip (§12) · minimap gadget layers (§10) · all remaining ✦ details.
 

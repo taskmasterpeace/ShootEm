@@ -14,7 +14,7 @@ import { darknessFloor, setDarknessFrame, sweepDarkness } from './darkness';
 import { Particles, FlashLights, Fireballs } from './effects';
 import { JOINT_NAMES, isUndead, poseSoldierJoints, CAST_SCHOOL, FLIGHT_POSES, RECOIL_SCALE, stepYawSpring, throwArmCurve, WEAPON_HOLDS, type GaitState, type CastSchool } from './animation';
 import { chunkCount, drawChunks, drawGrade, drawNotches, drawNumber, makeRingMesh, RING_COLORS, ringChunkTexture, ringTier } from './ring';
-import { LSWS, type LswDef } from '../sim/lsw';
+import { ICE_HOLD_DRAIN, LSWS, STRUGGLE_HP, type LswDef } from '../sim/lsw';
 import { hash01 } from '../sim/rng';
 import { collapseStyleFor, type CollapseStyle } from './deathpose';
 import { buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp, buildSoldier, buildTurretMesh, buildVehicle, dressAsLsw } from './models';
@@ -264,6 +264,8 @@ export class Renderer {
   /** UI-BIBLE §09 struggle bars: a world-space meter over each grabbed body,
    *  showing break progress (amber→green) or the choke reversal (red). */
   private struggleBars = new Map<number, { sprite: THREE.Sprite; ctx: CanvasRenderingContext2D; tex: THREE.CanvasTexture; key: string }>();
+  /** the LOCAL player's encased drain-choice label (MASH vs HOLD) — one sprite, static text, shown only while YOU are the block */
+  private encaseHint?: THREE.Sprite;
   private flagMeshes: THREE.Group[] = [];
   private cpRings: THREE.Mesh[] = [];
   private hillRing: THREE.Mesh | null = null;
@@ -3579,7 +3581,9 @@ export class Renderer {
   }
 
   /** An encased soldier is a block of ice — a translucent cyan box over the
-   *  frozen body, pooled per soldier. (§21.6 the ice block.) */
+   *  frozen body, pooled per soldier. (§21.6 the ice block.) The ice ITSELF is
+   *  the break meter (UI-MASTER §6): a crack web rides the block and spreads
+   *  with your struggle (0→1), so anyone can read how close it is to going. */
   private iceBlocks = new Map<number, THREE.Mesh>();
   private updateIceBlock(s: Soldier) {
     let ice = this.iceBlocks.get(s.id);
@@ -3592,19 +3596,95 @@ export class Renderer {
           transparent: true, opacity: 0.42, roughness: 0.1, metalness: 0.05, depthWrite: false,
         }),
       );
+      // the crack web — invisible at struggle 0, a full fracture as it nears 1
+      const cracks = new THREE.LineSegments(
+        this.makeIceCrackGeo(),
+        new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false }),
+      );
+      cracks.name = 'cracks';
+      ice.add(cracks);
       this.scene.add(ice);
       this.iceBlocks.set(s.id, ice);
     }
     if (ice) {
       const wasVisible = ice.visible;
       ice.visible = encased;
-      if (encased) ice.position.set(s.pos.x, 1.15, s.pos.z);
-      else if (wasVisible && !this.replayView) {
+      if (encased) {
+        ice.position.set(s.pos.x, 1.15, s.pos.z);
+        // THE ICE IS THE METER: cracks bloom with the mash, and the block
+        // stresses brighter as it's about to give (emissive climbs).
+        const frac = Math.min(1, s.struggle ?? 0);
+        const cracks = ice.getObjectByName('cracks') as THREE.LineSegments | undefined;
+        if (cracks) (cracks.material as THREE.LineBasicMaterial).opacity = frac * 0.9;
+        (ice.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.35 + frac * 0.5;
+      } else if (wasVisible && !this.replayView) {
         // the block just broke — shatter shards + a glassy crack
         this.particles.emit({ pos: { x: s.pos.x, y: 1.2, z: s.pos.z }, count: 20, color: 0xcdeef7, speed: 6, life: 0.5, spread: 0.7, up: 3, gravity: 9, size: 0.2 });
         audio.play('ice_shatter', { pos: s.pos, volume: 0.75 });
       }
     }
+    // THE DRAIN CHOICE (UI-MASTER §6): only YOU can act on your own block, so
+    // the two ways out float over your body while you're frozen — MASH to
+    // shatter it (costs hp) or HOLD to wait out the melt (bleeds slowly).
+    if (s.id === this.localId) {
+      if (encased) {
+        if (!this.encaseHint) this.encaseHint = this.makeEncaseHint();
+        this.encaseHint.position.set(s.pos.x, s.pos.y + 2.75, s.pos.z);
+        this.encaseHint.visible = true;
+      } else if (this.encaseHint) {
+        this.encaseHint.visible = false;
+      }
+    }
+  }
+
+  /** A jagged fracture web across the four vertical faces of the ice box,
+   *  authored once per block in the box's own local space (renderer-side, so
+   *  Math.random is fine — it never touches the sim). Revealed by opacity. */
+  private makeIceCrackGeo(): THREE.BufferGeometry {
+    const pts: number[] = [];
+    const hw = 0.85, hh = 1.15, hd = 0.85;
+    const faces: { axis: 'z' | 'x'; s: number }[] = [
+      { axis: 'z', s: 1 }, { axis: 'z', s: -1 }, { axis: 'x', s: 1 }, { axis: 'x', s: -1 },
+    ];
+    for (const f of faces) {
+      for (let root = 0; root < 2; root++) {
+        let u = (Math.random() - 0.5) * 1.6, v = (Math.random() - 0.5) * 1.8; // normalized on the face
+        const segs = 3 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < segs; i++) {
+          const nu = Math.max(-0.98, Math.min(0.98, u + (Math.random() - 0.5) * 0.8));
+          const nv = Math.max(-0.98, Math.min(0.98, v + (Math.random() - 0.5) * 0.8));
+          const p0 = f.axis === 'z' ? [hw * u, hh * v, f.s * hd] : [f.s * hw, hh * v, hd * u];
+          const p1 = f.axis === 'z' ? [hw * nu, hh * nv, f.s * hd] : [f.s * hw, hh * nv, hd * nu];
+          pts.push(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2]);
+          u = nu; v = nv;
+        }
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    return g;
+  }
+
+  /** The static two-line drain-choice label over your own ice block. Numbers
+   *  are the sim's own (STRUGGLE_HP / ICE_HOLD_DRAIN) so the readout can't lie. */
+  private makeEncaseHint(): THREE.Sprite {
+    const cvs = document.createElement('canvas'); cvs.width = 256; cvs.height = 96;
+    const ctx = cvs.getContext('2d')!;
+    ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+    const line = (text: string, y: number, fill: string) => {
+      ctx.font = '700 22px Inter, system-ui, sans-serif';
+      ctx.strokeStyle = 'rgba(0,0,0,0.72)'; ctx.lineWidth = 4; ctx.strokeText(text, 128, y);
+      ctx.fillStyle = fill; ctx.fillText(text, 128, y);
+    };
+    line('❄ ENCASED', 24, '#8fd0ff');
+    line(`MASH — BREAK −${STRUGGLE_HP}`, 54, '#e8a33d');       // house amber (the active out)
+    line(`HOLD — BLEED ${ICE_HOLD_DRAIN}/s`, 82, '#a7b0b8');   // steel (the patient out)
+    const tex = new THREE.CanvasTexture(cvs);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    sprite.userData.uiOverlay = true;
+    sprite.scale.set(2.2, 0.82, 1);
+    this.scene.add(sprite);
+    return sprite;
   }
 
   /** EMBODIMENT (Task 4): play an LSW's attack pose when it fires or swings.
