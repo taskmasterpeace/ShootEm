@@ -393,7 +393,7 @@ git commit -m "feat: connect science missions to the campaign"
 - Adds optional `science` data to `PressIssue`.
 - Produces pure `scienceHeadline(issue)`, `scienceMissionHTML(runtime)`, `scienceDebriefHTML(result)`, and `renderSciencePanel(root, runtime)`.
 
-- [ ] **Step 1: Write failing pure presentation tests**
+- [x] **Step 1: Write failing pure presentation tests**
 
 ```ts
 it('prints the operation, clone bill, ghost status, and reward', () => {
@@ -409,27 +409,27 @@ it('escapes generated operation copy', () => {
 });
 ```
 
-- [ ] **Step 2: Run presentation tests and verify RED**
+- [x] **Step 2: Run presentation tests and verify RED**
 
 Run: `npx vitest run tests/science-presentation.test.ts`
 
 Expected: FAIL because science issue/presenter fields do not exist.
 
-- [ ] **Step 3: Implement science newspaper copy and pure HUD markup**
+- [x] **Step 3: Implement science newspaper copy and pure HUD markup**
 
 Branch the headline/field/ledger copy only when `issue.science` exists. Preserve the current battle issue structure and archive. Escape every generated string through the existing `esc` seam.
 
-- [ ] **Step 4: Add the in-match mission card**
+- [x] **Step 4: Add the in-match mission card**
 
 Add one hidden `#science-mission-panel` overlay to `index.html`. Style it with the existing War World palette, 10px radii, compact clone pips, alarm/ghost states, responsive placement, hover-free noninteractive semantics, and no new font dependency. `renderSciencePanel` updates text/classes only.
 
-- [ ] **Step 5: Run presentation and newspaper regressions**
+- [x] **Step 5: Run presentation and newspaper regressions**
 
 Run: `npx vitest run tests/science-presentation.test.ts tests/record.test.ts tests/campaign.test.ts && npm run lint`
 
 Expected: all tests PASS and lint reports zero errors.
 
-- [ ] **Step 6: Commit presentation integration**
+- [x] **Step 6: Commit presentation integration**
 
 ```powershell
 git add src/client/newspaper.ts src/client/science.ts index.html src/styles.css tests/science-presentation.test.ts

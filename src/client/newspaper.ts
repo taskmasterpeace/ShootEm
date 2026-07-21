@@ -1,4 +1,15 @@
+import { scienceReward, type ScienceRewardId } from '../sim/science';
+
 // ---------------------------------------------------------------------------
+
+export interface SciencePressData {
+  id: string;
+  briefing: string;
+  clonesSpent: number;
+  clonesRemaining: number;
+  ghost: boolean;
+  reward: ScienceRewardId;
+}
 // N1 THE FRONT COURIER (Robert: "we could literally make newspapers when
 // people take over different fronts — to show all the three things that
 // happened").
@@ -31,6 +42,7 @@ export interface PressIssue {
   myKills: number;
   theirKills: number;
   medals: string[];           // "🎖 name" strings, already formatted
+  science?: SciencePressData;
 }
 
 const KEY = 'ww_press';
@@ -66,6 +78,7 @@ export function fileIssue(issue: PressIssue) {
 const hash = (i: PressIssue) => Math.abs(Math.floor(i.at / 1000)) % 3;
 
 function mainHeadline(i: PressIssue): string {
+  if (i.science) return scienceHeadline(i);
   if (i.frontName) {
     const f = i.frontName.toUpperCase();
     if ((i.controlDelta ?? 0) > 0) {
@@ -79,6 +92,11 @@ function mainHeadline(i: PressIssue): string {
   return i.won
     ? ['THE FIELD IS OURS', 'VICTORY IN THE OPEN', 'THE LINE HELD'][hash(i)]
     : ['A HARD DAY AT THE FRONT', 'THE LINE BENDS', 'THEY TOOK THE FIELD'][hash(i)];
+}
+
+export function scienceHeadline(issue: PressIssue): string {
+  if (!issue.science) return mainHeadline({ ...issue, science: undefined });
+  return `OPERATION ${issue.science.id} — ${issue.won ? 'PACKAGE SECURED' : 'PRINT STOCK LOST'}`;
 }
 
 function duelLead(i: PressIssue): string {
@@ -131,7 +149,7 @@ export function correctionLine(prev: PressIssue | undefined, cur: PressIssue): s
 
 // ── the pressroom ───────────────────────────────────────────────────────────
 
-const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+export const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 
 /** One full front page. `prev` feeds the corrections desk (W4.3). */
 export function renderIssueHTML(i: PressIssue, prev?: PressIssue): string {
@@ -141,6 +159,18 @@ export function renderIssueHTML(i: PressIssue, prev?: PressIssue): string {
   const control = i.frontName && i.controlAfter !== undefined
     ? `<div class="np-control"><span>FRONT CONTROL</span><b>${i.controlAfter > 0 ? '+' : ''}${i.controlAfter}</b>${i.controlDelta ? `<em>(${i.controlDelta > 0 ? '+' : ''}${i.controlDelta} this battle)</em>` : ''}</div>`
     : '';
+  const science = i.science;
+  const columns = science
+    ? `<div class="np-columns np-science-columns">
+      <section><h3>THE OPERATION</h3><p>${esc(science.briefing)}</p></section>
+      <section><h3>CLONES SPENT</h3><p>${science.clonesSpent} sleeves burned. ${science.clonesRemaining} viable prints returned to the front.</p></section>
+      <section><h3>THE PRIZE</h3><p><b>${esc(scienceReward(science.reward).label.toUpperCase())}</b> — ${esc(scienceReward(science.reward).description)}</p></section>
+    </div>`
+    : `<div class="np-columns">
+      <section><h3>THE DUEL</h3><p>${esc(duelLead(i))}</p></section>
+      <section><h3>THE LEDGER</h3><p>${esc(moneyLead(i))}</p></section>
+      <section><h3>THE FIELD</h3><p>${esc(fieldLead(i))}</p></section>
+    </div>`;
   return `
   <article class="np-paper${i.won ? '' : ' np-lost'}">
     <header class="np-masthead">
@@ -150,12 +180,8 @@ export function renderIssueHTML(i: PressIssue, prev?: PressIssue): string {
     </header>
     <h2 class="np-headline">${esc(mainHeadline(i))}</h2>
     ${control}
-    <div class="np-columns">
-      <section><h3>THE DUEL</h3><p>${esc(duelLead(i))}</p></section>
-      <section><h3>THE LEDGER</h3><p>${esc(moneyLead(i))}</p></section>
-      <section><h3>THE FIELD</h3><p>${esc(fieldLead(i))}</p></section>
-    </div>
-    ${i.underdog ? '<div class="np-banner">★ UNDERFUNDED VICTORY — MORALE RISES ★</div>' : ''}
+    ${columns}
+    ${science?.ghost ? '<div class="np-banner">★ GHOST RUN — NO ALARM RAISED ★</div>' : i.underdog ? '<div class="np-banner">★ UNDERFUNDED VICTORY — MORALE RISES ★</div>' : ''}
     ${correction ? `<div class="np-corrections"><h4>CORRECTIONS</h4><p>${esc(correction)}</p></div>` : ''}
   </article>`;
 }

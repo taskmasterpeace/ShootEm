@@ -1,6 +1,6 @@
 import { AMMO_INFO, CLASSES, DOG_NAMES, DOG_STATS, EQUIPMENT, IRON_STATS, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
-import { CLIMB_H, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_METAL_DOOR, T_OPEN, T_RUBBLE, T_SLIT, T_THIN_WALL_H, T_THIN_WALL_HV, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, doorIsOpen, generateMap, isBlocked, isDoorTile, losClear, nearestOpenTile, surfaceAt, tileAt, toggleDoorType, upperBlocked, type GameMap } from './map';
+import { CLIMB_H, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_GRASS, T_LADDER, T_METAL, T_METAL_DOOR, T_OPEN, T_RUBBLE, T_SLIT, T_THIN_WALL_H, T_THIN_WALL_HV, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, doorIsOpen, generateMap, isBlocked, isDoorTile, losClear, nearestOpenTile, surfaceAt, tileAt, toggleDoorType, upperBlocked, type GameMap } from './map';
 import { materialOf, materialForSurface, DRILL_BASE } from './materials';
 import { Rng } from './rng';
 import {
