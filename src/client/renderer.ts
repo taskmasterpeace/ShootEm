@@ -3484,22 +3484,32 @@ export class Renderer {
       }
     }
 
-    // ---- melee telegraph: claws flash UP through the windup, whip DOWN on the
-    // strike. Additive on top of the shared pose, so the shamble keeps playing.
-    // (zed-only: their arm joints are re-posed every frame above, so an additive
-    // offset can't accumulate — living soldiers' arms hold the gun and are not.)
-    const wu = zed ? this.meleeTelegraphs.get(s.id) : undefined;
+    // ---- melee telegraph: claws flash UP through the windup, whip DOWN on
+    // the strike. Zeds get the ADDITIVE shoulder swing (their arms re-pose
+    // every frame, offsets can't accumulate). LIVING soldiers get the ELBOW
+    // (W6.2): the forearm cocks back through the windup and SNAPS on the
+    // strike — written absolute-from-rest each frame (nothing else drives
+    // the elbow, and the run-carry below owns the shoulders).
+    const wu = this.meleeTelegraphs.get(s.id);
     if (wu) {
       if (t > wu.until + 0.3) {
         this.meleeTelegraphs.delete(s.id); // window long gone — stop tracking
-      } else if (t >= wu.at && (j.armL || j.armR)) {
+      } else if (t >= wu.at) {
         const raise = Math.min(1, (t - wu.at) / Math.max(wu.until - wu.at, 0.01));
-        // positive z-rotation swings a hanging limb forward/up (see animation.ts)
-        const lift = t < wu.until
-          ? raise * 0.9                                   // wind up: arms climb overhead
-          : -0.7 * Math.max(0, 1 - (t - wu.until) / 0.15); // strike: slash past rest, ease back
-        if (j.armL) j.armL.rotation.z += lift;
-        if (j.armR) j.armR.rotation.z += lift * 0.85;
+        if (zed && (j.armL || j.armR)) {
+          // positive z-rotation swings a hanging limb forward/up (animation.ts)
+          const lift = t < wu.until
+            ? raise * 0.9                                   // wind up: arms climb overhead
+            : -0.7 * Math.max(0, 1 - (t - wu.until) / 0.15); // strike: slash past rest, ease back
+          if (j.armL) j.armL.rotation.z += lift;
+          if (j.armR) j.armR.rotation.z += lift * 0.85;
+        } else if (!zed && j.elbowR) {
+          const eRest = (mesh.userData.elbowRest ??= { R: j.elbowR.rotation.z }) as { R: number };
+          const k = t < wu.until
+            ? raise * 0.85                                    // cock the forearm back
+            : -1.05 * Math.max(0, 1 - (t - wu.until) / 0.18); // snap through, ease home
+          j.elbowR.rotation.z = eRest.R + k;
+        }
       }
     }
 

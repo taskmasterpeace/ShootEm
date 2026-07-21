@@ -12,6 +12,7 @@ export type Joints = Record<string, THREE.Object3D | undefined>;
 /** The named joints the animator drives. Cache these once per mesh. */
 export const JOINT_NAMES = [
   'legL', 'legR', 'shinL', 'shinR', 'armL', 'armR', 'head', 'torso', 'gun', 'belly',
+  'elbowL', 'elbowR', // W6.2: the forearm pivots — strikes and holds bend here
   'legFL', 'legFR', 'legRL', 'legRR', 'tail', // the K9's quadruped set
 ] as const;
 

@@ -998,6 +998,7 @@ function buildTrooper(team: Team, classId: ClassId, weaponId?: string): THREE.Gr
   elbowPadR.position.set(0.04, -0.3, 0);
   armR.add(elbowPadR);
   const foreR = new THREE.Group();
+  foreR.name = 'elbowR'; // W6.2: the animator can bend the strike arm now
   foreR.position.y = -0.3;
   const lowerR = limb(0.12, 0.28, 0.12, armMat);
   foreR.add(lowerR);
@@ -1023,6 +1024,7 @@ function buildTrooper(team: Team, classId: ClassId, weaponId?: string): THREE.Gr
   elbowPadL.position.set(0.04, -0.3, 0);
   armL.add(elbowPadL);
   const foreL = new THREE.Group();
+  foreL.name = 'elbowL'; // W6.2
   foreL.position.y = -0.3;
   const lowerL = limb(0.12, 0.28, 0.12, armMat);
   foreL.add(lowerL);

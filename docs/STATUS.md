@@ -163,7 +163,7 @@ Full law: **`docs/WAR.md`**. Almost all of it is 📋 DESIGN — the substrate (
 |---|---|---|
 | Show the actual weapon on screen; swap on switch | ✅ | **shipped this session** (the armory, `models/weapons.ts`) |
 | Papercraft body adopted into the game | ❌ | still only in the style lab. BACKLOG W6 |
-| Named elbow joints (better strikes/holds) | ❌ | forearm groups exist but unnamed. BACKLOG W6.2 |
+| Named elbow joints (better strikes/holds) | ✅ | **DONE 2026-07-21 (W6.2).** The trooper's forearm pivots are named `elbowL`/`elbowR` and ride `JOINT_NAMES`; GLB bodies lack them and every pose skips gracefully (the quadruped-name contract). FIRST USE: the living STRIKE — the forearm COCKS back through the windup (+0.85) and SNAPS through on the hit (−1.05, easing home), absolute-from-rest so nothing accumulates; zeds keep their additive shoulder swing. `tests/elbow.test.ts` (3: names, rig-law geometry+pivot, bend-moves-hand-not-shoulder); live trace: cock +0.74 → snap −0.66 on a real knife swing |
 | Vehicle guns read as their armament | ✅ | `models/vehicles.ts` |
 
 ## 10 · WEAPONS — the variation gap
