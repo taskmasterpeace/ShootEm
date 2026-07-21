@@ -212,6 +212,7 @@ What's already live and where it maps:
 - **§09 grapple/struggle + §03 world-teaches-first** → the melee **pulse-ring** (`6c7549b`): grab reaches pulse outward, guard lights a blue 150° arc under the body.
 - **§09 unified status strip** → **DONE** (`0d78808`): the StatusChip + priority-ordered strip above vitals (ICED/HUNTED/PINGED/INFECTED/POWER/LINK/SMOKED/CLOAK/SHIELD, 6+N).
 - **§09 grapple/struggle bar OVER THE BODIES** → **DONE** (below): a world-space billboard over each grabbed body — fills amber→green as they break free, flips RED on the choke reversal; not a corner label.
+- **§09 damage direction** → **DONE** (below): short signal-red arcs at the attacker's bearing, orbiting screen center — a `hurt` event (pos = attacker, victim-addressed) from the sim, 4 pooled arcs, hold-then-fade, no full-screen flash, reduced-motion safe.
 - **§06 reticle response + §05 shape/spread honesty** → the **ground spread-circle** (`c22da2f`): a ring at the aim point sized to the weapon's live `spread` — shotgun wide, pistol tight, "derived never transcribed."
 - **§08 grenade-pip pattern / §09 low-ammo** → the **ammo dwindle strip** (`13f2279`): rounds as pips that empty as you fire, red at ≤25%. (Aligns with "pips for discrete inventory," not a vague bar.)
 - **§13 debug gallery direction** → the **regenerating range dummies** (`3ee67e3`) are the first step toward the debug/harness sandbox that force-shows states.

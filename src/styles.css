@@ -1066,3 +1066,19 @@ kbd.key {
 }
 kbd.key + kbd.key { margin-left: 0.15rem; }
 .ctl-note { font-size: 0.66rem; color: var(--muted); letter-spacing: 0.04em; margin-top: 0.6rem; }
+
+/* ---- UI-BIBLE §09 DAMAGE DIRECTION: short signal-red arcs at the attacker's
+   bearing, orbiting screen center. "Avoid a heavy full-screen flash." Each arc
+   is a slice of ring (border-top only), rotated by --deg; opacity animates
+   hold-then-fade (§03 law 6). Pointer-transparent, reduced-motion safe. */
+#dmg-dir { position: fixed; inset: 0; pointer-events: none; z-index: 40; }
+.dmg-arc {
+  position: absolute; left: 50%; top: 50%; width: 150px; height: 150px;
+  margin: -75px 0 0 -75px; border-radius: 50%;
+  border: 4px solid transparent; border-top-color: #ff3b30;
+  opacity: 0; transform: rotate(var(--deg, 0deg));
+  filter: drop-shadow(0 0 6px rgb(255 59 48 / 55%));
+}
+.dmg-arc.on { animation: dmg-arc-fade 0.9s ease-out forwards; }
+@keyframes dmg-arc-fade { 0% { opacity: 0.95; } 55% { opacity: 0.85; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .dmg-arc.on { animation: none; opacity: 0.85; transition: opacity 0.9s; } }

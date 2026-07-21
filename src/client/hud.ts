@@ -64,6 +64,8 @@ export class Hud {
   private ammoPipCount = -1;
   /** status strip: the current chip-set key — rebuild DOM only when it changes */
   private stripKey = '';
+  /** damage-direction: round-robin index into the pooled arcs */
+  private dmgArcIdx = 0;
   private segMeter: SegMeter | null = null;
   private lswMeter: SegMeter | null = null;
 
@@ -1111,6 +1113,22 @@ export class Hud {
   applyEvents(events: SimEvent[], world: World, localId: number, now: number) {
     if (world.time < this.lastSimTime) { this.prints = 1; this.gunLedger.clear(); } // new match
     this.lastSimTime = world.time;
+    // UI-BIBLE §09 DAMAGE DIRECTION: on a hurt addressed to ME, rotate a
+    // pooled red arc to the attacker's bearing. Fixed-north camera → world
+    // bearing maps straight to screen rotation (atan2(dx, -dz), 0 = up).
+    for (const e of events) {
+      if (e.type !== 'hurt' || e.soldierId !== localId || !e.pos) continue;
+      const me = world.soldiers.get(localId);
+      if (!me) continue;
+      const deg = (Math.atan2(e.pos.x - me.pos.x, -(e.pos.z - me.pos.z)) * 180) / Math.PI;
+      const arcs = document.querySelectorAll('#dmg-dir .dmg-arc');
+      if (arcs.length === 0) continue;
+      const el = arcs[this.dmgArcIdx++ % arcs.length] as HTMLElement;
+      el.style.setProperty('--deg', `${deg.toFixed(0)}deg`);
+      el.classList.remove('on');
+      void el.offsetWidth; // restart the fade animation
+      el.classList.add('on');
+    }
     for (const e of events) {
       // THE GUN REMEMBERS — only MY kills, keyed by the weapon that made them
       if (e.type === 'death' && e.killerId === localId && e.weaponId) {
