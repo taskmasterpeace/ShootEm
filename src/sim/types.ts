@@ -437,6 +437,10 @@ export interface Soldier {
   /** brief post-escape window during which this body can't be re-grabbed — no
    *  instant re-clinch / chain-lock after you fight free. */
   grabImmuneUntil?: number;
+  /** SPRINTER DORMANCY (OUTBREAK-SPEC §7.1): a sprinter lies still and slow
+   *  until woken by proximity, line-of-sight, or noise — then it never sleeps
+   *  again. Only ever set on kind 'sprinter'. */
+  dormant?: boolean;
   /** THE SQUAD (§15, finish-list #14): the fireteam this soldier deploys
    *  with — 2-4 bodies who share a spawn and read each other. Offline your
    *  friendly bots ARE your squad. Rides the wire free. */
@@ -786,6 +790,7 @@ export interface SimEvent {
     | 'melee_block'    // §12: a raised GUARD caught a STRIKE — sparks, a parry ring
     | 'grabbed'        // §14: a grapple landed — the target is pinned in a hold
     | 'grab_break'     // §14: a pinned body struggled or slipped free of the hold
+    | 'sprinter_wake'  // §7.1: a dormant sprinter just activated — the terror spike
     | 'reanimated'     // THE OUTBREAK: an exposed corpse got back up (§6)
     | 'whistle'        // paintball referee: a round just started or ended
     | 'encased'        // a soldier was frozen alive in the ice block (§21.6)

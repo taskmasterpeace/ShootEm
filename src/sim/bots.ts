@@ -16,6 +16,13 @@ const noCmd = (): PlayerCmd => ({
   use: false, ability: false, reload: false, grenade: false, weaponSlot: -1,
 });
 
+// SPRINTER DORMANCY wake ranges (OUTBREAK-SPEC §7.1): a survivor this close
+// wakes it outright; this close down a clear line wakes it by sight; this close
+// while firing wakes it by noise. Noise reaches furthest — muzzle report carries.
+const SPRINTER_WAKE_NEAR = 7;
+const SPRINTER_WAKE_SIGHT = 12;
+const SPRINTER_WAKE_NOISE = 18;
+
 // ---------- grid pathfinding (BFS, uniform cost) ----------
 
 const toTile = (v: number) => Math.floor((v + WORLD / 2) / TILE);
@@ -1817,11 +1824,25 @@ export function stepZombie(w: World, s: Soldier, dt: number) {
 
   if (!best) return;
 
+  // SPRINTER DORMANCY (OUTBREAK-SPEC §7.1, acceptance #18): a dormant sprinter
+  // creeps slow until a survivor gets CLOSE, is SEEN down a clear line, or makes
+  // NOISE (fires) nearby — then it wakes for good and the terror spike lands.
+  if (s.kind === 'sprinter' && s.dormant) {
+    const firedRecently = best.nextFireAt > w.time && best.nextFireAt - w.time < 0.6;
+    const wake = bestD < SPRINTER_WAKE_NEAR
+      || (bestD < SPRINTER_WAKE_SIGHT && losClear(w.map.grid, { ...s.pos, y: 1.2 }, { ...best.pos, y: 1.2 }))
+      || (bestD < SPRINTER_WAKE_NOISE && firedRecently);
+    if (wake) {
+      s.dormant = false;
+      w.emit({ type: 'sprinter_wake', pos: { ...s.pos }, soldierId: s.id });
+    }
+  }
+
   const isSpitter = s.kind === 'spitter';
   const speed =
     s.kind === 'brute' ? 6 :
     s.kind === 'bomber' ? 6.5 :
-    s.kind === 'sprinter' ? 15 + (s.id % 3) * 0.6 : // rare and terrifying
+    s.kind === 'sprinter' ? (s.dormant ? 3 : 15 + (s.id % 3) * 0.6) : // dormant → creep; woken → terror
     s.kind === 'stalker' ? 5 :
     isSpitter ? 7.5 : 8.5 + (s.id % 5) * 0.35;
   s.yaw = Math.atan2(best.pos.z - s.pos.z, best.pos.x - s.pos.x);

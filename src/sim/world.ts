@@ -1089,6 +1089,10 @@ export class World {
       meleeStrikeAt: 0, meleeYaw: 0, meleeWeapon: '',
       botGoal: null, botRepathAt: 0, botTargetId: -1, botStrafeDir: 1,
     };
+    // SPRINTER DORMANCY (OUTBREAK-SPEC §7.1, acceptance #18): a sprinter is
+    // terrifying because it's uncommon AND because it lies still until it isn't
+    // — dormant and slow until a survivor gets close, is seen, or makes noise.
+    if (kind === 'sprinter') s.dormant = true;
     this.soldiers.set(s.id, s);
     this.soldierIndex.add(s); // queryable the tick it spawns (opt #38)
     return s;

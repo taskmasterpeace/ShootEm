@@ -499,11 +499,37 @@ describe('endless horde', () => {
     const sp = w.map.zombieSpawns[0]; // guaranteed-open ground
     const shambler = w.addZombie('zombie', { ...sp });
     const sprinter = w.addZombie('sprinter', { ...sp });
+    sprinter.dormant = false; // measure ACTIVE top speed — dormancy is covered below
     run(w, new Map(), 2);
     const dShambler = Math.hypot(shambler.pos.x - sp.x, shambler.pos.z - sp.z);
     const dSprinter = Math.hypot(sprinter.pos.x - sp.x, sprinter.pos.z - sp.z);
     expect(dShambler).toBeGreaterThan(3);
     expect(dSprinter).toBeGreaterThan(dShambler * 1.4);
+  });
+
+  it('a sprinter spawns DORMANT and only creeps until it is woken (§7.1)', () => {
+    const w = new World({ seed: 42, mode: 'horde' });
+    w.outbreakEnabled = true;
+    const a = w.addSoldier('A', 'infantry', 0, 'human');
+    a.pos = { x: 0, y: 0, z: 0 };
+    // far from the survivor: no proximity, no sight range, no noise
+    const far = { x: 40, y: 0, z: 40 };
+    const sprinter = w.addZombie('sprinter', far);
+    expect(sprinter.dormant).toBe(true);
+    run(w, new Map(), 2);
+    const crept = Math.hypot(sprinter.pos.x - far.x, sprinter.pos.z - far.z);
+    expect(sprinter.dormant).toBe(true);   // still asleep out there
+    expect(crept).toBeLessThan(10);        // it only shuffled, never sprinted
+
+    // now drop a survivor right on top of it — proximity wakes it for good
+    a.pos = { x: far.x + 4, y: 0, z: far.z };
+    let woke = false;
+    for (let i = 0; i < 60 && !woke; i++) {
+      w.step(1 / 60, new Map());
+      for (const e of w.takeEvents()) if (e.type === 'sprinter_wake' && e.soldierId === sprinter.id) woke = true;
+    }
+    expect(woke).toBe(true);
+    expect(sprinter.dormant).toBe(false);
   });
 
   it('bombers explode on death and damage nearby players', () => {
