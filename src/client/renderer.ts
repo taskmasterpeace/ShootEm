@@ -260,6 +260,9 @@ export class Renderer {
   /** THE GROUND SPREAD CIRCLE (Robert): a ring at the aim point sized to the
    *  live weapon spread — "where your bullets land," shotgun wide, pistol tight. */
   private spreadRing: THREE.Mesh | null = null;
+  /** UI-BIBLE §09 struggle bars: a world-space meter over each grabbed body,
+   *  showing break progress (amber→green) or the choke reversal (red). */
+  private struggleBars = new Map<number, { sprite: THREE.Sprite; ctx: CanvasRenderingContext2D; tex: THREE.CanvasTexture; key: string }>();
   private flagMeshes: THREE.Group[] = [];
   private cpRings: THREE.Mesh[] = [];
   private hillRing: THREE.Mesh | null = null;
@@ -1362,6 +1365,60 @@ export class Renderer {
     } else if (this.spreadRing) {
       this.spreadRing.visible = false;
     }
+    this.updateStruggleBars(world);
+  }
+
+  /** UI-BIBLE §09 — the struggle bar OVER THE BODIES (not a corner label). One
+   *  world-space billboard per grabbed soldier: it fills as they fight free
+   *  (amber → green near escape) and flips RED as a choke controls them — so
+   *  progress AND reversal read from across the field. Derived live. */
+  private updateStruggleBars(world: World) {
+    const live = new Set<number>();
+    for (const s of world.soldiers.values()) {
+      if (s.grabbedUntil === undefined || !s.alive) continue;
+      live.add(s.id);
+      let bar = this.struggleBars.get(s.id);
+      if (!bar) {
+        const cvs = document.createElement('canvas'); cvs.width = 256; cvs.height = 64;
+        const ctx = cvs.getContext('2d')!;
+        const tex = new THREE.CanvasTexture(cvs);
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+        sprite.userData.uiOverlay = true;
+        this.scene.add(sprite);
+        bar = { sprite, ctx, tex, key: '' };
+        this.struggleBars.set(s.id, bar);
+      }
+      const choke = s.chokeProgress ?? 0;
+      const mode = choke > 0 ? 'choke' : 'break';
+      const frac = choke > 0 ? Math.min(1, choke) : Math.min(1, s.struggle ?? 0);
+      const key = `${mode}${Math.round(frac * 24)}`;
+      if (key !== bar.key) { this.drawStruggleBar(bar.ctx, frac, mode); bar.tex.needsUpdate = true; bar.key = key; }
+      bar.sprite.position.set(s.pos.x, s.pos.y + 2.05, s.pos.z);
+      bar.sprite.scale.set(1.5, 0.38, 1);
+    }
+    for (const [id, bar] of this.struggleBars) {
+      if (!live.has(id)) {
+        this.scene.remove(bar.sprite); bar.tex.dispose(); (bar.sprite.material as THREE.Material).dispose();
+        this.struggleBars.delete(id);
+      }
+    }
+  }
+
+  private drawStruggleBar(ctx: CanvasRenderingContext2D, frac: number, mode: 'break' | 'choke') {
+    ctx.clearRect(0, 0, 256, 64);
+    const bw = 188, bh = 16, bx = (256 - bw) / 2, by = 30;
+    // dark backing (this ONE meter earns a plate — it's the read that decides a life)
+    ctx.fillStyle = 'rgba(10,12,11,0.6)'; ctx.fillRect(bx - 4, by - 4, bw + 8, bh + 8);
+    ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(bx, by, bw, bh);           // empty track
+    // fill: break = house amber, warming to recovery green near escape; choke = signal red
+    ctx.fillStyle = mode === 'choke' ? '#ff3b30' : frac > 0.66 ? '#4cd964' : '#e8a33d';
+    ctx.fillRect(bx, by, Math.max(0, bw * frac), bh);
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 1.5; ctx.strokeRect(bx - 0.75, by - 0.75, bw + 1.5, bh + 1.5);
+    // label above the bar
+    ctx.font = '700 20px Inter, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+    const label = mode === 'choke' ? 'CHOKING' : 'BREAK FREE';
+    ctx.strokeStyle = 'rgba(0,0,0,0.7)'; ctx.lineWidth = 3.5; ctx.strokeText(label, 128, 18);
+    ctx.fillStyle = mode === 'choke' ? '#ff6b62' : '#f6f5f0'; ctx.fillText(label, 128, 18);
   }
 
   private makeRing(pos: Vec3, radius: number, color: number, opacity: number): THREE.Mesh {
