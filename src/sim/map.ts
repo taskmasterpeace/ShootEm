@@ -221,6 +221,7 @@ export interface GameMap {
       kind: OperationPhaseKind;
       pos: Vec3;
       radius: number;
+      targetCount?: number;
       targetPropIndex?: number;
     }>;
     protectedZones: Array<{ pos: Vec3; radius: number }>;

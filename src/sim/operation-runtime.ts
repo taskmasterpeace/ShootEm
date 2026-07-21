@@ -222,8 +222,8 @@ export function observeWorldOperation(world: World): OperationObservation {
       if (inside(vehicle.pos.x, vehicle.pos.z)) observation.phase.enemy++;
     }
   }
-  const target = [...world.vehicles.values()].find((vehicle) => vehicle.operationObjectiveId === objective.id);
-  observation.phase.targetDestroyed = target !== undefined && !target.alive;
+  const targets = [...world.vehicles.values()].filter((vehicle) => vehicle.operationObjectiveId === objective.id);
+  observation.phase.targetDestroyed = targets.length >= (objective.targetCount ?? 1) && targets.every((target) => !target.alive);
   const scorchedPrize = [...world.vehicles.values()].find((vehicle) => vehicle.operationPrize);
   observation.scorchedTargetDestroyed = scorchedPrize !== undefined && !scorchedPrize.alive;
   observation.hulls = (world.opts.operationInventory ?? []).filter((hull) => world.opts.operationManifest?.hullIds.includes(hull.id)).map((hull) => ({

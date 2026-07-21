@@ -223,7 +223,12 @@ export function generateOperation(input: GenerateOperationInput): OperationPlan 
   const codename = `${rng.pick(CODENAME_A)} ${rng.pick(CODENAME_B)}`;
   const templates = signature?.phases ?? verb.phases;
   const phases = templates.map((entry, index): OperationPhase => ({ ...entry, id: `${verb.id}:${index + 1}` }));
-  const requirements = Object.fromEntries(domains.map((domain) => [domain, 1])) as Partial<Record<OperationDomain, number>>;
+  const requirements = Object.fromEntries(domains.map((domain) => {
+    const committedTargets = templates
+      .filter((entry) => entry.domain === domain && (entry.kind === 'escort' || entry.kind === 'arrive'))
+      .map((entry) => entry.targetCount ?? 1);
+    return [domain, Math.max(1, ...committedTargets)];
+  })) as Partial<Record<OperationDomain, number>>;
   const frontName = input.frontName?.trim() || input.frontId.replaceAll('_', ' ');
   const baseSupport: OperationSupport[] = signature ? [...signature.authorizedSupport] : [
     'none',
@@ -333,7 +338,7 @@ export function validateManifest(plan: OperationPlan, manifest: OperationManifes
   for (const domain of plan.domains) {
     const required = plan.requirements[domain] ?? 0;
     const actual = selected.filter((hull) => DOMAIN_KINDS[domain].has(hull.kind)).length;
-    if (actual < required) errors.push(`${domain.toUpperCase()} commitment requires at least ${required} hull.`);
+    if (actual < required) errors.push(`${domain.toUpperCase()} commitment requires at least ${required} ${required === 1 ? 'hull' : 'hulls'}.`);
   }
   if (!Number.isInteger(manifest.ammunition) || manifest.ammunition < 1) {
     errors.push('Commit at least 1 ammunition allotment.');

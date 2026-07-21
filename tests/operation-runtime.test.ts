@@ -180,6 +180,47 @@ describe('World Operation integration', () => {
     expect(world.operation?.result).toMatchObject({ won: true });
   });
 
+  it('does not complete a multi-target destroy phase until every emplacement is dead', () => {
+    const base = planForVerb(OPERATION_VERBS.find((verb) => verb.id === 'siege')!);
+    const plan: OperationPlan = {
+      ...base,
+      phases: [{ id: 'siege:1', kind: 'destroy', label: 'Reduce the defenses', domain: 'land', targetCount: 3 }],
+      complication: 'storm',
+    };
+    const hulls: OperationHull[] = [{ id: 'ares-01', kind: 'tank', name: 'Ares One', status: 'available' }];
+    const world = new World({
+      seed: plan.seed, mode: 'conquest', botsPerTeam: 0, operation: plan,
+      operationManifest: { hullIds: ['ares-01'], ammunition: 1, support: 'none' }, operationInventory: hulls,
+    });
+    world.addSoldier('Reyes', 'infantry', 0, 'human');
+    const targets = [...world.vehicles.values()].filter((vehicle) => vehicle.operationObjectiveId === 'test:siege:objective:1');
+    expect(targets).toHaveLength(3);
+    world.damageVehicle(targets[0], 9999, -1, 'tank_cannon');
+    world.step(0.1, new Map());
+    expect(world.operation?.result).toBeNull();
+    for (const target of targets.slice(1)) world.damageVehicle(target, 9999, -1, 'tank_cannon');
+    world.step(0.1, new Map());
+    expect(world.operation?.result).toMatchObject({ won: true });
+  });
+
+  it('makes an Air Superiority skirmish fight its full hostile flight', () => {
+    const base = planForVerb(OPERATION_VERBS.find((verb) => verb.id === 'air_superiority')!);
+    const plan: OperationPlan = { ...base, site: 'airfield', complication: 'storm' };
+    const hulls: OperationHull[] = [{ id: 'falcon-01', kind: 'interceptor', name: 'Falcon One', status: 'available' }];
+    const world = new World({
+      seed: plan.seed, mode: 'conquest', botsPerTeam: 0, operation: plan,
+      operationManifest: { hullIds: ['falcon-01'], ammunition: 1, support: 'none' }, operationInventory: hulls,
+    });
+    world.addSoldier('Reyes', 'infantry', 0, 'human');
+    const flight = [...world.vehicles.values()].filter((vehicle) => vehicle.team === 1 && ['flyer', 'strikejet', 'interceptor', 'bomber'].includes(vehicle.kind));
+    expect(flight).toHaveLength(4);
+    world.step(0.1, new Map());
+    expect(world.operation?.result).toBeNull();
+    for (const target of flight) world.damageVehicle(target, 9999, -1, 'tank_cannon');
+    world.step(0.1, new Map());
+    expect(world.operation?.result).toMatchObject({ won: true });
+  });
+
   it('applies authorized support and enforces denied air cover', () => {
     const base = planForVerb(OPERATION_VERBS[0]);
     const hulls: OperationHull[] = [{ id: 'ares-01', kind: 'tank', name: 'Ares One', status: 'available' }];

@@ -30,7 +30,16 @@ const manifestFor = (site: OperationSiteId): OperationManifest => ({
 
 function planFor(site: OperationSiteId, scale: OperationScale, seed: number): OperationPlan {
   const pass = scale === 'skirmish' ? 1 : scale === 'standard' ? 2 : 3;
-  return { ...generateOperation({ seed, frontId: 'the_port', frontName: 'The Port', pass }), site, scale };
+  const base = generateOperation({ seed, frontId: 'the_port', frontName: 'The Port', pass });
+  return {
+    ...base,
+    site,
+    scale,
+    verb: 'spearhead',
+    domains: ['land'],
+    requirements: { land: 1 },
+    phases: [{ id: 'spearhead:1', kind: 'capture', label: 'Break the line', domain: 'land' }],
+  };
 }
 
 function asDoc(map: GameMap): MakerDoc {
@@ -90,6 +99,50 @@ describe('Operation mission grounds', () => {
     const map = generateOperationMap(planFor('airfield', 'standard', 5150), manifestFor('airfield'), hulls);
     const restored = deserializeDoc(serializeDoc(asDoc(map))).map;
     expect(restored.operation).toEqual(map.operation);
+  });
+
+  it('materializes every target in a multi-emplacement destroy phase', () => {
+    const base = planFor('strongpoint', 'standard', 5150);
+    const plan: OperationPlan = {
+      ...base,
+      phases: [{ id: 'siege:1', kind: 'destroy', label: 'Reduce the defenses', domain: 'land', targetCount: 3 }],
+    };
+    const map = generateOperationMap(plan, manifestFor('strongpoint'), hulls);
+    const targets = map.vehiclePads.filter((pad) => pad.operationObjectiveId === `${plan.id}:objective:1`);
+    expect(targets).toHaveLength(3);
+    expect(new Set(targets.map((pad) => `${pad.pos.x}:${pad.pos.z}`)).size).toBe(3);
+    expect(map.operation?.objectives[0].targetCount).toBe(3);
+  });
+
+  it('fields enough enemy airframes for an Air Superiority skirmish', () => {
+    const base = planFor('airfield', 'skirmish', 31);
+    const plan: OperationPlan = {
+      ...base,
+      verb: 'air_superiority',
+      domains: ['air'],
+      requirements: { air: 1 },
+      phases: [{ id: 'air_superiority:1', kind: 'eliminate', label: 'Clear the sector sky', domain: 'air', targetCount: 4 }],
+    };
+    const airManifest: OperationManifest = { hullIds: ['falcon-01'], ammunition: 1, support: 'none' };
+    const map = generateOperationMap(plan, airManifest, hulls);
+    const enemyAir = map.vehiclePads.filter((pad) => pad.team === 1 && ['flyer', 'strikejet', 'interceptor', 'bomber'].includes(pad.kind));
+    expect(enemyAir.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('fields enemy gunboats on water for a Blockade skirmish', () => {
+    const base = planFor('port', 'skirmish', 41);
+    const plan: OperationPlan = {
+      ...base,
+      verb: 'blockade',
+      domains: ['sea'],
+      requirements: { sea: 1 },
+      phases: [{ id: 'blockade:1', kind: 'hold', label: 'Seal the channel', domain: 'sea', duration: 120 }],
+    };
+    const seaManifest: OperationManifest = { hullIds: ['pike-01'], ammunition: 1, support: 'none' };
+    const map = generateOperationMap(plan, seaManifest, hulls);
+    const boats = map.vehiclePads.filter((pad) => pad.team === 1 && pad.kind === 'boat');
+    expect(boats.length).toBeGreaterThanOrEqual(1);
+    for (const boat of boats) expect(tileAt(map.grid, boat.pos.x, boat.pos.z)).toBe(T_WATER);
   });
 
   it('does not mutate an earlier generated map while dressing another', () => {

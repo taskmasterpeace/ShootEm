@@ -1,7 +1,7 @@
 import { generateFront, type MapSize } from './fronts';
-import type { GameMap } from './map';
+import { GRID, T_DEEP, T_WATER, TILE, WORLD, houseAt, isBlocked, type GameMap } from './map';
 import { generateSkirmishMap } from './skirmish';
-import { dressOperationPads } from './operation-pads';
+import { dressOperationPads, operationWaterSpawns } from './operation-pads';
 import type { ThemeId, VehicleKind } from './types';
 import type {
   OperationHull,
@@ -9,6 +9,7 @@ import type {
   OperationPlan,
   OperationSiteId,
 } from './operations';
+import { AIR_KINDS } from './operations';
 
 const SITE_FRONT: Record<OperationSiteId, string> = {
   front_line: 'eastern_plains',
@@ -90,12 +91,88 @@ function objectiveMetadata(plan: OperationPlan, map: GameMap): NonNullable<GameM
       kind: phase.kind,
       pos: { ...points[index % points.length] },
       radius: phase.kind === 'arrive' || phase.kind === 'escort' ? 8 : 6,
+      ...(phase.targetCount === undefined ? {} : { targetCount: phase.targetCount }),
       ...(phase.kind === 'destroy' && firstTarget >= 0 ? { targetPropIndex: firstTarget } : {}),
     })),
     protectedZones: plan.complication === 'no_collateral'
       ? [{ pos: { ...(map.houses[0]?.center ?? points[0]) }, radius: 10 }]
       : [],
   };
+}
+
+function destroyTargetPositions(map: GameMap, objective: NonNullable<GameMap['operation']>['objectives'][number]) {
+  const count = Math.max(1, objective.targetCount ?? 1);
+  const candidates: Array<{ x: number; y: number; z: number; angle: number }> = [];
+  const tx = Math.floor((objective.pos.x + WORLD / 2) / TILE);
+  const tz = Math.floor((objective.pos.z + WORLD / 2) / TILE);
+  const rings = Math.max(2, Math.ceil(objective.radius / TILE));
+  for (let dz = -rings; dz <= rings; dz++) for (let dx = -rings; dx <= rings; dx++) {
+    const x = tx + dx;
+    const z = tz + dz;
+    if (x < 1 || z < 1 || x >= GRID - 1 || z >= GRID - 1) continue;
+    const pos = { x: (x + 0.5) * TILE - WORLD / 2, y: 0, z: (z + 0.5) * TILE - WORLD / 2 };
+    if (Math.hypot(pos.x - objective.pos.x, pos.z - objective.pos.z) > objective.radius) continue;
+    const tile = map.grid[z * GRID + x];
+    if (tile === T_WATER || tile === T_DEEP || isBlocked(map.grid, pos.x, pos.z)) continue;
+    candidates.push({ ...pos, angle: Math.atan2(pos.z - objective.pos.z, pos.x - objective.pos.x) });
+  }
+  candidates.sort((a, b) => a.angle - b.angle || Math.hypot(a.x - objective.pos.x, a.z - objective.pos.z) - Math.hypot(b.x - objective.pos.x, b.z - objective.pos.z));
+  if (candidates.length < count) throw new Error(`Operation objective '${objective.phaseId}' has no room for ${count} targets.`);
+  return Array.from({ length: count }, (_, index) => {
+    const candidate = candidates[Math.floor(index * candidates.length / count)];
+    return { x: candidate.x, y: candidate.y, z: candidate.z };
+  });
+}
+
+function dressDestroyTargets(map: GameMap) {
+  if (!map.operation) return;
+  for (const objective of map.operation.objectives) {
+    if (objective.kind !== 'destroy') continue;
+    for (const pos of destroyTargetPositions(map, objective)) {
+      map.vehiclePads.push({ kind: 'emplacement', team: 1, pos, operationObjectiveId: objective.id });
+    }
+  }
+}
+
+function enemyAirSpawns(map: GameMap) {
+  const home = map.basePos[1];
+  const used = new Set(map.vehiclePads.map((pad) => `${pad.pos.x.toFixed(3)}:${pad.pos.z.toFixed(3)}`));
+  const candidates: Array<{ x: number; y: number; z: number }> = [];
+  for (let z = 1; z < GRID - 1; z++) for (let x = 1; x < GRID - 1; x++) {
+    const pos = { x: (x + 0.5) * TILE - WORLD / 2, y: 0, z: (z + 0.5) * TILE - WORLD / 2 };
+    const key = `${pos.x.toFixed(3)}:${pos.z.toFixed(3)}`;
+    if (used.has(key) || isBlocked(map.grid, pos.x, pos.z) || houseAt(map.houses, pos.x, pos.z) >= 0) continue;
+    const tile = map.grid[z * GRID + x];
+    if (tile === T_WATER || tile === T_DEEP) continue;
+    candidates.push(pos);
+  }
+  candidates.sort((a, b) => ((a.x - home.x) ** 2 + (a.z - home.z) ** 2) - ((b.x - home.x) ** 2 + (b.z - home.z) ** 2));
+  return candidates;
+}
+
+function dressEnemyDomains(map: GameMap, plan: OperationPlan) {
+  if (plan.domains.includes('air')) {
+    const required = Math.max(1, ...plan.phases
+      .filter((phase) => phase.domain === 'air' && phase.kind === 'eliminate')
+      .map((phase) => phase.targetCount ?? 1));
+    const existing = map.vehiclePads.filter((pad) => pad.team === 1 && AIR_KINDS.has(pad.kind)).length;
+    const spawns = enemyAirSpawns(map);
+    for (let i = existing; i < required; i++) {
+      const pos = spawns[i - existing];
+      if (!pos) throw new Error(`Operation ground has no room for ${required} hostile airframes.`);
+      map.vehiclePads.push({ kind: 'interceptor', team: 1, pos });
+    }
+  }
+  if (plan.domains.includes('sea')) {
+    const required = Math.max(1, ...plan.phases
+      .filter((phase) => phase.domain === 'sea' && phase.kind === 'eliminate')
+      .map((phase) => phase.targetCount ?? 1));
+    const wet = operationWaterSpawns(map, 1);
+    const boats = map.vehiclePads.filter((pad) => pad.team === 1 && pad.kind === 'boat');
+    if (wet.length < Math.max(required, boats.length)) throw new Error(`Operation ground has no room for ${required} hostile boats.`);
+    boats.forEach((pad, index) => { pad.pos = { ...wet[index] }; });
+    for (let i = boats.length; i < required; i++) map.vehiclePads.push({ kind: 'boat', team: 1, pos: { ...wet[i] } });
+  }
 }
 
 function dressComplication(map: GameMap, plan: OperationPlan) {
@@ -117,9 +194,8 @@ export function generateOperationMap(
       vehicles: hulls,
     });
     map.operation = objectiveMetadata(plan, map);
-    for (const objective of map.operation.objectives) {
-      if (objective.kind === 'destroy') map.vehiclePads.push({ kind: 'emplacement', team: 1, pos: { ...objective.pos }, operationObjectiveId: objective.id });
-    }
+    dressEnemyDomains(map, plan);
+    dressDestroyTargets(map);
     dressComplication(map, plan);
     return map;
   }
@@ -137,9 +213,8 @@ export function generateOperationMap(
   }));
   dressOperationPads(map, hulls);
   map.operation = objectiveMetadata(plan, map);
-  for (const objective of map.operation.objectives) {
-    if (objective.kind === 'destroy') map.vehiclePads.push({ kind: 'emplacement', team: 1, pos: { ...objective.pos }, operationObjectiveId: objective.id });
-  }
+  dressEnemyDomains(map, plan);
+  dressDestroyTargets(map);
   dressComplication(map, plan);
   return map;
 }

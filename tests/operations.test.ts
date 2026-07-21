@@ -99,6 +99,16 @@ describe('Military Operation generation', () => {
       }
     }
   });
+
+  it('requires the three named sea hulls a Convoy must land', () => {
+    let convoy;
+    for (let seed = 1; seed <= 500 && !convoy; seed++) {
+      const plan = generateOperation({ seed, pass: 1, frontId: 'the_port', frontName: 'The Port' });
+      if (plan.verb === 'convoy') convoy = plan;
+    }
+    expect(convoy).toBeTruthy();
+    expect(convoy!.requirements.sea).toBe(3);
+  });
 });
 
 describe('Operation manifest', () => {

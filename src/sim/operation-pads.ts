@@ -1,5 +1,5 @@
 import { GRID, T_WATER, TILE, WORLD, tileAt, type GameMap } from './map';
-import type { VehicleKind } from './types';
+import type { Team, VehicleKind } from './types';
 
 export interface OperationPadHull {
   id: string;
@@ -10,8 +10,8 @@ function key(pos: { x: number; z: number }) {
   return `${pos.x.toFixed(3)}:${pos.z.toFixed(3)}`;
 }
 
-export function operationWaterSpawns(map: GameMap): Array<{ x: number; y: number; z: number }> {
-  const home = map.basePos[0];
+export function operationWaterSpawns(map: GameMap, team: Team = 0): Array<{ x: number; y: number; z: number }> {
+  const home = map.basePos[team];
   const candidates: Array<{ x: number; y: number; z: number }> = [];
   const seen = new Set<string>();
   const add = (pos: { x: number; y: number; z: number }) => {
@@ -22,7 +22,7 @@ export function operationWaterSpawns(map: GameMap): Array<{ x: number; y: number
   };
 
   for (const pad of map.vehiclePads) {
-    if (pad.team === 0 && pad.kind === 'boat' && tileAt(map.grid, pad.pos.x, pad.pos.z) === T_WATER) add(pad.pos);
+    if (pad.team === team && pad.kind === 'boat' && tileAt(map.grid, pad.pos.x, pad.pos.z) === T_WATER) add(pad.pos);
   }
   const tiles: Array<{ x: number; y: number; z: number }> = [];
   for (let z = 0; z < GRID; z++) for (let x = 0; x < GRID; x++) {
