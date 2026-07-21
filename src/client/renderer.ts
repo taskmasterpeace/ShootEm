@@ -261,6 +261,10 @@ export class Renderer {
   /** THE GROUND SPREAD CIRCLE (Robert): a ring at the aim point sized to the
    *  live weapon spread — "where your bullets land," shotgun wide, pistol tight. */
   private spreadRing: THREE.Mesh | null = null;
+  /** UI-MASTER §4 — the Impact Charge ring orbiting YOUR body: tightens as it
+   *  winds up, snaps to a bright amber MAXIMUM band, then a red OVERCHARGE
+   *  pulse. Reads `meleeCharge` (the same value the action-line meter shows). */
+  private chargeRing: THREE.Mesh | null = null;
   /** UI-BIBLE §09 struggle bars: a world-space meter over each grabbed body,
    *  showing break progress (amber→green) or the choke reversal (red). */
   private struggleBars = new Map<number, { sprite: THREE.Sprite; ctx: CanvasRenderingContext2D; tex: THREE.CanvasTexture; key: string }>();
@@ -1431,6 +1435,35 @@ export class Renderer {
       ring.scale.set(radius, radius, 1); // ring is in XY (pre X-flip) so x,y scale the disc
     } else if (this.spreadRing) {
       this.spreadRing.visible = false;
+    }
+    // THE IMPACT CHARGE RING (UI-MASTER §4): the wind-up made legible ON the
+    // body, not just the corner meter. It ORBITS you and tightens as the charge
+    // builds, snaps to a bright amber MAXIMUM band (≥0.71), then a red
+    // OVERCHARGE pulse (≥1.3 = the fumble zone) — the same bands the HUD meter
+    // reads (`meleeCharge`). Hidden aboard vehicles.
+    const charge = (!!local && local.alive && local.vehicleId < 0) ? (local.meleeCharge ?? 0) : 0;
+    if (charge > 0.02) {
+      if (!this.chargeRing) {
+        this.chargeRing = new THREE.Mesh(
+          new THREE.RingGeometry(0.86, 1.0, 44),
+          new THREE.MeshBasicMaterial({ color: 0xe8a33d, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false }),
+        );
+        this.chargeRing.rotation.x = -Math.PI / 2;
+        this.scene.add(this.chargeRing);
+      }
+      const ring = this.chargeRing;
+      ring.visible = true;
+      const over = charge >= 1.3, max = charge >= 0.71;
+      const mat = ring.material as THREE.MeshBasicMaterial;
+      mat.color.setHex(over ? 0xff3b30 : 0xe8a33d);
+      // it TIGHTENS as it winds up (1.5u → 1.0u), then holds; overcharge pulses
+      const wind = Math.min(1, charge / 1.3);
+      const radius = 1.5 - wind * 0.5;
+      mat.opacity = over ? 0.55 + Math.sin(t * 22) * 0.22 : max ? 0.6 : 0.28 + wind * 0.3;
+      ring.position.set(local!.pos.x, 0.07, local!.pos.z);
+      ring.scale.set(radius, radius, 1);
+    } else if (this.chargeRing) {
+      this.chargeRing.visible = false;
     }
     this.updateStruggleBars(world);
   }

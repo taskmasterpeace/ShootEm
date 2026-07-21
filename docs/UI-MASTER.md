@@ -19,7 +19,7 @@
 
 | Surface | What belongs there |
 |---|---|
-| **The body orbit** (rings/arcs around YOUR soldier) | health ring ✅, energy arc ✅, aim ring ❌(W1.2), charge ring ❌, spawn-protection shimmer ❌, status pips ❌ |
+| **The body orbit** (rings/arcs around YOUR soldier) | health ring ✅, energy arc ✅, aim ring ✅(W1.2), charge ring ✅(§4, 2026-07-21), spawn-protection shimmer ❌, status pips ✅(status strip) |
 | **The target orbit** (on what you're aiming at / fighting) | enemy health ring ✅(hover), struggle bar ❌, revive channel ❌, capture progress ❌ |
 | **World-space marks** (at a place, through the camera) | ping chevrons ✅, waypoints ✅, blast rings ✅, LZ warning ❌, contact marks ❌(W0.2), field boundaries ❌ |
 | **The weapon block** (bottom-right) | name/ammo/reload ✅, grenade pouch ✅🔨, alt-fire ✅🔨, WPN cycle ✅ |
@@ -72,7 +72,7 @@ Sim has the whole §4.3 system (`downed`, 20s bleedout, `reviveProgress`, `dragg
 
 | State | When | Where | The visual | Status |
 |---|---|---|---|---|
-| **Charge meter** (`chargeStart` — hold-to-×mul) | while holding | body orbit | **the Impact Charge ring** (outbreak spec §13, one ring for melee AND weapons): fills around the soldier, enters an amber MAXIMUM band, then a red OVERCHARGE pulse; release snaps it into the shot. ✦ the gun model itself glows through the same ramp (emissive rises) — enemy sees the wind-up too, which is the counterplay | ❌ |
+| **Charge meter** (`chargeStart` — hold-to-×mul) | while holding | body orbit | **the Impact Charge ring** (outbreak spec §13, one ring for melee AND weapons): fills around the soldier, enters an amber MAXIMUM band, then a red OVERCHARGE pulse; release snaps it into the shot. ✦ the gun model itself glows through the same ramp (emissive rises) — enemy sees the wind-up too, which is the counterplay | ✅ **DONE 2026-07-21** — `renderer.ts` `chargeRing` orbits the local body, TIGHTENS as it winds (1.5u→1.0u), amber MAXIMUM band ≥0.71, red OVERCHARGE pulse ≥1.3 (reads `meleeCharge`). TODO(follow-up): the enemy-visible gun-emissive glow + showing the ring on visible enemy chargers (the counterplay half) |
 | Alt-fire cooldown + burst window | RMB weapons | weapon block | the `RMB ×N` text gains a tiny cooldown sweep behind it; during a burst window the text pulses | ❌ |
 | Melee windup/strike | swinging | body | zed telegraph + slash ring shipped; extend to soldiers with the STRIKE/GUARD/GRAPPLE build (#47) | 🔨 |
 | Fire-rate stagger (melee hit / concussion "ringing ears") | when locked out | reticle | ✦ the crosshair itself **rings** — a wobble + faint tinnitus vignette; you FEEL why the trigger is dead | ❌ |
