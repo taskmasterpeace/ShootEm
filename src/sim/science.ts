@@ -1,4 +1,5 @@
 import { Rng } from './rng';
+import { CITY_MAP_PROFILES, architectureProfile, cityProfile } from './city-profile';
 import type { ThemeId } from './types';
 
 export const SCIENCE_VERBS = [
@@ -46,6 +47,9 @@ export interface ScienceMissionSpec {
   reward: ScienceRewardId;
   squadSize: number;
   briefing: string;
+  cityId?: string;
+  cityName?: string;
+  security?: number;
 }
 
 export interface ScienceMissionOptions {
@@ -55,6 +59,51 @@ export interface ScienceMissionOptions {
   complication?: ScienceComplication | null;
   reward?: ScienceRewardId;
   squadSize?: number;
+  cityId?: string;
+}
+
+export interface ScienceEncounterBudgetOptions {
+  prints: number;
+  security: number;
+  verb: ScienceVerb;
+  floors: number;
+  complication?: ScienceComplication;
+}
+
+export interface ScienceEncounterBudget {
+  initialGuards: number;
+  reserveGuards: number;
+  initialCivilians: number;
+  dogTeams: number;
+  patrolSectors: number;
+  firstRoomGuards: number;
+  threat: number;
+}
+
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+/** A print commitment buys mission tolerance and proportionally raises the
+ * opposition. Extra bodies are spread across sectors and a later response;
+ * the entry room never becomes a spawn pile. */
+export function scienceEncounterBudget(options: ScienceEncounterBudgetOptions): ScienceEncounterBudget {
+  const prints = clamp(Math.round(options.prints), 1, 8);
+  const security = clamp(options.security, 0, 1);
+  const verbPressure = options.verb === 'raid' || options.verb === 'deny'
+    || options.verb === 'hold' || options.verb === 'decapitate' ? 1 : 0;
+  const initialCivilians = options.verb === 'rescue' ? clamp(2 + Math.floor(prints / 4), 2, 4)
+    : options.complication === 'no-kill' ? 2 : 0;
+  const dogTeams = security >= 0.82 && prints >= 7 ? 2
+    : security >= 0.48 && prints >= 3 ? 1 : 0;
+  const maxGuards = Math.max(2, 16 - initialCivilians - dogTeams);
+  const initialGuards = Math.min(maxGuards,
+    2 + Math.ceil(prints * 0.72) + Math.round(security * 2) + verbPressure);
+  const reserveGuards = 1 + Math.ceil((prints - 1) / 2)
+    + (options.complication === 'alarm-net' ? 1 : 0);
+  const patrolSectors = clamp(Math.ceil(initialGuards / 2), 2, Math.max(2, options.floors * 3));
+  const firstRoomGuards = Math.min(2, initialGuards);
+  const threat = initialGuards * 10 + reserveGuards * 7 + dogTeams * 12
+    + Math.max(0, options.floors - 1) * 3 + Math.round(security * 5);
+  return { initialGuards, reserveGuards, initialCivilians, dogTeams, patrolSectors, firstRoomGuards, threat };
 }
 
 const SITE_LABEL: Record<ScienceSite, string> = {
@@ -132,6 +181,10 @@ export function generateScienceMission(seed: number, options: ScienceMissionOpti
   const requestedSquad = Number.isFinite(options.squadSize) ? Math.round(options.squadSize!) : 4;
   const squadSize = complication === 'one-life' ? 1 : Math.max(1, Math.min(8, requestedSquad));
   const reward = options.reward ?? SCIENCE_REWARDS[rng.int(0, SCIENCE_REWARDS.length - 1)].id;
+  const selectedCity = options.cityId
+    ? cityProfile(options.cityId)
+    : CITY_MAP_PROFILES[rng.int(0, CITY_MAP_PROFILES.length - 1)];
+  const architecture = architectureProfile(selectedCity.id, stableSeed);
   const id = `SM-${stableSeed.toString(36).toUpperCase().padStart(4, '0').slice(-4)}`;
 
   return {
@@ -143,7 +196,10 @@ export function generateScienceMission(seed: number, options: ScienceMissionOpti
     ...(complication ? { complication } : {}),
     reward,
     squadSize,
-    briefing: briefingFor(verb, site, complication),
+    briefing: `${briefingFor(verb, site, complication)} ${selectedCity.name} theater profile.`,
+    cityId: selectedCity.id,
+    cityName: selectedCity.name,
+    security: architecture.security,
   };
 }
 

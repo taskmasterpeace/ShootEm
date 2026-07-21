@@ -332,20 +332,22 @@ function centeredTileOffset(value: number): number {
   return within - TILE / 2;
 }
 
-export function thinTileBlocks(tile: number, x: number, z: number): boolean {
-  if (tile === T_THIN_DOOR_H_OPEN || tile === T_THIN_DOOR_V_OPEN
-    || tile === T_SECTION_SHUTTER_OPEN || tile === F2_DOOR_H_OPEN
-    || tile === F2_DOOR_V_OPEN || tile === F2_SHUTTER_OPEN) return false;
+export function thinTileBlocks(tile: number, x: number, z: number, upper = false): boolean {
+  if (upper
+    ? tile === F2_DOOR_H_OPEN || tile === F2_DOOR_V_OPEN || tile === F2_SHUTTER_OPEN
+    : tile === T_THIN_DOOR_H_OPEN || tile === T_THIN_DOOR_V_OPEN || tile === T_SECTION_SHUTTER_OPEN) return false;
   const ox = Math.abs(centeredTileOffset(x));
   const oz = Math.abs(centeredTileOffset(z));
-  const horizontal = tile === T_THIN_WALL_H || tile === T_THIN_DOOR_H || tile === T_THIN_WALL_HV
-    || tile === T_WINDOW_H || tile === T_WINDOW_H_BROKEN || tile === T_SECTION_SHUTTER
-    || tile === F2_THIN_WALL_H || tile === F2_THIN_WALL_HV || tile === F2_WINDOW_H
-    || tile === F2_WINDOW_H_BROKEN || tile === F2_DOOR_H || tile === F2_RAIL_H || tile === F2_SHUTTER;
-  const vertical = tile === T_THIN_WALL_V || tile === T_THIN_DOOR_V || tile === T_THIN_WALL_HV
-    || tile === T_WINDOW_V || tile === T_WINDOW_V_BROKEN
-    || tile === F2_THIN_WALL_V || tile === F2_THIN_WALL_HV || tile === F2_WINDOW_V
-    || tile === F2_WINDOW_V_BROKEN || tile === F2_DOOR_V || tile === F2_RAIL_V;
+  const horizontal = upper
+    ? tile === F2_THIN_WALL_H || tile === F2_THIN_WALL_HV || tile === F2_WINDOW_H
+      || tile === F2_WINDOW_H_BROKEN || tile === F2_DOOR_H || tile === F2_RAIL_H || tile === F2_SHUTTER
+    : tile === T_THIN_WALL_H || tile === T_THIN_DOOR_H || tile === T_THIN_WALL_HV
+      || tile === T_WINDOW_H || tile === T_WINDOW_H_BROKEN || tile === T_SECTION_SHUTTER;
+  const vertical = upper
+    ? tile === F2_THIN_WALL_V || tile === F2_THIN_WALL_HV || tile === F2_WINDOW_V
+      || tile === F2_WINDOW_V_BROKEN || tile === F2_DOOR_V || tile === F2_RAIL_V
+    : tile === T_THIN_WALL_V || tile === T_THIN_DOOR_V || tile === T_THIN_WALL_HV
+      || tile === T_WINDOW_V || tile === T_WINDOW_V_BROKEN;
   return (horizontal && oz <= THIN_WALL / 2) || (vertical && ox <= THIN_WALL / 2);
 }
 
@@ -450,12 +452,12 @@ export function blocksShotUpper(grid2: Uint8Array, x: number, z: number, y: numb
   if (t === F2_WALL) return true;
   if (t === F2_SLIT) return !(y >= 5.2 && y <= 5.8);
   if ((t === F2_THIN_WALL_H || t === F2_THIN_WALL_V || t === F2_THIN_WALL_HV)
-    && thinTileBlocks(t, x, z)) return true;
-  if ((t === F2_WINDOW_H || t === F2_WINDOW_V) && thinTileBlocks(t, x, z)) return true;
-  if ((t === F2_WINDOW_H_BROKEN || t === F2_WINDOW_V_BROKEN) && thinTileBlocks(t, x, z)) return y < 5;
-  if ((t === F2_DOOR_H || t === F2_DOOR_V) && thinTileBlocks(t, x, z)) return y < 6.2;
-  if ((t === F2_RAIL_H || t === F2_RAIL_V) && thinTileBlocks(t, x, z)) return y < 5.2;
-  if (t === F2_SHUTTER && thinTileBlocks(t, x, z)) return true;
+    && thinTileBlocks(t, x, z, true)) return true;
+  if ((t === F2_WINDOW_H || t === F2_WINDOW_V) && thinTileBlocks(t, x, z, true)) return true;
+  if ((t === F2_WINDOW_H_BROKEN || t === F2_WINDOW_V_BROKEN) && thinTileBlocks(t, x, z, true)) return y < 5;
+  if ((t === F2_DOOR_H || t === F2_DOOR_V) && thinTileBlocks(t, x, z, true)) return y < 6.2;
+  if ((t === F2_RAIL_H || t === F2_RAIL_V) && thinTileBlocks(t, x, z, true)) return y < 5.2;
+  if (t === F2_SHUTTER && thinTileBlocks(t, x, z, true)) return true;
   return false;
 }
 
@@ -466,7 +468,7 @@ export const upperBlocked = (grid2: Uint8Array, x: number, z: number): boolean =
   if (t === F2_THIN_WALL_H || t === F2_THIN_WALL_V || t === F2_THIN_WALL_HV
     || t === F2_WINDOW_H || t === F2_WINDOW_V || t === F2_WINDOW_H_BROKEN || t === F2_WINDOW_V_BROKEN
     || t === F2_DOOR_H || t === F2_DOOR_V || t === F2_RAIL_H || t === F2_RAIL_V || t === F2_SHUTTER) {
-    return thinTileBlocks(t, x, z);
+    return thinTileBlocks(t, x, z, true);
   }
   return false;
 };

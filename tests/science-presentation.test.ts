@@ -50,9 +50,10 @@ function runtimeFixture(): ScienceMissionRuntime {
     phase: 'objective',
     objective: { kind: 'interact', label: 'Secure the program core', pos: [], required: 1, progress: 0, complete: false },
     entry: { x: 0, y: 0, z: 0 }, extraction: { x: 0, y: 0, z: 0 },
-    guardPosts: [], civilianSpawns: [], convoyRoute: [],
+    guardPosts: [], civilianSpawns: [], dogPosts: [], reinforcementPosts: [], convoyRoute: [],
+    encounterBudget: { initialGuards: 4, reserveGuards: 2, initialCivilians: 0, dogTeams: 0, patrolSectors: 2, firstRoomGuards: 2, threat: 54 },
     clonesRemaining: 5, clonesSpent: 0, detections: 0, alarm: false,
-    civilianIds: [], targetIds: [], guardIds: [], vehicleTargetIds: [], interacted: new Set(),
+    civilianIds: [], targetIds: [], guardIds: [], dogIds: [], vehicleTargetIds: [], interacted: new Set(),
     reinforcementAt: Infinity, reinforcementsDeployed: false, convoyWaypoint: 2, applied: false,
   };
 }

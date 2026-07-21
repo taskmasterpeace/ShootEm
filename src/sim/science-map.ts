@@ -1,7 +1,16 @@
-import { stampBuilding, type BuildingDef, type StampCtx } from './buildings';
+import { generateCityBuilding, type BuildingArchetype, type GeneratedBuilding } from './building-generator';
+import { deriveBuildingNavigation } from './building-navigation';
+import { stampBuilding, type StampCtx } from './buildings';
+import { CITY_MAP_PROFILES } from './city-profile';
 import {
+  F2_BALCONY,
+  F2_DOOR_H,
+  F2_DOOR_H_OPEN,
+  F2_DOOR_V,
+  F2_DOOR_V_OPEN,
   F2_FLOOR,
-  F2_WALL,
+  F2_STAIR_N,
+  F2_STAIR_W,
   F2_WELL,
   GRID,
   S_DIRT,
@@ -12,6 +21,9 @@ import {
   T_COVER,
   T_LADDER,
   T_OPEN,
+  T_RUBBLE,
+  T_STAIRS_N,
+  T_STAIRS_W,
   T_WALL,
   TILE,
   WORLD,
@@ -19,40 +31,42 @@ import {
   registerThinGrid,
   type GameMap,
 } from './map';
+import { floorLayer, ladderWellAt, stairDirectionAt } from './map-layers';
 import { Rng } from './rng';
 import type { ScienceMissionSpec, ScienceSite } from './science';
 import type { ThemeId, Vec3 } from './types';
 
 export interface ScienceMapLayout {
   map: GameMap;
+  building: GeneratedBuilding;
   entry: Vec3;
   extraction: Vec3;
   objectiveSockets: Vec3[];
   guardPosts: Vec3[];
   civilianSpawns: Vec3[];
+  dogPosts: Vec3[];
+  reinforcementPosts: Vec3[];
   convoyRoute: Vec3[];
   bounds: { minTx: number; minTz: number; maxTx: number; maxTz: number };
 }
 
 interface SiteProfile {
-  width: number;
-  height: number;
-  kind: BuildingDef['kind'];
-  name: string;
-  floors?: 2;
+  archetype: BuildingArchetype;
+  floors: 1 | 2 | 3;
+  yard?: 'rail' | 'airfield';
 }
 
-const SITES: Record<ScienceSite, SiteProfile> = {
-  'clone-vault': { width: 17, height: 13, kind: 'military', name: 'Clone Vault' },
-  'research-annex': { width: 15, height: 13, kind: 'commercial', name: 'Research Annex' },
-  'rail-yard': { width: 21, height: 11, kind: 'industrial', name: 'Rail Yard Depot' },
-  'comms-relay': { width: 13, height: 13, kind: 'military', name: 'Comms Relay' },
-  'field-hospital': { width: 19, height: 11, kind: 'commercial', name: 'Field Hospital' },
-  foundry: { width: 19, height: 15, kind: 'industrial', name: 'Foundry' },
-  'buried-archive': { width: 15, height: 15, kind: 'military', name: 'Buried Archive' },
-  'enemy-airfield': { width: 21, height: 13, kind: 'military', name: 'Airfield Operations' },
-  'officer-villa': { width: 17, height: 15, kind: 'house', name: "Officer's Villa", floors: 2 },
-  'quarantine-zone': { width: 19, height: 15, kind: 'industrial', name: 'Quarantine Block' },
+export const SCIENCE_SITE_BUILDINGS: Record<ScienceSite, SiteProfile> = {
+  'clone-vault': { archetype: 'secure-archive', floors: 3 },
+  'research-annex': { archetype: 'research-annex', floors: 2 },
+  'rail-yard': { archetype: 'depot', floors: 1, yard: 'rail' },
+  'comms-relay': { archetype: 'command-post', floors: 2 },
+  'field-hospital': { archetype: 'clinic', floors: 2 },
+  foundry: { archetype: 'factory', floors: 2 },
+  'buried-archive': { archetype: 'secure-archive', floors: 3 },
+  'enemy-airfield': { archetype: 'command-post', floors: 2, yard: 'airfield' },
+  'officer-villa': { archetype: 'command-villa', floors: 2 },
+  'quarantine-zone': { archetype: 'processing-hall', floors: 2 },
 };
 
 const SURFACE: Record<ThemeId, number> = {
@@ -65,9 +79,9 @@ const SURFACE: Record<ThemeId, number> = {
   hardpan: S_DIRT,
 };
 
-const tileToWorld = (tx: number, tz: number, y = 0): Vec3 => ({
+const tileToWorld = (tx: number, tz: number, floor = 0): Vec3 => ({
   x: (tx + 0.5) * TILE - WORLD / 2,
-  y,
+  y: floor * 4,
   z: (tz + 0.5) * TILE - WORLD / 2,
 });
 
@@ -76,77 +90,63 @@ const worldToTile = (pos: Vec3): [number, number] => [
   Math.floor((pos.z + WORLD / 2) / TILE),
 ];
 
-function makeSiteDef(site: ScienceSite): BuildingDef {
-  const profile = SITES[site];
-  const w = profile.width;
-  const h = profile.height;
-  const rows = Array.from({ length: h }, () => Array.from({ length: w }, () => '.'));
+function pickSpread(points: Vec3[], count: number): Vec3[] {
+  if (!points.length || count <= 0) return [];
+  if (points.length <= count) return points.map((point) => ({ ...point }));
+  return Array.from({ length: count }, (_, index) => ({
+    ...points[Math.floor(index * (points.length - 1) / Math.max(1, count - 1))],
+  }));
+}
 
-  for (let x = 0; x < w; x++) {
-    rows[0][x] = '-';
-    rows[h - 1][x] = '-';
-  }
-  for (let z = 0; z < h; z++) {
-    rows[z][0] = '|';
-    rows[z][w - 1] = '|';
-  }
-  rows[0][0] = rows[0][w - 1] = rows[h - 1][0] = rows[h - 1][w - 1] = '+';
-  const midZ = Math.floor(h / 2);
-  rows[midZ][0] = 'v';
-  rows[midZ][w - 1] = 'v';
+const AUTHOR_WALKABLE = new Set(['.', 'h', 'v', 'A', 'L', 'B', 'P']);
 
-  // Every site has a readable room-clearing spine: a vertical security line
-  // and a smaller rear room. Doors remain explicit in the authored stencil.
-  const splitX = Math.floor(w / 2);
-  for (let z = 1; z < h - 1; z++) rows[z][splitX] = '|';
-  rows[midZ][splitX] = 'v';
-  const rearZ = Math.max(3, Math.floor(h / 3));
-  for (let x = splitX + 1; x < w - 1; x++) rows[rearZ][x] = '-';
-  rows[rearZ][Math.min(w - 3, splitX + 3)] = 'h';
-  rows[rearZ][splitX] = '+';
-
-  rows[2][2] = 'C';
-  rows[h - 3][w - 3] = 'C';
-  rows[2][w - 3] = 'P';
-
-  let rows2: string[] | undefined;
-  if (profile.floors === 2) {
-    const ladderX = 3;
-    const ladderZ = h - 3;
-    rows[ladderZ][ladderX] = 'L';
-    const upper = Array.from({ length: h }, () => Array.from({ length: w }, () => ' '));
-    for (let z = 0; z < h; z++) {
-      for (let x = 0; x < w; x++) {
-        if (x === 0 || z === 0 || x === w - 1 || z === h - 1) upper[z][x] = '#';
-        else upper[z][x] = '.';
+function authoredWalkable(building: GeneratedBuilding, tx: number, tz: number): Vec3[] {
+  const points: Vec3[] = [];
+  for (let floor = 0; floor < building.layers.length; floor++) {
+    for (let z = 0; z < building.layers[floor].length; z++) {
+      for (let x = 0; x < building.width; x++) {
+        if (AUTHOR_WALKABLE.has(building.layers[floor][z]?.[x] ?? ' ')) points.push(tileToWorld(tx + x, tz + z, floor));
       }
     }
-    upper[ladderZ][ladderX] = 'L';
-    rows2 = upper.map((row) => row.join(''));
   }
-
-  return {
-    id: `science_${site}`,
-    name: profile.name,
-    kind: profile.kind,
-    floors: profile.floors ?? 1,
-    rows: rows.map((row) => row.join('')),
-    ...(rows2 ? { rows2 } : {}),
-  };
+  return points;
 }
 
-function pickSpread(points: Vec3[], count: number): Vec3[] {
-  if (points.length <= count) return points.slice();
-  return Array.from({ length: count }, (_, i) => points[Math.floor(i * (points.length - 1) / (count - 1))]);
+function outsideEntry(building: GeneratedBuilding, tx: number, tz: number): Vec3 {
+  const socket = building.sockets.find((entry) => entry.kind === 'entry')!;
+  const layer = building.layers[0];
+  for (const [dx, dz] of [[0, 1], [0, -1], [1, 0], [-1, 0]] as const) {
+    if ((layer[socket.z + dz]?.[socket.x + dx] ?? ' ') === ' ') return tileToWorld(tx + socket.x + dx, tz + socket.z + dz);
+  }
+  return tileToWorld(tx + socket.x, tz + socket.z);
 }
 
-/** Generate the small, dense mission ground independently from war-front maps. */
+function uniquePoints(points: Vec3[]): Vec3[] {
+  const seen = new Set<string>();
+  return points.filter((point) => {
+    const id = `${point.x}:${point.y}:${point.z}`;
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
+/** Generate a compact operation around one complete city building. Rail-yard
+ * and airfield sites keep a small exterior apron; every indoor site uses the
+ * same whole-building grammar as the Map Maker. */
 export function generateScienceMap(spec: ScienceMissionSpec): ScienceMapLayout {
-  const profile = SITES[spec.site];
-  const def = makeSiteDef(spec.site);
+  const profile = SCIENCE_SITE_BUILDINGS[spec.site];
+  const cityId = spec.cityId ?? CITY_MAP_PROFILES[spec.seed % CITY_MAP_PROFILES.length].id;
+  const building = generateCityBuilding({
+    cityId,
+    archetype: profile.archetype,
+    seed: spec.seed,
+    floors: profile.floors,
+  });
   const rng = new Rng(spec.seed ^ 0x5c1e7e);
   const grid = new Uint8Array(GRID * GRID);
   const grid2 = new Uint8Array(GRID * GRID);
+  const upperLayers = [grid2];
   const surface = new Uint8Array(GRID * GRID);
   surface.fill(SURFACE[spec.theme]);
   const props: GameMap['props'] = [];
@@ -154,17 +154,14 @@ export function generateScienceMap(spec: ScienceMissionSpec): ScienceMapLayout {
   const houses: GameMap['houses'] = [];
   const claims: { idx: number; t: number }[] = [];
 
-  const tx = 42 - Math.floor(profile.width / 4);
-  const tz = 50 - Math.floor(profile.height / 2);
+  const tx = 50 - Math.floor(building.width / 2);
+  const tz = 50 - Math.floor(building.height / 2);
   const bounds = {
-    minTx: tx - 5,
-    minTz: tz - 4,
-    maxTx: tx + profile.width + 3,
-    maxTz: tz + profile.height + 3,
+    minTx: tx - 3,
+    minTz: tz - 3,
+    maxTx: tx + building.width + 2,
+    maxTz: tz + building.height + 2,
   };
-  // The operation is a compact pocket, not a 100x100 block of masonry. A
-  // single solid perimeter contains play while keeping static-world geometry
-  // proportional to the site itself.
   for (let x = bounds.minTx; x <= bounds.maxTx; x++) {
     grid[bounds.minTz * GRID + x] = T_WALL;
     grid[bounds.maxTz * GRID + x] = T_WALL;
@@ -174,67 +171,82 @@ export function generateScienceMap(spec: ScienceMissionSpec): ScienceMapLayout {
     grid[z * GRID + bounds.maxTx] = T_WALL;
   }
 
-  const ctx: StampCtx = { grid, grid2, props, pickups, houses, claims, rng };
-  if (!stampBuilding(ctx, def, tx, tz)) throw new Error(`science site out of bounds: ${spec.site}`);
+  const ctx: StampCtx = { grid, grid2, upperLayers, props, pickups, houses, claims, rng };
+  if (!stampBuilding(ctx, building.def, tx, tz)) throw new Error(`science site out of bounds: ${spec.site}`);
   registerThinGrid(grid);
 
-  const doorZ = tz + Math.floor(profile.height / 2);
-  const entry = tileToWorld(tx - 1, doorZ);
-  const extraction = tileToWorld(tx - 3, doorZ + 2);
-  const cloneTx = tx - 3;
-  const cloneTz = doorZ;
+  const entry = outsideEntry(building, tx, tz);
+  const [entryTx, entryTz] = worldToTile(entry);
+  const extraction = tileToWorld(Math.max(bounds.minTx + 1, entryTx - 1), Math.min(bounds.maxTz - 1, entryTz + 1));
+  const cloneTx = Math.max(bounds.minTx + 1, entryTx - 2);
+  const cloneTz = entryTz;
+  const clonePos = tileToWorld(cloneTx, cloneTz);
   const cloneIdx = cloneTz * GRID + cloneTx;
   grid[cloneIdx] = T_COVER;
   claims.push({ idx: cloneIdx, t: T_COVER });
-  props.push({ type: 'clone_bay', pos: tileToWorld(cloneTx, cloneTz), scale: 0.9, rot: Math.PI / 2 });
+  props.push({ type: 'clone_bay', pos: clonePos, scale: 0.9, rot: Math.PI / 2 });
 
-  const interior: Vec3[] = [];
-  for (let z = tz + 1; z < tz + profile.height - 1; z++) {
-    for (let x = tx + 1; x < tx + profile.width - 1; x++) {
-      const tile = grid[z * GRID + x];
-      if (tile === T_OPEN || tile === T_LADDER || isDoorTile(tile)) interior.push(tileToWorld(x, z));
-    }
-  }
-  interior.sort((a, b) => Math.hypot(a.x - entry.x, a.z - entry.z) - Math.hypot(b.x - entry.x, b.z - entry.z));
-  const farHalf = interior.slice(Math.floor(interior.length * 0.45));
-  let objectiveSockets = pickSpread(farHalf, 4);
-  let guardPosts = pickSpread(interior.slice(Math.floor(interior.length * 0.2)), 7);
-  let civilianSpawns = pickSpread(interior.slice(Math.floor(interior.length * 0.35)), 4);
-  if (profile.floors === 2) {
-    const upstairs = interior
-      .filter((pos) => {
-        const [x, z] = worldToTile(pos);
-        return grid2[z * GRID + x] === F2_FLOOR;
-      })
-      .map((pos) => ({ ...pos, y: 4 }));
-    const upperObjective = upstairs[upstairs.length - 1];
-    const upperGuard = upstairs[Math.floor(upstairs.length * 0.72)];
-    const upperCivilian = upstairs[Math.floor(upstairs.length * 0.35)];
-    if (upperObjective) objectiveSockets = [upperObjective, ...objectiveSockets.slice(0, 3)];
-    if (upperGuard) guardPosts = [...guardPosts.slice(0, 6), upperGuard];
-    if (upperCivilian) civilianSpawns = [upperCivilian, ...civilianSpawns.slice(0, 3)];
-  }
+  const walkable = authoredWalkable(building, tx, tz)
+    .sort((a, b) => Math.hypot(b.x - entry.x, b.z - entry.z) - Math.hypot(a.x - entry.x, a.z - entry.z));
+  const authoredObjectives = building.sockets.filter((socket) => socket.kind === 'objective')
+    .map((socket) => tileToWorld(tx + socket.x, tz + socket.z, socket.floor));
+  const objectiveSockets = uniquePoints([...authoredObjectives, ...walkable]).slice(0, 4);
+  const byFloorThenDistance = [...walkable].sort((a, b) => a.y - b.y
+    || Math.hypot(a.x - entry.x, a.z - entry.z) - Math.hypot(b.x - entry.x, b.z - entry.z));
+  const navigation = deriveBuildingNavigation(building);
+  const roomPosts = navigation.rooms.map((room) => {
+    const tile = room.tiles[Math.floor(room.tiles.length / 2)];
+    return tileToWorld(tx + tile.x, tz + tile.z, room.floor);
+  });
+  const guardPosts = uniquePoints([
+    ...building.sockets.filter((socket) => socket.kind === 'guard').map((socket) => tileToWorld(tx + socket.x, tz + socket.z, socket.floor)),
+    ...roomPosts,
+    ...pickSpread(byFloorThenDistance.slice(Math.floor(byFloorThenDistance.length * 0.18)), 12),
+  ]).slice(0, 12);
+  const civilianSpawns = uniquePoints([
+    ...building.sockets.filter((socket) => socket.kind === 'civilian').map((socket) => tileToWorld(tx + socket.x, tz + socket.z, socket.floor)),
+    ...pickSpread(walkable.slice(Math.floor(walkable.length * 0.25)), 4),
+  ]).slice(0, 4);
+  const dogPosts = pickSpread(guardPosts.filter((post) => post.y === 0), 2);
+  const reinforcementPosts = [entry, tileToWorld(bounds.minTx + 1, bounds.minTz + 1), tileToWorld(bounds.maxTx - 1, bounds.maxTz - 1)];
+
   const convoyRoute = [
     tileToWorld(bounds.minTx + 1, bounds.maxTz - 2),
     tileToWorld(tx - 1, bounds.maxTz - 2),
     tileToWorld(bounds.maxTx - 1, bounds.maxTz - 2),
   ];
+  if (profile.yard) {
+    for (let i = 0; i < 3; i++) props.push({
+      type: profile.yard === 'airfield' ? 'crate' : 'wreck',
+      pos: tileToWorld(bounds.minTx + 2 + i * 2, bounds.maxTz - 2),
+      scale: 0.8,
+      rot: profile.yard === 'airfield' ? 0 : Math.PI / 2,
+    });
+  }
 
-  const spawns: GameMap['spawns'] = [
-    [entry, tileToWorld(tx - 2, doorZ - 1), tileToWorld(tx - 2, doorZ + 1)],
-    guardPosts,
-  ];
+  const safeGuard = guardPosts[guardPosts.length - 1] ?? objectiveSockets[0] ?? entry;
   const map: GameMap = {
     seed: spec.seed,
     theme: spec.theme,
     grid,
     grid2,
+    upperLayers,
+    buildingMeta: {
+      ...building.provenance,
+      floors: building.floors,
+      footprint: building.footprint,
+      origin: { tx, tz },
+      width: building.width,
+      height: building.height,
+      sockets: building.sockets,
+      sections: building.sections,
+    },
     surface,
-    basePos: [entry, guardPosts[guardPosts.length - 1]],
-    spawns,
+    basePos: [entry, safeGuard],
+    spawns: [[entry, extraction], guardPosts],
     flagPos: [entry, objectiveSockets[0]],
-    hillPos: objectiveSockets[1],
-    controlPoints: objectiveSockets.slice(0, 3).map((pos, i) => ({ name: `LAB ${i + 1}`, pos })),
+    hillPos: objectiveSockets[1] ?? objectiveSockets[0],
+    controlPoints: objectiveSockets.slice(0, 3).map((pos, index) => ({ name: `LAB ${index + 1}`, pos })),
     vehiclePads: [],
     pickups,
     props,
@@ -244,45 +256,52 @@ export function generateScienceMap(spec: ScienceMissionSpec): ScienceMapLayout {
     pads: [],
     propCovered: [...new Set(claims.filter((claim) => grid[claim.idx] === claim.t).map((claim) => claim.idx))],
   };
-  return { map, entry, extraction, objectiveSockets, guardPosts, civilianSpawns, convoyRoute, bounds };
+  return { map, building, entry, extraction, objectiveSockets, guardPosts, civilianSpawns, dogPosts, reinforcementPosts, convoyRoute, bounds };
 }
 
-/** Reachability contract: closed doors are operable, masonry is not. */
+function walkableAt(map: GameMap, floor: number, tx: number, tz: number): boolean {
+  if (tx < 0 || tz < 0 || tx >= GRID || tz >= GRID) return false;
+  const tile = floorLayer(map, floor)[tz * GRID + tx];
+  if (floor === 0) return tile === T_OPEN || tile === T_RUBBLE || tile === T_LADDER
+    || (tile >= T_STAIRS_N && tile <= T_STAIRS_W) || isDoorTile(tile);
+  return tile === F2_FLOOR || tile === F2_WELL || tile === F2_BALCONY
+    || (tile >= F2_STAIR_N && tile <= F2_STAIR_W)
+    || tile === F2_DOOR_H || tile === F2_DOOR_V || tile === F2_DOOR_H_OPEN || tile === F2_DOOR_V_OPEN;
+}
+
+/** Reachability contract over all authored storeys. Doors are operable,
+ * aligned stairs are walked, and ladder wells are explicit vertical links. */
 export function scienceMapReachable(layout: ScienceMapLayout): boolean {
+  const { map } = layout;
   const [startX, startZ] = worldToTile(layout.entry);
-  const targets = new Set(layout.objectiveSockets.map((pos) => {
-    const [x, z] = worldToTile(pos);
-    return z * GRID + x;
-  }));
-  const seen = new Set<number>([startZ * GRID + startX]);
-  const queue: [number, number][] = [[startX, startZ]];
+  const area = GRID * GRID;
+  const start = startZ * GRID + startX;
+  const queue = [start];
+  const seen = new Set<number>(queue);
   while (queue.length) {
-    const [x, z] = queue.shift()!;
-    targets.delete(z * GRID + x);
+    const node = queue.shift()!;
+    const floor = Math.floor(node / area);
+    const tile = node % area;
+    const x = tile % GRID, z = Math.floor(tile / GRID);
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-      const nx = x + dx;
-      const nz = z + dz;
-      if (nx < 0 || nz < 0 || nx >= GRID || nz >= GRID) continue;
-      const idx = nz * GRID + nx;
-      if (seen.has(idx)) continue;
-      const tile = layout.map.grid[idx];
-      if (tile !== T_OPEN && tile !== T_LADDER && !isDoorTile(tile)) continue;
-      seen.add(idx);
-      queue.push([nx, nz]);
+      const nx = x + dx, nz = z + dz;
+      const next = floor * area + nz * GRID + nx;
+      if (!seen.has(next) && walkableAt(map, floor, nx, nz)) { seen.add(next); queue.push(next); }
+    }
+    for (const nextFloor of [floor - 1, floor + 1]) {
+      if (nextFloor < 0 || nextFloor >= layout.building.floors) continue;
+      const wx = tileToWorld(x, z).x, wz = tileToWorld(x, z).z;
+      const ladder = ladderWellAt(map, floor, wx, wz) && ladderWellAt(map, nextFloor, wx, wz);
+      const stair = stairDirectionAt(map, floor, wx, wz);
+      const other = stairDirectionAt(map, nextFloor, wx, wz);
+      if (!ladder && !(stair && other && stair.x === other.x && stair.z === other.z)) continue;
+      const next = nextFloor * area + tile;
+      if (!seen.has(next) && walkableAt(map, nextFloor, x, z)) { seen.add(next); queue.push(next); }
     }
   }
-  if (targets.size > 0) return false;
-  const upstairs = layout.objectiveSockets.filter((pos) => pos.y >= 4);
-  if (!upstairs.length) return true;
-  const accessibleLadder = [...seen].some((idx) =>
-    layout.map.grid[idx] === T_LADDER && layout.map.grid2[idx] === F2_WELL);
-  return accessibleLadder && upstairs.every((pos) => {
-    const [x, z] = worldToTile(pos);
-    return layout.map.grid2[z * GRID + x] === F2_FLOOR;
+  return [...layout.objectiveSockets, layout.extraction].every((target) => {
+    const [x, z] = worldToTile(target);
+    const floor = Math.max(0, Math.min(layout.building.floors - 1, Math.floor(target.y / 4)));
+    return seen.has(floor * area + z * GRID + x);
   });
 }
-
-// Keep these imports intentional: upper-floor output is a public map contract,
-// and this assertion makes accidental enum drift obvious during development.
-void F2_WALL;
-void F2_WELL;

@@ -1,6 +1,7 @@
 import { perceivesNow } from './perception';
 import type { ScienceMapLayout } from './science-map';
-import type { ScienceMissionSpec, ScienceVerb } from './science';
+import { scienceEncounterBudget, type ScienceEncounterBudget, type ScienceMissionSpec, type ScienceVerb } from './science';
+import { worldFloorForHeight } from './map-layers';
 import type { Soldier, Vec3 } from './types';
 import type { World } from './world';
 
@@ -23,7 +24,10 @@ export interface ScienceMissionRuntime {
   extraction: Vec3;
   guardPosts: Vec3[];
   civilianSpawns: Vec3[];
+  dogPosts: Vec3[];
+  reinforcementPosts: Vec3[];
   convoyRoute: Vec3[];
+  encounterBudget: ScienceEncounterBudget;
   clonesRemaining: number;
   clonesSpent: number;
   detections: number;
@@ -31,6 +35,7 @@ export interface ScienceMissionRuntime {
   civilianIds: number[];
   targetIds: number[];
   guardIds: number[];
+  dogIds: number[];
   vehicleTargetIds: number[];
   interacted: Set<number>;
   reinforcementAt: number;
@@ -74,6 +79,13 @@ function requiredFor(verb: ScienceVerb): number {
 }
 
 export function createScienceRuntime(spec: ScienceMissionSpec, layout: ScienceMapLayout): ScienceMissionRuntime {
+  const encounterBudget = scienceEncounterBudget({
+    prints: spec.squadSize,
+    security: spec.security ?? 0.5,
+    verb: spec.verb,
+    floors: layout.building.floors,
+    complication: spec.complication,
+  });
   return {
     spec,
     phase: 'objective',
@@ -87,9 +99,12 @@ export function createScienceRuntime(spec: ScienceMissionSpec, layout: ScienceMa
     },
     entry: { ...layout.entry },
     extraction: { ...layout.extraction },
-    guardPosts: layout.guardPosts.map((pos) => ({ ...pos })),
-    civilianSpawns: layout.civilianSpawns.map((pos) => ({ ...pos })),
+    guardPosts: layout.guardPosts.slice(0, encounterBudget.initialGuards).map((pos) => ({ ...pos })),
+    civilianSpawns: layout.civilianSpawns.slice(0, encounterBudget.initialCivilians).map((pos) => ({ ...pos })),
+    dogPosts: layout.dogPosts.slice(0, encounterBudget.dogTeams).map((pos) => ({ ...pos })),
+    reinforcementPosts: layout.reinforcementPosts.map((pos) => ({ ...pos })),
     convoyRoute: layout.convoyRoute.map((pos) => ({ ...pos })),
+    encounterBudget,
     clonesRemaining: spec.squadSize,
     clonesSpent: 0,
     detections: 0,
@@ -97,6 +112,7 @@ export function createScienceRuntime(spec: ScienceMissionSpec, layout: ScienceMa
     civilianIds: [],
     targetIds: [],
     guardIds: [],
+    dogIds: [],
     vehicleTargetIds: [],
     interacted: new Set(),
     reinforcementAt: Infinity,
@@ -130,16 +146,25 @@ export function populateScienceMission(world: World, layout: ScienceMapLayout): 
             : `Security ${i + 1}`;
     const guard = world.addSoldier(name, i % 4 === 0 ? 'heavy' : 'infantry', 1, 'bot');
     guard.pos = { ...runtime.guardPosts[i] };
-    guard.floor = guard.pos.y >= 4 ? 1 : 0;
+    guard.floor = worldFloorForHeight(guard.pos.y);
     guard.yaw = Math.PI;
     runtime.guardIds.push(guard.id);
     if (namedTarget) runtime.targetIds.push(guard.id);
   }
 
+  for (let i = 0; i < runtime.encounterBudget.dogTeams; i++) {
+    const handler = world.soldiers.get(runtime.guardIds[i % Math.max(1, runtime.guardIds.length)]);
+    if (!handler) break;
+    const dog = world.addDog(handler, true);
+    dog.pos = { ...(runtime.dogPosts[i] ?? handler.pos) };
+    dog.floor = worldFloorForHeight(dog.pos.y);
+    runtime.dogIds.push(dog.id);
+  }
+
   if (runtime.spec.verb === 'rescue') {
     for (let i = 0; i < runtime.civilianSpawns.length; i++) {
       const scientist = world.addScientist(runtime.civilianSpawns[i]);
-      scientist.floor = scientist.pos.y >= 4 ? 1 : 0;
+      scientist.floor = worldFloorForHeight(scientist.pos.y);
       scientist.name = ['Dr. Okafor', 'Dr. Chen', 'Dr. Reyes', 'Dr. Marin'][i] ?? `Dr. ${i + 1}`;
       runtime.civilianIds.push(scientist.id);
     }
@@ -249,9 +274,11 @@ export function stepScienceMission(world: World, dt: number): void {
 
   if (runtime.alarm && !runtime.reinforcementsDeployed && world.time >= runtime.reinforcementAt) {
     runtime.reinforcementsDeployed = true;
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < runtime.encounterBudget.reserveGuards; i++) {
       const guard = world.addSoldier(`Response ${i + 1}`, i === 0 ? 'heavy' : 'infantry', 1, 'bot');
-      guard.pos = { ...runtime.guardPosts[i % runtime.guardPosts.length] };
+      guard.pos = { ...(runtime.reinforcementPosts[i % runtime.reinforcementPosts.length]
+        ?? runtime.guardPosts[i % runtime.guardPosts.length]) };
+      guard.floor = worldFloorForHeight(guard.pos.y);
       guard.yaw = Math.PI;
       runtime.guardIds.push(guard.id);
     }

@@ -229,13 +229,13 @@ export function floorLayer(map: GameMap, floor: number): Uint8Array {
 - Produces `scienceEncounterBudget(spec, architecture)` returning initial defenders, reserve defenders, civilians, dog teams, patrol sectors, and reinforcement entries within the design table.
 - Science layouts carry building metadata and floor-aware sockets.
 
-- [ ] **Step 1: Write failing table tests** for print commitments 1–8 at low/high security, asserting each approved defender/reserve/civilian band, monotonic threat, at most two dog teams, and no first-room body multiplication.
-- [ ] **Step 2: Write failing integration tests** generating every verb against residential, commercial, and military archetypes with all objectives/extraction reachable across floors.
-- [ ] **Step 3: Run focused tests and confirm RED.**
-- [ ] **Step 4: Implement the budget function** with clamped city-security, verb, complication, and storey modifiers; spread additional threat across patrol sectors and reinforcement waves.
-- [ ] **Step 5: Replace generic science site boxes with generated whole-building layouts** for villa/annex/vault/hospital/archive/comms, retaining yard/airfield exterior hybrids.
-- [ ] **Step 6: Run all science tests plus building generation/navigation tests and typecheck; confirm GREEN.**
-- [ ] **Step 7: Commit with `git commit -m "feat: scale science building encounters"`.**
+- [x] **Step 1: Write failing table tests** for print commitments 1–8 at low/high security, asserting each approved defender/reserve/civilian band, monotonic threat, at most two dog teams, and no first-room body multiplication.
+- [x] **Step 2: Write failing integration tests** generating every verb against residential, commercial, and military archetypes with all objectives/extraction reachable across floors.
+- [x] **Step 3: Run focused tests and confirm RED.**
+- [x] **Step 4: Implement the budget function** with clamped city-security, verb, complication, and storey modifiers; spread additional threat across patrol sectors and reinforcement waves.
+- [x] **Step 5: Replace generic science site boxes with generated whole-building layouts** for villa/annex/vault/hospital/archive/comms, retaining yard/airfield exterior hybrids.
+- [x] **Step 6: Run all science tests plus building generation/navigation tests and typecheck; confirm GREEN.**
+- [x] **Step 7: Commit with `git commit -m "feat: scale science building encounters"`.**
 
 ### Task 8: Improve Indoor NPCs and Dogs
 

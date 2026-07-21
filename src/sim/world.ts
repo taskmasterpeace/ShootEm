@@ -1168,9 +1168,10 @@ export class World {
    * §5.3 Military working dogs. One K9 per team, paired to a handler — the
    * dog deploys at their side and redeploys with them for the whole match.
    */
-  addDog(handler: Soldier): Soldier {
+  addDog(handler: Soldier, allowPack = false): Soldier {
     for (const other of this.soldiers.values()) {
-      if (other.kind === 'dog' && other.team === handler.team) return other; // the kennel issues one per side
+      if (other.kind !== 'dog' || other.team !== handler.team) continue;
+      if (!allowPack || other.ownerId === handler.id) return other;
     }
     const s: Soldier = {
       id: this.id(), kind: 'dog', name: DOG_NAMES[this.rng.int(0, DOG_NAMES.length - 1)],
@@ -5008,7 +5009,7 @@ export class World {
         try {
           const layer = floorLayer(this.map, floor);
           const pane = tileAt(layer, p.pos.x, p.pos.z);
-          if (isWindowTile(pane, floor > 0) && !windowIsBroken(pane, floor > 0) && thinTileBlocks(pane, p.pos.x, p.pos.z)
+          if (isWindowTile(pane, floor > 0) && !windowIsBroken(pane, floor > 0) && thinTileBlocks(pane, p.pos.x, p.pos.z, floor > 0)
             && this.shatterWindowAt(p.pos.x, p.pos.z, floor)) dead = true;
         } catch { /* projectile is above an unallocated storey */ }
         if (dead) { this.projectiles.delete(id); continue; }
