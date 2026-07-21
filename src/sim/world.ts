@@ -2230,6 +2230,7 @@ export class World {
       const holding = !!pinned && pinned.alive && pinned.grabbedBy === s.id && pinned.grabbedUntil !== undefined;
       if (holding && !pinned!.ascendant) {
         this.emit({ type: 'takedown', pos: { ...pinned!.pos }, soldierId: pinned!.id });
+        if (s.kind === 'human') this.emit({ type: 'announce', text: 'TAKEDOWN', big: false }); // the executor's reward (grabs are player-only)
         this.damageSoldier(pinned!, TAKEDOWN_DAMAGE, s.id, 'knife', false, true); // AP finisher, a knife-credited kill
         pinned!.grabbedUntil = undefined; pinned!.grabbedBy = undefined; pinned!.struggle = undefined;
         s.grabbingId = undefined; // the finisher is your whole action this tick

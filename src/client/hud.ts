@@ -401,7 +401,14 @@ export class Hud {
       // GUARD (§12): a raised brace owns the hint line — you're not managing a
       // grenade bag, you're blocking. The .warn tint reads as "committed."
       const charge = s.meleeCharge ?? 0;
-      if (s.guarding) {
+      // REAR CONTROL (OUTBREAK-SPEC §14.2/§16.2): you hold a pin — the hint tells
+      // you the finisher is one press away, so the takedown is discoverable.
+      const pin = s.grabbingId !== undefined ? world.soldiers.get(s.grabbingId) : undefined;
+      const holdingPin = !!pin && pin.grabbedBy === s.id && pin.grabbedUntil !== undefined;
+      if (holdingPin) {
+        hint.textContent = '⚔ REAR CONTROL — press Z: TAKEDOWN';
+        hint.classList.add('warn');
+      } else if (s.guarding) {
         hint.textContent = '⛊ GUARD — bracing · release V to lower';
         hint.classList.add('warn');
       } else if (charge > 0.02) {
