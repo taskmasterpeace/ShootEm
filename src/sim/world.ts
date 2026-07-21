@@ -2184,6 +2184,35 @@ export class World {
     return s.reserve[s.weaponIdx];
   }
 
+  /** complete a running reload — §11.3 pool-aware. Shared by the standing
+   *  path and the W5.4 drive-by seat, so the two never drift. */
+  private finishReload(s: Soldier, def: (typeof WEAPONS)[WeaponId]) {
+    if (!(s.reloadUntil > 0 && this.time >= s.reloadUntil)) return;
+    const need = def.clip - s.clip[s.weaponIdx];
+    // §11.3 SEPARATE MAGAZINES BY TYPE: a SPECIAL round reloads from its
+    // own pool — ball rides the classic reserve. A pool that ran dry falls
+    // the selector back to ball, loudly, and THIS reload loads ball.
+    const special = this.specialAmmoSelected(s, def);
+    let take: number;
+    if (special) {
+      const pool = this.ammoPoolOf(s, special);
+      if (pool <= 0) {
+        if (s.kind === 'human') this.emit({ type: 'announce', text: `${AMMO_INFO[special].label} DRY — BALL`, big: false });
+        s.ammoType = undefined;
+        take = Math.min(need, s.reserve[s.weaponIdx]);
+        if (Number.isFinite(s.reserve[s.weaponIdx])) s.reserve[s.weaponIdx] -= take;
+      } else {
+        take = Math.min(need, pool);
+        s.ammoPools![special] = pool - take;
+      }
+    } else {
+      take = Math.min(need, s.reserve[s.weaponIdx]);
+      if (Number.isFinite(s.reserve[s.weaponIdx])) s.reserve[s.weaponIdx] -= take;
+    }
+    s.clip[s.weaponIdx] += take;
+    s.reloadUntil = 0;
+  }
+
   applyCmd(s: Soldier, cmd: PlayerCmd, dt: number) {
     s.yaw = cmd.aimYaw;
     s.crouching = !!cmd.crouch && !s.downed; // the duck is a HELD stance
@@ -2497,6 +2526,42 @@ export class World {
         }, 1, 3.5);
         this.emit({ type: 'beacon_planted', pos: { ...g.pos }, soldierId: s.id, text: 'FLARES!' });
       }
+      // W5.4 DRIVE-BY (Robert: "personal weapon from a seat"): a PASSENGER
+      // leans out — the trigger runs his OWN gun: clip, rof, reload, the
+      // §11 ammo riders, the real weapon. The driver's hands stay on the
+      // wheel, mounted-gun seats are unchanged (their guns fire in
+      // stepVehicle), and a band-2+ airframe is too high to lean out of.
+      // Friendly rounds can't bite the carrying hull (the p.team gate).
+      if (s.seat > 0 && s.alive && (!flightDef.flies || (v.band ?? 0) <= 1)) {
+        if (cmd.weaponSlot >= 0 && cmd.weaponSlot < s.weapons.length && cmd.weaponSlot !== s.weaponIdx) {
+          s.weaponIdx = cmd.weaponSlot;
+          s.reloadUntil = 0;
+        }
+        const dwid = s.weapons[s.weaponIdx];
+        const ddef = WEAPONS[dwid];
+        // no knife lunges and no wind-up charge rifles from a car seat
+        if (ddef && ddef.range > 2.5 && !ddef.charge) {
+          if (cmd.reload && s.clip[s.weaponIdx] < ddef.clip && this.reloadStock(s, ddef) > 0 && s.reloadUntil === 0) {
+            s.reloadUntil = this.time + ddef.reloadTime;
+            s.statReloads = (s.statReloads ?? 0) + 1;
+            this.emit({ type: 'reload', pos: s.pos, soldierId: s.id });
+          }
+          this.finishReload(s, ddef);
+          if (cmd.fire && s.reloadUntil === 0 && this.time >= s.nextFireAt) {
+            if (s.clip[s.weaponIdx] > 0) {
+              s.protectedUntil = 0; // hostile action ends spawn protection (55B)
+              this.fireSoldierWeapon(s, dwid, ddef, cmd.aimDist);
+            } else if (this.reloadStock(s, ddef) > 0) {
+              s.reloadUntil = this.time + ddef.reloadTime;
+              s.statReloads = (s.statReloads ?? 0) + 1; // §13: auto-reload on empty
+              this.emit({ type: 'reload', pos: s.pos, soldierId: s.id });
+            } else if (this.time >= (s.nextDryAt ?? 0)) {
+              s.statDry = (s.statDry ?? 0) + 1; // §13: the click, from a car seat
+              s.nextDryAt = this.time + 0.5;
+            }
+          }
+        }
+      }
       return;
     }
 
@@ -2571,31 +2636,7 @@ export class World {
     if (s.weaponIdx === 1 && (s.kind === 'human' || s.kind === 'bot')) {
       s.statSecondaryT = (s.statSecondaryT ?? 0) + dt;
     }
-    if (s.reloadUntil > 0 && this.time >= s.reloadUntil) {
-      const need = def.clip - s.clip[s.weaponIdx];
-      // §11.3 SEPARATE MAGAZINES BY TYPE: a SPECIAL round reloads from its
-      // own pool — ball rides the classic reserve. A pool that ran dry falls
-      // the selector back to ball, loudly, and THIS reload loads ball.
-      const special = this.specialAmmoSelected(s, def);
-      let take: number;
-      if (special) {
-        const pool = this.ammoPoolOf(s, special);
-        if (pool <= 0) {
-          if (s.kind === 'human') this.emit({ type: 'announce', text: `${AMMO_INFO[special].label} DRY — BALL`, big: false });
-          s.ammoType = undefined;
-          take = Math.min(need, s.reserve[s.weaponIdx]);
-          if (Number.isFinite(s.reserve[s.weaponIdx])) s.reserve[s.weaponIdx] -= take;
-        } else {
-          take = Math.min(need, pool);
-          s.ammoPools![special] = pool - take;
-        }
-      } else {
-        take = Math.min(need, s.reserve[s.weaponIdx]);
-        if (Number.isFinite(s.reserve[s.weaponIdx])) s.reserve[s.weaponIdx] -= take;
-      }
-      s.clip[s.weaponIdx] += take;
-      s.reloadUntil = 0;
-    }
+    this.finishReload(s, def);
 
     // movement intent (armor weighs you down)
     const c = CLASSES[s.classId];
