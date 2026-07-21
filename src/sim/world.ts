@@ -240,6 +240,7 @@ const AXE_RETURN_DAMAGE = 45;
 const CLOAK_DRAIN = 11;
 const JET_DRAIN = 30;
 const JET_THRUST = 9.5;
+const JET_BREATHER = 1.0; // seconds after touchdown before jet fuel flows again
 const PICKUP_RESPAWN = 18;
 
 // ---- anti-air: MANPADS vs flyer ----
@@ -2545,10 +2546,14 @@ export class World {
     //  · thrust fades above 6u — a soft ceiling, not a cliff ("too high")
     //  · energy only regenerates ON THE GROUND (below) — feathering the
     //    trigger no longer buys infinite hang time. Fly, land, breathe.
+    //  · and the BREATHE is literal: for JET_BREATHER after touchdown the
+    //    tank still refuses to flow — landing is a commitment, not a
+    //    trampoline bounce between hops.
     if (cmd.jump && !swimming) {
       if (c.ability === 'jetpack' && s.energy > 1 && !s.jetSpent) {
         s.vel.y = JET_THRUST * Math.max(0, Math.min(1, 1 - (s.pos.y - 6) / 4));
         s.energy = Math.max(0, s.energy - JET_DRAIN * dt);
+        s.jetRestUntil = this.time + JET_BREATHER;
         if (s.energy <= 1) s.jetSpent = true; // burned dry — the latch drops
         if (this.tick % 6 === 0) this.emit({ type: 'jetpack', pos: s.pos, soldierId: s.id });
       } else if (s.pos.y <= 0.01) {
@@ -2569,11 +2574,18 @@ export class World {
     } else if (!(cmd.jump && c.ability === 'jetpack')) {
       // jet fuel only flows on the deck — hanging in the sky earns nothing
       const grounded = s.pos.y <= 0.05;
+      // the breather clock slides while airborne, so it counts from TOUCHDOWN
+      if (c.ability === 'jetpack' && !grounded) s.jetRestUntil = this.time + JET_BREATHER;
+      // …and for that first breath after landing the tank stays shut (gods
+      // are exempt — an ascended body answers to its own economy, and the
+      // threat-measure arena must never feel this)
+      const catchingBreath = c.ability === 'jetpack' && s.ascendant === undefined
+        && this.time < (s.jetRestUntil ?? 0);
       // M1: the tank refills on the class's own clock — and never mid-sprint
       // M4: an ascended body runs on its GOD's tank rate when it has one —
       // the class stat underneath is irrelevant once you're wearing a god
       const regenMul = s.ascendant ? (LSWS[s.ascendant]?.energyRegen ?? 1) : (c.energyRegen ?? 1);
-      const rate = (c.ability === 'jetpack' && !grounded) || s.sprinting || s.guarding || (s.meleeCharge ?? 0) > 0
+      const rate = (c.ability === 'jetpack' && !grounded) || catchingBreath || s.sprinting || s.guarding || (s.meleeCharge ?? 0) > 0
         ? 0
         : ENERGY_REGEN * regenMul;
       s.energy = Math.min(100, s.energy + rate * dt);

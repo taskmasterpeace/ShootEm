@@ -268,10 +268,25 @@ describe('the flight economy', () => {
     const before = s.pos.y;
     hold(w, s, 0.5, true);            // try to relight early
     expect(s.pos.y).toBeLessThan(Math.max(before, 0.05) + 2.5); // a hop at best, no flight
-    hold(w, s, 2.5, false);           // recover past the latch
+    // recover past the latch (the post-landing BREATHER ate the early phase's
+    // regen, so give the tank honest time: breather 1.0 + 35/14s of flow)
+    hold(w, s, 3.6, false);
     expect(s.jetSpent).toBe(false);
     hold(w, s, 0.6, true);
     expect(s.pos.y).toBeGreaterThan(1); // airborne again
+  });
+
+  it('landing is a COMMITMENT — the tank holds its breath before it flows', () => {
+    const { w, s } = jumper();
+    hold(w, s, 1.5, true);            // fly and burn
+    let guard = 0;                    // fall all the way to the deck
+    while (s.pos.y > 0.05 && guard++ < 600) w.step(1 / 60, new Map([[s.id, cmd()]]));
+    expect(s.pos.y).toBeLessThanOrEqual(0.05);
+    const touchdown = s.energy;
+    hold(w, s, 0.6, false);           // inside the 1.0s breather
+    expect(s.energy, 'no fuel during the breather').toBeLessThanOrEqual(touchdown + 0.01);
+    hold(w, s, 1.0, false);           // breather over — NOW it flows
+    expect(s.energy, 'the tank flows once the pilot has breathed').toBeGreaterThan(touchdown + 5);
   });
 
   it('the sky has a soft ceiling — thrust fades, nobody moons out', () => {

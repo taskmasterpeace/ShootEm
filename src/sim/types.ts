@@ -385,6 +385,10 @@ export interface Soldier {
   /** jetpack burned dry — no relight until energy recovers to 35 (the
    *  flight economy: fly, land, breathe — never cross the map in one hop) */
   jetSpent?: boolean;
+  /** the BREATHER: keeps sliding forward while a jump trooper is off the
+   *  deck, so for JET_BREATHER after touchdown the tank refuses to flow —
+   *  landing is a commitment, not a trampoline bounce between hops */
+  jetRestUntil?: number;
   /** this soldier IS a Living Super Weapon (§21.6). Rides the wire free via
    *  the snapshot spread law — the renderer and brain read it, the sim
    *  treats it as a Soldier with a big HP pool and a special step. */
