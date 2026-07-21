@@ -541,7 +541,7 @@ git commit -m "feat: build mountain coastal and ocean theaters"
 - Produces: `validateTheater(map): TheaterValidation`, `routesConnectBases`, `deepWaterConnected`, `heavyVehicleRouteCount`, `measureTheaterGeneration`.
 - Consumes: `GameMap.theater`, vehicle radii, terrain/domain rules.
 
-- [ ] **Step 1: Write failing corruption and performance tests**
+- [x] **Step 1: Write failing corruption and performance tests**
 
 ```ts
 it('names the theater seed and violated law', () => {
@@ -559,23 +559,23 @@ it('generates 900x900 theaters under the approved p95 budget', () => {
 });
 ```
 
-- [ ] **Step 2: Run validation/performance tests and verify RED**
+- [x] **Step 2: Run validation/performance tests and verify RED**
 
 Run: `npx vitest run tests/theaters.test.ts tests/theater-performance.test.ts`
 
 Expected: FAIL because complete validation and timing helper are absent.
 
-- [ ] **Step 3: Implement all shared theater laws**
+- [x] **Step 3: Implement all shared theater laws**
 
 Validate layer sizes; rims; finite coordinates; foot/ground/surface/deep route reachability; objective-domain reachability; pad surfaces and separation; indoor pads; landing-zone slope/clearance; largest-hull lane clearance sampled along routes; rendered-blocker claims; fixed-wing axis length; and route ids/point counts. Cache flood fields by `(map, domain, startIndex)` during validation so the matrix does not repeat full-grid BFS.
 
-- [ ] **Step 4: Run full map-law suite**
+- [x] **Step 4: Run full map-law suite**
 
 Run: `npx vitest run tests/theaters.test.ts tests/theater-performance.test.ts tests/fronts.test.ts tests/skirmish.test.ts tests/mapedit.test.ts tests/walls.test.ts`
 
 Expected: PASS with p95 printed by the performance test on failure only.
 
-- [ ] **Step 5: Commit theater laws**
+- [x] **Step 5: Commit theater laws**
 
 ```bash
 git add src/sim/theater-builder.ts tests/theaters.test.ts tests/theater-performance.test.ts

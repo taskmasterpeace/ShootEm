@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { THEATER_DEFS, generateTheater } from '../src/sim/theaters';
+import { deepWaterConnected, heavyVehicleRouteCount, routesConnectBases, validateTheater } from '../src/sim/theater-builder';
 import { deserializeDoc, serializeDoc } from '../src/sim/mapedit';
 import { Rng } from '../src/sim/rng';
 import { T_DEEP, T_WATER } from '../src/sim/map';
@@ -63,7 +64,7 @@ describe('vehicle theater catalog and base builder', () => {
   it('city publishes named districts and two heavy through-routes without free dogfighting', () => {
     const map = generateTheater('city', 7749);
     expect(map.controlPoints.map((point) => point.name)).toEqual(expect.arrayContaining(['DOWNTOWN', 'RAIL YARD', 'RESIDENTIAL']));
-    expect(map.theater!.routes.filter((route) => route.domain === 'ground' && route.width >= 24)).toHaveLength(2);
+    expect(heavyVehicleRouteCount(map)).toBe(2);
     expect(map.theater?.freeDogfight).toBe(false);
   });
 
@@ -102,7 +103,22 @@ describe('vehicle theater catalog and base builder', () => {
     }
     expect(water.every((wet, index) => !wet || seen[index] === 1)).toBe(true);
     expect(map.theater!.deepWater.length).toBeGreaterThan(500);
+    expect(deepWaterConnected(map)).toBe(true);
+    expect(routesConnectBases(map, 'surface')).toBe(true);
     expect(map.theater!.routes.filter((route) => route.domain === 'surface').length).toBeGreaterThanOrEqual(2);
     expect(map.vehiclePads.filter((pad) => pad.kind === 'boat')).toHaveLength(2);
+  });
+
+  it('validates all theater families over the deterministic seed matrix', () => {
+    for (const id of Object.keys(THEATER_DEFS) as Array<keyof typeof THEATER_DEFS>) {
+      for (const seed of seeds) expect(validateTheater(generateTheater(id, seed)).issues, `${id} seed ${seed}`).toEqual([]);
+    }
+  });
+
+  it('names the theater seed and violated pad law', () => {
+    const map = generateTheater('coastal', 42);
+    const boat = map.vehiclePads.find((pad) => pad.kind === 'boat')!;
+    boat.pos = { ...map.basePos[0] };
+    expect(validateTheater(map).issues.join('\n')).toMatch(/coastal seed 42.*wrong surface/i);
   });
 });

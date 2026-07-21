@@ -38,4 +38,10 @@ export function generateTheater(id: TheaterId, seed: number): GameMap {
   return generateCatalogBase(id, seed);
 }
 
+export function measureTheaterGeneration(id: TheaterId, seed: number): { map: GameMap; ms: number } {
+  const started = performance.now();
+  const map = generateTheater(id, seed);
+  return { map, ms: performance.now() - started };
+}
+
 export type { LandingZone, TheaterDef, TheaterDomain, TheaterId, TheaterMetadata, TheaterRoute } from './theater-types';

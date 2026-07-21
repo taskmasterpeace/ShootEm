@@ -147,3 +147,135 @@ export function routePoints(map: GameMap, fractions: Array<[number, number]>): V
 export function seededTheaterRng(map: GameMap): Rng {
   return new Rng(map.seed ^ 0x74686561);
 }
+
+export interface TheaterValidation {
+  ok: boolean;
+  issues: string[];
+}
+
+export function routeSpan(_map: GameMap, route: TheaterRoute): number {
+  if (!route.points.length) return 0;
+  const xs = route.points.map((point) => point.x);
+  const zs = route.points.map((point) => point.z);
+  return Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs));
+}
+
+export function routesConnectBases(map: GameMap, domain: TheaterDomain): boolean {
+  const routes = map.theater?.routes.filter((route) => route.domain === domain) ?? [];
+  const west = -map.geometry.cols * map.geometry.tile * 0.4;
+  const east = map.geometry.cols * map.geometry.tile * 0.4;
+  return routes.some((route) => {
+    const xs = route.points.map((point) => point.x);
+    return xs.length >= 2 && Math.min(...xs) <= west && Math.max(...xs) >= east;
+  });
+}
+
+export function deepWaterConnected(map: GameMap): boolean {
+  const deep = map.grid.map((tile) => tile === T_DEEP ? 1 : 0);
+  const start = deep.findIndex((tile) => tile === 1);
+  if (start < 0) return false;
+  const seen = new Uint8Array(deep.length);
+  const queue = [start];
+  seen[start] = 1;
+  while (queue.length) {
+    const index = queue.pop()!;
+    const x = index % map.geometry.cols;
+    const z = Math.floor(index / map.geometry.cols);
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      const nx = x + dx, nz = z + dz;
+      if (nx < 0 || nz < 0 || nx >= map.geometry.cols || nz >= map.geometry.rows) continue;
+      const next = tileIndex(map.geometry, nx, nz);
+      if (deep[next] && !seen[next]) { seen[next] = 1; queue.push(next); }
+    }
+  }
+  return deep.every((tile, index) => tile === 0 || seen[index] === 1);
+}
+
+export function heavyVehicleRouteCount(map: GameMap): number {
+  const heavyWidth = (requiredLaneTiles(2.4, true, map.geometry.tile) + 3) * map.geometry.tile;
+  return map.theater?.routes.filter((route) => route.domain === 'ground' && route.width >= heavyWidth).length ?? 0;
+}
+
+function finitePoint(point: Vec3): boolean {
+  return Number.isFinite(point.x) && Number.isFinite(point.y) && Number.isFinite(point.z);
+}
+
+export function validateTheater(map: GameMap): TheaterValidation {
+  const prefix = `${map.theater?.id ?? 'unknown'} seed ${map.seed}`;
+  const issues: string[] = [];
+  const issue = (law: string) => issues.push(`${prefix}: ${law}`);
+  try { validateGeometry(map.geometry, map.grid, map.grid2, map.surface); } catch (error) { issue((error as Error).message); }
+  if (!map.theater) issue('missing theater metadata');
+
+  for (let x = 0; x < map.geometry.cols; x++) {
+    if (map.grid[x] === T_OPEN || map.grid[(map.geometry.rows - 1) * map.geometry.cols + x] === T_OPEN) { issue('open north/south rim'); break; }
+  }
+  for (let z = 0; z < map.geometry.rows; z++) {
+    if (map.grid[z * map.geometry.cols] === T_OPEN || map.grid[z * map.geometry.cols + map.geometry.cols - 1] === T_OPEN) { issue('open east/west rim'); break; }
+  }
+
+  const positions: Vec3[] = [
+    ...map.basePos, ...map.flagPos, map.hillPos, ...map.spawns.flat(),
+    ...map.controlPoints.map((point) => point.pos), ...map.vehiclePads.map((pad) => pad.pos),
+    ...map.pickups.map((pickup) => pickup.pos), ...map.props.map((prop) => prop.pos), ...map.zombieSpawns,
+  ];
+  if (positions.some((point) => !finitePoint(point))) issue('non-finite map coordinate');
+  if (positions.some((point) => {
+    const [tx, tz] = worldToTile(map.geometry, point.x, point.z);
+    return !inBounds(map.geometry, tx, tz);
+  })) issue('map coordinate outside geometry');
+
+  const routeIds = new Set<string>();
+  for (const route of map.theater?.routes ?? []) {
+    if (routeIds.has(route.id)) issue(`duplicate route id ${route.id}`);
+    routeIds.add(route.id);
+    if (route.points.length < 2) issue(`route ${route.id} has fewer than two points`);
+    if (route.width <= 0 || !Number.isFinite(route.width)) issue(`route ${route.id} has invalid width`);
+    if (route.points.some((point) => !finitePoint(point))) issue(`route ${route.id} has non-finite point`);
+    if (route.domain === 'ground' && route.width < requiredLaneTiles(2.4, true, map.geometry.tile) * map.geometry.tile) issue(`route ${route.id} is too narrow for opposing heavy hulls`);
+    if (route.domain === 'ground' || route.domain === 'surface' || route.domain === 'deep') {
+      for (const point of route.points) {
+        const [tx, tz] = worldToTile(map.geometry, point.x, point.z);
+        if (!inBounds(map.geometry, tx, tz)) { issue(`route ${route.id} leaves the map`); break; }
+        const terrain = map.grid[tileIndex(map.geometry, tx, tz)];
+        const correct = route.domain === 'ground' ? terrain === T_OPEN
+          : route.domain === 'surface' ? terrain === T_WATER || terrain === T_DEEP
+          : terrain === T_DEEP;
+        if (!correct) { issue(`route ${route.id} is on the wrong surface`); break; }
+      }
+    }
+  }
+  if ((map.theater?.domains.includes('ground') ?? false) && !routesConnectBases(map, 'ground')) issue('ground routes do not span opposing sides');
+  if ((map.theater?.domains.includes('surface') ?? false) && !routesConnectBases(map, 'surface')) issue('surface routes do not span opposing sides');
+  if ((map.theater?.routes.some((route) => route.domain === 'air' && routeSpan(map, route) >= 540) ?? false) === false) issue('no fixed-wing axis spans 540 units');
+
+  for (const pad of map.vehiclePads) {
+    const [tx, tz] = worldToTile(map.geometry, pad.pos.x, pad.pos.z);
+    if (!inBounds(map.geometry, tx, tz)) { issue(`${pad.kind} pad outside geometry`); continue; }
+    const terrain = map.grid[tileIndex(map.geometry, tx, tz)];
+    if (pad.kind === 'boat' && terrain !== T_WATER && terrain !== T_DEEP) issue(`boat pad on wrong surface`);
+    if (pad.kind !== 'boat' && !['strikejet', 'interceptor', 'bomber', 'flyer', 'transport'].includes(pad.kind) && terrain !== T_OPEN) issue(`${pad.kind} pad on wrong surface`);
+  }
+
+  for (const zone of map.theater?.landingZones ?? []) {
+    const [tx, tz] = worldToTile(map.geometry, zone.pos.x, zone.pos.z);
+    if (!inBounds(map.geometry, tx, tz)) issue(`landing zone ${zone.id} outside geometry`);
+    if (!Number.isFinite(zone.radius) || zone.radius < 10) issue(`landing zone ${zone.id} lacks rotor clearance`);
+    if (!Number.isFinite(zone.slope) || zone.slope < 0 || zone.slope > 0.12) issue(`landing zone ${zone.id} has invalid slope`);
+  }
+
+  if ((map.theater?.domains.includes('deep') ?? false)) {
+    const deepCount = map.grid.reduce((count, tile) => count + (tile === T_DEEP ? 1 : 0), 0);
+    if (deepCount < 500) issue('deep-water layer is too small');
+    if (!deepWaterConnected(map)) issue('deep-water layer is disconnected');
+    if (map.theater && (map.theater.deepWater.length !== deepCount || map.theater.deepWater.some((index) => map.grid[index] !== T_DEEP))) issue('deep-water metadata is stale');
+  }
+
+  for (const index of map.propCovered) {
+    if (index < 0 || index >= map.grid.length || map.grid[index] === T_OPEN || map.grid[index] === T_WATER || map.grid[index] === T_DEEP) { issue(`stale rendered-blocker claim ${index}`); continue; }
+    const center = tileToWorld(map.geometry, index % map.geometry.cols, Math.floor(index / map.geometry.cols));
+    if (!map.props.some((prop) => Math.hypot(prop.pos.x - center.x, prop.pos.z - center.z) < 1.6 + prop.scale * 1.2)) issue(`rendered-blocker claim ${index} has no prop`);
+  }
+
+  return { ok: issues.length === 0, issues };
+}
