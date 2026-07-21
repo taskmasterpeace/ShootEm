@@ -498,6 +498,19 @@ export interface Soldier {
   /** brief post-escape window during which this body can't be re-grabbed — no
    *  instant re-clinch / chain-lock after you fight free. */
   grabImmuneUntil?: number;
+  /** §15 CONTROL STRUGGLE — the rear-grab contest. Set on the VICTIM of a
+   *  rear pin (people only, never zeds/gods): a Break Needle sweeps the
+   *  shared track; the attacker steers the Control Zone; the defender
+   *  confirms (Z) while the needle overlaps it. Best-of-three — defender
+   *  takes 2 → fights free; attacker takes 2 → `locked`, and only a LOCKED
+   *  rear pin accepts the §14.2 finisher. Front pins never carry one. */
+  ctrlStruggle?: {
+    round: number; attWins: number; defWins: number;
+    /** sim-time the current round's needle started — needle position is a
+     *  pure function of (anchor, time, round); HUD reuses ctrlNeedlePos */
+    anchor: number; roundEndsAt: number;
+    zoneC: number; zoneW: number; locked?: boolean;
+  };
   /** SPRINTER DORMANCY (OUTBREAK-SPEC §7.1): a sprinter lies still and slow
    *  until woken by proximity, line-of-sight, or noise — then it never sleeps
    *  again. Only ever set on kind 'sprinter'. */
@@ -867,6 +880,9 @@ export interface SimEvent {
     | 'melee_block'    // §12: a raised GUARD caught a STRIKE — sparks, a parry ring
     | 'grabbed'        // §14: a grapple landed — the target is pinned in a hold
     | 'grab_break'     // §14: a pinned body struggled or slipped free of the hold
+    | 'struggle_start' // §15: a REAR pin opened a Control Struggle (soldierId = victim)
+    | 'struggle_round' // §15: a contest pip fell — text: 'att' | 'def' won the round
+    | 'struggle_lock'  // §15: attacker took best-of-three — the hold is LOCKED, finisher live
     | 'sprinter_wake'  // §7.1: a dormant sprinter just activated — the terror spike
     | 'corpse_critical' // §6: a booked corpse entered its final reanimation window
     | 'contamination'  // §8: a corpse pile curdled into a mutation-field nest

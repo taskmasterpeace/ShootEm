@@ -275,12 +275,16 @@ describe('the GUARD (§12) — beats STRIKE', () => {
 // stuffs the grab (strike beats grapple). The whole triangle now closes.
 // ---------------------------------------------------------------------------
 describe('the GRAPPLE (§12/§14) — beats GUARD, loses to STRIKE', () => {
-  /** A team-0 grabber at the origin lunges Z at a team-1 body 1.6u ahead. */
+  /** A team-0 grabber at the origin lunges Z at a team-1 body 1.6u ahead.
+   *  The body FACES the grabber — a FRONT clinch, the classic mash-out law
+   *  these tests pin. (A rear grab now opens the §15 Control Struggle —
+   *  that contest lives in tests/ctrlstruggle.test.ts.) */
   function landGrab(prep?: (target: Soldier, w: World) => void) {
     const w = new World({ seed: 40, mode: 'tdm' });
     const grabber = w.addSoldier('Vice', 'infantry', 0, 'human');
     grabber.pos = { x: 0, y: 0, z: 0 };
     const target = dummy(w, 1.6, 0); // team-1 human in reach, dead ahead
+    target.yaw = Math.PI;            // eyes on the grabber — front clinch
     prep?.(target, w);
     w.step(DT, new Map([[grabber.id, cmd({ grapple: true, aimYaw: 0 })]]));
     const events = w.takeEvents();

@@ -18,6 +18,10 @@ function staged() {
   a.pos = { x: 0, y: 0, z: 0 }; a.yaw = 0; a.protectedUntil = 0; // facing +x
   const v = w.addSoldier('Vic', 'infantry', 1, 'human');
   v.pos = { x: 1.4, y: 0, z: 0 }; v.protectedUntil = 0;    // right in front, in reach; no spawn shield
+  // FACING the attacker — a FRONT pin, which keeps the classic recover-gated
+  // finisher. (A REAR pin now runs the §15 Control Struggle first — that law
+  // lives in tests/ctrlstruggle.test.ts.)
+  v.yaw = Math.PI;
   w.step(1 / 60, new Map());                              // warm the spatial index
   return { w, a, v };
 }

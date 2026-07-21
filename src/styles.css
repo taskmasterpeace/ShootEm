@@ -1028,3 +1028,19 @@ kbd.key {
 }
 kbd.key + kbd.key { margin-left: 0.15rem; }
 .ctl-note { font-size: 0.66rem; color: var(--muted); letter-spacing: 0.04em; margin-top: 0.6rem; }
+
+/* ---- §15 CONTROL STRUGGLE — the Contest Track (shared by both sides of the
+   hold): the zone is the attacker's moving highlight, the needle the
+   defender's timing tick, pips the best-of-three. */
+.cs-wrap { display: inline-flex; align-items: center; gap: 0.35rem; vertical-align: middle; margin-left: 0.4rem; }
+.cs-track {
+  position: relative; display: inline-block; width: 10rem; height: 0.62rem;
+  background: var(--bg-deep); border: 1px solid var(--border-bright);
+}
+.cs-zone { position: absolute; top: 0; bottom: 0; background: oklch(0.62 0.16 74 / 0.55); border-inline: 1px solid var(--accent); }
+.cs-needle { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--text); box-shadow: 0 0 4px oklch(0.9 0.02 78 / 0.8); }
+.cs-pip { display: inline-block; width: 0.5rem; height: 0.5rem; border: 1px solid var(--border-bright); background: transparent; }
+.cs-pip + .cs-pip { margin-left: 0.18rem; }
+.cs-pip.def { background: oklch(0.66 0.14 145); border-color: oklch(0.72 0.14 145); }
+.cs-pip.att { background: oklch(0.6 0.19 25); border-color: oklch(0.68 0.19 25); }
+.cs-clock { font-family: var(--font-mono); font-size: 0.62rem; color: var(--muted); min-width: 2.2rem; }

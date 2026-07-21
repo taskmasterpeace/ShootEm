@@ -179,6 +179,27 @@ const GRAB_IMMUNE = 1.0;
  *  control bypasses plate. The pin's GRAB_RECOVER delay before a second grapple
  *  gives the victim a struggle window; gods are exempt (too big to take down). */
 const TAKEDOWN_DAMAGE = 500;
+/** §15 CONTROL STRUGGLE — the rear-grab contest (Robert: "more consequential
+ *  when you grab them from behind"). A rear pin on a PERSON no longer mashes
+ *  out and no longer dies to a casual second tap: a Break Needle sweeps the
+ *  shared track, the attacker STEERS the Control Zone away from it, and the
+ *  defender must CONFIRM (Z) while needle overlaps zone. Best-of-three.
+ *  Defender takes 2 → fights free (full rebound). Attacker takes 2 → the
+ *  hold LOCKS, and only a locked rear pin accepts the §14.2 finisher.
+ *  Front pins keep the old law whole (mash escape, recover-gated finisher). */
+const CTRL_ROUND_SECS = 3;    // the spec's default contest window per round
+const CTRL_ZONE_W = 0.26;     // Control Zone width on the 0..1 track
+const CTRL_NEEDLE_HZ = 0.7;   // needle triangle cycles/sec (round 1; +20%/round)
+const CTRL_STEER = 0.55;      // attacker zone-steer speed (track/sec)
+const CTRL_BOT_CONFIRM = 5;   // defender-bot confirm hazard/sec while in the zone
+const CTRL_LOCK_HOLD = 1.6;   // the locked hold's fresh window to land the finisher
+/** the needle is a PURE function of (anchor, time, round) — sim and HUD both
+ *  call this, so what you see IS what the contest judges. */
+export function ctrlNeedlePos(anchor: number, time: number, round: number): number {
+  const hz = CTRL_NEEDLE_HZ * Math.pow(1.2, round - 1);
+  const p = ((time - anchor) * hz) % 1;
+  return p < 0.5 ? p * 2 : 2 - p * 2;
+}
 /** BITE STRUGGLE (OUTBREAK-SPEC §15.5): a zombie's grip HOLDS this long — win
  *  the struggle before it lapses or the bite lands. Sprinters snap faster,
  *  brutes clamp longer (scaled per-kind at the grab). */
@@ -1319,7 +1340,7 @@ export class World {
     s.medikitReady = true;
     s.meleeStrikeAt = 0; s.meleeWeapon = ''; // no swing survives a respawn
     s.meleeCharge = 0; s.meleeChargeMul = undefined; // and no half-built Power Strike
-    s.guarding = false; s.grabbedUntil = undefined; s.grabbedBy = undefined; // no hold survives it either
+    s.guarding = false; s.grabbedUntil = undefined; s.grabbedBy = undefined; s.ctrlStruggle = undefined; // no hold survives it either
     // mobile spawn: a crewed APC or transport with a LIVE comms system
     const mobile = [...this.vehicles.values()].find(
       (v) => v.alive && v.team === s.team && VEHICLES[v.kind].mobileSpawn &&
@@ -1595,7 +1616,45 @@ export class World {
         const cmd = cmds.get(s.id);
         const struggling = !!cmd && (cmd.moveX !== 0 || cmd.moveZ !== 0 || cmd.fire || cmd.jump);
         s.vel = { x: 0, y: 0, z: 0 };
-        if (struggling) s.struggle = (s.struggle ?? 0) + dt / GRAB_STRUGGLE_SECS;
+        // §15 CONTROL STRUGGLE: a rear pin is a CONTEST, not a mash. The
+        // needle sweeps; the (always-human) attacker steers the zone; the
+        // defender confirms Z inside it. Best-of-three under the round clock.
+        const cs = s.ctrlStruggle;
+        if (cs && !cs.locked && grabber && grabber.alive) {
+          const needle = ctrlNeedlePos(cs.anchor, this.time, cs.round);
+          const acmd = cmds.get(grabber.id);
+          if (acmd && acmd.moveX !== 0) {
+            cs.zoneC = Math.max(cs.zoneW / 2, Math.min(1 - cs.zoneW / 2,
+              cs.zoneC + acmd.moveX * CTRL_STEER * dt));
+          }
+          // the defender's confirm: a human presses Z; a bot reads the needle
+          // with seeded reflexes (a hazard-rate roll while it's in the zone)
+          let confirm = !!cmd?.grapple;
+          if (!confirm && s.kind === 'bot'
+              && Math.abs(needle - cs.zoneC) <= (cs.zoneW / 2) * 0.7
+              && this.rng.next() < dt * CTRL_BOT_CONFIRM) confirm = true;
+          let pip: 'att' | 'def' | undefined;
+          if (confirm) pip = Math.abs(needle - cs.zoneC) <= cs.zoneW / 2 ? 'def' : 'att';
+          else if (this.time >= cs.roundEndsAt) pip = 'att'; // the window closed on him
+          if (pip) {
+            if (pip === 'def') cs.defWins++; else cs.attWins++;
+            this.emit({ type: 'struggle_round', pos: { ...s.pos }, soldierId: s.id, text: pip });
+            if (cs.defWins >= 2) {
+              s.struggle = 1; // fought free — the break machinery below fires with the full rebound
+            } else if (cs.attWins >= 2) {
+              cs.locked = true; // control is TAKEN — only now does the finisher go live
+              s.grabbedUntil = this.time + CTRL_LOCK_HOLD;
+              this.emit({ type: 'struggle_lock', pos: { ...s.pos }, soldierId: s.id });
+            } else {
+              cs.round++; cs.anchor = this.time; cs.zoneC = 0.5;
+              cs.roundEndsAt = this.time + CTRL_ROUND_SECS;
+              s.grabbedUntil = Math.max(s.grabbedUntil, cs.roundEndsAt + 0.4); // the hold lasts the contest
+            }
+          }
+        }
+        // mash escape belongs to FRONT pins and zombie clinches only — a rear
+        // contest (locked or live) is won on the needle, never the keyboard shake
+        if (struggling && !s.ctrlStruggle) s.struggle = (s.struggle ?? 0) + dt / GRAB_STRUGGLE_SECS;
         // BITE STRUGGLE (OUTBREAK-SPEC §15.5): a ZOMBIE's grip gnaws — Viral
         // Load climbs the whole time it has you, so a slow escape still costs.
         const byZed = !!grabber && isZed(grabber.kind);
@@ -1620,7 +1679,7 @@ export class World {
             this.damageSoldier(s, BITE_DAMAGE, grabber.id, 'zombie_claw');
             if (s.alive) { s.pushX += ((grabber.pos.x - s.pos.x) / dl) * 3; s.pushZ += ((grabber.pos.z - s.pos.z) / dl) * 3; }
           }
-          s.grabbedUntil = undefined; s.grabbedBy = undefined; s.struggle = undefined;
+          s.grabbedUntil = undefined; s.grabbedBy = undefined; s.struggle = undefined; s.ctrlStruggle = undefined;
           s.grabImmuneUntil = this.time + GRAB_IMMUNE; // no instant re-clinch
           this.emit({ type: 'grab_break', pos: { ...s.pos }, soldierId: s.id });
         }
@@ -2384,11 +2443,17 @@ export class World {
       // heavy, armour-piercing, unblockable. Gods are too big to take down.
       const pinned = s.grabbingId !== undefined ? this.soldiers.get(s.grabbingId) : undefined;
       const holding = !!pinned && pinned.alive && pinned.grabbedBy === s.id && pinned.grabbedUntil !== undefined;
-      if (holding && !pinned!.ascendant) {
+      // §15: a rear pin's finisher waits for CONTROL — the contest must be
+      // LOCKED first. (Front pins and zed victims carry no contest and keep
+      // the old recover-gated finisher.) An early second tap is simply
+      // refused and the reach falls through to a fresh-grab attempt (which
+      // finds nobody ungrabbed in reach — the hand stays busy).
+      const controlTaken = !pinned?.ctrlStruggle || pinned.ctrlStruggle.locked === true;
+      if (holding && !pinned!.ascendant && controlTaken) {
         this.emit({ type: 'takedown', pos: { ...pinned!.pos }, soldierId: pinned!.id });
         if (s.kind === 'human') this.emit({ type: 'announce', text: 'TAKEDOWN', big: false }); // the executor's reward (grabs are player-only)
         this.damageSoldier(pinned!, TAKEDOWN_DAMAGE, s.id, 'knife', false, true); // AP finisher, a knife-credited kill
-        pinned!.grabbedUntil = undefined; pinned!.grabbedBy = undefined; pinned!.struggle = undefined;
+        pinned!.grabbedUntil = undefined; pinned!.grabbedBy = undefined; pinned!.struggle = undefined; pinned!.ctrlStruggle = undefined;
         s.grabbingId = undefined; // the finisher is your whole action this tick
       } else {
         s.grabbingId = undefined; // not holding a live pin — go reach for a fresh one
@@ -2425,6 +2490,21 @@ export class World {
             target.meleeStrikeAt = 0; target.meleeWeapon = ''; // any windup of his dies in the clinch
             target.vel = { x: 0, y: 0, z: 0 };
             this.emit({ type: 'grabbed', pos: { ...target.pos }, soldierId: target.id });
+            // §15: grabbed from BEHIND, and the victim is a PERSON — the pin
+            // opens a CONTROL STRUGGLE instead of a mash. (Zeds can't play
+            // needle games and gods shrug rear control — both keep old law.)
+            const rel = Math.atan2(s.pos.z - target.pos.z, s.pos.x - target.pos.x);
+            const off = Math.atan2(Math.sin(rel - target.yaw), Math.cos(rel - target.yaw));
+            const rearGrab = Math.abs(off) > Math.PI / 2;
+            if (rearGrab && (target.kind === 'human' || target.kind === 'bot') && !target.ascendant) {
+              target.ctrlStruggle = {
+                round: 1, attWins: 0, defWins: 0,
+                anchor: this.time, roundEndsAt: this.time + CTRL_ROUND_SECS,
+                zoneC: 0.5, zoneW: CTRL_ZONE_W,
+              };
+              target.grabbedUntil = this.time + CTRL_ROUND_SECS + 0.4; // the hold lasts the contest
+              this.emit({ type: 'struggle_start', pos: { ...target.pos }, soldierId: target.id });
+            }
           }
         }
       }

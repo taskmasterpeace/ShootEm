@@ -9,9 +9,23 @@ import { weaponPortrait } from './weaponcam';
 import { weaponBrand } from './models/weapons';
 import { SegMeter } from './segmeter';
 import { classLinger, MAX_LINGER } from '../sim/perception';
-import type { World } from '../sim/world';
+import { ctrlNeedlePos, type World } from '../sim/world';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+
+/** §15 the Contest Track — zone + needle + best-of-three pips, built from the
+ *  same pure ctrlNeedlePos the sim judges, so the HUD can never lie about
+ *  where the needle is. Rendered fresh each frame on both sides of the hold. */
+function csTrackHtml(cs: NonNullable<Soldier['ctrlStruggle']>, time: number): string {
+  const needle = ctrlNeedlePos(cs.anchor, time, cs.round);
+  const pips = (won: number, cls: string) =>
+    `<i class="cs-pip${won >= 1 ? ' ' + cls : ''}"></i><i class="cs-pip${won >= 2 ? ' ' + cls : ''}"></i>`;
+  const secs = Math.max(0, cs.roundEndsAt - time);
+  return `<span class="cs-wrap">${pips(cs.defWins, 'def')}<span class="cs-track">` +
+    `<span class="cs-zone" style="left:${((cs.zoneC - cs.zoneW / 2) * 100).toFixed(1)}%;width:${(cs.zoneW * 100).toFixed(1)}%"></span>` +
+    `<span class="cs-needle" style="left:${(needle * 100).toFixed(1)}%"></span></span>` +
+    `${pips(cs.attWins, 'att')}<span class="cs-clock">${secs.toFixed(1)}s</span></span>`;
+}
 
 /** A tactical-system waypoint drawn on the whole team's minimap. */
 interface Waypoint { x: number; z: number; until: number; by: string }
@@ -436,7 +450,17 @@ export class Hud {
       const pin = s.grabbingId !== undefined ? world.soldiers.get(s.grabbingId) : undefined;
       const holdingPin = !!pin && pin.grabbedBy === s.id && pin.grabbedUntil !== undefined;
       if (holdingPin) {
-        hint.innerHTML = `${icon('rear')} REAR CONTROL — press Z: TAKEDOWN`; // §16.3: hand behind a silhouette
+        // §15: a rear pin runs the CONTROL STRUGGLE — the attacker sees the
+        // same needle the sim judges and STEERS the zone away from it. Only
+        // a LOCKED hold offers the finisher; a front pin keeps the old line.
+        const pcs = pin!.ctrlStruggle;
+        if (pcs && !pcs.locked) {
+          hint.innerHTML = `${icon('rear')} CONTROL STRUGGLE — A/D steer the zone ${csTrackHtml(pcs, world.time)}`;
+        } else if (pcs?.locked) {
+          hint.innerHTML = `${icon('rear')} LOCKED — press Z: TAKEDOWN`;
+        } else {
+          hint.innerHTML = `${icon('rear')} REAR CONTROL — press Z: TAKEDOWN`; // §16.3: hand behind a silhouette
+        }
         hint.classList.add('warn');
       } else if (s.guarding) {
         hint.innerHTML = `${icon('guard')} GUARD — bracing · release V to lower`; // §16.3: angled brace
@@ -514,12 +538,23 @@ export class Hud {
       const grabber = s.grabbedBy != null ? world.soldiers.get(s.grabbedBy) : undefined;
       const bite = !!grabber && isZed(grabber.kind);
       db.classList.remove('hidden');
-      // §16.3: ESCAPE is the broken chain — the struggle wears the icon
-      db.querySelector('b')!.innerHTML = `${icon('escape')} ${bite ? 'BITE STRUGGLE' : 'GRABBED'}`;
-      const pct = Math.round(Math.min(1, s.struggle ?? 0) * 100);
-      $('down-timer').textContent = bite
-        ? ` — mash MOVE before the bite! · ${pct}%`
-        : ` — mash MOVE to break free · ${pct}%`;
+      const dcs = s.ctrlStruggle;
+      if (dcs && !dcs.locked) {
+        // §15 the defender's side of the CONTROL STRUGGLE: hit Z while the
+        // needle crosses the zone. Same pure needle the sim judges.
+        db.querySelector('b')!.innerHTML = `${icon('escape')} CONTROL STRUGGLE`;
+        $('down-timer').innerHTML = ` — Z as the needle crosses the zone! ${csTrackHtml(dcs, world.time)}`;
+      } else if (dcs?.locked) {
+        db.querySelector('b')!.innerHTML = `${icon('escape')} CONTROLLED`;
+        $('down-timer').textContent = ' — he has full control. Brace.';
+      } else {
+        // §16.3: ESCAPE is the broken chain — the struggle wears the icon
+        db.querySelector('b')!.innerHTML = `${icon('escape')} ${bite ? 'BITE STRUGGLE' : 'GRABBED'}`;
+        const pct = Math.round(Math.min(1, s.struggle ?? 0) * 100);
+        $('down-timer').textContent = bite
+          ? ` — mash MOVE before the bite! · ${pct}%`
+          : ` — mash MOVE to break free · ${pct}%`;
+      }
     } else db.classList.add('hidden');
 
     // respawn overlay
