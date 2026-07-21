@@ -33,7 +33,7 @@ If you read one thing, read this. Everything below has a full row further down.
 
 **Combat feel:** the aim ring · accuracy-by-movement · ballistic falloff · tap-jump/hold-duck · tank hull wobble.
 **The death show:** death-cam director (varies by death) · gore/gibs · corpses lingering 20–30s · a kill-cam reward.
-**Sight (you just approved the fix):** 3D-shows-you / minimap-shows-team · contacts hold-then-fade instead of blinking · darkness outside your cone · house/maze line-of-sight · the second-storey fishbowl bug.
+**Sight (you just approved the fix):** 3D-shows-you / minimap-shows-team · contacts hold-then-fade instead of blinking · darkness outside your cone · house/maze line-of-sight. *(The three fog BUGS are now fixed 2026-07-21: the second-storey fishbowl #43, corpses bypassing fog #44, vehicles never fog-culled #45.)*
 **Melee:** STRIKE / GUARD / GRAPPLE + Impact Charge + the Control Struggle (terminology now LAW per the outbreak spec; the swing engine exists, wired only to zombie claws).
 **The outbreak (new spec, §17):** infection/viral load ✅ · corpse lifecycle & reanimation ✅ · outbreak pressure/levels ✅ · emergent variants ✅ · ammo TYPES (Ball/AP/Incendiary) ✅ — all SHIPPED 2026-07-20, live in horde/survival/safehouse. Still design: zombies as a third faction mid-war · flashlight interiors · Bite Struggle · mixed magazines.
 **The war:** the 3×3 board · killing the time-skip · the clone economy · pass escalation · **science missions** (now fully designed) · class-change requests · the two faction leaders · bots looking like robots.
@@ -84,9 +84,9 @@ Full spec: **`PLAN 2026-07-20-sight-and-steel.md` § A**. Measured: the game dra
 | Contacts **hold then fade** — never blink/pop out | ❌ | today the ghost is a translucent jogging body; the new mark holds, then dissolves (your 2026-07-20 refinement). W0.2 |
 | The world outside your cone goes **dark** | ❌ | no darkness machinery; the cheap path is shader injection (zero draws). W0.2 |
 | In a house/maze, see what you can see and no more | ❌ | ground-floor LOS is good; upstairs + roof-peek are not. W0.3 |
-| **BUG:** any second storey is a fishbowl — seen through walls by the whole enemy team | ❌ | the skyline rule (`perception.ts:94`) skips cone+LOS for `y>3`. [#43](https://github.com/taskmasterpeace/ShootEm/issues/43) |
-| **BUG:** enemy corpses bypass the fog entirely | ❌ | `renderer.ts:1434` vs `:1472`. [#44](https://github.com/taskmasterpeace/ShootEm/issues/44) |
-| **BUG:** enemy vehicles are never fog-culled | ❌ | `renderer.ts:1662`. [#45](https://github.com/taskmasterpeace/ShootEm/issues/45) |
+| **BUG:** any second storey is a fishbowl — seen through walls by the whole enemy team | ✅ | **FIXED 2026-07-21** (sight-plan A3 step 1): the skyline rule now guards on `(s.floor ?? 0) !== 1` — a jet or jump-trooper still skylines, but an UPSTAIRS body obeys cone+LOS. `perception.ts:94`, `tests/fishbowl.test.ts`. [#43](https://github.com/taskmasterpeace/ShootEm/issues/43) |
+| **BUG:** enemy corpses bypass the fog entirely | ✅ | **FIXED 2026-07-21**: local play now culls enemy corpses live against friendly eyes, the exact rule `cullSnapshotFor` already enforced. Shared `eyesSeePoint` primitive. `renderer.ts` (soldier loop), `perception.ts`. [#44](https://github.com/taskmasterpeace/ShootEm/issues/44) |
+| **BUG:** enemy vehicles are never fog-culled | ✅ | **FIXED 2026-07-21**: enemy hulls now obey the same fog (burrowed/ECM/LOS parity with the culler); live-verified — a tank with no friendly eyes on it draws `visible=false`. `renderer.ts` (vehicle loop), `tests/fogcull.test.ts`. [#45](https://github.com/taskmasterpeace/ShootEm/issues/45) |
 
 ## 4 · MELEE — STRIKE, GUARD, GRAPPLE
 

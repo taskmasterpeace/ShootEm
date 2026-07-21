@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
 import { CLIMB_H, F2_SLIT, F2_WALL, F2_WELL, GRID, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt, losClear, surfaceAt, tileAt } from '../sim/map';
-import { classLinger, seenRecently, type SeenMark } from '../sim/perception';
+import { classLinger, eyesSeePoint, seenRecently, type SeenMark } from '../sim/perception';
 import { paintColorFor } from './onboarding';
 import type { WeatherKind } from '../sim/weather';
 import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
@@ -1283,6 +1283,22 @@ export class Renderer {
     const localTeam = local?.team ?? 0;
     this.frameDt = dt;
 
+    // LOCAL FOG for the trail-less (§19.1). Living enemies ride the sim's
+    // per-tick lastSeen trail, but the two things that carry NO trail — enemy
+    // CORPSES (#44) and enemy VEHICLES (#45) — were drawn unconditionally, so a
+    // dead man and a parked tank read through every wall across the whole map.
+    // The multiplayer culler already tests them live against friendly eyes
+    // (snapshot.ts cullSnapshotFor); local play now shares that exact rule via
+    // eyesSeePoint. Puppets arrive pre-culled by the server → skip (null eyes).
+    const fogEyes = (!world.puppet && local)
+      ? [...world.soldiers.values()].filter((e) => e.alive && e.team === localTeam)
+      : null;
+    const fogRange = world.perceiveRange();
+    /** Should an ENEMY thing at this spot be drawn? True (no local cull) for
+     *  puppets/spectators; otherwise only where a friendly eye has LOS to it. */
+    const enemyVisibleAt = (x: number, z: number, y = 1.4): boolean =>
+      fogEyes === null || eyesSeePoint(world.map.grid, fogEyes, x, z, fogRange, y);
+
     // ambience: the theme's bed hums low under the match. Self-managing —
     // retries until the audio context + buffer exist, swaps beds if the
     // rendered theme changes, and stays silent for unfilled slots.
@@ -1472,6 +1488,14 @@ export class Renderer {
             mesh.userData.ghostAlpha = Math.max(0.05, 1 - (world.time - mark.t) / linger);
           } else dark = true;
         }
+      }
+      // #44 CORPSE FOG: a dead enemy carries no seen-trail (the sim deletes its
+      // mark the tick it dies), so cull it LIVE against friendly eyes exactly as
+      // the multiplayer culler does — a body you never had eyes on, across the
+      // map or behind a wall, must not read through it. A corpse you can see
+      // (you watched him drop, or you have LOS to the spot) still draws.
+      if (!world.puppet && local && s.team !== localTeam && corpse && !enemyVisibleAt(s.pos.x, s.pos.z)) {
+        dark = true;
       }
       // SOUND AND MOVEMENT (§19.2): your ears keep working where your eyes
       // stop. An unseen mover inside earshot still lands footsteps — and
@@ -1759,6 +1783,19 @@ export class Renderer {
       }
       mesh.visible = v.alive;
       if (!v.alive) continue;
+      // #45 VEHICLE FOG: an enemy hull carries no seen-trail either, and was
+      // drawn wherever it was alive — a tank on the far side of the map, behind
+      // every building, read straight through them. Mirror the multiplayer
+      // culler (snapshot.ts) exactly: your own team always shows; a burrowed
+      // digger is truly gone; dead ECM broadcasts you; otherwise a friendly eye
+      // must hold LOS to the hull (tested at ~1.8u, a turret's height).
+      if (!world.puppet && local && v.team !== localTeam) {
+        const ecmDead = !!v.systems && v.systems.ecm <= 0;
+        if (v.burrowed || (!ecmDead && !enemyVisibleAt(v.pos.x, v.pos.z, 1.8))) {
+          mesh.visible = false;
+          continue;
+        }
+      }
       // open vehicles show their rider only while someone's actually aboard
       const rider = mesh.getObjectByName('rider');
       if (rider) rider.visible = v.seats[0] >= 0;

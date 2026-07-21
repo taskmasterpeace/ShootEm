@@ -1,5 +1,5 @@
-import { T_OPEN, T_RUBBLE, losClear } from './map';
-import { SEEN_LINGER, SEEN_LINGER_GEARED, perceivesNow, seenRecently } from './perception';
+import { T_OPEN, T_RUBBLE } from './map';
+import { SEEN_LINGER, SEEN_LINGER_GEARED, eyesSeePoint, perceivesNow, seenRecently } from './perception';
 import type { WeatherState } from './weather';
 import type { Gadget, Mine, ModeId, ModeState, Pickup, Projectile, SimEvent, Soldier, ThemeId, Turret, Vehicle } from './types';
 import { World } from './world';
@@ -112,10 +112,7 @@ export function cullSnapshotFor(w: World, snap: Snapshot, viewerId: number): Sna
   const range = w.perceiveRange();
   const linger = viewer.equipment.includes('tracking_optics') ? SEEN_LINGER_GEARED : SEEN_LINGER;
   const eyes = [...w.soldiers.values()].filter((s) => s.alive && s.team === team);
-  const seesPoint = (x: number, z: number, y = 1.4) =>
-    eyes.some((e) =>
-      Math.hypot(x - e.pos.x, z - e.pos.z) < range &&
-      losClear(w.map.grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x, y, z }));
+  const seesPoint = (x: number, z: number, y = 1.4) => eyesSeePoint(w.map.grid, eyes, x, z, range, y);
 
   const soldiers = snap.soldiers.flatMap((s) => {
     if (s.team === team) return [s];

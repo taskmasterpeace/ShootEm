@@ -79,6 +79,20 @@ export function smokeBlocks(ax: number, az: number, bx: number, bz: number, smok
   return false;
 }
 
+/** Do any of these friendly eyes have LINE OF SIGHT to a ground point, within
+ *  the vision budget? This is the rule the snapshot culler applies to the two
+ *  things that carry no per-tick seen-trail — CORPSES and VEHICLES: a dead body
+ *  or a parked hull is on your wire only where a teammate can actually SEE the
+ *  spot, never through a wall. `y` rides the target point; losClear marches the
+ *  ground grid at 1.4, so it is advisory today, but it keeps the call sites
+ *  honest about height (a hull tests at ~1.8). Shared by cullSnapshotFor (the
+ *  multiplayer path) and the renderer's local-play cull so they never diverge. */
+export function eyesSeePoint(grid: Uint8Array, eyes: Soldier[], x: number, z: number, range: number, y = 1.4): boolean {
+  return eyes.some((e) =>
+    Math.hypot(x - e.pos.x, z - e.pos.z) < range &&
+    losClear(grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x, y, z }));
+}
+
 /** Can this set of friendly eyes perceive enemy soldier `s` RIGHT NOW?
  *  `range` is the live vision budget — weather (§8.8) taxes it. `smokes`
  *  are the standing clouds: they block the cone and the ring alike (a
@@ -88,10 +102,16 @@ export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<numb
   if (s.cloaked && !pinged.has(s.id)) return false;   // cloak is TRUE
   if (s.carryingFlag !== -1) return true;             // objective intel is public
   if (pinged.has(s.id)) return true;
-  // the SKYLINE rule (§8.4): above the ground walls you're against the sky —
-  // a silhouette registers even in your periphery, so no cone check here.
-  // (Above ~3u you're also above the smoke banks, so no smoke test.)
-  if (s.pos.y > 3 && eyes.some((e) => Math.hypot(s.pos.x - e.pos.x, s.pos.z - e.pos.z) < range)) return true;
+  // the SKYLINE rule (§8.4): genuinely against the sky — an aircraft, a jet, a
+  // jump trooper mid-leap, a body flung by a blast — registers as a silhouette
+  // even in your periphery, so no cone and no smoke test (above ~3u you're also
+  // above the smoke banks). But a soldier UPSTAIRS (floor 1, standing at y=4) is
+  // NOT skyward: a roof and walls still hide him, so he falls through to the
+  // normal cone+LOS path below. Without this floor guard every second storey
+  // was a FISHBOWL — seen through every wall and roof by the whole enemy team
+  // out to the vision budget (#43, sight-plan A3 step 1).
+  if (s.pos.y > 3 && (s.floor ?? 0) !== 1 &&
+      eyes.some((e) => Math.hypot(s.pos.x - e.pos.x, s.pos.z - e.pos.z) < range)) return true;
   // TALL GRASS (finish-list 18): standing in the long grass you are a RUMOR --
   // the cone loses you beyond 14u, and beyond the footstep RING itself if you
   // DUCK. The truth-tellers: your own muzzle flash (revealed), a ping, the
