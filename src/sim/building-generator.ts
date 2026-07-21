@@ -166,6 +166,22 @@ function addGroundExits(grid: Grid, mask: boolean[][]): { entry: { x: number; z:
   return { entry, exit };
 }
 
+/** Courtyard voids are real outdoor rooms, not sealed orphan pockets. Give
+ * the ground ring one deliberate door into the court; upper storeys retain
+ * windows/rails around the opening. */
+function addCourtyardAccess(grid: Grid, mask: boolean[][]): void {
+  const height = grid.length, width = grid[0].length;
+  const candidates: { x: number; z: number; char: 'h' | 'v' }[] = [];
+  for (let z = 1; z < height - 1; z++) for (let x = 1; x < width - 1; x++) {
+    const char = grid[z][x];
+    if ((char === '-' || char === '=') && (!mask[z - 1]?.[x] || !mask[z + 1]?.[x])) candidates.push({ x, z, char: 'h' });
+    if ((char === '|' || char === '!') && (!mask[z]?.[x - 1] || !mask[z]?.[x + 1])) candidates.push({ x, z, char: 'v' });
+  }
+  candidates.sort((a, b) => Math.hypot(a.x - width / 2, a.z - height / 2) - Math.hypot(b.x - width / 2, b.z - height / 2));
+  const door = candidates[0];
+  if (door) grid[door.z][door.x] = door.char;
+}
+
 function addPartitions(grid: Grid, splitX = Math.floor(grid[0].length / 2)): void {
   const height = grid.length, width = grid[0].length;
   const runs: number[][] = [];
@@ -359,6 +375,7 @@ function generateAttempt(options: GenerateCityBuildingOptions, validationSeed: n
   const mask = makeMask(width, height, footprint);
   const ground = shell(mask, spec.windowEvery);
   const exits = addGroundExits(ground, mask);
+  if (footprint === 'courtyard') addCourtyardAccess(ground, mask);
   const exitColumns = new Set([exits.entry.x, exits.exit.x]);
   const middle = Math.floor(width / 2);
   const partitionX = [middle, middle - 1, middle + 1, middle - 2, middle + 2]

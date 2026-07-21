@@ -4,10 +4,16 @@ import { CLASSES, MODE_INFO, TEAM_COLORS, THEMES, WEAPONS } from '../sim/data';
 import { FAMILIES } from '../sim/arsenal';
 import {
   CLIMB_H, DRILL_EATS, GRID, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS,
+  F2_BALCONY, F2_DOOR_H, F2_DOOR_V, F2_RAIL_H, F2_RAIL_V, F2_SHUTTER,
+  F2_STAIR_N, F2_STAIR_W, F2_THIN_WALL_H, F2_THIN_WALL_HV, F2_THIN_WALL_V,
+  F2_VOID, F2_WALL, F2_WELL,
   S_DIRT, S_GRASS, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET,
-  T_CLIMB, T_COVER, T_DEEP, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER,
-  TILE, WORLD, blocksShot, isBlocked,
+  T_CLIMB, T_COVER, T_DEEP, T_DOOR, T_DOOR_OPEN, T_LADDER, T_METAL, T_OPEN, T_SECTION_SHUTTER,
+  T_SLIT, T_STAIRS_N, T_STAIRS_W, T_THIN_DOOR_H, T_THIN_DOOR_V, T_THIN_WALL_H,
+  T_THIN_WALL_HV, T_THIN_WALL_V, T_WALL, T_WATER,
+  THIN_WALL, TILE, WORLD, blocksShot, isBlocked, isWindowTile, windowSpansX,
 } from '../sim/map';
+import { floorLayer } from '../sim/map-layers';
 import { BUILDINGS, generateHouse, type BuildingDef, type DynHouseType } from '../sim/buildings';
 import { FRONT_STENCILS } from '../sim/fronts';
 import { Rng } from '../sim/rng';
@@ -517,7 +523,13 @@ function paintGround(world: World): THREE.Texture {
   return tex;
 }
 
-function loadEnvironment(mode: ModeId, seed: number, theme: ThemeId, mapOverride?: import('../sim/map').GameMap) {
+function loadEnvironment(
+  mode: ModeId,
+  seed: number,
+  theme: ThemeId,
+  mapOverride?: import('../sim/map').GameMap,
+  scienceMission?: import('../sim/science').ScienceMissionSpec,
+) {
   clearEnv();
   envMode = true;
   stage.visible = false;
@@ -526,7 +538,7 @@ function loadEnvironment(mode: ModeId, seed: number, theme: ThemeId, mapOverride
   grid.visible = false;
   floor.visible = false;
 
-  const world = new World({ seed: seed >>> 0, mode, difficulty: 'veteran', botsPerTeam: 0, matchMinutes: 15, theme });
+  const world = new World({ seed: seed >>> 0, mode, difficulty: 'veteran', botsPerTeam: 0, matchMinutes: 15, theme, scienceMission });
   // the Map Maker previews its own document: same World shell, its map swapped in
   if (mapOverride) world.map = mapOverride;
   const pal = THEME_PALETTES[world.map.theme] ?? THEME_PALETTES.savanna;
@@ -584,6 +596,66 @@ function loadEnvironment(mode: ModeId, seed: number, theme: ThemeId, mapOverride
   });
   envGroup.add(climbInst, climbLip);
 
+  // Whole-building inspection vocabulary. The harness used to show only the
+  // legacy full-tile walls, reducing a science mansion to its outer arena box.
+  // These open-topped procedural meshes mirror collision data closely enough
+  // to judge rooms, glazing, balconies, stairs, ladders, and all three floors.
+  const meta = world.map.buildingMeta;
+  envPreviewRadius = meta ? Math.max(meta.width ?? 15, meta.height ?? 15) * TILE * 1.25 : WORLD;
+  if (meta) {
+    const masonry = new THREE.MeshStandardMaterial({ color: 0xc48a45, roughness: 0.88 });
+    const door = new THREE.MeshStandardMaterial({ color: 0x76502e, roughness: 0.72 });
+    const glass = new THREE.MeshStandardMaterial({ color: 0x56d6e7, transparent: true, opacity: 0.48, roughness: 0.16, metalness: 0.12 });
+    const balcony = new THREE.MeshStandardMaterial({ color: 0xd8d0b7, roughness: 0.84 });
+    const shutter = new THREE.MeshStandardMaterial({ color: 0xb74338, roughness: 0.7, metalness: 0.3 });
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x5f625c, roughness: 0.96 });
+    const addBox = (x: number, y: number, z: number, sx: number, sy: number, sz: number, mat: THREE.Material) => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat);
+      mesh.position.set(x, y, z); mesh.castShadow = true; mesh.receiveShadow = true; envGroup.add(mesh);
+    };
+    for (let storey = 0; storey < meta.floors; storey++) {
+      const layer = floorLayer(world.map, storey);
+      const upper = storey > 0;
+      const baseY = storey * 4;
+      for (let z = 0; z < GRID; z++) for (let x = 0; x < GRID; x++) {
+        const tile = layer[z * GRID + x];
+        if (upper && tile === F2_VOID) continue;
+        const wx = (x + 0.5) * TILE - WORLD / 2, wz = (z + 0.5) * TILE - WORLD / 2;
+        if (upper) addBox(wx, baseY - 0.08, wz, TILE, 0.16, TILE, tile === F2_BALCONY ? balcony : floorMat);
+        if (upper && tile === F2_WALL) { addBox(wx, baseY + 2, wz, TILE, 4, TILE, masonry); continue; }
+        const thin = upper
+          ? tile === F2_THIN_WALL_H || tile === F2_THIN_WALL_V || tile === F2_THIN_WALL_HV
+            || tile === F2_DOOR_H || tile === F2_DOOR_V || tile === F2_RAIL_H || tile === F2_RAIL_V
+            || tile === F2_SHUTTER || isWindowTile(tile, true)
+          : tile === T_THIN_WALL_H || tile === T_THIN_WALL_V || tile === T_THIN_WALL_HV
+            || tile === T_THIN_DOOR_H || tile === T_THIN_DOOR_V || tile === T_SECTION_SHUTTER || isWindowTile(tile);
+        if (thin) {
+          const isGlass = isWindowTile(tile, upper);
+          const isDoor = upper ? tile === F2_DOOR_H || tile === F2_DOOR_V : tile === T_THIN_DOOR_H || tile === T_THIN_DOOR_V;
+          const isRail = upper && (tile === F2_RAIL_H || tile === F2_RAIL_V);
+          const isShutter = upper ? tile === F2_SHUTTER : tile === T_SECTION_SHUTTER;
+          const spansX = isGlass ? windowSpansX(tile, upper)
+            : upper ? tile === F2_THIN_WALL_H || tile === F2_THIN_WALL_HV || tile === F2_DOOR_H || tile === F2_RAIL_H || tile === F2_SHUTTER
+              : tile === T_THIN_WALL_H || tile === T_THIN_WALL_HV || tile === T_THIN_DOOR_H || tile === T_SECTION_SHUTTER;
+          const height = isRail ? 1.05 : isGlass ? 2.7 : isDoor ? 3.35 : 3.7;
+          const y = baseY + (isRail ? height / 2 : isGlass ? 2.05 : height / 2);
+          addBox(wx, y, wz, spansX ? TILE : THIN_WALL, height, spansX ? THIN_WALL : TILE,
+            isGlass ? glass : isDoor ? door : isShutter ? shutter : isRail ? balcony : masonry);
+        }
+        const stair = upper ? tile >= F2_STAIR_N && tile <= F2_STAIR_W : tile >= T_STAIRS_N && tile <= T_STAIRS_W;
+        if (stair) for (let step = 0; step < 4; step++) {
+          const rise = step * 0.48, offset = (step - 1.5) * TILE / 4;
+          addBox(wx, baseY + rise / 2, wz + offset, TILE * 0.72, Math.max(0.14, rise), TILE / 4, balcony);
+        }
+        if ((upper && tile === F2_WELL) || (!upper && tile === T_LADDER)) {
+          addBox(wx - 0.55, baseY + 2, wz, 0.12, 4, 0.12, door);
+          addBox(wx + 0.55, baseY + 2, wz, 0.12, 4, 0.12, door);
+          for (let rung = 0; rung < 6; rung++) addBox(wx, baseY + 0.45 + rung * 0.62, wz, 1.2, 0.1, 0.1, door);
+        }
+      }
+    }
+  }
+
   for (const p of world.map.props) {
     if (p.type === 'crate') continue;
     const mesh = buildProp(p.type, p.scale);
@@ -608,14 +680,16 @@ function loadEnvironment(mode: ModeId, seed: number, theme: ThemeId, mapOverride
  *  view the compound/interior authoring wanted and the orbit couldn't hold.
  *  The env render is open-topped (no roofs), so the plan needs no cutaway. */
 let topDown = false;
+let envPreviewRadius = WORLD;
 let envLight: { sunHex: number; sunI: number; fog: THREE.Scene['fog'] } | null = null;
 function applyEnvCam() {
   camera.fov = topDown ? 30 : 50;
   camera.updateProjectionMatrix();
   // a hair off vertical (≈15°) so the low hull walls show their FACES and read
   // as structure, instead of vanishing to thin lines under a pure plan view
-  camera.position.set(0, topDown ? 520 : 150, topDown ? 140 : 150);
-  controls.target.set(0, 0, 0);
+  const distance = envPreviewRadius < WORLD ? Math.max(34, envPreviewRadius * 1.25) : 150;
+  camera.position.set(0, topDown ? distance * 2.2 : distance, topDown ? distance * 0.45 : distance);
+  controls.target.set(0, envPreviewRadius < WORLD ? 3.5 : 0, 0);
   // a floor PLAN wants flat, bright, fogless light; the angled overview wears
   // the theme's own mood back
   if (topDown) {
@@ -629,6 +703,7 @@ function clearEnv() {
   if (!envMode && envGroup.children.length === 0) return;
   for (const c of [...envGroup.children]) { envGroup.remove(c); disposeGroup(c); }
   envMode = false;
+  envPreviewRadius = WORLD;
   stage.visible = true; overlays.visible = true;
   worldAxes.visible = opt.axes; grid.visible = opt.grid; floor.visible = true;
   // restore the model stage's studio lighting
@@ -1615,6 +1690,10 @@ let matchupCtl: import('./matchup').MatchupCtl | undefined;
     preview3D: (map) => {
       setMode('world');
       loadEnvironment('tdm', 1, 'savanna', map);
+    },
+    launchScience: (spec) => {
+      setMode('world');
+      loadEnvironment('science', spec.seed, spec.theme, undefined, spec);
     },
   });
 }

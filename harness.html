@@ -174,6 +174,29 @@
     }
     .mbtn:hover { border-color: var(--amber); }
     .mbtn.primary { background: #33291b; border-color: var(--amber); color: var(--amber); font-weight: 600; }
+    #mk-draft {
+      display: flex; align-items: end; gap: 0.75rem; padding: 0.75rem 1rem;
+      border-bottom: 1px solid oklch(0.32 0.03 65); background: oklch(0.2 0.025 65);
+      box-shadow: 0 0.5rem 1.5rem oklch(0.1 0.02 65 / 0.22); flex-wrap: wrap;
+    }
+    #mk-draft label { display: grid; gap: 0.28rem; flex: 0 0 auto; color: oklch(0.68 0.04 70); font-size: 0.62rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+    #mk-draft select, #mk-draft input { min-width: 7.5rem; height: 2.25rem; border: 1px solid oklch(0.34 0.035 65); border-radius: 0.625rem; background: oklch(0.24 0.028 65); color: oklch(0.9 0.02 75); padding: 0 0.65rem; font: 500 0.75rem Inter, system-ui, sans-serif; }
+    #mk-draft input { min-width: 5rem; width: 5rem; }
+    .mk-draft-title { display: grid; min-width: 7.5rem; align-self: center; }
+    .mk-draft-title span { color: oklch(0.72 0.16 75); font-size: 0.58rem; letter-spacing: 0.15em; }
+    .mk-draft-title strong { color: oklch(0.94 0.02 75); font-size: 0.9rem; letter-spacing: -0.025em; }
+    #mk-draft .mk-action, #mk-draft .mk-launch { min-height: 2.75rem; border-radius: 0.625rem; }
+    #mk-draft .mk-launch { color: oklch(0.83 0.15 190); border-color: oklch(0.58 0.15 190); background: oklch(0.25 0.06 190); font-weight: 700; }
+    #mk-draft .mk-launch:disabled { opacity: 0.42; cursor: not-allowed; filter: saturate(0.35); }
+    #mk-provenance { min-width: 12rem; max-width: 18rem; align-self: center; color: oklch(0.67 0.05 75); font: 500 0.62rem/1.35 ui-monospace, monospace; }
+    #mk-floorbar { display: flex; justify-content: space-between; align-items: center; min-height: 2.6rem; padding: 0.35rem 1rem; border-bottom: 1px solid oklch(0.3 0.025 65); background: oklch(0.185 0.02 65); }
+    #mk-floorbar label { color: oklch(0.7 0.04 70); font-size: 0.68rem; }
+    #mk-floor-tabs { display: flex; gap: 0.35rem; }
+    .mk-floor-tab { min-width: 4.5rem; padding: 0.38rem 0.8rem; border: 1px solid transparent; border-radius: 999px; background: transparent; color: oklch(0.67 0.04 70); cursor: pointer; font: 600 0.72rem Inter, system-ui, sans-serif; transition: 0.2s ease; }
+    .mk-floor-tab:hover { color: oklch(0.92 0.02 75); background: oklch(0.25 0.03 65); }
+    .mk-floor-tab.active { color: oklch(0.87 0.14 190); border-color: oklch(0.58 0.15 190); background: oklch(0.25 0.06 190); box-shadow: 0 0 0.8rem oklch(0.55 0.15 190 / 0.14); }
+    .mk-law-floor { display: inline-block; margin-left: 0.25rem; padding: 0.12rem 0.34rem; border: 1px solid currentColor; border-radius: 999px; font-size: 0.58rem; }
+    #maker button:focus-visible, #maker select:focus-visible, #maker input:focus-visible, #maker textarea:focus-visible { outline: 2px solid oklch(0.72 0.16 190); outline-offset: 2px; }
     .mk-sep { width: 1px; height: 18px; background: var(--line); margin: 0 3px; }
     #mk-badge { margin-left: auto; font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 10px; }
     #mk-badge.ok { color: var(--good); background: #1e2a1e; }
@@ -205,6 +228,15 @@
     #mk-json { width: 100%; height: 84px; background: var(--panel-2); border: 1px solid var(--line); color: var(--ink); border-radius: 6px; font-size: 10px; font-family: monospace; padding: 5px; resize: vertical; }
     .mk-pal-group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
     .mk-pal-group > label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    @media (max-width: 1050px) {
+      #mk-draft { align-items: center; }
+      #mk-provenance { display: none; }
+      #mk-body { grid-template-columns: minmax(0, 1fr) 250px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #maker *, #maker *::before, #maker *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+    }
+    #matchup.hidden { display: none !important; }
 
     /* ── Arsenal Lab ──────────────────────────────────────────────────── */
     #arsenal {

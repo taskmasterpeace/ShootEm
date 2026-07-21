@@ -12,6 +12,8 @@
 import {
   GRID, TILE, WORLD, houseAt,
   T_OPEN, T_WALL, T_COVER, T_WATER, T_DEEP, T_SLIT, T_DOOR, T_DOOR_OPEN, T_METAL, T_LADDER, T_CLIMB,
+  T_THIN_WALL_H, T_THIN_WALL_V, T_THIN_DOOR_H, T_THIN_DOOR_V, T_WINDOW_H, T_WINDOW_V,
+  T_STAIRS_N, T_STAIRS_E, T_STAIRS_S, T_STAIRS_W, T_SECTION_SHUTTER,
   type BuildingMapMeta, type GameMap, type PropSpec, type PickupSpawn, type VehiclePad, type House, type TileClaim,
 } from './map';
 import { ensureUpperFloor } from './map-layers';
@@ -460,7 +462,7 @@ export function deleteHouse(doc: MakerDoc, index: number): boolean {
 // THE LAWS, LIVE — the same checks tests/fronts.test.ts enforces, returned
 // as a structured report the maker panel renders (and jumps to).
 // ---------------------------------------------------------------------------
-export interface LawIssue { law: string; detail: string; tiles: [number, number][] }
+export interface LawIssue { law: string; detail: string; tiles: [number, number][]; floor?: number }
 export interface LawReport {
   ok: boolean;
   issues: LawIssue[];
@@ -560,10 +562,9 @@ export function validateDoc(doc: MakerDoc): LawReport {
     for (const buildingIssue of report.issues) {
       issues.push({
         law: buildingIssue.law,
-        detail: buildingIssue.floor === undefined
-          ? buildingIssue.detail
-          : `Level ${buildingIssue.floor + 1}: ${buildingIssue.detail}`,
+        detail: buildingIssue.detail,
         tiles: buildingIssue.tiles.map((tile) => [tile.x + authored.origin.tx, tile.z + authored.origin.tz]),
+        ...(buildingIssue.floor === undefined ? {} : { floor: buildingIssue.floor }),
       });
     }
   }
@@ -603,6 +604,17 @@ export const MAKER_TILES = [
   { id: T_WATER, name: 'Water', hint: 'wadeable' },
   { id: T_DEEP, name: 'Deep', hint: 'swim; boats/hover' },
   { id: T_LADDER, name: 'Ladder', hint: 'manhole / storey link' },
+  { id: T_THIN_WALL_H, name: 'Thin wall —', hint: 'room wall spanning east/west' },
+  { id: T_THIN_WALL_V, name: 'Thin wall |', hint: 'room wall spanning north/south' },
+  { id: T_THIN_DOOR_H, name: 'Thin door —', hint: 'room door spanning east/west' },
+  { id: T_THIN_DOOR_V, name: 'Thin door |', hint: 'room door spanning north/south' },
+  { id: T_WINDOW_H, name: 'Glass —', hint: 'breakable framed pane' },
+  { id: T_WINDOW_V, name: 'Glass |', hint: 'breakable framed pane' },
+  { id: T_STAIRS_N, name: 'Stairs ↑', hint: 'automatic climb north' },
+  { id: T_STAIRS_E, name: 'Stairs →', hint: 'automatic climb east' },
+  { id: T_STAIRS_S, name: 'Stairs ↓', hint: 'automatic climb south' },
+  { id: T_STAIRS_W, name: 'Stairs ←', hint: 'automatic climb west' },
+  { id: T_SECTION_SHUTTER, name: 'Shutter', hint: 'mission section boundary' },
 ] as const;
 
 export const MAKER_BUILDINGS: { id: string; name: string; kind: BuildingDef['kind']; biomes?: ThemeId[] }[] = [
@@ -617,5 +629,7 @@ export function buildingById(id: string): BuildingDef {
   return def;
 }
 
-export { T_OPEN, T_WALL, T_COVER, T_WATER, T_DEEP, T_SLIT, T_DOOR, T_DOOR_OPEN, T_METAL, T_LADDER, T_CLIMB };
+export { T_OPEN, T_WALL, T_COVER, T_WATER, T_DEEP, T_SLIT, T_DOOR, T_DOOR_OPEN, T_METAL, T_LADDER, T_CLIMB,
+  T_THIN_WALL_H, T_THIN_WALL_V, T_THIN_DOOR_H, T_THIN_DOOR_V, T_WINDOW_H, T_WINDOW_V,
+  T_STAIRS_N, T_STAIRS_E, T_STAIRS_S, T_STAIRS_W, T_SECTION_SHUTTER };
 export type { GameMap, MapSize };

@@ -32,6 +32,7 @@ import { Rng } from './rng';
 import {
   GRID, TILE, WORLD, houseAt,
   T_OPEN, T_WALL, T_COVER, T_WATER, T_DEEP, T_DOOR, T_METAL, T_LADDER, T_CLIMB,
+  T_STAIRS_N, T_STAIRS_W, isDoorTile,
   S_DIRT, S_GRASS, S_ICE, S_GRIT, S_PLATE, S_WET, S_MUD,
   type GameMap, type PropSpec, type PickupSpawn, type VehiclePad, type House, type TileClaim,
 } from './map';
@@ -1978,6 +1979,6 @@ export const FRONT_STENCILS: BuildingDef[] = [THE_KEEP, LAB_TOWER, CONTROL_ROOM,
  *  Doors count (E opens them); water counts (everyone wades/swims); climb
  *  walls do NOT (they're the airborne's shortcut, never the only road). */
 export function frontWalkable(t: number): boolean {
-  return t === T_OPEN || t === T_WATER || t === T_DEEP || t === T_DOOR
-    || t === 6 /* T_DOOR_OPEN */ || t === T_LADDER;
+  return t === T_OPEN || t === T_WATER || t === T_DEEP || isDoorTile(t)
+    || t === T_LADDER || (t >= T_STAIRS_N && t <= T_STAIRS_W);
 }

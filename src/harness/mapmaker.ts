@@ -6,22 +6,102 @@
 // ---------------------------------------------------------------------------
 import {
   loadFront, loadSkirmish, blankDoc, serializeDoc, deserializeDoc, validateDoc,
-  paintTile, paintSurface, placeProp, erasePropAt,
+  paintTile, paintFloorTile, paintSurface, placeProp, erasePropAt,
   addControlPoint, addPickup, addPad, addMouth, moveObject, deleteObject, pickObject, objectPos,
   stamp, deleteHouse, undo, redo, buildingById,
   MAKER_TILES, MAKER_BUILDINGS,
   T_WALL, T_COVER, T_WATER, T_DEEP, T_SLIT, T_DOOR, T_DOOR_OPEN, T_METAL, T_LADDER, T_CLIMB,
+  T_THIN_WALL_H, T_THIN_WALL_V, T_THIN_DOOR_H, T_THIN_DOOR_V, T_WINDOW_H, T_WINDOW_V,
+  T_STAIRS_N, T_STAIRS_E, T_STAIRS_S, T_STAIRS_W, T_SECTION_SHUTTER,
   type MakerDoc, type LawReport, type MapJSON, type ObjectRef,
 } from '../sim/mapedit';
 import {
   GRID, TILE, WORLD,
+  F2_VOID, F2_FLOOR, F2_WALL, F2_THIN_WALL_H, F2_THIN_WALL_V, F2_DOOR_H, F2_DOOR_V,
+  F2_WINDOW_H, F2_WINDOW_V, F2_WELL, F2_BALCONY, F2_STAIR_N, F2_STAIR_E, F2_STAIR_S, F2_STAIR_W, F2_SHUTTER,
   S_DIRT, S_GRASS, S_ICE, S_GRIT, S_PLATE, S_WET, S_MUD,
   type PropSpec, type PickupSpawn,
 } from '../sim/map';
 import { FRONTS } from '../client/campaign';
-import type { MapSize } from '../sim/fronts';
+import { frontWalkable, type MapSize } from '../sim/fronts';
 import type { GameMap } from '../sim/map';
 import type { VehicleKind } from '../sim/types';
+import { floorLayer } from '../sim/map-layers';
+import { COUNTRY_MAP_PROFILES, citiesForCountry, type CityMapProfile } from '../sim/city-profile';
+import { BUILDING_ARCHETYPES, generateCityBuilding, type BuildingArchetype, type BuildingUse } from '../sim/building-generator';
+import { buildingAuthoringLayoutFromMap, validateWholeBuilding } from '../sim/building-navigation';
+import { generateScienceMission, type ScienceMissionSpec, type ScienceSite } from '../sim/science';
+
+export interface GenerateBuildingDocOptions {
+  cityId: string;
+  archetype: BuildingArchetype;
+  floors: 1 | 2 | 3;
+  seed: number;
+  prints?: number;
+  missionSection?: 'west' | 'east' | 'single-choke';
+}
+
+export interface MapMakerArchetypeGroup {
+  use: BuildingUse;
+  label: string;
+  options: BuildingArchetype[];
+}
+
+const ARCHETYPE_GROUPS: MapMakerArchetypeGroup[] = [
+  { use: 'residential', label: 'Residential', options: ['cottage', 'row-house', 'apartment', 'command-villa'] },
+  { use: 'commercial', label: 'Commercial', options: ['storefront', 'office', 'mall-section', 'hotel'] },
+  { use: 'industrial', label: 'Industrial', options: ['workshop', 'factory', 'depot', 'processing-hall'] },
+  { use: 'civic', label: 'Civic / Science', options: ['clinic', 'research-annex', 'government-office'] },
+  { use: 'military', label: 'Military', options: ['barracks', 'armory', 'command-post', 'secure-archive'] },
+];
+
+export function mapMakerCityOptions(countryCode: string): readonly CityMapProfile[] {
+  return citiesForCountry(countryCode);
+}
+
+export function mapMakerArchetypeOptions(): readonly MapMakerArchetypeGroup[] {
+  return ARCHETYPE_GROUPS;
+}
+
+export function floorTabs(doc: MakerDoc): { floor: number; label: string }[] {
+  const count = doc.map.buildingMeta?.floors ?? Math.min(3, 1 + (doc.map.upperLayers?.length ?? (doc.map.grid2.some(Boolean) ? 1 : 0)));
+  return Array.from({ length: count }, (_, floor) => ({ floor, label: floor === 0 ? 'Ground' : `L${floor + 1}` }));
+}
+
+export function canLaunchOperation(doc: MakerDoc): boolean {
+  const source = buildingAuthoringLayoutFromMap(doc.map);
+  return !!source && validateWholeBuilding(source.layout).ok && validateDoc(doc).ok;
+}
+
+export function mapMakerImportNotice(json: { v?: number }): string | null {
+  return json.v === 1 ? 'Legacy v1 map upgraded to indexed floor layers.' : null;
+}
+
+/** Compile the drafting controls into the exact same document the canvas,
+ * validator, serializer, 3D preview, and science runtime consume. */
+export function generateBuildingDoc(options: GenerateBuildingDocOptions): MakerDoc {
+  const generated = generateCityBuilding(options);
+  const doc = blankDoc('small', options.seed);
+  const tx = Math.floor((GRID - generated.width) / 2);
+  const tz = Math.floor((GRID - generated.height) / 2);
+  if (!stamp(doc, generated.def, tx, tz)) throw new Error('generated building did not fit the authoring canvas');
+  doc.mode = 'science';
+  doc.frontId = null;
+  doc.map.buildingMeta = {
+    ...generated.provenance,
+    floors: generated.floors,
+    footprint: generated.footprint,
+    origin: { tx, tz },
+    width: generated.width,
+    height: generated.height,
+    sockets: generated.sockets,
+    sections: generated.sections,
+  };
+  return doc;
+}
+
+export const MAP_MAKER_COUNTRIES = COUNTRY_MAP_PROFILES;
+export const MAP_MAKER_ARCHETYPES = BUILDING_ARCHETYPES;
 
 // ---------------------------------------------------------------------------
 // palette — reads EXACTLY like the atlas (same alphabet, same colors)
@@ -30,6 +110,19 @@ const TILE_COLORS: Record<number, string> = {
   [T_WALL]: '#282622', [T_METAL]: '#464a54', [T_COVER]: '#8c7846',
   [T_SLIT]: '#b4a05a', [T_DOOR]: '#be8c3c', [T_DOOR_OPEN]: '#d2aa5a',
   [T_WATER]: '#4882a0', [T_DEEP]: '#1e3e60', [T_LADDER]: '#dcc878', [T_CLIMB]: '#a05c30',
+  [T_THIN_WALL_H]: '#d69b4f', [T_THIN_WALL_V]: '#d69b4f',
+  [T_THIN_DOOR_H]: '#ead09b', [T_THIN_DOOR_V]: '#ead09b',
+  [T_WINDOW_H]: '#43cedc', [T_WINDOW_V]: '#43cedc',
+  [T_STAIRS_N]: '#72d8e5', [T_STAIRS_E]: '#72d8e5', [T_STAIRS_S]: '#72d8e5', [T_STAIRS_W]: '#72d8e5',
+  [T_SECTION_SHUTTER]: '#df5c52',
+};
+const UPPER_TILE_COLORS: Record<number, string> = {
+  [F2_VOID]: '#11151a', [F2_FLOOR]: '#343a3e', [F2_WALL]: '#ca8a42',
+  [F2_THIN_WALL_H]: '#d79a52', [F2_THIN_WALL_V]: '#d79a52',
+  [F2_DOOR_H]: '#ead09b', [F2_DOOR_V]: '#ead09b',
+  [F2_WINDOW_H]: '#42cfdd', [F2_WINDOW_V]: '#42cfdd', [F2_WELL]: '#75d5e6',
+  [F2_BALCONY]: '#d8d0b8', [F2_STAIR_N]: '#70d9e8', [F2_STAIR_E]: '#70d9e8',
+  [F2_STAIR_S]: '#70d9e8', [F2_STAIR_W]: '#70d9e8', [F2_SHUTTER]: '#df5c52',
 };
 const SURF_TINT: Record<number, string> = {
   [S_DIRT]: '#6b5f4c', [S_GRASS]: '#56764a', [S_ICE]: '#bcd0d8',
@@ -63,6 +156,7 @@ type Tool =
 interface Deps {
   /** hand a map to the 3D environment preview and show it */
   preview3D: (map: GameMap) => void;
+  launchScience?: (spec: ScienceMissionSpec) => void;
 }
 
 export function mountMaker(root: HTMLElement, deps: Deps) {
@@ -75,6 +169,9 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
   let dragging = false;
   const showOrphans = true;
   let report: LawReport = validateDoc(doc);
+  let activeFloor = 0;
+  let exploded = false;
+  let showOperations = true;
 
   // ---- dom ----------------------------------------------------------------
   root.innerHTML = `
@@ -105,6 +202,19 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
     <button class="mbtn primary" id="mk-3d">◈ Preview 3D</button>
     <span id="mk-badge" title="the six front laws, live"></span>
   </div>
+  <section id="mk-draft" aria-label="City building generator">
+    <div class="mk-draft-title"><span>WHOLE BUILDING</span><strong>City Grammar</strong></div>
+    <label>Country<select id="mk-country">${MAP_MAKER_COUNTRIES.filter((country) => mapMakerCityOptions(country.code).length).map((country) => `<option value="${country.code}">${country.name}</option>`).join('')}</select></label>
+    <label>City<select id="mk-city"></select></label>
+    <label>Structure<select id="mk-archetype">${ARCHETYPE_GROUPS.map((group) => `<optgroup label="${group.label}">${group.options.map((id) => `<option value="${id}">${id.replaceAll('-', ' ')}</option>`).join('')}</optgroup>`).join('')}</select></label>
+    <label>Storeys<select id="mk-floors"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option></select></label>
+    <label>Print reserve<input id="mk-prints" type="number" min="1" max="8" value="4"></label>
+    <button class="mbtn primary mk-action" id="mk-generate">Generate building</button>
+    <button class="mbtn" id="mk-explode" aria-pressed="false">Exploded view</button>
+    <button class="mbtn mk-launch" id="mk-launch" disabled>Launch Science Operation</button>
+    <div id="mk-provenance" role="status"></div>
+  </section>
+  <div id="mk-floorbar"><div id="mk-floor-tabs" role="tablist" aria-label="Building floor"></div><label><input id="mk-operations" type="checkbox" checked> Operation overlay</label></div>
   <div id="mk-body">
     <div id="mk-canvas-wrap"><canvas id="mk-canvas"></canvas>
       <div id="mk-hint"></div>
@@ -135,7 +245,57 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
   const frontSel = root.querySelector<HTMLSelectElement>('#mk-front')!;
   const sizeSel = root.querySelector<HTMLSelectElement>('#mk-size')!;
   const seedIn = root.querySelector<HTMLInputElement>('#mk-seed')!;
+  const countrySel = root.querySelector<HTMLSelectElement>('#mk-country')!;
+  const citySel = root.querySelector<HTMLSelectElement>('#mk-city')!;
+  const archetypeSel = root.querySelector<HTMLSelectElement>('#mk-archetype')!;
+  const floorsSel = root.querySelector<HTMLSelectElement>('#mk-floors')!;
+  const printsIn = root.querySelector<HTMLInputElement>('#mk-prints')!;
+  const floorTabsEl = root.querySelector<HTMLElement>('#mk-floor-tabs')!;
+  const provenanceEl = root.querySelector<HTMLElement>('#mk-provenance')!;
+  const launchBtn = root.querySelector<HTMLButtonElement>('#mk-launch')!;
   frontSel.value = doc.frontId ?? 'the_city';
+
+  function refreshCityOptions() {
+    const cities = mapMakerCityOptions(countrySel.value);
+    citySel.innerHTML = cities.map((city) => `<option value="${city.id}">${city.name} · ${city.populationType}</option>`).join('');
+  }
+
+  function refreshFloorTabs() {
+    const tabs = floorTabs(doc);
+    activeFloor = Math.min(activeFloor, tabs.length - 1);
+    floorTabsEl.innerHTML = '';
+    for (const tab of tabs) {
+      const button = document.createElement('button');
+      button.className = `mk-floor-tab${activeFloor === tab.floor ? ' active' : ''}`;
+      button.textContent = tab.label;
+      button.role = 'tab';
+      button.ariaSelected = String(activeFloor === tab.floor);
+      button.onclick = () => { activeFloor = tab.floor; refreshFloorTabs(); draw(); };
+      floorTabsEl.appendChild(button);
+    }
+    const meta = doc.map.buildingMeta;
+    provenanceEl.textContent = meta
+      ? `${meta.cityId} · ${meta.archetype.replaceAll('-', ' ')} · ${meta.floors}F · seed ${meta.seed ?? doc.seed} · grammar v${meta.grammarVersion}`
+      : 'No city grammar provenance on this map.';
+    launchBtn.disabled = !canLaunchOperation(doc);
+  }
+
+  function upperTileFor(tile: number): number {
+    const mapping: Record<number, number> = {
+      [0]: F2_FLOOR, [T_WALL]: F2_WALL, [T_METAL]: F2_WALL, [T_COVER]: F2_BALCONY,
+      [T_SLIT]: F2_WINDOW_H, [T_DOOR]: F2_DOOR_H, [T_LADDER]: F2_WELL,
+      [T_THIN_WALL_H]: F2_THIN_WALL_H, [T_THIN_WALL_V]: F2_THIN_WALL_V,
+      [T_THIN_DOOR_H]: F2_DOOR_H, [T_THIN_DOOR_V]: F2_DOOR_V,
+      [T_WINDOW_H]: F2_WINDOW_H, [T_WINDOW_V]: F2_WINDOW_V,
+      [T_STAIRS_N]: F2_STAIR_N, [T_STAIRS_E]: F2_STAIR_E,
+      [T_STAIRS_S]: F2_STAIR_S, [T_STAIRS_W]: F2_STAIR_W,
+      [T_SECTION_SHUTTER]: F2_SHUTTER,
+    };
+    return mapping[tile] ?? F2_FLOOR;
+  }
+
+  refreshCityOptions();
+  countrySel.onchange = refreshCityOptions;
 
   // ---- tools are mounted into the LEFT harness panel (#mk-palette) --------
   const palHost = document.getElementById('mk-palette');
@@ -213,7 +373,7 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
   function fit() {
     const wrap = root.querySelector<HTMLElement>('#mk-canvas-wrap')!;
     const s = Math.floor(Math.min(wrap.clientWidth, wrap.clientHeight - 24) / GRID);
-    px = Math.max(3, s);
+    px = doc.map.buildingMeta ? Math.max(9, s) : Math.max(3, s);
     const dpr = window.devicePixelRatio || 1;
     canvas.style.width = `${GRID * px}px`;
     canvas.style.height = `${GRID * px}px`;
@@ -221,24 +381,36 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
     canvas.height = GRID * px * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     draw();
+    const meta = doc.map.buildingMeta;
+    if (meta?.origin && meta.width && meta.height) requestAnimationFrame(() => {
+      wrap.scrollLeft = (meta.origin!.tx + meta.width! / 2) * px - wrap.clientWidth / 2;
+      wrap.scrollTop = (meta.origin!.tz + meta.height! / 2) * px - wrap.clientHeight / 2;
+    });
   }
 
   function draw() {
     const m = doc.map;
     ctx.clearRect(0, 0, GRID * px, GRID * px);
-    // ground: terrain alphabet over surface tints
-    for (let z = 0; z < GRID; z++) for (let x = 0; x < GRID; x++) {
-      const t = m.grid[z * GRID + x];
-      ctx.fillStyle = TILE_COLORS[t] ?? SURF_TINT[m.surface[z * GRID + x]] ?? '#50504a';
-      ctx.fillRect(x * px, z * px, px + 0.5, px + 0.5);
-    }
+    const paintLayer = (floor: number, alpha: number) => {
+      const layer = floorLayer(m, floor);
+      ctx.globalAlpha = alpha;
+      for (let z = 0; z < GRID; z++) for (let x = 0; x < GRID; x++) {
+        const t = layer[z * GRID + x];
+        ctx.fillStyle = floor === 0
+          ? TILE_COLORS[t] ?? SURF_TINT[m.surface[z * GRID + x]] ?? '#50504a'
+          : UPPER_TILE_COLORS[t] ?? '#263037';
+        ctx.fillRect(x * px, z * px, px + 0.5, px + 0.5);
+      }
+    };
+    if (exploded && activeFloor > 0) paintLayer(activeFloor - 1, 0.2);
+    paintLayer(activeFloor, 1);
+    ctx.globalAlpha = 1;
     // orphan heat (the loupe's red)
-    if (showOrphans) {
+    if (showOrphans && activeFloor === 0) {
       ctx.fillStyle = 'rgba(220,40,40,0.55)';
       for (let z = 0; z < GRID; z++) for (let x = 0; x < GRID; x++) {
         const i = z * GRID + x;
-        if (report.seen[i] === 0 && m.grid[i] !== T_WALL && m.grid[i] !== T_METAL && m.grid[i] !== T_COVER
-          && m.grid[i] !== T_SLIT && m.grid[i] !== T_CLIMB) {
+        if (report.seen[i] === 0 && frontWalkable(m.grid[i])) {
           ctx.fillRect(x * px, z * px, px + 0.5, px + 0.5);
         }
       }
@@ -253,13 +425,23 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
       dot(dx, dz, '#e8e8e8', 1.6);
     }
     ctx.setLineDash([]);
+    if (showOperations && m.buildingMeta?.origin) {
+      for (const socket of m.buildingMeta.sockets ?? []) {
+        if (socket.floor !== activeFloor) continue;
+        const color = socket.kind === 'objective' ? '#f2cf5b'
+          : socket.kind === 'guard' || socket.kind === 'dog-handler' ? '#ef6259'
+            : socket.kind === 'civilian' ? '#8ddc9b' : '#75d5e6';
+        dot(m.buildingMeta.origin.tx + socket.x, m.buildingMeta.origin.tz + socket.z, color, 1.5);
+      }
+    }
     // grid every 10
     ctx.strokeStyle = 'rgba(255,255,255,0.07)';
     for (let i = 0; i <= GRID; i += 10) {
       line(i * px, 0, i * px, GRID * px);
       line(0, i * px, GRID * px, i * px);
     }
-    // props
+    // Ground-only strategic objects stay out of upper-storey drafting views.
+    if (activeFloor === 0) {
     for (const p of m.props) {
       const [tx, tz] = w2t(p.pos.x, p.pos.z);
       dot(tx, tz, PROP_COLORS[p.type] ?? '#ccc', p.type === 'crate' ? 1.4 : 2);
@@ -296,6 +478,7 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
       ringAt(tx, tz, team === 0 ? '#e8a33d' : '#3dbde8', 3);
       letter(tx, tz, team === 0 ? 'W' : 'E', team === 0 ? '#e8a33d' : '#3dbde8', true);
     });
+    }
     // selection
     if (sel) {
       const p = objectPos(doc, sel);
@@ -385,7 +568,8 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
       for (const issue of report.issues) {
         const div = document.createElement('div');
         div.className = 'mk-law bad';
-        div.innerHTML = `<b>✕ ${issue.law}</b> ${issue.detail}`;
+        const floor = issue.floor === undefined ? '' : ` <span class="mk-law-floor">${issue.floor === 0 ? 'Ground' : `L${issue.floor + 1}`}</span>`;
+        div.innerHTML = `<b>✕ ${issue.law}</b>${floor} ${issue.detail}`;
         if (issue.tiles.length) {
           div.onclick = () => { hover = issue.tiles[0]; draw(); };
           div.title = 'jump to the first offending tile';
@@ -402,10 +586,12 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
   function afterOp() {
     sel = null;
     draw();
+    refreshFloorTabs();
     clearTimeout(lawTimer);
     lawTimer = window.setTimeout(() => {
       report = validateDoc(doc);
       refreshSide();
+      refreshFloorTabs();
       try { localStorage.setItem('ww_maker_autosave', JSON.stringify(serializeDoc(doc))); } catch { /* quota — dev tool */ }
     }, 160);
   }
@@ -414,6 +600,7 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
     doc = loadFront(frontId, seed, size);
     sel = null;
     report = validateDoc(doc);
+    activeFloor = 0;
     afterOp();
   }
 
@@ -457,8 +644,14 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
 
   function applyTool(tx: number, tz: number) {
     switch (tool.kind) {
-      case 'tile': paintTile(doc, tx, tz, tool.tile, brush); break;
-      case 'surface': paintSurface(doc, tx, tz, tool.surf, brush); break;
+      case 'tile':
+        if (activeFloor === 0) paintTile(doc, tx, tz, tool.tile, brush);
+        else paintFloorTile(doc, activeFloor as 1 | 2, tx, tz, upperTileFor(tool.tile), brush);
+        break;
+      case 'surface':
+        if (activeFloor === 0) paintSurface(doc, tx, tz, tool.surf, brush);
+        else flashHint('surface paint belongs to Ground');
+        break;
       case 'prop': placeProp(doc, tool.prop, tx, tz, 1, Math.random() * Math.PI * 2); break;
       case 'eraseProp': erasePropAt(doc, tx, tz); break;
       case 'building': {
@@ -481,11 +674,11 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
   }
 
   function updateHint(tx: number, tz: number) {
-    const t = doc.map.grid[tz * GRID + tx];
-    const tName = MAKER_TILES.find((x) => x.id === t)?.name ?? `T${t}`;
+    const t = floorLayer(doc.map, activeFloor)[tz * GRID + tx];
+    const tName = activeFloor === 0 ? (MAKER_TILES.find((x) => x.id === t)?.name ?? `T${t}`) : `architecture ${t}`;
     const sName = SURF_NAMES.find(([id]) => id === doc.map.surface[tz * GRID + tx])?.[1] ?? '';
     const hi = doc.map.houses.findIndex((h) => tx >= h.tx && tx < h.tx + h.tw && tz >= h.tz && tz < h.tz + h.th);
-    hintEl.textContent = `(${tx},${tz}) ${tName}${sName ? ' · ' + sName : ''}${hi >= 0 ? ` · building ${hi}` : ''} — ${toolLabel()}`;
+    hintEl.textContent = `${activeFloor === 0 ? 'Ground' : `L${activeFloor + 1}`} · (${tx},${tz}) ${tName}${activeFloor === 0 && sName ? ' · ' + sName : ''}${hi >= 0 ? ` · building ${hi}` : ''} — ${toolLabel()}`;
   }
   function toolLabel(): string {
     const t = tool; // a local const keeps the discriminated-union narrowing alive inside closures
@@ -509,6 +702,54 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
   }
 
   // ---- top bar wiring --------------------------------------------------------
+  root.querySelector<HTMLButtonElement>('#mk-generate')!.onclick = () => {
+    if (doc.map.buildingMeta && !window.confirm('Replace the current generated building? Undo remains available.')) return;
+    doc = generateBuildingDoc({
+      cityId: citySel.value,
+      archetype: archetypeSel.value as BuildingArchetype,
+      floors: Number(floorsSel.value) as 1 | 2 | 3,
+      seed: Number(seedIn.value) >>> 0,
+      prints: Math.max(1, Math.min(8, Number(printsIn.value) || 4)),
+    });
+    activeFloor = 0;
+    report = validateDoc(doc);
+    afterOp();
+    fit();
+    flashHint('whole building generated — edit, validate, preview, or launch');
+  };
+  root.querySelector<HTMLButtonElement>('#mk-explode')!.onclick = (event) => {
+    exploded = !exploded;
+    const button = event.currentTarget as HTMLButtonElement;
+    button.ariaPressed = String(exploded);
+    button.classList.toggle('active', exploded);
+    draw();
+  };
+  root.querySelector<HTMLInputElement>('#mk-operations')!.onchange = (event) => {
+    showOperations = (event.currentTarget as HTMLInputElement).checked;
+    draw();
+  };
+  const siteFor = (archetype: BuildingArchetype): ScienceSite => {
+    if (archetype === 'command-villa' || archetype === 'cottage' || archetype === 'row-house' || archetype === 'apartment') return 'officer-villa';
+    if (archetype === 'factory' || archetype === 'workshop' || archetype === 'processing-hall') return 'foundry';
+    if (archetype === 'depot') return 'rail-yard';
+    if (archetype === 'clinic') return 'field-hospital';
+    if (archetype === 'secure-archive' || archetype === 'armory' || archetype === 'barracks') return 'clone-vault';
+    if (archetype === 'command-post') return 'comms-relay';
+    return 'research-annex';
+  };
+  launchBtn.onclick = () => {
+    if (!canLaunchOperation(doc)) return;
+    const prints = Math.max(1, Math.min(8, Number(printsIn.value) || 4));
+    printsIn.value = String(prints);
+    const spec = generateScienceMission(doc.seed, {
+      cityId: doc.map.buildingMeta!.cityId,
+      site: siteFor(doc.map.buildingMeta!.archetype as BuildingArchetype),
+      squadSize: prints,
+      complication: null,
+    });
+    if (deps.launchScience) deps.launchScience(spec);
+    else deps.preview3D(doc.map);
+  };
   root.querySelector<HTMLButtonElement>('#mk-load')!.onclick = () => {
     const v = frontSel.value;
     if (v.startsWith('sk:')) {
@@ -520,7 +761,7 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
   };
   root.querySelector<HTMLButtonElement>('#mk-blank')!.onclick = () => {
     doc = blankDoc(sizeSel.value as MapSize, Number(seedIn.value) >>> 0);
-    sel = null; report = validateDoc(doc); afterOp();
+    sel = null; activeFloor = 0; report = validateDoc(doc); afterOp();
   };
   root.querySelector<HTMLButtonElement>('#mk-undo')!.onclick = () => { if (undo(doc)) { report = validateDoc(doc); afterOp(); } };
   root.querySelector<HTMLButtonElement>('#mk-redo')!.onclick = () => { if (redo(doc)) { report = validateDoc(doc); afterOp(); } };
@@ -530,6 +771,10 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); if (undo(doc)) { report = validateDoc(doc); afterOp(); } }
     if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) { e.preventDefault(); if (redo(doc)) { report = validateDoc(doc); afterOp(); } }
     if (e.key === 'Delete' && sel) { deleteObject(doc, sel); afterOp(); }
+    if (!e.ctrlKey && !e.metaKey && ['1', '2', '3'].includes(e.key)) {
+      const floor = Number(e.key) - 1;
+      if (floor < floorTabs(doc).length) { activeFloor = floor; refreshFloorTabs(); draw(); }
+    }
   });
 
   // ---- file ------------------------------------------------------------------
@@ -548,8 +793,10 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
   root.querySelector<HTMLButtonElement>('#mk-import')!.onclick = () => {
     try {
       const json = JSON.parse(root.querySelector<HTMLTextAreaElement>('#mk-json')!.value) as MapJSON;
+      const notice = mapMakerImportNotice(json);
       doc = deserializeDoc(json);
-      sel = null; report = validateDoc(doc); afterOp();
+      sel = null; activeFloor = 0; report = validateDoc(doc); afterOp();
+      if (notice) flashHint(notice);
     } catch (err) {
       flashHint(`import failed: ${(err as Error).message}`);
     }
@@ -568,6 +815,7 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
   // ---- go ---------------------------------------------------------------------
   refreshToolButtons();
   refreshSide();
+  refreshFloorTabs();
   fit();
   new ResizeObserver(fit).observe(root.querySelector<HTMLElement>('#mk-canvas-wrap')!);
   afterOp();
