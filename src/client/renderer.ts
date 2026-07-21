@@ -14,6 +14,7 @@ import { JOINT_NAMES, isUndead, poseSoldierJoints, CAST_SCHOOL, FLIGHT_POSES, RE
 import { chunkCount, drawChunks, drawGrade, drawNotches, drawNumber, makeRingMesh, RING_COLORS, ringChunkTexture, ringTier } from './ring';
 import { LSWS, type LswDef } from '../sim/lsw';
 import { hash01 } from '../sim/rng';
+import { collapseStyleFor, type CollapseStyle } from './deathpose';
 import { buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp, buildSoldier, buildTurretMesh, buildVehicle, dressAsLsw } from './models';
 
 const TRACER_COLORS: Record<string, number> = {
@@ -44,7 +45,7 @@ export const WEAPON_TINTS: Record<string, number> = {
 // ---- ragdoll ----
 /** Joints the ragdoll goes limp on (all swing on local Z). */
 const RAG_JOINTS = ['legL', 'legR', 'shinL', 'shinR', 'armL', 'armR', 'head', 'torso'] as const;
-interface RagState { t0: number; pitch: number; roll: number; cap: Record<string, number>; seed: number }
+interface RagState { t0: number; pitch: number; roll: number; cap: Record<string, number>; seed: number; style: CollapseStyle; yaw0: number }
 /** Overshoot-and-settle ease — gives limbs a floppy, physical follow-through. */
 function easeOutBack(x: number): number {
   const c1 = 1.70158, c3 = c1 + 1;
@@ -3200,22 +3201,32 @@ export class Renderer {
         const side = -fall.x * Math.sin(s.yaw) + fall.z * Math.cos(s.yaw); // tip roll (local X)
         const cap: Record<string, number> = {};
         for (const n of RAG_JOINTS) { const o = j[n]; if (o) cap[n] = o.rotation.z; }
-        rag = mesh.userData.rag = { t0: t, pitch: -fwd * 1.45, roll: side * 1.2, cap, seed: hash01(s.id) };
+        // STATUS §2: the body falls by HOW it was killed — captured once, here
+        const style = collapseStyleFor(s.lastKillWeapon ? WEAPONS[s.lastKillWeapon] : undefined);
+        rag = mesh.userData.rag = { t0: t, pitch: -fwd * 1.45, roll: side * 1.2, cap, seed: hash01(s.id), style, yaw0: mesh.rotation.y };
       }
-      const k = Math.min(1, Math.max(0, (t - rag.t0) / 0.55));
+      // a clean energy kill (straight) crumples FAST; the rest topple over 0.55s
+      const dur = rag.style === 'straight' ? 0.4 : 0.55;
+      const k = Math.min(1, Math.max(0, (t - rag.t0) / dur));
       const settle = 1 - (1 - k) * (1 - k);          // body tip eases flat, no ground clip
       const flop = easeOutBack(k);                   // limbs overshoot then settle — floppy
       // the whole body topples the way the shot pushed it, with a brief hop.
-      // sim physics stop for corpses, so an airborne kill (jump trooper) keeps
-      // its death-height — settle it down to the ground as it goes limp.
-      mesh.rotation.z = rag.pitch * settle;
+      // STRAIGHT drops with barely any tip (you drop where you stood); the rest
+      // topple full. sim physics stop for corpses, so an airborne kill keeps its
+      // death-height — settle it down to the ground as it goes limp.
+      const pitchMul = rag.style === 'straight' ? 0.35 : 1;
+      mesh.rotation.z = rag.pitch * pitchMul * settle;
       mesh.rotation.x = rag.roll * settle;
       mesh.position.y = s.pos.y * (1 - settle) + 0.12 * Math.sin(k * Math.PI);
+      // MELEE SPIN: a close blow knocks the body spinning as it goes down
+      if (rag.style === 'spin') mesh.rotation.y = rag.yaw0 + settle * 4.2 * (rag.seed > 0.5 ? 1 : -1);
       // limbs go limp toward a slack, per-body-varied pose
       const v = (rag.seed - 0.5) * 0.7;
+      // FIRE WRITHE: burning bodies THRASH — a decaying flail on the limbs
+      const writhe = rag.style === 'writhe' ? Math.sin(t * 21 + rag.seed * 6) * 0.42 * (1 - k) : 0;
       const limp: Record<string, number> = {
-        legL: 0.45 + v, legR: -0.55 - v, shinL: -1.35, shinR: -1.05,
-        armL: -2.2 + v, armR: -1.7 - v, head: 0.5 * rag.seed, torso: 0.2,
+        legL: 0.45 + v + writhe, legR: -0.55 - v - writhe, shinL: -1.35, shinR: -1.05,
+        armL: -2.2 + v - writhe, armR: -1.7 - v + writhe, head: 0.5 * rag.seed, torso: 0.2,
       };
       for (const n of RAG_JOINTS) {
         const o = j[n];
