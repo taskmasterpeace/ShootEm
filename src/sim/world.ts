@@ -347,6 +347,12 @@ export class World {
   /** opt #38 (S2): the per-tick spatial index — rebuilt at the top of step();
    *  queries return id-sorted supersets, call sites keep their own filters */
   soldierIndex = new SoldierIndex();
+  /** opt #11 (S8): the encased-body list, recomputed once at the top of step().
+   *  `groundBlocked` used to walk the WHOLE roster hunting ice per grounded
+   *  soldier ×2/tick — O(S²) for a state that's almost always empty; now it
+   *  reads this short list. Recompute (not a counter) is drift-proof under
+   *  network deletes; an ice block's position is fixed for its life. */
+  private encasedBodies: Soldier[] = [];
   /** THE OUTBREAK (OUTBREAK-SPEC): master switch — the machinery is inert
    *  until conditions (or a mode/scenario) turn it on. Condition-driven
    *  activation (Outbreak Pressure) is the next slice; nothing in the game
@@ -1495,6 +1501,10 @@ export class World {
     // this tick (zombie targeting, findTarget, projectiles, melee, separation)
     // queries it instead of walking the whole roster
     this.soldierIndex.rebuild(this.soldiers);
+    // opt #11 (S8): snapshot the (near-always-empty) encased set once, so the
+    // per-soldier movement scan reads a short list instead of the full roster.
+    this.encasedBodies.length = 0;
+    for (const o of this.soldiers.values()) if (o.encasedUntil !== undefined && o.alive) this.encasedBodies.push(o);
     if (!this.mode.over) stepMode(this, dt);
     stepBlackbox(this); // the crowd flight recorder samples on its own 2s clock
     this.stepHomeDoors(); // base doors open for their own; shut behind them
@@ -3933,9 +3943,10 @@ export class World {
       if (isBlocked(this.map.grid, x, z)) return true;
       // THE ICE BLOCK IS A BLOCK (§21.6, closing Frostbite's Notes gap): an
       // encased soldier is a real 1-tile obstacle — nobody walks through a
-      // frozen man, friend or foe. Encased soldiers are rare; the scan is short.
-      for (const o of this.soldiers.values()) {
-        if (o.encasedUntil === undefined || o.id === s.id || !o.alive) continue;
+      // frozen man, friend or foe. opt #11 (S8): read the tick-top encased list
+      // (usually empty) instead of walking the whole roster.
+      for (const o of this.encasedBodies) {
+        if (o.id === s.id) continue;
         const dx = o.pos.x - x, dz = o.pos.z - z;
         if (dx * dx + dz * dz < 0.81) return true; // 0.9u — a tile-ish block
       }
