@@ -2424,6 +2424,16 @@ export class World {
         }
       }
     }
+    // THE OUTBREAK (OUTBREAK-SPEC §11): cycle the loaded ammunition type —
+    // BALL (reliable) → AP (threads plate) → INCENDIARY (burns corpses, mauls
+    // infected groups). A tactical choice, not a damage ladder.
+    if (cmd.cycleAmmo && !s.ascendant) {
+      s.ammoType = s.ammoType === undefined ? 'ap' : s.ammoType === 'ap' ? 'inc' : undefined;
+      if (s.kind === 'human') {
+        const label = s.ammoType === 'ap' ? 'ARMOR-PIERCING' : s.ammoType === 'inc' ? 'INCENDIARY' : 'STANDARD BALL';
+        this.emit({ type: 'announce', text: `AMMO: ${label}`, big: false });
+      }
+    }
     // A GOD DOES NOT REACH FOR A GRENADE (Robert, on Firebrand: "I don't think
     // he should be throwing these grenades either"). Ascension swaps in the
     // signature arm and leaves the class kit behind; the pouch was the one
@@ -2612,18 +2622,21 @@ export class World {
       this.startMelee(s, def);
       return;
     }
-    // AP ROUNDS (equipment): a shooter running AP threads issued plate on its
-    // BALLISTIC weapons only (bullet/shell — no energy AP), landing on flesh
-    // for −25% damage. The plate-piercing itself is gated in damageSoldier
-    // (iron molt & LSW identity armor are exempt there).
-    const ap = this.hasEquip(s, 'apRounds') && (def.tracer === 'bullet' || def.tracer === 'shell');
-    const dm = ap ? dmgMul * 0.75 : dmgMul;
+    // AMMUNITION TYPE (OUTBREAK-SPEC §11) + the AP-rounds equipment stack on
+    // BALLISTIC weapons only (bullet/shell — no energy AP). AP threads issued
+    // plate for −25% soft damage (gated in damageSoldier; iron molt & LSW
+    // identity armor exempt). INCENDIARY is denial: it burns corpses down and
+    // savages the infected, at a soft-damage cost against the merely living.
+    const ballistic = def.tracer === 'bullet' || def.tracer === 'shell';
+    const ap = ballistic && (s.ammoType === 'ap' || this.hasEquip(s, 'apRounds'));
+    const inc = ballistic && s.ammoType === 'inc';
+    const dm = ap ? dmgMul * 0.75 : inc ? dmgMul * 0.85 : dmgMul;
     // arc weapons are cursor-targeted like every thrown item: the shell LANDS
     // at aimDist instead of always lobbing to max range. (This is what made
     // the GL-40 unusable at anything but exactly 46u.)
     const reach = def.arc ? Math.max(6, Math.min(aimDist ?? def.range, def.range)) : def.range;
     for (let p = 0; p < def.pellets; p++) {
-      this.throwProjectile(s, wid, 1.4, def.speed, def.arc, reach, 1, false, dm, ap);
+      this.throwProjectile(s, wid, 1.4, def.speed, def.arc, reach, 1, false, dm, ap, inc);
     }
     this.emit({ type: 'shot', pos: { ...s.pos, y: s.pos.y + 1.4 }, weapon: wid, soldierId: s.id });
   }
@@ -2693,7 +2706,7 @@ export class World {
    * LANDS at that distance instead of a fixed short ballistic. A caller can
    * pass a shorter reach for a soft toss (e.g. the hand-thrown frag).
    */
-  throwProjectile(s: Soldier, wid: WeaponId, muzzleY: number, speed: number, arc: boolean, reach = WEAPONS[wid].range, loft = 1, bounce = false, dmgMul = 1, pierceArmor = false) {
+  throwProjectile(s: Soldier, wid: WeaponId, muzzleY: number, speed: number, arc: boolean, reach = WEAPONS[wid].range, loft = 1, bounce = false, dmgMul = 1, pierceArmor = false, incendiary = false) {
     const def = WEAPONS[wid];
     const spread = (this.rng.next() - 0.5) * 2 * def.spread;
     const yaw = s.yaw + spread;
@@ -2726,6 +2739,7 @@ export class World {
       ...(bounce ? { bounce: true } : {}),
       ...(dmgMul !== 1 ? { dmgMul } : {}),
       ...(pierceArmor ? { pierceArmor: true } : {}),
+      ...(incendiary ? { incendiary: true } : {}),
     };
     // CARRY THE THROWER'S MOMENTUM (Robert: "you can outrun your own flame —
     // that's kinda crazy"). A flame stream is burning gas, not a bullet: it
@@ -4084,8 +4098,20 @@ export class World {
               const bare = s.armor <= 0;
               // Ragebeast's rounds hit harder as he bleeds (rampage)
               const shooter = this.soldiers.get(p.ownerId);
-              const dmg = def.damage * (shooter?.rageMul ?? 1) * (p.dmgMul ?? 1);
+              // INCENDIARY ammo (OUTBREAK-SPEC §11): fire is the horde's answer —
+              // a burning round mauls the undead (×1.6) even as it does less to
+              // the living. Denial over stopping-power, by design.
+              const incMul = p.incendiary && isZed(s.kind) ? 1.6 : 1;
+              const dmg = def.damage * (shooter?.rageMul ?? 1) * (p.dmgMul ?? 1) * incMul;
               this.damageSoldier(s, dmg, p.ownerId, p.weapon, false, p.pierceArmor);
+              // INCENDIARY corpse denial (OUTBREAK-SPEC §6.2): the round burns
+              // the body where it lands — including the one it just dropped,
+              // booked this same frame — so an exposed kill never rises.
+              if (p.incendiary && this.outbreakEnabled && this.corpses.length) {
+                for (const c of this.corpses) {
+                  if (!c.neutralized && Math.hypot(c.pos.x - s.pos.x, c.pos.z - s.pos.z) <= 2.5) c.neutralized = true;
+                }
+              }
               this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, soldierId: p.ownerId, bare });
               // CHAIN: the round arcs to the nearest un-struck enemies (60% dmg each)
               if (def.chain) {

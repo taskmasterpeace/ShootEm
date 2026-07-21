@@ -35,7 +35,7 @@ If you read one thing, read this. Everything below has a full row further down.
 **The death show:** death-cam director (varies by death) · gore/gibs · corpses lingering 20–30s · a kill-cam reward.
 **Sight (you just approved the fix):** 3D-shows-you / minimap-shows-team · contacts hold-then-fade instead of blinking · darkness outside your cone · house/maze line-of-sight · the second-storey fishbowl bug.
 **Melee:** STRIKE / GUARD / GRAPPLE + Impact Charge + the Control Struggle (terminology now LAW per the outbreak spec; the swing engine exists, wired only to zombie claws).
-**The outbreak (new spec, §17):** infection/viral load · corpse lifecycle & reanimation · outbreak pressure/levels · zombies as a third faction mid-war · emergent variants · ammo TYPES (Ball/AP/Incendiary…) · flashlight interiors · Bite Struggle — all designed, none built.
+**The outbreak (new spec, §17):** infection/viral load ✅ · corpse lifecycle & reanimation ✅ · outbreak pressure/levels ✅ · emergent variants ✅ · ammo TYPES (Ball/AP/Incendiary) ✅ — all SHIPPED 2026-07-20, live in horde/survival/safehouse. Still design: zombies as a third faction mid-war · flashlight interiors · Bite Struggle · mixed magazines.
 **The war:** the 3×3 board · killing the time-skip · the clone economy · pass escalation · **science missions** (now fully designed) · class-change requests · the two faction leaders · bots looking like robots.
 **The press:** AI-generated newspaper · the base TV newscast · the unnamed-soldier fiction.
 **Air & armor:** aircraft can't crash · no map wraparound · **planes don't read as high enough** (no shadow, HIGH sits below rooftops) · drive-by shooting · cars that handle like cars · seat-yield · rearm pads.
@@ -263,8 +263,8 @@ Full spec: **`docs/OUTBREAK-SPEC.md`** (infection model, outbreak pressure/level
 | Clone infection tied to the reinforcement economy | ❌ | rides the clone economy (W3.3), itself unbuilt |
 | Emergent variants from casualties (the body decides the form) | 🔨 | **SHIPPED 2026-07-20**: `riseKind(classId)` — a scout rises as a SPRINTER (lean), a heavy as a BRUTE, everyone else a base shambler; applies to both reanimated corpses and turned living. Armored/heavy-emergent full roster + mutation-field variants still design |
 | Environmental mutation fields (readable causes) | ❌ | none; Iron-Eater foundry site exists as a SCIENCE-MISSIONS location to reuse |
-| Ammunition TYPES (Ball / AP / Incendiary launch; TRC/SUB/EXP/BNR later) | ❌📋 | one ammo per weapon today; **a different axis than Wave 10.1's fire modes** (how it fires vs what it fires) — build as sisters |
-| Weapon HUD: ammo type, penetration, noise, fire hazard | ❌ | today's HUD shows clip/reserve only |
+| Ammunition TYPES (Ball / AP / Incendiary launch; TRC/SUB/EXP/BNR later) | 🔨 | **SHIPPED 2026-07-20**: B cycles ball→AP→INC (`Soldier.ammoType`, deterministic on `PlayerCmd.cycleAmmo`); AP threads plate for −25% soft on ballistic weapons, INC burns corpses on impact (denies reanimation) + ×1.6 vs any ZedKind at −15% vs the living; gods don't fumble ammo boxes; `tests/ammo.test.ts` (5). TRC/SUB/EXP/BNR + mixed magazines still design |
+| Weapon HUD: ammo type, penetration, noise, fire hazard | 🔨 | **ammo-type tag SHIPPED 2026-07-20**: the mag counter reads `30 / 90 · AP` / `· INC` on ballistic weapons; penetration/noise/fire-hazard readouts still design |
 | Interior flashlight (vision cone as a tool; wakes dormant sprinters) | ❌📋 | composes directly with SIGHT (W0.2): the darkness cone A2 builds is the flashlight's world |
 | Networking authority for infection/grapples | 📋 | matches the netcode plan's server-authoritative model (OPT-AUDIT); grapple latency handling is new |
 | Analytics for tuning (§19) | 🔨 | the blackbox ships and is the rail; ammo diagnostics already queued (10.5) |

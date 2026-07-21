@@ -494,6 +494,10 @@ export interface Soldier {
    *  infection are SEPARATE — plate can stop the tissue damage and still be
    *  contaminated. ≥40 at death books the corpse on the reanimation clock. */
   viralLoad?: number;
+  /** THE OUTBREAK (OUTBREAK-SPEC §11): the loaded ammunition TYPE, cycled with
+   *  B. 'ball' (default, absent) reliable all-rounder; 'ap' threads plate
+   *  (−soft damage); 'inc' burns corpses down and savages infected groups. */
+  ammoType?: 'ap' | 'inc';
   /** next sim time this bot may press E (one polite press, not a woodpecker) */
   botUseAt?: number;
   /** stuck detection: when this bot's ride stopped making progress */
@@ -642,6 +646,10 @@ export interface Projectile {
   ricochet?: number;
   pierceArmor?: boolean;
   ignite?: boolean;
+  /** THE OUTBREAK (OUTBREAK-SPEC §11): INCENDIARY ammunition. Burns corpses on
+   *  impact (denies reanimation like a blast) and savages the undead (+bonus
+   *  vs any ZedKind), at a soft-damage cost against the merely living. */
+  incendiary?: boolean;
   /** damage scalar carried by the round: charge boost × ricochet/penetrate decay */
   dmgMul?: number;
   /** ids already struck this flight — so a piercing round never double-hits one body */
@@ -896,4 +904,7 @@ export interface PlayerCmd {
   /** DUCK (finish-list 18): held stance -- half speed, and in the long grass
    *  you vanish past the footstep ring. C on the keyboard. */
   crouch?: boolean;
+  /** THE OUTBREAK (OUTBREAK-SPEC §11): one-frame tap to cycle ammunition TYPE
+   *  ball → armor-piercing → incendiary. B on the keyboard. */
+  cycleAmmo?: boolean;
 }

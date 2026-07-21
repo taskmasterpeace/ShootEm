@@ -13,7 +13,7 @@ export class Input {
   grenadeAiming = false;
   /** grenade arc (0 flat rope … 1 mortar lob) — wheel adjusts while aiming */
   grenadeLob = 1;
-  private oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false, dash: 0, melee: false };
+  private oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false, dash: 0, melee: false, cycleAmmo: false };
   /** M2 double-tap tracker for dash/roll */
   private lastTap = { key: '', at: 0 };
 
@@ -70,6 +70,7 @@ export class Input {
       if (k === 'q') this.oneShot.ability = true;
       if (k === 'e') this.oneShot.use = true;
       if (k === 'x') this.oneShot.nadeCycle = true; // rotate the grenade bag
+      if (k === 'b') this.oneShot.cycleAmmo = true; // ammo TYPE: ball → AP → INC
       if (k === 'f') this.oneShot.melee = true;     // M5: throw the axe / call it home
       if (k >= '1' && k <= '3') this.oneShot.weaponSlot = parseInt(k) - 1;
       if (k === 'tab') { this.scoreboardHeld = true; e.preventDefault(); }
@@ -184,8 +185,9 @@ export class Input {
       sprint: this.keys.has('shift'), // M2: hold to run — the tank pays
       dash: this.oneShot.dash,
       melee: this.oneShot.melee,   // M5: F — the axe
+      cycleAmmo: this.oneShot.cycleAmmo, // B — ball/AP/incendiary
     };
-    this.oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false, dash: 0, melee: false };
+    this.oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false, dash: 0, melee: false, cycleAmmo: false };
     // any mouse/keyboard input hands the wheel back to the desk
     if (cmd.moveX || cmd.moveZ || cmd.fire || this.mouse.down) this.gamepadActive = false;
     this.pollGamepad(local, cmd);
