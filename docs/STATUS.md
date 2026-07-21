@@ -94,8 +94,8 @@ Implementation plan: **`PLAN 2026-07-20-sight-and-steel.md` § B** · **terminol
 
 | Ask | Status | Evidence / where |
 |---|---|---|
-| A real melee weapon + a melee key | ❌ | no melee weapon a class can carry; F is the thrown axe. W0.3 / [#47](https://github.com/taskmasterpeace/ShootEm/issues/47) |
-| STRIKE (interrupts grabs, deals damage) | ❌ | swing engine exists; needs a weapon + key. [#47](https://github.com/taskmasterpeace/ShootEm/issues/47) |
+| A real melee weapon + a melee key | 🔨 | **SHIPPED 2026-07-20**: the universal `knife` (Combat Knife, 34 dmg, 2.2u reach) is on **F** for every soldier without a returning axe — no ammo, shambler on you, you still have an answer. `tests/melee.test.ts` STRIKE block (4) |
+| STRIKE (interrupts grabs, deals damage) | 🔨 | **SHIPPED 2026-07-20**: the knife STRIKE drives the existing windup→90°-arc→stagger swing (`WEAPONS.knife` → `startMelee`); shares the fire clock (no knife-and-shoot in one beat). Grab-interrupt lands with GRAPPLE. [#47](https://github.com/taskmasterpeace/ShootEm/issues/47) |
 | GUARD (frontal arc, beats strikes) | ❌ | no defensive state anywhere. [#47](https://github.com/taskmasterpeace/ShootEm/issues/47) |
 | GRAPPLE → Rear Control → Control Struggle (zone vs needle, best-of-three) | ❌📋 | fully specced (OUTBREAK-SPEC §14-15); nearest substrate is the ice-encasement struggle meter (`world.ts:1310`). [#47](https://github.com/taskmasterpeace/ShootEm/issues/47) |
 | Impact Charge (wind-up → charged → maximum → overcharged, meter NEAR the action) | ❌📋 | specced §13; the sim already has a hold-charge-release mechanic on LSW arms (`charge:{t,mul}`, Eclipse) to generalize |

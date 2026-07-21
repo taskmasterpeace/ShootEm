@@ -77,6 +77,11 @@ const CORE_WEAPONS: Record<WeaponId, WeaponDef> = {
   turret_mg: W({ id: 'turret_mg', name: 'Sentry MG', damage: 10, rof: 5, speed: 100, spread: 0.03, clip: Infinity, reserve: Infinity, range: 38, sound: 'smg' }),
   zombie_claw: W({ id: 'zombie_claw', name: 'Claws', damage: 14, rof: 1.2, speed: 20, spread: 0, clip: Infinity, reserve: Infinity, range: 2.2, sound: 'claw', tracer: 'none' }),
   dog_bite: W({ id: 'dog_bite', name: 'K9 Bite', damage: 16, rof: 1.6, speed: 20, spread: 0, clip: Infinity, reserve: Infinity, range: 2.0, sound: 'claw', tracer: 'none', icon: '🐕' }),
+  // THE STRIKE (OUTBREAK-SPEC §12): the universal melee every soldier owns on
+  // F — the outbreak's answer to "out of ammo, shambler on me." Short reach,
+  // real punch (drops a base shambler in ~5), reuses the claw swing engine.
+  // Never occupies a weapon slot; it is always in hand at knife range.
+  knife: W({ id: 'knife', name: 'Combat Knife', damage: 34, rof: 1.5, speed: 20, spread: 0, clip: Infinity, reserve: Infinity, range: 2.2, sound: 'claw', tracer: 'none', icon: '🔪' }),
   // ---- paintball markers (§3.3/§14): one splat and you're OUT. Damage 999
   // rides the §4.3 overkill rule — paint skips the crawl, nobody bleeds. ----
   // Reloads are LONG on purpose (Robert): fumbling pods into the hopper while

@@ -2014,6 +2014,13 @@ export class World {
       } else if (s.axeId === undefined && s.axeRecallAt === undefined) {
         this.throwAxe(s, cmd.aimDist ?? AXE_REACH);
       }
+    } else if (cmd.melee && !s.downed && s.vehicleId < 0 && s.encasedUntil === undefined
+               && s.meleeStrikeAt === 0 && this.time >= s.nextFireAt) {
+      // THE STRIKE (OUTBREAK-SPEC §12): no returning axe on the rig → the
+      // knife comes out. Reuses the horde's windup→arc→stagger swing, so a
+      // guarded or whiffed STRIKE reads the same whoever threw it. Shares the
+      // fire clock: you can't knife and shoot in the same beat.
+      this.startMelee(s, WEAPONS.knife);
     }
 
     // §4.3: downed soldiers crawl — quarter speed, no trigger, no toys, no doors.

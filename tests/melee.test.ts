@@ -143,3 +143,58 @@ describe('melee windup', () => {
     expect(died).toBeLessThan(3.0);     // within a whisker of the old ~1.7s kill
   });
 });
+
+// ---------------------------------------------------------------------------
+// THE MELEE TRIANGLE (OUTBREAK-SPEC §12), slice 1 — THE STRIKE. Every upright
+// soldier carries a universal knife on F: no ammo, shambler on you, you still
+// have an answer. It reuses the horde's exact windup→arc→stagger swing, so a
+// player's STRIKE and a claw read identically to everything downstream.
+// ---------------------------------------------------------------------------
+describe('the universal knife STRIKE (§12)', () => {
+  /** A default team-0 human — rifle on the rig, no axe, so F is the knife. */
+  function knifer(w: World, x: number, z: number) {
+    const a = w.addSoldier('Blade', 'infantry', 0, 'human');
+    a.pos = { x, y: 0, z };
+    return a;
+  }
+
+  it('drops a shambler standing in the front arc', () => {
+    const w = new World({ seed: 21, mode: 'horde' });
+    w.outbreakEnabled = true;
+    const man = knifer(w, 0, 0);
+    const zed = w.addZombie('zombie', { x: 1.6, y: 0, z: 0 }); // dead ahead, in reach
+    const hp0 = zed.hp;
+    run(w, new Map([[man.id, cmd({ melee: true, aimYaw: 0 })]]), 0.5);
+    expect(zed.hp).toBeLessThan(hp0); // the knife bit
+  });
+
+  it('whiffs on a target dead behind (the arc means FRONT)', () => {
+    const w = new World({ seed: 22, mode: 'tdm' });
+    const man = knifer(w, 0, 0);
+    const behind = dummy(w, -1.8, 0); // a stationary body directly behind the swing
+    const hp0 = behind.hp;
+    run(w, new Map([[man.id, cmd({ melee: true, aimYaw: 0 })]]), 0.4); // aim +X, away from it
+    expect(behind.hp).toBe(hp0); // nothing in the wedge
+  });
+
+  it('shares the fire clock — you cannot knife and shoot in one beat', () => {
+    const w = new World({ seed: 23, mode: 'horde' });
+    w.outbreakEnabled = true;
+    const man = knifer(w, 0, 0);
+    w.addZombie('zombie', { x: 1.6, y: 0, z: 0 });
+    w.step(DT, new Map([[man.id, cmd({ melee: true, aimYaw: 0 })]]));
+    expect(man.nextFireAt).toBeGreaterThan(w.time); // the swing occupies the trigger
+  });
+
+  it('an empty-mag soldier can still fight with the blade', () => {
+    const w = new World({ seed: 24, mode: 'horde' });
+    w.outbreakEnabled = true;
+    const man = knifer(w, 0, 0);
+    man.clip[man.weaponIdx] = 0;    // dry gun
+    man.reserve[man.weaponIdx] = 0; // and no reload to be had
+    const zed = w.addZombie('zombie', { x: 1.6, y: 0, z: 0 });
+    const hp0 = zed.hp;
+    run(w, new Map([[man.id, cmd({ melee: true, aimYaw: 0 })]]), 0.5);
+    expect(zed.hp).toBeLessThan(hp0); // the blade doesn't care about the empty mag
+  });
+});
