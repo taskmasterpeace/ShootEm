@@ -1,5 +1,20 @@
 import * as THREE from 'three';
+import { CLASSES } from '../sim/data';
 import type { PlayerCmd, Soldier } from '../sim/types';
+
+/** STATUS §1 / W1.3 — SPACE is a tap/hold: a quick TAP jumps, a HOLD ducks.
+ *  The window a press must beat to count as a tap (else it's a duck). */
+export const SPACE_TAP_MS = 180;
+/** Resolve SPACE into jump/crouch. Jetpack (and ascended) classes keep space as
+ *  a HELD action — thrust/flight — so their duck stays on C and nothing here
+ *  changes for them. A ground class taps to jump and holds to duck. Pure so the
+ *  tap/hold contract is pinned in a test, away from the DOM + wall clock. */
+export function resolveSpace(
+  spaceHeldMode: boolean, spaceHeld: boolean, heldMs: number, tapJumpFired: boolean,
+): { jump: boolean; crouch: boolean } {
+  if (spaceHeldMode) return { jump: spaceHeld, crouch: false };
+  return { jump: tapJumpFired, crouch: spaceHeld && heldMs >= SPACE_TAP_MS };
+}
 
 export class Input {
   private keys = new Set<string>();
@@ -15,9 +30,11 @@ export class Input {
   grenadeLob = 1;
   /** F held: charging an Impact Charge (§13). Release commits the strike. */
   private meleeDown = false;
-  private oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false, dash: 0, melee: false, cycleAmmo: false, grapple: false };
+  private oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false, dash: 0, melee: false, cycleAmmo: false, grapple: false, spaceJump: false };
   /** M2 double-tap tracker for dash/roll */
   private lastTap = { key: '', at: 0 };
+  /** W1.3: when SPACE went down — a quick release jumps, a long hold ducks. */
+  private spaceDownAt = 0;
 
   static readonly CAM_MIN = 16;
   static readonly CAM_MAX = 80; // command height — semantic zoom keeps it readable
@@ -67,6 +84,7 @@ export class Input {
         }
       }
       this.keys.add(k);
+      if (k === ' ') this.spaceDownAt = performance.now(); // W1.3: start the tap/hold clock
       if (k === 'r') this.oneShot.reload = true;
       if (k === 'g') this.grenadeAiming = true; // hold to aim — throw on release
       if (k === 'q') this.oneShot.ability = true;
@@ -82,6 +100,8 @@ export class Input {
       if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
       const k = e.key.toLowerCase();
       this.keys.delete(k);
+      // W1.3: a quick tap of SPACE is a JUMP (a long hold was a duck — no jump)
+      if (k === ' ' && performance.now() - this.spaceDownAt < SPACE_TAP_MS) this.oneShot.spaceJump = true;
       if (k === 'g' && this.grenadeAiming) { this.grenadeAiming = false; this.oneShot.grenade = true; }
       if (k === 'f' && this.meleeDown) { this.meleeDown = false; this.oneShot.melee = true; } // release = commit (§13)
       if (k === 'tab') this.scoreboardHeld = false;
@@ -173,12 +193,17 @@ export class Input {
       aimDist = Math.hypot(aim.x - local.pos.x, aim.z - local.pos.z);
     }
 
+    // W1.3: SPACE is tap-jump / hold-duck for ground classes; jetpack + ascended
+    // bodies keep it as held thrust/flight (their duck stays on C).
+    const klass = CLASSES[local.classId];
+    const spaceHeldMode = local.ascendant !== undefined || klass?.ability === 'jetpack';
+    const sp = resolveSpace(spaceHeldMode, this.keys.has(' '), performance.now() - this.spaceDownAt, this.oneShot.spaceJump);
     const cmd: PlayerCmd = {
       moveX, moveZ, aimYaw, aimDist,
       fire: this.mouse.down,
       altFire: this.mouse.rightDown,
-      jump: this.keys.has(' '),
-      crouch: this.keys.has('c'), // DUCK: held stance (finish-list 18)
+      jump: sp.jump,
+      crouch: this.keys.has('c') || sp.crouch, // DUCK: C, or HOLD space (§W1.3)
       guard: this.keys.has('v'),  // GUARD: held brace — blocks/parries melee (§12)
       use: this.oneShot.use,
       ability: this.oneShot.ability,
@@ -194,7 +219,7 @@ export class Input {
       cycleAmmo: this.oneShot.cycleAmmo, // B — ball/AP/incendiary
       grapple: this.oneShot.grapple,     // Z — the grab
     };
-    this.oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false, dash: 0, melee: false, cycleAmmo: false, grapple: false };
+    this.oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false, dash: 0, melee: false, cycleAmmo: false, grapple: false, spaceJump: false };
     // any mouse/keyboard input hands the wheel back to the desk
     if (cmd.moveX || cmd.moveZ || cmd.fire || this.mouse.down) this.gamepadActive = false;
     this.pollGamepad(local, cmd);
