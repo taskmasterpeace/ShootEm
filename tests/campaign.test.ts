@@ -7,9 +7,33 @@ import { describe, expect, it } from 'vitest';
 import {
   BAND_EDGE, CLONE_RECOVER, FRONTS, SEASON_FRONTS_TO_WIN, applyResult, bandOf, checkSeasonEnd,
   cloneSeedFor, freshCampaign, holdTheLine,
+  migrateCampaign,
 } from '../src/client/campaign';
 
 describe('the Living Campaign', () => {
+  it('migrates a v1 theatre without losing its front history', () => {
+    const legacy = {
+      v: 1,
+      season: 4,
+      updatedAt: 500,
+      fronts: Object.fromEntries(FRONTS.map((front) => [front.id, {
+        control: front.id === 'airbase' ? 37 : 0,
+        scarActive: front.id === 'airbase',
+        lastBattleAt: front.id === 'airbase' ? 400 : 0,
+        clones: cloneSeedFor(front) - 9,
+        pass: front.id === 'airbase' ? 3 : 1,
+      }])),
+      dispatch: [{ text: 'old war', at: 400, simulated: false }],
+    };
+    const campaign = migrateCampaign(legacy, 1000);
+    expect(campaign.v).toBe(2);
+    expect(campaign.season).toBe(4);
+    expect(campaign.fronts.airbase).toMatchObject({ control: 37, scarActive: true, lastBattleAt: 400, pass: 3 });
+    expect(campaign.dispatch[0].text).toBe('old war');
+    expect(campaign.treasury).toBeGreaterThan(0);
+    expect(campaign.motorPool.length).toBeGreaterThan(20);
+  });
+
   it('ten fronts, every recipe on a real theme + mode', () => {
     expect(FRONTS.length).toBe(10);
     for (const f of FRONTS) {
