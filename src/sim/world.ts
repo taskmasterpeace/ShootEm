@@ -3871,7 +3871,29 @@ export class World {
       if (!v.alive || v.team !== s.team) continue;
       const d = Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z);
       if (d < VEHICLES[v.kind].radius + 2.2) {
-        const seat = v.seats.indexOf(-1);
+        // W5.6 SEAT-YIELD: a FULL hull makes room for a HUMAN — the rear-most
+        // bot steps out; the wheel yields last ("move over, I'm driving").
+        if (s.kind === 'human' && v.seats.indexOf(-1) < 0) {
+          for (let i = v.seats.length - 1; i >= 0; i--) {
+            const rider = this.soldiers.get(v.seats[i]);
+            if (rider && rider.kind === 'bot') {
+              this.exitVehicle(rider, v);
+              this.emit({ type: 'announce', text: `${VEHICLES[v.kind].name}: seat yielded` });
+              break;
+            }
+          }
+        }
+        // W5.6 PER-HATCH ENTRY (diegetic): a human's seat follows the hatch
+        // they walked to — the NOSE takes the wheel, the TAIL takes a bench
+        // (the wheel only from the back if it's the last seat there is).
+        // Bots keep the classic first-free pick: a convoy needs drivers.
+        let seat = v.seats.indexOf(-1);
+        if (s.kind === 'human' && seat >= 0) {
+          const free: number[] = [];
+          for (let i = 0; i < v.seats.length; i++) if (v.seats[i] < 0) free.push(i);
+          const fwd = Math.cos(v.yaw) * (s.pos.x - v.pos.x) + Math.sin(v.yaw) * (s.pos.z - v.pos.z);
+          seat = fwd >= 0 ? free[0] : (free.find((i) => i > 0) ?? free[0]);
+        }
         if (seat >= 0) {
           v.seats[seat] = s.id;
           // first hand on the wheel signs the manifest; any crewing resets the
