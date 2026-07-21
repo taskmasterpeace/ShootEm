@@ -1,5 +1,5 @@
 import type { House, PickupSpawn, PropSpec } from './map';
-import { F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_COVER, T_DOOR, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, TILE, WORLD } from './map';
+import { F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_COVER, T_DOOR, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_THIN_DOOR_H, T_THIN_DOOR_V, T_THIN_WALL_H, T_THIN_WALL_HV, T_THIN_WALL_V, T_WALL, TILE, WORLD } from './map';
 import type { Rng } from './rng';
 import type { ThemeId } from './types';
 
@@ -16,6 +16,8 @@ import type { ThemeId } from './types';
 //   'C' crate cover (claimed — the crate mesh renders the collision)
 //   'P' pickup on the floor (medkit/ammo alternating)
 //   'L' ladder foot (walkable; E climbs to the rows2 storey above)
+//   '-' thin horizontal wall  '|' thin vertical wall  '+' thin junction
+//   'h' thin horizontal door  'v' thin vertical door
 //
 // Second storeys: the format reserves `floors` for the Phase-2 height layer
 // (DD §8.4 decided walkable roofs need their own engine decision) — every
@@ -673,7 +675,7 @@ export function stencilConnected(def: BuildingDef): boolean {
   const at = (x: number, z: number) => (def.rows[z] ?? '')[x] ?? ' ';
   // void is GROUND: stampBuilding leaves ' ' tiles as the terrain beneath,
   // so a breach in a ruin's wall is as real a door as a 'D'
-  const pass = (ch: string) => ch === '.' || ch === 'D' || ch === 'P' || ch === 'L' || ch === ' ';
+  const pass = (ch: string) => ch === '.' || ch === 'D' || ch === 'h' || ch === 'v' || ch === 'P' || ch === 'L' || ch === ' ';
   // seed from EVERY entrance: all doors, plus any floor/void on the stencil
   // border (an open maw — hangars have no door, just a mouth; ruins have
   // breaches). Multi-pod buildings are legal as long as each pod owns a way
@@ -684,7 +686,7 @@ export function stencilConnected(def: BuildingDef): boolean {
     for (let x = 0; x < w; x++) {
       const ch = at(x, z);
       const border = x === 0 || z === 0 || x === w - 1 || z === h - 1;
-      if (ch === 'D' || (border && pass(ch))) { seen.add(z * w + x); q.push([x, z]); }
+      if (ch === 'D' || ch === 'h' || ch === 'v' || (border && pass(ch))) { seen.add(z * w + x); q.push([x, z]); }
     }
   if (q.length === 0) return false;
   while (q.length) {
@@ -736,11 +738,19 @@ export function stampBuilding(ctx: StampCtx, def: BuildingDef, tx: number, tz: n
       const idx = gz * GRID + gx;
       switch (ch) {
         case '#': ctx.grid[idx] = T_WALL; break;
+        case '-': ctx.grid[idx] = T_THIN_WALL_H; break;
+        case '|': ctx.grid[idx] = T_THIN_WALL_V; break;
+        case '+': ctx.grid[idx] = T_THIN_WALL_HV; break;
         case 'M': ctx.grid[idx] = T_METAL; break;
         case 'S': ctx.grid[idx] = T_SLIT; break;
         case 'D':
           ctx.grid[idx] = T_DOOR;
           // the LOWEST door is the front door — record where it really is
+          if (!frontDoor || gz >= frontDoor.z) frontDoor = { x: gx, z: gz };
+          break;
+        case 'h':
+        case 'v':
+          ctx.grid[idx] = ch === 'h' ? T_THIN_DOOR_H : T_THIN_DOOR_V;
           if (!frontDoor || gz >= frontDoor.z) frontDoor = { x: gx, z: gz };
           break;
         case 'C':

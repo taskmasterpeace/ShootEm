@@ -12,6 +12,8 @@
 import {
   T_OPEN, T_WALL, T_COVER, T_WATER, T_SLIT, T_DOOR, T_DOOR_OPEN, T_METAL,
   T_METAL_DOOR, T_LADDER, T_DEEP, T_CLIMB, T_RUBBLE, T_GRASS,
+  T_THIN_WALL_H, T_THIN_WALL_V, T_THIN_WALL_HV,
+  T_THIN_DOOR_H, T_THIN_DOOR_V, T_THIN_DOOR_H_OPEN, T_THIN_DOOR_V_OPEN,
   S_DIRT, S_GRASS, S_ICE, S_GRIT, S_PLATE, S_WET, S_MUD,
 } from './map';
 
@@ -68,10 +70,15 @@ export const DRILL_BASE = 0.245;
  *  ladders are dirt (nothing to destroy). Out of bounds = bedrock (the border). */
 export function materialOf(tile: number): Material {
   switch (tile) {
-    case T_WALL: case T_SLIT: return MATERIALS.masonry;
+    case T_WALL: case T_SLIT:
+    case T_THIN_WALL_H: case T_THIN_WALL_V: case T_THIN_WALL_HV:
+      return MATERIALS.masonry;
     case T_CLIMB: return MATERIALS.masonry;         // container barricade: structural, heavy, drillable (preserves 300hp)
     case T_COVER: return MATERIALS.sandbag;
-    case T_DOOR: case T_DOOR_OPEN: return MATERIALS.wood;
+    case T_DOOR: case T_DOOR_OPEN:
+    case T_THIN_DOOR_H: case T_THIN_DOOR_V:
+    case T_THIN_DOOR_H_OPEN: case T_THIN_DOOR_V_OPEN:
+      return MATERIALS.wood;
     case T_METAL: return MATERIALS.metal;
     case T_METAL_DOOR: return MATERIALS.metalDoor;
     case T_RUBBLE: return MATERIALS.rubble;

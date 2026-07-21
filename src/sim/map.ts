@@ -40,6 +40,18 @@ export const T_GRASS = 12;     // TALL GRASS (finish-list 18): walkable, stops
 export const T_METAL_DOOR = 13; // the toughest breach — a safe-room door: blocks
                                 // like metal, drills the slowest of anything (materials.ts)
 
+// SCIENCE MISSIONS: compact indoor maps need walls that occupy a wall's
+// thickness, not an entire 3x3-metre tile. Orientation is data so collision,
+// sight, doors, and rendering all agree without guessing from neighbours.
+export const T_THIN_WALL_H = 14;       // spans the tile's X axis
+export const T_THIN_WALL_V = 15;       // spans the tile's Z axis
+export const T_THIN_DOOR_H = 16;
+export const T_THIN_DOOR_V = 17;
+export const T_THIN_DOOR_H_OPEN = 18;
+export const T_THIN_DOOR_V_OPEN = 19;
+export const T_THIN_WALL_HV = 20;      // corner / junction: both axes
+export const THIN_WALL = 0.42;
+
 /** §8.7 heights, one place: what each tier stops below. HOP-tier cover at
  *  1.2, CLIMB barricades at 2.5, WALL at 4 — the tiers separate cleanly:
  *  a running hop (~1.1) clears cover only; a jetpack climbs past 2.5. */
@@ -53,7 +65,11 @@ export const RUBBLE_H = 0.6;   // a breach pile: stops rounds at the shins, not 
  *  Structure is dinner: walls, cover, slits, doors, CLIMB barricades. Not
  *  on the menu: METAL (sparks, zero progress), water (nothing to eat),
  *  ladders, open ground, and the map border. */
-export const DRILL_EATS: ReadonlySet<number> = new Set([T_WALL, T_COVER, T_SLIT, T_DOOR, T_DOOR_OPEN, T_CLIMB, T_RUBBLE]);
+export const DRILL_EATS: ReadonlySet<number> = new Set([
+  T_WALL, T_COVER, T_SLIT, T_DOOR, T_DOOR_OPEN, T_CLIMB, T_RUBBLE,
+  T_THIN_WALL_H, T_THIN_WALL_V, T_THIN_WALL_HV,
+  T_THIN_DOOR_H, T_THIN_DOOR_V, T_THIN_DOOR_H_OPEN, T_THIN_DOOR_V_OPEN,
+]);
 
 // ---- the SURFACE layer (§8.6): what the ground IS, orthogonal to blocking ----
 export const S_DIRT = 0;   // bare rock/dirt — the neutral surface
@@ -210,6 +226,51 @@ export function tileAt(grid: Uint8Array, x: number, z: number): number {
   return grid[tz * GRID + tx];
 }
 
+const thinGrids = new WeakSet<Uint8Array>();
+
+/** Mark a grid as containing narrow geometry so LOS uses a sub-wall step. */
+export function registerThinGrid(grid: Uint8Array): void {
+  thinGrids.add(grid);
+}
+
+export function isDoorTile(tile: number): boolean {
+  return tile === T_DOOR || tile === T_DOOR_OPEN || tile === T_METAL_DOOR
+    || tile === T_THIN_DOOR_H || tile === T_THIN_DOOR_V
+    || tile === T_THIN_DOOR_H_OPEN || tile === T_THIN_DOOR_V_OPEN;
+}
+
+export function doorIsOpen(tile: number): boolean {
+  return tile === T_DOOR_OPEN || tile === T_THIN_DOOR_H_OPEN || tile === T_THIN_DOOR_V_OPEN;
+}
+
+/** Toggle a door while retaining the explicit orientation of thin doors. */
+export function toggleDoorTile(tile: number): number {
+  if (tile === T_DOOR) return T_DOOR_OPEN;
+  if (tile === T_DOOR_OPEN) return T_DOOR;
+  if (tile === T_THIN_DOOR_H) return T_THIN_DOOR_H_OPEN;
+  if (tile === T_THIN_DOOR_H_OPEN) return T_THIN_DOOR_H;
+  if (tile === T_THIN_DOOR_V) return T_THIN_DOOR_V_OPEN;
+  if (tile === T_THIN_DOOR_V_OPEN) return T_THIN_DOOR_V;
+  return tile;
+}
+
+/** Compatibility name for systems that speak in door types rather than tiles. */
+export const toggleDoorType = toggleDoorTile;
+
+function centeredTileOffset(value: number): number {
+  const within = ((value + WORLD / 2) % TILE + TILE) % TILE;
+  return within - TILE / 2;
+}
+
+export function thinTileBlocks(tile: number, x: number, z: number): boolean {
+  if (tile === T_THIN_DOOR_H_OPEN || tile === T_THIN_DOOR_V_OPEN) return false;
+  const ox = Math.abs(centeredTileOffset(x));
+  const oz = Math.abs(centeredTileOffset(z));
+  const horizontal = tile === T_THIN_WALL_H || tile === T_THIN_DOOR_H || tile === T_THIN_WALL_HV;
+  const vertical = tile === T_THIN_WALL_V || tile === T_THIN_DOOR_V || tile === T_THIN_WALL_HV;
+  return (horizontal && oz <= THIN_WALL / 2) || (vertical && ox <= THIN_WALL / 2);
+}
+
 export function isBlocked(grid: Uint8Array, x: number, z: number, hover = false): boolean {
   const t = tileAt(grid, x, z);
   if (t === T_WATER) return false;   // shallow: wadeable by everyone (slowly)
@@ -217,6 +278,7 @@ export function isBlocked(grid: Uint8Array, x: number, z: number, hover = false)
   // slits and CLOSED doors block movement always; open doors are a doorway.
   // CLIMB barricades block GROUND movement like walls — clearing one is the
   // airborne y-band's job (world.ts knows your apex; this function doesn't).
+  if (t >= T_THIN_WALL_H && t <= T_THIN_WALL_HV) return thinTileBlocks(t, x, z);
   return t === T_WALL || t === T_COVER || t === T_SLIT || t === T_DOOR || t === T_METAL || t === T_METAL_DOOR || t === T_CLIMB;
 }
 
@@ -260,6 +322,10 @@ export function blocksShot(grid: Uint8Array, x: number, z: number, y: number): b
   if (t === T_METAL || t === T_METAL_DOOR) return y < WALL_H;  // metal walls (and safe-room doors) are walls
   if (t === T_CLIMB) return y < CLIMB_H; // §8.7: rounds clear the lip at 2.5
   if (t === T_RUBBLE) return y < RUBBLE_H; // a breach pile: shin cover, eyes clear
+  if (t >= T_THIN_WALL_H && t <= T_THIN_WALL_HV) {
+    const door = t === T_THIN_DOOR_H || t === T_THIN_DOOR_V;
+    return thinTileBlocks(t, x, z) && y < (door ? 2.2 : WALL_H);
+  }
   return false;
 }
 
@@ -294,7 +360,8 @@ export const upperBlocked = (grid2: Uint8Array, x: number, z: number): boolean =
 export function losClear(grid: Uint8Array, a: Vec3, b: Vec3, y = 1.4): boolean {
   const dx = b.x - a.x, dz = b.z - a.z;
   const dist = Math.hypot(dx, dz);
-  const steps = Math.max(1, Math.ceil(dist / (TILE * 0.5)));
+  const stride = thinGrids.has(grid) ? THIN_WALL * 0.5 : TILE * 0.5;
+  const steps = Math.max(1, Math.ceil(dist / stride));
   for (let i = 1; i < steps; i++) {
     const t = i / steps;
     if (blocksShot(grid, a.x + dx * t, a.z + dz * t, y)) return false;

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
-import { CLIMB_H, F2_SLIT, F2_WALL, F2_WELL, GRID, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, houseAt, losClear, surfaceAt, tileAt } from '../sim/map';
+import { CLIMB_H, F2_SLIT, F2_WALL, F2_WELL, GRID, THIN_WALL, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_THIN_DOOR_H, T_THIN_DOOR_H_OPEN, T_THIN_DOOR_V, T_THIN_DOOR_V_OPEN, T_THIN_WALL_H, T_THIN_WALL_HV, T_THIN_WALL_V, T_WALL, T_WATER, TILE, WORLD, blocksShot, doorIsOpen, houseAt, isDoorTile, losClear, surfaceAt, tileAt } from '../sim/map';
 import { TORCH_MULT, classLinger, eyesSeePoint, perceivesNow, seenRecently, type SeenMark } from '../sim/perception';
 import { paintColorFor } from './onboarding';
 import type { WeatherKind } from '../sim/weather';
@@ -273,6 +273,7 @@ export class Renderer {
   private wallInstanceByTile = new Map<number, number>();
   private coverInstanceByTile = new Map<number, number>();
   private climbInstanceByTile = new Map<number, number>();
+  private thinByTile = new Map<number, THREE.Object3D[]>();
   // ---- visual feedback state ----
   private pingMarkers = new Map<number, THREE.Sprite>();   // revealed enemies get a chevron
   private pingTexture: THREE.Texture | null = null;
@@ -435,6 +436,7 @@ export class Renderer {
         this.climbLipInst.instanceMatrix.needsUpdate = true;
       }
     }
+    for (const object of this.thinByTile.get(tileIdx) ?? []) object.visible = false;
   }
 
   constructor(canvas: HTMLCanvasElement) {
@@ -849,6 +851,9 @@ export class Renderer {
     const slitTiles: [number, number][] = [];
     const metalTiles: [number, number][] = [];
     const doorTiles: [number, number][] = [];
+    const thinHTiles: [number, number][] = [];
+    const thinVTiles: [number, number][] = [];
+    const thinHVTiles: [number, number][] = [];
     const ladderTiles: [number, number][] = [];
     let unknownWarned = false;
     for (let z = 0; z < GRID; z++) {
@@ -866,7 +871,13 @@ export class Renderer {
           slitTiles.push([x, z]);
         } else if (t === T_METAL) {
           metalTiles.push([x, z]);
-        } else if (t === T_DOOR || t === T_DOOR_OPEN) {
+        } else if (t === T_THIN_WALL_H) {
+          thinHTiles.push([x, z]);
+        } else if (t === T_THIN_WALL_V) {
+          thinVTiles.push([x, z]);
+        } else if (t === T_THIN_WALL_HV) {
+          thinHVTiles.push([x, z]);
+        } else if (isDoorTile(t)) {
           doorTiles.push([x, z]);
         } else {
           // T_WALL — and any unknown blocking type, visible by construction
@@ -915,6 +926,28 @@ export class Renderer {
     if (wallInst.instanceColor) wallInst.instanceColor.needsUpdate = true;
     this.scene.add(wallInst);
     this.wallInst = wallInst;
+
+    // Science interiors: visible geometry uses the exact same orientation and
+    // 0.42u thickness as collision. Junctions receive both crossing spans.
+    this.thinByTile.clear();
+    const thinMat = new THREE.MeshStandardMaterial({ color: pal.wall, roughness: 0.9 });
+    const addThin = (x: number, z: number, spansX: boolean) => {
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(spansX ? TILE : THIN_WALL, 4, spansX ? THIN_WALL : TILE),
+        thinMat,
+      );
+      mesh.position.set((x + 0.5) * TILE - WORLD / 2, 2, (z + 0.5) * TILE - WORLD / 2);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      this.scene.add(mesh);
+      const idx = z * GRID + x;
+      const owned = this.thinByTile.get(idx) ?? [];
+      owned.push(mesh);
+      this.thinByTile.set(idx, owned);
+    };
+    for (const [x, z] of thinHTiles) addThin(x, z, true);
+    for (const [x, z] of thinVTiles) addThin(x, z, false);
+    for (const [x, z] of thinHVTiles) { addThin(x, z, true); addThin(x, z, false); }
 
     // TALL GRASS (finish-list 18): crossed blades per tile, wind-still and
     // cheap -- the meadow reads at command zoom without hiding the fight.
@@ -1099,11 +1132,16 @@ export class Renderer {
     const doorMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2a, roughness: 0.8 });
     for (const [x, z] of doorTiles) {
       const idx = z * GRID + x;
-      // orientation: neighbors solid left/right => the door spans X
+      const tile = world.map.grid[idx];
+      // Thin doors carry orientation. Legacy doors retain neighbour inference.
       const solid = (t: number) => t === T_WALL || t === T_METAL || t === T_SLIT || t === T_DOOR || t === T_DOOR_OPEN;
-      const spansX = solid(world.map.grid[idx - 1]) || solid(world.map.grid[idx + 1]);
+      const spansX = tile === T_THIN_DOOR_H || tile === T_THIN_DOOR_H_OPEN
+        ? true
+        : tile === T_THIN_DOOR_V || tile === T_THIN_DOOR_V_OPEN
+          ? false
+          : solid(world.map.grid[idx - 1]) || solid(world.map.grid[idx + 1]);
       const mesh = new THREE.Mesh(
-        new THREE.BoxGeometry(spansX ? TILE : 0.35, 2.2, spansX ? 0.35 : TILE),
+        new THREE.BoxGeometry(spansX ? TILE : THIN_WALL, 2.2, spansX ? THIN_WALL : TILE),
         doorMat.clone(),
       );
       mesh.position.set((x + 0.5) * TILE - WORLD / 2, 1.1, (z + 0.5) * TILE - WORLD / 2);
@@ -1522,11 +1560,11 @@ export class Renderer {
     // A tile that stopped being a door got broken down — the slab is gone.
     for (const d of this.doors) {
       const t = world.map.grid[d.idx];
-      if (t !== T_DOOR && t !== T_DOOR_OPEN) {
+      if (!isDoorTile(t)) {
         d.mesh.visible = false;
         continue;
       }
-      const open = t === T_DOOR_OPEN;
+      const open = doorIsOpen(t);
       const off = open ? TILE * 0.82 : 0;
       const tx = d.base.x + (d.spansX ? off : 0);
       const tz = d.base.z + (d.spansX ? 0 : off);

@@ -137,7 +137,7 @@ git commit -m "feat: add science mission generator"
 - Produces: `T_THIN_WALL_H`, `T_THIN_WALL_V`, `T_THIN_DOOR_H`, `T_THIN_DOOR_V`, open variants, `isDoorTile(t)`, `doorIsOpen(t)`, `toggleDoorType(t)`, `thinTileBlocks(t, x, z)`, `generateScienceMap(spec)` returning `{ map, entry, extraction, objectiveSockets, guardPosts, civilianSpawns }`.
 - Extends stencil legend with `-`, `|`, `h`, and `v` while preserving all existing characters.
 
-- [ ] **Step 1: Write failing thin-wall and map-law tests**
+- [x] **Step 1: Write failing thin-wall and map-law tests**
 
 ```ts
 it('thin walls block only their visible slab', () => {
@@ -166,13 +166,13 @@ it('the officer villa is guaranteed two-storey', () => {
 });
 ```
 
-- [ ] **Step 2: Run the map test and verify RED**
+- [x] **Step 2: Run the map test and verify RED**
 
 Run: `npx vitest run tests/science-map.test.ts`
 
 Expected: FAIL on missing thin tile constants and `generateScienceMap`.
 
-- [ ] **Step 3: Implement shared thin collision and door helpers**
+- [x] **Step 3: Implement shared thin collision and door helpers**
 
 ```ts
 export const THIN_WALL = 0.32;
@@ -194,17 +194,17 @@ export function thinTileBlocks(t: number, x: number, z: number): boolean {
 
 Update `isBlocked`, `blocksShot`, destruction/door helpers, renderer classification, thin instanced geometry, and live door animation to use the same constants.
 
-- [ ] **Step 4: Implement science stencil profiles and map assembly**
+- [x] **Step 4: Implement science stencil profiles and map assembly**
 
 Create explicit site profiles that emit `BuildingDef` rows with `-`, `|`, `h`, `v`, objective sockets, guards, civilians, and a safe western entry. Stamp them through `stampBuilding`; use a fixed valid two-storey villa definition with a matching `L`/`rows2` well. Return a normal `GameMap` with one clone-bay claim and no second faction printer.
 
-- [ ] **Step 5: Run focused map, building, door, wall, and visual tests**
+- [x] **Step 5: Run focused map, building, door, wall, and visual tests**
 
 Run: `npx vitest run tests/science-map.test.ts tests/buildings.test.ts tests/twostory.test.ts tests/autodoor.test.ts tests/walls.test.ts tests/visual.test.ts`
 
 Expected: all listed test files PASS.
 
-- [ ] **Step 6: Commit the map slice**
+- [x] **Step 6: Commit the map slice**
 
 ```powershell
 git add src/sim/map.ts src/sim/buildings.ts src/sim/science-map.ts src/client/renderer.ts tests/science-map.test.ts
