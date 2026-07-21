@@ -63,20 +63,20 @@ const F = (
 /** The sixteen generated families — every category from the classic armory. */
 export const FAMILIES: FamilySpec[] = [
   F('pistol',       'Pistol',        'P',  { damage: 12, rof: 4.5, speed: 100, spread: 0.02, clip: 12, reloadTime: 1.1, reserve: 96, range: 44, sound: 'pistol', fireMode: 'single' }),
-  F('rifle',        'Rifle',         'R',  { damage: 13, rof: 7.5, speed: 110, spread: 0.025, clip: 30, reserve: 240, range: 66 }),
-  F('carbine',      'Carbine',       'C',  { damage: 11, rof: 9, speed: 105, spread: 0.03, clip: 26, reloadTime: 1.4, reserve: 208, range: 52, fireMode: 'burst2' }), // 10.1: the two-round-burst rifle — "a heck of an edge"
-  F('smg',          'SMG',           'K',  { damage: 9, rof: 12, speed: 95, spread: 0.05, clip: 40, reloadTime: 1.3, reserve: 240, range: 40, sound: 'smg' }),
+  F('rifle',        'Rifle',         'R',  { damage: 13, rof: 7.5, speed: 110, spread: 0.025, clip: 30, reserve: 240, range: 66, alt: { kind: 'burst', ammo: 3, cooldown: 2.6 } }),
+  F('carbine',      'Carbine',       'C',  { damage: 11, rof: 9, speed: 105, spread: 0.03, clip: 26, reloadTime: 1.4, reserve: 208, range: 52, fireMode: 'burst2', alt: { kind: 'tag', ammo: 4, cooldown: 1.4 } }), // 10.1: the two-round-burst rifle — "a heck of an edge"
+  F('smg',          'SMG',           'K',  { damage: 9, rof: 12, speed: 95, spread: 0.05, clip: 40, reloadTime: 1.3, reserve: 240, range: 40, sound: 'smg', alt: { kind: 'skitter', ammo: 2, cooldown: 3 } }),
   F('shotgun',      'Shotgun',       'SG', { damage: 9, rof: 1.4, pellets: 8, speed: 80, spread: 0.11, clip: 6, reloadTime: 2.2, reserve: 60, range: 26, sound: 'shotgun', tracer: 'shell', fireMode: 'pump' }),
   F('slugger',      'Slug Thrower',  'ST', { damage: 34, rof: 1.8, speed: 85, spread: 0.015, clip: 8, reloadTime: 2.0, reserve: 64, range: 58, sound: 'shotgun', tracer: 'shell', fireMode: 'pump' }),
-  F('laser',        'Laser',         'L',  { damage: 30, rof: 2.2, speed: 300, spread: 0.003, clip: 8, reloadTime: 1.8, reserve: 64, range: 96, sound: 'rail', tracer: 'rail' }),
-  F('lmg',          'Light MG',      'LM', { damage: 11, rof: 9.5, speed: 105, spread: 0.045, clip: 75, reloadTime: 3.2, reserve: 375, range: 54, sound: 'autocannon' }),
-  F('hmg',          'Heavy MG',      'HM', { damage: 15, rof: 7, speed: 105, spread: 0.05, clip: 90, reloadTime: 3.8, reserve: 360, range: 64, sound: 'autocannon' }),
+  F('laser',        'Laser',         'L',  { damage: 30, rof: 2.2, speed: 300, spread: 0.003, clip: 8, reloadTime: 1.8, reserve: 64, range: 96, sound: 'rail', tracer: 'rail', alt: { kind: 'tag', ammo: 4, cooldown: 1.4 } }),
+  F('lmg',          'Light MG',      'LM', { damage: 11, rof: 9.5, speed: 105, spread: 0.045, clip: 75, reloadTime: 3.2, reserve: 375, range: 54, sound: 'autocannon', alt: { kind: 'burst', ammo: 2, cooldown: 2.6 } }),
+  F('hmg',          'Heavy MG',      'HM', { damage: 15, rof: 7, speed: 105, spread: 0.05, clip: 90, reloadTime: 3.8, reserve: 360, range: 64, sound: 'autocannon', alt: { kind: 'burst', ammo: 2, cooldown: 2.6 } }),
   F('at_rocket',    'AT Rocket',     'AT', { damage: 90, rof: 0.6, speed: 40, spread: 0.008, clip: 1, reloadTime: 3.0, reserve: 12, range: 88, splash: 3, splashDamage: 40, knockback: 14, sound: 'rocket', tracer: 'rocket' }),
   F('ap_rocket',    'AP Rocket',     'AP', { damage: 40, rof: 0.9, speed: 44, spread: 0.012, clip: 3, reloadTime: 2.6, reserve: 18, range: 72, splash: 5, splashDamage: 50, knockback: 14, sound: 'rocket', tracer: 'rocket' }),
   F('mortar',       'Mortar',        'M',  { damage: 50, rof: 0.7, speed: 30, arc: true, clip: 4, reloadTime: 2.8, reserve: 24, range: 72, splash: 5.5, splashDamage: 55, knockback: 14, sound: 'thump', tracer: 'shell' }),
   F('artillery',    'Field Gun',     'FG', { damage: 80, rof: 0.35, speed: 38, arc: true, clip: 2, reloadTime: 4.5, reserve: 16, range: 105, splash: 7, splashDamage: 70, knockback: 20, sound: 'cannon', tracer: 'rocket' }),
   F('scatter',      'Scatter Pack',  'SP', { damage: 7, rof: 1.6, pellets: 12, speed: 70, spread: 0.2, clip: 5, reloadTime: 2.4, reserve: 40, range: 22, sound: 'shotgun', tracer: 'shell', fireMode: 'double' }), // 10.1: THE DOUBLE-BARREL — both barrels, one press
-  F('sonic',        'Sonic Cannon',  'SC', { damage: 18, rof: 3, speed: 60, spread: 0.01, clip: 12, reloadTime: 2.0, reserve: 72, range: 44, knockback: 8, sound: 'impulse', tracer: 'rail' }),
+  F('sonic',        'Sonic Cannon',  'SC', { damage: 18, rof: 3, speed: 60, spread: 0.01, clip: 12, reloadTime: 2.0, reserve: 72, range: 44, knockback: 8, sound: 'impulse', tracer: 'rail', alt: { kind: 'overcharge', ammo: 0, cooldown: 1.6, cells: 6 } }),
   F('flamethrower', 'Flamethrower',  'FT', { damage: 7, rof: 14, speed: 28, spread: 0.12, clip: 100, reloadTime: 2.5, reserve: 200, range: 16, sound: 'flame', tracer: 'flame' }),
 ];
 
@@ -127,6 +127,7 @@ export function buildArsenal(): Record<WeaponId, WeaponDef> {
           sound: base.sound,
           tracer: base.tracer,
           fireMode: base.fireMode, // 10.1: the family's trigger discipline rides every variant
+          alt: base.alt,           // row 177: the family's under-barrel surprise rides too
         };
       }
     }

@@ -73,6 +73,27 @@ describe('10.1 — fire modes', () => {
     expect(s.nextFireAt, 'the pair pays the pair price').toBeGreaterThanOrEqual(t0 + 2 / def.rof - 0.001);
   });
 
+  it('row 177: the shooty core carries per-family SECONDARIES — and they fire', () => {
+    // the four proven alt kinds, spread by family idiom
+    const famAlt = (k: string) => FAMILIES.find((f) => f.family === k)!.base.alt?.kind;
+    expect(famAlt('rifle')).toBe('burst');
+    expect(famAlt('carbine')).toBe('tag');
+    expect(famAlt('smg')).toBe('skitter');
+    expect(famAlt('laser')).toBe('tag');
+    expect(famAlt('lmg')).toBe('burst');
+    expect(famAlt('sonic')).toBe('overcharge');
+    // action guns keep their hands full — the pump/double IS their identity
+    expect(famAlt('shotgun')).toBeUndefined();
+    expect(famAlt('scatter')).toBeUndefined();
+    // and a generated variant actually FIRES its family's surprise
+    const w = quiet(); const s = shooter(w);
+    const carbine = Object.values(WEAPONS).find((d) => d.family === 'carbine')!;
+    expect(carbine.alt?.kind).toBe('tag');
+    s.weapons[0] = carbine.id; s.clip[0] = carbine.clip; s.altAmmo = carbine.alt!.ammo;
+    w.step(1 / 60, new Map([[s.id, cmd({ altFire: true })]]));
+    expect(s.altAmmo, 'the dart left the rail').toBe(carbine.alt!.ammo - 1);
+  });
+
   it('BOTS bypass trigger discipline — a held single-fire pistol runs at rof', () => {
     const w = quiet(); const b = shooter(w, 'bot');
     b.weaponIdx = 1;
