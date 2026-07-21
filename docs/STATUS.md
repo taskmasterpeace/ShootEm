@@ -143,7 +143,7 @@ Full law: **`docs/WAR.md`**. Almost all of it is 📋 DESIGN — the substrate (
 | **Science missions** | ❌📋 | **now fully designed** — `docs/SCIENCE-MISSIONS.md` (10 verbs × 10 sites × 50 effects). BACKLOG W3.5 |
 | Class change by request (leader AI rules on it) | ❌ | free lobby pick. BACKLOG W3.6 |
 | Two authored faction leaders (voiced) | ❌ | no leader entity. BACKLOG W3.7 |
-| Bots look like robots (chrome, subordinate) | ❌ | bots render identical to humans. BACKLOG W3.8 |
+| Bots look like robots (chrome, subordinate) | ✅ | **DONE 2026-07-21 (W3.8).** `chromeBody` in `buildSoldier`: a bot body steels — color pulled to gunmetal, metalness ≥0.85, roughness ≤0.35 — same silhouette/rig/team tint. **The ANDROID law:** the UF face plate (exact skin tone) is exempt so faction identity (visual.test.ts, "UF shows a face") survives — their machines are androids: a human face on a chrome chassis. `tests/robot-look.test.ts` (3); live: bot avg metal 0.85 vs human 0.15 |
 | Iron Eaters finished (weaver/ravager signatures, named, in Codex) | 🔨 | roster exists, half the behaviors + naming missing. Codex THREATS now lists them ✅. BACKLOG W3.10 |
 | Underfunded-victory + morale banking | ✅ | B1, `world.ts:458` |
 

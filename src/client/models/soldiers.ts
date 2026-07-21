@@ -130,9 +130,36 @@ export function buildSoldier(team: Team, classId: ClassId, kind: SoldierKind, we
   const glbUrl = team === 0 ? GLB_BODIES[classId] : undefined;
   const body = glbUrl ? glbBodies.get(glbUrl) : undefined;
   const mesh = body ? buildGlbTrooper(body, classId, weaponId) : buildTrooper(team, classId, weaponId);
+  // W3.8 BOTS LOOK LIKE ROBOTS (Robert: "chrome, subordinate"): a printed
+  // machine-trooper reads as MACHINE at a glance — the body chromes toward
+  // steel (high metal, low rough), so you always know which of your squad
+  // is flesh. Class silhouette, rig, and team tint all stay put.
+  if (kind === 'bot') chromeBody(mesh);
   // the renderer rebuilds the body when the CARRIED weapon changes family/brand/mark
   mesh.userData.weaponId = weaponId ?? '';
   return mesh;
+}
+
+/** W3.8: steel the body. Safe to mutate — the procedural path builds fresh
+ *  materials per body and the GLB path clones per instance. The FACE PLATE
+ *  (the exact skin tone) is exempt: faction identity law says the United
+ *  Front shows a face (visual.test.ts), so their machines are ANDROIDS —
+ *  a human face on a chrome chassis, machine at a glance either way. */
+const CHROME = new THREE.Color(0xb8c4cc);
+const SKIN_HEX = 0xd0a67e;
+function chromeBody(root: THREE.Object3D) {
+  root.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh) return;
+    for (const mm of Array.isArray(m.material) ? m.material : [m.material]) {
+      const std = mm as THREE.MeshStandardMaterial;
+      if (!std?.isMeshStandardMaterial) continue;
+      if (std.color.getHex() === SKIN_HEX) continue; // the face stays — faction law
+      std.color.lerp(CHROME, 0.55);
+      std.metalness = Math.max(std.metalness, 0.85);
+      std.roughness = Math.min(std.roughness, 0.35);
+    }
+  });
 }
 
 /** LSW palette (no purple — house law). One place both the renderer and the
