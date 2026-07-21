@@ -312,7 +312,30 @@ html, body {
 .kf-entry .kf-dist { color: var(--accent); font-family: var(--font-mono); font-size: 0.66rem; margin-right: 0.35rem; }
 @keyframes kf-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; } }
 
-#hud-bottom-left { position: absolute; left: 1.25rem; bottom: 1.25rem; }
+#hud-bottom-left { position: absolute; left: 1.25rem; bottom: 1.25rem; display: flex; flex-direction: column; gap: 0.4rem; align-items: flex-start; }
+/* UI-BIBLE §06/§09 — the StatusChip + the unified status strip. One chip per
+   timed player state: a short mono label with a SOURCE-COLORED left edge and a
+   radial timer wipe (conic-gradient shrinking to empty). Hold-then-fade on
+   entry/exit. Semantic colors only (amber=yours, red=danger, steel=info,
+   green=recovery, viral-green=infection). Six visible, overflow as +N. */
+#status-strip { display: flex; flex-wrap: wrap; gap: 4px; max-width: 20rem; }
+#status-strip.hidden { display: none; }
+.status-chip {
+  display: inline-flex; align-items: center; gap: 4px; position: relative;
+  font-family: var(--font-mono); font-size: 0.56rem; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 2px 6px 2px 5px; color: var(--text);
+  background: oklch(0.16 0.014 74 / 0.8); border: 1px solid var(--border);
+  border-left: 3px solid var(--chip-edge, var(--border-bright));
+  animation: chip-in 0.18s ease-out;
+}
+.status-chip .chip-ico { width: 0.72rem; height: 0.72rem; color: var(--chip-edge); }
+/* the timer: a thin bar across the chip's bottom edge, scaled to time left */
+.status-chip .chip-timer { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--chip-edge); transform-origin: left; }
+.status-chip.crit { animation: chip-in 0.18s ease-out, chip-pulse 0.9s ease-in-out infinite; }
+.status-chip.more { color: var(--muted); border-left-color: var(--border-bright); letter-spacing: 0.06em; }
+@keyframes chip-in { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+@keyframes chip-pulse { 0%,100% { border-color: var(--border); } 50% { border-color: var(--chip-edge); } }
+@media (prefers-reduced-motion: reduce) { .status-chip, .status-chip.crit { animation: none; } }
 #health-block {
   position: relative;
   background: oklch(0.16 0.018 74 / 0.78); border: 1px solid var(--border);
