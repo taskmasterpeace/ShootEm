@@ -21,8 +21,11 @@ import { DamageText } from './client/damagetext';
 import { NetGame } from './client/net';
 import { MATCH_LINGER_LOCAL_MS, ReplayDirector } from './client/replay';
 import { MatchTracker, RANKS, loadDossier, rankFor, rankInsignia, saveDossier, type Dossier } from './client/record';
-import { FRONTS, SCAR_TEXT, applyResult, bandOf, checkSeasonEnd, holdTheLine, loadCampaign, saveCampaign, type Campaign } from './client/campaign';
-import { fileIssue, renderIssueHTML, renderPressInto, loadPress } from './client/newspaper';
+import { FRONTS, SCAR_TEXT, applyResult, bandOf, checkSeasonEnd, holdTheLine, loadCampaign, saveCampaign, scienceWindowsFor, type Campaign } from './client/campaign';
+import { esc, fileIssue, renderIssueHTML, renderPressInto, loadPress } from './client/newspaper';
+import { finalizeScienceLaunch, prepareScarScienceMission, prepareScienceMission, type ScienceLaunchState } from './client/science-flow';
+import { renderSciencePanel, scienceDebriefHTML } from './client/science';
+import { scienceReward } from './sim/science';
 import { RangeCourse, loadWall } from './client/range';
 import { RingDrill } from './client/ringdrill';
 import { loadSettings, saveSettings, settings, type BloodLevel, type DarknessLevel } from './client/settings';
@@ -49,6 +52,8 @@ let selectedEquipment: string[] = [];
 let seedOverride: number | undefined;
 let difficulty: Difficulty = 'veteran';
 let botsPerTeam = 12; // 32B: 12v12 target — bots fill every open position
+let scienceClones = 4;
+let queuedScienceLaunch: ScienceLaunchState | null = null;
 let matchMinutes = 15;
 /** THE ROSTER LAW (Robert): zombies fight alone unless the player opts in. */
 let hordeRoster: 'zombies' | 'iron' | 'both' = 'zombies';
@@ -256,6 +261,17 @@ function wireSetupControls() {
     count.textContent = String(botsPerTeam);
     audio.play('ui_click');
   };
+  const scienceCount = $('science-clones-count');
+  $('science-clones-minus').onclick = () => {
+    scienceClones = Math.max(1, scienceClones - 1);
+    scienceCount.textContent = String(scienceClones);
+    audio.play('ui_click');
+  };
+  $('science-clones-plus').onclick = () => {
+    scienceClones = Math.min(8, scienceClones + 1);
+    scienceCount.textContent = String(scienceClones);
+    audio.play('ui_click');
+  };
 }
 
 function buildMenu() {
@@ -267,15 +283,19 @@ function buildMenu() {
     card.innerHTML = `<div class="icon">${MODE_INFO[id].icon}</div><div class="name">${MODE_INFO[id].name}</div><div class="desc">${MODE_INFO[id].desc}</div>`;
     card.onclick = () => {
       selectedMode = id;
+      activeFrontId = null;
+      queuedScienceLaunch = null;
       audio.play('ui_click');
       modeRow.querySelectorAll('.select-card').forEach((c) => c.classList.remove('selected'));
       card.classList.add('selected');
       // THE ROSTER LAW: the horde-composition pick only exists where a horde does
       $('roster-block').style.display = (id === 'horde' || id === 'survival') ? '' : 'none';
+      $('science-clone-block').style.display = id === 'science' ? '' : 'none';
     };
     modeRow.appendChild(card);
   });
   $('roster-block').style.display = (selectedMode === 'horde' || selectedMode === 'survival') ? '' : 'none';
+  $('science-clone-block').style.display = selectedMode === 'science' ? '' : 'none';
 
   const classRow = $('class-select');
   classRow.innerHTML = '';
@@ -340,13 +360,14 @@ async function startGame() {
   const endGame = () => {
     saveFlight(); // the match dies, its flight log doesn't
     running = false;
+    renderSciencePanel($('science-mission-panel'), undefined);
     hud.hide();
     chat.hide();
     $('menu').classList.remove('hidden');
     window.location.reload(); // clean slate: disposes scene, sockets, listeners
   };
 
-  if (serverUrl) {
+  if (serverUrl && selectedMode !== 'science') {
     // ---- multiplayer ----
     const net = new NetGame(serverUrl, name, selectedClass, selectedMode, currentLoadout(), chat, hud, isCommissioned(dossier));
     try {
@@ -358,6 +379,9 @@ async function startGame() {
     }
     net.run(renderer, dmgText, hud, input, endGame);
     return;
+  }
+  if (serverUrl && selectedMode === 'science') {
+    hud.announce('Science missions run on the local operation host in v1', false, 0);
   }
   startLocal(renderer, dmgText, hud, input, name, endGame);
 }
@@ -439,17 +463,22 @@ function saveFlight() {
 };
 
 function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: Input, name: string, endGame: () => void) {
-  const seed = seedOverride ?? (Math.random() * 0xffffffff) >>> 0;
+  const seed = queuedScienceLaunch?.spec.seed ?? seedOverride ?? (Math.random() * 0xffffffff) >>> 0;
   seedOverride = undefined;
+  const scienceLaunch = selectedMode === 'science'
+    ? (queuedScienceLaunch ?? prepareScienceMission(seed, null, scienceClones, { theme: selectedTheme }))
+    : null;
+  queuedScienceLaunch = null;
   const world = new World({
     seed, mode: selectedMode, difficulty, botsPerTeam, matchMinutes, theme: selectedTheme,
+    scienceMission: scienceLaunch?.spec,
     hordeRoster, // THE ROSTER LAW: iron never mixes with zombies unless asked
     // B1: banked morale opens the stable richer for YOUR side (capped in-world)
     moraleBoost: [Math.min(3, dossier?.soldier.morale ?? 0), 0],
     // §8.2+33C: a Scar deploy lands on AUTHORED ground, at the tier the
     // lobby's headcount earns — the size rides the id (front@size) so
     // world.ts stays the LSW dev's untouched file.
-    frontId: activeFrontId ? `${activeFrontId}@${mapSizeForPlayers(botsPerTeam)}` : undefined,
+    frontId: activeFrontId && selectedMode !== 'science' ? `${activeFrontId}@${mapSizeForPlayers(botsPerTeam)}` : undefined,
     // W3.4 PASS ESCALATION: a campaign battle fights at the front's pass —
     // P1 no gods, P2 their stable only, P3 both. Off the map: everything.
     lswPass: activeFrontId ? (campaign?.fronts[activeFrontId]?.pass ?? 3) : 3,
@@ -463,7 +492,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   flightWorld = world;
   window.addEventListener('beforeunload', saveFlight);
   const me = world.addSoldier(name, selectedClass, 0, 'human', currentLoadout());
-  applyScarMods(world, activeFrontId); // §8.5: the front's wound shapes the field
+  if (selectedMode !== 'science') applyScarMods(world, activeFrontId); // §8.5: the front's wound shapes the field
   // DEATH RE-SELECT (Robert: "select my stuff after every time I die and just
   // continue on"): the K.I.A. overlay grows a class rack. Clicking while dead
   // re-signs the next print — spawn() derives the whole kit from the choice.
@@ -500,7 +529,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   // the Record (§3.4): fold this match into the dossier as it happens
   // the yard stays out of the Record (§14 Q3: one legacy beat per phase —
   // the dossier starts writing at the first WAR drop, not in the paint)
-  const tracker = dossier && selectedMode !== 'paintball'
+  const tracker = dossier && selectedMode !== 'paintball' && selectedMode !== 'science'
     ? new MatchTracker(dossier, name, selectedClass, selectedMode, seed) : null;
   // the Proving Grounds (§3.3): stage the course; 18B decided practice vs official
   const course = selectedMode === 'range'
@@ -532,8 +561,8 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   // 32B: bots FILL to the team-size target (default 12v12; co-op 4-6).
   // Heavy bots carry MANPADS (49A) so the anti-air duel exists in bot wars.
   const botLoadout = (cls: ClassId) => (cls === 'heavy' ? { equipment: ['manpads'] } : undefined);
-  if (selectedMode === 'range') {
-    // the Proving Grounds are YOURS alone (§3.3) — no bots, just the work
+  if (selectedMode === 'range' || selectedMode === 'science') {
+    // range is solo; science already populated its authored security/civilian roster
   } else if (isCoopMode(selectedMode)) {
     for (let i = 0; i < Math.min(botsPerTeam, 5); i++) {
       const cls = classPool[i % classPool.length];
@@ -580,6 +609,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   }
 
   renderer.buildStaticWorld(world);
+  renderSciencePanel($('science-mission-panel'), world.science);
   course?.begin(world, me.id);
   ringDrill?.begin(world, me.id);
   hud.announce(MODE_INFO[selectedMode].name.toUpperCase(), true, 0);
@@ -722,6 +752,18 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     tracker?.update(world, me.id, dt);
     course?.update(world, dt);
     ringDrill?.update(world, me.id, events);
+    if (world.mode.over && scienceLaunch && world.science) {
+      const aftermath = finalizeScienceLaunch(scienceLaunch, world.science, campaign ?? undefined);
+      if (aftermath) {
+        fileIssue(aftermath.issue);
+        if (aftermath.campaignApplied && campaign) {
+          saveCampaign(campaign);
+          renderScarMap();
+        }
+        hud.careerHtml = `${scienceDebriefHTML({ ...aftermath.result, briefing: world.science.spec.briefing })}
+          <div style="margin-top:0.7rem">${renderIssueHTML(aftermath.issue)}</div>`;
+      }
+    }
     if (world.mode.over && tracker) {
       void tracker.finalize(world, me.id).then((sum) => {
         if (!sum) return;
@@ -886,6 +928,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     renderer.update(renderWorld, me.id, dt, hud.getWaypoints());
     dmgText.update(dt, renderer.camera); // project the floating numbers after the camera moves
     hud.update(world, me.id, input.scoreboardHeld, world.time);
+    renderSciencePanel($('science-mission-panel'), world.science);
 
     // FPV drone feed: noise rises as the signal drops; disconnect = full burst
     const fpv = world.getPilotedDrone(me.id);
@@ -1041,6 +1084,12 @@ async function initCampaign() {
   renderScarMap();
 }
 
+function scarScienceSeed(frontId: string, pass: number, season: number): number {
+  let hash = (season * 0x9e3779b1) ^ (pass * 0x85ebca6b);
+  for (let i = 0; i < frontId.length; i++) hash = Math.imul(hash ^ frontId.charCodeAt(i), 16777619);
+  return hash >>> 0;
+}
+
 function renderScarMap() {
   const root = $('map-root');
   if (!campaign) return;
@@ -1058,11 +1107,22 @@ function renderScarMap() {
   }).join('');
   const sel = activeFrontId ? FRONTS.find((f) => f.id === activeFrontId) : null;
   const selSt = sel ? c.fronts[sel.id] : null;
+  const sciencePreview = sel && selSt
+    ? prepareScienceMission(scarScienceSeed(sel.id, selSt.pass, c.season), sel, scienceClones)
+    : null;
+  const scienceWindows = sel && selSt ? scienceWindowsFor(c, sel.id, selSt.pass) : 0;
   const selHtml = sel && selSt
     ? `<b style="font-size:1.05rem">${sel.name}</b>
        <p style="color:var(--muted);font-size:0.8rem;margin:0.3rem 0">${sel.mode.toUpperCase()} · ${sel.theme} · control <b>${selSt.control > 0 ? '+' : ''}${selSt.control}</b> (${bandOf(selSt.control)})</p>
        ${selSt.scarActive ? `<p style="font-size:0.8rem;color:var(--danger)">⚑ ${SCAR_TEXT[sel.scar]}</p>` : ''}
-       <button id="front-deploy">⚔ DEPLOY — ${sel.name.toUpperCase()}</button>`
+       <button id="front-deploy">⚔ DEPLOY — ${sel.name.toUpperCase()}</button>
+       <div class="scar-science-brief">
+         <div><span>SCIENCE WINDOW</span><b>${scienceWindows}/2 · PASS ${selSt.pass}</b></div>
+         <h4>${esc(sciencePreview!.spec.id)} · ${esc(sciencePreview!.spec.verb.toUpperCase())}</h4>
+         <p>${esc(sciencePreview!.spec.briefing)}</p>
+         <p class="scar-science-pay">${sciencePreview!.spec.squadSize} CLONES · ${esc(scienceReward(sciencePreview!.spec.reward).label.toUpperCase())}</p>
+         <button id="front-science" ${scienceWindows <= 0 ? 'disabled' : ''}>${scienceWindows > 0 ? '⌬ RUN SCIENCE MISSION' : 'NO SCIENCE WINDOWS THIS PASS'}</button>
+       </div>`
     : '<p class="bk-empty">Select a front on the theater map. Your battles move its control.</p>';
   const dispatch = c.dispatch.slice(0, 10).map((d) =>
     `<li>${d.simulated ? '<em style="color:var(--muted)">(simulated)</em> ' : ''}${d.text}<span class="when">${new Date(d.at).toLocaleString()}</span></li>`).join('')
@@ -1082,11 +1142,27 @@ function renderScarMap() {
       activeFrontId = f.id;
       selectedMode = f.mode;
       selectedTheme = f.theme;
+      queuedScienceLaunch = null;
       renderScarMap();
     };
   });
   const dep = root.querySelector<HTMLButtonElement>('#front-deploy');
-  if (dep) dep.onclick = () => { startGame(); };
+  if (dep && sel) dep.onclick = () => {
+    selectedMode = sel.mode;
+    selectedTheme = sel.theme;
+    queuedScienceLaunch = null;
+    void startGame();
+  };
+  const science = root.querySelector<HTMLButtonElement>('#front-science');
+  if (science && sel && selSt) science.onclick = () => {
+    const launch = prepareScarScienceMission(c, sel.id, scarScienceSeed(sel.id, selSt.pass, c.season), scienceClones);
+    if (!launch) { renderScarMap(); return; }
+    queuedScienceLaunch = launch;
+    selectedMode = 'science';
+    selectedTheme = launch.spec.theme;
+    saveCampaign(c); // the sortie window is spent before deployment
+    void startGame();
+  };
 }
 
 void initCampaign();

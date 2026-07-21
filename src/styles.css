@@ -857,6 +857,22 @@ html, body {
   font: 700 0.9rem var(--font); letter-spacing: 0.08em; padding: 0.7rem; cursor: pointer;
 }
 #front-deploy:hover { transform: translateY(-1px); }
+.scar-science-brief {
+  margin-top: 0.75rem; padding: 0.8rem; border: 1px solid oklch(0.55 0.11 185 / 0.58);
+  border-radius: 0.625rem; background: oklch(0.19 0.025 62 / 0.72);
+}
+.scar-science-brief > div { display: flex; justify-content: space-between; gap: 0.75rem; color: var(--muted); font: 600 0.6rem/1 var(--font-mono); letter-spacing: 0.11em; }
+.scar-science-brief > div b { color: oklch(0.74 0.13 185); }
+.scar-science-brief h4 { margin: 0.65rem 0 0.35rem; font-size: 0.82rem; letter-spacing: 0.05em; }
+.scar-science-brief p { margin: 0; color: var(--muted); font-size: 0.74rem; line-height: 1.4; }
+.scar-science-brief .scar-science-pay { margin-top: 0.55rem; color: oklch(0.78 0.13 80); font: 600 0.62rem/1.2 var(--font-mono); letter-spacing: 0.06em; }
+#front-science {
+  width: 100%; margin-top: 0.7rem; padding: 0.62rem 0.75rem; border: 1px solid oklch(0.62 0.13 185);
+  border-radius: 0.625rem; background: oklch(0.28 0.07 185); color: oklch(0.91 0.04 185);
+  font: 700 0.72rem/1 var(--font); letter-spacing: 0.09em; cursor: pointer; transition: 0.2s;
+}
+#front-science:hover:not(:disabled) { transform: translateY(-1px); background: oklch(0.34 0.09 185); box-shadow: 0 0.5rem 1rem oklch(0.12 0.03 185 / 0.35); }
+#front-science:disabled { cursor: not-allowed; opacity: 0.48; }
 @media (max-width: 900px) { #scar-layout { grid-template-columns: 1fr; } }
 
 /* ── THE CODEX (V6): the master sheet ──────────────────────────────────────

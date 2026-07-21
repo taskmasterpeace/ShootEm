@@ -453,35 +453,35 @@ git commit -m "feat: present science mission operations"
 - Free play generates a mission from selected theme and squad size.
 - Scar launch spends a window before start and binds mission result to the selected front.
 
-- [ ] **Step 1: Write failing launch-state tests**
+- [x] **Step 1: Write failing launch-state tests**
 
 Test that free play does not mutate campaign state, Scar launch refuses zero windows, one-life locks squad size to one, and finalization calls campaign/Courier adapters once even across repeated end frames.
 
-- [ ] **Step 2: Run flow tests and verify RED**
+- [x] **Step 2: Run flow tests and verify RED**
 
 Run: `npx vitest run tests/science-flow.test.ts`
 
 Expected: FAIL because launch/finalization helpers do not exist.
 
-- [ ] **Step 3: Add mode metadata and setup controls**
+- [x] **Step 3: Add mode metadata and setup controls**
 
 Add `science` to `MODE_INFO`. Reuse the setup area for a clone stepper shown only for science mode. On the Scar, render the selected front's windows, the deterministic briefing card, clone commitment, and a `RUN SCIENCE MISSION` action. Disable with an explicit reason at zero windows.
 
-- [ ] **Step 4: Wire local world creation and mission population**
+- [x] **Step 4: Wire local world creation and mission population**
 
 Pass `scienceMission` through `WorldOptions`; science mode spawns only the player on team 0 and the runtime's enemy/civilian roster. Keep online `MODES` unchanged so a science request cannot silently enter an incompatible public room.
 
-- [ ] **Step 5: Wire frame presentation and one-shot aftermath**
+- [x] **Step 5: Wire frame presentation and one-shot aftermath**
 
 Update the science panel each frame, show mission context hints in HUD, append the science debrief to the closing panel, call `applyScienceResult` once for Scar missions, file one science `PressIssue`, save/render campaign, and hide the mission panel on exit.
 
-- [ ] **Step 6: Run flow, HUD, record, and core mode tests**
+- [x] **Step 6: Run flow, HUD, record, and core mode tests**
 
 Run: `npx vitest run tests/science-flow.test.ts tests/science-runtime.test.ts tests/campaign.test.ts tests/record.test.ts tests/sim.test.ts`
 
 Expected: all listed test files PASS.
 
-- [ ] **Step 7: Commit launch flow**
+- [x] **Step 7: Commit launch flow**
 
 ```powershell
 git add src/sim/data.ts src/main.ts src/client/hud.ts src/client/record.ts src/server/server.ts tests/science-flow.test.ts

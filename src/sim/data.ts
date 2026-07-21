@@ -497,6 +497,7 @@ export const MODE_INFO: Record<string, { name: string; desc: string; icon: strin
   survival: { name: 'Zombie Survival', desc: 'Co-op vs escalating undead waves.', icon: '🧟' },
   horde: { name: 'Endless Horde', desc: 'No waves, no breaks — the dead never stop coming.', icon: '🩸' },
   safehouse: { name: 'Protect the Scientist', desc: 'The horde searches house to house. Hide him, defend him, survive to evac.', icon: '🧪' },
+  science: { name: 'Science Mission', desc: 'Compact black-site operation. Burn finite clones, finish the job, and extract the program.', icon: '⌬' },
   range: { name: 'Proving Grounds', desc: 'Your own patch of the war: firing lanes, dummy targets, the qualification courses (§3.3).', icon: '🎯' },
   paintball: { name: 'Paintball — Hunters vs Hunted', desc: 'One prey, one pack. The prey tags three points or survives the clock; the pack paints them out. One splat and you sit down.', icon: '🎨' },
 };

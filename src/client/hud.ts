@@ -10,6 +10,7 @@ import { weaponBrand } from './models/weapons';
 import { SegMeter } from './segmeter';
 import { classLinger, MAX_LINGER } from '../sim/perception';
 import type { World } from '../sim/world';
+import { scienceObjectiveText } from '../sim/science-runtime';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -582,6 +583,7 @@ export class Hud {
       ro.querySelector('h2')!.textContent = paintball ? 'SPLAT!' : 'K.I.A.';
       $('respawn-timer').textContent = world.mode.over ? ''
         : paintball ? 'you sit this round — back at the whistle'
+        : world.mode.id === 'science' ? `Field printer cycling — ${t.toFixed(1)}s`
         : `Respawning in ${t.toFixed(1)}s`;
       // DEATH RE-SELECT: the class rack rides the wait (not in paintball —
       // the yard has markers, not classes; and not once the match is over)
@@ -608,6 +610,21 @@ export class Hud {
         const sci = world.soldiers.get(world.mode.scientistId);
         if (sci?.alive && Math.hypot(sci.pos.x - s.pos.x, sci.pos.z - s.pos.z) < 3.2) {
           hint.textContent = sci.botTargetId === s.id ? '[E] Tell Dr. Voss to hide here' : '[E] Escort Dr. Voss';
+          showHint = true;
+        }
+      }
+      if (!showHint && world.science?.phase === 'objective') {
+        const objective = world.science.objective;
+        if (objective.kind === 'escort') {
+          const scientist = world.science.targetIds
+            .map((id) => world.soldiers.get(id))
+            .find((candidate) => candidate?.alive && Math.hypot(candidate.pos.x - s.pos.x, candidate.pos.z - s.pos.z) < 3.2);
+          if (scientist) {
+            hint.textContent = scientist.botTargetId === s.id ? `[E] Tell ${scientist.name} to hold` : `[E] Attach ${scientist.name}`;
+            showHint = true;
+          }
+        } else if (objective.kind === 'interact' && objective.pos.some((pos) => Math.hypot(pos.x - s.pos.x, pos.z - s.pos.z) < 3.2)) {
+          hint.textContent = `[E] ${objective.label}`;
           showHint = true;
         }
       }
@@ -680,6 +697,15 @@ export class Hud {
         chips = `<div class="obj-chip t0">🧪 ${sci ? Math.ceil(sci.hp) : 0} HP</div>
                  ${status}
                  <div class="obj-chip neutral">☠ ${fmt(m.scores[0])} · ${m.zombiesLeft ?? 0} up</div>`;
+        break;
+      }
+      case 'science': {
+        const science = world.science;
+        if (science) {
+          chips = `<div class="obj-chip ${science.alarm ? 't1' : 't0'}">${science.alarm ? 'ALARM' : 'GHOST'}</div>
+                   <div class="obj-chip neutral">${scienceObjectiveText(science)}</div>
+                   <div class="obj-chip t0">CLONES ${science.clonesRemaining}</div>`;
+        }
         break;
       }
       case 'paintball': {
@@ -1003,7 +1029,7 @@ export class Hud {
     if (m.over) html += this.renderTrophies(world); // the honors roll
     html += `<table>
       <tr><th>Callsign</th><th>Class</th><th>K</th><th>D</th><th>Score</th></tr>`;
-    if (m.id === 'survival' || m.id === 'horde' || m.id === 'safehouse') {
+    if (m.id === 'survival' || m.id === 'horde' || m.id === 'safehouse' || m.id === 'science') {
       html += soldiers.map(row).join('');
     } else {
       for (const team of [0, 1] as Team[]) {
