@@ -31,7 +31,7 @@ The plan that resolves 100% of this ledger. Eight campaigns, dependency-ordered;
 
 If you read one thing, read this. Everything below has a full row further down.
 
-**Combat feel:** tap-jump/hold-duck · tank hull wobble. *(DONE 2026-07-21: ballistic falloff · accuracy-by-movement · the aim ring.)*
+**Combat feel:** tap-jump/hold-duck. *(DONE 2026-07-21: ballistic falloff · accuracy-by-movement · the aim ring · tank hull wobble.)*
 **The death show:** gore/gibs · a kill-cam reward. *(DONE 2026-07-21: corpses lingering 20–30s both outbreak + non-outbreak; the death-cam director now varies the shot by death — spawn-cut / the-wide / autopsy / ride-the-round / duel.)*
 **Sight (you just approved the fix):** 3D-shows-you / minimap-shows-team · darkness outside your cone. *(Fixed 2026-07-21: the three fog BUGS — fishbowl #43, corpses #44, vehicles #45 — plus upstairs-vs-upstairs house LOS and **contacts now hold-then-fade instead of blinking** on both the 3D view and the minimap.)*
 **Melee:** STRIKE / GUARD / GRAPPLE + Impact Charge + the Control Struggle (terminology now LAW per the outbreak spec; the swing engine exists, wired only to zombie claws).
@@ -59,7 +59,7 @@ If you read one thing, read this. Everything below has a full row further down.
 | Ballistic falloff (bullets tire; lasers exempt) | ✅ | **DONE 2026-07-21.** `ballisticFalloff` (world.ts) tapers a bullet/shell round's damage past `max(range·0.55, 42u)` down to `FALLOFF_FLOOR` (60%) at max range — energy weapons (rail/beam/plasma) exempt. Full damage inside 42u so close/mid fights (and the threat-measure arena) are untouched; only the long shot pays. `tests/falloff.test.ts` (5, incl. far-hit < near-hit). BACKLOG W1.4 |
 | Tap space = jump, hold = duck | ❌ | full crouch exists but on **C** (`input.ts:175`). BACKLOG W1.3 |
 | Ragdoll threshold applied at every knockback site | 🔨 | check is only inside `explode()` — Titan's 40u slam never ragdolls. BACKLOG W1.5 |
-| Tank hull wobble/settle on cannon fire | 🔨 | barrel recoil yes (`renderer.ts:1862`), hull shove no. BACKLOG W1.6 |
+| Tank hull wobble/settle on cannon fire | ✅ | **DONE 2026-07-21.** On the cannon's recoil signal the whole hull now PITCHES up and settles in a quick damped wobble (`env = e^-7t·cos(26t)`, ±0.09rad), on top of the existing barrel kick — tanks only, YXZ local pitch. `renderer.ts` (vehicle loop). Live-verified: pitch swings −0.046→−0.09rad under fire, flat at rest. BACKLOG W1.6 |
 | Grass concealment (hide in tall grass, deeper when ducked) | ✅ | `perception.ts:95-101`, bots respect it |
 | Duck behind cover / in grass | ✅ | crouch stance on C, sinks below grass line |
 

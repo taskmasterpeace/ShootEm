@@ -2226,6 +2226,22 @@ export class Renderer {
         const kick = Math.max(0, 1 - (world.time - shotAt) / (v.kind === 'tank' ? 0.35 : 0.12));
         gunRecoil.position.x = -kick * (v.kind === 'tank' ? 0.4 : 0.15);
       }
+      // TANK HULL WOBBLE (W1.6, Robert): the cannon doesn't just kick the barrel —
+      // its recoil ROCKS the whole hull, which pitches up and SETTLES in a quick
+      // damped wobble. Tanks only (their big gun shoves the chassis; a tank has
+      // no bank/slip, so rotation.x is ours to drive — YXZ makes it a local pitch
+      // along the barrel, not a world-axis tip).
+      if (v.kind === 'tank') {
+        mesh.rotation.order = 'YXZ';
+        const since = world.time - (this.vehRecoilAt.get(v.id) ?? -Infinity);
+        if (since >= 0 && since < 0.6) {
+          const env = Math.exp(-since * 7) * Math.cos(since * 26); // damped settle
+          mesh.rotation.x = -env * 0.09;   // nose heaves up on the shot, then rocks back
+          mesh.position.y += env * 0.05;   // and the chassis bounces on its tracks
+        } else {
+          mesh.rotation.x = 0;             // flat at rest between shots
+        }
+      }
       // skiff thruster glow pulse
       if (v.kind === 'skiff') {
         for (const name of ['thrustL', 'thrustR']) {
