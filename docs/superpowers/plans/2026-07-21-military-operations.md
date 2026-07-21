@@ -1,6 +1,6 @@
 # Military Operations Implementation Plan
 
-**Status:** COMPLETE 2026-07-21 — implemented in `codex/military-operations`; live Scar/manifest/stage/cancel smoke passed; typecheck, 141 test files / 1,809 tests, lint, and production build all passed.
+**Status:** COMPLETE 2026-07-21 — implemented in `codex/military-operations` and merged with current local `main`; live Scar/manifest/stage/cancel smoke passed; typecheck, 144 test files / 1,824 tests, lint, and production build all passed.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

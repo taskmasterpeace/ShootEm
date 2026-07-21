@@ -8,7 +8,7 @@ The complete playable loop now ships: the Scar exposes one deterministic Operati
 
 The principal implementation is `src/sim/operations.ts`, `operation-map.ts`, `operation-pads.ts`, `operation-runtime.ts`, `world.ts`, `src/client/campaign.ts`, `operations-ui.ts`, `hud.ts`, `dossier.ts`, `newspaper.ts`, and the Scar wiring in `src/main.ts`. The production proof is the full suite plus the dedicated `operations`, `operation-map`, `operation-runtime`, `operation-settlement`, `operation-effects`, `operations-ui`, `operations-integration`, `operation-hud`, and `operation-record` tests.
 
-Release verification on 2026-07-21: `npx tsc --noEmit`, all 141 Vitest files / 1,809 tests, `npm run lint`, and `npm run build` passed. A live browser smoke verified Scar selection, manifest validation, exact treasury staging, reload persistence, cancellation/refund, and a clean browser console.
+Release verification on 2026-07-21 after merging current `main`: `npx tsc --noEmit`, all 144 Vitest files / 1,824 tests, `npm run lint`, and `npm run build` passed. A live browser smoke verified Scar selection, manifest validation, exact treasury staging, reload persistence, cancellation/refund, and a clean browser console.
 
 ## What an Operation is
 
