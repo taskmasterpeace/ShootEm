@@ -137,3 +137,24 @@ the 2-team core, honored by design law), and the fire-dependent corpse
 neutralization meter (§6.2 — fire system paused by Robert). Everything else in
 the document is either live, superseded by a newer Robert ruling, or absorbed
 into `docs/UI-BIBLE.md` / `docs/META-LAYER.md`.
+
+### §21 Acceptance criteria — item-by-item (spec read end-to-end 2026-07-21)
+- **13** corpse lootable→incubating→warned→reanimates on timer: ✅ (loot drop, twitch ladder, corpse_critical, reanimation)
+- **14** burn/chem neutralize prevents + visibly changes: ✅ mechanically (INC/BNR/explosions); the FIRE-driven neutralization METER awaits the paused fire system
+- **15** outbreak mid human-vs-human war, attacks both sides: ❌ blocked on the 2-team core (the third-faction structural ask; protected by the don't-destroy law + the META coalition design)
+- **16** condition-driven escalation w/ level UI: ✅ outbreak levels + pressure inputs (Phase-1 form)
+- **17** shambler density > specials: ✅ (~790 in frame budget, spatial grid #38)
+- **18** sprinters rare + light/LOS/noise/proximity activation: ✅ (dormancy shipped; flashlight wakes them)
+- **19** Ball/AP/INC clearly different outcomes: ✅ (tests pin per-target behavior)
+- **20** triangle resolves consistently, UI-taught: ✅ (stance line + tests)
+- **21** Impact Charge near the action: ✅ (segmeter on the action line)
+- **22/23/24** rear grab → synchronized Control Struggle (zone/needle/server/latency): ⚠️ SUPERSEDED — built, shipped, then REMOVED at Robert's order; rear control is immediate, escape is mash+knockback. Server-auth/latency items fold into the future netcode wave
+- **25** critical states have text+icon+animation+sound: 🔨 largely (icons/text/anim shipped throughout; per-state SOUND pass belongs to the announcer/audio worktree)
+
+### §22.2 Remaining questions — current answers
+- **38** perfect-break reversal: partially answered — breaking free now SHOVES + staggers the grabber (reversal-lite). Full control-swap = open.
+- **39** corpse-moving griefing: open (pairs with the META newspaper/consequence system).
+- **40** who sees exact incubation timers: open (role-gated info is a META rank-perk pattern).
+- **41** incendiary reliability vs armor/wetness: designed in materials (wetness exists); awaits the paused fire system.
+- **42** cross-session contaminated sectors: absorbed into the META campaign layer.
+- **43** which rear-grab outcomes in PvP at launch: **ANSWERED by Robert — ALL of them** (takedown/disarm/choke/throw/human-shield shipped; drag exists for bodies).
