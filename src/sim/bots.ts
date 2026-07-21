@@ -1,12 +1,13 @@
 import { CLASSES, DOG_STATS, VEHICLES, WEAPONS } from './data';
 import { F2_FLOOR, F2_SLIT, F2_VOID, F2_WALL, F2_WELL, GRID, T_CLIMB, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_OPEN, T_RUBBLE, T_WATER, TILE, WORLD, isBlocked, losClear, tileAt } from './map';
-import { type ClassId, type PlayerCmd, type Soldier, type Team, type Vec3, type Vehicle, isZed } from './types';
+import { type ClassId, type PlayerCmd, type Soldier, type Team, type Vec3, type Vehicle, isIron, isZed } from './types';
 import { type World } from './world';
 import { BOT_TUNING as TUNE, DIFFICULTY } from './bot-tuning';
 
 // opt #38 (S2): caller-owned scratch for spatial-index queries — one per call
 // site so no query can clobber another mid-iteration; never held across ticks
 const SEP_SCRATCH: Soldier[] = [];
+const IRON_SLAM_SCRATCH: Soldier[] = []; // W3.10 ravager slam query
 import { visionMult } from './weather';
 import { LSWS } from './lsw';
 import { threatAt } from './influence';
@@ -1753,6 +1754,80 @@ export function stepIron(w: World, s: Soldier, dt: number) {
     // spring legs: a cover line one tile ahead is a JUMP, not a wall
     const aheadT = tileAt(w.map.grid, s.pos.x + Math.cos(s.yaw) * 2.4, s.pos.z + Math.sin(s.yaw) * 2.4);
     if (aheadT === T_COVER || aheadT === T_CLIMB) s.vel.y = 7.5;
+  }
+  if (s.kind === 'weaver' && w.time >= s.nextAbilityAt) {
+    // W3.10 THE PLATE-WEAVE: the weaver is the swarm's armorer — every few
+    // seconds it PULSES fresh plate onto the iron around it (never itself,
+    // never past each machine's forged cap). Kill the weavers first or the
+    // scrap keeps coming back hard.
+    s.nextAbilityAt = w.time + 4;
+    let mended = false;
+    for (const ally of w.soldierIndex.roster(s.team)) {
+      if (!ally.alive || ally.id === s.id || !isIron(ally.kind)) continue;
+      if (Math.hypot(ally.pos.x - s.pos.x, ally.pos.z - s.pos.z) > 8) continue;
+      if (ally.armor >= ally.maxArmor) continue;
+      ally.armor = Math.min(ally.maxArmor, ally.armor + 14);
+      mended = true;
+    }
+    if (mended) w.emit({ type: 'weaver_mend', pos: { ...s.pos }, soldierId: s.id });
+  }
+  if (s.kind === 'ravager') {
+    // W3.10 THE CHARGE-AND-SLAM: the wrecker is slow until it isn't. A mark
+    // 6-14u ahead triggers the RUSH (3× its lumber); contact SLAMS — a 3u
+    // shockwave that shoves flesh and RAVAGES machines (it eats hulls).
+    const charging = s.dashUntil !== undefined && w.time < s.dashUntil;
+    if (!charging && w.time >= s.nextAbilityAt) {
+      // pick a mark: nearest enemy body or hull in the rush band
+      let mx = 0, mz = 0, md = Infinity;
+      for (const e of w.soldierIndex.roster((1 - s.team) as Team)) {
+        if (!e.alive || (e.kind !== 'human' && e.kind !== 'bot')) continue;
+        const d = Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z);
+        if (d < md) { md = d; mx = e.pos.x; mz = e.pos.z; }
+      }
+      for (const v of w.vehicles.values()) {
+        if (!v.alive || v.team === s.team) continue;
+        const d = Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z);
+        if (d < md) { md = d; mx = v.pos.x; mz = v.pos.z; }
+      }
+      if (md >= 6 && md <= 14) {
+        s.yaw = Math.atan2(mz - s.pos.z, mx - s.pos.x);
+        s.dashUntil = w.time + 1.3;         // the rush window (renderer leans it in)
+        s.nextAbilityAt = w.time + 8;       // the wreck takes a breath after
+      }
+    }
+    if (charging) {
+      // the rush integrates its OWN position (iron bodies move inside their
+      // step, not through soldier physics — vel and push writes both die
+      // before anything reads them). Wall-checked per axis, like the shuffle.
+      const rush = 15;
+      const nx = s.pos.x + Math.cos(s.yaw) * rush * dt;
+      const nz = s.pos.z + Math.sin(s.yaw) * rush * dt;
+      if (!isBlocked(w.map.grid, nx, s.pos.z)) s.pos.x = nx;
+      if (!isBlocked(w.map.grid, s.pos.x, nz)) s.pos.z = nz;
+      // contact: the SLAM
+      let hit = false;
+      for (const e of w.soldierIndex.near((1 - s.team) as Team, s.pos.x, s.pos.z, 3, IRON_SLAM_SCRATCH)) {
+        if (!e.alive || (e.kind !== 'human' && e.kind !== 'bot')) continue;
+        hit = true;
+        w.damageSoldier(e, 30, s.id, 'zombie_claw');
+        if (e.alive) {
+          const dl = Math.max(Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z), 0.5);
+          e.pushX += ((e.pos.x - s.pos.x) / dl) * 9;
+          e.pushZ += ((e.pos.z - s.pos.z) / dl) * 9;
+        }
+      }
+      for (const v of w.vehicles.values()) {
+        if (!v.alive || v.team === s.team) continue;
+        if (Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z) > 3.4) continue;
+        hit = true;
+        w.damageVehicle(v, 120, s.id, 'zombie_claw'); // it EATS hulls
+      }
+      if (hit) {
+        s.dashUntil = undefined;
+        w.emit({ type: 'ravage', pos: { ...s.pos }, soldierId: s.id });
+      }
+      return; // the rush owns this tick — no zombie shuffle underneath
+    }
   }
   stepZombie(w, s, dt); // the chase and the teeth are the horde's own
 }

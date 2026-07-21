@@ -374,6 +374,8 @@ export class World {
    *  along the A→B axis (0 = at A, 1 = at B); it walks toward the WEAKER
    *  wielder. Public: the renderer draws both streams INTO the node. */
   beamClashes = new Map<string, { aId: number; bId: number; t: number; x: number; z: number }>();
+  /** W3.10: iron-eater serial counter — LOOM-01, WRECK-02, machine to the last */
+  private ironSerial = 0;
   /** OUTBREAK PRESSURE (§3): the authoritative severity of the sector, fed by
    *  live infected + unburned corpses + exposed soldiers. Drives the level. */
   outbreakPressure = 0;
@@ -1235,8 +1237,11 @@ export class World {
    *  exposed frame takes double and runs hot (damageSoldier SS20.2). */
   addIronEater(kind: IronKind, pos: Vec3): Soldier {
     const st = IRON_STATS[kind];
+    // W3.10: iron eaters wear SERIAL DESIGNATIONS, not species labels — the
+    // killfeed reads 'LOOM-03 shredded by …', machine to the last.
+    const IRON_TAGS: Record<IronKind, string> = { scraprat: 'RAT', junkhound: 'HOUND', weaver: 'LOOM', ravager: 'WRECK' };
     const s: Soldier = {
-      id: this.id(), kind, name: kind.charAt(0).toUpperCase() + kind.slice(1),
+      id: this.id(), kind, name: `${IRON_TAGS[kind]}-${String(++this.ironSerial).padStart(2, '0')}`,
       team: 1, classId: 'infantry',
       pos: { ...pos }, vel: { x: 0, y: 0, z: 0 }, yaw: 0,
       hp: st.hp, maxHp: st.hp, energy: 0, alive: true, respawnAt: 0,

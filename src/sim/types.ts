@@ -917,6 +917,8 @@ export interface SimEvent {
     | 'beam_jam'       // §BEAMS: a held emitter overheated — locked out for its jam window
     | 'beam_clash'       // §BEAMS row 189: two streams crossed — the struggle node is born
     | 'beam_clash_break' // §BEAMS row 189: the node reached a wielder — soldierId was SHEARED
+    | 'weaver_mend'      // W3.10: a weaver PULSED plate onto nearby iron (soldierId = weaver)
+    | 'ravage'           // W3.10: the ravager's charge SLAMMED home (pos = impact)
     | 'sprinter_wake'  // §7.1: a dormant sprinter just activated — the terror spike
     | 'corpse_critical' // §6: a booked corpse entered its final reanimation window
     | 'contamination'  // §8: a corpse pile curdled into a mutation-field nest
