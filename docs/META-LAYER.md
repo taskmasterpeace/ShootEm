@@ -205,4 +205,40 @@ Each is a self-contained brief for a capable agent, armed with the CSVs + `D:\gi
 
 ## E · WHAT I'M NOT DOING (still)
 
-Not building the strategy spine solo (§C is yours to dispatch). Not renaming factions until the COF pass. Not touching the 2-sided combat law. **Next hands-on: guns-too-big, then the melee-minigame removal + pulse-ring.** §B is mine to ship one gated slice at a time; §C is specs awaiting your agents.
+Not building the strategy spine solo (§C is yours to dispatch). Not renaming factions until the COF pass. Not touching the 2-sided combat law. §B is mine to ship one gated slice at a time; §C is specs awaiting your agents.
+
+---
+
+# META-LAYER v3.1 — THE UI DIRECTIVES + STEALTH (2026-07-21, screenshots + firehose)
+
+Robert sent the game screenshots + his authored **UI MASTER reference sheet**, and a design dump. Progress + new orders:
+
+## SHIPPED off the screenshots
+- **Guns too big — FIXED** (`6f96fe9`): the weapon-cam plate ballooned to ~⅓ of the screen (the block had no max-width, `ammo-info` was nowrap). Capped block 17rem / plate 13rem → plate 640px → 187px. **Remaining (deeper): the HELD gun on the character isn't gripped/animated right in-game** — Robert: "the character doesn't move right or hold the gun… we did that with the other model, the grip, kickback, the harness — I don't understand why we ain't got it." A rig-in-game investigation (the harness rig work isn't reaching the live third-person body). NEXT hands-on after this.
+
+## THE UI DESIGN LANGUAGE (his UI MASTER sheet = the authoritative reference — build TOWARD this)
+- **Shape is a channel:** friendlies = light-blue **circle** · enemies = red **triangle** (over them) · memories = gray **diamond** · machines = gray **square** · neutrals/objectives = **ring**.
+- **Palette:** accent (yours/ready) `#e8a33d` · danger (enemy/alert) `#ff3b30` · info (steel) `#a7b0b8` · success/health (green) `#4cd964`.
+- **The laws (his):** near the action, on the body/target/reticle · derived, never transcribed · one accent · world teaches first, HUD confirms · states HOLD then fade · nothing blinks out.
+- **Better use of space:** show mines / grenades / gadgets in SLOTS (a compact inventory row), not long text lines. The plate + bag lines waste the corner.
+
+## THE RETICLE SYSTEM (his detailed spec — a real slice)
+- **5 aim reticles** the player can choose, and each **scales** to how far you're aiming.
+- **Per-weapon reticle** — the receptacle changes with the equipped weapon.
+- **THE GROUND SPREAD CIRCLE (the big one):** a circle on the ground at your aim point, **auto-sized to the bullet-spread radius** (shotgun = wide, pistol = tight), that **rotates around you** as you aim, not attached to the body. "Within that circle is where your bullets land — keeps the system honest and balanced." This is a live, honest spread-visualizer tied to the weapon's `spread`.
+
+## STEALTH — the sneaking mechanic (new /goal, detailed)
+- **No dedicated sneak key** — it's emergent from movement time. Move at full speed (no sprint) for **~2.5s** (AGL scales this window) → **footsteps start** = you become AUDIBLE to enemies. Stop before that and you stay silent. Sprint = always loud, and you stop caring about your own noise.
+- Ties directly to the **AGL proficiency** (§v2 F4) — high agility = a longer silent window.
+- **Bring back the ground sound-ripple** — "seeing the sounds by seeing the ground, a little see-through white thing" — the audible-noise visualizer, restyled in the UI language.
+- Feeds the **mini-simulation scenarios** he wants in the harness: sneak up / get caught / catch someone from behind (pairs with the shipped rear-control).
+
+## LOADOUT + LOOT
+- **Loot button** — a dedicated pick-up action (not just walk-over).
+- **Slots:** one **PRIMARY** (large item) **or** two **SECONDARY** (a small secondary + a gadget). Room for one large or two small.
+
+## THE ANNOUNCER (handed to a parallel agent — my read)
+A separate window designed the full **"Command Net"** kit (dry corporate-war dispatcher). **My take: it's right and ready.** The voice isn't invented — it's already written in the shipping killstreak lines ("HR has been informed", "the enemy has filed a formal complaint"); voicing that register is the correct, consistent pick. The worktree isolation is correct (the announce path is text-only today at `hud.ts`; VO lives in `tools/gen-*` + `audio.ts`, minimal overlap with the gameplay loop). **The one coordination point I own:** `SOUND_NAMES` in `audio.ts` — the announcer agent must APPEND-ONLY so my weapon/VFX additions merge clean. LSW VO lane is off-limits to it (`gen-lsw-vo.mjs` owns per-god lines). "We don't need dynamic names" is correct — pre-gen static stingers, names stay on the text banner.
+
+## §B REORDERED (Claude's hands-on lane, updated)
+Done: beam fixes · melee-minigame eliminated · pulse-ring · ammo-dwindle · **guns-too-big (plate)**. Next, in order: **(1) the held-gun grip/animation in-game** (why the harness rig isn't on the live body) · (2) the **ground spread-circle reticle** (honest spread viz) · (3) **unify the harness** + regen dummies + sneak scenarios · (4) the **stealth footstep/noise** mechanic + ground-ripple · (5) loot button + loadout slots · (6) wire the UI-MASTER design language (shape-channel marks, slot inventory) · (7) bilateral fire · (8) capsule force-field · (9) racing/tank sim modes.
