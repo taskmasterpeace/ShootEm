@@ -360,6 +360,13 @@ export class World {
    *  addSoldier clears it; external removals (server disconnect / puppet prune)
    *  call invalidateRoster(). Callers must not mutate the returned array. */
   private rosterCache: Soldier[] | null = null;
+  /** opt #27 (S9): live count of possessed turrets+bots+vehicles. The three
+   *  per-tick expiry scans — one of which walks the FULL soldier roster hunting
+   *  ridden bots — skip entirely when nothing is possessed (the near-always
+   *  case). Maintained by the possess/evict methods; can only ever drift HIGH (an entity
+   *  deleted mid-possession), which merely runs the scan needlessly — never a
+   *  missed eviction — so count===0 skipping is byte-identical. */
+  private possessionCount = 0;
   /** THE OUTBREAK (OUTBREAK-SPEC): master switch — the machinery is inert
    *  until conditions (or a mode/scenario) turn it on. Condition-driven
    *  activation (Outbreak Pressure) is the next slice; nothing in the game
@@ -1529,15 +1536,19 @@ export class World {
     if (this.blackHoles.length) this.stepBlackHoles(); // Oblivion's void (burst timing)
     // expired time bubbles pop quietly
     if (this.timeFields.length) this.timeFields = this.timeFields.filter((f) => this.time < f.until);
-    // possessed machines come home when the hold expires (§4.4 #4)
-    for (const t of this.turrets.values()) {
-      if (t.possessedUntil !== undefined && this.time >= t.possessedUntil) this.evictPossession(t);
-    }
-    for (const b of this.soldiers.values()) {
-      if (b.possessedUntil !== undefined && (this.time >= b.possessedUntil || !b.alive)) this.evictBotPossession(b);
-    }
-    for (const v of this.vehicles.values()) {
-      if (v.possessedUntil !== undefined && (this.time >= v.possessedUntil || !v.alive)) this.evictVehiclePossession(v);
+    // possessed machines come home when the hold expires (§4.4 #4). opt #27
+    // (S9): skip all three expiry scans — one of which walks the FULL roster —
+    // whenever nothing is possessed (the near-always case; a horde never is).
+    if (this.possessionCount > 0) {
+      for (const t of this.turrets.values()) {
+        if (t.possessedUntil !== undefined && this.time >= t.possessedUntil) this.evictPossession(t);
+      }
+      for (const b of this.soldiers.values()) {
+        if (b.possessedUntil !== undefined && (this.time >= b.possessedUntil || !b.alive)) this.evictBotPossession(b);
+      }
+      for (const v of this.vehicles.values()) {
+        if (v.possessedUntil !== undefined && (this.time >= v.possessedUntil || !v.alive)) this.evictVehiclePossession(v);
+      }
     }
     // the overload fuses: at the 2s mark the hull DETONATES — unless the
     // crew bailed, in which case the charge fizzles and the armor survives
@@ -2189,7 +2200,7 @@ export class World {
    *  guns flip for `secs`, then it remembers whose it was. An EMP burst
    *  evicts instantly (empBlast). NEVER humans — the law. */
   possessMachine(t: Turret, s: Soldier, secs: number) {
-    if (t.possessedBy === undefined) { t.origTeam = t.team; t.origOwnerId = t.ownerId; }
+    if (t.possessedBy === undefined) { t.origTeam = t.team; t.origOwnerId = t.ownerId; this.possessionCount++; }
     t.possessedBy = s.id;
     t.possessedUntil = this.time + secs;
     t.team = s.team;
@@ -2200,6 +2211,7 @@ export class World {
   /** hand a possessed machine back to its rightful owner */
   private evictPossession(t: Turret) {
     if (t.possessedBy === undefined) return;
+    this.possessionCount--;
     t.team = t.origTeam ?? t.team;
     t.ownerId = t.origOwnerId ?? t.ownerId;
     t.possessedBy = undefined; t.possessedUntil = undefined;
@@ -2211,7 +2223,7 @@ export class World {
    *  a human: the API itself refuses flesh (the law). */
   possessBot(b: Soldier, s: Soldier, secs: number): boolean {
     if (b.kind !== 'bot' || !b.alive || b.team === s.team) return false;
-    if (b.possessedBy === undefined) b.origTeam = b.team;
+    if (b.possessedBy === undefined) { b.origTeam = b.team; this.possessionCount++; }
     b.possessedBy = s.id;
     b.possessedUntil = this.time + secs;
     b.team = s.team;
@@ -2222,6 +2234,7 @@ export class World {
   /** hand a ridden bot back to its side */
   private evictBotPossession(b: Soldier) {
     if (b.possessedBy === undefined) return;
+    this.possessionCount--;
     b.team = b.origTeam ?? b.team;
     b.possessedBy = undefined; b.possessedUntil = undefined; b.origTeam = undefined;
   }
@@ -2230,7 +2243,7 @@ export class World {
    *  the ghost, expiry (or an EMP) hands it home. */
   possessVehicle(v: Vehicle, s: Soldier, secs: number): boolean {
     if (!v.alive || v.team === s.team) return false;
-    if (v.possessedBy === undefined) v.origTeam = v.team;
+    if (v.possessedBy === undefined) { v.origTeam = v.team; this.possessionCount++; }
     v.possessedBy = s.id;
     v.possessedUntil = this.time + secs;
     v.team = s.team;
