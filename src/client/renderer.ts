@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
 import { CLIMB_H, F2_SLIT, F2_WALL, F2_WELL, GRID, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, blocksShot, houseAt, losClear, surfaceAt, tileAt } from '../sim/map';
+import { materialForSurface, materialOf, type ImpactKind } from '../sim/materials';
 import { TORCH_MULT, classLinger, eyesSeePoint, perceivesNow, seenRecently, type SeenMark } from '../sim/perception';
 import { paintColorFor } from './onboarding';
 import type { WeatherKind } from '../sim/weather';
@@ -628,6 +629,67 @@ export class Renderer {
     if (this.splats.length > 900) {
       const old = this.splats.shift()!;
       this.scene.remove(old); // geometry+material are shared/cached — keep them
+    }
+  }
+
+  /**
+   * §16.4 / W7.4 — the world answers a round in its OWN material's voice. One
+   * table drives it (`materials.ts` `.impact`), so the debris can never drift
+   * from the substance: metal sparks, stone chips, masonry hangs dust, WOOD
+   * throws splinters, WATER leaps a crown, ICE shatters bright, GRASS rustles,
+   * earth puffs. (Audio maps to the three shipped impact sounds until the
+   * announcer kit lands wood/water/ice reports — the debris is the deliverable.)
+   */
+  private spawnImpactFx(kind: ImpactKind, pos: { x: number; y: number; z: number }) {
+    const P = this.particles;
+    const rate = 0.85 + Math.random() * 0.3;
+    switch (kind) {
+      case 'spark': // metal — a white FLASH and gold sparks that BOUNCE off
+        P.emit({ pos, count: 3, color: 0xffffff, speed: 1, life: 0.08, spread: 0.1, up: 0.5, size: 0.3 });
+        P.emit({ pos, count: 9, color: 0xffd890, speed: 8, life: 0.22, spread: 0.3, up: 2.5, size: 0.16 });
+        P.emit({ pos, count: 4, color: 0xffb060, speed: 6, life: 0.6, spread: 0.4, up: 3.5, gravity: 12, size: 0.12 });
+        audio.play('impact_metal', { pos, volume: 0.5, rate });
+        break;
+      case 'chips': // stone — hard grey CHIPS spall off, sharp and fast
+        P.emit({ pos, count: 9, color: 0x8f8880, speed: 6.5, life: 0.35, spread: 0.28, up: 2.2, gravity: 9, size: 0.13 });
+        P.emit({ pos, count: 3, color: 0xb0a89c, speed: 1.4, life: 0.7, spread: 0.4, up: 0.7, gravity: 0.6, size: 0.22 });
+        this.spawnSplat(pos, 0x4f4a44, 0.15 + Math.random() * 0.07);
+        audio.play('impact_stone', { pos, volume: 0.5, rate });
+        break;
+      case 'dust': // masonry/rubble — CHIPS plus a cloud that HANGS in the air
+        P.emit({ pos, count: 8, color: 0x9a938a, speed: 5.5, life: 0.3, spread: 0.3, up: 2.5, gravity: 8, size: 0.14 });
+        P.emit({ pos, count: 6, color: 0xb8b0a4, speed: 1.2, life: 0.95, spread: 0.55, up: 0.8, gravity: 0.4, size: 0.32 });
+        this.spawnSplat(pos, 0x55504a, 0.16 + Math.random() * 0.08);
+        audio.play('impact_stone', { pos, volume: 0.5, rate });
+        break;
+      case 'splinter': // wood — pale SPLINTERS kick out on a woody knock
+        P.emit({ pos, count: 8, color: 0xc8a06a, speed: 6, life: 0.4, spread: 0.3, up: 2.6, gravity: 10, size: 0.12 });
+        P.emit({ pos, count: 3, color: 0xe0c496, speed: 1.4, life: 0.55, spread: 0.4, up: 1.0, gravity: 1.5, size: 0.16 });
+        this.spawnSplat(pos, 0x5a4428, 0.12 + Math.random() * 0.06);
+        audio.play('impact_stone', { pos, volume: 0.42, rate });
+        break;
+      case 'splash': // water/mud — a crown of droplets LEAPS and rains back
+        P.emit({ pos, count: 12, color: 0xbfe0ee, speed: 6, life: 0.45, spread: 0.22, up: 5, gravity: 16, size: 0.11 });
+        P.emit({ pos, count: 5, color: 0xeaf6fb, speed: 2, life: 0.3, spread: 0.5, up: 1.2, gravity: 6, size: 0.16 });
+        this.spawnSplat(pos, 0x33566a, 0.2 + Math.random() * 0.1);
+        audio.play('impact_dirt', { pos, volume: 0.45, rate });
+        break;
+      case 'shatter': // ice — bright shards spray on a hard GLINT
+        P.emit({ pos, count: 3, color: 0xffffff, speed: 1, life: 0.09, spread: 0.12, up: 0.5, size: 0.28 });
+        P.emit({ pos, count: 10, color: 0xcdeaf5, speed: 7, life: 0.4, spread: 0.35, up: 3, gravity: 13, size: 0.12 });
+        this.spawnSplat(pos, 0x8fb8c8, 0.13 + Math.random() * 0.06);
+        audio.play('impact_stone', { pos, volume: 0.48, rate });
+        break;
+      case 'rustle': // grass — a soft scatter of green, low and quick
+        P.emit({ pos, count: 6, color: 0x6f8f42, speed: 3.5, life: 0.4, spread: 0.4, up: 1.8, gravity: 7, size: 0.12 });
+        audio.play('impact_dirt', { pos, volume: 0.38, rate });
+        break;
+      case 'puff': default: // dirt/earthwork/grit — a low brown PUFF and a pock
+        P.emit({ pos, count: 7, color: 0x6b5636, speed: 4, life: 0.35, spread: 0.35, up: 2.5, gravity: 7 });
+        P.emit({ pos, count: 4, color: 0x8a7a5c, speed: 1, life: 0.8, spread: 0.5, up: 1.0, gravity: 0.8, size: 0.28 });
+        this.spawnSplat(pos, 0x4a3c28, 0.14 + Math.random() * 0.08);
+        audio.play('impact_dirt', { pos, volume: 0.45, rate });
+        break;
     }
   }
 
@@ -4531,32 +4593,16 @@ export class Renderer {
               }
               audio.play('hit', { pos: e.pos, volume: 0.5 });
             } else {
-              // the round hit the WORLD — the world answers in its own voice
-              // (Robert: "hear it impact something"): plate rings, stone
-              // chips, dirt thuds — and the debris wears the surface's color
+              // the round hit the WORLD — it answers in its MATERIAL'S voice
+              // (Robert: "hear it impact something" + W7.4 per-material VFX).
+              // One table decides (materials.ts): a structural tile speaks as
+              // its fabric (wall→dust, door→splinter, metal→spark, water→splash),
+              // open ground as the SURFACE you'd walk on (ice→shatter, deck→
+              // spark, grass→rustle, dirt→puff). No more three-bucket lumping.
               const t = tileAt(world.map.grid, e.pos.x, e.pos.z);
-              const sf = surfaceAt(world.map.surface, e.pos.x, e.pos.z);
-              const rate = 0.85 + Math.random() * 0.3;
-              // finish-list #11 (Robert: "we need to SEE when bullets impact
-              // stuff") — every surface answers in LIGHT as well as sound:
-              // metal FLASHES and throws bouncing sparks, stone chips and
-              // hangs dust, dirt puffs — and the ground keeps a pock decal.
-              if (t === T_METAL || sf === S_PLATE) {
-                this.particles.emit({ pos: e.pos, count: 3, color: 0xffffff, speed: 1, life: 0.08, spread: 0.1, up: 0.5, size: 0.3 }); // the flash
-                this.particles.emit({ pos: e.pos, count: 9, color: 0xffd890, speed: 8, life: 0.22, spread: 0.3, up: 2.5, size: 0.16 });
-                this.particles.emit({ pos: e.pos, count: 4, color: 0xffb060, speed: 6, life: 0.6, spread: 0.4, up: 3.5, gravity: 12, size: 0.12 }); // sparks that BOUNCE off
-                audio.play('impact_metal', { pos: e.pos, volume: 0.5, rate });
-              } else if (t === T_WALL || t === T_COVER || t === T_SLIT || t === T_CLIMB) {
-                this.particles.emit({ pos: e.pos, count: 8, color: 0x9a938a, speed: 5.5, life: 0.3, spread: 0.3, up: 2.5, gravity: 8, size: 0.14 }); // the chips
-                this.particles.emit({ pos: e.pos, count: 5, color: 0xb8b0a4, speed: 1.2, life: 0.9, spread: 0.5, up: 0.8, gravity: 0.5, size: 0.3 }); // dust that HANGS
-                this.spawnSplat(e.pos, 0x55504a, 0.16 + Math.random() * 0.08); // the pock
-                audio.play('impact_stone', { pos: e.pos, volume: 0.5, rate });
-              } else {
-                this.particles.emit({ pos: e.pos, count: 7, color: 0x6b5636, speed: 4, life: 0.35, spread: 0.35, up: 2.5, gravity: 7 });
-                this.particles.emit({ pos: e.pos, count: 4, color: 0x8a7a5c, speed: 1, life: 0.8, spread: 0.5, up: 1.0, gravity: 0.8, size: 0.28 }); // the puff
-                this.spawnSplat(e.pos, 0x4a3c28, 0.14 + Math.random() * 0.08);
-                audio.play('impact_dirt', { pos: e.pos, volume: 0.45, rate });
-              }
+              const onFloor = t === T_OPEN || t === T_LADDER;
+              const mat = onFloor ? materialForSurface(surfaceAt(world.map.surface, e.pos.x, e.pos.z)) : materialOf(t);
+              this.spawnImpactFx(mat.impact, e.pos);
             }
           }
           break;
