@@ -41,7 +41,7 @@ The public record of what shipped, written for players and backers — not engin
   idempotent campaign/Courier closeout; all twelve reward adapters; and escaped
   newspaper/HUD copy.
 - Fresh release gates pass: TypeScript emits no diagnostics; the full suite is
-  **138 files / 1,625 tests** green; ESLint reports zero errors; and Vite emits
+  **141 files / 1,640 tests** green; ESLint reports zero errors; and Vite emits
   the production bundle (including the dedicated science chunk).
 
 ### Fixed during production playtest
