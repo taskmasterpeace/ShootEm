@@ -77,6 +77,23 @@ describe('outbreak: the corpse clock', () => {
     expect(w.corpses.length).toBe(0); // off the books once risen
   });
 
+  it('fires a CRITICAL warning in the final window before it rises (§6)', () => {
+    const w = makeWorld(true);
+    infectAndKill(w);
+    let criticalAt = -1, roseAt = -1;
+    for (let i = 0; i < 60 * 15 && roseAt < 0; i++) {
+      w.step(1 / 60, new Map());
+      for (const e of w.takeEvents()) {
+        if (e.type === 'corpse_critical' && criticalAt < 0) criticalAt = w.time;
+        if (e.type === 'reanimated') roseAt = w.time;
+      }
+    }
+    expect(criticalAt).toBeGreaterThan(0);
+    expect(roseAt).toBeGreaterThan(0);
+    expect(criticalAt).toBeLessThan(roseAt);            // the last-chance alert came first
+    expect(roseAt - criticalAt).toBeLessThanOrEqual(2.1); // ...inside the final ~2s window
+  });
+
   it('a cold death (viral < 40) books nothing', () => {
     const w = makeWorld(true);
     const man = w.addSoldier('Cold', 'infantry', 0, 'bot');

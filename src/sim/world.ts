@@ -27,6 +27,8 @@ const RESPAWN_DELAY = 4;
  *  conversion, per second. ~1.4 → a fresh 22-point bite incubates ~55s if
  *  untreated; two bites turn you in under 30. Medical care walks it back. */
 const INFECTION_CREEP = 1.4;
+/** §6: the final CRITICAL window before a corpse rises — the last-chance alert. */
+const CORPSE_CRITICAL_WINDOW = 2;
 /** §7 EMERGENT VARIANTS: the risen form is DERIVED from the body that fell —
  *  a scout's quick frame becomes a SPRINTER (the lean infected), a heavy's
  *  mass a BRUTE, everyone else a base shambler. Causal, not a roster roll. */
@@ -269,7 +271,7 @@ export class World {
    *  flips this yet, so every existing match is byte-identical. */
   outbreakEnabled = false;
   /** exposed bodies on the reanimation clock (§6) — capped, oldest forgotten */
-  corpses: { pos: Vec3; reanimatesAt: number; neutralized: boolean; name: string; classId: ClassId }[] = [];
+  corpses: { pos: Vec3; reanimatesAt: number; neutralized: boolean; name: string; classId: ClassId; warned?: boolean }[] = [];
   /** OUTBREAK PRESSURE (§3): the authoritative severity of the sector, fed by
    *  live infected + unburned corpses + exposed soldiers. Drives the level. */
   outbreakPressure = 0;
@@ -4569,7 +4571,15 @@ export class World {
     if (!this.corpses.length) return;
     this.corpses = this.corpses.filter((c) => {
       if (c.neutralized) return false; // processed — off the books
-      if (this.time < c.reanimatesAt) return true;
+      if (this.time < c.reanimatesAt) {
+        // §6 CRITICAL REANIMATION — the final warning window: strong twitching,
+        // a last chance to burn it. Fire the alert ONCE as the body crosses in.
+        if (!c.warned && c.reanimatesAt - this.time <= CORPSE_CRITICAL_WINDOW) {
+          c.warned = true;
+          this.emit({ type: 'corpse_critical', pos: { ...c.pos } });
+        }
+        return true;
+      }
       const open = nearestOpenTile(this.map.grid, c.pos.x, c.pos.z) ?? c.pos;
       const z = this.addZombie(riseKind(c.classId), { x: open.x, y: 0, z: open.z });
       z.name = `${c.name} (risen)`; // the map tells the story — you know who that was
