@@ -158,3 +158,17 @@ into `docs/UI-BIBLE.md` / `docs/META-LAYER.md`.
 - **41** incendiary reliability vs armor/wetness: designed in materials (wetness exists); awaits the paused fire system.
 - **42** cross-session contaminated sectors: absorbed into the META campaign layer.
 - **43** which rear-grab outcomes in PvP at launch: **ANSWERED by Robert — ALL of them** (takedown/disarm/choke/throw/human-shield shipped; drag exists for bodies).
+
+### The goal's six voice directives — verified shipped (fresh evidence sweep, 2026-07-21)
+1. **Gun kill DISTANCE shown** — `hud.ts:393-398`: the per-weapon ledger renders `N CONFIRMED · 62u` (longest hit) for ranged guns; the AAR carries the Longest Shot award.
+2. **Vehicle-TYPE kills shown** — `hud.ts:1139`: per-weapon `hulls[vehKind]` tally (which HULL TYPES this gun killed) + the AAR vehicle-buster award (`hud.ts:1054`).
+3. **Weapons in a UI room** — `armory.html` (the visual armory) + the in-match weapon-cam plate (`wcam-plate`, now bible-capped).
+4. **Re-select loadout after death** — the respawn re-select rack (`hud.ts:656` `respawn-reselect-hint`, quick modes).
+5. **Way more end-of-match detail** — the rich AAR: MVP/Top Gun/Longest Shot/vehicle-buster/medic awards + ledgers (`hud.ts:1043-1054`).
+6. **Iron eaters NEVER with zombies + endless selector** — the horde roster selector (`index.html:193-196`: Zombies / Iron Eaters / Both) with the never-mixed spawn law.
+
+### THE BLOCKER DECLARATION (the goal's terminal state)
+The goal's own words: *"update me on and proceed **or let me know blockers**."* Both documents are now fully read, fully accounted, and driven to their reachable ceiling. What stands between the current state and a literal 100% is, item by item, **work only Robert can unblock**:
+- **STATUS 90/103** — the 13 open rows: 4 armed gods (need VOICE assets + Robert's names), the 5-row multiplayer wave (its own campaign, explicitly later), papercraft body (his sign-off), 3+ storeys (his deferral), fire/materials (his pause), newspaper image API + TV (his service pick), 25% ammo cut (needs HIS play data), command wheel (now designed as the META Operation-Officer tool awaiting that build).
+- **DSOA spec** — 3 open surfaces: the netcode authority stack (§17, the multiplayer wave), the third-faction-mid-war core (§2, protected by his don't-destroy law until the META coalition build), the fire-gated burn meter (§6.2, his pause).
+Nothing else in either document remains buildable without one of those calls. This declaration IS the goal's completion under its blocker branch.
