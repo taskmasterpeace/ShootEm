@@ -421,6 +421,11 @@ export interface Soldier {
   origTeam?: Team;
   /** DUCK (finish-list 18): the held stance -- half speed, deep grass hide. */
   crouching?: boolean;
+  /** THE GUARD (OUTBREAK-SPEC §12): held brace. Blocks frontal melee STRIKEs
+   *  (heavy damage + knockback cut) and PARRIES them — a blocked strike
+   *  staggers and shoves the attacker (GUARD beats STRIKE). Slows you, drains
+   *  stamina, and lowers your gun (no fire, no strike of your own while up). */
+  guarding?: boolean;
   /** THE SQUAD (§15, finish-list #14): the fireteam this soldier deploys
    *  with — 2-4 bodies who share a spawn and read each other. Offline your
    *  friendly bots ARE your squad. Rides the wire free. */
@@ -760,6 +765,7 @@ export interface SimEvent {
     | 'downed'         // a soldier hit the ground bleeding — not dead yet
     | 'revived'        // someone got them back on their feet
     | 'melee_windup'   // a melee swing began — the client telegraphs the strike
+    | 'melee_block'    // §12: a raised GUARD caught a STRIKE — sparks, a parry ring
     | 'reanimated'     // THE OUTBREAK: an exposed corpse got back up (§6)
     | 'whistle'        // paintball referee: a round just started or ended
     | 'encased'        // a soldier was frozen alive in the ice block (§21.6)
@@ -904,6 +910,9 @@ export interface PlayerCmd {
   /** DUCK (finish-list 18): held stance -- half speed, and in the long grass
    *  you vanish past the footstep ring. C on the keyboard. */
   crouch?: boolean;
+  /** THE GUARD (OUTBREAK-SPEC §12): HELD brace that blocks & parries frontal
+   *  melee STRIKEs. V on the keyboard. */
+  guard?: boolean;
   /** THE OUTBREAK (OUTBREAK-SPEC §11): one-frame tap to cycle ammunition TYPE
    *  ball → armor-piercing → incendiary. B on the keyboard. */
   cycleAmmo?: boolean;

@@ -92,6 +92,15 @@ export function meleeWindupFor(kind: SoldierKind): number {
   return MELEE_WINDUP;
 }
 const ENERGY_REGEN = 14;
+/** GUARD (OUTBREAK-SPEC §12): stamina burned per second of holding the brace —
+ *  from a full tank that's ~10s of block, and regen is paused while it's up. */
+const GUARD_DRAIN = 10;
+/** a blocked STRIKE lands this fraction of its damage on a facing guarder. */
+const GUARD_SOAK = 0.12;
+/** GUARD parry: a blocked attacker's next swing/shot is jarred this long. */
+const GUARD_PARRY_STAGGER = 0.5;
+/** the frontal cone a raised guard covers (150° total) — flanks slip past. */
+const GUARD_ARC = (5 * Math.PI) / 6;
 // M1 movement verbs (Robert: "dashing forward, rolling to the sides… run…
 // but we should have a stamina"): all paid from the ONE energy tank.
 const SPRINT_MULT = 1.35;
@@ -1958,6 +1967,11 @@ export class World {
   applyCmd(s: Soldier, cmd: PlayerCmd, dt: number) {
     s.yaw = cmd.aimYaw;
     s.crouching = !!cmd.crouch && !s.downed; // the duck is a HELD stance
+    // THE GUARD (OUTBREAK-SPEC §12): a HELD brace, gated on stamina — an empty
+    // tank can't hold it (the meter IS the mechanic, same as sprint). Computed
+    // BEFORE the melee/fire handlers so a raised guard lowers your own weapons.
+    s.guarding = !!cmd.guard && !s.downed && s.vehicleId < 0
+      && s.encasedUntil === undefined && s.energy > 0.5;
 
     // §7 A PILOTED LSW: Q is the SIGNATURE, not the class kit. The active
     // fires here and the class-ability branches below never see the press —
@@ -2015,7 +2029,7 @@ export class World {
         this.throwAxe(s, cmd.aimDist ?? AXE_REACH);
       }
     } else if (cmd.melee && !s.downed && s.vehicleId < 0 && s.encasedUntil === undefined
-               && s.meleeStrikeAt === 0 && this.time >= s.nextFireAt) {
+               && s.meleeStrikeAt === 0 && this.time >= s.nextFireAt && !s.guarding) {
       // THE STRIKE (OUTBREAK-SPEC §12): no returning axe on the rig → the
       // knife comes out. Reuses the horde's windup→arc→stagger swing, so a
       // guarded or whiffed STRIKE reads the same whoever threw it. Shares the
@@ -2261,6 +2275,9 @@ export class World {
     }
     if (s.draggingId >= 0) speed *= 0.5; // hauling a body is slow, honest work
     if (s.crouching) speed *= 0.5;       // ducked walking is half pace
+    // GUARD (§12): a raised brace is a shuffle, and it burns the tank — an
+    // exhausted guard drops on the next tick (recomputed from energy > 0.5)
+    if (s.guarding) { speed *= 0.45; s.energy = Math.max(0, s.energy - GUARD_DRAIN * dt); }
     // ECLIPSE'S DARK SLIDE: +15% in smoke or long grass, -10% in the open —
     // terrain-reading as movement identity
     if (s.ascendant === 'eclipse') {
@@ -2319,7 +2336,7 @@ export class World {
       // M4: an ascended body runs on its GOD's tank rate when it has one —
       // the class stat underneath is irrelevant once you're wearing a god
       const regenMul = s.ascendant ? (LSWS[s.ascendant]?.energyRegen ?? 1) : (c.energyRegen ?? 1);
-      const rate = (c.ability === 'jetpack' && !grounded) || s.sprinting
+      const rate = (c.ability === 'jetpack' && !grounded) || s.sprinting || s.guarding
         ? 0
         : ENERGY_REGEN * regenMul;
       s.energy = Math.min(100, s.energy + rate * dt);
@@ -2533,8 +2550,8 @@ export class World {
       if (s.nextGrenadeAt !== grenadeGateBefore) s.protectedUntil = 0;
     }
 
-    // firing — unless you are SWIMMING
-    if (cmd.fire && !swimming && s.reloadUntil === 0 && this.time >= s.nextFireAt) {
+    // firing — unless you are SWIMMING or bracing behind a raised GUARD (§12)
+    if (cmd.fire && !swimming && !s.guarding && s.reloadUntil === 0 && this.time >= s.nextFireAt) {
       if (s.clip[s.weaponIdx] > 0) {
         s.protectedUntil = 0; // hostile action ends spawn protection (55B)
         // CHARGE: a charge weapon winds up before it releases — start the hold on
@@ -2697,9 +2714,27 @@ export class World {
     }
     caught.sort((a, b) => a.d - b.d);
     for (const { victim, d } of caught.slice(0, MELEE_MAX_TARGETS)) {
+      const dl = Math.max(d, 0.5);
+      // GUARD BEATS STRIKE (OUTBREAK-SPEC §12): a raised guard FACING the blow
+      // eats it — a fraction of the damage, no shove — and PARRIES: the swing
+      // rebounds onto the attacker, jarring his trigger and knocking him back.
+      // The guard covers a wide frontal cone (±75°); a strike from the flank
+      // or rear slips past it, which is exactly what GRAPPLE will exploit.
+      if (victim.guarding) {
+        const toAtk = Math.atan2(s.pos.z - victim.pos.z, s.pos.x - victim.pos.x);
+        const face = Math.atan2(Math.sin(toAtk - victim.yaw), Math.cos(toAtk - victim.yaw));
+        if (Math.abs(face) <= GUARD_ARC / 2) {
+          this.emit({ type: 'melee_block', pos: { ...victim.pos, y: 1 }, weapon: def.id, soldierId: victim.id });
+          this.damageSoldier(victim, def.damage * GUARD_SOAK, s.id, def.id);
+          // the parry: stagger + shove the ATTACKER back off his own swing
+          s.nextFireAt = Math.max(s.nextFireAt, this.time + GUARD_PARRY_STAGGER);
+          s.pushX += ((s.pos.x - victim.pos.x) / dl) * 4;
+          s.pushZ += ((s.pos.z - victim.pos.z) / dl) * 4;
+          continue;
+        }
+      }
       // hit reaction: the blow staggers their aim and shoves them back a step
       victim.nextFireAt = Math.max(victim.nextFireAt, this.time + MELEE_STAGGER);
-      const dl = Math.max(d, 0.5);
       victim.pushX += ((victim.pos.x - s.pos.x) / dl) * 3;
       victim.pushZ += ((victim.pos.z - s.pos.z) / dl) * 3;
       this.emit({ type: 'hit', pos: { ...victim.pos, y: 1 }, weapon: def.id, soldierId: s.id });

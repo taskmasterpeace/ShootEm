@@ -198,3 +198,72 @@ describe('the universal knife STRIKE (§12)', () => {
     expect(zed.hp).toBeLessThan(hp0); // the blade doesn't care about the empty mag
   });
 });
+
+// ---------------------------------------------------------------------------
+// THE MELEE TRIANGLE (OUTBREAK-SPEC §12), slice 2 — GUARD BEATS STRIKE. A held
+// V raises a brace that eats a frontal claw and rebounds it onto the attacker.
+// It costs stamina, slows you, and lowers your own weapons — and a blow from
+// the flank slips right past it (which is what GRAPPLE will exploit).
+// ---------------------------------------------------------------------------
+describe('the GUARD (§12) — beats STRIKE', () => {
+  /** A team-1 human braces (or not) while a STATIONARY claw-human at the origin
+   *  swings east at him. `faceYaw` is where the defender looks — π faces the
+   *  attacker (who is to his west), 0 faces away. Both bodies hold position, so
+   *  the geometry at the moment of every strike is exactly what we set. */
+  function braceVsClaw(guard: boolean, faceYaw: number) {
+    const w = new World({ seed: 30, mode: 'tdm' });
+    const atk = clawHuman(w, 0, 0);   // team 0, swings toward +X
+    const def_ = dummy(w, 1.8, 0);    // team 1 human, the one bracing
+    const hp0 = def_.hp;
+    const events: SimEvent[] = [];
+    const cmds = new Map<number, PlayerCmd>([
+      [atk.id, cmd({ fire: true, aimYaw: 0 })],
+      [def_.id, cmd({ guard, aimYaw: faceYaw })],
+    ]);
+    run(w, cmds, 2, events);
+    return { taken: hp0 - def_.hp, events, atk, def_ };
+  }
+
+  it('a facing guard eats the claw — a fraction of the damage gets through', () => {
+    const open = braceVsClaw(false, Math.PI); // face the blow, don't brace
+    const held = braceVsClaw(true, Math.PI);  // brace into it
+    expect(open.taken).toBeGreaterThan(0);
+    expect(held.taken).toBeLessThan(open.taken * 0.4); // the brace soaks most of it
+    expect(held.events.some((e) => e.type === 'melee_block')).toBe(true);
+  });
+
+  it('parries: a blocked strike jars the attacker off his own swing', () => {
+    // each block staggers + shoves the attacker back off his reach, so he lands
+    // far fewer claws than against an unguarded man over the same window
+    const open = braceVsClaw(false, Math.PI);
+    const held = braceVsClaw(true, Math.PI);
+    const openHits = open.events.filter((e) => e.type === 'hit').length;
+    const heldHits = held.events.filter((e) => e.type === 'hit').length;
+    expect(heldHits).toBeLessThan(openHits); // the parry buys tempo
+  });
+
+  it('the flank slips past — a guard facing away blocks nothing', () => {
+    const away = braceVsClaw(true, 0); // brace east while the claw comes from the west
+    expect(away.events.some((e) => e.type === 'melee_block')).toBe(false);
+    expect(away.taken).toBeGreaterThan(0); // the blow landed clean
+  });
+
+  it('the brace burns the tank — stamina drains while it is up', () => {
+    const w = new World({ seed: 31, mode: 'tdm' });
+    const man = w.addSoldier('Wall', 'infantry', 0, 'human');
+    man.pos = { x: 0, y: 0, z: 0 };
+    man.energy = 100;
+    run(w, new Map([[man.id, cmd({ guard: true, aimYaw: 0 })]]), 1);
+    expect(man.energy).toBeLessThan(100); // the meter IS the mechanic
+    expect(man.guarding).toBe(true);
+  });
+
+  it('a raised guard lowers the gun — no fire while bracing', () => {
+    const w = new World({ seed: 32, mode: 'tdm' });
+    const man = w.addSoldier('Wall', 'infantry', 0, 'human');
+    man.pos = { x: 0, y: 0, z: 0 };
+    const clip0 = man.clip[man.weaponIdx];
+    run(w, new Map([[man.id, cmd({ guard: true, fire: true, aimYaw: 0 })]]), 0.5);
+    expect(man.clip[man.weaponIdx]).toBe(clip0); // the trigger did nothing
+  });
+});

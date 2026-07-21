@@ -321,11 +321,20 @@ export class Hud {
       // the god's own activeLabel was never displayed anywhere in the game.
       // A god also carries no frag pouch now, so the bag line is a lie too.
       const god = s.ascendant ? LSWS[s.ascendant] : undefined;
-      $('ability-hint').textContent = world.mode.id === 'paintball'
-        ? 'R reload · one splat and you sit'
-        : god
-          ? `Q · ${god.activeLabel}`
-          : `${CLASSES[s.classId].abilityName} · ${bag || 'bag empty'}${altTxt} · X swaps`;
+      const hint = $('ability-hint');
+      // GUARD (§12): a raised brace owns the hint line — you're not managing a
+      // grenade bag, you're blocking. The .warn tint reads as "committed."
+      if (s.guarding) {
+        hint.textContent = '⛊ GUARD — bracing · release V to lower';
+        hint.classList.add('warn');
+      } else {
+        hint.classList.remove('warn');
+        hint.textContent = world.mode.id === 'paintball'
+          ? 'R reload · one splat and you sit'
+          : god
+            ? `Q · ${god.activeLabel}`
+            : `${CLASSES[s.classId].abilityName} · ${bag || 'bag empty'}${altTxt} · X swaps`;
+      }
 
       // THE SIGNATURE METER: fills back toward ready. Hidden for mortals.
       if (god) {

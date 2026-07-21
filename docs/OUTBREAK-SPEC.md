@@ -183,6 +183,8 @@ Incendiary ammunition should interact with the existing material system. Fuel, c
 12. Melee Counter Triangle
 Counter Relationship
 Guard beats Strike. Strike beats Grapple. Grapple beats Guard.
+
+> **BUILD STATUS (2026-07-20):** two of the three vertices are LIVE. **STRIKE** — every soldier without a returning axe carries a universal Combat Knife on **F** (34 dmg, 2.2u reach), driving the existing windup→90°-arc→stagger swing and sharing the fire clock. **GUARD** — held **V** raises a brace over a 150° frontal cone: a facing STRIKE lands only 12% and PARRIES (staggers + shoves the attacker — *Guard beats Strike*), while a flank or rear blow slips past (which is exactly what GRAPPLE will exploit). Guard costs ~10 stamina/s, pauses regen, slows to 0.45×, and lowers your own weapons. `melee_block` event; `tests/melee.test.ts` (9 new). REMAINING: **GRAPPLE** (§14, the third vertex — rear-grab entry, *Grapple beats Guard*), the **Control Struggle** / **Bite Struggle** minigames (§15), and **Impact Charge** (§13, hold-to-charge the STRIKE). Simultaneous-action priority (§12.1) resolves today by swing timing; explicit startup/active-frame arbitration is a later pass.
 ActionUI NameBeatsLoses ToRoleDirect melee attackSTRIKEGRAPPLEGUARDInterrupts grab attempts and deals damage.Defensive block or parryGUARDSTRIKEGRAPPLEAbsorbs or redirects direct attacks.Grab or clinch attemptGRAPPLEGUARDSTRIKEBypasses passive defense and enters control.
 12.1 Resolution Rules
 * The server evaluates action startup, active frames, contact angle, stamina, and counter relationship.
