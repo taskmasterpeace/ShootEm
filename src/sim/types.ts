@@ -398,6 +398,11 @@ export interface Soldier {
   protectedUntil: number;
   /** Proving Grounds target dummy — stands there, takes it, never acts */
   dummy?: boolean;
+  /** a dummy that REGENERATES (Robert: "the dummies don't regenerate") — pops
+   *  back up at `dummyHome` a few seconds after it drops, so a weapon-test
+   *  range never runs out of targets. Non-respawning dummies stay down. */
+  respawns?: boolean;
+  dummyHome?: Vec3;
   /** who last killed this soldier (-1 = nobody/self/environment) — the killcam
    *  frames the duel between victim and killer instead of just the corpse */
   lastKillerId: number;

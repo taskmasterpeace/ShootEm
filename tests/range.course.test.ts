@@ -30,7 +30,7 @@ describe('the Proving Grounds', () => {
     expect(percentileOn([], 50)).toBe(100); // first on the Wall stands alone
   });
 
-  it('dummies stand, take fire, and STAY down; the course clocks the run', () => {
+  it('dummies stand and take fire; the run clocks on all-dropped, then they REGENERATE', () => {
     const w = new World({ seed: 12, mode: 'range' });
     expect(w.mode.timeLeft).toBe(Infinity);
     const me = w.addSoldier('Shooter', 'infantry', 0, 'human');
@@ -53,13 +53,17 @@ describe('the Proving Grounds', () => {
       expect(d.pos.z).toBeCloseTo(before[i].z, 5);
     });
 
-    // drop all six — course completes with a score; the dead stay dead
+    // drop all six — the run clocks the moment each has been dropped once
     for (const d of dummies) w.damageSoldier(d, 999, me.id, 'rifle');
     for (let i = 0; i < 10; i++) { w.step(1 / 60, new Map()); course.update(w, 1 / 60); }
     expect(course.phase).toBe('done');
     expect(course.score).toBeGreaterThan(0);
-    for (let i = 0; i < 60 * 5; i++) w.step(1 / 60, new Map());
-    expect([...w.soldiers.values()].filter((s) => s.dummy && s.alive).length).toBe(0);
+    // …and the targets REGENERATE (Robert) so the range never runs dry — they
+    // pop back up at their home spots a few seconds later, the run already done
+    for (let i = 0; i < 60 * 6; i++) w.step(1 / 60, new Map());
+    const back = [...w.soldiers.values()].filter((s) => s.dummy && s.alive);
+    expect(back.length, 'the targets came back for continued practice').toBe(COURSE_TARGETS);
+    back.forEach((d) => expect(d.dummyHome).toBeTruthy());
   });
 
   it('the OFFICIAL run writes the qualification once, forever (18B)', () => {

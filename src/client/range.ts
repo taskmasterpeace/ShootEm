@@ -48,6 +48,7 @@ export class RangeCourse {
   private lastWhole = 4;
   private startAt = 0;
   private dummyIds: number[] = [];
+  private dropped = new Set<number>(); // targets knocked down at least once this run
   elapsed = 0;
   score = 0;
 
@@ -74,6 +75,12 @@ export class RangeCourse {
         z: me.pos.z + Math.sin(a) * ranges[i],
       };
       d.yaw = Math.PI; // face the shooter — they're brave like that
+      // Robert: "the dummies don't regenerate." They do now — each pops back
+      // up at its home ~4s after it drops, so the range never runs out of
+      // targets to test on. The timed qual run still ends on all-six-DROPPED
+      // (tracked below), so respawns don't stop you from finishing.
+      d.respawns = true;
+      d.dummyHome = { ...d.pos };
       this.dummyIds.push(d.id);
     }
     this.say(this.official ? 'OFFICIAL QUALIFICATION — this one counts, forever' : 'PRACTICE RUN — the Wall never sees practice', true);
@@ -92,8 +99,13 @@ export class RangeCourse {
       return;
     }
     if (this.phase !== 'live') return;
-    const standing = this.dummyIds.filter((id) => world.soldiers.get(id)?.alive).length;
-    if (standing === 0) {
+    // the run ends when every target has been DROPPED at least once — tracked,
+    // not "none standing," so the regenerating dummies (which pop back up ~4s
+    // after they fall) can't reset your progress mid-run.
+    for (const id of this.dummyIds) {
+      if (!world.soldiers.get(id)?.alive) this.dropped.add(id);
+    }
+    if (this.dropped.size >= this.dummyIds.length) {
       this.phase = 'done';
       this.elapsed = Math.round((world.time - this.startAt) * 100) / 100;
       this.score = scoreRun(this.elapsed);

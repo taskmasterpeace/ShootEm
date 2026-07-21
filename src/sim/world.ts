@@ -1574,7 +1574,17 @@ export class World {
         // Delete it on death instead.
         if (s.name === 'BLOOD BRUTE') { this.soldiers.delete(s.id); continue; }
         if (s.kind !== 'human' && s.kind !== 'bot') continue; // dead zombies removed elsewhere
-        if (this.time >= s.respawnAt && !this.mode.over && !s.dummy) this.spawn(s); // downed range targets STAY down
+        // a plain range target STAYS down; a REGENERATING one (Robert) pops
+        // back up at its home so the test range never runs dry.
+        if (this.time >= s.respawnAt && !this.mode.over) {
+          if (!s.dummy) this.spawn(s);
+          else if (s.respawns && s.dummyHome) {
+            s.alive = true; s.hp = s.maxHp; s.downed = false; s.vel = { x: 0, y: 0, z: 0 };
+            s.pos = { ...s.dummyHome };
+            s.viralLoad = 0; s.grabbedUntil = undefined; s.grabbedBy = undefined;
+            this.emit({ type: 'respawn', pos: { ...s.pos }, soldierId: s.id });
+          }
+        }
         continue;
       }
       // §4.3: the clock is an enemy too — unhelped, a downed soldier bleeds out
