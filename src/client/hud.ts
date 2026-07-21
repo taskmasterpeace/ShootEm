@@ -324,9 +324,17 @@ export class Hud {
       const hint = $('ability-hint');
       // GUARD (§12): a raised brace owns the hint line — you're not managing a
       // grenade bag, you're blocking. The .warn tint reads as "committed."
+      const charge = s.meleeCharge ?? 0;
       if (s.guarding) {
         hint.textContent = '⛊ GUARD — bracing · release V to lower';
         hint.classList.add('warn');
+      } else if (charge > 0.02) {
+        // IMPACT CHARGE (OUTBREAK-SPEC §13): the Power Strike meter, right on
+        // the action line. Bands name themselves; overcharge flashes the warn.
+        const band = charge >= 1.3 ? 'OVERCHARGE — release!' : charge >= 0.7 ? 'MAXIMUM' : charge >= 0.3 ? 'HEAVY' : 'quick';
+        const filled = Math.min(5, Math.round(Math.min(charge, 1) * 5));
+        hint.textContent = `⚔ IMPACT ${'▮'.repeat(filled)}${'▯'.repeat(5 - filled)} ${band}`;
+        hint.classList.toggle('warn', charge >= 1.3);
       } else {
         hint.classList.remove('warn');
         hint.textContent = world.mode.id === 'paintball'

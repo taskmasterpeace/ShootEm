@@ -84,6 +84,21 @@ export const MELEE_STAGGER = 0.15;
 /** lunge impulse at strike time; push decays at e^-5t so travel ≈ v0/5 = 1.5u */
 export const MELEE_LUNGE = 7.5;
 
+/** IMPACT CHARGE (OUTBREAK-SPEC §13): seconds of HOLDING the knife to reach a
+ *  full (100%) Power Strike. A tap barely charges — that's the quick strike. */
+const CHARGE_MAX_TIME = 1.0;
+/** hold past this many charge units and the swing FUMBLES on release. */
+const OVERCHARGE_AT = 1.3;
+/** stamina bled per second while overcharged (held past maximum). */
+const OVERCHARGE_DRAIN = 20;
+/** §13 tuning bands: 0-30% quick, 31-70% heavy, 71-100% max, over = fumble. */
+function chargeMult(c: number): number {
+  if (c >= OVERCHARGE_AT) return 1.2; // held too long — a clumsy, wasted blow
+  if (c >= 0.7) return 2.4;           // MAXIMUM IMPACT
+  if (c >= 0.3) return 1.6;           // heavy strike
+  return 1.0;                         // quick strike (the tap)
+}
+
 /** Brutes wind up a slow haymaker; sprinters snap; the K9 bites quick. */
 export function meleeWindupFor(kind: SoldierKind): number {
   if (kind === 'brute') return 0.4;
@@ -1156,6 +1171,7 @@ export class World {
     s.manpads = this.hasEquip(s, 'samLauncher') ? MANPADS_ROUNDS : 0;
     s.medikitReady = true;
     s.meleeStrikeAt = 0; s.meleeWeapon = ''; // no swing survives a respawn
+    s.meleeCharge = 0; s.meleeChargeMul = undefined; // and no half-built Power Strike
     s.guarding = false; s.grabbedUntil = undefined; s.grabbedBy = undefined; // no hold survives it either
     // mobile spawn: a crewed APC or transport with a LIVE comms system
     const mobile = [...this.vehicles.values()].find(
@@ -2062,21 +2078,32 @@ export class World {
     // the axe is ISSUED KIT (V1) — a soldier without it on his rig has no
     // sci-fi returning weapon, he has a rifle. Gods carry it inherently:
     // a thrown weapon that comes home is exactly what a god's arm is for.
-    if (cmd.melee && (this.hasEquip(s, 'axe') || s.ascendant) &&
-        !s.downed && s.vehicleId < 0 && s.encasedUntil === undefined) {
+    const meleeUpright = !s.downed && s.vehicleId < 0 && s.encasedUntil === undefined;
+    if (cmd.melee && (this.hasEquip(s, 'axe') || s.ascendant) && meleeUpright) {
       const stuck = s.axeId !== undefined ? this.gadgets.get(s.axeId) : undefined;
       if (stuck) {
         this.recallAxe(s, stuck);
       } else if (s.axeId === undefined && s.axeRecallAt === undefined) {
         this.throwAxe(s, cmd.aimDist ?? AXE_REACH);
       }
-    } else if (cmd.melee && !s.downed && s.vehicleId < 0 && s.encasedUntil === undefined
-               && s.meleeStrikeAt === 0 && this.time >= s.nextFireAt && !s.guarding) {
-      // THE STRIKE (OUTBREAK-SPEC §12): no returning axe on the rig → the
-      // knife comes out. Reuses the horde's windup→arc→stagger swing, so a
-      // guarded or whiffed STRIKE reads the same whoever threw it. Shares the
-      // fire clock: you can't knife and shoot in the same beat.
-      this.startMelee(s, WEAPONS.knife);
+    } else if (!this.hasEquip(s, 'axe') && !s.ascendant && meleeUpright && !s.guarding) {
+      // THE STRIKE + IMPACT CHARGE (OUTBREAK-SPEC §12/§13): no returning axe on
+      // the rig → the knife. HOLD F to build a Power Strike; RELEASE commits it.
+      // The swing reuses the horde's windup→arc→stagger engine; the charge only
+      // sets how hard it lands. A tap barely charges — that's the quick strike.
+      const ready = s.meleeStrikeAt === 0 && this.time >= s.nextFireAt;
+      if (cmd.meleeHold && ready) {
+        // wind up: fill the meter, and bleed stamina once you overhold
+        s.meleeCharge = Math.min(OVERCHARGE_AT + 0.2, (s.meleeCharge ?? 0) + dt / CHARGE_MAX_TIME);
+        if ((s.meleeCharge ?? 0) > 1) s.energy = Math.max(0, s.energy - OVERCHARGE_DRAIN * dt);
+      }
+      if (cmd.melee && ready) {
+        s.meleeChargeMul = chargeMult(s.meleeCharge ?? 0); // the release commits the power
+        this.startMelee(s, WEAPONS.knife);
+        s.meleeCharge = 0;
+      } else if (!cmd.meleeHold && !cmd.melee) {
+        s.meleeCharge = 0; // let go without swinging → the wind-up bleeds off
+      }
     }
 
     // THE GRAPPLE (OUTBREAK-SPEC §12/§14): a close grab. It bypasses a raised
@@ -2419,7 +2446,7 @@ export class World {
       // M4: an ascended body runs on its GOD's tank rate when it has one —
       // the class stat underneath is irrelevant once you're wearing a god
       const regenMul = s.ascendant ? (LSWS[s.ascendant]?.energyRegen ?? 1) : (c.energyRegen ?? 1);
-      const rate = (c.ability === 'jetpack' && !grounded) || s.sprinting || s.guarding
+      const rate = (c.ability === 'jetpack' && !grounded) || s.sprinting || s.guarding || (s.meleeCharge ?? 0) > 0
         ? 0
         : ENERGY_REGEN * regenMul;
       s.energy = Math.min(100, s.energy + rate * dt);
@@ -2773,10 +2800,16 @@ export class World {
     const def = WEAPONS[s.meleeWeapon];
     s.meleeStrikeAt = 0;
     s.meleeWeapon = '';
+    // IMPACT CHARGE (OUTBREAK-SPEC §13): a held STRIKE lands harder. The mult
+    // was captured at release; claws never set it (×1). Spent here, once.
+    const chargeMul = s.meleeChargeMul ?? 1;
+    s.meleeChargeMul = undefined;
     if (!def || !s.alive) return; // attacker died mid-swing — no ghost claws
-    // the lunge: thrown ~1.5u into the swing via the decaying push impulse
-    s.pushX += Math.cos(s.meleeYaw) * MELEE_LUNGE;
-    s.pushZ += Math.sin(s.meleeYaw) * MELEE_LUNGE;
+    const strikeDmg = def.damage * chargeMul;
+    // the lunge: thrown ~1.5u into the swing via the decaying push impulse. A
+    // heavier blow drives the attacker further into it.
+    s.pushX += Math.cos(s.meleeYaw) * MELEE_LUNGE * Math.min(1.4, chargeMul);
+    s.pushZ += Math.sin(s.meleeYaw) * MELEE_LUNGE * Math.min(1.4, chargeMul);
     this.emit({ type: 'shot', pos: { ...s.pos }, weapon: def.id, soldierId: s.id });
     // everyone in the front wedge, nearest first, capped at MELEE_MAX_TARGETS
     // (opt #38/S2: the wedge is ≤ range+0.6u — with 800 zeds swinging, the
@@ -2808,7 +2841,7 @@ export class World {
         const face = Math.atan2(Math.sin(toAtk - victim.yaw), Math.cos(toAtk - victim.yaw));
         if (Math.abs(face) <= GUARD_ARC / 2) {
           this.emit({ type: 'melee_block', pos: { ...victim.pos, y: 1 }, weapon: def.id, soldierId: victim.id });
-          this.damageSoldier(victim, def.damage * GUARD_SOAK, s.id, def.id);
+          this.damageSoldier(victim, strikeDmg * GUARD_SOAK, s.id, def.id);
           // the parry: stagger + shove the ATTACKER back off his own swing
           s.nextFireAt = Math.max(s.nextFireAt, this.time + GUARD_PARRY_STAGGER);
           s.pushX += ((s.pos.x - victim.pos.x) / dl) * 4;
@@ -2821,7 +2854,7 @@ export class World {
       victim.pushX += ((victim.pos.x - s.pos.x) / dl) * 3;
       victim.pushZ += ((victim.pos.z - s.pos.z) / dl) * 3;
       this.emit({ type: 'hit', pos: { ...victim.pos, y: 1 }, weapon: def.id, soldierId: s.id });
-      this.damageSoldier(victim, def.damage, s.id, def.id);
+      this.damageSoldier(victim, strikeDmg, s.id, def.id);
     }
   }
 

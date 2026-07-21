@@ -349,3 +349,61 @@ describe('the GRAPPLE (§12/§14) — beats GUARD, loses to STRIKE', () => {
     expect(target.hp).toBeLessThan(hp0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// IMPACT CHARGE (OUTBREAK-SPEC §13): HOLD F to wind up a Power Strike, release
+// to commit. A tap is a quick strike; a full charge lands ~2.4×; overholding
+// FUMBLES the blow and bleeds the tank. The charge lives in the sim (F is now
+// hold/release at the client) so a replay reproduces the exact wind-up.
+// ---------------------------------------------------------------------------
+describe('IMPACT CHARGE (§13) — hold to power the STRIKE', () => {
+  /** Charge for `holdSecs` (0 = a bare tap), release into a stationary team-1
+   *  body 1.6u ahead, let the swing land, and return the damage it dealt. */
+  function strikeDamage(holdSecs: number) {
+    const w = new World({ seed: 50, mode: 'tdm' });
+    const man = w.addSoldier('Blade', 'infantry', 0, 'human');
+    man.pos = { x: 0, y: 0, z: 0 };
+    const target = dummy(w, 1.6, 0);
+    target.armor = 0; target.maxArmor = 0; // measure raw strike damage, no plate
+    const hp0 = target.hp;
+    if (holdSecs > 0) run(w, new Map([[man.id, cmd({ meleeHold: true, aimYaw: 0 })]]), holdSecs);
+    w.step(DT, new Map([[man.id, cmd({ melee: true, aimYaw: 0 })]])); // release = commit
+    run(w, new Map([[man.id, cmd({ aimYaw: 0 })]]), 0.4);             // let it land
+    return hp0 - target.hp;
+  }
+
+  it('a tap is a quick strike; a held charge hits far harder', () => {
+    const tap = strikeDamage(0);
+    const charged = strikeDamage(0.8); // held into the MAXIMUM band
+    expect(tap).toBeGreaterThan(0);
+    expect(charged).toBeGreaterThan(tap * 1.8); // the wind-up pays
+  });
+
+  it('the Impact Charge meter fills while F is held', () => {
+    const w = new World({ seed: 51, mode: 'tdm' });
+    const man = w.addSoldier('Blade', 'infantry', 0, 'human');
+    man.pos = { x: 0, y: 0, z: 0 };
+    run(w, new Map([[man.id, cmd({ meleeHold: true, aimYaw: 0 })]]), 0.5);
+    expect(man.meleeCharge ?? 0).toBeGreaterThan(0.4); // ~0.5 charge units in
+    expect(man.meleeCharge ?? 0).toBeLessThan(0.7);
+  });
+
+  it('overholding FUMBLES the blow and bleeds the tank', () => {
+    const maxHit = strikeDamage(0.8); // a clean maximum for reference
+    const w = new World({ seed: 52, mode: 'tdm' });
+    const man = w.addSoldier('Over', 'infantry', 0, 'human');
+    man.pos = { x: 0, y: 0, z: 0 };
+    man.energy = 100;
+    const target = dummy(w, 1.6, 0);
+    target.armor = 0; target.maxArmor = 0;
+    const hp0 = target.hp;
+    run(w, new Map([[man.id, cmd({ meleeHold: true, aimYaw: 0 })]]), 1.5); // way past max
+    expect(man.meleeCharge ?? 0).toBeGreaterThanOrEqual(1.3); // overcharged
+    expect(man.energy).toBeLessThan(100);                      // it cost stamina
+    w.step(DT, new Map([[man.id, cmd({ melee: true, aimYaw: 0 })]]));
+    run(w, new Map([[man.id, cmd({ aimYaw: 0 })]]), 0.4);
+    const fumble = hp0 - target.hp;
+    expect(fumble).toBeGreaterThan(0);
+    expect(fumble).toBeLessThan(maxHit); // the clumsy blow wastes the wind-up
+  });
+});

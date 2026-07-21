@@ -13,6 +13,8 @@ export class Input {
   grenadeAiming = false;
   /** grenade arc (0 flat rope … 1 mortar lob) — wheel adjusts while aiming */
   grenadeLob = 1;
+  /** F held: charging an Impact Charge (§13). Release commits the strike. */
+  private meleeDown = false;
   private oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false, dash: 0, melee: false, cycleAmmo: false, grapple: false };
   /** M2 double-tap tracker for dash/roll */
   private lastTap = { key: '', at: 0 };
@@ -72,7 +74,7 @@ export class Input {
       if (k === 'x') this.oneShot.nadeCycle = true; // rotate the grenade bag
       if (k === 'b') this.oneShot.cycleAmmo = true; // ammo TYPE: ball → AP → INC
       if (k === 'z') this.oneShot.grapple = true;   // GRAPPLE: grab (beats GUARD) §12
-      if (k === 'f') this.oneShot.melee = true;     // M5: throw the axe / call it home
+      if (k === 'f') this.meleeDown = true;         // hold to charge (§13); release commits
       if (k >= '1' && k <= '3') this.oneShot.weaponSlot = parseInt(k) - 1;
       if (k === 'tab') { this.scoreboardHeld = true; e.preventDefault(); }
     });
@@ -81,9 +83,10 @@ export class Input {
       const k = e.key.toLowerCase();
       this.keys.delete(k);
       if (k === 'g' && this.grenadeAiming) { this.grenadeAiming = false; this.oneShot.grenade = true; }
+      if (k === 'f' && this.meleeDown) { this.meleeDown = false; this.oneShot.melee = true; } // release = commit (§13)
       if (k === 'tab') this.scoreboardHeld = false;
     });
-    window.addEventListener('blur', () => { this.keys.clear(); this.grenadeAiming = false; });
+    window.addEventListener('blur', () => { this.keys.clear(); this.grenadeAiming = false; this.meleeDown = false; });
     canvas.addEventListener('mousemove', (e) => {
       this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
       this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -186,7 +189,8 @@ export class Input {
       nadeCycle: this.oneShot.nadeCycle,
       sprint: this.keys.has('shift'), // M2: hold to run — the tank pays
       dash: this.oneShot.dash,
-      melee: this.oneShot.melee,   // M5: F — the axe
+      melee: this.oneShot.melee,   // M5: F released — throw/recall/commit
+      meleeHold: this.meleeDown,   // §13: F held — charging the Power Strike
       cycleAmmo: this.oneShot.cycleAmmo, // B — ball/AP/incendiary
       grapple: this.oneShot.grapple,     // Z — the grab
     };

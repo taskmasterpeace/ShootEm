@@ -492,6 +492,13 @@ export interface Soldier {
   meleeYaw: number;
   /** weapon that will land at strike time ('' when idle) */
   meleeWeapon: WeaponId;
+  /** IMPACT CHARGE (OUTBREAK-SPEC §13): how long the STRIKE has been HELD, in
+   *  charge units (1.0 = maximum, >1.0 = overcharged). Builds while meleeHold,
+   *  spent on release. Absent/0 = a tap, which is a plain quick strike. */
+  meleeCharge?: number;
+  /** the damage multiplier captured from the charge at commit, carried into
+   *  resolveMeleeStrike and reset there. Undefined on a claw = ×1. */
+  meleeChargeMul?: number;
   // bot brain scratch
   botGoal?: Vec3 | null;
   botRepathAt?: number;
@@ -904,8 +911,12 @@ export interface PlayerCmd {
   /** M1 DASH/ROLL: 0/absent none · 1 dash forward · 2 roll left · 3 roll right.
    *  Double-tap detection lives on the client; the sim only sees intent. */
   dash?: number;
-  /** M5 MELEE / AXE: the F key. Throw it, recall it, or swing it. */
+  /** M5 MELEE / AXE: the F key, on RELEASE — throw it, recall it, or commit
+   *  the (possibly charged) STRIKE. */
   melee?: boolean;
+  /** IMPACT CHARGE (OUTBREAK-SPEC §13): F is currently HELD DOWN — the sim
+   *  builds the knife's Power Strike charge while this is true. */
+  meleeHold?: boolean;
   /** cursor distance from the soldier — thrown items (frag, beacon, charge)
    *  land here, clamped to each item's max reach. Optional for old clients. */
   aimDist?: number;
