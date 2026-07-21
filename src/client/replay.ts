@@ -53,6 +53,33 @@ export function killcamSpeedAt(sinceDeath: number): number {
 }
 /** Killcam camera: pulled in tight on the fight instead of the player's zoom. */
 export const KILLCAM_CAM = 14;
+
+/** THE DIRECTOR'S SHOT TABLE (DEATH-DATA §5, Robert: "the death cam should vary
+ *  by death"). One fixed presentation made every death read the same; the
+ *  director now frames the death by HOW it happened — a spawn-cut that barely
+ *  lived, a blast pulled WIDE to show it, the precision AUTOPSY of a rail from
+ *  range, the long bullet you RIDE in on, or the straight duel. Each shot owns a
+ *  banner, a camera pull, and a tempo. Pure + branch-ordered so a fresh-spawn
+ *  death tells its own story first. */
+export type KillcamKind = 'spawn' | 'wide' | 'autopsy' | 'ride' | 'duel';
+export interface KillcamShot { kind: KillcamKind; label: string; cam: number; brisk: boolean }
+export function pickKillcamShot(p: {
+  killerName?: string; weaponName?: string; tracer?: string; splash?: number; range: number; timeAlive: number;
+}): KillcamShot {
+  const by = p.killerName
+    ? `${p.killerName}${p.weaponName ? ` · ${p.weaponName}` : ''} · ${p.range}u`
+    : 'the field';
+  // cut down within moments of printing — you barely drew breath
+  if (p.killerName && p.timeAlive < 4) return { kind: 'spawn', label: `▪ SPAWN CUT — ${by}`, cam: 16, brisk: true };
+  // a blast: pull the camera back to show what took you
+  if ((p.splash ?? 0) > 0) return { kind: 'wide', label: `◎ THE WIDE — ${by}`, cam: 22, brisk: false };
+  // a precision beam/rail from range earns the terminal-UI autopsy
+  if ((p.tracer === 'rail' || p.tracer === 'beam') && p.range >= 30) return { kind: 'autopsy', label: `⌖ AUTOPSY — ${by}`, cam: 12, brisk: false };
+  // a long bullet/shell: ride the round in from the muzzle
+  if ((p.tracer === 'bullet' || p.tracer === 'shell') && p.range >= 40) return { kind: 'ride', label: `▸ RIDE THE ROUND — ${by}`, cam: 15, brisk: false };
+  // the straight duel — the default frame
+  return { kind: 'duel', label: p.killerName ? `☠ Killed by ${by}` : '☠ Killcam', cam: KILLCAM_CAM, brisk: false };
+}
 export const HIGHLIGHTS_S = 10;
 
 /** Post-match linger before returning to the menu. The multiplayer client
@@ -209,6 +236,9 @@ export class ReplayDirector {
   killerId = -1;
   /** World time the local player died — the anchor the speed ramp bends around. */
   deathT = 0;
+  /** The camera pull for the current killcam shot — the director varies it by
+   *  death (tight autopsy → wide blast). The caller reads it while killcamActive. */
+  killcamCam = KILLCAM_CAM;
 
   constructor(seed: number, mode: ModeId, theme: ThemeId | undefined) {
     this.player = new ReplayPlayer(seed, mode, theme);
@@ -240,21 +270,24 @@ export class ReplayDirector {
       this.killerId = me.lastKillerId;
       const killer = this.killerId >= 0 ? world.soldiers.get(this.killerId) : undefined;
       const range = killer ? Math.round(Math.hypot(killer.pos.x - me.pos.x, killer.pos.z - me.pos.z)) : 0;
-      // DEATH-DATA: name the WEAPON, and open THE AUTOPSY on a precision kill
-      // (a laser/rail hit from range) — the terminal-UI framing for the shots
-      // that deserve a card, not just a straddle.
+      // DEATH-DATA §5: the DIRECTOR frames the death by how it happened — a
+      // spawn-cut, a blast pulled wide, a precision autopsy, a ridden round, or
+      // the straight duel. Each shot owns its banner, camera pull, and tempo.
       const wdef = me.lastKillWeapon ? WEAPONS[me.lastKillWeapon] : undefined;
-      const wName = wdef?.name ? ` · ${wdef.name}` : '';
-      const autopsy = !!wdef && (wdef.tracer === 'rail' || wdef.tracer === 'beam') && range >= 30;
-      const label = killer
-        ? `${autopsy ? '⌖ AUTOPSY — ' : '☠ Killed by '}${killer.name}${wName} · ${range}u`
-        : '☠ Killcam';
+      const timeAlive = me.spawnedAt !== undefined ? world.time - me.spawnedAt : 99;
+      const shot = pickKillcamShot({
+        killerName: killer?.name, weaponName: wdef?.name, tracer: wdef?.tracer,
+        splash: wdef?.splash, range, timeAlive,
+      });
+      this.killcamCam = shot.cam;
       // open on the run-up, and run PAST the death into footage that does not
       // exist yet — the recorder fills it in while we watch (see KILLCAM_PRE)
       this.deathT = world.time;
-      this.player.start(this.recorder.clip(KILLCAM_PRE), label, false, KILLCAM_SPEED, {
+      const dT = world.time;
+      this.player.start(this.recorder.clip(KILLCAM_PRE), shot.label, false, KILLCAM_SPEED, {
         endT: world.time + (KILLCAM_S - KILLCAM_PRE),
-        speedFn: (t) => killcamSpeedAt(t - world.time),
+        // a spawn-cut is brisk — you barely lived, so don't dwell; the rest ramp
+        speedFn: shot.brisk ? () => 0.72 : (t) => killcamSpeedAt(t - dT),
       });
     }
     // keep the tape ahead of the playhead for as long as the death cam runs

@@ -19,7 +19,7 @@ import { MusicDirector } from './client/music';
 import { Renderer } from './client/renderer';
 import { DamageText } from './client/damagetext';
 import { NetGame } from './client/net';
-import { KILLCAM_CAM, MATCH_LINGER_LOCAL_MS, ReplayDirector } from './client/replay';
+import { MATCH_LINGER_LOCAL_MS, ReplayDirector } from './client/replay';
 import { MatchTracker, RANKS, loadDossier, rankFor, saveDossier, type Dossier } from './client/record';
 import { FRONTS, SCAR_TEXT, applyResult, bandOf, checkSeasonEnd, loadCampaign, saveCampaign, simulateTimeSkip, type Campaign } from './client/campaign';
 import { fileIssue, renderIssueHTML, renderPressInto, loadPress } from './client/newspaper';
@@ -859,7 +859,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     if (!replaying) dmgText.applyEvents(events, me.id); // floating -HP (red) / -ARMOR (blue), YOURS only
     renderer.replayView = replaying;
     // killcam pulls in tight on the fight; otherwise the player's wheel zoom
-    renderer.camDist = replaying && director.killcamActive ? KILLCAM_CAM : input.camDist;
+    renderer.camDist = replaying && director.killcamActive ? director.killcamCam : input.camDist;
     // duel framing: show the killer, answer "where did that come from?"
     renderer.killcamFocusId = replaying && director.killcamActive ? director.killerId : -1;
     // grenade throw preview: hold G → arc + landing ring at the cursor
