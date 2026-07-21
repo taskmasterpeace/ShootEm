@@ -51,6 +51,20 @@ export function ballisticFalloff(tracer: string | undefined, range: number, trav
   if (span <= 0 || traveled <= full) return 1; // short-range weapons never tire
   return 1 - Math.min(1, (traveled - full) / span) * (1 - FALLOFF_FLOOR);
 }
+
+/** STATUS §1 / W1.1 — ACCURACY BY MOVEMENT: your stance and motion bend the
+ *  cone. Still and walking are the NEUTRAL baseline (×1) — the balance the game
+ *  is tuned around — so crouch BRACES it tighter, a sprint sprays, and firing
+ *  airborne is the loosest. Neutral stays ×1 on purpose: the threat-measure
+ *  arena fights standing at 14-40u, so it never sees this (see the falloff
+ *  balance trap). Airborne = off the ground floor and off the deck (a jump or
+ *  jetpack, NOT a soldier standing on a second storey at y=4). */
+export function aimSpreadMul(s: Pick<Soldier, 'crouching' | 'sprinting' | 'floor' | 'pos'>): number {
+  if ((s.floor ?? 0) === 0 && s.pos.y > 1.2) return 2.1; // airborne — the loosest
+  if (s.crouching) return 0.7;                            // braced — the tightest
+  if (s.sprinting) return 1.7;                            // run-and-gun sprays
+  return 1;                                               // still / walking — neutral
+}
 /** §8: how close bodies must pile before they anchor a contamination NEST. */
 const NEST_RADIUS = 6;
 /** §7 EMERGENT VARIANTS: the risen form is DERIVED from the body that fell —
@@ -2987,7 +3001,8 @@ export class World {
    */
   throwProjectile(s: Soldier, wid: WeaponId, muzzleY: number, speed: number, arc: boolean, reach = WEAPONS[wid].range, loft = 1, bounce = false, dmgMul = 1, pierceArmor = false, incendiary = false, ammo?: 'exp' | 'bnr' | 'trc') {
     const def = WEAPONS[wid];
-    const spread = (this.rng.next() - 0.5) * 2 * def.spread;
+    // W1.1: stance + motion bend the cone (crouch braces, sprint/airborne spray)
+    const spread = (this.rng.next() - 0.5) * 2 * def.spread * aimSpreadMul(s);
     const yaw = s.yaw + spread;
     // Arc launch: pick vy so the shell returns to the ground exactly when it
     // has travelled `reach` horizontally. Flight time t = reach/speed; solving
