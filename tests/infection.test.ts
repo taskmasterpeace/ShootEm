@@ -201,6 +201,52 @@ describe('outbreak: pressure and levels (§3)', () => {
   });
 });
 
+describe('outbreak: mutation fields from corpse nests (§8)', () => {
+  function pile(w: World, n: number, reanimatesAt: number, at = { x: 0, z: 0 }) {
+    for (let i = 0; i < n; i++) {
+      w.corpses.push({ pos: { x: at.x + i * 0.5, y: 0, z: at.z }, reanimatesAt, neutralized: false, name: `Body${i}`, classId: 'infantry' });
+    }
+  }
+
+  it('a dense corpse pile curdles into a contamination nest', () => {
+    const w = makeWorld(true);
+    pile(w, 5, w.time + 60); // five bodies rotting shoulder to shoulder
+    let contaminated = false;
+    for (let i = 0; i < 60 * 3 && !contaminated; i++) {
+      w.step(1 / 60, new Map());
+      for (const e of w.takeEvents()) if (e.type === 'contamination') contaminated = true;
+    }
+    expect(contaminated).toBe(true);
+    expect(w.nests.length).toBeGreaterThan(0);
+    expect(w.inNest(0, 0)).toBe(true);
+    expect(w.inNest(40, 40)).toBe(false); // the field is local
+  });
+
+  it('a body rising inside the nest rises MUTATED — tougher than a plain shambler', () => {
+    const w = makeWorld(true);
+    pile(w, 4, w.time + 60);                    // four sustain the field
+    w.corpses.push({ pos: { x: 0.5, y: 0, z: 0.5 }, reanimatesAt: w.time + 3, neutralized: false, name: 'Riser', classId: 'infantry' });
+    let risenHp = -1;
+    for (let i = 0; i < 60 * 6 && risenHp < 0; i++) {
+      w.step(1 / 60, new Map());
+      for (const e of w.takeEvents()) {
+        if (e.type === 'reanimated') {
+          const z = w.soldiers.get(e.soldierId ?? -1);
+          if (z?.name.includes('Riser')) risenHp = z.maxHp;
+        }
+      }
+    }
+    expect(risenHp).toBeGreaterThan(60); // base shambler is 60hp; a mutated one is ×1.4
+  });
+
+  it('with the outbreak OFF no nest ever forms, however the bodies fall', () => {
+    const w = makeWorld(false);
+    pile(w, 6, w.time + 60);
+    for (let i = 0; i < 60 * 4; i++) { w.step(1 / 60, new Map()); w.takeEvents(); }
+    expect(w.nests.length).toBe(0);
+  });
+});
+
 describe('outbreak: inert by default (the byte-identical law)', () => {
   it('two full matches, outbreak off — no corpses, no viral, ever', () => {
     const w = makeWorld(false);

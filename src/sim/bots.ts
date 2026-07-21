@@ -1839,12 +1839,14 @@ export function stepZombie(w: World, s: Soldier, dt: number) {
   }
 
   const isSpitter = s.kind === 'spitter';
-  const speed =
+  // MUTATION FIELD (§8): infected standing in a contamination nest run hotter.
+  const nestMul = w.outbreakEnabled && w.inNest(s.pos.x, s.pos.z) ? 1.2 : 1;
+  const speed = nestMul * (
     s.kind === 'brute' ? 6 :
     s.kind === 'bomber' ? 6.5 :
     s.kind === 'sprinter' ? (s.dormant ? 3 : 15 + (s.id % 3) * 0.6) : // dormant → creep; woken → terror
     s.kind === 'stalker' ? 5 :
-    isSpitter ? 7.5 : 8.5 + (s.id % 5) * 0.35;
+    isSpitter ? 7.5 : 8.5 + (s.id % 5) * 0.35);
   s.yaw = Math.atan2(best.pos.z - s.pos.z, best.pos.x - s.pos.x);
 
   // bombers charge to point-blank and detonate

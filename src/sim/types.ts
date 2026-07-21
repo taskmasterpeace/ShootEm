@@ -800,6 +800,7 @@ export interface SimEvent {
     | 'grab_break'     // §14: a pinned body struggled or slipped free of the hold
     | 'sprinter_wake'  // §7.1: a dormant sprinter just activated — the terror spike
     | 'corpse_critical' // §6: a booked corpse entered its final reanimation window
+    | 'contamination'  // §8: a corpse pile curdled into a mutation-field nest
     | 'reanimated'     // THE OUTBREAK: an exposed corpse got back up (§6)
     | 'whistle'        // paintball referee: a round just started or ended
     | 'encased'        // a soldier was frozen alive in the ice block (§21.6)

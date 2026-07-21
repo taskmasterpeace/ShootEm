@@ -29,6 +29,8 @@ const RESPAWN_DELAY = 4;
 const INFECTION_CREEP = 1.4;
 /** §6: the final CRITICAL window before a corpse rises — the last-chance alert. */
 const CORPSE_CRITICAL_WINDOW = 2;
+/** §8: how close bodies must pile before they anchor a contamination NEST. */
+const NEST_RADIUS = 6;
 /** §7 EMERGENT VARIANTS: the risen form is DERIVED from the body that fell —
  *  a scout's quick frame becomes a SPRINTER (the lean infected), a heavy's
  *  mass a BRUTE, everyone else a base shambler. Causal, not a roster roll. */
@@ -279,6 +281,11 @@ export class World {
    *  Hysteresis (§3.3) keeps it from oscillating on a single kill. */
   outbreakLevel = 0;
   private outbreakLevelSince = 0;
+  /** MUTATION FIELDS (§8) as emergent NESTS (§3.1): the centres of dense unburned
+   *  corpse clusters. Infected inside run faster and rise MUTATED — a readable,
+   *  emergent cause (too many bodies left to rot). Rescanned at low frequency. */
+  nests: Vec3[] = [];
+  private nextNestScanAt = 0;
   vehicles = new Map<number, Vehicle>();
   turrets = new Map<number, Turret>();
   projectiles = new Map<number, Projectile>();
@@ -4552,7 +4559,30 @@ export class World {
       if (isZed(s.kind)) infected++;
       else if ((s.viralLoad ?? 0) > 0) exposed++;
     }
-    const pressure = infected + this.corpses.length * 1.5 + exposed * 0.5;
+    // NESTS / MUTATION FIELDS (§8, §3.1): rescan the corpse field at low
+    // frequency — a body with ≥3 unburned neighbours within NEST_RADIUS anchors
+    // a contamination field. Cheap: corpses are capped at 40 (≤1600 pairs), and
+    // this runs ~every 1.5s, not per tick.
+    if (this.time >= this.nextNestScanAt) {
+      this.nextNestScanAt = this.time + 1.5;
+      const live = this.corpses.filter((c) => !c.neutralized);
+      const centres: Vec3[] = [];
+      for (const c of live) {
+        let near = 0;
+        for (const o of live) {
+          if (o === c) continue;
+          if (Math.hypot(o.pos.x - c.pos.x, o.pos.z - c.pos.z) <= NEST_RADIUS) near++;
+        }
+        // anchor a field on a well-surrounded body, but don't stack centres
+        if (near >= 3 && !centres.some((n) => Math.hypot(n.x - c.pos.x, n.z - c.pos.z) < NEST_RADIUS)) {
+          centres.push({ ...c.pos });
+        }
+      }
+      const grew = centres.length > this.nests.length;
+      this.nests = centres;
+      if (grew) this.emit({ type: 'contamination', pos: { ...centres[centres.length - 1] } });
+    }
+    const pressure = infected + this.corpses.length * 1.5 + exposed * 0.5 + this.nests.length * 3;
     // ease toward the reading so a single kill can't jolt the level (§3.3)
     this.outbreakPressure += (pressure - this.outbreakPressure) * Math.min(1, dt * 0.5);
     // level bands with a 3s confirmation window before any change commits
@@ -4582,11 +4612,21 @@ export class World {
       }
       const open = nearestOpenTile(this.map.grid, c.pos.x, c.pos.z) ?? c.pos;
       const z = this.addZombie(riseKind(c.classId), { x: open.x, y: 0, z: open.z });
-      z.name = `${c.name} (risen)`; // the map tells the story — you know who that was
+      // MUTATION FIELD (§8/§7): a body that rots inside a contamination nest
+      // rises MUTATED — a tougher, hotter phenotype (a readable, emergent cause).
+      const mutated = this.inNest(c.pos.x, c.pos.z);
+      if (mutated) { z.maxHp = Math.round(z.maxHp * 1.4); z.hp = z.maxHp; }
+      z.name = `${c.name}${mutated ? ' (mutated)' : ' (risen)'}`; // the map tells the story
       this.emit({ type: 'reanimated', pos: { ...z.pos }, soldierId: z.id });
-      this.emit({ type: 'announce', text: `${c.name.toUpperCase()} GOT BACK UP` });
+      this.emit({ type: 'announce', text: `${c.name.toUpperCase()} ${mutated ? 'ROSE MUTATED' : 'GOT BACK UP'}` });
       return false;
     });
+  }
+
+  /** MUTATION FIELD test (§8): is this spot inside a contamination nest? */
+  inNest(x: number, z: number): boolean {
+    for (const n of this.nests) if (Math.hypot(n.x - x, n.z - z) <= NEST_RADIUS) return true;
+    return false;
   }
 
   explode(pos: Vec3, def: (typeof WEAPONS)[WeaponId], ownerId: number, team: Team) {
