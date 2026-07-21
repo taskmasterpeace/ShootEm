@@ -1,5 +1,5 @@
 import { CLASSES, DOG_STATS, VEHICLES, WEAPONS, weaponNoiseRadius } from './data';
-import { F2_FLOOR, F2_SLIT, F2_VOID, F2_WALL, F2_WELL, T_CLIMB, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_OPEN, T_RUBBLE, T_WATER, TILE, isBlocked, losClear, tileAt } from './map';
+import { F2_FLOOR, F2_SLIT, F2_VOID, F2_WALL, F2_WELL, T_CLIMB, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_METAL_DOOR, T_OPEN, T_RUBBLE, T_SLIT, T_WALL, T_WATER, TILE, isBlocked, losClear, tileAt } from './map';
 import { halfDepth, halfWidth, tileToWorld, worldToTile } from './map-geometry';
 import { type ClassId, type PlayerCmd, type Soldier, type Team, type Vec3, type Vehicle, isIron, isZed } from './types';
 import { type World } from './world';
@@ -425,13 +425,22 @@ function findTarget(w: World, s: Soldier, maxRange: number, pingRange = maxRange
 }
 
 function enemyVehicleNear(w: World, s: Soldier, maxRange: number) {
-  let best: { pos: Vec3; d: number } | null = null;
+  let best: { id: number; pos: Vec3; d: number } | null = null;
   for (const v of w.vehicles.values()) {
     if (!v.alive || v.team === s.team || !v.seats.some((x) => x >= 0)) continue;
     const d = Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z);
-    if (d < maxRange && (!best || d < best.d)) best = { pos: v.pos, d };
+    if (d < maxRange && (!best || d < best.d)) best = { id: v.id, pos: v.pos, d };
   }
   return best;
+}
+
+function vehicleCrewReacted(w: World, s: Soldier, targetKey: number): boolean {
+  if (s.botAcqId !== targetKey) {
+    s.botAcqId = targetKey;
+    const difficulty = DIFFICULTY[w.opts.difficulty ?? 'veteran'];
+    s.botAcquireAt = w.time + Math.max(0.6, difficulty.react * 2) / w.director.pressure;
+  }
+  return w.time >= (s.botAcquireAt ?? 0);
 }
 
 // ---------- objective selection per mode ----------
@@ -814,7 +823,7 @@ export const DOCTRINE: Record<ClassId, Doctrine> = {
 
 /** Grid index of a CLOSED door within arm's reach along a heading, or -1. */
 function doorAhead(w: World, pos: Vec3, yaw: number): number {
-  const { cols, rows, tile } = w.map.geometry;
+  const { cols, rows } = w.map.geometry;
   for (const reach of [TILE * 0.6, TILE * 1.3]) {
     const x = pos.x + Math.cos(yaw) * reach;
     const z = pos.z + Math.sin(yaw) * reach;
@@ -867,6 +876,21 @@ function climbAhead(w: World, pos: Vec3, yaw: number): boolean {
     const [tx, tz] = worldToTile(w.map.geometry, x, z);
     if (tx < 1 || tz < 1 || tx >= cols - 1 || tz >= rows - 1) continue;
     if (w.map.grid[tz * cols + tx] === T_CLIMB) return true;
+  }
+  return false;
+}
+
+function buildingAhead(w: World, vehicle: Vehicle, distance = 36): boolean {
+  const radius = VEHICLES[vehicle.kind].radius;
+  const sideX = -Math.sin(vehicle.yaw) * radius * 0.8;
+  const sideZ = Math.cos(vehicle.yaw) * radius * 0.8;
+  for (let ahead = 0; ahead <= distance; ahead += TILE) {
+    const x = vehicle.pos.x + Math.cos(vehicle.yaw) * ahead;
+    const z = vehicle.pos.z + Math.sin(vehicle.yaw) * ahead;
+    for (const offset of [-1, 0, 1]) {
+      const tile = tileAt(w.map.grid, x + sideX * offset, z + sideZ * offset, w.map.geometry);
+      if (tile === T_WALL || tile === T_SLIT || tile === T_DOOR || tile === T_METAL || tile === T_METAL_DOOR) return true;
+    }
   }
   return false;
 }
@@ -1007,7 +1031,7 @@ function stepTheaterVehicle(w: World, s: Soldier, vehicle: Vehicle, route: Theat
   if (def.flies && s.botAirProfile === 'strike') {
     const index = s.botVehicleRouteIndex ?? 1;
     const progress = index / Math.max(1, route.points.length - 1);
-    const desired = progress <= 0.34 ? 2 : progress <= 0.67 ? 1 : 3;
+    const desired = progress <= 0.34 ? 2 : progress <= 0.67 && !buildingAhead(w, vehicle) ? 1 : 3;
     const level = asElevationLevel(vehicle.band);
     if (level < desired) cmd.ability = true;
     else if (level > desired) cmd.use = true;
@@ -1017,7 +1041,13 @@ function stepTheaterVehicle(w: World, s: Soldier, vehicle: Vehicle, route: Theat
     const target = findTarget(w, s, WEAPONS[def.weapon].range);
     if (target) {
       cmd.aimYaw = leadYaw(vehicle.pos, target, WEAPONS[def.weapon].speed);
-      cmd.fire = true;
+      cmd.fire = vehicleCrewReacted(w, s, target.id);
+    } else {
+      const targetVehicle = enemyVehicleNear(w, s, WEAPONS[def.weapon].range);
+      if (targetVehicle) {
+        cmd.aimYaw = Math.atan2(targetVehicle.pos.z - vehicle.pos.z, targetVehicle.pos.x - vehicle.pos.x);
+        cmd.fire = vehicleCrewReacted(w, s, -targetVehicle.id - 1);
+      }
     }
   }
   return cmd;

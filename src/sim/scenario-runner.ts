@@ -1,4 +1,4 @@
-import { vehicleRouteFor } from './bots';
+import { VEHICLES } from './data';
 import { asElevationLevel } from './elevation';
 import { generateTheater, THEATER_DEFS } from './theaters';
 import type { TheaterId } from './theater-types';
@@ -6,8 +6,8 @@ import type { PlayerCmd, Soldier, Vehicle, VehicleKind } from './types';
 import { World } from './world';
 import { T_WALL } from './map';
 import { tileIndex, worldToTile } from './map-geometry';
-import { vehicleTelemetrySnapshot, type VehicleTelemetrySnapshot } from './vehicle-telemetry';
-import { createTheaterBase } from './theater-builder';
+import { createVehicleTelemetry, vehicleTelemetrySnapshot, type VehicleTelemetrySnapshot } from './vehicle-telemetry';
+import { createTheaterBase, validateTheater } from './theater-builder';
 
 type Observer = () => void;
 const observers = new WeakMap<World, Observer[]>();
@@ -157,4 +157,154 @@ export function runDuel(attackerKind: VehicleKind, victimKind: VehicleKind, seed
     world.step(dt, new Map([[left.id, command(0)], [right.id, command(Math.PI)]]));
   }
   return vehicleTelemetrySnapshot(world.vehicleTelemetry);
+}
+
+export type VehicleScenarioKind = 'route' | 'fixed_wing' | 'ground_duel' | 'naval' | 'combined_arms';
+
+export interface VehicleScenario {
+  id: string;
+  kind: VehicleScenarioKind;
+  theater: TheaterId;
+  seed: number;
+  duration: number;
+  attacker: VehicleKind;
+  defender: VehicleKind;
+  domain: 'ground' | 'surface' | 'air';
+  mirror?: boolean;
+}
+
+export interface VehicleScenarioResult {
+  id: string;
+  kind: VehicleScenarioKind;
+  theater: TheaterId;
+  seed: number;
+  mirror: boolean;
+  manifests: [VehicleKind[], VehicleKind[]];
+  duration: number;
+  winner: -1 | 0 | 1;
+  firstContact: number | null;
+  objectiveComplete: boolean;
+  telemetry: VehicleTelemetrySnapshot['summary'];
+  structuralViolations: string[];
+  routeFailure: string | null;
+  timingSamples: { steps: number; simulatedSeconds: number };
+}
+
+function crewVehicle(world: World, kind: VehicleKind, team: 0 | 1, pos: { x: number; y: number; z: number }, routeId: string, profile: 'patrol' | 'strike' = 'patrol') {
+  const soldier = world.addSoldier(`SCENARIO-${team}-${kind}`, 'infantry', team, 'bot');
+  const vehicle = world.spawnVehicle(kind, team, pos);
+  vehicle.seats[0] = soldier.id;
+  vehicle.spoolUntil = 0;
+  if (VEHICLES[kind].flies) vehicle.band = 3;
+  soldier.vehicleId = vehicle.id;
+  soldier.seat = 0;
+  soldier.enteredVehicleAt = -10;
+  soldier.botVehicleRouteId = routeId;
+  soldier.botAirProfile = profile;
+  return { soldier, vehicle };
+}
+
+export function runVehicleScenario(scenario: VehicleScenario): VehicleScenarioResult {
+  const map = generateTheater(scenario.theater, scenario.seed);
+  const structuralViolations = validateTheater(map).issues;
+  const route = map.theater?.routes.filter((candidate) => candidate.domain === scenario.domain).sort((a, b) => a.id.localeCompare(b.id))[0];
+  if (!route) {
+    return {
+      id: scenario.id, kind: scenario.kind, theater: scenario.theater, seed: scenario.seed,
+      mirror: scenario.mirror === true,
+      manifests: [[scenario.attacker], [scenario.defender]], duration: 0, winner: -1,
+      firstContact: null, objectiveComplete: false, telemetry: vehicleTelemetrySnapshot(createVehicleTelemetry()).summary,
+      structuralViolations, routeFailure: `missing ${scenario.domain} route`, timingSamples: { steps: 0, simulatedSeconds: 0 },
+    };
+  }
+  const world = new World({ seed: scenario.seed, mode: 'tdm', botsPerTeam: 0, map });
+  world.vehicles.clear();
+  const leftKind = scenario.mirror ? scenario.defender : scenario.attacker;
+  const rightKind = scenario.mirror ? scenario.attacker : scenario.defender;
+  const left = crewVehicle(world, leftKind, 0, route.points[0], route.id, scenario.kind === 'fixed_wing' ? 'strike' : 'patrol');
+  const right = crewVehicle(world, rightKind, 1, route.points.at(-1)!, route.id, scenario.kind === 'fixed_wing' ? 'strike' : 'patrol');
+  const hz = 20;
+  runScenario(world, scenario.duration, hz);
+  const leftScore = left.vehicle.alive ? left.vehicle.hp / left.vehicle.maxHp : 0;
+  const rightScore = right.vehicle.alive ? right.vehicle.hp / right.vehicle.maxHp : 0;
+  const winner: -1 | 0 | 1 = Math.abs(leftScore - rightScore) < 0.01 ? -1 : leftScore > rightScore ? 0 : 1;
+  const telemetry = vehicleTelemetrySnapshot(world.vehicleTelemetry);
+  const completed = left.soldier.botVehicleRouteCompleted === true || right.soldier.botVehicleRouteCompleted === true;
+  return {
+    id: scenario.id, kind: scenario.kind, theater: scenario.theater, seed: scenario.seed,
+    mirror: scenario.mirror === true,
+    manifests: [[leftKind], [rightKind]], duration: scenario.duration, winner,
+    firstContact: telemetry.summary.firstContact ?? null,
+    objectiveComplete: completed, telemetry: telemetry.summary, structuralViolations,
+    routeFailure: completed ? null : `route ${route.id} incomplete`,
+    timingSamples: { steps: Math.ceil(scenario.duration * hz), simulatedSeconds: scenario.duration },
+  };
+}
+
+export interface FoundationMatrixReport {
+  generatedAt: string;
+  seeds: number[];
+  scenarios: VehicleScenarioResult[];
+}
+
+export interface FoundationMatrixVerdict {
+  structuralFailures: string[];
+  routeFailures: string[];
+  contactFailures: string[];
+  fixedWingFirstContact: { min: number; max: number };
+  groundNavalFirstContact: { min: number; max: number };
+  maxMirroredWinRate: number;
+}
+
+export function runFoundationMatrix({ seeds }: { seeds: number[] }): FoundationMatrixReport {
+  const scenarios: VehicleScenarioResult[] = [];
+  const theaters = ['city', 'desert', 'countryside', 'mountain', 'coastal', 'ocean'] as const;
+  for (const seed of seeds) {
+    for (const theater of theaters) {
+      const probe = makeRouteProbe(theater, seed);
+      runScenario(probe.world, 180);
+      const result = probe.result();
+      scenarios.push({
+        id: `route:${theater}:${seed}`, kind: 'route', theater, seed,
+        mirror: false,
+        manifests: [[probe.vehicle.kind], []], duration: 180, winner: -1, firstContact: null,
+        objectiveComplete: result.routeCompleted, telemetry: vehicleTelemetrySnapshot(probe.world.vehicleTelemetry).summary,
+        structuralViolations: validateTheater(probe.world.map).issues,
+        routeFailure: result.routeCompleted && result.persistentStalls === 0 && result.nonFinite === 0 ? null : `complete=${result.routeCompleted} stalls=${result.persistentStalls} nonFinite=${result.nonFinite}`,
+        timingSamples: { steps: 3600, simulatedSeconds: 180 },
+      });
+    }
+    for (const theater of ['desert', 'countryside', 'mountain', 'coastal', 'ocean'] as const) {
+      scenarios.push(runVehicleScenario({ id: `air:${theater}:${seed}`, kind: 'fixed_wing', theater, seed, duration: 55, attacker: 'interceptor', defender: 'strikejet', domain: 'air' }));
+    }
+    for (const theater of ['city', 'desert', 'countryside', 'mountain'] as const) {
+      scenarios.push(runVehicleScenario({ id: `armor:${theater}:${seed}:a`, kind: 'ground_duel', theater, seed, duration: 120, attacker: 'tank', defender: 'tank', domain: 'ground' }));
+      scenarios.push(runVehicleScenario({ id: `armor:${theater}:${seed}:b`, kind: 'ground_duel', theater, seed, duration: 120, attacker: 'tank', defender: 'tank', domain: 'ground', mirror: true }));
+    }
+    for (const theater of ['coastal', 'ocean'] as const) {
+      scenarios.push(runVehicleScenario({ id: `naval:${theater}:${seed}`, kind: 'naval', theater, seed, duration: 120, attacker: 'boat', defender: 'boat', domain: 'surface' }));
+    }
+  }
+  return { generatedAt: 'deterministic', seeds: [...seeds], scenarios };
+}
+
+function range(values: number[]): { min: number; max: number } {
+  return values.length ? { min: Math.min(...values), max: Math.max(...values) } : { min: NaN, max: NaN };
+}
+
+export function evaluateFoundationMatrix(report: FoundationMatrixReport): FoundationMatrixVerdict {
+  const structuralFailures = report.scenarios.flatMap((scenario) => scenario.structuralViolations.map((violation) => `${scenario.id}: ${violation}`));
+  const routeFailures = report.scenarios.filter((scenario) => scenario.kind === 'route' && scenario.routeFailure).map((scenario) => `${scenario.id}: ${scenario.routeFailure}`);
+  const contactFailures = report.scenarios
+    .filter((scenario) => scenario.kind !== 'route' && scenario.firstContact === null)
+    .map((scenario) => `${scenario.id}: no contact`);
+  const fixedWing = report.scenarios.filter((scenario) => scenario.kind === 'fixed_wing').flatMap((scenario) => scenario.firstContact === null ? [] : [scenario.firstContact]);
+  const groundNaval = report.scenarios.filter((scenario) => scenario.kind === 'ground_duel' || scenario.kind === 'naval').flatMap((scenario) => scenario.firstContact === null ? [] : [scenario.firstContact]);
+  const mirrored = report.scenarios.filter((scenario) => scenario.mirror);
+  const decisive = mirrored.filter((scenario) => scenario.winner !== -1);
+  const sideZeroWins = decisive.filter((scenario) => scenario.winner === 0).length;
+  const maxMirroredWinRate = decisive.length
+    ? Math.max(sideZeroWins, decisive.length - sideZeroWins) / decisive.length
+    : 0.5;
+  return { structuralFailures, routeFailures, contactFailures, fixedWingFirstContact: range(fixedWing), groundNavalFirstContact: range(groundNaval), maxMirroredWinRate };
 }

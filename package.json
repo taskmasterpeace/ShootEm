@@ -11,6 +11,7 @@
     "server": "tsx src/server/server.ts",
     "sounds": "node tools/gen-sounds.mjs",
     "test": "vitest run",
+    "test:vehicle-scenarios": "tsx scripts/run-vehicle-scenarios.ts",
     "lint": "eslint src tests",
     "typecheck": "tsc --noEmit"
   },
