@@ -1,8 +1,26 @@
 import { scienceReward } from '../sim/science';
 import { scienceObjectiveText, type ScienceMissionResult, type ScienceMissionRuntime } from '../sim/science-runtime';
+import type { ScienceBonuses } from './campaign';
 import { esc } from './newspaper';
 
 export type ScienceDebrief = ScienceMissionResult & { briefing?: string };
+
+const BONUS_LABELS: [keyof ScienceBonuses, string][] = [
+  ['theaterClones', 'THEATER CLONES'],
+  ['morale', 'MORALE'],
+  ['openingMateriel', 'OPENING MATERIEL'],
+  ['requisitionDiscounts', 'REQUISITION'],
+  ['enemyReinforcementCuts', 'REINFORCEMENT CUTS'],
+  ['weatherPicks', 'WEATHER PICKS'],
+  ['rosterIntel', 'ROSTER INTEL'],
+  ['lswAssignments', 'LSW ASSIGNMENTS'],
+];
+
+/** The Scar's visible ledger for rewards that live above an individual front. */
+export function scienceCampaignBankHTML(bonuses: ScienceBonuses): string {
+  return `<div class="science-bank"><h4>SCIENCE BANK</h4>${BONUS_LABELS.map(([key, label]) =>
+    `<div class="bk-stat-row"><span>${label}</span><b>${bonuses[key]}</b></div>`).join('')}</div>`;
+}
 
 export function scienceMissionHTML(runtime: ScienceMissionRuntime): string {
   const alarm = runtime.alarm ? 'ALARM' : 'GHOST';

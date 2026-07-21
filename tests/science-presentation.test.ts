@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderIssueHTML, type PressIssue } from '../src/client/newspaper';
-import { scienceDebriefHTML, scienceMissionHTML } from '../src/client/science';
+import { scienceCampaignBankHTML, scienceDebriefHTML, scienceMissionHTML } from '../src/client/science';
 import type { ScienceMissionRuntime, ScienceMissionResult } from '../src/sim/science-runtime';
 
 const issueFixture = (): PressIssue => ({
@@ -79,5 +79,22 @@ describe('science mission presentation', () => {
     const html = scienceDebriefHTML(resultFixture({ briefing: '<script>x</script>' }));
     expect(html).not.toContain('<script>');
     expect(html).toContain('&lt;script&gt;');
+  });
+
+  it('shows every banked campaign reward on the Scar', () => {
+    const html = scienceCampaignBankHTML({
+      theaterClones: 25,
+      morale: 1,
+      openingMateriel: 2,
+      requisitionDiscounts: 1,
+      enemyReinforcementCuts: 1,
+      weatherPicks: 1,
+      rosterIntel: 1,
+      lswAssignments: 1,
+    });
+
+    for (const label of ['THEATER CLONES', 'MORALE', 'OPENING MATERIEL', 'REQUISITION', 'REINFORCEMENT CUTS', 'WEATHER PICKS', 'ROSTER INTEL', 'LSW ASSIGNMENTS']) {
+      expect(html).toContain(label);
+    }
   });
 });

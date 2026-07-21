@@ -866,6 +866,7 @@ html, body {
 .scar-science-brief h4 { margin: 0.65rem 0 0.35rem; font-size: 0.82rem; letter-spacing: 0.05em; }
 .scar-science-brief p { margin: 0; color: var(--muted); font-size: 0.74rem; line-height: 1.4; }
 .scar-science-brief .scar-science-pay { margin-top: 0.55rem; color: oklch(0.78 0.13 80); font: 600 0.62rem/1.2 var(--font-mono); letter-spacing: 0.06em; }
+.scar-science-brief .scar-science-ledger { margin-top: 0.45rem; color: oklch(0.7 0.08 185); font: 500 0.58rem/1.35 var(--font-mono); letter-spacing: 0.045em; }
 #front-science {
   width: 100%; margin-top: 0.7rem; padding: 0.62rem 0.75rem; border: 1px solid oklch(0.62 0.13 185);
   border-radius: 0.625rem; background: oklch(0.28 0.07 185); color: oklch(0.91 0.04 185);

@@ -24,7 +24,7 @@ import { MatchTracker, RANKS, loadDossier, rankFor, rankInsignia, saveDossier, t
 import { FRONTS, SCAR_TEXT, applyResult, bandOf, checkSeasonEnd, holdTheLine, loadCampaign, saveCampaign, scienceWindowsFor, type Campaign } from './client/campaign';
 import { esc, fileIssue, renderIssueHTML, renderPressInto, loadPress } from './client/newspaper';
 import { finalizeScienceLaunch, prepareScarScienceMission, prepareScienceMission, type ScienceLaunchState } from './client/science-flow';
-import { renderSciencePanel, scienceDebriefHTML } from './client/science';
+import { renderSciencePanel, scienceCampaignBankHTML, scienceDebriefHTML } from './client/science';
 import { scienceReward } from './sim/science';
 import { RangeCourse, loadWall } from './client/range';
 import { RingDrill } from './client/ringdrill';
@@ -1121,6 +1121,7 @@ function renderScarMap() {
          <h4>${esc(sciencePreview!.spec.id)} · ${esc(sciencePreview!.spec.verb.toUpperCase())}</h4>
          <p>${esc(sciencePreview!.spec.briefing)}</p>
          <p class="scar-science-pay">${sciencePreview!.spec.squadSize} CLONES · ${esc(scienceReward(sciencePreview!.spec.reward).label.toUpperCase())}</p>
+         <p class="scar-science-ledger">ENEMY PRINT PRESSURE ${selSt.enemyClonePressure} · CLONE INSURANCE ${selSt.cloneInsurance}</p>
          <button id="front-science" ${scienceWindows <= 0 ? 'disabled' : ''}>${scienceWindows > 0 ? '⌬ RUN SCIENCE MISSION' : 'NO SCIENCE WINDOWS THIS PASS'}</button>
        </div>`
     : '<p class="bk-empty">Select a front on the theater map. Your battles move its control.</p>';
@@ -1132,6 +1133,7 @@ function renderScarMap() {
       <div id="scar-wrap"><img src="/scar-map.png" alt="THE SCAR — theater map" draggable="false" />${markers}</div>
       <div id="scar-side">
         <div class="bk-card">${selHtml}</div>
+        <div class="bk-card">${scienceCampaignBankHTML(c.scienceBonuses)}</div>
         <div class="bk-card"><h4>Morning dispatch</h4><ul class="bk-journal">${dispatch}</ul></div>
       </div>
     </div>`;
