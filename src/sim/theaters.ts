@@ -2,6 +2,7 @@ import { addLandingZone, carveRoute, createTheaterBase, finalizeTheater, routePo
 import type { GameMap } from './map';
 import type { TheaterDef, TheaterId } from './theater-types';
 import { generateCityTheater, generateCountrysideTheater, generateDesertTheater } from './theaters/land';
+import { generateCoastalTheater, generateMountainTheater, generateOceanTheater } from './theaters/domain';
 
 export const THEATER_DEFS: Record<TheaterId, TheaterDef> = {
   city: { id: 'city', name: 'Iron Meridian', geometry: { cols: 200, rows: 200, tile: 3 }, theme: 'starship', domains: ['foot', 'ground', 'air'], freeDogfight: false, defaultPads: ['tank', 'apc', 'flyer'] },
@@ -31,6 +32,9 @@ export function generateTheater(id: TheaterId, seed: number): GameMap {
   if (id === 'city') return generateCityTheater(THEATER_DEFS.city, seed);
   if (id === 'desert') return generateDesertTheater(THEATER_DEFS.desert, seed);
   if (id === 'countryside') return generateCountrysideTheater(THEATER_DEFS.countryside, seed);
+  if (id === 'mountain') return generateMountainTheater(THEATER_DEFS.mountain, seed);
+  if (id === 'coastal') return generateCoastalTheater(THEATER_DEFS.coastal, seed);
+  if (id === 'ocean') return generateOceanTheater(THEATER_DEFS.ocean, seed);
   return generateCatalogBase(id, seed);
 }
 

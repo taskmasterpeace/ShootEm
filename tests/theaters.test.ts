@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { THEATER_DEFS, generateTheater } from '../src/sim/theaters';
 import { deserializeDoc, serializeDoc } from '../src/sim/mapedit';
 import { Rng } from '../src/sim/rng';
+import { T_DEEP, T_WATER } from '../src/sim/map';
 
 describe('vehicle theater catalog and base builder', () => {
   const seeds = [7, 31, 42, 99, 4207, 5150, 7749, 1337, 90210, 606];
@@ -70,5 +71,38 @@ describe('vehicle theater catalog and base builder', () => {
     const map = generateTheater('countryside', 4207);
     expect(map.theater?.landingZones).toHaveLength(6);
     expect(new Set(map.theater?.landingZones.map((zone) => zone.side))).toEqual(new Set([0, 1, null]));
+  });
+
+  it('mountain exposes pass, ridge, and valley alternatives plus a long air axis', () => {
+    const map = generateTheater('mountain', 4207);
+    expect(new Set(map.theater!.routes.filter((route) => route.domain === 'ground').map((route) => route.id)))
+      .toEqual(new Set(['mountain:pass', 'mountain:ridge', 'mountain:valley']));
+    expect(map.theater?.landingZones).toHaveLength(4);
+    const air = map.theater!.routes.find((route) => route.id === 'mountain:north-south-air')!;
+    expect(Math.max(...air.points.map((point) => point.z)) - Math.min(...air.points.map((point) => point.z))).toBeGreaterThan(800);
+  });
+
+  it.each(['coastal', 'ocean'] as const)('%s has one connected sea and a substantial deep layer', (id) => {
+    const map = generateTheater(id, 5150);
+    const water = Array.from(map.grid, (tile) => tile === T_WATER || tile === T_DEEP);
+    const start = water.findIndex(Boolean);
+    const seen = new Uint8Array(water.length);
+    const queue = start >= 0 ? [start] : [];
+    if (start >= 0) seen[start] = 1;
+    while (queue.length) {
+      const index = queue.pop()!;
+      const x = index % map.geometry.cols;
+      const z = Math.floor(index / map.geometry.cols);
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        const nx = x + dx, nz = z + dz;
+        if (nx < 0 || nz < 0 || nx >= map.geometry.cols || nz >= map.geometry.rows) continue;
+        const next = nz * map.geometry.cols + nx;
+        if (water[next] && !seen[next]) { seen[next] = 1; queue.push(next); }
+      }
+    }
+    expect(water.every((wet, index) => !wet || seen[index] === 1)).toBe(true);
+    expect(map.theater!.deepWater.length).toBeGreaterThan(500);
+    expect(map.theater!.routes.filter((route) => route.domain === 'surface').length).toBeGreaterThanOrEqual(2);
+    expect(map.vehiclePads.filter((pad) => pad.kind === 'boat')).toHaveLength(2);
   });
 });

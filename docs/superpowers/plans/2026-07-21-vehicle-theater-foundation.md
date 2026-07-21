@@ -482,7 +482,7 @@ git commit -m "feat: build city desert and countryside theaters"
 - Consumes: Task 4 builder functions and water/deep terrain constants.
 - Produces: `generateMountainTheater(seed)`, `generateCoastalTheater(seed)`, `generateOceanTheater(seed)`.
 
-- [ ] **Step 1: Add failing domain-family laws**
+- [x] **Step 1: Add failing domain-family laws**
 
 ```ts
 it.each(['mountain', 'coastal', 'ocean'] as const)('%s carries its domain grammar', (id) => {
@@ -503,13 +503,13 @@ it.each(['coastal', 'ocean'] as const)('%s has connected surface and deep water'
 });
 ```
 
-- [ ] **Step 2: Run domain-family tests and verify RED**
+- [x] **Step 2: Run domain-family tests and verify RED**
 
 Run: `npx vitest run tests/theaters.test.ts -t "mountain|coastal|ocean|domain"`
 
 Expected: FAIL because the generators do not exist.
 
-- [ ] **Step 3: Implement the three domain grammars**
+- [x] **Step 3: Implement the three domain grammars**
 
 Mountain: build visible rock massifs from `T_METAL`/rock props, carve one 12-tile pass, one 8-tile ridge road, and one 10-tile valley road from opposing bases; publish ridge AA anchors and four valid landing zones; preserve a 900u north-south air axis.
 
@@ -517,13 +517,13 @@ Coastal: allocate roughly 45% continuous sea and 55% land; cut a port channel, t
 
 Ocean: start deep, add 3–6 islands/shoals without severing surface/deep connectivity, publish two convoy lanes and two opposing patrol loops, place ports on two largest islands, and ensure island foot objectives have landing zones connected to surface routes.
 
-- [ ] **Step 4: Run domain and water regressions**
+- [x] **Step 4: Run domain and water regressions**
 
 Run: `npx vitest run tests/theaters.test.ts tests/waterline.test.ts tests/operation-map.test.ts tests/frostbridge.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit domain theaters**
+- [x] **Step 5: Commit domain theaters**
 
 ```bash
 git add src/sim/theaters/domain.ts src/sim/theaters.ts tests/theaters.test.ts
