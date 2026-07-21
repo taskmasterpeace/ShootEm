@@ -603,7 +603,7 @@ Band thresholds (shipped tuning, canonical): 0–30% WIND-UP · 31–70% HEAVY �
  ×1.6 ON RELEASE
 ```
 - Geometry: 10 segments `12×18px`, 2px gaps, total ≈ `152×18px` + caps. Segment 8-10 = MAXIMUM zone (brighter groove); one extra `⟨!⟩` red segment past the cap = OVERCHARGE.
-- **The small accent (Robert #2)** — three approved treatments, choose ONE full-brightness + optionally the underline:
+- **The small accent (Robert #2) — DECIDED 2026-07-21: the amber lead-notch tick.** Every segmented meter in the game wears it; bracket caps and the underline stay in the grammar as unused reserves. The three treatments, for the record:
   - **Amber lead-notch tick**: a 2px amber hairline on the leading edge of the filling segment — the eye's anchor (this is the stamina bar's shipped `inset -2px` edge, promoted to law).
   - **Bracket caps**: `[` `]` in `--border-bright`, flipping amber the frame MAXIMUM is entered — the meter quotes the `.brk` corner language.
   - **Hairline underline**: a 1px continuous fill under the quantized row — coarse segments for glance, fine line for timing.

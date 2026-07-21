@@ -8,7 +8,9 @@ Robert's ask: **show the actual weapon model on-screen**, and lock **one consist
 - **Weapon display:** a **live 3D weapon-cam** of the exact equipped model. ✓
 - **The frame is skinned PER MANUFACTURER** — pull a Titan and it goes heavy armored slab; a Ceres goes ornate brass; a Küchler goes precise cool-steel. The gun and its HUD speak the same brand language. ✓
 - **The charge meter stays CONSTANT across every skin** (Robert: "same across the board") — the frame varies, the meter shape does not. ✓
-- **STILL OPEN:** which meter shape rides inside every skin — segmented bar (A), analog dial (B), or body-orbit arc (C).
+- **The meter is DECIDED (2026-07-21): A — the segmented bar**, info-rich per UX-LANGUAGE §8. ✓
+- **The accent is DECIDED (2026-07-21): the amber lead-notch tick** — a 2px amber hairline on the filling segment's leading edge (the stamina bar's edge treatment, promoted to law). Bracket caps + hairline underline remain in the grammar as reserves. ✓
+- Nothing about the weapon-block kit remains open — build is EXECUTION-ORDER.md block B1.
 
 **Zero new plumbing:** `parseBrand(weaponId)` (src/client/models/weapons.ts) already reads the maker off the gun id (`rifle_titan_2` → `titan`); the HUD picks its skin from the same call, and `buildWeaponModel(weaponId)` builds the model for the cam.
 
