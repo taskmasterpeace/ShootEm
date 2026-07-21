@@ -21,7 +21,9 @@ import { DamageText } from './client/damagetext';
 import { NetGame } from './client/net';
 import { MATCH_LINGER_LOCAL_MS, ReplayDirector } from './client/replay';
 import { MatchTracker, RANKS, loadDossier, rankFor, rankInsignia, saveDossier, type Dossier } from './client/record';
-import { FRONTS, SCAR_TEXT, applyResult, bandOf, checkSeasonEnd, consumeOperationBattleBonuses, holdTheLine, loadCampaign, operationBattleBonuses, saveCampaign, type Campaign } from './client/campaign';
+import { FRONTS, SCAR_TEXT, applyResult, bandOf, cancelCampaignOperation, checkSeasonEnd, consumeOperationBattleBonuses, holdTheLine, loadCampaign, operationBattleBonuses, saveCampaign, settleCampaignOperation, stageCampaignOperation, type Campaign } from './client/campaign';
+import { buildOperationBoardModel, createSuggestedManifest, renderManifestDialog, renderOperationsBoard } from './client/operations-ui';
+import type { OperationManifest, OperationPlan } from './sim/operations';
 import { fileIssue, renderIssueHTML, renderPressInto, loadPress } from './client/newspaper';
 import { RangeCourse, loadWall } from './client/range';
 import { RingDrill } from './client/ringdrill';
@@ -439,7 +441,10 @@ function saveFlight() {
 };
 
 function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: Input, name: string, endGame: () => void) {
-  const seed = seedOverride ?? (Math.random() * 0xffffffff) >>> 0;
+  const deployedOperation = activeFrontId && campaign?.activeOperation?.plan.frontId === activeFrontId
+    ? campaign.activeOperation
+    : null;
+  const seed = deployedOperation?.plan.seed ?? seedOverride ?? (Math.random() * 0xffffffff) >>> 0;
   seedOverride = undefined;
   const world = new World({
     seed, mode: selectedMode, difficulty, botsPerTeam, matchMinutes, theme: selectedTheme,
@@ -454,6 +459,9 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     // P1 no gods, P2 their stable only, P3 both. Off the map: everything.
     lswPass: activeFrontId ? (campaign?.fronts[activeFrontId]?.pass ?? 3) : 3,
     operationBonuses: activeFrontId && campaign ? operationBattleBonuses(campaign, activeFrontId) : undefined,
+    operation: deployedOperation?.plan,
+    operationManifest: deployedOperation?.manifest,
+    operationInventory: deployedOperation && campaign ? campaign.motorPool : undefined,
   });
   if (activeFrontId && campaign) {
     consumeOperationBattleBonuses(campaign, activeFrontId);
@@ -760,7 +768,18 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
           // doubles the bill for every HOT death (the reprint + the body
           // that rose against the line)
           const viralBill = world.viralDeaths?.[0] ?? 0;
-          applyResult(campaign, activeFrontId, sum.won, Date.now(), (sum.deaths ?? 0) + viralBill);
+          const operationResult = world.operation?.result;
+          if (operationResult) {
+            const receipt = settleCampaignOperation(campaign, operationResult, Date.now());
+            if (receipt.ok) {
+              const treasury = receipt.treasuryDelta >= 0 ? `+${receipt.treasuryDelta}` : String(receipt.treasuryDelta);
+              extras += `<p style="margin-top:0.35rem"><b>OPERATION ${operationResult.won ? 'COMPLETE' : 'FAILED'}</b> · treasury ${treasury} · ${receipt.hullsLost.length} hulls lost · ${receipt.hullsReturned.length} returned</p>`;
+            } else {
+              extras += `<p style="margin-top:0.35rem;color:var(--danger)">OPERATION SETTLEMENT HOLD · ${receipt.errors.join(' · ')}</p>`;
+            }
+          } else {
+            applyResult(campaign, activeFrontId, sum.won, Date.now(), (sum.deaths ?? 0) + viralBill);
+          }
           if (viralBill > 0) extras += `<p style="margin-top:0.35rem">☣ ${viralBill} turned — the vats paid double</p>`;
           if (front) {
             const d = front.control - before;
@@ -1035,15 +1054,87 @@ void RANKS; // ladder is part of the public record API
 // ---------------------------------------------------------------------------
 let campaign: Campaign | null = null;
 let scarMarkers: Record<string, { n: number; name: string; x: number; y: number }> | null = null;
+let operationManifestDraft: OperationManifest | null = null;
+let operationManifestPlan: OperationPlan | null = null;
 
 async function initCampaign() {
   campaign = loadCampaign();
   holdTheLine(campaign);
+  if (campaign.activeOperation) {
+    activeFrontId = campaign.activeOperation.plan.frontId;
+    const front = FRONTS.find((entry) => entry.id === activeFrontId);
+    if (front) { selectedMode = front.mode; selectedTheme = front.theme; }
+  }
   saveCampaign(campaign); // always: the absence clock starts at first boot
   try {
     scarMarkers = (await (await fetch('/scar-markers.json')).json()).fronts;
   } catch { scarMarkers = null; }
   renderScarMap();
+}
+
+function closeOperationPlanner() {
+  document.getElementById('operation-modal')?.remove();
+  operationManifestDraft = null;
+  operationManifestPlan = null;
+}
+
+function paintOperationPlanner() {
+  if (!campaign || !operationManifestPlan || !operationManifestDraft) return;
+  const old = document.getElementById('operation-modal');
+  const scroll = old?.querySelector<HTMLElement>('.op-hulls')?.scrollTop ?? 0;
+  old?.remove();
+  document.body.insertAdjacentHTML('beforeend', renderManifestDialog({
+    campaign,
+    plan: operationManifestPlan,
+    manifest: operationManifestDraft,
+  }));
+  const modal = document.getElementById('operation-modal')!;
+  const hulls = modal.querySelector<HTMLElement>('.op-hulls');
+  if (hulls) hulls.scrollTop = scroll;
+  modal.querySelectorAll<HTMLInputElement>('[data-operation-hull]').forEach((input) => {
+    input.onchange = () => {
+      if (!operationManifestDraft) return;
+      const id = input.dataset.operationHull!;
+      operationManifestDraft.hullIds = input.checked
+        ? [...new Set([...operationManifestDraft.hullIds, id])]
+        : operationManifestDraft.hullIds.filter((hullId) => hullId !== id);
+      paintOperationPlanner();
+    };
+  });
+  const ammo = modal.querySelector<HTMLInputElement>('#operation-ammo');
+  if (ammo) ammo.onchange = () => {
+    if (!operationManifestDraft) return;
+    operationManifestDraft.ammunition = Number(ammo.value);
+    paintOperationPlanner();
+  };
+  const support = modal.querySelector<HTMLSelectElement>('#operation-support');
+  if (support) support.onchange = () => {
+    if (!operationManifestDraft) return;
+    operationManifestDraft.support = support.value as OperationManifest['support'];
+    paintOperationPlanner();
+  };
+  const close = () => closeOperationPlanner();
+  modal.querySelector<HTMLButtonElement>('#operation-close')!.onclick = close;
+  modal.querySelector<HTMLButtonElement>('#operation-abort')!.onclick = close;
+  modal.onclick = (event) => { if (event.target === modal) close(); };
+  const stage = modal.querySelector<HTMLButtonElement>('#operation-stage');
+  if (stage) stage.onclick = () => {
+    if (!campaign || !operationManifestPlan || !operationManifestDraft) return;
+    const result = stageCampaignOperation(campaign, operationManifestPlan, operationManifestDraft);
+    if (!result.ok) { paintOperationPlanner(); return; }
+    activeFrontId = operationManifestPlan.frontId;
+    saveCampaign(campaign);
+    closeOperationPlanner();
+    audio.play('ui_click');
+    renderScarMap();
+  };
+}
+
+function openOperationPlanner(plan: OperationPlan) {
+  if (!campaign) return;
+  operationManifestPlan = plan;
+  operationManifestDraft = createSuggestedManifest(plan, campaign.motorPool);
+  paintOperationPlanner();
 }
 
 function renderScarMap() {
@@ -1063,11 +1154,12 @@ function renderScarMap() {
   }).join('');
   const sel = activeFrontId ? FRONTS.find((f) => f.id === activeFrontId) : null;
   const selSt = sel ? c.fronts[sel.id] : null;
+  const operationModel = sel ? buildOperationBoardModel(c, sel.id) : null;
   const selHtml = sel && selSt
     ? `<b style="font-size:1.05rem">${sel.name}</b>
        <p style="color:var(--muted);font-size:0.8rem;margin:0.3rem 0">${sel.mode.toUpperCase()} · ${sel.theme} · control <b>${selSt.control > 0 ? '+' : ''}${selSt.control}</b> (${bandOf(selSt.control)})</p>
        ${selSt.scarActive ? `<p style="font-size:0.8rem;color:var(--danger)">⚑ ${SCAR_TEXT[sel.scar]}</p>` : ''}
-       <button id="front-deploy">⚔ DEPLOY — ${sel.name.toUpperCase()}</button>`
+       <button id="front-deploy">DEPLOY QUICK BATTLE · ${sel.name.toUpperCase()}</button>`
     : '<p class="bk-empty">Select a front on the theater map. Your battles move its control.</p>';
   const dispatch = c.dispatch.slice(0, 10).map((d) =>
     `<li>${d.simulated ? '<em style="color:var(--muted)">(simulated)</em> ' : ''}${d.text}<span class="when">${new Date(d.at).toLocaleString()}</span></li>`).join('')
@@ -1077,6 +1169,7 @@ function renderScarMap() {
       <div id="scar-wrap"><img src="/scar-map.png" alt="THE SCAR — theater map" draggable="false" />${markers}</div>
       <div id="scar-side">
         <div class="bk-card">${selHtml}</div>
+        ${operationModel ? renderOperationsBoard(operationModel) : ''}
         <div class="bk-card"><h4>Morning dispatch</h4><ul class="bk-journal">${dispatch}</ul></div>
       </div>
     </div>`;
@@ -1092,6 +1185,19 @@ function renderScarMap() {
   });
   const dep = root.querySelector<HTMLButtonElement>('#front-deploy');
   if (dep) dep.onclick = () => { startGame(); };
+  const plan = root.querySelector<HTMLButtonElement>('#operation-plan');
+  if (plan && operationModel) plan.onclick = () => openOperationPlanner(operationModel.plan);
+  const operationDeploy = root.querySelector<HTMLButtonElement>('#operation-deploy');
+  if (operationDeploy) operationDeploy.onclick = () => { startGame(); };
+  const cancel = root.querySelector<HTMLButtonElement>('#operation-cancel');
+  if (cancel && c.activeOperation) cancel.onclick = () => {
+    const active = c.activeOperation;
+    if (!active || !window.confirm(`Cancel Operation ${active.plan.codename} and return its entire commitment?`)) return;
+    cancelCampaignOperation(c, active.plan.id);
+    saveCampaign(c);
+    audio.play('ui_click');
+    renderScarMap();
+  };
 }
 
 void initCampaign();

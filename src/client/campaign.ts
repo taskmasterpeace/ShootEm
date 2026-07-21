@@ -1,7 +1,6 @@
 import type { ModeId, ThemeId, VehicleKind } from '../sim/types';
 import {
   OPERATION_EFFECTS,
-  manifestCost,
   validateManifest,
   type OperationEffectId,
   type OperationHull,
