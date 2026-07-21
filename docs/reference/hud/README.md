@@ -12,7 +12,16 @@ Robert's ask: **show the actual weapon model on-screen**, and lock **one consist
 
 **Zero new plumbing:** `parseBrand(weaponId)` (src/client/models/weapons.ts) already reads the maker off the gun id (`rifle_titan_2` → `titan`); the HUD picks its skin from the same call, and `buildWeaponModel(weaponId)` builds the model for the cam.
 
-Manufacturer skins shipped as assets: `brand-maklov.png` (baseline warm gunmetal — rendered the full bay + CHARGE + AMMO bars), `brand-titan.png` (heavy black riveted slab), `brand-kuchler.png` (precise cool-steel, vented). Six makers total (Ceres/Harkov/Kamenel get the same treatment). PixelLab ids: maklov `c3e145e7-…`, titan `2e78f1ee-…`, kuchler `8cba7b13-…`; seed 11, 512×240.
+### The frames (2026-07-21, rev B)
+
+Two flavors of PixelLab render in this folder:
+
+- **`frame-empty-<brand>.png` — the real deal (6 makers).** EMPTY shells: a hollow weapon bay + an empty meter groove, no content baked in, so the game composites the **live 3D weapon-cam** and the **live meter** inside (Robert's note: the first renders had content baked in — these don't). maklov `c275cf3e` · titan `a5cc9190` · kuchler `7ecb5fee` · harkov `268d040b` · ceres `8295c818` · kamenel `bcbc5dce`. seed 21, 512×224.
+- **`brand-<brand>.png` — content mockups (3).** The earlier renders with the weapon + bars baked in — kept only as *style reference* (they show what a filled frame should read like). maklov `c3e145e7` · titan `2e78f1ee` · kuchler `8cba7b13`.
+
+### The meters (rev B is all-static)
+
+The pitch's meter options are now **plain static SVG** (built at assembly time, no runtime JS) — the earlier live/animated version didn't render in Robert's view. Each grammar (segmented bar / analog dial / body-orbit arc) is shown frozen at wind-up → heavy → maximum → overcharge. **Open call:** which grammar rides inside every skin.
 
 **Interactive pitch (pick here):** the published artifact has all three directions with *live, animated* charge meters and the weapon plate — https://claude.ai/code/artifact/1f3433d1-40e8-4f45-9f78-0e3bca9a1d9b
 
