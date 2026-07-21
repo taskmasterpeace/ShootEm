@@ -140,6 +140,29 @@ the GROUND carries the fiction now — control point names read `LSW DEN`.
   any seed, editable + exportable); Building Lab and the stamp shelf speak
   the two category axes.
 
+## 2.9 Military Operation grounds — SHIPPED
+
+`generateOperationMap(plan, manifest, inventory)` turns the strategy-layer
+briefing into lawful combat ground. Pass 1 dresses a 62×62 procedural
+skirmish; Pass 2 uses a standard authored front; Pass 3 opens the large
+front. All ten Operation sites map to an existing tested terrain grammar,
+while objective metadata, protected zones, target emplacements, committed
+named hulls, and the scorched-earth prize are added without mutating the
+source front.
+
+- **Three scales × ten sites:** every combination is deterministic and is
+  patrolled at four seeds by `tests/operation-map.test.ts`.
+- **Manifest truth:** only committed named hulls become friendly vehicle
+  pads. Pike hulls require a navigable site and receive distinct shallow-water
+  spawns; dry fronts reject the manifest instead of putting a boat on land.
+- **Objective truth:** every phase has a stable world position and kind;
+  destroy phases spawn the exact authored target count, Air Superiority fields
+  its full hostile flight, naval Operations field enemy boats on water, and
+  no-collateral plans expose protected zones to the runtime.
+- **Persistence truth:** Operation metadata survives Map Maker
+  serialization. Carriers and submarines remain sites/strategic effects, not
+  fake playable hulls.
+
 ## 3. Dynamic houses — the neighborhood requirement (largely SHIPPED)
 
 The dynamic-interior system above delivers most of this: multi-room plans,

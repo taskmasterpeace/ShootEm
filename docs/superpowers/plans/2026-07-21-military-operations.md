@@ -1,5 +1,7 @@
 # Military Operations Implementation Plan
 
+**Status:** COMPLETE 2026-07-21 — implemented in `codex/military-operations`; live Scar/manifest/stage/cancel smoke passed; typecheck, 141 test files / 1,809 tests, lint, and production build all passed.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Ship deterministic Military Operations from Scar selection and manifest procurement through playable objectives, persistent losses/rewards, and after-action reporting.

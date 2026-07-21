@@ -1,6 +1,14 @@
 # MILITARY MISSIONS — the OPERATIONS track
 
-Drafted 2026-07-21. The loud, combined-arms center of the war—air, land, and sea. The counterpart to `docs/SCIENCE-MISSIONS.md`.
+Shipped 2026-07-21. The loud, combined-arms center of the war—air, land, and sea. The counterpart to `docs/SCIENCE-MISSIONS.md`.
+
+## Production status — SHIPPED
+
+The complete playable loop now ships: the Scar exposes one deterministic Operation window per front and pass; the planning board generates the briefing, validates a named seasonal motor-pool manifest, prices treasury and ammunition, and stages or cancels it without duplication. Deploy builds real skirmish, standard, or large ground, runs ordered objectives and complications in the simulation, permanently settles hull losses and the strategic effect, then reports the result through the HUD, After-Action Report, dossier, and enemy-perspective Courier.
+
+The principal implementation is `src/sim/operations.ts`, `operation-map.ts`, `operation-pads.ts`, `operation-runtime.ts`, `world.ts`, `src/client/campaign.ts`, `operations-ui.ts`, `hud.ts`, `dossier.ts`, `newspaper.ts`, and the Scar wiring in `src/main.ts`. The production proof is the full suite plus the dedicated `operations`, `operation-map`, `operation-runtime`, `operation-settlement`, `operation-effects`, `operations-ui`, `operations-integration`, `operation-hud`, and `operation-record` tests.
+
+Release verification on 2026-07-21: `npx tsc --noEmit`, all 141 Vitest files / 1,809 tests, `npm run lint`, and `npm run build` passed. A live browser smoke verified Scar selection, manifest validation, exact treasury staging, reload persistence, cancellation/refund, and a clean browser console.
 
 ## What an Operation is
 
@@ -122,10 +130,10 @@ The Courier reports the aftermath from the enemy perspective.
 
 ## Individual hooks
 
-- **Vehicle ace:** named hulls accrue kills by vehicle type. Their loss matters and the newspaper reports their record.
-- **Crew history:** a downed crew is a persistent person eligible for veteran recovery.
-- **Command certification:** Operation performance earns the right to buy a later manifest.
-- **PRINT 7749:** the unnamed-soldier hook carries into military dialogue until a callsign is earned.
+- **Vehicle ace — shipped:** named hulls accrue sorties and kills by vehicle type. Their loss matters and the dossier records their career.
+- **Crew history — future:** persistent individual crews and veteran-recovery missions remain outside this slice; the named hull record is the shipped persistence boundary.
+- **Command certification — shipped:** completed objectives and victories advance the dossier's Operation certification.
+- **PRINT 7749 — future:** the unnamed-soldier identity beat remains part of the wider soldier/meta track, not the Operation launch gate.
 
 ## Locked implementation calls
 
@@ -134,7 +142,7 @@ The Courier reports the aftermath from the enemy perspective.
 - The shipped flyer/gunship supports CAS and Airborne Insertion. A dedicated helicopter may replace it later without changing mission verbs.
 - Sea gameplay uses the shipped Pike gunboat. Submarines and carriers remain sites and strategic effects until their hulls ship.
 
-## Shipped substrate
+## Shipped play space
 
 - Land: tank, APC, buggy, bike, mech, tunneler, emplacement.
 - Air: Vulture strike jet, Falcon interceptor, Anvil bomber, Lance AA track, flyer/gunship.
@@ -142,9 +150,9 @@ The Courier reports the aftermath from the enemy perspective.
 - Support: transport and ambulance.
 - Altitude bands and automatic AA.
 - Water and crossing conversion.
-- Materiel purse and war ledger.
-- Operation Officer procurement rail.
-- Deterministic skirmish and front map builders.
-- Briefing-card art pipeline.
+- Treasury, persistent named motor pool, pass-limited Operation windows, and armistice reset.
+- Operation Officer planning modal with commitment, domain, support, cost, and validation readouts.
+- Deterministic skirmish and authored-front mission grounds across all ten sites and three scales.
+- Live objective runtime, seven complications, fifty concrete effects, settlement, HUD/AAR, dossier, and Courier reporting.
 
 Operations capture sites; Expeditions unlock tools; Private Matters recover people and property; the newspaper records the consequences.

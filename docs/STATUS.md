@@ -1,5 +1,5 @@
 # STATUS — everything asked for, done vs not
-### The honest ledger. Robert: "I need to find out what's not been completed. That's the most important thing." Last swept 2026-07-20 against the code + the two ground-truth audits this session.
+### The honest ledger. Robert: "I need to find out what's not been completed. That's the most important thing." Last swept 2026-07-21 against the code + the two ground-truth audits this session.
 
 **Legend:** ✅ SHIPPED · 🔨 PARTIAL (substrate exists, the ask isn't finished) · ❌ NOT DONE · 📋 DESIGNED (a spec is written, no code yet) · 🎯 DECISION (a call only Robert makes)
 
@@ -18,7 +18,7 @@ The plan that resolves 100% of this ledger. Eight campaigns, dependency-ordered;
 | C3 | **COMBAT FEEL** | accuracy ladder + aim ring + falloff + spacebar verbs + ragdoll fix + tank rock + Impact Charge ring | W1.1-1.7, UI-MASTER §4 | 3-4 sessions |
 | C4 | **STEEL + OUTBREAK Phase 1** | melee triangle (locked terms) + infection component + corpse lifecycle + fire/neutralization + Ball/AP/INC ammo + dropped weapons + ammo diagnostics→cut | W0.3/#47, 10.11, W2.4, 10.4, 10.5, W7.3 | 4-6 sessions |
 | C5 | **THE DEATH SHOW + AIR** | death-cam director, gore, kill cam + aircraft crash, altitude legibility (sonic boom lands here), AA bands, drive-by, seat yield, rearm pads | W2.1-2.5, W5.1-5.6, 10.7, 10.8, UI-MASTER §8 | 4-5 sessions |
-| C6 | **THE WAR** | time-skip deletion, 3×3 board, clone economy, pass escalation, science missions v1, leaders, class-change, bots-as-robots, rank, press (AI paper + TV) | W3.1-3.10, W4.1-4.3 | 6-8 sessions |
+| C6 | **THE WAR** | time-skip deletion, 3×3 board, clone economy, pass escalation, military Operations, science missions v1, leaders, class-change, bots-as-robots, rank, press (AI paper + TV) | W3.1-3.10, W4.1-4.3 | 6-8 sessions |
 | C7 | **THE SOLDIER + WORLD** | papercraft port (4 moves), SURF fold, slick ice, impact VFX, weapon-family holds, fire modes + brand mechanics + armed gods + beams/clash | W6, W7.1-7.4, 10.1, 10.2, 10.6 | 5-7 sessions |
 | C8 | **PERF + NET + POLISH** | remaining audit issues [#2-#42] in board order (bench-tracked per fix), multiplayer staged stack, UI P1/P2 + all ✦ delights, memorable details W9 | 8.1-8.2, 10.10, W9, UI-MASTER P1-P2 | ongoing |
 
@@ -36,7 +36,7 @@ If you read one thing, read this. Everything below has a full row further down.
 **Sight (you just approved the fix):** 3D-shows-you / minimap-shows-team · darkness outside your cone. *(Fixed 2026-07-21: the three fog BUGS — fishbowl #43, corpses #44, vehicles #45 — plus upstairs-vs-upstairs house LOS and **contacts now hold-then-fade instead of blinking** on both the 3D view and the minimap.)*
 **Melee:** STRIKE / GUARD / GRAPPLE + Impact Charge + the Control Struggle (terminology now LAW per the outbreak spec; the swing engine exists, wired only to zombie claws).
 **The outbreak (new spec, §17):** infection/viral load ✅ · corpse lifecycle & reanimation ✅ · outbreak pressure/levels ✅ · emergent variants ✅ · ammo TYPES (Ball/AP/Incendiary) ✅ — all SHIPPED 2026-07-20, live in horde/survival/safehouse. Still design: zombies as a third faction mid-war · flashlight interiors · Bite Struggle · mixed magazines.
-**The war:** the 3×3 board · killing the time-skip · the clone economy · pass escalation · **science missions** (now fully designed) · class-change requests · the two faction leaders · bots looking like robots.
+**The war:** the 3×3 board · killing the time-skip · the clone economy · pass escalation · **military Operations ✅** · **science missions** (fully designed, unbuilt) · class-change requests · the two faction leaders · bots looking like robots.
 **The press:** AI-generated newspaper · the base TV newscast · the unnamed-soldier fiction.
 **Air & armor:** aircraft can't crash · no map wraparound · **planes don't read as high enough** (no shadow, HIGH sits below rooftops) · drive-by shooting · cars that handle like cars · seat-yield · rearm pads.
 **Weapons:** fire modes (single/auto/burst/**double-barrel**/pump) · per-family secondary fire · brand signature mechanics · and the Codex columns for all of it.
@@ -132,7 +132,7 @@ Implementation plan: **`PLAN 2026-07-20-sight-and-steel.md` § B** · **terminol
 
 ## 7 · THE WAR
 
-Full law: **`docs/WAR.md`**. Almost all of it is 📋 DESIGN — the substrate (ten-front living campaign, materiel purse, LSW rosters) ships, but the solo-war shape does not.
+Full law: **`docs/WAR.md`**. The ten-front campaign, clone economy, pass escalation, and the complete military Operations lane now ship; the 3×3 presentation, science lane, and remaining solo-war institutions do not.
 
 | Ask | Status | Evidence / where |
 |---|---|---|
@@ -140,6 +140,7 @@ Full law: **`docs/WAR.md`**. Almost all of it is 📋 DESIGN — the substrate (
 | Kill the time-skip (war only moves while you play) | ✅ | **DONE 2026-07-21 (W3.1).** `simulateTimeSkip` is DEAD (deleted, not bypassed) — boot now calls `holdTheLine`: after >1h away it writes ONE honest line ("the fronts HELD. The war only moves while you fight", `simulated:false` because it's TRUE) and touches no front. Your last map is exactly the map. `tests/campaign.test.ts` rewritten to pin the new law (a month away changes NOTHING); live: 48h rewind + reboot → the held line, fronts intact |
 | Clones are the currency (per-front reserves, front lost at zero) | ✅ | **DONE 2026-07-21 (W3.3).** Every front carries a CLONE RESERVE (`400 × importance`); your side's deaths in a battle there SPEND it (`applyResult` gains `deaths` — main.ts passes the AAR's count); a win convoys +60 back (never past the seed); crossing 25% fires a `reserves CRITICAL` dispatch; **at ZERO the front is LOST outright** (control → −100, "the vats stand empty") whatever the scoreboard said. Armistice refills the theatre; old saves migrate to full vats (client + server loaders). `tests/campaign.test.ts` (+2); live: stripped-save boot → all 10 fronts seeded by the importance math, original save restored |
 | Pass escalation (P1 no gods → P2 enemy gods → P3 both) | ✅ | **DONE 2026-07-21 (W3.4).** `FrontState.pass` (1-3): every battle digs the front one pass deeper with escalation dispatch lines ("their stable is awake" / "both stables are loose"); the armistice calms it back to P1. The gate lives at `requestLsw` — the ONE door every god walks through (human calls + the bot officer): P1 refuses both stables, P2 only team 1 answers (the war escalates AT you first), P3/absent = today's behavior (quick matches unaffected). Deploy passes the front's pass via `WorldOptions.lswPass`. `tests/pass-gate.test.ts` (3) + campaign advance test; live: P1 locked, P3 open, quick-match at pass 3 |
+| **Military Operations — maps, skirmishes, missions, and persistent stakes** | ✅ | **SHIPPED 2026-07-21.** One deterministic window per front/pass; 15 verbs × 10 sites × 7 complications × 50 effects; P1 skirmishes, P2 standard combined arms, P3 large war; named seasonal motor pool, treasury, manifest validation, staging/cancel/deploy, ordered live objectives, actual hull losses, concrete next-battle rewards, HUD/AAR, certification/vehicle records, and enemy-perspective Courier. `docs/MILITARY-MISSIONS.md`; dedicated operation suites plus a full end-to-end integration journey. |
 | **Science missions** | ❌📋 | **now fully designed** — `docs/SCIENCE-MISSIONS.md` (10 verbs × 10 sites × 50 effects). BACKLOG W3.5 |
 | Class change by request (leader AI rules on it) | ✅ | **DONE 2026-07-21 (W3.6).** A class is a POSTING: `ruleOnClassRequest` (src/sim/officer.ts, pure+deterministic) weighs the LIVE roster — infantry always signed, medics 1-per-5, one wrench per trench, recon capped, heavy 2-per-4 — and rules in the officer's voice ("REQUEST APPROVED — MEDIC. Keep them standing." / "DENIED — the line has medics enough. Hold your post."). Wired inside `redeployAs` (the death re-select rack): denial keeps your posting, the banner says why; re-clicking your current class is never a request. `tests/officer.test.ts` (4); live: the officer spoke on the banner in-match |
 | Two authored faction leaders (voiced) | ❌ | no leader entity. BACKLOG W3.7 |
@@ -312,7 +313,7 @@ Full spec: **`docs/OUTBREAK-SPEC.md`** (infection model, outbreak pressure/level
 
 ---
 
-*This file is the index. `docs/MASTER-BACKLOG.md` is the ordered work queue (Wave 0 first). `docs/OPTIMIZATION-AUDIT.md` + [issues #1–#47](https://github.com/taskmasterpeace/ShootEm/issues) are the performance/bug board. `docs/SCIENCE-MISSIONS.md` is the mission design. The DOCUMENTS INDEX below catalogs every design doc.*
+*This file is the index. `docs/MASTER-BACKLOG.md` is the ordered work queue (Wave 0 first). `docs/OPTIMIZATION-AUDIT.md` + [issues #1–#47](https://github.com/taskmasterpeace/ShootEm/issues) are the performance/bug board. `docs/MILITARY-MISSIONS.md` records the shipped Operations track; `docs/SCIENCE-MISSIONS.md` is the unbuilt Expedition design. The DOCUMENTS INDEX below catalogs every design doc.*
 
 ---
 
@@ -338,6 +339,7 @@ Full spec: **`docs/OUTBREAK-SPEC.md`** (infection model, outbreak pressure/level
 | `MASTER-BACKLOG.md` | The loop document — everything owed, Waves 0–9 | REFERENCE | Living queue; "ALREADY DONE" shipped, all wave items unchecked |
 | `STATUS.md` | **This file** — everything asked for, done vs not | REFERENCE | The ledger you're reading |
 | `SCIENCE-MISSIONS.md` | Full science-mission design — 10 verbs × 10 sites × 50 effects | DESIGN | Written this session; unbuilt (BACKLOG W3.5) |
+| `MILITARY-MISSIONS.md` | Military Operations — combined-arms maps, manifests, objectives, stakes, and effects | SHIPPED | Production loop shipped 2026-07-21; source and test evidence recorded in the doc |
 | `OUTBREAK-SPEC.md` | The zombie outbreak / ammo types / melee combat & UI spec (Robert, 2026-07-20) | DESIGN | §22.1 decisions are LAW; STRIKE/GUARD/GRAPPLE naming supersedes older drafts; status in §17 |
 | `OUTBREAK-IMPLEMENTATION.md` | **The update doc** — every spec §, acceptance criterion & locked decision → shipped/blocked, with file+test pointers | STATUS | THE completion ledger for the outbreak goal; 3 honest structural gaps named (third faction, PvP Control Struggle, dedicated-server infra) |
 | `UI-MASTER.md` | THE master display inventory — every state × every surface × the visual, with delight details | REFERENCE | Supersedes UI-AND-RESOURCES as the display doc; P0/P1/P2 build order; §18 |
