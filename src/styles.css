@@ -351,7 +351,11 @@ html, body {
 #weapon-block {
   position: relative;
   background: oklch(0.16 0.018 74 / 0.78); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 0.8rem 1rem; min-width: 12rem; text-align: right; backdrop-filter: blur(6px);
+  border-radius: var(--radius); padding: 0.7rem 0.85rem; min-width: 12rem; text-align: right; backdrop-filter: blur(6px);
+  /* GUN TOO BIG (Robert, from the screenshots): the long grenade/ammo lines
+     had no ceiling, so the whole block ballooned to a third of the screen and
+     the weapon-cam plate stretched with it. Cap the block; long lines wrap. */
+  max-width: 17rem;
 }
 #weapon-block::before, #weapon-block::after {
   content: ''; position: absolute; width: 9px; height: 9px; pointer-events: none; border: 0 solid var(--accent);
@@ -362,9 +366,11 @@ html, body {
    The border tint is set from BRAND_STYLES by the HUD; the brand tag stamps
    the maker's name on the bay like a data plate. */
 #wcam-plate {
-  position: relative; margin-bottom: 0.45rem;
-  background: oklch(0.115 0.012 74); border: 1px solid var(--wcam-tint, var(--border));
+  position: relative; margin-bottom: 0.4rem; margin-left: auto;
+  background: oklch(0.14 0.014 74); border: 1px solid var(--wcam-tint, var(--border));
   border-radius: var(--radius); overflow: hidden; line-height: 0;
+  /* the gun portrait keeps a sane cap regardless of the text below it */
+  max-width: 13rem; width: 100%;
 }
 #wcam-plate img { width: 100%; height: auto; display: block; }
 #wcam-brand {
@@ -414,7 +420,7 @@ html, body {
 /* OUTBREAK-SPEC §11.2: the round's tactical readout under the mag — mono, muted
    so it sits beneath the amber count; the filled ▮ vs empty ▯ notches carry the
    rating at a glance without competing for the eye. */
-#ammo-info { font-family: var(--font-mono); font-size: 0.6rem; color: var(--muted); letter-spacing: 0.05em; margin-top: 1px; white-space: nowrap; }
+#ammo-info { font-family: var(--font-mono); font-size: 0.58rem; color: var(--muted); letter-spacing: 0.04em; margin-top: 1px; white-space: normal; }
 #ammo-info.hidden { display: none; }
 #ability-hint { color: var(--muted); font-size: 0.72rem; margin-top: 0.3rem; font-family: var(--font-mono); }
 
