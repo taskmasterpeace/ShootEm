@@ -236,12 +236,16 @@ export class Hud {
         // pilots see how many saves are left before they need one.
         const flying = !!VEHICLES[v.kind].flies;
         const flareTxt = flying ? ` · G flares ${'●'.repeat(Math.max(0, v.flares ?? 0)) || '—'}` : '';
+        // B2 the ALT ladder (backlog 1.7c): which floor of the sky you own —
+        // and at bands 2-3, the sanctuary reminder (only SAMs reach you)
+        const band = v.band ?? 0;
+        const altTxt = flying ? ` · ALT ${['▁', '▂', '▅', '█'][band]} ${band}/3${band >= 2 ? ' — SAM-only sky' : ''}` : '';
         let locked = false;
         for (const p of world.projectiles.values()) {
           if (p.homingVehicleId === v.id) { locked = true; break; }
         }
         const hintEl = $('ability-hint');
-        hintEl.textContent = `${role} · E exit${flareTxt}${locked ? ' · ⚠ MISSILE INBOUND' : ''}`;
+        hintEl.textContent = `${role} · E exit${altTxt}${flareTxt}${locked ? ' · ⚠ MISSILE INBOUND' : ''}`;
         hintEl.classList.toggle('warn', locked);
         // per-system damage record as pips: ENG WPN SEN ECM COM
         const max = VEHICLES[v.kind].systemHp ?? 60;

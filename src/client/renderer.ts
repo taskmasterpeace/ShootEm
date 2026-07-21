@@ -1772,7 +1772,11 @@ export class Renderer {
       // J1 THE SKY HAS FLOORS: a BAND is drawable in a way raw height never
       // was — each one is a distinct deck the eye can learn. 1 rooftop-low,
       // 2 clear of every roof, 3 the jets' own country.
-      const BAND_ALT = [0.12, 1.9, 3.4, 5.4];
+      // B2 THE AIR FIX (Robert: "it kind of feels like we're still low… it
+      // should VISUALLY feel like we're high"): band 2 finally clears the 8u
+      // roofline its own comment promises, and band 3 is genuinely UP — the
+      // sanctuary the sim now enforces reads as one.
+      const BAND_ALT = [0.12, 2.0, 8.6, 14.0];
       if (vdef.flies && v.kind !== 'flyer') {
         const lift = vdef.liftoffTime ?? 1.4;
         const hasPilot = v.seats[0] >= 0;

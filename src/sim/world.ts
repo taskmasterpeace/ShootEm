@@ -3177,7 +3177,7 @@ export class World {
       const flare = this.gadgets.get(p.homingFlareId);
       if (!flare) { p.homingFlareId = undefined; return false; } // burnt out — fly dumb
       if (Math.hypot(flare.pos.x - p.pos.x, flare.pos.z - p.pos.z) < 2) {
-        this.explode(flare.pos, WEAPONS.sam_missile, p.ownerId, p.team); // eats the decoy
+        this.explode(flare.pos, WEAPONS.sam_missile, p.ownerId, p.team, p.airScaled); // eats the decoy
         return true;
       }
       tx = flare.pos.x; tz = flare.pos.z;
@@ -3196,7 +3196,7 @@ export class World {
       const sam = p.weapon === 'sam_missile';
       if (sam && e.pos.y < 1.5) { p.homingSoldierId = undefined; return false; } // dove under the seeker head
       if (Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) < (sam ? 1.6 : 1.2)) {
-        this.explode({ ...e.pos }, sam ? WEAPONS.sam_missile : WEAPONS.flesh_glob, p.ownerId, p.team);
+        this.explode({ ...e.pos }, sam ? WEAPONS.sam_missile : WEAPONS.flesh_glob, p.ownerId, p.team, p.airScaled);
         return true;
       }
       const speed = Math.hypot(p.vel.x, p.vel.z) || 1;
@@ -4062,7 +4062,7 @@ export class World {
       // the CL-40's max-knockback round brings its own (hardcoding conc_nade
       // here would cap every concussion weapon at the hand grenade's shove)
       const def = WEAPONS[p.weapon]?.splash ? WEAPONS[p.weapon] : WEAPONS.conc_nade;
-      this.explode(p.pos, def, p.ownerId, p.team);
+      this.explode(p.pos, def, p.ownerId, p.team, p.airScaled);
       for (const s of this.soldiers.values()) {
         if (!s.alive || s.vehicleId >= 0 || s.team === p.team) continue;
         if (this.time < s.protectedUntil) continue;
@@ -4295,7 +4295,7 @@ export class World {
           // per its material (soft cover shreds, masonry/metal shrug small arms —
           // the heavyOnly gate lives in damageWall). Ground hits (no mat) just splat.
           if (this.detonatePayload(p)) { /* payload delivered */ }
-          else if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team);
+          else if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team, p.airScaled);
           else {
             // a TRAINING round marks the wall and stops there — paint has no
             // business breaching masonry (see WeaponDef.training)
@@ -4352,7 +4352,7 @@ export class World {
                 this.emit({ type: 'heal', pos: s.pos, soldierId: s.id });
               } else continue; // beam passes through clean, full-health allies
             } else if (def.splash > 0) {
-              this.explode(p.pos, def, p.ownerId, p.team);
+              this.explode(p.pos, def, p.ownerId, p.team, p.airScaled);
             } else {
               // read the plate BEFORE the round resolves — damageSoldier eats
               // the armor, so asking afterward always says "bare"
@@ -4436,7 +4436,15 @@ export class World {
         for (const v of this.vehicles.values()) {
           if (!v.alive) continue;
           const r = VEHICLES[v.kind].radius;
-          if (Math.hypot(v.pos.x - p.pos.x, v.pos.z - p.pos.z) < r + 0.3 && p.pos.y < 3) {
+          // THE SANCTUARY LAW (VERTICAL-WAR, B2 — Robert: "I want to be away
+          // from the projectiles… that's the root problem with flight").
+          // Altitude is finally REAL: surface and band-1 traffic stay fair
+          // game for everything (the old y<3 rule), but bands 2-3 can only be
+          // touched by AIR-SCALED ordnance — SAMs, MANPADS, and guns fired
+          // from aircraft. A ground rifle can no longer clip a high bomber.
+          const vBand = v.band ?? 0;
+          const inReach = vBand <= 1 ? p.pos.y < 3 : p.airScaled === true;
+          if (Math.hypot(v.pos.x - p.pos.x, v.pos.z - p.pos.z) < r + 0.3 && inReach) {
             if (def.heals && v.team === p.team) {
               if (v.hp < v.maxHp && p.weapon === 'repair') {
                 v.hp = Math.min(v.maxHp, v.hp + def.damage);
@@ -4446,7 +4454,7 @@ export class World {
               break;
             }
             if (v.team === p.team) break; // no friendly vehicle damage
-            if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team);
+            if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team, p.airScaled);
             else {
               this.damageVehicle(v, def.damage, p.ownerId, p.weapon);
               this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, soldierId: p.ownerId });
@@ -4462,7 +4470,7 @@ export class World {
         for (const t of this.turrets.values()) {
           if (!t.alive || t.team === p.team) continue;
           if (Math.hypot(t.pos.x - p.pos.x, t.pos.z - p.pos.z) < 1.2 && p.pos.y < 2.4) {
-            if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team);
+            if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team, p.airScaled);
             else this.damageTurret(t, def.damage);
             dead = true;
             break;
@@ -4502,7 +4510,7 @@ export class World {
 
       if (dead || this.time - p.bornAt > p.ttl) {
         if (!dead && this.detonatePayload(p)) { /* payload delivered at end of arc */ }
-        else if (!dead && def.splash > 0 && p.arc) this.explode(p.pos, def, p.ownerId, p.team); // grenades detonate on timeout
+        else if (!dead && def.splash > 0 && p.arc) this.explode(p.pos, def, p.ownerId, p.team, p.airScaled); // grenades detonate on timeout
         // CLUSTER: burst into k bouncing submunitions (~40% dmg) on death
         if (def.cluster && !p.submunition) {
           for (let k = 0; k < def.cluster; k++) {
@@ -4652,7 +4660,7 @@ export class World {
     return false;
   }
 
-  explode(pos: Vec3, def: (typeof WEAPONS)[WeaponId], ownerId: number, team: Team) {
+  explode(pos: Vec3, def: (typeof WEAPONS)[WeaponId], ownerId: number, team: Team, airBurst = false) {
     // THE TWO ZONES (Robert: "a circle in the center, and a radius around
     // that… the closer you are, the more"). The lethal HEART — a direct-hit
     // class blow — reaches `killR`; from there damage falls smoothly to
@@ -4705,6 +4713,9 @@ export class World {
     }
     for (const v of this.vehicles.values()) {
       if (!v.alive || v.team === team) continue;
+      // SANCTUARY LAW: GROUND blasts stop at band 1 — a frag in the street
+      // doesn't wound the high sky. An AIR-BURST (SAM/air ordnance) still does.
+      if ((v.band ?? 0) >= 2 && !airBurst) continue;
       const d = Math.hypot(v.pos.x - pos.x, v.pos.z - pos.z);
       if (d < def.splash + VEHICLES[v.kind].radius) {
         this.damageVehicle(v, (def.splashDamage + def.damage * 0.5) * (1 - d / (def.splash + 2)), ownerId, def.id);
