@@ -197,15 +197,20 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = { ...buildArsenal(), ...CORE
  *  punch, SUB's hush + range cut, TRC's loud target mark, INC/BNR corpse denial,
  *  EXP's soft-tissue maw. `role` is the one-word job; `label` is the full name,
  *  shared with the B-cycle toast so the two never drift. */
-export interface AmmoInfo { label: string; role: string; pen: number; noise: number; fire: number; corpse: number }
+export interface AmmoInfo { label: string; role: string; pen: number; noise: number; fire: number; corpse: number;
+  /** §11.3 SEPARATE MAGAZINES BY TYPE: how many SPECIAL rounds a soldier
+   *  carries for this type — its own reload pool, spent per reload. Absent
+   *  (ball) = the weapon's classic reserve. Scarcity is the doctrine:
+   *  BNR is "expensive, limited" (spec §11.1), INC/EXP run short. */
+  pool?: number }
 export const AMMO_INFO: Record<string, AmmoInfo> = {
   ball: { label: 'STANDARD BALL',    role: 'GENERAL', pen: 1, noise: 2, fire: 0, corpse: 0 },
-  ap:   { label: 'ARMOR-PIERCING',   role: 'ARMOR',   pen: 3, noise: 2, fire: 0, corpse: 0 },
-  inc:  { label: 'INCENDIARY',       role: 'BURN',    pen: 1, noise: 2, fire: 3, corpse: 3 },
-  trc:  { label: 'TRACER',           role: 'SPOT',    pen: 1, noise: 3, fire: 0, corpse: 0 },
-  sub:  { label: 'SUBSONIC',         role: 'QUIET',   pen: 0, noise: 0, fire: 0, corpse: 0 },
-  exp:  { label: 'EXPANDING',        role: 'FLESH',   pen: 0, noise: 2, fire: 0, corpse: 0 },
-  bnr:  { label: 'BIO-NEUTRALIZING', role: 'DENIAL',  pen: 1, noise: 2, fire: 0, corpse: 3 },
+  ap:   { label: 'ARMOR-PIERCING',   role: 'ARMOR',   pen: 3, noise: 2, fire: 0, corpse: 0, pool: 60 },
+  inc:  { label: 'INCENDIARY',       role: 'BURN',    pen: 1, noise: 2, fire: 3, corpse: 3, pool: 40 },
+  trc:  { label: 'TRACER',           role: 'SPOT',    pen: 1, noise: 3, fire: 0, corpse: 0, pool: 60 },
+  sub:  { label: 'SUBSONIC',         role: 'QUIET',   pen: 0, noise: 0, fire: 0, corpse: 0, pool: 60 },
+  exp:  { label: 'EXPANDING',        role: 'FLESH',   pen: 0, noise: 2, fire: 0, corpse: 0, pool: 40 },
+  bnr:  { label: 'BIO-NEUTRALIZING', role: 'DENIAL',  pen: 1, noise: 2, fire: 0, corpse: 3, pool: 20 },
 };
 
 export const CLASSES: Record<ClassId, ClassDef> = {

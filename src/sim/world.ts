@@ -2154,6 +2154,29 @@ export class World {
 
   // ---------- soldiers ----------
 
+  /** §11.3: the type this reload would LOAD — the selected special when the
+   *  weapon in hand takes ammo riders (ballistic), else none (= ball). */
+  private specialAmmoSelected(s: Soldier, def: (typeof WEAPONS)[WeaponId]) {
+    return (def.tracer === 'bullet' || def.tracer === 'shell') ? s.ammoType : undefined;
+  }
+
+  /** the special type's remaining pool — created lazily at its full size */
+  private ammoPoolOf(s: Soldier, at: NonNullable<Soldier['ammoType']>): number {
+    s.ammoPools ??= {};
+    return (s.ammoPools[at] ??= AMMO_INFO[at]?.pool ?? 0);
+  }
+
+  /** §11.3: rounds a reload could draw RIGHT NOW — the selected special's
+   *  pool, or (special dry / ball selected) the classic reserve. The two
+   *  reload-initiation gates and the dry-click datum all read this, so an
+   *  empty rifle with a full AP pool still reloads, and a truly-dry gun
+   *  (no pool, no reserve) clicks. */
+  reloadStock(s: Soldier, def: (typeof WEAPONS)[WeaponId]): number {
+    const special = this.specialAmmoSelected(s, def);
+    if (special && this.ammoPoolOf(s, special) > 0) return this.ammoPoolOf(s, special);
+    return s.reserve[s.weaponIdx];
+  }
+
   applyCmd(s: Soldier, cmd: PlayerCmd, dt: number) {
     s.yaw = cmd.aimYaw;
     s.crouching = !!cmd.crouch && !s.downed; // the duck is a HELD stance
@@ -2532,7 +2555,7 @@ export class World {
     // Real input taps (oneShot/rising-edge), which is the only reason this
     // never bricked a shipped weapon; held-state senders (net clients,
     // bot brains, probes) would have hit it.
-    if (cmd.reload && s.clip[s.weaponIdx] < def.clip && s.reserve[s.weaponIdx] > 0 && s.reloadUntil === 0) {
+    if (cmd.reload && s.clip[s.weaponIdx] < def.clip && this.reloadStock(s, def) > 0 && s.reloadUntil === 0) {
       s.reloadUntil = this.time + def.reloadTime;
       s.statReloads = (s.statReloads ?? 0) + 1; // §13: manual reload
       this.emit({ type: 'reload', pos: s.pos, soldierId: s.id });
@@ -2543,9 +2566,27 @@ export class World {
     }
     if (s.reloadUntil > 0 && this.time >= s.reloadUntil) {
       const need = def.clip - s.clip[s.weaponIdx];
-      const take = Math.min(need, s.reserve[s.weaponIdx]);
+      // §11.3 SEPARATE MAGAZINES BY TYPE: a SPECIAL round reloads from its
+      // own pool — ball rides the classic reserve. A pool that ran dry falls
+      // the selector back to ball, loudly, and THIS reload loads ball.
+      const special = this.specialAmmoSelected(s, def);
+      let take: number;
+      if (special) {
+        const pool = this.ammoPoolOf(s, special);
+        if (pool <= 0) {
+          if (s.kind === 'human') this.emit({ type: 'announce', text: `${AMMO_INFO[special].label} DRY — BALL`, big: false });
+          s.ammoType = undefined;
+          take = Math.min(need, s.reserve[s.weaponIdx]);
+          if (Number.isFinite(s.reserve[s.weaponIdx])) s.reserve[s.weaponIdx] -= take;
+        } else {
+          take = Math.min(need, pool);
+          s.ammoPools![special] = pool - take;
+        }
+      } else {
+        take = Math.min(need, s.reserve[s.weaponIdx]);
+        if (Number.isFinite(s.reserve[s.weaponIdx])) s.reserve[s.weaponIdx] -= take;
+      }
       s.clip[s.weaponIdx] += take;
-      if (Number.isFinite(s.reserve[s.weaponIdx])) s.reserve[s.weaponIdx] -= take;
       s.reloadUntil = 0;
     }
 
@@ -2886,7 +2927,7 @@ export class World {
         } else {
           this.fireSoldierWeapon(s, wid, def, cmd.aimDist);
         }
-      } else if (s.reserve[s.weaponIdx] > 0) {
+      } else if (this.reloadStock(s, def) > 0) {
         s.reloadUntil = this.time + def.reloadTime;
         s.statReloads = (s.statReloads ?? 0) + 1; // §13: auto-reload on empty
         this.emit({ type: 'reload', pos: s.pos, soldierId: s.id });
@@ -5340,6 +5381,12 @@ export class World {
             // a crate restocks the under-barrel too
             const priAlt = WEAPONS[s.weapons[0]]?.alt;
             if (priAlt && priAlt.ammo > 0) s.altAmmo = priAlt.ammo;
+            // §11.3: and the SPECIAL pools — a crate is a full resupply
+            if (s.ammoPools) {
+              for (const k of Object.keys(s.ammoPools) as (keyof NonNullable<typeof s.ammoPools>)[]) {
+                s.ammoPools[k] = AMMO_INFO[k]?.pool ?? s.ammoPools[k];
+              }
+            }
             used = true;
           }
           if (pk.type === 'orbital') { s.orbitals++; used = true; }

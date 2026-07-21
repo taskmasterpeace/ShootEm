@@ -352,11 +352,15 @@ export class Hud {
         } else this.segMeter!.show(false);
         const clipN = s.clip[s.weaponIdx];
         const clip = Number.isFinite(clipN) ? clipN : '∞';
-        const res = Number.isFinite(s.reserve[s.weaponIdx]) ? s.reserve[s.weaponIdx] : '∞';
         // AMMO TYPE (OUTBREAK-SPEC §11): tag the loaded round when it's not
         // plain ball — and only on the ballistic weapons AP/INC actually
         // change. B cycles it; the tag is where the eye already reads the mag.
         const ballistic = def.tracer === 'bullet' || def.tracer === 'shell';
+        // §11.3: the RESERVE number is what the next reload draws — the
+        // selected special's POOL, or the classic reserve on ball
+        const poolN = ballistic && s.ammoType ? (s.ammoPools?.[s.ammoType] ?? AMMO_INFO[s.ammoType]?.pool ?? 0) : undefined;
+        const resN = poolN ?? s.reserve[s.weaponIdx];
+        const res = Number.isFinite(resN) ? resN : '∞';
         const ammoTag = ballistic && s.ammoType ? ` · ${s.ammoType.toUpperCase()}` : '';
         ammoEl.textContent = `${clip} / ${res}${ammoTag}`;
         // the counter itself warns you before the click of an empty mag

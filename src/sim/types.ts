@@ -407,6 +407,11 @@ export interface Soldier {
    *  (perception TORCH_MULT) and the local darkness beam — but light gives
    *  you away: dormant sprinters wake on it at twice their sight radius. */
   torchOn?: boolean;
+  /** §11.3 SEPARATE MAGAZINES BY TYPE: per-type SPECIAL-round pools, spent
+   *  by reloads while that type is selected (ball rides the classic
+   *  reserve). Created lazily from AMMO_INFO pool sizes; ammo crates
+   *  refill them. An empty pool falls the selector back to ball, loudly. */
+  ammoPools?: Partial<Record<NonNullable<Soldier['ammoType']>, number>>;
   /** this soldier IS a Living Super Weapon (§21.6). Rides the wire free via
    *  the snapshot spread law — the renderer and brain read it, the sim
    *  treats it as a Soldier with a big HP pool and a special step. */
