@@ -18,8 +18,15 @@ const hulls: OperationHull[] = [
   { id: 'ares-01', kind: 'tank', name: 'Ares One', status: 'available' },
   { id: 'falcon-01', kind: 'interceptor', name: 'Falcon One', status: 'available' },
   { id: 'pike-01', kind: 'boat', name: 'Pike One', status: 'available' },
+  { id: 'pike-02', kind: 'boat', name: 'Pike Two', status: 'available' },
+  { id: 'pike-03', kind: 'boat', name: 'Pike Three', status: 'available' },
 ];
-const manifest: OperationManifest = { hullIds: hulls.map((hull) => hull.id), ammunition: 2, support: 'none' };
+const WET_SITES = new Set<OperationSiteId>(['river_crossing', 'coastal_battery', 'port', 'carrier_anchorage']);
+const manifestFor = (site: OperationSiteId): OperationManifest => ({
+  hullIds: hulls.filter((hull) => hull.kind !== 'boat' || WET_SITES.has(site)).map((hull) => hull.id),
+  ammunition: 2,
+  support: 'none',
+});
 
 function planFor(site: OperationSiteId, scale: OperationScale, seed: number): OperationPlan {
   const pass = scale === 'skirmish' ? 1 : scale === 'standard' ? 2 : 3;
@@ -49,6 +56,7 @@ describe('Operation mission grounds', () => {
 
   it.each(matrix)('$site $scale seed $seed is lawful, deterministic mission ground', ({ site, scale, seed }) => {
     const plan = planFor(site, scale, seed);
+    const manifest = manifestFor(site);
     const map = generateOperationMap(plan, manifest, hulls);
     const again = generateOperationMap(plan, manifest, hulls);
     const report = validateDoc(asDoc(map));
@@ -61,22 +69,32 @@ describe('Operation mission grounds', () => {
   });
 
   it('puts every committed hull on a safe team-zero pad', () => {
-    const map = generateOperationMap(planFor('port', 'large', 7749), manifest, hulls);
+    const map = generateOperationMap(planFor('port', 'large', 7749), manifestFor('port'), hulls);
     const kinds = map.vehiclePads.filter((pad) => pad.team === 0).map((pad) => pad.kind);
     for (const hull of hulls) expect(kinds).toContain(hull.kind);
-    const pike = map.vehiclePads.find((pad) => pad.operationHullId === 'pike-01');
-    expect(pike).toBeTruthy();
-    expect(tileAt(map.grid, pike!.pos.x, pike!.pos.z)).toBe(T_WATER);
+    const pikes = map.vehiclePads.filter((pad) => pad.operationHullId?.startsWith('pike-'));
+    expect(pikes).toHaveLength(3);
+    expect(new Set(pikes.map((pad) => `${pad.pos.x}:${pad.pos.z}`)).size).toBe(3);
+    for (const pike of pikes) expect(tileAt(map.grid, pike.pos.x, pike.pos.z)).toBe(T_WATER);
+  });
+
+  it('keeps every skirmish Pike on a distinct water spawn', () => {
+    const map = generateOperationMap(planFor('port', 'skirmish', 7749), manifestFor('port'), hulls);
+    const pikes = map.vehiclePads.filter((pad) => pad.operationHullId?.startsWith('pike-'));
+    expect(pikes).toHaveLength(3);
+    expect(new Set(pikes.map((pad) => `${pad.pos.x}:${pad.pos.z}`)).size).toBe(3);
+    for (const pike of pikes) expect(tileAt(map.grid, pike.pos.x, pike.pos.z)).toBe(T_WATER);
   });
 
   it('keeps objective metadata through Map Maker serialization', () => {
-    const map = generateOperationMap(planFor('airfield', 'standard', 5150), manifest, hulls);
+    const map = generateOperationMap(planFor('airfield', 'standard', 5150), manifestFor('airfield'), hulls);
     const restored = deserializeDoc(serializeDoc(asDoc(map))).map;
     expect(restored.operation).toEqual(map.operation);
   });
 
   it('does not mutate an earlier generated map while dressing another', () => {
     const plan = planFor('mountain_pass', 'large', 99);
+    const manifest = manifestFor('mountain_pass');
     const first = generateOperationMap(plan, manifest, hulls);
     const snapshot = JSON.stringify(first.operation);
     generateOperationMap({ ...plan, id: `${plan.id}:other`, site: 'airfield' }, manifest, hulls);

@@ -483,7 +483,14 @@ export function validateDoc(doc: MakerDoc): LawReport {
     check(m.hillPos, 'the hill');
     m.flagPos.forEach((f, i) => check(f, `flag ${i}`));
     m.controlPoints.forEach((c) => check(c.pos, `CP ${c.name}`));
-    m.vehiclePads.forEach((v) => check(v.pos, `${v.kind} pad`));
+    m.vehiclePads.forEach((v) => {
+      if (v.kind === 'boat') {
+        const [tx, tz] = worldToTile(v.pos.x, v.pos.z);
+        const tile = m.grid[tz * GRID + tx];
+        if (tile === T_WATER || tile === T_DEEP) return;
+      }
+      check(v.pos, `${v.kind} pad`);
+    });
     m.pickups.forEach((p) => check(p.pos, `${p.type} drop`));
     m.houses.forEach((h, i) => check(h.door, `house ${i} door`));
     m.zombieSpawns.forEach((z2, i) => check(z2, `mouth ${i}`));

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applyResult, consumeOperationBattleBonuses, freshCampaign, operationBattleBonuses } from '../src/client/campaign';
 import { generateOperation, type OperationHull, type OperationManifest } from '../src/sim/operations';
 import { World } from '../src/sim/world';
+import { T_DEEP, T_WATER, tileAt } from '../src/sim/map';
 
 function rewardedCampaign() {
   const campaign = freshCampaign(1000);
@@ -120,5 +121,31 @@ describe('Operation rewards enter the next battle', () => {
     campaign.fronts.eastern_plains.clones = 100;
     applyResult(campaign, 'eastern_plains', true, 2000, 0);
     expect(campaign.fronts.eastern_plains.clones).toBe(200); // standard 60 + clone-hub 40
+  });
+
+  it('only deploys naval support onto navigable water', () => {
+    const campaign = freshCampaign(1000);
+    campaign.facilities.push('capture_port');
+    const base = generateOperation({ seed: 901, pass: 2, frontId: 'highland_pass', signatureId: 'hammer' });
+    const hulls: OperationHull[] = [
+      { id: 'ares-01', kind: 'tank', name: 'Ares One', status: 'available' },
+      { id: 'falcon-01', kind: 'interceptor', name: 'Falcon One', status: 'available' },
+    ];
+    const manifest: OperationManifest = { hullIds: hulls.map((hull) => hull.id), ammunition: 2, support: 'none' };
+    const makeWorld = (site: 'mountain_pass' | 'river_crossing') => new World({
+      seed: base.seed,
+      mode: 'conquest',
+      botsPerTeam: 0,
+      operation: { ...base, site },
+      operationManifest: manifest,
+      operationInventory: hulls,
+      operationBonuses: operationBattleBonuses(campaign, base.frontId),
+    });
+
+    expect([...makeWorld('mountain_pass').vehicles.values()].some((vehicle) => vehicle.team === 0 && vehicle.kind === 'boat')).toBe(false);
+    const wet = makeWorld('river_crossing');
+    const boat = [...wet.vehicles.values()].find((vehicle) => vehicle.team === 0 && vehicle.kind === 'boat');
+    expect(boat).toBeTruthy();
+    expect([T_WATER, T_DEEP]).toContain(tileAt(wet.map.grid, boat!.pos.x, boat!.pos.z));
   });
 });

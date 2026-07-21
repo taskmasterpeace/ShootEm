@@ -131,4 +131,18 @@ describe('Operation manifest', () => {
     expect(commitmentFor(beachhead, balanced, inventory)).toBe('balanced');
     expect(commitmentFor(beachhead, heavy, inventory)).toBe('heavy');
   });
+
+  it('rejects boat hulls at sites with no navigable deployment lane', () => {
+    const mountain = {
+      ...generateOperation({ seed: 31, pass: 2, frontId: 'highland_pass', frontName: 'Highland Pass', signatureId: 'hammer' }),
+      site: 'mountain_pass' as const,
+    };
+    const result = validateManifest(mountain, {
+      hullIds: ['tank-ares-01', 'falcon-01', 'pike-01'],
+      ammunition: 2,
+      support: 'none',
+    }, inventory);
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain('Pike One cannot deploy at the mountain pass.');
+  });
 });

@@ -13,6 +13,7 @@ import {
 import { stepMode, initMode } from './modes';
 import { generateFront } from './fronts';
 import { generateOperationMap } from './operation-map';
+import { operationWaterSpawns } from './operation-pads';
 import { createOperationRuntime, stepWorldOperation, type OperationRuntimeState } from './operation-runtime';
 import { AIR_KINDS, type OperationBattleBonuses, type OperationHull, type OperationManifest, type OperationPlan } from './operations';
 import { LSW_BRAINS } from './lsw/index';
@@ -543,7 +544,10 @@ export class World {
     if (bonuses.cas) addPad('strikejet', 0, -3);
     if (bonuses.escortWing) addPad('interceptor', 3, 0);
     if (bonuses.coastalCover) addPad('emplacement', -3, 0);
-    if (bonuses.navalSupport) addPad('boat', -3, -3);
+    if (bonuses.navalSupport && !this.map.vehiclePads.some((pad) => pad.team === 0 && pad.kind === 'boat')) {
+      const wet = operationWaterSpawns(this.map)[0];
+      if (wet) this.map.vehiclePads.push({ kind: 'boat', team: 0, pos: { ...wet } });
+    }
     if (bonuses.rearmPad) this.map.pickups.push({ type: 'ammo', pos: { ...home } });
     if (bonuses.repairPad) this.operationRepairPadPos = { ...home };
     if (bonuses.forwardSpawn && this.map.controlPoints[0]) {

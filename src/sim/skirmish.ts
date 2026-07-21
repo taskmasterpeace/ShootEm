@@ -23,6 +23,7 @@ import { boxFor } from './fronts';
 import { Rng } from './rng';
 import type { Team, ThemeId, Vec3, VehicleKind } from './types';
 import type { OperationSiteId } from './operations';
+import { dressOperationPads } from './operation-pads';
 
 // ---------------------------------------------------------------------------
 // the kit — the fronts' primitives, distilled for one purpose
@@ -341,15 +342,6 @@ export function generateSkirmishMap(theme: ThemeId, seed: number, profile?: Skir
     name: name.toUpperCase(),
     pos: { ...objectivePositions[i % objectivePositions.length] },
   }));
-  const safePads = map.vehiclePads.filter((pad) => pad.team === 0);
-  map.vehiclePads = [
-    ...profile.vehicles.map((vehicle, i) => ({
-      kind: vehicle.kind,
-      team: 0 as const,
-      pos: { ...safePads[i % safePads.length].pos },
-      operationHullId: vehicle.id,
-    })),
-    ...map.vehiclePads.filter((pad) => pad.team === 1),
-  ];
+  dressOperationPads(map, profile.vehicles);
   return map;
 }

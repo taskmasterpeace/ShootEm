@@ -279,6 +279,7 @@ export const LAND_KINDS: ReadonlySet<VehicleKind> = new Set(['buggy', 'tank', 'a
 export const AIR_KINDS: ReadonlySet<VehicleKind> = new Set(['flyer', 'strikejet', 'interceptor', 'bomber']);
 export const SEA_KINDS: ReadonlySet<VehicleKind> = new Set(['boat']);
 const DOMAIN_KINDS: Record<OperationDomain, ReadonlySet<VehicleKind>> = { land: LAND_KINDS, air: AIR_KINDS, sea: SEA_KINDS };
+const NAVIGABLE_SITES: ReadonlySet<OperationSiteId> = new Set(['river_crossing', 'coastal_battery', 'port', 'carrier_anchorage']);
 
 export function manifestCost(manifest: OperationManifest, inventory: readonly OperationHull[]): number {
   const byId = new Map(inventory.map((hull) => [hull.id, hull]));
@@ -321,6 +322,10 @@ export function validateManifest(plan: OperationPlan, manifest: OperationManifes
     }
     if (hull.status !== 'available') {
       errors.push(`${hull.name} is not available.`);
+      continue;
+    }
+    if (SEA_KINDS.has(hull.kind) && !NAVIGABLE_SITES.has(plan.site)) {
+      errors.push(`${hull.name} cannot deploy at the ${siteById(plan.site).name}.`);
       continue;
     }
     selected.push(hull);

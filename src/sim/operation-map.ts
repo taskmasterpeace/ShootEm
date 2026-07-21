@@ -1,6 +1,7 @@
 import { generateFront, type MapSize } from './fronts';
 import type { GameMap } from './map';
 import { generateSkirmishMap } from './skirmish';
+import { dressOperationPads } from './operation-pads';
 import type { ThemeId, VehicleKind } from './types';
 import type {
   OperationHull,
@@ -97,29 +98,6 @@ function objectiveMetadata(plan: OperationPlan, map: GameMap): NonNullable<GameM
   };
 }
 
-function dressPads(map: GameMap, hulls: Array<{ id: string; kind: VehicleKind }>) {
-  if (hulls.length === 0) return;
-  const safe = map.vehiclePads.filter((pad) => pad.team === 0);
-  if (safe.length === 0) return;
-  const unused = new Set(safe.map((_, index) => index));
-  const takePad = (kind: VehicleKind) => {
-    const exact = [...unused].find((index) => safe[index].kind === kind);
-    const index = exact ?? unused.values().next().value as number | undefined;
-    if (index === undefined) return safe[0];
-    unused.delete(index);
-    return safe[index];
-  };
-  map.vehiclePads = [
-    ...hulls.map((hull) => ({
-      kind: hull.kind,
-      team: 0 as const,
-      pos: { ...takePad(hull.kind).pos },
-      operationHullId: hull.id,
-    })),
-    ...map.vehiclePads.filter((pad) => pad.team === 1),
-  ];
-}
-
 function dressComplication(map: GameMap, plan: OperationPlan) {
   if (plan.complication !== 'scorched_earth' || !map.operation) return;
   const prizeAt = map.operation.objectives.at(-1)?.pos ?? map.hillPos;
@@ -157,7 +135,7 @@ export function generateOperationMap(
     name: phase.label.toUpperCase(),
     pos: { ...(generated.controlPoints[index % generated.controlPoints.length]?.pos ?? generated.hillPos) },
   }));
-  dressPads(map, hulls);
+  dressOperationPads(map, hulls);
   map.operation = objectiveMetadata(plan, map);
   for (const objective of map.operation.objectives) {
     if (objective.kind === 'destroy') map.vehiclePads.push({ kind: 'emplacement', team: 1, pos: { ...objective.pos }, operationObjectiveId: objective.id });
