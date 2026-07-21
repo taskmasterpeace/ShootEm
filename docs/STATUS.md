@@ -32,7 +32,7 @@ The plan that resolves 100% of this ledger. Eight campaigns, dependency-ordered;
 If you read one thing, read this. Everything below has a full row further down.
 
 **Combat feel:** the aim ring · accuracy-by-movement · ballistic falloff · tap-jump/hold-duck · tank hull wobble.
-**The death show:** death-cam director (varies by death) · gore/gibs · corpses lingering 20–30s · a kill-cam reward.
+**The death show:** death-cam director (varies by death) · gore/gibs · a kill-cam reward. *(Corpses lingering 20–30s — DONE 2026-07-21, both outbreak + non-outbreak.)*
 **Sight (you just approved the fix):** 3D-shows-you / minimap-shows-team · darkness outside your cone. *(Fixed 2026-07-21: the three fog BUGS — fishbowl #43, corpses #44, vehicles #45 — plus upstairs-vs-upstairs house LOS and **contacts now hold-then-fade instead of blinking** on both the 3D view and the minimap.)*
 **Melee:** STRIKE / GUARD / GRAPPLE + Impact Charge + the Control Struggle (terminology now LAW per the outbreak spec; the swing engine exists, wired only to zombie claws).
 **The outbreak (new spec, §17):** infection/viral load ✅ · corpse lifecycle & reanimation ✅ · outbreak pressure/levels ✅ · emergent variants ✅ · ammo TYPES (Ball/AP/Incendiary) ✅ — all SHIPPED 2026-07-20, live in horde/survival/safehouse. Still design: zombies as a third faction mid-war · flashlight interiors · Bite Struggle · mixed magazines.
@@ -70,7 +70,7 @@ If you read one thing, read this. Everything below has a full row further down.
 | Death-cam **director** — different shot per death (bullet path / autopsy / wide / spawn-cut) | 🔨 | one fixed presentation shipped (hit-stop + duel framing, c95c707); no branching. BACKLOG W2.1 |
 | Deaths differ by weapon in the **animation** (fire collapse, laser drop-straight, melee spin) | 🔨 | knockback already varies; the collapse pose doesn't. BACKLOG W2.2 |
 | Gore / gibs on overkill + explosives | ❌ | no gib code anywhere. BACKLOG W2.3 |
-| Corpses linger 20–30s (a fought-on battlefield) | 🔨 | **OUTBREAK corpses now render + linger** their full incubation (2026-07-21): a booked body draws as a prone form that lies still, then THRASHES in its final seconds before it rises — the horde grows from a body you can SEE, not a blank spawn (§1/§6). `renderer.ts` `corpseMeshes`, `docs/reference/outbreak/`. Regular-mode (non-outbreak) death linger past `RESPAWN_DELAY` (~4s) is the remaining half. BACKLOG W2.4 |
+| Corpses linger 20–30s (a fought-on battlefield) | ✅ | **DONE 2026-07-21, both mode families.** OUTBREAK: the reanimating `world.corpses` render + linger their incubation, thrashing before they rise (§1/§6). NON-OUTBREAK (tdm/ctf): a fallen body is booked on the alive→dead edge and lingers `BATTLEFIELD_CORPSE_LINGER` (24s) decoupled from the 4s respawn, then sinks away (`renderer.ts` `battlefieldCorpses`, live-verified in CTF). Client-side, no sim change. (Minor gap: non-viral deaths inside an active outbreak still clear at ~4s.) BACKLOG W2.4 |
 | A **kill** cam — reward a great kill, not just the death | ❌ | replay is victim-only. BACKLOG W2.5 |
 | Blood past armor, sparks off plate | ✅ | `bare` flag on hit events, `renderer.ts:3536` |
 

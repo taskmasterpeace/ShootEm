@@ -129,6 +129,11 @@ const POSE_TO_SCHOOL: Record<NonNullable<LswDef['attackPose']>, CastSchool> = {
 // them cost almost nothing.
 const CORPSE_REVEAL_DELAY = 3.7; // stay hidden until the dead-soldier mesh clears (RESPAWN_DELAY 4s)
 const CORPSE_CRIT = 2;           // the final thrash window, matching sim CORPSE_CRITICAL_WINDOW
+/** STATUS §2 / death show (Robert: "corpses should linger 20-30s — a fought-on
+ *  battlefield"). In NON-outbreak modes a fallen soldier's body stays where it
+ *  fell for this long, decoupled from the 4s respawn, then sinks away. (Outbreak
+ *  modes already render the reanimating `world.corpses`.) */
+const BATTLEFIELD_CORPSE_LINGER = 24;
 let _corpseGeo: { torso: THREE.BoxGeometry; head: THREE.SphereGeometry; limb: THREE.BoxGeometry } | null = null;
 let _corpseMat: THREE.MeshLambertMaterial | null = null;
 function buildCorpseMesh(): THREE.Group {
@@ -197,6 +202,11 @@ export class Renderer {
   /** OUTBREAK §6: prone meshes for the incubating corpses, keyed by the corpse
    *  object itself (they carry no id). bornAt gates the reveal handoff. */
   private corpseMeshes = new Map<World['corpses'][number], { mesh: THREE.Group; bornAt: number }>();
+  /** STATUS §2: lingering battlefield bodies in non-outbreak modes — booked on
+   *  the alive→dead edge, they outlast the respawn and sink away at LINGER. */
+  private battlefieldCorpses: { bornAt: number; mesh: THREE.Group }[] = [];
+  private prevAlive = new Map<number, boolean>();
+  private lastCorpseWorld: World | null = null;
   private spinners: THREE.Object3D[] = [];
   private beams: { mesh: THREE.Mesh; until: number }[] = [];
   private flagMeshes: THREE.Group[] = [];
@@ -1828,6 +1838,42 @@ export class Renderer {
     }
     for (const [c, entry] of this.corpseMeshes) {
       if (!liveCorpses.has(c)) { this.scene.remove(entry.mesh); this.corpseMeshes.delete(c); }
+    }
+
+    // STATUS §2 — the FOUGHT-ON BATTLEFIELD (Robert: "corpses should linger
+    // 20-30s"). In non-outbreak modes a fallen body stays where it dropped,
+    // decoupled from the 4s respawn, then SINKS away — booked on the alive→dead
+    // edge. Outbreak modes leave lingering to the reanimating world.corpses.
+    if (this.lastCorpseWorld !== world) {
+      for (const bc of this.battlefieldCorpses) this.scene.remove(bc.mesh);
+      this.battlefieldCorpses.length = 0;
+      this.prevAlive.clear();
+      this.lastCorpseWorld = world;
+    }
+    if (!world.puppet && !world.outbreakEnabled && !world.mode.over) {
+      for (const s of world.soldiers.values()) {
+        const was = this.prevAlive.get(s.id);
+        if (was === true && !s.alive && (s.kind === 'human' || s.kind === 'bot')) {
+          if (this.battlefieldCorpses.length >= 60) {
+            const old = this.battlefieldCorpses.shift(); if (old) this.scene.remove(old.mesh);
+          }
+          const cm = buildCorpseMesh();
+          cm.position.set(s.pos.x, 0, s.pos.z);
+          cm.visible = false;
+          this.scene.add(cm);
+          this.battlefieldCorpses.push({ bornAt: world.time, mesh: cm });
+        }
+        this.prevAlive.set(s.id, s.alive);
+      }
+    }
+    for (let i = this.battlefieldCorpses.length - 1; i >= 0; i--) {
+      const bc = this.battlefieldCorpses[i];
+      const age = world.time - bc.bornAt;
+      if (age >= BATTLEFIELD_CORPSE_LINGER) { this.scene.remove(bc.mesh); this.battlefieldCorpses.splice(i, 1); continue; }
+      // hidden until the dead-soldier mesh clears; in its final second it SINKS
+      // into the ground instead of popping out of existence
+      bc.mesh.visible = age >= CORPSE_REVEAL_DELAY;
+      bc.mesh.position.y = -Math.max(0, age - (BATTLEFIELD_CORPSE_LINGER - 1)) * 0.5;
     }
 
     // vehicles
