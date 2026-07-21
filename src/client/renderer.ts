@@ -3616,6 +3616,53 @@ export class Renderer {
       if (j.torso) j.torso.rotation.z = -kick * 0.05 * rs.kick;
     }
 
+    // ---- C-1 RIG PASS (Robert: "we need to change that model, bro, so we
+    // can get these movements"). The verbs stop being camera tricks and
+    // become POSTURES. Composed LAST so the run carry / weapon holds /
+    // throw arcs can't fight them — these blocks own the frame's final say.
+    // THE SLIDE SKID: the body drops INTO the deck and pitches back, legs
+    // thrust forward along the travel, shins near-straight, off arm trails
+    // for balance, the gun arm braces high. (+z swings a hanging limb
+    // forward — rig law, tests/rig.test.ts.)
+    if (!zed && s.slideUntil !== undefined && t < s.slideUntil && !(s.ragdollUntil !== undefined && t < s.ragdollUntil)) {
+      const k = Math.max(0, Math.min(1, (s.slideUntil - t) / 0.55)); // 1 at launch → 0 at rest
+      mesh.position.y = s.pos.y - 0.34 * k;
+      if (j.legL) j.legL.rotation.z = 1.15 * k;
+      if (j.legR) j.legR.rotation.z = 0.95 * k;
+      if (j.shinL) j.shinL.rotation.z = -0.15 * k;
+      if (j.shinR) j.shinR.rotation.z = -0.2 * k;
+      if (j.armL) j.armL.rotation.z = -0.85 * k;   // off arm plants back
+      if (j.armR) j.armR.rotation.z += 0.5 * k;    // gun arm rides the brace
+      if (j.head) j.head.rotation.z = 0.3 * k;     // eyes stay downrange
+      // heel dust while the skid is hot
+      if (k > 0.25 && s.pos.y < 0.3 && Math.random() < 0.5) {
+        this.particles.emit({ pos: { x: s.pos.x, y: 0.1, z: s.pos.z }, count: 2, color: 0x8a7a5c, speed: 2.5, life: 0.3, spread: 0.5, up: 1.4, gravity: 6 });
+      }
+    }
+    // THE DASH LUNGE: arms DRIVE the burst, chin tucks — a sprint-start,
+    // not a glide. Additive over the carry so the silhouette keeps its gun.
+    if (!zed && s.dashUntil !== undefined && t < s.dashUntil) {
+      const k = Math.max(0, Math.min(1, (s.dashUntil - t) / 0.28));
+      if (j.armL) j.armL.rotation.z += 0.55 * k;
+      if (j.armR) j.armR.rotation.z += 0.4 * k;
+      if (j.head) j.head.rotation.z = -0.15 * k;
+    }
+    // THE MANTLE VAULT: a grounded hop crossing LOW COVER plants the lead
+    // hand and tucks the trail leg — the vault the movement system already
+    // performs (blocksAir passes T_COVER above 0.9u) finally shows on the
+    // body. Gated to the hop arc so a plain jump in the open stays a jump.
+    if (!zed && !s.ascendant && s.pos.y > 0.35 && s.pos.y < 1.4 && s.vehicleId < 0) {
+      const overCover = tileAt(world.map.grid, s.pos.x, s.pos.z) === T_COVER;
+      if (overCover) {
+        if (j.armL) { j.armL.rotation.z = 1.25; }        // lead hand plants down-forward
+        if (j.legL) j.legL.rotation.z = 0.9;             // lead leg clears
+        if (j.legR) j.legR.rotation.z = -0.35;           // trail leg tucks under
+        if (j.shinL) j.shinL.rotation.z = -1.0;
+        if (j.shinR) j.shinR.rotation.z = -0.75;
+        mesh.rotation.z += -0.22;                        // shoulders dip over the plant
+      }
+    }
+
     // ---- POWER-CAST POSES (feel pass #6): the god throws its signature.
     // 0.6s additive by school — SLAM overhead-and-down, THRUST punched
     // forward, CHANNEL one arm held out and sustained.
