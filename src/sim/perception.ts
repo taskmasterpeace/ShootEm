@@ -12,7 +12,7 @@
 // governing what it already governs. Flanking, ambush, and checking corners
 // all come back the moment sight has a shape.
 // ---------------------------------------------------------------------------
-import { T_GRASS, losClear, losClearUpper, losCrossFloor, tileAt } from './map';
+import { T_GRASS, losClearUpper, losClearXZ, losCrossFloor, tileAt } from './map';
 import type { Soldier, Team } from './types';
 
 /** How far friendly eyes reach (mirrors the minimap; §8.8 weather taxes it). */
@@ -95,10 +95,13 @@ export function smokeBlocks(ax: number, az: number, bx: number, bz: number, smok
  *  ground grid at 1.4, so it is advisory today, but it keeps the call sites
  *  honest about height (a hull tests at ~1.8). Shared by cullSnapshotFor (the
  *  multiplayer path) and the renderer's local-play cull so they never diverge. */
-export function eyesSeePoint(grid: Uint8Array, eyes: Soldier[], x: number, z: number, range: number, y = 1.4): boolean {
+export function eyesSeePoint(grid: Uint8Array, eyes: Soldier[], x: number, z: number, range: number, _y = 1.4): boolean {
+  // `_y` is the caller's target height (a hull tests ~1.8) — kept advisory: the
+  // march is at ground eye height 1.4 exactly as losClear always did, so this
+  // stays byte-identical. opt #9: losClearXZ takes coords, no per-call literals.
   return eyes.some((e) =>
     Math.hypot(x - e.pos.x, z - e.pos.z) < range &&
-    losClear(grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x, y, z }));
+    losClearXZ(grid, e.pos.x, e.pos.z, x, z));
 }
 
 /** Can this set of friendly eyes perceive enemy soldier `s` RIGHT NOW?
@@ -145,11 +148,11 @@ export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<numb
     const ef = e.floor ?? 0;
     const sf = s.floor ?? 0;
     if (ef === sf) {
-      if (ef === 0) return losClear(grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x: s.pos.x, y: 1.4, z: s.pos.z });
+      if (ef === 0) return losClearXZ(grid, e.pos.x, e.pos.z, s.pos.x, s.pos.z);
       const layer = upperFor(ef);
       return layer !== undefined
         ? losClearUpper(layer, { x: e.pos.x, y: 5.4, z: e.pos.z }, { x: s.pos.x, y: 5.4, z: s.pos.z })
-        : losClear(grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x: s.pos.x, y: 1.4, z: s.pos.z });
+        : losClearXZ(grid, e.pos.x, e.pos.z, s.pos.x, s.pos.z);
     }
     if (ef === 0 || sf === 0) {
       const upstairs = ef > 0 ? e : s;
@@ -159,7 +162,7 @@ export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<numb
         ? losCrossFloor(grid, layer,
           { x: upstairs.pos.x, y: 5.4, z: upstairs.pos.z },
           { x: downstairs.pos.x, y: 1.4, z: downstairs.pos.z })
-        : losClear(grid, { x: e.pos.x, y: 1.4, z: e.pos.z }, { x: s.pos.x, y: 1.4, z: s.pos.z });
+        : losClearXZ(grid, e.pos.x, e.pos.z, s.pos.x, s.pos.z);
     }
     const eyeLayer = upperFor(ef);
     const targetLayer = upperFor(sf);

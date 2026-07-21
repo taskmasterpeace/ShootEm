@@ -77,6 +77,7 @@ class Room {
         if (v && s.seat >= 0) v.seats[s.seat] = -1;
       }
       this.world.soldiers.delete(s.id);
+      this.world.invalidateRoster(); // opt #8: a disconnect drops a human/bot
       return true;
     }
     return false;
@@ -170,6 +171,7 @@ class Room {
     const s = this.world.soldiers.get(client.soldierId);
     const team = s?.team ?? 0;
     this.world.soldiers.delete(client.soldierId);
+    this.world.invalidateRoster(); // opt #8: the leaving client was a human
     if (!this.world.mode.over) this.addBot(team); // 32B: a bot takes the empty seat
     console.log(`[room:${this.mode}] #${client.soldierId} left (${this.clients.size} online)`);
   }

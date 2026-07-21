@@ -368,6 +368,26 @@ export class World {
   /** opt #38 (S2): the per-tick spatial index — rebuilt at the top of step();
    *  queries return id-sorted supersets, call sites keep their own filters */
   soldierIndex = new SoldierIndex();
+  /** opt #11 (S8): the encased-body list, recomputed once at the top of step().
+   *  `groundBlocked` used to walk the WHOLE roster hunting ice per grounded
+   *  soldier ×2/tick — O(S²) for a state that's almost always empty; now it
+   *  reads this short list. Recompute (not a counter) is drift-proof under
+   *  network deletes; an ice block's position is fixed for its life. */
+  private encasedBodies: Soldier[] = [];
+  /** opt #8 (S7): cached humansAndBots() roster. The filtered set (human|bot,
+   *  non-dummy) is stable within a match — humans/bots enter ONLY via addSoldier
+   *  (deaths keep them in the Map for respawn; the internal deletes are all
+   *  dogs/zombies/iron, filtered out here), so zombie top-up never dirties it.
+   *  addSoldier clears it; external removals (server disconnect / puppet prune)
+   *  call invalidateRoster(). Callers must not mutate the returned array. */
+  private rosterCache: Soldier[] | null = null;
+  /** opt #27 (S9): live count of possessed turrets+bots+vehicles. The three
+   *  per-tick expiry scans — one of which walks the FULL soldier roster hunting
+   *  ridden bots — skip entirely when nothing is possessed (the near-always
+   *  case). Maintained by the possess/evict methods; can only ever drift HIGH (an entity
+   *  deleted mid-possession), which merely runs the scan needlessly — never a
+   *  missed eviction — so count===0 skipping is byte-identical. */
+  private possessionCount = 0;
   /** THE OUTBREAK (OUTBREAK-SPEC): master switch — the machinery is inert
    *  until conditions (or a mode/scenario) turn it on. Condition-driven
    *  activation (Outbreak Pressure) is the next slice; nothing in the game
@@ -670,6 +690,7 @@ export class World {
     }
     this.soldiers.set(s.id, s);
     this.soldierIndex.add(s); // queryable the tick it spawns (opt #38)
+    this.rosterCache = null;  // opt #8: the ONLY human/bot add site — drop the cache
     this.spawn(s);
     return s;
   }
@@ -1529,6 +1550,10 @@ export class World {
     // this tick (zombie targeting, findTarget, projectiles, melee, separation)
     // queries it instead of walking the whole roster
     this.soldierIndex.rebuild(this.soldiers);
+    // opt #11 (S8): snapshot the (near-always-empty) encased set once, so the
+    // per-soldier movement scan reads a short list instead of the full roster.
+    this.encasedBodies.length = 0;
+    for (const o of this.soldiers.values()) if (o.encasedUntil !== undefined && o.alive) this.encasedBodies.push(o);
     if (!this.mode.over) stepMode(this, dt);
     stepBlackbox(this); // the crowd flight recorder samples on its own 2s clock
     this.stepHomeDoors(); // base doors open for their own; shut behind them
@@ -1545,15 +1570,19 @@ export class World {
     if (this.blackHoles.length) this.stepBlackHoles(); // Oblivion's void (burst timing)
     // expired time bubbles pop quietly
     if (this.timeFields.length) this.timeFields = this.timeFields.filter((f) => this.time < f.until);
-    // possessed machines come home when the hold expires (§4.4 #4)
-    for (const t of this.turrets.values()) {
-      if (t.possessedUntil !== undefined && this.time >= t.possessedUntil) this.evictPossession(t);
-    }
-    for (const b of this.soldiers.values()) {
-      if (b.possessedUntil !== undefined && (this.time >= b.possessedUntil || !b.alive)) this.evictBotPossession(b);
-    }
-    for (const v of this.vehicles.values()) {
-      if (v.possessedUntil !== undefined && (this.time >= v.possessedUntil || !v.alive)) this.evictVehiclePossession(v);
+    // possessed machines come home when the hold expires (§4.4 #4). opt #27
+    // (S9): skip all three expiry scans — one of which walks the FULL roster —
+    // whenever nothing is possessed (the near-always case; a horde never is).
+    if (this.possessionCount > 0) {
+      for (const t of this.turrets.values()) {
+        if (t.possessedUntil !== undefined && this.time >= t.possessedUntil) this.evictPossession(t);
+      }
+      for (const b of this.soldiers.values()) {
+        if (b.possessedUntil !== undefined && (this.time >= b.possessedUntil || !b.alive)) this.evictBotPossession(b);
+      }
+      for (const v of this.vehicles.values()) {
+        if (v.possessedUntil !== undefined && (this.time >= v.possessedUntil || !v.alive)) this.evictVehiclePossession(v);
+      }
     }
     // the overload fuses: at the 2s mark the hull DETONATES — unless the
     // crew bailed, in which case the charge fizzles and the armor survives
@@ -2217,7 +2246,7 @@ export class World {
    *  guns flip for `secs`, then it remembers whose it was. An EMP burst
    *  evicts instantly (empBlast). NEVER humans — the law. */
   possessMachine(t: Turret, s: Soldier, secs: number) {
-    if (t.possessedBy === undefined) { t.origTeam = t.team; t.origOwnerId = t.ownerId; }
+    if (t.possessedBy === undefined) { t.origTeam = t.team; t.origOwnerId = t.ownerId; this.possessionCount++; }
     t.possessedBy = s.id;
     t.possessedUntil = this.time + secs;
     t.team = s.team;
@@ -2228,6 +2257,7 @@ export class World {
   /** hand a possessed machine back to its rightful owner */
   private evictPossession(t: Turret) {
     if (t.possessedBy === undefined) return;
+    this.possessionCount--;
     t.team = t.origTeam ?? t.team;
     t.ownerId = t.origOwnerId ?? t.ownerId;
     t.possessedBy = undefined; t.possessedUntil = undefined;
@@ -2239,7 +2269,7 @@ export class World {
    *  a human: the API itself refuses flesh (the law). */
   possessBot(b: Soldier, s: Soldier, secs: number): boolean {
     if (b.kind !== 'bot' || !b.alive || b.team === s.team) return false;
-    if (b.possessedBy === undefined) b.origTeam = b.team;
+    if (b.possessedBy === undefined) { b.origTeam = b.team; this.possessionCount++; }
     b.possessedBy = s.id;
     b.possessedUntil = this.time + secs;
     b.team = s.team;
@@ -2250,6 +2280,7 @@ export class World {
   /** hand a ridden bot back to its side */
   private evictBotPossession(b: Soldier) {
     if (b.possessedBy === undefined) return;
+    this.possessionCount--;
     b.team = b.origTeam ?? b.team;
     b.possessedBy = undefined; b.possessedUntil = undefined; b.origTeam = undefined;
   }
@@ -2258,7 +2289,7 @@ export class World {
    *  the ghost, expiry (or an EMP) hands it home. */
   possessVehicle(v: Vehicle, s: Soldier, secs: number): boolean {
     if (!v.alive || v.team === s.team) return false;
-    if (v.possessedBy === undefined) v.origTeam = v.team;
+    if (v.possessedBy === undefined) { v.origTeam = v.team; this.possessionCount++; }
     v.possessedBy = s.id;
     v.possessedUntil = this.time + secs;
     v.team = s.team;
@@ -3998,9 +4029,10 @@ export class World {
       if (isBlocked(this.map.grid, x, z)) return true;
       // THE ICE BLOCK IS A BLOCK (§21.6, closing Frostbite's Notes gap): an
       // encased soldier is a real 1-tile obstacle — nobody walks through a
-      // frozen man, friend or foe. Encased soldiers are rare; the scan is short.
-      for (const o of this.soldiers.values()) {
-        if (o.encasedUntil === undefined || o.id === s.id || !o.alive) continue;
+      // frozen man, friend or foe. opt #11 (S8): read the tick-top encased list
+      // (usually empty) instead of walking the whole roster.
+      for (const o of this.encasedBodies) {
+        if (o.id === s.id) continue;
         const dx = o.pos.x - x, dz = o.pos.z - z;
         if (dx * dx + dz * dz < 0.81) return true; // 0.9u — a tile-ish block
       }
@@ -4558,7 +4590,18 @@ export class World {
 
     // ---- movement (emplacements never move; spooling flyers sit tight) ----
     const spooling = !!def.liftoffTime && this.time < v.spoolUntil;
-    if (!def.immobile && !spooling) {
+    // opt #10 (S6): a truly PARKED, crewless hull — no seat filled, at rest,
+    // grounded (band 0, not burrowed), not a healer — would run the entire
+    // drivetrain (surface+weather mults, yaw trig, accel/slip integration, the
+    // 8-probe clear check) only to produce zero net motion. Skip it; zero the
+    // vel once. Verified carve-out (audit S6): a heal pulse needs no crew, so
+    // healRadius hulls keep the full path; the passenger-bail above already ran;
+    // possession/infection expiry below still run. Byte-identical over 3,600 ticks.
+    const parked = (v.band ?? 0) === 0 && !v.burrowed && !def.healRadius
+      && Math.abs(v.vel.x) < 0.01 && Math.abs(v.vel.z) < 0.01
+      && !v.seats.some((sid) => sid >= 0);
+    if (parked) { v.vel.x = 0; v.vel.z = 0; }
+    if (!parked && !def.immobile && !spooling) {
       // dead engine limps at 35% throttle response
       const engineMult = v.systems.engine > 0 ? 1 : 0.35;
       // a deep breacher shoves through packed earth — half pace
@@ -6299,8 +6342,18 @@ export class World {
     // PEOPLE, not furniture (F.1): a range DUMMY is a target, never a roster
     // entry — dummies inflated the yard's headcount (the human drew HUNTER
     // both rounds) and held squad-wipe checks "alive" after everyone fell.
-    return [...this.soldiers.values()].filter((s) => (s.kind === 'human' || s.kind === 'bot') && !s.dummy);
+    // opt #8 (S7): the filtered list is match-stable — build once, reuse until
+    // the roster changes. Modes/objective sites hit this up to ~10×/tick.
+    if (!this.rosterCache) {
+      this.rosterCache = [...this.soldiers.values()].filter((s) => (s.kind === 'human' || s.kind === 'bot') && !s.dummy);
+    }
+    return this.rosterCache;
   }
+
+  /** opt #8 (S7): drop the humansAndBots cache — call after adding or removing a
+   *  human/bot from `soldiers` OUTSIDE addSoldier (server disconnect, puppet
+   *  prune). Cheap and idempotent; the next humansAndBots() rebuilds. */
+  invalidateRoster() { this.rosterCache = null; }
 
   livingEnemiesOf(team: Team): Soldier[] {
     return [...this.soldiers.values()].filter((s) => s.alive && s.team !== team);

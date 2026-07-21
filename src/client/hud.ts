@@ -1109,7 +1109,7 @@ export class Hud {
   private renderScoreboard(world: World, localId: number) {
     const sb = $('scoreboard');
     const m = world.mode;
-    const soldiers = world.humansAndBots().sort((a, b) => b.score - a.score || b.kills - a.kills);
+    const soldiers = [...world.humansAndBots()].sort((a, b) => b.score - a.score || b.kills - a.kills); // copy: humansAndBots() is cached (opt #8), never sort it in place
     const row = (s: Soldier) =>
       `<tr class="${s.id === localId ? 'me' : ''}"><td>${s.name}</td><td>${CLASSES[s.classId].name}</td><td>${s.kills}</td><td>${s.deaths}</td>` +
       `<td>${s.longestKill > 0 ? s.longestKill.toFixed(0) + 'u' : '—'}</td><td>${s.vehicleKills || '—'}</td><td>${Math.floor(s.score)}</td></tr>`;

@@ -439,7 +439,7 @@ function stepSurvival(w: World, _dt: number) {
         ? w.addIronEater(rollIronKind(w, wave), jitter)
         : roster === 'both' && wave >= 4 && i % 4 === 3
           ? w.addIronEater(rollIronKind(w, wave), jitter)
-          : w.addZombie(rollZedKind(w, wave), jitter);
+          : w.addZombie(rollZedKind(w), jitter);
       // waves scale hp
       z.hp *= 1 + wave * 0.12;
       z.maxHp = z.hp;
@@ -507,7 +507,7 @@ function stepSafehouse(w: World, _dt: number) {
     const burst = w.rng.int(1, Math.min(3, intensity));
     for (let i = 0; i < burst; i++) {
       const sp = w.map.zombieSpawns[w.rng.int(0, w.map.zombieSpawns.length - 1)];
-      const z = w.addZombie(rollZedKind(w, intensity), { x: sp.x + w.rng.range(-2, 2), y: 0, z: sp.z + w.rng.range(-2, 2) });
+      const z = w.addZombie(rollZedKind(w), { x: sp.x + w.rng.range(-2, 2), y: 0, z: sp.z + w.rng.range(-2, 2) });
       z.hp *= 1 + (intensity - 1) * 0.07;
       z.maxHp = z.hp;
     }
@@ -523,14 +523,15 @@ function rollIronKind(w: World, wave: number): IronKind {
   return r < 0.6 ? 'scraprat' : 'junkhound';
 }
 
-function rollZedKind(w: World, tier: number): ZedKind {
-  const roll = w.rng.next();
-  if (roll < 0.1) return tier >= 3 ? 'brute' : 'zombie';
-  if (roll < 0.19) return tier >= 2 ? 'bomber' : 'zombie';
-  if (roll < 0.25) return tier >= 2 ? 'sprinter' : 'zombie'; // rare — the one you hear before you see
-  if (roll < 0.29) return tier >= 3 ? 'stalker' : 'zombie';  // rare — blinks through walls
-  if (roll < 0.45) return tier >= 2 ? 'spitter' : 'zombie';
-  return 'zombie';
+// OUTBREAK-SPEC §21.17 / §22.1 — the flesh horde's PRODUCTION ROSTER is base
+// SHAMBLERS plus a RARE sprinter (spec: 0.5–2%). No brute/bomber/stalker/spitter
+// in the spawned horde (Robert: "remove special zombies… 1% sprinters"). They
+// still EXIST — a heavy who dies rises a brute via riseKind, and the third-act
+// iron race fields its own roster — but the horde you fight is shamblers, with
+// the odd sprinter you hear before you see. Draws exactly one rng.next() (the
+// stream position is unchanged; only the composition moves).
+function rollZedKind(w: World): ZedKind {
+  return w.rng.next() < 0.01 ? 'sprinter' : 'zombie';
 }
 
 // ---------- Endless Horde ----------
@@ -555,14 +556,17 @@ function stepHorde(w: World, _dt: number) {
     if (intensity > 1) w.emit({ type: 'wave_start', text: `INTENSITY ${intensity}`, big: true });
   }
 
-  // population target grows with time; difficulty scales it
+  // population target grows with time; difficulty scales it. MORE SHAMBLERS
+  // (Robert): the O(S²) scan tail is gone (opt #11/#38), so the horde runs
+  // DENSER now — base 12→cap 80 (was 8→48), and it fills faster. The mass is
+  // the menace: a wall of shamblers, not a zoo of specials.
   const diffMul = w.opts.difficulty === 'recruit' ? 0.7 : w.opts.difficulty === 'elite' ? 1.35 : 1;
-  const targetPop = Math.min(8 + intensity * 3, 48) * diffMul;
+  const targetPop = Math.min(12 + intensity * 4, 80) * diffMul;
 
   if (zombies.length < targetPop && w.time >= (m.nextWaveAt ?? 0)) {
-    // spawn cadence accelerates from 1.6s down to 0.4s
-    m.nextWaveAt = w.time + Math.max(0.4, 1.6 - w.time / 150);
-    const burst = w.rng.int(1, Math.min(3, intensity));
+    // spawn cadence accelerates from 1.4s down to 0.35s
+    m.nextWaveAt = w.time + Math.max(0.35, 1.4 - w.time / 150);
+    const burst = w.rng.int(1, Math.min(5, intensity));
     for (let i = 0; i < burst; i++) {
       const sp = w.map.zombieSpawns[w.rng.int(0, w.map.zombieSpawns.length - 1)];
       const jitter = { x: sp.x + w.rng.range(-2, 2), y: 0, z: sp.z + w.rng.range(-2, 2) };
@@ -574,7 +578,7 @@ function stepHorde(w: World, _dt: number) {
         ? w.addIronEater(rollIronKind(w, intensity), jitter)
         : roster === 'both' && intensity >= 4 && w.rng.next() < 0.25
           ? w.addIronEater(rollIronKind(w, intensity), jitter)
-          : w.addZombie(rollZedKind(w, intensity), jitter);
+          : w.addZombie(rollZedKind(w), jitter);
       z.hp *= 1 + (intensity - 1) * 0.08;
       z.maxHp = z.hp;
     }

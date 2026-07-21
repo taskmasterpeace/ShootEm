@@ -486,6 +486,22 @@ export function losClear(grid: Uint8Array, a: Vec3, b: Vec3, y = 1.4): boolean {
   return true;
 }
 
+/** opt #9 (S5): the coordinate-taking twin of losClear — IDENTICAL march, but
+ *  no per-call {x,y,z} literals. `losClear` never reads the endpoints' y (it
+ *  marches at its own `y`), so this is byte-for-byte equal to
+ *  losClear(grid, {x:ax,_,z:az}, {x:bx,_,z:bz}, y). Perception evaluates it up
+ *  to ~5,760× per tick at horde scale — this kills ~11.5k object allocs/tick. */
+export function losClearXZ(grid: Uint8Array, ax: number, az: number, bx: number, bz: number, y = 1.4): boolean {
+  const dx = bx - ax, dz = bz - az;
+  const dist = Math.hypot(dx, dz);
+  const steps = Math.max(1, Math.ceil(dist / (TILE * 0.5)));
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps;
+    if (blocksShot(grid, ax + dx * t, az + dz * t, y)) return false;
+  }
+  return true;
+}
+
 /** The UPSTAIRS counterpart to losClear: march the UPPER grid at the nest band
  *  (y 5.4), where F2_WALL blocks the 4..8 storey and F2_SLIT passes only its
  *  5.2–5.8 firing band. This is what makes two soldiers who are BOTH on a
