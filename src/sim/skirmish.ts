@@ -21,6 +21,7 @@ import {
 } from './buildings';
 import { boxFor } from './fronts';
 import { Rng } from './rng';
+import { LEGACY_GEOMETRY } from './map-geometry';
 import type { Team, ThemeId, Vec3, VehicleKind } from './types';
 import type { OperationSiteId } from './operations';
 import { dressOperationPads } from './operation-pads';
@@ -326,7 +327,7 @@ export function generateSkirmishMap(theme: ThemeId, seed: number, profile?: Skir
   const cpFor = (s: { def: BuildingDef; tx: number; tz: number }) =>
     ({ name: CP_NAME[s.def.id] ?? 'SITE', pos: tw(s.tx, s.tz) });
   const map: GameMap = {
-    seed, theme, grid, grid2: d.grid2, surface,
+    seed, theme, geometry: { ...LEGACY_GEOMETRY }, grid, grid2: d.grid2, surface,
     basePos: [tw(btx[0], midZ), tw(btx[1], midZ)],
     spawns: [spawnRing(btx[0], midZ), spawnRing(btx[1], midZ)],
     flagPos: [tw(btx[0], midZ), tw(btx[1], midZ)],

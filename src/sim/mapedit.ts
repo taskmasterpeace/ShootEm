@@ -19,6 +19,7 @@ import { FRONT_STENCILS, frontWalkable, generateFront, boxFor, type MapSize } fr
 import { generateSkirmishMap } from './skirmish';
 import { Rng } from './rng';
 import type { Team, ThemeId, VehicleKind, Vec3 } from './types';
+import { LEGACY_GEOMETRY, validateGeometry, type MapGeometry } from './map-geometry';
 
 // ---------------------------------------------------------------------------
 // the document
@@ -42,7 +43,7 @@ const worldToTile = (x: number, z: number): [number, number] =>
 
 function cloneMap(m: GameMap): GameMap {
   return {
-    seed: m.seed, theme: m.theme,
+    seed: m.seed, theme: m.theme, geometry: { ...m.geometry },
     grid: m.grid.slice(), grid2: m.grid2.slice(), surface: m.surface.slice(),
     basePos: [{ ...m.basePos[0] }, { ...m.basePos[1] }],
     spawns: [m.spawns[0].map((s) => ({ ...s })), m.spawns[1].map((s) => ({ ...s }))],
@@ -116,7 +117,7 @@ export function blankDoc(size: MapSize, seed: number, theme: GameMap['theme'] = 
     return out;
   };
   const map: GameMap = {
-    seed, theme, grid, grid2, surface,
+    seed, theme, geometry: { ...LEGACY_GEOMETRY }, grid, grid2, surface,
     basePos: [tileToWorld(bx0, mid), tileToWorld(bx1, mid)],
     spawns: [ring(bx0, mid), ring(bx1, mid)],
     flagPos: [tileToWorld(bx0, mid), tileToWorld(bx1, mid)],
@@ -136,7 +137,9 @@ export function blankDoc(size: MapSize, seed: number, theme: GameMap['theme'] = 
 // undo / redo — full-doc snapshots (a dev tool can afford them)
 // ---------------------------------------------------------------------------
 export interface MapJSON {
-  v: 1; frontId: string | null; size: MapSize; seed: number;
+  v: 1 | 2; frontId: string | null; size: MapSize; seed: number;
+  /** v1 documents omit geometry and always migrate to the legacy grid. */
+  geometry?: MapGeometry;
   grid: number[]; grid2: number[]; surface: number[];
   basePos: [Vec3, Vec3]; spawns: [Vec3[], Vec3[]]; flagPos: [Vec3, Vec3];
   hillPos: Vec3; controlPoints: { name: string; pos: Vec3 }[];
@@ -149,7 +152,8 @@ export interface MapJSON {
 export function serializeDoc(doc: MakerDoc): MapJSON {
   const m = doc.map;
   return {
-    v: 1, frontId: doc.frontId, size: doc.size, seed: doc.seed,
+    v: 2, frontId: doc.frontId, size: doc.size, seed: doc.seed,
+    geometry: { ...m.geometry },
     grid: [...m.grid], grid2: [...m.grid2], surface: [...m.surface],
     basePos: m.basePos, spawns: m.spawns, flagPos: m.flagPos, hillPos: m.hillPos,
     controlPoints: m.controlPoints, vehiclePads: m.vehiclePads, pickups: m.pickups,
@@ -160,11 +164,15 @@ export function serializeDoc(doc: MakerDoc): MapJSON {
 }
 
 export function deserializeDoc(json: MapJSON): MakerDoc {
-  if (json.v !== 1) throw new Error(`mapedit: can't read doc version ${(json as { v?: number }).v}`);
+  if (json.v !== 1 && json.v !== 2) throw new Error(`mapedit: can't read doc version ${(json as { v?: number }).v}`);
+  const geometry = json.geometry ? { ...json.geometry } : { ...LEGACY_GEOMETRY };
   const grid = Uint8Array.from(json.grid);
+  const grid2 = Uint8Array.from(json.grid2);
+  const surface = Uint8Array.from(json.surface);
+  validateGeometry(geometry, grid, grid2, surface);
   const map: GameMap = {
-    seed: json.seed, theme: json.theme,
-    grid, grid2: Uint8Array.from(json.grid2), surface: Uint8Array.from(json.surface),
+    seed: json.seed, theme: json.theme, geometry,
+    grid, grid2, surface,
     basePos: json.basePos, spawns: json.spawns, flagPos: json.flagPos, hillPos: json.hillPos,
     controlPoints: json.controlPoints, vehiclePads: json.vehiclePads, pickups: json.pickups,
     props: json.props, zombieSpawns: json.zombieSpawns, houses: json.houses,

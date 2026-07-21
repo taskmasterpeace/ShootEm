@@ -6,6 +6,7 @@ import { fillRegions } from './chunks';
 import { THEMES } from './data';
 import type { ModeId, Team, ThemeId, Vec3, VehicleKind } from './types';
 import type { OperationPhaseKind, OperationScale, OperationSiteId } from './operations';
+import { LEGACY_GEOMETRY, type MapGeometry } from './map-geometry';
 
 export const TILE = 3;          // world units per tile (33C: standard fronts ~300u)
 export const GRID = 100;        // tiles per side
@@ -180,6 +181,8 @@ export interface House {
 export interface GameMap {
   seed: number;
   theme: ThemeId;
+  /** Authoritative tile dimensions. Legacy battlefields are 100×100×3. */
+  geometry: MapGeometry;
   grid: Uint8Array; // GRID*GRID
   /** the SECOND STOREY (§8.4 Phase-2): F2_* per tile — void unless a
    *  two-storey building stamped an upper floor here. Static after gen. */
@@ -491,7 +494,7 @@ export function generatePaintballField(seed: number, theme: ThemeId = 'savanna')
   }
 
   return {
-    seed, theme, grid, grid2, surface,
+    seed, theme, geometry: { ...LEGACY_GEOMETRY }, grid, grid2, surface,
     basePos: [P(A0 + 1, mid), P(A1 - 1, mid)],
     spawns,
     flagPos: [P(A0 + 2, mid), P(A1 - 2, mid)],
@@ -935,7 +938,7 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
   }
 
   const outdoorProps = pruneStrandedCrops(pruneIndoorProps(props, houses), grid);
-  return { seed, theme, grid, grid2, surface, basePos, spawns, flagPos, hillPos, controlPoints, vehiclePads, pickups, props: outdoorProps, zombieSpawns, houses, gates, pads, propCovered: settleClaims(grid, claims, outdoorProps) };
+  return { seed, theme, geometry: { ...LEGACY_GEOMETRY }, grid, grid2, surface, basePos, spawns, flagPos, hillPos, controlPoints, vehiclePads, pickups, props: outdoorProps, zombieSpawns, houses, gates, pads, propCovered: settleClaims(grid, claims, outdoorProps) };
 }
 
 /**
@@ -1048,7 +1051,7 @@ function generateNeighborhood(seed: number): GameMap {
   surface.fill(S_GRASS);
   const hoodProps = pruneIndoorProps(props, houses);
   return {
-    seed, theme: 'savanna', grid, grid2, surface, basePos, spawns,
+    seed, theme: 'savanna', geometry: { ...LEGACY_GEOMETRY }, grid, grid2, surface, basePos, spawns,
     flagPos: [basePos[0], basePos[1]],
     hillPos,
     controlPoints: [

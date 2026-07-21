@@ -76,7 +76,7 @@
 - Produces: required `GameMap.geometry: MapGeometry`.
 - Consumes: no new application interfaces.
 
-- [ ] **Step 1: Write failing geometry and migration tests**
+- [x] **Step 1: Write failing geometry and migration tests**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -120,13 +120,13 @@ describe('map-owned geometry', () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused tests and verify RED**
+- [x] **Step 2: Run the focused tests and verify RED**
 
 Run: `npx vitest run tests/map-geometry.test.ts tests/mapedit.test.ts`
 
 Expected: FAIL because `map-geometry.ts` and `GameMap.geometry` do not exist.
 
-- [ ] **Step 3: Implement the geometry boundary**
+- [x] **Step 3: Implement the geometry boundary**
 
 ```ts
 // src/sim/map-geometry.ts
@@ -164,13 +164,13 @@ export function wrapWorld(g: MapGeometry, p: Vec3, margin = 0): Vec3 {
 
 Add `geometry: MapGeometry` to `GameMap`. Set `geometry: { ...LEGACY_GEOMETRY }` in all legacy constructors. Change Map Maker JSON to `v: 2` with `geometry`; accept `v: 1` by assigning `LEGACY_GEOMETRY` before validating all three layer lengths.
 
-- [ ] **Step 4: Run geometry, map, front, skirmish, and editor tests**
+- [x] **Step 4: Run geometry, map, front, skirmish, and editor tests**
 
 Run: `npx vitest run tests/map-geometry.test.ts tests/mapedit.test.ts tests/fronts.test.ts tests/skirmish.test.ts tests/operation-map.test.ts`
 
 Expected: PASS with every legacy front still 100×100×3.
 
-- [ ] **Step 5: Commit the geometry primitive**
+- [x] **Step 5: Commit the geometry primitive**
 
 ```bash
 git add src/sim/map-geometry.ts src/sim/map.ts src/sim/fronts.ts src/sim/skirmish.ts src/sim/mapedit.ts tests/map-geometry.test.ts tests/mapedit.test.ts

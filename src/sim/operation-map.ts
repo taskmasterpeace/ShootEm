@@ -45,6 +45,7 @@ const CITY_OPERATION_SEEDS = [4207, 5150, 1337, 90210] as const;
 function cloneMap(map: GameMap): GameMap {
   return {
     ...map,
+    geometry: { ...map.geometry },
     grid: map.grid.slice(),
     grid2: map.grid2.slice(),
     surface: map.surface.slice(),

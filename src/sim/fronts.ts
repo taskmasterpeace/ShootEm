@@ -29,6 +29,7 @@
 // ---------------------------------------------------------------------------
 import type { Team, Vec3 } from './types';
 import { Rng } from './rng';
+import { LEGACY_GEOMETRY } from './map-geometry';
 import {
   GRID, TILE, WORLD, houseAt,
   T_OPEN, T_WALL, T_COVER, T_WATER, T_DEEP, T_DOOR, T_METAL, T_LADDER, T_CLIMB,
@@ -391,7 +392,7 @@ function bridgeDelta(seed: number, size: MapSize = 'large'): GameMap {
     { name: 'FORD', pos: tw(49, L.ford[0] + 1) },
   ];
   return {
-    seed, theme: 'savanna', grid, grid2: d.grid2, surface,
+    seed, theme: 'savanna', geometry: { ...LEGACY_GEOMETRY }, grid, grid2: d.grid2, surface,
     basePos: [tw(box.x0 + 10, midZ), tw(box.x1 - 9, midZ)],
     spawns: [spawnRing(box.x0 + 10, midZ), spawnRing(box.x1 - 9, midZ)],
     flagPos: [tw(box.x0 + 10, midZ), tw(box.x1 - 9, midZ)],
@@ -523,7 +524,7 @@ function fortRaven(seed: number, size: MapSize = 'large'): GameMap {
 
   const innerR = L.rings[0][0];
   return {
-    seed, theme: 'titan', grid, grid2: d.grid2, surface,
+    seed, theme: 'titan', geometry: { ...LEGACY_GEOMETRY }, grid, grid2: d.grid2, surface,
     basePos: [tw(L.baseX[0], L.baseZ), tw(L.baseX[1], L.baseZ)],
     spawns: [spawnRing(L.baseX[0], L.baseZ), spawnRing(L.baseX[1], L.baseZ)],
     flagPos: [tw(L.baseX[0], L.baseZ), tw(L.baseX[1], L.baseZ)],
@@ -656,7 +657,7 @@ function easternPlains(seed: number, size: MapSize = 'large'): GameMap {
   const midRow = L.rows[Math.floor(L.rows.length / 2)];
   const crossZ = L.track.length ? L.track[0][2] : midRow.z;
   return {
-    seed, theme: 'savanna', grid, grid2: d.grid2, surface,
+    seed, theme: 'savanna', geometry: { ...LEGACY_GEOMETRY }, grid, grid2: d.grid2, surface,
     basePos: [tw(L.baseX[0], L.baseZ), tw(L.baseX[1], L.baseZ)],
     spawns: [spawnRing(L.baseX[0], L.baseZ), spawnRing(L.baseX[1], L.baseZ)],
     flagPos: [tw(L.baseX[0], L.baseZ), tw(L.baseX[1], L.baseZ)],
@@ -945,7 +946,7 @@ function theCity(seed: number, size: MapSize = 'large'): GameMap {
   sealRim(grid);
 
   return {
-    seed, theme: 'savanna', grid, grid2: d.grid2, surface,
+    seed, theme: 'savanna', geometry: { ...LEGACY_GEOMETRY }, grid, grid2: d.grid2, surface,
     basePos: [tw(box.x0 + 10, L.baseTz), tw(box.x1 - 9, L.baseTz)],
     spawns: [spawnRing(box.x0 + 10, L.baseTz), spawnRing(box.x1 - 9, L.baseTz)],
     flagPos: [tw(box.x0 + 10, L.baseTz), tw(box.x1 - 9, L.baseTz)],
@@ -1124,7 +1125,7 @@ function highlandPass(seed: number, size: MapSize = 'large'): GameMap {
   for (const [mx2, mz2] of spots) { clearDisc(grid, mx2, mz2, 1); mouths.push(tw(mx2, mz2)); }
 
   return {
-    seed, theme: 'asteroid', grid, grid2: d.grid2, surface,
+    seed, theme: 'asteroid', geometry: { ...LEGACY_GEOMETRY }, grid, grid2: d.grid2, surface,
     basePos: [tw(...L.bases[0]), tw(...L.bases[1])],
     spawns: [spawnRing(...L.bases[0]), spawnRing(...L.bases[1])],
     flagPos: [tw(...L.bases[0]), tw(...L.bases[1])],
@@ -1271,7 +1272,7 @@ function blacksite(seed: number, size: MapSize = 'large'): GameMap {
   sealRim(grid);
 
   return {
-    seed, theme: 'triton', grid, grid2: d.grid2, surface,
+    seed, theme: 'triton', geometry: { ...LEGACY_GEOMETRY }, grid, grid2: d.grid2, surface,
     basePos: [tw(L.baseX[0], L.baseZ), tw(L.baseX[1], L.baseZ)],
     spawns: [spawnRing(L.baseX[0], L.baseZ), spawnRing(L.baseX[1], L.baseZ)],
     flagPos: [tw(L.baseX[0], L.baseZ), tw(L.baseX[1], L.baseZ)],
@@ -1401,7 +1402,7 @@ function refinery(seed: number, size: MapSize = 'large'): GameMap {
   sealRim(grid);
 
   return {
-    seed, theme: 'starship', grid, grid2: d.grid2, surface,
+    seed, theme: 'starship', geometry: { ...LEGACY_GEOMETRY }, grid, grid2: d.grid2, surface,
     basePos: [tw(L.baseX[0], L.baseZ), tw(L.baseX[1], L.baseZ)],
     spawns: [spawnRing(L.baseX[0], L.baseZ), spawnRing(L.baseX[1], L.baseZ)],
     flagPos: [tw(L.baseX[0], L.baseZ), tw(L.baseX[1], L.baseZ)],
@@ -1565,7 +1566,7 @@ function thePort(seed: number, size: MapSize = 'large'): GameMap {
   sealRim(grid);
 
   return {
-    seed, theme: 'europa', grid, grid2: d.grid2, surface,
+    seed, theme: 'europa', geometry: { ...LEGACY_GEOMETRY }, grid, grid2: d.grid2, surface,
     basePos: [tw(L.baseX[0], L.baseZ), tw(L.baseX[1], L.baseZ)],
     spawns: [spawnRing(L.baseX[0], L.baseZ), spawnRing(L.baseX[1], L.baseZ)],
     flagPos: [tw(L.baseX[0], L.baseZ), tw(L.baseX[1], L.baseZ)],
@@ -1718,7 +1719,7 @@ function airbase(seed: number, size: MapSize = 'large'): GameMap {
 
   const midRun = Math.floor((L.runway[0] + L.runway[1]) / 2);
   return {
-    seed, theme: 'savanna', grid, grid2: d.grid2, surface,
+    seed, theme: 'savanna', geometry: { ...LEGACY_GEOMETRY }, grid, grid2: d.grid2, surface,
     basePos: [tw(...L.bases[0]), tw(...L.bases[1])],
     spawns: [spawnRing(...L.bases[0]), spawnRing(...L.bases[1])],
     flagPos: [tw(...L.bases[0]), tw(...L.bases[1])],
@@ -1868,7 +1869,7 @@ function theMine(seed: number, size: MapSize = 'large'): GameMap {
   sealRim(grid);
 
   return {
-    seed, theme: 'asteroid', grid, grid2: d.grid2, surface,
+    seed, theme: 'asteroid', geometry: { ...LEGACY_GEOMETRY }, grid, grid2: d.grid2, surface,
     basePos: [tw(L.baseX[0], L.baseZ), tw(L.baseX[1], L.baseZ)],
     spawns: [spawnRing(L.baseX[0], L.baseZ), spawnRing(L.baseX[1], L.baseZ)],
     flagPos: [tw(L.baseX[0], L.baseZ), tw(L.baseX[1], L.baseZ)],
