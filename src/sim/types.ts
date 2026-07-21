@@ -918,6 +918,7 @@ export interface SimEvent {
     | 'disarm'         // §14.2 outcome: the held gun was RIPPED away (weapon = what fell)
     | 'choke_out'      // §14.2 outcome: choked to DOWNED — a silent capture, not a kill
     | 'grab_throw'     // §14.2 outcome: the locked body HEAVED along the attacker's facing
+    | 'grab_reach'     // UI: a grapple was ATTEMPTED (land or whiff) — the pulse-ring tell
     | 'beam_jam'       // §BEAMS: a held emitter overheated — locked out for its jam window
     | 'beam_clash'       // §BEAMS row 189: two streams crossed — the struggle node is born
     | 'beam_clash_break' // §BEAMS row 189: the node reached a wielder — soldierId was SHEARED

@@ -253,6 +253,10 @@ export class Renderer {
   private frostSheets = new Map<number, THREE.Mesh>();
   /** held-beam impact glow beads riding each stream's endpoint (eye-candy) */
   private heldBeamBeads = new Map<number, THREE.Mesh>();
+  /** the MELEE PULSE-RING UI (Robert): grab-reach pulses that expand outward,
+   *  and a persistent guard arc under the local player. */
+  private grabPulses: { mesh: THREE.Mesh; born: number; x: number; z: number }[] = [];
+  private guardArc: THREE.Mesh | null = null;
   private flagMeshes: THREE.Group[] = [];
   private cpRings: THREE.Mesh[] = [];
   private hillRing: THREE.Mesh | null = null;
@@ -1282,6 +1286,49 @@ export class Renderer {
     }
   }
 
+  /** Robert's MELEE PULSE-RING UI: the grab-reach pulses expand to the grab
+   *  radius and fade; the guard arc lights a blue frontal wedge under you
+   *  while you brace. Both are local-player tells, world-space under the feet. */
+  private updateMeleeRings(world: World, local: Soldier | undefined) {
+    const t = world.time;
+    // grab pulses — expand 0.2 → ~2.3u over 0.35s, fading out
+    for (let i = this.grabPulses.length - 1; i >= 0; i--) {
+      const p = this.grabPulses[i];
+      const k = (t - p.born) / 0.35;
+      if (k >= 1) {
+        this.scene.remove(p.mesh); (p.mesh.material as THREE.Material).dispose(); p.mesh.geometry.dispose();
+        this.grabPulses.splice(i, 1);
+        continue;
+      }
+      const r = 0.3 + k * 2.0;
+      p.mesh.scale.setScalar(r / 0.34); // geometry outer radius is 0.34
+      (p.mesh.material as THREE.MeshBasicMaterial).opacity = 0.85 * (1 - k);
+    }
+    // guard arc — a blue 150° frontal wedge, on while you brace, off otherwise
+    const guarding = !!local && local.alive && local.guarding && local.vehicleId < 0;
+    if (guarding) {
+      if (!this.guardArc) {
+        // RingGeometry lives in XY; after the -90° X-flip a geometry angle θ
+        // lands at ground bearing -θ, so bake -yaw into thetaStart at draw.
+        this.guardArc = new THREE.Mesh(
+          new THREE.RingGeometry(1.0, 1.35, 28, 1, 0, (150 * Math.PI) / 180),
+          new THREE.MeshBasicMaterial({ color: 0x4aa8ff, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false }),
+        );
+        this.guardArc.rotation.order = 'YXZ';
+        this.scene.add(this.guardArc);
+      }
+      const arc = this.guardArc;
+      arc.visible = true;
+      arc.position.set(local!.pos.x, 0.06, local!.pos.z);
+      // face the wedge along the player's yaw: flat on the ground (-90° X),
+      // then spin so the 150° opening is centred on the facing.
+      arc.rotation.set(-Math.PI / 2, 0, -local!.yaw - (75 * Math.PI) / 180);
+      (arc.material as THREE.MeshBasicMaterial).opacity = 0.4 + Math.sin(t * 8) * 0.12; // a soft brace pulse
+    } else if (this.guardArc) {
+      this.guardArc.visible = false;
+    }
+  }
+
   private makeRing(pos: Vec3, radius: number, color: number, opacity: number): THREE.Mesh {
     const ring = new THREE.Mesh(
       new THREE.RingGeometry(radius - 0.7, radius, 40),
@@ -1371,6 +1418,7 @@ export class Renderer {
     const local = world.soldiers.get(localId);
     const localTeam = local?.team ?? 0;
     this.frameDt = dt;
+    this.updateMeleeRings(world, local);
 
     // READING THE DARK (plan A2): patch new lit materials on a slow cadence
     // (GLBs, drops, corpses arrive between sweeps), then feed the eye — the
@@ -4309,6 +4357,21 @@ export class Renderer {
           // so the SLAM/blade arc reads before the strike lands
           if (attacker?.ascendant) this.setLswPose(attacker, world.time);
           if (e.pos) audio.play('claw', { pos: e.pos, volume: 0.3 });
+          break;
+        }
+        case 'grab_reach': {
+          // Robert's pulse-ring: on YOUR grab press a ring PULSES OUTWARD from
+          // your feet to the grab radius — "you reach out in that radius." Only
+          // your own reach draws (it's a first-person tell, not the whole map).
+          if (e.pos === undefined || e.soldierId !== localId) break;
+          const ring = new THREE.Mesh(
+            new THREE.RingGeometry(0.2, 0.34, 32),
+            new THREE.MeshBasicMaterial({ color: 0xffc24a, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }),
+          );
+          ring.rotation.x = -Math.PI / 2;
+          ring.position.set(e.pos.x, 0.07, e.pos.z);
+          this.scene.add(ring);
+          this.grabPulses.push({ mesh: ring, born: world.time, x: e.pos.x, z: e.pos.z });
           break;
         }
         case 'explosion': {

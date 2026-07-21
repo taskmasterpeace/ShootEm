@@ -87,3 +87,19 @@ describe('§14.2 rear control — no minigame', () => {
     expect(v.grabbedBy, 'STRIKE beats GRAPPLE — no hold, no control').toBeUndefined();
   });
 });
+
+describe('the pulse-ring tell (grab_reach)', () => {
+  const c = (over: Partial<PlayerCmd> = {}): PlayerCmd => ({
+    moveX: 0, moveZ: 0, aimYaw: 0, fire: false, altFire: false, jump: false,
+    use: false, ability: false, reload: false, grenade: false, weaponSlot: -1, ...over,
+  });
+  it('every grapple press by a HUMAN emits grab_reach — land OR whiff', () => {
+    const w = new World({ seed: 3, mode: 'tdm', matchMinutes: 10 });
+    const a = w.addSoldier('Att', 'infantry', 0, 'human');
+    a.pos = { x: 0, y: 0, z: 0 }; a.yaw = 0; a.protectedUntil = 0;
+    w.step(1 / 60, new Map());
+    // WHIFF — nobody in reach
+    w.step(1 / 60, new Map([[a.id, c({ grapple: true })]]));
+    expect(w.takeEvents().some((e) => e.type === 'grab_reach' && e.soldierId === a.id), 'a whiff still reaches').toBe(true);
+  });
+});

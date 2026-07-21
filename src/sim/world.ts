@@ -2557,6 +2557,9 @@ export class World {
         s.grabbingId = undefined; // the finisher is your whole action this tick
       } else {
         s.grabbingId = undefined; // not holding a live pin — go reach for a fresh one
+        // the REACH tell (Robert's pulse-ring UI): every grab press pulses,
+        // land or whiff — "you reach out in that radius." Human presses only.
+        if (s.kind === 'human') this.emit({ type: 'grab_reach', pos: { ...s.pos }, soldierId: s.id });
         let target: Soldier | undefined;
         let bestD = GRAB_RANGE + 0.3;
         for (const e of this.soldierIndex.near((1 - s.team) as Team, s.pos.x, s.pos.z, GRAB_RANGE + 0.3, GRAB_SCRATCH)) {
