@@ -243,7 +243,7 @@ The sim was **built** for this (deterministic, seeded, headless, already seriali
 | Non-lethal training rounds | ✅ | `training` flag, the yard survives |
 | Boot-camp prey bug (you're hunter both rounds) | ✅ | **FIXED 2026-07-21 (F.1).** `humansAndBots()` excludes `dummy` at the source — a range dummy is a target, never a roster entry. Fixes the yard's prey pick AND squad-wipe checks that dummies held "alive". `tests/dummy-roster.test.ts`; live: furniture absent from the roster |
 | 3+ storey buildings | ❌ | tops out at 2 (typed `1|2`). DEFERRED by you |
-| Water that freezes into a crossable surface | 🔨 | ice is a surface; water never freezes |
+| Water that freezes into a crossable surface | ✅ | **DONE 2026-07-21** — THE FROST BRIDGE: Frostbite freezes the water he stands near (`freezeWaterNear`, 7u radius, ~5s thaw) into a crossable sheet. A frozen tile stops being SWIM (you walk on top, not wade), drops the wade-drag (`waterMult`=1), and is SLICK (inherits row 240 — the skate). Lazy `frozenWater` map (tileIdx→thaw), re-stamped under the god so the ford lingers then melts; `water_froze` event + a per-tile pale ice sheet the renderer overlays. Only water takes; dry ground never freezes. `tests/frostbridge.test.ts` (5). Live: 50 tiles frozen + 50 sheets drawn, crossing carries 3.9u vs swimming's 2.1u, coasts on release. Pairs with row 240. |
 
 ## 17 · THE OUTBREAK — zombies as a systemic third faction (spec landed 2026-07-20)
 

@@ -376,6 +376,11 @@ export class World {
   beamClashes = new Map<string, { aId: number; bId: number; t: number; x: number; z: number }>();
   /** W3.10: iron-eater serial counter — LOOM-01, WRECK-02, machine to the last */
   private ironSerial = 0;
+  /** row 246: water tiles FROSTBITE has frozen into crossable ice — tile index
+   *  → thaw time. Lazy: a tile is frozen while `now < thaw`; the ice god
+   *  re-stamps the tiles he stands over, so the bridge lingers then thaws.
+   *  Public: the renderer overlays a pale quad on each live entry. */
+  frozenWater = new Map<number, number>();
   /** OUTBREAK PRESSURE (§3): the authoritative severity of the sector, fed by
    *  live infected + unburned corpses + exposed soldiers. Drives the level. */
   outbreakPressure = 0;
@@ -2842,7 +2847,9 @@ export class World {
     }
 
     // deep water takes both your hands: no shooting, no throwing, no jumping
-    const swimming = tileAt(this.map.grid, s.pos.x, s.pos.z) === T_DEEP;
+    // row 246: frozen water carries your weight — you WALK across, not swim.
+    const swimming = tileAt(this.map.grid, s.pos.x, s.pos.z) === T_DEEP
+      && !this.isFrozenWater(s.pos.x, s.pos.z);
 
     if (cmd.use) {
       if (this.tryDownedAid(s, cmd, dt)) {
@@ -2945,7 +2952,8 @@ export class World {
       // you overshoot the corner, a shove sends you sliding. Grounded only;
       // the airborne arc and the leap own their own physics.
       const slick = s.pos.y <= 0.05
-        && materialForSurface(surfaceAt(this.map.surface, s.pos.x, s.pos.z)).slick === true;
+        && (this.isFrozenWater(s.pos.x, s.pos.z) // row 246: frozen water IS ice
+          || materialForSurface(surfaceAt(this.map.surface, s.pos.x, s.pos.z)).slick === true);
       if (slick) {
         if (len > 0.01) {
           // pushing off: the boots EASE toward intent, never snap (low grip)
@@ -3903,7 +3911,10 @@ export class World {
     // is slow, swimming is slower (and swimming means no trigger finger)
     const tHere = tileAt(this.map.grid, s.pos.x, s.pos.z);
     // …and rubble drags at the boots the same way: a breach is a lane, not a road
-    let waterMult = tHere === T_DEEP ? 0.38 : tHere === T_WATER ? 0.55 : tHere === T_RUBBLE ? 0.6 : 1;
+    // row 246: a frozen tile is a solid crossing — no wade drag (the slick
+    // skate governs the feel instead)
+    let waterMult = (tHere === T_DEEP || tHere === T_WATER) && this.isFrozenWater(s.pos.x, s.pos.z) ? 1
+      : tHere === T_DEEP ? 0.38 : tHere === T_WATER ? 0.55 : tHere === T_RUBBLE ? 0.6 : 1;
     // a flier over water is OVER it — nothing drags a body that isn't wading
     if (trueFlight && s.pos.y > 1.2) waterMult = 1;
     // TIME FIELDS: inside a hostile bubble, the world runs at mul — the
@@ -5436,6 +5447,41 @@ export class World {
    *  stops movement AND shots both ways, and shields them from ALL other harm
    *  — freezing an enemy removes him from the board AND briefly saves him.
    *  Never freezes a soldier already encased. Returns true if it took. */
+  /** row 246: is the tile under (x,z) a water tile FROSTBITE has frozen and
+   *  which has not yet thawed? Lazy — no sweep, just a clock check. */
+  isFrozenWater(x: number, z: number): boolean {
+    if (this.frozenWater.size === 0) return false;
+    const idx = Math.floor((z + WORLD / 2) / TILE) * GRID + Math.floor((x + WORLD / 2) / TILE);
+    return (this.frozenWater.get(idx) ?? 0) > this.time;
+  }
+
+  /** FREEZE THE WATER (row 246): stamp every water tile within `radius` of a
+   *  point as crossable ice until `until`. Only water freezes; the ice god
+   *  calls this each tick he stands near a shore, so the bridge forms under
+   *  him and lingers a beat after he moves on. Deterministic (no rng). */
+  freezeWaterNear(x: number, z: number, radius: number, until: number) {
+    const r = Math.ceil(radius / TILE);
+    const cx = Math.floor((x + WORLD / 2) / TILE), cz = Math.floor((z + WORLD / 2) / TILE);
+    for (let dz = -r; dz <= r; dz++) {
+      for (let dx = -r; dx <= r; dx++) {
+        const tx = cx + dx, tz = cz + dz;
+        if (tx < 0 || tx >= GRID || tz < 0 || tz >= GRID) continue;
+        const idx = tz * GRID + tx;
+        const t = this.map.grid[idx];
+        if (t !== T_WATER && t !== T_DEEP) continue;
+        const wx = tx * TILE - WORLD / 2 + TILE / 2, wz = tz * TILE - WORLD / 2 + TILE / 2;
+        if (Math.hypot(wx - x, wz - z) > radius) continue;
+        const wasFrozen = (this.frozenWater.get(idx) ?? 0) > this.time;
+        this.frozenWater.set(idx, until);
+        if (!wasFrozen) this.emit({ type: 'water_froze', pos: { x: wx, y: 0, z: wz } });
+      }
+    }
+    // prune long-thawed entries so the map never grows unbounded
+    if (this.frozenWater.size > 400) {
+      for (const [k, t2] of this.frozenWater) if (t2 <= this.time) this.frozenWater.delete(k);
+    }
+  }
+
   encaseSoldier(victim: Soldier, byId = -1): boolean {
     if (!victim.alive || victim.encasedUntil !== undefined) return false;
     if (this.time < victim.protectedUntil) return false;

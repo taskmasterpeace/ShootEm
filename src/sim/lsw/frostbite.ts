@@ -9,6 +9,11 @@ import type { Soldier } from '../types';
 import type { World } from '../world';
 
 export function step(w: World, s: Soldier, _dt: number) {
+  // row 246 THE FROST BRIDGE: the ice god freezes the water he walks near
+  // into a crossable sheet — a ford appears under him and lingers ~5s after
+  // he moves on. Cheap radial stamp every tick; only water tiles take. Both
+  // bot and pilot get it (it's a passive of BEING the ice, not an aimed cast).
+  w.freezeWaterNear(s.pos.x, s.pos.z, 7, w.time + 5);
   // THE ICE BLOCK (§21.6 flagship): freeze the nearest enemy in reach on a
   // cadence. One at a time, close — the block is the threat, not DPS.
   // BOT-ONLY: a human pilot aims the freeze on Q; auto-freezing under a

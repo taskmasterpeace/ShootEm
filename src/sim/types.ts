@@ -923,6 +923,7 @@ export interface SimEvent {
     | 'beam_clash_break' // §BEAMS row 189: the node reached a wielder — soldierId was SHEARED
     | 'weaver_mend'      // W3.10: a weaver PULSED plate onto nearby iron (soldierId = weaver)
     | 'ravage'           // W3.10: the ravager's charge SLAMMED home (pos = impact)
+    | 'water_froze'      // row 246: a water tile FROZE into crossable ice (pos = tile center)
     | 'sprinter_wake'  // §7.1: a dormant sprinter just activated — the terror spike
     | 'corpse_critical' // §6: a booked corpse entered its final reanimation window
     | 'contamination'  // §8: a corpse pile curdled into a mutation-field nest

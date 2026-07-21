@@ -249,6 +249,8 @@ export class Renderer {
   private heldPrismSubs = new Map<number, THREE.Mesh[]>();
   /** §BEAMS row 189: clash-node meshes keyed by the sim's clash key */
   private clashNodes = new Map<string, THREE.Mesh>();
+  /** row 246: pale ice quads over the water tiles Frostbite has frozen */
+  private frostSheets = new Map<number, THREE.Mesh>();
   private flagMeshes: THREE.Group[] = [];
   private cpRings: THREE.Mesh[] = [];
   private hillRing: THREE.Mesh | null = null;
@@ -1922,6 +1924,35 @@ export class Renderer {
     }
     for (const [c, entry] of this.corpseMeshes) {
       if (!liveCorpses.has(c)) { this.scene.remove(entry.mesh); this.corpseMeshes.delete(c); }
+    }
+
+    // row 246 THE FROST BRIDGE: a pale translucent sheet over each water tile
+    // Frostbite has frozen — the crossing you can SEE before you trust it.
+    // Synced to the sim's frozenWater map (lazy: only live entries draw).
+    {
+      const liveFrost = new Set<number>();
+      for (const [idx, thaw] of world.frozenWater) {
+        if (thaw <= world.time) continue;
+        liveFrost.add(idx);
+        let sheet = this.frostSheets.get(idx);
+        if (!sheet) {
+          sheet = new THREE.Mesh(
+            new THREE.PlaneGeometry(TILE, TILE),
+            new THREE.MeshBasicMaterial({ color: 0xcfeaf5, transparent: true, opacity: 0.62, depthWrite: false }),
+          );
+          sheet.rotation.x = -Math.PI / 2;
+          const tx = idx % GRID, tz = Math.floor(idx / GRID);
+          sheet.position.set(tx * TILE - WORLD / 2 + TILE / 2, 0.06, tz * TILE - WORLD / 2 + TILE / 2);
+          this.scene.add(sheet);
+          this.frostSheets.set(idx, sheet);
+        }
+      }
+      for (const [idx, sheet] of this.frostSheets) {
+        if (!liveFrost.has(idx)) {
+          this.scene.remove(sheet); (sheet.material as THREE.Material).dispose(); sheet.geometry.dispose();
+          this.frostSheets.delete(idx);
+        }
+      }
     }
 
     // STATUS §2 — the FOUGHT-ON BATTLEFIELD (Robert: "corpses should linger
@@ -4400,6 +4431,12 @@ export class Renderer {
           if (e.pos) {
             this.particles.emit({ pos: { ...e.pos, y: 1.2 }, count: 16, color: 0xcdeef7, speed: 3, life: 0.5, spread: 0.5, up: 3, gravity: -1 });
             audio.play('ice_freeze', { pos: e.pos, volume: 0.8 });
+          }
+          break;
+        case 'water_froze':
+          // row 246: a tile crusts over — a low crystalline puff at the waterline
+          if (e.pos) {
+            this.particles.emit({ pos: { ...e.pos, y: 0.15 }, count: 6, color: 0xdcf1f9, speed: 1.6, life: 0.55, spread: 1.1, up: 1, gravity: -0.5, size: 0.3 });
           }
           break;
         case 'dash': {
