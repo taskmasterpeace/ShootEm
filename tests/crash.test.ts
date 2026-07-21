@@ -64,6 +64,38 @@ describe('W5.1 — the skyline is real', () => {
     expect(v.pos.x, 'the hull never ghosted through').toBeLessThan(wall.x);
   });
 
+  it('W5.2: an airborne flyer crossing the border WRAPS to the far side', () => {
+    const w = new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+    for (const veh of w.vehicles.values()) if (veh.kind === 'aatrack') veh.alive = false;
+    const p = w.addSoldier('P', 'infantry', 0, 'human');
+    p.alive = true;
+    const v = w.spawnVehicle('strikejet', 0, { x: WORLD / 2 - 8, y: 0, z: 0 });
+    v.alive = true; v.seats[0] = p.id; v.band = 2; v.yaw = 0; // nose east, at the fence
+    p.vehicleId = v.id; p.seat = 0; p.enteredVehicleAt = w.time - 10;
+    let wrapped = false;
+    for (let i = 0; i < 60 * 3 && !wrapped; i++) {
+      v.band = 2;
+      w.step(1 / 60, new Map([[p.id, cmd({ moveZ: -1 })]]));
+      if (v.pos.x < 0) wrapped = true; // came out the WEST side
+    }
+    expect(wrapped, 'the attack run re-enters instead of grinding the fence').toBe(true);
+    expect(v.alive).toBe(true);
+  });
+
+  it('the ground keeps the clamp — a tank at the fence never wraps', () => {
+    const w = new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+    const p = w.addSoldier('P', 'infantry', 0, 'human');
+    p.alive = true;
+    const v = w.spawnVehicle('tank', 0, { x: WORLD / 2 - 8, y: 0, z: 0 });
+    v.alive = true; v.seats[0] = p.id; v.yaw = 0; // nose east, at the fence
+    p.vehicleId = v.id; p.seat = 0; p.enteredVehicleAt = w.time - 10;
+    for (let i = 0; i < 60 * 2; i++) {
+      w.step(1 / 60, new Map([[p.id, cmd({ moveZ: -1 })]]));
+    }
+    expect(v.pos.x, 'the fence holds the ground war').toBeLessThanOrEqual(WORLD / 2 - 3);
+    expect(v.pos.x, 'and it never wrapped').toBeGreaterThan(0);
+  });
+
   it('band 2 soars the sanctuary — the same wall costs nothing', () => {
     const w = new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
     for (const veh of w.vehicles.values()) if (veh.kind === 'aatrack') veh.alive = false;

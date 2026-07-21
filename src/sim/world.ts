@@ -4152,8 +4152,19 @@ export class World {
         if (clearAt(nx, v.pos.z)) v.pos.x = nx; else v.vel.x = 0;
         if (clearAt(v.pos.x, nz)) v.pos.z = nz; else v.vel.z = 0;
       }
-      v.pos.x = Math.max(-WORLD / 2 + 3, Math.min(WORLD / 2 - 3, v.pos.x));
-      v.pos.z = Math.max(-WORLD / 2 + 3, Math.min(WORLD / 2 - 3, v.pos.z));
+      // W5.2 WRAPAROUND FOR THE AIR WAR: an AIRBORNE flyer that crosses the
+      // border comes out the far side — attack runs re-enter instead of
+      // grinding the fence (the deck and every ground hull keep the clamp;
+      // taxiing off the map is not a maneuver). Seam distances don't wrap:
+      // a SAM reads the long way round, which is the price of the trick.
+      if (def.flies && (v.band ?? 0) > 0) {
+        const E = WORLD / 2 - 1;
+        if (v.pos.x > E) v.pos.x = -E; else if (v.pos.x < -E) v.pos.x = E;
+        if (v.pos.z > E) v.pos.z = -E; else if (v.pos.z < -E) v.pos.z = E;
+      } else {
+        v.pos.x = Math.max(-WORLD / 2 + 3, Math.min(WORLD / 2 - 3, v.pos.x));
+        v.pos.z = Math.max(-WORLD / 2 + 3, Math.min(WORLD / 2 - 3, v.pos.z));
+      }
     } else {
       v.vel.x = 0; v.vel.z = 0;
       if (driverCmd) v.turretYaw = driverCmd.aimYaw;
