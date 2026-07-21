@@ -34,6 +34,23 @@ const CORPSE_CRITICAL_WINDOW = 2;
  *  to full, so denial takes a real (brief) burn. Chemistry (BNR) and a blast's
  *  complete destruction stay instant (§6.2). Tunable. */
 const INC_BURN_PER_HIT = 0.5;
+/** STATUS §1 / W1.4 — BALLISTIC FALLOFF: a bullet tires as it flies, so range
+ *  costs stopping-power. Energy weapons (rail/beam/plasma) are EXEMPT — light
+ *  doesn't lose steam. Full damage out to 55% of the weapon's range, then a
+ *  linear taper to FALLOFF_FLOOR at max range. Tunable; kept shallow so close
+ *  and mid fights are unchanged and only the long shot pays. */
+export const FALLOFF_FLOOR = 0.6;
+/** Full damage out to at least this far, whatever the weapon — so close/mid
+ *  fights (and the balance arena the threat table measures at ~14-40u) never
+ *  see falloff, and only the genuinely LONG shot pays. */
+export const FALLOFF_MIN_FULL = 42;
+export function ballisticFalloff(tracer: string | undefined, range: number, traveled: number): number {
+  if (tracer !== 'bullet' && tracer !== 'shell') return 1; // energy weapons exempt
+  const full = Math.max(range * 0.55, FALLOFF_MIN_FULL);
+  const span = range - full;
+  if (span <= 0 || traveled <= full) return 1; // short-range weapons never tire
+  return 1 - Math.min(1, (traveled - full) / span) * (1 - FALLOFF_FLOOR);
+}
 /** §8: how close bodies must pile before they anchor a contamination NEST. */
 const NEST_RADIUS = 6;
 /** §7 EMERGENT VARIANTS: the risen form is DERIVED from the body that fell —
@@ -4371,7 +4388,11 @@ export class World {
               const expMul = p.ammo === 'exp'
                 ? (s.armor > 0 || isZed(s.kind) ? 0.65 : (s.kind === 'human' || s.kind === 'bot') ? 1.5 : 1)
                 : 1;
-              const dmg = def.damage * (shooter?.rageMul ?? 1) * (p.dmgMul ?? 1) * incMul * expMul;
+              // W1.4: a bullet tires with distance flown (energy weapons exempt).
+              // Distance ≈ flight time × muzzle speed — no per-round origin to store.
+              const traveled = (this.time - p.bornAt) * Math.hypot(p.vel.x, p.vel.z);
+              const fall = ballisticFalloff(def.tracer, def.range, traveled);
+              const dmg = def.damage * (shooter?.rageMul ?? 1) * (p.dmgMul ?? 1) * incMul * expMul * fall;
               this.damageSoldier(s, dmg, p.ownerId, p.weapon, false, p.pierceArmor);
               // CORPSE DENIAL (OUTBREAK-SPEC §6.1/§6.2/§11): fire and chemistry
               // deny the body where they land — including the one just dropped
