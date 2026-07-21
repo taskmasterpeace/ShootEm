@@ -194,8 +194,10 @@ const SPRINT_MULT = 1.35;
 const SPRINT_DRAIN = 10;   // per second held
 const DASH_COST = 25;
 const ROLL_COST = 20;
+const SLIDE_COST = 14;     // a slide spends SPRINT momentum, not a fresh burst — cheap
 const DASH_IMPULSE = 16;   // decays e^-5t → ~3.2u of burst
 const ROLL_IMPULSE = 13;
+const SLIDE_IMPULSE = 19;  // a longer, lower skid than the dash
 const DASH_CD = 0.9;
 // M1 CHARGED LEAP (STATUS §1: "hold-and-release with a direction; land loud,
 // no air control"): a coiled duck released as a ballistic spring.
@@ -2286,7 +2288,7 @@ export class World {
     // one shared cooldown so they can't be chained into flight.
     if (cmd.dash && !s.downed && s.vehicleId < 0 && s.encasedUntil === undefined &&
         this.time >= (s.nextDashAt ?? 0)) {
-      const cost = cmd.dash === 1 ? DASH_COST : ROLL_COST;
+      const cost = cmd.dash === 1 ? DASH_COST : cmd.dash === 4 ? SLIDE_COST : ROLL_COST;
       if (s.energy >= cost) {
         s.energy -= cost;
         s.nextDashAt = this.time + DASH_CD;
@@ -2295,6 +2297,15 @@ export class World {
           s.pushX += fx * DASH_IMPULSE;
           s.pushZ += fz * DASH_IMPULSE;
           s.dashUntil = this.time + 0.28;
+        } else if (cmd.dash === 4) {
+          // M1 SLIDE-OFF-SPRINT (Robert: "running… slide"): a sprint dropped to
+          // the deck — a long low skid along the nose. Cheaper than a dash (it
+          // spends momentum you already had), and it DUCKS you: the crouch
+          // stance rides along, so a slide clears fire and ends behind cover.
+          s.pushX += fx * SLIDE_IMPULSE;
+          s.pushZ += fz * SLIDE_IMPULSE;
+          s.slideUntil = this.time + 0.55;
+          s.crouching = true;
         } else {
           const side = cmd.dash === 2 ? 1 : -1;
           s.pushX += fz * side * ROLL_IMPULSE;

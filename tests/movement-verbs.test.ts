@@ -32,6 +32,20 @@ describe('M1 — sprint, dash, roll, ragdoll', () => {
     expect(walker.energy, 'walking costs nothing').toBe(100);
   });
 
+  it('SLIDE-OFF-SPRINT bursts along the nose, DUCKS you, and is cheaper than a dash', () => {
+    const w = quiet(); const s = spawn(w);
+    s.yaw = 0; // facing +x
+    w.step(1 / 60, new Map([[s.id, cmd({ dash: 4 })]]));
+    expect(s.pushX, 'the skid runs along the facing').toBeGreaterThan(10);
+    expect(s.crouching, 'a slide ducks you — clears fire, ends low').toBe(true);
+    expect(s.slideUntil, 'the skid window opened').toBeGreaterThan(w.time);
+    expect(s.energy, 'cheaper than a dash (spends sprint momentum, not a fresh burst)').toBeGreaterThan(75.5 - 14 - 0.5);
+    // shares the ONE dash cooldown — no chaining a slide into a dash
+    const before = s.energy;
+    w.step(1 / 60, new Map([[s.id, cmd({ dash: 1 })]]));
+    expect(s.energy, 'the shared cooldown refuses the follow-up').toBeGreaterThan(before - 1);
+  });
+
   it('an empty tank refuses to sprint — the meter IS the gate', () => {
     const w = quiet(); const s = spawn(w);
     s.energy = 0;

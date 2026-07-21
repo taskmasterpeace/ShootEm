@@ -97,6 +97,13 @@ export class Input {
           this.lastTap = { key: k, at: now };
         }
       }
+      // M1 SLIDE-OFF-SPRINT: C while SPRINTING and moving = drop to a skid
+      // (dash channel verb 4). Checked before C joins the key set, so shift +
+      // a movement key must already be held. A standing crouch stays a duck.
+      if (k === 'c' && this.keys.has('shift')
+          && (this.keys.has('w') || this.keys.has('a') || this.keys.has('s') || this.keys.has('d'))) {
+        this.oneShot.dash = 4;
+      }
       this.keys.add(k);
       if (k === ' ') this.spaceDownAt = performance.now(); // W1.3: start the tap/hold clock
       if (k === 'r') this.oneShot.reload = true;

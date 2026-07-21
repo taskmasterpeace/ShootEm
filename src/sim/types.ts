@@ -294,6 +294,7 @@ export interface Soldier {
   dashUntil?: number;
   rollUntil?: number;
   rollDir?: number;      // +1 left, -1 right (relative to facing)
+  slideUntil?: number;   // M1 SLIDE: sprint committed to the deck — low + skidding
   /** M1 RAGDOLL: past the knockback threshold the body is luggage until this */
   ragdollUntil?: number;
   /** M4: an LSW's own regen rate, when its god overrides the class stat */

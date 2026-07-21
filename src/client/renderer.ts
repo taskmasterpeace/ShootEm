@@ -3414,6 +3414,9 @@ export class Renderer {
     let verbLean = 0;
     let verbRollX = 0;
     if (s.dashUntil !== undefined && t < s.dashUntil) verbLean = -0.45;
+    // SLIDE-OFF-SPRINT: a deeper backward lean than the dash — the body reads
+    // as skidding low along the deck, eased out over the slide's tail.
+    if (s.slideUntil !== undefined && t < s.slideUntil) verbLean = -0.7 * ((s.slideUntil - t) / 0.55);
     if (s.rollUntil !== undefined && t < s.rollUntil) {
       const k = 1 - (s.rollUntil - t) / 0.5;
       verbRollX = (s.rollDir ?? 1) * k * Math.PI * 2; // one full sideways revolution

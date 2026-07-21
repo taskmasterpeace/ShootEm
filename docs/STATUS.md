@@ -198,7 +198,7 @@ Ground-truthed this session. **Beams draw** (as fast box tracers); everything in
 |---|---|---|
 | Charged **leap** (hold-and-release with a direction; land loud, no air control) | ✅ | **DONE 2026-07-21.** SPACE's third face: hold past the tap window WITH a direction = the duck is a COIL; release springs a ballistic arc (charge ramps 9→15 u/s over 0.9s of coil, `leapChargeOnRelease` pure in `input.ts`). Costs 25, shares the dash cooldown, NO air control (`s.leaping` gates the vel overwrite), and lands LOUD: `loudUntil` pings recon like gunfire + wakes dormant sprinters (§7.1). `tests/space-input.test.ts` (+4), `movement-verbs.test.ts` (+2), `sim.test.ts` (+1); live-verified (counter-steer 30 ticks → velX untouched; landing ping true) |
 | Jetpack **commitment cost** (no regen airborne + a timeout after landing) | ✅ | full flight economy: burn-dry latch (relight at 35) + soft ceiling above 6u + ground-only regen + `JET_BREATHER` 1.0s post-landing pause (`world.ts` applyCmd; `tests/sim.test.ts` "landing is a COMMITMENT"). Gods exempt |
-| Dive-roll / mantle / slide-off-sprint | ❌📋 | later; slide rides the hoverboard slip system. BACKLOG (new) |
+| Dive-roll / mantle / slide-off-sprint | 🔨 | **SLIDE-OFF-SPRINT DONE 2026-07-21** — C while sprinting + moving drops you to a skid (`dash` verb 4): a long low burst along the nose (`SLIDE_IMPULSE` 19), cheaper than a dash (14 vs 25 — spends sprint momentum), and it DUCKS you (crouch rides along → clears fire, ends behind cover); renderer skids the body on a deep back-lean. Shares the one dash cooldown. `tests/movement-verbs.test.ts`; live: push 17.5, crouched, 3u carry. **Dive-roll** ≈ the shipped side/forward roll+dash; **mantle** (vault cover) is the remaining piece |
 
 ## 13 · LOOT & BODIES
 
