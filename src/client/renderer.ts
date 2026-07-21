@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
 import { CLIMB_H, F2_SLIT, F2_WALL, F2_WELL, GRID, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, T_WATER, TILE, WORLD, houseAt, losClear, surfaceAt, tileAt } from '../sim/map';
-import { TORCH_MULT, classLinger, eyesSeePoint, seenRecently, type SeenMark } from '../sim/perception';
+import { TORCH_MULT, classLinger, eyesSeePoint, perceivesNow, seenRecently, type SeenMark } from '../sim/perception';
 import { paintColorFor } from './onboarding';
 import type { WeatherKind } from '../sim/weather';
 import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
@@ -343,6 +343,10 @@ export class Renderer {
   private flyerShadowGeo?: THREE.CircleGeometry;
   private frameDt = 1 / 60;                                 // dt of the current update()
   private darkSweepN = 0;                                   // READING THE DARK: sweep cadence counter
+  /** C1 ROW 81 — the PER-VIEWER seen trail: marks stamped by the LOCAL eye
+   *  alone, read by the 3D soldier draw (the minimap keeps the TEAM trail) */
+  private localSeen = new Map<number, SeenMark>();
+  private localSeenWorld?: World;
   private deathFall = new Map<number, { x: number; z: number }>(); // ragdoll tip dir per id
 
   /** Red chevron sprite texture for revealed-enemy markers (built once). */
@@ -1384,6 +1388,31 @@ export class Renderer {
     const enemyVisibleAt = (x: number, z: number, y = 1.4): boolean =>
       fogEyes === null || eyesSeePoint(world.map.grid, fogEyes, x, z, fogRange, y);
 
+    // C1 ROW 81 — THE SPLIT (Robert: "3D shows what YOU see; the minimap
+    // shows what your TEAM sees"). The sim's lastSeen trail is the TEAM's
+    // shared memory — the minimap instrument keeps reading it (hud.ts,
+    // unchanged). The 3D world instead rides THIS per-viewer trail, stamped
+    // by the LOCAL eye alone under the same laws (cone+ring, skyline, smoke,
+    // grass, pings, muzzle reveal — perceivesNow, one pair of eyes; the
+    // torch rides free). Stamped BEFORE the soldier loop so a perceived
+    // enemy is fresh at any sim speed. While you're DEAD the squad's radio
+    // keeps painting (the loop falls back to the team trail) so the death
+    // cam still frames your killer.
+    if (this.localSeenWorld !== world) { this.localSeenWorld = world; this.localSeen.clear(); }
+    if (!world.puppet && local?.alive) {
+      // muzzle flash reveals — the same one-line law updateLastSeen computes
+      const revealed = new Set<number>();
+      for (const e of world.soldiers.values()) {
+        if (e.alive && e.nextFireAt > 0 && e.nextFireAt > world.time - 0.9 && e.nextFireAt <= world.time + 2) revealed.add(e.id);
+      }
+      for (const s of world.soldiers.values()) {
+        if (!s.alive || s.team === localTeam) continue;
+        if (perceivesNow(world.map.grid, [local], world.pinged, s, fogRange, world.smokeBlobs, revealed, world.map.grid2)) {
+          this.localSeen.set(s.id, { t: world.time, x: s.pos.x, z: s.pos.z });
+        }
+      }
+    }
+
     // ambience: the theme's bed hums low under the match. Self-managing —
     // retries until the audio context + buffer exist, swaps beds if the
     // rendered theme changes, and stays silent for unfilled slots.
@@ -1562,7 +1591,10 @@ export class Renderer {
       let dark = false;
       mesh.userData.ghostAlpha = 1;
       if (!world.puppet && local && s.team !== localTeam && s.alive && !inVehicle) {
-        const mark = world.lastSeen[localTeam].get(s.id);
+        // ROW 81: alive → YOUR eyes decide the 3D world (the per-viewer
+        // trail above); dead → the squad's radio paints (team trail), so
+        // the death cam still frames the killer.
+        const mark = (local.alive ? this.localSeen : world.lastSeen[localTeam]).get(s.id);
         const fresh = mark !== undefined && world.time - mark.t < 0.07;
         if (!fresh) {
           // §11 row 6: per-CLASS linger (recon holds longest, max 5s), and the
