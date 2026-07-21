@@ -244,6 +244,7 @@ export class Renderer {
   /** drifting cloud deck at altitude — density follows the weather */
   private clouds: { mesh: THREE.Mesh; drift: number }[] = [];
   private cloudMat?: THREE.MeshLambertMaterial;
+  private shelfMat?: THREE.MeshLambertMaterial; // B2: the low cloud shelf (bands 2-3)
   /** active precipitation system, rebuilt when the weather kind changes */
   private precip?: { kind: WeatherKind; obj: THREE.Object3D; pos: Float32Array; n: number };
   private nextFlashAt = 0;
@@ -657,6 +658,27 @@ export class Renderer {
       m.castShadow = false; m.receiveShadow = false;
       this.scene.add(m);
       this.clouds.push({ mesh: m, drift: 1.1 + cloudRng(i + 71) * 1.4 });
+    }
+    // B2 THE CLOUD SHELF (Robert: "when you get to the highest level you should
+    // kind of be IN the clouds"): a thin, wide deck sitting BETWEEN band 2
+    // (~8.6u) and band 3 (~14u) — a band-3 flyer skims its top, a band-2 flyer
+    // runs just beneath it, so the climb reads as breaking cloud cover. Sparse
+    // and low-opacity so it grades the sky without hiding the fight below.
+    if (!this.shelfMat) {
+      this.shelfMat = new THREE.MeshLambertMaterial({
+        color: new THREE.Color(pal.hemiSky).lerp(new THREE.Color(0xffffff), 0.62),
+        transparent: true, opacity: 0.28, depthWrite: false,
+      });
+    } else this.shelfMat.color = new THREE.Color(pal.hemiSky).lerp(new THREE.Color(0xffffff), 0.62);
+    for (let i = 0; i < 10; i++) {
+      const geo = new THREE.IcosahedronGeometry(1, 0);
+      const m = new THREE.Mesh(geo, this.shelfMat);
+      m.scale.set(11 + cloudRng(i + 200) * 12, 1.1 + cloudRng(i + 250) * 0.8, 9 + cloudRng(i + 299) * 10);
+      m.position.set((cloudRng(i + 207) - 0.5) * (WORLD + 60), 11 + cloudRng(i + 213) * 2, (cloudRng(i + 231) - 0.5) * (WORLD + 60));
+      m.rotation.y = cloudRng(i + 243) * Math.PI;
+      m.castShadow = false; m.receiveShadow = false;
+      this.scene.add(m);
+      this.clouds.push({ mesh: m, drift: 0.6 + cloudRng(i + 271) * 0.9 });
     }
     // weather particles rebuild lazily against the new sky — and last match's
     // paint comes off the field (a fresh yard deserves fresh canvas)
