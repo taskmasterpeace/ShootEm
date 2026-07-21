@@ -102,12 +102,40 @@ function fieldLead(i: PressIssue): string {
   return `${i.modeName} closed ${score}.${medals}`;
 }
 
+// ── the corrections desk (W4.3) ────────────────────────────────────────────
+// A real paper corrects itself. Each edition runs ONE small correction about
+// the PREVIOUS issue — grounded in that issue's actual data, picked by the
+// same stable hash so the same pair of battles always prints the same
+// retraction. The Courier regrets the error. The Courier regrets most things.
+
+export function correctionLine(prev: PressIssue | undefined, cur: PressIssue): string | null {
+  if (!prev) return null;
+  const pool: string[] = [];
+  if (prev.longestShot > 0) {
+    pool.push(`The ${prev.longestShot}u shot reported in our last edition has been re-measured by the survey office at ${Math.max(1, prev.longestShot - 1)}u. The Courier regrets the yard.`);
+  }
+  if (prev.aceKills > 0) {
+    pool.push(`${prev.aceName} writes to claim ${prev.aceKills + 1} confirmed, not the ${prev.aceKills} we printed. The desk stands by its count and invites ${prev.aceName} to shoot straighter.`);
+  }
+  if (prev.underdog) {
+    pool.push(`Our last edition called the ${prev.myCost}-against-${prev.theirCost} victory "impossible." The quartermaster has completed his review: it remains impossible. It also remains a victory.`);
+  }
+  if (prev.frontName && cur.frontName === prev.frontName && (prev.controlDelta ?? 0) > 0 && (cur.controlDelta ?? 0) < 0) {
+    pool.push(`"${prev.frontName.toUpperCase()} CHANGES HANDS," we reported. It has changed hands again. The Courier will stop reporting on ${prev.frontName} until it makes up its mind.`);
+  }
+  if (!pool.length) {
+    pool.push('No factual errors were found in our previous edition. The Courier apologizes for the inconvenience.');
+  }
+  return pool[hash(cur) % pool.length];
+}
+
 // ── the pressroom ───────────────────────────────────────────────────────────
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 
-/** One full front page. */
-export function renderIssueHTML(i: PressIssue): string {
+/** One full front page. `prev` feeds the corrections desk (W4.3). */
+export function renderIssueHTML(i: PressIssue, prev?: PressIssue): string {
+  const correction = correctionLine(prev, i);
   const date = new Date(i.at);
   const dateline = `Season ${i.season} · ${date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}`;
   const control = i.frontName && i.controlAfter !== undefined
@@ -128,6 +156,7 @@ export function renderIssueHTML(i: PressIssue): string {
       <section><h3>THE FIELD</h3><p>${esc(fieldLead(i))}</p></section>
     </div>
     ${i.underdog ? '<div class="np-banner">★ UNDERFUNDED VICTORY — MORALE RISES ★</div>' : ''}
+    ${correction ? `<div class="np-corrections"><h4>CORRECTIONS</h4><p>${esc(correction)}</p></div>` : ''}
   </article>`;
 }
 
@@ -143,5 +172,5 @@ export function renderPressInto(root: HTMLElement) {
     ? `<div class="np-stack"><h4>THE ARCHIVE</h4>${older.map((i) =>
       `<div class="np-clip"><span class="np-clip-date">${new Date(i.at).toLocaleDateString()}</span><b>${esc(mainHeadline(i))}</b></div>`).join('')}</div>`
     : '';
-  root.innerHTML = `${renderIssueHTML(latest)}${stack}`;
+  root.innerHTML = `${renderIssueHTML(latest, older[0])}${stack}`;
 }

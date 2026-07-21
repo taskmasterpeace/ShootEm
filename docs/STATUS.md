@@ -154,7 +154,7 @@ Full law: **`docs/WAR.md`**. Almost all of it is 📋 DESIGN — the substrate (
 | The Front Courier newspaper | ✅ | HTML edition + archive (`newspaper.ts`) |
 | **AI-generated** newspaper image per war-front change | ❌ | no image hook; HTML stays the fallback. BACKLOG W4.1 · 🎯 which image API |
 | Base TV newscast (~25s, anchor VO + ticker, before deploy) | ❌ | no TV substrate. BACKLOG W4.2 |
-| Corrections box (the paper corrects itself) | ❌ | BACKLOG W4.3 |
+| Corrections box (the paper corrects itself) | ✅ | **DONE 2026-07-21 (W4.3).** Each edition runs ONE small retraction about the PREVIOUS issue — grounded in its actual data (the re-measured brag shot, the ace demanding +1, the quartermaster's "it remains impossible," the flip-flopping front, or the apology for finding no errors), picked by the stable hash so the same pair always prints the same line. `correctionLine` pure; hairline-rule italic box on the page. `tests/press-corrections.test.ts` (6); live: "ACE writes to claim 7 confirmed, not the 6 we printed…" |
 | **Unnamed-soldier fiction** (a serial number, not "recruiter"; TTS reads digits; naming yourself is a beat) | 📋 | designed this session. BACKLOG (new) |
 
 ## 9 · SOLDIER & WEAPON VISUALS

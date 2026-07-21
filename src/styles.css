@@ -988,6 +988,13 @@ table.cx-compare .cx-best { color: var(--accent); font-weight: 700; }
   margin-top: 0.7rem; text-align: center; font-weight: 800; letter-spacing: 0.12em;
   font-size: 0.78rem; border: 2px solid oklch(0.25 0.02 80); padding: 0.35rem;
 }
+/* W4.3 the CORRECTIONS box — small type, hairline rule, a paper owning it */
+.np-corrections {
+  margin-top: 0.7rem; padding-top: 0.4rem; border-top: 1px solid oklch(0.32 0.02 80);
+  max-width: 34rem;
+}
+.np-corrections h4 { font-size: 0.6rem; letter-spacing: 0.2em; margin-bottom: 0.2rem; }
+.np-corrections p { font-size: 0.7rem; line-height: 1.4; font-style: italic; opacity: 0.85; }
 .np-stack { margin-top: 0.8rem; max-width: 46rem; }
 .np-stack h4 { font-size: 0.7rem; letter-spacing: 0.16em; color: var(--muted); margin-bottom: 0.35rem; }
 .np-clip {
