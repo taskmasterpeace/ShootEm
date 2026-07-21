@@ -50,6 +50,16 @@ export const T_THIN_DOOR_V = 17;
 export const T_THIN_DOOR_H_OPEN = 18;
 export const T_THIN_DOOR_V_OPEN = 19;
 export const T_THIN_WALL_HV = 20;      // corner / junction: both axes
+export const T_WINDOW_H = 21;           // framed pane spanning X
+export const T_WINDOW_V = 22;           // framed pane spanning Z
+export const T_WINDOW_H_BROKEN = 23;    // frame + low sill; sight/fire pass
+export const T_WINDOW_V_BROKEN = 24;
+export const T_STAIRS_N = 25;           // oriented continuous storey transitions
+export const T_STAIRS_E = 26;
+export const T_STAIRS_S = 27;
+export const T_STAIRS_W = 28;
+export const T_SECTION_SHUTTER = 29;    // mission section boundary
+export const T_SECTION_SHUTTER_OPEN = 30;
 export const THIN_WALL = 0.42;
 
 /** §8.7 heights, one place: what each tier stops below. HOP-tier cover at
@@ -69,6 +79,8 @@ export const DRILL_EATS: ReadonlySet<number> = new Set([
   T_WALL, T_COVER, T_SLIT, T_DOOR, T_DOOR_OPEN, T_CLIMB, T_RUBBLE,
   T_THIN_WALL_H, T_THIN_WALL_V, T_THIN_WALL_HV,
   T_THIN_DOOR_H, T_THIN_DOOR_V, T_THIN_DOOR_H_OPEN, T_THIN_DOOR_V_OPEN,
+  T_WINDOW_H, T_WINDOW_V, T_WINDOW_H_BROKEN, T_WINDOW_V_BROKEN,
+  T_SECTION_SHUTTER, T_SECTION_SHUTTER_OPEN,
 ]);
 
 // ---- the SURFACE layer (§8.6): what the ground IS, orthogonal to blocking ----
@@ -258,6 +270,31 @@ export function doorIsOpen(tile: number): boolean {
   return tile === T_DOOR_OPEN || tile === T_THIN_DOOR_H_OPEN || tile === T_THIN_DOOR_V_OPEN;
 }
 
+export function isWindowTile(tile: number): boolean {
+  return tile === T_WINDOW_H || tile === T_WINDOW_V
+    || tile === T_WINDOW_H_BROKEN || tile === T_WINDOW_V_BROKEN
+    || tile === F2_WINDOW_H || tile === F2_WINDOW_V
+    || tile === F2_WINDOW_H_BROKEN || tile === F2_WINDOW_V_BROKEN;
+}
+
+export function windowIsBroken(tile: number): boolean {
+  return tile === T_WINDOW_H_BROKEN || tile === T_WINDOW_V_BROKEN
+    || tile === F2_WINDOW_H_BROKEN || tile === F2_WINDOW_V_BROKEN;
+}
+
+export function breakWindowTile(tile: number): number {
+  if (tile === T_WINDOW_H) return T_WINDOW_H_BROKEN;
+  if (tile === T_WINDOW_V) return T_WINDOW_V_BROKEN;
+  if (tile === F2_WINDOW_H) return F2_WINDOW_H_BROKEN;
+  if (tile === F2_WINDOW_V) return F2_WINDOW_V_BROKEN;
+  return tile;
+}
+
+export function windowSpansX(tile: number): boolean {
+  return tile === T_WINDOW_H || tile === T_WINDOW_H_BROKEN
+    || tile === F2_WINDOW_H || tile === F2_WINDOW_H_BROKEN;
+}
+
 /** Toggle a door while retaining the explicit orientation of thin doors. */
 export function toggleDoorTile(tile: number): number {
   if (tile === T_DOOR) return T_DOOR_OPEN;
@@ -278,11 +315,19 @@ function centeredTileOffset(value: number): number {
 }
 
 export function thinTileBlocks(tile: number, x: number, z: number): boolean {
-  if (tile === T_THIN_DOOR_H_OPEN || tile === T_THIN_DOOR_V_OPEN) return false;
+  if (tile === T_THIN_DOOR_H_OPEN || tile === T_THIN_DOOR_V_OPEN
+    || tile === T_SECTION_SHUTTER_OPEN || tile === F2_DOOR_H_OPEN
+    || tile === F2_DOOR_V_OPEN || tile === F2_SHUTTER_OPEN) return false;
   const ox = Math.abs(centeredTileOffset(x));
   const oz = Math.abs(centeredTileOffset(z));
-  const horizontal = tile === T_THIN_WALL_H || tile === T_THIN_DOOR_H || tile === T_THIN_WALL_HV;
-  const vertical = tile === T_THIN_WALL_V || tile === T_THIN_DOOR_V || tile === T_THIN_WALL_HV;
+  const horizontal = tile === T_THIN_WALL_H || tile === T_THIN_DOOR_H || tile === T_THIN_WALL_HV
+    || tile === T_WINDOW_H || tile === T_WINDOW_H_BROKEN || tile === T_SECTION_SHUTTER
+    || tile === F2_THIN_WALL_H || tile === F2_THIN_WALL_HV || tile === F2_WINDOW_H
+    || tile === F2_WINDOW_H_BROKEN || tile === F2_DOOR_H || tile === F2_RAIL_H || tile === F2_SHUTTER;
+  const vertical = tile === T_THIN_WALL_V || tile === T_THIN_DOOR_V || tile === T_THIN_WALL_HV
+    || tile === T_WINDOW_V || tile === T_WINDOW_V_BROKEN
+    || tile === F2_THIN_WALL_V || tile === F2_THIN_WALL_HV || tile === F2_WINDOW_V
+    || tile === F2_WINDOW_V_BROKEN || tile === F2_DOOR_V || tile === F2_RAIL_V;
   return (horizontal && oz <= THIN_WALL / 2) || (vertical && ox <= THIN_WALL / 2);
 }
 
@@ -293,7 +338,8 @@ export function isBlocked(grid: Uint8Array, x: number, z: number, hover = false)
   // slits and CLOSED doors block movement always; open doors are a doorway.
   // CLIMB barricades block GROUND movement like walls — clearing one is the
   // airborne y-band's job (world.ts knows your apex; this function doesn't).
-  if (t >= T_THIN_WALL_H && t <= T_THIN_WALL_HV) return thinTileBlocks(t, x, z);
+  if ((t >= T_THIN_WALL_H && t <= T_THIN_WALL_HV) || isWindowTile(t)
+    || t === T_SECTION_SHUTTER || t === T_SECTION_SHUTTER_OPEN) return thinTileBlocks(t, x, z);
   return t === T_WALL || t === T_COVER || t === T_SLIT || t === T_DOOR || t === T_METAL || t === T_METAL_DOOR || t === T_CLIMB;
 }
 
@@ -341,6 +387,9 @@ export function blocksShot(grid: Uint8Array, x: number, z: number, y: number): b
     const door = t === T_THIN_DOOR_H || t === T_THIN_DOOR_V;
     return thinTileBlocks(t, x, z) && y < (door ? 2.2 : WALL_H);
   }
+  if (t === T_WINDOW_H || t === T_WINDOW_V) return thinTileBlocks(t, x, z) && y < WALL_H;
+  if (t === T_WINDOW_H_BROKEN || t === T_WINDOW_V_BROKEN) return thinTileBlocks(t, x, z) && y < 1.0;
+  if (t === T_SECTION_SHUTTER) return thinTileBlocks(t, x, z) && y < WALL_H;
   return false;
 }
 
@@ -355,6 +404,26 @@ export const F2_FLOOR = 1;  // walkable upper floor
 export const F2_WALL = 2;   // upper wall (blocks 4..8)
 export const F2_SLIT = 3;   // upper window — fire band 5.2..5.8 (the sniper nest)
 export const F2_WELL = 4;   // the ladder well: walkable, E descends
+export const F2_THIN_WALL_H = 5;
+export const F2_THIN_WALL_V = 6;
+export const F2_THIN_WALL_HV = 7;
+export const F2_WINDOW_H = 8;
+export const F2_WINDOW_V = 9;
+export const F2_WINDOW_H_BROKEN = 10;
+export const F2_WINDOW_V_BROKEN = 11;
+export const F2_DOOR_H = 12;
+export const F2_DOOR_V = 13;
+export const F2_DOOR_H_OPEN = 14;
+export const F2_DOOR_V_OPEN = 15;
+export const F2_BALCONY = 16;
+export const F2_RAIL_H = 17;
+export const F2_RAIL_V = 18;
+export const F2_STAIR_N = 19;
+export const F2_STAIR_E = 20;
+export const F2_STAIR_S = 21;
+export const F2_STAIR_W = 22;
+export const F2_SHUTTER = 23;
+export const F2_SHUTTER_OPEN = 24;
 
 /** Upper-layer shot blocking — walls live in the 4..8 band. */
 export function blocksShotUpper(grid2: Uint8Array, x: number, z: number, y: number): boolean {
@@ -362,13 +431,26 @@ export function blocksShotUpper(grid2: Uint8Array, x: number, z: number, y: numb
   const t = tileAt(grid2, x, z);
   if (t === F2_WALL) return true;
   if (t === F2_SLIT) return !(y >= 5.2 && y <= 5.8);
+  if ((t === F2_THIN_WALL_H || t === F2_THIN_WALL_V || t === F2_THIN_WALL_HV)
+    && thinTileBlocks(t, x, z)) return true;
+  if ((t === F2_WINDOW_H || t === F2_WINDOW_V) && thinTileBlocks(t, x, z)) return true;
+  if ((t === F2_WINDOW_H_BROKEN || t === F2_WINDOW_V_BROKEN) && thinTileBlocks(t, x, z)) return y < 5;
+  if ((t === F2_DOOR_H || t === F2_DOOR_V) && thinTileBlocks(t, x, z)) return y < 6.2;
+  if ((t === F2_RAIL_H || t === F2_RAIL_V) && thinTileBlocks(t, x, z)) return y < 5.2;
+  if (t === F2_SHUTTER && thinTileBlocks(t, x, z)) return true;
   return false;
 }
 
 /** Is this upper tile standable? (Anything but void — walls stop you first.) */
 export const upperBlocked = (grid2: Uint8Array, x: number, z: number): boolean => {
   const t = tileAt(grid2, x, z);
-  return t === F2_WALL || t === F2_SLIT;
+  if (t === F2_WALL || t === F2_SLIT) return true;
+  if (t === F2_THIN_WALL_H || t === F2_THIN_WALL_V || t === F2_THIN_WALL_HV
+    || t === F2_WINDOW_H || t === F2_WINDOW_V || t === F2_WINDOW_H_BROKEN || t === F2_WINDOW_V_BROKEN
+    || t === F2_DOOR_H || t === F2_DOOR_V || t === F2_RAIL_H || t === F2_RAIL_V || t === F2_SHUTTER) {
+    return thinTileBlocks(t, x, z);
+  }
+  return false;
 };
 
 /** March a ray across the grid; true if line of sight is clear at the given height. */

@@ -212,6 +212,29 @@ function chooseNearCenter(cells: { x: number; z: number }[], width: number, heig
 function cloneGrid(grid: Grid): Grid { return grid.map((row) => row.slice()); }
 const toRows = (grid: Grid) => grid.map((row) => row.join(''));
 
+function addSouthBalcony(grids: Grid[]): void {
+  if (grids.length < 2) return;
+  const width = grids[0][0].length;
+  const originalSouth = grids[0].length - 1;
+  for (const grid of grids) {
+    grid.push(Array.from({ length: width }, () => ' '));
+    grid.push(Array.from({ length: width }, () => ' '));
+  }
+  for (let floor = 1; floor < grids.length; floor++) {
+    const grid = grids[floor];
+    const candidates: number[] = [];
+    for (let x = 3; x < width - 3; x++) {
+      if ((grid[originalSouth][x] === '-' || grid[originalSouth][x] === '=')
+        && WALKABLE.has(grid[originalSouth - 1][x])) candidates.push(x);
+    }
+    const center = candidates.sort((a, b) => Math.abs(a - width / 2) - Math.abs(b - width / 2))[0];
+    if (center === undefined) continue;
+    grid[originalSouth][center] = 'h';
+    for (let x = center - 2; x <= center + 2; x++) grid[originalSouth + 1][x] = x === center - 2 || x === center + 2 ? 'R' : 'B';
+    for (let x = center - 2; x <= center + 2; x++) grid[originalSouth + 2][x] = 'R';
+  }
+}
+
 export function buildingLayerConnected(rows: string[]): boolean {
   if (!rows.length) return false;
   const width = rows[0].length;
@@ -228,6 +251,22 @@ export function buildingLayerConnected(rows: string[]): boolean {
     }
   }
   return seen.size === open.length;
+}
+
+/** A balcony deck may cantilever three tiles between rail/support returns.
+ * Longer runs need columns, which the current stencil vocabulary does not
+ * claim; rejecting them keeps collision and visible structure honest. */
+export function balconySpansSupported(rows: string[]): boolean {
+  for (const row of rows) {
+    let run = 0;
+    for (const char of row) {
+      if (char === 'B') {
+        run++;
+        if (run > 3) return false;
+      } else run = 0;
+    }
+  }
+  return true;
 }
 
 function pickFootprint(architecture: CityArchitectureProfile, rng: Rng): FootprintFamily {
@@ -322,6 +361,9 @@ function generateAttempt(options: GenerateCityBuildingOptions, validationSeed: n
     addPartitions(upper, partitionX);
     return upper;
   })());
+  const balconyArchetype = options.archetype === 'command-villa' || options.archetype === 'apartment'
+    || options.archetype === 'hotel' || options.archetype === 'government-office';
+  if (balconyArchetype && architecture.balconyWeight >= 0.3) addSouthBalcony(grids);
   const disconnectedFloor = grids.findIndex((grid) => !buildingLayerConnected(toRows(grid)));
   if (disconnectedFloor >= 0) {
     throw new Error(`disconnected shell on floor ${disconnectedFloor}:\n${toRows(grids[disconnectedFloor]).join('\n')}`);
@@ -359,7 +401,7 @@ function generateAttempt(options: GenerateCityBuildingOptions, validationSeed: n
     floors: options.floors,
     footprint,
     width,
-    height,
+    height: layers[0].length,
     layers,
     def,
     sockets: buildSockets(fullLayers, exits, options.missionSection),

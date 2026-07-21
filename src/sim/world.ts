@@ -1,6 +1,7 @@
 import { AMMO_INFO, CLASSES, DOG_NAMES, DOG_STATS, EQUIPMENT, IRON_STATS, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
-import { CLIMB_H, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_GRASS, T_LADDER, T_METAL, T_METAL_DOOR, T_OPEN, T_RUBBLE, T_SLIT, T_THIN_WALL_H, T_THIN_WALL_HV, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, doorIsOpen, generateMap, isBlocked, isDoorTile, losClear, nearestOpenTile, surfaceAt, tileAt, toggleDoorType, upperBlocked, type GameMap } from './map';
+import { CLIMB_H, F2_VOID, F2_WELL, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_GRASS, T_LADDER, T_METAL, T_METAL_DOOR, T_OPEN, T_RUBBLE, T_SLIT, T_THIN_WALL_H, T_THIN_WALL_HV, T_WALL, T_WATER, TILE, WORLD, blocksShot, blocksShotUpper, breakWindowTile, doorIsOpen, generateMap, isBlocked, isDoorTile, isWindowTile, losClear, nearestOpenTile, surfaceAt, thinTileBlocks, tileAt, toggleDoorType, upperBlocked, windowIsBroken, type GameMap } from './map';
+import { floorHeight, floorLayer } from './map-layers';
 import { materialOf, materialForSurface, DRILL_BASE } from './materials';
 import { Rng } from './rng';
 import {
@@ -4115,6 +4116,34 @@ export class World {
   /** door tiles whose state ever changed — replicated so puppets stay true */
   doorChanges: number[] = [];
 
+  /** Broken panes packed as floor*GRID²+idx. Cumulative and idempotent like
+   * breached walls, so late-joining puppets inherit the exact facade. */
+  glassChanges: number[] = [];
+
+  shatterWindowAt(x: number, z: number, floor = 0): boolean {
+    let layer: Uint8Array;
+    try { layer = floorLayer(this.map, floor); }
+    catch { return false; }
+    const tx = Math.floor((x + WORLD / 2) / TILE), tz = Math.floor((z + WORLD / 2) / TILE);
+    if (tx < 0 || tz < 0 || tx >= GRID || tz >= GRID) return false;
+    const idx = tz * GRID + tx;
+    const before = layer[idx];
+    if (!isWindowTile(before) || windowIsBroken(before)) return false;
+    layer[idx] = breakWindowTile(before);
+    const packed = floor * GRID * GRID + idx;
+    if (!this.glassChanges.includes(packed)) this.glassChanges.push(packed);
+    this.emit({
+      type: 'glass',
+      pos: {
+        x: (tx + 0.5) * TILE - WORLD / 2,
+        y: floorHeight(floor) + 1.5,
+        z: (tz + 0.5) * TILE - WORLD / 2,
+      },
+      tile: packed,
+    });
+    return true;
+  }
+
   /** E on a ladder foot (or the well above it) climbs between storeys. The
    *  activation key again — same verb as doors and vehicles. */
   private tryLadder(s: Soldier): boolean {
@@ -4903,6 +4932,20 @@ export class World {
             break;
           }
         }
+        if (dead) { this.projectiles.delete(id); continue; }
+      }
+
+      // BREAKABLE GLASS: the first damaging round spends itself shattering
+      // the pane. Every later round sees the broken opening and flies through;
+      // the low sill remains body collision in map.ts.
+      if (!dead && def.damage > 0 && !def.training) {
+        const floor = p.pos.y >= 8 ? 2 : p.pos.y >= 4 ? 1 : 0;
+        try {
+          const layer = floorLayer(this.map, floor);
+          const pane = tileAt(layer, p.pos.x, p.pos.z);
+          if (isWindowTile(pane) && !windowIsBroken(pane) && thinTileBlocks(pane, p.pos.x, p.pos.z)
+            && this.shatterWindowAt(p.pos.x, p.pos.z, floor)) dead = true;
+        } catch { /* projectile is above an unallocated storey */ }
         if (dead) { this.projectiles.delete(id); continue; }
       }
 

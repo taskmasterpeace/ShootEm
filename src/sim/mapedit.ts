@@ -411,8 +411,10 @@ export function addMouth(doc: MakerDoc, tx: number, tz: number) {
  *  the roof, the crates and the loot — atomically deletable via deleteHouse). */
 export function stamp(doc: MakerDoc, def: BuildingDef, tx: number, tz: number): boolean {
   pushUndo(doc);
+  if (def.floors >= 2) ensureUpperFloor(doc.map, 1);
+  if (def.floors >= 3) ensureUpperFloor(doc.map, 2);
   const ctx: StampCtx = {
-    grid: doc.map.grid, grid2: doc.map.grid2, props: doc.map.props,
+    grid: doc.map.grid, grid2: doc.map.grid2, upperLayers: doc.map.upperLayers, props: doc.map.props,
     pickups: doc.map.pickups, houses: doc.map.houses, claims: doc.claims, rng: doc.rng,
   };
   const before = doc.map.houses.length;

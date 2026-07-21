@@ -1,5 +1,12 @@
 import type { House, PickupSpawn, PropSpec } from './map';
-import { F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_COVER, T_DOOR, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_THIN_DOOR_H, T_THIN_DOOR_V, T_THIN_WALL_H, T_THIN_WALL_HV, T_THIN_WALL_V, T_WALL, TILE, WORLD } from './map';
+import {
+  F2_BALCONY, F2_DOOR_H, F2_DOOR_V, F2_FLOOR, F2_RAIL_H, F2_SHUTTER,
+  F2_SLIT, F2_STAIR_N, F2_THIN_WALL_H, F2_THIN_WALL_HV, F2_THIN_WALL_V,
+  F2_WALL, F2_WELL, F2_WINDOW_H, F2_WINDOW_V,
+  GRID, T_COVER, T_DOOR, T_LADDER, T_METAL, T_OPEN, T_SECTION_SHUTTER,
+  T_SLIT, T_STAIRS_N, T_THIN_DOOR_H, T_THIN_DOOR_V, T_THIN_WALL_H,
+  T_THIN_WALL_HV, T_THIN_WALL_V, T_WALL, T_WINDOW_H, T_WINDOW_V, TILE, WORLD,
+} from './map';
 import type { Rng } from './rng';
 import type { ThemeId } from './types';
 
@@ -717,6 +724,9 @@ export interface StampCtx {
   grid: Uint8Array;
   /** the second-storey layer (F2_*) — stamped from rows2 */
   grid2: Uint8Array;
+  /** Indexed upper storeys for whole-building definitions. Index 0 must be
+   * the same Level 2 array as grid2; legacy callers may omit this field. */
+  upperLayers?: Uint8Array[];
   props: PropSpec[];
   pickups: PickupSpawn[];
   houses: House[];
@@ -749,6 +759,10 @@ export function stampBuilding(ctx: StampCtx, def: BuildingDef, tx: number, tz: n
         case '-': ctx.grid[idx] = T_THIN_WALL_H; break;
         case '|': ctx.grid[idx] = T_THIN_WALL_V; break;
         case '+': ctx.grid[idx] = T_THIN_WALL_HV; break;
+        case '=': ctx.grid[idx] = T_WINDOW_H; break;
+        case '!': ctx.grid[idx] = T_WINDOW_V; break;
+        case 'A': ctx.grid[idx] = T_STAIRS_N; break;
+        case 'X': ctx.grid[idx] = T_SECTION_SHUTTER; break;
         case 'M': ctx.grid[idx] = T_METAL; break;
         case 'S': ctx.grid[idx] = T_SLIT; break;
         case 'D':
@@ -782,18 +796,39 @@ export function stampBuilding(ctx: StampCtx, def: BuildingDef, tx: number, tz: n
       }
     }
   }
-  // the second storey: stamp rows2 into the upper layer
-  if (def.rows2) {
-    for (let rz = 0; rz < def.rows2.length; rz++) {
-      const row = def.rows2[rz];
-      for (let rx = 0; rx < w; rx++) {
-        const idx = (tz + rz) * GRID + tx + rx;
-        switch (row[rx] ?? ' ') {
-          case '#': ctx.grid2[idx] = F2_WALL; break;
-          case 'S': ctx.grid2[idx] = F2_SLIT; break;
-          case '.': ctx.grid2[idx] = F2_FLOOR; break;
-          case 'L': ctx.grid2[idx] = F2_WELL; break;
-          default: break;
+  // Indexed upper storeys. Legacy rows2 still compiles to the same grid2
+  // bytes; whole-building layers may add Level 3 without changing old defs.
+  const authoredLayers = def.layers ?? [def.rows, ...(def.rows2 ? [def.rows2] : [])];
+  if (authoredLayers.length > 1) {
+    const targets = ctx.upperLayers ?? [ctx.grid2];
+    targets[0] = ctx.grid2;
+    while (targets.length < authoredLayers.length - 1) targets.push(new Uint8Array(GRID * GRID));
+    ctx.upperLayers = targets;
+    for (let floor = 1; floor < authoredLayers.length; floor++) {
+      const rows = authoredLayers[floor];
+      const target = targets[floor - 1];
+      for (let rz = 0; rz < rows.length; rz++) {
+        const row = rows[rz];
+        for (let rx = 0; rx < w; rx++) {
+          const idx = (tz + rz) * GRID + tx + rx;
+          switch (row[rx] ?? ' ') {
+            case '#': case 'M': target[idx] = F2_WALL; break;
+            case 'S': target[idx] = F2_SLIT; break;
+            case '-': target[idx] = F2_THIN_WALL_H; break;
+            case '|': target[idx] = F2_THIN_WALL_V; break;
+            case '+': target[idx] = F2_THIN_WALL_HV; break;
+            case '=': target[idx] = F2_WINDOW_H; break;
+            case '!': target[idx] = F2_WINDOW_V; break;
+            case 'h': target[idx] = F2_DOOR_H; break;
+            case 'v': target[idx] = F2_DOOR_V; break;
+            case 'A': target[idx] = F2_STAIR_N; break;
+            case 'L': target[idx] = F2_WELL; break;
+            case 'B': target[idx] = F2_BALCONY; break;
+            case 'R': target[idx] = F2_RAIL_H; break;
+            case 'X': target[idx] = F2_SHUTTER; break;
+            case '.': case 'P': case 'C': target[idx] = F2_FLOOR; break;
+            default: target[idx] = 0; break;
+          }
         }
       }
     }

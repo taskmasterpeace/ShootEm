@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
-import { CLIMB_H, F2_SLIT, F2_WALL, F2_WELL, GRID, THIN_WALL, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_THIN_DOOR_H, T_THIN_DOOR_H_OPEN, T_THIN_DOOR_V, T_THIN_DOOR_V_OPEN, T_THIN_WALL_H, T_THIN_WALL_HV, T_THIN_WALL_V, T_WALL, T_WATER, TILE, WORLD, blocksShot, doorIsOpen, houseAt, isDoorTile, losClear, surfaceAt, tileAt } from '../sim/map';
+import { CLIMB_H, F2_BALCONY, F2_RAIL_H, F2_RAIL_V, F2_SLIT, F2_WALL, F2_WELL, GRID, THIN_WALL, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_SECTION_SHUTTER, T_SECTION_SHUTTER_OPEN, T_SLIT, T_STAIRS_E, T_STAIRS_N, T_STAIRS_S, T_STAIRS_W, T_THIN_DOOR_H, T_THIN_DOOR_H_OPEN, T_THIN_DOOR_V, T_THIN_DOOR_V_OPEN, T_THIN_WALL_H, T_THIN_WALL_HV, T_THIN_WALL_V, T_WALL, T_WATER, TILE, WORLD, blocksShot, doorIsOpen, houseAt, isDoorTile, isWindowTile, losClear, surfaceAt, tileAt, windowIsBroken, windowSpansX } from '../sim/map';
 import { materialForSurface, materialOf, type ImpactKind } from '../sim/materials';
 import { TORCH_MULT, classLinger, eyesSeePoint, perceivesNow, seenRecently, type SeenMark } from '../sim/perception';
 import { paintColorFor } from './onboarding';
@@ -356,6 +356,7 @@ export class Renderer {
   private groundWet = 0;
   /** live door slabs — swung by grid state (E toggles it in the sim) */
   private doors: { mesh: THREE.Mesh; idx: number; spansX: boolean; base: THREE.Vector3 }[] = [];
+  private windows: { group: THREE.Group; pane: THREE.Mesh; idx: number }[] = [];
   /** the camera height actually used last frame (killcam duels exceed camDist)
    *  — overhead UI scales against it so names/meters hold constant SCREEN size */
   private viewDist = 30;
@@ -925,13 +926,15 @@ export class Renderer {
     const thinHTiles: [number, number][] = [];
     const thinVTiles: [number, number][] = [];
     const thinHVTiles: [number, number][] = [];
+    const windowTiles: [number, number, number][] = [];
     const ladderTiles: [number, number][] = [];
     let unknownWarned = false;
     for (let z = 0; z < GRID; z++) {
       for (let x = 0; x < GRID; x++) {
         const idx = z * GRID + x;
         const t = world.map.grid[idx];
-        if (t === T_OPEN || t === T_WATER || t === T_DEEP || t === T_LADDER || covered.has(idx)) continue;
+        if (t === T_OPEN || t === T_WATER || t === T_DEEP || t === T_LADDER
+          || (t >= T_STAIRS_N && t <= T_STAIRS_W) || covered.has(idx)) continue;
         if (t === T_GRASS) {
           grassTiles.push([x, z]);
         } else if (t === T_COVER) {
@@ -948,6 +951,12 @@ export class Renderer {
           thinVTiles.push([x, z]);
         } else if (t === T_THIN_WALL_HV) {
           thinHVTiles.push([x, z]);
+        } else if (isWindowTile(t)) {
+          windowTiles.push([x, z, t]);
+        } else if (t === T_SECTION_SHUTTER) {
+          thinHTiles.push([x, z]);
+        } else if (t === T_SECTION_SHUTTER_OPEN) {
+          continue;
         } else if (isDoorTile(t)) {
           doorTiles.push([x, z]);
         } else {
@@ -1019,6 +1028,46 @@ export class Renderer {
     for (const [x, z] of thinHTiles) addThin(x, z, true);
     for (const [x, z] of thinVTiles) addThin(x, z, false);
     for (const [x, z] of thinHVTiles) { addThin(x, z, true); addThin(x, z, false); }
+
+    // FRAMED WINDOWS: the low sill is the body collision that remains after
+    // glass breaks. The pane alone toggles, so the facade keeps its readable
+    // frame and the opening agrees with simulation state every tick.
+    for (const window of this.windows) {
+      this.scene.remove(window.group);
+      window.group.traverse((object) => {
+        const mesh = object as THREE.Mesh;
+        mesh.geometry?.dispose();
+        if (mesh.material && !Array.isArray(mesh.material)) mesh.material.dispose();
+      });
+    }
+    this.windows = [];
+    for (const [x, z, tile] of windowTiles) {
+      const group = new THREE.Group();
+      group.name = 'window-frame';
+      const frameMat = new THREE.MeshStandardMaterial({ color: 0x8a806d, metalness: 0.16, roughness: 0.68 });
+      const glassMat = new THREE.MeshStandardMaterial({
+        color: 0x8ed6df, emissive: 0x16383c, emissiveIntensity: 0.15,
+        transparent: true, opacity: 0.34, roughness: 0.12, metalness: 0.04,
+        side: THREE.DoubleSide, depthWrite: false,
+      });
+      const part = (w: number, h: number, d: number, y: number, px = 0) => {
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), frameMat);
+        mesh.position.set(px, y, 0); mesh.castShadow = true; group.add(mesh); return mesh;
+      };
+      part(TILE, 1, THIN_WALL, 0.5);                  // climbable/bullet-catching sill
+      part(TILE, 0.34, THIN_WALL, 3.83);              // lintel
+      part(0.16, 2.5, THIN_WALL, 2.25, -TILE * 0.44); // jambs
+      part(0.16, 2.5, THIN_WALL, 2.25, TILE * 0.44);
+      const pane = new THREE.Mesh(new THREE.BoxGeometry(TILE * 0.82, 2.45, 0.07), glassMat);
+      pane.position.y = 2.25;
+      pane.visible = !windowIsBroken(tile);
+      pane.renderOrder = 3;
+      group.add(pane);
+      group.position.set((x + 0.5) * TILE - WORLD / 2, 0, (z + 0.5) * TILE - WORLD / 2);
+      if (!windowSpansX(tile)) group.rotation.y = Math.PI / 2;
+      this.scene.add(group);
+      this.windows.push({ group, pane, idx: z * GRID + x });
+    }
 
     // TALL GRASS (finish-list 18): crossed blades per tile, wind-still and
     // cheap -- the meadow reads at command zoom without hiding the fight.
@@ -1188,6 +1237,18 @@ export class Renderer {
             high.position.set(wx, 6.9, wz);
             low.castShadow = high.castShadow = true;
             group.add(low, high);
+          } else if (t2 === F2_RAIL_H || t2 === F2_RAIL_V) {
+            const rail = new THREE.Mesh(new THREE.BoxGeometry(
+              t2 === F2_RAIL_H ? TILE : 0.14,
+              1.15,
+              t2 === F2_RAIL_H ? 0.14 : TILE,
+            ), matU);
+            rail.position.set(wx, 4.72, wz);
+            rail.castShadow = true;
+            group.add(rail);
+          } else if (t2 === F2_BALCONY) {
+            // The slab above is the deck. Keeping this explicit documents that
+            // balconies are real walkable upper tiles, not facade decoration.
           }
         }
       }
@@ -1727,6 +1788,10 @@ export class Renderer {
       const tz = d.base.z + (d.spansX ? 0 : off);
       d.mesh.position.x += (tx - d.mesh.position.x) * Math.min(1, dt * 10);
       d.mesh.position.z += (tz - d.mesh.position.z) * Math.min(1, dt * 10);
+    }
+    for (const window of this.windows) {
+      const tile = world.map.grid[window.idx];
+      window.pane.visible = isWindowTile(tile) && !windowIsBroken(tile);
     }
 
     // THE EARS' WORLD MODEL: walls between you and a sound muffle it (the
@@ -5042,6 +5107,9 @@ export class Renderer {
             this.particles.emit({ pos: e.pos, count: 6, color: 0xffffff, speed: 9, life: 0.2, spread: 0.3, up: 2, gravity: 9, size: 0.16 });
             audio.play('hit', { pos: e.pos, volume: 0.55, rate: 1.6 });
           }
+          break;
+        case 'glass':
+          if (e.pos) this.spawnImpactFx('shatter', e.pos);
           break;
         case 'doorhit': {
           // something is banging on a door — splinters fly, wood thuds

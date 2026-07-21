@@ -163,14 +163,14 @@ export function floorLayer(map: GameMap, floor: number): Uint8Array {
 - Produces ground tile constants for oriented windows/intact/broken, stair entries, and section shutters; upper tile constants for floor/wall/window/broken-window/door/balcony/rail/stair/ladder.
 - Produces `isWindowTile`, `windowIsBroken`, `breakWindowTile`, `isBalconyRail`, and `glassChanges` replication records.
 
-- [ ] **Step 1: Write failing glass tests**: intact pane blocks sight/projectile/body; first projectile changes state and emits one `glass` event; later projectile/sight passes; sill remains blocked; repeated damage emits no second event; snapshot applies the broken state.
-- [ ] **Step 2: Write failing balcony/stamp tests**: balcony deck is walkable on its floor, rail is cover, unsupported long spans fail structural validation, and generated stencil characters map to the intended tile codes.
-- [ ] **Step 3: Run both focused tests and confirm RED.**
-- [ ] **Step 4: Implement collision/shot/LOS tile functions** with a thin framed pane profile and broken-state sill. Register every new stencil character in `isLegalStencilChar` and stamp ground/upper tiles through one table-driven translator.
-- [ ] **Step 5: Integrate projectile shatter before ordinary wall impact** and replicate changed pane indices/state alongside doors using a distinct tagged compact record.
-- [ ] **Step 6: Render shared-material window frames/panes, broken shards, balcony decks/rails, and section shutters** within the existing procedural geometry budgets.
-- [ ] **Step 7: Run focused tests, `tests/visual.test.ts`, `tests/visibility.test.ts`, `tests/projectile-fx.test.ts`, and typecheck; confirm GREEN.**
-- [ ] **Step 8: Commit with `git commit -m "feat: add breakable building facades"`.**
+- [x] **Step 1: Write failing glass tests**: intact pane blocks sight/projectile/body; first projectile changes state and emits one `glass` event; later projectile/sight passes; sill remains blocked; repeated damage emits no second event; snapshot applies the broken state.
+- [x] **Step 2: Write failing balcony/stamp tests**: balcony deck is walkable on its floor, rail is cover, unsupported long spans fail structural validation, and generated stencil characters map to the intended tile codes.
+- [x] **Step 3: Run both focused tests and confirm RED.**
+- [x] **Step 4: Implement collision/shot/LOS tile functions** with a thin framed pane profile and broken-state sill. Register every new stencil character in `isLegalStencilChar` and stamp ground/upper tiles through one table-driven translator.
+- [x] **Step 5: Integrate projectile shatter before ordinary wall impact** and replicate changed pane indices/state alongside doors using a distinct tagged compact record.
+- [x] **Step 6: Render shared-material window frames/panes, broken shards, balcony decks/rails, and section shutters** within the existing procedural geometry budgets.
+- [x] **Step 7: Run focused tests, `tests/visual.test.ts`, `tests/visibility.test.ts`, `tests/projectile-fx.test.ts`, and typecheck; confirm GREEN.**
+- [x] **Step 8: Commit with `git commit -m "feat: add breakable building facades"`.**
 
 ### Task 5: Make Stairs and Ladders Distinct Across Three Storeys
 

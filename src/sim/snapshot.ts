@@ -1,4 +1,5 @@
-import { T_OPEN, T_RUBBLE } from './map';
+import { GRID, T_OPEN, T_RUBBLE, breakWindowTile, isWindowTile } from './map';
+import { floorLayer } from './map-layers';
 import { SEEN_LINGER, SEEN_LINGER_GEARED, eyesSeePoint, perceivesNow, seenRecently } from './perception';
 import type { WeatherState } from './weather';
 import type { Gadget, Mine, ModeId, ModeState, Pickup, Projectile, SimEvent, Soldier, ThemeId, Turret, Vehicle } from './types';
@@ -41,6 +42,8 @@ export interface Snapshot {
   /** door tiles that ever changed, with their CURRENT state packed in:
    *  idx*2 + (open ? 1 : 0) — cheap, cumulative, order-free */
   doors: number[];
+  /** cumulative broken panes packed as floor*GRID²+idx */
+  glass: number[];
   /** §8.8 the sky — every client renders the same storm */
   weather: WeatherState;
   events: SimEvent[];
@@ -85,6 +88,7 @@ export function takeSnapshot(w: World, events: SimEvent[]): Snapshot {
     dug: w.dug,
     breached: w.breached,
     doors: w.doorChanges.map((idx) => idx * 2 + (w.map.grid[idx] === 6 /* T_DOOR_OPEN */ ? 1 : 0)),
+    glass: [...w.glassChanges],
     weather: { ...w.weather },
     events,
   };
@@ -195,6 +199,17 @@ export function applySnapshot(w: World, snap: Snapshot) {
         w.map.grid[idx] = (packed & 1) ? 6 : 5; // T_DOOR_OPEN : T_DOOR
       }
     }
+  }
+  if (snap.glass) {
+    for (const packed of snap.glass) {
+      const floor = Math.floor(packed / (GRID * GRID));
+      const idx = packed % (GRID * GRID);
+      try {
+        const layer = floorLayer(w.map, floor);
+        if (isWindowTile(layer[idx])) layer[idx] = breakWindowTile(layer[idx]);
+      } catch { /* snapshot references a floor this legacy puppet did not allocate */ }
+    }
+    w.glassChanges = [...snap.glass];
   }
 }
 
