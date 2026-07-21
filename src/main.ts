@@ -12,7 +12,7 @@ import { audio } from './client/audio';
 import { Chat } from './client/chat';
 import { pauseCodex, renderCodex } from './client/codex';
 import { StaticOverlay } from './client/effects';
-import { Hud, setRankChip } from './client/hud';
+import { Hud, renderOperationAfterAction, setRankChip } from './client/hud';
 import { initGodMode } from './client/godmode';
 import { Input } from './client/input';
 import { MusicDirector } from './client/music';
@@ -20,10 +20,10 @@ import { Renderer } from './client/renderer';
 import { DamageText } from './client/damagetext';
 import { NetGame } from './client/net';
 import { MATCH_LINGER_LOCAL_MS, ReplayDirector } from './client/replay';
-import { MatchTracker, RANKS, loadDossier, rankFor, rankInsignia, saveDossier, type Dossier } from './client/record';
-import { FRONTS, SCAR_TEXT, applyResult, bandOf, cancelCampaignOperation, checkSeasonEnd, consumeOperationBattleBonuses, holdTheLine, loadCampaign, operationBattleBonuses, saveCampaign, settleCampaignOperation, stageCampaignOperation, type Campaign } from './client/campaign';
+import { MatchTracker, RANKS, commandCertification, loadDossier, rankFor, rankInsignia, recordOperationService, saveDossier, type Dossier } from './client/record';
+import { FRONTS, SCAR_TEXT, applyResult, bandOf, cancelCampaignOperation, checkSeasonEnd, consumeOperationBattleBonuses, holdTheLine, loadCampaign, operationBattleBonuses, saveCampaign, settleCampaignOperation, stageCampaignOperation, type Campaign, type SettlementReceipt } from './client/campaign';
 import { buildOperationBoardModel, createSuggestedManifest, renderManifestDialog, renderOperationsBoard } from './client/operations-ui';
-import type { OperationManifest, OperationPlan } from './sim/operations';
+import { OPERATION_EFFECTS, OPERATION_SITES, type OperationManifest, type OperationPlan } from './sim/operations';
 import { fileIssue, renderIssueHTML, renderPressInto, loadPress } from './client/newspaper';
 import { RangeCourse, loadWall } from './client/range';
 import { RingDrill } from './client/ringdrill';
@@ -738,6 +738,10 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     if (world.mode.over && tracker) {
       void tracker.finalize(world, me.id).then((sum) => {
         if (!sum) return;
+        const operationResult = world.operation?.result
+          ? { ...world.operation.result, hullKills: tracker.operationHullKills() }
+          : undefined;
+        let operationReceipt: SettlementReceipt | undefined;
         renderBarracks(); // the record just grew
         // §17.B's third leg, finally visible: fight → record grew → WAR MOVED
         let extras = '';
@@ -768,14 +772,27 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
           // doubles the bill for every HOT death (the reprint + the body
           // that rose against the line)
           const viralBill = world.viralDeaths?.[0] ?? 0;
-          const operationResult = world.operation?.result;
           if (operationResult) {
-            const receipt = settleCampaignOperation(campaign, operationResult, Date.now());
-            if (receipt.ok) {
-              const treasury = receipt.treasuryDelta >= 0 ? `+${receipt.treasuryDelta}` : String(receipt.treasuryDelta);
-              extras += `<p style="margin-top:0.35rem"><b>OPERATION ${operationResult.won ? 'COMPLETE' : 'FAILED'}</b> · treasury ${treasury} · ${receipt.hullsLost.length} hulls lost · ${receipt.hullsReturned.length} returned</p>`;
+            operationReceipt = settleCampaignOperation(campaign, operationResult, Date.now());
+            if (operationReceipt.ok) {
+              const treasury = operationReceipt.treasuryDelta >= 0 ? `+${operationReceipt.treasuryDelta}` : String(operationReceipt.treasuryDelta);
+              extras += `<p style="margin-top:0.35rem"><b>OPERATION ${operationResult.won ? 'COMPLETE' : 'FAILED'}</b> · treasury ${treasury} · ${operationReceipt.hullsLost.length} hulls lost · ${operationReceipt.hullsReturned.length} returned</p>`;
+              if (dossier && deployedOperation) {
+                const service = recordOperationService(dossier, {
+                  plan: deployedOperation.plan,
+                  manifest: deployedOperation.manifest,
+                  result: operationResult,
+                  receipt: operationReceipt,
+                  inventory: campaign.motorPool,
+                });
+                if (service.recorded) {
+                  const next = service.certification.nextAt === null ? 'maximum grade' : `${service.certification.nextAt - service.certification.points} pts to next grade`;
+                  extras += `<p style="margin-top:0.25rem">COMMAND CERTIFICATION · <b>${service.certification.name}</b> · ${service.certification.points} pts · ${next}</p>`;
+                  void saveDossier(dossier);
+                }
+              }
             } else {
-              extras += `<p style="margin-top:0.35rem;color:var(--danger)">OPERATION SETTLEMENT HOLD · ${receipt.errors.join(' · ')}</p>`;
+              extras += `<p style="margin-top:0.35rem;color:var(--danger)">OPERATION SETTLEMENT HOLD · ${operationReceipt.errors.join(' · ')}</p>`;
             }
           } else {
             applyResult(campaign, activeFrontId, sum.won, Date.now(), (sum.deaths ?? 0) + viralBill);
@@ -850,6 +867,15 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
             ${longShot.d > 0 ? `<span>🎯 longest shot of the match — <b>${longShot.name}</b>, ${longShot.d.toFixed(0)}u</span>` : ''}</div>
           </div>`;
         }
+        if (operationResult && operationReceipt?.ok && deployedOperation && campaign) {
+          hud.careerHtml += renderOperationAfterAction({
+            plan: deployedOperation.plan,
+            manifest: deployedOperation.manifest,
+            result: operationResult,
+            receipt: operationReceipt,
+            inventory: campaign.motorPool,
+          });
+        }
 
         // N1 THE PRESS FILES (Robert: "we could literally make newspapers…
         // to show all the three things that happened"). One issue per battle:
@@ -863,20 +889,42 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
           }
           const kills: [number, number] = [0, 0];
           for (const s2 of world.humansAndBots()) kills[s2.team] += s2.kills;
+          const operationAce = operationResult
+            ? Object.entries(operationResult.hullKills ?? {}).map(([id, byKind]) => ({
+              id,
+              kills: Object.values(byKind).reduce((total, count) => total + (count ?? 0), 0),
+            })).sort((a, b) => b.kills - a.kills)[0]
+            : undefined;
+          const operationSite = deployedOperation
+            ? OPERATION_SITES.find((site) => site.id === deployedOperation.plan.site)?.name
+            : undefined;
+          const operationReward = deployedOperation
+            ? OPERATION_EFFECTS.find((effect) => effect.id === deployedOperation.plan.effect)?.name
+            : undefined;
           fileIssue({
             at: Date.now(),
             season: campaign?.season ?? 1,
             frontName: pressFront?.name,
             controlAfter: pressFront?.control,
             controlDelta: pressFront?.delta,
-            won: sum.won === true, // a draw prints as a hard day, not a win
-            modeName: MODE_INFO[world.mode.id]?.name ?? world.mode.id.toUpperCase(),
+            won: operationResult?.won ?? sum.won === true, // a draw prints as a hard day, not a win
+            modeName: operationResult ? 'Military Operation' : MODE_INFO[world.mode.id]?.name ?? world.mode.id.toUpperCase(),
             aceName: ace.name, aceKills: ace.kills, longestShot: Math.round(longest),
             myCost: world.warCost(0), theirCost: world.warCost(1),
             underdog: world.mode.underdog === 0,
             morale: dossier?.soldier.morale,
             myKills: kills[0], theirKills: kills[1],
             medals: sum.medals.map((m) => `${m.icon} ${m.name}`),
+            ...(operationResult && deployedOperation ? { operation: {
+              codename: deployedOperation.plan.codename,
+              site: operationSite ?? deployedOperation.plan.site,
+              outcome: operationResult.won ? 'victory' as const : 'defeat' as const,
+              hullsLost: operationResult.destroyedHullIds.length,
+              ...(operationAce ? { aceHull: campaign?.motorPool.find((hull) => hull.id === operationAce.id)?.name ?? operationAce.id } : {}),
+              objectivesCompleted: operationResult.completedPhaseIds.length,
+              objectivesTotal: deployedOperation.plan.phases.length,
+              ...(operationResult.won && operationReward ? { reward: operationReward } : {}),
+            } } : {}),
           });
           // the freshest front page goes straight onto the closing screen
           const latest = loadPress()[0];
@@ -976,6 +1024,13 @@ function renderBarracks() {
     ? `<ul class="bk-journal">${d.journal.slice(0, 25).map((j) =>
         `<li>${j.text}<span class="when">${new Date(j.at).toLocaleString()}</span></li>`).join('')}</ul>`
     : '<p class="bk-empty">The journal opens with your first battle.</p>';
+  const certification = commandCertification(d.operations);
+  const vehicleAces = Object.values(d.operations.vehicles)
+    .sort((a, b) => Object.values(b.killsByKind).reduce((sum, n) => sum + (n ?? 0), 0) - Object.values(a.killsByKind).reduce((sum, n) => sum + (n ?? 0), 0))
+    .slice(0, 5).map((vehicle) => {
+      const kills = Object.values(vehicle.killsByKind).reduce((sum, n) => sum + (n ?? 0), 0);
+      return `<div class="bk-stat-row"><span>${vehicle.name} · ${vehicle.kind}</span><b>${kills} kills · ${vehicle.sorties} sorties${vehicle.lost ? ' · LOST' : ''}</b></div>`;
+    }).join('') || '<p class="bk-empty">No named hull has entered Operation service.</p>';
   root.innerHTML = `
     <div class="bk-head">
       <span class="bk-callsign">${d.soldier.callsign}</span>
@@ -991,6 +1046,13 @@ function renderBarracks() {
       </div>
       <div class="bk-card"><h4>By class</h4>${classRows}</div>
       <div class="bk-card"><h4>Gun locker — service history</h4>${weaponRows}</div>
+      <div class="bk-card"><h4>Operation command</h4>
+        <div class="bk-stat-row"><span>Certification</span><b>${certification.name} · ${certification.points} pts</b></div>
+        <div class="bk-stat-row"><span>Sorties / wins</span><b>${d.operations.sorties} / ${d.operations.wins}</b></div>
+        <div class="bk-stat-row"><span>Clean sheets</span><b>${d.operations.cleanSheets}</b></div>
+        <div class="bk-stat-row"><span>Fiscal Efficiency</span><b>${d.operations.fiscalEfficiency}</b></div>
+        <h4 style="margin-top:0.65rem">Vehicle aces</h4>${vehicleAces}
+      </div>
       <div class="bk-card"><h4>Qualifications — the Proving Grounds</h4>${(() => {
         const q = d.quals.infantry;
         const wall = loadWall();
@@ -1117,6 +1179,8 @@ function paintOperationPlanner() {
   modal.querySelector<HTMLButtonElement>('#operation-close')!.onclick = close;
   modal.querySelector<HTMLButtonElement>('#operation-abort')!.onclick = close;
   modal.onclick = (event) => { if (event.target === modal) close(); };
+  modal.onkeydown = (event) => { if (event.key === 'Escape') close(); };
+  modal.focus();
   const stage = modal.querySelector<HTMLButtonElement>('#operation-stage');
   if (stage) stage.onclick = () => {
     if (!campaign || !operationManifestPlan || !operationManifestDraft) return;

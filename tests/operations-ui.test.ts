@@ -70,6 +70,7 @@ describe('Manifest planner', () => {
     const manifest = createSuggestedManifest(plan, campaign.motorPool);
     const html = renderManifestDialog({ campaign, plan, manifest });
     expect(html).toContain('role="dialog"');
+    expect(html).toContain('tabindex="-1"');
     expect(html).toContain('NATIONAL MOTOR POOL');
     expect(html).toContain(campaign.motorPool[0].name);
     expect(html).toContain('AMMUNITION ALLOTMENT');

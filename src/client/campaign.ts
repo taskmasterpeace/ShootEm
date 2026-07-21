@@ -421,6 +421,9 @@ export function settleCampaignOperation(campaign: Campaign, result: OperationRes
       hull.status = 'available';
       returned.push(id);
     }
+    for (const [kind, count] of Object.entries(result.hullKills?.[id] ?? {}) as [VehicleKind, number][]) {
+      hull.killsByKind[kind] = (hull.killsByKind[kind] ?? 0) + count;
+    }
   }
   campaign.treasury = Math.max(0, campaign.treasury - result.collateral * 4);
   campaign.fiscalEfficiency.sorties++;

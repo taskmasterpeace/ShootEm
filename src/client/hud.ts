@@ -10,8 +10,74 @@ import { weaponBrand } from './models/weapons';
 import { SegMeter } from './segmeter';
 import { classLinger, MAX_LINGER } from '../sim/perception';
 import type { World } from '../sim/world';
+import { OPERATION_COMPLICATIONS, OPERATION_EFFECTS, type OperationHull, type OperationManifest, type OperationPlan } from '../sim/operations';
+import type { OperationResult } from '../sim/operation-runtime';
+import type { SettlementReceipt } from './campaign';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+
+type OperationHudEvent = SimEvent & { type: 'operation_phase' | 'operation_progress' | 'operation_complete' };
+
+export interface OperationHudState {
+  plan: OperationPlan;
+  phaseIndex: number;
+  progress: number;
+  startedAt: number;
+  completed: boolean;
+  won?: boolean;
+  completionText?: string;
+}
+
+export function createOperationHudState(plan: OperationPlan, startedAt: number): OperationHudState {
+  return { plan, phaseIndex: 0, progress: 0, startedAt, completed: false };
+}
+
+export function reduceOperationHud(state: OperationHudState, event: OperationHudEvent, _now: number): OperationHudState {
+  if (event.operationId !== state.plan.id) return state;
+  const phaseIndex = event.phaseId
+    ? Math.max(0, state.plan.phases.findIndex((phase) => phase.id === event.phaseId))
+    : state.phaseIndex;
+  if (event.type === 'operation_complete') {
+    return { ...state, phaseIndex, progress: 1, completed: true, won: event.won, completionText: event.text };
+  }
+  return { ...state, phaseIndex, progress: event.type === 'operation_progress' ? Math.max(0, Math.min(1, event.progress ?? 0)) : 0 };
+}
+
+const hudEsc = (value: unknown): string => String(value).replace(/[&<>"']/g, (char) => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;',
+}[char]!));
+
+export function renderOperationHud(state: OperationHudState, now: number): string {
+  const current = state.plan.phases[state.phaseIndex];
+  const next = state.plan.phases[state.phaseIndex + 1];
+  const elapsed = Math.max(0, now - state.startedAt);
+  const clock = `${Math.floor(elapsed / 60)}:${String(Math.floor(elapsed % 60)).padStart(2, '0')}`;
+  const complication = OPERATION_COMPLICATIONS.find((entry) => entry.id === state.plan.complication)?.name ?? state.plan.complication;
+  if (state.completed) {
+    return `<section class="operation-hud ${state.won ? 'won' : 'lost'}"><span class="operation-hud-kicker">OPERATION ${state.won ? 'COMPLETE' : 'FAILED'} · ${clock}</span><b>${hudEsc(state.plan.codename)}</b><small>${hudEsc(current?.label ?? 'Final objective')} · ${hudEsc(state.completionText ?? (state.won ? 'All objectives secured.' : 'The force was withdrawn.'))}</small></section>`;
+  }
+  return `<section class="operation-hud"><div class="operation-hud-line"><span class="operation-hud-kicker">OPERATION ${hudEsc(state.plan.codename)} · ${clock}</span><span class="operation-hud-risk">RISK · ${hudEsc(complication)}</span></div><div class="operation-hud-current"><b>${hudEsc(current?.label ?? 'Awaiting orders')}</b><span class="mono">${Math.round(state.progress * 100)}%</span></div><div class="operation-hud-meter"><i style="width:${Math.round(state.progress * 100)}%"></i></div>${next ? `<small>NEXT · ${hudEsc(next.label)}</small>` : '<small>FINAL OBJECTIVE</small>'}</section>`;
+}
+
+export interface OperationAfterActionInput {
+  plan: OperationPlan;
+  manifest: OperationManifest;
+  result: OperationResult;
+  receipt: SettlementReceipt;
+  inventory: readonly OperationHull[];
+}
+
+export function renderOperationAfterAction(input: OperationAfterActionInput): string {
+  const byId = new Map(input.inventory.map((hull) => [hull.id, hull]));
+  const status = (id: string) => input.receipt.hullsLost.includes(id) ? 'LOST' : 'RETURNED';
+  const hulls = input.manifest.hullIds.map((id) => {
+    const hull = byId.get(id);
+    return `<li class="${status(id).toLowerCase()}"><b>${hudEsc(hull?.name ?? id)}</b><span>${hudEsc(hull?.kind.toUpperCase() ?? 'UNKNOWN')}</span><em>${status(id)}</em></li>`;
+  }).join('');
+  const reward = OPERATION_EFFECTS.find((entry) => entry.id === input.plan.effect)?.name ?? input.plan.effect;
+  const delta = input.receipt.treasuryDelta >= 0 ? `+${input.receipt.treasuryDelta}` : String(input.receipt.treasuryDelta);
+  return `<section id="operation-aar"><h3>OPERATION AFTER-ACTION · ${hudEsc(input.plan.codename)}</h3><div class="operation-aar-grid"><span>OBJECTIVES <b>${input.result.completedPhaseIds.length} / ${input.plan.phases.length}</b></span><span>ELAPSED <b>${Math.round(input.result.elapsed)}s</b></span><span>TREASURY <b>${delta}</b></span><span>REWARD <b>${hudEsc(input.result.won ? reward : 'DENIED')}</b></span></div><ul>${hulls}</ul></section>`;
+}
 
 /** A tactical-system waypoint drawn on the whole team's minimap. */
 interface Waypoint { x: number; z: number; until: number; by: string }
@@ -64,6 +130,7 @@ export class Hud {
   private ammoPipCount = -1;
   private segMeter: SegMeter | null = null;
   private lswMeter: SegMeter | null = null;
+  private operationHud: OperationHudState | null = null;
 
   constructor() {
     // §16.3: the viral chip wears the biohazard from the ONE icon vocabulary
@@ -160,6 +227,11 @@ export class Hud {
   update(world: World, localId: number, scoreboardHeld: boolean, now: number) {
     const s = world.soldiers.get(localId);
     if (!s) return;
+    const operationEl = document.getElementById('operation-objective');
+    if (operationEl) {
+      operationEl.classList.toggle('hidden', !this.operationHud);
+      if (this.operationHud) operationEl.innerHTML = renderOperationHud(this.operationHud, now);
+    }
 
     // vitals — THE RING, big (one language: you read your own at T2)
     const hasPlate = (s.maxArmor ?? 0) > 0;
@@ -1047,6 +1119,14 @@ export class Hud {
   applyEvents(events: SimEvent[], world: World, localId: number, now: number) {
     if (world.time < this.lastSimTime) { this.prints = 1; this.gunLedger.clear(); } // new match
     this.lastSimTime = world.time;
+    if (!world.operation) this.operationHud = null;
+    for (const event of events) {
+      if (event.type !== 'operation_phase' && event.type !== 'operation_progress' && event.type !== 'operation_complete') continue;
+      if (!this.operationHud && world.operation) {
+        this.operationHud = createOperationHudState(world.operation.plan, now - world.operation.elapsed);
+      }
+      if (this.operationHud) this.operationHud = reduceOperationHud(this.operationHud, event as OperationHudEvent, now);
+    }
     for (const e of events) {
       // THE GUN REMEMBERS — only MY kills, keyed by the weapon that made them
       if (e.type === 'death' && e.killerId === localId && e.weaponId) {
@@ -1106,7 +1186,8 @@ export class Hud {
       if ((e.type === 'announce' || e.type === 'flag_taken' || e.type === 'flag_captured' ||
            e.type === 'flag_returned' || e.type === 'point_captured' || e.type === 'wave_start' ||
            e.type === 'match_over' || e.type === 'pod_incoming' || e.type === 'beacon_planted' ||
-           e.type === 'system_damaged' || e.type === 'hacked') && e.text) {
+           e.type === 'system_damaged' || e.type === 'hacked' || e.type === 'operation_phase' ||
+           e.type === 'operation_complete') && e.text) {
         this.announce(e.text, !!e.big, now);
       }
       // SUBTITLES (positional truth): an LSW's spoken line is captioned only

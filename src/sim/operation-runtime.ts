@@ -6,6 +6,17 @@ export type OperationFailureReason =
   | 'force_destroyed' | 'reinforcements_arrived' | 'prize_destroyed'
   | 'critical_airframe_lost' | 'time_expired';
 
+export function operationFailureText(reason: OperationFailureReason | undefined): string {
+  switch (reason) {
+    case 'force_destroyed': return 'The committed force was destroyed.';
+    case 'reinforcements_arrived': return 'Enemy reinforcements reached the sector.';
+    case 'prize_destroyed': return 'The enemy destroyed the prize before capture.';
+    case 'critical_airframe_lost': return 'The critical airframe was lost.';
+    case 'time_expired': return 'The Operation exceeded its command window.';
+    default: return 'The force was withdrawn.';
+  }
+}
+
 export interface OperationResult {
   operationId: string;
   won: boolean;
@@ -16,6 +27,8 @@ export interface OperationResult {
   collateral: number;
   elapsed: number;
   cleanSheet: boolean;
+  /** Target hulls destroyed by each named committed vehicle during the sortie. */
+  hullKills?: Record<string, Partial<Record<VehicleKind, number>>>;
 }
 
 export interface OperationObservation {
@@ -232,7 +245,7 @@ export function stepWorldOperation(world: World, dt: number) {
       world.mode.winner = event.result.won ? 0 : 1;
       world.emit({
         type: 'operation_complete', operationId: event.operationId, won: event.result.won,
-        text: event.result.won ? 'OPERATION COMPLETE' : 'OPERATION FAILED', big: true,
+        text: event.result.won ? 'All objectives secured.' : operationFailureText(event.result.reason), big: true,
       });
       world.emit({ type: 'match_over', team: event.result.won ? 0 : 1, text: event.result.won ? 'UNITED FRONT WINS' : 'THE COLLECTIVE WINS', big: true });
     }

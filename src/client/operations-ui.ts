@@ -159,10 +159,11 @@ export function renderManifestDialog({ campaign, plan, manifest }: ManifestDialo
   const hulls = campaign.motorPool.map((hull) => {
     const checked = selected.has(hull.id);
     const unavailable = hull.status !== 'available' && !checked;
+    const careerKills = Object.values(hull.killsByKind).reduce((sum, count) => sum + (count ?? 0), 0);
     return `<label class="op-hull ${unavailable ? 'unavailable' : ''}">
       <input type="checkbox" data-operation-hull="${escapeHtml(hull.id)}" ${checked ? 'checked' : ''} ${unavailable ? 'disabled' : ''}>
       <span class="op-hull-call">${escapeHtml(hull.name)}</span>
-      <span class="op-hull-type">${domainLabel(hull.kind)} · ${escapeHtml(VEHICLES[hull.kind].name)}</span>
+      <span class="op-hull-type">${domainLabel(hull.kind)} · ${escapeHtml(VEHICLES[hull.kind].name)} · S${hull.sorties} K${careerKills}</span>
       <span class="op-hull-cost mono">${VEHICLES[hull.kind].cost}</span>
     </label>`;
   }).join('');
@@ -171,7 +172,7 @@ export function renderManifestDialog({ campaign, plan, manifest }: ManifestDialo
   const errorHtml = errors.length
     ? `<ul class="op-errors">${errors.map((error) => `<li>${escapeHtml(error)}</li>`).join('')}</ul>`
     : '<p class="op-ready">MANIFEST VALIDATED · COMMAND AUTHORIZED</p>';
-  return `<div class="op-modal-backdrop" id="operation-modal" role="dialog" aria-modal="true" aria-labelledby="operation-modal-title">
+  return `<div class="op-modal-backdrop" id="operation-modal" role="dialog" aria-modal="true" aria-labelledby="operation-modal-title" tabindex="-1">
     <section class="op-modal brk">
       <header class="op-modal-head">
         <div><span class="op-eyebrow">NATIONAL MOTOR POOL · ${escapeHtml(plan.scale.toUpperCase())}</span><h2 id="operation-modal-title">MANIFEST · ${escapeHtml(plan.codename)}</h2></div>

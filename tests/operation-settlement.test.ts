@@ -126,6 +126,18 @@ describe('Operation campaign state', () => {
     expect(JSON.stringify(campaign)).toBe(snapshot);
   });
 
+  it('adds target-kind kills to the named motor-pool hull during settlement', () => {
+    const campaign = freshCampaign(1000);
+    const plan = beachhead(campaign);
+    const manifest = manifestFor(campaign);
+    stageCampaignOperation(campaign, plan, manifest, 2000);
+    const tankId = manifest.hullIds[0];
+    const result = resultFor(plan.id, [], manifest.hullIds);
+    result.hullKills = { [tankId]: { tank: 2, boat: 1, flyer: 1 } };
+    settleCampaignOperation(campaign, result, 3000);
+    expect(campaign.motorPool.find((hull) => hull.id === tankId)?.killsByKind).toEqual({ tank: 2, boat: 1, flyer: 1 });
+  });
+
   it('charges collateral and pays a clean-sheet efficiency bonus', () => {
     const dirty = freshCampaign(1000);
     const dirtyPlan = beachhead(dirty, 'war_chest');
