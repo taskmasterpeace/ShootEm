@@ -266,6 +266,8 @@ export class Renderer {
   private nadeArc: THREE.Line | null = null;                // grenade-throw preview: dashed arc…
   private nadeRing: THREE.Mesh | null = null;               // …and the landing/splash ring
   private flyerAlt = new Map<number, number>();             // smoothed flyer altitude per id
+  private flyerShadows = new Map<number, THREE.Mesh>();      // B2: ground blob, scales with altitude
+  private flyerShadowGeo?: THREE.CircleGeometry;
   private frameDt = 1 / 60;                                 // dt of the current update()
   private deathFall = new Map<number, { x: number; z: number }>(); // ragdoll tip dir per id
 
@@ -1850,6 +1852,30 @@ export class Renderer {
       }
       mesh.position.set(v.pos.x, hoverBob, v.pos.z);
       mesh.rotation.y = -v.yaw;
+      // B2 THE SHADOW ALTIMETER (Robert: "it should VISUALLY feel like we're
+      // high"): a flyer casts a ground blob that GROWS and FADES as it climbs —
+      // a big soft ghost = way up, a tight dark disc = on the deck. You read a
+      // plane's altitude off the dirt without ever seeing a number.
+      if (vdef.flies && v.kind !== 'flyer') {
+        let sh = this.flyerShadows.get(v.id);
+        if (!sh) {
+          if (!this.flyerShadowGeo) this.flyerShadowGeo = new THREE.CircleGeometry(1, 20);
+          sh = new THREE.Mesh(this.flyerShadowGeo, new THREE.MeshBasicMaterial({
+            color: 0x000000, transparent: true, opacity: 0.32, depthWrite: false,
+          }));
+          sh.rotation.x = -Math.PI / 2;
+          this.scene.add(sh);
+          this.flyerShadows.set(v.id, sh);
+        }
+        // altitude drives the blob: on the deck ~1.4u tight/dark, up high ~4u
+        // wide/faint. hoverBob runs 0.12→14 across the bands.
+        const t = Math.min(1, hoverBob / 12);
+        const rad = 1.3 + t * 3.0;
+        sh.position.set(v.pos.x, 0.03, v.pos.z);
+        sh.scale.set(rad, rad, 1);
+        (sh.material as THREE.MeshBasicMaterial).opacity = (0.34 - t * 0.24) * (v.alive ? 1 : 0);
+        sh.visible = v.alive;
+      }
       // roll: jets bank into their turn rate; the hoverboard heels into its
       // drift. Order YXZ makes rotation.x a roll about the hull's own nose.
       {
