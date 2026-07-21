@@ -150,6 +150,8 @@ const VEHICLE_STATS: Stat[] = [
 
 const WEAPON_STATS: Stat[] = [
   { key: 'family', label: 'Family', better: 0, sheet: true, fmt: txt },
+  { key: 'fireMode', label: 'Fire mode', better: 0, sheet: true, fmt: txt }, // 10.1: the trigger discipline
+  { key: 'secondary', label: 'Secondary', better: 0, fmt: txt },             // RMB: the under-barrel surprise
   { key: 'damage', label: 'Damage / shot', better: 1, sheet: true, fmt: n1 },
   { key: 'pellets', label: 'Pellets', better: 0, fmt: n0 },
   { key: 'rof', label: 'Rounds / s', better: 1, sheet: true, fmt: n1 },
@@ -259,6 +261,8 @@ function weaponRows(): Row[] {
       id,
       name: d.name,
       family: d.family ? `${d.family}${d.tier ? ` mk${d.tier}` : ''}` : '—',
+      fireMode: d.charge ? 'charge' : (d.fireMode ?? 'auto'),
+      secondary: d.alt ? d.alt.kind : '—',
       damage: perMan,
       pellets: Math.max(1, d.pellets),
       rof: d.rof,

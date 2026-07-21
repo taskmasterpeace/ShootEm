@@ -176,7 +176,7 @@ You have 200 weapons with 200 stat lines and **one firing behavior**. That's the
 | Double-barrel · auto-shotgun · two-round-burst rifle | ✅ | **DONE 2026-07-21.** Real guns via family disciplines carried through the arsenal generator: **Scatter Pack = THE DOUBLE-BARREL** (both barrels, one press), Shotgun+Slugger = pump, **Carbine = the two-round-burst rifle** ("a heck of an edge"), CAW-8 + SMG stay full-auto (THE auto-shotgun lives), P9 = single. Live: scatter press → clip −2, held → no spam |
 | Per-family **secondary fire** | ❌ | only 4 weapons have alt-fire (`world.ts:2500`). BACKLOG (new) |
 | Brand **signature mechanics** (not just stat curves) | ❌📋 | designed: each brand carries a firing behavior. BACKLOG (new) |
-| Codex shows fire-mode + secondary columns | ❌ | needs the data to exist first. BACKLOG (new) |
+| Codex shows fire-mode + secondary columns | ✅ | **DONE 2026-07-21.** The Codex weapon sheet derives both live: `Fire mode` (sheet column — charge weapons read `charge`, absent = `auto`) + `Secondary` (detail/compare — the under-barrel kind where one exists). Live census across the armory: 12 double · 12 burst2 · 24 pump · 13 single · 231 auto · 4 charge. The Secondary column fills out as row 177 lands per-family alts |
 
 ## 11 · BEAMS
 
