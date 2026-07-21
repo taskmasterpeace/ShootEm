@@ -58,6 +58,26 @@ describe('science mission objective compiler', () => {
     expect(world.science?.phase).toBe('extract');
   });
 
+  it('requires the operator to climb to an upstairs villa objective', () => {
+    const scienceMission = generateScienceMission(99, {
+      verb: 'steal',
+      site: 'officer-villa',
+      complication: null,
+      squadSize: 4,
+    });
+    const world = new World({ seed: scienceMission.seed, mode: 'science', scienceMission });
+    const operator = world.addSoldier('Operator', 'infiltrator', 0, 'human');
+    const upstairs = world.science!.objective.pos.find((pos) => pos.y >= 4)!;
+
+    operator.pos = { ...upstairs, y: 0 };
+    operator.floor = 0;
+    expect(tryScienceInteraction(world, operator, 1)).toBe(false);
+
+    operator.pos = { ...upstairs };
+    operator.floor = 1;
+    expect(tryScienceInteraction(world, operator, 1)).toBe(true);
+  });
+
   it('keeps mission doors manual and opens a thin door with the shared use action', () => {
     const world = missionWorld('steal');
     const operator = world.addSoldier('Operator', 'infiltrator', 0, 'human');

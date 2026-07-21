@@ -130,6 +130,7 @@ export function populateScienceMission(world: World, layout: ScienceMapLayout): 
             : `Security ${i + 1}`;
     const guard = world.addSoldier(name, i % 4 === 0 ? 'heavy' : 'infantry', 1, 'bot');
     guard.pos = { ...runtime.guardPosts[i] };
+    guard.floor = guard.pos.y >= 4 ? 1 : 0;
     guard.yaw = Math.PI;
     runtime.guardIds.push(guard.id);
     if (namedTarget) runtime.targetIds.push(guard.id);
@@ -137,6 +138,7 @@ export function populateScienceMission(world: World, layout: ScienceMapLayout): 
 
   for (let i = 0; i < runtime.civilianSpawns.length; i++) {
     const scientist = world.addScientist(runtime.civilianSpawns[i]);
+    scientist.floor = scientist.pos.y >= 4 ? 1 : 0;
     scientist.name = ['Dr. Okafor', 'Dr. Chen', 'Dr. Reyes', 'Dr. Marin'][i] ?? `Dr. ${i + 1}`;
     runtime.civilianIds.push(scientist.id);
   }
@@ -189,7 +191,7 @@ function winScience(world: World): void {
 }
 
 function near(a: Vec3, b: Vec3, radius = 3.2): boolean {
-  return Math.hypot(a.x - b.x, a.z - b.z) <= radius;
+  return Math.abs(a.y - b.y) <= 1.8 && Math.hypot(a.x - b.x, a.z - b.z) <= radius;
 }
 
 /** E-action for terminals, stores, charges, and scientist escort attachment. */

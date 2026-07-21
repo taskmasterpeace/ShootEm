@@ -146,7 +146,6 @@ export function generateScienceMap(spec: ScienceMissionSpec): ScienceMapLayout {
   const def = makeSiteDef(spec.site);
   const rng = new Rng(spec.seed ^ 0x5c1e7e);
   const grid = new Uint8Array(GRID * GRID);
-  grid.fill(T_WALL);
   const grid2 = new Uint8Array(GRID * GRID);
   const surface = new Uint8Array(GRID * GRID);
   surface.fill(SURFACE[spec.theme]);
@@ -163,8 +162,16 @@ export function generateScienceMap(spec: ScienceMissionSpec): ScienceMapLayout {
     maxTx: tx + profile.width + 3,
     maxTz: tz + profile.height + 3,
   };
+  // The operation is a compact pocket, not a 100x100 block of masonry. A
+  // single solid perimeter contains play while keeping static-world geometry
+  // proportional to the site itself.
+  for (let x = bounds.minTx; x <= bounds.maxTx; x++) {
+    grid[bounds.minTz * GRID + x] = T_WALL;
+    grid[bounds.maxTz * GRID + x] = T_WALL;
+  }
   for (let z = bounds.minTz; z <= bounds.maxTz; z++) {
-    for (let x = bounds.minTx; x <= bounds.maxTx; x++) grid[z * GRID + x] = T_OPEN;
+    grid[z * GRID + bounds.minTx] = T_WALL;
+    grid[z * GRID + bounds.maxTx] = T_WALL;
   }
 
   const ctx: StampCtx = { grid, grid2, props, pickups, houses, claims, rng };
@@ -190,9 +197,23 @@ export function generateScienceMap(spec: ScienceMissionSpec): ScienceMapLayout {
   }
   interior.sort((a, b) => Math.hypot(a.x - entry.x, a.z - entry.z) - Math.hypot(b.x - entry.x, b.z - entry.z));
   const farHalf = interior.slice(Math.floor(interior.length * 0.45));
-  const objectiveSockets = pickSpread(farHalf, 4);
-  const guardPosts = pickSpread(interior.slice(Math.floor(interior.length * 0.2)), 7);
-  const civilianSpawns = pickSpread(interior.slice(Math.floor(interior.length * 0.35)), 4);
+  let objectiveSockets = pickSpread(farHalf, 4);
+  let guardPosts = pickSpread(interior.slice(Math.floor(interior.length * 0.2)), 7);
+  let civilianSpawns = pickSpread(interior.slice(Math.floor(interior.length * 0.35)), 4);
+  if (profile.floors === 2) {
+    const upstairs = interior
+      .filter((pos) => {
+        const [x, z] = worldToTile(pos);
+        return grid2[z * GRID + x] === F2_FLOOR;
+      })
+      .map((pos) => ({ ...pos, y: 4 }));
+    const upperObjective = upstairs[upstairs.length - 1];
+    const upperGuard = upstairs[Math.floor(upstairs.length * 0.72)];
+    const upperCivilian = upstairs[Math.floor(upstairs.length * 0.35)];
+    if (upperObjective) objectiveSockets = [upperObjective, ...objectiveSockets.slice(0, 3)];
+    if (upperGuard) guardPosts = [...guardPosts.slice(0, 6), upperGuard];
+    if (upperCivilian) civilianSpawns = [upperCivilian, ...civilianSpawns.slice(0, 3)];
+  }
   const convoyRoute = [
     tileToWorld(bounds.minTx + 1, bounds.maxTz - 2),
     tileToWorld(tx - 1, bounds.maxTz - 2),
@@ -250,11 +271,18 @@ export function scienceMapReachable(layout: ScienceMapLayout): boolean {
       queue.push([nx, nz]);
     }
   }
-  return targets.size === 0;
+  if (targets.size > 0) return false;
+  const upstairs = layout.objectiveSockets.filter((pos) => pos.y >= 4);
+  if (!upstairs.length) return true;
+  const accessibleLadder = [...seen].some((idx) =>
+    layout.map.grid[idx] === T_LADDER && layout.map.grid2[idx] === F2_WELL);
+  return accessibleLadder && upstairs.every((pos) => {
+    const [x, z] = worldToTile(pos);
+    return layout.map.grid2[z * GRID + x] === F2_FLOOR;
+  });
 }
 
 // Keep these imports intentional: upper-floor output is a public map contract,
 // and this assertion makes accidental enum drift obvious during development.
-void F2_FLOOR;
 void F2_WALL;
 void F2_WELL;

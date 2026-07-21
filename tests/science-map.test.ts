@@ -105,6 +105,9 @@ describe('science mission maps', () => {
     expect(first.civilianSpawns.length).toBeGreaterThanOrEqual(2);
     expect(first.bounds.maxTx - first.bounds.minTx).toBeLessThanOrEqual(32);
     expect(first.bounds.maxTz - first.bounds.minTz).toBeLessThanOrEqual(32);
+    // Compact missions should not hide the rest of the 100x100 map under
+    // thousands of solid wall tiles. A perimeter is enough to contain play.
+    expect(first.map.grid.filter((tile) => tile === 1).length).toBeLessThan(300);
     expect(scienceMapReachable(first)).toBe(true);
   });
 
@@ -117,5 +120,6 @@ describe('science mission maps', () => {
     expect(layout.map.houses.some((house) => house.floors === 2)).toBe(true);
     expect(layout.map.grid.some((tile) => tile === 8)).toBe(true);
     expect(layout.map.grid2.some((tile) => tile === F2_WELL)).toBe(true);
+    expect(layout.objectiveSockets.some((pos) => pos.y >= 4)).toBe(true);
   });
 });
