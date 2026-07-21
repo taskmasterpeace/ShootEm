@@ -1316,9 +1316,12 @@ export class Renderer {
       if (!this.guardArc) {
         // RingGeometry lives in XY; after the -90° X-flip a geometry angle θ
         // lands at ground bearing -θ, so bake -yaw into thetaStart at draw.
+        // UI-BIBLE ruling (delegated by Robert): guard is a YOURS/committed
+        // state → house amber, not blue (cyan is team-identity only, and blue
+        // isn't in the semantic system). The bible outranks the earlier aside.
         this.guardArc = new THREE.Mesh(
           new THREE.RingGeometry(1.0, 1.35, 28, 1, 0, (150 * Math.PI) / 180),
-          new THREE.MeshBasicMaterial({ color: 0x4aa8ff, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false }),
+          new THREE.MeshBasicMaterial({ color: 0xe8a33d, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false }),
         );
         this.guardArc.rotation.order = 'YXZ';
         this.scene.add(this.guardArc);

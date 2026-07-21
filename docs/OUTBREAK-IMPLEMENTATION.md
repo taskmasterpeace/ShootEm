@@ -110,3 +110,30 @@ Three items are genuinely not one-slice work in this engine, and are documented 
 3. **Dedicated-server infrastructure (§17, §19, acceptance #24).** Server authority, latency reconciliation, live analytics dashboards, and spectator tooling assume a hosted multiplayer deployment. The sim is already built the right way for it — deterministic, fixed-step, seeded, no wall-clock — so the substrate is in place; the host is not part of this browser build.
 
 Everything else in the spec that this engine can express is **shipped, tested, and gated** so pre-outbreak matches stay byte-identical.
+
+---
+
+## FINAL ACCOUNTING — 2026-07-21 session close (the DSOA spec vs the game)
+
+This session closed the spec's combat chapters. Where Robert's LIVE direction
+overrode the written spec, the ruling is recorded as SUPERSEDED — the spec is
+the map, Robert is the road.
+
+| Spec § | State |
+|---|---|
+| §12 Melee triangle (STRIKE/GUARD/GRAPPLE) | ✅ COMPLETE — all three verbs + counters live, tested |
+| §13 Impact Charge | ✅ COMPLETE — bands, meter, fumble |
+| §14 Rear grabs & control states | ✅ COMPLETE — rear control + the full outcome menu: takedown · disarm · choke · throw · **human shield** |
+| §15 Control Struggle minigame | ⚠️ **SUPERSEDED by Robert (2026-07-21): "eliminate the minigame."** Built, shipped, then deliberately REMOVED — a won rear grab now controls immediately; mash-to-break + knockback-on-break replaces the needle game. §15.5 Bite Struggle (the survival half) REMAINS live |
+| §16 Combat UI | ✅ largely COMPLETE via `docs/UI-BIBLE.md` (the successor authority): status strip, struggle bar over bodies, damage direction, ammo pips, spread reticle |
+| §11 Ammunition | ✅ ball/AP/INC/BNR + pools + diagnostics (25% cut still awaiting play-data) |
+| §1–§10 outbreak core | ✅ Phase-1 complete (infection, corpse lifecycle + CRITICAL window, mutation fields, dormant sprinters, roster selector) — variants/strains partial per the earlier audit |
+| §17–§20 networking/roadmap | ❌ awaits the multiplayer wave (its own campaign) |
+| §21 acceptance | tracked row-by-row in `docs/STATUS.md` (90/103 overall ledger) |
+
+**The spec's remaining open surface is exactly three things:** the multiplayer
+authority stack (§17), the true third-faction outbreak mid-war (§2 — blocked on
+the 2-team core, honored by design law), and the fire-dependent corpse
+neutralization meter (§6.2 — fire system paused by Robert). Everything else in
+the document is either live, superseded by a newer Robert ruling, or absorbed
+into `docs/UI-BIBLE.md` / `docs/META-LAYER.md`.
