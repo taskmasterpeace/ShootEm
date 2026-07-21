@@ -1,4 +1,4 @@
-import { CLASSES, DOG_STATS, VEHICLES, WEAPONS } from './data';
+import { CLASSES, DOG_STATS, VEHICLES, WEAPONS, weaponNoiseRadius } from './data';
 import { F2_FLOOR, F2_SLIT, F2_VOID, F2_WALL, F2_WELL, GRID, T_CLIMB, T_COVER, T_GRASS, T_LADDER, T_METAL_DOOR, T_OPEN, T_RUBBLE, T_WATER, TILE, WORLD, doorIsOpen, isBlocked, isDoorTile, losClear, tileAt } from './map';
 import { type ClassId, type PlayerCmd, type Soldier, type Team, type Vec3, type Vehicle, isIron, isZed } from './types';
 import { type World } from './world';
@@ -1920,9 +1920,15 @@ export function stepZombie(w: World, s: Soldier, dt: number) {
     // §10: a lit TORCH is a beacon — it doubles the radius a sleeping
     // sprinter notices you at (still needs the sight line: light, not sound)
     const sightR = best.torchOn ? SPRINTER_WAKE_SIGHT * 2 : SPRINTER_WAKE_SIGHT;
+    // §11.2: gunfire carries by the WEAPON'S report — a cannon wakes the whole
+    // block, a silenced subsonic barely stirs it (the same radius the HUD's NSE
+    // bar reads). The leap-thud keeps the flat loud radius: a landing is a fixed
+    // event, not a muzzle.
+    const gunR = weaponNoiseRadius(WEAPONS[best.weapons[best.weaponIdx]], best.ammoType);
     const wake = bestD < SPRINTER_WAKE_NEAR
       || (bestD < sightR && losClear(w.map.grid, { ...s.pos, y: 1.2 }, { ...best.pos, y: 1.2 }))
-      || (bestD < SPRINTER_WAKE_NOISE && (firedRecently || landedLoud));
+      || (firedRecently && bestD < gunR)
+      || (landedLoud && bestD < SPRINTER_WAKE_NOISE);
     if (wake) {
       s.dormant = false;
       w.emit({ type: 'sprinter_wake', pos: { ...s.pos }, soldierId: s.id });

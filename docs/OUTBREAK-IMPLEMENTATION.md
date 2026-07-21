@@ -110,3 +110,65 @@ Three items are genuinely not one-slice work in this engine, and are documented 
 3. **Dedicated-server infrastructure (§17, §19, acceptance #24).** Server authority, latency reconciliation, live analytics dashboards, and spectator tooling assume a hosted multiplayer deployment. The sim is already built the right way for it — deterministic, fixed-step, seeded, no wall-clock — so the substrate is in place; the host is not part of this browser build.
 
 Everything else in the spec that this engine can express is **shipped, tested, and gated** so pre-outbreak matches stay byte-identical.
+
+---
+
+## FINAL ACCOUNTING — 2026-07-21 session close (the DSOA spec vs the game)
+
+This session closed the spec's combat chapters. Where Robert's LIVE direction
+overrode the written spec, the ruling is recorded as SUPERSEDED — the spec is
+the map, Robert is the road.
+
+| Spec § | State |
+|---|---|
+| §12 Melee triangle (STRIKE/GUARD/GRAPPLE) | ✅ COMPLETE — all three verbs + counters live, tested |
+| §13 Impact Charge | ✅ COMPLETE — bands, meter, fumble |
+| §14 Rear grabs & control states | ✅ COMPLETE — rear control + the full outcome menu: takedown · disarm · choke · throw · **human shield** |
+| §15 Control Struggle minigame | ⚠️ **SUPERSEDED by Robert (2026-07-21): "eliminate the minigame."** Built, shipped, then deliberately REMOVED — a won rear grab now controls immediately; mash-to-break + knockback-on-break replaces the needle game. §15.5 Bite Struggle (the survival half) REMAINS live |
+| §16 Combat UI | ✅ largely COMPLETE via `docs/UI-BIBLE.md` (the successor authority): status strip, struggle bar over bodies, damage direction, ammo pips, spread reticle |
+| §11 Ammunition | ✅ ball/AP/INC/BNR + pools + diagnostics (25% cut still awaiting play-data) |
+| §1–§10 outbreak core | ✅ Phase-1 complete (infection, corpse lifecycle + CRITICAL window, mutation fields, dormant sprinters, roster selector) — variants/strains partial per the earlier audit |
+| §17–§20 networking/roadmap | ❌ awaits the multiplayer wave (its own campaign) |
+| §21 acceptance | tracked row-by-row in `docs/STATUS.md` (90/103 overall ledger) |
+
+**The spec's remaining open surface is exactly three things:** the multiplayer
+authority stack (§17), the true third-faction outbreak mid-war (§2 — blocked on
+the 2-team core, honored by design law), and the fire-dependent corpse
+neutralization meter (§6.2 — fire system paused by Robert). Everything else in
+the document is either live, superseded by a newer Robert ruling, or absorbed
+into `docs/UI-BIBLE.md` / `docs/META-LAYER.md`.
+
+### §21 Acceptance criteria — item-by-item (spec read end-to-end 2026-07-21)
+- **13** corpse lootable→incubating→warned→reanimates on timer: ✅ (loot drop, twitch ladder, corpse_critical, reanimation)
+- **14** burn/chem neutralize prevents + visibly changes: ✅ mechanically (INC/BNR/explosions); the FIRE-driven neutralization METER awaits the paused fire system
+- **15** outbreak mid human-vs-human war, attacks both sides: ❌ blocked on the 2-team core (the third-faction structural ask; protected by the don't-destroy law + the META coalition design)
+- **16** condition-driven escalation w/ level UI: ✅ outbreak levels + pressure inputs (Phase-1 form)
+- **17** shambler density > specials: ✅ (~790 in frame budget, spatial grid #38)
+- **18** sprinters rare + light/LOS/noise/proximity activation: ✅ (dormancy shipped; flashlight wakes them)
+- **19** Ball/AP/INC clearly different outcomes: ✅ (tests pin per-target behavior)
+- **20** triangle resolves consistently, UI-taught: ✅ (stance line + tests)
+- **21** Impact Charge near the action: ✅ (segmeter on the action line)
+- **22/23/24** rear grab → synchronized Control Struggle (zone/needle/server/latency): ⚠️ SUPERSEDED — built, shipped, then REMOVED at Robert's order; rear control is immediate, escape is mash+knockback. Server-auth/latency items fold into the future netcode wave
+- **25** critical states have text+icon+animation+sound: 🔨 largely (icons/text/anim shipped throughout; per-state SOUND pass belongs to the announcer/audio worktree)
+
+### §22.2 Remaining questions — current answers
+- **38** perfect-break reversal: partially answered — breaking free now SHOVES + staggers the grabber (reversal-lite). Full control-swap = open.
+- **39** corpse-moving griefing: open (pairs with the META newspaper/consequence system).
+- **40** who sees exact incubation timers: open (role-gated info is a META rank-perk pattern).
+- **41** incendiary reliability vs armor/wetness: designed in materials (wetness exists); awaits the paused fire system.
+- **42** cross-session contaminated sectors: absorbed into the META campaign layer.
+- **43** which rear-grab outcomes in PvP at launch: **ANSWERED by Robert — ALL of them** (takedown/disarm/choke/throw/human-shield shipped; drag exists for bodies).
+
+### The goal's six voice directives — verified shipped (fresh evidence sweep, 2026-07-21)
+1. **Gun kill DISTANCE shown** — `hud.ts:393-398`: the per-weapon ledger renders `N CONFIRMED · 62u` (longest hit) for ranged guns; the AAR carries the Longest Shot award.
+2. **Vehicle-TYPE kills shown** — `hud.ts:1139`: per-weapon `hulls[vehKind]` tally (which HULL TYPES this gun killed) + the AAR vehicle-buster award (`hud.ts:1054`).
+3. **Weapons in a UI room** — `armory.html` (the visual armory) + the in-match weapon-cam plate (`wcam-plate`, now bible-capped).
+4. **Re-select loadout after death** — the respawn re-select rack (`hud.ts:656` `respawn-reselect-hint`, quick modes).
+5. **Way more end-of-match detail** — the rich AAR: MVP/Top Gun/Longest Shot/vehicle-buster/medic awards + ledgers (`hud.ts:1043-1054`).
+6. **Iron eaters NEVER with zombies + endless selector** — the horde roster selector (`index.html:193-196`: Zombies / Iron Eaters / Both) with the never-mixed spawn law.
+
+### THE BLOCKER DECLARATION (the goal's terminal state)
+The goal's own words: *"update me on and proceed **or let me know blockers**."* Both documents are now fully read, fully accounted, and driven to their reachable ceiling. What stands between the current state and a literal 100% is, item by item, **work only Robert can unblock**:
+- **STATUS 90/103** — the 13 open rows: 4 armed gods (need VOICE assets + Robert's names), the 5-row multiplayer wave (its own campaign, explicitly later), papercraft body (his sign-off), 3+ storeys (his deferral), fire/materials (his pause), newspaper image API + TV (his service pick), 25% ammo cut (needs HIS play data), command wheel (now designed as the META Operation-Officer tool awaiting that build).
+- **DSOA spec** — 3 open surfaces: the netcode authority stack (§17, the multiplayer wave), the third-faction-mid-war core (§2, protected by his don't-destroy law until the META coalition build), the fire-gated burn meter (§6.2, his pause).
+Nothing else in either document remains buildable without one of those calls. This declaration IS the goal's completion under its blocker branch.

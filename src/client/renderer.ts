@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
 import { CLIMB_H, F2_SLIT, F2_WALL, F2_WELL, GRID, THIN_WALL, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_THIN_DOOR_H, T_THIN_DOOR_H_OPEN, T_THIN_DOOR_V, T_THIN_DOOR_V_OPEN, T_THIN_WALL_H, T_THIN_WALL_HV, T_THIN_WALL_V, T_WALL, T_WATER, TILE, WORLD, blocksShot, doorIsOpen, houseAt, isDoorTile, losClear, surfaceAt, tileAt } from '../sim/map';
+import { materialForSurface, materialOf, type ImpactKind } from '../sim/materials';
 import { TORCH_MULT, classLinger, eyesSeePoint, perceivesNow, seenRecently, type SeenMark } from '../sim/perception';
 import { paintColorFor } from './onboarding';
 import type { WeatherKind } from '../sim/weather';
@@ -13,7 +14,7 @@ import { darknessFloor, setDarknessFrame, sweepDarkness } from './darkness';
 import { Particles, FlashLights, Fireballs } from './effects';
 import { JOINT_NAMES, isUndead, poseSoldierJoints, CAST_SCHOOL, FLIGHT_POSES, RECOIL_SCALE, stepYawSpring, throwArmCurve, WEAPON_HOLDS, type GaitState, type CastSchool } from './animation';
 import { chunkCount, drawChunks, drawGrade, drawNotches, drawNumber, makeRingMesh, RING_COLORS, ringChunkTexture, ringTier } from './ring';
-import { LSWS, type LswDef } from '../sim/lsw';
+import { ICE_HOLD_DRAIN, LSWS, STRUGGLE_HP, type LswDef } from '../sim/lsw';
 import { hash01 } from '../sim/rng';
 import { collapseStyleFor, type CollapseStyle } from './deathpose';
 import { buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp, buildSoldier, buildTurretMesh, buildVehicle, dressAsLsw } from './models';
@@ -260,6 +261,15 @@ export class Renderer {
   /** THE GROUND SPREAD CIRCLE (Robert): a ring at the aim point sized to the
    *  live weapon spread — "where your bullets land," shotgun wide, pistol tight. */
   private spreadRing: THREE.Mesh | null = null;
+  /** UI-MASTER §4 — the Impact Charge ring orbiting YOUR body: tightens as it
+   *  winds up, snaps to a bright amber MAXIMUM band, then a red OVERCHARGE
+   *  pulse. Reads `meleeCharge` (the same value the action-line meter shows). */
+  private chargeRing: THREE.Mesh | null = null;
+  /** UI-BIBLE §09 struggle bars: a world-space meter over each grabbed body,
+   *  showing break progress (amber→green) or the choke reversal (red). */
+  private struggleBars = new Map<number, { sprite: THREE.Sprite; ctx: CanvasRenderingContext2D; tex: THREE.CanvasTexture; key: string }>();
+  /** the LOCAL player's encased drain-choice label (MASH vs HOLD) — one sprite, static text, shown only while YOU are the block */
+  private encaseHint?: THREE.Sprite;
   private flagMeshes: THREE.Group[] = [];
   private cpRings: THREE.Mesh[] = [];
   private hillRing: THREE.Mesh | null = null;
@@ -627,6 +637,67 @@ export class Renderer {
     if (this.splats.length > 900) {
       const old = this.splats.shift()!;
       this.scene.remove(old); // geometry+material are shared/cached — keep them
+    }
+  }
+
+  /**
+   * §16.4 / W7.4 — the world answers a round in its OWN material's voice. One
+   * table drives it (`materials.ts` `.impact`), so the debris can never drift
+   * from the substance: metal sparks, stone chips, masonry hangs dust, WOOD
+   * throws splinters, WATER leaps a crown, ICE shatters bright, GRASS rustles,
+   * earth puffs. (Audio maps to the three shipped impact sounds until the
+   * announcer kit lands wood/water/ice reports — the debris is the deliverable.)
+   */
+  private spawnImpactFx(kind: ImpactKind, pos: { x: number; y: number; z: number }) {
+    const P = this.particles;
+    const rate = 0.85 + Math.random() * 0.3;
+    switch (kind) {
+      case 'spark': // metal — a white FLASH and gold sparks that BOUNCE off
+        P.emit({ pos, count: 3, color: 0xffffff, speed: 1, life: 0.08, spread: 0.1, up: 0.5, size: 0.3 });
+        P.emit({ pos, count: 9, color: 0xffd890, speed: 8, life: 0.22, spread: 0.3, up: 2.5, size: 0.16 });
+        P.emit({ pos, count: 4, color: 0xffb060, speed: 6, life: 0.6, spread: 0.4, up: 3.5, gravity: 12, size: 0.12 });
+        audio.play('impact_metal', { pos, volume: 0.5, rate });
+        break;
+      case 'chips': // stone — hard grey CHIPS spall off, sharp and fast
+        P.emit({ pos, count: 9, color: 0x8f8880, speed: 6.5, life: 0.35, spread: 0.28, up: 2.2, gravity: 9, size: 0.13 });
+        P.emit({ pos, count: 3, color: 0xb0a89c, speed: 1.4, life: 0.7, spread: 0.4, up: 0.7, gravity: 0.6, size: 0.22 });
+        this.spawnSplat(pos, 0x4f4a44, 0.15 + Math.random() * 0.07);
+        audio.play('impact_stone', { pos, volume: 0.5, rate });
+        break;
+      case 'dust': // masonry/rubble — CHIPS plus a cloud that HANGS in the air
+        P.emit({ pos, count: 8, color: 0x9a938a, speed: 5.5, life: 0.3, spread: 0.3, up: 2.5, gravity: 8, size: 0.14 });
+        P.emit({ pos, count: 6, color: 0xb8b0a4, speed: 1.2, life: 0.95, spread: 0.55, up: 0.8, gravity: 0.4, size: 0.32 });
+        this.spawnSplat(pos, 0x55504a, 0.16 + Math.random() * 0.08);
+        audio.play('impact_stone', { pos, volume: 0.5, rate });
+        break;
+      case 'splinter': // wood — pale SPLINTERS kick out on a woody knock
+        P.emit({ pos, count: 8, color: 0xc8a06a, speed: 6, life: 0.4, spread: 0.3, up: 2.6, gravity: 10, size: 0.12 });
+        P.emit({ pos, count: 3, color: 0xe0c496, speed: 1.4, life: 0.55, spread: 0.4, up: 1.0, gravity: 1.5, size: 0.16 });
+        this.spawnSplat(pos, 0x5a4428, 0.12 + Math.random() * 0.06);
+        audio.play('impact_stone', { pos, volume: 0.42, rate });
+        break;
+      case 'splash': // water/mud — a crown of droplets LEAPS and rains back
+        P.emit({ pos, count: 12, color: 0xbfe0ee, speed: 6, life: 0.45, spread: 0.22, up: 5, gravity: 16, size: 0.11 });
+        P.emit({ pos, count: 5, color: 0xeaf6fb, speed: 2, life: 0.3, spread: 0.5, up: 1.2, gravity: 6, size: 0.16 });
+        this.spawnSplat(pos, 0x33566a, 0.2 + Math.random() * 0.1);
+        audio.play('impact_dirt', { pos, volume: 0.45, rate });
+        break;
+      case 'shatter': // ice — bright shards spray on a hard GLINT
+        P.emit({ pos, count: 3, color: 0xffffff, speed: 1, life: 0.09, spread: 0.12, up: 0.5, size: 0.28 });
+        P.emit({ pos, count: 10, color: 0xcdeaf5, speed: 7, life: 0.4, spread: 0.35, up: 3, gravity: 13, size: 0.12 });
+        this.spawnSplat(pos, 0x8fb8c8, 0.13 + Math.random() * 0.06);
+        audio.play('impact_stone', { pos, volume: 0.48, rate });
+        break;
+      case 'rustle': // grass — a soft scatter of green, low and quick
+        P.emit({ pos, count: 6, color: 0x6f8f42, speed: 3.5, life: 0.4, spread: 0.4, up: 1.8, gravity: 7, size: 0.12 });
+        audio.play('impact_dirt', { pos, volume: 0.38, rate });
+        break;
+      case 'puff': default: // dirt/earthwork/grit — a low brown PUFF and a pock
+        P.emit({ pos, count: 7, color: 0x6b5636, speed: 4, life: 0.35, spread: 0.35, up: 2.5, gravity: 7 });
+        P.emit({ pos, count: 4, color: 0x8a7a5c, speed: 1, life: 0.8, spread: 0.5, up: 1.0, gravity: 0.8, size: 0.28 });
+        this.spawnSplat(pos, 0x4a3c28, 0.14 + Math.random() * 0.08);
+        audio.play('impact_dirt', { pos, volume: 0.45, rate });
+        break;
     }
   }
 
@@ -1351,9 +1422,12 @@ export class Renderer {
       if (!this.guardArc) {
         // RingGeometry lives in XY; after the -90° X-flip a geometry angle θ
         // lands at ground bearing -θ, so bake -yaw into thetaStart at draw.
+        // UI-BIBLE ruling (delegated by Robert): guard is a YOURS/committed
+        // state → house amber, not blue (cyan is team-identity only, and blue
+        // isn't in the semantic system). The bible outranks the earlier aside.
         this.guardArc = new THREE.Mesh(
           new THREE.RingGeometry(1.0, 1.35, 28, 1, 0, (150 * Math.PI) / 180),
-          new THREE.MeshBasicMaterial({ color: 0x4aa8ff, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false }),
+          new THREE.MeshBasicMaterial({ color: 0xe8a33d, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false }),
         );
         this.guardArc.rotation.order = 'YXZ';
         this.scene.add(this.guardArc);
@@ -1400,6 +1474,89 @@ export class Renderer {
     } else if (this.spreadRing) {
       this.spreadRing.visible = false;
     }
+    // THE IMPACT CHARGE RING (UI-MASTER §4): the wind-up made legible ON the
+    // body, not just the corner meter. It ORBITS you and tightens as the charge
+    // builds, snaps to a bright amber MAXIMUM band (≥0.71), then a red
+    // OVERCHARGE pulse (≥1.3 = the fumble zone) — the same bands the HUD meter
+    // reads (`meleeCharge`). Hidden aboard vehicles.
+    const charge = (!!local && local.alive && local.vehicleId < 0) ? (local.meleeCharge ?? 0) : 0;
+    if (charge > 0.02) {
+      if (!this.chargeRing) {
+        this.chargeRing = new THREE.Mesh(
+          new THREE.RingGeometry(0.86, 1.0, 44),
+          new THREE.MeshBasicMaterial({ color: 0xe8a33d, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false }),
+        );
+        this.chargeRing.rotation.x = -Math.PI / 2;
+        this.scene.add(this.chargeRing);
+      }
+      const ring = this.chargeRing;
+      ring.visible = true;
+      const over = charge >= 1.3, max = charge >= 0.71;
+      const mat = ring.material as THREE.MeshBasicMaterial;
+      mat.color.setHex(over ? 0xff3b30 : 0xe8a33d);
+      // it TIGHTENS as it winds up (1.5u → 1.0u), then holds; overcharge pulses
+      const wind = Math.min(1, charge / 1.3);
+      const radius = 1.5 - wind * 0.5;
+      mat.opacity = over ? 0.55 + Math.sin(t * 22) * 0.22 : max ? 0.6 : 0.28 + wind * 0.3;
+      ring.position.set(local!.pos.x, 0.07, local!.pos.z);
+      ring.scale.set(radius, radius, 1);
+    } else if (this.chargeRing) {
+      this.chargeRing.visible = false;
+    }
+    this.updateStruggleBars(world);
+  }
+
+  /** UI-BIBLE §09 — the struggle bar OVER THE BODIES (not a corner label). One
+   *  world-space billboard per grabbed soldier: it fills as they fight free
+   *  (amber → green near escape) and flips RED as a choke controls them — so
+   *  progress AND reversal read from across the field. Derived live. */
+  private updateStruggleBars(world: World) {
+    const live = new Set<number>();
+    for (const s of world.soldiers.values()) {
+      if (s.grabbedUntil === undefined || !s.alive) continue;
+      live.add(s.id);
+      let bar = this.struggleBars.get(s.id);
+      if (!bar) {
+        const cvs = document.createElement('canvas'); cvs.width = 256; cvs.height = 64;
+        const ctx = cvs.getContext('2d')!;
+        const tex = new THREE.CanvasTexture(cvs);
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+        sprite.userData.uiOverlay = true;
+        this.scene.add(sprite);
+        bar = { sprite, ctx, tex, key: '' };
+        this.struggleBars.set(s.id, bar);
+      }
+      const choke = s.chokeProgress ?? 0;
+      const mode = choke > 0 ? 'choke' : 'break';
+      const frac = choke > 0 ? Math.min(1, choke) : Math.min(1, s.struggle ?? 0);
+      const key = `${mode}${Math.round(frac * 24)}`;
+      if (key !== bar.key) { this.drawStruggleBar(bar.ctx, frac, mode); bar.tex.needsUpdate = true; bar.key = key; }
+      bar.sprite.position.set(s.pos.x, s.pos.y + 2.05, s.pos.z);
+      bar.sprite.scale.set(1.5, 0.38, 1);
+    }
+    for (const [id, bar] of this.struggleBars) {
+      if (!live.has(id)) {
+        this.scene.remove(bar.sprite); bar.tex.dispose(); (bar.sprite.material as THREE.Material).dispose();
+        this.struggleBars.delete(id);
+      }
+    }
+  }
+
+  private drawStruggleBar(ctx: CanvasRenderingContext2D, frac: number, mode: 'break' | 'choke') {
+    ctx.clearRect(0, 0, 256, 64);
+    const bw = 188, bh = 16, bx = (256 - bw) / 2, by = 30;
+    // dark backing (this ONE meter earns a plate — it's the read that decides a life)
+    ctx.fillStyle = 'rgba(10,12,11,0.6)'; ctx.fillRect(bx - 4, by - 4, bw + 8, bh + 8);
+    ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(bx, by, bw, bh);           // empty track
+    // fill: break = house amber, warming to recovery green near escape; choke = signal red
+    ctx.fillStyle = mode === 'choke' ? '#ff3b30' : frac > 0.66 ? '#4cd964' : '#e8a33d';
+    ctx.fillRect(bx, by, Math.max(0, bw * frac), bh);
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 1.5; ctx.strokeRect(bx - 0.75, by - 0.75, bw + 1.5, bh + 1.5);
+    // label above the bar
+    ctx.font = '700 20px Inter, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+    const label = mode === 'choke' ? 'CHOKING' : 'BREAK FREE';
+    ctx.strokeStyle = 'rgba(0,0,0,0.7)'; ctx.lineWidth = 3.5; ctx.strokeText(label, 128, 18);
+    ctx.fillStyle = mode === 'choke' ? '#ff6b62' : '#f6f5f0'; ctx.fillText(label, 128, 18);
   }
 
   private makeRing(pos: Vec3, radius: number, color: number, opacity: number): THREE.Mesh {
@@ -3495,7 +3652,9 @@ export class Renderer {
   }
 
   /** An encased soldier is a block of ice — a translucent cyan box over the
-   *  frozen body, pooled per soldier. (§21.6 the ice block.) */
+   *  frozen body, pooled per soldier. (§21.6 the ice block.) The ice ITSELF is
+   *  the break meter (UI-MASTER §6): a crack web rides the block and spreads
+   *  with your struggle (0→1), so anyone can read how close it is to going. */
   private iceBlocks = new Map<number, THREE.Mesh>();
   private updateIceBlock(s: Soldier) {
     let ice = this.iceBlocks.get(s.id);
@@ -3508,19 +3667,95 @@ export class Renderer {
           transparent: true, opacity: 0.42, roughness: 0.1, metalness: 0.05, depthWrite: false,
         }),
       );
+      // the crack web — invisible at struggle 0, a full fracture as it nears 1
+      const cracks = new THREE.LineSegments(
+        this.makeIceCrackGeo(),
+        new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false }),
+      );
+      cracks.name = 'cracks';
+      ice.add(cracks);
       this.scene.add(ice);
       this.iceBlocks.set(s.id, ice);
     }
     if (ice) {
       const wasVisible = ice.visible;
       ice.visible = encased;
-      if (encased) ice.position.set(s.pos.x, 1.15, s.pos.z);
-      else if (wasVisible && !this.replayView) {
+      if (encased) {
+        ice.position.set(s.pos.x, 1.15, s.pos.z);
+        // THE ICE IS THE METER: cracks bloom with the mash, and the block
+        // stresses brighter as it's about to give (emissive climbs).
+        const frac = Math.min(1, s.struggle ?? 0);
+        const cracks = ice.getObjectByName('cracks') as THREE.LineSegments | undefined;
+        if (cracks) (cracks.material as THREE.LineBasicMaterial).opacity = frac * 0.9;
+        (ice.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.35 + frac * 0.5;
+      } else if (wasVisible && !this.replayView) {
         // the block just broke — shatter shards + a glassy crack
         this.particles.emit({ pos: { x: s.pos.x, y: 1.2, z: s.pos.z }, count: 20, color: 0xcdeef7, speed: 6, life: 0.5, spread: 0.7, up: 3, gravity: 9, size: 0.2 });
         audio.play('ice_shatter', { pos: s.pos, volume: 0.75 });
       }
     }
+    // THE DRAIN CHOICE (UI-MASTER §6): only YOU can act on your own block, so
+    // the two ways out float over your body while you're frozen — MASH to
+    // shatter it (costs hp) or HOLD to wait out the melt (bleeds slowly).
+    if (s.id === this.localId) {
+      if (encased) {
+        if (!this.encaseHint) this.encaseHint = this.makeEncaseHint();
+        this.encaseHint.position.set(s.pos.x, s.pos.y + 2.75, s.pos.z);
+        this.encaseHint.visible = true;
+      } else if (this.encaseHint) {
+        this.encaseHint.visible = false;
+      }
+    }
+  }
+
+  /** A jagged fracture web across the four vertical faces of the ice box,
+   *  authored once per block in the box's own local space (renderer-side, so
+   *  Math.random is fine — it never touches the sim). Revealed by opacity. */
+  private makeIceCrackGeo(): THREE.BufferGeometry {
+    const pts: number[] = [];
+    const hw = 0.85, hh = 1.15, hd = 0.85;
+    const faces: { axis: 'z' | 'x'; s: number }[] = [
+      { axis: 'z', s: 1 }, { axis: 'z', s: -1 }, { axis: 'x', s: 1 }, { axis: 'x', s: -1 },
+    ];
+    for (const f of faces) {
+      for (let root = 0; root < 2; root++) {
+        let u = (Math.random() - 0.5) * 1.6, v = (Math.random() - 0.5) * 1.8; // normalized on the face
+        const segs = 3 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < segs; i++) {
+          const nu = Math.max(-0.98, Math.min(0.98, u + (Math.random() - 0.5) * 0.8));
+          const nv = Math.max(-0.98, Math.min(0.98, v + (Math.random() - 0.5) * 0.8));
+          const p0 = f.axis === 'z' ? [hw * u, hh * v, f.s * hd] : [f.s * hw, hh * v, hd * u];
+          const p1 = f.axis === 'z' ? [hw * nu, hh * nv, f.s * hd] : [f.s * hw, hh * nv, hd * nu];
+          pts.push(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2]);
+          u = nu; v = nv;
+        }
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    return g;
+  }
+
+  /** The static two-line drain-choice label over your own ice block. Numbers
+   *  are the sim's own (STRUGGLE_HP / ICE_HOLD_DRAIN) so the readout can't lie. */
+  private makeEncaseHint(): THREE.Sprite {
+    const cvs = document.createElement('canvas'); cvs.width = 256; cvs.height = 96;
+    const ctx = cvs.getContext('2d')!;
+    ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+    const line = (text: string, y: number, fill: string) => {
+      ctx.font = '700 22px Inter, system-ui, sans-serif';
+      ctx.strokeStyle = 'rgba(0,0,0,0.72)'; ctx.lineWidth = 4; ctx.strokeText(text, 128, y);
+      ctx.fillStyle = fill; ctx.fillText(text, 128, y);
+    };
+    line('❄ ENCASED', 24, '#8fd0ff');
+    line(`MASH — BREAK −${STRUGGLE_HP}`, 54, '#e8a33d');       // house amber (the active out)
+    line(`HOLD — BLEED ${ICE_HOLD_DRAIN}/s`, 82, '#a7b0b8');   // steel (the patient out)
+    const tex = new THREE.CanvasTexture(cvs);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    sprite.userData.uiOverlay = true;
+    sprite.scale.set(2.2, 0.82, 1);
+    this.scene.add(sprite);
+    return sprite;
   }
 
   /** EMBODIMENT (Task 4): play an LSW's attack pose when it fires or swings.
@@ -4509,32 +4744,16 @@ export class Renderer {
               }
               audio.play('hit', { pos: e.pos, volume: 0.5 });
             } else {
-              // the round hit the WORLD — the world answers in its own voice
-              // (Robert: "hear it impact something"): plate rings, stone
-              // chips, dirt thuds — and the debris wears the surface's color
+              // the round hit the WORLD — it answers in its MATERIAL'S voice
+              // (Robert: "hear it impact something" + W7.4 per-material VFX).
+              // One table decides (materials.ts): a structural tile speaks as
+              // its fabric (wall→dust, door→splinter, metal→spark, water→splash),
+              // open ground as the SURFACE you'd walk on (ice→shatter, deck→
+              // spark, grass→rustle, dirt→puff). No more three-bucket lumping.
               const t = tileAt(world.map.grid, e.pos.x, e.pos.z);
-              const sf = surfaceAt(world.map.surface, e.pos.x, e.pos.z);
-              const rate = 0.85 + Math.random() * 0.3;
-              // finish-list #11 (Robert: "we need to SEE when bullets impact
-              // stuff") — every surface answers in LIGHT as well as sound:
-              // metal FLASHES and throws bouncing sparks, stone chips and
-              // hangs dust, dirt puffs — and the ground keeps a pock decal.
-              if (t === T_METAL || sf === S_PLATE) {
-                this.particles.emit({ pos: e.pos, count: 3, color: 0xffffff, speed: 1, life: 0.08, spread: 0.1, up: 0.5, size: 0.3 }); // the flash
-                this.particles.emit({ pos: e.pos, count: 9, color: 0xffd890, speed: 8, life: 0.22, spread: 0.3, up: 2.5, size: 0.16 });
-                this.particles.emit({ pos: e.pos, count: 4, color: 0xffb060, speed: 6, life: 0.6, spread: 0.4, up: 3.5, gravity: 12, size: 0.12 }); // sparks that BOUNCE off
-                audio.play('impact_metal', { pos: e.pos, volume: 0.5, rate });
-              } else if (t === T_WALL || t === T_COVER || t === T_SLIT || t === T_CLIMB) {
-                this.particles.emit({ pos: e.pos, count: 8, color: 0x9a938a, speed: 5.5, life: 0.3, spread: 0.3, up: 2.5, gravity: 8, size: 0.14 }); // the chips
-                this.particles.emit({ pos: e.pos, count: 5, color: 0xb8b0a4, speed: 1.2, life: 0.9, spread: 0.5, up: 0.8, gravity: 0.5, size: 0.3 }); // dust that HANGS
-                this.spawnSplat(e.pos, 0x55504a, 0.16 + Math.random() * 0.08); // the pock
-                audio.play('impact_stone', { pos: e.pos, volume: 0.5, rate });
-              } else {
-                this.particles.emit({ pos: e.pos, count: 7, color: 0x6b5636, speed: 4, life: 0.35, spread: 0.35, up: 2.5, gravity: 7 });
-                this.particles.emit({ pos: e.pos, count: 4, color: 0x8a7a5c, speed: 1, life: 0.8, spread: 0.5, up: 1.0, gravity: 0.8, size: 0.28 }); // the puff
-                this.spawnSplat(e.pos, 0x4a3c28, 0.14 + Math.random() * 0.08);
-                audio.play('impact_dirt', { pos: e.pos, volume: 0.45, rate });
-              }
+              const onFloor = t === T_OPEN || t === T_LADDER;
+              const mat = onFloor ? materialForSurface(surfaceAt(world.map.surface, e.pos.x, e.pos.z)) : materialOf(t);
+              this.spawnImpactFx(mat.impact, e.pos);
             }
           }
           break;

@@ -1,5 +1,5 @@
 import { buildArsenal } from './arsenal';
-import type { ClassDef, ClassId, ThemeId, VehicleDef, VehicleKind, WeaponDef, WeaponId } from './types';
+import type { ClassDef, ClassId, ThemeId, VehicleDef, VehicleKind, WeaponDef, WeaponFamily, WeaponId } from './types';
 
 const W = (w: Partial<WeaponDef> & Pick<WeaponDef, 'id' | 'name' | 'damage' | 'rof'>): WeaponDef => ({
   speed: 90,
@@ -224,6 +224,93 @@ export const AMMO_INFO: Record<string, AmmoInfo> = {
   exp:  { label: 'EXPANDING',        role: 'FLESH',   pen: 0, noise: 2, fire: 0, corpse: 0, pool: 40 },
   bnr:  { label: 'BIO-NEUTRALIZING', role: 'DENIAL',  pen: 1, noise: 2, fire: 0, corpse: 3, pool: 20 },
 };
+
+// OUTBREAK-SPEC §11.2 — a weapon's TACTICAL FINGERPRINT, derived from what it
+// actually does, never transcribed. The muzzle REPORT is the sound the audio
+// already plays, so the NOISE bar you read is the same report that carries: a
+// cannon wakes the block, a silenced subsonic barely stirs it, a laser hums.
+// Calibrated so a service rifle carries exactly SPRINTER_WAKE_NOISE (18u) — the
+// flat radius gunfire used before §11.2 — which keeps every seeded outbreak
+// match identical for the neutral gun and only bends the loud/quiet ends.
+const NOISE_BY_SOUND: Record<string, number> = {
+  cannon: 30, rocket: 28, autocannon: 24, shotgun: 22, sonic: 20,
+  impulse: 18, rifle: 18, thump: 16, rail: 16, smg: 14,
+  pistol: 12, flame: 12, marker: 12, marker_pump: 12, marker_lob: 12,
+  plasma: 9, repair: 4, heal: 4, claw: 0,
+};
+const NOISE_BY_FAMILY: Partial<Record<WeaponFamily, number>> = {
+  artillery: 30, mortar: 30, at_rocket: 28, ap_rocket: 28, hmg: 26, lmg: 22,
+  shotgun: 22, slugger: 22, scatter: 22, sonic: 20, rifle: 18, carbine: 16,
+  smg: 14, grenade: 16, special: 16, pistol: 12, flamethrower: 12, laser: 8,
+};
+
+/**
+ * The muzzle report's reach in world units — the sim's authoritative NOISE
+ * number (feeds sprinter-wake) AND the HUD's NSE bar, so the two can never
+ * drift. `sound` wins (every weapon has one, it names the report), then the
+ * generated-arsenal `family`, then the tracer. The loaded round bends it:
+ * subsonic is the quiet round, a tracer burns loud.
+ */
+export function weaponNoiseRadius(def: WeaponDef, ammoType?: string): number {
+  let r: number | undefined = NOISE_BY_SOUND[def.sound];
+  if (r === undefined && def.family) r = NOISE_BY_FAMILY[def.family];
+  if (r === undefined) {
+    r = def.tracer === 'shell' || def.tracer === 'rocket' ? 26
+      : def.tracer === 'rail' ? 16
+      : def.tracer === 'flame' ? 12
+      : def.tracer === 'beam' || def.tracer === 'plasma' ? 9
+      : def.tracer === 'none' ? 0
+      : 18;
+  }
+  if (ammoType === 'sub') r *= 0.35;        // the whole point of subsonic
+  else if (ammoType === 'trc') r *= 1.15;   // a tracer round announces itself
+  return Math.max(0, Math.min(34, r));
+}
+
+export interface WeaponProfile { role: string; pen: number; noise: number; fire: number; corpse: number; }
+const clamp3 = (n: number) => Math.max(0, Math.min(3, Math.round(n)));
+// the NSE bar IS the wake radius, bucketed — rifle 18 → 2 (matches AMMO_INFO ball)
+const noiseBar = (r: number): number => (r < 10 ? 0 : r < 16 ? 1 : r < 24 ? 2 : 3);
+const ROLE_BY_FAMILY: Partial<Record<WeaponFamily, string>> = {
+  laser: 'BEAM', flamethrower: 'BURN', sonic: 'CONCUSS', hmg: 'SUPPRESS', lmg: 'SUPPRESS',
+  at_rocket: 'BLAST', ap_rocket: 'BLAST', mortar: 'BLAST', artillery: 'BLAST', grenade: 'BLAST',
+  shotgun: 'CLOSE', slugger: 'CLOSE', scatter: 'CLOSE', pistol: 'SIDEARM',
+};
+const ROLE_BY_TRACER: Partial<Record<WeaponDef['tracer'], string>> = {
+  beam: 'BEAM', flame: 'BURN', rail: 'PIERCE', plasma: 'PLASMA', rocket: 'BLAST', frag: 'BLAST',
+};
+
+/**
+ * The weapon's PEN / NOISE / FIRE / CORPSE-denial ratings (0-3), for the §11.2
+ * HUD readout — WEAPON + loaded round, so a silenced SMG and a tank cannon no
+ * longer read identical, and the flamethrower's FIR▮▮▮ / the laser's NSE▯▯▯
+ * finally show. Every rating traces to a real sim behaviour.
+ */
+export function weaponProfile(def: WeaponDef, ammoType?: string): WeaponProfile {
+  const t = def.tracer, fam = def.family;
+  // PENETRATION — what the round drives through (rail slugs & AP shells punch)
+  let pen = t === 'rail' || t === 'shell' || fam === 'ap_rocket' ? 3
+    : t === 'beam' || t === 'plasma' || fam === 'hmg' ? 2
+    : t === 'acid' ? 1 : t === 'flame' ? 0 : 1;
+  if (def.pierceArmor) pen = Math.max(pen, 2);
+  if ((def.pierce ?? 0) > 0) pen += 1;
+  // FIRE HAZARD — can it start a fire / cook a corpse
+  let fire = fam === 'flamethrower' || t === 'flame' || def.ignite || def.payload === 'fire' ? 3
+    : t === 'plasma' ? 1 : 0;
+  // CORPSE DENIAL — the reanimation-stoppers: fire and blast (§17)
+  let corpse = fire >= 3 ? 3 : (def.splash ?? 0) > 0 ? 2 : 0;
+  let role: string | undefined;
+  if (ammoType && ammoType !== 'ball' && AMMO_INFO[ammoType]) {
+    const ai = AMMO_INFO[ammoType];       // the loaded round bends all three
+    pen += ai.pen - 1;
+    if (ammoType === 'exp') pen -= 1;     // expanding rounds mushroom — low pen
+    fire = Math.max(fire, ai.fire);
+    corpse = Math.max(corpse, ai.corpse);
+    role = ai.role;
+  }
+  role = role ?? (fam && ROLE_BY_FAMILY[fam]) ?? (t && ROLE_BY_TRACER[t]) ?? 'GENERAL';
+  return { role, pen: clamp3(pen), noise: noiseBar(weaponNoiseRadius(def, ammoType)), fire: clamp3(fire), corpse: clamp3(corpse) };
+}
 
 export const CLASSES: Record<ClassId, ClassDef> = {
   infantry: {

@@ -25,6 +25,11 @@
       </div>
     </div>
     <div id="hud" class="hidden">
+      <!-- UI-BIBLE §09 damage direction: 4 pooled red arcs around screen
+           center, each rotated to an attacker bearing, hold-then-fade -->
+      <div id="dmg-dir">
+        <div class="dmg-arc"></div><div class="dmg-arc"></div><div class="dmg-arc"></div><div class="dmg-arc"></div>
+      </div>
       <div id="hud-top">
         <div id="objective-bar"></div>
         <div id="mode-status"></div>
@@ -34,6 +39,10 @@
       <aside id="science-mission-panel" class="science-mission-panel" aria-live="polite" hidden></aside>
       <div id="killfeed"></div>
       <div id="hud-bottom-left">
+        <!-- UI-BIBLE §09: the UNIFIED STATUS STRIP — one chip row for every
+             timed victim/player state (marked/pinged/encased/smoked/…), above
+             the vitals. Icon+label, source-colored edge, radial timer, 6 max +N -->
+        <div id="status-strip" class="hidden"></div>
         <div id="health-block">
           <canvas id="self-ring" width="128" height="128" style="width:104px;height:104px"></canvas>
           <div class="bar-label"><span id="hp-num">100</span> HP</div>

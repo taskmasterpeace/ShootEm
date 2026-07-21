@@ -1,4 +1,4 @@
-import { AMMO_INFO, CLASSES, EQUIPMENT, MODE_INFO, TEAM_NAMES, VEHICLES, WEAPONS } from '../sim/data';
+import { AMMO_INFO, CLASSES, EQUIPMENT, MODE_INFO, TEAM_NAMES, VEHICLES, WEAPONS, weaponProfile } from '../sim/data';
 import { LSWS, VO_LINES } from '../sim/lsw';
 import { audio, earshotFor } from './audio';
 import { icon } from './icons';
@@ -63,6 +63,10 @@ export class Hud {
   private wcamId = '';
   /** ammo-dwindle: pip count currently in the DOM — rebuild only on a change */
   private ammoPipCount = -1;
+  /** status strip: the current chip-set key — rebuild DOM only when it changes */
+  private stripKey = '';
+  /** damage-direction: round-robin index into the pooled arcs */
+  private dmgArcIdx = 0;
   private segMeter: SegMeter | null = null;
   private lswMeter: SegMeter | null = null;
 
@@ -157,6 +161,62 @@ export class Hud {
 
   show() { $('hud').classList.remove('hidden'); }
   hide() { $('hud').classList.add('hidden'); $('scoreboard').classList.add('hidden'); }
+
+  /** UI-BIBLE §09 — build the unified status strip from LIVE sim state. Each
+   *  chip: short mono label + source-colored edge + a bottom timer bar scaled
+   *  to time-left. Priority-ordered (critical first, §03); 6 shown then +N
+   *  (§15). Derived every frame, never a second truth (§03 law 2). */
+  private renderStatusStrip(s: Soldier, world: World) {
+    const strip = $('status-strip');
+    if (!s.alive || s.vehicleId >= 0) { strip.classList.add('hidden'); return; }
+    const now = world.time;
+    // amber=yours, red=danger, steel=info, viral-green=infection, green=recovery
+    const RED = 'var(--danger)', AMBER = 'var(--accent)', STEEL = 'var(--muted)', VIRAL = 'oklch(0.72 0.17 145)';
+    type Chip = { key: string; label: string; edge: string; crit?: boolean; frac?: number };
+    const chips: Chip[] = [];
+    const timed = (until: number, span: number) => Math.max(0, Math.min(1, (until - now) / span));
+    // CRITICAL first (§03 alert hierarchy)
+    if (s.encasedUntil !== undefined && now < s.encasedUntil)
+      chips.push({ key: 'iced', label: 'ICED', edge: 'var(--wcam-tint,#8fd0ff)', crit: true, frac: timed(s.encasedUntil, 4) });
+    if (s.markedUntil !== undefined && now < s.markedUntil)
+      chips.push({ key: 'hunted', label: 'HUNTED', edge: RED, crit: true, frac: timed(s.markedUntil, 5) });
+    // the enemy has eyes on you (§09 pinged/tagged) — a victim-side truth
+    if (world.pinged.has(s.id) || (world.tagged.get(s.id) ?? 0) > now)
+      chips.push({ key: 'pinged', label: 'PINGED', edge: RED });
+    const viral = s.viralLoad ?? 0;
+    if (viral >= 40) chips.push({ key: 'infected', label: viral >= 80 ? 'CRITICAL' : 'INFECTED', edge: VIRAL, crit: viral >= 80 });
+    // overcharge / rage (yours = amber)
+    if (s.rageMul !== undefined && s.rageMul > 1) chips.push({ key: 'power', label: 'POWER', edge: AMBER });
+    // psi link (steel info)
+    if (s.psiLinkUntil !== undefined && now < s.psiLinkUntil)
+      chips.push({ key: 'link', label: 'LINK', edge: STEEL, frac: timed(s.psiLinkUntil, 8) });
+    // concealment (steel)
+    if (world.smoked.has(s.id)) chips.push({ key: 'smoked', label: 'SMOKED', edge: STEEL });
+    if (s.cloaked) chips.push({ key: 'cloak', label: 'CLOAK', edge: STEEL });
+    // spawn protection (steel shell, ending soon = amber) — held then fades
+    if (now < s.protectedUntil) chips.push({ key: 'shield', label: 'SHIELD', edge: STEEL, frac: timed(s.protectedUntil, 3) });
+
+    if (chips.length === 0) { strip.classList.add('hidden'); this.stripKey = ''; return; }
+    strip.classList.remove('hidden');
+    const shown = chips.slice(0, 6);
+    const overflow = chips.length - shown.length;
+    // rebuild the DOM only when the SET of chips changes; per-frame just move
+    // the timer bars (§13 no per-frame layout churn)
+    const key = shown.map((c) => c.key).join(',') + (overflow ? `+${overflow}` : '');
+    if (key !== this.stripKey) {
+      strip.innerHTML = shown.map((c) =>
+        `<span class="status-chip${c.crit ? ' crit' : ''}" data-k="${c.key}" style="--chip-edge:${c.edge}">${c.label}` +
+        (c.frac !== undefined ? '<span class="chip-timer"></span>' : '') + '</span>').join('') +
+        (overflow ? `<span class="status-chip more">+${overflow}</span>` : '');
+      this.stripKey = key;
+    }
+    // slide the timer bars to time-left (empties left→right as it runs out)
+    shown.forEach((c) => {
+      if (c.frac === undefined) return;
+      const el = strip.querySelector(`[data-k="${c.key}"] .chip-timer`) as HTMLElement | null;
+      if (el) el.style.transform = `scaleX(${c.frac.toFixed(3)})`;
+    });
+  }
 
   update(world: World, localId: number, scoreboardHeld: boolean, now: number) {
     const s = world.soldiers.get(localId);
@@ -404,19 +464,20 @@ export class Hud {
           for (let i = 0; i < kids.length; i++) kids[i].classList.toggle('spent', i >= litPips);
           pips.classList.toggle('low', lowMag);
         }
-        // OUTBREAK-SPEC §11.2: the round's tactical readout — its role plus
+        // OUTBREAK-SPEC §11.2: the WEAPON'S tactical fingerprint — its role plus
         // PENetration / NoiSE / FIRe-hazard / CORpse-denial ratings as 3-notch
         // mono bars, right under the mag where the eye already reads it (§16.4
-        // "keep it near the action"). Ballistic weapons only; the tag hides for
-        // energy/beam arms that ignore the ammo rider.
+        // "keep it near the action"). Now WEAPON-derived (a silenced SMG and a
+        // tank cannon no longer read identical) and shown for EVERY offensive
+        // arm — the flamethrower's FIR▮▮▮ and the laser's NSE▯▯▯ are the point.
+        // Melee and the medi-beam have no report to read, so they stay quiet.
         const infoEl = $('ammo-info');
-        if (ballistic) {
-          const at = s.ammoType ?? 'ball';
-          const ai = AMMO_INFO[at];
+        if (def.tracer !== 'none' && !def.heals) {
+          const prof = weaponProfile(def, ballistic ? (s.ammoType ?? 'ball') : undefined);
           const bar = (n: number) => '▮'.repeat(n) + '▯'.repeat(3 - n);
           // §16.3: AP wears the pointed round, INC wears the flame
-          const ico = at === 'ap' ? icon('ap') : at === 'inc' ? icon('incendiary') : '';
-          infoEl.innerHTML = `${ico}${ai.role} · PEN${bar(ai.pen)} NSE${bar(ai.noise)} FIR${bar(ai.fire)} COR${bar(ai.corpse)}`;
+          const ico = ballistic && s.ammoType === 'ap' ? icon('ap') : ballistic && s.ammoType === 'inc' ? icon('incendiary') : '';
+          infoEl.innerHTML = `${ico}${prof.role} · PEN${bar(prof.pen)} NSE${bar(prof.noise)} FIR${bar(prof.fire)} COR${bar(prof.corpse)}`;
           infoEl.classList.remove('hidden');
         } else {
           infoEl.classList.add('hidden');
@@ -536,6 +597,12 @@ export class Hud {
       const state = viral >= 80 ? 'CRITICAL' : viral >= 40 ? 'INFECTED' : 'EXPOSED';
       $('viral-num').textContent = `${Math.round(viral)}% ${state}`;
     } else vc.classList.add('hidden');
+
+    // UI-BIBLE §09 — THE UNIFIED STATUS STRIP. Every timed player state gets a
+    // chip here, DERIVED from live sim fields (§03 law 2), priority-ordered
+    // (§03: critical first), six visible then +N (§15). Replaces the scattered
+    // one-off timers the bible flags.
+    this.renderStatusStrip(s, world);
 
     // UI P0 (docs/UI-MASTER.md §2): YOU ARE DOWN — the bleedout clock and the
     // way out, breathing red near the action. Revive channel shows its math.
@@ -1073,6 +1140,22 @@ export class Hud {
   applyEvents(events: SimEvent[], world: World, localId: number, now: number) {
     if (world.time < this.lastSimTime) { this.prints = 1; this.gunLedger.clear(); } // new match
     this.lastSimTime = world.time;
+    // UI-BIBLE §09 DAMAGE DIRECTION: on a hurt addressed to ME, rotate a
+    // pooled red arc to the attacker's bearing. Fixed-north camera → world
+    // bearing maps straight to screen rotation (atan2(dx, -dz), 0 = up).
+    for (const e of events) {
+      if (e.type !== 'hurt' || e.soldierId !== localId || !e.pos) continue;
+      const me = world.soldiers.get(localId);
+      if (!me) continue;
+      const deg = (Math.atan2(e.pos.x - me.pos.x, -(e.pos.z - me.pos.z)) * 180) / Math.PI;
+      const arcs = document.querySelectorAll('#dmg-dir .dmg-arc');
+      if (arcs.length === 0) continue;
+      const el = arcs[this.dmgArcIdx++ % arcs.length] as HTMLElement;
+      el.style.setProperty('--deg', `${deg.toFixed(0)}deg`);
+      el.classList.remove('on');
+      void el.offsetWidth; // restart the fade animation
+      el.classList.add('on');
+    }
     for (const e of events) {
       // THE GUN REMEMBERS — only MY kills, keyed by the weapon that made them
       if (e.type === 'death' && e.killerId === localId && e.weaponId) {
