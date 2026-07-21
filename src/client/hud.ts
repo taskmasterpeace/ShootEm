@@ -628,6 +628,24 @@ export class Hud {
       const tone = lvl >= 3 ? 't1' : 'neutral';
       chips += `<div class="obj-chip ${tone} biohazard lvl${lvl}">${icon('infection')} L${lvl} · ${label}</div>`;
     }
+    // §6/§16.3: the NEAREST incubating corpse gets a proximity chip — the
+    // body-with-timer while it cooks, the RISING silhouette (red) in the
+    // final CRITICAL window. You were told; move, or burn it.
+    if (world.outbreakEnabled && world.corpses.length && local.alive) {
+      let near: (typeof world.corpses)[number] | undefined;
+      let nd = 12; // earshot of a body you should be worrying about
+      for (const c of world.corpses) {
+        if (c.neutralized || c.reanimatesAt <= world.time) continue;
+        const d = Math.hypot(c.pos.x - local.pos.x, c.pos.z - local.pos.z);
+        if (d < nd) { nd = d; near = c; }
+      }
+      if (near) {
+        const left = near.reanimatesAt - world.time;
+        chips += left <= 2 // CORPSE_CRITICAL_WINDOW — the final thrash
+          ? `<div class="obj-chip t1">${icon('rising')} ${near.name.toUpperCase()} IS RISING</div>`
+          : `<div class="obj-chip neutral">${icon('corpse')} BODY ${nd.toFixed(0)}u · ${Math.ceil(left)}s</div>`;
+      }
+    }
     bar.innerHTML = chips;
     $('mode-status').textContent = MODE_INFO[m.id].name;
     // §8.8 the sky, on the record — amber when it's costing you something
