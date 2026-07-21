@@ -1,6 +1,52 @@
 # SCIENCE MISSIONS — shipped v1 and catalog direction
 ### Locked 2026-07-20 · production slice shipped 2026-07-21 on `codex/science-missions`.
 
+## CITY BUILDING MAP MAKER — 2026-07-21
+
+Science sites now come from the same complete-building grammar exposed in the
+Map Maker. The checked-in Country Master Sheet normalization contains **168
+countries and 1,050 named cities**. Country, city population/type, culture,
+crime/safety, government, enforcement, military, science, and lifestyle data
+become deterministic architectural weights and security pressure; they are
+biases, not hard cultural stereotypes.
+
+- **19 archetypes** span residential, commercial, industrial, civic/science,
+  and military uses across rectangle, L-shape, courtyard, twin-wing, and arcade
+  footprints. Every result is a complete one-to-three-storey building, not a
+  detached room fragment. Courtyards have deliberate entrances.
+- Compact architecture uses thin oriented walls and doors, framed breakable
+  windows, section shutters, balconies/rails, automatic directional stairs,
+  and deliberate E-use ladders. Indexed Ground/L2/L3 layers remain backward
+  compatible with v1 Map Maker JSON.
+- Clone vaults, research annexes, depots, clinics, factories, archives,
+  airfields, villas, and quarantine/processing sites compile through the whole
+  building system. Mission specs retain `cityId`, city name, and security so
+  briefings and the existing Courier/newspaper aftermath carry provenance.
+- Print commitments still run **1–8**, but now budget initial security,
+  civilians, dog teams, patrol sectors, and a later reserve wave. The first
+  room is capped at two guards; larger commitments spread pressure instead of
+  making a spawn pile.
+- Indoor security hears, investigates, searches adjacent rooms, coordinates
+  portal claims, recovers blocked routes, and returns to post. Civilians choose
+  shelter away from the last-known threat. This layer is opt-in through
+  building metadata, leaving open battle bots unchanged.
+- Dogs retain a capped 24-node/eight-second scent trail through cloak and
+  darkness, remain inside handler pull, take stairs, reject ladders, hesitate
+  at intact glazing, bark an alarm, and briefly drag on a successful bite. Bite
+  damage and dog HP did not increase.
+
+The Map Maker drafting table adds country→city selection, grouped archetypes,
+seed/storey/print controls, Ground/L2/L3 tabs (keys 1–3), floor-aware painting
+and law labels, operation sockets, provenance, autosave/import/export, exploded
+view, a full open-topped 3D inspection model, and direct Science Operation
+launch. Launch stays disabled unless both the six battlefield laws and eight
+whole-building laws pass.
+
+Current boundary: this ships one complete mission building or bounded
+building/yard hybrid at a time. It does not yet assemble an entire procedural
+city block or mall from several independently editable buildings, and the Map
+Maker remains a developer harness rather than a player-facing campaign editor.
+
 ## SHIPPED PRODUCTION SLICE
 
 Science Missions is now a native offline War World mode. Free Play exposes a

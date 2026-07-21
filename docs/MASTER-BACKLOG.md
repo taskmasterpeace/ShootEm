@@ -181,7 +181,7 @@ Each item is grounded — the ground-truth agents read the code. Sequencing note
 - **W3.5** science-mission stake — permanent clone loss on a failed run, or retry next window? (fear vs fairness)
 - **W0.2** LOCKED by Robert: 3D view = your eyes, minimap = team; contacts HOLD then FADE, never blink out
 - **10.5** ammo cut LOCKED at 25%, squad size LOCKED 1-8 — but diagnostics validate the cut before it lands
-- **Trees/level-3+ buildings**: explicitly DEFERRED by Robert (trees exist; 3+ storeys needs a new layer system — not on this board)
+- **Trees/level-3+ buildings**: trees exist; **three-storey indexed building layers shipped 2026-07-21** with the city Map Maker and Science Mission whole-building grammar. Taller-than-three skyline generation remains outside the current performance/authoring budget.
 - **Mobile/touch**: parked until after the war ships (docs/MOBILE-FEASIBILITY.md exists)
 
 ## LOOP HYGIENE

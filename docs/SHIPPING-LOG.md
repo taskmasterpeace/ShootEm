@@ -4,6 +4,58 @@ The public record of what shipped, written for players and backers — not engin
 
 ---
 
+## Unreleased — 2026-07-21 · "Every Door Goes Somewhere"
+
+### New
+
+- **The world has addresses.** 168 countries and 1,050 cities now drive the
+  architecture and security of Science Mission sites, with city provenance in
+  briefings and aftermath reports.
+- **Whole buildings, one to three storeys.** Nineteen residential, commercial,
+  industrial, civic, and military structures combine thin room walls, proper
+  doors, windows that break, balconies, courtyards, stairs, ladders, shutters,
+  and complete facades.
+- **A real city Map Maker.** Pick a country and city, generate a building, move
+  between Ground/L2/L3, paint the architectural vocabulary, inspect operation
+  sockets and live laws, export/import it, walk an open-topped 3D model, or
+  launch the generated Science Operation directly.
+- **Security knows the house.** Guards investigate sounds, search rooms, share
+  doorways, answer alarms upstairs, and return to post. Civilians seek shelter.
+  Dogs track recent scent through darkness and cloak, use stairs but refuse
+  ladders, pause at intact glass, bark alarms, and pull victims off position.
+- **Print reserves shape the opposition.** A 1-print infiltration stays small;
+  an 8-print assault deals more patrol sectors, dog teams, and a reserve wave
+  without stacking the entry room.
+
+### Verification record
+
+- In-app browser playtests generated a three-storey Belgrade command villa,
+  mall section, and secure archive. All six battlefield laws and all eight
+  whole-building laws passed; Ground/L2/L3 editing, exploded and open-topped
+  3D views, provenance, and direct Science Operation launch worked with zero
+  console warnings.
+- Deterministic mission playtests cover print reserves 1–8 at low and high
+  security, every Science verb across residential, commercial, and military
+  sites, multi-floor objectives/extraction, guard search, dog scent/stairs,
+  and dog ladder refusal.
+- Fresh release gates pass: TypeScript emits no diagnostics; the full suite is
+  **153 files / 1,710 tests** green; ESLint reports zero errors; and Vite emits
+  the production bundle.
+
+### Fixed during visual production
+
+- Courtyard voids could become sealed orphan pockets even while structural
+  building laws were green. Ground-floor courts now receive a deliberate door,
+  and launch requires both battlefield and whole-building law suites.
+- The Matchup panel could cover the right half of the Map Maker after switching
+  tabs. Hidden tool surfaces now remain hidden.
+- The old harness preview only drew full-tile battle walls, making a three-floor
+  science building look like an empty perimeter. It now renders thin walls,
+  glass, balconies, stairs, ladders, shutters, floor slabs, and all storeys at
+  building inspection scale.
+
+---
+
 ## v0.10.0 — 2026-07-21 · "Science Has a Body Count"
 
 ### New

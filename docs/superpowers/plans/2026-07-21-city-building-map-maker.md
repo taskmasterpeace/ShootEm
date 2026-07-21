@@ -250,14 +250,14 @@ export function floorLayer(map: GameMap, floor: number): Uint8Array {
 **Interfaces:**
 - Produces `IndoorIntent = 'post' | 'patrol' | 'investigate' | 'search' | 'respond' | 'fallback' | 'evacuate'`, `updateScentTrail`, `strongestReachableScent`, `advanceIndoorIntent`, and portal reservations keyed by tick.
 
-- [ ] **Step 1: Write failing deterministic behavior tests** for hear→investigate→room-search→return, two guards not crowding one portal, alarm response across stairs, civilian safe-room/exit choice, and blocked-door recovery.
-- [ ] **Step 2: Write failing dog tests** for recent player scent through cloak/darkness, handler pull, stairs, ladder rejection, window hesitation, a short bite drag, and louder alarm bark without increasing HP.
-- [ ] **Step 3: Run focused tests and confirm RED.**
-- [ ] **Step 4: Implement immutable graph inputs and small per-actor indoor memory** (`intent`, `roomId`, `lastKnown`, `searchQueue`, `post`, `portalClaimUntil`) without replacing the existing combat brain.
-- [ ] **Step 5: Add a capped 24-node scent ring per tracked hostile** with 8-second decay; dogs choose the strongest reachable node and notify the handler group.
-- [ ] **Step 6: Integrate the tactical layer only when building metadata is present.** Existing open battle bot behavior and dog tests must remain unchanged.
-- [ ] **Step 7: Run focused tests, existing bot/dog/navigation/AI suites, deterministic replay tests, and typecheck; confirm GREEN.**
-- [ ] **Step 8: Commit with `git commit -m "feat: add indoor tactical AI"`.**
+- [x] **Step 1: Write failing deterministic behavior tests** for hear→investigate→room-search→return, two guards not crowding one portal, alarm response across stairs, civilian safe-room/exit choice, and blocked-door recovery.
+- [x] **Step 2: Write failing dog tests** for recent player scent through cloak/darkness, handler pull, stairs, ladder rejection, window hesitation, a short bite drag, and louder alarm bark without increasing HP.
+- [x] **Step 3: Run focused tests and confirm RED.**
+- [x] **Step 4: Implement immutable graph inputs and small per-actor indoor memory** (`intent`, `roomId`, `lastKnown`, `searchQueue`, `post`, `portalClaimUntil`) without replacing the existing combat brain.
+- [x] **Step 5: Add a capped 24-node scent ring per tracked hostile** with 8-second decay; dogs choose the strongest reachable node and notify the handler group.
+- [x] **Step 6: Integrate the tactical layer only when building metadata is present.** Existing open battle bot behavior and dog tests must remain unchanged.
+- [x] **Step 7: Run focused tests, existing bot/dog/navigation/AI suites, deterministic replay tests, and typecheck; confirm GREEN.**
+- [x] **Step 8: Commit with `git commit -m "feat: add indoor tactical AI"`.**
 
 ### Task 9: Build the City Map Maker Workflow
 
@@ -272,14 +272,14 @@ export function floorLayer(map: GameMap, floor: number): Uint8Array {
 - Produces pure UI helpers `mapMakerCityOptions`, `mapMakerArchetypeOptions`, `floorTabs`, `canLaunchOperation`, and `generateBuildingDoc` for DOM-light testing.
 - `mountMaker` adds city generation, floor tabs, building/operation layers, exploded preview, and Launch Science Operation.
 
-- [ ] **Step 1: Write failing presentation tests** asserting country→city filtering, all archetype groups, Ground/L2/L3 tabs, floor-aware violation labels, print reserve 1–8, v1 import notice, and launch disabled on invalid docs.
-- [ ] **Step 2: Run `npx vitest run tests/mapmaker-ui.test.ts` and confirm RED.**
-- [ ] **Step 3: Add the drafting-table UI**: city/district generator bar; compact selectors; seed/prints controls; floor tabs; layer switch; provenance stamp; room/portal/operation overlays; generated-building replace confirmation; floor-aware laws; generate, preview, explode, export, import, and launch actions.
-- [ ] **Step 4: Extend canvas rendering and tools** with distinct amber walls, cyan windows/glass/stairs, pale balcony deck, red shutters/threats, and floor ghosting. Preserve keyboard editing, undo/redo, autosave, and exact-grid hit testing.
-- [ ] **Step 5: Connect 3D preview options and science launch** through typed deps; a valid generated map enters science mode with selected prints and city briefing.
-- [ ] **Step 6: Add responsive/accessibility behavior**: visible focus, labeled controls, 44px primary actions, reduced-motion respect, keyboard floor switching, and no color-only law state.
-- [ ] **Step 7: Run focused UI/presentation tests, all Map Maker tests, typecheck, lint, and build; confirm GREEN.**
-- [ ] **Step 8: Commit with `git commit -m "feat: build city map maker workflow"`.**
+- [x] **Step 1: Write failing presentation tests** asserting country→city filtering, all archetype groups, Ground/L2/L3 tabs, floor-aware violation labels, print reserve 1–8, v1 import notice, and launch disabled on invalid docs.
+- [x] **Step 2: Run `npx vitest run tests/mapmaker-ui.test.ts` and confirm RED.**
+- [x] **Step 3: Add the drafting-table UI**: city/district generator bar; compact selectors; seed/prints controls; floor tabs; layer switch; provenance stamp; room/portal/operation overlays; generated-building replace confirmation; floor-aware laws; generate, preview, explode, export, import, and launch actions.
+- [x] **Step 4: Extend canvas rendering and tools** with distinct amber walls, cyan windows/glass/stairs, pale balcony deck, red shutters/threats, and floor ghosting. Preserve keyboard editing, undo/redo, autosave, and exact-grid hit testing.
+- [x] **Step 5: Connect 3D preview options and science launch** through typed deps; a valid generated map enters science mode with selected prints and city briefing.
+- [x] **Step 6: Add responsive/accessibility behavior**: visible focus, labeled controls, 44px primary actions, reduced-motion respect, keyboard floor switching, and no color-only law state.
+- [x] **Step 7: Run focused UI/presentation tests, all Map Maker tests, typecheck, lint, and build; confirm GREEN.**
+- [x] **Step 8: Commit with `git commit -m "feat: build city map maker workflow"`.**
 
 ### Task 10: Visual Playtest, Regression Fixes, and Shipping Documentation
 
@@ -293,12 +293,12 @@ export function floorLayer(map: GameMap, floor: number): Uint8Array {
 
 **Interfaces:** None new; this task verifies the complete product story.
 
-- [ ] **Step 1: Start Vite and inspect Map Maker in the in-app browser.** Generate and save a three-storey command villa, commercial mall section, and military/research building.
-- [ ] **Step 2: Verify each required visual/runtime scene** from the design: floor editing, complete facades, balcony, intact/broken glass, stairs versus ladder, exploded preview, validation highlight, save/import, and direct science launch.
-- [ ] **Step 3: Play a low-print and high-print mission.** Confirm encounter scaling, multi-floor objective/extraction, guard search, dog scent/stairs, and no ladder use by dogs.
-- [ ] **Step 4: For every defect, write a focused failing regression test, observe RED, implement the smallest fix, and observe GREEN.**
-- [ ] **Step 5: Update docs with exact shipped behavior and boundaries.** Check every completed plan box; include normalized data counts, supported archetypes/floors, AI behaviors, editor workflow, and remaining non-goals.
-- [ ] **Step 6: Run fresh focused suites, then all four gates in order:**
+- [x] **Step 1: Start Vite and inspect Map Maker in the in-app browser.** Generate and save a three-storey command villa, commercial mall section, and military/research building.
+- [x] **Step 2: Verify each required visual/runtime scene** from the design: floor editing, complete facades, balcony, intact/broken glass, stairs versus ladder, exploded preview, validation highlight, save/import, and direct science launch.
+- [x] **Step 3: Play a low-print and high-print mission.** Confirm encounter scaling, multi-floor objective/extraction, guard search, dog scent/stairs, and no ladder use by dogs.
+- [x] **Step 4: For every defect, write a focused failing regression test, observe RED, implement the smallest fix, and observe GREEN.**
+- [x] **Step 5: Update docs with exact shipped behavior and boundaries.** Check every completed plan box; include normalized data counts, supported archetypes/floors, AI behaviors, editor workflow, and remaining non-goals.
+- [x] **Step 6: Run fresh focused suites, then all four gates in order:**
 
 ```powershell
 npx tsc --noEmit
