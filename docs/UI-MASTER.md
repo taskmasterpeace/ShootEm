@@ -19,7 +19,7 @@
 
 | Surface | What belongs there |
 |---|---|
-| **The body orbit** (rings/arcs around YOUR soldier) | health ring ✅, energy arc ✅, aim ring ❌(W1.2), charge ring ❌, spawn-protection shimmer ❌, status pips ❌ |
+| **The body orbit** (rings/arcs around YOUR soldier) | health ring ✅, energy arc ✅, aim ring ✅(W1.2), charge ring ✅(§4, 2026-07-21), spawn-protection shimmer ❌, status pips ✅(status strip) |
 | **The target orbit** (on what you're aiming at / fighting) | enemy health ring ✅(hover), struggle bar ❌, revive channel ❌, capture progress ❌ |
 | **World-space marks** (at a place, through the camera) | ping chevrons ✅, waypoints ✅, blast rings ✅, LZ warning ❌, contact marks ❌(W0.2), field boundaries ❌ |
 | **The weapon block** (bottom-right) | name/ammo/reload ✅, grenade pouch ✅🔨, alt-fire ✅🔨, WPN cycle ✅ |
@@ -72,7 +72,7 @@ Sim has the whole §4.3 system (`downed`, 20s bleedout, `reviveProgress`, `dragg
 
 | State | When | Where | The visual | Status |
 |---|---|---|---|---|
-| **Charge meter** (`chargeStart` — hold-to-×mul) | while holding | body orbit | **the Impact Charge ring** (outbreak spec §13, one ring for melee AND weapons): fills around the soldier, enters an amber MAXIMUM band, then a red OVERCHARGE pulse; release snaps it into the shot. ✦ the gun model itself glows through the same ramp (emissive rises) — enemy sees the wind-up too, which is the counterplay | ❌ |
+| **Charge meter** (`chargeStart` — hold-to-×mul) | while holding | body orbit | **the Impact Charge ring** (outbreak spec §13, one ring for melee AND weapons): fills around the soldier, enters an amber MAXIMUM band, then a red OVERCHARGE pulse; release snaps it into the shot. ✦ the gun model itself glows through the same ramp (emissive rises) — enemy sees the wind-up too, which is the counterplay | ✅ **DONE 2026-07-21** — `renderer.ts` `chargeRing` orbits the local body, TIGHTENS as it winds (1.5u→1.0u), amber MAXIMUM band ≥0.71, red OVERCHARGE pulse ≥1.3 (reads `meleeCharge`). TODO(follow-up): the enemy-visible gun-emissive glow + showing the ring on visible enemy chargers (the counterplay half) |
 | Alt-fire cooldown + burst window | RMB weapons | weapon block | the `RMB ×N` text gains a tiny cooldown sweep behind it; during a burst window the text pulses | ❌ |
 | Melee windup/strike | swinging | body | zed telegraph + slash ring shipped; extend to soldiers with the STRIKE/GUARD/GRAPPLE build (#47) | 🔨 |
 | Fire-rate stagger (melee hit / concussion "ringing ears") | when locked out | reticle | ✦ the crosshair itself **rings** — a wobble + faint tinnitus vignette; you FEEL why the trigger is dead | ❌ |
@@ -94,7 +94,7 @@ Sim has the whole §4.3 system (`downed`, 20s bleedout, `reviveProgress`, `dragg
 
 One horizontal strip of small square chips above the stamina bar, each with an icon + radial-wipe timer. **Feed it everything:** overcharge (Reactor/Steel Weaver), time-field SLOWED, possession clock, EMP-stunned (in vehicle), encased, protected, marked, pinged, tagged, smoked, psi-linked. Chips appear on gain (slide in), radial-wipe down, and **fade — never pop** (Law 6). Enemy-sourced chips wear signal-red edges; buffs wear amber. ❌ (nothing exists — this is the single highest-leverage NEW element in this document.)
 
-**The encased-in-ice struggle** gets special treatment (it's a minigame with zero UI today): the ice block is shipped; add a **crack-pattern that spreads with your mash progress** (`struggle` 0..1 drives crack decals on the ice mesh) + the drain choice as two hair-labels: `MASH — break at −45` / `HOLD — bleed 2.5/s`. The ice itself is the meter. ❌
+**The encased-in-ice struggle** gets special treatment (it's a minigame with zero UI today): the ice block is shipped; add a **crack-pattern that spreads with your mash progress** (`struggle` 0..1 drives crack decals on the ice mesh) + the drain choice as two hair-labels: `MASH — break at −45` / `HOLD — bleed 2.5/s`. The ice itself is the meter. ✅ **DONE 2026-07-21** — a jagged crack web (`makeIceCrackGeo`) rides the block, opacity = `struggle`, the ice stressing brighter (emissive climbs) as it nears breaking; the two hair-labels float over your own body (`MASH — BREAK −45` amber / `HOLD — BLEED 2.5/s` steel), reading the sim's `STRUGGLE_HP`/`ICE_HOLD_DRAIN`. `renderer.ts` `updateIceBlock`; `tests/encased-struggle.test.ts` (2).
 
 ## 7 · LSW — piloting and facing gods
 
@@ -176,7 +176,7 @@ One horizontal strip of small square chips above the stamina bar, each with an i
 
 ## PRIORITY ORDER (what the loop builds, in order)
 
-**P0 — the criminal gaps (shipped systems with zero readout):** the hover wiring bug (§13) · grenade pip-refill + missing conc pouch (§3) · the downed experience (§2) · MISSILE INBOUND + SAM lock diamond (§3/§8) · encased struggle cracks (§6) · spawn-protection shimmer (§5) · LSW drop countdown + LZ ring (§7).
+**P0 — the criminal gaps (shipped systems with zero readout):** the hover wiring bug (§13) · grenade pip-refill + missing conc pouch (§3) · the downed experience (§2) · MISSILE INBOUND + SAM lock diamond (§3/§8) · ~~encased struggle cracks (§6)~~ ✅ **DONE 2026-07-21** · spawn-protection shimmer (§5) · LSW drop countdown + LZ ring (§7).
 **P1 — the new grammars:** the status-effect strip (§6) · the charge ring / Impact Charge (§4) · afterburner + sonic boom (§8) · force-field bodies + labels (§9) · altitude ladder + flares/bombs pips (§8) · victim-side marks (§5).
 **P2 — the aura layer:** carrion birds (§11) · conquest/CTF progress fills (§12) · materiel chip (§12) · minimap gadget layers (§10) · all remaining ✦ details.
 

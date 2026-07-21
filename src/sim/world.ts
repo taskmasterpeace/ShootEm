@@ -5844,6 +5844,15 @@ export class World {
     }
     victim.hp -= dmg;
     if (dmg > 0) this.emit({ type: 'damage', pos: { x: victim.pos.x, y: victim.pos.y + 1.7, z: victim.pos.z }, amount: dmg, armorHit: false, soldierId: victim.id, ownerId: attackerId });
+    // UI-BIBLE §09 DAMAGE DIRECTION: the victim's client draws a red arc at
+    // the ATTACKER's bearing. pos = where the shot came from, soldierId = who
+    // got hurt (the addressee); the HUD filters to the local player.
+    if (dmg > 0) {
+      const atk = attackerId >= 0 ? this.soldiers.get(attackerId) : undefined;
+      if (atk && atk.id !== victim.id) {
+        this.emit({ type: 'hurt', pos: { ...atk.pos }, soldierId: victim.id });
+      }
+    }
     // the bloodied line (once per life): an LSW crossing a quarter health
     // says so — nearby ears get the tell BEFORE the killfeed does
     if (victim.ascendant && !victim.lswLowSaid && victim.hp > 0 && victim.hp < victim.maxHp * 0.25) {
