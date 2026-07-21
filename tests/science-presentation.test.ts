@@ -75,6 +75,15 @@ describe('science mission presentation', () => {
     expect(html).toContain('ALARM');
   });
 
+  it('turns burned clone pips into spent marks', () => {
+    const runtime = runtimeFixture();
+    runtime.clonesRemaining = 3;
+    runtime.clonesSpent = 2;
+    const html = scienceMissionHTML(runtime);
+    expect(html.match(/is-live/g)).toHaveLength(3);
+    expect(html.match(/is-spent/g)).toHaveLength(2);
+  });
+
   it('escapes generated operation copy', () => {
     const html = scienceDebriefHTML(resultFixture({ briefing: '<script>x</script>' }));
     expect(html).not.toContain('<script>');

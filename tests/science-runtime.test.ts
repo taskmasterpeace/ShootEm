@@ -48,6 +48,44 @@ describe('science mission objective compiler', () => {
     expect(scienceObjectiveText(world.science!)).toBeTruthy();
   });
 
+  it.each(Object.keys(primitive) as ScienceVerb[])('%s can complete its primary and extract', (verb) => {
+    const world = missionWorld(verb);
+    const runtime = world.science!;
+    const operator = world.addSoldier('Operator', 'infiltrator', 0, 'human');
+
+    if (runtime.objective.kind === 'eliminate') {
+      for (const id of runtime.targetIds) world.damageSoldier(world.soldiers.get(id)!, 9999, operator.id, 'ar606');
+      for (const id of runtime.vehicleTargetIds) world.damageVehicle(world.vehicles.get(id)!, 99999, operator.id, 'tank_cannon');
+      stepScienceMission(world, 1 / 60);
+    } else if (runtime.objective.kind === 'interact') {
+      for (let i = 0; i < runtime.objective.required; i++) {
+        operator.pos = { ...runtime.objective.pos[i] };
+        operator.floor = operator.pos.y >= 4 ? 1 : 0;
+        expect(tryScienceInteraction(world, operator, 1)).toBe(true);
+      }
+    } else if (runtime.objective.kind === 'escort') {
+      for (const id of runtime.targetIds) {
+        const scientist = world.soldiers.get(id)!;
+        operator.pos = { ...scientist.pos };
+        operator.floor = scientist.floor;
+        expect(tryScienceInteraction(world, operator, 1)).toBe(true);
+        scientist.pos = { ...runtime.extraction };
+        scientist.floor = 0;
+      }
+      stepScienceMission(world, 1 / 60);
+    } else {
+      operator.pos = { ...runtime.objective.pos[0] };
+      stepScienceMission(world, runtime.objective.required);
+    }
+
+    expect(runtime.phase).toBe('extract');
+    operator.pos = { ...runtime.extraction };
+    operator.floor = 0;
+    stepScienceMission(world, 1 / 60);
+    expect(runtime.phase).toBe('won');
+    expect(world.mode.winner).toBe(0);
+  });
+
   it('interaction objectives unlock extraction', () => {
     const world = missionWorld('steal');
     const operator = world.addSoldier('Operator', 'infiltrator', 0, 'human');
