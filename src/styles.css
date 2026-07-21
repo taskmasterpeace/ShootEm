@@ -91,6 +91,8 @@ html, body {
 .obj-chip.biohazard.lvl4 { color: #ff4736; border-color: #ff4736; animation: down-breathe 0.7s ease-in-out infinite; }
 
 /* THE OUTBREAK: the strain in your blood, counted where the vitals live */
+/* §16.3 THE ICON LANGUAGE — one vocabulary, inherits its line's color */
+.ww-ico { width: 1em; height: 1em; vertical-align: -0.15em; display: inline-block; }
 #viral-chip { color: #7fa83c; letter-spacing: 0.06em; }
 #viral-chip.hot { color: #ff4736; animation: down-breathe 0.9s ease-in-out infinite; }
 #viral-chip.hidden { display: none; }

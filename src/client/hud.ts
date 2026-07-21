@@ -1,6 +1,7 @@
 import { AMMO_INFO, CLASSES, EQUIPMENT, MODE_INFO, TEAM_NAMES, VEHICLES, WEAPONS } from '../sim/data';
 import { LSWS, VO_LINES } from '../sim/lsw';
 import { earshotFor } from './audio';
+import { icon } from './icons';
 import { GRID, T_CLIMB, T_WALL, WORLD, losClear, houseAt } from '../sim/map';
 import { isZed, type SimEvent, type Soldier, type Team } from '../sim/types';
 import { drawGrade, drawNumber, RING_COLORS } from './ring';
@@ -53,6 +54,9 @@ export class Hud {
   private lswMeter: SegMeter | null = null;
 
   constructor() {
+    // §16.3: the viral chip wears the biohazard from the ONE icon vocabulary
+    const vIco = document.getElementById('viral-ico');
+    if (vIco) vIco.innerHTML = icon('infection');
     // M toggles the minimap between compact and the large tactical view
     window.addEventListener('keydown', (e) => {
       if ((e.target as HTMLElement)?.tagName === 'INPUT' || e.repeat) return;
@@ -356,9 +360,12 @@ export class Hud {
         // energy/beam arms that ignore the ammo rider.
         const infoEl = $('ammo-info');
         if (ballistic) {
-          const ai = AMMO_INFO[s.ammoType ?? 'ball'];
+          const at = s.ammoType ?? 'ball';
+          const ai = AMMO_INFO[at];
           const bar = (n: number) => '▮'.repeat(n) + '▯'.repeat(3 - n);
-          infoEl.textContent = `${ai.role} · PEN${bar(ai.pen)} NSE${bar(ai.noise)} FIR${bar(ai.fire)} COR${bar(ai.corpse)}`;
+          // §16.3: AP wears the pointed round, INC wears the flame
+          const ico = at === 'ap' ? icon('ap') : at === 'inc' ? icon('incendiary') : '';
+          infoEl.innerHTML = `${ico}${ai.role} · PEN${bar(ai.pen)} NSE${bar(ai.noise)} FIR${bar(ai.fire)} COR${bar(ai.corpse)}`;
           infoEl.classList.remove('hidden');
         } else {
           infoEl.classList.add('hidden');
@@ -406,16 +413,16 @@ export class Hud {
       const pin = s.grabbingId !== undefined ? world.soldiers.get(s.grabbingId) : undefined;
       const holdingPin = !!pin && pin.grabbedBy === s.id && pin.grabbedUntil !== undefined;
       if (holdingPin) {
-        hint.textContent = '⚔ REAR CONTROL — press Z: TAKEDOWN';
+        hint.innerHTML = `${icon('rear')} REAR CONTROL — press Z: TAKEDOWN`; // §16.3: hand behind a silhouette
         hint.classList.add('warn');
       } else if (s.guarding) {
-        hint.textContent = '⛊ GUARD — bracing · release V to lower';
+        hint.innerHTML = `${icon('guard')} GUARD — bracing · release V to lower`; // §16.3: angled brace
         hint.classList.add('warn');
       } else if (charge > 0.02) {
         // IMPACT CHARGE (§13): the SEGMENTED METER carries the fill now (§8,
         // one meter law) — the hint keeps only the state word.
         const band = charge >= 1.3 ? 'OVERCHARGE — release!' : charge >= 0.7 ? 'MAXIMUM' : charge >= 0.3 ? 'HEAVY' : 'wind-up';
-        hint.textContent = `⚔ IMPACT CHARGE — ${band}`;
+        hint.innerHTML = `${icon('impact')} IMPACT CHARGE — ${band}`; // §16.3: the impact ring
         hint.classList.toggle('warn', charge >= 1.3);
       } else {
         hint.classList.remove('warn');
@@ -469,7 +476,8 @@ export class Hud {
       const grabber = s.grabbedBy != null ? world.soldiers.get(s.grabbedBy) : undefined;
       const bite = !!grabber && isZed(grabber.kind);
       db.classList.remove('hidden');
-      db.querySelector('b')!.textContent = bite ? 'BITE STRUGGLE' : 'GRABBED';
+      // §16.3: ESCAPE is the broken chain — the struggle wears the icon
+      db.querySelector('b')!.innerHTML = `${icon('escape')} ${bite ? 'BITE STRUGGLE' : 'GRABBED'}`;
       const pct = Math.round(Math.min(1, s.struggle ?? 0) * 100);
       $('down-timer').textContent = bite
         ? ` — mash MOVE before the bite! · ${pct}%`
@@ -618,7 +626,7 @@ export class Hud {
       const lvl = world.outbreakLevel;
       const label = ['', 'SUSPECTED', 'OUTBREAK', 'CONTAINMENT FAILURE', 'SECTOR LOST'][lvl];
       const tone = lvl >= 3 ? 't1' : 'neutral';
-      chips += `<div class="obj-chip ${tone} biohazard lvl${lvl}">☣ L${lvl} · ${label}</div>`;
+      chips += `<div class="obj-chip ${tone} biohazard lvl${lvl}">${icon('infection')} L${lvl} · ${label}</div>`;
     }
     bar.innerHTML = chips;
     $('mode-status').textContent = MODE_INFO[m.id].name;
