@@ -60,8 +60,8 @@ import { CITY_MAP_PROFILES, COUNTRY_MAP_PROFILES, architectureProfile, cityProfi
 
 describe('map culture data', () => {
   it('ships the complete normalized datasets with valid country joins', () => {
-    expect(COUNTRY_MAP_PROFILES.length).toBe(167);
-    expect(CITY_MAP_PROFILES.length).toBeGreaterThanOrEqual(1040);
+    expect(COUNTRY_MAP_PROFILES.length).toBe(168);
+    expect(CITY_MAP_PROFILES.length).toBe(1050);
     const countries = new Set(COUNTRY_MAP_PROFILES.map((c) => c.code));
     for (const city of CITY_MAP_PROFILES) expect(countries.has(city.countryCode), city.id).toBe(true);
   });
@@ -77,14 +77,14 @@ describe('map culture data', () => {
 ```
 
 - [ ] **Step 2: Run `npx vitest run tests/city-profile.test.ts` and confirm RED** — expected failure: module `../src/sim/city-profile` does not exist.
-- [ ] **Step 3: Implement a dependency-free CSV parser/normalizer** that accepts explicit `--countries`, `--cities`, and `--out` arguments, trims keys/values, skips nonnumeric country-code rows, canonicalizes `Mega City ` / `Small Town `, and writes stable sorted JSON containing only spec fields.
+- [ ] **Step 3: Implement a dependency-free CSV parser/normalizer** that accepts explicit `--countries`, `--cities`, and `--out` arguments, trims keys/values, skips explanatory rows, canonicalizes `Mega City ` / `Small Town `, joins cities by normalized country name (including the explicit `DR Congo` alias), and writes stable sorted JSON containing only spec fields.
 - [ ] **Step 4: Run the normalizer against the two supplied files**
 
 ```powershell
 node tools/import-map-culture-data.mjs --countries "C:/Users/taskm/Downloads/Country Master Sheet - Country.csv" --cities "C:/Users/taskm/Downloads/Country Master Sheet - Cities.csv" --out src/data
 ```
 
-Expected: `167 countries; >=1040 cities; 0 missing country joins` and two generated JSON files.
+Expected: `168 countries; 1050 cities; 0 missing country joins` and two generated JSON files.
 
 - [ ] **Step 5: Implement `city-profile.ts`** using JSON imports, exact typed coercion, a `Map` lookup, `clamp01`, stable city IDs `${countryCode}:${slug(name)}`, documented culture facade tables, tag-based district weights, and country-rating security/dog/glass modifiers.
 - [ ] **Step 6: Run the focused test and `npx tsc --noEmit`; confirm GREEN.**

@@ -34,15 +34,15 @@ The visual direction is an industrial field-architect's drafting table: near-bla
 
 The two supplied source files are normalized at build time into checked-in runtime JSON:
 
-- `Country Master Sheet - Country.csv`: 167 usable country profiles after discarding its explanatory row.
-- `Country Master Sheet - Cities.csv`: about 1,050 usable city profiles after discarding its explanatory/header echo rows.
+- `Country Master Sheet - Country.csv`: 168 usable country profiles after discarding its explanatory row.
+- `Country Master Sheet - Cities.csv`: 1,050 usable named city profiles after discarding its explanatory/header echo rows.
 
 The normalizer keeps only fields that drive generation or presentation:
 
 - country code/name, government perception, corruption, military/law-enforcement/science/digital ratings, cloning policy, LSW activity/regulation, lifestyle, and leader title;
 - city sector, country/culture code, name, population class/rating, up to four city tags, crime, and safety.
 
-Source typos and trailing spaces are normalized at the boundary. Runtime code never parses CSV and never depends on a Downloads path. Generated records are sorted by country code then city name for stable diffs. Tests assert record counts, joins, numeric bounds, unique city identity, and deterministic selection.
+Source typos and trailing spaces are normalized at the boundary. City country names are the authoritative join because 51 rows omit a country code and at least one carries a stale code; `DR Congo` is explicitly aliased to the country sheet's `Congo` record. Runtime code never parses CSV and never depends on a Downloads path. Generated records are sorted by country code then city name for stable diffs. Tests assert record counts, joins, numeric bounds, unique city identity, and deterministic selection.
 
 City tags bias, but do not hard-lock, generation:
 
