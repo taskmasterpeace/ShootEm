@@ -245,6 +245,8 @@ export class Renderer {
   /** §BEAMS row 188: live HELD streams, one per pouring soldier — a unit
    *  cylinder stretched muzzle→impact every frame while beamingUntil holds. */
   private heldBeams = new Map<number, THREE.Mesh>();
+  /** PRISM sub-rays fanned from the node body — thin children of a held stream */
+  private heldPrismSubs = new Map<number, THREE.Mesh[]>();
   private flagMeshes: THREE.Group[] = [];
   private cpRings: THREE.Mesh[] = [];
   private hillRing: THREE.Mesh | null = null;
@@ -2642,6 +2644,7 @@ export class Renderer {
         let drills = hdef.held.pierce ?? 0;
         const seen = new Set<number>();
         let end = hdef.range;
+        let nodeE: (typeof s) | undefined; // PRISM: the body the stream stopped in
         walk: for (let d = 1; d <= hdef.range; d += 1) {
           const px = s.pos.x + fx * d, pz = s.pos.z + fz * d;
           if (blocksShot(world.map.grid, px, pz, 1.3)) { end = d; break; }
@@ -2650,11 +2653,55 @@ export class Renderer {
             const dx = e.pos.x - px, dz = e.pos.z - pz;
             if (dx * dx + dz * dz <= catchR2) {
               seen.add(e.id);
-              if (drills <= 0) { end = d; break walk; }
+              if (drills <= 0) { end = d; nodeE = e; break walk; }
               drills--;
             }
           }
         }
+        // PRISM: fan the SAME nearest-first, id-tiebroken, line-checked picks
+        // the sim damages — thin sub-rays from the node to each drinker.
+        const subsWanted: { x: number; z: number }[] = [];
+        if (hdef.held.prism && nodeE) {
+          const pr = hdef.held.prism;
+          const cands: { e: typeof s; d2: number }[] = [];
+          for (const e of world.soldiers.values()) {
+            if (!e.alive || e.team === s.team || e.id === nodeE.id || seen.has(e.id)) continue;
+            const dx = e.pos.x - nodeE.pos.x, dz = e.pos.z - nodeE.pos.z;
+            const d2 = dx * dx + dz * dz;
+            if (d2 <= pr.radius * pr.radius) cands.push({ e, d2 });
+          }
+          cands.sort((a, b) => a.d2 - b.d2 || a.e.id - b.e.id);
+          let fans = 0;
+          for (const c of cands) {
+            if (fans >= pr.count) break;
+            if (!losClear(world.map.grid, nodeE.pos, c.e.pos, 1.3)) continue;
+            subsWanted.push({ x: c.e.pos.x, z: c.e.pos.z });
+            fans++;
+          }
+        }
+        let subs = this.heldPrismSubs.get(s.id) ?? [];
+        while (subs.length < subsWanted.length) {
+          const sub = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.045, 0.07, 1, 5, 1, true),
+            (hm.material as THREE.MeshBasicMaterial).clone(),
+          );
+          sub.geometry.rotateX(Math.PI / 2);
+          (sub.material as THREE.MeshBasicMaterial).opacity = 0.6;
+          this.scene.add(sub);
+          subs.push(sub);
+        }
+        while (subs.length > subsWanted.length) {
+          const m = subs.pop()!;
+          this.scene.remove(m); (m.material as THREE.Material).dispose(); m.geometry.dispose();
+        }
+        if (nodeE) subsWanted.forEach((t2, i) => {
+          const m = subs[i];
+          const len = Math.max(0.4, Math.hypot(t2.x - nodeE!.pos.x, t2.z - nodeE!.pos.z));
+          m.position.set((nodeE!.pos.x + t2.x) / 2, 1.15, (nodeE!.pos.z + t2.z) / 2);
+          m.scale.set(1, 1, len);
+          m.lookAt(t2.x, 1.0, t2.z);
+        });
+        if (subs.length) this.heldPrismSubs.set(s.id, subs); else this.heldPrismSubs.delete(s.id);
         const ax = s.pos.x + fx * 0.8, az = s.pos.z + fz * 0.8;
         const bx = s.pos.x + fx * end, bz = s.pos.z + fz * end;
         hm.position.set((ax + bx) / 2, 1.25, (az + bz) / 2);
@@ -2669,6 +2716,11 @@ export class Renderer {
           this.scene.remove(m);
           (m.material as THREE.Material).dispose(); m.geometry.dispose();
           this.heldBeams.delete(sid);
+          const subs2 = this.heldPrismSubs.get(sid);
+          if (subs2) {
+            for (const sm of subs2) { this.scene.remove(sm); (sm.material as THREE.Material).dispose(); sm.geometry.dispose(); }
+            this.heldPrismSubs.delete(sid);
+          }
         }
       }
     }

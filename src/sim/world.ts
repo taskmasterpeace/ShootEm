@@ -3215,6 +3215,7 @@ export class World {
         const catchR = def.held.catchR ?? 1.1;
         let drills = def.held.pierce ?? 0; // bodies the stream may pass THROUGH
         const drank = new Set<number>();   // a body drinks once per tick, not per step
+        let node: Soldier | undefined;     // PRISM: the body the stream stopped in
         walk: for (let d = 1; d <= def.range; d += 1) {
           const px = s.pos.x + fx * d, pz = s.pos.z + fz * d;
           if (blocksShot(this.map.grid, px, pz, 1.3)) break;
@@ -3222,8 +3223,29 @@ export class World {
             if (!e.alive || e.id === s.id || drank.has(e.id)) continue;
             drank.add(e.id);
             this.damageSoldier(e, def.held.dps * dt, s.id, wid);
-            if (drills <= 0) break walk; // the stream stops in this body
+            if (drills <= 0) { node = e; break walk; } // the stream stops in this body
             drills--;                    // the LANCE drills on to the next
+          }
+        }
+        // PRISM: the stopped-in body is a NODE — the stream FANS to the
+        // nearest `count` enemies in radius with a clear line from the node,
+        // each drinking `frac` of the pour. Nearest-first with an id
+        // tiebreak, so sim and renderer always pick the same fan.
+        if (node && def.held.prism) {
+          const pr = def.held.prism;
+          const cands: { e: Soldier; d2: number }[] = [];
+          for (const e of this.soldierIndex.near((1 - s.team) as Team, node.pos.x, node.pos.z, pr.radius, BEAM_SCRATCH)) {
+            if (!e.alive || e.id === node.id || drank.has(e.id)) continue;
+            const dx = e.pos.x - node.pos.x, dz = e.pos.z - node.pos.z;
+            cands.push({ e, d2: dx * dx + dz * dz });
+          }
+          cands.sort((a, b) => a.d2 - b.d2 || a.e.id - b.e.id);
+          let fans = 0;
+          for (const c of cands) {
+            if (fans >= pr.count) break;
+            if (!losClear(this.map.grid, node.pos, c.e.pos, 1.3)) continue;
+            this.damageSoldier(c.e, def.held.dps * pr.frac * dt, s.id, wid);
+            fans++;
           }
         }
       } else {

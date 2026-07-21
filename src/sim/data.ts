@@ -157,7 +157,10 @@ export const LSW_ARMS: Record<WeaponId, WeaponDef> = {
   // doesn't tap. dps 100 = the old 10 dmg × 10 rof (DPS-neutral conversion);
   // the heat governor (4s pour → 2.5s jam) is the held-beam design itself.
   lsw_crimson: A({ id: 'lsw_crimson', name: 'Haemal Siphon', damage: 10, rof: 10, speed: 300, spread: 0.002, range: 40, sound: 'plasma', tracer: 'beam', icon: '🩸', beam: 'hose', held: { dps: 100, sustain: 4, jam: 2.5 } }),
-  lsw_magnetar: A({ id: 'lsw_magnetar', name: 'Induction Beam', damage: 12, rof: 8.5, speed: 300, spread: 0.002, range: 44, sound: 'plasma', tracer: 'beam', icon: '🧲', beam: 'ricochet', ricochet: 2 }),
+  // §BEAMS row 192 PRISM: induction won't stay in one line — the first
+  // body becomes a NODE and the stream FANS: up to 2 nearby enemies (10u,
+  // clear line from the node) each drink 45%. dps 100 ≈ the old 12×8.5.
+  lsw_magnetar: A({ id: 'lsw_magnetar', name: 'Induction Beam', damage: 12, rof: 8.5, speed: 300, spread: 0.002, range: 44, sound: 'plasma', tracer: 'beam', icon: '🧲', beam: 'ricochet', ricochet: 2, held: { dps: 100, sustain: 3.5, jam: 2.5, prism: { count: 2, frac: 0.45, radius: 10 } } }),
   // §BEAMS row 192 LANCE: the Resonance Projector DRILLS — held, pierces
   // through up to 3 bodies (each drinks full dps·dt; walls still stop
   // it), dps 98 ≈ the old 13×7.5. Runs hotter: 3.5s pour, 3s jam.

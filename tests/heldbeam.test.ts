@@ -110,6 +110,36 @@ describe('§BEAMS — the held stream', () => {
     expect(vic.hp, 'the 1.6u flood catches what a tight beam misses').toBeLessThan(100);
   });
 
+  it('PRISM (Induction Beam): the node splits — flankers drink 45%, walls deny the fan', () => {
+    const { w, god, vic } = staged();
+    god.ascendant = 'magnetar';
+    god.weapons = ['lsw_magnetar']; god.clip = [Infinity]; god.reserve = [Infinity]; god.weaponIdx = 0;
+    // a flanker 9u beside the node (inside the 10u fan; his TILE ROW is two
+    // clear of the node's, so a wall can sit strictly BETWEEN) and a hermit
+    // far outside the radius
+    const flank = w.addSoldier('Flank', 'infantry', 1, 'human');
+    flank.pos = { x: 12, y: 0, z: 9 }; flank.protectedUntil = 0; flank.hp = 100;
+    const hermit = w.addSoldier('Hermit', 'infantry', 1, 'human');
+    hermit.pos = { x: 12, y: 0, z: 40 }; hermit.protectedUntil = 0; hermit.hp = 100;
+    // clear the whole flank column so only DISTANCE and the deliberate wall decide
+    for (let z = 0; z <= 10; z += 1) w.map.grid[tileIdx(12, z)] = T_OPEN;
+    w.step(1 / 60, new Map());
+    const nodeHp0 = vic.hp;
+    for (let i = 0; i < 30; i++) w.step(1 / 60, new Map([[god.id, cmd({ fire: true })]]));
+    const nodeDrank = nodeHp0 - vic.hp;
+    const flankDrank = 100 - flank.hp;
+    expect(nodeDrank, 'the node drinks full').toBeGreaterThan(20);
+    expect(flankDrank, 'the flanker drinks the split').toBeGreaterThan(5);
+    expect(flankDrank, '…but only the 45% fraction').toBeLessThan(nodeDrank);
+    expect(hermit.hp, 'outside the fan radius — dry').toBe(100);
+    // brick the row strictly BETWEEN node (z-row of 0) and flank (z-row of 9):
+    // the fan is denied while the main pour continues
+    w.map.grid[tileIdx(12, 4)] = T_WALL;
+    const flankHpAtWall = flank.hp;
+    for (let i = 0; i < 30; i++) w.step(1 / 60, new Map([[god.id, cmd({ fire: true })]]));
+    expect(flank.hp, 'the wall denies the split').toBe(flankHpAtWall);
+  });
+
   it('releasing the trigger stops the pour at once', () => {
     const { w, god, vic } = staged();
     for (let i = 0; i < 30; i++) w.step(1 / 60, new Map([[god.id, cmd({ fire: true })]]));

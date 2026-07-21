@@ -146,6 +146,10 @@ export interface WeaponDef {
     pierce?: number;
     /** TORRENT: the flood — catch radius around the ray (default 1.1u). */
     catchR?: number;
+    /** PRISM: the split — the first body becomes a NODE; up to `count`
+     *  other enemies within `radius` (clear line from the node) each drink
+     *  `frac` of the dps. The node itself still drinks full. */
+    prism?: { count: number; frac: number; radius: number };
   };
   /** on death, burst into k submunitions (~40% dmg each) that bounce */
   cluster?: number;
