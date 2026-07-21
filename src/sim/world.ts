@@ -407,6 +407,9 @@ export class World {
   /** §13 AMMO DIAGNOSTICS: per-weapon shot tally for the blackbox's ammo
    *  report (authoritative-side only — never rides the snapshot). */
   ammoShotsByWeapon = new Map<string, number>();
+  /** CLONE INFECTION (spec × W3.3): hot deaths per team — each costs the
+   *  campaign vat DOUBLE (the reprint AND the risen body). */
+  viralDeaths: [number, number] = [0, 0];
   private nextId = 1;
 
   constructor(public opts: WorldOptions) {
@@ -5373,6 +5376,11 @@ export class World {
           name: victim.name,
           classId: victim.classId,             // §7: the variant is DERIVED from the body
         });
+        // CLONE INFECTION rides the reinforcement economy (spec: infection ×
+        // clones): a HOT death costs the campaign vat DOUBLE — one clone to
+        // reprint you, and the body you left rises against the line. The
+        // match-end fold reads this counter (main.ts → applyResult deaths).
+        this.viralDeaths[victim.team]++;
       }
       victim.viralLoad = 0; // whatever happens to the body, the NEXT print is clean
       // SHUTDOWN (delight): ending a soldier on a tear is a whole-net moment
@@ -5670,7 +5678,10 @@ export class World {
   // ---------- queries ----------
 
   humansAndBots(): Soldier[] {
-    return [...this.soldiers.values()].filter((s) => s.kind === 'human' || s.kind === 'bot');
+    // PEOPLE, not furniture (F.1): a range DUMMY is a target, never a roster
+    // entry — dummies inflated the yard's headcount (the human drew HUNTER
+    // both rounds) and held squad-wipe checks "alive" after everyone fell.
+    return [...this.soldiers.values()].filter((s) => (s.kind === 'human' || s.kind === 'bot') && !s.dummy);
   }
 
   livingEnemiesOf(team: Team): Soldier[] {

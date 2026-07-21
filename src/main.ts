@@ -751,7 +751,12 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
         if (activeFrontId && campaign) {
           const front = campaign.fronts[activeFrontId];
           const before = front?.control ?? 0;
-          applyResult(campaign, activeFrontId, sum.won, Date.now(), sum.deaths ?? 0); // W3.3: your dead spend the front's clones
+          // W3.3: your dead spend the front's clones — and CLONE INFECTION
+          // doubles the bill for every HOT death (the reprint + the body
+          // that rose against the line)
+          const viralBill = world.viralDeaths?.[0] ?? 0;
+          applyResult(campaign, activeFrontId, sum.won, Date.now(), (sum.deaths ?? 0) + viralBill);
+          if (viralBill > 0) extras += `<p style="margin-top:0.35rem">☣ ${viralBill} turned — the vats paid double</p>`;
           if (front) {
             const d = front.control - before;
             const fname = FRONTS.find((f) => f.id === activeFrontId)?.name ?? activeFrontId;
