@@ -338,6 +338,9 @@ export interface Soldier {
   // trophy ledger — feeds the post-match awards
   /** farthest kill, in world units */
   longestKill: number;
+  /** DEATH-DATA: sim time this print stood up — powers time-alive on death
+   *  (the spawn-kill branch of the killcam director) */
+  spawnedAt?: number;
   /** vehicles destroyed */
   vehicleKills: number;
   /** hit points healed into allies */
@@ -867,6 +870,15 @@ export interface SimEvent {
   /** normalized fall direction on 'death' — the ragdoll tips this way */
   fallX?: number;
   fallZ?: number;
+  /** THE DEATH REPORT (DEATH-DATA.md): the rich kill data that used to be
+   *  computed and thrown away at the death branch — now it rides the event so
+   *  the killfeed, killcam, AAR, and the weapon ledger all read one source. */
+  weaponId?: WeaponId;     // the killing weapon's ID (not just its display name)
+  killerId?: number;       // who got the credit (-1 = environment/suicide)
+  dist?: number;           // range of the kill, in world units
+  overkill?: number;       // damage past 0 hp — the size of the blow
+  timeAlive?: number;      // seconds the victim lived this print
+  killerVehicle?: VehicleKind; // set when the killer was in a hull (roadkill / gun)
 }
 
 export interface ModeState {

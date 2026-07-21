@@ -260,6 +260,37 @@ describe('#12 THE IRON EATERS — junk that learned a body plan (DD §20)', () =
   });
 });
 
+describe('THE DEATH REPORT — the kill data that used to be thrown away (DEATH-DATA)', () => {
+  it('the death event carries weaponId, distance, killerId, and time-alive', () => {
+    const w = new World({ seed: 7, mode: 'tdm', botsPerTeam: 0 });
+    const killer = w.addSoldier('Sniper', 'infantry', 0, 'human');
+    w.spawn(killer); // stamps spawnedAt on the killer
+    const victim = w.addSoldier('Mark', 'infantry', 1, 'human');
+    w.spawn(victim);
+    killer.pos = { x: 0, y: 0, z: 0 };
+    victim.pos = { x: 40, y: 0, z: 0 }; // a 40u kill
+    expect(victim.spawnedAt, 'spawn() stamps the print clock').toBeTypeOf('number');
+    victim.spawnedAt = w.time - 5; // this print has stood for 5 seconds
+    w.damageSoldier(victim, 99999, killer.id, 'ar606');
+    const death = w.takeEvents().find((e) => e.type === 'death' && e.victimName === 'Mark');
+    expect(death).toBeTruthy();
+    expect(death!.weaponId).toBe('ar606');       // the ID, not just the name
+    expect(death!.killerId).toBe(killer.id);
+    expect(Math.round(death!.dist ?? 0)).toBe(40); // the range survived
+    expect(death!.timeAlive ?? 0).toBeCloseTo(5, 0); // time-alive computed from the stamp
+  });
+
+  it('an environment death books killerId -1', () => {
+    const w = new World({ seed: 7, mode: 'tdm', botsPerTeam: 0 });
+    const man = w.addSoldier('Lonely', 'infantry', 0, 'human');
+    w.spawn(man);
+    w.damageSoldier(man, 99999, -1, 'bleedout');
+    const death = w.takeEvents().find((e) => e.type === 'death');
+    expect(death!.killerId).toBe(-1);
+    expect(death!.weaponId).toBe('bleedout');
+  });
+});
+
 describe('DEATH RE-SELECT — pick your kit between prints (Robert 2026-07-21)', () => {
   it('a dead soldier re-signs; the next print carries the new class', () => {
     const w = quiet();

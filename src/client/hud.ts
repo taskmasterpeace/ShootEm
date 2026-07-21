@@ -866,8 +866,14 @@ export class Hud {
         const killerTeamCls = e.killerTeam !== undefined ? `t${e.killerTeam}` : 'zed';
         const entry = document.createElement('div');
         entry.className = 'kf-entry';
+        // DEATH-DATA fix: a bleedout / environment kill has no WEAPONS name —
+        // fall back to the weapon id so the feed never shows a blank cause.
+        const cause = e.weaponName || (e.weaponId === 'bleedout' ? 'bled out' : e.weaponId ?? '');
+        // long-range confirms wear their distance — the sniper's boast (family
+        // gate lives in the weapon ledger; the feed just shows a real reach)
+        const far = (e.dist ?? 0) >= 45 ? `<span class="kf-dist">${Math.round(e.dist!)}u</span>` : '';
         entry.innerHTML = e.killerName
-          ? `<span class="${killerTeamCls}">${e.killerName}</span><span class="wpn">${e.weaponName ?? ''}</span><span>${e.victimName}</span>`
+          ? `<span class="${killerTeamCls}">${e.killerName}</span><span class="wpn">${cause}</span>${far}<span>${e.victimName}</span>`
           : `<span>${e.victimName} died</span>`;
         this.killfeedEl.prepend(entry);
         while (this.killfeedEl.children.length > 6) this.killfeedEl.lastChild?.remove();

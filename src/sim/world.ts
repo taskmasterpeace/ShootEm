@@ -1205,6 +1205,7 @@ export class World {
     s.downed = false; s.downedUntil = 0; s.downedBy = -1;
     s.reviveProgress = 0; s.draggingId = -1;
     s.streak = 0; s.lastStandSaid = false; // per-life delight state resets on deploy
+    s.spawnedAt = this.time; // DEATH-DATA: the clock the death report reads time-alive from
     // keep the soldier's chosen armory loadout across respawns — but a
     // signature arm (family 'lsw') dies with the god: mortals get their kit
     const keep0 = s.weapons[0] && WEAPONS[s.weapons[0]] && WEAPONS[s.weapons[0]].family !== 'lsw';
@@ -5010,14 +5011,27 @@ export class World {
       // a heavy blow lifts you off your feet; a beam does not
       if (shove >= 12) victim.vel.y = Math.max(victim.vel.y, Math.min(shove * 0.22, 5));
       victim.corpseUntil = this.time + CORPSE_PHYSICS_S;
+      // THE DEATH REPORT (DEATH-DATA.md): the range, the weapon id, the
+      // attacker's hull, and time-alive were all in scope here and discarded —
+      // now they ride the event as one source for the feed/cam/AAR/ledger.
+      const credited = attacker && attacker.id !== victim.id;
+      const killDist = credited ? Math.hypot(victim.pos.x - attacker.pos.x, victim.pos.z - attacker.pos.z) : 0;
+      const killerHull = credited && attacker.vehicleId >= 0 ? this.vehicles.get(attacker.vehicleId) : undefined;
       this.emit({
         type: 'death', pos: { ...victim.pos }, soldierId: victim.id,
-        killerName: attacker && attacker.id !== victim.id ? attacker.name : undefined,
+        killerName: credited ? attacker.name : undefined,
         victimName: victim.name,
         killerTeam: attacker?.team,
         weaponName: WEAPONS[weapon]?.name,
         classId: victim.kind === 'human' || victim.kind === 'bot' ? victim.classId : undefined,
         fallX: fx, fallZ: fz,
+        weaponId: weapon,
+        killerId: credited ? attacker.id : -1,
+        dist: Math.round(killDist * 10) / 10,
+        // overkill needs the pre-hit hp (clamped to 0 by here) — it lands with
+        // the full DeathReport slice; the 5 fields above were free.
+        timeAlive: victim.spawnedAt !== undefined ? Math.round((this.time - victim.spawnedAt) * 10) / 10 : undefined,
+        ...(killerHull ? { killerVehicle: killerHull.kind } : {}),
       });
     }
   }
