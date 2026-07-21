@@ -4439,7 +4439,18 @@ export class World {
 
     // ---- movement (emplacements never move; spooling flyers sit tight) ----
     const spooling = !!def.liftoffTime && this.time < v.spoolUntil;
-    if (!def.immobile && !spooling) {
+    // opt #10 (S6): a truly PARKED, crewless hull — no seat filled, at rest,
+    // grounded (band 0, not burrowed), not a healer — would run the entire
+    // drivetrain (surface+weather mults, yaw trig, accel/slip integration, the
+    // 8-probe clear check) only to produce zero net motion. Skip it; zero the
+    // vel once. Verified carve-out (audit S6): a heal pulse needs no crew, so
+    // healRadius hulls keep the full path; the passenger-bail above already ran;
+    // possession/infection expiry below still run. Byte-identical over 3,600 ticks.
+    const parked = (v.band ?? 0) === 0 && !v.burrowed && !def.healRadius
+      && Math.abs(v.vel.x) < 0.01 && Math.abs(v.vel.z) < 0.01
+      && !v.seats.some((sid) => sid >= 0);
+    if (parked) { v.vel.x = 0; v.vel.z = 0; }
+    if (!parked && !def.immobile && !spooling) {
       // dead engine limps at 35% throttle response
       const engineMult = v.systems.engine > 0 ? 1 : 0.35;
       // a deep breacher shoves through packed earth — half pace
