@@ -1,6 +1,8 @@
 # THE MASTER BACKLOG — the loop document
 ### One file, everything owed. Audited against the code 2026-07-20 (39-item evidence sweep). Robert: "tell the loop don't stop until you've done everything on this document. And balanced it."
 
+> **2026-07-21 — NEW STRATEGIC DIRECTION on the desk:** the **META-LAYER** (countries · money · missions · the war around the war), synthesizing Robert's vision with his SHT project's data (168 countries, 1,170 cities, national LSW orgs, a working economy + warboard). See **`docs/META-LAYER.md`** — it holds the asset map, the "N-country meta / 2-sided battle" architectural law, the four forks awaiting Robert's call, and the build menu. Meta rows enter this backlog once he picks the order. The combat loop below is untouched by it.
+
 ---
 
 ## THE LOOP PROTOCOL (read this first, every iteration)
