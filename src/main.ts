@@ -803,6 +803,10 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     renderer.killcamFocusId = replaying && director.killcamActive ? director.killerId : -1;
     // grenade throw preview: hold G → arc + landing ring at the cursor
     renderer.setGrenadePreview(world, me, !replaying && input.grenadeAiming ? input.aimPoint(renderer.camera) : null, input.grenadeLob);
+    // UI P0 bug fix: hover-to-read vitals were wired only in the NET loop —
+    // offline matches never fed the cursor, so unit tags + enemy rings never
+    // appeared. The cursor drives them here too. (docs/UI-MASTER.md §13)
+    renderer.setHover(replaying ? null : input.aimPoint(renderer.camera));
     // §8.8: heavy weather closes the long view — the sky caps the wheel
     const wxMods = WEATHER_MODS[renderWorld.weather?.kind ?? 'clear'];
     input.weatherZoomCap = wxMods.zoomCap !== undefined && (renderWorld.weather?.intensity ?? 0) > 0.3

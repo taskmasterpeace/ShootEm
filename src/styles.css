@@ -83,6 +83,10 @@ html, body {
   text-shadow: 0 2px 0 oklch(0 0 0 / 0.5), 0 0 34px oklch(0.76 0.16 74 / 0.18);
 }
 .game-title span { color: var(--accent); }
+/* UI P0: the homing-duel warning — a seeker on your hull talks in red */
+#ability-hint.warn { color: #ff4736; animation: lock-blink 0.5s steps(2) infinite; }
+@keyframes lock-blink { 50% { opacity: 0.45; } }
+
 /* the theater designator — EARTH is where this war happens (locked 2026-07-20) */
 .game-title .title-earth {
   color: var(--muted); font-size: 0.42em; letter-spacing: 0.18em;

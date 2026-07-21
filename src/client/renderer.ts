@@ -189,6 +189,8 @@ export class Renderer {
   /** ✦ sonic-boom vapor rings (afterburner at speed) + per-hull burner edge memory */
   private boomRings: { mesh: THREE.Mesh; born: number }[] = [];
   private burnerWas = new Map<number, boolean>();
+  /** LSW landing-zone dread rings, keyed by team:landsAt (UI P0) */
+  private lzRings = new Map<string, THREE.Mesh>();
   private nextSweepAt = new Map<number, number>();          // vehicle id → next sweep time
   private ecmRings = new Map<number, THREE.Mesh>();         // crewed ECM jam-radius rings
   private nextSmokeAt = new Map<number, number>();          // vehicle id → next damage-smoke puff
@@ -1474,6 +1476,32 @@ export class Renderer {
       const surfing = surfBoard?.kind === 'hoverboard' && surfBoard.alive;
       mesh.visible = (s.alive || corpse) && (!inVehicle || surfing) && !dark && !(s.cloaked && s.team !== localTeam && s.id !== localId);
       if (!mesh.visible) continue;
+      // UI P0 (docs/UI-MASTER.md §5): SPAWN PROTECTION wears a visible shell —
+      // a slow-turning wire sphere that thins as the window expires. Stored on
+      // the mesh so body rebuilds tear it down with everything else.
+      {
+        const protLeft = (s.protectedUntil ?? 0) - world.time;
+        let shell = mesh.userData.protShell as THREE.Mesh | undefined;
+        if (s.alive && protLeft > 0) {
+          if (!shell) {
+            shell = new THREE.Mesh(
+              new THREE.IcosahedronGeometry(0.95, 1),
+              new THREE.MeshBasicMaterial({ color: 0x8fd4e8, wireframe: true, transparent: true, opacity: 0.3, depthWrite: false }),
+            );
+            shell.position.y = 1.1;
+            mesh.add(shell);
+            mesh.userData.protShell = shell;
+          }
+          const k = Math.min(1, protLeft / 5);
+          (shell.material as THREE.MeshBasicMaterial).opacity = 0.06 + 0.26 * k * (0.8 + 0.2 * Math.sin(world.time * 6));
+          shell.rotation.y = world.time * 0.7;
+        } else if (shell) {
+          mesh.remove(shell);
+          shell.geometry.dispose();
+          (shell.material as THREE.Material).dispose();
+          mesh.userData.protShell = undefined;
+        }
+      }
       // squad-only overhead: name + vitals circles. Enemy plates were clutter
       // AND free intel — enemies now read as silhouettes and team color.
       // ON DEMAND, NOT ALWAYS. Every friendly used to wear a name + health
@@ -2259,6 +2287,42 @@ export class Renderer {
         sw.mesh.geometry.dispose();
         (sw.mesh.material as THREE.Material).dispose();
         this.sweepRings.splice(i, 1);
+      }
+    }
+    // UI P0 (docs/UI-MASTER.md §7): THE LSW DROP has a place — each pending
+    // god marks its LZ with a pulsing ground ring that TIGHTENS as the pod
+    // falls (the dread made spatial; both teams see it, that's the point).
+    {
+      const live = new Set<string>();
+      const localTeamNow = world.soldiers.get(localId)?.team;
+      for (const p of world.pendingLsw ?? []) {
+        const key = `${p.team}:${p.landsAt.toFixed(2)}`;
+        live.add(key);
+        let ring = this.lzRings.get(key);
+        if (!ring) {
+          ring = new THREE.Mesh(
+            new THREE.RingGeometry(0.88, 1.0, 40),
+            new THREE.MeshBasicMaterial({
+              color: p.team === localTeamNow ? 0xe8a33d : 0xff4736,
+              transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false,
+            }),
+          );
+          ring.rotation.x = -Math.PI / 2;
+          ring.position.set(p.pos.x, 0.06, p.pos.z);
+          this.scene.add(ring);
+          this.lzRings.set(key, ring);
+        }
+        const left = Math.max(0, p.landsAt - world.time);
+        ring.scale.setScalar(2.2 + Math.min(1, left / 30) * 5.5); // tightens as it falls
+        (ring.material as THREE.MeshBasicMaterial).opacity =
+          0.3 + 0.3 * Math.abs(Math.sin(world.time * (left < 5 ? 9 : 3))); // panic-pulse at T-5
+      }
+      for (const [key, ring] of this.lzRings) {
+        if (live.has(key)) continue;
+        this.scene.remove(ring);
+        ring.geometry.dispose();
+        (ring.material as THREE.Material).dispose();
+        this.lzRings.delete(key);
       }
     }
     // ✦ sonic-boom rings: snap out fast, shred as they die (0.4s life)

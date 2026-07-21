@@ -275,7 +275,9 @@ Full spec: **`docs/OUTBREAK-SPEC.md`** (infection model, outbreak pressure/level
 
 ## 18 · THE UI (master display inventory — audited 2026-07-20)
 
-**`docs/UI-MASTER.md` is the one document**: every displayable state in the sim (a 100% sweep) × every shipped element in the client, with the visual treatment, the surface it lives on, and ✦ delight details throughout. Headlines: the HUD's foundations are strong (ring/ammo/vehicle block/minimap/codex all ✅) but **eight shipped systems have zero readout** (grenade cooldown, the entire downed experience, missile lock, the encased struggle, spawn protection, charge weapons, LSW drop countdown, victim-side marks) — that's UI-MASTER's P0. Plus one real bug found: **hover tags/enemy rings never appear offline** (`setHover` only wired in the net loop). Locked: near-the-action law, grenade **pip-refills**, **carrion birds** as the first animal, title **WAR WORLD: EARTH**.
+**`docs/UI-MASTER.md` is the one document**: every displayable state in the sim (a 100% sweep) × every shipped element in the client, with the visual treatment, the surface it lives on, and ✦ delight details throughout. Locked: near-the-action law, grenade **pip-refills**, **carrion birds** as the first animal, title **WAR WORLD: EARTH**.
+
+**P0 execution (2026-07-20, C2 first batch — all verified live):** ✅ the offline hover bug FIXED (tags + enemy rings work offline now) · ✅ grenade pips + cooldown sweep + the missing conc pouch · ✅ spawn-protection shell · ✅ MISSILE INBOUND warning + flares count · ✅ LSW drop countdown chip + tightening LZ dread ring. **Still open in P0:** the downed experience · the encased-struggle cracks · the charge-weapon ring (Impact Charge, lands with C3/#47).
 
 ## LOCKED DECISIONS (this session)
 

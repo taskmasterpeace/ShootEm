@@ -60,7 +60,7 @@ Sim has the whole §4.3 system (`downed`, 20s bleedout, `reviveProgress`, `dragg
 | State | When | Where | The visual | Status |
 |---|---|---|---|---|
 | Grenade count per pouch | always on foot | weapon block | pouch line shipped — **add the missing CONCUSSION pouch** (sim has `concs`, the bag omits it — a real bug) | 🔨 |
-| **Throw cooldown** (`nextGrenadeAt`, 1.2-2.5s) | after a throw | the pouch pip | **LOCKED (Robert): pip refill** — the spent pip visibly refills like a chambering shell (a small vertical sweep inside the pip); full pip = ready, learned instantly, zero new elements | ❌ |
+| **Throw cooldown** (`nextGrenadeAt`, 1.2-2.5s) | after a throw | the pouch pip | **LOCKED (Robert): pip refill** — pouches render as pips (`frags ●●●●`) and the selected pouch's lead pip sweeps ◔◑◕→● through the cooldown. Conc pouch restored to the bag in the same fix. **SHIPPED 2026-07-20** | ✅ |
 | Held-aim (G held) | while held | world | dashed arc + landing ring shipped ✅; ✦ add the LOFT as a visible apex marker that rises/falls with the wheel — you *see* rope vs mortar before releasing | 🔨 |
 | Cooking? | n/a | — | grenades don't cook in this sim — correctly no UI | ✅ |
 | Pouch cycling (X) | on cycle | pouch line | ➤ selector shipped; ✦ the selected pouch pip grows 1px and warms to amber | 🔨 |
@@ -86,7 +86,7 @@ Sim has the whole §4.3 system (`downed`, 20s bleedout, `reviveProgress`, `dragg
 | YOU are inside smoke | in a cloud | screen edge | ✦ soft grey vignette breathing at the frame edges + `SMOKED` whisper-chip — concealment you can trust | ❌ |
 | Marked by Reaper (×2 damage) | while marked | fullscreen | the promised-but-missing tell: a scythe-thin red crescent at the screen top + heartbeat audio — you are HUNTED | ❌ |
 | Psi-linked (share 60% pain) | while linked | body | a thin tether line renders to your link partner (you both see it; enemies don't) | ❌ |
-| Spawn protection (≤5s) | after spawn | body | ✦ a hex-shimmer shell that **flakes off panel by panel** as the window runs — protection you watch expire, no timer text needed | ❌ |
+| Spawn protection (≤5s) | after spawn | body | a slow-turning wire shell that thins as the window expires (v1 **SHIPPED 2026-07-20**; the panel-flake upgrade stays a ✦ later) | ✅ |
 | Cloak (you/team/enemy) | cloaked | body | alpha states shipped; ✦ add a heat-haze ripple only when MOVING (stand still = truly gone) — makes stillness a verb | 🔨 |
 | Blind (Nightmare / conc) | while blind | fullscreen | white-noise bloom collapsing over 2s (already earned by bots; humans need the same honesty when it lands on them) | ❌ |
 
@@ -101,7 +101,7 @@ One horizontal strip of small square chips above the stamina bar, each with an i
 | State | When | Where | The visual | Status |
 |---|---|---|---|---|
 | Signature cooldown (pilot) | as a god | weapon block | shipped meter ✅; ✦ add the god's HANDS charging (emissive rises on the prop) in the last 20% | ✅🔨 |
-| **LSW drop countdown** (`landsAt`, 15-40s) | from the call | world + minimap | the LZ gets a **widening scorch-ring shadow** that darkens as the pod falls + a countdown chip over the spot + a red ⚠ on the minimap. Both teams see it — the dread is the point. ✦ at T-3s, birds scatter from the LZ (see §11) | ❌ |
+| **LSW drop countdown** (`landsAt`, 15-40s) | from the call | top bar + world | **SHIPPED 2026-07-20**: `☄ TITAN INBOUND 0:29` chip (amber yours / red theirs) + a pulsing LZ ground ring that TIGHTENS as the pod falls and panic-pulses at T-5s. Both teams see it. ✦ later: minimap ⚠ + birds scattering at T-3s | ✅ |
 | Enemy god threat tier | god on field | its body orbit | ring + notches shipped 🔨; add the threat-tier chip (SKIRMISH/STRONGPOINT/SIEGE/EXTINCTION) on first sight, then trust the silhouette | 🔨 |
 | Gargoyle's perch (half damage) | perched | target | ✦ the perch TILE glows faint red with hairline cracks — "break the ground, not the god" taught visually | ❌ |
 | Chronos echo (campable cheat-death) | echo live | world | gold breadcrumb shipped; add a faint hourglass mark at the echo POINT (the campable spot reads as a spot) | 🔨 |
@@ -119,8 +119,8 @@ One horizontal strip of small square chips above the stamina bar, each with an i
 | Altitude band | flying | vehicle block + minimap | `ALT ▁▃▅` 3-step ladder chip + Q/E hints; minimap air markers grow a ring per band (backlog 10.8's P5) | ❌ |
 | Rotor spool | spooling | vehicle block | the WPN bar slot shows `SPOOLING` with the same fill grammar; ✦ dust ring widens under the bird as rotors bite | 🔨 |
 | Stall floor (jets never stop) | always in a jet | vehicle block | a small `AIRSPEED — NO HOVER` label on entry, once; the hard floor is fiction, teach it once | ❌ |
-| **MISSILE INBOUND** | seeker homing on you | fullscreen + world | audio-only today. Add: red `⚠ LOCK` chip + the missile itself gets a **screaming red trail visible only to its target** + flare chip pulses `G — FLARES ×N`. The panic button labeled at panic time | ❌ |
-| Flares count | in aircraft | vehicle block | `FLARES ●●●` pips beside crew dots; pip burns out with each pop | ❌ |
+| **MISSILE INBOUND** | seeker homing on you | vehicle block | red blinking `⚠ MISSILE INBOUND` on the role line the moment a seeker homes on your hull (**SHIPPED 2026-07-20**; the target-only red trail stays a ✦ later) | ✅ |
+| Flares count | in aircraft | vehicle block | `G flares ●●●` on the role line, pips burn down with each pop (**SHIPPED 2026-07-20**) | ✅ |
 | Bomb load / nuke armed | bomber | vehicle block + all | `BOMBS ▮▮▮▮` pips; when the Cradle arms, EVERYONE's top bar gains the radiation chevron + the bomber's hull lamp strobes (world-teaches, HUD confirms) | ❌ |
 | Hotwire progress (6s/3s) | stealing | target orbit | a lockpick ring around the hull that snaps back if you move — tension made visible | ❌ |
 | Abandonment/write-off clocks | near a stray hull | walk-up prompt | the [E] prompt gains `HOTWIRE 90s` / `WRITE-OFF 3:00` mini-lines — the requisition economy stops being invisible | ❌ |
@@ -170,7 +170,7 @@ One horizontal strip of small square chips above the stamina bar, each with an i
 
 ## 13 · KNOWN WIRING BUG (found by this audit)
 
-**Hover unit-tags and enemy health rings never appear in OFFLINE matches** — `renderer.setHover` is fed only by the multiplayer loop (`net.ts:163`); the local frame loop in `main.ts` never calls it. One line to fix; everything downstream (tags, rings) is already built. **Fix first — it makes half the shipped target-orbit UI visible again.** ❌→fix
+**Hover unit-tags and enemy health rings never appear in OFFLINE matches** — `renderer.setHover` was fed only by the multiplayer loop (`net.ts:163`). **FIXED 2026-07-20** — the local frame loop feeds the cursor too (`main.ts`). ✅
 
 ---
 

@@ -214,7 +214,18 @@ export class Hud {
         const crew = VEHICLES[v.kind].crew;
         let role = s.seat === 0 ? 'DRIVER · W/S drive · A/D steer' : 'PASSENGER';
         if (crew && s.seat >= 1 && s.seat <= crew.length) role = crew[s.seat - 1].toUpperCase() + ' STATION';
-        $('ability-hint').textContent = `${role} · E exit`;
+        // UI P0 (docs/UI-MASTER.md §8): the homing duel + the flare pocket
+        // finally get readouts — a seeker on YOUR hull says so in red, and
+        // pilots see how many saves are left before they need one.
+        const flying = !!VEHICLES[v.kind].flies;
+        const flareTxt = flying ? ` · G flares ${'●'.repeat(Math.max(0, v.flares ?? 0)) || '—'}` : '';
+        let locked = false;
+        for (const p of world.projectiles.values()) {
+          if (p.homingVehicleId === v.id) { locked = true; break; }
+        }
+        const hintEl = $('ability-hint');
+        hintEl.textContent = `${role} · E exit${flareTxt}${locked ? ' · ⚠ MISSILE INBOUND' : ''}`;
+        hintEl.classList.toggle('warn', locked);
         // per-system damage record as pips: ENG WPN SEN ECM COM
         const max = VEHICLES[v.kind].systemHp ?? 60;
         this.sysPips.style.display = 'flex';
@@ -278,15 +289,27 @@ export class Hud {
         : alt.kind === 'overcharge' ? ' · RMB overcharge'
         : ` · RMB ${alt.kind} ×${s.altAmmo}`;
       // paintballers get paintball truth — never advertise frags they don't have.
-      // The grenade bag shows WHAT'S IN YOUR HAND: ➤ marks the pouch G throws
-      // from (X cycles); the others wait in small print.
+      // The grenade bag shows WHAT'S IN YOUR HAND as PIPS: ➤ marks the pouch
+      // G throws from (X cycles). UI P0 (docs/UI-MASTER.md §3, LOCKED): the
+      // throw cooldown reads as the selected pouch's lead pip REFILLING
+      // (◔◑◕ → ●) — the wait is visible exactly where the eye already is.
+      // Also fixed here: the CONCUSSION pouch was missing from the bag.
       const sel = s.nadeSel ?? 0;
-      const pouch = (idx: number, label: string, n: number) =>
-        n > 0 ? `${sel === idx ? '➤' : ''}${label} ×${n}` : '';
+      const cdLeft = Math.max(0, (s.nextGrenadeAt ?? 0) - world.time);
+      const cdK = Math.max(0, Math.min(1, 1 - cdLeft / 1.2)); // 1.2s base throw cd
+      const sweep = cdK >= 1 ? '●' : cdK >= 0.66 ? '◕' : cdK >= 0.33 ? '◑' : '◔';
+      const pouch = (idx: number, label: string, n: number) => {
+        if (n <= 0) return '';
+        const capped = Math.min(n, 5);
+        const lead = sel === idx && cdLeft > 0 ? sweep : '●';
+        const pips = lead + '●'.repeat(capped - 1) + (n > 5 ? `+${n - 5}` : '');
+        return `${sel === idx ? '➤' : ''}${label} ${pips}`;
+      };
       const bag = [
         pouch(0, s.classId === 'engineer' ? 'mines' : 'frags', s.grenades),
         pouch(1, 'smoke', s.smokes ?? 0),
         pouch(2, 'fire', s.firebombs ?? 0),
+        pouch(3, 'conc', s.concs ?? 0),
       ].filter(Boolean).join(' · ');
       // WHAT Q ACTUALLY DOES. An ascended pilot was shown `CLASSES[classId].
       // abilityName` — the ability of the recruit they stopped being — while
@@ -433,6 +456,16 @@ export class Hud {
                  <div class="obj-chip neutral">${prey ? 'tag pads or survive' : 'one splat and they sit'}</div>`;
         break;
       }
+    }
+    // UI P0 (docs/UI-MASTER.md §7): a falling god is on EVERYONE's clock —
+    // the telegraph window gets a chip with the name and the countdown,
+    // amber if it's yours, red if it's theirs. The LZ ring marks the where;
+    // this marks the when.
+    const localTeam = local.team;
+    for (const p of world.pendingLsw ?? []) {
+      const left = Math.max(0, p.landsAt - world.time);
+      const name = LSWS[p.id]?.name?.toUpperCase() ?? 'LSW';
+      chips += `<div class="obj-chip ${p.team === localTeam ? 't0' : 't1'}">☄ ${name} INBOUND ${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}</div>`;
     }
     bar.innerHTML = chips;
     $('mode-status').textContent = MODE_INFO[m.id].name;
