@@ -20,7 +20,7 @@ import { createOperationRuntime, stepWorldOperation, type OperationRuntimeState 
 import { AIR_KINDS, type OperationBattleBonuses, type OperationHull, type OperationManifest, type OperationPlan } from './operations';
 import { LSW_BRAINS } from './lsw/index';
 import { ICE_HOLD, ICE_HOLD_DRAIN, LSWS, STRUGGLE_HP, STRUGGLE_SECS, THREAT, lswAllowed, lswsForTeam } from './lsw';
-import { stepBot, stepDog, stepIron, stepScientist, stepZombie } from './bots';
+import { assignVehicleRoles, stepBot, stepDog, stepIron, stepScientist, stepZombie } from './bots';
 import { PERCEIVE_RANGE, perceivesNow, smokeBlocks, type SeenMark, type SmokeBlob } from './perception';
 import { THEME_WEATHER, airGrounded, moveMult, visionMult, weatherAnnounce, type WeatherState } from './weather';
 import { newDirector, stepDirector, type DirectorState } from './director';
@@ -1605,6 +1605,7 @@ export class World {
     // this tick (zombie targeting, findTarget, projectiles, melee, separation)
     // queries it instead of walking the whole roster
     this.soldierIndex.rebuild(this.soldiers);
+    if (this.tick === 1 && this.map.theater) assignVehicleRoles(this);
     if (!this.mode.over) {
       if (this.operation) stepWorldOperation(this, dt);
       else stepMode(this, dt);

@@ -12,6 +12,8 @@ const IRON_SLAM_SCRATCH: Soldier[] = []; // W3.10 ravager slam query
 import { visionMult } from './weather';
 import { LSWS } from './lsw';
 import { threatAt } from './influence';
+import type { TheaterDomain, TheaterRoute } from './theater-types';
+import { asElevationLevel } from './elevation';
 
 const noCmd = (): PlayerCmd => ({
   moveX: 0, moveZ: 0, aimYaw: 0, fire: false, altFire: false, jump: false,
@@ -868,6 +870,151 @@ function climbAhead(w: World, pos: Vec3, yaw: number): boolean {
   return false;
 }
 
+function stableRouteHash(soldierId: number, vehicleId: number, routeId: string): number {
+  let hash = (0x811c9dc5 ^ soldierId ^ Math.imul(vehicleId, 0x9e3779b1)) >>> 0;
+  for (let i = 0; i < routeId.length; i++) {
+    hash ^= routeId.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash;
+}
+
+function vehicleRouteDomain(vehicle: Vehicle): TheaterDomain {
+  const def = VEHICLES[vehicle.kind];
+  return def.flies ? 'air' : def.boat ? 'surface' : 'ground';
+}
+
+/** Stable compatible route selection for a crewed vehicle. */
+export function vehicleRouteFor(w: World, s: Soldier, vehicle: Vehicle): TheaterRoute | null {
+  const routes = (w.map.theater?.routes ?? [])
+    .filter((route) => route.domain === vehicleRouteDomain(vehicle))
+    .sort((a, b) => a.id.localeCompare(b.id));
+  if (!routes.length) return null;
+  if (s.botVehicleRouteId) {
+    const existing = routes.find((route) => route.id === s.botVehicleRouteId);
+    if (existing) return existing;
+  }
+  let best = routes[0];
+  let bestHash = stableRouteHash(s.id, vehicle.id, best.id);
+  for (const route of routes.slice(1)) {
+    const hash = stableRouteHash(s.id, vehicle.id, route.id);
+    if (hash < bestHash) { best = route; bestHash = hash; }
+  }
+  s.botVehicleRouteId = best.id;
+  return best;
+}
+
+/** Return and advance the next authored anchor for this driver. */
+export function vehicleWaypoint(_w: World, s: Soldier, vehicle: Vehicle, route: TheaterRoute): Vec3 | null {
+  if (route.points.length < 2) return null;
+  if (s.botVehicleRouteId !== route.id || s.botVehicleRouteIndex === undefined) {
+    s.botVehicleRouteId = route.id;
+    s.botVehicleRouteDir = vehicle.team === 0 ? 1 : -1;
+    s.botVehicleRouteIndex = vehicle.team === 0 ? 1 : route.points.length - 2;
+  }
+  const dir = s.botVehicleRouteDir ?? 1;
+  let index = s.botVehicleRouteIndex;
+  const threshold = Math.max(6, route.width / 2);
+  if (Math.hypot(route.points[index].x - vehicle.pos.x, route.points[index].z - vehicle.pos.z) <= threshold) {
+    const next = index + dir;
+    if (next < 0 || next >= route.points.length) {
+      s.botVehicleRouteCompleted = true;
+      s.botVehicleRouteDir = dir === 1 ? -1 : 1;
+      index = Math.max(0, Math.min(route.points.length - 1, index - dir));
+    } else {
+      index = next;
+    }
+    s.botVehicleRouteIndex = index;
+  }
+  return { ...route.points[index] };
+}
+
+/** Deterministically give nearby theater bots a driver role and route state. */
+export function assignVehicleRoles(w: World): void {
+  if (!w.map.theater) return;
+  const bots = [...w.soldiers.values()].filter((soldier) => soldier.kind === 'bot' && soldier.alive).sort((a, b) => a.id - b.id);
+  const vehicles = [...w.vehicles.values()].filter((vehicle) => vehicle.alive).sort((a, b) => a.id - b.id);
+  for (const vehicle of vehicles) {
+    let driver = vehicle.seats[0] >= 0 ? w.soldiers.get(vehicle.seats[0]) : undefined;
+    if (!driver) {
+      driver = bots.find((bot) => bot.vehicleId < 0 && bot.team === vehicle.team
+        && Math.hypot(bot.pos.x - vehicle.pos.x, bot.pos.z - vehicle.pos.z) <= 12);
+      if (driver) {
+        vehicle.seats[0] = driver.id;
+        driver.vehicleId = vehicle.id;
+        driver.seat = 0;
+        driver.enteredVehicleAt = w.time;
+        vehicle.spoolUntil = w.time + (VEHICLES[vehicle.kind].liftoffTime ?? 0);
+      }
+    }
+    if (driver?.kind === 'bot') {
+      const route = vehicleRouteFor(w, driver, vehicle);
+      if (route) vehicleWaypoint(w, driver, vehicle, route);
+      if (VEHICLES[vehicle.kind].flies && !driver.botAirProfile) driver.botAirProfile = 'patrol';
+    }
+  }
+}
+
+function stepTheaterVehicle(w: World, s: Soldier, vehicle: Vehicle, route: TheaterRoute, cmd: PlayerCmd): PlayerCmd {
+  const def = VEHICLES[vehicle.kind];
+  const point = vehicleWaypoint(w, s, vehicle, route);
+  if (!point) return cmd;
+
+  const dGoal = Math.hypot(point.x - vehicle.pos.x, point.z - vehicle.pos.z);
+  if (w.time >= (s.botMoveCheckAt ?? 0)) {
+    const moved = Math.hypot(vehicle.pos.x - (s.botLastX ?? vehicle.pos.x), vehicle.pos.z - (s.botLastZ ?? vehicle.pos.z));
+    if (s.botLastX !== undefined && moved < 1.2 && dGoal > Math.max(6, route.width / 2)) {
+      s.botVehicleStallWindows = (s.botVehicleStallWindows ?? 0) + 1;
+      if (s.botVehicleStallWindows >= 3) {
+        s.botVehiclePersistentStalls = (s.botVehiclePersistentStalls ?? 0) + 1;
+        s.botVehicleStallWindows = 0;
+      }
+    } else {
+      s.botVehicleStallWindows = 0;
+    }
+    s.botLastX = vehicle.pos.x;
+    s.botLastZ = vehicle.pos.z;
+    s.botMoveCheckAt = w.time + 3;
+  }
+
+  let wantYaw = Math.atan2(point.z - vehicle.pos.z, point.x - vehicle.pos.x);
+  let inbound: { x: number; z: number } | null = null;
+  if (def.flies) {
+    for (const projectile of w.projectiles.values()) {
+      if (projectile.team !== s.team && projectile.homingVehicleId === vehicle.id) { inbound = projectile.pos; break; }
+    }
+  }
+  if (inbound) {
+    const away = Math.atan2(vehicle.pos.z - inbound.z, vehicle.pos.x - inbound.x);
+    wantYaw = away + (s.id % 2 ? 0.87 : -0.87);
+    if (vehicle.flares > 0) cmd.grenade = true;
+  }
+  let delta = wantYaw - vehicle.yaw;
+  while (delta > Math.PI) delta -= Math.PI * 2;
+  while (delta < -Math.PI) delta += Math.PI * 2;
+  cmd.moveX = Math.max(-1, Math.min(1, delta * 2));
+  cmd.moveZ = (s.botVehicleStallWindows ?? 0) > 0 ? 0.35 : Math.abs(delta) < 1.1 ? -1 : -0.2;
+  cmd.aimYaw = vehicle.yaw;
+
+  if (def.flies && s.botAirProfile === 'strike') {
+    const index = s.botVehicleRouteIndex ?? 1;
+    const progress = index / Math.max(1, route.points.length - 1);
+    const desired = progress <= 0.34 ? 2 : progress <= 0.67 ? 1 : 3;
+    const level = asElevationLevel(vehicle.band);
+    if (level < desired) cmd.ability = true;
+    else if (level > desired) cmd.use = true;
+  }
+
+  if (def.weapon) {
+    const target = findTarget(w, s, WEAPONS[def.weapon].range);
+    if (target) {
+      cmd.aimYaw = leadYaw(vehicle.pos, target, WEAPONS[def.weapon].speed);
+      cmd.fire = true;
+    }
+  }
+  return cmd;
+}
+
 // ---------- main bot brain ----------
 
 export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
@@ -911,6 +1058,9 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
       }
       return cmd;
     }
+
+    const theaterRoute = vehicleRouteFor(w, s, v);
+    if (theaterRoute) return stepTheaterVehicle(w, s, v, theaterRoute, cmd);
 
     // the Pike PATROLS: a boat can rarely reach a land objective, so it owns
     // the water instead — circle the ring with the deck gun talking, and

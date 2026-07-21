@@ -647,6 +647,15 @@ export interface Soldier {
   botLastX?: number;
   botLastZ?: number;
   botMoveCheckAt?: number;
+  /** Vehicle-theater route state. Route ids are authored metadata, never
+   * inferred from iteration order or a fixed-size map assumption. */
+  botVehicleRouteId?: string;
+  botVehicleRouteIndex?: number;
+  botVehicleRouteDir?: 1 | -1;
+  botVehicleRouteCompleted?: boolean;
+  botVehicleStallWindows?: number;
+  botVehiclePersistentStalls?: number;
+  botAirProfile?: 'patrol' | 'strike';
   /** per-LIFE personality salt, rolled at spawn (−1 | 0 | 1): lane bias,
    *  indoor posting, ride appetite — each life tries something different
    *  (Robert's respawn-variety ask) */
