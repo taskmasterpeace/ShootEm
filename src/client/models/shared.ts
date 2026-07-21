@@ -2,14 +2,18 @@
 // factory, three primitives. Every silhouette in War World is built from
 // these four words.
 import * as THREE from 'three';
-export const mat = (color: number, opts: { metal?: number; rough?: number; emissive?: number } = {}) =>
-  new THREE.MeshStandardMaterial({
+import { applyDarkness } from '../darkness';
+export const mat = (color: number, opts: { metal?: number; rough?: number; emissive?: number } = {}) => {
+  const m = new THREE.MeshStandardMaterial({
     color,
     metalness: opts.metal ?? 0.15,
     roughness: opts.rough ?? 0.75,
     emissive: opts.emissive ?? 0x000000,
     emissiveIntensity: opts.emissive ? 0.9 : 0,
   });
+  applyDarkness(m); // READING THE DARK: the whole model vocabulary obeys the cone
+  return m;
+};
 
 export const box = (w: number, h: number, d: number, m: THREE.Material) => {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);

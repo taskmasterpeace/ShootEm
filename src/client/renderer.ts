@@ -9,6 +9,7 @@ import { HAND_FRAG_REACH, aimSpreadMul, meleeWindupFor, type World } from '../si
 import { audio, type SoundName } from './audio';
 import { BIOME_AUDIO } from './soundscape';
 import { settings } from './settings';
+import { darknessFloor, setDarknessFrame, sweepDarkness } from './darkness';
 import { Particles, FlashLights, Fireballs } from './effects';
 import { JOINT_NAMES, isUndead, poseSoldierJoints, CAST_SCHOOL, FLIGHT_POSES, RECOIL_SCALE, stepYawSpring, throwArmCurve, WEAPON_HOLDS, type GaitState, type CastSchool } from './animation';
 import { chunkCount, drawChunks, drawGrade, drawNotches, drawNumber, makeRingMesh, RING_COLORS, ringChunkTexture, ringTier } from './ring';
@@ -341,6 +342,7 @@ export class Renderer {
   private flyerShadows = new Map<number, THREE.Mesh>();      // B2: ground blob, scales with altitude
   private flyerShadowGeo?: THREE.CircleGeometry;
   private frameDt = 1 / 60;                                 // dt of the current update()
+  private darkSweepN = 0;                                   // READING THE DARK: sweep cadence counter
   private deathFall = new Map<number, { x: number; z: number }>(); // ragdoll tip dir per id
 
   /** Red chevron sprite texture for revealed-enemy markers (built once). */
@@ -1354,6 +1356,14 @@ export class Renderer {
     const local = world.soldiers.get(localId);
     const localTeam = local?.team ?? 0;
     this.frameDt = dt;
+
+    // READING THE DARK (plan A2): patch new lit materials on a slow cadence
+    // (GLBs, drops, corpses arrive between sweeps), then feed the eye — the
+    // same yaw the sim's cone uses, the same perceiveRange the fog pins to.
+    if ((this.darkSweepN++ % 90) === 0) sweepDarkness(this.scene);
+    const dl = settings.darkness ?? 'subtle';
+    const floor = local && local.alive && dl !== 'off' ? darknessFloor(dl) : 1;
+    setDarknessFrame(local?.pos.x ?? 0, 0, local?.pos.z ?? 0, local?.yaw ?? 0, world.perceiveRange(), floor);
 
     // LOCAL FOG for the trail-less (§19.1). Living enemies ride the sim's
     // per-tick lastSeen trail, but the two things that carry NO trail — enemy

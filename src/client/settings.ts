@@ -14,10 +14,18 @@
  *  Note the yard is exempt at every level: paintball is PAINT (§14). */
 export type BloodLevel = 'off' | 'light' | 'full';
 
+/** READING THE DARK (STATUS §1 / plan A2 step 5): how dark the unseen world
+ *  outside your vision cone gets. `off` = the classic even light; `subtle`
+ *  (default) = readable murk; `full` = the night-ops look. Accessibility is
+ *  the point of the knob — some players want the information without the
+ *  murk, and that stays one click away. */
+export type DarknessLevel = 'off' | 'subtle' | 'full';
+
 export interface Settings {
   masterVolume: number;   // 0..1
   reducedMotion: boolean; // caps screen shake + tones the drone whiteout
   blood: BloodLevel;
+  darkness: DarknessLevel;
   /** FEEL KNOBS (Robert's global speed control) — 1 = shipped feel. Live,
    *  offline tuning: projectileSpeed slows/quickens direct-fire rounds
    *  without moving where they land; moveSpeed scales soldier legs. */
@@ -41,7 +49,7 @@ const KEY = 'ww_settings';
 const SPEED_GEN = 1;
 
 export const settings: Settings = {
-  masterVolume: 0.5, reducedMotion: false, blood: 'light',
+  masterVolume: 0.5, reducedMotion: false, blood: 'light', darkness: 'subtle',
   // ROBERT'S TUNED DEFAULTS (playtest): slow rounds so you can READ the
   // battlefield, boots a touch under shipped pace to match. Vehicles get their
   // OWN knob because the other two knobs created a bug: at 0.35× rounds, a
@@ -58,6 +66,7 @@ export function loadSettings(): Settings {
     if (typeof raw.masterVolume === 'number') settings.masterVolume = Math.max(0, Math.min(1, raw.masterVolume));
     if (typeof raw.reducedMotion === 'boolean') settings.reducedMotion = raw.reducedMotion;
     if (raw.blood === 'off' || raw.blood === 'light' || raw.blood === 'full') settings.blood = raw.blood;
+    if (raw.darkness === 'off' || raw.darkness === 'subtle' || raw.darkness === 'full') settings.darkness = raw.darkness;
     // a profile from before this generation keeps every OTHER preference but
     // takes the new speed tuning once, then is stamped so it never happens again
     if ((raw.speedGen ?? 0) >= SPEED_GEN) {

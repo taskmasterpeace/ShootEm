@@ -25,7 +25,7 @@ import { FRONTS, SCAR_TEXT, applyResult, bandOf, checkSeasonEnd, loadCampaign, s
 import { fileIssue, renderIssueHTML, renderPressInto, loadPress } from './client/newspaper';
 import { RangeCourse, loadWall } from './client/range';
 import { RingDrill } from './client/ringdrill';
-import { loadSettings, saveSettings, settings, type BloodLevel } from './client/settings';
+import { loadSettings, saveSettings, settings, type BloodLevel, type DarknessLevel } from './client/settings';
 
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -1101,6 +1101,10 @@ audio.setMasterVolume(settings.masterVolume);
   const blood = $('set-blood') as HTMLSelectElement;
   blood.value = settings.blood;
   blood.onchange = () => { settings.blood = blood.value as BloodLevel; saveSettings(); };
+  // READING THE DARK (plan A2 step 5): sight is accessibility — one click off
+  const dark = $('set-darkness') as HTMLSelectElement;
+  dark.value = settings.darkness;
+  dark.onchange = () => { settings.darkness = dark.value as DarknessLevel; saveSettings(); };
 
   // GLOBAL SPEED KNOBS (Robert): projectile + movement + VEHICLE, live-tunable. The
   // sliders write settings AND push straight to any running match, so you
