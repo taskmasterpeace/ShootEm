@@ -123,19 +123,20 @@ describe('§14.2 the outcome menu (locked rear hold)', () => {
     expect(v.grabbedBy).toBeUndefined();
   });
 
-  it('an UNLOCKED hold offers nothing: F swings no rip, E opens no squeeze', () => {
+  it('a FRONT clinch offers no rear-control menu: F swings no rip, E opens no squeeze', () => {
     const w = new World({ seed: 1, mode: 'tdm', matchMinutes: 10 });
     const a = w.addSoldier('Att', 'infantry', 0, 'human');
     a.pos = { x: 0, y: 0, z: 0 }; a.yaw = 0; a.protectedUntil = 0;
     const v = w.addSoldier('Vic', 'infantry', 1, 'human');
-    v.pos = { x: 1.4, y: 0, z: 0 }; v.yaw = 0; v.protectedUntil = 0;
+    v.pos = { x: 1.4, y: 0, z: 0 }; v.yaw = Math.PI; v.protectedUntil = 0; // FACING the attacker → front clinch
     w.step(1 / 60, new Map());
     w.step(1 / 60, new Map([[a.id, cmd({ grapple: true })]]));
-    expect(v.ctrlStruggle?.locked).toBeFalsy();
+    expect(v.grabbedBy).toBe(a.id);
+    expect(v.ctrlStruggle, 'a front clinch has no rear control at all').toBeUndefined();
     const guns0 = v.weapons.length;
     for (let i = 0; i < 32; i++) w.step(1 / 60, new Map());
     w.step(1 / 60, new Map([[a.id, cmd({ melee: true, use: true })]]));
-    expect(v.weapons.length, 'no rip before control').toBe(guns0);
-    expect(a.chokingId, 'no squeeze before control').toBeUndefined();
+    expect(v.weapons.length, 'no rip without rear control').toBe(guns0);
+    expect(a.chokingId, 'no squeeze without rear control').toBeUndefined();
   });
 });

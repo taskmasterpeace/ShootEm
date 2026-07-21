@@ -9,23 +9,9 @@ import { weaponPortrait } from './weaponcam';
 import { weaponBrand } from './models/weapons';
 import { SegMeter } from './segmeter';
 import { classLinger, MAX_LINGER } from '../sim/perception';
-import { ctrlNeedlePos, type World } from '../sim/world';
+import type { World } from '../sim/world';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
-
-/** §15 the Contest Track — zone + needle + best-of-three pips, built from the
- *  same pure ctrlNeedlePos the sim judges, so the HUD can never lie about
- *  where the needle is. Rendered fresh each frame on both sides of the hold. */
-function csTrackHtml(cs: NonNullable<Soldier['ctrlStruggle']>, time: number): string {
-  const needle = ctrlNeedlePos(cs.anchor, time, cs.round);
-  const pips = (won: number, cls: string) =>
-    `<i class="cs-pip${won >= 1 ? ' ' + cls : ''}"></i><i class="cs-pip${won >= 2 ? ' ' + cls : ''}"></i>`;
-  const secs = Math.max(0, cs.roundEndsAt - time);
-  return `<span class="cs-wrap">${pips(cs.defWins, 'def')}<span class="cs-track">` +
-    `<span class="cs-zone" style="left:${((cs.zoneC - cs.zoneW / 2) * 100).toFixed(1)}%;width:${(cs.zoneW * 100).toFixed(1)}%"></span>` +
-    `<span class="cs-needle" style="left:${(needle * 100).toFixed(1)}%"></span></span>` +
-    `${pips(cs.attWins, 'att')}<span class="cs-clock">${secs.toFixed(1)}s</span></span>`;
-}
 
 /** A tactical-system waypoint drawn on the whole team's minimap. */
 interface Waypoint { x: number; z: number; until: number; by: string }
@@ -450,19 +436,16 @@ export class Hud {
       const pin = s.grabbingId !== undefined ? world.soldiers.get(s.grabbingId) : undefined;
       const holdingPin = !!pin && pin.grabbedBy === s.id && pin.grabbedUntil !== undefined;
       if (holdingPin) {
-        // §15: a rear pin runs the CONTROL STRUGGLE — the attacker sees the
-        // same needle the sim judges and STEERS the zone away from it. Only
-        // a LOCKED hold offers the finisher; a front pin keeps the old line.
-        const pcs = pin!.ctrlStruggle;
-        if (pcs && !pcs.locked) {
-          hint.innerHTML = `${icon('rear')} CONTROL STRUGGLE — A/D steer the zone ${csTrackHtml(pcs, world.time)}`;
-        } else if (pcs?.locked) {
-          // §14.2 the outcome MENU is yours once control is taken
+        // §14.2 REAR CONTROL: a rear grab that landed is immediate control —
+        // the whole outcome MENU is yours (no minigame). A front clinch has no
+        // rear control and shows the plain takedown prompt.
+        const rearControlled = pin!.ctrlStruggle?.locked === true;
+        if (rearControlled) {
           hint.innerHTML = s.chokingId !== undefined
             ? `${icon('rear')} CHOKING — ${Math.round((pin!.chokeProgress ?? 0) * 100)}% · hold the grip`
             : pin!.humanShield
               ? `${icon('rear')} HUMAN SHIELD — move to advance · Z/F/E/SPACE to finish`
-              : `${icon('rear')} LOCKED — Z takedown · F disarm · E choke · SPACE throw`;
+              : `${icon('rear')} REAR CONTROL — Z takedown · F disarm · E choke · SPACE throw`;
         } else {
           hint.innerHTML = `${icon('rear')} REAR CONTROL — press Z: TAKEDOWN`; // §16.3: hand behind a silhouette
         }
@@ -543,17 +526,14 @@ export class Hud {
       const grabber = s.grabbedBy != null ? world.soldiers.get(s.grabbedBy) : undefined;
       const bite = !!grabber && isZed(grabber.kind);
       db.classList.remove('hidden');
-      const dcs = s.ctrlStruggle;
-      if (dcs && !dcs.locked) {
-        // §15 the defender's side of the CONTROL STRUGGLE: hit Z while the
-        // needle crosses the zone. Same pure needle the sim judges.
-        db.querySelector('b')!.innerHTML = `${icon('escape')} CONTROL STRUGGLE`;
-        $('down-timer').innerHTML = ` — Z as the needle crosses the zone! ${csTrackHtml(dcs, world.time)}`;
-      } else if (dcs?.locked) {
+      const rearHeld = s.ctrlStruggle?.locked === true;
+      if (rearHeld) {
+        // §14.2: controlled from behind — no minigame, just fight free (mash)
         db.querySelector('b')!.innerHTML = `${icon('escape')} CONTROLLED`;
+        const pct = Math.round(Math.min(1, s.struggle ?? 0) * 100);
         $('down-timer').textContent = (s.chokeProgress ?? 0) > 0
           ? ` — being choked out… ${Math.round((s.chokeProgress ?? 0) * 100)}%`
-          : ' — he has full control. Brace.';
+          : ` — he has your back · mash MOVE to break · ${pct}%`;
       } else {
         // §16.3: ESCAPE is the broken chain — the struggle wears the icon
         db.querySelector('b')!.innerHTML = `${icon('escape')} ${bite ? 'BITE STRUGGLE' : 'GRABBED'}`;

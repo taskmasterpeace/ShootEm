@@ -6,7 +6,7 @@
 // "frozen". The visual is a pale sheet the renderer overlays per live tile.
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
-import { GRID, T_DEEP, T_OPEN, T_WATER, TILE, WORLD } from '../src/sim/map';
+import { GRID, T_DEEP, T_OPEN, TILE, WORLD } from '../src/sim/map';
 import type { PlayerCmd } from '../src/sim/types';
 import { World } from '../src/sim/world';
 

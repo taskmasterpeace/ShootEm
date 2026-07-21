@@ -1,15 +1,16 @@
 // ---------------------------------------------------------------------------
-// §15 CONTROL STRUGGLE — the rear-grab contest (Robert: "more consequential
-// when you grab them from behind"). A rear pin on a PERSON opens a
-// best-of-three needle game instead of a mash: the Break Needle is a pure
-// function of sim time, the attacker steers the Control Zone, the defender
-// confirms Z inside it. Defender takes 2 → fights free with the rebound.
-// Attacker takes 2 → the hold LOCKS, and only a LOCKED rear pin accepts the
-// §14.2 finisher. Front pins keep the whole old law (see takedown.test.ts).
+// §14.2 REAR CONTROL — NO MINIGAME (Robert: "eliminate the minigame. If you
+// win that grab, they don't get loose. You use them as a human shield until
+// they break. And when they break it should knock me back — to stop me
+// spamming the grab."). A rear grab that LANDS is immediate control: the whole
+// outcome menu (shield/disarm/choke/throw/takedown) unlocks at once. There is
+// NO needle contest. The victim's only out is to STRUGGLE (mash MOVE) free —
+// harder than a front clinch — and breaking free SHOVES the grabber back.
+// The needle-vs-zone game and its surge/shear are gone.
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
 import type { PlayerCmd } from '../src/sim/types';
-import { World, ctrlNeedlePos } from '../src/sim/world';
+import { World } from '../src/sim/world';
 
 const cmd = (over: Partial<PlayerCmd> = {}): PlayerCmd => ({
   moveX: 0, moveZ: 0, aimYaw: 0, fire: false, altFire: false, jump: false,
@@ -27,82 +28,62 @@ function rearStaged() {
   return { w, a, v };
 }
 
-describe('§15 Control Struggle — the rear-grab contest', () => {
-  it('a rear pin on a person opens the contest; the needle is a pure clock function', () => {
+describe('§14.2 rear control — no minigame', () => {
+  it('a rear grab LANDS as immediate control — locked, no contest', () => {
     const { w, a, v } = rearStaged();
     w.step(1 / 60, new Map([[a.id, cmd({ grapple: true })]]));
     expect(v.grabbedBy).toBe(a.id);
-    expect(v.ctrlStruggle, 'the contest opened').toBeTruthy();
-    expect(v.ctrlStruggle!.round).toBe(1);
-    // determinism: the same (anchor, time, round) always yields the same needle
-    const cs = v.ctrlStruggle!;
-    const n1 = ctrlNeedlePos(cs.anchor, cs.anchor + 0.7, 1);
-    const n2 = ctrlNeedlePos(cs.anchor, cs.anchor + 0.7, 1);
-    expect(n1).toBe(n2);
-    expect(n1).toBeGreaterThanOrEqual(0);
-    expect(n1).toBeLessThanOrEqual(1);
+    expect(v.ctrlStruggle?.locked, 'control is TAKEN on the grab — you won it').toBe(true);
+    // no needle rounds ran: the attacker already has both wins
+    expect(v.ctrlStruggle!.attWins).toBe(2);
+    expect(v.ctrlStruggle!.zoneW, 'no contest zone — there is no minigame').toBe(0);
   });
 
-  it('mash does NOT escape a rear contest, and the early finisher is refused', () => {
+  it('the finisher lands right after the grab-recover — no rounds to win first', () => {
     const { w, a, v } = rearStaged();
     w.step(1 / 60, new Map([[a.id, cmd({ grapple: true })]]));
-    // the victim hammers movement — the old mash — for a full second
-    for (let i = 0; i < 60; i++) w.step(1 / 60, new Map([[v.id, cmd({ moveX: 1, jump: true })]]));
-    expect(v.grabbedBy, 'the needle, not the keyboard shake, is the only door').toBe(a.id);
-    // the attacker taps the finisher before control is taken — refused
-    for (let i = 0; i < 34; i++) w.step(1 / 60, new Map());
-    w.step(1 / 60, new Map([[a.id, cmd({ grapple: true })]]));
-    expect(v.alive, 'no execution without the LOCK').toBe(true);
-  });
-
-  it('a defender confirm INSIDE the zone twice fights free with the rebound', () => {
-    const { w, a, v } = rearStaged();
-    w.step(1 / 60, new Map([[a.id, cmd({ grapple: true })]]));
-    const cs = v.ctrlStruggle!;
-    // steer time so the needle sits dead-center of the untouched zone (0.5):
-    // walk frames until the pure function says we're inside, then confirm.
-    const confirmInside = () => {
-      for (let i = 0; i < 400; i++) {
-        const n = ctrlNeedlePos(cs.anchor, w.time + 1 / 60, cs.round);
-        if (Math.abs(n - cs.zoneC) <= cs.zoneW / 2 - 0.02) {
-          w.step(1 / 60, new Map([[v.id, cmd({ grapple: true })]]));
-          return;
-        }
-        w.step(1 / 60, new Map());
-      }
-      throw new Error('needle never entered the zone');
-    };
-    confirmInside();
-    expect(cs.defWins).toBe(1);
-    confirmInside();
-    expect(v.grabbedBy, 'two clean confirms fight free').toBeUndefined();
-    expect(v.grabImmuneUntil, 'the escape earns the no-re-clinch window').toBeGreaterThan(w.time);
-    expect(v.ctrlStruggle, 'the contest is cleared with the hold').toBeUndefined();
-  });
-
-  it('two round timeouts LOCK the hold — and only then does the finisher land', () => {
-    const { w, a, v } = rearStaged();
-    w.step(1 / 60, new Map([[a.id, cmd({ grapple: true })]]));
-    // the victim freezes (no confirm): both rounds die on the clock
-    for (let i = 0; i < 60 * 6 + 30; i++) {
-      w.step(1 / 60, new Map());
-      if (v.ctrlStruggle?.locked) break;
-    }
-    expect(v.ctrlStruggle?.locked, 'best-of-three to the attacker').toBe(true);
-    expect(v.grabbedBy, 'the locked hold persists').toBe(a.id);
-    w.step(1 / 60, new Map([[a.id, cmd({ grapple: true })]])); // NOW the finisher
-    expect(v.alive, 'a locked rear pin is an execution').toBe(false);
+    for (let i = 0; i < 34; i++) w.step(1 / 60, new Map()); // idle past GRAB_RECOVER; victim does NOT mash
+    expect(v.alive).toBe(true);
+    w.step(1 / 60, new Map([[a.id, cmd({ grapple: true })]])); // the takedown
+    expect(v.alive, 'controlled → the finisher is immediately available').toBe(false);
     expect(v.downed).toBe(false);
   });
 
-  it('a FRONT pin never opens a contest (the old mash law holds there)', () => {
+  it('MASH breaks a rear control free — and SHOVES the grabber back (anti-spam)', () => {
     const { w, a, v } = rearStaged();
-    v.yaw = Math.PI; // now FACING the attacker
     w.step(1 / 60, new Map([[a.id, cmd({ grapple: true })]]));
-    expect(v.grabbedBy).toBe(a.id);
-    expect(v.ctrlStruggle, 'front grabs are the classic clinch').toBeUndefined();
-    // and the mash still works exactly as shipped
-    for (let i = 0; i < 80; i++) w.step(1 / 60, new Map([[v.id, cmd({ moveX: 1 })]]));
-    expect(v.grabbedBy, 'mashed out the front hold').toBeUndefined();
+    expect(v.ctrlStruggle?.locked).toBe(true);
+    let freed = false;
+    for (let i = 0; i < 60 * 4 && !freed; i++) {
+      w.step(1 / 60, new Map([[v.id, cmd({ moveX: 1, jump: true })]])); // mash
+      if (v.grabbedBy === undefined) freed = true;
+    }
+    expect(freed, 'the needle is gone — you mash your way out').toBe(true);
+    expect(a.pushX, 'breaking the rear hold shoved the grabber away (-x, behind the victim)').toBeLessThan(-3);
+    expect(a.nextFireAt, 'and staggered him so he cannot instantly re-grab').toBeGreaterThan(w.time);
+    expect(v.grabImmuneUntil, 'the escapee gets brief re-grab immunity').toBeGreaterThan(w.time);
+  });
+
+  it('a rear control is HARDER to break than a front clinch (the grabber owns your back)', () => {
+    // rear: mash and count ticks to free
+    const rear = rearStaged();
+    rear.w.step(1 / 60, new Map([[rear.a.id, cmd({ grapple: true })]]));
+    let rearTicks = 0;
+    for (let i = 0; i < 60 * 5 && rear.v.grabbedBy !== undefined; i++) { rear.w.step(1 / 60, new Map([[rear.v.id, cmd({ moveX: 1 })]])); rearTicks++; }
+    // front: same, but the victim FACES the attacker
+    const front = rearStaged();
+    front.v.yaw = Math.PI; // facing the attacker → front clinch, no rear control
+    front.w.step(1 / 60, new Map([[front.a.id, cmd({ grapple: true })]]));
+    expect(front.v.ctrlStruggle, 'a front grab is the classic clinch — no rear control marker').toBeUndefined();
+    let frontTicks = 0;
+    for (let i = 0; i < 60 * 5 && front.v.grabbedBy !== undefined; i++) { front.w.step(1 / 60, new Map([[front.v.id, cmd({ moveX: 1 })]])); frontTicks++; }
+    expect(rearTicks, 'the rear hold takes longer to shrug').toBeGreaterThan(frontTicks);
+  });
+
+  it('same-team never grabs; a mid-STRIKE victim stuffs the grab (the triangle still rules)', () => {
+    const { w, a, v } = rearStaged();
+    v.meleeStrikeAt = w.time + 0.2; v.meleeWeapon = 'knife'; // caught mid-swing
+    w.step(1 / 60, new Map([[a.id, cmd({ grapple: true })]]));
+    expect(v.grabbedBy, 'STRIKE beats GRAPPLE — no hold, no control').toBeUndefined();
   });
 });

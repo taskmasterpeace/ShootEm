@@ -2745,7 +2745,7 @@ export class Renderer {
             fans++;
           }
         }
-        let subs = this.heldPrismSubs.get(s.id) ?? [];
+        const subs = this.heldPrismSubs.get(s.id) ?? [];
         while (subs.length < subsWanted.length) {
           const sub = new THREE.Mesh(
             new THREE.CylinderGeometry(0.045, 0.07, 1, 5, 1, true),

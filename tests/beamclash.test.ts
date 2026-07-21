@@ -68,7 +68,7 @@ describe('§BEAMS — beam-vs-beam clash', () => {
   it('SURGE shoves the node — sustained surge SHEARS the loser off-axis', () => {
     const { w, A, B } = crossed();
     const e0 = A.energy;
-    let events: string[] = [];
+    const events: string[] = [];
     for (let i = 0; i < 60 * 8 && B.beamJamUntil === undefined; i++) {
       w.step(1 / 60, both({ fire: true, sprint: true }, { fire: true }, A, B));
       for (const ev of w.takeEvents()) if (ev.type.startsWith('beam_clash')) events.push(ev.type + ':' + ev.soldierId);
