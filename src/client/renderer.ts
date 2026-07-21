@@ -3940,6 +3940,17 @@ export class Renderer {
           audio.play(shotSnd, { pos: e.pos, volume: 0.7 });
           if (def.tracer !== 'beam' && def.tracer !== 'none') {
             this.particles.emit({ pos: e.pos, count: 3, color: 0xffcc66, speed: 3, life: 0.12, spread: 0.3, up: 1, size: 0.3 });
+          } else if (def.tracer === 'beam') {
+            // BEAM BIRTH (row 190): a beam has no powder flash — the aperture
+            // BLOOMS. A corona in the beam's OWN signature hue (the beam seven /
+            // the god's color, same precedence as the projectile) around a
+            // white-hot core pip — the muzzle tell that a beam was just born.
+            const birthOwner = e.soldierId !== undefined ? world.soldiers.get(e.soldierId) : undefined;
+            const beamHue = WEAPON_TINTS[e.weapon]
+              ?? (birthOwner?.ascendant ? LSWS[birthOwner.ascendant].color : undefined)
+              ?? TRACER_COLORS.beam;
+            this.particles.emit({ pos: { ...e.pos }, count: 12, color: beamHue, speed: 6.5, life: 0.24, spread: 1.5, up: 0.2, size: 0.34 });
+            this.particles.emit({ pos: { ...e.pos }, count: 5, color: 0xffffff, speed: 2.2, life: 0.13, spread: 0.5, up: 0.3, size: 0.5 });
           }
           // §19.2: a gunshot you can't SEE still tells your ears where it
           // came from — smear the smudge at the muzzle. (Events cross the

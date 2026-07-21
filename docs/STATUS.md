@@ -187,7 +187,7 @@ Ground-truthed this session. **Beams draw** (as fast box tracers); everything in
 | Beams render | ✅ | `makeProjectile` case 'beam', `renderer.ts:3310` — a flying box, not a stream |
 | **Continuous / held** beam (LSW only — soldiers never carry one) | ❌📋 | only in the beam LAB (`/beams.html`); no held stream in-game. BACKLOG (new) |
 | **Beam-vs-beam clash** (DBZ struggle, overpower, knock-off-aim) | ❌📋 | no projectile-projectile collision at all. BACKLOG (new) |
-| Beam **birth** effects (charge tell, muzzle bloom) | ❌ | beams are *excluded* from the muzzle spark (`renderer.ts:3453`). BACKLOG (new) |
+| Beam **birth** effects (charge tell, muzzle bloom) | ✅ | **DONE 2026-07-21.** The muzzle-spark exclusion for beams now runs a BLOOM instead of nothing: a 12-mote corona in the beam's OWN signature hue (`WEAPON_TINTS[weapon]` → the god's color → `TRACER_COLORS.beam`, same precedence as the projectile) around a 5-mote white-hot core. `renderer.ts` shot handler. Live: a beam shot emits 17 birth particles (was 0); the bullet baseline of 3 is untouched. (The pre-fire charge TELL for a windup beam belongs with the held-beam slice — beams fire at rof today, no windup event to hang it on.) |
 | Beam **landing** effects, material-aware | ✅ | the hit handler already branches on tile/surface (`renderer.ts:3532`) |
 | Seven beam types (Lance/Torrent/Tether/Sweep/Pulse/Siphon/Prism) | ❌📋 | designed this session. BACKLOG (new) |
 | LSW production/landing effects (each god's beam looks distinct) | 🔨 | per-god tints exist; birth/impact/type flavor doesn't. BACKLOG (new) |
