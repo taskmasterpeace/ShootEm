@@ -33,4 +33,25 @@ Work on `main`, GATED (tsc · vitest · build) + committed at each phase so noth
 - Stealth = avoids radar/lock; jets fight around mountains; heli fires guided rockets from cover.
 
 ## Progress log
-- 2026-07-22: spec approved (518c4bb); plan written. Starting Phase 1.
+- 2026-07-22: spec approved (518c4bb); plan written.
+- **Phase 1 ✅ terrain foundation** (3344b9f): GameMap `height`/`ramp` layers, `TERRAIN_U`,
+  `terrainTopAt`/`terrainLevelAt`/`isRampAt`, `losClearTerrain`; vision (perceivesNow/eyesSeePoint)
+  reads terrain — high ground sees over, mountains block. Absent height = flat = byte-identical.
+- **Phase 2 ✅ mountain procgen** (7083bcd): Crown Divide massifs RISE (Sky summit/Building
+  shoulder) — block sight over the ridge, cap rotorcraft, jets clear; +radar stations & caches.
+- **Phase 3 ✅ air program** (40ec6fe): Warhawk gun jet, Specter fighter, Reaper STEALTH bomber
+  (radar can't lock past 42u), Hydra guided-rocket gunship heli. 7 weapons, priced, auto-codexed,
+  rendered (proven airframes), spawnable. Stealth wired into hullLockTarget.
+- **Phase 4 ✅ pilot AI** (1d2245d): fighters hunt enemy aircraft, match altitude, lead-fire —
+  the sky is contested. Builds on the SAM beam-evade.
+- **Phase 5 ✅ render relief** (22bf332): wall+metal InstancedMeshes scale to terrain height —
+  the mountains READ as mountains from command height. (tsc+build; **live 3D screenshot still owed**.)
+- All five gated (tsc · vitest **2184** · build). Nothing pushed.
+
+## Remaining (next session)
+- **Live visual pass** on Crown Divide (deploy the `pass_assault` military mission) → tune mountain
+  heights/look, confirm heli-blocked/jet-over reads on screen.
+- **Winter + flat-large variants** (reskin the mountain theater; a new large-flat theater).
+- **Walkable elevation** (Phase-2 spec item): infantry-slope/vehicle-ramp movement + the terrain-Y
+  baseline + cliff-climbing ability (grapple/jetpack). v1 mountains are impassable masonry.
+- **Deeper balance** on the four airframes in live play; the altitude UI meter (Robert's UI track).
