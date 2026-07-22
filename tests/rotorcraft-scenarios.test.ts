@@ -16,6 +16,9 @@ describe('rotorcraft mission AI', () => {
     expect(result.shots).toBeGreaterThan(0);
     expect(result.hits).toBeGreaterThan(0);
     expect(result.targetHp).toBeLessThan(result.targetMaxHp);
+    expect(result.telemetry.summary.radarSweeps).toBeGreaterThan(0);
+    expect(result.telemetry.summary.radarContacts).toBeGreaterThan(0);
+    expect(result.telemetry.summary.radarJammed).toBeGreaterThan(0);
   });
 
   it.each(['city', 'desert', 'countryside', 'mountain', 'coastal'] as const)(

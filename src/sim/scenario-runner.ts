@@ -380,11 +380,12 @@ export interface RotorcraftMatrixReport {
   insertions: Array<{
     id: string; theater: Exclude<TheaterId, 'ocean'>; seed: number;
     landed: boolean; nonFinite: number; persistentStalls: number; crashes: number;
-    distance: number; objectiveProgress: number;
+    distance: number; objectiveProgress: number; radarSweeps: number; radarContacts: number; radarJammed: number;
   }>;
   support: Array<{
     id: string; theater: Exclude<TheaterId, 'ocean'>; seed: number;
     firstContact: number | null; shots: number; hits: number; targetHp: number; targetMaxHp: number;
+    radarSweeps: number; radarContacts: number; radarJammed: number;
   }>;
 }
 
@@ -405,12 +406,18 @@ export function runRotorcraftMatrix({ seeds }: { seeds: number[] }): RotorcraftM
       persistentStalls: insertion.persistentStalls, crashes: insertion.crashes,
       distance: insertion.telemetry.summary.distanceByKind.transportheli ?? 0,
       objectiveProgress: insertion.telemetry.summary.objectiveProgress,
+      radarSweeps: insertion.telemetry.summary.radarSweeps,
+      radarContacts: insertion.telemetry.summary.radarContacts,
+      radarJammed: insertion.telemetry.summary.radarJammed,
     });
     const strike = runRotorcraftSupport(theater, seed, 120);
     support.push({
       id: `rotor-support:${theater}:${seed}`, theater, seed,
       firstContact: strike.firstContact, shots: strike.shots, hits: strike.hits,
       targetHp: +strike.targetHp.toFixed(3), targetMaxHp: strike.targetMaxHp,
+      radarSweeps: strike.telemetry.summary.radarSweeps,
+      radarContacts: strike.telemetry.summary.radarContacts,
+      radarJammed: strike.telemetry.summary.radarJammed,
     });
   }
   return { generatedAt: 'deterministic', seeds: [...seeds], insertions, support };
@@ -451,6 +458,9 @@ export interface SubmarineBattleResult {
   nonFinite: number;
   wrongDepth: number;
   routeCompletions: number;
+  radarSweeps: number;
+  radarContacts: number;
+  radarJammed: number;
 }
 
 export function runSubmarineBattle(theater: 'coastal' | 'ocean', seed: number, seconds: number): SubmarineBattleResult {
@@ -480,6 +490,9 @@ export function runSubmarineBattle(theater: 'coastal' | 'ocean', seed: number, s
     nonFinite,
     wrongDepth: telemetry.incidents.filter((incident) => incident.kind === 'wrong_depth').length,
     routeCompletions: telemetry.summary.routeCompletions,
+    radarSweeps: telemetry.summary.radarSweeps,
+    radarContacts: telemetry.summary.radarContacts,
+    radarJammed: telemetry.summary.radarJammed,
   };
 }
 

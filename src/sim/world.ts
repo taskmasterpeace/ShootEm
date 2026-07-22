@@ -462,6 +462,7 @@ export class World {
   /** Authoritative last-known radar/sonar truth. HUD and AI read these copies,
    *  never a hidden target's live position between scheduled sweeps. */
   radarTracks: [Map<string, RadarTrack>, Map<string, RadarTrack>] = [new Map(), new Map()];
+  private radarTrackHistory: [Set<string>, Set<string>] = [new Set(), new Set()];
   nextRadarSweep = new Map<string, number>();
   /** Last commanded hull speed, sampled by the vehicle black box. */
   vehicleCommandedSpeed = new Map<number, number>();
@@ -1976,6 +1977,7 @@ export class World {
       const scheduleKey = `${emitter.vehicle.id}:${emitter.profile.source}`;
       if (this.time + 1e-9 < (this.nextRadarSweep.get(scheduleKey) ?? 0)) continue;
       this.nextRadarSweep.set(scheduleKey, this.time + emitter.profile.cadence);
+      this.recordRadarTelemetry(emitter.vehicle, 'radar_sweep', emitter.profile.source);
       this.sweepRadar(emitter.vehicle, emitter.profile);
     }
     for (const tracks of this.radarTracks) {
@@ -1998,6 +2000,9 @@ export class World {
       const precision = jammed ? 0.45 : 1;
       const observed = jammed ? this.jammedRadarPosition(emitter.id, targetId, profile.cadence, pos, precision) : { ...pos };
       const key = radarTrackKey(targetType, targetId);
+      const previous = this.radarTracks[receivingTeam].get(key);
+      const reacquired = this.radarTrackHistory[receivingTeam].has(key)
+        && (!previous || previous.expiresAt <= this.time);
       this.radarTracks[receivingTeam].set(key, {
         key, targetId, targetType, receivingTeam, pos: observed,
         heading: headingDegrees(yaw), band, domain, source: profile.source,
@@ -2005,6 +2010,10 @@ export class World {
         expiresAt: this.time + profile.cadence * (jammed ? 2 : 3),
         precision, jammed,
       });
+      this.recordRadarTelemetry(emitter, 'radar_contact', `${profile.source}:${domain}`);
+      if (jammed) this.recordRadarTelemetry(emitter, 'radar_jammed', `${profile.source}:${domain}`);
+      if (reacquired) this.recordRadarTelemetry(emitter, 'radar_reacquired', `${profile.source}:${domain}`);
+      this.radarTrackHistory[receivingTeam].add(key);
     };
 
     for (const target of [...this.vehicles.values()].sort((a, b) => a.id - b.id)) {
@@ -2032,6 +2041,18 @@ export class World {
     const angle = (hash % 360) * Math.PI / 180;
     const radius = 3 + (1 - precision) * 7;
     return { x: pos.x + Math.cos(angle) * radius, y: pos.y, z: pos.z + Math.sin(angle) * radius };
+  }
+
+  private recordRadarTelemetry(
+    vehicle: Vehicle,
+    kind: 'radar_sweep' | 'radar_contact' | 'radar_jammed' | 'radar_reacquired',
+    detail: string,
+  ): void {
+    recordVehicleEvent(this.vehicleTelemetry, {
+      kind, t: this.time, vehicleId: vehicle.id, vehicleKind: vehicle.kind,
+      theaterId: this.map.theater?.id ?? 'classic', seed: this.map.seed,
+      x: vehicle.pos.x, z: vehicle.pos.z, detail,
+    });
   }
 
   /** Stamp what each team can see this tick. Death wipes the trail — a corpse

@@ -14,6 +14,9 @@ describe('submarine battle AI', () => {
     expect(result.nonFinite).toBe(0);
     expect(result.wrongDepth).toBe(0);
     expect(result.routeCompletions).toBeGreaterThan(0);
+    expect(result.radarSweeps).toBeGreaterThan(0);
+    expect(result.radarContacts).toBeGreaterThan(0);
+    expect(result.radarJammed).toBe(0);
   });
 
   it('passes Coastal and Ocean submarine fights over ten seeds', () => {

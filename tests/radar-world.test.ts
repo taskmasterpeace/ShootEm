@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { radarSearchPoint, stepBot } from '../src/sim/bots';
 import { T_OPEN, T_WALL } from '../src/sim/map';
 import { worldToTile } from '../src/sim/map-geometry';
 import { generateTheater } from '../src/sim/theaters';
@@ -154,5 +155,27 @@ describe('world radar sweeps', () => {
     world.time = 3.76;
     world.stepRadar();
     expect(world.radarTracksFor(0).has(key)).toBe(false);
+  });
+
+  it('gives AI the frozen radar position without leaking the live target', () => {
+    const world = quiet();
+    world.map.grid.fill(T_OPEN);
+    const bot = world.addSoldier('Radar Bot', 'infantry', 0, 'bot');
+    bot.alive = true;
+    bot.pos = { x: 0, y: 0, z: 0 };
+    const foe = world.addSoldier('Hidden Foe', 'infantry', 1, 'human');
+    foe.alive = true;
+    foe.pos = { x: -90, y: 0, z: 0 };
+    world.radarTracks[0].set(`s:${foe.id}`, {
+      key: `s:${foe.id}`, targetId: foe.id, targetType: 'soldier', receivingTeam: 0,
+      pos: { x: 30, y: 0, z: 4 }, heading: 0, band: 0, domain: 'ground', source: 'staffedSensors',
+      observedAt: world.time, expiresAt: world.time + 4, precision: 1, jammed: false,
+    });
+
+    expect(radarSearchPoint(world, bot)).toEqual({ x: 30, y: 0, z: 4 });
+    foe.pos = { x: -110, y: 0, z: 20 };
+    expect(radarSearchPoint(world, bot)).toEqual({ x: 30, y: 0, z: 4 });
+    const command = stepBot(world, bot, 1 / 60);
+    expect(command.moveX).toBeGreaterThan(0);
   });
 });

@@ -47,6 +47,12 @@ function failures(verdict: FoundationMatrixVerdict): string[] {
 
 function markdown(report: FoundationMatrixReport, verdict: FoundationMatrixVerdict, errors: string[]): string {
   const counts = countByKind(report);
+  const radar = report.scenarios.reduce((sum, row) => ({
+    sweeps: sum.sweeps + row.telemetry.radarSweeps,
+    contacts: sum.contacts + row.telemetry.radarContacts,
+    jammed: sum.jammed + row.telemetry.radarJammed,
+    reacquired: sum.reacquired + row.telemetry.radarReacquired,
+  }), { sweeps: 0, contacts: 0, jammed: 0, reacquired: 0 });
   const lines = [
     '# Vehicle Theater Foundation Report',
     '',
@@ -69,6 +75,8 @@ function markdown(report: FoundationMatrixReport, verdict: FoundationMatrixVerdi
     `| Fixed-wing first contact | ${verdict.fixedWingFirstContact.min}-${verdict.fixedWingFirstContact.max}s | 8-45s |`,
     `| Ground/naval first contact | ${verdict.groundNavalFirstContact.min}-${verdict.groundNavalFirstContact.max}s | 20-120s |`,
     `| Maximum mirrored side win rate | ${(verdict.maxMirroredWinRate * 100).toFixed(1)}% | <=70% |`,
+    `| Radar sweeps / contacts | ${radar.sweeps} / ${radar.contacts} | >0 / >0 |`,
+    `| Jammed / reacquired tracks | ${radar.jammed} / ${radar.reacquired} | measured |`,
     '',
     'The matrix advances the real simulation at 20 Hz. It uses authored theater routes, bot vehicle control, weapon collisions, and the production telemetry recorder; it is not a mocked combat model.',
     '',
@@ -79,6 +87,13 @@ function markdown(report: FoundationMatrixReport, verdict: FoundationMatrixVerdi
 
 function rotorcraftMarkdown(report: RotorcraftMatrixReport, insertionFailures: string[], supportFailures: string[]): string {
   const contacts = report.support.flatMap((row) => row.firstContact === null ? [] : [row.firstContact]);
+  const radar = [...report.insertions, ...report.support].reduce((sum, row) => {
+    return {
+      sweeps: sum.sweeps + row.radarSweeps,
+      contacts: sum.contacts + row.radarContacts,
+      jammed: sum.jammed + row.radarJammed,
+    };
+  }, { sweeps: 0, contacts: 0, jammed: 0 });
   const errors = [...insertionFailures, ...supportFailures];
   const lines = [
     '# Military Rotorcraft Report',
@@ -94,6 +109,7 @@ function rotorcraftMarkdown(report: RotorcraftMatrixReport, insertionFailures: s
     `| Insertion failures | ${insertionFailures.length} | 0 |`,
     `| Support failures | ${supportFailures.length} | 0 |`,
     `| Shrike first contact | ${Math.min(...contacts)}-${Math.max(...contacts)}s | every run |`,
+    `| Radar sweeps / contacts / jammed | ${radar.sweeps} / ${radar.contacts} / ${radar.jammed} | measured |`,
     '',
     'Condors fly authored theater approaches, descend through the shared elevation bands, and land inside compatible LZs. Shrikes use the production vehicle AI and weapons against live armored targets; damage and explosive hits come from the shared telemetry recorder.',
     '',
@@ -120,6 +136,8 @@ function submarineMarkdown(report: SubmarineMatrixReport, errors: string[]): str
     `| First contact | ${Math.min(...contacts)}-${Math.max(...contacts)}s | every run |`,
     `| Torpedoes / hits | ${totalShots} / ${totalHits} | >0 / >0 |`,
     `| Wrong-depth incidents | ${report.scenarios.reduce((sum, row) => sum + row.wrongDepth, 0)} | 0 |`,
+    `| Sonar sweeps / contacts | ${report.scenarios.reduce((sum, row) => sum + row.radarSweeps, 0)} / ${report.scenarios.reduce((sum, row) => sum + row.radarContacts, 0)} | >0 / >0 |`,
+    `| Jammed sonar returns | ${report.scenarios.reduce((sum, row) => sum + row.radarJammed, 0)} | 0 |`,
     '',
     'Barracudas dive, follow authored deep routes, acquire through sonar, and exchange torpedoes in the production simulation. Ordinary surface ordnance remains unable to damage submerged hulls.',
     '',

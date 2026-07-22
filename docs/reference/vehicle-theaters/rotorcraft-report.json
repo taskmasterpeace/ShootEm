@@ -23,7 +23,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 424.38,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:desert:7",
@@ -34,7 +37,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 433.83,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:countryside:7",
@@ -45,7 +51,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 417.03,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:mountain:7",
@@ -56,7 +65,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 82.08,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:coastal:7",
@@ -67,7 +79,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 471.63,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:city:31",
@@ -78,7 +93,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 424.38,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:desert:31",
@@ -89,7 +107,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 433.83,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:countryside:31",
@@ -100,7 +121,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 417.03,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:mountain:31",
@@ -111,7 +135,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 82.08,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:coastal:31",
@@ -122,7 +149,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 471.63,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:city:42",
@@ -133,7 +163,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 424.38,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:desert:42",
@@ -144,7 +177,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 433.83,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:countryside:42",
@@ -155,7 +191,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 417.03,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:mountain:42",
@@ -166,7 +205,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 82.08,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:coastal:42",
@@ -177,7 +219,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 471.63,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 9,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:city:99",
@@ -188,7 +233,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 424.38,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:desert:99",
@@ -199,7 +247,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 433.83,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:countryside:99",
@@ -210,7 +261,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 417.03,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:mountain:99",
@@ -221,7 +275,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 82.08,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:coastal:99",
@@ -232,7 +289,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 471.63,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 7,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:city:4207",
@@ -243,7 +303,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 424.38,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:desert:4207",
@@ -254,7 +317,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 433.83,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:countryside:4207",
@@ -265,7 +331,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 417.03,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:mountain:4207",
@@ -276,7 +345,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 82.08,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:coastal:4207",
@@ -287,7 +359,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 471.63,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:city:5150",
@@ -298,7 +373,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 424.38,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:desert:5150",
@@ -309,7 +387,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 433.83,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:countryside:5150",
@@ -320,7 +401,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 417.03,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:mountain:5150",
@@ -331,7 +415,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 82.08,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:coastal:5150",
@@ -342,7 +429,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 471.63,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:city:7749",
@@ -353,7 +443,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 424.38,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:desert:7749",
@@ -364,7 +457,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 433.83,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:countryside:7749",
@@ -375,7 +471,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 417.03,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:mountain:7749",
@@ -386,7 +485,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 82.08,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:coastal:7749",
@@ -397,7 +499,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 471.63,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:city:1337",
@@ -408,7 +513,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 424.38,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:desert:1337",
@@ -419,7 +527,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 433.83,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 106,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:countryside:1337",
@@ -430,7 +541,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 421.225,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 109,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:mountain:1337",
@@ -441,7 +555,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 82.08,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:coastal:1337",
@@ -452,7 +569,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 471.63,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:city:90210",
@@ -463,7 +583,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 424.38,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:desert:90210",
@@ -474,7 +597,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 433.83,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:countryside:90210",
@@ -485,7 +611,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 417.03,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:mountain:90210",
@@ -496,7 +625,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 82.08,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:coastal:90210",
@@ -507,7 +639,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 471.63,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 4,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:city:606",
@@ -518,7 +653,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 424.38,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:desert:606",
@@ -529,7 +667,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 433.83,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:countryside:606",
@@ -540,7 +681,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 417.03,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:mountain:606",
@@ -551,7 +695,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 82.08,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 0,
+        "radarJammed": 0
       },
       {
         "id": "rotor-insertion:coastal:606",
@@ -562,7 +709,10 @@
         "persistentStalls": 0,
         "crashes": 0,
         "distance": 471.63,
-        "objectiveProgress": 1
+        "objectiveProgress": 1,
+        "radarSweeps": 120,
+        "radarContacts": 12,
+        "radarJammed": 0
       }
     ],
     "support": [
@@ -574,7 +724,10 @@
         "shots": 38,
         "hits": 30,
         "targetHp": 0,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 13,
+        "radarJammed": 8
       },
       {
         "id": "rotor-support:desert:7",
@@ -584,7 +737,10 @@
         "shots": 10,
         "hits": 10,
         "targetHp": 433.254,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 3,
+        "radarJammed": 3
       },
       {
         "id": "rotor-support:countryside:7",
@@ -594,7 +750,10 @@
         "shots": 28,
         "hits": 27,
         "targetHp": 126.959,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 6,
+        "radarJammed": 6
       },
       {
         "id": "rotor-support:mountain:7",
@@ -604,7 +763,10 @@
         "shots": 35,
         "hits": 35,
         "targetHp": 0,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 12,
+        "radarJammed": 10
       },
       {
         "id": "rotor-support:coastal:7",
@@ -614,7 +776,10 @@
         "shots": 30,
         "hits": 30,
         "targetHp": 30.11,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 7,
+        "radarJammed": 7
       },
       {
         "id": "rotor-support:city:31",
@@ -624,7 +789,10 @@
         "shots": 56,
         "hits": 30,
         "targetHp": 0,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 20,
+        "radarJammed": 13
       },
       {
         "id": "rotor-support:desert:31",
@@ -634,7 +802,10 @@
         "shots": 10,
         "hits": 10,
         "targetHp": 427.619,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 3,
+        "radarJammed": 3
       },
       {
         "id": "rotor-support:countryside:31",
@@ -644,7 +815,10 @@
         "shots": 28,
         "hits": 27,
         "targetHp": 132.415,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 6,
+        "radarJammed": 6
       },
       {
         "id": "rotor-support:mountain:31",
@@ -654,7 +828,10 @@
         "shots": 36,
         "hits": 33,
         "targetHp": 0,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 9,
+        "radarJammed": 5
       },
       {
         "id": "rotor-support:coastal:31",
@@ -664,7 +841,10 @@
         "shots": 30,
         "hits": 30,
         "targetHp": 50.986,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 8,
+        "radarJammed": 5
       },
       {
         "id": "rotor-support:city:42",
@@ -674,7 +854,10 @@
         "shots": 32,
         "hits": 30,
         "targetHp": 0,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 19,
+        "radarJammed": 18
       },
       {
         "id": "rotor-support:desert:42",
@@ -684,7 +867,10 @@
         "shots": 10,
         "hits": 10,
         "targetHp": 435.8,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 3,
+        "radarJammed": 3
       },
       {
         "id": "rotor-support:countryside:42",
@@ -694,7 +880,10 @@
         "shots": 28,
         "hits": 27,
         "targetHp": 124.908,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 6,
+        "radarJammed": 6
       },
       {
         "id": "rotor-support:mountain:42",
@@ -704,7 +893,10 @@
         "shots": 32,
         "hits": 31,
         "targetHp": 0,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 10,
+        "radarJammed": 10
       },
       {
         "id": "rotor-support:coastal:42",
@@ -714,7 +906,10 @@
         "shots": 30,
         "hits": 30,
         "targetHp": 30.309,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 7,
+        "radarJammed": 7
       },
       {
         "id": "rotor-support:city:99",
@@ -724,7 +919,10 @@
         "shots": 32,
         "hits": 29,
         "targetHp": 0,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 18,
+        "radarJammed": 17
       },
       {
         "id": "rotor-support:desert:99",
@@ -734,7 +932,10 @@
         "shots": 10,
         "hits": 10,
         "targetHp": 439.625,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 3,
+        "radarJammed": 3
       },
       {
         "id": "rotor-support:countryside:99",
@@ -744,7 +945,10 @@
         "shots": 28,
         "hits": 27,
         "targetHp": 154.098,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 7,
+        "radarJammed": 6
       },
       {
         "id": "rotor-support:mountain:99",
@@ -754,7 +958,10 @@
         "shots": 36,
         "hits": 33,
         "targetHp": 0,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 9,
+        "radarJammed": 7
       },
       {
         "id": "rotor-support:coastal:99",
@@ -764,7 +971,10 @@
         "shots": 30,
         "hits": 30,
         "targetHp": 100.306,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 7,
+        "radarJammed": 7
       },
       {
         "id": "rotor-support:city:4207",
@@ -774,7 +984,10 @@
         "shots": 37,
         "hits": 33,
         "targetHp": 0,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 20,
+        "radarJammed": 17
       },
       {
         "id": "rotor-support:desert:4207",
@@ -784,7 +997,10 @@
         "shots": 10,
         "hits": 10,
         "targetHp": 443.936,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 3,
+        "radarJammed": 3
       },
       {
         "id": "rotor-support:countryside:4207",
@@ -794,7 +1010,10 @@
         "shots": 28,
         "hits": 27,
         "targetHp": 129.602,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 6,
+        "radarJammed": 6
       },
       {
         "id": "rotor-support:mountain:4207",
@@ -804,7 +1023,10 @@
         "shots": 37,
         "hits": 36,
         "targetHp": 0,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 12,
+        "radarJammed": 10
       },
       {
         "id": "rotor-support:coastal:4207",
@@ -814,7 +1036,10 @@
         "shots": 30,
         "hits": 30,
         "targetHp": 35.725,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 7,
+        "radarJammed": 7
       },
       {
         "id": "rotor-support:city:5150",
@@ -824,7 +1049,10 @@
         "shots": 40,
         "hits": 31,
         "targetHp": 0,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 16,
+        "radarJammed": 7
       },
       {
         "id": "rotor-support:desert:5150",
@@ -834,7 +1062,10 @@
         "shots": 10,
         "hits": 10,
         "targetHp": 438.315,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 3,
+        "radarJammed": 3
       },
       {
         "id": "rotor-support:countryside:5150",
@@ -844,7 +1075,10 @@
         "shots": 28,
         "hits": 26,
         "targetHp": 147.57,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 7,
+        "radarJammed": 5
       },
       {
         "id": "rotor-support:mountain:5150",
@@ -854,7 +1088,10 @@
         "shots": 35,
         "hits": 35,
         "targetHp": 0,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 12,
+        "radarJammed": 5
       },
       {
         "id": "rotor-support:coastal:5150",
@@ -864,7 +1101,10 @@
         "shots": 30,
         "hits": 30,
         "targetHp": 65.508,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 8,
+        "radarJammed": 6
       },
       {
         "id": "rotor-support:city:7749",
@@ -874,7 +1114,10 @@
         "shots": 43,
         "hits": 29,
         "targetHp": 0,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 18,
+        "radarJammed": 13
       },
       {
         "id": "rotor-support:desert:7749",
@@ -884,7 +1127,10 @@
         "shots": 10,
         "hits": 10,
         "targetHp": 437.784,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 3,
+        "radarJammed": 3
       },
       {
         "id": "rotor-support:countryside:7749",
@@ -894,7 +1140,10 @@
         "shots": 18,
         "hits": 18,
         "targetHp": 311.54,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 4,
+        "radarJammed": 4
       },
       {
         "id": "rotor-support:mountain:7749",
@@ -904,7 +1153,10 @@
         "shots": 38,
         "hits": 37,
         "targetHp": 0,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 12,
+        "radarJammed": 10
       },
       {
         "id": "rotor-support:coastal:7749",
@@ -914,7 +1166,10 @@
         "shots": 30,
         "hits": 30,
         "targetHp": 49.741,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 7,
+        "radarJammed": 7
       },
       {
         "id": "rotor-support:city:1337",
@@ -924,7 +1179,10 @@
         "shots": 32,
         "hits": 30,
         "targetHp": 0,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 19,
+        "radarJammed": 17
       },
       {
         "id": "rotor-support:desert:1337",
@@ -934,7 +1192,10 @@
         "shots": 10,
         "hits": 10,
         "targetHp": 437.988,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 3,
+        "radarJammed": 3
       },
       {
         "id": "rotor-support:countryside:1337",
@@ -944,7 +1205,10 @@
         "shots": 18,
         "hits": 18,
         "targetHp": 309.913,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 4,
+        "radarJammed": 4
       },
       {
         "id": "rotor-support:mountain:1337",
@@ -954,7 +1218,10 @@
         "shots": 35,
         "hits": 35,
         "targetHp": 0,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 12,
+        "radarJammed": 10
       },
       {
         "id": "rotor-support:coastal:1337",
@@ -964,7 +1231,10 @@
         "shots": 30,
         "hits": 30,
         "targetHp": 23.393,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 8,
+        "radarJammed": 6
       },
       {
         "id": "rotor-support:city:90210",
@@ -974,7 +1244,10 @@
         "shots": 38,
         "hits": 29,
         "targetHp": 0,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 14,
+        "radarJammed": 12
       },
       {
         "id": "rotor-support:desert:90210",
@@ -984,7 +1257,10 @@
         "shots": 10,
         "hits": 10,
         "targetHp": 432.407,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 3,
+        "radarJammed": 3
       },
       {
         "id": "rotor-support:countryside:90210",
@@ -994,7 +1270,10 @@
         "shots": 28,
         "hits": 24,
         "targetHp": 207.563,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 6,
+        "radarJammed": 6
       },
       {
         "id": "rotor-support:mountain:90210",
@@ -1004,7 +1283,10 @@
         "shots": 32,
         "hits": 31,
         "targetHp": 0,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 11,
+        "radarJammed": 9
       },
       {
         "id": "rotor-support:coastal:90210",
@@ -1014,7 +1296,10 @@
         "shots": 30,
         "hits": 30,
         "targetHp": 0,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 8,
+        "radarJammed": 5
       },
       {
         "id": "rotor-support:city:606",
@@ -1024,7 +1309,10 @@
         "shots": 57,
         "hits": 31,
         "targetHp": 0,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 12,
+        "radarJammed": 11
       },
       {
         "id": "rotor-support:desert:606",
@@ -1034,7 +1322,10 @@
         "shots": 10,
         "hits": 10,
         "targetHp": 436.041,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 3,
+        "radarJammed": 3
       },
       {
         "id": "rotor-support:countryside:606",
@@ -1044,7 +1335,10 @@
         "shots": 18,
         "hits": 18,
         "targetHp": 293.364,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 4,
+        "radarJammed": 4
       },
       {
         "id": "rotor-support:mountain:606",
@@ -1054,7 +1348,10 @@
         "shots": 37,
         "hits": 36,
         "targetHp": 0,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 11,
+        "radarJammed": 8
       },
       {
         "id": "rotor-support:coastal:606",
@@ -1064,7 +1361,10 @@
         "shots": 30,
         "hits": 30,
         "targetHp": 44.354,
-        "targetMaxHp": 650
+        "targetMaxHp": 650,
+        "radarSweeps": 80,
+        "radarContacts": 8,
+        "radarJammed": 5
       }
     ]
   },

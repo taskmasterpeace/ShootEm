@@ -47,6 +47,10 @@ export interface VehicleAggregate {
   elevationSeconds: Record<ElevationLevel, number>;
   routeCompletions: number;
   objectiveProgress: number;
+  radarSweeps: number;
+  radarContacts: number;
+  radarJammed: number;
+  radarReacquired: number;
   firstContact?: number;
 }
 
@@ -67,7 +71,9 @@ export interface VehicleTelemetrySnapshot {
 }
 
 export type VehicleTelemetryEvent = {
-  kind: 'shot' | 'hit' | 'loss' | 'objective' | 'landing' | VehicleIncidentKind;
+  kind: 'shot' | 'hit' | 'loss' | 'objective' | 'landing'
+    | 'radar_sweep' | 'radar_contact' | 'radar_jammed' | 'radar_reacquired'
+    | VehicleIncidentKind;
   t: number;
   vehicleId: number;
   vehicleKind: VehicleKind;
@@ -82,6 +88,7 @@ const emptyAggregate = (): VehicleAggregate => ({
   distanceByKind: {}, lossesByKind: {}, shotsByKind: {}, hitsByKind: {},
   elevationSeconds: { 0: 0, 1: 0, 2: 0, 3: 0 },
   routeCompletions: 0, objectiveProgress: 0,
+  radarSweeps: 0, radarContacts: 0, radarJammed: 0, radarReacquired: 0,
 });
 
 export function createVehicleTelemetry(): VehicleTelemetry {
@@ -118,6 +125,10 @@ export function recordVehicleEvent(telemetry: VehicleTelemetry, event: VehicleTe
   else if (event.kind === 'hit') increment(telemetry.summary.hitsByKind, event.vehicleKind);
   else if (event.kind === 'loss') increment(telemetry.summary.lossesByKind, event.vehicleKind);
   else if (event.kind === 'objective') telemetry.summary.objectiveProgress++;
+  else if (event.kind === 'radar_sweep') telemetry.summary.radarSweeps++;
+  else if (event.kind === 'radar_contact') telemetry.summary.radarContacts++;
+  else if (event.kind === 'radar_jammed') telemetry.summary.radarJammed++;
+  else if (event.kind === 'radar_reacquired') telemetry.summary.radarReacquired++;
   else if (event.kind === 'route_complete') {
     telemetry.summary.routeCompletions++;
     fileIncident(telemetry, event, true);
@@ -203,6 +214,10 @@ export function vehicleTelemetrySnapshot(telemetry: VehicleTelemetry): VehicleTe
       elevationSeconds: { ...telemetry.summary.elevationSeconds },
       routeCompletions: telemetry.summary.routeCompletions,
       objectiveProgress: telemetry.summary.objectiveProgress,
+      radarSweeps: telemetry.summary.radarSweeps,
+      radarContacts: telemetry.summary.radarContacts,
+      radarJammed: telemetry.summary.radarJammed,
+      radarReacquired: telemetry.summary.radarReacquired,
       ...(telemetry.summary.firstContact === undefined ? {} : { firstContact: telemetry.summary.firstContact }),
     },
   };
@@ -214,5 +229,6 @@ export function vehicleTelemetryReport(telemetry: VehicleTelemetry | VehicleTele
   return [
     `VEHICLES — samples ${telemetry.samples.length} · incidents ${telemetry.incidents.length} · first contact ${summary.firstContact ?? 'none'}s`,
     `  ${losses} · routes ${summary.routeCompletions} · elevation ${Object.entries(summary.elevationSeconds).map(([level, seconds]) => `${level}:${seconds}s`).join(' ')}`,
+    `  radar ${summary.radarSweeps} sweep / ${summary.radarContacts} contact / ${summary.radarJammed} jam / ${summary.radarReacquired} reacquired`,
   ].join('\n');
 }

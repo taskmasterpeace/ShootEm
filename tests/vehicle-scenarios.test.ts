@@ -21,6 +21,9 @@ describe('deterministic vehicle theater probes', () => {
   it('passes the foundation scenario matrix', () => {
     const report = runFoundationMatrix({ seeds: [7, 31, 42, 99, 4207, 5150, 7749, 1337, 90210, 606] });
     const verdict = evaluateFoundationMatrix(report);
+    expect(report.scenarios.reduce((sum, row) => sum + row.telemetry.radarSweeps, 0)).toBeGreaterThan(0);
+    expect(report.scenarios.reduce((sum, row) => sum + row.telemetry.radarContacts, 0)).toBeGreaterThan(0);
+    expect(report.scenarios.reduce((sum, row) => sum + row.telemetry.radarJammed, 0)).toBeGreaterThan(0);
     expect(verdict.structuralFailures).toEqual([]);
     expect(verdict.routeFailures).toEqual([]);
     expect(verdict.contactFailures).toEqual([]);

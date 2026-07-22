@@ -435,6 +435,23 @@ function enemyVehicleNear(w: World, s: Soldier, maxRange: number) {
   return best;
 }
 
+/** Electronic intel is a destination, never a hidden target reference. The
+ * copy is deliberate: a bot can pursue this frozen point while the real
+ * contact moves elsewhere between scheduled sweeps. */
+export function radarSearchPoint(w: World, s: Soldier): Vec3 | null {
+  let best: Vec3 | null = null;
+  let bestDistance = Infinity;
+  for (const track of w.radarTracksFor(s.team).values()) {
+    if (track.expiresAt <= w.time) continue;
+    const distance = Math.hypot(track.pos.x - s.pos.x, track.pos.z - s.pos.z);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = { ...track.pos };
+    }
+  }
+  return best;
+}
+
 function vehicleCrewReacted(w: World, s: Soldier, targetKey: number): boolean {
   if (s.botAcqId !== targetKey) {
     s.botAcqId = targetKey;
@@ -1300,7 +1317,8 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
   // full weapon reach (the AI leans on its instruments too).
   const sightRange = Math.max(TUNE.weatherFloor, acqRange * visionMult(w.weather));
   const target = findTarget(w, s, sightRange, acqRange);
-  const goal = cachedObjective(w, s);
+  const radarGoal = target ? null : radarSearchPoint(w, s);
+  const goal = radarGoal && w.mode.id === 'tdm' ? radarGoal : cachedObjective(w, s);
   const dGoal = Math.hypot(goal.x - s.pos.x, goal.z - s.pos.z);
 
   // --- consider grabbing an ARMED vehicle for long trips (not in survival) ---

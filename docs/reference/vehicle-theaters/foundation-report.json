@@ -49,6 +49,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 141.4
         },
         "structuralViolations": [],
@@ -90,7 +94,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -132,7 +140,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -179,6 +191,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 152.2
         },
         "structuralViolations": [],
@@ -222,7 +238,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -262,7 +282,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 103,
+          "radarContacts": 12,
+          "radarJammed": 12,
+          "radarReacquired": 1
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -310,6 +334,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 4,
+          "radarJammed": 4,
+          "radarReacquired": 0,
           "firstContact": 27
         },
         "structuralViolations": [],
@@ -356,6 +384,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 8,
+          "radarJammed": 8,
+          "radarReacquired": 2,
           "firstContact": 15.4
         },
         "structuralViolations": [],
@@ -404,6 +436,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 10,
+          "radarJammed": 10,
+          "radarReacquired": 4,
           "firstContact": 11.5
         },
         "structuralViolations": [],
@@ -450,6 +486,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 8,
+          "radarJammed": 8,
+          "radarReacquired": 2,
           "firstContact": 13.2
         },
         "structuralViolations": [],
@@ -496,6 +536,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 4,
+          "radarJammed": 4,
+          "radarReacquired": 0,
           "firstContact": 29.2
         },
         "structuralViolations": [],
@@ -544,6 +588,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 24.5
         },
         "structuralViolations": [],
@@ -592,6 +640,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 24.5
         },
         "structuralViolations": [],
@@ -638,6 +690,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 39.4
         },
         "structuralViolations": [],
@@ -684,6 +740,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 39.4
         },
         "structuralViolations": [],
@@ -730,6 +790,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 44
         },
         "structuralViolations": [],
@@ -776,6 +840,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 44
         },
         "structuralViolations": [],
@@ -824,6 +892,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 26.5
         },
         "structuralViolations": [],
@@ -872,6 +944,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 26.5
         },
         "structuralViolations": [],
@@ -901,7 +977,7 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "boat": 3944.226
+            "boat": 4041.089
           },
           "lossesByKind": {
             "boat": 1
@@ -920,6 +996,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 104,
+          "radarContacts": 7,
+          "radarJammed": 7,
+          "radarReacquired": 3,
           "firstContact": 20
         },
         "structuralViolations": [],
@@ -949,13 +1029,13 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "boat": 4059.23
+            "boat": 3981.922
           },
           "lossesByKind": {
             "boat": 1
           },
           "shotsByKind": {
-            "boat": 52
+            "boat": 53
           },
           "hitsByKind": {
             "boat": 35
@@ -968,6 +1048,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 105,
+          "radarContacts": 6,
+          "radarJammed": 6,
+          "radarReacquired": 2,
           "firstContact": 20.2
         },
         "structuralViolations": [],
@@ -1009,7 +1093,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -1050,7 +1138,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -1092,7 +1184,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -1137,6 +1233,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 156
         },
         "structuralViolations": [],
@@ -1180,7 +1280,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -1220,7 +1324,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 103,
+          "radarContacts": 10,
+          "radarJammed": 10,
+          "radarReacquired": 1
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -1268,6 +1376,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 4,
+          "radarJammed": 4,
+          "radarReacquired": 0,
           "firstContact": 27
         },
         "structuralViolations": [],
@@ -1315,6 +1427,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 50,
+          "radarContacts": 11,
+          "radarJammed": 3,
+          "radarReacquired": 1,
           "firstContact": 21.4
         },
         "structuralViolations": [],
@@ -1363,6 +1479,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 86,
+          "radarContacts": 9,
+          "radarJammed": 9,
+          "radarReacquired": 4,
           "firstContact": 11.5
         },
         "structuralViolations": [],
@@ -1409,6 +1529,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 8,
+          "radarJammed": 8,
+          "radarReacquired": 2,
           "firstContact": 13.2
         },
         "structuralViolations": [],
@@ -1455,6 +1579,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 4,
+          "radarJammed": 4,
+          "radarReacquired": 0,
           "firstContact": 29.2
         },
         "structuralViolations": [],
@@ -1503,6 +1631,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 24.5
         },
         "structuralViolations": [],
@@ -1551,6 +1683,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 24.5
         },
         "structuralViolations": [],
@@ -1597,6 +1733,10 @@
           },
           "routeCompletions": 0,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 39.4
         },
         "structuralViolations": [],
@@ -1643,6 +1783,10 @@
           },
           "routeCompletions": 0,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 39.4
         },
         "structuralViolations": [],
@@ -1689,6 +1833,10 @@
           },
           "routeCompletions": 0,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 44
         },
         "structuralViolations": [],
@@ -1735,6 +1883,10 @@
           },
           "routeCompletions": 0,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 44
         },
         "structuralViolations": [],
@@ -1781,6 +1933,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 26.5
         },
         "structuralViolations": [],
@@ -1827,6 +1983,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 26.5
         },
         "structuralViolations": [],
@@ -1856,7 +2016,7 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "boat": 3943.564
+            "boat": 3939.024
           },
           "lossesByKind": {
             "boat": 1
@@ -1875,6 +2035,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 104,
+          "radarContacts": 6,
+          "radarJammed": 6,
+          "radarReacquired": 2,
           "firstContact": 20
         },
         "structuralViolations": [],
@@ -1904,13 +2068,13 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "boat": 4058.845
+            "boat": 3983.896
           },
           "lossesByKind": {
             "boat": 1
           },
           "shotsByKind": {
-            "boat": 64
+            "boat": 62
           },
           "hitsByKind": {
             "boat": 33
@@ -1923,6 +2087,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 105,
+          "radarContacts": 6,
+          "radarJammed": 6,
+          "radarReacquired": 2,
           "firstContact": 20.2
         },
         "structuralViolations": [],
@@ -1967,6 +2135,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 144.5
         },
         "structuralViolations": [],
@@ -2008,7 +2180,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -2050,7 +2226,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -2095,6 +2275,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 150.8
         },
         "structuralViolations": [],
@@ -2138,7 +2322,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -2178,7 +2366,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 103,
+          "radarContacts": 11,
+          "radarJammed": 11,
+          "radarReacquired": 1
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -2226,6 +2418,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 4,
+          "radarJammed": 4,
+          "radarReacquired": 0,
           "firstContact": 27
         },
         "structuralViolations": [],
@@ -2272,6 +2468,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 8,
+          "radarJammed": 8,
+          "radarReacquired": 2,
           "firstContact": 15.4
         },
         "structuralViolations": [],
@@ -2320,6 +2520,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 10,
+          "radarJammed": 10,
+          "radarReacquired": 4,
           "firstContact": 11.5
         },
         "structuralViolations": [],
@@ -2366,6 +2570,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 8,
+          "radarJammed": 8,
+          "radarReacquired": 2,
           "firstContact": 13.2
         },
         "structuralViolations": [],
@@ -2412,6 +2620,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 4,
+          "radarJammed": 4,
+          "radarReacquired": 0,
           "firstContact": 29.2
         },
         "structuralViolations": [],
@@ -2460,6 +2672,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 24.5
         },
         "structuralViolations": [],
@@ -2508,6 +2724,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 24.5
         },
         "structuralViolations": [],
@@ -2554,6 +2774,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 39.4
         },
         "structuralViolations": [],
@@ -2600,6 +2824,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 39.4
         },
         "structuralViolations": [],
@@ -2646,6 +2874,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 44
         },
         "structuralViolations": [],
@@ -2692,6 +2924,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 44
         },
         "structuralViolations": [],
@@ -2740,6 +2976,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 26.5
         },
         "structuralViolations": [],
@@ -2788,6 +3028,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 26.5
         },
         "structuralViolations": [],
@@ -2817,7 +3061,7 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "boat": 3955.648
+            "boat": 4041.089
           },
           "lossesByKind": {
             "boat": 1
@@ -2836,6 +3080,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 104,
+          "radarContacts": 7,
+          "radarJammed": 7,
+          "radarReacquired": 3,
           "firstContact": 20
         },
         "structuralViolations": [],
@@ -2884,6 +3132,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 104,
+          "radarContacts": 5,
+          "radarJammed": 5,
+          "radarReacquired": 1,
           "firstContact": 20.2
         },
         "structuralViolations": [],
@@ -2928,6 +3180,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 149.8
         },
         "structuralViolations": [],
@@ -2969,7 +3225,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -3011,7 +3271,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -3056,6 +3320,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 157.5
         },
         "structuralViolations": [],
@@ -3099,7 +3367,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -3139,7 +3411,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 103,
+          "radarContacts": 11,
+          "radarJammed": 11,
+          "radarReacquired": 1
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -3187,6 +3463,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 4,
+          "radarJammed": 4,
+          "radarReacquired": 0,
           "firstContact": 27
         },
         "structuralViolations": [],
@@ -3233,6 +3513,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 8,
+          "radarJammed": 8,
+          "radarReacquired": 2,
           "firstContact": 15.4
         },
         "structuralViolations": [],
@@ -3281,6 +3565,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 10,
+          "radarJammed": 10,
+          "radarReacquired": 4,
           "firstContact": 11.5
         },
         "structuralViolations": [],
@@ -3327,6 +3615,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 8,
+          "radarJammed": 8,
+          "radarReacquired": 2,
           "firstContact": 13.2
         },
         "structuralViolations": [],
@@ -3373,6 +3665,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 4,
+          "radarJammed": 4,
+          "radarReacquired": 0,
           "firstContact": 29.2
         },
         "structuralViolations": [],
@@ -3421,6 +3717,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 24.5
         },
         "structuralViolations": [],
@@ -3469,6 +3769,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 24.5
         },
         "structuralViolations": [],
@@ -3515,6 +3819,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 39.4
         },
         "structuralViolations": [],
@@ -3561,6 +3869,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 39.4
         },
         "structuralViolations": [],
@@ -3607,6 +3919,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 44
         },
         "structuralViolations": [],
@@ -3653,6 +3969,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 44
         },
         "structuralViolations": [],
@@ -3701,6 +4021,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 26.5
         },
         "structuralViolations": [],
@@ -3749,6 +4073,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 26.5
         },
         "structuralViolations": [],
@@ -3778,13 +4106,13 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "boat": 4041.086
+            "boat": 3979.837
           },
           "lossesByKind": {
             "boat": 1
           },
           "shotsByKind": {
-            "boat": 65
+            "boat": 42
           },
           "hitsByKind": {
             "boat": 31
@@ -3797,6 +4125,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 104,
+          "radarContacts": 6,
+          "radarJammed": 6,
+          "radarReacquired": 2,
           "firstContact": 20
         },
         "structuralViolations": [],
@@ -3845,6 +4177,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 104,
+          "radarContacts": 4,
+          "radarJammed": 4,
+          "radarReacquired": 0,
           "firstContact": 20.2
         },
         "structuralViolations": [],
@@ -3889,6 +4225,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 150.2
         },
         "structuralViolations": [],
@@ -3930,7 +4270,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -3972,7 +4316,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -4017,6 +4365,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 156.4
         },
         "structuralViolations": [],
@@ -4060,7 +4412,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -4100,7 +4456,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 103,
+          "radarContacts": 12,
+          "radarJammed": 12,
+          "radarReacquired": 1
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -4148,6 +4508,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 4,
+          "radarJammed": 4,
+          "radarReacquired": 0,
           "firstContact": 27
         },
         "structuralViolations": [],
@@ -4194,6 +4558,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 8,
+          "radarJammed": 8,
+          "radarReacquired": 2,
           "firstContact": 15.4
         },
         "structuralViolations": [],
@@ -4242,6 +4610,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 10,
+          "radarJammed": 10,
+          "radarReacquired": 4,
           "firstContact": 11.5
         },
         "structuralViolations": [],
@@ -4288,6 +4660,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 8,
+          "radarJammed": 8,
+          "radarReacquired": 2,
           "firstContact": 13.2
         },
         "structuralViolations": [],
@@ -4334,6 +4710,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 4,
+          "radarJammed": 4,
+          "radarReacquired": 0,
           "firstContact": 29.2
         },
         "structuralViolations": [],
@@ -4380,6 +4760,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 24.5
         },
         "structuralViolations": [],
@@ -4426,6 +4810,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 24.5
         },
         "structuralViolations": [],
@@ -4472,6 +4860,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 39.4
         },
         "structuralViolations": [],
@@ -4518,6 +4910,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 39.4
         },
         "structuralViolations": [],
@@ -4564,6 +4960,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 44
         },
         "structuralViolations": [],
@@ -4610,6 +5010,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 44
         },
         "structuralViolations": [],
@@ -4658,6 +5062,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 26.5
         },
         "structuralViolations": [],
@@ -4706,6 +5114,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 26.5
         },
         "structuralViolations": [],
@@ -4735,13 +5147,13 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "boat": 3974.403
+            "boat": 4041.086
           },
           "lossesByKind": {
             "boat": 1
           },
           "shotsByKind": {
-            "boat": 65
+            "boat": 42
           },
           "hitsByKind": {
             "boat": 30
@@ -4754,6 +5166,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 104,
+          "radarContacts": 7,
+          "radarJammed": 7,
+          "radarReacquired": 3,
           "firstContact": 20
         },
         "structuralViolations": [],
@@ -4783,13 +5199,13 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "boat": 3995.351
+            "boat": 4058.845
           },
           "lossesByKind": {
             "boat": 1
           },
           "shotsByKind": {
-            "boat": 65
+            "boat": 62
           },
           "hitsByKind": {
             "boat": 31
@@ -4802,6 +5218,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 105,
+          "radarContacts": 7,
+          "radarJammed": 7,
+          "radarReacquired": 3,
           "firstContact": 20.2
         },
         "structuralViolations": [],
@@ -4846,6 +5266,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 14,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 141.7
         },
         "structuralViolations": [],
@@ -4887,7 +5311,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -4929,7 +5357,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -4974,6 +5406,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 150.8
         },
         "structuralViolations": [],
@@ -5017,7 +5453,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -5057,7 +5497,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 103,
+          "radarContacts": 10,
+          "radarJammed": 10,
+          "radarReacquired": 1
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -5105,6 +5549,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 4,
+          "radarJammed": 4,
+          "radarReacquired": 0,
           "firstContact": 27
         },
         "structuralViolations": [],
@@ -5151,6 +5599,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 8,
+          "radarJammed": 8,
+          "radarReacquired": 2,
           "firstContact": 15.4
         },
         "structuralViolations": [],
@@ -5199,6 +5651,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 86,
+          "radarContacts": 9,
+          "radarJammed": 9,
+          "radarReacquired": 4,
           "firstContact": 11.5
         },
         "structuralViolations": [],
@@ -5245,6 +5701,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 8,
+          "radarJammed": 8,
+          "radarReacquired": 2,
           "firstContact": 13.2
         },
         "structuralViolations": [],
@@ -5291,6 +5751,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 4,
+          "radarJammed": 4,
+          "radarReacquired": 0,
           "firstContact": 29.2
         },
         "structuralViolations": [],
@@ -5339,6 +5803,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 24.5
         },
         "structuralViolations": [],
@@ -5387,6 +5855,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 24.5
         },
         "structuralViolations": [],
@@ -5433,6 +5905,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 39.4
         },
         "structuralViolations": [],
@@ -5479,6 +5955,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 39.4
         },
         "structuralViolations": [],
@@ -5525,6 +6005,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 44
         },
         "structuralViolations": [],
@@ -5571,6 +6055,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 44
         },
         "structuralViolations": [],
@@ -5619,6 +6107,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 26.5
         },
         "structuralViolations": [],
@@ -5667,6 +6159,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 26.5
         },
         "structuralViolations": [],
@@ -5715,6 +6211,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 104,
+          "radarContacts": 7,
+          "radarJammed": 7,
+          "radarReacquired": 3,
           "firstContact": 20
         },
         "structuralViolations": [],
@@ -5750,7 +6250,7 @@
             "boat": 1
           },
           "shotsByKind": {
-            "boat": 65
+            "boat": 62
           },
           "hitsByKind": {
             "boat": 35
@@ -5763,6 +6263,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 105,
+          "radarContacts": 7,
+          "radarJammed": 7,
+          "radarReacquired": 3,
           "firstContact": 20.2
         },
         "structuralViolations": [],
@@ -5807,6 +6311,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 143.6
         },
         "structuralViolations": [],
@@ -5848,7 +6356,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -5890,7 +6402,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -5935,6 +6451,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 153
         },
         "structuralViolations": [],
@@ -5978,7 +6498,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -6018,7 +6542,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 103,
+          "radarContacts": 10,
+          "radarJammed": 10,
+          "radarReacquired": 1
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -6066,6 +6594,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 4,
+          "radarJammed": 4,
+          "radarReacquired": 0,
           "firstContact": 27
         },
         "structuralViolations": [],
@@ -6112,6 +6644,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 8,
+          "radarJammed": 8,
+          "radarReacquired": 2,
           "firstContact": 15.4
         },
         "structuralViolations": [],
@@ -6160,6 +6696,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 10,
+          "radarJammed": 10,
+          "radarReacquired": 4,
           "firstContact": 11.5
         },
         "structuralViolations": [],
@@ -6206,6 +6746,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 8,
+          "radarJammed": 8,
+          "radarReacquired": 2,
           "firstContact": 13.2
         },
         "structuralViolations": [],
@@ -6252,6 +6796,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 4,
+          "radarJammed": 4,
+          "radarReacquired": 0,
           "firstContact": 29.2
         },
         "structuralViolations": [],
@@ -6298,6 +6846,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 24.5
         },
         "structuralViolations": [],
@@ -6344,6 +6896,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 24.5
         },
         "structuralViolations": [],
@@ -6390,6 +6946,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 39.4
         },
         "structuralViolations": [],
@@ -6436,6 +6996,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 39.4
         },
         "structuralViolations": [],
@@ -6482,6 +7046,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 44
         },
         "structuralViolations": [],
@@ -6528,6 +7096,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 44
         },
         "structuralViolations": [],
@@ -6576,6 +7148,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 26.5
         },
         "structuralViolations": [],
@@ -6624,6 +7200,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 26.5
         },
         "structuralViolations": [],
@@ -6659,7 +7239,7 @@
             "boat": 1
           },
           "shotsByKind": {
-            "boat": 66
+            "boat": 42
           },
           "hitsByKind": {
             "boat": 30
@@ -6672,6 +7252,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 104,
+          "radarContacts": 7,
+          "radarJammed": 7,
+          "radarReacquired": 3,
           "firstContact": 20
         },
         "structuralViolations": [],
@@ -6720,6 +7304,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 104,
+          "radarContacts": 6,
+          "radarJammed": 6,
+          "radarReacquired": 2,
           "firstContact": 20.2
         },
         "structuralViolations": [],
@@ -6764,6 +7352,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 143.4
         },
         "structuralViolations": [],
@@ -6805,7 +7397,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -6847,7 +7443,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -6894,6 +7494,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 150.5
         },
         "structuralViolations": [],
@@ -6937,7 +7541,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -6977,7 +7585,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 103,
+          "radarContacts": 12,
+          "radarJammed": 12,
+          "radarReacquired": 1
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -7025,6 +7637,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 4,
+          "radarJammed": 4,
+          "radarReacquired": 0,
           "firstContact": 27
         },
         "structuralViolations": [],
@@ -7071,6 +7687,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 8,
+          "radarJammed": 8,
+          "radarReacquired": 2,
           "firstContact": 15.4
         },
         "structuralViolations": [],
@@ -7119,6 +7739,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 10,
+          "radarJammed": 10,
+          "radarReacquired": 4,
           "firstContact": 11.5
         },
         "structuralViolations": [],
@@ -7165,6 +7789,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 8,
+          "radarJammed": 8,
+          "radarReacquired": 2,
           "firstContact": 13.2
         },
         "structuralViolations": [],
@@ -7211,6 +7839,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 4,
+          "radarJammed": 4,
+          "radarReacquired": 0,
           "firstContact": 29.2
         },
         "structuralViolations": [],
@@ -7259,6 +7891,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 24.5
         },
         "structuralViolations": [],
@@ -7307,6 +7943,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 24.5
         },
         "structuralViolations": [],
@@ -7353,6 +7993,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 39.4
         },
         "structuralViolations": [],
@@ -7399,6 +8043,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 39.4
         },
         "structuralViolations": [],
@@ -7445,6 +8093,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 44
         },
         "structuralViolations": [],
@@ -7491,6 +8143,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 44
         },
         "structuralViolations": [],
@@ -7539,6 +8195,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 26.5
         },
         "structuralViolations": [],
@@ -7587,6 +8247,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 26.5
         },
         "structuralViolations": [],
@@ -7616,7 +8280,7 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "boat": 3981.086
+            "boat": 4041.089
           },
           "lossesByKind": {
             "boat": 1
@@ -7635,6 +8299,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 104,
+          "radarContacts": 7,
+          "radarJammed": 7,
+          "radarReacquired": 3,
           "firstContact": 20
         },
         "structuralViolations": [],
@@ -7664,13 +8332,13 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "boat": 3985.38
+            "boat": 3978.278
           },
           "lossesByKind": {
             "boat": 1
           },
           "shotsByKind": {
-            "boat": 65
+            "boat": 63
           },
           "hitsByKind": {
             "boat": 33
@@ -7683,6 +8351,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 105,
+          "radarContacts": 6,
+          "radarJammed": 6,
+          "radarReacquired": 2,
           "firstContact": 20.2
         },
         "structuralViolations": [],
@@ -7727,6 +8399,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 150.2
         },
         "structuralViolations": [],
@@ -7768,7 +8444,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -7810,7 +8490,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -7855,6 +8539,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 150.9
         },
         "structuralViolations": [],
@@ -7898,7 +8586,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -7938,7 +8630,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 103,
+          "radarContacts": 11,
+          "radarJammed": 11,
+          "radarReacquired": 1
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -7986,6 +8682,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 4,
+          "radarJammed": 4,
+          "radarReacquired": 0,
           "firstContact": 27
         },
         "structuralViolations": [],
@@ -8032,6 +8732,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 8,
+          "radarJammed": 8,
+          "radarReacquired": 2,
           "firstContact": 15.4
         },
         "structuralViolations": [],
@@ -8080,6 +8784,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 10,
+          "radarJammed": 10,
+          "radarReacquired": 4,
           "firstContact": 11.5
         },
         "structuralViolations": [],
@@ -8126,6 +8834,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 8,
+          "radarJammed": 8,
+          "radarReacquired": 2,
           "firstContact": 13.2
         },
         "structuralViolations": [],
@@ -8172,6 +8884,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 4,
+          "radarJammed": 4,
+          "radarReacquired": 0,
           "firstContact": 29.2
         },
         "structuralViolations": [],
@@ -8220,6 +8936,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 24.5
         },
         "structuralViolations": [],
@@ -8268,6 +8988,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 24.5
         },
         "structuralViolations": [],
@@ -8314,6 +9038,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 39.4
         },
         "structuralViolations": [],
@@ -8360,6 +9088,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 39.4
         },
         "structuralViolations": [],
@@ -8406,6 +9138,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 44
         },
         "structuralViolations": [],
@@ -8452,6 +9188,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 44
         },
         "structuralViolations": [],
@@ -8498,6 +9238,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 26.5
         },
         "structuralViolations": [],
@@ -8544,6 +9288,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 26.5
         },
         "structuralViolations": [],
@@ -8579,7 +9327,7 @@
             "boat": 1
           },
           "shotsByKind": {
-            "boat": 44
+            "boat": 42
           },
           "hitsByKind": {
             "boat": 31
@@ -8592,6 +9340,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 104,
+          "radarContacts": 7,
+          "radarJammed": 7,
+          "radarReacquired": 3,
           "firstContact": 20
         },
         "structuralViolations": [],
@@ -8621,13 +9373,13 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "boat": 3972.86
+            "boat": 3999.078
           },
           "lossesByKind": {
             "boat": 1
           },
           "shotsByKind": {
-            "boat": 60
+            "boat": 58
           },
           "hitsByKind": {
             "boat": 31
@@ -8640,6 +9392,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 105,
+          "radarContacts": 6,
+          "radarJammed": 6,
+          "radarReacquired": 2,
           "firstContact": 20.2
         },
         "structuralViolations": [],
@@ -8684,6 +9440,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 143.6
         },
         "structuralViolations": [],
@@ -8725,7 +9485,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -8767,7 +9531,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -8812,6 +9580,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 150.8
         },
         "structuralViolations": [],
@@ -8855,7 +9627,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -8895,7 +9671,11 @@
             "3": 0
           },
           "routeCompletions": 1,
-          "objectiveProgress": 0
+          "objectiveProgress": 0,
+          "radarSweeps": 103,
+          "radarContacts": 11,
+          "radarJammed": 11,
+          "radarReacquired": 1
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -8943,6 +9723,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 4,
+          "radarJammed": 4,
+          "radarReacquired": 0,
           "firstContact": 27
         },
         "structuralViolations": [],
@@ -8989,6 +9773,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 8,
+          "radarJammed": 8,
+          "radarReacquired": 2,
           "firstContact": 15.4
         },
         "structuralViolations": [],
@@ -9037,6 +9825,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 10,
+          "radarJammed": 10,
+          "radarReacquired": 4,
           "firstContact": 11.5
         },
         "structuralViolations": [],
@@ -9083,6 +9875,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 8,
+          "radarJammed": 8,
+          "radarReacquired": 2,
           "firstContact": 13.2
         },
         "structuralViolations": [],
@@ -9129,6 +9925,10 @@
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
+          "radarSweeps": 88,
+          "radarContacts": 4,
+          "radarJammed": 4,
+          "radarReacquired": 0,
           "firstContact": 29.2
         },
         "structuralViolations": [],
@@ -9175,6 +9975,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 24.5
         },
         "structuralViolations": [],
@@ -9221,6 +10025,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 24.5
         },
         "structuralViolations": [],
@@ -9267,6 +10075,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 39.4
         },
         "structuralViolations": [],
@@ -9313,6 +10125,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 39.4
         },
         "structuralViolations": [],
@@ -9359,6 +10175,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 44
         },
         "structuralViolations": [],
@@ -9405,6 +10225,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 44
         },
         "structuralViolations": [],
@@ -9453,6 +10277,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 26.5
         },
         "structuralViolations": [],
@@ -9501,6 +10329,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 0,
+          "radarContacts": 0,
+          "radarJammed": 0,
+          "radarReacquired": 0,
           "firstContact": 26.5
         },
         "structuralViolations": [],
@@ -9530,7 +10362,7 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "boat": 4041.089
+            "boat": 3953.321
           },
           "lossesByKind": {
             "boat": 1
@@ -9549,6 +10381,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 104,
+          "radarContacts": 6,
+          "radarJammed": 6,
+          "radarReacquired": 2,
           "firstContact": 20
         },
         "structuralViolations": [],
@@ -9578,13 +10414,13 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "boat": 3972.176
+            "boat": 3984.601
           },
           "lossesByKind": {
             "boat": 1
           },
           "shotsByKind": {
-            "boat": 64
+            "boat": 62
           },
           "hitsByKind": {
             "boat": 33
@@ -9597,6 +10433,10 @@
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
+          "radarSweeps": 105,
+          "radarContacts": 6,
+          "radarJammed": 6,
+          "radarReacquired": 2,
           "firstContact": 20.2
         },
         "structuralViolations": [],
