@@ -6,458 +6,3231 @@
     "movement": "Movement / gear",
     "tech": "Abilities / sci-fi tech",
     "ui": "Objective / UI / match",
-    "ambience": "Ambience beds (looped)"
+    "ambience": "Ambience beds (looped)",
+    "voices": "Character & crew voices (import/edit)",
+    "announcer": "Announcer calls (import/edit)",
+    "other": "Specialized / procedural effects"
   },
   "sounds": [
-    {
-      "name": "rifle",
-      "cat": "weapons",
-      "desc": "Single dry assault-rifle shot — sharp, punchy crack",
-      "dur": 0.6
-    },
-    {
-      "name": "rifle2",
-      "cat": "weapons",
-      "desc": "Assault-rifle shot (variation 2) — alternated with rifle for firing variety",
-      "dur": 0.6
-    },
-    {
-      "name": "smg",
-      "cat": "weapons",
-      "desc": "ONE single submachine-gun shot — a single round, snappy, not a burst or full-auto",
-      "dur": 0.4
-    },
-    {
-      "name": "pistol",
-      "cat": "weapons",
-      "desc": "Single handgun gunshot — tight metallic crack with a hint of slide clack, close and dry",
-      "dur": 0.5
-    },
-    {
-      "name": "shotgun",
-      "cat": "weapons",
-      "desc": "Pump shotgun — deep boom blast, then a pump-action rack cocking the next shell (cha-chunk)",
-      "dur": 0.95
-    },
-    {
-      "name": "autocannon",
-      "cat": "weapons",
-      "desc": "Heavy autocannon — mechanical metallic boom",
-      "dur": 0.6
-    },
-    {
-      "name": "rail",
-      "cat": "weapons",
-      "desc": "Railgun — electric snap into a descending energy zap",
-      "dur": 0.9
-    },
-    {
-      "name": "rocket",
-      "cat": "weapons",
-      "desc": "Rocket launch — ignition whoosh with a deep motor rumble",
-      "dur": 1.2
-    },
-    {
-      "name": "thump",
-      "cat": "weapons",
-      "desc": "Grenade launcher — hollow low launch pop",
-      "dur": 0.6
-    },
-    {
-      "name": "cannon",
-      "cat": "weapons",
-      "desc": "Tank 120mm — huge crack then deep booming concussion",
-      "dur": 1.4
-    },
-    {
-      "name": "plasma",
-      "cat": "weapons",
-      "desc": "Plasma bolt — synthetic electric 'zwip'",
-      "dur": 0.6
-    },
-    {
-      "name": "flame",
-      "cat": "weapons",
-      "desc": "Flamethrower — roaring gas ignition whoosh",
-      "dur": 0.8
-    },
     {
       "name": "acid",
       "cat": "weapons",
       "desc": "Acid spit — wet gooey organic splat",
-      "dur": 0.6
-    },
-    {
-      "name": "repair",
-      "cat": "weapons",
-      "desc": "Repair tool — ratcheting mechanical whir and clank",
-      "dur": 0.6
-    },
-    {
-      "name": "heal",
-      "cat": "weapons",
-      "desc": "Healing beam — warm rising restorative shimmer",
-      "dur": 0.7
-    },
-    {
-      "name": "claw",
-      "cat": "weapons",
-      "desc": "Claw swipe — fast whoosh and flesh slash",
-      "dur": 0.5
-    },
-    {
-      "name": "hit",
-      "cat": "impacts",
-      "desc": "Bullet impact on armor — dull dry thwack",
-      "dur": 0.5
-    },
-    {
-      "name": "hitmarker",
-      "cat": "impacts",
-      "desc": "UI hit tick — crisp confirmation blip",
-      "dur": 0.5
-    },
-    {
-      "name": "explosion",
-      "cat": "impacts",
-      "desc": "Explosion — sharp crack then rumbling debris",
-      "dur": 1.6
-    },
-    {
-      "name": "explosion_big",
-      "cat": "impacts",
-      "desc": "Huge explosion — deep concussion, long collapse",
-      "dur": 2.6
-    },
-    {
-      "name": "death",
-      "cat": "impacts",
-      "desc": "Generic death — higher-pitched pained cry and gurgle, fading out (zombies / fallback)",
-      "dur": 0.7
-    },
-    {
-      "name": "death_infantry",
-      "cat": "deaths",
-      "desc": "Infantry death — short pained male grunt + gear rattle",
-      "dur": 0.8
-    },
-    {
-      "name": "death_heavy",
-      "cat": "deaths",
-      "desc": "Heavy death — deep pained groan + armor clang",
-      "dur": 0.9
-    },
-    {
-      "name": "death_jump",
-      "cat": "deaths",
-      "desc": "Jump Trooper death — yelp mid-fall + jetpack sputter",
-      "dur": 0.7
-    },
-    {
-      "name": "death_engineer",
-      "cat": "deaths",
-      "desc": "Engineer death — grunt + tools clattering down",
-      "dur": 0.8
-    },
-    {
-      "name": "death_medic",
-      "cat": "deaths",
-      "desc": "Medic death — gasp + failing medical tone",
-      "dur": 0.8
-    },
-    {
-      "name": "death_infiltrator",
-      "cat": "deaths",
-      "desc": "Infiltrator death — sharp gasp + cloak fizzle",
-      "dur": 0.6
-    },
-    {
-      "name": "death_pathfinder",
-      "cat": "deaths",
-      "desc": "Pathfinder death — cry + warp zip snapping out",
-      "dur": 0.7
-    },
-    {
-      "name": "death_ghost",
-      "cat": "deaths",
-      "desc": "Ghost death — grunt + comms static cutting out",
-      "dur": 0.8
-    },
-    {
-      "name": "jetpack",
-      "cat": "movement",
-      "desc": "Jetpack thrust burst — strong roaring rocket exhaust with a sharp pressurized hiss, punchy and full, close and loud",
-      "dur": 0.5
-    },
-    {
-      "name": "cloak",
-      "cat": "movement",
-      "desc": "Cloak toggle — shimmering phase whoosh",
-      "dur": 0.6
-    },
-    {
-      "name": "reload",
-      "cat": "movement",
-      "desc": "Reload — mag out, mag in, bolt charge",
-      "dur": 0.8
-    },
-    {
-      "name": "pickup",
-      "cat": "movement",
-      "desc": "Pickup — short bright positive collect blip",
-      "dur": 0.5
-    },
-    {
-      "name": "engine",
-      "cat": "movement",
-      "desc": "Vehicle engine — low diesel idle rumble",
-      "dur": 0.7
-    },
-    {
-      "name": "mine_plant",
-      "cat": "movement",
-      "desc": "Mine plant — mechanical arming click and beep",
-      "dur": 0.5
-    },
-    {
-      "name": "turret_built",
-      "cat": "movement",
-      "desc": "Turret deploy — unfolding servo whir and lock",
-      "dur": 0.8
-    },
-    {
-      "name": "footstep",
-      "cat": "movement",
-      "desc": "Single boot footstep on dirt",
-      "dur": 0.5
-    },
-    {
-      "name": "footstep_a",
-      "cat": "movement",
-      "desc": "ONE single crisp boot step on packed dirt — tight, dry, mid-weight",
-      "dur": 0.35
-    },
-    {
-      "name": "footstep_b",
-      "cat": "movement",
-      "desc": "ONE single heavy combat-boot stomp on hard ground — deep, solid thud",
-      "dur": 0.35
-    },
-    {
-      "name": "footstep_c",
-      "cat": "movement",
-      "desc": "ONE single soft tactical boot step — quick light scuff, stealthy",
-      "dur": 0.35
-    },
-    {
-      "name": "growl",
-      "cat": "movement",
-      "desc": "Zombie growl — low guttural snarl",
-      "dur": 0.7
-    },
-    {
-      "name": "growl2",
-      "cat": "movement",
-      "desc": "Zombie growl (variation 2) — different throat, wetter snarl",
-      "dur": 0.7
-    },
-    {
-      "name": "growl3",
-      "cat": "movement",
-      "desc": "Zombie growl (variation 3) — higher, rasping moan",
-      "dur": 0.7
-    },
-    {
-      "name": "impulse",
-      "cat": "tech",
-      "desc": "Impulse cannon — deep pulsing knockback whump",
-      "dur": 0.6
-    },
-    {
-      "name": "warp",
-      "cat": "tech",
-      "desc": "Warp teleport — rising shimmer and pop",
-      "dur": 0.7
-    },
-    {
-      "name": "blink",
-      "cat": "tech",
-      "desc": "Blink — quick phase whoosh",
-      "dur": 0.5
-    },
-    {
-      "name": "emp_burst",
-      "cat": "tech",
-      "desc": "EMP burst — electrical crackle and low thump",
-      "dur": 0.7
-    },
-    {
-      "name": "gravlift",
-      "cat": "tech",
-      "desc": "Grav lift — rising anti-gravity whoosh",
-      "dur": 0.6
-    },
-    {
-      "name": "beacon",
-      "cat": "tech",
-      "desc": "Beacon deploy — soft electronic ping and hum",
-      "dur": 0.6
-    },
-    {
-      "name": "orbital_charge",
-      "cat": "tech",
-      "desc": "Orbital strike charge — ominous rising energy hum",
-      "dur": 1.2
-    },
-    {
-      "name": "drone_static",
-      "cat": "tech",
-      "desc": "Radio static burst — harsh white-noise crackle, a control link breaking up",
-      "dur": 0.6
-    },
-    {
-      "name": "drone_crash",
-      "cat": "tech",
-      "desc": "Small quadcopter drone crashing to the ground — rotor snap, plastic thud, debris scatter",
-      "dur": 0.7
-    },
-    {
-      "name": "flag_taken",
-      "cat": "ui",
-      "desc": "Flag stolen — tense short alarm stinger",
-      "dur": 0.7
-    },
-    {
-      "name": "flag_captured",
-      "cat": "ui",
-      "desc": "Flag captured — bright triumphant chime",
-      "dur": 1
-    },
-    {
-      "name": "flag_returned",
-      "cat": "ui",
-      "desc": "Flag returned — clean neutral chime",
-      "dur": 0.7
-    },
-    {
-      "name": "point_captured",
-      "cat": "ui",
-      "desc": "Point captured — confident synth flourish",
-      "dur": 0.9
-    },
-    {
-      "name": "wave_start",
-      "cat": "ui",
-      "desc": "Wave incoming — low horn swell + alarm",
-      "dur": 1.2
-    },
-    {
-      "name": "victory",
-      "cat": "ui",
-      "desc": "Victory — triumphant brass flourish",
-      "dur": 1.6
-    },
-    {
-      "name": "defeat",
-      "cat": "ui",
-      "desc": "Defeat — somber descending tone",
-      "dur": 1.6
-    },
-    {
-      "name": "ui_click",
-      "cat": "ui",
-      "desc": "Menu click — tiny crisp tick",
-      "dur": 0.5
-    },
-    {
-      "name": "spawn",
-      "cat": "ui",
-      "desc": "Respawn — short rising materialize shimmer",
-      "dur": 0.6
-    },
-    {
-      "name": "footstep_grass",
-      "cat": "movement",
-      "desc": "ONE single boot step on dry grass and dirt — soft organic crunch",
-      "dur": 0.35
-    },
-    {
-      "name": "footstep_metal",
-      "cat": "movement",
-      "desc": "ONE single boot step on a steel deck plate — hard metallic clank, short ring",
-      "dur": 0.35
-    },
-    {
-      "name": "footstep_rock",
-      "cat": "movement",
-      "desc": "ONE single boot step on loose mine rubble and gravel — gritty scrape-crunch",
-      "dur": 0.35
-    },
-    {
-      "name": "footstep_ice",
-      "cat": "movement",
-      "desc": "ONE single boot step on hard ice — glassy tap with a faint slide squeak",
-      "dur": 0.35
-    },
-    {
-      "name": "footstep_grit",
-      "cat": "movement",
-      "desc": "ONE single boot step on a gritty sand-dusted road — dry granular crunch",
-      "dur": 0.35
-    },
-    {
-      "name": "amb_savanna",
-      "cat": "ambience",
-      "desc": "Dry savanna wind through grass, distant insects, very sparse far bird — steady atmosphere bed, no melody",
-      "dur": 12
-    },
-    {
-      "name": "amb_starship",
-      "cat": "ambience",
-      "desc": "Starship interior hum — low engine drone, faint ventilation hiss, occasional soft metal tick",
-      "dur": 12
+      "dur": 0.6,
+      "generatable": true
     },
     {
       "name": "amb_asteroid",
       "cat": "ambience",
       "desc": "Deep mine ambience — cavernous low rumble, distant rock settling, faint machinery echo",
-      "dur": 12
+      "dur": 12,
+      "generatable": true
     },
     {
       "name": "amb_europa",
       "cat": "ambience",
       "desc": "Underwater dome ambience — muffled ocean pressure, slow water movement, deep groaning ice above",
-      "dur": 12
+      "dur": 12,
+      "generatable": true
+    },
+    {
+      "name": "amb_hardpan",
+      "cat": "ambience",
+      "desc": "Wind over cracked open flats — a low rush with slow gusts and a thin dust whistle. NO wildlife: the emptiness is the point. Generated procedurally by tools/gen-hardpan-ambience.mjs, not by the AI pipeline.",
+      "dur": 10.5,
+      "generatable": true
+    },
+    {
+      "name": "amb_savanna",
+      "cat": "ambience",
+      "desc": "Dry savanna wind through grass, distant insects, very sparse far bird — steady atmosphere bed, no melody",
+      "dur": 12,
+      "generatable": true
+    },
+    {
+      "name": "amb_starship",
+      "cat": "ambience",
+      "desc": "Starship interior hum — low engine drone, faint ventilation hiss, occasional soft metal tick",
+      "dur": 12,
+      "generatable": true
     },
     {
       "name": "amb_titan",
       "cat": "ambience",
       "desc": "Alien colony exterior — thick methane wind, distant industrial hum, muffled heavy atmosphere",
-      "dur": 12
+      "dur": 12,
+      "generatable": true
     },
     {
       "name": "amb_triton",
       "cat": "ambience",
       "desc": "Polar ice station — thin howling wind, creaking ice sheets, desolate extreme cold",
-      "dur": 12
+      "dur": 12,
+      "generatable": true
+    },
+    {
+      "name": "ann_barrier_down",
+      "cat": "announcer",
+      "desc": "ann barrier down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_barrier_inbound",
+      "cat": "announcer",
+      "desc": "ann barrier inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_barrier_landed",
+      "cat": "announcer",
+      "desc": "ann barrier landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_barrier_rampage",
+      "cat": "announcer",
+      "desc": "ann barrier rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_blitz_down",
+      "cat": "announcer",
+      "desc": "ann blitz down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_blitz_inbound",
+      "cat": "announcer",
+      "desc": "ann blitz inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_blitz_landed",
+      "cat": "announcer",
+      "desc": "ann blitz landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_blitz_rampage",
+      "cat": "announcer",
+      "desc": "ann blitz rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_cataclysm_down",
+      "cat": "announcer",
+      "desc": "ann cataclysm down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_cataclysm_inbound",
+      "cat": "announcer",
+      "desc": "ann cataclysm inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_cataclysm_landed",
+      "cat": "announcer",
+      "desc": "ann cataclysm landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_cataclysm_rampage",
+      "cat": "announcer",
+      "desc": "ann cataclysm rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_chronos_down",
+      "cat": "announcer",
+      "desc": "ann chronos down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_chronos_inbound",
+      "cat": "announcer",
+      "desc": "ann chronos inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_chronos_landed",
+      "cat": "announcer",
+      "desc": "ann chronos landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_chronos_rampage",
+      "cat": "announcer",
+      "desc": "ann chronos rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_crimson_down",
+      "cat": "announcer",
+      "desc": "ann crimson down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_crimson_inbound",
+      "cat": "announcer",
+      "desc": "ann crimson inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_crimson_landed",
+      "cat": "announcer",
+      "desc": "ann crimson landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_crimson_rampage",
+      "cat": "announcer",
+      "desc": "ann crimson rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_crusher_down",
+      "cat": "announcer",
+      "desc": "ann crusher down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_crusher_inbound",
+      "cat": "announcer",
+      "desc": "ann crusher inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_crusher_landed",
+      "cat": "announcer",
+      "desc": "ann crusher landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_crusher_rampage",
+      "cat": "announcer",
+      "desc": "ann crusher rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_dominator_down",
+      "cat": "announcer",
+      "desc": "ann dominator down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_dominator_inbound",
+      "cat": "announcer",
+      "desc": "ann dominator inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_dominator_landed",
+      "cat": "announcer",
+      "desc": "ann dominator landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_dominator_rampage",
+      "cat": "announcer",
+      "desc": "ann dominator rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_eclipse_down",
+      "cat": "announcer",
+      "desc": "ann eclipse down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_eclipse_inbound",
+      "cat": "announcer",
+      "desc": "ann eclipse inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_eclipse_landed",
+      "cat": "announcer",
+      "desc": "ann eclipse landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_eclipse_rampage",
+      "cat": "announcer",
+      "desc": "ann eclipse rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_firebrand_down",
+      "cat": "announcer",
+      "desc": "ann firebrand down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_firebrand_inbound",
+      "cat": "announcer",
+      "desc": "ann firebrand inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_firebrand_landed",
+      "cat": "announcer",
+      "desc": "ann firebrand landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_firebrand_rampage",
+      "cat": "announcer",
+      "desc": "ann firebrand rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_frostbite_down",
+      "cat": "announcer",
+      "desc": "ann frostbite down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_frostbite_inbound",
+      "cat": "announcer",
+      "desc": "ann frostbite inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_frostbite_landed",
+      "cat": "announcer",
+      "desc": "ann frostbite landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_frostbite_rampage",
+      "cat": "announcer",
+      "desc": "ann frostbite rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_gargoyle_down",
+      "cat": "announcer",
+      "desc": "ann gargoyle down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_gargoyle_inbound",
+      "cat": "announcer",
+      "desc": "ann gargoyle inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_gargoyle_landed",
+      "cat": "announcer",
+      "desc": "ann gargoyle landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_gargoyle_rampage",
+      "cat": "announcer",
+      "desc": "ann gargoyle rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_gravwarden_down",
+      "cat": "announcer",
+      "desc": "ann gravwarden down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_gravwarden_inbound",
+      "cat": "announcer",
+      "desc": "ann gravwarden inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_gravwarden_landed",
+      "cat": "announcer",
+      "desc": "ann gravwarden landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_gravwarden_rampage",
+      "cat": "announcer",
+      "desc": "ann gravwarden rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_inferno_down",
+      "cat": "announcer",
+      "desc": "ann inferno down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_inferno_inbound",
+      "cat": "announcer",
+      "desc": "ann inferno inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_inferno_landed",
+      "cat": "announcer",
+      "desc": "ann inferno landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_inferno_rampage",
+      "cat": "announcer",
+      "desc": "ann inferno rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_leviathan_down",
+      "cat": "announcer",
+      "desc": "ann leviathan down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_leviathan_inbound",
+      "cat": "announcer",
+      "desc": "ann leviathan inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_leviathan_landed",
+      "cat": "announcer",
+      "desc": "ann leviathan landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_leviathan_rampage",
+      "cat": "announcer",
+      "desc": "ann leviathan rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_magnetar_down",
+      "cat": "announcer",
+      "desc": "ann magnetar down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_magnetar_inbound",
+      "cat": "announcer",
+      "desc": "ann magnetar inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_magnetar_landed",
+      "cat": "announcer",
+      "desc": "ann magnetar landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_magnetar_rampage",
+      "cat": "announcer",
+      "desc": "ann magnetar rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_mirage_down",
+      "cat": "announcer",
+      "desc": "ann mirage down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_mirage_inbound",
+      "cat": "announcer",
+      "desc": "ann mirage inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_mirage_landed",
+      "cat": "announcer",
+      "desc": "ann mirage landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_mirage_rampage",
+      "cat": "announcer",
+      "desc": "ann mirage rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_nightmare_down",
+      "cat": "announcer",
+      "desc": "ann nightmare down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_nightmare_inbound",
+      "cat": "announcer",
+      "desc": "ann nightmare inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_nightmare_landed",
+      "cat": "announcer",
+      "desc": "ann nightmare landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_nightmare_rampage",
+      "cat": "announcer",
+      "desc": "ann nightmare rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_oblivion_down",
+      "cat": "announcer",
+      "desc": "ann oblivion down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_oblivion_inbound",
+      "cat": "announcer",
+      "desc": "ann oblivion inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_oblivion_landed",
+      "cat": "announcer",
+      "desc": "ann oblivion landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_oblivion_rampage",
+      "cat": "announcer",
+      "desc": "ann oblivion rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_overload_down",
+      "cat": "announcer",
+      "desc": "ann overload down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_overload_inbound",
+      "cat": "announcer",
+      "desc": "ann overload inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_overload_landed",
+      "cat": "announcer",
+      "desc": "ann overload landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_overload_rampage",
+      "cat": "announcer",
+      "desc": "ann overload rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_phantom_down",
+      "cat": "announcer",
+      "desc": "ann phantom down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_phantom_inbound",
+      "cat": "announcer",
+      "desc": "ann phantom inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_phantom_landed",
+      "cat": "announcer",
+      "desc": "ann phantom landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_phantom_rampage",
+      "cat": "announcer",
+      "desc": "ann phantom rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_plaguebearer_down",
+      "cat": "announcer",
+      "desc": "ann plaguebearer down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_plaguebearer_inbound",
+      "cat": "announcer",
+      "desc": "ann plaguebearer inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_plaguebearer_landed",
+      "cat": "announcer",
+      "desc": "ann plaguebearer landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_plaguebearer_rampage",
+      "cat": "announcer",
+      "desc": "ann plaguebearer rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_pulse_down",
+      "cat": "announcer",
+      "desc": "ann pulse down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_pulse_inbound",
+      "cat": "announcer",
+      "desc": "ann pulse inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_pulse_landed",
+      "cat": "announcer",
+      "desc": "ann pulse landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_pulse_rampage",
+      "cat": "announcer",
+      "desc": "ann pulse rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_pyroclasm_down",
+      "cat": "announcer",
+      "desc": "ann pyroclasm down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_pyroclasm_inbound",
+      "cat": "announcer",
+      "desc": "ann pyroclasm inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_pyroclasm_landed",
+      "cat": "announcer",
+      "desc": "ann pyroclasm landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_pyroclasm_rampage",
+      "cat": "announcer",
+      "desc": "ann pyroclasm rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_ragebeast_down",
+      "cat": "announcer",
+      "desc": "ann ragebeast down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_ragebeast_inbound",
+      "cat": "announcer",
+      "desc": "ann ragebeast inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_ragebeast_landed",
+      "cat": "announcer",
+      "desc": "ann ragebeast landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_ragebeast_rampage",
+      "cat": "announcer",
+      "desc": "ann ragebeast rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_reactor_down",
+      "cat": "announcer",
+      "desc": "ann reactor down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_reactor_inbound",
+      "cat": "announcer",
+      "desc": "ann reactor inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_reactor_landed",
+      "cat": "announcer",
+      "desc": "ann reactor landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_reactor_rampage",
+      "cat": "announcer",
+      "desc": "ann reactor rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_reaper_down",
+      "cat": "announcer",
+      "desc": "ann reaper down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_reaper_inbound",
+      "cat": "announcer",
+      "desc": "ann reaper inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_reaper_landed",
+      "cat": "announcer",
+      "desc": "ann reaper landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_reaper_rampage",
+      "cat": "announcer",
+      "desc": "ann reaper rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_riptide_down",
+      "cat": "announcer",
+      "desc": "ann riptide down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_riptide_inbound",
+      "cat": "announcer",
+      "desc": "ann riptide inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_riptide_landed",
+      "cat": "announcer",
+      "desc": "ann riptide landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_riptide_rampage",
+      "cat": "announcer",
+      "desc": "ann riptide rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_shadowstep_down",
+      "cat": "announcer",
+      "desc": "ann shadowstep down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_shadowstep_inbound",
+      "cat": "announcer",
+      "desc": "ann shadowstep inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_shadowstep_landed",
+      "cat": "announcer",
+      "desc": "ann shadowstep landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_shadowstep_rampage",
+      "cat": "announcer",
+      "desc": "ann shadowstep rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_sniperhawk_down",
+      "cat": "announcer",
+      "desc": "ann sniperhawk down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_sniperhawk_inbound",
+      "cat": "announcer",
+      "desc": "ann sniperhawk inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_sniperhawk_landed",
+      "cat": "announcer",
+      "desc": "ann sniperhawk landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_sniperhawk_rampage",
+      "cat": "announcer",
+      "desc": "ann sniperhawk rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_specter_down",
+      "cat": "announcer",
+      "desc": "ann specter down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_specter_inbound",
+      "cat": "announcer",
+      "desc": "ann specter inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_specter_landed",
+      "cat": "announcer",
+      "desc": "ann specter landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_specter_rampage",
+      "cat": "announcer",
+      "desc": "ann specter rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_steelweaver_down",
+      "cat": "announcer",
+      "desc": "ann steelweaver down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_steelweaver_inbound",
+      "cat": "announcer",
+      "desc": "ann steelweaver inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_steelweaver_landed",
+      "cat": "announcer",
+      "desc": "ann steelweaver landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_steelweaver_rampage",
+      "cat": "announcer",
+      "desc": "ann steelweaver rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_stormcaller_down",
+      "cat": "announcer",
+      "desc": "ann stormcaller down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_stormcaller_inbound",
+      "cat": "announcer",
+      "desc": "ann stormcaller inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_stormcaller_landed",
+      "cat": "announcer",
+      "desc": "ann stormcaller landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_stormcaller_rampage",
+      "cat": "announcer",
+      "desc": "ann stormcaller rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_titan_down",
+      "cat": "announcer",
+      "desc": "ann titan down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_titan_inbound",
+      "cat": "announcer",
+      "desc": "ann titan inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_titan_landed",
+      "cat": "announcer",
+      "desc": "ann titan landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_titan_rampage",
+      "cat": "announcer",
+      "desc": "ann titan rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_tremor_down",
+      "cat": "announcer",
+      "desc": "ann tremor down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_tremor_inbound",
+      "cat": "announcer",
+      "desc": "ann tremor inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_tremor_landed",
+      "cat": "announcer",
+      "desc": "ann tremor landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_tremor_rampage",
+      "cat": "announcer",
+      "desc": "ann tremor rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_vanguard_down",
+      "cat": "announcer",
+      "desc": "ann vanguard down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_vanguard_inbound",
+      "cat": "announcer",
+      "desc": "ann vanguard inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_vanguard_landed",
+      "cat": "announcer",
+      "desc": "ann vanguard landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_vanguard_rampage",
+      "cat": "announcer",
+      "desc": "ann vanguard rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_venatrix_down",
+      "cat": "announcer",
+      "desc": "ann venatrix down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_venatrix_inbound",
+      "cat": "announcer",
+      "desc": "ann venatrix inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_venatrix_landed",
+      "cat": "announcer",
+      "desc": "ann venatrix landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_venatrix_rampage",
+      "cat": "announcer",
+      "desc": "ann venatrix rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_venom_down",
+      "cat": "announcer",
+      "desc": "ann venom down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_venom_inbound",
+      "cat": "announcer",
+      "desc": "ann venom inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_venom_landed",
+      "cat": "announcer",
+      "desc": "ann venom landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_venom_rampage",
+      "cat": "announcer",
+      "desc": "ann venom rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_voidwalker_down",
+      "cat": "announcer",
+      "desc": "ann voidwalker down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_voidwalker_inbound",
+      "cat": "announcer",
+      "desc": "ann voidwalker inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_voidwalker_landed",
+      "cat": "announcer",
+      "desc": "ann voidwalker landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_voidwalker_rampage",
+      "cat": "announcer",
+      "desc": "ann voidwalker rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_voltstriker_down",
+      "cat": "announcer",
+      "desc": "ann voltstriker down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_voltstriker_inbound",
+      "cat": "announcer",
+      "desc": "ann voltstriker inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_voltstriker_landed",
+      "cat": "announcer",
+      "desc": "ann voltstriker landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_voltstriker_rampage",
+      "cat": "announcer",
+      "desc": "ann voltstriker rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_wraith_down",
+      "cat": "announcer",
+      "desc": "ann wraith down - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_wraith_inbound",
+      "cat": "announcer",
+      "desc": "ann wraith inbound - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_wraith_landed",
+      "cat": "announcer",
+      "desc": "ann wraith landed - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "ann_wraith_rampage",
+      "cat": "announcer",
+      "desc": "ann wraith rampage - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "autocannon",
+      "cat": "weapons",
+      "desc": "Heavy autocannon — mechanical metallic boom",
+      "dur": 0.6,
+      "generatable": true
+    },
+    {
+      "name": "beacon",
+      "cat": "tech",
+      "desc": "Beacon deploy — soft electronic ping and hum",
+      "dur": 0.6,
+      "generatable": true
+    },
+    {
+      "name": "blink",
+      "cat": "tech",
+      "desc": "Blink — quick phase whoosh",
+      "dur": 0.5,
+      "generatable": true
+    },
+    {
+      "name": "cannon",
+      "cat": "weapons",
+      "desc": "Tank 120mm — huge crack then deep booming concussion",
+      "dur": 1.4,
+      "generatable": true
+    },
+    {
+      "name": "claw",
+      "cat": "weapons",
+      "desc": "Claw swipe — fast whoosh and flesh slash",
+      "dur": 0.5,
+      "generatable": true
+    },
+    {
+      "name": "cloak",
+      "cat": "movement",
+      "desc": "Cloak toggle — shimmering phase whoosh",
+      "dur": 0.6,
+      "generatable": true
+    },
+    {
+      "name": "crew_allin",
+      "cat": "voices",
+      "desc": "crew allin - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "crew_gogogo",
+      "cat": "voices",
+      "desc": "crew gogogo - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "crew_letsgo",
+      "cat": "voices",
+      "desc": "crew letsgo - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "crew_punchit",
+      "cat": "voices",
+      "desc": "crew punchit - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "death",
+      "cat": "impacts",
+      "desc": "Generic death — higher-pitched pained cry and gurgle, fading out (zombies / fallback)",
+      "dur": 0.7,
+      "generatable": true
+    },
+    {
+      "name": "death_engineer",
+      "cat": "deaths",
+      "desc": "Engineer death — grunt + tools clattering down",
+      "dur": 0.8,
+      "generatable": true
+    },
+    {
+      "name": "death_ghost",
+      "cat": "deaths",
+      "desc": "Ghost death — grunt + comms static cutting out",
+      "dur": 0.8,
+      "generatable": true
+    },
+    {
+      "name": "death_heavy",
+      "cat": "deaths",
+      "desc": "Heavy death — deep pained groan + armor clang",
+      "dur": 0.9,
+      "generatable": true
+    },
+    {
+      "name": "death_infantry",
+      "cat": "deaths",
+      "desc": "Infantry death — short pained male grunt + gear rattle",
+      "dur": 0.8,
+      "generatable": true
+    },
+    {
+      "name": "death_infiltrator",
+      "cat": "deaths",
+      "desc": "Infiltrator death — sharp gasp + cloak fizzle",
+      "dur": 0.6,
+      "generatable": true
+    },
+    {
+      "name": "death_jump",
+      "cat": "deaths",
+      "desc": "Jump Trooper death — yelp mid-fall + jetpack sputter",
+      "dur": 0.7,
+      "generatable": true
+    },
+    {
+      "name": "death_medic",
+      "cat": "deaths",
+      "desc": "Medic death — gasp + failing medical tone",
+      "dur": 0.8,
+      "generatable": true
+    },
+    {
+      "name": "death_pathfinder",
+      "cat": "deaths",
+      "desc": "Pathfinder death — cry + warp zip snapping out",
+      "dur": 0.7,
+      "generatable": true
+    },
+    {
+      "name": "defeat",
+      "cat": "ui",
+      "desc": "Defeat — somber descending tone",
+      "dur": 1.6,
+      "generatable": true
     },
     {
       "name": "door",
       "cat": "movement",
       "desc": "Wooden door swings open with a short creak and a latch click",
-      "dur": 0.7
-    },
-    {
-      "name": "door_hit",
-      "cat": "impacts",
-      "desc": "ONE single heavy fist pound on a solid wooden door — dull wood thud with a slight frame rattle, short",
-      "dur": 0.4
+      "dur": 0.7,
+      "generatable": true
     },
     {
       "name": "door_break",
       "cat": "impacts",
       "desc": "Wooden door splintering apart and crashing down — planks cracking, wood debris falling",
-      "dur": 1.1
+      "dur": 1.1,
+      "generatable": true
+    },
+    {
+      "name": "door_hit",
+      "cat": "impacts",
+      "desc": "ONE single heavy fist pound on a solid wooden door — dull wood thud with a slight frame rattle, short",
+      "dur": 0.4,
+      "generatable": true
+    },
+    {
+      "name": "drone_crash",
+      "cat": "tech",
+      "desc": "Small quadcopter drone crashing to the ground — rotor snap, plastic thud, debris scatter",
+      "dur": 0.7,
+      "generatable": true
+    },
+    {
+      "name": "drone_static",
+      "cat": "tech",
+      "desc": "Radio static burst — harsh white-noise crackle, a control link breaking up",
+      "dur": 0.6,
+      "generatable": true
+    },
+    {
+      "name": "emp_burst",
+      "cat": "tech",
+      "desc": "EMP burst — electrical crackle and low thump",
+      "dur": 0.7,
+      "generatable": true
+    },
+    {
+      "name": "engine",
+      "cat": "movement",
+      "desc": "Vehicle engine — low diesel idle rumble",
+      "dur": 0.7,
+      "generatable": true
+    },
+    {
+      "name": "explosion",
+      "cat": "impacts",
+      "desc": "Explosion — sharp crack then rumbling debris",
+      "dur": 1.6,
+      "generatable": true
+    },
+    {
+      "name": "explosion_big",
+      "cat": "impacts",
+      "desc": "Huge explosion — deep concussion, long collapse",
+      "dur": 2.6,
+      "generatable": true
+    },
+    {
+      "name": "fire_whoosh",
+      "cat": "other",
+      "desc": "fire whoosh sound effect",
+      "dur": 1,
+      "generatable": true
+    },
+    {
+      "name": "flag_captured",
+      "cat": "ui",
+      "desc": "Flag captured — bright triumphant chime",
+      "dur": 1,
+      "generatable": true
+    },
+    {
+      "name": "flag_returned",
+      "cat": "ui",
+      "desc": "Flag returned — clean neutral chime",
+      "dur": 0.7,
+      "generatable": true
+    },
+    {
+      "name": "flag_taken",
+      "cat": "ui",
+      "desc": "Flag stolen — tense short alarm stinger",
+      "dur": 0.7,
+      "generatable": true
+    },
+    {
+      "name": "flame",
+      "cat": "weapons",
+      "desc": "Flamethrower — roaring gas ignition whoosh",
+      "dur": 0.8,
+      "generatable": true
+    },
+    {
+      "name": "footstep",
+      "cat": "movement",
+      "desc": "Single boot footstep on dirt",
+      "dur": 0.5,
+      "generatable": true
+    },
+    {
+      "name": "footstep_a",
+      "cat": "movement",
+      "desc": "ONE single crisp boot step on packed dirt — tight, dry, mid-weight",
+      "dur": 0.35,
+      "generatable": true
+    },
+    {
+      "name": "footstep_b",
+      "cat": "movement",
+      "desc": "ONE single heavy combat-boot stomp on hard ground — deep, solid thud",
+      "dur": 0.35,
+      "generatable": true
+    },
+    {
+      "name": "footstep_c",
+      "cat": "movement",
+      "desc": "ONE single soft tactical boot step — quick light scuff, stealthy",
+      "dur": 0.35,
+      "generatable": true
+    },
+    {
+      "name": "footstep_grass",
+      "cat": "movement",
+      "desc": "ONE single boot step on dry grass and dirt — soft organic crunch",
+      "dur": 0.35,
+      "generatable": true
+    },
+    {
+      "name": "footstep_grit",
+      "cat": "movement",
+      "desc": "ONE single boot step on a gritty sand-dusted road — dry granular crunch",
+      "dur": 0.35,
+      "generatable": true
+    },
+    {
+      "name": "footstep_ice",
+      "cat": "movement",
+      "desc": "ONE single boot step on hard ice — glassy tap with a faint slide squeak",
+      "dur": 0.35,
+      "generatable": true
+    },
+    {
+      "name": "footstep_metal",
+      "cat": "movement",
+      "desc": "ONE single boot step on a steel deck plate — hard metallic clank, short ring",
+      "dur": 0.35,
+      "generatable": true
+    },
+    {
+      "name": "footstep_rock",
+      "cat": "movement",
+      "desc": "ONE single boot step on loose mine rubble and gravel — gritty scrape-crunch",
+      "dur": 0.35,
+      "generatable": true
+    },
+    {
+      "name": "gas_hiss",
+      "cat": "other",
+      "desc": "gas hiss sound effect",
+      "dur": 1,
+      "generatable": true
+    },
+    {
+      "name": "gravlift",
+      "cat": "tech",
+      "desc": "Grav lift — rising anti-gravity whoosh",
+      "dur": 0.6,
+      "generatable": true
+    },
+    {
+      "name": "growl",
+      "cat": "movement",
+      "desc": "Zombie growl — low guttural snarl",
+      "dur": 0.7,
+      "generatable": true
+    },
+    {
+      "name": "growl2",
+      "cat": "movement",
+      "desc": "Zombie growl (variation 2) — different throat, wetter snarl",
+      "dur": 0.7,
+      "generatable": true
+    },
+    {
+      "name": "growl3",
+      "cat": "movement",
+      "desc": "Zombie growl (variation 3) — higher, rasping moan",
+      "dur": 0.7,
+      "generatable": true
+    },
+    {
+      "name": "heal",
+      "cat": "weapons",
+      "desc": "Healing beam — warm rising restorative shimmer",
+      "dur": 0.7,
+      "generatable": true
+    },
+    {
+      "name": "hit",
+      "cat": "impacts",
+      "desc": "Bullet impact on armor — dull dry thwack",
+      "dur": 0.5,
+      "generatable": true
+    },
+    {
+      "name": "hitmarker",
+      "cat": "impacts",
+      "desc": "UI hit tick — crisp confirmation blip",
+      "dur": 0.5,
+      "generatable": true
+    },
+    {
+      "name": "ice_freeze",
+      "cat": "other",
+      "desc": "ice freeze sound effect",
+      "dur": 1,
+      "generatable": true
+    },
+    {
+      "name": "ice_shatter",
+      "cat": "other",
+      "desc": "ice shatter sound effect",
+      "dur": 1,
+      "generatable": true
+    },
+    {
+      "name": "impact_dirt",
+      "cat": "other",
+      "desc": "impact dirt sound effect",
+      "dur": 1,
+      "generatable": true
+    },
+    {
+      "name": "impact_metal",
+      "cat": "other",
+      "desc": "impact metal sound effect",
+      "dur": 1,
+      "generatable": true
+    },
+    {
+      "name": "impact_stone",
+      "cat": "other",
+      "desc": "impact stone sound effect",
+      "dur": 1,
+      "generatable": true
+    },
+    {
+      "name": "impulse",
+      "cat": "tech",
+      "desc": "Impulse cannon — deep pulsing knockback whump",
+      "dur": 0.6,
+      "generatable": true
+    },
+    {
+      "name": "jetpack",
+      "cat": "movement",
+      "desc": "Jetpack thrust burst — strong roaring rocket exhaust with a sharp pressurized hiss, punchy and full, close and loud",
+      "dur": 0.5,
+      "generatable": true
+    },
+    {
+      "name": "marker",
+      "cat": "other",
+      "desc": "marker sound effect",
+      "dur": 1,
+      "generatable": true
+    },
+    {
+      "name": "marker_lob",
+      "cat": "other",
+      "desc": "marker lob sound effect",
+      "dur": 1,
+      "generatable": true
+    },
+    {
+      "name": "marker_pump",
+      "cat": "other",
+      "desc": "marker pump sound effect",
+      "dur": 1,
+      "generatable": true
+    },
+    {
+      "name": "mine_plant",
+      "cat": "movement",
+      "desc": "Mine plant — mechanical arming click and beep",
+      "dur": 0.5,
+      "generatable": true
+    },
+    {
+      "name": "nade_tink",
+      "cat": "other",
+      "desc": "nade tink sound effect",
+      "dur": 1,
+      "generatable": true
+    },
+    {
+      "name": "orbital_charge",
+      "cat": "tech",
+      "desc": "Orbital strike charge — ominous rising energy hum",
+      "dur": 1.2,
+      "generatable": true
+    },
+    {
+      "name": "pickup",
+      "cat": "movement",
+      "desc": "Pickup — short bright positive collect blip",
+      "dur": 0.5,
+      "generatable": true
+    },
+    {
+      "name": "pistol",
+      "cat": "weapons",
+      "desc": "Single handgun gunshot — tight metallic crack with a hint of slide clack, close and dry",
+      "dur": 0.5,
+      "generatable": true
+    },
+    {
+      "name": "plasma",
+      "cat": "weapons",
+      "desc": "Plasma bolt — synthetic electric 'zwip'",
+      "dur": 0.6,
+      "generatable": true
+    },
+    {
+      "name": "point_captured",
+      "cat": "ui",
+      "desc": "Point captured — confident synth flourish",
+      "dur": 0.9,
+      "generatable": true
+    },
+    {
+      "name": "rage_roar",
+      "cat": "other",
+      "desc": "rage roar sound effect",
+      "dur": 1,
+      "generatable": true
+    },
+    {
+      "name": "ragebeast_attack1",
+      "cat": "other",
+      "desc": "ragebeast attack1 sound effect",
+      "dur": 1,
+      "generatable": true
+    },
+    {
+      "name": "ragebeast_attack2",
+      "cat": "other",
+      "desc": "ragebeast attack2 sound effect",
+      "dur": 1,
+      "generatable": true
+    },
+    {
+      "name": "ragebeast_attack3",
+      "cat": "other",
+      "desc": "ragebeast attack3 sound effect",
+      "dur": 1,
+      "generatable": true
+    },
+    {
+      "name": "ragebeast_growl",
+      "cat": "other",
+      "desc": "ragebeast growl sound effect",
+      "dur": 1,
+      "generatable": true
+    },
+    {
+      "name": "rail",
+      "cat": "weapons",
+      "desc": "Railgun — electric snap into a descending energy zap",
+      "dur": 0.9,
+      "generatable": true
+    },
+    {
+      "name": "reload",
+      "cat": "movement",
+      "desc": "Reload — mag out, mag in, bolt charge",
+      "dur": 0.8,
+      "generatable": true
+    },
+    {
+      "name": "repair",
+      "cat": "weapons",
+      "desc": "Repair tool — ratcheting mechanical whir and clank",
+      "dur": 0.6,
+      "generatable": true
+    },
+    {
+      "name": "rifle",
+      "cat": "weapons",
+      "desc": "Single dry assault-rifle shot — sharp, punchy crack",
+      "dur": 0.6,
+      "generatable": true
+    },
+    {
+      "name": "rifle2",
+      "cat": "weapons",
+      "desc": "Assault-rifle shot (variation 2) — alternated with rifle for firing variety",
+      "dur": 0.6,
+      "generatable": true
+    },
+    {
+      "name": "rocket",
+      "cat": "weapons",
+      "desc": "Rocket launch — ignition whoosh with a deep motor rumble",
+      "dur": 1.2,
+      "generatable": true
+    },
+    {
+      "name": "shotgun",
+      "cat": "weapons",
+      "desc": "Pump shotgun — deep boom blast, then a pump-action rack cocking the next shell (cha-chunk)",
+      "dur": 0.95,
+      "generatable": true
+    },
+    {
+      "name": "smg",
+      "cat": "weapons",
+      "desc": "ONE single submachine-gun shot — a single round, snappy, not a burst or full-auto",
+      "dur": 0.4,
+      "generatable": true
+    },
+    {
+      "name": "spawn",
+      "cat": "ui",
+      "desc": "Respawn — short rising materialize shimmer",
+      "dur": 0.6,
+      "generatable": true
+    },
+    {
+      "name": "splat",
+      "cat": "other",
+      "desc": "splat sound effect",
+      "dur": 1,
+      "generatable": true
+    },
+    {
+      "name": "splat_big",
+      "cat": "other",
+      "desc": "splat big sound effect",
+      "dur": 1,
+      "generatable": true
+    },
+    {
+      "name": "thump",
+      "cat": "weapons",
+      "desc": "Grenade launcher — hollow low launch pop",
+      "dur": 0.6,
+      "generatable": true
+    },
+    {
+      "name": "turret_built",
+      "cat": "movement",
+      "desc": "Turret deploy — unfolding servo whir and lock",
+      "dur": 0.8,
+      "generatable": true
+    },
+    {
+      "name": "ui_click",
+      "cat": "ui",
+      "desc": "Menu click — tiny crisp tick",
+      "dur": 0.5,
+      "generatable": true
+    },
+    {
+      "name": "victory",
+      "cat": "ui",
+      "desc": "Victory — triumphant brass flourish",
+      "dur": 1.6,
+      "generatable": true
+    },
+    {
+      "name": "vo_barrier_ability",
+      "cat": "voices",
+      "desc": "vo barrier ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_barrier_arrive",
+      "cat": "voices",
+      "desc": "vo barrier arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_barrier_death",
+      "cat": "voices",
+      "desc": "vo barrier death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_barrier_kill3",
+      "cat": "voices",
+      "desc": "vo barrier kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_barrier_low",
+      "cat": "voices",
+      "desc": "vo barrier low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_blitz_ability",
+      "cat": "voices",
+      "desc": "vo blitz ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_blitz_arrive",
+      "cat": "voices",
+      "desc": "vo blitz arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_blitz_death",
+      "cat": "voices",
+      "desc": "vo blitz death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_blitz_kill3",
+      "cat": "voices",
+      "desc": "vo blitz kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_blitz_low",
+      "cat": "voices",
+      "desc": "vo blitz low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_cataclysm_ability",
+      "cat": "voices",
+      "desc": "vo cataclysm ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_cataclysm_arrive",
+      "cat": "voices",
+      "desc": "vo cataclysm arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_cataclysm_death",
+      "cat": "voices",
+      "desc": "vo cataclysm death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_cataclysm_kill3",
+      "cat": "voices",
+      "desc": "vo cataclysm kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_cataclysm_low",
+      "cat": "voices",
+      "desc": "vo cataclysm low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_chronos_ability",
+      "cat": "voices",
+      "desc": "vo chronos ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_chronos_arrive",
+      "cat": "voices",
+      "desc": "vo chronos arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_chronos_death",
+      "cat": "voices",
+      "desc": "vo chronos death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_chronos_kill3",
+      "cat": "voices",
+      "desc": "vo chronos kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_chronos_low",
+      "cat": "voices",
+      "desc": "vo chronos low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_crimson_ability",
+      "cat": "voices",
+      "desc": "vo crimson ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_crimson_arrive",
+      "cat": "voices",
+      "desc": "vo crimson arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_crimson_death",
+      "cat": "voices",
+      "desc": "vo crimson death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_crimson_kill3",
+      "cat": "voices",
+      "desc": "vo crimson kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_crimson_low",
+      "cat": "voices",
+      "desc": "vo crimson low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_crusher_ability",
+      "cat": "voices",
+      "desc": "vo crusher ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_crusher_arrive",
+      "cat": "voices",
+      "desc": "vo crusher arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_crusher_death",
+      "cat": "voices",
+      "desc": "vo crusher death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_crusher_kill3",
+      "cat": "voices",
+      "desc": "vo crusher kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_crusher_low",
+      "cat": "voices",
+      "desc": "vo crusher low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_dominator_ability",
+      "cat": "voices",
+      "desc": "vo dominator ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_dominator_arrive",
+      "cat": "voices",
+      "desc": "vo dominator arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_dominator_death",
+      "cat": "voices",
+      "desc": "vo dominator death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_dominator_kill3",
+      "cat": "voices",
+      "desc": "vo dominator kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_dominator_low",
+      "cat": "voices",
+      "desc": "vo dominator low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_eclipse_ability",
+      "cat": "voices",
+      "desc": "vo eclipse ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_eclipse_arrive",
+      "cat": "voices",
+      "desc": "vo eclipse arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_eclipse_death",
+      "cat": "voices",
+      "desc": "vo eclipse death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_eclipse_kill3",
+      "cat": "voices",
+      "desc": "vo eclipse kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_eclipse_low",
+      "cat": "voices",
+      "desc": "vo eclipse low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_firebrand_ability",
+      "cat": "voices",
+      "desc": "vo firebrand ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_firebrand_arrive",
+      "cat": "voices",
+      "desc": "vo firebrand arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_firebrand_death",
+      "cat": "voices",
+      "desc": "vo firebrand death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_firebrand_kill3",
+      "cat": "voices",
+      "desc": "vo firebrand kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_firebrand_low",
+      "cat": "voices",
+      "desc": "vo firebrand low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_frostbite_ability",
+      "cat": "voices",
+      "desc": "vo frostbite ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_frostbite_arrive",
+      "cat": "voices",
+      "desc": "vo frostbite arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_frostbite_death",
+      "cat": "voices",
+      "desc": "vo frostbite death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_frostbite_kill3",
+      "cat": "voices",
+      "desc": "vo frostbite kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_frostbite_low",
+      "cat": "voices",
+      "desc": "vo frostbite low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_gargoyle_ability",
+      "cat": "voices",
+      "desc": "vo gargoyle ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_gargoyle_arrive",
+      "cat": "voices",
+      "desc": "vo gargoyle arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_gargoyle_death",
+      "cat": "voices",
+      "desc": "vo gargoyle death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_gargoyle_kill3",
+      "cat": "voices",
+      "desc": "vo gargoyle kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_gargoyle_low",
+      "cat": "voices",
+      "desc": "vo gargoyle low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_gravwarden_ability",
+      "cat": "voices",
+      "desc": "vo gravwarden ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_gravwarden_arrive",
+      "cat": "voices",
+      "desc": "vo gravwarden arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_gravwarden_death",
+      "cat": "voices",
+      "desc": "vo gravwarden death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_gravwarden_kill3",
+      "cat": "voices",
+      "desc": "vo gravwarden kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_gravwarden_low",
+      "cat": "voices",
+      "desc": "vo gravwarden low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_inferno_ability",
+      "cat": "voices",
+      "desc": "vo inferno ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_inferno_arrive",
+      "cat": "voices",
+      "desc": "vo inferno arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_inferno_death",
+      "cat": "voices",
+      "desc": "vo inferno death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_inferno_kill3",
+      "cat": "voices",
+      "desc": "vo inferno kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_inferno_low",
+      "cat": "voices",
+      "desc": "vo inferno low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_leviathan_ability",
+      "cat": "voices",
+      "desc": "vo leviathan ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_leviathan_arrive",
+      "cat": "voices",
+      "desc": "vo leviathan arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_leviathan_death",
+      "cat": "voices",
+      "desc": "vo leviathan death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_leviathan_kill3",
+      "cat": "voices",
+      "desc": "vo leviathan kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_leviathan_low",
+      "cat": "voices",
+      "desc": "vo leviathan low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_magnetar_ability",
+      "cat": "voices",
+      "desc": "vo magnetar ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_magnetar_arrive",
+      "cat": "voices",
+      "desc": "vo magnetar arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_magnetar_death",
+      "cat": "voices",
+      "desc": "vo magnetar death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_magnetar_kill3",
+      "cat": "voices",
+      "desc": "vo magnetar kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_magnetar_low",
+      "cat": "voices",
+      "desc": "vo magnetar low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_mirage_ability",
+      "cat": "voices",
+      "desc": "vo mirage ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_mirage_arrive",
+      "cat": "voices",
+      "desc": "vo mirage arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_mirage_death",
+      "cat": "voices",
+      "desc": "vo mirage death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_mirage_kill3",
+      "cat": "voices",
+      "desc": "vo mirage kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_mirage_low",
+      "cat": "voices",
+      "desc": "vo mirage low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_nightmare_ability",
+      "cat": "voices",
+      "desc": "vo nightmare ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_nightmare_arrive",
+      "cat": "voices",
+      "desc": "vo nightmare arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_nightmare_death",
+      "cat": "voices",
+      "desc": "vo nightmare death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_nightmare_kill3",
+      "cat": "voices",
+      "desc": "vo nightmare kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_nightmare_low",
+      "cat": "voices",
+      "desc": "vo nightmare low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_oblivion_ability",
+      "cat": "voices",
+      "desc": "vo oblivion ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_oblivion_arrive",
+      "cat": "voices",
+      "desc": "vo oblivion arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_oblivion_death",
+      "cat": "voices",
+      "desc": "vo oblivion death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_oblivion_kill3",
+      "cat": "voices",
+      "desc": "vo oblivion kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_oblivion_low",
+      "cat": "voices",
+      "desc": "vo oblivion low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_overload_ability",
+      "cat": "voices",
+      "desc": "vo overload ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_overload_arrive",
+      "cat": "voices",
+      "desc": "vo overload arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_overload_death",
+      "cat": "voices",
+      "desc": "vo overload death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_overload_kill3",
+      "cat": "voices",
+      "desc": "vo overload kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_overload_low",
+      "cat": "voices",
+      "desc": "vo overload low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_phantom_ability",
+      "cat": "voices",
+      "desc": "vo phantom ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_phantom_arrive",
+      "cat": "voices",
+      "desc": "vo phantom arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_phantom_death",
+      "cat": "voices",
+      "desc": "vo phantom death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_phantom_kill3",
+      "cat": "voices",
+      "desc": "vo phantom kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_phantom_low",
+      "cat": "voices",
+      "desc": "vo phantom low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_plaguebearer_ability",
+      "cat": "voices",
+      "desc": "vo plaguebearer ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_plaguebearer_arrive",
+      "cat": "voices",
+      "desc": "vo plaguebearer arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_plaguebearer_death",
+      "cat": "voices",
+      "desc": "vo plaguebearer death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_plaguebearer_kill3",
+      "cat": "voices",
+      "desc": "vo plaguebearer kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_plaguebearer_low",
+      "cat": "voices",
+      "desc": "vo plaguebearer low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_pulse_ability",
+      "cat": "voices",
+      "desc": "vo pulse ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_pulse_arrive",
+      "cat": "voices",
+      "desc": "vo pulse arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_pulse_death",
+      "cat": "voices",
+      "desc": "vo pulse death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_pulse_kill3",
+      "cat": "voices",
+      "desc": "vo pulse kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_pulse_low",
+      "cat": "voices",
+      "desc": "vo pulse low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_pyroclasm_ability",
+      "cat": "voices",
+      "desc": "vo pyroclasm ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_pyroclasm_arrive",
+      "cat": "voices",
+      "desc": "vo pyroclasm arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_pyroclasm_death",
+      "cat": "voices",
+      "desc": "vo pyroclasm death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_pyroclasm_kill3",
+      "cat": "voices",
+      "desc": "vo pyroclasm kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_pyroclasm_low",
+      "cat": "voices",
+      "desc": "vo pyroclasm low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_ragebeast_ability",
+      "cat": "voices",
+      "desc": "vo ragebeast ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_ragebeast_arrive",
+      "cat": "voices",
+      "desc": "vo ragebeast arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_ragebeast_death",
+      "cat": "voices",
+      "desc": "vo ragebeast death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_ragebeast_kill3",
+      "cat": "voices",
+      "desc": "vo ragebeast kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_ragebeast_low",
+      "cat": "voices",
+      "desc": "vo ragebeast low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_reactor_ability",
+      "cat": "voices",
+      "desc": "vo reactor ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_reactor_arrive",
+      "cat": "voices",
+      "desc": "vo reactor arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_reactor_death",
+      "cat": "voices",
+      "desc": "vo reactor death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_reactor_kill3",
+      "cat": "voices",
+      "desc": "vo reactor kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_reactor_low",
+      "cat": "voices",
+      "desc": "vo reactor low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_reaper_ability",
+      "cat": "voices",
+      "desc": "vo reaper ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_reaper_arrive",
+      "cat": "voices",
+      "desc": "vo reaper arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_reaper_death",
+      "cat": "voices",
+      "desc": "vo reaper death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_reaper_kill3",
+      "cat": "voices",
+      "desc": "vo reaper kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_reaper_low",
+      "cat": "voices",
+      "desc": "vo reaper low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_riptide_ability",
+      "cat": "voices",
+      "desc": "vo riptide ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_riptide_arrive",
+      "cat": "voices",
+      "desc": "vo riptide arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_riptide_death",
+      "cat": "voices",
+      "desc": "vo riptide death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_riptide_kill3",
+      "cat": "voices",
+      "desc": "vo riptide kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_riptide_low",
+      "cat": "voices",
+      "desc": "vo riptide low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_shadowstep_ability",
+      "cat": "voices",
+      "desc": "vo shadowstep ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_shadowstep_arrive",
+      "cat": "voices",
+      "desc": "vo shadowstep arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_shadowstep_death",
+      "cat": "voices",
+      "desc": "vo shadowstep death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_shadowstep_kill3",
+      "cat": "voices",
+      "desc": "vo shadowstep kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_shadowstep_low",
+      "cat": "voices",
+      "desc": "vo shadowstep low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_sniperhawk_ability",
+      "cat": "voices",
+      "desc": "vo sniperhawk ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_sniperhawk_arrive",
+      "cat": "voices",
+      "desc": "vo sniperhawk arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_sniperhawk_death",
+      "cat": "voices",
+      "desc": "vo sniperhawk death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_sniperhawk_kill3",
+      "cat": "voices",
+      "desc": "vo sniperhawk kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_sniperhawk_low",
+      "cat": "voices",
+      "desc": "vo sniperhawk low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_specter_ability",
+      "cat": "voices",
+      "desc": "vo specter ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_specter_arrive",
+      "cat": "voices",
+      "desc": "vo specter arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_specter_death",
+      "cat": "voices",
+      "desc": "vo specter death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_specter_kill3",
+      "cat": "voices",
+      "desc": "vo specter kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_specter_low",
+      "cat": "voices",
+      "desc": "vo specter low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_steelweaver_ability",
+      "cat": "voices",
+      "desc": "vo steelweaver ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_steelweaver_arrive",
+      "cat": "voices",
+      "desc": "vo steelweaver arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_steelweaver_death",
+      "cat": "voices",
+      "desc": "vo steelweaver death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_steelweaver_kill3",
+      "cat": "voices",
+      "desc": "vo steelweaver kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_steelweaver_low",
+      "cat": "voices",
+      "desc": "vo steelweaver low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_stormcaller_ability",
+      "cat": "voices",
+      "desc": "vo stormcaller ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_stormcaller_arrive",
+      "cat": "voices",
+      "desc": "vo stormcaller arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_stormcaller_death",
+      "cat": "voices",
+      "desc": "vo stormcaller death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_stormcaller_kill3",
+      "cat": "voices",
+      "desc": "vo stormcaller kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_stormcaller_low",
+      "cat": "voices",
+      "desc": "vo stormcaller low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_titan_ability",
+      "cat": "voices",
+      "desc": "vo titan ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_titan_arrive",
+      "cat": "voices",
+      "desc": "vo titan arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_titan_death",
+      "cat": "voices",
+      "desc": "vo titan death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_titan_kill3",
+      "cat": "voices",
+      "desc": "vo titan kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_titan_low",
+      "cat": "voices",
+      "desc": "vo titan low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_tremor_ability",
+      "cat": "voices",
+      "desc": "vo tremor ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_tremor_arrive",
+      "cat": "voices",
+      "desc": "vo tremor arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_tremor_death",
+      "cat": "voices",
+      "desc": "vo tremor death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_tremor_kill3",
+      "cat": "voices",
+      "desc": "vo tremor kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_tremor_low",
+      "cat": "voices",
+      "desc": "vo tremor low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_vanguard_ability",
+      "cat": "voices",
+      "desc": "vo vanguard ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_vanguard_arrive",
+      "cat": "voices",
+      "desc": "vo vanguard arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_vanguard_death",
+      "cat": "voices",
+      "desc": "vo vanguard death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_vanguard_kill3",
+      "cat": "voices",
+      "desc": "vo vanguard kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_vanguard_low",
+      "cat": "voices",
+      "desc": "vo vanguard low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_venatrix_ability",
+      "cat": "voices",
+      "desc": "vo venatrix ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_venatrix_arrive",
+      "cat": "voices",
+      "desc": "vo venatrix arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_venatrix_death",
+      "cat": "voices",
+      "desc": "vo venatrix death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_venatrix_kill3",
+      "cat": "voices",
+      "desc": "vo venatrix kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_venatrix_low",
+      "cat": "voices",
+      "desc": "vo venatrix low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_venom_ability",
+      "cat": "voices",
+      "desc": "vo venom ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_venom_arrive",
+      "cat": "voices",
+      "desc": "vo venom arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_venom_death",
+      "cat": "voices",
+      "desc": "vo venom death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_venom_kill3",
+      "cat": "voices",
+      "desc": "vo venom kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_venom_low",
+      "cat": "voices",
+      "desc": "vo venom low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_voidwalker_ability",
+      "cat": "voices",
+      "desc": "vo voidwalker ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_voidwalker_arrive",
+      "cat": "voices",
+      "desc": "vo voidwalker arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_voidwalker_death",
+      "cat": "voices",
+      "desc": "vo voidwalker death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_voidwalker_kill3",
+      "cat": "voices",
+      "desc": "vo voidwalker kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_voidwalker_low",
+      "cat": "voices",
+      "desc": "vo voidwalker low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_voltstriker_ability",
+      "cat": "voices",
+      "desc": "vo voltstriker ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_voltstriker_arrive",
+      "cat": "voices",
+      "desc": "vo voltstriker arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_voltstriker_death",
+      "cat": "voices",
+      "desc": "vo voltstriker death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_voltstriker_kill3",
+      "cat": "voices",
+      "desc": "vo voltstriker kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_voltstriker_low",
+      "cat": "voices",
+      "desc": "vo voltstriker low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_wraith_ability",
+      "cat": "voices",
+      "desc": "vo wraith ability - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_wraith_arrive",
+      "cat": "voices",
+      "desc": "vo wraith arrive - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_wraith_death",
+      "cat": "voices",
+      "desc": "vo wraith death - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_wraith_kill3",
+      "cat": "voices",
+      "desc": "vo wraith kill3 - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "vo_wraith_low",
+      "cat": "voices",
+      "desc": "vo wraith low - spoken line; import or edit a directed replacement below",
+      "dur": 1,
+      "generatable": false
+    },
+    {
+      "name": "warp",
+      "cat": "tech",
+      "desc": "Warp teleport — rising shimmer and pop",
+      "dur": 0.7,
+      "generatable": true
+    },
+    {
+      "name": "wave_start",
+      "cat": "ui",
+      "desc": "Wave incoming — low horn swell + alarm",
+      "dur": 1.2,
+      "generatable": true
+    },
+    {
+      "name": "whistle",
+      "cat": "other",
+      "desc": "whistle sound effect",
+      "dur": 1,
+      "generatable": true
+    },
+    {
+      "name": "whiz",
+      "cat": "other",
+      "desc": "whiz sound effect",
+      "dur": 1,
+      "generatable": true
     }
   ]
 }

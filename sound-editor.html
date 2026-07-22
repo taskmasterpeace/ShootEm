@@ -402,6 +402,7 @@ async function selectSound(name) {
   $('empty').style.display = 'none';
   const ed = $('editor'); ed.style.display = '';
   const s = SPECS[name];
+  const canGenerate = s.generatable !== false;
   ed.innerHTML = `
     <div class="title">${name} <span class="cat-chip">${s.cat || 'misc'}</span></div>
     <div class="card">
@@ -412,13 +413,13 @@ async function selectSound(name) {
     </div>
     <div class="card">
       <h3>Prompt → regenerate</h3>
-      <label class="fld" for="prompt">Describe the sound (ElevenLabs prompt)</label>
-      <textarea class="prompt mono" id="prompt">${(s.desc || '').replace(/</g, '&lt;')}</textarea>
-      <div class="prompt-tail">+ auto suffix: <code>${s.cat === 'ambience' ? 'seamless looping ambient bed…' : 'dry, close-mic, one-shot, no reverb tail'}</code></div>
+      <label class="fld" for="prompt">${canGenerate ? 'Describe the sound (ElevenLabs prompt)' : 'Spoken line (directed TTS asset)'}</label>
+      <textarea class="prompt mono" id="prompt" ${canGenerate ? '' : 'disabled'}>${(s.desc || '').replace(/</g, '&lt;')}</textarea>
+      <div class="prompt-tail">${canGenerate ? `+ auto suffix: <code>${s.cat === 'ambience' ? 'seamless looping ambient bed…' : 'dry, close-mic, one-shot, no reverb tail'}</code>` : 'Import a directed voice take below, then clip/stitch and save it live.'}</div>
       <div class="genbar">
         <div class="grp"><label>length</label><input type="number" id="dur" min="0.3" max="22" step="0.1" value="${s.dur ?? 1}"><span style="font-size:11px;color:var(--muted)">s</span></div>
         <div class="grp"><label>takes</label><input type="number" id="n" min="1" max="5" step="1" value="3"></div>
-        <button class="primary" id="genBtn">🎙 Generate</button>
+        <button class="primary" id="genBtn" ${canGenerate ? '' : 'disabled'}>${canGenerate ? '🎙 Generate' : 'Spoken line — import/clip only'}</button>
         <div class="loopwrap"><input type="checkbox" id="loopChk" ${LOOPS[name] ? 'checked' : ''}><label for="loopChk">this sound loops</label></div>
       </div>
       <div class="msg" id="msg"></div>
@@ -460,7 +461,7 @@ async function selectSound(name) {
   $('curDur').textContent = live ? `${live.duration.toFixed(2)}s` : 'none';
   wirePlayer($('curPlay'), $('curWave'), live, !!LOOPS[name]);
 
-  $('genBtn').onclick = () => generate(name);
+  if (canGenerate) $('genBtn').onclick = () => generate(name);
   $('loopChk').onchange = async (e) => {
     const on = e.target.checked;
     const r = await api.loop({ name, loop: on });
