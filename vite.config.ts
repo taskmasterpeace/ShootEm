@@ -77,6 +77,8 @@ export default defineConfig({
         beams: resolve(__dirname, 'beams.html'),
         // radar/minimap + PixelLab aircraft instrument state bench
         instruments: resolve(__dirname, 'instruments.html'),
+        // #96 the UI GALLERY — Robert's decision sheet (/ui-gallery.html)
+        uigallery: resolve(__dirname, 'ui-gallery.html'),
       },
     },
   },

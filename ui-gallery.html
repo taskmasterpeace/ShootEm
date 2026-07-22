@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>War World — UI Gallery (the decision sheet)</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎛️</text></svg>" />
+  <link rel="stylesheet" href="/fonts/fonts.css" />
+  <link rel="stylesheet" href="/src/styles.css" />
+  <style>
+    body { overflow: auto !important; background: #14171b; padding: 2rem; }
+    #gallery { max-width: 72rem; margin: 0 auto; color: #e7ecf2;
+      font-family: "Share Tech Mono", ui-monospace, monospace; }
+    .gal-h { font-family: "Saira Stencil One", "Oswald", sans-serif; color: #e8a33d;
+      font-size: 1.6rem; letter-spacing: 0.05em; margin: 0 0 0.25rem; }
+    .gal-sub { color: #93a0b0; font-size: 0.85rem; margin: 0 0 1.6rem; }
+    .gal-sec { border: 1px solid #2a2f37; border-left: 3px solid #e8a33d;
+      padding: 1rem 1.2rem; margin-bottom: 1.2rem; background: #171b20; }
+    .gal-sec h2 { font-size: 0.8rem; letter-spacing: 0.18em; text-transform: uppercase;
+      color: #e8a33d; margin: 0 0 0.8rem; }
+    .gal-row { display: flex; flex-wrap: wrap; gap: 0.9rem 1.6rem; align-items: center; }
+    .gal-item { display: flex; flex-direction: column; gap: 0.3rem; align-items: flex-start; }
+    .gal-cap { font-size: 0.62rem; letter-spacing: 0.1em; color: #93a0b0; text-transform: uppercase; }
+    .gal-note { font-size: 0.72rem; color: #93a0b0; margin-top: 0.6rem; line-height: 1.5; }
+    .big-ico .ww-ico { width: 2em; height: 2em; }
+  </style>
+</head>
+<body>
+  <div id="gallery"></div>
+  <script type="module" src="/src/client/ui-gallery.ts"></script>
+</body>
+</html>
