@@ -18,3 +18,4 @@
 2026-07-22 IT-19: #29 built (scar map: stable node + 610KB JPEG, live-verified sameNode). 17 closed.
 2026-07-22 IT-20: #28 built (lazy GLB probes, network-log proof). 18 closed, 8 needs-robert.
 2026-07-22 IT-21: #11 closed-with-evidence (already fixed a8dcdde, encasedBodies recompute verified). Next: #23 particle idle upload.
+2026-07-22 IT-22: #23 built (touched-gated particle upload). 20 closed, 8 needs-robert.
