@@ -7,6 +7,27 @@
 
 ---
 
+## SCIENCE TACTICAL PASS — 2026-07-21
+
+✅ **Shipped in the Science worktree:** ordinary missions now default to zero
+armor for every actor; initial security is capped at seven with no more than two
+responders and one dog; guard issue is pistol/SMG only with military ordnance
+removed; direct sight begins an interruptible `SEARCHING` report rather than an
+instant facility alarm; a successful report distributes one copied last-known
+position and never refreshes it from the operator's live coordinates. The HUD
+now reads `GHOST` → `SEARCHING` → `ALARMED`.
+
+Verification: 73 focused Science/indoor checks pass; TypeScript, the complete
+158-file Vitest suite, ESLint, and the production Vite build all exit clean.
+The live Quick Deploy menu launched Researcher Rescue on the running local game
+and rendered the new `ALARMED` state after the reporting window.
+
+📋 **Next isolated slices:** operation-graph patrol routes/permanent waypoints
+and Map Maker overlays; then shared unarmed bot decisions plus baseball bat,
+katana, and held fire axe.
+
+---
+
 ## THE ROAD TO ZERO — the resolution plan (added 2026-07-20)
 
 The plan that resolves 100% of this ledger. Eight campaigns, dependency-ordered; each is a `/loop` diet of `docs/MASTER-BACKLOG.md` items with the gates + proof ritual baked in. **Run order matters** — early campaigns are substrate for later ones.

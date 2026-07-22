@@ -8,6 +8,20 @@ The public record of what shipped, written for players and backers — not engin
 
 ### New
 
+- **Science security behaves like security, not an army.** Ordinary operations
+  now field three to seven initial guards, at most two responders, and at most
+  one dog team. Guards and response teams carry only P9 pistols or Kuchler SMGs;
+  they no longer roll Heavy classes, military armory weapons, grenades,
+  incendiaries, demolition charges, or hidden armor.
+- **A sighting is not shared vision.** The guard who spots you enters a visible
+  `SEARCHING` report window. Stop that guard before the call completes and the
+  facility stays dark. A completed call sends one stale last-known position,
+  changes the HUD to `ALARMED`, and schedules the compact response team; it no
+  longer streams your live coordinates to every guard.
+- **Science is normally no-armor combat.** Player prints, guards, civilians,
+  targets, dogs, and responders begin with zero plate under the default Science
+  ruleset, even when the menu loadout included a vest or power armor.
+
 - **Five Science Missions are always one click away.** The Deploy screen now
   opens with K9 House Clear, Researcher Rescue, Clone Vault Raid, Quarantine
   Sweep, and Airfield Ambush. Each card loads its intended class, environment,
