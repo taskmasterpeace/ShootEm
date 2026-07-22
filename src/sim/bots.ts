@@ -789,7 +789,19 @@ export function objectiveFor(w: World, s: Soldier): Vec3 {
       const science = w.science;
       if (!science) return w.map.hillPos;
       if (s.team === 1) {
-        const assigned = science.guardPosts[Math.abs(science.guardIds.indexOf(s.id)) % science.guardPosts.length];
+        const guardIndex = science.guardIds.indexOf(s.id);
+        const route = guardIndex >= 0 ? science.patrolRoutes[guardIndex] : undefined;
+        if (route?.points.length) {
+          let pointIndex = s.botPatrolIndex ?? Math.min(1, route.points.length - 1);
+          const point = route.points[pointIndex];
+          if (point && s.floor === worldFloorForHeight(point.y)
+              && Math.hypot(point.x - s.pos.x, point.z - s.pos.z) < 1.35) {
+            pointIndex = (pointIndex + 1) % route.points.length;
+          }
+          s.botPatrolIndex = pointIndex;
+          return route.points[pointIndex] ?? route.points[0];
+        }
+        const assigned = science.guardPosts[Math.abs(guardIndex) % science.guardPosts.length];
         return assigned ?? w.map.basePos[1];
       }
       if (science.phase === 'extract') return science.extraction;

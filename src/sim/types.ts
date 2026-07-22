@@ -670,6 +670,8 @@ export interface Soldier {
   botRepathAt?: number;
   botTargetId?: number;
   botStrafeDir?: number;
+  /** Current point inside a Science operation's closed patrol route. */
+  botPatrolIndex?: number;
   /** opt #5 (S4): the cached strategic objective + when it next recomputes +
    *  the carry state it was computed under. objectiveFor is 25% of the tick
    *  from O(S) scans it runs every frame; the goal only matters at ~2-4 Hz. */

@@ -61,6 +61,22 @@ describe('science mission objective compiler', () => {
     expect(runtime.missionWaypoints.every((waypoint) => waypoint.floor === Math.round(waypoint.pos.y / 4))).toBe(true);
   });
 
+  it('walks guards around their authored patrol loops before an alarm', () => {
+    const world = missionWorld('steal');
+    const runtime = world.science!;
+    const guard = world.soldiers.get(runtime.guardIds[0])!;
+    const route = runtime.patrolRoutes[0];
+    const start = { ...guard.pos };
+    expect(route.points[0]).toEqual(start);
+    expect(Math.hypot(route.points[1].x - start.x, route.points[1].z - start.z)).toBeGreaterThan(0.5);
+
+    stepFor(world, 1.5);
+
+    expect(runtime.awareness).toBe('ghost');
+    expect(Math.hypot(guard.pos.x - start.x, guard.pos.z - start.z)).toBeGreaterThan(0.5);
+    expect(guard.botPatrolIndex).toBeGreaterThanOrEqual(1);
+  });
+
   it.each(Object.keys(primitive) as ScienceVerb[])('%s can complete its primary and extract', (verb) => {
     const world = missionWorld(verb);
     const runtime = world.science!;
