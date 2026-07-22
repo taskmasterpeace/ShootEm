@@ -779,7 +779,9 @@ export class Hud {
       case 'science': {
         const science = world.science;
         if (science) {
-          chips = `<div class="obj-chip ${science.alarm ? 't1' : 't0'}">${science.alarm ? 'ALARM' : 'GHOST'}</div>
+          const awareness = science.awareness === 'alarmed' ? 'ALARMED'
+            : science.awareness === 'searching' ? 'SEARCHING' : 'GHOST';
+          chips = `<div class="obj-chip ${science.awareness === 'alarmed' ? 't1' : science.awareness === 'searching' ? 'neutral' : 't0'}">${awareness}</div>
                    <div class="obj-chip neutral">${scienceObjectiveText(science)}</div>
                    <div class="obj-chip t0">CLONES ${science.clonesRemaining}</div>`;
         }

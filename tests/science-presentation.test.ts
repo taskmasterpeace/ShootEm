@@ -67,13 +67,19 @@ describe('science mission presentation', () => {
     expect(html).toContain('FRONT REINFORCEMENT');
   });
 
-  it('renders objective, clone pips, and alarm state in the mission card', () => {
+  it.each([
+    ['ghost', 'GHOST'],
+    ['searching', 'SEARCHING'],
+    ['alarmed', 'ALARMED'],
+  ] as const)('renders the %s awareness state in the mission card', (awareness, label) => {
     const runtime = runtimeFixture();
-    runtime.alarm = true;
+    runtime.awareness = awareness;
+    runtime.alarm = awareness === 'alarmed';
     const html = scienceMissionHTML(runtime);
     expect(html).toContain('Secure the program core');
     expect(html).toContain('science-clone-pip');
-    expect(html).toContain('ALARM');
+    expect(html).toContain(`science-state-${awareness}`);
+    expect(html).toContain(label);
   });
 
   it('turns burned clone pips into spent marks', () => {

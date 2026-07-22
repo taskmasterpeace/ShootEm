@@ -23,11 +23,12 @@ export function scienceCampaignBankHTML(bonuses: ScienceBonuses): string {
 }
 
 export function scienceMissionHTML(runtime: ScienceMissionRuntime): string {
-  const alarm = runtime.alarm ? 'ALARM' : 'GHOST';
+  const awareness = runtime.awareness === 'alarmed' ? 'ALARMED'
+    : runtime.awareness === 'searching' ? 'SEARCHING' : 'GHOST';
   const pips = Array.from({ length: runtime.spec.squadSize }, (_, index) =>
     `<i class="science-clone-pip${index < runtime.clonesRemaining ? ' is-live' : ' is-spent'}" aria-hidden="true"></i>`).join('');
   return `
-    <div class="science-mission-kicker"><span>${esc(runtime.spec.id)}</span><b class="science-state science-state-${runtime.alarm ? 'alarm' : 'ghost'}">${alarm}</b></div>
+    <div class="science-mission-kicker"><span>${esc(runtime.spec.id)}</span><b class="science-state science-state-${runtime.awareness}">${awareness}</b></div>
     <h2>${esc(runtime.spec.verb.toUpperCase())} · ${esc(runtime.spec.site.replaceAll('-', ' ').toUpperCase())}</h2>
     <p class="science-objective">${esc(scienceObjectiveText(runtime))}</p>
     <div class="science-clones"><span>PRINT STOCK</span><div class="science-clone-pips">${pips}</div><b>${runtime.clonesRemaining}</b></div>
@@ -49,11 +50,12 @@ export function scienceDebriefHTML(result: ScienceDebrief): string {
 export function renderSciencePanel(root: HTMLElement, runtime?: ScienceMissionRuntime): void {
   if (!runtime) {
     root.hidden = true;
-    root.classList.remove('is-alarm', 'is-ghost');
+    root.classList.remove('is-alarm', 'is-ghost', 'is-searching');
     return;
   }
   root.hidden = false;
   root.classList.toggle('is-alarm', runtime.alarm);
-  root.classList.toggle('is-ghost', !runtime.alarm);
+  root.classList.toggle('is-searching', runtime.awareness === 'searching');
+  root.classList.toggle('is-ghost', runtime.awareness === 'ghost');
   root.innerHTML = scienceMissionHTML(runtime);
 }
