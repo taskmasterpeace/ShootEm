@@ -25,7 +25,7 @@ import { FRONTS, SCAR_TEXT, applyResult, bandOf, checkSeasonEnd, holdTheLine, lo
 import { fileIssue, renderIssueHTML, renderPressInto, loadPress } from './client/newspaper';
 import { RangeCourse, loadWall } from './client/range';
 import { RingDrill } from './client/ringdrill';
-import { loadSettings, saveSettings, settings, type BloodLevel, type DarknessLevel } from './client/settings';
+import { loadSettings, saveSettings, settings, type BloodLevel, type DarknessLevel, type ReticleStyle } from './client/settings';
 import { darknessUniforms } from './client/darkness';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -1160,6 +1160,28 @@ audio.setMasterVolume(settings.masterVolume);
     settings.projectileSpeed = 0.35; settings.moveSpeed = 0.8; settings.vehicleSpeed = 0.8;
     saveSettings(); syncSpeed(); pushSpeed();
   };
+
+  // THE RETICLE (Robert): style / color / distance / size / laser — all live,
+  // read by the renderer every frame, so a change shows in the next match instantly.
+  const ret = $('set-reticle') as HTMLSelectElement;
+  ret.value = settings.reticle;
+  ret.onchange = () => { settings.reticle = ret.value as ReticleStyle; saveSettings(); };
+  const retColor = $('set-reticle-color') as HTMLSelectElement;
+  retColor.value = '0x' + settings.reticleColor.toString(16).padStart(6, '0');
+  retColor.onchange = () => { settings.reticleColor = Number(retColor.value); saveSettings(); };
+  const retDist = $('set-reticle-dist') as HTMLInputElement;
+  const retDistVal = $('ret-dist-val');
+  retDist.value = String(Math.round(settings.reticleDist * 100));
+  retDistVal.textContent = `${retDist.value}%`;
+  retDist.oninput = () => { settings.reticleDist = Number(retDist.value) / 100; retDistVal.textContent = `${retDist.value}%`; saveSettings(); };
+  const retSize = $('set-reticle-size') as HTMLInputElement;
+  const retSizeVal = $('ret-size-val');
+  retSize.value = String(Math.round(settings.reticleScale * 100));
+  retSizeVal.textContent = `${settings.reticleScale.toFixed(1)}×`;
+  retSize.oninput = () => { settings.reticleScale = Number(retSize.value) / 100; retSizeVal.textContent = `${settings.reticleScale.toFixed(1)}×`; saveSettings(); };
+  const laser = $('set-laser') as HTMLInputElement;
+  laser.checked = settings.laser;
+  laser.onchange = () => { settings.laser = laser.checked; saveSettings(); };
 }
 $('deploy-btn').addEventListener('click', () => { activeFrontId = null; startGame(); });
 window.addEventListener('keydown', (e) => {

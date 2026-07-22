@@ -78,3 +78,24 @@ export function buildReticleShadow(): THREE.Mesh {
 export function isStandingReticle(style: ReticleStyle): boolean {
   return style !== 'wedge' && style !== 'circle';
 }
+
+/** THE PERSONAL LASER (Robert: "put a little green laser on it… just for your
+ *  character"). A thin green beam down the aim line + a bright dot at the far
+ *  end. Built along +X (unit length); the renderer stretches/aims/places it. It
+ *  renders ONLY for the local player, so lasers don't cover the screen. */
+export function buildLaser(): THREE.Group {
+  const g = new THREE.Group();
+  const green = 0x37e83a;
+  const beam = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.018, 0.018, 1, 6),
+    new THREE.MeshBasicMaterial({ color: green, transparent: true, opacity: 0.55, depthWrite: false }),
+  );
+  beam.rotation.z = -Math.PI / 2; // cylinder is +Y; lay it along +X
+  beam.position.x = 0.5;          // its base sits at the origin, reaching to +X=1
+  beam.name = 'beam';
+  g.add(beam);
+  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), new THREE.MeshBasicMaterial({ color: green, transparent: true, opacity: 0.9, depthWrite: false }));
+  dot.name = 'dot';
+  g.add(dot);
+  return g;
+}

@@ -245,6 +245,47 @@
               <button id="set-speed-reset" class="ob-alt" style="font-size:0.8rem">Reset speeds to default</button>
             </div>
           </div>
+          <h3 style="margin-top:1rem">Reticle <span class="opt">(your aim cursor — Robert's family)</span></h3>
+          <div class="setup-row" style="margin-top:0.5rem">
+            <div class="setup-block">
+              <label>Style</label>
+              <select id="set-reticle" class="armory-select" style="width:13rem">
+                <option value="auto">Auto — by weapon family</option>
+                <option value="crosshair">Crosshair — standing</option>
+                <option value="dot">Dot — standing</option>
+                <option value="cross">Cross — standing</option>
+                <option value="chevron">Chevron — standing</option>
+                <option value="brackets">Brackets — standing</option>
+                <option value="ringdot">Ring + dot — standing</option>
+                <option value="wedge">Wedge — on the ground</option>
+                <option value="circle">Circle — on the ground</option>
+              </select>
+            </div>
+            <div class="setup-block">
+              <label>Color</label>
+              <select id="set-reticle-color" class="armory-select" style="width:9rem">
+                <option value="0xe8a33d">Amber</option>
+                <option value="0x35c9d6">Cyan</option>
+                <option value="0x4cd964">Green</option>
+                <option value="0xff3b30">Red</option>
+                <option value="0xffa030">Orange</option>
+                <option value="0xffffff">White</option>
+              </select>
+            </div>
+            <div class="setup-block">
+              <label>Distance in front <span id="ret-dist-val">60%</span></label>
+              <input type="range" id="set-reticle-dist" min="0" max="100" step="5" value="60" style="width:150px; accent-color: var(--accent)">
+            </div>
+            <div class="setup-block">
+              <label>Size <span id="ret-size-val">1.0×</span></label>
+              <input type="range" id="set-reticle-size" min="50" max="200" step="5" value="100" style="width:150px; accent-color: var(--accent)">
+            </div>
+            <div class="setup-block" style="align-self:flex-end">
+              <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer">
+                <input type="checkbox" id="set-laser" style="accent-color:var(--accent);width:1rem;height:1rem"> Personal green laser
+              </label>
+            </div>
+          </div>
         </div>
         <div class="menu-section" id="controls-section">
           <h3>Controls <span class="opt">(the full board — every bind as it truly is)</span></h3>

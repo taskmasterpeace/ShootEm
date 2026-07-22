@@ -10,7 +10,7 @@ import { HAND_FRAG_REACH, aimSpreadMul, meleeWindupFor, type World } from '../si
 import { audio, type SoundName } from './audio';
 import { BIOME_AUDIO } from './soundscape';
 import { settings } from './settings';
-import { buildReticleShadow, buildStandingReticle, isStandingReticle } from './reticle';
+import { buildLaser, buildReticleShadow, buildStandingReticle, isStandingReticle } from './reticle';
 import { darknessFloor, setDarknessFrame, sweepDarkness } from './darkness';
 import { Particles, FlashLights, Fireballs } from './effects';
 import { JOINT_NAMES, isUndead, poseSoldierJoints, CAST_SCHOOL, FLIGHT_POSES, RECOIL_SCALE, stepYawSpring, throwArmCurve, WEAPON_HOLDS, type GaitState, type CastSchool } from './animation';
@@ -247,6 +247,8 @@ export class Renderer {
   private standingReticle: THREE.Group | null = null;
   private reticleShadow: THREE.Mesh | null = null;
   private reticleKey = '';
+  /** THE PERSONAL LASER (Robert): a green beam on YOUR gun only. */
+  private laserBeam: THREE.Group | null = null;
   private spinners: THREE.Object3D[] = [];
   private beams: { mesh: THREE.Mesh; until: number }[] = [];
   /** §BEAMS row 188: live HELD streams, one per pouring soldier — a unit
@@ -1386,7 +1388,7 @@ export class Renderer {
   /** THE RETICLE FAMILY (Robert). Shows exactly ONE cursor for the local player:
    *  the ground WEDGE, the ground spread CIRCLE (handled in updateMeleeRings), or
    *  a STANDING reticle floated out in front + a ground shadow. */
-  private updateReticle(local: Soldier | undefined) {
+  private updateReticle(local: Soldier | undefined, world: World) {
     const style = local ? this.resolveReticleStyle(local) : 'wedge';
     const wdef = local ? WEAPONS[local.weapons[local.weaponIdx]] : undefined;
     // --- the GROUND WEDGE (direction FIXED: +Z-forward mesh needs π/2−yaw) ---
@@ -1426,6 +1428,27 @@ export class Renderer {
       if (this.standingReticle) this.standingReticle.visible = false;
       if (this.reticleShadow) this.reticleShadow.visible = false;
     }
+    // --- THE PERSONAL LASER (Robert: green beam, YOUR gun only) — a separate
+    // toggle from the reticle. It marches the aim line to the first wall (capped
+    // at the weapon's reach) so it doesn't punch through the world. Rendered only
+    // for the local player, so the screen never fills with aim lasers. ---
+    if (local && settings.laser) {
+      if (!this.laserBeam) { this.laserBeam = buildLaser(); this.scene.add(this.laserBeam); }
+      this.laserBeam.visible = true;
+      const cx = Math.cos(local.yaw), cz = Math.sin(local.yaw);
+      const mx = local.pos.x + cx * 0.5, mz = local.pos.z + cz * 0.5, my = 1.3;
+      const maxLen = Math.min(50, wdef?.range ?? 40);
+      let len = maxLen;
+      for (let d = 1; d <= maxLen; d += 0.5) {
+        if (blocksShot(world.map.grid, mx + cx * d, mz + cz * d, my)) { len = d; break; }
+      }
+      this.laserBeam.position.set(mx, my, mz);
+      this.laserBeam.rotation.y = -local.yaw; // +X-forward beam → aim
+      const beam = this.laserBeam.getObjectByName('beam');
+      if (beam) { beam.scale.y = len; beam.position.x = len / 2; } // stretch along +X, keep the base at the muzzle
+      const dot = this.laserBeam.getObjectByName('dot');
+      if (dot) dot.position.x = len;
+    } else if (this.laserBeam) this.laserBeam.visible = false;
   }
 
   private updateMeleeRings(world: World, local: Soldier | undefined) {
@@ -2305,7 +2328,7 @@ export class Renderer {
     // circle, or a STANDING crosshair floated out in front with a ground shadow.
     // Hidden in a vehicle (you aim the turret), while dead, or on a replay.
     const showReticle = !!local && local.alive && local.vehicleId < 0 && !this.replayView && !world.mode.over;
-    this.updateReticle(showReticle ? local : undefined);
+    this.updateReticle(showReticle ? local : undefined, world);
 
     // vehicles
     for (const v of world.vehicles.values()) {
