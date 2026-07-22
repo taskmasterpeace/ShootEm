@@ -11,6 +11,7 @@ import type { SimEvent, Soldier, Team, Vec3, VehicleKind } from '../sim/types';
 import { isBoard } from '../sim/types';
 import { HAND_FRAG_REACH, aimSpreadMul, meleeWindupFor, type World } from '../sim/world';
 import { audio, type SoundName } from './audio';
+import { ClassVo } from './classvo';
 import { BIOME_AUDIO } from './soundscape';
 import { settings } from './settings';
 import { buildLaser, buildReticleShadow, buildStandingReticle, isStandingReticle } from './reticle';
@@ -298,6 +299,7 @@ export class Renderer {
   private hillRing: THREE.Mesh | null = null;
   private nameSprites = new Map<number, { sprite: THREE.Sprite; ctx: CanvasRenderingContext2D; tex: THREE.CanvasTexture; key: string }>();
   private localId = -1; // set each frame in update(); lets animateSoldier know which soldier is YOU
+  private classVo = new ClassVo(); // the mortal-class barks find their moments (client-side)
   // tunneler support: map tile index → wall/cover instance so digs collapse visually
   private wallInst: THREE.InstancedMesh | null = null;
   private coverInst: THREE.InstancedMesh | null = null;
@@ -2039,6 +2041,8 @@ export class Renderer {
     const localTeam = local?.team ?? 0;
     this.frameDt = dt;
     this.updateMeleeRings(world, local);
+    // the state-poll class barks: the match-open intro, each redeploy, the flag run
+    this.classVo.tick(world, localId);
 
     // READING THE DARK (plan A2): patch new lit materials on a slow cadence
     // (GLBs, drops, corpses arrive between sweeps), then feed the eye — the
@@ -5117,6 +5121,9 @@ export class Renderer {
   /** Turn sim events into sound + particles. Returns events for the HUD layer too. */
   applyEvents(events: SimEvent[], world: World, localId: number) {
     for (const e of events) {
+      // the mortal-class voice reacts to your moments (kills, downs, the flag
+      // run, abilities) — client-side, off the events the sim already emits
+      this.classVo.consider(e, world, localId);
       switch (e.type) {
         case 'shot': {
           if (!e.pos || !e.weapon) break;
