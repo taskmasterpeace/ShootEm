@@ -12,6 +12,7 @@
     "sounds": "node tools/gen-sounds.mjs",
     "test": "vitest run",
     "test:vehicle-scenarios": "tsx scripts/run-vehicle-scenarios.ts",
+    "map:import:sf": "tsx scripts/import-geospatial-map.ts --id sf-potrero --name \"Potrero Hill / Dogpatch\" --bbox -122.4045,37.7520,-122.3943,37.7601 --city 69:san-francisco:cr7:896047 --seed 4207 --retrieved-at 2026-07-22 --output src/data/geospatial/san-francisco-potrero.json",
     "lint": "eslint src tests",
     "typecheck": "tsc --noEmit"
   },

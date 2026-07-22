@@ -362,6 +362,14 @@ export function compileGeospatialMap(
     overlay,
   );
 
+  // A parcel may touch a mapped centerline. The route contract wins: keep the
+  // selected source component continuously driveable after interior stamping.
+  for (const index of routePath) {
+    if (map.grid[index] !== T_OPEN) overlay.push({ index, reason: 'armor_clearance' });
+    map.grid[index] = T_OPEN;
+    map.surface[index] = S_PLATE;
+  }
+
   setDiscOpen(map, westRoad, 5, overlay);
   setDiscOpen(map, eastRoad, 5, overlay);
   const west = tileToWorld(geometry, westRoad % geometry.cols, Math.floor(westRoad / geometry.cols));
@@ -384,7 +392,7 @@ export function compileGeospatialMap(
     name: source.name,
     domains: ['foot', 'ground', 'air'],
     routes: [
-      { id: 'geocity:street-spine', domain: 'ground', width: 12, points: routePoints },
+      { id: 'geocity:street-spine', domain: 'ground', width: 18, points: routePoints },
       { id: 'geocity:air-corridor', domain: 'air', width: 90, points: [{ ...west }, { ...east }] },
     ],
     landingZones: [

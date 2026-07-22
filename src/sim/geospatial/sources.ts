@@ -11,6 +11,7 @@ export interface NormalizedOverpass {
   buildings: GeoBuilding[];
   water: GeoPolygonFeature[];
   land: GeoPolygonFeature[];
+  skippedFeatures: number;
 }
 
 interface OverpassElement {
@@ -24,7 +25,10 @@ interface OverpassResponse {
   elements?: OverpassElement[];
 }
 
-const OVERPASS_ENDPOINT = 'https://overpass-api.de/api/interpreter';
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+] as const;
 const EPQS_ENDPOINT = 'https://epqs.nationalmap.gov/v1/json';
 const SOURCE_USER_AGENT = 'WarWorld-Geospatial-Importer/1.0';
 
@@ -49,10 +53,13 @@ const featureId = (element: OverpassElement): string =>
 
 export function parseOverpass(payload: unknown): NormalizedOverpass {
   const response = payload as OverpassResponse;
-  const normalized: NormalizedOverpass = { roads: [], buildings: [], water: [], land: [] };
+  const normalized: NormalizedOverpass = { roads: [], buildings: [], water: [], land: [], skippedFeatures: 0 };
 
   for (const element of response.elements ?? []) {
-    if (element.type !== 'way') continue;
+    if (element.type !== 'way') {
+      normalized.skippedFeatures++;
+      continue;
+    }
     const tags = element.tags ?? {};
     const points = pointsOf(element);
     const id = featureId(element);
@@ -96,7 +103,9 @@ export function parseOverpass(payload: unknown): NormalizedOverpass {
       (tags.natural === 'wood' || tags.natural === 'grassland' ? tags.natural : undefined);
     if (landKind && points.length >= 3) {
       normalized.land.push({ id, polygon: points, kind: landKind });
+      continue;
     }
+    normalized.skippedFeatures++;
   }
 
   return normalized;
@@ -139,16 +148,24 @@ export async function fetchOverpassSlice(
   fetcher: typeof fetch = fetch,
 ): Promise<NormalizedOverpass> {
   const body = new URLSearchParams({ data: buildOverpassQuery(bbox) });
-  const response = await fetcher(OVERPASS_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-      'User-Agent': SOURCE_USER_AGENT,
-    },
-    body,
-  });
-  if (!response.ok) throw new Error(`Overpass request failed (${response.status})`);
-  return parseOverpass(await response.json());
+  const failures: string[] = [];
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const response = await fetcher(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+          'User-Agent': SOURCE_USER_AGENT,
+        },
+        body,
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return parseOverpass(await response.json());
+    } catch (error) {
+      failures.push(`${new URL(endpoint).host}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  throw new Error(`Overpass request failed (${failures.join('; ')})`);
 }
 
 async function fetchElevationSample(
@@ -213,24 +230,33 @@ export async function fetchElevationGrid(
   const [west, south, east, north] = bbox;
   const values: Array<number | undefined> = new Array(cols * rows);
   let cursor = 0;
-  let unavailable = 0;
 
-  const worker = async (): Promise<void> => {
-    while (true) {
-      const index = cursor++;
-      if (index >= values.length) return;
-      const x = index % cols;
-      const y = Math.floor(index / cols);
-      const longitude = west + (east - west) * (x / (cols - 1));
-      const latitude = south + (north - south) * (y / (rows - 1));
-      try {
-        values[index] = await fetchElevationSample(longitude, latitude, fetcher);
-      } catch {
-        unavailable++;
-      }
+  const sampleIndex = async (index: number): Promise<void> => {
+    const x = index % cols;
+    const y = Math.floor(index / cols);
+    const longitude = west + (east - west) * (x / (cols - 1));
+    const latitude = south + (north - south) * (y / (rows - 1));
+    try {
+      values[index] = await fetchElevationSample(longitude, latitude, fetcher);
+    } catch {
+      values[index] = undefined;
     }
   };
-  await Promise.all(Array.from({ length: Math.min(8, values.length) }, worker));
+  const worker = async (indices?: readonly number[]): Promise<void> => {
+    while (true) {
+      const position = cursor++;
+      const index = indices ? indices[position] : position;
+      if (index === undefined || index >= values.length) return;
+      await sampleIndex(index);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(4, values.length) }, () => worker()));
+  const failed = values.flatMap((value, index) => value === undefined ? [index] : []);
+  if (failed.length) {
+    cursor = 0;
+    await Promise.all(Array.from({ length: Math.min(2, failed.length) }, () => worker(failed)));
+  }
+  const unavailable = values.reduce<number>((count, value) => count + (value === undefined ? 1 : 0), 0);
   if (unavailable / values.length > 0.05) {
     throw new Error(`USGS elevation grid unavailable at ${unavailable}/${values.length} samples`);
   }

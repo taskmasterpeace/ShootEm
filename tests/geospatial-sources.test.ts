@@ -1,7 +1,34 @@
 import { describe, expect, it } from 'vitest';
 import { parseEpqs, parseOverpass } from '../src/sim/geospatial/sources';
+import { parseImportArgs, stringifyArtifact } from '../scripts/import-geospatial-map';
 
 describe('geospatial source adapters', () => {
+  it('accepts bounded import coordinates and rejects oversized slices', () => {
+    const parsed = parseImportArgs([
+      '--id', 'sf-potrero',
+      '--name', 'Potrero Hill / Dogpatch',
+      '--bbox', '-122.4045,37.7520,-122.3943,37.7601',
+      '--city', '69:san-francisco:cr7:896047',
+      '--seed', '4207',
+      '--retrieved-at', '2026-07-22',
+      '--output', 'pilot.json',
+    ]);
+    expect(parsed.bbox).toEqual([-122.4045, 37.752, -122.3943, 37.7601]);
+    expect(parsed.seed).toBe(4207);
+    expect(() => parseImportArgs([
+      '--id', 'huge', '--name', 'Huge', '--bbox', '-122.5,37.7,-122.4,37.8',
+      '--city', '69:san-francisco:cr7:896047', '--seed', '1',
+      '--retrieved-at', '2026-07-22', '--output', 'huge.json',
+    ])).toThrow(/1.2 km/i);
+  });
+
+  it('keeps numeric artifact arrays compact inside readable JSON', () => {
+    const json = stringifyArtifact({ name: 'fixture', values: [1, 2, 3], nested: { ok: true } });
+    expect(json).toContain('"values": [1,2,3]');
+    expect(json.endsWith('\n')).toBe(true);
+    expect(JSON.parse(json)).toEqual({ name: 'fixture', values: [1, 2, 3], nested: { ok: true } });
+  });
+
   it('normalizes Overpass roads, buildings, water, and green space', () => {
     const result = parseOverpass({
       elements: [
