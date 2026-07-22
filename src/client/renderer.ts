@@ -249,6 +249,7 @@ export class Renderer {
   private reticleKey = '';
   /** THE PERSONAL LASER (Robert): a green beam on YOUR gun only. */
   private laserBeam: THREE.Group | null = null;
+  private tmpDir = new THREE.Vector3(); // scratch for the camera look direction
   private spinners: THREE.Object3D[] = [];
   private beams: { mesh: THREE.Mesh; until: number }[] = [];
   /** §BEAMS row 188: live HELD streams, one per pouring soldier — a unit
@@ -1423,10 +1424,19 @@ export class Renderer {
       r.scale.setScalar(scale);
       // PLANTED IN THE WORLD (Robert: "physically in the 3D world… the bottom
       // touching the ground… NOT facing the camera"). A VERTICAL plane standing
-      // at the aim point, its FOOT on the ground; it only YAWS to face the camera
-      // (stays upright), so the angled view foreshortens it like a real standing
-      // target/sign, instead of a flat camera-locked billboard.
-      r.rotation.set(0, Math.atan2(this.camPos.x - ax, this.camPos.z - az), 0);
+      // at the aim point, its FOOT on the ground; it only YAWS to sit square to
+      // the camera (stays upright), so the angled view foreshortens it like a
+      // real standing target/sign, instead of a flat camera-locked billboard.
+      //
+      // FACE THE SAME WAY AT EVERY AIM (Robert: the old math "turned relative to
+      // the character" — only right at 12:00, wrong turning left). The camera is
+      // a fixed top-down rig looking toward −Z, so its horizontal forward is
+      // CONSTANT no matter where you aim. Yaw the reticle by THAT (−forward), not
+      // by the reticle→camera vector — which used the aim-dependent point (ax,az)
+      // and so re-aimed the face as you turned. Now every reticle sits square to
+      // the screen like an overlay, identical at 12:00, 9:00, or 6:00.
+      const fwd = this.camera.getWorldDirection(this.tmpDir);
+      r.rotation.set(0, Math.atan2(-fwd.x, -fwd.z), 0);
       const foot = 0.58 * scale; // the reticle's built half-height (ring/bars) × scale
       r.position.set(ax, foot, az); // center at half-height → bottom sits on the ground
       if (this.reticleShadow) { this.reticleShadow.visible = true; this.reticleShadow.position.set(ax, 0.04, az); this.reticleShadow.scale.setScalar(scale * 0.85); }
