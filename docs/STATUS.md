@@ -138,7 +138,7 @@ If you read one thing, read this. Everything below has a full row further down.
 **Beams:** continuous/held beams · **beam-vs-beam clash** · beam birth effects · the seven beam types.
 **Armed gods:** bow · spear · recall axe · summoners.
 **Multiplayer:** the whole server/netcode stack (the sim is built for it; nothing is wired).
-**Ammo:** the diagnostics pass, then the 25% cut.
+**Ammo:** diagnostics ✅. **The 25% cut is now MEASURED as a no-op** (bots burn ~15% of reserve per life, 0% go dry) — a real pistol-endgame needs a much deeper cut, now a 🎯 decision on the desk.
 **Optimization:** 42 findings. **9 closed, all byte-identical** — prior: #1/#3/#5/#38; this pass: **#11 (encased O(S²), −30% horde), #10 (parked hulls, −33% veh-combat), #8 (roster cache), #9 (perception allocs), #27 (possession-scan gate)**. Cumulative **−37% at N=240 horde**, the superlinear O(S²) tail gone. Remaining wins are renderer/netcode, not the sim tick (`docs/OPTIMIZATION-AUDIT.md` § CLOSED).
 
 ---
@@ -307,7 +307,7 @@ Ground-truthed this session. **Beams draw** (as fast box tracers); everything in
 |---|---|---|
 | Weapon shows on the body when you die; others pick it up | ✅ | **DONE 2026-07-21.** A dead human/bot drops its PRIMARY beside the body as a `type:'weapon'` pickup (gunmetal+glint mesh, bobbing): walk-over loads it into the special slot, a matching carried gun makes it an AMMO run; issue ar606 never drops, 20s despawn, 12-drop field cap, humans-only scavenge (threat-measure guard — bots drop but don't loot). Rides the snapshot free. Also fixed: consumed pickups' meshes never left the scene (supply-pod ghosts). `tests/loot.test.ts` (6); live-verified end-to-end |
 | Bodies last longer (so loot reads as loot) | ✅ | **DONE 2026-07-21** (`38aa67c`) — battlefield corpses linger 24s in tdm/ctf, outbreak corpses live their full incubation on-field (`491dab6`) |
-| Lower ammo (**25%** reserve cut) so fights end in pistols | ❌📋 | **locked at 25%**, but MEASURE FIRST. BACKLOG (new) |
+| Lower ammo (**25%** reserve cut) so fights end in pistols | ❌🎯 | **MEASURED 2026-07-22 — a 25% cut is a NO-OP.** 90 sim-s of 12v12 TDM (2402 rounds fired): the average soldier burns only **~14.9% of their primary reserve per life, and 0% ever run dry** — they die long before the mag pool matters. Cutting to 75% still leaves ~5× the headroom they use, so nobody falls to a pistol. "Fights end in pistols" needs a FAR deeper cut (reserve to roughly **the ~20% band** a life actually spends) — **🎯 how aggressive is Robert's call.** BACKLOG (new) |
 | Ammo **diagnostics** (rounds fired, reloads, dry-clicks, secondary time) | ✅ | **DONE 2026-07-21.** Per-soldier counters in the sim (`statShots`/`statReloads`/`statDry` rate-limited/`statSecondaryT`, mortals only — claws never count) + per-weapon tally (`world.ammoShotsByWeapon`); `ammoReport` (blackbox.ts) rides `__ww.blackbox('report')` with humans split out. `tests/ammo-diag.test.ts` (5); live: 45 sim-s of war → 470 shots/19 reloads by weapon. **The 25% cut (row above) is now measurable — run real matches and read the box before cutting** |
 
 ## 14 · ARMED GODS
@@ -401,6 +401,7 @@ Full spec: **`docs/OUTBREAK-SPEC.md`** (infection model, outbreak pressure/level
 - Can you field a **captured** enemy god, or is that too big a swing? (science-mission reward)
 - Science-mission stake: **permanent loss** on a failed run, or retry next window? (fear vs fairness)
 - Leader names/personalities sign-off before they're voiced (W3.7).
+- **How deep is the ammo cut?** Measured 2026-07-22: a 25% reserve cut changes nothing (soldiers use ~15% of reserve per life, 0% go dry). To make "fights end in pistols," reserve has to drop to roughly the ~20% band a life actually spends — a big swing. Confirm the target before it's cut, or leave the pool generous.
 
 **From the outbreak spec (§22.2):**
 - Does a perfect Break Hit give escape only, or an immediate **reversal** (defender takes control)?
