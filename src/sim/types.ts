@@ -354,6 +354,11 @@ export interface Soldier {
   /** THE CONCUSSION BAG: rattle-nades — heavy knockback, ringing ears
    *  (a fire-lock stagger), and almost no lethal bite. X cycles to them. */
   concs?: number;
+  /** the new tech pouches (Robert): the singularity, the plasma stick, and the
+   *  planted demolition timer. X cycles to them, G throws/plants. */
+  gravs?: number;
+  plasmas?: number;
+  timebombs?: number;
   nadeSel?: number;
   cloaked: boolean;
   vehicleId: number;  // -1 when on foot

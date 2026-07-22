@@ -1380,6 +1380,11 @@ export class World {
     s.smokes = 2;
     s.firebombs = s.classId === 'infantry' || s.classId === 'heavy' ? 1 : 0;
     s.concs = 1; // everyone carries one rattle-nade
+    // the new tech (Robert): the grenade specialist packs a singularity + a
+    // plasma stick; the demolitions classes carry a planted timer.
+    s.gravs = s.classId === 'infantry' ? 1 : 0;
+    s.plasmas = s.classId === 'infantry' || s.classId === 'infiltrator' ? 1 : 0;
+    s.timebombs = s.classId === 'engineer' || s.classId === 'heavy' ? 1 : 0;
     s.nadeSel = 0;
     s.manpads = this.hasEquip(s, 'samLauncher') ? MANPADS_ROUNDS : 0;
     s.medikitReady = true;
@@ -3170,12 +3175,20 @@ export class World {
         [1, `SMOKE ×${s.smokes ?? 0}`],
         [2, `INCENDIARY ×${s.firebombs ?? 0}`],
         [3, `CONCUSSION ×${s.concs ?? 0}`],
+        [4, `SINGULARITY ×${s.gravs ?? 0}`],
+        [5, `PLASMA STICK ×${s.plasmas ?? 0}`],
+        [6, `TIME BOMB ×${s.timebombs ?? 0}`],
         [0, s.classId === 'engineer' ? `MINES ×${s.grenades}` : `FRAG ×${s.grenades}`],
       ];
+      // stocked-check per slot: 0 (class kit) is always available; each pouch
+      // shows only while it has rounds
+      const nadeStocked = (i: number): boolean => i === 0 ? true
+        : i === 1 ? (s.smokes ?? 0) > 0 : i === 2 ? (s.firebombs ?? 0) > 0 : i === 3 ? (s.concs ?? 0) > 0
+        : i === 4 ? (s.gravs ?? 0) > 0 : i === 5 ? (s.plasmas ?? 0) > 0 : (s.timebombs ?? 0) > 0;
       const cur = s.nadeSel ?? 0;
-      for (let step = 1; step <= 4; step++) {
-        const next = (cur + step) % 4;
-        const stocked = next === 0 ? true : next === 1 ? (s.smokes ?? 0) > 0 : next === 2 ? (s.firebombs ?? 0) > 0 : (s.concs ?? 0) > 0;
+      for (let step = 1; step <= 7; step++) {
+        const next = (cur + step) % 7;
+        const stocked = nadeStocked(next);
         if (stocked) {
           if (next !== cur) {
             s.nadeSel = next;
@@ -3235,6 +3248,29 @@ export class World {
         this.emit({ type: 'shot', pos: s.pos, weapon: 'conc_nade', soldierId: s.id });
         if (s.cloaked) s.cloaked = false;
         if ((s.concs ?? 0) <= 0) s.nadeSel = 0;
+      } else if (s.nadeSel === 4 && (s.gravs ?? 0) > 0) {
+        s.gravs = (s.gravs ?? 0) - 1;
+        s.nextGrenadeAt = this.time + 1.4;
+        this.throwProjectile(s, 'grav_nade', 1.4, 16, true, reachTo(WEAPONS.grav_nade.range), cmd.lob ?? 1, true);
+        this.emit({ type: 'shot', pos: s.pos, weapon: 'grav_nade', soldierId: s.id });
+        if (s.cloaked) s.cloaked = false;
+        if ((s.gravs ?? 0) <= 0) s.nadeSel = 0;
+      } else if (s.nadeSel === 5 && (s.plasmas ?? 0) > 0) {
+        s.plasmas = (s.plasmas ?? 0) - 1;
+        s.nextGrenadeAt = this.time + 1.4;
+        // a flatter, faster throw — you AIM a plasma stick at a body
+        this.throwProjectile(s, 'plasma_nade', 1.3, 24, true, reachTo(WEAPONS.plasma_nade.range), 0.7, false);
+        this.emit({ type: 'shot', pos: s.pos, weapon: 'plasma_nade', soldierId: s.id });
+        if (s.cloaked) s.cloaked = false;
+        if ((s.plasmas ?? 0) <= 0) s.nadeSel = 0;
+      } else if (s.nadeSel === 6 && (s.timebombs ?? 0) > 0) {
+        // PLANTED at your feet — not thrown (it's a demolition charge)
+        s.timebombs = (s.timebombs ?? 0) - 1;
+        s.nextGrenadeAt = this.time + 1.5;
+        this.spawnGadget('time_bomb', s.team, s.id, { ...s.pos, y: 0 }, 60, 4);
+        this.emit({ type: 'bomb_planted', pos: { ...s.pos }, soldierId: s.id });
+        if (s.cloaked) s.cloaked = false;
+        if ((s.timebombs ?? 0) <= 0) s.nadeSel = 0;
       } else if (s.orbitals > 0) {
         s.orbitals--;
         s.nextGrenadeAt = this.time + 1.5;
@@ -3274,7 +3310,9 @@ export class World {
         const mines = [...this.mines.values()].filter((m) => m.ownerId === s.id);
         if (mines.length < 3 && s.grenades > 0) {
           s.grenades--;
-          const m: Mine = { id: this.id(), team: s.team, ownerId: s.id, pos: { ...s.pos }, armedAt: this.time + 1.2 };
+          // the engineer's mines are SPIDER mines now (Robert): they lie dormant,
+          // then wake and run down whoever strays near — area denial that hunts.
+          const m: Mine = { id: this.id(), team: s.team, ownerId: s.id, pos: { ...s.pos }, armedAt: this.time + 1.2, spider: true };
           this.mines.set(m.id, m);
           s.nextGrenadeAt = this.time + 0.8;
           this.emit({ type: 'mine_planted', pos: m.pos, soldierId: s.id });
