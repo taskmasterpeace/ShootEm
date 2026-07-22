@@ -158,19 +158,18 @@ describe('the bank shot', () => {
 });
 
 describe('the grenade bag (X cycles, G throws)', () => {
-  it('X rotates frag → smoke → fire → concussion and back, and empty pouches are skipped', () => {
+  it('X rotates frag → smoke → fire → conc → singularity → plasma → back, empty pouches skipped', () => {
     const { w, s } = range();
-    w.spawn(s); // stock the bag (infantry: 4 frag / 2 smoke / 1 fire / 1 concussion)
+    w.spawn(s); // stock the bag (infantry: frag / smoke / fire / conc / singularity / plasma)
     s.pos = { x: 0, y: 0, z: 0 };
     expect(s.nadeSel ?? 0).toBe(0);
-    w.step(1 / 60, new Map([[s.id, cmd({ nadeCycle: true })]]));
-    expect(s.nadeSel, 'first X should put smoke in hand').toBe(1);
-    w.step(1 / 60, new Map([[s.id, cmd({ nadeCycle: true })]]));
-    expect(s.nadeSel, 'second X should put fire in hand').toBe(2);
-    w.step(1 / 60, new Map([[s.id, cmd({ nadeCycle: true })]]));
-    expect(s.nadeSel, 'third X should put concussion in hand').toBe(3);
-    w.step(1 / 60, new Map([[s.id, cmd({ nadeCycle: true })]]));
-    expect(s.nadeSel, 'fourth X returns to the class kit').toBe(0);
+    const X = () => w.step(1 / 60, new Map([[s.id, cmd({ nadeCycle: true })]]));
+    X(); expect(s.nadeSel, 'X1 → smoke').toBe(1);
+    X(); expect(s.nadeSel, 'X2 → fire').toBe(2);
+    X(); expect(s.nadeSel, 'X3 → concussion').toBe(3);
+    X(); expect(s.nadeSel, 'X4 → the singularity (grav)').toBe(4);
+    X(); expect(s.nadeSel, 'X5 → the plasma stick').toBe(5);
+    X(); expect(s.nadeSel, 'X6 skips the empty time-bomb pouch — back to the class kit').toBe(0);
     // a medic carries no firebombs — X skips the empty pouch, lands on concussion
     const m = w.addSoldier('M', 'medic', 0, 'human');
     w.spawn(m);

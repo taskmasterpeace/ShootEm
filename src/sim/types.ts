@@ -125,6 +125,10 @@ export interface WeaponDef {
     cells?: number;
   };
   // ── PROJECTILE EFFECTS (composable; consumed in world.ts projectile step) ──
+  /** STICKY (Robert): no bounce, no roll — it ADHERES to the first thing it
+   *  touches (wall, ground, vehicle, or body) and detonates on its fuse from
+   *  right there. A stuck body carries the charge until it blows. */
+  sticky?: boolean;
   /** passes through n bodies + n penetrable-cover tiles before dying */
   pierce?: number;
   /** ignores plate: the round's damage lands on flesh (red number through armor) */
@@ -357,6 +361,11 @@ export interface Soldier {
   /** THE CONCUSSION BAG: rattle-nades — heavy knockback, ringing ears
    *  (a fire-lock stagger), and almost no lethal bite. X cycles to them. */
   concs?: number;
+  /** the new tech pouches (Robert): the singularity, the plasma stick, and the
+   *  planted demolition timer. X cycles to them, G throws/plants. */
+  gravs?: number;
+  plasmas?: number;
+  timebombs?: number;
   nadeSel?: number;
   cloaked: boolean;
   vehicleId: number;  // -1 when on foot
@@ -813,6 +822,13 @@ export interface Projectile {
   bounce?: boolean;
   /** the settle tick already rang once — a rolling grenade tings on arrival, not per frame */
   tinked?: boolean;
+  /** STICKY grenade adhesion (Robert). Exactly one is set once it latches:
+   *  `stuckTo` = a soldier it rides, `stuckVehicle` = a hull it rides, `stuckPos`
+   *  = a fixed point on a wall/the ground. `stuckAt` starts the fuse. */
+  stuckTo?: number;
+  stuckVehicle?: number;
+  stuckPos?: Vec3;
+  stuckAt?: number;
   /** remaining body/cover pass-throughs (init from WeaponDef.pierce at launch) */
   pierce?: number;
   /** remaining ricochets (init from WeaponDef.ricochet at launch) */

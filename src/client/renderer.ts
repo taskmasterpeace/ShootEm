@@ -2909,9 +2909,21 @@ export class Renderer {
           new THREE.CylinderGeometry(0.35, 0.45, 0.18, 10),
           new THREE.MeshStandardMaterial({ color: 0x4a4a3a, emissive: TEAM_COLORS[m.team], emissiveIntensity: 0.4 }),
         );
-        mesh.position.set(m.pos.x, 0.1, m.pos.z);
         this.scene.add(mesh);
         this.mineMeshes.set(m.id, mesh);
+      }
+      // a SPIDER mine MOVES (it skitters when awake) — track its pos every frame;
+      // awake it glows an angry red and stands a hair taller (popped up), dormant
+      // it just idles a faint team-glint.
+      mesh.position.set(m.pos.x, m.spider && m.awake ? 0.22 : 0.1, m.pos.z);
+      const mm = mesh.material as THREE.MeshStandardMaterial;
+      if (m.spider && m.awake) {
+        mm.emissive.setHex(0xff3b30);
+        mm.emissiveIntensity = 0.7 + Math.sin(world.time * 24) * 0.3; // frantic pulse
+        if (m.yaw !== undefined) mesh.rotation.y = -m.yaw;
+      } else {
+        mm.emissive.setHex(TEAM_COLORS[m.team]);
+        mm.emissiveIntensity = 0.4 + (m.spider ? Math.sin(world.time * 2) * 0.12 : 0); // dormant glint
       }
     }
     for (const [id, mesh] of this.mineMeshes) {
@@ -2949,6 +2961,15 @@ export class Renderer {
         let k = 0;
         for (const c of mesh.children) {
           if (c.name === 'leg') c.rotation.x = (k++ % 2 ? 1 : -1) * Math.sin(world.time * 26 + k) * 0.7;
+        }
+      }
+      if (g.type === 'time_bomb') {
+        // the blinker flashes faster as the fuse burns down — the telegraph
+        const blink = mesh.getObjectByName('bombBlink');
+        if (blink) {
+          const left = g.expiresAt - world.time;
+          const rate = left > 2 ? 4 : left > 1 ? 10 : 22;
+          blink.visible = Math.sin(world.time * rate) > 0;
         }
       }
       // spy cameras pan back and forth, watching
@@ -5130,6 +5151,28 @@ export class Renderer {
             this.particles.emit({ pos: { ...e.pos, y: 0.4 }, count: 14, color: 0x40d8c0, speed: 3, life: 0.5, spread: 0.8, up: 9, gravity: -2 });
             audio.play('gravlift', { pos: e.pos, volume: 0.7 });
           }
+          break;
+        case 'grav_well': // the singularity opens — a teal implosion of energy
+          if (e.pos) {
+            this.particles.emit({ pos: { ...e.pos, y: 0.9 }, count: 30, color: 0x40d8ff, speed: 7, life: 0.9, spread: 1.5, up: 3.5, gravity: -3 });
+            this.flashes.flash(e.pos, 0x40d8ff, 34, world.time, 0.4);
+            audio.play('gravlift', { pos: e.pos, volume: 0.85 });
+          }
+          break;
+        case 'plasma_stick': // the charge latched onto a body — the fuse is lit
+          if (e.pos) {
+            this.particles.emit({ pos: { ...e.pos, y: 1.2 }, count: 14, color: 0x66ddff, speed: 4, life: 0.4, spread: 0.5, up: 1.6 });
+            audio.play('plasma', { pos: e.pos, volume: 0.7 });
+          }
+          break;
+        case 'mine_wake': // a spider mine POPPED up and is coming
+          if (e.pos) {
+            this.particles.emit({ pos: { ...e.pos, y: 0.3 }, count: 10, color: 0xff5030, speed: 5, life: 0.35, spread: 0.6, up: 2.2 });
+            audio.play('mine_plant', { pos: e.pos, volume: 0.55, rate: 1.5 });
+          }
+          break;
+        case 'bomb_planted':
+          if (e.pos) audio.play('mine_plant', { pos: e.pos, volume: 0.7 });
           break;
         case 'beacon_planted':
           if (e.pos) {

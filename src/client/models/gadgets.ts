@@ -209,6 +209,21 @@ export function buildGadget(type: string, team: Team): THREE.Group {
       g.add(emberGlow);
       break;
     }
+    case 'time_bomb': {
+      // a planted demolition charge: a dark block, a red timer face, a blinker
+      // on top that the render loop flashes faster as the fuse burns down
+      const body = box(0.5, 0.34, 0.36, dark);
+      body.position.y = 0.17;
+      g.add(body);
+      const face = box(0.28, 0.15, 0.03, mat(0xff2a1a, { emissive: 0xff2a1a }));
+      face.position.set(0, 0.2, 0.19);
+      g.add(face);
+      const blink = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), mat(0xff3b30, { emissive: 0xff3b30 }));
+      blink.position.set(0, 0.42, 0);
+      blink.name = 'bombBlink';
+      g.add(blink);
+      break;
+    }
   }
   return g;
 }

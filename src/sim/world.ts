@@ -1413,6 +1413,11 @@ export class World {
     s.smokes = 2;
     s.firebombs = s.classId === 'infantry' || s.classId === 'heavy' ? 1 : 0;
     s.concs = 1; // everyone carries one rattle-nade
+    // the new tech (Robert): the grenade specialist packs a singularity + a
+    // plasma stick; the demolitions classes carry a planted timer.
+    s.gravs = s.classId === 'infantry' ? 1 : 0;
+    s.plasmas = s.classId === 'infantry' || s.classId === 'infiltrator' ? 1 : 0;
+    s.timebombs = s.classId === 'engineer' || s.classId === 'heavy' ? 1 : 0;
     s.nadeSel = 0;
     s.manpads = this.hasEquip(s, 'samLauncher') ? MANPADS_ROUNDS : 0;
     s.medikitReady = true;
@@ -3231,12 +3236,20 @@ export class World {
         [1, `SMOKE ×${s.smokes ?? 0}`],
         [2, `INCENDIARY ×${s.firebombs ?? 0}`],
         [3, `CONCUSSION ×${s.concs ?? 0}`],
+        [4, `SINGULARITY ×${s.gravs ?? 0}`],
+        [5, `PLASMA STICK ×${s.plasmas ?? 0}`],
+        [6, `TIME BOMB ×${s.timebombs ?? 0}`],
         [0, s.classId === 'engineer' ? `MINES ×${s.grenades}` : `FRAG ×${s.grenades}`],
       ];
+      // stocked-check per slot: 0 (class kit) is always available; each pouch
+      // shows only while it has rounds
+      const nadeStocked = (i: number): boolean => i === 0 ? true
+        : i === 1 ? (s.smokes ?? 0) > 0 : i === 2 ? (s.firebombs ?? 0) > 0 : i === 3 ? (s.concs ?? 0) > 0
+        : i === 4 ? (s.gravs ?? 0) > 0 : i === 5 ? (s.plasmas ?? 0) > 0 : (s.timebombs ?? 0) > 0;
       const cur = s.nadeSel ?? 0;
-      for (let step = 1; step <= 4; step++) {
-        const next = (cur + step) % 4;
-        const stocked = next === 0 ? true : next === 1 ? (s.smokes ?? 0) > 0 : next === 2 ? (s.firebombs ?? 0) > 0 : (s.concs ?? 0) > 0;
+      for (let step = 1; step <= 7; step++) {
+        const next = (cur + step) % 7;
+        const stocked = nadeStocked(next);
         if (stocked) {
           if (next !== cur) {
             s.nadeSel = next;
@@ -3296,6 +3309,29 @@ export class World {
         this.emit({ type: 'shot', pos: s.pos, weapon: 'conc_nade', soldierId: s.id });
         if (s.cloaked) s.cloaked = false;
         if ((s.concs ?? 0) <= 0) s.nadeSel = 0;
+      } else if (s.nadeSel === 4 && (s.gravs ?? 0) > 0) {
+        s.gravs = (s.gravs ?? 0) - 1;
+        s.nextGrenadeAt = this.time + 1.4;
+        this.throwProjectile(s, 'grav_nade', 1.4, 16, true, reachTo(WEAPONS.grav_nade.range), cmd.lob ?? 1, true);
+        this.emit({ type: 'shot', pos: s.pos, weapon: 'grav_nade', soldierId: s.id });
+        if (s.cloaked) s.cloaked = false;
+        if ((s.gravs ?? 0) <= 0) s.nadeSel = 0;
+      } else if (s.nadeSel === 5 && (s.plasmas ?? 0) > 0) {
+        s.plasmas = (s.plasmas ?? 0) - 1;
+        s.nextGrenadeAt = this.time + 1.4;
+        // a flatter, faster throw — you AIM a plasma stick at a body
+        this.throwProjectile(s, 'plasma_nade', 1.3, 24, true, reachTo(WEAPONS.plasma_nade.range), 0.7, false);
+        this.emit({ type: 'shot', pos: s.pos, weapon: 'plasma_nade', soldierId: s.id });
+        if (s.cloaked) s.cloaked = false;
+        if ((s.plasmas ?? 0) <= 0) s.nadeSel = 0;
+      } else if (s.nadeSel === 6 && (s.timebombs ?? 0) > 0) {
+        // PLANTED at your feet — not thrown (it's a demolition charge)
+        s.timebombs = (s.timebombs ?? 0) - 1;
+        s.nextGrenadeAt = this.time + 1.5;
+        this.spawnGadget('time_bomb', s.team, s.id, { ...s.pos, y: 0 }, 60, 4);
+        this.emit({ type: 'bomb_planted', pos: { ...s.pos }, soldierId: s.id });
+        if (s.cloaked) s.cloaked = false;
+        if ((s.timebombs ?? 0) <= 0) s.nadeSel = 0;
       } else if (s.orbitals > 0) {
         s.orbitals--;
         s.nextGrenadeAt = this.time + 1.5;
@@ -3335,7 +3371,9 @@ export class World {
         const mines = [...this.mines.values()].filter((m) => m.ownerId === s.id);
         if (mines.length < 3 && s.grenades > 0) {
           s.grenades--;
-          const m: Mine = { id: this.id(), team: s.team, ownerId: s.id, pos: { ...s.pos }, armedAt: this.time + 1.2 };
+          // the engineer's mines are SPIDER mines now (Robert): they lie dormant,
+          // then wake and run down whoever strays near — area denial that hunts.
+          const m: Mine = { id: this.id(), team: s.team, ownerId: s.id, pos: { ...s.pos }, armedAt: this.time + 1.2, spider: true };
           this.mines.set(m.id, m);
           s.nextGrenadeAt = this.time + 0.8;
           this.emit({ type: 'mine_planted', pos: m.pos, soldierId: s.id });
@@ -4916,10 +4954,81 @@ export class World {
 
   // ---------- projectiles ----------
 
-  /** Special payloads detonate into effects instead of damage. */
+  /** STICKY GRENADE (Robert: "no bounce, stick to what they hit"): the charge
+   *  ADHERES to the first thing it touches and detonates on a ~1.3s fuse from
+   *  right there — a body or hull it RIDES (a stuck man carries it into his
+   *  squad), a wall or the ground it CLINGS to. Returns true if it handled the
+   *  projectile this tick (stuck/riding/burst); false = keep flying. `px/py/pz`
+   *  is the pre-move position, used to back a wall-hit off to just outside. */
+  private stepSticky(id: number, p: Projectile, px: number, py: number, pz: number): boolean {
+    const FUSE = 1.3;
+    const burst = () => { this.detonatePayload(p); this.projectiles.delete(id); };
+    // ── already stuck: ride/cling and count the fuse ──
+    if (p.stuckTo !== undefined) {
+      const host = this.soldiers.get(p.stuckTo);
+      if (!host || !host.alive || this.time >= (p.stuckAt ?? 0) + FUSE) { burst(); return true; }
+      p.pos = { x: host.pos.x, y: 1.2, z: host.pos.z }; p.vel = { x: 0, y: 0, z: 0 }; // ride the body
+      return true;
+    }
+    if (p.stuckVehicle !== undefined) {
+      const v = this.vehicles.get(p.stuckVehicle);
+      if (!v || !v.alive || this.time >= (p.stuckAt ?? 0) + FUSE) { burst(); return true; }
+      p.pos = { x: v.pos.x, y: 1.0, z: v.pos.z }; p.vel = { x: 0, y: 0, z: 0 }; // ride the hull
+      return true;
+    }
+    if (p.stuckPos) {
+      p.pos = { ...p.stuckPos }; p.vel = { x: 0, y: 0, z: 0 }; // clinging to a wall / the ground
+      if (this.time >= (p.stuckAt ?? 0) + FUSE) { burst(); return true; }
+      return true;
+    }
+    // ── not stuck yet: what did it just touch? ──
+    // 1. a BODY at (roughly) body height — the plasma stick
+    for (const e of this.soldiers.values()) {
+      if (!e.alive || e.team === p.team || e.vehicleId >= 0) continue;
+      if (Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) < 1.4 && Math.abs((e.pos.y ?? 0) - p.pos.y) < 2.2) {
+        p.stuckTo = e.id; p.stuckAt = this.time; p.vel = { x: 0, y: 0, z: 0 };
+        this.emit({ type: 'plasma_stick', pos: { ...p.pos }, soldierId: e.id });
+        return true;
+      }
+    }
+    // 2. a VEHICLE hull
+    for (const v of this.vehicles.values()) {
+      if (!v.alive || v.team === p.team) continue;
+      if (Math.hypot(v.pos.x - p.pos.x, v.pos.z - p.pos.z) < VEHICLES[v.kind].radius + 0.6 && Math.abs(v.pos.y - p.pos.y) < 3) {
+        p.stuckVehicle = v.id; p.stuckAt = this.time; p.vel = { x: 0, y: 0, z: 0 };
+        this.emit({ type: 'plasma_stick', pos: { ...p.pos } });
+        return true;
+      }
+    }
+    // 3. a WALL (it flew INTO a blocked tile below the wall tier) — back off to
+    //    just outside and cling to the face
+    if (p.pos.y < 4.05 && isBlocked(this.map.grid, p.pos.x, p.pos.z)) {
+      p.stuckPos = { x: px, y: Math.max(0.3, py), z: pz };
+      p.stuckAt = this.time; p.vel = { x: 0, y: 0, z: 0 };
+      this.emit({ type: 'plasma_stick', pos: { ...p.stuckPos } });
+      return true;
+    }
+    // 4. the GROUND — cling where it lands, no bounce, no roll
+    if (p.pos.y <= 0.16 && p.vel.y <= 0) {
+      p.stuckPos = { x: p.pos.x, y: 0.16, z: p.pos.z };
+      p.stuckAt = this.time; p.vel = { x: 0, y: 0, z: 0 };
+      this.emit({ type: 'plasma_stick', pos: { ...p.stuckPos } });
+      return true;
+    }
+    return false; // still in the air, touched nothing — fly on
+  }
+
   private detonatePayload(p: Projectile): boolean {
     // generated arsenal payloads (smoke / phosphorus launchers)
     const payload = WEAPONS[p.weapon]?.payload;
+    if (payload === 'plasma') {
+      // THE PLASMA BURST: an energy splash off the stuck charge (bites armor via
+      // the plasma tracer), and it leaves a brief burning patch — the stick that
+      // keeps on giving. Uses the carrier's own numbers (M3 lesson).
+      this.explode(p.pos, WEAPONS[p.weapon]?.splash ? WEAPONS[p.weapon] : WEAPONS.plasma_nade, p.ownerId, p.team, p.airScaled);
+      this.spawnGadget('fire_field', p.team, p.ownerId, { x: p.pos.x, y: 0, z: p.pos.z }, Infinity, 4);
+      return true;
+    }
     if (payload === 'smoke') {
       this.spawnGadget('smoke_field', p.team, p.ownerId, p.pos, Infinity, 12);
       this.emit({ type: 'beacon_planted', pos: { ...p.pos }, text: 'Smoke deployed' });
@@ -4998,10 +5107,17 @@ export class World {
         const tm = this.timeMulAt(p.pos.x, p.pos.z);
         if (tm < 1) { tdt = dt * tm; p.bornAt += dt * (1 - tm); }
       }
+      const px = p.pos.x, py = p.pos.y, pz = p.pos.z; // pre-move, to back off a wall
       if (p.arc) p.vel.y -= this.gravity * 0.7 * tdt;
       p.pos.x += p.vel.x * tdt;
       p.pos.y += p.vel.y * tdt;
       p.pos.z += p.vel.z * tdt;
+
+      // STICKY (Robert: "no bounce, stick to what they hit"): the charge adheres
+      // to the first thing it touches — a body, a hull, a wall, the ground — and
+      // detonates on its fuse from right there. Runs BEFORE the bounce/wall/hit
+      // logic below, so a sticky round never bounces or rolls.
+      if (def.sticky && this.stepSticky(id, p, px, py, pz)) continue;
 
       // BOOMERANG: fly out for half the ttl, then whip back toward the owner and
       // clear the struck list so it can hit again on the return leg (flip once)
