@@ -24,3 +24,4 @@
 2026-07-22 IT-25: #30 -> blocked on #31 (tier prerequisite; FlashLights count param ready). IT-26: taking #31 itself.
 2026-07-22 IT-26: #31 built (quality tier + camera-following shadow box, both tiers live-proven) + #30 closed via the wire. 24 closed.
 2026-07-22 IT-27: #13 built (projectile template clones — 51 rounds/3 templates live-proven). 26 closed.
+2026-07-22 IT-28: #26 built (hot-loop alloc scrub). 27 closed, 8 needs-robert.
