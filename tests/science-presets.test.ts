@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import {
   SCIENCE_PRESETS,
   prepareSciencePreset,
@@ -6,6 +7,13 @@ import {
 } from '../src/client/science-presets';
 
 describe('Science Mission quick deploy presets', () => {
+  it('mounts a labelled quick-deploy shelf on the main menu', () => {
+    const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+    expect(html).toContain('id="science-quick-deploy"');
+    expect(html).toContain('aria-labelledby="science-quick-title"');
+    expect(html).toContain('id="science-preset-cards"');
+  });
+
   it('ships five distinct representative operations in menu order', () => {
     expect(SCIENCE_PRESETS.map((preset) => preset.id)).toEqual([
       'k9-house-clear',

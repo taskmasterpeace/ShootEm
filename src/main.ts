@@ -31,6 +31,7 @@ import { RingDrill } from './client/ringdrill';
 import { loadSettings, saveSettings, settings, type BloodLevel, type DarknessLevel } from './client/settings';
 import { darknessUniforms } from './client/darkness';
 import { k9HandlerForTeam } from './sim/k9-orders';
+import { SCIENCE_PRESETS, prepareSciencePreset, sciencePresetCardHTML } from './client/science-presets';
 
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -297,6 +298,27 @@ function buildMenu() {
   });
   $('roster-block').style.display = (selectedMode === 'horde' || selectedMode === 'survival') ? '' : 'none';
   $('science-clone-block').style.display = selectedMode === 'science' ? '' : 'none';
+
+  const quickDeploy = $('science-preset-cards');
+  quickDeploy.innerHTML = SCIENCE_PRESETS.map(sciencePresetCardHTML).join('');
+  quickDeploy.querySelectorAll<HTMLButtonElement>('[data-science-preset]').forEach((button) => {
+    button.onclick = () => {
+      const preset = SCIENCE_PRESETS.find((candidate) => candidate.id === button.dataset.sciencePreset);
+      if (!preset || running) return;
+      selectedMode = 'science';
+      selectedClass = preset.classId;
+      selectedTheme = preset.options.theme!;
+      scienceClones = 8;
+      primaryPick = '';
+      secondaryPick = '';
+      activeFrontId = null;
+      seedOverride = undefined;
+      queuedScienceLaunch = prepareSciencePreset(preset);
+      quickDeploy.querySelectorAll<HTMLButtonElement>('button').forEach((card) => { card.disabled = true; });
+      audio.play('ui_click');
+      void startGame();
+    };
+  });
 
   const classRow = $('class-select');
   classRow.innerHTML = '';
