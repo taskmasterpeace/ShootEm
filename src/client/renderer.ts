@@ -310,6 +310,8 @@ export class Renderer {
   private nameSprites = new Map<number, { sprite: THREE.Sprite; ctx: CanvasRenderingContext2D; tex: THREE.CanvasTexture; key: string }>();
   private localId = -1; // set each frame in update(); lets animateSoldier know which soldier is YOU
   private classVo = new ClassVo(); // the mortal-class barks find their moments (client-side)
+  /** opt #13: projectile template cache — rounds are clones sharing GPU assets */
+  private projTemplates = new Map<string, THREE.Object3D>();
   /** opt #12: per-mesh named-part cache — getObjectByName is a RECURSIVE tree
    *  walk, and the hot loops (vehicles, gadgets, capes) asked for up to a
    *  dozen parts per mesh per frame. First ask walks; every later ask is a
@@ -3144,7 +3146,15 @@ export class Renderer {
         const projColor = p.pierceArmor ? 0xffffff
           : paintball ? paintColorFor(p.ownerId, localId)
           : WEAPON_TINTS[p.weapon] ?? lswTint ?? (TRACER_COLORS[def.tracer] || 0xffcc88);
-        mesh = this.makeProjectile(def.tracer, projColor, def.beam, p.weapon);
+        // opt #13 (R5): rounds are CLONES of a cached template — clone() shares
+        // geometry and material by reference, so a 24-bot firefight allocates
+        // only Group/Mesh wrappers instead of fresh GPU buffers per bullet.
+        // The template set is bounded (tracer × color × beam-school × weapon
+        // tints actually seen); flight code mutates transforms only.
+        const tplKey = `${def.tracer}:${projColor}:${def.beam ?? ''}:${WEAPON_TINTS[p.weapon] !== undefined || p.weapon === 'lsw_eclipse' ? p.weapon : ''}`;
+        let tpl = this.projTemplates.get(tplKey);
+        if (!tpl) { tpl = this.makeProjectile(def.tracer, projColor, def.beam, p.weapon); this.projTemplates.set(tplKey, tpl); }
+        mesh = tpl.clone();
         mesh.userData.tracer = def.tracer;
         this.scene.add(mesh);
         this.projMeshes.set(p.id, mesh);
@@ -3194,11 +3204,9 @@ export class Renderer {
       if (!world.projectiles.has(id)) {
         if (this.replayView) { mesh.visible = false; continue; }
         this.scene.remove(mesh);
-        mesh.traverse((o) => {
-          const m = o as THREE.Mesh;
-          if (m.geometry) m.geometry.dispose();
-          (m.material as THREE.Material | undefined)?.dispose();
-        });
+        // opt #13: NO disposal — geometry/material belong to the shared
+        // templates (bounded set, alive for the renderer's lifetime); the
+        // clone wrappers are plain JS objects the GC handles.
         this.projMeshes.delete(id);
         this.whizzed.delete(id);
       }
