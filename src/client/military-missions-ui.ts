@@ -19,12 +19,12 @@ const domainName = (domain: MilitaryMissionPreset['domains'][number]): string =>
 export function renderMilitaryMissionModeCard(selected: boolean, selectedId: MilitaryMissionId | null = null): string {
   const mission = selectedId ? MILITARY_MISSIONS.find((entry) => entry.id === selectedId) : null;
   return `<button type="button" id="military-missions-card" class="select-card mission-launch-card${selected ? ' selected' : ''}" aria-haspopup="dialog">
-    <span class="mission-kicker">6 THEATERS · LIVE OPERATIONS</span>
+    <span class="mission-kicker">${MILITARY_MISSIONS.length} THEATERS · LIVE OPERATIONS</span>
     <span class="icon" aria-hidden="true">⌖</span>
     <span class="name">MILITARY MISSIONS</span>
     <span class="desc">${mission
       ? `${escapeHtml(mission.missionName)} · ${escapeHtml(mission.theaterName)}`
-      : 'City, desert, countryside, mountain, coast, and open ocean.'}</span>
+      : 'City, real-city front, desert, countryside, mountain, coast, and open ocean.'}</span>
     <span class="mission-card-cta">${mission ? 'CHANGE MISSION' : 'SELECT MISSION'} →</span>
   </button>`;
 }
