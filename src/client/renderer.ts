@@ -20,6 +20,7 @@ import { hash01 } from '../sim/rng';
 import { collapseStyleFor, type CollapseStyle } from './deathpose';
 import { buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp, buildSoldier, buildTurretMesh, buildVehicle, dressAsLsw } from './models';
 import { k9MarkerKind } from './k9-controls';
+import { activeScienceWaypoints } from './science';
 
 const TRACER_COLORS: Record<string, number> = {
   bullet: 0xffd890, shell: 0xffb060, rocket: 0xff8840, plasma: 0x60c8ff,
@@ -3416,12 +3417,21 @@ export class Renderer {
       }
     }
 
-    // ---- tactical waypoints: amber light pillars on the field ----
+    // ---- tactical pings + permanent, floor-aware Science waypoints ----
     // (live-time overlays don't belong in a replayed scene)
     if (this.replayView) {
       for (const pillar of this.wpPillars) if (pillar) pillar.visible = false;
-    } else if (waypoints) {
-      for (let i = 0; i < Math.min(waypoints.length, 8); i++) {
+    } else if (waypoints || world.science) {
+      const temporary = (waypoints ?? []).filter((waypoint) => waypoint.until > world.time).map((waypoint) => ({
+        x: waypoint.x, y: 0, z: waypoint.z, color: 0xffd870, opacity: Math.min(0.42, Math.max(0.08, (waypoint.until - world.time) / 10)),
+      }));
+      const mission = world.science && local
+        ? activeScienceWaypoints(world.science, local.floor).map((waypoint) => ({
+          x: waypoint.x, y: waypoint.y, z: waypoint.z, color: waypoint.color, opacity: waypoint.floorDelta === 0 ? 0.46 : 0.28,
+        }))
+        : [];
+      const visibleWaypoints = [...temporary, ...mission].slice(0, 12);
+      for (let i = 0; i < visibleWaypoints.length; i++) {
         let pillar = this.wpPillars[i];
         if (!pillar) {
           pillar = new THREE.Mesh(
@@ -3434,14 +3444,14 @@ export class Renderer {
           this.scene.add(pillar);
           this.wpPillars[i] = pillar;
         }
-        const wp = waypoints[i];
-        const left = wp.until - world.time;
-        pillar.visible = left > 0;
-        pillar.position.set(wp.x, 4.5, wp.z);
-        (pillar.material as THREE.MeshBasicMaterial).opacity =
-          Math.min(0.42, Math.max(0.08, left / 10)) * (0.8 + 0.2 * Math.sin(world.time * 3 + i));
+        const wp = visibleWaypoints[i];
+        pillar.visible = true;
+        pillar.position.set(wp.x, wp.y + 4.5, wp.z);
+        const material = pillar.material as THREE.MeshBasicMaterial;
+        material.color.setHex(wp.color);
+        material.opacity = wp.opacity * (0.8 + 0.2 * Math.sin(world.time * 3 + i));
       }
-      for (let i = waypoints.length; i < this.wpPillars.length; i++) {
+      for (let i = visibleWaypoints.length; i < this.wpPillars.length; i++) {
         if (this.wpPillars[i]) this.wpPillars[i].visible = false;
       }
     }

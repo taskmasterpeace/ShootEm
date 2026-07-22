@@ -49,7 +49,7 @@ export interface ScienceOperationGraph {
 export interface GenerateScienceOperationGraphInput {
   seed: number;
   map: GameMap;
-  building: GeneratedBuilding;
+  building?: GeneratedBuilding;
   entry: Vec3;
   extraction: Vec3;
   objectives: readonly Vec3[];
@@ -191,7 +191,6 @@ export function generateScienceOperationGraph(input: GenerateScienceOperationGra
     patrols: patrolRoutes.length,
     reports: reportNodes.length,
   };
-  void input.building; // part of the stable call contract; navigation remains map-authoritative.
   return { seed: input.seed >>> 0, nodes, roomEdges, criticalRoute, patrolRoutes, reportNodes, responseRoutes, metrics };
 }
 

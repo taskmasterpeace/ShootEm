@@ -28,9 +28,10 @@ import type { GameMap } from '../sim/map';
 import type { VehicleKind } from '../sim/types';
 import { floorLayer } from '../sim/map-layers';
 import { COUNTRY_MAP_PROFILES, citiesForCountry, type CityMapProfile } from '../sim/city-profile';
-import { BUILDING_ARCHETYPES, generateCityBuilding, type BuildingArchetype, type BuildingUse } from '../sim/building-generator';
+import { BUILDING_ARCHETYPES, generateCityBuilding, type BuildingArchetype, type BuildingSocket, type BuildingUse } from '../sim/building-generator';
 import { buildingAuthoringLayoutFromMap, validateWholeBuilding } from '../sim/building-navigation';
 import { generateScienceMission, type ScienceMissionSpec, type ScienceSite } from '../sim/science';
+import { generateScienceOperationGraph, validateScienceOperationGraph, type ScienceOperationGraph } from '../sim/science-operation';
 
 export interface GenerateBuildingDocOptions {
   cityId: string;
@@ -75,6 +76,66 @@ export function canLaunchOperation(doc: MakerDoc): boolean {
 
 export function mapMakerImportNotice(json: { v?: number }): string | null {
   return json.v === 1 ? 'Legacy v1 map upgraded to indexed floor layers.' : null;
+}
+
+export interface MapMakerOperationOverlay {
+  graph: ScienceOperationGraph;
+  guardCount: number;
+  armorPolicy: 'NONE';
+  weaponProfile: 'PISTOLS / SMGS';
+}
+
+const authoredSocketWorld = (doc: MakerDoc, socket: BuildingSocket) => {
+  const origin = doc.map.buildingMeta!.origin!;
+  return {
+    x: (origin.tx + socket.x + 0.5) * TILE - WORLD / 2,
+    y: socket.floor * 4,
+    z: (origin.tz + socket.z + 0.5) * TILE - WORLD / 2,
+  };
+};
+
+/** Compile the editor's current document through the runtime graph generator. */
+export function mapMakerOperationOverlay(doc: MakerDoc): MapMakerOperationOverlay | null {
+  const meta = doc.map.buildingMeta;
+  if (!meta?.origin || !meta.sockets?.length || !buildingAuthoringLayoutFromMap(doc.map)) return null;
+  const allSockets = meta.sockets;
+  const sockets = (kind: BuildingSocket['kind']) =>
+    allSockets.filter((socket) => socket.kind === kind).map((socket) => authoredSocketWorld(doc, socket));
+  const entry = sockets('entry')[0];
+  const extraction = sockets('exit')[0];
+  const objectives = sockets('objective');
+  const guardPosts = sockets('guard');
+  const reinforcementPosts = sockets('reinforcement');
+  if (!entry || !extraction || !objectives.length || !guardPosts.length) return null;
+  try {
+    const graph = generateScienceOperationGraph({
+      seed: doc.seed,
+      map: doc.map,
+      entry,
+      extraction,
+      objectives,
+      guardPosts,
+      reinforcementPosts: reinforcementPosts.length ? reinforcementPosts : [entry, extraction],
+    });
+    if (validateScienceOperationGraph(graph).length) return null;
+    return { graph, guardCount: Math.min(7, Math.max(3, guardPosts.length)), armorPolicy: 'NONE', weaponProfile: 'PISTOLS / SMGS' };
+  } catch {
+    return null;
+  }
+}
+
+export function mapMakerOperationSummaryHTML(overlay: MapMakerOperationOverlay): string {
+  const metrics = overlay.graph.metrics;
+  return `<div class="mk-operation-legend" aria-label="Operation graph legend">
+    <label><input type="checkbox" data-operation-layer="critical" checked><i class="critical"></i>CRITICAL ROUTE</label>
+    <label><input type="checkbox" data-operation-layer="patrols" checked><i class="patrols"></i>PATROLS</label>
+    <label><input type="checkbox" data-operation-layer="reports" checked><i class="reports"></i>REPORT NODES</label>
+    <label><input type="checkbox" data-operation-layer="response" checked><i class="response"></i>RESPONSE ROUTES</label>
+  </div><div class="mk-operation-metrics">
+    <span>ROOMS <b>${metrics.rooms}</b></span><span>EDGES <b>${metrics.edges}</b></span><span>LOOPS <b>${metrics.loops}</b></span>
+    <span>CRITICAL <b>${metrics.criticalPoints}</b></span><span>PATROLS <b>${metrics.patrols}</b></span><span>REPORTS <b>${metrics.reports}</b></span>
+    <span>GUARDS <b>${overlay.guardCount}</b></span><span>ARMOR <b>${overlay.armorPolicy}</b></span><span>WEAPONS <b>${overlay.weaponProfile}</b></span>
+  </div>`;
 }
 
 /** Compile the drafting controls into the exact same document the canvas,
@@ -172,6 +233,8 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
   let activeFloor = 0;
   let exploded = false;
   let showOperations = true;
+  let operationOverlay: MapMakerOperationOverlay | null = null;
+  const operationLayers = { critical: true, patrols: true, reports: true, response: true };
 
   // ---- dom ----------------------------------------------------------------
   root.innerHTML = `
@@ -220,6 +283,7 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
       <div id="mk-hint"></div>
     </div>
     <div id="mk-side">
+      <div class="mk-sec mk-operation-card"><h3>Operation Graph <span class="mk-sub">runtime-authored</span></h3><div id="mk-operation-panel"></div></div>
       <div class="mk-sec"><h3>Objects</h3><div id="mk-objects"></div></div>
       <div class="mk-sec"><h3>Laws <span class="mk-sub">live</span></h3><div id="mk-laws"></div></div>
       <div class="mk-sec"><h3>File</h3>
@@ -253,6 +317,7 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
   const floorTabsEl = root.querySelector<HTMLElement>('#mk-floor-tabs')!;
   const provenanceEl = root.querySelector<HTMLElement>('#mk-provenance')!;
   const launchBtn = root.querySelector<HTMLButtonElement>('#mk-launch')!;
+  const operationEl = root.querySelector<HTMLElement>('#mk-operation-panel')!;
   frontSel.value = doc.frontId ?? 'the_city';
 
   function refreshCityOptions() {
@@ -278,6 +343,20 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
       ? `${meta.cityId} · ${meta.archetype.replaceAll('-', ' ')} · ${meta.floors}F · seed ${meta.seed ?? doc.seed} · grammar v${meta.grammarVersion}`
       : 'No city grammar provenance on this map.';
     launchBtn.disabled = !canLaunchOperation(doc);
+  }
+
+  function refreshOperationPanel() {
+    operationOverlay = mapMakerOperationOverlay(doc);
+    if (!operationOverlay) {
+      operationEl.innerHTML = '<p class="mk-operation-empty">Generate a valid whole building to compile patrols, reports, and response routes.</p>';
+      return;
+    }
+    operationEl.innerHTML = mapMakerOperationSummaryHTML(operationOverlay);
+    operationEl.querySelectorAll<HTMLInputElement>('[data-operation-layer]').forEach((input) => {
+      const layer = input.dataset.operationLayer as keyof typeof operationLayers;
+      input.checked = operationLayers[layer];
+      input.onchange = () => { operationLayers[layer] = input.checked; draw(); };
+    });
   }
 
   function upperTileFor(tile: number): number {
@@ -433,6 +512,42 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
             : socket.kind === 'civilian' ? '#8ddc9b' : '#75d5e6';
         dot(m.buildingMeta.origin.tx + socket.x, m.buildingMeta.origin.tz + socket.z, color, 1.5);
       }
+      const graph = operationOverlay?.graph;
+      if (graph) {
+        const drawRoute = (points: readonly { x: number; y: number; z: number }[], color: string, width: number, dash: number[] = []) => {
+          ctx.save();
+          ctx.strokeStyle = color;
+          ctx.lineWidth = width;
+          ctx.setLineDash(dash);
+          for (let i = 1; i < points.length; i++) {
+            if (Math.round(points[i - 1].y / 4) !== activeFloor || Math.round(points[i].y / 4) !== activeFloor) continue;
+            const [ax, az] = w2t(points[i - 1].x, points[i - 1].z);
+            const [bx, bz] = w2t(points[i].x, points[i].z);
+            line((ax + 0.5) * px, (az + 0.5) * px, (bx + 0.5) * px, (bz + 0.5) * px);
+          }
+          ctx.restore();
+        };
+        if (operationLayers.critical) drawRoute(graph.criticalRoute, '#f1ba55', 3.2);
+        if (operationLayers.patrols) for (const route of graph.patrolRoutes) {
+          drawRoute(route.points, '#54dce8', 1.6);
+          const point = route.points.find((pos) => Math.round(pos.y / 4) === activeFloor);
+          if (point) {
+            const [tx, tz] = w2t(point.x, point.z);
+            letter(tx, tz, '›', '#54dce8', true);
+          }
+        }
+        if (operationLayers.response) for (const route of graph.responseRoutes) drawRoute(route, '#ef684b', 1.8, [6, 4]);
+        if (operationLayers.reports) for (const node of graph.reportNodes) {
+          if (node.floor !== activeFloor) continue;
+          const [tx, tz] = w2t(node.pos.x, node.pos.z);
+          ctx.save();
+          ctx.translate((tx + 0.5) * px, (tz + 0.5) * px);
+          ctx.rotate(Math.PI / 4);
+          ctx.fillStyle = '#ef684b';
+          ctx.fillRect(-3.5, -3.5, 7, 7);
+          ctx.restore();
+        }
+      }
     }
     // grid every 10
     ctx.strokeStyle = 'rgba(255,255,255,0.07)';
@@ -585,6 +700,7 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
   let lawTimer = 0;
   function afterOp() {
     sel = null;
+    refreshOperationPanel();
     draw();
     refreshFloorTabs();
     clearTimeout(lawTimer);
@@ -816,6 +932,7 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
   refreshToolButtons();
   refreshSide();
   refreshFloorTabs();
+  refreshOperationPanel();
   fit();
   new ResizeObserver(fit).observe(root.querySelector<HTMLElement>('#mk-canvas-wrap')!);
   afterOp();

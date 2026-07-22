@@ -9,6 +9,8 @@ import {
   mapMakerArchetypeOptions,
   mapMakerCityOptions,
   mapMakerImportNotice,
+  mapMakerOperationOverlay,
+  mapMakerOperationSummaryHTML,
 } from '../src/harness/mapmaker';
 
 describe('city Map Maker presentation model', () => {
@@ -56,5 +58,22 @@ describe('city Map Maker presentation model', () => {
     const doc = generateBuildingDoc({ cityId: city.id, archetype: 'office', floors: 2, seed: 9, prints: 99 });
     expect(doc.mode).toBe('science');
     expect(doc.map.buildingMeta?.floors).toBe(2);
+  });
+
+  it('compiles authored buildings into the same tactical overlay shown in the Map Maker', () => {
+    const city = mapMakerCityOptions(country.code).find((entry) => entry.name === 'Belgrade')!;
+    const doc = generateBuildingDoc({ cityId: city.id, archetype: 'research-annex', floors: 3, seed: 811 });
+    const overlay = mapMakerOperationOverlay(doc);
+    expect(overlay).not.toBeNull();
+    expect(overlay!.graph.criticalRoute.length).toBeGreaterThanOrEqual(3);
+    expect(overlay!.graph.patrolRoutes.length).toBeGreaterThan(0);
+    expect(overlay!.graph.reportNodes.length).toBeGreaterThan(0);
+    expect(overlay!.graph.responseRoutes.length).toBeGreaterThan(0);
+    expect(overlay).toMatchObject({ armorPolicy: 'NONE', weaponProfile: 'PISTOLS / SMGS' });
+
+    const html = mapMakerOperationSummaryHTML(overlay!);
+    for (const label of ['CRITICAL ROUTE', 'PATROLS', 'REPORT NODES', 'RESPONSE ROUTES', 'ROOMS', 'EDGES', 'LOOPS', 'GUARDS', 'ARMOR', 'WEAPONS']) {
+      expect(html).toContain(label);
+    }
   });
 });

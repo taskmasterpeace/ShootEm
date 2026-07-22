@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderIssueHTML, type PressIssue } from '../src/client/newspaper';
-import { scienceCampaignBankHTML, scienceDebriefHTML, scienceMissionHTML } from '../src/client/science';
+import { activeScienceWaypoints, scienceCampaignBankHTML, scienceDebriefHTML, scienceMissionHTML } from '../src/client/science';
 import type { ScienceMissionRuntime, ScienceMissionResult } from '../src/sim/science-runtime';
 
 const issueFixture = (): PressIssue => ({
@@ -100,6 +100,28 @@ describe('science mission presentation', () => {
     const html = scienceMissionHTML(runtime);
     expect(html.match(/is-live/g)).toHaveLength(3);
     expect(html.match(/is-spent/g)).toHaveLength(2);
+  });
+
+  it('presents permanent mission waypoints with floor direction and state colors', () => {
+    const runtime = runtimeFixture();
+    runtime.missionWaypoints = [
+      { id: 'insertion', kind: 'insertion', label: 'INSERTION', pos: { x: 0, y: 0, z: 0 }, floor: 0, active: true },
+      { id: 'objective', kind: 'objective', label: 'OBJECTIVE', pos: { x: 4, y: 4, z: 4 }, floor: 1, active: true },
+      { id: 'report', kind: 'report', label: 'REPORT', pos: { x: 8, y: 0, z: 8 }, floor: 0, active: false },
+      { id: 'extraction', kind: 'extraction', label: 'EXTRACTION', pos: { x: 12, y: 0, z: 12 }, floor: 0, active: false },
+    ];
+
+    const ground = activeScienceWaypoints(runtime, 0);
+    expect(ground.map((waypoint) => waypoint.label)).toEqual(['INSERTION', 'OBJECTIVE ▲']);
+    expect(ground.find((waypoint) => waypoint.kind === 'insertion')?.color).toBe(0x54dce8);
+    expect(ground.find((waypoint) => waypoint.kind === 'objective')?.color).toBe(0xf1ba55);
+
+    runtime.missionWaypoints[1].active = false;
+    runtime.missionWaypoints[2].active = true;
+    expect(activeScienceWaypoints(runtime, 0).map((waypoint) => waypoint.label)).toContain('REPORT');
+    runtime.missionWaypoints[2].active = false;
+    runtime.missionWaypoints[3].active = true;
+    expect(activeScienceWaypoints(runtime, 0).map((waypoint) => waypoint.label)).toContain('EXTRACTION');
   });
 
   it('escapes generated operation copy', () => {

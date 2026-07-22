@@ -3,6 +3,51 @@ import { scienceObjectiveText, type ScienceMissionResult, type ScienceMissionRun
 import type { ScienceBonuses } from './campaign';
 import { esc } from './newspaper';
 
+export interface ScienceWaypointPresentation {
+  id: string;
+  kind: 'insertion' | 'objective' | 'extraction' | 'report';
+  label: string;
+  x: number;
+  y: number;
+  z: number;
+  floor: number;
+  floorDelta: number;
+  color: number;
+}
+
+const WAYPOINT_COLOR: Record<ScienceWaypointPresentation['kind'], number> = {
+  insertion: 0x54dce8,
+  objective: 0xf1ba55,
+  report: 0xf06a43,
+  extraction: 0x69d391,
+};
+
+/** Stable mission markers: every marker on this floor plus the next required
+ * marker above or below it, so a stair transition never loses the objective. */
+export function activeScienceWaypoints(runtime: ScienceMissionRuntime, actorFloor: number): ScienceWaypointPresentation[] {
+  const active = runtime.missionWaypoints.filter((waypoint) => waypoint.active);
+  const sameFloor = active.filter((waypoint) => waypoint.floor === actorFloor);
+  const priority = { report: 0, objective: 1, extraction: 2, insertion: 3 } as const;
+  const nextOtherFloor = active
+    .filter((waypoint) => waypoint.floor !== actorFloor)
+    .sort((a, b) => priority[a.kind] - priority[b.kind] || Math.abs(a.floor - actorFloor) - Math.abs(b.floor - actorFloor))[0];
+  const visible = nextOtherFloor ? [...sameFloor, nextOtherFloor] : sameFloor;
+  return visible.map((waypoint) => {
+    const floorDelta = waypoint.floor - actorFloor;
+    return {
+      id: waypoint.id,
+      kind: waypoint.kind,
+      label: `${waypoint.label}${floorDelta > 0 ? ' ▲' : floorDelta < 0 ? ' ▼' : ''}`,
+      x: waypoint.pos.x,
+      y: waypoint.pos.y,
+      z: waypoint.pos.z,
+      floor: waypoint.floor,
+      floorDelta,
+      color: WAYPOINT_COLOR[waypoint.kind],
+    };
+  });
+}
+
 export type ScienceDebrief = ScienceMissionResult & { briefing?: string };
 
 const BONUS_LABELS: [keyof ScienceBonuses, string][] = [

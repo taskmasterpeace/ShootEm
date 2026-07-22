@@ -12,6 +12,7 @@ import { classLinger, MAX_LINGER } from '../sim/perception';
 import type { World } from '../sim/world';
 import { scienceObjectiveText } from '../sim/science-runtime';
 import { k9ControlState } from './k9-controls';
+import { activeScienceWaypoints } from './science';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -1061,6 +1062,24 @@ export class Hud {
       ctx.font = '9px Inter, sans-serif';
       ctx.fillText(String(i + 1), px + 6, py - 5);
     });
+    if (world.science) {
+      for (const waypoint of activeScienceWaypoints(world.science, local.floor)) {
+        const [px, py] = toMap(waypoint.x, waypoint.z);
+        const color = `#${waypoint.color.toString(16).padStart(6, '0')}`;
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate(Math.PI / 4);
+        ctx.fillStyle = `${color}44`;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = waypoint.kind === 'report' ? 2.2 : 1.8;
+        ctx.fillRect(-4.5, -4.5, 9, 9);
+        ctx.strokeRect(-4.5, -4.5, 9, 9);
+        ctx.restore();
+        ctx.fillStyle = color;
+        ctx.font = '700 8px Inter, sans-serif';
+        ctx.fillText(waypoint.label, px + 7, py - 6);
+      }
+    }
     this.lastTime = world.time;
     // local player: white with facing tick
     const [lx, ly] = toMap(local.pos.x, local.pos.z);
