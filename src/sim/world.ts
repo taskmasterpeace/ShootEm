@@ -4167,6 +4167,9 @@ export class World {
    *  are GRID state, so the change replicates exactly like the tunneler's
    *  digs — every client's map agrees. */
   private tryDoor(s: Soldier): boolean {
+    const floor = s.floor ?? 0;
+    const upper = floor > 0;
+    const layer = floorLayer(this.map, floor);
     for (const reach of [TILE * 0.6, TILE * 1.3]) {
       const x = s.pos.x + Math.cos(s.yaw) * reach;
       const z = s.pos.z + Math.sin(s.yaw) * reach;
@@ -4174,9 +4177,9 @@ export class World {
       const tz = Math.floor((z + WORLD / 2) / TILE);
       if (tx < 1 || tz < 1 || tx >= GRID - 1 || tz >= GRID - 1) continue;
       const idx = tz * GRID + tx;
-      const t = this.map.grid[idx];
-      if (!isDoorTile(t) || t === T_METAL_DOOR) continue;
-      this.toggleDoorTile(idx, s.id);
+      const t = layer[idx];
+      if (!isDoorTile(t, upper) || (!upper && t === T_METAL_DOOR)) continue;
+      this.toggleDoorTile(floor * GRID * GRID + idx, s.id);
       return true;
     }
     return false;
@@ -4185,13 +4188,16 @@ export class World {
   /** Swing one door tile (open↔closed): the shared verb behind the E key
    *  and the home-door automation — one grid flip, one replication entry,
    *  one event, whoever the hand was. */
-  private toggleDoorTile(idx: number, soldierId: number) {
-    const t = this.map.grid[idx];
-    this.map.grid[idx] = toggleDoorType(t);
-    if (this.doorChanges.indexOf(idx) < 0) this.doorChanges.push(idx);
+  private toggleDoorTile(packed: number, soldierId: number) {
+    const floor = Math.floor(packed / (GRID * GRID));
+    const idx = packed % (GRID * GRID);
+    const layer = floorLayer(this.map, floor);
+    const t = layer[idx];
+    layer[idx] = toggleDoorType(t, floor > 0);
+    if (this.doorChanges.indexOf(packed) < 0) this.doorChanges.push(packed);
     this.emit({
-      type: 'door', tile: idx, soldierId,
-      pos: { x: ((idx % GRID) + 0.5) * TILE - WORLD / 2, y: 0, z: (Math.floor(idx / GRID) + 0.5) * TILE - WORLD / 2 },
+      type: 'door', tile: packed, soldierId,
+      pos: { x: ((idx % GRID) + 0.5) * TILE - WORLD / 2, y: floorHeight(floor), z: (Math.floor(idx / GRID) + 0.5) * TILE - WORLD / 2 },
     });
   }
 

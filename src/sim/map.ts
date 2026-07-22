@@ -274,13 +274,18 @@ export function registerThinGrid(grid: Uint8Array): void {
   thinGrids.add(grid);
 }
 
-export function isDoorTile(tile: number): boolean {
+export function isDoorTile(tile: number, upper = false): boolean {
+  if (upper) {
+    return tile === F2_DOOR_H || tile === F2_DOOR_V
+      || tile === F2_DOOR_H_OPEN || tile === F2_DOOR_V_OPEN;
+  }
   return tile === T_DOOR || tile === T_DOOR_OPEN || tile === T_METAL_DOOR
     || tile === T_THIN_DOOR_H || tile === T_THIN_DOOR_V
     || tile === T_THIN_DOOR_H_OPEN || tile === T_THIN_DOOR_V_OPEN;
 }
 
-export function doorIsOpen(tile: number): boolean {
+export function doorIsOpen(tile: number, upper = false): boolean {
+  if (upper) return tile === F2_DOOR_H_OPEN || tile === F2_DOOR_V_OPEN;
   return tile === T_DOOR_OPEN || tile === T_THIN_DOOR_H_OPEN || tile === T_THIN_DOOR_V_OPEN;
 }
 
@@ -314,7 +319,14 @@ export function windowSpansX(tile: number, upper = false): boolean {
 }
 
 /** Toggle a door while retaining the explicit orientation of thin doors. */
-export function toggleDoorTile(tile: number): number {
+export function toggleDoorTile(tile: number, upper = false): number {
+  if (upper) {
+    if (tile === F2_DOOR_H) return F2_DOOR_H_OPEN;
+    if (tile === F2_DOOR_H_OPEN) return F2_DOOR_H;
+    if (tile === F2_DOOR_V) return F2_DOOR_V_OPEN;
+    if (tile === F2_DOOR_V_OPEN) return F2_DOOR_V;
+    return tile;
+  }
   if (tile === T_DOOR) return T_DOOR_OPEN;
   if (tile === T_DOOR_OPEN) return T_DOOR;
   if (tile === T_THIN_DOOR_H) return T_THIN_DOOR_H_OPEN;

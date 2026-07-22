@@ -4,6 +4,8 @@ import { CITY_MAP_PROFILES } from '../src/sim/city-profile';
 import { stampBuilding, type StampCtx } from '../src/sim/buildings';
 import {
   F2_BALCONY,
+  F2_DOOR_V,
+  F2_DOOR_V_OPEN,
   F2_RAIL_H,
   F2_STAIR_N,
   F2_THIN_WALL_H,
@@ -14,6 +16,9 @@ import {
   T_STAIRS_N,
   T_WINDOW_H,
   T_WINDOW_V,
+  doorIsOpen,
+  isDoorTile,
+  toggleDoorTile,
 } from '../src/sim/map';
 import { Rng } from '../src/sim/rng';
 
@@ -54,5 +59,14 @@ describe('architectural stencil stamping', () => {
   it('rejects balcony cantilevers wider than the supported three-tile span', () => {
     expect(balconySpansSupported([' RBBBR ', ' RRRRR '])).toBe(true);
     expect(balconySpansSupported(['RBBBBR', 'RRRRRR'])).toBe(false);
+  });
+
+  it('distinguishes upper doors from numerically overlapping ground tiles', () => {
+    expect(isDoorTile(F2_DOOR_V, true)).toBe(true);
+    expect(doorIsOpen(F2_DOOR_V, true)).toBe(false);
+    expect(doorIsOpen(F2_DOOR_V_OPEN, true)).toBe(true);
+    expect(isDoorTile(F2_THIN_WALL_V, true)).toBe(false);
+    expect(toggleDoorTile(F2_DOOR_V, true)).toBe(F2_DOOR_V_OPEN);
+    expect(toggleDoorTile(F2_DOOR_V_OPEN, true)).toBe(F2_DOOR_V);
   });
 });

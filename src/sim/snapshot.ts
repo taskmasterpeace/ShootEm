@@ -1,4 +1,4 @@
-import { GRID, T_OPEN, T_RUBBLE, breakWindowTile, isWindowTile } from './map';
+import { GRID, T_OPEN, T_RUBBLE, breakWindowTile, doorIsOpen, isDoorTile, isWindowTile, toggleDoorTile } from './map';
 import { floorLayer } from './map-layers';
 import { SEEN_LINGER, SEEN_LINGER_GEARED, eyesSeePoint, perceivesNow, seenRecently } from './perception';
 import type { WeatherState } from './weather';
@@ -87,7 +87,12 @@ export function takeSnapshot(w: World, events: SimEvent[]): Snapshot {
     smoked: [...w.smoked],
     dug: w.dug,
     breached: w.breached,
-    doors: w.doorChanges.map((idx) => idx * 2 + (w.map.grid[idx] === 6 /* T_DOOR_OPEN */ ? 1 : 0)),
+    doors: w.doorChanges.map((packed) => {
+      const floor = Math.floor(packed / (GRID * GRID));
+      const idx = packed % (GRID * GRID);
+      const tile = floorLayer(w.map, floor)[idx];
+      return packed * 2 + (doorIsOpen(tile, floor > 0) ? 1 : 0);
+    }),
     glass: [...w.glassChanges],
     weather: { ...w.weather },
     events,
@@ -195,11 +200,20 @@ export function applySnapshot(w: World, snap: Snapshot) {
   // doors: set every changed door to its authoritative state
   if (snap.doors) {
     for (const packed of snap.doors) {
-      const idx = packed >> 1;
-      if (w.map.grid[idx] === 5 || w.map.grid[idx] === 6) {
-        w.map.grid[idx] = (packed & 1) ? 6 : 5; // T_DOOR_OPEN : T_DOOR
-      }
+      const doorIndex = packed >> 1;
+      const floor = Math.floor(doorIndex / (GRID * GRID));
+      const idx = doorIndex % (GRID * GRID);
+      try {
+        const layer = floorLayer(w.map, floor);
+        const tile = layer[idx];
+        const upper = floor > 0;
+        const wantOpen = (packed & 1) === 1;
+        if (isDoorTile(tile, upper) && doorIsOpen(tile, upper) !== wantOpen) {
+          layer[idx] = toggleDoorTile(tile, upper);
+        }
+      } catch { /* a legacy puppet may not allocate an authored upper storey */ }
     }
+    w.doorChanges = snap.doors.map((packed) => packed >> 1);
   }
   if (snap.glass) {
     for (const packed of snap.glass) {

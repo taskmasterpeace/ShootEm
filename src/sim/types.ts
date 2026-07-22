@@ -386,6 +386,8 @@ export interface Soldier {
   k9TargetId?: number;
   /** Packed floor*GRID²+tile index of the closed door stopping the dog. */
   k9Door?: number;
+  /** Rate limit for blocked-door bark/status feedback. */
+  k9NextBarkAt?: number;
   /** Deterministic index into the assigned building's room sweep. */
   k9SearchIndex?: number;
   /** When the dog first found no uncleared room or hostile. */

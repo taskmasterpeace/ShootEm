@@ -1,10 +1,11 @@
 import { CLASSES, DOG_STATS, VEHICLES, WEAPONS, weaponNoiseRadius } from './data';
-import { GRID, T_CLIMB, T_COVER, T_GRASS, T_LADDER, T_METAL_DOOR, T_OPEN, T_RUBBLE, T_WATER, TILE, WORLD, doorIsOpen, isBlocked, isDoorTile, losClear, tileAt } from './map';
+import { GRID, T_CLIMB, T_COVER, T_GRASS, T_LADDER, T_METAL_DOOR, T_OPEN, T_RUBBLE, T_STAIRS_N, T_STAIRS_W, T_WATER, TILE, WORLD, doorIsOpen, isBlocked, isDoorTile, losClear, tileAt } from './map';
 import {
   MAX_BUILDING_FLOORS,
   floorBlocked,
   floorExists,
   floorHeight,
+  floorLayer,
   hasFloorAt,
   ladderWellAt,
   stairDirectionAt,
@@ -22,6 +23,13 @@ import { visionMult } from './weather';
 import { LSWS } from './lsw';
 import { threatAt } from './influence';
 import { dogWindowHesitation, indoorCivilianWaypoint, indoorGuardWaypoint, strongestDogScent } from './indoor-ai';
+import {
+  closedDoorAhead,
+  dogInsideAssignedBuilding,
+  hostilesInK9Building,
+  k9SearchWaypoints,
+  setK9Heel,
+} from './k9-orders';
 
 const noCmd = (): PlayerCmd => ({
   moveX: 0, moveZ: 0, aimYaw: 0, fire: false, altFire: false, jump: false,
@@ -235,13 +243,17 @@ function pathStepLayered(w: World, from: Vec3, to: Vec3, fromFloor: number, toFl
   const openGround = (x: number, z: number) => {
     if (x < 0 || z < 0 || x >= GRID || z >= GRID) return false;
     const t = grid[z * GRID + x];
-    return t === T_OPEN || (isDoorTile(t) && t !== T_METAL_DOOR) || t === T_WATER || t === T_LADDER || t === T_GRASS || t === T_RUBBLE;
+    return t === T_OPEN || (isDoorTile(t) && t !== T_METAL_DOOR)
+      || (t >= T_STAIRS_N && t <= T_STAIRS_W)
+      || t === T_WATER || t === T_LADDER || t === T_GRASS || t === T_RUBBLE;
   };
   const openUpper = (floor: number, x: number, z: number) => {
     if (x < 0 || z < 0 || x >= GRID || z >= GRID) return false;
+    if (!floorExists(w.map, floor)) return false;
     const wx = toWorld(x), wz = toWorld(z);
-    return floorExists(w.map, floor) && hasFloorAt(w.map, floor, wx, wz)
-      && !floorBlocked(w.map, floor, wx, wz);
+    const tile = floorLayer(w.map, floor)[z * GRID + x];
+    return hasFloorAt(w.map, floor, wx, wz)
+      && (isDoorTile(tile, true) || !floorBlocked(w.map, floor, wx, wz));
   };
   const openAt = (f: number, x: number, z: number) => (f === 0 ? openGround(x, z) : openUpper(f, x, z));
   const transitionAt = (floor: number, nextFloor: number, tile: number): 'ladder' | 'stairs' | null => {
@@ -1702,6 +1714,152 @@ export function stepScientist(w: World, s: Soldier, dt: number) {
 
 // ---------- military working dogs (§5.3) ----------
 
+function nearestK9Threat(w: World, dog: Soldier, range: number): { target: Soldier; distance: number } | null {
+  let selected: Soldier | null = null;
+  let best = range;
+  for (const candidate of w.soldiers.values()) {
+    if (!candidate.alive || candidate.downed || candidate.team === dog.team
+        || (candidate.kind !== 'human' && candidate.kind !== 'bot')) continue;
+    if ((candidate.floor ?? 0) !== (dog.floor ?? 0)) continue;
+    const distance = Math.hypot(candidate.pos.x - dog.pos.x, candidate.pos.z - dog.pos.z);
+    if (distance < best) { selected = candidate; best = distance; }
+  }
+  return selected ? { target: selected, distance: best } : null;
+}
+
+function dogWaitsAtDoor(w: World, dog: Soldier): boolean {
+  const packed = closedDoorAhead(w.map, dog);
+  if (packed < 0) {
+    dog.k9Door = undefined;
+    return false;
+  }
+  const arrived = dog.k9Door !== packed;
+  dog.k9Door = packed;
+  dog.vel.x = 0;
+  dog.vel.z = 0;
+  if (arrived || w.time >= (dog.k9NextBarkAt ?? 0)) {
+    dog.k9NextBarkAt = w.time + 5;
+    dog.loudUntil = w.time + 1.5;
+    w.emit({
+      type: 'announce',
+      pos: { ...dog.pos },
+      soldierId: dog.id,
+      text: `${dog.name} · WAITING AT DOOR`,
+      big: false,
+    });
+  }
+  return true;
+}
+
+function driveK9Toward(w: World, dog: Soldier, target: Vec3, targetFloor: number): boolean {
+  if (w.time >= (dog.botRepathAt ?? 0)
+      || (dog.botGoal != null
+        && Math.hypot(dog.botGoal.x - dog.pos.x, dog.botGoal.z - dog.pos.z) < 0.8)) {
+    const clear = dog.floor === 0 && targetFloor === 0 && losClear(w.map.grid, dog.pos, target, 0.6);
+    dog.botGoal = clear
+      ? { ...target }
+      : (pathStep(w, dog.pos, target, false, false, dog.floor, targetFloor, false) ?? undefined);
+    dog.botRepathAt = w.time + (dog.botGoal ? 0.4 : 1.2);
+  }
+  if (!dog.botGoal) {
+    dog.vel.x = 0;
+    dog.vel.z = 0;
+    return false;
+  }
+  const dx = dog.botGoal.x - dog.pos.x;
+  const dz = dog.botGoal.z - dog.pos.z;
+  const distance = Math.hypot(dx, dz) || 1;
+  dog.yaw = Math.atan2(dz, dx);
+  if (dogWaitsAtDoor(w, dog)) return false;
+  dog.vel.x = (dx / distance) * DOG_STATS.speed;
+  dog.vel.z = (dz / distance) * DOG_STATS.speed;
+  return true;
+}
+
+function stepK9Stay(w: World, dog: Soldier, dt: number) {
+  const anchor = dog.k9StayAnchor ?? (dog.k9StayAnchor = { ...dog.pos });
+  const immediate = nearestK9Threat(w, dog, WEAPONS.dog_bite.range + 0.5);
+  if (immediate && w.time >= dog.nextFireAt) {
+    dog.yaw = Math.atan2(immediate.target.pos.z - dog.pos.z, immediate.target.pos.x - dog.pos.x);
+    w.startMelee(dog, WEAPONS.dog_bite);
+  }
+  const dx = anchor.x - dog.pos.x;
+  const dz = anchor.z - dog.pos.z;
+  const distance = Math.hypot(dx, dz);
+  if (distance > 0.18) {
+    const correction = Math.min(DOG_STATS.speed, distance / Math.max(dt, 1 / 60));
+    dog.vel.x = (dx / distance) * correction;
+    dog.vel.z = (dz / distance) * correction;
+  } else {
+    dog.vel.x = 0;
+    dog.vel.z = 0;
+  }
+  dog.k9Door = undefined;
+  w.stepSoldierPhysics(dog, dt);
+}
+
+function stepK9Sic(w: World, dog: Soldier, dt: number) {
+  const threats = hostilesInK9Building(w.map, dog, w.soldiers.values());
+  threats.sort((a, b) => {
+    const score = (target: Soldier) => Math.abs(target.floor - dog.floor) * 20
+      + Math.hypot(target.pos.x - dog.pos.x, target.pos.z - dog.pos.z);
+    return score(a) - score(b) || a.id - b.id;
+  });
+  const target = threats[0];
+  if (target) {
+    dog.k9TargetId = target.id;
+    dog.k9ClearSince = undefined;
+    const distance = Math.hypot(target.pos.x - dog.pos.x, target.pos.z - dog.pos.z);
+    driveK9Toward(w, dog, target.pos, target.floor);
+    if (target.floor === dog.floor && distance < WEAPONS.dog_bite.range + 0.5
+        && w.time >= dog.nextFireAt) {
+      dog.yaw = Math.atan2(target.pos.z - dog.pos.z, target.pos.x - dog.pos.x);
+      w.startMelee(dog, WEAPONS.dog_bite);
+    }
+    w.stepSoldierPhysics(dog, dt);
+    return;
+  }
+
+  // A dog that already found the occupant confirms the now-quiet building;
+  // an empty building gets a deterministic room/door sweep before the call.
+  const hadTarget = dog.k9TargetId !== undefined;
+  dog.k9TargetId = undefined;
+  if (!hadTarget && dog.k9ClearSince === undefined) {
+    const waypoints = k9SearchWaypoints(w, dog);
+    const index = dog.k9SearchIndex ?? 0;
+    const waypoint = waypoints[index];
+    if (waypoint) {
+      const targetFloor = Math.max(0, Math.round(waypoint.y / 4));
+      const distance = Math.hypot(waypoint.x - dog.pos.x, waypoint.z - dog.pos.z);
+      if (dog.floor === targetFloor && distance < 1.2) {
+        dog.k9SearchIndex = index + 1;
+        dog.botGoal = undefined;
+      } else {
+        driveK9Toward(w, dog, waypoint, targetFloor);
+      }
+      dog.k9ClearSince = undefined;
+      w.stepSoldierPhysics(dog, dt);
+      return;
+    }
+  }
+
+  if (!dogInsideAssignedBuilding(w.map, dog)) {
+    const house = dog.k9BuildingId === undefined ? undefined : w.map.houses[dog.k9BuildingId];
+    if (house) driveK9Toward(w, dog, house.center, 0);
+    w.stepSoldierPhysics(dog, dt);
+    return;
+  }
+  dog.vel.x = 0;
+  dog.vel.z = 0;
+  dog.k9Door = undefined;
+  dog.k9ClearSince ??= w.time;
+  if (w.time - dog.k9ClearSince >= 2) {
+    w.emit({ type: 'announce', pos: { ...dog.pos }, soldierId: dog.id, text: `${dog.name} · BUILDING CLEAR`, big: false });
+    setK9Heel(dog);
+  }
+  w.stepSoldierPhysics(dog, dt);
+}
+
 /**
  * The K9 brain. A dog is a handler pairing: heel when it's quiet, take down
  * whatever presses the handler, and above all — THE NOSE. Cloak fools optics;
@@ -1715,15 +1873,29 @@ export function stepDog(w: World, s: Soldier, dt: number) {
   // camouflaged or not — same channel the spy cameras feed (world.pinged).
   for (const e of w.soldiers.values()) {
     if (!e.alive || e.team === s.team) continue;
-    if (Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z) < DOG_STATS.noseRadius) w.pinged.add(e.id);
+    if (Math.hypot(
+      e.pos.x - s.pos.x,
+      e.pos.z - s.pos.z,
+      ((e.floor ?? 0) - (s.floor ?? 0)) * 4,
+    ) < DOG_STATS.noseRadius) w.pinged.add(e.id);
   }
 
   // handler down: hold right here until they're back — good dogs don't wander
   if (!handler || !handler.alive) {
+    if (s.k9Order && s.k9Order !== 'heel') setK9Heel(s);
     s.vel.x = 0;
     s.vel.z = 0;
     s.yaw += Math.sin(w.time * 1.3 + s.id) * 0.02; // ears up, scanning
     w.stepSoldierPhysics(s, dt);
+    return;
+  }
+
+  if (s.k9Order === 'stay') {
+    stepK9Stay(w, s, dt);
+    return;
+  }
+  if (s.k9Order === 'sic') {
+    stepK9Sic(w, s, dt);
     return;
   }
 

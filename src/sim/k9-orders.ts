@@ -1,4 +1,14 @@
-import { TILE, WORLD, houseAt, type GameMap } from './map';
+import {
+  GRID,
+  TILE,
+  T_METAL_DOOR,
+  WORLD,
+  doorIsOpen,
+  houseAt,
+  isDoorTile,
+  type GameMap,
+} from './map';
+import { floorLayer } from './map-layers';
 import type { K9Command, Soldier, Vec3 } from './types';
 import type { World } from './world';
 
@@ -59,6 +69,7 @@ export function setK9Heel(dog: Soldier) {
   dog.k9StayAnchor = undefined;
   dog.k9TargetId = undefined;
   dog.k9Door = undefined;
+  dog.k9NextBarkAt = undefined;
   dog.k9SearchIndex = undefined;
   dog.k9ClearSince = undefined;
   dog.botGoal = undefined;
@@ -76,6 +87,7 @@ export function setK9Stay(dog: Soldier) {
   dog.k9StayAnchor = { ...dog.pos };
   dog.k9TargetId = undefined;
   dog.k9Door = undefined;
+  dog.k9NextBarkAt = undefined;
   dog.k9SearchIndex = undefined;
   dog.k9ClearSince = undefined;
   dog.botGoal = undefined;
@@ -89,6 +101,7 @@ export function setK9Sic(dog: Soldier, buildingId: number, point: Vec3) {
   dog.k9StayAnchor = undefined;
   dog.k9TargetId = undefined;
   dog.k9Door = undefined;
+  dog.k9NextBarkAt = undefined;
   dog.k9SearchIndex = 0;
   dog.k9ClearSince = undefined;
   dog.botGoal = undefined;
@@ -108,6 +121,39 @@ export function hostilesInK9Building(
     if (houseAt(map.houses, soldier.pos.x, soldier.pos.z) === dog.k9BuildingId) result.push(soldier);
   }
   return result;
+}
+
+export function k9SearchWaypoints(world: World, dog: Soldier): readonly Vec3[] {
+  if (dog.k9BuildingId === undefined) return [];
+  const house = world.map.houses[dog.k9BuildingId];
+  if (!house) return [];
+  const rooms = world.indoorTactics?.roomCenters.filter((center) =>
+    houseAt(world.map.houses, center.x, center.z) === dog.k9BuildingId);
+  if (rooms?.length) return rooms;
+  return [house.door, house.center];
+}
+
+export function dogInsideAssignedBuilding(map: GameMap, dog: Soldier): boolean {
+  return dog.k9BuildingId !== undefined
+    && houseAt(map.houses, dog.pos.x, dog.pos.z) === dog.k9BuildingId;
+}
+
+/** Closed door in the dog's immediate travel direction, packed with its floor. */
+export function closedDoorAhead(map: GameMap, dog: Soldier): number {
+  let layer: Uint8Array;
+  try { layer = floorLayer(map, dog.floor); } catch { return -1; }
+  for (const reach of [TILE * 0.6, TILE * 1.3]) {
+    const tx = Math.floor((dog.pos.x + Math.cos(dog.yaw) * reach + WORLD / 2) / TILE);
+    const tz = Math.floor((dog.pos.z + Math.sin(dog.yaw) * reach + WORLD / 2) / TILE);
+    if (tx < 1 || tz < 1 || tx >= GRID - 1 || tz >= GRID - 1) continue;
+    const index = tz * GRID + tx;
+    const tile = layer[index];
+    const upper = dog.floor > 0;
+    if (isDoorTile(tile, upper) && !doorIsOpen(tile, upper) && (upper || tile !== T_METAL_DOOR)) {
+      return dog.floor * GRID * GRID + index;
+    }
+  }
+  return -1;
 }
 
 export function issueK9Command(
