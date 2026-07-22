@@ -90,6 +90,18 @@ describe('science mission objective compiler', () => {
     }
   });
 
+  it('keeps an idle operator concealed at insertion until they move', () => {
+    const world = missionWorld('steal');
+    const operator = world.addSoldier('Operator', 'infiltrator', 0, 'human');
+    operator.pos = { ...world.science!.entry };
+
+    for (let i = 0; i < 360; i++) world.step(1 / 60, new Map([[operator.id, idle]]));
+    expect(operator.scienceConcealedUntil).toBeGreaterThan(world.time);
+
+    world.step(1 / 60, new Map([[operator.id, { ...idle, moveX: 1 }]]));
+    expect(operator.scienceConcealedUntil).toBeUndefined();
+  });
+
   it.each(Object.keys(primitive) as ScienceVerb[])('%s can complete its primary and extract', (verb) => {
     const world = missionWorld(verb);
     const runtime = world.science!;
@@ -195,6 +207,21 @@ describe('science mission objective compiler', () => {
     operator.pos = { ...scientists[0].pos };
     expect(tryScienceInteraction(world, operator, 1)).toBe(true);
     expect(scientists[0].botTargetId).toBe(operator.id);
+  });
+
+  it('keeps captive researchers alive while facility guards patrol', () => {
+    const scienceMission = generateScienceMission(12017, {
+      verb: 'rescue', site: 'research-annex', complication: null, squadSize: 8,
+    });
+    const world = new World({ seed: scienceMission.seed, mode: 'science', scienceMission });
+    const operator = world.addSoldier('Operator', 'medic', 0, 'human');
+    operator.pos = { ...world.science!.entry };
+
+    stepFor(world, 6);
+
+    expect(world.science!.phase).toBe('objective');
+    expect(world.science!.awareness).toBe('ghost');
+    expect(world.science!.targetIds.every((id) => world.soldiers.get(id)?.alive)).toBe(true);
   });
 
   it('keeps captive pedestrians out of unrelated firefights', () => {

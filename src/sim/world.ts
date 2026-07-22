@@ -1520,7 +1520,7 @@ export class World {
     // friendly ground and needs none. The undead get none either: a horde
     // that can't be shot walking in is no horde.
     s.protectedUntil = isZed(s.kind) || this.time < 0.05 ? 0 : this.time + 5;
-    s.scienceConcealedUntil = this.opts.mode === 'science' && s.team === 0 ? this.time + 2.5 : undefined;
+    s.scienceConcealedUntil = this.opts.mode === 'science' && s.team === 0 ? Infinity : undefined;
     this.emit({ type: 'respawn', pos: s.pos, soldierId: s.id });
   }
 
@@ -2465,7 +2465,7 @@ export class World {
 
   applyCmd(s: Soldier, cmd: PlayerCmd, dt: number) {
     s.yaw = cmd.aimYaw;
-    if (this.opts.mode === 'science' && (cmd.fire || cmd.altFire || cmd.melee || cmd.meleeHold
+    if (this.opts.mode === 'science' && (cmd.moveX !== 0 || cmd.moveZ !== 0 || cmd.fire || cmd.altFire || cmd.melee || cmd.meleeHold
         || cmd.grapple || cmd.grenade || cmd.ability)) s.scienceConcealedUntil = undefined;
     if (cmd.k9) {
       const result = issueK9Command(this, s, cmd.k9, k9AimPoint(s.pos, cmd.aimYaw, cmd.aimDist ?? 12));

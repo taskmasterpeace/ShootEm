@@ -397,6 +397,7 @@ function findTarget(w: World, s: Soldier, maxRange: number, pingRange = maxRange
   // the old ascending-scan winner under the grid's own visit order.
   w.soldierIndex.forEach((1 - s.team) as Team, s.pos.x, s.pos.z, Math.max(maxRange, pingRange), (e) => {
     if (!e.alive || e.vehicleId >= 0) return;
+    if (w.mode.id === 'science' && e.kind === 'scientist') return;
     if (w.mode.id === 'science' && w.time < (e.scienceConcealedUntil ?? 0)) return;
     // LAST tick's marks, not this tick's: the recon pass that fills `pinged`
     // (beacons, drones, cameras, psi scans) runs AFTER the bot brains, so
