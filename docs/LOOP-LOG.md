@@ -12,3 +12,4 @@
 2026-07-22 IT-13: #54 -> needs-robert (grip fix forked on #98-vs-#74 body decision; investigation posted). Next: #24 audio source cap.
 2026-07-22 IT-14: #24 built (one-shot audio cap, policy tested). Next: #27 housekeeping scans or #12 getObjectByName.
 2026-07-22 IT-15: #12 built (per-mesh part cache, 32 sites). Next: #27 housekeeping scans.
+2026-07-22 IT-16: #27 built (fuse/plague counters + arm doors, purge cadence). 15 closed, 8 needs-robert.
