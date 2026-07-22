@@ -128,6 +128,18 @@ export const SOUND_NAMES = [
 ] as const;
 export type SoundName = (typeof SOUND_NAMES)[number];
 
+/** Gameplay needs combat sounds immediately, but loading every spoken line up
+ * front turns first deploy into 460 fetches and hundreds of MiB of decoded
+ * PCM. The harness and Sound Review deliberately preload the whole catalog. */
+export function preloadSoundNames(all: boolean): readonly SoundName[] {
+  return all ? SOUND_NAMES : SOUND_NAMES.filter((name) => !name.startsWith('vo_') && !name.startsWith('ann_'));
+}
+
+function isFullCatalogToolPage(): boolean {
+  if (typeof location === 'undefined') return false;
+  return /\/(?:harness|sound-review)\.html$/.test(location.pathname);
+}
+
 // ---------------------------------------------------------------------------
 // ACOUSTIC CLASSES — how far each kind of sound carries, how much a wall
 // takes out of it, and how much the weather (§8.8) dulls it. This is the
@@ -291,6 +303,8 @@ export class AudioEngine {
   private buffers = new Map<string, AudioBuffer>();
   private stock = new Map<string, AudioBuffer>();   // untouched originals
   private custom = new Set<string>();               // names carrying user sounds
+  private customRaw = new Map<string, ArrayBuffer>();
+  private loading = new Map<SoundName, Promise<boolean>>();
   private master: GainNode | null = null;
   private prefs: Record<string, SoundPref> = loadPrefs();
   listener: Vec3 = { x: 0, y: 0, z: 0 };
@@ -311,8 +325,11 @@ export class AudioEngine {
   private voBus: GainNode | null = null;
   private voVoices: { src: AudioBufferSourceNode; gain: GainNode; slot: string; ann: boolean; ended: boolean }[] = [];
 
-  async init() {
-    if (this.ctx) return;
+  async init(preload: 'core' | 'all' = isFullCatalogToolPage() ? 'all' : 'core') {
+    if (this.ctx) {
+      if (preload === 'all') await Promise.all(preloadSoundNames(true).map((name) => this.loadSound(name)));
+      return;
+    }
     this.ctx = new AudioContext();
     this.master = this.ctx.createGain();
     this.master.gain.value = this.masterVolume;
@@ -334,8 +351,9 @@ export class AudioEngine {
     // firefight instead of ducking itself
     this.voBus = this.ctx.createGain();
     this.voBus.connect(comp);
+    const initialNames = preloadSoundNames(preload === 'all');
     await Promise.all(
-      SOUND_NAMES.map(async (name) => {
+      initialNames.map(async (name) => {
         try {
           // opt #1 (L3): ship Opus (.ogg, ~15× smaller than WAV, no audible
           // loss at this use) and fall back to the WAV source if it's missing
@@ -352,7 +370,9 @@ export class AudioEngine {
     );
     // user-supplied sounds from the harness Sound Lab override stock
     const customs = await idbGetAll();
+    this.customRaw = customs;
     for (const [name, raw] of customs) {
+      if (!initialNames.includes(name as SoundName)) continue;
       try {
         this.buffers.set(name, await this.ctx.decodeAudioData(raw.slice(0)));
         this.custom.add(name);
@@ -361,6 +381,37 @@ export class AudioEngine {
     // which sounds are DESIGNATED to loop in-game (the Sound Editor writes
     // loop-flags.json). Missing file = nothing designated, all one-shots.
     await this.loadLoopFlags();
+  }
+
+  /** Fetch and decode one slot once. Core SFX call this during init; spoken
+   * lines call it on demand. Missing or undecodable assets stay non-fatal. */
+  private loadSound(name: SoundName): Promise<boolean> {
+    if (this.buffers.has(name)) return Promise.resolve(true);
+    const inFlight = this.loading.get(name);
+    if (inFlight) return inFlight;
+    const job = (async () => {
+      if (!this.ctx) return false;
+      let active: AudioBuffer | undefined;
+      try {
+        let res = await fetch(`/audio/${name}.ogg`);
+        if (!res.ok) res = await fetch(`/audio/${name}.wav`);
+        if (res.ok) {
+          active = await this.ctx.decodeAudioData(await res.arrayBuffer());
+          this.stock.set(name, active);
+        }
+      } catch { /* a custom sound may still make this slot playable */ }
+      const raw = this.customRaw.get(name);
+      if (raw) {
+        try {
+          active = await this.ctx.decodeAudioData(raw.slice(0));
+          this.custom.add(name);
+        } catch { /* undecodable upload: stock stands */ }
+      }
+      if (active) this.buffers.set(name, active);
+      return !!active;
+    })().finally(() => this.loading.delete(name));
+    this.loading.set(name, job);
+    return job;
   }
 
   resume() {
@@ -414,6 +465,7 @@ export class AudioEngine {
     try {
       const buf = await this.ctx.decodeAudioData(raw.slice(0));
       await idbPut(name, raw);
+      this.customRaw.set(name, raw);
       this.buffers.set(name, buf);
       this.custom.add(name);
       return true;
@@ -425,6 +477,7 @@ export class AudioEngine {
   /** Back to the stock CC0 sound. */
   async clearCustom(name: SoundName) {
     await idbDelete(name);
+    this.customRaw.delete(name);
     this.custom.delete(name);
     const stock = this.stock.get(name);
     if (stock) this.buffers.set(name, stock);
@@ -459,7 +512,12 @@ export class AudioEngine {
     if (!this.ctx || !this.master) return false;
     if (name === 'footstep') name = this.footstepDefault; // the swappable default
     const buf = this.buffers.get(name);
-    if (!buf) return false;
+    if (!buf) {
+      if (!name.startsWith('vo_') && !name.startsWith('ann_')) return false;
+      const queued = { ...opts, ...(opts.pos ? { pos: { ...opts.pos } } : {}) };
+      void this.loadSound(name).then((loaded) => { if (loaded) this.play(name, queued); });
+      return true;
+    }
 
     // throttle identical sounds within 30ms (bot firefights spam hard)
     const now = this.ctx.currentTime;
