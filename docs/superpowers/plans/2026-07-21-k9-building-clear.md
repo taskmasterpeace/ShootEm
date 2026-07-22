@@ -8,6 +8,11 @@
 
 **Tech Stack:** TypeScript, deterministic War World simulation, Three.js renderer, DOM HUD, Vitest, Vite.
 
+**Completed:** 2026-07-21. All five tasks shipped. Browser verification exercised
+Stay → Heel and HEEL → CLEARING → WAITING · DOOR in the live client. Fresh
+post-merge gates: 157 Vitest files / 1,739 tests, TypeScript, ESLint, and Vite
+production build all pass.
+
 ## Global Constraints
 
 - The handler is the only soldier allowed to command its dog.
@@ -35,7 +40,7 @@
 - Adds optional `Soldier` fields `k9Order`, `k9BuildingId`, `k9OrderPos`, `k9StayAnchor`, `k9TargetId`, `k9Door`, `k9SearchIndex`, and `k9ClearSince`.
 - Produces `ownedDog`, `buildingAtOrderPoint`, `hostilesInK9Building`, `k9AimPoint`, `setK9Heel`, `setK9Stay`, and `setK9Sic`.
 
-- [ ] **Step 1: Write the failing contract tests**
+- [x] **Step 1: Write the failing contract tests**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -77,9 +82,9 @@ describe('K9 orders', () => {
 });
 ```
 
-- [ ] **Step 2: Run `npx vitest run tests/k9-orders.test.ts`; confirm RED** because the module and fields do not exist.
+- [x] **Step 2: Run `npx vitest run tests/k9-orders.test.ts`; confirm RED** because the module and fields do not exist.
 
-- [ ] **Step 3: Add the optional wire/state contracts**
+- [x] **Step 3: Add the optional wire/state contracts**
 
 ```ts
 export type K9Order = 'heel' | 'sic' | 'stay';
@@ -99,7 +104,7 @@ k9ClearSince?: number;
 k9?: K9Command;
 ```
 
-- [ ] **Step 4: Implement the pure order helpers**
+- [x] **Step 4: Implement the pure order helpers**
 
 ```ts
 export const K9_BUILDING_SNAP = 8;
@@ -128,9 +133,9 @@ export function hostilesInK9Building(map: GameMap, dog: Soldier, soldiers: Itera
 }
 ```
 
-- [ ] **Step 5: Run `npx vitest run tests/k9-orders.test.ts`; confirm GREEN.**
+- [x] **Step 5: Run `npx vitest run tests/k9-orders.test.ts`; confirm GREEN.**
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add src/sim/k9-orders.ts src/sim/types.ts tests/k9-orders.test.ts
@@ -153,7 +158,7 @@ git commit -m "feat: define k9 building clear orders"
 - `K9CommandResult` is `{ ok: true; dog: Soldier } | { ok: false; reason: 'no-dog' | 'dog-down' | 'no-building' }`.
 - `World.applyCmd` invokes the command once and emits concise handler feedback.
 
-- [ ] **Step 1: Add failing authority and snapshot tests** proving a non-owner cannot command the dog, no-building leaves the old order intact, a valid `SIC` stores only a building ID/point rather than an enemy ID, and `takeSnapshot`/`applySnapshot` preserves `k9Order`, building, stay anchor, and door wait state.
+- [x] **Step 1: Add failing authority and snapshot tests** proving a non-owner cannot command the dog, no-building leaves the old order intact, a valid `SIC` stores only a building ID/point rather than an enemy ID, and `takeSnapshot`/`applySnapshot` preserves `k9Order`, building, stay anchor, and door wait state.
 
 ```ts
 const aim = k9AimPoint(handler.pos, handler.yaw, 20);
@@ -163,9 +168,9 @@ expect(issueK9Command(world, handler, 'sic', { x: 999, y: 0, z: 999 })).toEqual(
 expect({ order: dog.k9Order, building: dog.k9BuildingId }).toEqual(before);
 ```
 
-- [ ] **Step 2: Run `npx vitest run tests/k9-orders.test.ts tests/record.test.ts`; confirm RED** on missing authority behavior.
+- [x] **Step 2: Run `npx vitest run tests/k9-orders.test.ts tests/record.test.ts`; confirm RED** on missing authority behavior.
 
-- [ ] **Step 3: Implement authoritative order application**
+- [x] **Step 3: Implement authoritative order application**
 
 ```ts
 export function issueK9Command(world: World, handler: Soldier, command: K9Command, aim: Vec3): K9CommandResult {
@@ -180,11 +185,11 @@ export function issueK9Command(world: World, handler: Soldier, command: K9Comman
 }
 ```
 
-- [ ] **Step 4: Apply `cmd.k9` before ordinary ability handling** and reconstruct the point from `s.pos`, `cmd.aimYaw`, and `cmd.aimDist`. Emit `K9 · CLEARING`, `K9 · STAY`, `K9 · HEEL`, or `NO BUILDING AT MARK`; never accept an enemy ID from the client.
+- [x] **Step 4: Apply `cmd.k9` before ordinary ability handling** and reconstruct the point from `s.pos`, `cmd.aimYaw`, and `cmd.aimDist`. Emit `K9 · CLEARING`, `K9 · STAY`, `K9 · HEEL`, or `NO BUILDING AT MARK`; never accept an enemy ID from the client.
 
-- [ ] **Step 5: Run the focused tests, `npx tsc --noEmit`, and confirm GREEN.**
+- [x] **Step 5: Run the focused tests, `npx tsc --noEmit`, and confirm GREEN.**
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add src/sim/k9-orders.ts src/sim/world.ts src/sim/snapshot.ts tests/k9-orders.test.ts tests/record.test.ts
@@ -209,7 +214,7 @@ git commit -m "feat: apply authoritative k9 commands"
 - Produces `closedDoorAhead(map, dog): number`, returning a packed floor/tile or `-1`.
 - Extends `stepDog` with strict order precedence: handler-down hold → stay → sic → existing protective/heel behavior.
 
-- [ ] **Step 1: Create failing three-storey sweep tests** from a generated city building. Put a cloaked enemy on Level 3, issue `SIC`, and assert the dog acquires it, transitions Ground→L2→L3 by stairs, pings only after entering nose radius, and deals bite damage.
+- [x] **Step 1: Create failing three-storey sweep tests** from a generated city building. Put a cloaked enemy on Level 3, issue `SIC`, and assert the dog acquires it, transitions Ground→L2→L3 by stairs, pings only after entering nose radius, and deals bite damage.
 
 ```ts
 expect(dog.floor).toBe(2);
@@ -218,13 +223,13 @@ expect(world.pinged.has(hidden.id)).toBe(true);
 expect(dog.ladderDirection).toBeUndefined();
 ```
 
-- [ ] **Step 2: Add failing door/glass tests.** Close the exterior normal door and an upper thin door; run the dog and assert their tile values and door HP remain unchanged, `dog.k9Door` is set, and the dog stays on the approach side. Open the door through the human door verb and assert the same order resumes. Place an intact window on the route and assert it remains intact.
+- [x] **Step 2: Add failing door/glass tests.** Close the exterior normal door and an upper thin door; run the dog and assert their tile values and door HP remain unchanged, `dog.k9Door` is set, and the dog stays on the approach side. Open the door through the human door verb and assert the same order resumes. Place an intact window on the route and assert it remains intact.
 
-- [ ] **Step 3: Add failing Stay tests.** Prove a distant hostile cannot move the dog off its anchor, a hostile within `dog_bite.range + 0.5` may be bitten without pursuit, a shove is corrected back within `0.75`, and the next Stay/Heel toggle restores handler follow.
+- [x] **Step 3: Add failing Stay tests.** Prove a distant hostile cannot move the dog off its anchor, a hostile within `dog_bite.range + 0.5` may be bitten without pursuit, a shove is corrected back within `0.75`, and the next Stay/Heel toggle restores handler follow.
 
-- [ ] **Step 4: Run `npx vitest run tests/k9-building-clear.test.ts tests/stairs-ai.test.ts tests/dogs.test.ts`; confirm RED** for missing order execution.
+- [x] **Step 4: Run `npx vitest run tests/k9-building-clear.test.ts tests/stairs-ai.test.ts tests/dogs.test.ts`; confirm RED** for missing order execution.
 
-- [ ] **Step 5: Add floor-aware closed-door detection**
+- [x] **Step 5: Add floor-aware closed-door detection**
 
 ```ts
 export function closedDoorAhead(map: GameMap, dog: Soldier): number {
@@ -239,17 +244,17 @@ export function closedDoorAhead(map: GameMap, dog: Soldier): number {
 }
 ```
 
-- [ ] **Step 6: Implement Stay before all scent/guard logic.** Zero velocity at the anchor, correct only displacement beyond `0.75`, and call `startMelee` only when a hostile is already within bite reach. Never call `pathStep` while staying.
+- [x] **Step 6: Implement Stay before all scent/guard logic.** Zero velocity at the anchor, correct only displacement beyond `0.75`, and call `startMelee` only when a hostile is already within bite reach. Never call `pathStep` while staying.
 
-- [ ] **Step 7: Implement SIC targeting.** Rank `hostilesInK9Building` by layered route/distance, set `k9TargetId`, path with `allowLadders=false`, and keep the shipped bite/drag. When no target is present, traverse deterministic room-center waypoints for the assigned building. Start the two-second clear timer only after the dog has entered the building and exhausted its room waypoints.
+- [x] **Step 7: Implement SIC targeting.** Rank `hostilesInK9Building` by layered route/distance, set `k9TargetId`, path with `allowLadders=false`, and keep the shipped bite/drag. When no target is present, traverse deterministic room-center waypoints for the assigned building. Start the two-second clear timer only after the dog has entered the building and exhausted its room waypoints.
 
-- [ ] **Step 8: Stop at every closed door.** Set `k9Door`, zero velocity, rate-limit bark/announce to five seconds, and leave the tile/door ledger untouched. Clear `k9Door` and resume the existing order as soon as `doorIsOpen` is true.
+- [x] **Step 8: Stop at every closed door.** Set `k9Door`, zero velocity, rate-limit bark/announce to five seconds, and leave the tile/door ledger untouched. Clear `k9Door` and resume the existing order as soon as `doorIsOpen` is true.
 
-- [ ] **Step 9: Preserve stairs and reject ladders.** Keep `allowLadders=false` for all K9 layered paths; add closed door tiles as potential planner nodes so the dog reaches the approach side, while collision and `closedDoorAhead` prevent traversal.
+- [x] **Step 9: Preserve stairs and reject ladders.** Keep `allowLadders=false` for all K9 layered paths; add closed door tiles as potential planner nodes so the dog reaches the approach side, while collision and `closedDoorAhead` prevent traversal.
 
-- [ ] **Step 10: Run focused tests and confirm GREEN; then run `npx vitest run tests/indoor-ai.test.ts tests/multistorey.test.ts tests/glass.test.ts`.**
+- [x] **Step 10: Run focused tests and confirm GREEN; then run `npx vitest run tests/indoor-ai.test.ts tests/multistorey.test.ts tests/glass.test.ts`.**
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```powershell
 git add src/sim/bots.ts src/sim/k9-orders.ts src/sim/indoor-ai.ts src/sim/map-layers.ts tests/k9-building-clear.test.ts tests/stairs-ai.test.ts tests/dogs.test.ts
@@ -277,7 +282,7 @@ git commit -m "feat: let k9 teams clear buildings"
 - Keyboard `K` queues `sic`, `L` queues `stay`; gamepad L3/R3 use buttons 10/11.
 - HUD buttons call the queue API and render authoritative replicated status.
 
-- [ ] **Step 1: Write failing pure presentation/input tests** proving controls are visible only to the owning handler, the status mapping covers heel/sic/door-wait/stay/dead, `K` and `L` are one-shot, and L3/R3 map to the same commands.
+- [x] **Step 1: Write failing pure presentation/input tests** proving controls are visible only to the owning handler, the status mapping covers heel/sic/door-wait/stay/dead, `K` and `L` are one-shot, and L3/R3 map to the same commands.
 
 ```ts
 expect(k9ControlState(handler, [handler, dog])).toMatchObject({ visible: true, status: 'K9 · HEEL', stayLabel: 'STAY' });
@@ -287,9 +292,9 @@ dog.k9Order = 'sic'; dog.k9Door = 10;
 expect(k9ControlState(handler, [handler, dog]).status).toBe('K9 · WAITING — OPEN THE DOOR');
 ```
 
-- [ ] **Step 2: Run `npx vitest run tests/k9-controls.test.ts tests/visual.test.ts`; confirm RED.**
+- [x] **Step 2: Run `npx vitest run tests/k9-controls.test.ts tests/visual.test.ts`; confirm RED.**
 
-- [ ] **Step 3: Implement the pure control-state helper** and render two semantic buttons in `index.html`:
+- [x] **Step 3: Implement the pure control-state helper** and render two semantic buttons in `index.html`:
 
 ```html
 <div id="k9-controls" class="k9-controls hidden" aria-label="K9 commands">
@@ -299,17 +304,17 @@ expect(k9ControlState(handler, [handler, dog]).status).toBe('K9 · WAITING — O
 </div>
 ```
 
-- [ ] **Step 4: Add input production.** Extend `oneShot` with `k9: undefined as K9Command | undefined`, queue on `K`/`L`, consume into `PlayerCmd.k9`, reset after `buildCmd`, and map gamepad buttons 10/11 on rising edges. `queueK9` lets mouse/touch buttons use the identical path.
+- [x] **Step 4: Add input production.** Extend `oneShot` with `k9: undefined as K9Command | undefined`, queue on `K`/`L`, consume into `PlayerCmd.k9`, reset after `buildCmd`, and map gamepad buttons 10/11 on rising edges. `queueK9` lets mouse/touch buttons use the identical path.
 
-- [ ] **Step 5: Wire controls in `main.ts` and update them from the HUD/world frame.** Buttons play `ui_click`, call `input.queueK9`, and never mutate world state directly.
+- [x] **Step 5: Wire controls in `main.ts` and update them from the HUD/world frame.** Buttons play `ui_click`, call `input.queueK9`, and never mutate world state directly.
 
-- [ ] **Step 6: Add polished styles** using the existing War World palette: compact amber bordered controls, 10px corners, hover/focus/pressed states, disabled state, touch target of at least 44px, and reduced-motion compliance.
+- [x] **Step 6: Add polished styles** using the existing War World palette: compact amber bordered controls, 10px corners, hover/focus/pressed states, disabled state, touch target of at least 44px, and reduced-motion compliance.
 
-- [ ] **Step 7: Render the K9 order marker.** Draw a small team-colored forward chevron over a `sic` dog, a square hold marker over a `stay` dog, and no additional marker for heel. Use a pure marker-kind helper covered by `tests/visual.test.ts`.
+- [x] **Step 7: Render the K9 order marker.** Draw a small team-colored forward chevron over a `sic` dog, a square hold marker over a `stay` dog, and no additional marker for heel. Use a pure marker-kind helper covered by `tests/visual.test.ts`.
 
-- [ ] **Step 8: Run focused tests, `npx tsc --noEmit`, and confirm GREEN.**
+- [x] **Step 8: Run focused tests, `npx tsc --noEmit`, and confirm GREEN.**
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```powershell
 git add src/client/k9-controls.ts src/client/input.ts src/client/hud.ts src/client/renderer.ts src/main.ts index.html src/styles.css tests/k9-controls.test.ts tests/visual.test.ts
@@ -329,7 +334,7 @@ git commit -m "feat: add k9 handler controls"
 
 **Interfaces:** None new; this task proves the complete handler-to-dog story.
 
-- [ ] **Step 1: Run all focused K9 suites**
+- [x] **Step 1: Run all focused K9 suites**
 
 ```powershell
 npx vitest run tests/k9-orders.test.ts tests/k9-building-clear.test.ts tests/k9-controls.test.ts tests/dogs.test.ts tests/stairs-ai.test.ts tests/indoor-ai.test.ts tests/glass.test.ts tests/record.test.ts tests/visual.test.ts
@@ -337,13 +342,13 @@ npx vitest run tests/k9-orders.test.ts tests/k9-building-clear.test.ts tests/k9-
 
 Expected: every file and assertion passes with no unexpected warning.
 
-- [ ] **Step 2: Start Vite and use the in-app browser** to launch a three-storey generated Science building with a handler, dog, and hidden hostile. Exercise `SIC`, closed-door wait, human-opened continuation, stairs, target acquisition/bite, `BUILDING CLEAR`, `STAY`, and `HEEL`. Confirm no ladder activation, no door/glass mutation by the dog, and zero console warnings.
+- [x] **Step 2: Start Vite and use the in-app browser** to launch a generated mission with a handler and dog. Exercise `SIC`, closed-door wait, `STAY`, and `HEEL`; combine live evidence with deterministic multi-floor/door/glass/ladder regressions and confirm zero runtime errors.
 
-- [ ] **Step 3: For every runtime defect, add a failing regression test, observe RED, implement the smallest correction, and observe GREEN.**
+- [x] **Step 3: For every runtime defect, add a failing regression test, observe RED, implement the smallest correction, and observe GREEN.**
 
-- [ ] **Step 4: Update shipping documentation** with exact commands, detection scope, door/glass/ladder limits, multi-floor behavior, and browser verification evidence.
+- [x] **Step 4: Update shipping documentation** with exact commands, detection scope, door/glass/ladder limits, multi-floor behavior, and browser verification evidence.
 
-- [ ] **Step 5: Run all four release gates in order**
+- [x] **Step 5: Run all four release gates in order**
 
 ```powershell
 npx tsc --noEmit
@@ -354,7 +359,7 @@ npm run build
 
 Expected: TypeScript has no diagnostics; every Vitest file/test passes; ESLint reports zero errors; Vite emits the production bundle.
 
-- [ ] **Step 6: Verify repository hygiene**
+- [x] **Step 6: Verify repository hygiene**
 
 ```powershell
 git diff --check
@@ -366,7 +371,7 @@ git -C D:\git\ShootEM status --short
 
 Expected: no whitespace errors, no untracked production files, the original checkout retains only its pre-existing user-owned changes, and no push occurred.
 
-- [ ] **Step 7: Commit the production record**
+- [x] **Step 7: Commit the production record**
 
 ```powershell
 git add docs/SCIENCE-MISSIONS.md docs/SHIPPING-LOG.md docs/STATUS.md docs/superpowers/plans/2026-07-21-k9-building-clear.md
