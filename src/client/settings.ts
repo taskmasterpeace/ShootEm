@@ -43,6 +43,8 @@ export interface Settings {
   /** opt #31: the QUALITY tier — one knob, read once at renderer construction.
    *  low = DPR cap 1.25, sun shadows OFF, flash-light pool 2 (#30). */
   quality: 'high' | 'low';
+  /** #89: HUD widget opacity (the vitals/weapon blocks + status strip), 0.4..1 */
+  hudOpacity: number;
   blood: BloodLevel;
   darkness: DarknessLevel;
   /** FEEL KNOBS (Robert's global speed control) — 1 = shipped feel. Live,
@@ -90,7 +92,7 @@ const KEY = 'ww_settings';
 const SPEED_GEN = 1;
 
 export const settings: Settings = {
-  masterVolume: 0.5, reducedMotion: false, blood: 'light', darkness: 'subtle', quality: 'high',
+  masterVolume: 0.5, reducedMotion: false, blood: 'light', darkness: 'subtle', quality: 'high', hudOpacity: 1,
   // ROBERT'S TUNED DEFAULTS (playtest): slow rounds so you can READ the
   // battlefield, boots a touch under shipped pace to match. Vehicles get their
   // OWN knob because the other two knobs created a bug: at 0.35× rounds, a
@@ -115,6 +117,7 @@ export function loadSettings(): Settings {
     if (typeof raw.masterVolume === 'number') settings.masterVolume = Math.max(0, Math.min(1, raw.masterVolume));
     if (typeof raw.reducedMotion === 'boolean') settings.reducedMotion = raw.reducedMotion;
     if (raw.quality === 'high' || raw.quality === 'low') settings.quality = raw.quality;
+    if (typeof raw.hudOpacity === 'number') settings.hudOpacity = Math.max(0.4, Math.min(1, raw.hudOpacity));
     if (raw.blood === 'off' || raw.blood === 'light' || raw.blood === 'full') settings.blood = raw.blood;
     if (raw.darkness === 'off' || raw.darkness === 'subtle' || raw.darkness === 'full') settings.darkness = raw.darkness;
     if (typeof raw.reticle === 'string' && RETICLE_STYLES.includes(raw.reticle)) settings.reticle = raw.reticle;

@@ -63,6 +63,8 @@
           <div class="bar-label energy"><span id="en-num">100</span> EN</div>
           <!-- THE OUTBREAK: viral load reads where the vitals live -->
           <div class="bar-label hidden" id="viral-chip"><span id="viral-ico"></span> <span id="viral-num"></span></div>
+          <!-- #89 THE MOODLE STAMP: one practical state, priority-picked — plain words only -->
+          <div class="bar-label hidden" id="moodle-chip"><span id="moodle-txt"></span></div>
           <!-- §6.2 the corpse-burn readout (#56): a body cooking nearby shows its meter -->
           <div class="bar-label hidden" id="burn-chip"><span id="burn-num"></span></div>
           <!-- W3.9: your rank rides the vitals — insignia in the mono vocabulary -->
@@ -260,6 +262,10 @@
               <label style="display:flex;align-items:center;gap:0.5rem;text-transform:none;font-size:0.85rem;cursor:pointer">
                 <input type="checkbox" id="set-reduced" style="accent-color:var(--accent);width:1rem;height:1rem"> Reduced motion (caps shake &amp; whiteout)
               </label>
+            </div>
+            <div class="setup-block">
+              <label>HUD opacity <span id="hud-op-val">100%</span></label>
+              <input type="range" id="set-hud-op" min="40" max="100" step="5" value="100" style="width:150px; accent-color: var(--accent)">
             </div>
             <div class="setup-block">
               <label>Quality</label>

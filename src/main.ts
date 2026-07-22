@@ -1603,6 +1603,14 @@ audio.setMasterVolume(settings.masterVolume);
   const qual = $('set-quality') as HTMLSelectElement;
   qual.value = settings.quality;
   qual.onchange = () => { settings.quality = qual.value as 'high' | 'low'; saveSettings(); };
+  // #89: HUD widget transparency — applies live via the CSS var
+  const hop = $('set-hud-op') as HTMLInputElement;
+  const hopVal = $('hud-op-val');
+  const applyHop = () => document.documentElement.style.setProperty('--hud-op', String(settings.hudOpacity));
+  hop.value = String(Math.round(settings.hudOpacity * 100));
+  hopVal.textContent = hop.value + '%';
+  applyHop();
+  hop.oninput = () => { settings.hudOpacity = Number(hop.value) / 100; hopVal.textContent = hop.value + '%'; applyHop(); saveSettings(); };
   // READING THE DARK (plan A2 step 5): sight is accessibility — one click off
   const dark = $('set-darkness') as HTMLSelectElement;
   dark.value = settings.darkness;

@@ -891,6 +891,26 @@ export class Hud {
       $('burn-num').textContent = `CORPSE BURNING · ${Math.min(99, Math.round(burnBest * 100))}%`;
     } else bc.classList.add('hidden');
 
+    // #89 THE MOODLE STAMP (Robert's correction: NO jargon — "if he has to ask
+    // what it means, it's wrong"): one priority-picked practical state with
+    // the vitals. energy IS the stamina tank, so one LOW ENERGY covers both.
+    // Nothing to say = no stamp (silence is the default expression).
+    const mc = $('moodle-chip');
+    let stamp = '', stampHot = false;
+    if (s.alive && !s.downed) {
+      const cls = CLASSES[s.classId];
+      if (s.bleedingUntil !== undefined && world.time < s.bleedingUntil) { stamp = 'BLEEDING'; stampHot = true; }
+      else if (s.maxArmor > 0 && s.armor <= 0) { stamp = 'ARMOR GONE'; stampHot = true; }
+      else if (s.energy < 25) stamp = 'LOW ENERGY';
+      else if (cls.ability === 'jetpack' && s.jetSpent) stamp = 'JET RECOVERING';
+      else if (s.cloaked) stamp = 'CLOAKED';
+    }
+    if (stamp) {
+      mc.classList.remove('hidden');
+      mc.classList.toggle('hot', stampHot);
+      $('moodle-txt').textContent = stamp;
+    } else mc.classList.add('hidden');
+
     // UI-BIBLE §09 — THE UNIFIED STATUS STRIP. Every timed player state gets a
     // chip here, DERIVED from live sim fields (§03 law 2), priority-ordered
     // (§03: critical first), six visible then +N (§15). Replaces the scattered
