@@ -38,6 +38,7 @@ modules. Everything runs deterministically off one seeded RNG (see
 |---|---|---|
 | **`ai/pathfinding.ts`** ✅ | THE PLANNER — grid BFS + A* (`pathStep`), the BFS/A* scratch, floor/ladder transitions. Pure nav. | map, map-layers, geometry, types |
 | **`ai/perception.ts`** ✅ | THE EYES — `findTarget` (grass clamp, cone/ring, cloak, ping, LOS, nemesis bias), `enemyVehicleNear`, `radarSearchPoint`, `vehicleCrewReacted`. | map, bot-tuning, types |
+| **`ai/horde.ts`** ✅ | THE UNDEAD & THE SCRAP — `stepZombie` + `stepIron` (dormancy wake, blink, spit, door-break, bite-struggle, ravager molt/slam). Own targeting loop. | pathfinding + one back-edge (`doorAhead`) |
 
 Both are **leaves** (they import nothing from `bots.ts`), so there's no cycle.
 `bots.ts` imports what it needs and re-exports the few symbols tests reach for
@@ -56,14 +57,15 @@ trust the banners over the numbers.
 | **Nav primitives** | 461–534 | `doorAhead`, `nearestCover`, `climbAhead`, `buildingAhead` — tile scans shared by movement & combat. | `ai/nav.ts` |
 | **Piloting** | 535–774 | Vehicle/aircraft AI: route selection, `vehicleWaypoint`, `assignVehicleRoles`, `stepTheaterVehicle` (dogfight/energy-fight/altitude), `raceDriverCmd` (Motor Trials). | `ai/piloting.ts` |
 | **`stepBot` (the core)** | 804–1582 | The infantry brain: perception→objective→movement→combat→abilities→spacing→aim, plus the inlined vehicle-driving block. The god function (AI-AUDIT Theme 7). | stays; lift sub-blocks out first |
-| **`leadYaw`** | 1583 | Projectile lead angle (shared kernel). | stays / `ai/nav.ts` |
-| **Scientist** | 1591–1632 | `stepScientist` — flee-to-safehouse escort. | `ai/agents.ts` |
-| **K9** | 1633–1898 | `stepDog` + `nearestK9Threat`/`driveK9Toward`/`stepK9Sic`… — the dog brain (pairs with `k9-orders.ts`). | `ai/agents.ts` |
-| **Horde** | 1899–end | `stepIron` + `stepZombie` — the undead/scrap brains (own targeting loop). | `ai/horde.ts` |
+| **`leadYaw`** | ~1583 | Projectile lead angle (shared kernel). | stays / `ai/nav.ts` |
+| **Scientist** | ~1591 | `stepScientist` — flee-to-safehouse escort. | `ai/agents.ts` |
+| **K9** | ~1633–end | `stepDog` + `nearestK9Threat`/`driveK9Toward`/`stepK9Sic`… — the dog brain (pairs with `k9-orders.ts`). | `ai/agents.ts` |
+
+(Horde `stepIron`/`stepZombie` — now extracted to `ai/horde.ts` ✅.)
 
 **Extraction order (bottom-up, to keep the dependency DAG acyclic):**
-pathfinding ✅ → perception ✅ → nav → objectives → piloting → the tail agents
-(scientist/K9/horde import the leaves, never `bots.ts`) → `stepBot` last.
+pathfinding ✅ → perception ✅ → horde ✅ → nav → objectives → piloting → the
+rest of the tail agents (scientist/K9 import the leaves) → `stepBot` last.
 
 ## The support ring (already its own modules)
 
