@@ -75,3 +75,25 @@ describe('class VO — the right voice for the moment', () => {
     expect(played().filter((n) => String(n).startsWith('vo_'))).toHaveLength(0);
   });
 });
+
+describe('class VO — the Odessa shape (numbered variants rotate)', () => {
+  it('the infiltrator kill line resolves vo_infiltrator_kill_N and rotates', () => {
+    const w = world();
+    const s = w.addSoldier('Dee', 'infiltrator', 0, 'human'); s.alive = true;
+    const cv = new ClassVo();
+    // kill CD is 3.5s wall-clock and the 4s multi-window must NOT trip —
+    // drive the dispatcher's clock (performance.now) 10s per kill
+    const clock = vi.spyOn(performance, 'now');
+    try {
+      clock.mockReturnValue(0);
+      cv.consider({ type: 'kill_confirm', soldierId: s.id, text: 'a' } as SimEvent, w, s.id);
+      clock.mockReturnValue(10000);
+      cv.consider({ type: 'kill_confirm', soldierId: s.id, text: 'b' } as SimEvent, w, s.id);
+      clock.mockReturnValue(20000);
+      cv.consider({ type: 'kill_confirm', soldierId: s.id, text: 'c' } as SimEvent, w, s.id);
+    } finally { clock.mockRestore(); }
+    const kills = played().filter((n) => String(n).startsWith('vo_infiltrator_kill'));
+    expect(kills.length).toBe(3);
+    expect(new Set(kills).size).toBeGreaterThan(1); // rotated, never the same take thrice
+  });
+});

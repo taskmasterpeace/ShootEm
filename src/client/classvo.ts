@@ -143,16 +143,29 @@ export class ClassVo {
     return Math.hypot(e.pos.x - me.pos.x, e.pos.z - me.pos.z) <= ALLY_EARSHOT;
   }
 
-  /** Play `vo_<class>_<slot>` for your moment, honoring the per-slot cooldown,
-   *  the global gap, and the registered-sound guard. Positional at the speaker
-   *  so distance/occlusion still shape it, but it's YOUR voice — you're the
-   *  listener, so it lands close and clear. */
+  /** per-slot rotation cursor for numbered variant packs (Odessa's kill_1/2/3) */
+  private variant: Record<string, number> = {};
+
+  /** Play the class line for this moment, honoring the per-slot cooldown, the
+   *  global gap, and the registered-sound guard. Slot resolution handles BOTH
+   *  catalog shapes: the mortal packs' flat `vo_<class>_<slot>` and the
+   *  Odessa/infiltrator pack's NUMBERED variants (`vo_infiltrator_kill_1..3`)
+   *  — variants rotate so the same moment never reads twice in a row.
+   *  Positional at the speaker, but it's YOUR voice — it lands close. */
   private say(classId: string, slot: string, pos: Vec3): void {
-    const name = `vo_${classId}_${slot}`;
-    if (!VALID.has(name)) return; // this class has no line for this moment
     const t = clockNow();
     if (t - (this.last[slot] ?? -Infinity) < (CD[slot] ?? 5)) return;
     if (!URGENT.has(slot) && t - this.lastAny < GLOBAL_GAP) return;
+    const base = `vo_${classId}_${slot}`;
+    let name = VALID.has(base) ? base : '';
+    if (!name) {
+      // the numbered shape: count the variants, rotate through them
+      let count = 0;
+      while (VALID.has(`${base}_${count + 1}`)) count++;
+      if (!count) return; // this class has no line for this moment
+      const i = (this.variant[base] = ((this.variant[base] ?? 0) % count) + 1);
+      name = `${base}_${i}`;
+    }
     this.last[slot] = t;
     this.lastAny = t;
     audio.play(name as SoundName, { pos, volume: 0.95 });
