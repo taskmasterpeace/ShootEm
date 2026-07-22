@@ -5616,6 +5616,15 @@ export class World {
       p.pos.y += p.vel.y * tdt;
       p.pos.z += p.vel.z * tdt;
 
+      // §6.1 W7.3 PHASE 2 — THE FLAMETHROWER LAYS FIRE: a splashless flame STREAM
+      // (the F-3 Flamer, the AR-606 under-barrel burp — NOT the fireball-splash
+      // gods, which detonate) washes the flammable GROUND it sweeps low over,
+      // lighting grass/wood along its whole path (Phase 1 only lit incendiary
+      // ROUNDS on cover + grenade splash). igniteAt self-guards flammability, the
+      // FIRE_CAP and dedup, so a stream over bare deck — and every fire-free
+      // replay — stays byte-identical (no RNG, empty fires ⇒ stepFires early-out).
+      if (def.tracer === 'flame' && !def.splash && p.pos.y < 2) this.igniteAt(p.pos.x, p.pos.z);
+
       // STICKY (Robert: "no bounce, stick to what they hit"): the charge adheres
       // to the first thing it touches — a body, a hull, a wall, the ground — and
       // detonates on its fuse from right there. Runs BEFORE the bounce/wall/hit

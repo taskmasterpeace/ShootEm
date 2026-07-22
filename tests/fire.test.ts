@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import type { PlayerCmd } from '../src/sim/types';
 import { World } from '../src/sim/world';
 import { S_GRASS, S_PLATE } from '../src/sim/map';
 import { tileIndex, tileToWorld } from '../src/sim/map-geometry';
+
+const cmd = (over: Partial<PlayerCmd> = {}): PlayerCmd => ({
+  moveX: 0, moveZ: 0, aimYaw: 0, fire: false, altFire: false, jump: false,
+  use: false, ability: false, reload: false, grenade: false, weaponSlot: -1, ...over,
+});
 
 // §6.1 FIELD FIRE (W7.3) — grass/wood catch from incendiary rounds, scorch who
 // stands in them, spread to flammable neighbours, and burn down. Deterministic.
@@ -71,6 +77,39 @@ describe('field fire — the burn', () => {
     grassPatch(w, 50, 50);
     w.igniteTile(50, 50);
     for (let i = 0; i < 30 * 8; i++) w.step(1 / 30, new Map()); // well past FIRE_LIFE + spread
+    expect(w.fires.length).toBe(0);
+  });
+});
+
+describe('field fire — the flamethrower lays fire (Phase 2)', () => {
+  it('a flame STREAM ignites the flammable ground it sweeps over', () => {
+    const w = fireWorld();
+    grassPatch(w, 50, 50);              // 3×3 grass at (49-51, 49-51), rest bare plate
+    const geo = w.map.geometry;
+    const s = w.addSoldier('Pyro', 'infantry', 0, 'human');
+    s.alive = true;
+    s.weapons = ['flamer']; s.clip = [Infinity]; s.reserve = [Infinity]; s.weaponIdx = 0;
+    const here = tileToWorld(geo, 47, 50); // stand WEST of the patch, ON BARE PLATE
+    s.pos = { x: here.x, y: 0, z: here.z }; s.yaw = 0;
+    expect(w.fires.length).toBe(0);
+    for (let i = 0; i < 60; i++) {
+      w.step(1 / 30, new Map([[s.id, cmd({ aimYaw: 0, aimDist: 6, fire: true })]])); // sweep east across the grass
+    }
+    expect(w.fires.length).toBeGreaterThan(0); // the stream lit grass it never stood on
+  });
+
+  it('the same stream over BARE ground lights nothing (fire-free stays byte-identical)', () => {
+    const w = fireWorld();
+    w.map.surface.fill(S_PLATE);         // no flammable ground anywhere
+    const geo = w.map.geometry;
+    const s = w.addSoldier('Pyro', 'infantry', 0, 'human');
+    s.alive = true;
+    s.weapons = ['flamer']; s.clip = [Infinity]; s.reserve = [Infinity]; s.weaponIdx = 0;
+    const here = tileToWorld(geo, 47, 50);
+    s.pos = { x: here.x, y: 0, z: here.z }; s.yaw = 0;
+    for (let i = 0; i < 60; i++) {
+      w.step(1 / 30, new Map([[s.id, cmd({ aimYaw: 0, aimDist: 6, fire: true })]]));
+    }
     expect(w.fires.length).toBe(0);
   });
 });
