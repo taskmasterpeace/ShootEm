@@ -9,6 +9,7 @@ import { mapSizeForPlayers } from './sim/fronts';
 import { WEATHER_MODS } from './sim/weather';
 import { onMatchEnd, paintballConfig } from './client/onboarding';
 import { mountFrontend } from './client/frontend';
+import { GhostPlayer, GhostRecorder, ghostKey, loadGhost, saveGhost } from './client/ghost';
 import { factionTeam, loadIdentity, type PlayerIdentity } from './client/identity';
 import { StableConsole, isCommissioned } from './client/stable';
 import { audio } from './client/audio';
@@ -763,6 +764,18 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     }
   }
 
+  // THE GHOST (Motor Trials): record the local racer's laps; when one beats the
+  // stored best, keep it and replay it as a translucent phantom next lap.
+  const ghostK = ghostKey(seed, selectedRaceBoard);
+  const ghostRec = isRace ? new GhostRecorder() : null;
+  let ghostPlay: GhostPlayer | null = null;
+  let ghostLapStart = 0;   // world.time the current recorded lap began
+  let ghostLastLap = -1;   // me's completed-lap count last frame
+  if (isRace) {
+    const stored = loadGhost(ghostK);
+    if (stored) { ghostPlay = new GhostPlayer(stored.samples); renderer.setGhostBoard(selectedRaceBoard); }
+  }
+
   renderer.buildStaticWorld(world);
   renderSciencePanel($('science-mission-panel'), world.science);
   course?.begin(world, me.id);
@@ -874,6 +887,31 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
         cmds.clear();
         if (me.alive || me.vehicleId >= 0) cmds.set(me.id, input.buildCmd(me, renderer.camera));
         world.step(FIXED, cmds);
+      }
+    }
+    // THE GHOST: sample the local racer once racing has begun; on a lap change
+    // bank the lap (keeping it if it's a new best), and show the phantom at the
+    // current lap clock. Client-only — never touches the sim.
+    if (isRace && ghostRec) {
+      const racer = world.mode.racers?.find((r) => r.id === me.id);
+      const board = me.vehicleId >= 0 ? world.vehicles.get(me.vehicleId) : undefined;
+      if (racer && board && (world.mode.countdown ?? 0) <= 0) {
+        if (ghostLastLap < 0) { ghostLastLap = racer.lap; ghostLapStart = world.time; ghostRec.startLap(world.time); }
+        if (racer.lap !== ghostLastLap) {
+          const lapTime = world.time - ghostLapStart;
+          const samples = ghostRec.takeLap();
+          const prev = loadGhost(ghostK);
+          if (samples.length > 4 && (!prev || lapTime < prev.lapTime)) {
+            saveGhost(ghostK, lapTime, samples);
+            ghostPlay = new GhostPlayer(samples);
+            renderer.setGhostBoard(selectedRaceBoard);
+          }
+          ghostLastLap = racer.lap;
+          ghostLapStart = world.time;
+          ghostRec.startLap(world.time);
+        }
+        ghostRec.record(world.time, board.pos.x, board.pos.y, board.pos.z, board.yaw);
+        renderer.moveGhost(ghostPlay ? ghostPlay.at(world.time - racer.lapStart) : null);
       }
     }
     // the flight log persists every 30s — a crash loses half a minute, not

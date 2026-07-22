@@ -7,7 +7,7 @@ import { materialForSurface, materialOf, type ImpactKind } from '../sim/material
 import { TORCH_MULT, classLinger, eyesSeePoint, perceivesNow, seenRecently, type SeenMark } from '../sim/perception';
 import { paintColorFor } from './onboarding';
 import type { WeatherKind } from '../sim/weather';
-import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
+import type { SimEvent, Soldier, Team, Vec3, VehicleKind } from '../sim/types';
 import { isBoard } from '../sim/types';
 import { HAND_FRAG_REACH, aimSpreadMul, meleeWindupFor, type World } from '../sim/world';
 import { audio, type SoundName } from './audio';
@@ -1996,6 +1996,40 @@ export class Renderer {
     const ctx = cvs.getContext('2d')!;
     const tex = new THREE.CanvasTexture(cvs);
     return { mesh: makeRingMesh(tex), ctx, tex };
+  }
+
+  private ghostMesh: THREE.Group | null = null;
+
+  /** THE GHOST (Motor Trials): stand up (or tear down) a translucent phantom
+   *  board that replays your best lap. Null clears it. */
+  setGhostBoard(kind: VehicleKind | null): void {
+    if (this.ghostMesh) { this.scene.remove(this.ghostMesh); this.ghostMesh = null; }
+    if (!kind) return;
+    const g = buildVehicle(kind, 0);
+    g.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const src = mesh.material as THREE.MeshStandardMaterial;
+      const m = src.clone();
+      m.transparent = true;
+      m.opacity = 0.34;
+      m.depthWrite = false;
+      m.emissive = new THREE.Color(0x3dbde8); // a cool phantom glow, never purple
+      m.emissiveIntensity = 0.5;
+      mesh.material = m;
+    });
+    g.visible = false;
+    this.scene.add(g);
+    this.ghostMesh = g;
+  }
+
+  /** Position the ghost this frame (or hide it when the lap has no phantom). */
+  moveGhost(t: { x: number; y: number; z: number; yaw: number } | null): void {
+    if (!this.ghostMesh) return;
+    if (!t) { this.ghostMesh.visible = false; return; }
+    this.ghostMesh.position.set(t.x, t.y + 0.05, t.z);
+    this.ghostMesh.rotation.y = -t.yaw;
+    this.ghostMesh.visible = true;
   }
 
   /** Sync all dynamic entities to the sim state, advance FX. */
