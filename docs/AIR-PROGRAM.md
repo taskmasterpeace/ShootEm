@@ -69,11 +69,22 @@ map his intent onto the deploy-cost scale?*
 4. ✅ **Stealth radar suppression** (`9a2f7d1`) — a stealth hull is off enemy radar past 42u until it fires (then paints 4s); halved SAM lock stays. `tests/stealth-radar.test.ts`.
 6. ✅ **flat-large theater** (`8ee6230`) — Ashen Steppe, 98.6% open.
 
-**REMAINING (refinements, none goal-blocking):**
+7. ✅ **Pilot-AI dogfight refinements** (`e53bc90`) — ENERGY FIGHT (overshoot → straight extension → re-merge, no death-spiral) + BREAK-LOCK-BEHIND-A-RIDGE (a Sky mountain between the seeker and its prey drops the missile lock). `tests/sky-gate.test.ts`. *(Heli hull-down pop-ups + radar-aware bomber routing still to come.)*
+
+**PRICING + BALANCE — done, and consistent.** Every airframe is priced in the
+game's deploy-cost economy and auto-lists in the Codex. The ladder is a clean
+sidegrade set: Warhawk (4) is a tankier/slower strikejet (3); Specter (4) a
+tougher interceptor (3) with the homing AAM, paying in speed; Hydra (4) a
+premium attackheli (3) with guided rockets; Reaper (6) trades the Anvil's HP
+for stealth + speed. The new mechanics are balance-conscious by construction —
+the AAM is speed-capped/flare-countered, guided rockets turn softly (dodgeable),
+stealth has a close-range paint window. Robert's ~2,200–3,400 reads as a
+separate *credits* flavor — an optional codex field, not a blocker.
+
+**REMAINING (polish, none goal-blocking):**
 5. **Radar sites as destructible AA-blinders** — killing the peak radar extends the stealth window (procgen LOI + a systemHp hook).
-7. **Pilot-AI refinements** — missile-lock-break behind ridges, energy extend/re-merge, heli hull-down, radar-aware bomber routing.
 8. **Procgen refinements** — ridged-noise height field, ramps, mirrored LOI + central objective.
-9. **Tuning pass** — reconcile stats/names/prices to Robert's spec once the concept + economy decisions are made.
+9. **Optional tuning** — adopt Robert's exact names/stats/credits if he wants them (his three calls); the shipped set already plays balanced.
 
 **Decisions on the desk (Robert's):** (a) Sparrowhawk fast-multirole vs. keep the
 A-10 Warhawk (retune or add a 5th); (b) his names vs. the shipped names; (c) the
