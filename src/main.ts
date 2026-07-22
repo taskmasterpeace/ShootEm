@@ -1598,6 +1598,11 @@ audio.setMasterVolume(settings.masterVolume);
   const blood = $('set-blood') as HTMLSelectElement;
   blood.value = settings.blood;
   blood.onchange = () => { settings.blood = blood.value as BloodLevel; saveSettings(); };
+  // opt #31: the QUALITY tier — read once at renderer construction, so a
+  // change applies on the next match (no mid-match shader recompiles)
+  const qual = $('set-quality') as HTMLSelectElement;
+  qual.value = settings.quality;
+  qual.onchange = () => { settings.quality = qual.value as 'high' | 'low'; saveSettings(); };
   // READING THE DARK (plan A2 step 5): sight is accessibility — one click off
   const dark = $('set-darkness') as HTMLSelectElement;
   dark.value = settings.darkness;

@@ -56,6 +56,8 @@ export const WEAPON_TINTS: Record<string, number> = {
 // ---- ragdoll ----
 /** Joints the ragdoll goes limp on (all swing on local Z). */
 const RAG_JOINTS = ['legL', 'legR', 'shinL', 'shinR', 'armL', 'armR', 'head', 'torso'] as const;
+// opt #31: the sun-shadow ortho half-size — tight because the box FOLLOWS the camera
+const SHADOW_BOX_S = 60;
 interface RagState { t0: number; pitch: number; roll: number; cap: Record<string, number>; seed: number; style: CollapseStyle; yaw0: number }
 /** Overshoot-and-settle ease — gives limbs a floppy, physical follow-through. */
 function easeOutBack(x: number): number {
@@ -533,7 +535,9 @@ export class Renderer {
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // opt #31: LOW caps DPR at 1.25 — a 4K iGPU laptop stops rendering 8.3M
+    // multisampled pixels it can't afford (also half of #21's ask)
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, settings.quality === 'low' ? 1.25 : 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -541,7 +545,7 @@ export class Renderer {
     this.scene.fog = new THREE.Fog(0xb8c4cc, 90, 240);
     this.scene.background = new THREE.Color(0xa8bccc);
     this.particles = new Particles(this.scene);
-    this.flashes = new FlashLights(this.scene);
+    this.flashes = new FlashLights(this.scene, settings.quality === 'low' ? 2 : 5); // opt #30: pool by tier, fixed at startup
     this.fireballs = new Fireballs(this.scene);
 
     window.addEventListener('resize', () => {
@@ -888,13 +892,19 @@ export class Renderer {
     const sun = new THREE.DirectionalLight(pal.sun, pal.sunIntensity);
     this.sunLight = sun;
     sun.position.set(60, 90, 30);
-    sun.castShadow = true;
+    // opt #31: LOW skips sun shadows entirely (the backlog's LOW preset);
+    // HIGH keeps them — but the ortho box shrinks ±130→±60 and FOLLOWS the
+    // camera each frame (see update()). The old box was nailed to the origin
+    // over a 300u world: ~75-80% of ~1,242 soldier shadow draws were bodies
+    // nowhere near the screen — the audit's single highest-leverage line.
+    sun.castShadow = settings.quality !== 'low';
     sun.shadow.mapSize.set(2048, 2048);
-    const S = 130;
+    const S = SHADOW_BOX_S;
     sun.shadow.camera.left = -S; sun.shadow.camera.right = S;
     sun.shadow.camera.top = S; sun.shadow.camera.bottom = -S;
     sun.shadow.camera.far = 300;
     this.scene.add(sun);
+    this.scene.add(sun.target); // the follow needs the target IN the graph
 
     // THE HIGH SKY: a drifting cloud deck at altitude — you only notice it
     // zoomed out, which is exactly the point (the battlefield feels HIGH
@@ -3899,6 +3909,22 @@ export class Renderer {
       if (!this.replayView) audio.listener = { x: local.pos.x, y: 0, z: local.pos.z };
     }
 
+    // opt #31: THE SHADOW BOX RIDES THE CAMERA. Project the camera's forward
+    // ray to the ground for the focus point, snap it to the shadow-map texel
+    // grid (edges never crawl as you walk), and carry sun + target with it —
+    // the tightened ±60u box only ever renders shadows for what's on screen.
+    if (this.sunLight?.castShadow) {
+      const fwd = this.camera.getWorldDirection(this.tmpDir);
+      if (fwd.y < -0.05) {
+        const k = this.camera.position.y / -fwd.y;
+        const texel = (2 * SHADOW_BOX_S) / 2048;
+        const fx = Math.round((this.camera.position.x + fwd.x * k) / texel) * texel;
+        const fz = Math.round((this.camera.position.z + fwd.z * k) / texel) * texel;
+        this.sunLight.position.set(fx + 60, 90, fz + 30);
+        this.sunLight.target.position.set(fx, 0, fz);
+        this.sunLight.target.updateMatrixWorld();
+      }
+    }
     this.particles.update(dt);
     this.flashes.update(world.time, dt);
     this.fireballs.update(dt);
