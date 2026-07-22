@@ -26,3 +26,4 @@
 2026-07-22 IT-27: #13 built (projectile template clones — 51 rounds/3 templates live-proven). 26 closed.
 2026-07-22 IT-28: #26 built (hot-loop alloc scrub). 27 closed, 8 needs-robert.
 2026-07-22 IT-29: #19 built (recordSnapshot, pinning test proves copies). 28 closed, 8 needs-robert.
+2026-07-22 IT-30: #22 closed (resolved via #19 + by-ref adoption verdict; raw-wire storage rejected with citations). #10 queued as next-window opener (300-line stepVehicle carve + end-state hash). 29 closed.
