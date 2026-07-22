@@ -28,6 +28,7 @@ import {
   TILE,
   WORLD,
   isDoorTile,
+  losClear,
   registerThinGrid,
   type GameMap,
 } from './map';
@@ -204,7 +205,13 @@ export function generateScienceMap(spec: ScienceMissionSpec): ScienceMapLayout {
     ...building.sockets.filter((socket) => socket.kind === 'guard').map((socket) => tileToWorld(tx + socket.x, tz + socket.z, socket.floor)),
     ...roomPosts,
     ...pickSpread(byFloorThenDistance.slice(Math.floor(byFloorThenDistance.length * 0.18)), 12),
-  ]).slice(0, 12);
+  ]).sort((a, b) => {
+    const exposed = (post: Vec3) => post.y === entry.y
+      && Math.hypot(post.x - entry.x, post.z - entry.z) <= 32
+      && losClear(grid, { ...entry, y: entry.y + 1.4 }, { ...post, y: post.y + 1.4 });
+    return Number(exposed(a)) - Number(exposed(b))
+      || Math.hypot(b.x - entry.x, b.z - entry.z) - Math.hypot(a.x - entry.x, a.z - entry.z);
+  }).slice(0, 12);
   const civilianSpawns = uniquePoints([
     ...building.sockets.filter((socket) => socket.kind === 'civilian').map((socket) => tileToWorld(tx + socket.x, tz + socket.z, socket.floor)),
     ...pickSpread(walkable.slice(Math.floor(walkable.length * 0.25)), 4),

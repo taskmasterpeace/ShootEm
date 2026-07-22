@@ -374,7 +374,8 @@ export function stepScienceMission(world: World, dt: number): void {
     for (const id of runtime.guardIds) {
       const guard = world.soldiers.get(id);
       if (!guard?.alive) continue;
-      const operator = operators.find((candidate) => perceivesNow(world.map.grid, [guard], world.pinged,
+      const operator = operators.find((candidate) => world.time >= (candidate.scienceConcealedUntil ?? 0)
+        && perceivesNow(world.map.grid, [guard], world.pinged,
         candidate, 32, world.smokeBlobs, undefined, world.map.grid2, world.map.upperLayers));
       if (operator) { witness = { guard, operator }; break; }
     }

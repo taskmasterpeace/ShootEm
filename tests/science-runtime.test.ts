@@ -77,6 +77,19 @@ describe('science mission objective compiler', () => {
     expect(guard.botPatrolIndex).toBeGreaterThanOrEqual(1);
   });
 
+  it('keeps insertion outside immediate guard detection across site seeds', () => {
+    for (let seed = 8400; seed < 8430; seed++) {
+      const scienceMission = generateScienceMission(seed, { squadSize: 4, complication: null });
+      const world = new World({ seed, mode: 'science', scienceMission });
+      const operator = world.addSoldier('Operator', 'infiltrator', 0, 'human');
+      operator.pos = { ...world.science!.entry };
+      operator.floor = 0;
+      stepFor(world, 0.2);
+      expect(world.science!.pendingReport, `${scienceMission.site}/${seed}`).toBeUndefined();
+      expect(world.science!.awareness, `${scienceMission.site}/${seed}`).toBe('ghost');
+    }
+  });
+
   it.each(Object.keys(primitive) as ScienceVerb[])('%s can complete its primary and extract', (verb) => {
     const world = missionWorld(verb);
     const runtime = world.science!;
@@ -193,6 +206,7 @@ describe('science mission objective compiler', () => {
   it('direct sight starts an interruptible report before the facility alarm', () => {
     const world = missionWorld('steal');
     const operator = world.addSoldier('Operator', 'infantry', 0, 'human');
+    operator.scienceConcealedUntil = undefined;
     const guard = [...world.soldiers.values()].find((soldier) => soldier.team === 1 && soldier.kind === 'bot')!;
     operator.pos = { ...guard.pos };
 
@@ -206,6 +220,7 @@ describe('science mission objective compiler', () => {
   it('cancels a report when the reporting guard is stopped', () => {
     const world = missionWorld('steal');
     const operator = world.addSoldier('Operator', 'infantry', 0, 'human');
+    operator.scienceConcealedUntil = undefined;
     const guard = world.soldiers.get(world.science!.guardIds[0])!;
     operator.pos = { ...guard.pos };
     stepScienceMission(world, 1 / 60);
@@ -223,6 +238,7 @@ describe('science mission objective compiler', () => {
   it('shares only the completed report position, never the live operator position', () => {
     const world = missionWorld('steal');
     const operator = world.addSoldier('Operator', 'infantry', 0, 'human');
+    operator.scienceConcealedUntil = undefined;
     const guard = world.soldiers.get(world.science!.guardIds[0])!;
     operator.pos = { ...guard.pos };
     stepScienceMission(world, 1 / 60);
@@ -243,6 +259,7 @@ describe('science mission objective compiler', () => {
   it('an alarm deploys one deterministic reinforcement beat', () => {
     const world = missionWorld('steal');
     const operator = world.addSoldier('Operator', 'infantry', 0, 'human');
+    operator.scienceConcealedUntil = undefined;
     const guard = world.soldiers.get(world.science!.guardIds[0])!;
     operator.pos = { ...guard.pos };
     const originalGuards = world.science!.guardIds.length;

@@ -432,6 +432,9 @@ export interface Soldier {
   /** spawn protection (55B): immune until this sim time, capped ~5s — broken
    *  the instant the soldier takes any hostile action */
   protectedUntil: number;
+  /** Science insertion grace: security ignores a fresh print until this time,
+   * unless the operator commits a hostile action first. */
+  scienceConcealedUntil?: number;
   /** Proving Grounds target dummy — stands there, takes it, never acts */
   dummy?: boolean;
   /** a dummy that REGENERATES (Robert: "the dummies don't regenerate") — pops

@@ -202,6 +202,20 @@ export function validateScienceOperationGraph(graph: ScienceOperationGraph): str
   if (graph.criticalRoute.length < 3) issues.push('critical route requires insertion, objective, and extraction');
   const finite = (pos: Vec3) => Number.isFinite(pos.x) && Number.isFinite(pos.y) && Number.isFinite(pos.z);
   if (!graph.nodes.every((node) => finite(node.pos)) || !graph.criticalRoute.every(finite)) issues.push('graph contains non-finite coordinates');
+  const roomIds = graph.nodes.filter((node) => node.kind === 'room' && node.roomId !== undefined).map((node) => node.roomId!);
+  if (roomIds.length) {
+    const links = new Map<number, number[]>(roomIds.map((id) => [id, []]));
+    for (const edge of graph.roomEdges) {
+      links.get(edge.a)?.push(edge.b);
+      links.get(edge.b)?.push(edge.a);
+    }
+    const reached = new Set<number>([roomIds[0]]);
+    const queue = [roomIds[0]];
+    for (let head = 0; head < queue.length; head++) {
+      for (const next of links.get(queue[head]) ?? []) if (!reached.has(next)) { reached.add(next); queue.push(next); }
+    }
+    if (reached.size !== roomIds.length) issues.push('room graph is disconnected');
+  }
   for (const route of graph.patrolRoutes) {
     if (route.points.length < 2 || route.points.length > 4) issues.push(`${route.id} must contain two to four points`);
     if (!route.points.length || distance(route.points[0], route.points.at(-1)!) > 0.01) issues.push(`${route.id} must return to its post`);

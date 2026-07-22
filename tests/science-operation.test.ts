@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generateScienceMission, type ScienceSite } from '../src/sim/science';
+import { SCIENCE_SITES, generateScienceMission, type ScienceSite } from '../src/sim/science';
 import { generateScienceMap } from '../src/sim/science-map';
 import { generateScienceOperationGraph, validateScienceOperationGraph } from '../src/sim/science-operation';
 
@@ -79,5 +79,25 @@ describe('science operation graph', () => {
       guards: layout.guardPosts,
       response: layout.reinforcementPosts,
     })).toBe(before);
+  });
+
+  it('validates a 100-seed matrix across every Science site', () => {
+    let generated = 0;
+    for (let seed = 8200; seed < 8210; seed++) {
+      for (const site of SCIENCE_SITES) {
+        const { graph } = graphFor(seed, site);
+        expect(validateScienceOperationGraph(graph), `${site}/${seed}`).toEqual([]);
+        expect(graph.nodes.every((node) => Number.isFinite(node.pos.x + node.pos.y + node.pos.z))).toBe(true);
+        generated++;
+      }
+    }
+    expect(generated).toBe(100);
+  });
+
+  it('rejects disconnected room topology instead of drawing a false straight route', () => {
+    const { graph } = graphFor(8300, 'research-annex');
+    const broken = structuredClone(graph);
+    broken.roomEdges = [];
+    expect(validateScienceOperationGraph(broken)).toContain('room graph is disconnected');
   });
 });
