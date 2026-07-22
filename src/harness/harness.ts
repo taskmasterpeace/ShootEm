@@ -769,7 +769,8 @@ for (const { id, team } of LSW_STABLE) {
 const vehGrid = $('veh-grid');
 const VEH_KINDS = [
   'buggy', 'tank', 'apc', 'skiff', 'hoverboard', 'bike', 'flyer',
-  'attackheli', 'transportheli', 'strikejet', 'interceptor', 'bomber', 'aatrack',
+  'attackheli', 'transportheli', 'strikejet', 'interceptor', 'bomber',
+  'gunship', 'airsuperiority', 'stealthbomber', 'gunheli', 'aatrack',
   'transport', 'ambulance', 'tunneler', 'emplacement', 'mech', 'boat', 'submarine',
 ] as const;
 for (const v of VEH_KINDS) vehGrid.appendChild(chip(v, '', () => showModel(() => buildVehicle(v, team), `Vehicle · ${v}`)));

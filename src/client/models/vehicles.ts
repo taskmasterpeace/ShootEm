@@ -7,13 +7,6 @@ import { buildRider } from './soldiers';
 
 export function buildVehicle(kind: VehicleKind, team: Team): THREE.Group {
   const g = new THREE.Group();
-  // THE NEW AIR PROGRAM reuses proven airframe models (planform is the read at
-  // command zoom): Warhawk→strike jet, Specter→interceptor, Reaper→bomber,
-  // Hydra→attack heli. Distinct stats, shared silhouette family for v1.
-  const modelKind: VehicleKind = kind === 'gunship' ? 'strikejet'
-    : kind === 'airsuperiority' ? 'interceptor'
-    : kind === 'stealthbomber' ? 'bomber'
-    : kind === 'gunheli' ? 'attackheli' : kind;
   const teamCol = TEAM_COLORS[team];
   const body = mat(team === 0 ? 0x74602f : 0x2f6478, { rough: 0.55, metal: 0.35 });
   const bodyDark = mat(team === 0 ? 0x57481f : 0x224b5c, { rough: 0.6, metal: 0.3 });
@@ -40,7 +33,7 @@ export function buildVehicle(kind: VehicleKind, team: Team): THREE.Group {
   recoil.name = 'gunRecoil';
   turret.add(recoil);
 
-  switch (modelKind) {
+  switch (kind) {
     case 'submarine': {
       const pressureHull = cyl(0.92, 0.92, 5.8, body, 12);
       pressureHull.rotation.z = Math.PI / 2;
@@ -485,6 +478,198 @@ export function buildVehicle(kind: VehicleKind, team: Team): THREE.Group {
       gunR.add(barrel);
       turret.add(gunR);
       g.add(turret);
+      break;
+    }
+    case 'gunship': {
+      // WARHAWK — the A-10 school: STRAIGHT wings (the anti-delta read), a huge
+      // nose cannon, twin H-tails, engines slung HIGH on the rear. A gun with wings.
+      const armour = mat(team === 0 ? 0x6f6a52 : 0x40565f, { rough: 0.7, metal: 0.3 });
+      const hull = box(3.2, 0.6, 0.9, armour);
+      hull.position.y = 1.5;
+      g.add(hull);
+      const nose = box(1.0, 0.55, 0.7, bodyDark);
+      nose.position.set(1.9, 1.5, 0);
+      g.add(nose);
+      const canopy = box(0.7, 0.34, 0.55, mat(0x18242a, { rough: 0.2, metal: 0.6 }));
+      canopy.position.set(1.1, 1.82, 0);
+      g.add(canopy);
+      for (const side of [1, -1]) {
+        const wing = box(1.3, 0.12, 2.0, armour); // straight, thick — no sweep
+        wing.position.set(-0.1, 1.46, side * 1.5);
+        g.add(wing);
+        const pod = cyl(0.16, 0.16, 0.85, dark, 7); // under-wing rocket pods (warhawk_pods)
+        pod.rotation.z = Math.PI / 2;
+        pod.position.set(0.0, 1.28, side * 1.55);
+        pod.name = side === 1 ? 'podL' : 'podR';
+        g.add(pod);
+        const tail = box(0.55, 0.6, 0.08, bodyDark); // twin H-tail fins
+        tail.position.set(-1.75, 1.85, side * 0.75);
+        g.add(tail);
+        const nac = cyl(0.28, 0.28, 0.95, mat(0x30363c, { metal: 0.6, rough: 0.3 }), 9); // engines high on the rear
+        nac.rotation.z = Math.PI / 2;
+        nac.position.set(-1.2, 1.95, side * 0.6);
+        g.add(nac);
+        const fl = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.7, 7), mat(0xff9a3c, { emissive: 0xff9a3c }));
+        fl.rotation.z = Math.PI / 2;
+        fl.position.set(-1.85, 1.95, side * 0.6);
+        fl.name = side === 1 ? 'thrustL' : 'thrustR';
+        g.add(fl);
+      }
+      const stab = box(0.5, 0.09, 1.7, bodyDark); // horizontal stab joining the twin tails
+      stab.position.set(-1.75, 1.72, 0);
+      g.add(stab);
+      const cannon = cyl(0.13, 0.15, 1.3, mat(0x2a2a26, { metal: 0.7, rough: 0.25 }), 8); // the GAU snout
+      cannon.rotation.z = Math.PI / 2;
+      cannon.position.set(0.7, 0, 0);
+      recoil.add(cannon);
+      turret.position.set(1.7, 1.36, 0);
+      break;
+    }
+    case 'airsuperiority': {
+      // SPECTER — the raptor school: a blended DIAMOND planform, chined nose, twin
+      // canted tails + canted stabs, two burners tucked to the centreline. Reads FAST.
+      const jet = mat(team === 0 ? 0x6a5a34 : 0x2a5a68, { rough: 0.4, metal: 0.5 });
+      const wingMat = mat(team === 0 ? 0x574a2a : 0x224b56, { rough: 0.45, metal: 0.45 });
+      const hull = box(3.2, 0.4, 0.8, jet);
+      hull.position.y = 1.5;
+      g.add(hull);
+      const nose = new THREE.Mesh(new THREE.ConeGeometry(0.3, 1.4, 4), jet); // chined 4-facet wedge
+      nose.rotation.z = -Math.PI / 2;
+      nose.rotation.x = Math.PI / 4;
+      nose.position.set(2.2, 1.5, 0);
+      g.add(nose);
+      const canopy = box(0.85, 0.3, 0.44, mat(0x1b2a33, { rough: 0.15, metal: 0.72 }));
+      canopy.position.set(0.95, 1.74, 0);
+      g.add(canopy);
+      for (const side of [1, -1]) {
+        const wing = box(1.4, 0.1, 1.5, wingMat); // wide blended diamond
+        wing.position.set(-0.15, 1.5, side * 1.0);
+        wing.rotation.y = side * 0.5;
+        g.add(wing);
+        const vtail = box(0.6, 0.62, 0.07, bodyDark); // twin canted vertical tails
+        vtail.position.set(-1.4, 1.8, side * 0.45);
+        vtail.rotation.z = 0.3;
+        vtail.rotation.x = side * 0.32;
+        g.add(vtail);
+        const stab = box(0.7, 0.08, 0.7, bodyDark); // canted horizontal stab
+        stab.position.set(-1.5, 1.48, side * 0.72);
+        stab.rotation.y = side * 0.3;
+        g.add(stab);
+        const eng = cyl(0.2, 0.22, 0.55, mat(0x2a2f35, { metal: 0.6, rough: 0.3 }), 8);
+        eng.rotation.z = Math.PI / 2;
+        eng.position.set(-1.55, 1.5, side * 0.26);
+        g.add(eng);
+        const fl = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.85, 7), mat(0x8ad8ff, { emissive: 0x8ad8ff }));
+        fl.rotation.z = Math.PI / 2;
+        fl.position.set(-2.1, 1.5, side * 0.26);
+        fl.name = side === 1 ? 'thrustL' : 'thrustR';
+        g.add(fl);
+      }
+      const barrel = cyl(0.06, 0.06, 0.8, dark, 6); // internal cannon at the wing root
+      barrel.rotation.z = Math.PI / 2;
+      barrel.position.set(0.4, 0, 0.3);
+      recoil.add(barrel);
+      turret.position.set(1.3, 1.45, 0);
+      break;
+    }
+    case 'stealthbomber': {
+      // REAPER — a FLYING WING, all planform, no tail, no fuselage tube: the B-2 read.
+      // Matte and dark so it barely reflects (radar can't lock it). A faint team spine.
+      const skin = mat(team === 0 ? 0x2b271d : 0x1f262b, { rough: 0.72, metal: 0.15 }); // radar-absorbent matte
+      const skinLit = mat(team === 0 ? 0x332f24 : 0x263039, { rough: 0.7, metal: 0.18 });
+      for (const side of [1, -1]) {
+        const panel = box(3.4, 0.16, 1.7, skin); // swept wing panels — leading edges meet at the apex
+        panel.position.set(-0.2, 1.5, side * 1.15);
+        panel.rotation.y = side * 0.62;
+        g.add(panel);
+        const saw = box(1.0, 0.14, 0.7, skinLit); // the trailing-edge sawtooth (the B-2 W)
+        saw.position.set(-1.55, 1.5, side * 1.75);
+        saw.rotation.y = side * 0.62;
+        g.add(saw);
+        const spine = box(3.0, 0.05, 0.1, mat(team === 0 ? 0x8a7a45 : 0x3a7a8a, { rough: 0.5, metal: 0.3 })); // dim team edge, not a glow
+        spine.position.set(0.0, 1.6, side * 1.5);
+        spine.rotation.y = side * 0.62;
+        g.add(spine);
+        const fl = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.5, 6), mat(0x6a7a6a, { emissive: 0x36432f })); // subdued (masked) exhaust
+        fl.rotation.z = Math.PI / 2;
+        fl.position.set(-1.5, 1.5, side * 0.55);
+        fl.name = side === 1 ? 'thrustL' : 'thrustR';
+        g.add(fl);
+      }
+      const centre = box(2.6, 0.34, 1.1, skin); // blends the panels
+      centre.position.set(0.1, 1.52, 0);
+      g.add(centre);
+      const apex = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.6, 4), skin); // the leading point
+      apex.rotation.z = -Math.PI / 2;
+      apex.position.set(1.7, 1.52, 0);
+      g.add(apex);
+      const bump = box(0.9, 0.3, 0.7, skinLit); // the low cockpit blister
+      bump.position.set(0.7, 1.74, 0);
+      g.add(bump);
+      const bay = box(1.8, 0.24, 0.8, mat(0x14151a, { rough: 0.6 })); // the belly bomb bay
+      bay.position.set(0.0, 1.32, 0);
+      bay.name = 'bay';
+      g.add(bay);
+      const sight = box(0.3, 0.1, 0.3, dark); // the bomb-release node (fires from the belly)
+      sight.position.set(0.2, -0.05, 0);
+      recoil.add(sight);
+      turret.position.set(0.2, 1.32, 0);
+      break;
+    }
+    case 'gunheli': {
+      // HYDRA — a SINGLE-main-rotor gunship that volleys guided rockets: the Apache
+      // read (NOT the Shrike's twin rotors). Fat rocket racks are the many heads.
+      const hullMat = mat(team === 0 ? 0x5f5a3a : 0x2f5a5f, { rough: 0.6, metal: 0.3 });
+      const fuselage = box(3.4, 0.7, 0.95, hullMat);
+      fuselage.position.y = 1.5;
+      g.add(fuselage);
+      const front = box(0.9, 0.42, 0.75, mat(0x13252b, { rough: 0.2, metal: 0.65 })); // stepped tandem canopy
+      front.position.set(1.35, 1.7, 0);
+      g.add(front);
+      const rear = box(0.8, 0.5, 0.78, mat(0x13252b, { rough: 0.2, metal: 0.65 }));
+      rear.position.set(0.55, 1.92, 0);
+      g.add(rear);
+      const tail = box(2.6, 0.26, 0.32, bodyDark); // long tail boom
+      tail.position.set(-2.6, 1.6, 0);
+      g.add(tail);
+      const fin = box(0.5, 0.9, 0.1, bodyDark);
+      fin.position.set(-3.7, 1.95, 0);
+      fin.rotation.z = 0.3;
+      g.add(fin);
+      const tailRotor = cyl(0.55, 0.55, 0.05, dark, 10); // vertical tail-rotor disc (the single-rotor tell)
+      tailRotor.rotation.x = Math.PI / 2;
+      tailRotor.position.set(-3.8, 1.95, 0.2);
+      g.add(tailRotor);
+      for (const side of [1, -1]) {
+        const wing = box(0.6, 0.14, 1.0, bodyDark); // stub weapon wings
+        wing.position.set(0.2, 1.4, side * 0.9);
+        g.add(wing);
+        for (const dy of [-0.12, 0.12]) for (const dz of [-0.12, 0.12]) { // a fat 2×2 rocket-tube rack
+          const tube = cyl(0.09, 0.09, 1.0, mat(0x2a2a26, { metal: 0.5, rough: 0.4 }), 6);
+          tube.rotation.z = Math.PI / 2;
+          tube.position.set(0.35, 1.28 + dy, side * 1.35 + dz);
+          g.add(tube);
+        }
+        const skid = box(2.0, 0.1, 0.1, dark); // landing skids
+        skid.position.set(0.2, 0.75, side * 0.6);
+        g.add(skid);
+      }
+      const chin = box(1.1, 0.13, 0.13, dark); // chin cannon (hydra_cannon)
+      chin.position.set(0.55, 0, 0);
+      recoil.add(chin);
+      turret.position.set(1.3, 1.05, 0);
+      const mast = cyl(0.11, 0.11, 0.7, dark, 8);
+      mast.position.set(0.0, 2.3, 0);
+      g.add(mast);
+      const rotor = new THREE.Group(); // ONE dominant main rotor (4 blades)
+      rotor.name = 'rotorL';
+      rotor.position.set(0.0, 2.7, 0);
+      for (const a of [0, Math.PI / 2]) {
+        const blade = box(0.18, 0.05, 5.2, dark);
+        blade.rotation.y = a;
+        rotor.add(blade);
+      }
+      g.add(rotor);
       break;
     }
     case 'aatrack': {
