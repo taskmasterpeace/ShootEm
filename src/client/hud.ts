@@ -259,6 +259,7 @@ export class Hud {
   private killfeedEl = $('killfeed');
   private announceEl = $('announce');
   private announceUntil = 0;
+  private lastMinimapAt = -1; // opt #6: 30Hz repaint gate (sim-time)
   private minimapEl = $('minimap') as HTMLCanvasElement;
   private minimapCtx = this.minimapEl.getContext('2d')!;
   private vehicleInstruments = $('vehicle-instruments');
@@ -1005,7 +1006,17 @@ export class Hud {
     hint.classList.toggle('hidden', !showHint);
 
     this.updateObjectives(world, s);
-    this.updateMinimap(world, s);
+    // opt #6 (R7): the minimap is a 440px tactical read — repainting it at RAF
+    // (60-144Hz) bought nothing but raymarches. 30Hz is visually identical and
+    // halves (or better) the full-repaint + LOS cost. The deeper half — reusing
+    // the sim's own lastSeen stamps instead of re-marching — is deliberately
+    // NOT done here: the sim trail is a 130° cone, the minimap is the team's
+    // 360°/55u read, and swapping them hides enemies behind you (the W0.2
+    // desk law — Robert's call, tracked on the SIGHT row).
+    if (now - this.lastMinimapAt >= 1 / 30) {
+      this.lastMinimapAt = now;
+      this.updateMinimap(world, s);
+    }
 
     const sb = $('scoreboard');
     if (scoreboardHeld || world.mode.over) {
