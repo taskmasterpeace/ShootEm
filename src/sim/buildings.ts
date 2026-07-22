@@ -1,5 +1,5 @@
 import type { House, PickupSpawn, PropSpec } from './map';
-import { F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_COVER, T_DOOR, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, TILE, WORLD } from './map';
+import { F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_COVER, T_DOOR, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL } from './map';
 import { LEGACY_GEOMETRY, tileToWorld as geometryTileToWorld, type MapGeometry } from './map-geometry';
 import type { Rng } from './rng';
 import type { ThemeId } from './types';
@@ -716,9 +716,6 @@ export interface StampCtx {
   claims: { idx: number; t: number }[];
   rng: Rng;
 }
-
-const tileToWorld = (tx: number, tz: number) =>
-  ({ x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 });
 
 /** Stamp a template at tile (tx,tz). Bounds-checked; registers the roof rect. */
 export function stampBuilding(ctx: StampCtx, def: BuildingDef, tx: number, tz: number, pickupSeq = 0): boolean {
