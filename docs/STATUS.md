@@ -72,10 +72,19 @@ Seven new weapons; jets now HUNT each other (altitude-match + lead-fire pilot
 AI) so the sky is contested. Distinct models proven on the new
 `vehicle-sheet.html` motor-pool contact sheet.
 
-**Still owed:** a **winter** reskin and a **flat-large** terrain variant;
+**Winter reskin (`26cda37`).** Crown Divide is snowbound — a new `winter`
+theme that mirrors the old europa theme's sim-affecting fields exactly
+(gravity 9, grit surface, same sky menu), so play is byte-identical; only the
+palette turns the ice-moon blue into bright snowpack under an overcast sky.
+Also corrects a thematic mismatch (a mountain "divide" was on europa's
+"ocean-floor domes"). The `amb_winter` bed slot is registered for the Sound
+Editor to fill.
+
+**Still owed:** a **flat-large** terrain variant (a new open vehicle theater —
+a wide change across the theater-sweep suites, best done with eyes on it);
 **walkable elevation** (infantry slope / vehicle ramp / cliff-climb — v1
-massifs are impassable masonry); the live 3D relief screenshot; deeper live
-balance on the four airframes. Plan: `plans/2026-07-22-mountain-warfare.md`.
+massifs are impassable masonry); the live 3D relief + snow screenshot; deeper
+live balance on the four airframes. Plan: `plans/2026-07-22-mountain-warfare.md`.
 
 ---
 
@@ -111,7 +120,7 @@ If you read one thing, read this. Everything below has a full row further down.
 **The war:** the 3×3 board · the two faction leaders · bots looking like robots. *(Science Missions v1, time-skip deletion, clone economy, pass escalation, and class-change requests are shipped.)*
 **Military Operations are shipped too:** six map-owned theaters, persistent manifests and stakes, direct-play exercises, and the per-map geometry runtime now sit beside Science Missions.
 **The press:** AI-generated newspaper · the base TV newscast · the unnamed-soldier fiction.
-**Air & armor:** six vehicle-scale biome theaters ✅ · Ground/Building/Sky/Clouds ✅ · **terrain elevation — mountains rise, block sight, cap rotorcraft, jets clear ✅ (2026-07-22)** · Shrike attack helicopter ✅ · Condor transport helicopter ✅ · Barracuda submarine/depth/sonar/torpedoes ✅ · scheduled radar/ECM/terrain masking ✅ · **the new air program — Warhawk gun jet · Specter fighter · Reaper stealth bomber · Hydra rocket heli, each its own model + jet-vs-jet AI ✅ (2026-07-22)** · PixelLab flight instruments ✅ · winter/flat-large map variants + rearm pads remain.
+**Air & armor:** six vehicle-scale biome theaters ✅ · Ground/Building/Sky/Clouds ✅ · **terrain elevation — mountains rise, block sight, cap rotorcraft, jets clear ✅ (2026-07-22)** · Shrike attack helicopter ✅ · Condor transport helicopter ✅ · Barracuda submarine/depth/sonar/torpedoes ✅ · scheduled radar/ECM/terrain masking ✅ · **the new air program — Warhawk gun jet · Specter fighter · Reaper stealth bomber · Hydra rocket heli, each its own model + jet-vs-jet AI ✅ (2026-07-22)** · **winter mountains ✅ (2026-07-22)** · PixelLab flight instruments ✅ · a flat-large open theater + rearm pads remain.
 **Weapons:** fire modes (single/auto/burst/**double-barrel**/pump) · per-family secondary fire · brand signature mechanics · and the Codex columns for all of it.
 **Beams:** continuous/held beams · **beam-vs-beam clash** · beam birth effects · the seven beam types.
 **Armed gods:** bow · spear · recall axe · summoners.
