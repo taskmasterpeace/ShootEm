@@ -52,3 +52,30 @@ describe('grav grenade — the singularity', () => {
     expect(w.pendingBlasts.length, 'and armed its implosion').toBeGreaterThan(0);
   });
 });
+
+describe('time bomb — the demolition timer', () => {
+  it('beeps down a fuse, gives a flee window, then LEVELS the room', () => {
+    const w = new World({ seed: 4, mode: 'tdm', matchMinutes: 10 });
+    const o = w.addSoldier('O', 'infantry', 0, 'human'); o.pos = { x: 40, y: 0, z: 0 };
+    const e = w.addSoldier('E', 'infantry', 1, 'human'); e.pos = { x: 3, y: 0, z: 0 }; e.armor = 0;
+    const g = w.spawnGadget('time_bomb', 0, o.id, { x: 0, y: 0, z: 0 }, 60, 4);
+    const hp0 = e.hp;
+    let beeps = 0;
+    for (let i = 0; i < 60 * 3; i++) { w.step(1 / 60, new Map()); for (const ev of w.takeEvents()) if (ev.type === 'bomb_beep') beeps++; }
+    expect(beeps, 'it telegraphs — the enemy is warned').toBeGreaterThan(3);
+    expect(e.hp, 'the flee window: no damage while it counts down').toBe(hp0);
+    for (let i = 0; i < 60 * 1.5; i++) w.step(1 / 60, new Map());
+    expect(hp0 - e.hp, 'then the room comes down').toBeGreaterThan(40);
+    expect(w.gadgets.has(g.id), 'the charge is spent').toBe(false);
+  });
+
+  it('shot to death, it cooks off where it stands', () => {
+    const w = new World({ seed: 4, mode: 'tdm', matchMinutes: 10 });
+    const o = w.addSoldier('O', 'infantry', 0, 'human'); o.pos = { x: 40, y: 0, z: 0 };
+    const e = w.addSoldier('E', 'infantry', 1, 'human'); e.pos = { x: 3, y: 0, z: 0 }; e.armor = 0;
+    w.spawnGadget('time_bomb', 0, o.id, { x: 0, y: 0, z: 0 }, 60, 8).hp = 0; // shot down
+    const hp0 = e.hp;
+    w.step(1 / 60, new Map());
+    expect(e.hp, 'a struck charge cooks off early').toBeLessThan(hp0);
+  });
+});

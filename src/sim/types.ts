@@ -831,6 +831,7 @@ export type GadgetType =
   | 'fire_field'   // phosphorus burn — damage over time to enemies inside
   | 'snap_trap'    // Venatrix: springs THE ICE BLOCK on whoever steps in (spot the glint)
   | 'flare'        // burning IR decoy dropped by a flyer — seduces heat-seekers
+  | 'time_bomb'    // a planted demolition charge on a telegraphed countdown — then it levels the room
   | 'axe';         // M5 THE THROWN AXE — buried where it landed, waiting to be
                    // called back. It is a WEAPON on the ground, not a pickup:
                    // only its thrower can recall it, and it hurts on the way home.

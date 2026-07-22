@@ -2169,6 +2169,26 @@ export class World {
           }
           break;
         }
+        case 'time_bomb': {
+          // THE DEMOLITION TIMER (Robert): a big charge counting down. It BEEPS
+          // faster as it nears zero — the telegraph, so the enemy gets a chance
+          // to run — then LEVELS the room. Struck to death (hp<=0) it cooks off
+          // where it stands. Detonates through the shared explode() (damage 120
+          // ≥100 so it breaches masonry — it's a demo charge).
+          const left = g.expiresAt - this.time;
+          const period = left > 2 ? 1 : left > 1 ? 0.5 : 0.22; // the beep tightens
+          if (this.time >= (g.phase ?? 0)) {
+            g.phase = this.time + period;
+            this.emit({ type: 'bomb_beep', pos: { ...g.pos }, soldierId: g.ownerId });
+          }
+          if (this.time >= g.expiresAt || g.hp <= 0) {
+            this.explode({ x: g.pos.x, y: 0.4, z: g.pos.z }, WEAPONS.time_bomb, g.ownerId, g.team);
+            this.emit({ type: 'explosion', pos: { ...g.pos }, weapon: 'time_bomb' });
+            this.gadgets.delete(id);
+            continue;
+          }
+          break;
+        }
       }
       if (this.time >= g.expiresAt && g.type !== 'supply_pod') {
         this.gadgets.delete(id);

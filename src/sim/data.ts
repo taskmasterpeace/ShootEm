@@ -61,6 +61,10 @@ const CORE_WEAPONS: Record<WeaponId, WeaponDef> = {
   // THE STICK (Robert): a plasma charge that ADHERES to the first body it meets
   // and rides it to the grave — ~1.3s fuse, then an energy burst that bites armor.
   plasma_nade: W({ id: 'plasma_nade', name: 'P-11 Plasma Stick', damage: 0, rof: 0.8, speed: 22, clip: 1, reserve: 0, range: 28, splash: 4.5, splashDamage: 58, knockback: 12, arc: true, payload: 'plasma', sound: 'plasma', tracer: 'plasma', icon: '🔵' }),
+  // THE DEMOLITION TIMER (Robert: "time bombs"): planted at your feet, it BEEPS
+  // down a ~4s fuse (telegraphed — the enemy can flee) then LEVELS the room. The
+  // blast numbers below; damage ≥100 breaches masonry (it's a demo charge).
+  time_bomb: W({ id: 'time_bomb', name: 'TX-4 Demolition Charge', damage: 120, rof: 0.5, speed: 1, clip: 1, reserve: 0, range: 4, splash: 8, splashDamage: 90, knockback: 20, sound: 'thump', tracer: 'none', icon: '⏱️' }),
   // M3 THE REPLACEMENT (Robert: "I don't think we need to add weapons, I
   // think we need to replace weapons… concussion grenades, no fire, just
   // concussed, with maximum knockback"). The jump trooper's GL-40 becomes
