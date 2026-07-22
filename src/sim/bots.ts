@@ -16,7 +16,7 @@ import {
   worldFloorForHeight,
 } from './map-layers';
 import { halfDepth, halfWidth, tileToWorld, worldToTile } from './map-geometry';
-import { type ClassId, type PlayerCmd, type Soldier, type Team, type Vec3, type Vehicle, isIron, isZed } from './types';
+import { type ClassId, type PlayerCmd, type Soldier, type Team, type Vec3, type Vehicle, isBoard, isIron, isZed } from './types';
 import { type World } from './world';
 import { BOT_TUNING as TUNE, DIFFICULTY } from './bot-tuning';
 
@@ -1232,6 +1232,33 @@ function stepTheaterVehicle(w: World, s: Soldier, vehicle: Vehicle, route: Theat
 
 // ---------- main bot brain ----------
 
+/** MOTOR TRIALS driver: steer the board through the ordered checkpoints, easing
+ *  the throttle into each carve so the slip model doesn't wash the nose wide.
+ *  Deterministic — the line and throttle come from geometry plus an id-hashed
+ *  skill tier, never the RNG stream (races must replay byte-identical). */
+function raceDriverCmd(w: World, s: Soldier, v: Vehicle, cmd: PlayerCmd): PlayerCmd {
+  const track = w.map.raceTrack;
+  if (!track) return cmd;
+  const racer = w.mode.racers?.find((r) => r.id === s.id);
+  const n = track.checkpoints.length;
+  const cur = racer ? racer.next : 0;
+  const gate = track.checkpoints[cur].pos;
+  const after = track.checkpoints[(cur + 1) % n].pos;
+  // aim mostly at the next gate, biased toward the one after for a smoother line
+  const aimX = gate.x * 0.72 + after.x * 0.28;
+  const aimZ = gate.z * 0.72 + after.z * 0.28;
+  let dy = Math.atan2(aimZ - v.pos.z, aimX - v.pos.x) - v.yaw;
+  while (dy > Math.PI) dy -= 2 * Math.PI;
+  while (dy < -Math.PI) dy += 2 * Math.PI;
+  cmd.moveX = Math.max(-1, Math.min(1, dy * 2.3)); // steer toward the line
+  const align = Math.abs(dy);
+  const skill = 0.72 + 0.28 * ((s.id % 3) / 2);     // three deterministic skill tiers
+  // full gas on the straight, lift for the corner so the drift bites in time
+  cmd.moveZ = align < 0.45 ? -1 : align < 1.0 ? -0.72 * skill : -0.4 * skill;
+  cmd.aimYaw = v.yaw; // boards are unarmed — keep the aim steady
+  return cmd;
+}
+
 export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
   const cmd = noCmd();
   cmd.aimYaw = s.yaw;
@@ -1260,6 +1287,11 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     if (!v || !v.alive) return cmd;
     const vdef = VEHICLES[v.kind];
     const wdef = vdef.weapon ? WEAPONS[vdef.weapon] : undefined;
+
+    // MOTOR TRIALS: a bot on a raceboard drives the circuit, not the war
+    if ((w.mode.id === 'race' || w.mode.id === 'timetrial') && isBoard(v.kind)) {
+      return raceDriverCmd(w, s, v, cmd);
+    }
 
     // manning an emplacement gun: hold, traverse, fire; walk away if it's quiet
     if (vdef.immobile) {

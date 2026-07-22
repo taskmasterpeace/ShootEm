@@ -1,5 +1,6 @@
 import { AMMO_INFO, CLASSES, EQUIPMENT, MODE_INFO, TEAM_NAMES, VEHICLES, WEAPONS, weaponProfile } from '../sim/data';
 import { LSWS, VO_LINES } from '../sim/lsw';
+import { fmtLap } from '../sim/modes';
 import { audio, earshotFor } from './audio';
 import { icon } from './icons';
 import { T_CLIMB, T_WALL, losClear, houseAt } from '../sim/map';
@@ -1034,6 +1035,27 @@ export class Hud {
         chips = `<div class="obj-chip t0">🕐 ${clock}</div>
                  <div class="obj-chip neutral">INTENSITY ${m.wave ?? 1}</div>
                  <div class="obj-chip t1">☠ ${fmt(m.scores[0])} · ${m.zombiesLeft ?? 0} up</div>`;
+        break;
+      }
+      case 'race':
+      case 'timetrial': {
+        const laps = m.raceLaps ?? 3;
+        const me = m.racers?.find((r) => r.id === local.id);
+        if ((m.countdown ?? 0) > 0) {
+          chips = `<div class="obj-chip neutral">🏁 GET READY</div>`;
+        } else if (me) {
+          const curLap = Math.min(me.lap + 1, laps);
+          const lapT = fmtLap(world.time - me.lapStart);
+          const field = m.racers?.length ?? 1;
+          const pos = m.raceKind === 'circuit' ? `<div class="obj-chip t0">P${me.place}/${field}</div>` : '';
+          const best = me.bestLap || m.raceBest || 0;
+          chips = `${pos}
+                   <div class="obj-chip neutral">LAP ${curLap}/${laps}</div>
+                   <div class="obj-chip t0">🕐 ${lapT}</div>
+                   <div class="obj-chip t1">BEST ${fmtLap(best)}</div>`;
+        } else {
+          chips = `<div class="obj-chip neutral">🏁 MOTOR TRIALS</div>`;
+        }
         break;
       }
       case 'safehouse': {

@@ -279,6 +279,39 @@ export function buildVehicle(kind: VehicleKind, team: Team): THREE.Group {
       turret.position.set(0.5, 1.28, 0);
       break;
     }
+    case 'comet':
+    case 'vector':
+    case 'sprite': {
+      // the raceboards — hoverboard silhouette, each in its own livery so you
+      // can read the class from across the grid. Red = Comet (speed), amber =
+      // Vector (balance), cyan = Sprite (grip). No purple, ever.
+      const livery = kind === 'comet' ? 0xff4a2a : kind === 'sprite' ? 0x3dbde8 : 0xe8a33d;
+      const race = mat(livery, { rough: 0.4, metal: 0.5 });
+      const raceGlow = mat(livery, { emissive: livery });
+      const deck = box(1.7, 0.11, 0.52, body);
+      deck.position.y = 0.45;
+      g.add(deck);
+      const stripe = box(1.72, 0.02, 0.16, race); // centre racing stripe
+      stripe.position.y = 0.51;
+      g.add(stripe);
+      const nose = box(0.4, 0.1, 0.42, race);
+      nose.position.set(0.92, 0.47, 0);
+      nose.rotation.z = 0.14;
+      g.add(nose);
+      const fin = box(0.5, 0.22, 0.05, race); // a little tail fin — reads as "racer"
+      fin.position.set(-0.7, 0.6, 0);
+      g.add(fin);
+      const underglow = box(1.35, 0.05, 0.4, raceGlow);
+      underglow.position.y = 0.36;
+      underglow.name = 'thrustL';
+      g.add(underglow);
+      for (const x of [0.55, -0.55]) {
+        const pod = cyl(0.1, 0.14, 0.14, dark, 8);
+        pod.position.set(x, 0.32, 0);
+        g.add(pod);
+      }
+      break;
+    }
     case 'hoverboard': {
       // low, sleek deck with a glowing underside
       const deck = box(1.6, 0.12, 0.55, body);

@@ -1,6 +1,6 @@
 import { TEAM_NAMES, WEAPONS } from './data';
 import { losClear, type GameMap } from './map';
-import { isZed, type ModeId, type ModeState, type Team, type ZedKind, type IronKind } from './types';
+import { isBoard, isZed, type ModeId, type ModeState, type RacerState, type RaceTrack, type Team, type ZedKind, type IronKind } from './types';
 import type { World } from './world';
 import { stepScienceMission } from './science-runtime';
 
@@ -83,12 +83,31 @@ export function initMode(id: ModeId, map: GameMap, minutes?: number): ModeState 
       m.timeLeft = Infinity;
       m.target = 0;
       break;
+    case 'race':      // Grand Prix — first past the laps vs the pack
+      m.raceKind = 'circuit';
+      m.raceLaps = 3;
+      m.target = 3;
+      m.timeLeft = 8 * 60;  // a generous cap; the race really ends on the flag
+      m.countdown = 4.5;
+      break;
+    case 'timetrial': // Time Trial — you vs your ghost, no clock pressure
+      m.raceKind = 'trial';
+      m.raceLaps = 3;
+      m.target = 3;
+      m.timeLeft = Infinity;
+      m.countdown = 4.5;
+      break;
   }
   return m;
 }
 
 export function stepMode(w: World, dt: number) {
   const m = w.mode;
+  // race grid countdown runs BEFORE any clock — the lights aren't out yet
+  if ((m.id === 'race' || m.id === 'timetrial') && (m.countdown ?? 0) > 0) {
+    stepRace(w, dt);
+    return;
+  }
   if (Number.isFinite(m.timeLeft)) {
     m.timeLeft -= dt;
     if (m.timeLeft <= 0) {
@@ -117,6 +136,7 @@ export function stepMode(w: World, dt: number) {
     case 'safehouse': stepSafehouse(w, dt); break;
     case 'science': stepScienceMission(w, dt); break;
     case 'paintball': stepPaintball(w, dt); break;
+    case 'race': case 'timetrial': stepRace(w, dt); break;
     case 'range': break; // no clock, no whistle — just the work
   }
 }
@@ -233,6 +253,120 @@ function startPaintballRound(w: World) {
   }
   w.emit({ type: 'whistle', pos: w.map.hillPos });
   w.emit({ type: 'announce', text: `ROUND ${m.round}`, big: true });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THE MOTOR TRIALS — hoverboard racing (Robert: "two modes, ghosts, 3 boards,
+// racing AI"). Circuit = first past N laps vs the pack; Trial = beat your ghost.
+// The track is the carved ring on w.map.raceTrack; racers are the soldiers on
+// boards. All progress is snapshot-serializable on m.racers, so it replays.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** "1:07.4" — a lap time, minutes only when it needs them. */
+export function fmtLap(t: number): string {
+  if (!isFinite(t) || t <= 0) return '—';
+  const total = Math.round(t * 10);              // whole tenths, no float floor
+  const s = Math.floor(total / 10), tenths = total % 10;
+  return s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}.${tenths}` : `${s}.${tenths}s`;
+}
+
+/** The human in the field (the ghost/HUD headline is written from their car). */
+function localRacer(w: World, racers: RacerState[]): RacerState | undefined {
+  return racers.find((r) => w.soldiers.get(r.id)?.kind === 'human');
+}
+
+/** Everyone currently on a board is a racer. Built lazily once the grid fills. */
+function collectRacers(w: World): RacerState[] {
+  const racers: RacerState[] = [];
+  for (const s of w.soldiers.values()) {
+    if (s.vehicleId < 0) continue;
+    const v = w.vehicles.get(s.vehicleId);
+    if (v && isBoard(v.kind)) {
+      racers.push({ id: s.id, next: 0, lap: 0, bestLap: 0, lapStart: w.time, finished: false, finishTime: 0, place: 0 });
+    }
+  }
+  return racers;
+}
+
+/** Rank racers: finishers by finish order, the rest by track progress. */
+function computePlaces(w: World, racers: RacerState[], track: RaceTrack): void {
+  const N = track.checkpoints.length;
+  const progress = (r: RacerState): number => {
+    const s = w.soldiers.get(r.id);
+    let d = 9999;
+    if (s) { const cp = track.checkpoints[r.next]; const dx = s.pos.x - cp.pos.x, dz = s.pos.z - cp.pos.z; d = Math.sqrt(dx * dx + dz * dz); }
+    return (r.lap * N + r.next) * 10000 - d; // further round the loop = higher
+  };
+  const order = [...racers].sort((a, b) => {
+    if (a.finished && b.finished) return a.finishTime - b.finishTime;
+    if (a.finished) return -1;
+    if (b.finished) return 1;
+    return progress(b) - progress(a);
+  });
+  order.forEach((r, i) => { r.place = i + 1; });
+}
+
+function stepRace(w: World, dt: number): void {
+  const m = w.mode;
+  const track = w.map.raceTrack;
+  if (!track) return;
+
+  // ── the grid countdown: 3 · 2 · 1 · GO! ──
+  if ((m.countdown ?? 0) > 0) {
+    const before = Math.ceil(m.countdown!);
+    m.countdown! -= dt;
+    const after = Math.ceil(Math.max(0, m.countdown!));
+    if (after !== before) w.emit({ type: 'announce', text: after > 0 ? String(after) : 'GO!', big: true });
+    if (m.countdown! <= 0) {
+      m.countdown = 0;
+      m.racers = collectRacers(w);
+      for (const r of m.racers) r.lapStart = w.time;
+    }
+    return;
+  }
+  if (!m.racers || !m.racers.length) { m.racers = collectRacers(w); for (const r of m.racers) r.lapStart = w.time; }
+  const racers = m.racers;
+  const laps = m.raceLaps ?? 3;
+  const N = track.checkpoints.length;
+
+  for (const r of racers) {
+    if (r.finished) continue;
+    const s = w.soldiers.get(r.id);
+    if (!s) continue;
+    const cp = track.checkpoints[r.next];
+    const dx = s.pos.x - cp.pos.x, dz = s.pos.z - cp.pos.z;
+    if (dx * dx + dz * dz > cp.radius * cp.radius) continue;
+    r.next = (r.next + 1) % N;
+    if (r.next !== 0) continue;               // still mid-lap
+    // crossed the start/finish line → a lap is banked
+    const lapTime = w.time - r.lapStart;
+    r.lap++;
+    r.lapStart = w.time;
+    if (r.bestLap === 0 || lapTime < r.bestLap) r.bestLap = lapTime;
+    if (m.raceBest === undefined || lapTime < m.raceBest) {
+      m.raceBest = lapTime;
+      w.emit({ type: 'announce', text: `FASTEST LAP ${fmtLap(lapTime)} — ${s.name}`, big: false });
+    }
+    if (r.lap >= laps) { r.finished = true; r.finishTime = w.time; }
+    else if (r.lap === laps - 1 && s.kind === 'human') w.emit({ type: 'announce', text: 'FINAL LAP', big: true });
+  }
+
+  computePlaces(w, racers, track);
+
+  if (m.raceKind === 'circuit') {
+    const first = racers.find((r) => r.finished);
+    if (first) {
+      const champ = w.soldiers.get(first.id);
+      w.emit({ type: 'announce', text: `${champ?.name ?? 'The winner'} TAKES THE CHECKERED FLAG`, big: true });
+      endMatch(w, champ?.team ?? 0);
+    }
+  } else { // trial ends when the human completes their laps
+    const me = localRacer(w, racers);
+    if (me?.finished) {
+      w.emit({ type: 'announce', text: `TRIAL COMPLETE — BEST LAP ${fmtLap(me.bestLap)}`, big: true });
+      endMatch(w, w.soldiers.get(me.id)?.team ?? 0);
+    }
+  }
 }
 
 function endMatch(w: World, winner: Team | -1) {

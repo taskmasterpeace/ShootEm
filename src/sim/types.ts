@@ -1,6 +1,36 @@
 export type Team = 0 | 1; // 0 = United Front (amber), 1 = Collective (cyan). Survival: all players team 0.
 
-export type ModeId = 'tdm' | 'ctf' | 'koth' | 'conquest' | 'survival' | 'horde' | 'safehouse' | 'science' | 'range' | 'paintball';
+export type ModeId = 'tdm' | 'ctf' | 'koth' | 'conquest' | 'survival' | 'horde' | 'safehouse' | 'science' | 'range' | 'paintball' | 'race' | 'timetrial';
+
+/** One gate on the circuit — pass through its radius to bank progress. */
+export interface RaceCheckpoint {
+  pos: Vec3;
+  radius: number;
+}
+
+/** A closed-loop circuit: an ordered ring of checkpoints. Checkpoint 0 is the
+ *  start/finish line; passing 0→1→…→N-1→0 in order banks one lap. */
+export interface RaceTrack {
+  checkpoints: RaceCheckpoint[];
+  /** carved corridor half-width, world units (for the racing line + AI). */
+  width: number;
+  /** grid start positions, front-to-back, on the start line. */
+  grid: Vec3[];
+  /** which way the loop runs at the start line (unit heading, for grid facing). */
+  startYaw: number;
+}
+
+/** Per-racer progress, snapshot-serializable (lives on ModeState.racers). */
+export interface RacerState {
+  id: number;              // soldier id
+  next: number;            // index of the next checkpoint to clear
+  lap: number;             // completed laps
+  bestLap: number;         // best lap time this race (0 = none yet)
+  lapStart: number;        // world.time the current lap began
+  finished: boolean;       // crossed the final line
+  finishTime: number;      // world.time at finish (0 = still racing)
+  place: number;           // 1-based finishing/current position
+}
 
 /** Battlefield environments — the war spans the solar system. */
 export type ThemeId = 'savanna' | 'starship' | 'asteroid' | 'europa' | 'titan' | 'triton' | 'hardpan' | 'winter';
@@ -24,6 +54,9 @@ export type WeaponId = string;
 export type VehicleKind =
   | 'buggy' | 'tank' | 'apc' | 'skiff'
   | 'hoverboard'   // one-trooper personal hover deck — fast, fragile, unarmed
+  | 'comet'        // Comet raceboard — top-speed, drifty (the straights board)
+  | 'vector'       // Vector raceboard — balanced all-rounder
+  | 'sprite'       // Sprite raceboard — nimble & grippy (the corners board)
   | 'bike'         // recon bike — fastest ground vehicle, light MG
   | 'flyer'        // gunship flyer — soars over walls, plasma
   | 'attackheli'   // Shrike attack helicopter — anti-armor rockets + chin gun
@@ -39,10 +72,17 @@ export type VehicleKind =
   | 'transport'    // crewed transport craft — sensors/ECM/comms stations + 4 passengers
   | 'ambulance'    // field ambulance — heals soldiers around it, 2 stretcher seats
   | 'tunneler'     // tunneling machine — grinds through walls, glacially slow
-  | 'emplacement'  // static emplacement gun — manned artillery, does not move
+  | 'emplacement'  // static emplacement gun — manned artillery, does not move (see BOARD_KINDS below)
   | 'mech'         // bipedal assault walker — strides over low cover, stomps
   | 'boat'         // river gunboat — water-locked, fast on the channel, MG
   | 'submarine';   // Barracuda — deep-route hunter, sonar + torpedoes
+
+/** The hover-DECK family — the Halo plus the three raceboards. They share the
+ *  surf-stance rider pose and the hover bob; the race mode picks among them. */
+export const BOARD_KINDS: readonly VehicleKind[] = ['hoverboard', 'comet', 'vector', 'sprite'];
+/** The three purpose-built raceboards (excludes the combat Halo). */
+export const RACEBOARD_KINDS: readonly VehicleKind[] = ['comet', 'vector', 'sprite'];
+export const isBoard = (kind: VehicleKind): boolean => BOARD_KINDS.includes(kind);
 
 /** Damageable vehicle subsystems. Crew stations correspond to the last three. */
 export type SystemId = 'engine' | 'weapon' | 'sensors' | 'ecm' | 'comms';
@@ -1196,6 +1236,17 @@ export interface ModeState {
   roundTarget?: number;
   /** seconds of between-rounds breather; >0 = the yard is resetting */
   intermission?: number;
+  // race / timetrial
+  /** 'circuit' = first past N laps vs the pack; 'trial' = beat your ghost. */
+  raceKind?: 'circuit' | 'trial';
+  /** total laps to win (target lap count). */
+  raceLaps?: number;
+  /** pre-race grid countdown, seconds; >0 = lights not out yet. */
+  countdown?: number;
+  /** per-racer progress, sorted by position each tick. */
+  racers?: RacerState[];
+  /** the best lap time seen this race (for the HUD headline / trial target). */
+  raceBest?: number;
 }
 
 /** Modes where all players share team 0 against the undead. */

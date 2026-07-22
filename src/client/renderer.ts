@@ -8,6 +8,7 @@ import { TORCH_MULT, classLinger, eyesSeePoint, perceivesNow, seenRecently, type
 import { paintColorFor } from './onboarding';
 import type { WeatherKind } from '../sim/weather';
 import type { SimEvent, Soldier, Team, Vec3 } from '../sim/types';
+import { isBoard } from '../sim/types';
 import { HAND_FRAG_REACH, aimSpreadMul, meleeWindupFor, type World } from '../sim/world';
 import { audio, type SoundName } from './audio';
 import { BIOME_AUDIO } from './soundscape';
@@ -2290,7 +2291,7 @@ export class Renderer {
       // An open deck hides nothing — the real soldier mesh rides it, class,
       // gun, nameplate and all, instead of a generic stand-in.
       const surfBoard = inVehicle ? world.vehicles.get(s.vehicleId) : undefined;
-      const surfing = surfBoard?.kind === 'hoverboard' && surfBoard.alive;
+      const surfing = !!surfBoard && isBoard(surfBoard.kind) && surfBoard.alive;
       mesh.visible = (s.alive || corpse) && (!inVehicle || surfing) && !dark && !(s.cloaked && s.team !== localTeam && s.id !== localId);
       if (!mesh.visible) continue;
       const k9Kind = s.ownerId === localId ? k9MarkerKind(s) : null;
@@ -2697,7 +2698,7 @@ export class Renderer {
       let hoverBob =
         v.kind === 'skiff' ? Math.sin(world.time * 3 + v.id) * 0.15 + 0.3 :
         v.kind === 'boat' ? Math.sin(world.time * 2.1 + v.id) * 0.08 + 0.05 :
-        v.kind === 'hoverboard' ? Math.sin(world.time * 4 + v.id) * 0.1 + 0.25 :
+        isBoard(v.kind) ? Math.sin(world.time * 4 + v.id) * 0.1 + 0.25 :
         0;
       // flyers earn their altitude: parked on skids, rotors spool with a
       // pilot aboard, then the bird climbs to cruise height
@@ -4355,7 +4356,7 @@ export class Renderer {
     // hull. Arms belong to the weapon-hold layer normally, so their pose is
     // captured on mount and restored on the first frame back on boots.
     const board = s.vehicleId >= 0 ? world.vehicles.get(s.vehicleId) : undefined;
-    if (board?.kind === 'hoverboard' && board.alive) {
+    if (!!board && isBoard(board.kind) && board.alive) {
       if (!mesh.userData.surfCap) {
         const c: Record<string, [number, number, number]> = {};
         for (const n of ['armL', 'armR', 'legL', 'legR', 'shinL', 'shinR', 'head', 'torso']) {

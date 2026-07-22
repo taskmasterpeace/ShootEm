@@ -163,6 +163,9 @@ const VEHICLE_PARTS: Record<VehicleKind, string[]> = {
   // surfing by the renderer (Robert: "it needs to look like the character is
   // actually on it"). A proxy in the model would now mean TWO riders.
   hoverboard: ['thrustL'],
+  comet: ['thrustL'],
+  vector: ['thrustL'],
+  sprite: ['thrustL'],
   bike: ['rider', 'turret', 'gunRecoil'],
   flyer: ['turret', 'gunRecoil', 'rotorL', 'rotorR'],
   attackheli: ['turret', 'gunRecoil', 'rotorL', 'rotorR'],

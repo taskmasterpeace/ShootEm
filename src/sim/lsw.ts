@@ -814,7 +814,7 @@ export const STRUGGLE_HP = 45;      // …but you crawl out this hurt (die slow 
 /** Modes where no LSW ever walks: the yard is for learning, the range is for
  *  work. (§14 — boot camp is a paintball match, not a boss fight.) */
 export function lswAllowed(mode: ModeId): boolean {
-  return mode !== 'paintball' && mode !== 'range';
+  return mode !== 'paintball' && mode !== 'range' && mode !== 'race' && mode !== 'timetrial';
 }
 
 /** The officer's call, mid-match, spending the stable's materiel. Returns

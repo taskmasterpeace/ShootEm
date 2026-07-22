@@ -401,6 +401,23 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
     // carve at speed slides ~0.4s before the board bites. Slippery, not soap.
     slip: 2.6,
   },
+  // ── THE RACEBOARDS — three points of a speed/handling triangle, tuned for
+  // the Motor Trials. All hover, all unarmed; the trade is top-speed vs bite.
+  comet: {
+    kind: 'comet', name: 'Comet Raceboard', cost: 1, hp: 38, speed: 31, turnRate: 3.4,
+    weapon: '', seats: 1, mobileSpawn: false, radius: 0.8, hover: true, systemHp: 10,
+    slip: 3.4, // fastest flat-out, but it drifts wide — commit early or overshoot
+  },
+  vector: {
+    kind: 'vector', name: 'Vector Raceboard', cost: 1, hp: 44, speed: 26, turnRate: 4.6,
+    weapon: '', seats: 1, mobileSpawn: false, radius: 0.8, hover: true, systemHp: 10,
+    slip: 2.4, // the all-rounder — no weakness, no standout
+  },
+  sprite: {
+    kind: 'sprite', name: 'Sprite Raceboard', cost: 1, hp: 50, speed: 22, turnRate: 6.2,
+    weapon: '', seats: 1, mobileSpawn: false, radius: 0.8, hover: true, systemHp: 10,
+    slip: 1.5, // slowest top end but it BITES — threads the tight infield
+  },
   bike: {
     kind: 'bike', name: 'Jackal Recon Bike', cost: 1, hp: 85, speed: 26, turnRate: 3.4,
     weapon: 'bike_mg', seats: 1, mobileSpawn: false, radius: 1.1, systemHp: 15,
@@ -719,6 +736,8 @@ export const MODE_INFO: Record<string, { name: string; desc: string; icon: strin
   science: { name: 'Science Mission', desc: 'Compact black-site operation. Burn finite clones, finish the job, and extract the program.', icon: '⌬' },
   range: { name: 'Proving Grounds', desc: 'Your own patch of the war: firing lanes, dummy targets, the qualification courses (§3.3).', icon: '🎯' },
   paintball: { name: 'Paintball — Hunters vs Hunted', desc: 'One prey, one pack. The prey tags three points or survives the clock; the pack paints them out. One splat and you sit down.', icon: '🎨' },
+  race: { name: 'Motor Trials — Grand Prix', desc: 'Hoverboard racing. Three laps of the circuit against a pack of AI racers — first past the flag wins. Pick your board: speed, balance, or grip.', icon: '🏁' },
+  timetrial: { name: 'Motor Trials — Time Trial', desc: 'Just you, the circuit, and the ghost of your best lap. Chase your own tail and shave the tenths.', icon: '⏱️' },
 };
 
 // ---------------------------------------------------------------------------

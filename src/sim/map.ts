@@ -4,7 +4,7 @@ import { stampBaseCompound } from './base';
 import { carveInterior } from './interior';
 import { fillRegions } from './chunks';
 import { THEMES } from './data';
-import type { ModeId, Team, ThemeId, Vec3, VehicleKind } from './types';
+import type { ModeId, RaceTrack, Team, ThemeId, Vec3, VehicleKind } from './types';
 import type { OperationPhaseKind, OperationScale, OperationSiteId } from './operations';
 import type { TheaterMetadata } from './theater-types';
 import {
@@ -290,6 +290,8 @@ export interface GameMap {
   gates: { a: Vec3; b: Vec3 }[];
   /** grav-lift launch pads: step on, get flung along dir */
   pads: { pos: Vec3; dir: { x: number; z: number } }[];
+  /** race / timetrial: the circuit carved into this map (checkpoints + grid). */
+  raceTrack?: RaceTrack;
   /** SINGLE SOURCE OF TRUTH for prop-rendered collision: tile indices whose
    *  blocking geometry is visually owned by a prop (rock disc, tree trunk,
    *  crate). The generator records these AT THE STAMP SITE and prunes any
@@ -854,9 +856,81 @@ export function generatePaintballField(seed: number, theme: ThemeId = 'savanna')
   };
 }
 
+/** THE MOTOR TRIALS circuit — an elliptical ring carved from a sealed field.
+ *  The track is the open annulus between two concentric ellipses; the infield
+ *  and the outer field are walled, so the loop IS the only way round. A ring of
+ *  ordered checkpoints (gate 0 = start/finish) banks laps; a grid of start
+ *  slots sits behind the line. Fully deterministic from the seed. */
+export function generateRaceTrack(seed: number, theme: ThemeId = 'savanna'): GameMap {
+  const rng = new Rng(seed);
+  const grid = new Uint8Array(GRID * GRID).fill(T_WALL); // sealed; carve the ring
+  const grid2 = new Uint8Array(GRID * GRID);
+  const surface = new Uint8Array(GRID * GRID);
+  const baseSurf = theme === 'savanna' ? S_GRASS : theme === 'starship' ? S_PLATE
+    : theme === 'titan' ? S_GRIT : theme === 'europa' ? S_WET : theme === 'triton' ? S_ICE : S_DIRT;
+  surface.fill(baseSurf);
+
+  const cx = GRID / 2, cz = GRID / 2;
+  // seed nudges the oval so no two circuits drive identically
+  const Rx = 38 + (seed % 5), Rz = 27 + ((seed >> 2) % 5);
+  const half = 5; // track half-width in tiles → ~30u wide racing surface
+  const inX = Rx - half, inZ = Rz - half, outX = Rx + half, outZ = Rz + half;
+  const ell = (dx: number, dz: number, rx: number, rz: number) => (dx * dx) / (rx * rx) + (dz * dz) / (rz * rz);
+  for (let tz = 1; tz < GRID - 1; tz++) {
+    for (let tx = 1; tx < GRID - 1; tx++) {
+      const dx = tx - cx, dz = tz - cz;
+      const insideOuter = ell(dx, dz, outX, outZ) <= 1;
+      const outsideInner = ell(dx, dz, inX, inZ) >= 1;
+      if (insideOuter && outsideInner) {
+        grid[tz * GRID + tx] = T_OPEN;
+        surface[tz * GRID + tx] = S_PLATE; // a paved ribbon reads as a track
+      }
+    }
+  }
+
+  const P = (tx: number, tz: number): Vec3 => ({ x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 });
+  // ordered ring of gates on the centreline ellipse; gate 0 = start/finish.
+  // theta runs 0→2π so the loop is a consistent direction (counter-clockwise).
+  const N = 12;
+  const checkpoints: RaceTrack['checkpoints'] = [];
+  for (let k = 0; k < N; k++) {
+    const th = (2 * Math.PI * k) / N;
+    checkpoints.push({ pos: P(cx + Rx * Math.cos(th), cz + Rz * Math.sin(th)), radius: half * TILE * 0.95 });
+  }
+  // start grid: behind gate 0 (θ=0, +x side), staggered back along −θ (−z), two
+  // columns straddling the racing line. startYaw = tangent at θ=0 = +z.
+  const gridSlots: Vec3[] = [];
+  for (let row = 0; row < 5; row++) {
+    for (const lane of [-1, 1]) {
+      const th = -0.05 * (row + 1);            // staggered back behind the line
+      const rr = Rx + lane * 2.0;              // inner / outer lane on the ribbon
+      gridSlots.push(P(cx + rr * Math.cos(th), cz + Rz * Math.sin(th)));
+    }
+  }
+  const startYaw = Math.atan2(1, 0); // facing +z, the way the loop runs
+
+  const raceTrack: RaceTrack = { checkpoints, width: half * TILE, grid: gridSlots, startYaw };
+
+  // a couple of decorative barrier stubs in the infield so it doesn't read as a
+  // flat disc (purely cosmetic; the ring is already sealed)
+  void rng;
+
+  return {
+    seed, theme, geometry: { ...LEGACY_GEOMETRY }, grid, grid2, surface,
+    basePos: [checkpoints[0].pos, checkpoints[6].pos],
+    spawns: [gridSlots, gridSlots],
+    flagPos: [checkpoints[0].pos, checkpoints[6].pos],
+    hillPos: P(cx, cz),
+    controlPoints: checkpoints.map((c, i) => ({ name: `CP${i}`, pos: c.pos })),
+    vehiclePads: [], pickups: [], props: [], zombieSpawns: [],
+    houses: [], gates: [], pads: [], propCovered: [], raceTrack,
+  };
+}
+
 export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savanna'): GameMap {
   if (mode === 'safehouse') return generateNeighborhood(seed);
   if (mode === 'paintball') return generatePaintballField(seed, theme);
+  if (mode === 'race' || mode === 'timetrial') return generateRaceTrack(seed, theme);
   const rng = new Rng(seed);
   const grid = new Uint8Array(GRID * GRID);
   const grid2 = new Uint8Array(GRID * GRID); // the second storey — void by default

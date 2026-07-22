@@ -1,6 +1,6 @@
 import { CLASSES, EQUIPMENT, MODE_INFO, THEMES, WEAPONS } from './sim/data';
 import { CLASS_ARMORY, familyWeapons } from './sim/arsenal';
-import { isCoopMode, type ClassId, type ModeId, type PlayerCmd, type Team, type ThemeId, type WeaponDef, type WeaponFamily, type WeaponId } from './sim/types';
+import { isCoopMode, type ClassId, type ModeId, type PlayerCmd, type Team, type ThemeId, type VehicleKind, type WeaponDef, type WeaponFamily, type WeaponId } from './sim/types';
 import { LSWS, lswAllowed, lswsForTeam } from './sim/lsw';
 import { World, type Difficulty, type Loadout } from './sim/world';
 import { ammoReport, blackboxReport, type BbIncident, type BbSample } from './sim/blackbox';
@@ -59,6 +59,8 @@ const BOT_NAMES = [
 ];
 
 let selectedMode: ModeId = 'ctf';
+/** MOTOR TRIALS: which raceboard the player takes to the grid (comet/vector/sprite). */
+let selectedRaceBoard: VehicleKind = 'vector';
 let selectedClass: ClassId = 'infantry';
 let selectedTheme: ThemeId = 'savanna';
 let selectedMilitaryMissionId: MilitaryMissionId | null = null;
@@ -268,6 +270,7 @@ function wireSetupControls() {
   wirePills('difficulty-select', (v) => { difficulty = v as Difficulty; });
   wirePills('length-select', (v) => { matchMinutes = parseInt(v); });
   wirePills('roster-select', (v) => { hordeRoster = v as typeof hordeRoster; });
+  wirePills('race-board-select', (v) => { selectedRaceBoard = v as VehicleKind; });
   const count = $('bots-count');
   $('bots-minus').onclick = () => {
     botsPerTeam = Math.max(0, botsPerTeam - 1);
@@ -368,12 +371,15 @@ function buildMenu() {
       // THE ROSTER LAW: the horde-composition pick only exists where a horde does
       $('roster-block').style.display = (id === 'horde' || id === 'survival') ? '' : 'none';
       $('science-clone-block').style.display = id === 'science' ? '' : 'none';
+      // the board pick only exists on the grid
+      $('race-board-block').style.display = (id === 'race' || id === 'timetrial') ? '' : 'none';
     };
     modeRow.appendChild(card);
   });
   paintMilitaryMissionEntry();
   $('roster-block').style.display = (selectedMode === 'horde' || selectedMode === 'survival') ? '' : 'none';
   $('science-clone-block').style.display = selectedMode === 'science' ? '' : 'none';
+  $('race-board-block').style.display = (selectedMode === 'race' || selectedMode === 'timetrial') ? '' : 'none';
 
   const quickDeploy = $('science-preset-cards');
   quickDeploy.innerHTML = SCIENCE_PRESETS.map(sciencePresetCardHTML).join('');
@@ -611,8 +617,9 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   // Your enlisted faction is the side you deploy on — but only in the standard
   // team-vs-team war. Paintball (hunter/prey roles), co-op & science (PvE) and
   // the range keep the local player on team 0, where their rosters are pinned.
+  const isRace = selectedMode === 'race' || selectedMode === 'timetrial';
   const factionModes = !(selectedMode === 'paintball' || isCoopMode(selectedMode)
-    || selectedMode === 'range' || selectedMode === 'science');
+    || selectedMode === 'range' || selectedMode === 'science' || isRace);
   const pt: Team = factionModes ? playerTeam : 0;
   const et: Team = (1 - pt) as Team;
   const me = world.addSoldier(name, selectedClass, pt, 'human', currentLoadout());
@@ -686,7 +693,27 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   // 32B: bots FILL to the team-size target (default 12v12; co-op 4-6).
   // Heavy bots carry MANPADS (49A) so the anti-air duel exists in bot wars.
   const botLoadout = (cls: ClassId) => (cls === 'heavy' ? { equipment: ['manpads'] } : undefined);
-  if (selectedMode === 'range' || selectedMode === 'science') {
+  if (isRace) {
+    // MOTOR TRIALS: put the player on pole on their chosen board; the circuit
+    // fills the rest of the grid with AI racers on the far team so a winner
+    // reads out, the time trial runs solo against the ghost.
+    const track = world.map.raceTrack;
+    if (track) {
+      const RACE_BOARDS: VehicleKind[] = ['comet', 'vector', 'sprite'];
+      const meBoard = world.spawnVehicle(selectedRaceBoard, me.team, track.grid[0]);
+      meBoard.yaw = track.startYaw;
+      me.pos = { ...track.grid[0] };
+      world.forceBoard(me, meBoard);
+      const field = selectedMode === 'timetrial' ? 0 : Math.min(track.grid.length - 1, 7);
+      for (let i = 1; i <= field; i++) {
+        const racer = world.addSoldier(wrap(n++), 'infantry', et, 'bot');
+        const board = world.spawnVehicle(RACE_BOARDS[i % 3], racer.team, track.grid[i]);
+        board.yaw = track.startYaw;
+        racer.pos = { ...track.grid[i] };
+        world.forceBoard(racer, board);
+      }
+    }
+  } else if (selectedMode === 'range' || selectedMode === 'science') {
     // range is solo; science already populated its authored security/civilian roster
   } else if (isCoopMode(selectedMode)) {
     for (let i = 0; i < Math.min(botsPerTeam, 5); i++) {
@@ -729,7 +756,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   }
   // §5.3: each fighting side fields one K9, including authored science
   // rosters. An eligible local soldier owns the friendly dog; AI fills in.
-  if (selectedMode !== 'range' && selectedMode !== 'paintball') {
+  if (selectedMode !== 'range' && selectedMode !== 'paintball' && !isRace) {
     for (const team of [0, 1] as const) {
       const handler = k9HandlerForTeam(world.soldiers.values(), team, team === pt ? me.id : -1);
       if (handler) world.addDog(handler);

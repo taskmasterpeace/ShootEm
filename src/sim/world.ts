@@ -29,7 +29,7 @@ import {
   type AscendantId, type ClassId, type Gadget, type GadgetType, type Mine, type ModeId, type ModeState,
   type Pickup, type PlayerCmd, type Projectile, type SimEvent, type Soldier,
   type SoldierKind, type SystemId, type Team, type ThemeId, type Turret, type Vec3,
-  type Vehicle, type VehicleKind, type VehicleSystems, type WeaponId, type ZedKind, isIron, type IronKind } from './types';
+  type Vehicle, type VehicleKind, type VehicleSystems, type WeaponId, type ZedKind, isIron, isBoard, type IronKind } from './types';
 import { stepMode, initMode } from './modes';
 import { generateFront } from './fronts';
 import { generateOperationMap } from './operation-map';
@@ -1706,6 +1706,19 @@ export class World {
     };
     this.vehicles.set(v.id, v);
     return v;
+  }
+
+  /** Seat a soldier straight onto a vehicle (seat 0 by default) — the race grid
+   *  starts every racer already on their board, no walk-up. */
+  forceBoard(s: Soldier, v: Vehicle, seat = 0): void {
+    if (v.seats[seat] >= 0) return;
+    v.seats[seat] = s.id;
+    if (v.requisitionedBy < 0) v.requisitionedBy = s.id;
+    v.abandonedAt = 0;
+    s.vehicleId = v.id;
+    s.seat = seat;
+    s.enteredVehicleAt = this.time;
+    s.cloaked = false;
   }
 
   // ---------- main loop ----------
@@ -5028,6 +5041,8 @@ export class World {
       turn = driverCmd.moveX;
       fire = driverCmd.fire;
       v.turretYaw = driverCmd.aimYaw;
+      // MOTOR TRIALS: the lights aren't out yet — hold the grid until GO
+      if ((this.mode.countdown ?? 0) > 0 && isBoard(v.kind)) { throttle = 0; turn = 0; }
       // J1: an AIRBORNE pilot's E key is the dive, not the door — applyCmd
       // walks the bands; this exit only fires once the wheels are down.
       // (Two exit paths existed; ungated, this one threw the pilot out on the
