@@ -1,5 +1,7 @@
 # Radar and Aircraft Instruments Implementation Plan
 
+**Status:** COMPLETE 2026-07-21 — deterministic radar/sonar truth, ECM/weather/terrain masking, AI memory and telemetry, minimap presentation, PixelLab vehicle instruments, standalone/unified harnesses, browser smoke, 330 scenario probes, and all four production gates passed. Certification: `docs/reference/vehicle-theaters/radar-certification.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Ship deterministic last-known radar/sonar tracks on the minimap, AI-visible sensor truth and telemetry, and a PixelLab-derived aircraft instrument plate with airspeed, heading, altitude, radar, and lock state.
