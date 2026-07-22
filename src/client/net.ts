@@ -82,7 +82,17 @@ export class NetGame {
           resolve();
         } else if (msg.t === 'snap' && this.world) {
           applySnapshot(this.world, msg.snap);
-          this.pendingEvents.push(...msg.snap.events);
+          // opt #18 (E6): a hidden tab has no RAF, so the drain never runs while
+          // the socket keeps delivering — minutes of events used to pile up and
+          // burst through the first frame back (killfeed churn, dozens of
+          // audio.plays, particle storms: a multi-hundred-ms refocus hitch).
+          // The snapshot above is authoritative state; stale VFX have no value —
+          // hidden tab: drop the presentation events outright. Visible tab: a
+          // 300-event cap sheds the oldest under any other drain stall.
+          if (typeof document === 'undefined' || !document.hidden) {
+            this.pendingEvents.push(...msg.snap.events);
+            if (this.pendingEvents.length > 300) this.pendingEvents.splice(0, this.pendingEvents.length - 300);
+          }
         } else if (msg.t === 'chat' && this.world) {
           // TEAM channel only reaches teammates; customs reach subscribers
           const me = this.world.soldiers.get(this.myId);
