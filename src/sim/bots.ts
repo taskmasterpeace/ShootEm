@@ -1095,8 +1095,23 @@ export function assignVehicleRoles(w: World): void {
 function stepTheaterVehicle(w: World, s: Soldier, vehicle: Vehicle, route: TheaterRoute, cmd: PlayerCmd): PlayerCmd {
   const def = VEHICLES[vehicle.kind];
   const zone = s.botAirProfile === 'insertion' && vehicle.kind === 'transportheli' ? insertionZone(w, s) : undefined;
-  const point = zone?.pos ?? vehicleWaypoint(w, s, vehicle, route);
+  let point = zone?.pos ?? vehicleWaypoint(w, s, vehicle, route);
   if (!point) return cmd;
+
+  // JET DOGFIGHT (mountain warfare): a fighter breaks its patrol to HUNT the
+  // nearest enemy AIRCRAFT — pursue it, match its altitude below, lead and fire.
+  // This is what makes the sky CONTESTED instead of a parade of ground routes.
+  // Other airframes (Warhawk gun jet, bombers, gunships) keep flying their line.
+  let airPrey: Vehicle | null = null;
+  if (def.flies && (vehicle.kind === 'interceptor' || vehicle.kind === 'airsuperiority') && def.weapon) {
+    let bestD = WEAPONS[def.weapon].range * 1.6; // detect past weapon range, then close in
+    for (const t of w.vehicles.values()) {
+      if (!t.alive || t.team === s.team || !VEHICLES[t.kind].flies) continue;
+      const d = Math.hypot(t.pos.x - vehicle.pos.x, t.pos.z - vehicle.pos.z);
+      if (d < bestD) { bestD = d; airPrey = t; }
+    }
+    if (airPrey) point = { x: airPrey.pos.x, y: point.y, z: airPrey.pos.z };
+  }
 
   const dGoal = Math.hypot(point.x - vehicle.pos.x, point.z - vehicle.pos.z);
   if (zone && dGoal <= zone.radius * 0.65) {
@@ -1166,16 +1181,34 @@ function stepTheaterVehicle(w: World, s: Soldier, vehicle: Vehicle, route: Theat
     else if (level > desired) cmd.use = true;
   }
 
+  // a chasing fighter climbs/descends to its prey's altitude band so the merge
+  // actually happens (a Specter at Ground never catches a Sky-band jet).
+  if (airPrey) {
+    const desired = asElevationLevel(airPrey.band);
+    const level = asElevationLevel(vehicle.band);
+    if (level < desired) cmd.ability = true;
+    else if (level > desired) cmd.use = true;
+  }
+
   if (def.weapon) {
-    const target = findTarget(w, s, WEAPONS[def.weapon].range);
-    if (target) {
-      cmd.aimYaw = leadYaw(vehicle.pos, target, WEAPONS[def.weapon].speed);
-      cmd.fire = vehicleCrewReacted(w, s, target.id);
+    const range = WEAPONS[def.weapon].range;
+    const preyD = airPrey ? Math.hypot(airPrey.pos.x - vehicle.pos.x, airPrey.pos.z - vehicle.pos.z) : Infinity;
+    // the fighter shoots its air prey FIRST — leading it manually (jets are fast).
+    if (airPrey && preyD < range) {
+      const tLead = preyD / WEAPONS[def.weapon].speed;
+      cmd.aimYaw = Math.atan2((airPrey.pos.z + airPrey.vel.z * tLead) - vehicle.pos.z, (airPrey.pos.x + airPrey.vel.x * tLead) - vehicle.pos.x);
+      cmd.fire = vehicleCrewReacted(w, s, -airPrey.id - 1);
     } else {
-      const targetVehicle = enemyVehicleNear(w, s, WEAPONS[def.weapon].range);
-      if (targetVehicle) {
-        cmd.aimYaw = Math.atan2(targetVehicle.pos.z - vehicle.pos.z, targetVehicle.pos.x - vehicle.pos.x);
-        cmd.fire = vehicleCrewReacted(w, s, -targetVehicle.id - 1);
+      const target = findTarget(w, s, WEAPONS[def.weapon].range);
+      if (target) {
+        cmd.aimYaw = leadYaw(vehicle.pos, target, WEAPONS[def.weapon].speed);
+        cmd.fire = vehicleCrewReacted(w, s, target.id);
+      } else {
+        const targetVehicle = enemyVehicleNear(w, s, WEAPONS[def.weapon].range);
+        if (targetVehicle) {
+          cmd.aimYaw = Math.atan2(targetVehicle.pos.z - vehicle.pos.z, targetVehicle.pos.x - vehicle.pos.x);
+          cmd.fire = vehicleCrewReacted(w, s, -targetVehicle.id - 1);
+        }
       }
     }
   }
