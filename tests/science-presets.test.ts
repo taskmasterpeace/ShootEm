@@ -12,6 +12,7 @@ describe('Science Mission quick deploy presets', () => {
     expect(html).toContain('id="science-quick-deploy"');
     expect(html).toContain('aria-labelledby="science-quick-title"');
     expect(html).toContain('id="science-preset-cards"');
+    expect(html.indexOf('id="science-quick-deploy"')).toBeLessThan(html.indexOf('id="mode-select"'));
   });
 
   it('ships five distinct representative operations in menu order', () => {
