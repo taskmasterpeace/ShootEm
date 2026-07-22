@@ -41,3 +41,4 @@
 2026-07-22 IT-43: #91 built (feed glyphs, vocabulary 13, live-proven). 40 closed, 9 needs-robert.
 2026-07-22 IT-44: #79 rangefinder shipped (RANGE chip live-proven); strike+C4 remain on the ticket. 40 closed.
 2026-07-22 IT-45: #104 built (night tint + deeper fog, live transition proven). 41 closed, 9 needs-robert.
+2026-07-22 IT-46: #96 built (/ui-gallery.html live-verified). 42 closed, 9 needs-robert.
