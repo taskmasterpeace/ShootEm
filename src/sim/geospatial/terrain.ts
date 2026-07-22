@@ -150,7 +150,12 @@ export function compileTerrainSamples(
   const relief = smoothedMeters.map((value) => value - base);
   const middle = Math.max(2, quantile(relief, 0.4));
   const high = Math.max(middle + 2, quantile(relief, 0.78));
-  const height = Uint8Array.from(relief, (value) => value >= high ? 2 : value >= middle ? 1 : 0);
+  const totalRelief = Math.max(...smoothedMeters) - base;
+  const maxBand = totalRelief < 2 ? 0 : totalRelief < 6 ? 1 : 2;
+  const height = Uint8Array.from(relief, (value) => {
+    const band = value >= high ? 2 : value >= middle ? 1 : 0;
+    return Math.min(maxBand, band);
+  });
   removeSmallIslands(height, geometry);
 
   return {

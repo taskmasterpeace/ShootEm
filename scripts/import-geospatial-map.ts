@@ -152,7 +152,9 @@ export async function importGeospatialMap(args: ImportArgs): Promise<void> {
   });
   const bands = [0, 0, 0];
   for (const value of compiled.map.height ?? []) bands[value]++;
-  if (bands.some((count) => count === 0)) throw new Error(`terrain did not produce all three height bands (${bands.join(', ')})`);
+  if ((compiled.map.height ?? []).some((value) => value > 2)) {
+    throw new Error(`terrain produced an invalid height band (${bands.join(', ')})`);
+  }
   if (compiled.diagnostics.playableBuildings < 1) throw new Error('no source parcel could host an enterable building');
   const validation = validateTheater(compiled.map);
   if (!validation.ok) throw new Error(`compiled theater validation failed: ${validation.issues.join('; ')}`);

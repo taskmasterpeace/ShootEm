@@ -36,6 +36,23 @@ describe('geospatial terrain compiler', () => {
     expect(result.thresholds.high - result.thresholds.middle).toBeGreaterThanOrEqual(2);
   });
 
+  it('keeps sub-two-meter urban relief on one traversal band', () => {
+    const geometry = { cols: 16, rows: 16, tile: 3 };
+    const samples = Array.from({ length: 256 }, (_, index) => (index % 16) / 15);
+    const result = compileTerrainSamples(samples, geometry);
+
+    expect([...new Set(result.height)]).toEqual([0]);
+    expect(result.ramp.every((value) => value === 0)).toBe(true);
+  });
+
+  it('uses at most two traversal bands for low rolling relief', () => {
+    const geometry = { cols: 16, rows: 16, tile: 3 };
+    const samples = Array.from({ length: 256 }, (_, index) => (index % 16) / 3);
+    const result = compileTerrainSamples(samples, geometry);
+
+    expect(Math.max(...result.height)).toBeLessThanOrEqual(1);
+  });
+
   it('never marks a direct low-to-high road edge as a ramp', () => {
     const geometry = { cols: 16, rows: 16, tile: 3 };
     const height = new Uint8Array(256);
