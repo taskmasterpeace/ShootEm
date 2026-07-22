@@ -58,6 +58,7 @@ function chain(w: World, s: Soldier): boolean {
     // never blocked by the stun; the stun only kills the escape-by-driving.
     veh.stunnedUntil = Math.max(veh.stunnedUntil, w.time + 2.2);
     veh.overloadAt = w.time + 2;
+    w.overloadCount++; // opt #27: the fuse scan wakes
     veh.overloadBy = s.id;
     veh.overloadTeam = s.team;
     w.emit({ type: 'emp', pos: { ...veh.pos } });

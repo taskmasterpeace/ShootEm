@@ -334,7 +334,7 @@ describe('Volt Striker — chain lightning', () => {
     const v = w.spawnVehicle('tank', 1, { x: 6, y: 0, z: 0 });
     const crew = w.addSoldier('C', 'infantry', 1, 'bot');
     v.seats[0] = crew.id; crew.vehicleId = v.id; crew.seat = 0;
-    v.overloadAt = w.time + 0.2; v.overloadBy = vs.id; v.overloadTeam = 0;
+    w.armOverload(v, vs.id, 0, 0.2);
     const hp0 = v.hp;
     for (let i = 0; i < 30; i++) w.step(1 / 60, new Map());
     expect(v.hp, 'the crewed hull rode out the fuse unhurt').toBeLessThan(hp0 - 300);
@@ -344,7 +344,7 @@ describe('Volt Striker — chain lightning', () => {
   it('crew that BAILS wins it — the charge fizzles and the armor survives', () => {
     const w = quiet();
     const v = w.spawnVehicle('tank', 1, { x: 6, y: 0, z: 0 });
-    v.overloadAt = w.time + 0.2; v.overloadBy = -1; v.overloadTeam = 0; // nobody aboard
+    w.armOverload(v, -1, 0, 0.2); // nobody aboard
     const hp0 = v.hp;
     for (let i = 0; i < 30; i++) w.step(1 / 60, new Map());
     expect(v.hp, 'the empty hull was punished anyway').toBe(hp0);

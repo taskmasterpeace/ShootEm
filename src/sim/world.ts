@@ -426,6 +426,13 @@ export class World {
    *  deleted mid-possession), which merely runs the scan needlessly — never a
    *  missed eviction — so count===0 skipping is byte-identical. */
   private possessionCount = 0;
+  /** opt #27 (S9) — presence counters for the two remaining housekeeping
+   *  scans: armed overload fuses and plague-infected hulls. PUBLIC because
+   *  the LSW brains (voltstriker/plaguebearer) arm them; world.ts decrements
+   *  at every clear site. A stale-high counter only costs the scan (safe);
+   *  the arm sites are !== undefined-guarded so it can never double-count. */
+  overloadCount = 0;
+  infectedHullCount = 0;
   /** THE OUTBREAK (OUTBREAK-SPEC): master switch — the machinery is inert
    *  until conditions (or a mode/scenario) turn it on. Condition-driven
    *  activation (Outbreak Pressure) is the next slice; nothing in the game
@@ -1855,13 +1862,16 @@ export class World {
       }
     }
     // the overload fuses: at the 2s mark the hull DETONATES — unless the
-    // crew bailed, in which case the charge fizzles and the armor survives
-    for (const v of this.vehicles.values()) {
+    // crew bailed, in which case the charge fizzles and the armor survives.
+    // opt #27: gated — the scan only runs while a fuse is actually lit.
+    if (this.overloadCount > 0) for (const v of this.vehicles.values()) {
       if (v.overloadAt === undefined) continue;
-      if (!v.alive || this.time < v.overloadAt) { if (!v.alive) v.overloadAt = undefined; continue; }
+      if (!v.alive) { v.overloadAt = undefined; this.overloadCount--; continue; }
+      if (this.time < v.overloadAt) continue;
       const crewed = v.seats.some((i) => i >= 0);
       const by = v.overloadBy ?? -1, team = v.overloadTeam ?? 1;
       v.overloadAt = undefined; v.overloadBy = undefined; v.overloadTeam = undefined;
+      this.overloadCount--;
       if (crewed) {
         this.damageVehicle(v, 500, by, 'rg2'); // the gamble lost — the hull goes
         this.explode({ ...v.pos }, WEAPONS.gl, by, team);
@@ -1869,11 +1879,12 @@ export class World {
         this.emit({ type: 'emp', pos: { ...v.pos } }); // bailed in time — a fizzle
       }
     }
-    // the plague wagons: an infected hull that DRIVES trails poison behind it
-    for (const v of this.vehicles.values()) {
+    // the plague wagons: an infected hull that DRIVES trails poison behind it.
+    // opt #27: gated — the scan only runs while a hull actually carries plague.
+    if (this.infectedHullCount > 0) for (const v of this.vehicles.values()) {
       if (v.infectedUntil === undefined) continue;
-      if (this.time >= v.infectedUntil) { v.infectedUntil = undefined; v.infectedTeam = undefined; continue; }
-      if (!v.alive) { v.infectedUntil = undefined; continue; }
+      if (this.time >= v.infectedUntil) { v.infectedUntil = undefined; v.infectedTeam = undefined; this.infectedHullCount--; continue; }
+      if (!v.alive) { v.infectedUntil = undefined; this.infectedHullCount--; continue; }
       if (Math.hypot(v.vel.x, v.vel.z) > 2 && this.time >= (v.nextInfectTrailAt ?? 0)) {
         v.nextInfectTrailAt = this.time + 0.7;
         this.spawnGadget('fire_field', v.infectedTeam ?? 1, -1, { x: v.pos.x, y: 0, z: v.pos.z }, 40, 5);
@@ -2087,8 +2098,12 @@ export class World {
     // the unpaired pours run their damage walk.
     this.resolveHeldBeams(dt);
 
-    // purge removed zombies (dogs are soldiers — they wait for their respawn, not the bin)
-    for (const [id, s] of this.soldiers) {
+    // purge removed zombies (dogs are soldiers — they wait for their respawn,
+    // not the bin). opt #27: a full-roster walk per tick bought nothing — the
+    // purge is pure leak-hygiene, so it runs on a half-second cadence instead
+    // (tick-driven = deterministic; a spent zed lingers ≤0.5s in the map,
+    // already !alive and past respawnAt, read by nothing in between).
+    if (this.tick % 30 === 0) for (const [id, s] of this.soldiers) {
       if (!s.alive && s.kind !== 'human' && s.kind !== 'bot' && s.kind !== 'dog' && this.time > s.respawnAt) this.soldiers.delete(id);
     }
 
@@ -2712,6 +2727,23 @@ export class World {
     v.team = s.team;
     this.emit({ type: 'hacked', pos: { ...v.pos }, soldierId: s.id, text: `${s.name} POSSESSED a ${v.kind}!` });
     return true;
+  }
+
+  /** opt #27: the ONE door to arm a hull-overload fuse — keeps the fuse-scan
+   *  presence counter true (a raw overloadAt write would silently never pop:
+   *  the expiry scan only runs while the counter says a fuse is lit). */
+  armOverload(v: Vehicle, byId: number, team: Team, fuse = 2) {
+    if (v.overloadAt === undefined) this.overloadCount++;
+    v.overloadAt = this.time + fuse;
+    v.overloadBy = byId;
+    v.overloadTeam = team;
+  }
+
+  /** opt #27: the ONE door to infect a hull — same counter law as armOverload. */
+  infectHull(v: Vehicle, team: Team, seconds = 14) {
+    if (v.infectedUntil === undefined) this.infectedHullCount++;
+    v.infectedUntil = this.time + seconds;
+    v.infectedTeam = team;
   }
 
   private evictVehiclePossession(v: Vehicle) {
@@ -4676,7 +4708,7 @@ export class World {
         // a full-HP but INFECTED hull is still a patient — the kit cleanses
         if (!v.alive || v.team !== s.team || (v.hp >= v.maxHp && v.infectedUntil === undefined)) continue;
         if (Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z) < VEHICLES[v.kind].radius + 2.5) {
-          if (v.infectedUntil !== undefined) { v.infectedUntil = undefined; v.infectedTeam = undefined; } // the cleanse
+          if (v.infectedUntil !== undefined) { v.infectedUntil = undefined; v.infectedTeam = undefined; this.infectedHullCount--; } // the cleanse
           v.hp = Math.min(v.maxHp, v.hp + 120);
           // a field patch also braces the weakest subsystem
           let weakest: SystemId = 'engine';

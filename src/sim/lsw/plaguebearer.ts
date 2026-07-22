@@ -26,6 +26,7 @@ export function step(w: World, s: Soldier, _dt: number) {
       if (!v.alive || v.team === s.team || v.infectedUntil !== undefined || !v.seats.some((i) => i >= 0)) continue;
       if (Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z) > 14) continue;
       v.infectedUntil = w.time + 14;
+      w.infectedHullCount++; // opt #27: the plague scan wakes
       v.infectedTeam = s.team;
       w.emit({ type: 'beacon_planted', pos: { ...v.pos }, soldierId: s.id, text: 'INFECTED' });
       w.emit({ type: 'vo', text: 'vo_plaguebearer_ability', pos: { ...s.pos }, soldierId: s.id });
