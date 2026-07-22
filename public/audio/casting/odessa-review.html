@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Odessa Broussard — Performance Dossier</title>
+<style>
+  :root {
+    --ink:oklch(0.16 0.02 82); --panel:oklch(0.21 0.025 82); --raised:oklch(0.25 0.03 82);
+    --paper:oklch(0.91 0.035 83); --muted:oklch(0.69 0.04 78); --line:oklch(0.34 0.04 77);
+    --amber:oklch(0.76 0.16 78); --green:oklch(0.74 0.15 143); --red:oklch(0.68 0.19 31);
+    --radius:.625rem;
+  }
+  *{box-sizing:border-box} html{background:var(--ink);color:var(--paper);font-family:Inter,system-ui,sans-serif}
+  body{margin:0;min-height:100vh;background:
+    linear-gradient(90deg,transparent 49.8%,oklch(0.3 0.025 82/.17) 50%,transparent 50.2%),
+    radial-gradient(circle at 12% 8%,oklch(0.32 0.08 78/.28),transparent 30rem),var(--ink)}
+  body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.13;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.23'/%3E%3C/svg%3E")}
+  button,input,select{font:inherit} button,select,input{border-radius:var(--radius)}
+  button{border:1px solid var(--line);background:var(--raised);color:var(--paper);padding:.72rem 1rem;font-weight:700;cursor:pointer;transition:.2s ease}
+  button:hover{border-color:var(--amber);box-shadow:0 8px 24px oklch(0.08 0.01 80/.35);transform:translateY(-1px)}
+  button.primary{background:var(--amber);border-color:var(--amber);color:var(--ink)}
+  button.stop{color:var(--red)} button:disabled{opacity:.45;cursor:not-allowed;transform:none}
+  .shell{width:min(76rem,calc(100% - 2rem));margin:auto;padding:2rem 0 5rem}
+  header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2rem;align-items:end;padding:2rem 0 1.4rem;border-bottom:1px solid var(--line)}
+  .eyebrow{color:var(--amber);font:700 .72rem/1 ui-monospace,monospace;letter-spacing:.2em;text-transform:uppercase}
+  h1{font-family:Georgia,serif;font-size:clamp(2.4rem,7vw,5.8rem);font-weight:400;letter-spacing:-.045em;line-height:.86;margin:.8rem 0 .65rem}
+  .subtitle{color:var(--muted);margin:0;max-width:50rem}.stamp{border:1px solid var(--amber);color:var(--amber);padding:.55rem .8rem;transform:rotate(-2deg);font:800 .72rem/1 ui-monospace,monospace;letter-spacing:.12em;text-align:center}
+  .toolbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;padding:1rem;margin:1.25rem 0;background:oklch(0.19 0.025 82/.94);border:1px solid var(--line);border-radius:var(--radius);backdrop-filter:blur(18px);box-shadow:0 16px 40px oklch(0.08 0.01 80/.35)}
+  .toolbar .spacer{flex:1}.volume{display:flex;align-items:center;gap:.6rem;color:var(--muted);font-size:.8rem;font-weight:700}.volume input{accent-color:var(--amber);width:8rem}
+  select,input[type=search]{background:var(--raised);border:1px solid var(--line);color:var(--paper);padding:.7rem .8rem}
+  input[type=search]{min-width:14rem}.now{width:100%;display:flex;gap:.75rem;align-items:center;color:var(--muted);font-size:.78rem}
+  .meter{height:3px;background:var(--line);flex:1;overflow:hidden;border-radius:99px}.meter span{display:block;height:100%;width:0;background:var(--amber);transition:width .2s linear}
+  .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem;margin-bottom:1.25rem}.stat{background:var(--panel);border:1px solid var(--line);padding:1rem;border-radius:var(--radius)}
+  .stat b{display:block;font-family:Georgia,serif;font-size:1.8rem;font-weight:400}.stat span{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.12em}
+  .list{display:grid;gap:.75rem}.take{display:grid;grid-template-columns:3.2rem minmax(0,1fr) auto;gap:1rem;align-items:start;background:linear-gradient(130deg,var(--panel),oklch(0.19 0.02 82));border:1px solid var(--line);border-radius:var(--radius);padding:1rem;transition:.2s ease}
+  .take:hover{border-color:oklch(0.48 0.08 77);box-shadow:0 12px 32px oklch(0.08 0.01 80/.25)}.take.active{border-color:var(--amber);box-shadow:inset 4px 0 var(--amber),0 16px 38px oklch(0.08 0.01 80/.4)}
+  .num{font:700 .7rem/1 ui-monospace,monospace;color:var(--muted);padding-top:.3rem}.tag{display:inline-block;color:var(--amber);font:700 .66rem/1 ui-monospace,monospace;text-transform:uppercase;letter-spacing:.12em;margin-bottom:.55rem}
+  blockquote{font-family:Georgia,serif;font-size:1.22rem;line-height:1.35;margin:0 0 .7rem;color:var(--paper)}
+  details{color:var(--muted);font-size:.78rem} summary{cursor:pointer;font-weight:700;color:oklch(0.78 0.04 80)} details p{margin:.65rem 0 .25rem} ul{margin:.3rem 0 0;padding-left:1.2rem}
+  .take button{width:3rem;height:3rem;padding:0;border-radius:50%}.verified{display:block;margin-top:.5rem;color:var(--green);font:700 .65rem/1 ui-monospace,monospace;text-align:center}
+  .empty{padding:5rem;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:var(--radius)}
+  @media(max-width:700px){header{grid-template-columns:1fr}.stamp{justify-self:start}.toolbar{top:.5rem}.toolbar .spacer{display:none}.volume{width:100%}.volume input{flex:1}.stats{grid-template-columns:1fr}.take{grid-template-columns:2rem minmax(0,1fr)}.take>div:last-child{grid-column:2}.take button{border-radius:var(--radius);width:100%}}
+</style>
+</head>
+<body>
+<main class="shell">
+  <header>
+    <div><div class="eyebrow">War World / Class Voice 01 / Field Tape</div><h1>Odessa<br>Broussard</h1><p class="subtitle">Infiltrator performance dossier. Fifty-one moment-specific takes, directed individually for whispers, commands, pain, warmth, and dry New Orleans wit.</p></div>
+    <div class="stamp">TRANSCRIPT<br>VERIFIED</div>
+  </header>
+
+  <section class="toolbar" aria-label="Playback controls">
+    <button class="primary" id="play-all">▶ Play all visible</button>
+    <button class="stop" id="stop">■ Stop</button>
+    <select id="filter" aria-label="Filter by moment"><option value="all">All moments</option><option value="identity">Identity</option><option value="orders">Orders</option><option value="combat">Combat</option><option value="survival">Survival</option><option value="vehicle">Vehicle</option><option value="ctf">Capture the Flag</option><option value="cloak">Cloak & railgun</option></select>
+    <input id="search" type="search" placeholder="Search lines…" aria-label="Search lines">
+    <span class="spacer"></span>
+    <label class="volume" for="volume">VOICE <input id="volume" type="range" min="0" max="100" value="90"><output id="volume-readout">90%</output></label>
+    <div class="now"><span id="now-label">Ready</span><div class="meter"><span id="meter"></span></div></div>
+  </section>
+
+  <section class="stats" aria-label="Pack status"><div class="stat"><b id="total">—</b><span>directed moments</span></div><div class="stat"><b id="clean">—</b><span>transcript clean</span></div><div class="stat"><b id="visible">—</b><span>currently visible</span></div></section>
+  <section class="list" id="list" aria-live="polite"><div class="empty">Loading field tape…</div></section>
+</main>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const audio = new Audio(); audio.preload = 'auto';
+let lines = [], transcript = new Map(), visible = [], active = null, queue = [], timer = null;
+
+const category = (slot) => {
+  if (/intro|deploy|idle/.test(slot)) return 'identity';
+  if (/move|attack|hold|help_ack/.test(slot)) return 'orders';
+  if (/vehicle/.test(slot)) return 'vehicle';
+  if (/flag|carrier/.test(slot)) return 'ctf';
+  if (/cloak|rail/.test(slot)) return 'cloak';
+  if (/low_health|downed|reviv|last_stand|death/.test(slot)) return 'survival';
+  return 'combat';
+};
+const label = (slot) => slot.replace(/^vo_infiltrator_|^death_/, '').replaceAll('_', ' ');
+const audioUrl = (slot) => `../${encodeURIComponent(slot)}.ogg`;
+
+function setActive(slot) {
+  active = slot;
+  document.querySelectorAll('.take').forEach((card) => card.classList.toggle('active', card.dataset.slot === slot));
+  document.querySelectorAll('.take button').forEach((button) => { button.textContent = button.closest('.take').dataset.slot === slot ? '■' : '▶'; });
+  $('now-label').textContent = slot ? label(slot) : 'Ready';
+}
+function stop() { queue = []; audio.pause(); audio.currentTime = 0; clearInterval(timer); $('meter').style.width = '0'; setActive(null); }
+function play(slot, continueQueue = false) {
+  if (active === slot && !audio.paused) { stop(); return; }
+  if (!continueQueue) queue = [];
+  audio.src = audioUrl(slot); audio.volume = Number($('volume').value) / 100; setActive(slot); audio.play();
+  clearInterval(timer); timer = setInterval(() => { $('meter').style.width = `${audio.duration ? audio.currentTime / audio.duration * 100 : 0}%`; }, 100);
+}
+audio.addEventListener('ended', () => { clearInterval(timer); $('meter').style.width = '0'; const next = queue.shift(); if (next) play(next, true); else setActive(null); });
+audio.addEventListener('error', () => { $('now-label').textContent = `Missing: ${label(active || '')}`; const next = queue.shift(); if (next) play(next, true); });
+
+function render() {
+  const filter = $('filter').value, query = $('search').value.trim().toLowerCase();
+  visible = lines.filter((line) => (filter === 'all' || category(line.slot) === filter) && (!query || `${line.slot} ${line.text}`.toLowerCase().includes(query)));
+  $('visible').textContent = visible.length;
+  $('list').innerHTML = visible.length ? visible.map((line, index) => {
+    const qc = transcript.get(line.slot); const ok = qc?.status === 'ok';
+    return `<article class="take" data-slot="${line.slot}"><div class="num">${String(index + 1).padStart(2, '0')}</div><div><span class="tag">${category(line.slot)} / ${label(line.slot)}</span><blockquote>“${line.text}”</blockquote><details><summary>Scene & acting direction</summary><p>${line.scene}</p><ul>${line.notes.map((note) => `<li>${note}</li>`).join('')}</ul></details></div><div><button aria-label="Play ${label(line.slot)}">▶</button>${ok ? '<span class="verified">✓ CLEAN</span>' : ''}</div></article>`;
+  }).join('') : '<div class="empty">No moments match this view.</div>';
+  document.querySelectorAll('.take button').forEach((button) => button.addEventListener('click', () => play(button.closest('.take').dataset.slot)));
+}
+
+$('play-all').addEventListener('click', () => { if (!visible.length) return; stop(); const [first, ...rest] = visible.map((line) => line.slot); queue = rest; play(first, true); });
+$('stop').addEventListener('click', stop);
+$('filter').addEventListener('change', () => { stop(); render(); });
+$('search').addEventListener('input', () => { stop(); render(); });
+$('volume').addEventListener('input', () => { audio.volume = Number($('volume').value) / 100; $('volume-readout').textContent = `${$('volume').value}%`; });
+
+const [manifestResponse, transcriptResponse] = await Promise.all([fetch('odessa-manifest.json'), fetch('odessa-transcript.json')]);
+const manifest = await manifestResponse.json(); const report = await transcriptResponse.json();
+lines = manifest.lines; transcript = new Map(report.rows.map((row) => [row.slot, row]));
+$('total').textContent = lines.length; $('clean').textContent = report.summary.clean; render();
+</script>
+</body>
+</html>

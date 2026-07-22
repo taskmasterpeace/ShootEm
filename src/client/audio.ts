@@ -13,6 +13,33 @@ export const SOUND_NAMES = [
   // per-class death cries (see tools/gen-sounds.mjs)
   'death_infantry', 'death_heavy', 'death_jump', 'death_engineer',
   'death_medic', 'death_infiltrator', 'death_pathfinder', 'death_ghost',
+  // Odessa "Miss Dee" Broussard — the Infiltrator's first full mortal-class
+  // bark pack. These are authored against real gameplay moments; wiring stays
+  // out of this audio-only branch while the sim merge is being reconciled.
+  'vo_infiltrator_intro', 'vo_infiltrator_deploy_1', 'vo_infiltrator_deploy_2',
+  'vo_infiltrator_idle_1', 'vo_infiltrator_idle_2',
+  'vo_infiltrator_move_1', 'vo_infiltrator_move_2',
+  'vo_infiltrator_attack_1', 'vo_infiltrator_attack_2',
+  'vo_infiltrator_hold_1', 'vo_infiltrator_hold_2', 'vo_infiltrator_help_ack',
+  'vo_infiltrator_spot_infantry', 'vo_infiltrator_spot_armor',
+  'vo_infiltrator_spot_air', 'vo_infiltrator_spot_cloak',
+  'vo_infiltrator_taking_fire', 'vo_infiltrator_suppressed',
+  'vo_infiltrator_grenade_in', 'vo_infiltrator_grenade_out',
+  'vo_infiltrator_reload', 'vo_infiltrator_reload_dry', 'vo_infiltrator_ammo_low',
+  'vo_infiltrator_kill_1', 'vo_infiltrator_kill_2', 'vo_infiltrator_kill_3',
+  'vo_infiltrator_kill_revenge', 'vo_infiltrator_kill_multi',
+  'vo_infiltrator_low_health', 'vo_infiltrator_downed',
+  'vo_infiltrator_ally_downed', 'vo_infiltrator_reviving',
+  'vo_infiltrator_revived', 'vo_infiltrator_last_stand',
+  'vo_infiltrator_vehicle_enter', 'vo_infiltrator_vehicle_damaged',
+  'vo_infiltrator_vehicle_bail',
+  'vo_infiltrator_flag_pickup', 'vo_infiltrator_carrier_escort',
+  'vo_infiltrator_flag_dropped', 'vo_infiltrator_flag_capture',
+  'vo_infiltrator_cloak_on_1', 'vo_infiltrator_cloak_on_2',
+  'vo_infiltrator_cloak_move', 'vo_infiltrator_cloak_detected',
+  'vo_infiltrator_cloak_broken', 'vo_infiltrator_rail_shot',
+  'vo_infiltrator_rail_kill', 'vo_infiltrator_cloak_ready',
+  'vo_infiltrator_cloak_empty',
   // crew chatter: a squadmate boarding your ride tells you so (tts-say barks)
   'crew_letsgo', 'crew_gogogo', 'crew_punchit', 'crew_allin',
   // per-surface footsteps — biome designation lives in src/client/soundscape.ts;
