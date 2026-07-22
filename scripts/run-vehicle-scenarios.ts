@@ -3,9 +3,12 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   evaluateFoundationMatrix,
+  evaluateRotorcraftMatrix,
   runFoundationMatrix,
+  runRotorcraftMatrix,
   type FoundationMatrixReport,
   type FoundationMatrixVerdict,
+  type RotorcraftMatrixReport,
   type VehicleScenarioKind,
 } from '../src/sim/scenario-runner';
 
@@ -71,15 +74,46 @@ function markdown(report: FoundationMatrixReport, verdict: FoundationMatrixVerdi
   return `${lines.join('\n')}\n`;
 }
 
+function rotorcraftMarkdown(report: RotorcraftMatrixReport, insertionFailures: string[], supportFailures: string[]): string {
+  const contacts = report.support.flatMap((row) => row.firstContact === null ? [] : [row.firstContact]);
+  const errors = [...insertionFailures, ...supportFailures];
+  const lines = [
+    '# Military Rotorcraft Report',
+    '',
+    `Status: **${errors.length === 0 ? 'PASS' : 'FAIL'}**`,
+    '',
+    `Deterministic seeds: ${report.seeds.join(', ')}`,
+    '',
+    '| Gate | Result | Required |',
+    '| --- | ---: | ---: |',
+    `| Condor insertion runs | ${report.insertions.length} | 50 |`,
+    `| Shrike support runs | ${report.support.length} | 50 |`,
+    `| Insertion failures | ${insertionFailures.length} | 0 |`,
+    `| Support failures | ${supportFailures.length} | 0 |`,
+    `| Shrike first contact | ${Math.min(...contacts)}-${Math.max(...contacts)}s | every run |`,
+    '',
+    'Condors fly authored theater approaches, descend through the shared elevation bands, and land inside compatible LZs. Shrikes use the production vehicle AI and weapons against live armored targets; damage and explosive hits come from the shared telemetry recorder.',
+    '',
+  ];
+  if (errors.length) lines.push('## Failures', '', ...errors.map((error) => `- ${error}`), '');
+  return `${lines.join('\n')}\n`;
+}
+
 const report = runFoundationMatrix({ seeds: SEEDS });
 const verdict = evaluateFoundationMatrix(report);
-const errors = failures(verdict);
+const foundationErrors = failures(verdict);
+const rotorcraft = runRotorcraftMatrix({ seeds: SEEDS });
+const rotorcraftVerdict = evaluateRotorcraftMatrix(rotorcraft);
+const rotorcraftErrors = [...rotorcraftVerdict.insertionFailures, ...rotorcraftVerdict.supportFailures];
 mkdirSync(outputDir, { recursive: true });
 writeFileSync(resolve(outputDir, 'foundation-report.json'), `${JSON.stringify({ report, verdict }, null, 2)}\n`);
-writeFileSync(resolve(outputDir, 'foundation-report.md'), markdown(report, verdict, errors));
+writeFileSync(resolve(outputDir, 'foundation-report.md'), markdown(report, verdict, foundationErrors));
+writeFileSync(resolve(outputDir, 'rotorcraft-report.json'), `${JSON.stringify({ report: rotorcraft, verdict: rotorcraftVerdict }, null, 2)}\n`);
+writeFileSync(resolve(outputDir, 'rotorcraft-report.md'), rotorcraftMarkdown(rotorcraft, rotorcraftVerdict.insertionFailures, rotorcraftVerdict.supportFailures));
 
-console.log(`Vehicle theater matrix: ${errors.length === 0 ? 'PASS' : 'FAIL'} (${report.scenarios.length} scenarios)`);
+console.log(`Vehicle theater matrix: ${foundationErrors.length === 0 ? 'PASS' : 'FAIL'} (${report.scenarios.length} scenarios)`);
 console.log(`Fixed-wing contact ${verdict.fixedWingFirstContact.min}-${verdict.fixedWingFirstContact.max}s; ground/naval ${verdict.groundNavalFirstContact.min}-${verdict.groundNavalFirstContact.max}s`);
 console.log(`Mirrored side win ceiling ${(verdict.maxMirroredWinRate * 100).toFixed(1)}%`);
-for (const error of errors) console.error(`- ${error}`);
-if (errors.length) process.exitCode = 1;
+console.log(`Rotorcraft matrix: ${rotorcraftErrors.length === 0 ? 'PASS' : 'FAIL'} (${rotorcraft.insertions.length + rotorcraft.support.length} scenarios)`);
+for (const error of [...foundationErrors, ...rotorcraftErrors]) console.error(`- ${error}`);
+if (foundationErrors.length || rotorcraftErrors.length) process.exitCode = 1;

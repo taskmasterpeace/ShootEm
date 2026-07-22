@@ -711,6 +711,8 @@ export interface Vehicle {
    *  Continuous height is unreadable from a top-down camera; a BAND can be
    *  drawn. 0/absent for anything that doesn't fly. */
   band?: import('./elevation').ElevationLevel;
+  /** A crewed rotorcraft may remain on its skids after a deliberate descent. */
+  landed?: boolean;
   /** W5.1: the crash-scrape rate limit — a band-1 hull grinding a building
    *  takes speed-scaled damage at most once per half-second */
   nextCrashAt?: number;

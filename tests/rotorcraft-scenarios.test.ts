@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { runRotorcraftInsertion, runRotorcraftSupport } from '../src/sim/scenario-runner';
+import { evaluateRotorcraftMatrix, runRotorcraftInsertion, runRotorcraftMatrix, runRotorcraftSupport } from '../src/sim/scenario-runner';
 
 describe('rotorcraft mission AI', () => {
   it('lands a Condor in a compatible mountain insertion zone', () => {
@@ -24,5 +24,12 @@ describe('rotorcraft mission AI', () => {
     expect(result.landed).toBe(true);
     expect(result.crashes).toBe(0);
     expect(result.nonFinite).toBe(0);
+  });
+
+  it('passes the ten-seed rotorcraft mission matrix', () => {
+    const report = runRotorcraftMatrix({ seeds: [7, 31, 42, 99, 4207, 5150, 7749, 1337, 90210, 606] });
+    expect(report.insertions).toHaveLength(50);
+    expect(report.support).toHaveLength(50);
+    expect(evaluateRotorcraftMatrix(report)).toEqual({ insertionFailures: [], supportFailures: [] });
   });
 });

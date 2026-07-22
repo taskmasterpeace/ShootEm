@@ -2780,6 +2780,7 @@ export class World {
           // tap that lands you can never also throw you out.
           if (this.time >= s.nextAbilityAt) {
             v.band = asElevationLevel((v.band ?? 1) - 1);
+            if (v.band === 0) v.landed = true;
             s.nextAbilityAt = this.time + 0.28;
           }
         } else if (!flightDef.flies || s.seat !== 0 || this.time >= s.nextAbilityAt) {
@@ -2789,6 +2790,7 @@ export class World {
       if (cmd.ability && s.seat === 0 && flightDef.flies && this.time >= v.spoolUntil
           && this.time >= s.nextAbilityAt) {
         // jets own band 3; rotors top out at 2 (the design's ceiling rule)
+        v.landed = false;
         v.band = asElevationLevel(Math.min(maxElevationFor(flightDef), (v.band ?? 0) + 1));
         s.nextAbilityAt = this.time + 0.28;
       }
@@ -4381,6 +4383,7 @@ export class World {
           // a pilot taking the stick starts the rotor spool — no liftoff until it's done
           const lift = VEHICLES[v.kind].liftoffTime;
           if (seat === 0 && lift) {
+            v.landed = false;
             v.spoolUntil = this.time + lift;
             this.emit({ type: 'announce', text: `${VEHICLES[v.kind].name}: rotors spooling…` });
           }
@@ -4590,8 +4593,8 @@ export class World {
       // J1 band lifecycle: taking the sky opens at the airframe's home band
       // (jets 3, rotors 2); an empty aircraft is parked, band 0.
       if (def.flies) {
-        if (flown && (v.band ?? 0) === 0) v.band = def.minAirspeed ? 3 : 2;
-        if (v.seats[0] < 0) v.band = 0;
+        if (flown && (v.band ?? 0) === 0 && !v.landed) v.band = def.minAirspeed ? 3 : 2;
+        if (v.seats[0] < 0) { v.band = 0; v.landed = true; }
       }
       // J1 THE AFTERBURNER (Robert): hold sprint and the pilot's own tank
       // feeds the engine — 1.4x thrust while energy lasts, refilling when the

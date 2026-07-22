@@ -32,7 +32,9 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "tank": 1911.839
+            "attackheli": 0,
+            "tank": 1911.839,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {
@@ -40,7 +42,7 @@
           },
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -74,13 +76,15 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "tank": 1925.369
+            "attackheli": 0,
+            "tank": 1925.369,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -114,13 +118,15 @@
         "telemetry": {
           "distanceByKind": {
             "apc": 0,
-            "tank": 1921.321
+            "attackheli": 0,
+            "tank": 1921.321,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -154,15 +160,19 @@
         "telemetry": {
           "distanceByKind": {
             "aatrack": 0,
-            "tank": 1732.305
+            "attackheli": 0,
+            "tank": 1732.305,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {
             "tank": 10
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 1
+          },
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -196,14 +206,16 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
+            "attackheli": 0,
             "boat": 0,
-            "tank": 1856.253
+            "tank": 1856.253,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 900,
+            "0": 1620,
             "1": 0,
             "2": 0,
             "3": 0
@@ -290,9 +302,9 @@
           },
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
+            "1": 52,
             "2": 32,
-            "3": 76
+            "3": 24
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
@@ -336,9 +348,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 58,
-            "3": 50
+            "1": 40,
+            "2": 60,
+            "3": 8
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -384,9 +396,9 @@
           },
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 52,
-            "3": 56
+            "1": 32,
+            "2": 54,
+            "3": 22
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -430,9 +442,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 54,
-            "3": 54
+            "1": 40,
+            "2": 56,
+            "3": 12
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -476,9 +488,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 50,
-            "3": 58
+            "1": 40,
+            "2": 52,
+            "3": 16
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
@@ -519,7 +531,9 @@
           "shotsByKind": {
             "tank": 18
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 17
+          },
           "elevationSeconds": {
             "0": 226,
             "1": 0,
@@ -565,7 +579,9 @@
           "shotsByKind": {
             "tank": 18
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 17
+          },
           "elevationSeconds": {
             "0": 226,
             "1": 0,
@@ -609,7 +625,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -653,7 +671,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -697,7 +717,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -741,7 +763,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -787,7 +811,9 @@
           "shotsByKind": {
             "tank": 19
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 18
+          },
           "elevationSeconds": {
             "0": 232,
             "1": 0,
@@ -833,7 +859,9 @@
           "shotsByKind": {
             "tank": 19
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 18
+          },
           "elevationSeconds": {
             "0": 232,
             "1": 0,
@@ -965,13 +993,15 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "tank": 1911.839
+            "attackheli": 0,
+            "tank": 1911.839,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -1004,13 +1034,15 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "tank": 1871.755
+            "attackheli": 0,
+            "tank": 1871.755,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -1044,13 +1076,15 @@
         "telemetry": {
           "distanceByKind": {
             "apc": 0,
-            "tank": 1937.287
+            "attackheli": 0,
+            "tank": 1937.287,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -1084,7 +1118,9 @@
         "telemetry": {
           "distanceByKind": {
             "aatrack": 0,
-            "tank": 1732.305
+            "attackheli": 0,
+            "tank": 1732.305,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {
@@ -1092,7 +1128,7 @@
           },
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -1126,14 +1162,16 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
+            "attackheli": 0,
             "boat": 0,
-            "tank": 1927.934
+            "tank": 1927.934,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 900,
+            "0": 1620,
             "1": 0,
             "2": 0,
             "3": 0
@@ -1220,9 +1258,9 @@
           },
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
+            "1": 52,
             "2": 32,
-            "3": 76
+            "3": 24
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
@@ -1251,28 +1289,29 @@
         ],
         "duration": 55,
         "winner": -1,
-        "firstContact": 15.4,
+        "firstContact": 21.4,
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "interceptor": 2271.3,
+            "interceptor": 473.98,
             "strikejet": 2022.716
           },
-          "lossesByKind": {},
+          "lossesByKind": {
+            "interceptor": 1
+          },
           "shotsByKind": {
-            "interceptor": 18,
-            "strikejet": 6
+            "strikejet": 5
           },
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 0,
-            "1": 0,
-            "2": 58,
-            "3": 50
+            "0": 26,
+            "1": 22,
+            "2": 36,
+            "3": 2
           },
-          "routeCompletions": 2,
+          "routeCompletions": 1,
           "objectiveProgress": 0,
-          "firstContact": 15.4
+          "firstContact": 21.4
         },
         "structuralViolations": [],
         "routeFailure": null,
@@ -1314,9 +1353,9 @@
           },
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
+            "1": 32,
             "2": 52,
-            "3": 56
+            "3": 24
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -1360,9 +1399,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 54,
-            "3": 54
+            "1": 40,
+            "2": 56,
+            "3": 12
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -1406,9 +1445,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 50,
-            "3": 58
+            "1": 40,
+            "2": 52,
+            "3": 16
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
@@ -1449,7 +1488,9 @@
           "shotsByKind": {
             "tank": 12
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 11
+          },
           "elevationSeconds": {
             "0": 222,
             "1": 0,
@@ -1495,7 +1536,9 @@
           "shotsByKind": {
             "tank": 12
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 11
+          },
           "elevationSeconds": {
             "0": 222,
             "1": 0,
@@ -1539,7 +1582,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 7
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -1583,7 +1628,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 7
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -1627,7 +1674,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 7
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -1671,7 +1720,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 7
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -1715,7 +1766,9 @@
           "shotsByKind": {
             "tank": 15
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 11
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -1759,7 +1812,9 @@
           "shotsByKind": {
             "tank": 15
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 11
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -1891,7 +1946,9 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "tank": 1911.839
+            "attackheli": 0,
+            "tank": 1911.839,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {
@@ -1899,7 +1956,7 @@
           },
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -1933,13 +1990,15 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "tank": 1925.369
+            "attackheli": 0,
+            "tank": 1925.369,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -1973,13 +2032,15 @@
         "telemetry": {
           "distanceByKind": {
             "apc": 0,
-            "tank": 1937.287
+            "attackheli": 0,
+            "tank": 1937.287,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -2013,7 +2074,9 @@
         "telemetry": {
           "distanceByKind": {
             "aatrack": 0,
-            "tank": 1709.653
+            "attackheli": 0,
+            "tank": 1709.653,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {
@@ -2021,7 +2084,7 @@
           },
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -2055,14 +2118,16 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
+            "attackheli": 0,
             "boat": 0,
-            "tank": 1927.934
+            "tank": 1927.934,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 900,
+            "0": 1620,
             "1": 0,
             "2": 0,
             "3": 0
@@ -2149,9 +2214,9 @@
           },
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 32,
-            "3": 76
+            "1": 50,
+            "2": 34,
+            "3": 24
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
@@ -2195,9 +2260,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
+            "1": 40,
             "2": 58,
-            "3": 50
+            "3": 10
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -2243,9 +2308,9 @@
           },
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 52,
-            "3": 56
+            "1": 34,
+            "2": 54,
+            "3": 20
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -2289,9 +2354,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 54,
-            "3": 54
+            "1": 40,
+            "2": 56,
+            "3": 12
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -2335,9 +2400,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 50,
-            "3": 58
+            "1": 40,
+            "2": 52,
+            "3": 16
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
@@ -2378,7 +2443,9 @@
           "shotsByKind": {
             "tank": 15
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 15
+          },
           "elevationSeconds": {
             "0": 218,
             "1": 0,
@@ -2424,7 +2491,9 @@
           "shotsByKind": {
             "tank": 15
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 15
+          },
           "elevationSeconds": {
             "0": 218,
             "1": 0,
@@ -2468,7 +2537,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -2512,7 +2583,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -2556,7 +2629,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -2600,7 +2675,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -2646,7 +2723,9 @@
           "shotsByKind": {
             "tank": 16
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 16
+          },
           "elevationSeconds": {
             "0": 218,
             "1": 0,
@@ -2692,7 +2771,9 @@
           "shotsByKind": {
             "tank": 16
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 16
+          },
           "elevationSeconds": {
             "0": 218,
             "1": 0,
@@ -2824,7 +2905,9 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "tank": 1911.839
+            "attackheli": 0,
+            "tank": 1911.839,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {
@@ -2832,7 +2915,7 @@
           },
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -2866,13 +2949,15 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "tank": 1925.369
+            "attackheli": 0,
+            "tank": 1925.369,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -2906,13 +2991,15 @@
         "telemetry": {
           "distanceByKind": {
             "apc": 0,
-            "tank": 1918.719
+            "attackheli": 0,
+            "tank": 1918.719,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -2946,7 +3033,9 @@
         "telemetry": {
           "distanceByKind": {
             "aatrack": 0,
-            "tank": 1732.305
+            "attackheli": 0,
+            "tank": 1732.305,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {
@@ -2954,7 +3043,7 @@
           },
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -2988,14 +3077,16 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
+            "attackheli": 0,
             "boat": 0,
-            "tank": 1844.439
+            "tank": 1844.439,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 900,
+            "0": 1620,
             "1": 0,
             "2": 0,
             "3": 0
@@ -3082,9 +3173,9 @@
           },
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 32,
-            "3": 76
+            "1": 50,
+            "2": 34,
+            "3": 24
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
@@ -3128,9 +3219,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 58,
-            "3": 50
+            "1": 40,
+            "2": 60,
+            "3": 8
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -3176,9 +3267,9 @@
           },
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 52,
-            "3": 56
+            "1": 34,
+            "2": 54,
+            "3": 20
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -3222,9 +3313,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 54,
-            "3": 54
+            "1": 40,
+            "2": 56,
+            "3": 12
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -3268,9 +3359,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 50,
-            "3": 58
+            "1": 40,
+            "2": 52,
+            "3": 16
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
@@ -3311,7 +3402,9 @@
           "shotsByKind": {
             "tank": 13
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 13
+          },
           "elevationSeconds": {
             "0": 218,
             "1": 0,
@@ -3357,7 +3450,9 @@
           "shotsByKind": {
             "tank": 13
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 13
+          },
           "elevationSeconds": {
             "0": 218,
             "1": 0,
@@ -3401,7 +3496,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -3445,7 +3542,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -3489,7 +3588,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -3533,7 +3634,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -3579,7 +3682,9 @@
           "shotsByKind": {
             "tank": 15
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 14
+          },
           "elevationSeconds": {
             "0": 218,
             "1": 0,
@@ -3625,7 +3730,9 @@
           "shotsByKind": {
             "tank": 15
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 14
+          },
           "elevationSeconds": {
             "0": 218,
             "1": 0,
@@ -3757,7 +3864,9 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "tank": 1911.839
+            "attackheli": 0,
+            "tank": 1911.839,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {
@@ -3765,7 +3874,7 @@
           },
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -3799,13 +3908,15 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "tank": 1925.369
+            "attackheli": 0,
+            "tank": 1925.369,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -3839,13 +3950,15 @@
         "telemetry": {
           "distanceByKind": {
             "apc": 0,
-            "tank": 1916.173
+            "attackheli": 0,
+            "tank": 1916.173,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -3879,7 +3992,9 @@
         "telemetry": {
           "distanceByKind": {
             "aatrack": 0,
-            "tank": 1732.305
+            "attackheli": 0,
+            "tank": 1732.305,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {
@@ -3887,7 +4002,7 @@
           },
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -3921,14 +4036,16 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
+            "attackheli": 0,
             "boat": 0,
-            "tank": 1836.543
+            "tank": 1836.543,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 900,
+            "0": 1620,
             "1": 0,
             "2": 0,
             "3": 0
@@ -4015,9 +4132,9 @@
           },
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 32,
-            "3": 76
+            "1": 50,
+            "2": 34,
+            "3": 24
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
@@ -4061,9 +4178,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 58,
-            "3": 50
+            "1": 40,
+            "2": 60,
+            "3": 8
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -4109,9 +4226,9 @@
           },
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 52,
-            "3": 56
+            "1": 34,
+            "2": 54,
+            "3": 20
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -4155,9 +4272,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 54,
-            "3": 54
+            "1": 40,
+            "2": 56,
+            "3": 12
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -4201,9 +4318,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 50,
-            "3": 58
+            "1": 40,
+            "2": 52,
+            "3": 16
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
@@ -4242,7 +4359,9 @@
           "shotsByKind": {
             "tank": 18
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 17
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -4286,7 +4405,9 @@
           "shotsByKind": {
             "tank": 18
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 17
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -4330,7 +4451,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -4374,7 +4497,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -4418,7 +4543,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -4462,7 +4589,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -4508,7 +4637,9 @@
           "shotsByKind": {
             "tank": 20
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 18
+          },
           "elevationSeconds": {
             "0": 218,
             "1": 0,
@@ -4554,7 +4685,9 @@
           "shotsByKind": {
             "tank": 20
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 18
+          },
           "elevationSeconds": {
             "0": 218,
             "1": 0,
@@ -4686,17 +4819,19 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "tank": 1911.839
+            "attackheli": 442.738,
+            "tank": 1911.839,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {
-            "tank": 4
+            "tank": 7
           },
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1242,
             "1": 0,
-            "2": 0,
+            "2": 18,
             "3": 0
           },
           "routeCompletions": 1,
@@ -4728,13 +4863,15 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "tank": 1925.369
+            "attackheli": 0,
+            "tank": 1925.369,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -4768,13 +4905,15 @@
         "telemetry": {
           "distanceByKind": {
             "apc": 0,
-            "tank": 1923.493
+            "attackheli": 0,
+            "tank": 1923.493,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -4808,7 +4947,9 @@
         "telemetry": {
           "distanceByKind": {
             "aatrack": 0,
-            "tank": 1732.305
+            "attackheli": 0,
+            "tank": 1732.305,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {
@@ -4816,7 +4957,7 @@
           },
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -4850,14 +4991,16 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
+            "attackheli": 0,
             "boat": 0,
-            "tank": 1864.398
+            "tank": 1864.398,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 900,
+            "0": 1620,
             "1": 0,
             "2": 0,
             "3": 0
@@ -4944,9 +5087,9 @@
           },
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
+            "1": 52,
             "2": 32,
-            "3": 76
+            "3": 24
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
@@ -4990,9 +5133,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
+            "1": 40,
             "2": 58,
-            "3": 50
+            "3": 10
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -5038,9 +5181,9 @@
           },
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 52,
-            "3": 56
+            "1": 34,
+            "2": 54,
+            "3": 20
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -5084,9 +5227,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 54,
-            "3": 54
+            "1": 40,
+            "2": 56,
+            "3": 12
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -5130,9 +5273,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 50,
-            "3": 58
+            "1": 40,
+            "2": 52,
+            "3": 16
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
@@ -5173,7 +5316,9 @@
           "shotsByKind": {
             "tank": 20
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 19
+          },
           "elevationSeconds": {
             "0": 196,
             "1": 0,
@@ -5219,7 +5364,9 @@
           "shotsByKind": {
             "tank": 20
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 19
+          },
           "elevationSeconds": {
             "0": 196,
             "1": 0,
@@ -5263,7 +5410,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -5307,7 +5456,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -5351,7 +5502,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -5395,7 +5548,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -5441,7 +5596,9 @@
           "shotsByKind": {
             "tank": 19
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 18
+          },
           "elevationSeconds": {
             "0": 236,
             "1": 0,
@@ -5487,7 +5644,9 @@
           "shotsByKind": {
             "tank": 19
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 18
+          },
           "elevationSeconds": {
             "0": 236,
             "1": 0,
@@ -5619,7 +5778,9 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "tank": 1911.839
+            "attackheli": 0,
+            "tank": 1911.839,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {
@@ -5627,7 +5788,7 @@
           },
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -5661,13 +5822,15 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "tank": 1874.97
+            "attackheli": 0,
+            "tank": 1874.97,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -5701,13 +5864,15 @@
         "telemetry": {
           "distanceByKind": {
             "apc": 0,
-            "tank": 1937.287
+            "attackheli": 0,
+            "tank": 1937.287,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -5741,7 +5906,9 @@
         "telemetry": {
           "distanceByKind": {
             "aatrack": 0,
-            "tank": 1732.305
+            "attackheli": 0,
+            "tank": 1732.305,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {
@@ -5749,7 +5916,7 @@
           },
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -5783,14 +5950,16 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
+            "attackheli": 0,
             "boat": 0,
-            "tank": 1927.934
+            "tank": 1927.934,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 900,
+            "0": 1620,
             "1": 0,
             "2": 0,
             "3": 0
@@ -5877,9 +6046,9 @@
           },
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 32,
-            "3": 76
+            "1": 48,
+            "2": 36,
+            "3": 24
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
@@ -5923,9 +6092,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 58,
-            "3": 50
+            "1": 38,
+            "2": 60,
+            "3": 10
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -5971,9 +6140,9 @@
           },
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 52,
-            "3": 56
+            "1": 34,
+            "2": 54,
+            "3": 20
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -6017,9 +6186,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 54,
-            "3": 54
+            "1": 40,
+            "2": 56,
+            "3": 12
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -6063,9 +6232,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 50,
-            "3": 58
+            "1": 40,
+            "2": 52,
+            "3": 16
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
@@ -6104,7 +6273,9 @@
           "shotsByKind": {
             "tank": 15
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 15
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -6148,7 +6319,9 @@
           "shotsByKind": {
             "tank": 15
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 15
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -6192,7 +6365,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -6236,7 +6411,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -6280,7 +6457,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -6324,7 +6503,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -6370,7 +6551,9 @@
           "shotsByKind": {
             "tank": 17
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 16
+          },
           "elevationSeconds": {
             "0": 236,
             "1": 0,
@@ -6416,7 +6599,9 @@
           "shotsByKind": {
             "tank": 17
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 16
+          },
           "elevationSeconds": {
             "0": 236,
             "1": 0,
@@ -6548,7 +6733,9 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "tank": 1735.376
+            "attackheli": 0,
+            "tank": 1735.376,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {
@@ -6556,7 +6743,7 @@
           },
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -6590,13 +6777,15 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "tank": 1644.21
+            "attackheli": 0,
+            "tank": 1644.21,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -6630,13 +6819,15 @@
         "telemetry": {
           "distanceByKind": {
             "apc": 0,
-            "tank": 1639.935
+            "attackheli": 0,
+            "tank": 1639.935,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -6670,15 +6861,19 @@
         "telemetry": {
           "distanceByKind": {
             "aatrack": 0,
-            "tank": 1711.541
+            "attackheli": 0,
+            "tank": 1711.541,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {
-            "tank": 10
+            "tank": 11
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 1
+          },
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -6712,14 +6907,16 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
+            "attackheli": 0,
             "boat": 0,
-            "tank": 1812.113
+            "tank": 1812.113,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 900,
+            "0": 1620,
             "1": 0,
             "2": 0,
             "3": 0
@@ -6806,9 +7003,9 @@
           },
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
+            "1": 52,
             "2": 32,
-            "3": 76
+            "3": 24
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
@@ -6852,9 +7049,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
+            "1": 42,
             "2": 58,
-            "3": 50
+            "3": 8
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -6900,9 +7097,9 @@
           },
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 52,
-            "3": 56
+            "1": 34,
+            "2": 54,
+            "3": 20
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -6946,9 +7143,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 54,
-            "3": 54
+            "1": 40,
+            "2": 56,
+            "3": 12
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -6992,9 +7189,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 50,
-            "3": 58
+            "1": 40,
+            "2": 52,
+            "3": 16
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
@@ -7035,7 +7232,9 @@
           "shotsByKind": {
             "tank": 21
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 19
+          },
           "elevationSeconds": {
             "0": 228,
             "1": 0,
@@ -7081,7 +7280,9 @@
           "shotsByKind": {
             "tank": 21
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 19
+          },
           "elevationSeconds": {
             "0": 228,
             "1": 0,
@@ -7125,7 +7326,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -7169,7 +7372,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -7213,7 +7418,9 @@
           "shotsByKind": {
             "tank": 9
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -7257,7 +7464,9 @@
           "shotsByKind": {
             "tank": 9
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -7303,7 +7512,9 @@
           "shotsByKind": {
             "tank": 18
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 16
+          },
           "elevationSeconds": {
             "0": 234,
             "1": 0,
@@ -7349,7 +7560,9 @@
           "shotsByKind": {
             "tank": 18
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 16
+          },
           "elevationSeconds": {
             "0": 234,
             "1": 0,
@@ -7481,7 +7694,9 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "tank": 1911.839
+            "attackheli": 0,
+            "tank": 1911.839,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {
@@ -7489,7 +7704,7 @@
           },
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -7523,13 +7738,15 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "tank": 1924.193
+            "attackheli": 0,
+            "tank": 1924.363,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -7563,13 +7780,15 @@
         "telemetry": {
           "distanceByKind": {
             "apc": 0,
-            "tank": 1937.287
+            "attackheli": 0,
+            "tank": 1937.287,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -7603,7 +7822,9 @@
         "telemetry": {
           "distanceByKind": {
             "aatrack": 0,
-            "tank": 1732.305
+            "attackheli": 0,
+            "tank": 1732.305,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {
@@ -7611,7 +7832,7 @@
           },
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -7645,14 +7866,16 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
+            "attackheli": 0,
             "boat": 0,
-            "tank": 1927.934
+            "tank": 1927.934,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 900,
+            "0": 1620,
             "1": 0,
             "2": 0,
             "3": 0
@@ -7739,9 +7962,9 @@
           },
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
+            "1": 52,
             "2": 32,
-            "3": 76
+            "3": 24
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
@@ -7785,9 +8008,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 58,
-            "3": 50
+            "1": 38,
+            "2": 62,
+            "3": 8
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -7833,9 +8056,9 @@
           },
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 52,
-            "3": 56
+            "1": 34,
+            "2": 54,
+            "3": 20
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -7879,9 +8102,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 54,
-            "3": 54
+            "1": 40,
+            "2": 56,
+            "3": 12
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -7925,9 +8148,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 50,
-            "3": 58
+            "1": 40,
+            "2": 52,
+            "3": 16
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
@@ -7968,7 +8191,9 @@
           "shotsByKind": {
             "tank": 18
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 17
+          },
           "elevationSeconds": {
             "0": 218,
             "1": 0,
@@ -8014,7 +8239,9 @@
           "shotsByKind": {
             "tank": 18
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 17
+          },
           "elevationSeconds": {
             "0": 218,
             "1": 0,
@@ -8058,7 +8285,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -8102,7 +8331,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -8146,7 +8377,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -8190,7 +8423,9 @@
           "shotsByKind": {
             "tank": 8
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 8
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -8234,7 +8469,9 @@
           "shotsByKind": {
             "tank": 10
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 10
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -8278,7 +8515,9 @@
           "shotsByKind": {
             "tank": 10
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 10
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -8410,7 +8649,9 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "tank": 1911.839
+            "attackheli": 0,
+            "tank": 1911.839,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {
@@ -8418,7 +8659,7 @@
           },
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -8452,13 +8693,15 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "tank": 1925.369
+            "attackheli": 0,
+            "tank": 1925.369,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -8492,13 +8735,15 @@
         "telemetry": {
           "distanceByKind": {
             "apc": 0,
-            "tank": 1937.287
+            "attackheli": 0,
+            "tank": 1937.287,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -8532,7 +8777,9 @@
         "telemetry": {
           "distanceByKind": {
             "aatrack": 0,
-            "tank": 1732.305
+            "attackheli": 0,
+            "tank": 1732.305,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {
@@ -8540,7 +8787,7 @@
           },
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 1260,
             "1": 0,
             "2": 0,
             "3": 0
@@ -8574,14 +8821,16 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
+            "attackheli": 0,
             "boat": 0,
-            "tank": 1927.934
+            "tank": 1927.934,
+            "transportheli": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 900,
+            "0": 1620,
             "1": 0,
             "2": 0,
             "3": 0
@@ -8668,9 +8917,9 @@
           },
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 32,
-            "3": 76
+            "1": 50,
+            "2": 34,
+            "3": 24
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
@@ -8714,9 +8963,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 58,
-            "3": 50
+            "1": 38,
+            "2": 62,
+            "3": 8
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -8762,9 +9011,9 @@
           },
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 52,
-            "3": 56
+            "1": 34,
+            "2": 54,
+            "3": 20
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -8808,9 +9057,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 54,
-            "3": 54
+            "1": 40,
+            "2": 56,
+            "3": 12
           },
           "routeCompletions": 2,
           "objectiveProgress": 0,
@@ -8854,9 +9103,9 @@
           "hitsByKind": {},
           "elevationSeconds": {
             "0": 0,
-            "1": 0,
-            "2": 50,
-            "3": 58
+            "1": 40,
+            "2": 52,
+            "3": 16
           },
           "routeCompletions": 1,
           "objectiveProgress": 0,
@@ -8895,7 +9144,9 @@
           "shotsByKind": {
             "tank": 14
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 13
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -8939,7 +9190,9 @@
           "shotsByKind": {
             "tank": 14
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 13
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -8983,7 +9236,9 @@
           "shotsByKind": {
             "tank": 7
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 7
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -9027,7 +9282,9 @@
           "shotsByKind": {
             "tank": 7
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 7
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -9071,7 +9328,9 @@
           "shotsByKind": {
             "tank": 7
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 7
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -9115,7 +9374,9 @@
           "shotsByKind": {
             "tank": 7
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 7
+          },
           "elevationSeconds": {
             "0": 240,
             "1": 0,
@@ -9161,7 +9422,9 @@
           "shotsByKind": {
             "tank": 17
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 16
+          },
           "elevationSeconds": {
             "0": 218,
             "1": 0,
@@ -9207,7 +9470,9 @@
           "shotsByKind": {
             "tank": 17
           },
-          "hitsByKind": {},
+          "hitsByKind": {
+            "tank": 16
+          },
           "elevationSeconds": {
             "0": 218,
             "1": 0,

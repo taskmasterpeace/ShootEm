@@ -55,6 +55,7 @@ export function makeRouteProbe(theaterId: TheaterId, seed: number): RouteProbe {
   const vehicle = world.spawnVehicle(kind, 0, route.points[0]);
   vehicle.seats[0] = soldier.id;
   vehicle.spoolUntil = 0;
+  vehicle.landed = false;
   soldier.vehicleId = vehicle.id;
   soldier.seat = 0;
   soldier.enteredVehicleAt = -10;
@@ -359,14 +360,82 @@ export function runRotorcraftSupport(theaterId: Exclude<TheaterId, 'ocean'>, see
   targetCrew.vehicleId = target.id;
   targetCrew.seat = 0;
   targetCrew.enteredVehicleAt = -10;
+  let minimumTargetHp = target.hp;
+  observe(world, () => { minimumTargetHp = Math.min(minimumTargetHp, target.hp); });
   runScenario(world, seconds);
   const telemetry = vehicleTelemetrySnapshot(world.vehicleTelemetry);
   return {
     firstContact: telemetry.summary.firstContact ?? null,
     shots: telemetry.summary.shotsByKind.attackheli ?? 0,
     hits: telemetry.summary.hitsByKind.attackheli ?? 0,
-    targetHp: target.hp,
+    targetHp: minimumTargetHp,
     targetMaxHp: target.maxHp,
     telemetry,
   };
+}
+
+export interface RotorcraftMatrixReport {
+  generatedAt: string;
+  seeds: number[];
+  insertions: Array<{
+    id: string; theater: Exclude<TheaterId, 'ocean'>; seed: number;
+    landed: boolean; nonFinite: number; persistentStalls: number; crashes: number;
+    distance: number; objectiveProgress: number;
+  }>;
+  support: Array<{
+    id: string; theater: Exclude<TheaterId, 'ocean'>; seed: number;
+    firstContact: number | null; shots: number; hits: number; targetHp: number; targetMaxHp: number;
+  }>;
+}
+
+export interface RotorcraftMatrixVerdict {
+  insertionFailures: string[];
+  supportFailures: string[];
+}
+
+export function runRotorcraftMatrix({ seeds }: { seeds: number[] }): RotorcraftMatrixReport {
+  const theaters = ['city', 'desert', 'countryside', 'mountain', 'coastal'] as const;
+  const insertions: RotorcraftMatrixReport['insertions'] = [];
+  const support: RotorcraftMatrixReport['support'] = [];
+  for (const seed of seeds) for (const theater of theaters) {
+    const insertion = runRotorcraftInsertion(theater, seed, 180);
+    insertions.push({
+      id: `rotor-insertion:${theater}:${seed}`, theater, seed,
+      landed: insertion.landed, nonFinite: insertion.nonFinite,
+      persistentStalls: insertion.persistentStalls, crashes: insertion.crashes,
+      distance: insertion.telemetry.summary.distanceByKind.transportheli ?? 0,
+      objectiveProgress: insertion.telemetry.summary.objectiveProgress,
+    });
+    const strike = runRotorcraftSupport(theater, seed, 120);
+    support.push({
+      id: `rotor-support:${theater}:${seed}`, theater, seed,
+      firstContact: strike.firstContact, shots: strike.shots, hits: strike.hits,
+      targetHp: +strike.targetHp.toFixed(3), targetMaxHp: strike.targetMaxHp,
+    });
+  }
+  return { generatedAt: 'deterministic', seeds: [...seeds], insertions, support };
+}
+
+export function evaluateRotorcraftMatrix(report: RotorcraftMatrixReport): RotorcraftMatrixVerdict {
+  const insertionFailures = report.insertions.flatMap((row) => {
+    const failures = [
+      ...(!row.landed ? ['did not land'] : []),
+      ...(row.nonFinite > 0 ? [`${row.nonFinite} non-finite samples`] : []),
+      ...(row.persistentStalls > 0 ? [`${row.persistentStalls} persistent stalls`] : []),
+      ...(row.crashes > 0 ? [`${row.crashes} crashes`] : []),
+      ...(row.distance <= 0 ? ['did not move'] : []),
+      ...(row.objectiveProgress <= 0 ? ['did not record objective progress'] : []),
+    ];
+    return failures.map((failure) => `${row.id}: ${failure}`);
+  });
+  const supportFailures = report.support.flatMap((row) => {
+    const failures = [
+      ...(row.firstContact === null ? ['no contact'] : []),
+      ...(row.shots <= 0 ? ['no shots'] : []),
+      ...(row.hits <= 0 ? ['no hits'] : []),
+      ...(row.targetHp >= row.targetMaxHp ? ['target undamaged'] : []),
+    ];
+    return failures.map((failure) => `${row.id}: ${failure}`);
+  });
+  return { insertionFailures, supportFailures };
 }
