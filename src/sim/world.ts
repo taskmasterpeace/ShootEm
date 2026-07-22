@@ -1572,6 +1572,13 @@ export class World {
       && (!def.flies || (vehicle.band ?? 0) === 0);
   }
 
+  canSubmerge(vehicle: Vehicle): boolean {
+    const radius = VEHICLES[vehicle.kind].radius;
+    return [[0, 0], [radius, 0], [-radius, 0], [0, radius], [0, -radius]].every(([dx, dz]) =>
+      tileAt(this.map.grid, vehicle.pos.x + dx, vehicle.pos.z + dz, this.map.geometry) === T_DEEP,
+    );
+  }
+
   spawnVehicle(kind: VehicleKind, team: Team, padPos: Vec3, padId = -1): Vehicle {
     const def = VEHICLES[kind];
     const v: Vehicle = {
@@ -2793,6 +2800,20 @@ export class World {
         v.landed = false;
         v.band = asElevationLevel(Math.min(maxElevationFor(flightDef), (v.band ?? 0) + 1));
         s.nextAbilityAt = this.time + 0.28;
+      }
+      if (cmd.ability && s.seat === 0 && flightDef.submersible && this.time >= s.nextAbilityAt) {
+        if (v.submerged || this.canSubmerge(v)) {
+          v.submerged = !v.submerged;
+          s.nextAbilityAt = this.time + 1.5;
+          recordVehicleEvent(this.vehicleTelemetry, {
+            kind: v.submerged ? 'dive' : 'surface', t: this.time,
+            vehicleId: v.id, vehicleKind: v.kind,
+            theaterId: this.map.theater?.id ?? 'classic', seed: this.map.seed,
+            x: v.pos.x, z: v.pos.z,
+          });
+        } else {
+          s.nextAbilityAt = this.time + 0.35;
+        }
       }
       // breacher depth toggle: deep is silent and passes under walls, but
       // crawls and can't dig — surfacing is where the grinding happens
@@ -4502,6 +4523,7 @@ export class World {
         v.seats.fill(-1);
         v.systems = this.freshSystems(v.kind);
         v.burrowed = false; // wrecks come back surfaced
+        v.submerged = false;
         v.flares = FLARES_PER_LIFE;
       }
       return;
@@ -4565,7 +4587,7 @@ export class World {
       // dead engine limps at 35% throttle response
       const engineMult = v.systems.engine > 0 ? 1 : 0.35;
       // a deep breacher shoves through packed earth — half pace
-      const depthMult = def.digs && v.burrowed ? 0.5 : 1;
+      const depthMult = def.digs && v.burrowed ? 0.5 : def.submersible && v.submerged ? 0.72 : 1;
       // §8.6: the ground has a say — hover ignores it, legs read it like boots,
       // tracks shrug at what swallows wheels
       const surf = surfaceAt(this.map.surface, v.pos.x, v.pos.z, this.map.geometry);
@@ -4699,7 +4721,10 @@ export class World {
         // striders (mech) step OVER low cover — only walls and water stop legs
         const blockedAt = def.boat
           // boats live ON the water: every land tile is their wall
-          ? (x: number, z: number) => { const t = tileAt(this.map.grid, x, z, this.map.geometry); return t !== T_WATER && t !== T_DEEP; }
+          ? (x: number, z: number) => {
+              const t = tileAt(this.map.grid, x, z, this.map.geometry);
+              return def.submersible && v.submerged ? t !== T_DEEP : t !== T_WATER && t !== T_DEEP;
+            }
           : def.strider
             // legs step over HOP-tier cover, but the CLIMB and WALL tiers
             // (§8.7) are taller than a mech's stride — barricades, walls,
@@ -5267,7 +5292,8 @@ export class World {
           // from aircraft. A ground rifle can no longer clip a high bomber.
           const vBand = asElevationLevel(v.band);
           const weaponClass: ElevationWeaponClass = p.elevationWeapon ?? (p.airScaled ? 'aircraft' : 'ground');
-          const inReach = canWeaponReachElevation(weaponClass, vBand) && (vBand > 1 || p.pos.y < 3);
+          const inReach = canWeaponReachElevation(weaponClass, vBand) && (vBand > 1 || p.pos.y < 3)
+            && (!v.submerged || def.torpedo === true);
           if (Math.hypot(v.pos.x - p.pos.x, v.pos.z - p.pos.z) < r + 0.3 && inReach) {
             if (def.heals && v.team === p.team) {
               if (v.hp < v.maxHp && p.weapon === 'repair') {
@@ -5562,6 +5588,7 @@ export class World {
       // doesn't wound the high sky. An AIR-BURST (SAM/air ordnance) still does.
       const weaponClass: ElevationWeaponClass = typeof airBurst === 'string' ? airBurst : airBurst ? 'aircraft' : 'ground';
       if (!canWeaponReachElevation(weaponClass, asElevationLevel(v.band))) continue;
+      if (v.submerged && !def.torpedo) continue;
       const d = Math.hypot(v.pos.x - pos.x, v.pos.z - pos.z);
       if (d < def.splash + VEHICLES[v.kind].radius) {
         this.damageVehicle(v, (def.splashDamage + def.damage * 0.5) * (1 - d / (def.splash + 2)), ownerId, def.id);

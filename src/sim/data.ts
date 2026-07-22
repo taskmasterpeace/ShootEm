@@ -473,6 +473,11 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
     weapon: 'boat_mg', seats: 3, mobileSpawn: false, radius: 1.8,
     boat: true, systemHp: 28,
   },
+  submarine: {
+    kind: 'submarine', name: 'Barracuda Attack Submarine', cost: 4, hp: 320, speed: 17, turnRate: 1.35,
+    weapon: 'torpedo', seats: 4, mobileSpawn: false, radius: 2.8,
+    crew: ['gunner', 'sensors', 'comms'], boat: true, submersible: true, systemHp: 48,
+  },
   // The Goliath: the walking middle ground. Slower than a tank in a straight
   // line but pivots like a soldier, and its LEGS are the point — low cover
   // that walls off every wheeled and tracked hull is a stair step to it.
@@ -540,6 +545,11 @@ WEAPONS.baby_nuke = W({
   id: 'baby_nuke', name: 'Cradle Tactical Warhead', damage: 400, rof: 0.2, speed: 10,
   clip: 1, reserve: 0, range: 30, splash: 26, splashDamage: 260,
   knockback: 34, arc: true, sound: 'cannon', tracer: 'shell',
+});
+WEAPONS.torpedo = W({
+  id: 'torpedo', name: 'Barracuda Heavy Torpedo', damage: 110, rof: 0.55,
+  speed: 34, spread: 0.012, clip: 4, reloadTime: 4.2, reserve: 20, range: 74,
+  splash: 3.8, splashDamage: 58, knockback: 5, sound: 'rocket', tracer: 'rocket', torpedo: true,
 });
 
 // ---------------------------------------------------------------------------

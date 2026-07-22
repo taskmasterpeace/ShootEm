@@ -34,6 +34,50 @@ export function buildVehicle(kind: VehicleKind, team: Team): THREE.Group {
   turret.add(recoil);
 
   switch (kind) {
+    case 'submarine': {
+      const pressureHull = cyl(0.92, 0.92, 5.8, body, 12);
+      pressureHull.rotation.z = Math.PI / 2;
+      pressureHull.position.y = 0.62;
+      g.add(pressureHull);
+      const bow = cyl(0.08, 0.9, 1.35, bodyDark, 12);
+      bow.rotation.z = -Math.PI / 2;
+      bow.position.set(3.55, 0.62, 0);
+      g.add(bow);
+      const stern = cyl(0.88, 0.18, 1.25, bodyDark, 12);
+      stern.rotation.z = -Math.PI / 2;
+      stern.position.set(-3.45, 0.62, 0);
+      g.add(stern);
+      const sail = box(1.25, 0.9, 0.65, bodyDark);
+      sail.position.set(-0.35, 1.48, 0);
+      g.add(sail);
+      const mast = cyl(0.06, 0.06, 0.85, dark, 7);
+      mast.position.set(-0.2, 2.32, 0);
+      g.add(mast);
+      for (const side of [1, -1]) {
+        const divePlane = box(1.2, 0.1, 0.55, bodyDark);
+        divePlane.position.set(1.25, 0.65, side * 0.92);
+        g.add(divePlane);
+        const tailPlane = box(0.55, 0.08, 1.15, bodyDark);
+        tailPlane.position.set(-3.25, 0.65, side * 0.48);
+        g.add(tailPlane);
+      }
+      const propeller = new THREE.Group();
+      propeller.name = 'propeller';
+      propeller.position.set(-4.15, 0.62, 0);
+      propeller.add(box(0.08, 1.55, 0.14, dark), box(0.08, 0.14, 1.55, dark));
+      g.add(propeller);
+      for (const z of [-0.32, 0.32]) {
+        const tube = cyl(0.13, 0.13, 0.9, dark, 8);
+        tube.rotation.z = Math.PI / 2;
+        tube.position.set(0.45, 0, z);
+        recoil.add(tube);
+      }
+      turret.position.set(3.1, 0.62, 0);
+      const stripe = box(3.8, 0.08, 0.12, glow);
+      stripe.position.set(0, 0.7, 0.93);
+      g.add(stripe);
+      break;
+    }
     case 'boat': {
       // the Pike: a flat-bottomed river gunboat — bow wedge, low freeboard,
       // wheelhouse aft, deck MG forward. Sits low; the water does the rest.

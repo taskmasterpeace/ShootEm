@@ -37,7 +37,8 @@ export type VehicleKind =
   | 'tunneler'     // tunneling machine — grinds through walls, glacially slow
   | 'emplacement'  // static emplacement gun — manned artillery, does not move
   | 'mech'         // bipedal assault walker — strides over low cover, stomps
-  | 'boat';        // river gunboat — water-locked, fast on the channel, MG
+  | 'boat'         // river gunboat — water-locked, fast on the channel, MG
+  | 'submarine';   // Barracuda — deep-route hunter, sonar + torpedoes
 
 /** Damageable vehicle subsystems. Crew stations correspond to the last three. */
 export type SystemId = 'engine' | 'weapon' | 'sensors' | 'ecm' | 'comms';
@@ -155,6 +156,8 @@ export interface WeaponDef {
   };
   /** on death, burst into k submunitions (~40% dmg each) that bounce */
   cluster?: number;
+  /** Naval-depth ordnance: the only projectile class that reaches a submerged hull. */
+  torpedo?: boolean;
   /** on soldier-hit, arc to n nearest extra enemies */
   chain?: number;
   /** links to the struck target (pull / leash) */
@@ -262,6 +265,8 @@ export interface VehicleDef {
   immobile?: boolean;
   /** water-locked: moves ONLY on water tiles — land is its wall (gunboat) */
   boat?: boolean;
+  /** may toggle a separate surface/submerged naval depth state */
+  submersible?: boolean;
 }
 
 /** Per-subsystem damage record: hp remaining for each SystemId. */
@@ -755,6 +760,8 @@ export interface Vehicle {
   operationObjectiveId?: string;
   /** Scorched-earth prize: losing this friendly asset fails the Operation. */
   operationPrize?: boolean;
+  /** Naval depth is independent from aircraft elevation bands. */
+  submerged?: boolean;
 }
 
 export interface Turret {

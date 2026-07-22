@@ -9,8 +9,8 @@ export const THEATER_DEFS: Record<TheaterId, TheaterDef> = {
   desert: { id: 'desert', name: 'Sirocco Reach', geometry: { cols: 300, rows: 300, tile: 3 }, theme: 'hardpan', domains: ['foot', 'ground', 'air'], freeDogfight: true, defaultPads: ['tank', 'attackheli', 'transportheli', 'strikejet'] },
   countryside: { id: 'countryside', name: 'Green March', geometry: { cols: 300, rows: 300, tile: 3 }, theme: 'savanna', domains: ['foot', 'ground', 'air'], freeDogfight: true, defaultPads: ['tank', 'apc', 'attackheli', 'transportheli'] },
   mountain: { id: 'mountain', name: 'Crown Divide', geometry: { cols: 200, rows: 300, tile: 3 }, theme: 'europa', domains: ['foot', 'ground', 'air'], freeDogfight: false, defaultPads: ['buggy', 'attackheli', 'transportheli'] },
-  coastal: { id: 'coastal', name: 'Breaker Coast', geometry: { cols: 300, rows: 200, tile: 3 }, theme: 'triton', domains: ['foot', 'ground', 'air', 'surface', 'deep'], freeDogfight: true, defaultPads: ['tank', 'boat', 'attackheli', 'transportheli', 'strikejet'] },
-  ocean: { id: 'ocean', name: 'Pelagic Expanse', geometry: { cols: 300, rows: 300, tile: 3 }, theme: 'triton', domains: ['air', 'surface', 'deep'], freeDogfight: true, defaultPads: ['boat', 'strikejet', 'interceptor'] },
+  coastal: { id: 'coastal', name: 'Breaker Coast', geometry: { cols: 300, rows: 200, tile: 3 }, theme: 'triton', domains: ['foot', 'ground', 'air', 'surface', 'deep'], freeDogfight: true, defaultPads: ['tank', 'boat', 'submarine', 'attackheli', 'transportheli', 'strikejet'] },
+  ocean: { id: 'ocean', name: 'Pelagic Expanse', geometry: { cols: 300, rows: 300, tile: 3 }, theme: 'triton', domains: ['air', 'surface', 'deep'], freeDogfight: true, defaultPads: ['boat', 'submarine', 'strikejet', 'interceptor'] },
 };
 
 function generateCatalogBase(id: TheaterId, seed: number): GameMap {

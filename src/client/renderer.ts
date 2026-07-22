@@ -2470,6 +2470,15 @@ export class Renderer {
           this.particles.emit({ pos: { x: v.pos.x, y: 0.15, z: v.pos.z }, count: 3, color: 0x6b5636, speed: 1.2, life: 0.9, spread: 1.3, up: 1.8, gravity: 5, size: 0.5 });
         }
       }
+      if (v.kind === 'submarine') {
+        const vSpeed = Math.hypot(v.vel.x, v.vel.z);
+        const propeller = mesh.getObjectByName('propeller');
+        if (propeller) propeller.rotation.x += dt * (2 + vSpeed * 1.8);
+        const depth = (mesh.userData.depth as number | undefined) ?? -0.25;
+        const nextDepth = depth + ((v.submerged ? -2.4 : -0.25) - depth) * Math.min(1, dt * 2.5);
+        mesh.userData.depth = nextDepth;
+        mesh.position.y = nextDepth;
+      }
       // THE RING at the hull's feet: vehicles wear chunks too — the tank's
       // state of the fight reads in one glance at any zoom
       {

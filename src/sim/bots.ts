@@ -916,7 +916,7 @@ function stableRouteHash(soldierId: number, vehicleId: number, routeId: string):
 
 function vehicleRouteDomain(vehicle: Vehicle): TheaterDomain {
   const def = VEHICLES[vehicle.kind];
-  return def.flies ? 'air' : def.boat ? 'surface' : 'ground';
+  return def.flies ? 'air' : def.submersible ? 'deep' : def.boat ? 'surface' : 'ground';
 }
 
 /** Stable compatible route selection for a crewed vehicle. */

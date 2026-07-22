@@ -119,6 +119,17 @@ describe('vehicle theater catalog and base builder', () => {
     expect(routesConnectBases(map, 'surface')).toBe(true);
     expect(map.theater!.routes.filter((route) => route.domain === 'surface').length).toBeGreaterThanOrEqual(2);
     expect(map.vehiclePads.filter((pad) => pad.kind === 'boat')).toHaveLength(2);
+    const submarines = map.vehiclePads.filter((pad) => pad.kind === 'submarine');
+    expect(submarines).toHaveLength(2);
+    expect(submarines.every((pad) => {
+      const x = Math.floor((pad.pos.x + map.geometry.cols * map.geometry.tile / 2) / map.geometry.tile);
+      const z = Math.floor((pad.pos.z + map.geometry.rows * map.geometry.tile / 2) / map.geometry.tile);
+      return map.grid[z * map.geometry.cols + x] === T_DEEP;
+    })).toBe(true);
+  });
+
+  it.each(['city', 'desert', 'countryside', 'mountain'] as const)('%s never stages a submarine', (id) => {
+    expect(generateTheater(id, 42).vehiclePads.some((pad) => pad.kind === 'submarine')).toBe(false);
   });
 
   it('validates all theater families over the deterministic seed matrix', () => {

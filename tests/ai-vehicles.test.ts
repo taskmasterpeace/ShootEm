@@ -16,6 +16,16 @@ function rig(theaterId: 'desert' | 'coastal') {
 }
 
 describe('theater-aware vehicle AI', () => {
+  it('assigns a Barracuda to an authored deep route', () => {
+    const world = new World({ seed: 42, mode: 'tdm', botsPerTeam: 0, map: generateTheater('ocean', 42) });
+    const bot = world.addSoldier('Sub Helm', 'infantry', 0, 'bot');
+    const deep = world.map.theater!.routes.find((candidate) => candidate.domain === 'deep')!;
+    const submarine = world.spawnVehicle('submarine', 0, deep.points[0]);
+    submarine.seats[0] = bot.id;
+    bot.vehicleId = submarine.id;
+    bot.seat = 0;
+    expect(vehicleRouteFor(world, bot, submarine)?.domain).toBe('deep');
+  });
   it('chooses a compatible declared route deterministically', () => {
     const first = rig('desert');
     const second = rig('desert');

@@ -100,7 +100,7 @@ export function carveRoute(map: GameMap, route: TheaterRoute): void {
 }
 
 const DOMAIN_BY_PAD: Partial<Record<VehicleKind, TheaterDomain>> = {
-  strikejet: 'air', interceptor: 'air', bomber: 'air', flyer: 'air', attackheli: 'air', transportheli: 'air', transport: 'air', boat: 'surface',
+  strikejet: 'air', interceptor: 'air', bomber: 'air', flyer: 'air', attackheli: 'air', transportheli: 'air', transport: 'air', boat: 'surface', submarine: 'deep',
 };
 
 export function placeDomainPad(map: GameMap, kind: VehicleKind, team: Team, pos: Vec3): void {
@@ -110,6 +110,7 @@ export function placeDomainPad(map: GameMap, kind: VehicleKind, team: Team, pos:
   if (!inBounds(map.geometry, tx, tz)) throw new Error(`theater ${map.theater.id}: ${kind} pad is out of bounds`);
   const terrain = map.grid[tileIndex(map.geometry, tx, tz)];
   if (domain === 'surface' && terrain !== T_WATER && terrain !== T_DEEP) throw new Error(`theater ${map.theater.id}: boat pad requires water`);
+  if (domain === 'deep' && terrain !== T_DEEP) throw new Error(`theater ${map.theater.id}: submarine pad requires deep water`);
   if (domain === 'ground' && terrain !== T_OPEN) throw new Error(`theater ${map.theater.id}: ${kind} pad requires open ground`);
   map.vehiclePads.push({ kind, team, pos: { ...pos } });
 }
@@ -126,6 +127,15 @@ export function stageRotorcraftPads(map: GameMap): void {
     placeDomainPad(map, 'attackheli', team, fromEnd(team, 0.2));
     placeDomainPad(map, 'transportheli', team, fromEnd(team, 0.35));
   }
+}
+
+export function stageSubmarinePads(map: GameMap): void {
+  const routes = (map.theater?.routes ?? []).filter((candidate) => candidate.domain === 'deep').sort((a, b) => a.id.localeCompare(b.id));
+  if (!routes.length) throw new Error(`theater ${map.theater?.id ?? 'unknown'}: submarine staging requires a deep route`);
+  const west = routes[0];
+  const east = routes.length > 1 ? routes.at(-1)! : routes[0];
+  placeDomainPad(map, 'submarine', 0, west.points[0]);
+  placeDomainPad(map, 'submarine', 1, routes.length > 1 ? east.points[0] : east.points.at(-1)!);
 }
 
 export function addLandingZone(map: GameMap, zone: LandingZone): void {
@@ -268,7 +278,8 @@ export function validateTheater(map: GameMap): TheaterValidation {
     if (!inBounds(map.geometry, tx, tz)) { issue(`${pad.kind} pad outside geometry`); continue; }
     const terrain = map.grid[tileIndex(map.geometry, tx, tz)];
     if (pad.kind === 'boat' && terrain !== T_WATER && terrain !== T_DEEP) issue(`boat pad on wrong surface`);
-    if (pad.kind !== 'boat' && !['strikejet', 'interceptor', 'bomber', 'flyer', 'attackheli', 'transportheli', 'transport'].includes(pad.kind) && terrain !== T_OPEN) issue(`${pad.kind} pad on wrong surface`);
+    if (pad.kind === 'submarine' && terrain !== T_DEEP) issue(`submarine pad on wrong surface`);
+    if (pad.kind !== 'boat' && pad.kind !== 'submarine' && !['strikejet', 'interceptor', 'bomber', 'flyer', 'attackheli', 'transportheli', 'transport'].includes(pad.kind) && terrain !== T_OPEN) issue(`${pad.kind} pad on wrong surface`);
   }
 
   for (const zone of map.theater?.landingZones ?? []) {

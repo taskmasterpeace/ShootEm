@@ -2,7 +2,7 @@ import { T_DEEP, T_METAL, T_OPEN, T_WATER, type GameMap } from '../map';
 import { inBounds, tileIndex, tileToWorld } from '../map-geometry';
 import {
   addLandingZone, carveRoute, createTheaterBase, finalizeTheater, placeDomainPad,
-  requiredLaneTiles, routePoints, seededTheaterRng, stageRotorcraftPads,
+  requiredLaneTiles, routePoints, seededTheaterRng, stageRotorcraftPads, stageSubmarinePads,
 } from '../theater-builder';
 import type { TheaterDef } from '../theater-types';
 
@@ -127,6 +127,7 @@ export function generateCoastalTheater(def: TheaterDef, seed: number): GameMap {
   placeDomainPad(map, 'tank', 0, routePoints(map, [[0.08, 0.42]])[0]);
   placeDomainPad(map, 'tank', 1, routePoints(map, [[0.92, 0.42]])[0]);
   stageRotorcraftPads(map);
+  stageSubmarinePads(map);
   return finalizeTheater(map);
 }
 
@@ -156,5 +157,6 @@ export function generateOceanTheater(def: TheaterDef, seed: number): GameMap {
   }));
   placeDomainPad(map, 'boat', 0, routePoints(map, [[0.09, 0.42]])[0]);
   placeDomainPad(map, 'boat', 1, routePoints(map, [[0.91, 0.42]])[0]);
+  stageSubmarinePads(map);
   return finalizeTheater(map);
 }

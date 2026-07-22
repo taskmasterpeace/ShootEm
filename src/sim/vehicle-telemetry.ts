@@ -10,7 +10,7 @@ export const VEHICLE_INCIDENT_LIMIT = 80;
 
 export type VehicleIncidentKind =
   | 'stuck' | 'wrong_surface' | 'non_finite' | 'crash' | 'bailout'
-  | 'abandon' | 'boundary_wrap' | 'route_complete' | 'landing';
+  | 'abandon' | 'boundary_wrap' | 'route_complete' | 'landing' | 'dive' | 'surface' | 'wrong_depth';
 
 export interface VehicleSampleEntry {
   id: number;
