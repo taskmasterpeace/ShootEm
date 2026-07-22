@@ -1,0 +1,262 @@
+{
+  "report": {
+    "generatedAt": "deterministic",
+    "seeds": [
+      7,
+      31,
+      42,
+      99,
+      4207,
+      5150,
+      7749,
+      1337,
+      90210,
+      606
+    ],
+    "scenarios": [
+      {
+        "theater": "coastal",
+        "seed": 7,
+        "dives": 2,
+        "firstContact": 32.9,
+        "shots": 16,
+        "hits": 15,
+        "damage": 628.828,
+        "nonFinite": 0,
+        "wrongDepth": 0,
+        "routeCompletions": 2
+      },
+      {
+        "theater": "ocean",
+        "seed": 7,
+        "dives": 2,
+        "firstContact": 47.7,
+        "shots": 14,
+        "hits": 12,
+        "damage": 533.08,
+        "nonFinite": 0,
+        "wrongDepth": 0,
+        "routeCompletions": 2
+      },
+      {
+        "theater": "coastal",
+        "seed": 31,
+        "dives": 2,
+        "firstContact": 32.9,
+        "shots": 11,
+        "hits": 10,
+        "damage": 438.542,
+        "nonFinite": 0,
+        "wrongDepth": 0,
+        "routeCompletions": 2
+      },
+      {
+        "theater": "ocean",
+        "seed": 31,
+        "dives": 2,
+        "firstContact": 47.7,
+        "shots": 6,
+        "hits": 5,
+        "damage": 229.45,
+        "nonFinite": 0,
+        "wrongDepth": 0,
+        "routeCompletions": 2
+      },
+      {
+        "theater": "coastal",
+        "seed": 42,
+        "dives": 2,
+        "firstContact": 32.9,
+        "shots": 14,
+        "hits": 12,
+        "damage": 587.771,
+        "nonFinite": 0,
+        "wrongDepth": 0,
+        "routeCompletions": 2
+      },
+      {
+        "theater": "ocean",
+        "seed": 42,
+        "dives": 2,
+        "firstContact": 47.7,
+        "shots": 14,
+        "hits": 12,
+        "damage": 550.746,
+        "nonFinite": 0,
+        "wrongDepth": 0,
+        "routeCompletions": 2
+      },
+      {
+        "theater": "coastal",
+        "seed": 99,
+        "dives": 2,
+        "firstContact": 32.9,
+        "shots": 16,
+        "hits": 12,
+        "damage": 588.213,
+        "nonFinite": 0,
+        "wrongDepth": 0,
+        "routeCompletions": 2
+      },
+      {
+        "theater": "ocean",
+        "seed": 99,
+        "dives": 2,
+        "firstContact": 47.7,
+        "shots": 15,
+        "hits": 14,
+        "damage": 636.867,
+        "nonFinite": 0,
+        "wrongDepth": 0,
+        "routeCompletions": 2
+      },
+      {
+        "theater": "coastal",
+        "seed": 4207,
+        "dives": 2,
+        "firstContact": 32.9,
+        "shots": 14,
+        "hits": 13,
+        "damage": 583.585,
+        "nonFinite": 0,
+        "wrongDepth": 0,
+        "routeCompletions": 2
+      },
+      {
+        "theater": "ocean",
+        "seed": 4207,
+        "dives": 2,
+        "firstContact": 47.7,
+        "shots": 12,
+        "hits": 11,
+        "damage": 500.233,
+        "nonFinite": 0,
+        "wrongDepth": 0,
+        "routeCompletions": 2
+      },
+      {
+        "theater": "coastal",
+        "seed": 5150,
+        "dives": 2,
+        "firstContact": 32.9,
+        "shots": 13,
+        "hits": 12,
+        "damage": 545.689,
+        "nonFinite": 0,
+        "wrongDepth": 0,
+        "routeCompletions": 2
+      },
+      {
+        "theater": "ocean",
+        "seed": 5150,
+        "dives": 2,
+        "firstContact": 47.7,
+        "shots": 12,
+        "hits": 11,
+        "damage": 521.206,
+        "nonFinite": 0,
+        "wrongDepth": 0,
+        "routeCompletions": 2
+      },
+      {
+        "theater": "coastal",
+        "seed": 7749,
+        "dives": 2,
+        "firstContact": 32.9,
+        "shots": 15,
+        "hits": 10,
+        "damage": 549.122,
+        "nonFinite": 0,
+        "wrongDepth": 0,
+        "routeCompletions": 2
+      },
+      {
+        "theater": "ocean",
+        "seed": 7749,
+        "dives": 2,
+        "firstContact": 47.7,
+        "shots": 16,
+        "hits": 13,
+        "damage": 596.198,
+        "nonFinite": 0,
+        "wrongDepth": 0,
+        "routeCompletions": 2
+      },
+      {
+        "theater": "coastal",
+        "seed": 1337,
+        "dives": 2,
+        "firstContact": 32.9,
+        "shots": 12,
+        "hits": 9,
+        "damage": 406.488,
+        "nonFinite": 0,
+        "wrongDepth": 0,
+        "routeCompletions": 2
+      },
+      {
+        "theater": "ocean",
+        "seed": 1337,
+        "dives": 2,
+        "firstContact": 47.7,
+        "shots": 10,
+        "hits": 9,
+        "damage": 401.276,
+        "nonFinite": 0,
+        "wrongDepth": 0,
+        "routeCompletions": 2
+      },
+      {
+        "theater": "coastal",
+        "seed": 90210,
+        "dives": 2,
+        "firstContact": 32.9,
+        "shots": 15,
+        "hits": 10,
+        "damage": 533.411,
+        "nonFinite": 0,
+        "wrongDepth": 0,
+        "routeCompletions": 2
+      },
+      {
+        "theater": "ocean",
+        "seed": 90210,
+        "dives": 2,
+        "firstContact": 47.7,
+        "shots": 14,
+        "hits": 12,
+        "damage": 494.144,
+        "nonFinite": 0,
+        "wrongDepth": 0,
+        "routeCompletions": 2
+      },
+      {
+        "theater": "coastal",
+        "seed": 606,
+        "dives": 2,
+        "firstContact": 32.9,
+        "shots": 14,
+        "hits": 11,
+        "damage": 497.342,
+        "nonFinite": 0,
+        "wrongDepth": 0,
+        "routeCompletions": 2
+      },
+      {
+        "theater": "ocean",
+        "seed": 606,
+        "dives": 2,
+        "firstContact": 47.7,
+        "shots": 12,
+        "hits": 11,
+        "damage": 492.145,
+        "nonFinite": 0,
+        "wrongDepth": 0,
+        "routeCompletions": 2
+      }
+    ]
+  },
+  "verdict": {
+    "failures": []
+  }
+}

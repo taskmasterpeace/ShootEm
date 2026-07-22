@@ -439,3 +439,77 @@ export function evaluateRotorcraftMatrix(report: RotorcraftMatrixReport): Rotorc
   });
   return { insertionFailures, supportFailures };
 }
+
+export interface SubmarineBattleResult {
+  theater: 'coastal' | 'ocean';
+  seed: number;
+  dives: number;
+  firstContact: number | null;
+  shots: number;
+  hits: number;
+  damage: number;
+  nonFinite: number;
+  wrongDepth: number;
+  routeCompletions: number;
+}
+
+export function runSubmarineBattle(theater: 'coastal' | 'ocean', seed: number, seconds: number): SubmarineBattleResult {
+  const world = new World({ seed, mode: 'tdm', botsPerTeam: 0, map: generateTheater(theater, seed) });
+  world.vehicles.clear();
+  const route = world.map.theater!.routes.filter((candidate) => candidate.domain === 'deep').sort((a, b) => a.id.localeCompare(b.id))[0];
+  if (!route) throw new Error(`${theater} has no deep route`);
+  const left = crewVehicle(world, 'submarine', 0, route.points[0], route.id);
+  const right = crewVehicle(world, 'submarine', 1, route.points.at(-1)!, route.id);
+  let nonFinite = 0;
+  let leftMinimum = left.vehicle.hp;
+  let rightMinimum = right.vehicle.hp;
+  observe(world, () => {
+    leftMinimum = Math.min(leftMinimum, left.vehicle.hp);
+    rightMinimum = Math.min(rightMinimum, right.vehicle.hp);
+    if (![left.vehicle, right.vehicle].flatMap((vehicle) => [vehicle.pos.x, vehicle.pos.z, vehicle.vel.x, vehicle.vel.z]).every(Number.isFinite)) nonFinite++;
+  });
+  runScenario(world, seconds);
+  const telemetry = vehicleTelemetrySnapshot(world.vehicleTelemetry);
+  return {
+    theater, seed,
+    dives: telemetry.incidents.filter((incident) => incident.kind === 'dive').length,
+    firstContact: telemetry.summary.firstContact ?? null,
+    shots: telemetry.summary.shotsByKind.submarine ?? 0,
+    hits: telemetry.summary.hitsByKind.submarine ?? 0,
+    damage: +(left.vehicle.maxHp - leftMinimum + right.vehicle.maxHp - rightMinimum).toFixed(3),
+    nonFinite,
+    wrongDepth: telemetry.incidents.filter((incident) => incident.kind === 'wrong_depth').length,
+    routeCompletions: telemetry.summary.routeCompletions,
+  };
+}
+
+export interface SubmarineMatrixReport {
+  generatedAt: string;
+  seeds: number[];
+  scenarios: SubmarineBattleResult[];
+}
+
+export function runSubmarineMatrix({ seeds }: { seeds: number[] }): SubmarineMatrixReport {
+  const scenarios: SubmarineBattleResult[] = [];
+  for (const seed of seeds) for (const theater of ['coastal', 'ocean'] as const) {
+    scenarios.push(runSubmarineBattle(theater, seed, 180));
+  }
+  return { generatedAt: 'deterministic', seeds: [...seeds], scenarios };
+}
+
+export function evaluateSubmarineMatrix(report: SubmarineMatrixReport): { failures: string[] } {
+  const failures = report.scenarios.flatMap((row) => {
+    const issues = [
+      ...(row.dives < 2 ? [`only ${row.dives} dives`] : []),
+      ...(row.firstContact === null ? ['no contact'] : []),
+      ...(row.shots <= 0 ? ['no torpedoes'] : []),
+      ...(row.hits <= 0 ? ['no hits'] : []),
+      ...(row.damage <= 0 ? ['no damage'] : []),
+      ...(row.nonFinite > 0 ? [`${row.nonFinite} non-finite samples`] : []),
+      ...(row.wrongDepth > 0 ? [`${row.wrongDepth} wrong-depth incidents`] : []),
+      ...(row.routeCompletions <= 0 ? ['no route completion'] : []),
+    ];
+    return issues.map((issue) => `submarine:${row.theater}:${row.seed}: ${issue}`);
+  });
+  return { failures };
+}

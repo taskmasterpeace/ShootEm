@@ -4,11 +4,14 @@ import { fileURLToPath } from 'node:url';
 import {
   evaluateFoundationMatrix,
   evaluateRotorcraftMatrix,
+  evaluateSubmarineMatrix,
   runFoundationMatrix,
   runRotorcraftMatrix,
+  runSubmarineMatrix,
   type FoundationMatrixReport,
   type FoundationMatrixVerdict,
   type RotorcraftMatrixReport,
+  type SubmarineMatrixReport,
   type VehicleScenarioKind,
 } from '../src/sim/scenario-runner';
 
@@ -99,21 +102,52 @@ function rotorcraftMarkdown(report: RotorcraftMatrixReport, insertionFailures: s
   return `${lines.join('\n')}\n`;
 }
 
+function submarineMarkdown(report: SubmarineMatrixReport, errors: string[]): string {
+  const contacts = report.scenarios.flatMap((row) => row.firstContact === null ? [] : [row.firstContact]);
+  const totalShots = report.scenarios.reduce((sum, row) => sum + row.shots, 0);
+  const totalHits = report.scenarios.reduce((sum, row) => sum + row.hits, 0);
+  const lines = [
+    '# Submarine Warfare Report',
+    '',
+    `Status: **${errors.length === 0 ? 'PASS' : 'FAIL'}**`,
+    '',
+    `Deterministic seeds: ${report.seeds.join(', ')}`,
+    '',
+    '| Gate | Result | Required |',
+    '| --- | ---: | ---: |',
+    `| Coastal/Ocean deep-route fights | ${report.scenarios.length} | 20 |`,
+    `| Scenario failures | ${errors.length} | 0 |`,
+    `| First contact | ${Math.min(...contacts)}-${Math.max(...contacts)}s | every run |`,
+    `| Torpedoes / hits | ${totalShots} / ${totalHits} | >0 / >0 |`,
+    `| Wrong-depth incidents | ${report.scenarios.reduce((sum, row) => sum + row.wrongDepth, 0)} | 0 |`,
+    '',
+    'Barracudas dive, follow authored deep routes, acquire through sonar, and exchange torpedoes in the production simulation. Ordinary surface ordnance remains unable to damage submerged hulls.',
+    '',
+  ];
+  if (errors.length) lines.push('## Failures', '', ...errors.map((error) => `- ${error}`), '');
+  return `${lines.join('\n')}\n`;
+}
+
 const report = runFoundationMatrix({ seeds: SEEDS });
 const verdict = evaluateFoundationMatrix(report);
 const foundationErrors = failures(verdict);
 const rotorcraft = runRotorcraftMatrix({ seeds: SEEDS });
 const rotorcraftVerdict = evaluateRotorcraftMatrix(rotorcraft);
 const rotorcraftErrors = [...rotorcraftVerdict.insertionFailures, ...rotorcraftVerdict.supportFailures];
+const submarine = runSubmarineMatrix({ seeds: SEEDS });
+const submarineVerdict = evaluateSubmarineMatrix(submarine);
 mkdirSync(outputDir, { recursive: true });
 writeFileSync(resolve(outputDir, 'foundation-report.json'), `${JSON.stringify({ report, verdict }, null, 2)}\n`);
 writeFileSync(resolve(outputDir, 'foundation-report.md'), markdown(report, verdict, foundationErrors));
 writeFileSync(resolve(outputDir, 'rotorcraft-report.json'), `${JSON.stringify({ report: rotorcraft, verdict: rotorcraftVerdict }, null, 2)}\n`);
 writeFileSync(resolve(outputDir, 'rotorcraft-report.md'), rotorcraftMarkdown(rotorcraft, rotorcraftVerdict.insertionFailures, rotorcraftVerdict.supportFailures));
+writeFileSync(resolve(outputDir, 'submarine-report.json'), `${JSON.stringify({ report: submarine, verdict: submarineVerdict }, null, 2)}\n`);
+writeFileSync(resolve(outputDir, 'submarine-report.md'), submarineMarkdown(submarine, submarineVerdict.failures));
 
 console.log(`Vehicle theater matrix: ${foundationErrors.length === 0 ? 'PASS' : 'FAIL'} (${report.scenarios.length} scenarios)`);
 console.log(`Fixed-wing contact ${verdict.fixedWingFirstContact.min}-${verdict.fixedWingFirstContact.max}s; ground/naval ${verdict.groundNavalFirstContact.min}-${verdict.groundNavalFirstContact.max}s`);
 console.log(`Mirrored side win ceiling ${(verdict.maxMirroredWinRate * 100).toFixed(1)}%`);
 console.log(`Rotorcraft matrix: ${rotorcraftErrors.length === 0 ? 'PASS' : 'FAIL'} (${rotorcraft.insertions.length + rotorcraft.support.length} scenarios)`);
-for (const error of [...foundationErrors, ...rotorcraftErrors]) console.error(`- ${error}`);
-if (foundationErrors.length || rotorcraftErrors.length) process.exitCode = 1;
+console.log(`Submarine matrix: ${submarineVerdict.failures.length === 0 ? 'PASS' : 'FAIL'} (${submarine.scenarios.length} scenarios)`);
+for (const error of [...foundationErrors, ...rotorcraftErrors, ...submarineVerdict.failures]) console.error(`- ${error}`);
+if (foundationErrors.length || rotorcraftErrors.length || submarineVerdict.failures.length) process.exitCode = 1;

@@ -428,6 +428,7 @@ function enemyVehicleNear(w: World, s: Soldier, maxRange: number) {
   let best: { id: number; pos: Vec3; d: number } | null = null;
   for (const v of w.vehicles.values()) {
     if (!v.alive || v.team === s.team || !v.seats.some((x) => x >= 0)) continue;
+    if (v.submerged && !w.submarineDetectedForTeam(v, s.team)) continue;
     const d = Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z);
     if (d < maxRange && (!best || d < best.d)) best = { id: v.id, pos: v.pos, d };
   }
@@ -1053,6 +1054,8 @@ function stepTheaterVehicle(w: World, s: Soldier, vehicle: Vehicle, route: Theat
   cmd.moveX = Math.max(-1, Math.min(1, delta * 2));
   cmd.moveZ = (s.botVehicleStallWindows ?? 0) > 0 ? 0.35 : Math.abs(delta) < 1.1 ? -1 : -0.2;
   cmd.aimYaw = vehicle.yaw;
+
+  if (def.submersible && !vehicle.submerged && w.canSubmerge(vehicle)) cmd.ability = true;
 
   if (def.flies && s.botAirProfile === 'strike') {
     const index = s.botVehicleRouteIndex ?? 1;

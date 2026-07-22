@@ -172,6 +172,9 @@ export function stepVehicleTelemetry(w: World): void {
     const def = VEHICLES[vehicle.kind];
     const wrongSurface = def.boat ? terrain !== T_WATER && terrain !== T_DEEP : false;
     if (wrongSurface) fileIncident(telemetry, eventFor(w, vehicle.id, vehicle.kind, 'wrong_surface', vehicle.pos.x, vehicle.pos.z, `tile ${terrain}`), true);
+    if (def.submersible && vehicle.submerged && terrain !== T_DEEP) {
+      fileIncident(telemetry, eventFor(w, vehicle.id, vehicle.kind, 'wrong_depth', vehicle.pos.x, vehicle.pos.z, `tile ${terrain}`), true);
+    }
 
     const commanded = w.vehicleCommandedSpeed.get(vehicle.id) ?? 0;
     const stuck = vehicle.alive && vehicle.seats[0] >= 0 && commanded > 3 && previous !== undefined && distance < 1.2;

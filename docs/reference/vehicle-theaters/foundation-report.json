@@ -208,6 +208,7 @@
           "distanceByKind": {
             "attackheli": 0,
             "boat": 0,
+            "submarine": 0,
             "tank": 1856.253,
             "transportheli": 0
           },
@@ -215,7 +216,7 @@
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 1620,
+            "0": 1980,
             "1": 0,
             "2": 0,
             "3": 0
@@ -248,13 +249,14 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "boat": 3308.154
+            "boat": 3308.154,
+            "submarine": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 900,
             "1": 0,
             "2": 0,
             "3": 0
@@ -1164,6 +1166,7 @@
           "distanceByKind": {
             "attackheli": 0,
             "boat": 0,
+            "submarine": 0,
             "tank": 1927.934,
             "transportheli": 0
           },
@@ -1171,7 +1174,7 @@
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 1620,
+            "0": 1980,
             "1": 0,
             "2": 0,
             "3": 0
@@ -1204,13 +1207,14 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "boat": 3642.327
+            "boat": 3642.327,
+            "submarine": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 900,
             "1": 0,
             "2": 0,
             "3": 0
@@ -2120,6 +2124,7 @@
           "distanceByKind": {
             "attackheli": 0,
             "boat": 0,
+            "submarine": 0,
             "tank": 1927.934,
             "transportheli": 0
           },
@@ -2127,7 +2132,7 @@
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 1620,
+            "0": 1980,
             "1": 0,
             "2": 0,
             "3": 0
@@ -2160,13 +2165,14 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "boat": 3219.441
+            "boat": 3219.441,
+            "submarine": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 900,
             "1": 0,
             "2": 0,
             "3": 0
@@ -3079,6 +3085,7 @@
           "distanceByKind": {
             "attackheli": 0,
             "boat": 0,
+            "submarine": 0,
             "tank": 1844.439,
             "transportheli": 0
           },
@@ -3086,7 +3093,7 @@
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 1620,
+            "0": 1980,
             "1": 0,
             "2": 0,
             "3": 0
@@ -3119,13 +3126,14 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "boat": 3415.329
+            "boat": 3415.329,
+            "submarine": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 900,
             "1": 0,
             "2": 0,
             "3": 0
@@ -4038,6 +4046,7 @@
           "distanceByKind": {
             "attackheli": 0,
             "boat": 0,
+            "submarine": 0,
             "tank": 1836.543,
             "transportheli": 0
           },
@@ -4045,7 +4054,7 @@
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 1620,
+            "0": 1980,
             "1": 0,
             "2": 0,
             "3": 0
@@ -4078,13 +4087,14 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "boat": 3614.313
+            "boat": 3614.313,
+            "submarine": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 900,
             "1": 0,
             "2": 0,
             "3": 0
@@ -4993,6 +5003,7 @@
           "distanceByKind": {
             "attackheli": 0,
             "boat": 0,
+            "submarine": 0,
             "tank": 1864.398,
             "transportheli": 0
           },
@@ -5000,7 +5011,7 @@
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 1620,
+            "0": 1980,
             "1": 0,
             "2": 0,
             "3": 0
@@ -5033,13 +5044,14 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "boat": 3642.327
+            "boat": 3642.327,
+            "submarine": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 900,
             "1": 0,
             "2": 0,
             "3": 0
@@ -5952,6 +5964,7 @@
           "distanceByKind": {
             "attackheli": 0,
             "boat": 0,
+            "submarine": 0,
             "tank": 1927.934,
             "transportheli": 0
           },
@@ -5959,7 +5972,7 @@
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 1620,
+            "0": 1980,
             "1": 0,
             "2": 0,
             "3": 0
@@ -5992,13 +6005,14 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "boat": 3642.327
+            "boat": 3642.327,
+            "submarine": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 900,
             "1": 0,
             "2": 0,
             "3": 0
@@ -6909,6 +6923,7 @@
           "distanceByKind": {
             "attackheli": 0,
             "boat": 0,
+            "submarine": 0,
             "tank": 1812.113,
             "transportheli": 0
           },
@@ -6916,7 +6931,7 @@
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 1620,
+            "0": 1980,
             "1": 0,
             "2": 0,
             "3": 0
@@ -6949,13 +6964,14 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "boat": 3302.998
+            "boat": 3302.998,
+            "submarine": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 900,
             "1": 0,
             "2": 0,
             "3": 0
@@ -7868,6 +7884,7 @@
           "distanceByKind": {
             "attackheli": 0,
             "boat": 0,
+            "submarine": 0,
             "tank": 1927.934,
             "transportheli": 0
           },
@@ -7875,7 +7892,7 @@
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 1620,
+            "0": 1980,
             "1": 0,
             "2": 0,
             "3": 0
@@ -7908,13 +7925,14 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "boat": 3642.327
+            "boat": 3642.327,
+            "submarine": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 900,
             "1": 0,
             "2": 0,
             "3": 0
@@ -8823,6 +8841,7 @@
           "distanceByKind": {
             "attackheli": 0,
             "boat": 0,
+            "submarine": 0,
             "tank": 1927.934,
             "transportheli": 0
           },
@@ -8830,7 +8849,7 @@
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 1620,
+            "0": 1980,
             "1": 0,
             "2": 0,
             "3": 0
@@ -8863,13 +8882,14 @@
         "objectiveComplete": true,
         "telemetry": {
           "distanceByKind": {
-            "boat": 3308.47
+            "boat": 3308.47,
+            "submarine": 0
           },
           "lossesByKind": {},
           "shotsByKind": {},
           "hitsByKind": {},
           "elevationSeconds": {
-            "0": 540,
+            "0": 900,
             "1": 0,
             "2": 0,
             "3": 0
