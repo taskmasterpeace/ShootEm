@@ -35,6 +35,17 @@ describe('Map Maker document v2', () => {
     expect(back.map.buildingMeta).toEqual(doc.map.buildingMeta);
   });
 
+  it('round-trips terrain height and ramp layers', () => {
+    const doc = blankDoc('small', 74);
+    doc.map.height = Uint8Array.from({ length: GRID * GRID }, (_, index) => index % 3);
+    doc.map.ramp = Uint8Array.from({ length: GRID * GRID }, (_, index) => index % 17 === 0 ? 1 : 0);
+
+    const back = deserializeDoc(JSON.parse(JSON.stringify(serializeDoc(doc))) as MapJSON);
+
+    expect(back.map.height).toEqual(doc.map.height);
+    expect(back.map.ramp).toEqual(doc.map.ramp);
+  });
+
   it('imports a legacy v1 document without inventing level three', () => {
     const v2 = serializeDoc(blankDoc('small', 72));
     const { upperLayers: _upperLayers, buildingMeta: _buildingMeta, ...base } = v2;

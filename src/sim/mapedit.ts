@@ -60,6 +60,8 @@ function cloneMap(m: GameMap): GameMap {
     seed: m.seed, theme: m.theme, geometry: { ...m.geometry },
     grid: m.grid.slice(), grid2, surface: m.surface.slice(),
     ...(upperLayers ? { upperLayers } : {}),
+    ...(m.height ? { height: m.height.slice() } : {}),
+    ...(m.ramp ? { ramp: m.ramp.slice() } : {}),
     ...(m.buildingMeta ? { buildingMeta: structuredClone(m.buildingMeta) } : {}),
     basePos: [{ ...m.basePos[0] }, { ...m.basePos[1] }],
     spawns: [m.spawns[0].map((s) => ({ ...s })), m.spawns[1].map((s) => ({ ...s }))],
@@ -231,6 +233,8 @@ export interface MapJSONV2 extends MapJSONBase {
   v: 2;
   upperLayers: number[][];
   buildingMeta?: BuildingMapMeta;
+  height?: number[];
+  ramp?: number[];
 }
 export type MapJSON = MapJSONV1 | MapJSONV2;
 
@@ -242,6 +246,8 @@ export function serializeDoc(doc: MakerDoc): MapJSONV2 {
     grid: [...m.grid], grid2: [...m.grid2], surface: [...m.surface],
     upperLayers: (m.upperLayers ?? [m.grid2]).map((layer) => [...layer]),
     ...(m.buildingMeta ? { buildingMeta: structuredClone(m.buildingMeta) } : {}),
+    ...(m.height ? { height: [...m.height] } : {}),
+    ...(m.ramp ? { ramp: [...m.ramp] } : {}),
     basePos: m.basePos, spawns: m.spawns, flagPos: m.flagPos, hillPos: m.hillPos,
     controlPoints: m.controlPoints, vehiclePads: m.vehiclePads, pickups: m.pickups,
     props: m.props, zombieSpawns: m.zombieSpawns, houses: m.houses, theme: m.theme,
@@ -259,12 +265,16 @@ export function deserializeDoc(json: MapJSON): MakerDoc {
   const grid2 = upperLayers?.[0] ?? Uint8Array.from(json.grid2);
   if (upperLayers) upperLayers[0] = grid2;
   const surface = Uint8Array.from(json.surface);
-  validateGeometry(geometry, grid, grid2, surface, ...(upperLayers ?? []));
+  const height = json.v === 2 && json.height ? Uint8Array.from(json.height) : undefined;
+  const ramp = json.v === 2 && json.ramp ? Uint8Array.from(json.ramp) : undefined;
+  validateGeometry(geometry, grid, grid2, surface, ...(upperLayers ?? []), ...(height ? [height] : []), ...(ramp ? [ramp] : []));
   const map: GameMap = {
     seed: json.seed, theme: json.theme, geometry,
     grid, grid2, surface,
     ...(upperLayers ? { upperLayers } : {}),
     ...(json.v === 2 && json.buildingMeta ? { buildingMeta: structuredClone(json.buildingMeta) } : {}),
+    ...(height ? { height } : {}),
+    ...(ramp ? { ramp } : {}),
     basePos: json.basePos, spawns: json.spawns, flagPos: json.flagPos, hillPos: json.hillPos,
     controlPoints: json.controlPoints, vehiclePads: json.vehiclePads, pickups: json.pickups,
     props: json.props, zombieSpawns: json.zombieSpawns, houses: json.houses,
