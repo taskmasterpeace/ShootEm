@@ -7,7 +7,7 @@ import { ammoReport, blackboxReport, type BbIncident, type BbSample } from './si
 import { vehicleTelemetryReport, vehicleTelemetrySnapshot, type VehicleTelemetrySnapshot } from './sim/vehicle-telemetry';
 import { mapSizeForPlayers } from './sim/fronts';
 import { WEATHER_MODS } from './sim/weather';
-import { onMatchEnd, paintballConfig } from './client/onboarding';
+import { loadOnboarding, mountOnboarding, onMatchEnd, paintballConfig } from './client/onboarding';
 import { mountFrontend } from './client/frontend';
 import { GhostPlayer, GhostRecorder, ghostKey, loadGhost, saveGhost } from './client/ghost';
 import { factionTeam, loadIdentity, type PlayerIdentity } from './client/identity';
@@ -1706,9 +1706,42 @@ function applyIdentity(id: PlayerIdentity) {
   if (nameInput) nameInput.value = id.callsign;
   playerTeam = factionTeam(id.faction);
 }
+// §14 THE FIRST HOUR, re-hung (#48): the front-door commit orphaned the boot
+// camp — mountOnboarding lost its only caller and the paintball yard became
+// dead code. The host below is the recovered pre-front-door launch wiring;
+// mountOnboarding self-guards (stage==='done' → returns false, mounts nothing).
+const onboardingHost = {
+  launch(cfg: { mode: ModeId; theme: ThemeId; seed?: number; classId?: ClassId; equipment?: string[] }) {
+    selectedMilitaryMissionId = null;
+    selectedMode = cfg.mode;
+    selectedTheme = cfg.theme;
+    seedOverride = cfg.seed;
+    if (cfg.classId) selectedClass = cfg.classId;
+    if (cfg.equipment) selectedEquipment = cfg.equipment.filter((id) => EQUIPMENT[id]);
+    activeFrontId = null;
+    startGame();
+  },
+};
 mountFrontend({
-  enterMenu() { $('menu').classList.remove('hidden'); },
+  enterMenu() {
+    $('menu').classList.remove('hidden');
+    // a fresh recruit's first SINGLE PLAYER goes to the paintball yard — the
+    // boot camp overlay mounts OVER the deploy screen until its state machine
+    // says done; veterans (and skippers) never see it again
+    mountOnboarding(onboardingHost);
+  },
   onIdentity: applyIdentity,
 });
 // a returning player already has an identity — seed the team before any deploy
 { const id0 = loadIdentity(); if (id0) playerTeam = factionTeam(id0.faction); }
+// MID-COURSE RESUME: the yard advances by reloading the page between rounds —
+// if boot camp is genuinely IN PROGRESS (past the untouched default), remount
+// it immediately over the front menu so round 2 / the profile read greets the
+// recruit without an extra click. A brand-new player still gets the front door
+// first (enlist → menu → SINGLE PLAYER → the yard).
+{
+  const ob = loadOnboarding();
+  if (loadIdentity() && ob.stage !== 'done' && (ob.stage !== 'skirmish' || ob.rounds.length > 0)) {
+    mountOnboarding(onboardingHost);
+  }
+}
