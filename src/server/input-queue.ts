@@ -42,7 +42,7 @@ export function resetCmdQueue(s: CmdQueueState): void {
 
 /** A cmd's one-shot intents fire exactly once; strip them for a repeat. */
 export function zeroOneShots(c: PlayerCmd): PlayerCmd {
-  return { ...c, use: false, ability: false, reload: false, grenade: false, weaponSlot: -1, dash: 0, melee: false, nadeCycle: false };
+  return { ...c, use: false, ability: false, reload: false, grenade: false, weaponSlot: -1, dash: 0, melee: false, nadeCycle: false, k9: undefined };
 }
 
 /** A stale client stands still — kill movement, fire, and jetpack. */

@@ -19,6 +19,7 @@ import { ICE_HOLD_DRAIN, LSWS, STRUGGLE_HP, type LswDef } from '../sim/lsw';
 import { hash01 } from '../sim/rng';
 import { collapseStyleFor, type CollapseStyle } from './deathpose';
 import { buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp, buildSoldier, buildTurretMesh, buildVehicle, dressAsLsw } from './models';
+import { k9MarkerKind } from './k9-controls';
 
 const TRACER_COLORS: Record<string, number> = {
   bullet: 0xffd890, shell: 0xffb060, rocket: 0xff8840, plasma: 0x60c8ff,
@@ -288,6 +289,7 @@ export class Renderer {
   // ---- visual feedback state ----
   private pingMarkers = new Map<number, THREE.Sprite>();   // revealed enemies get a chevron
   private pingTexture: THREE.Texture | null = null;
+  private k9Textures: Partial<Record<'sic' | 'stay', THREE.Texture>> = {};
   private sweepRings: { mesh: THREE.Mesh; born: number }[] = []; // sensor-station radar pulses
   /** ✦ sonic-boom vapor rings (afterburner at speed) + per-hull burner edge memory */
   private boomRings: { mesh: THREE.Mesh; born: number }[] = [];
@@ -396,6 +398,30 @@ export class Renderer {
     const tex = new THREE.CanvasTexture(cvs);
     tex.colorSpace = THREE.SRGBColorSpace;
     this.pingTexture = tex;
+    return tex;
+  }
+
+  /** Handler command glyphs: an arrow for an active search, a square for hold. */
+  private getK9Texture(kind: 'sic' | 'stay'): THREE.Texture {
+    const cached = this.k9Textures[kind];
+    if (cached) return cached;
+    const cvs = document.createElement('canvas');
+    cvs.width = cvs.height = 64;
+    const ctx = cvs.getContext('2d')!;
+    ctx.fillStyle = '#e8a33d';
+    ctx.strokeStyle = 'rgba(12,10,7,0.9)';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    if (kind === 'sic') {
+      ctx.moveTo(32, 7); ctx.lineTo(55, 42); ctx.lineTo(39, 38);
+      ctx.lineTo(39, 56); ctx.lineTo(25, 56); ctx.lineTo(25, 38); ctx.lineTo(9, 42);
+    } else {
+      ctx.rect(14, 14, 36, 36);
+    }
+    ctx.closePath(); ctx.stroke(); ctx.fill();
+    const tex = new THREE.CanvasTexture(cvs);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    this.k9Textures[kind] = tex;
     return tex;
   }
 
@@ -2041,6 +2067,23 @@ export class Renderer {
       const surfing = surfBoard?.kind === 'hoverboard' && surfBoard.alive;
       mesh.visible = (s.alive || corpse) && (!inVehicle || surfing) && !dark && !(s.cloaked && s.team !== localTeam && s.id !== localId);
       if (!mesh.visible) continue;
+      const k9Kind = s.ownerId === localId ? k9MarkerKind(s) : null;
+      let k9Marker = mesh.userData.k9Marker as THREE.Sprite | undefined;
+      if (k9Kind && (!k9Marker || k9Marker.userData.kind !== k9Kind)) {
+        if (k9Marker) { mesh.remove(k9Marker); k9Marker.material.dispose(); }
+        k9Marker = new THREE.Sprite(new THREE.SpriteMaterial({
+          map: this.getK9Texture(k9Kind), transparent: true, depthWrite: false,
+        }));
+        k9Marker.userData.kind = k9Kind;
+        k9Marker.position.y = 2.35;
+        k9Marker.scale.set(0.7, 0.7, 1);
+        mesh.add(k9Marker);
+        mesh.userData.k9Marker = k9Marker;
+      } else if (!k9Kind && k9Marker) {
+        mesh.remove(k9Marker); k9Marker.material.dispose(); mesh.userData.k9Marker = undefined;
+        k9Marker = undefined;
+      }
+      if (k9Marker) k9Marker.material.opacity = 0.78 + Math.sin(world.time * 4) * 0.16;
       // UI P0 (docs/UI-MASTER.md §2): a DOWNED FRIENDLY is marked — a pulsing
       // amber ground ring under the body (enemies' downed stay unmarked: the
       // hover-ring already skips them deliberately), and while a revive

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CLASSES } from '../sim/data';
-import type { PlayerCmd, Soldier } from '../sim/types';
+import type { K9Command, PlayerCmd, Soldier } from '../sim/types';
 
 /** STATUS §1 / W1.3 — SPACE is a tap/hold: a quick TAP jumps, a HOLD ducks.
  *  The window a press must beat to count as a tap (else it's a duck). */
@@ -44,7 +44,7 @@ export class Input {
   grenadeLob = 1;
   /** F held: charging an Impact Charge (§13). Release commits the strike. */
   private meleeDown = false;
-  private oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false, dash: 0, melee: false, cycleAmmo: false, grapple: false, spaceJump: false, leap: 0, torch: false };
+  private oneShot: { reload: boolean; grenade: boolean; ability: boolean; use: boolean; weaponSlot: number; nadeCycle: boolean; dash: number; melee: boolean; cycleAmmo: boolean; grapple: boolean; spaceJump: boolean; leap: number; torch: boolean; k9?: K9Command } = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false, dash: 0, melee: false, cycleAmmo: false, grapple: false, spaceJump: false, leap: 0, torch: false };
   /** M2 double-tap tracker for dash/roll */
   private lastTap = { key: '', at: 0 };
   /** W1.3: when SPACE went down — a quick release jumps, a long hold ducks. */
@@ -114,6 +114,8 @@ export class Input {
       if (k === 'b') this.oneShot.cycleAmmo = true; // ammo TYPE: ball → AP → INC
       if (k === 'z') this.oneShot.grapple = true;   // GRAPPLE: grab (beats GUARD) §12
       if (k === 't') this.oneShot.torch = true;     // FLASHLIGHT toggle (§10)
+      if (k === 'k') this.oneShot.k9 = 'sic';       // K9: clear aimed building
+      if (k === 'l') this.oneShot.k9 = 'stay';      // K9: stay / return to heel
       if (k === 'f') this.meleeDown = true;         // hold to charge (§13); release commits
       if (k >= '1' && k <= '3') this.oneShot.weaponSlot = parseInt(k) - 1;
       if (k === 'tab') { this.scoreboardHeld = true; e.preventDefault(); }
@@ -159,6 +161,9 @@ export class Input {
     return this.raycaster.ray.intersectPlane(this.groundPlane, out) ? out : null;
   }
 
+  /** HUD buttons share the exact same one-shot path as keyboard/gamepad. */
+  queueK9(command: K9Command) { this.oneShot.k9 = command; }
+
   /** Poll the first connected gamepad (PS/Xbox share the STANDARD mapping):
    *  left stick moves, right stick aims (twin-stick), RT fires, LT alt-fires,
    *  A/✕ jumps, X/□ uses, Y/△ ability, B/○ reloads, RB/R1 holds a grenade
@@ -201,6 +206,8 @@ export class Input {
     if (rose(4)) cmd.weaponSlot = (local.weaponIdx + 1) % Math.max(1, local.weapons.length); // LB cycles
     if (rose(14)) cmd.weaponSlot = 0;                                   // d-pad ◄ primary
     if (rose(15)) cmd.weaponSlot = 1;                                   // d-pad ► secondary
+    if (rose(10)) { cmd.k9 = 'sic'; this.gamepadActive = true; }         // L3: clear aimed building
+    if (rose(11)) { cmd.k9 = 'stay'; this.gamepadActive = true; }        // R3: stay / heel
     if (btn(12)) { this.camDist -= 24 * (1 / 60); this.clampZoom(); }   // d-pad ▲ zoom in
     if (btn(13)) { this.camDist += 24 * (1 / 60); this.clampZoom(); }   // d-pad ▼ zoom out
     this.scoreboardHeld = this.scoreboardHeld || btn(8);                // Back / Share
@@ -250,6 +257,7 @@ export class Input {
       cycleAmmo: this.oneShot.cycleAmmo, // B — ball/AP/incendiary
       grapple: this.oneShot.grapple,     // Z — the grab
       torch: this.oneShot.torch,         // T — the flashlight (§10)
+      k9: this.oneShot.k9,
     };
     this.oneShot = { reload: false, grenade: false, ability: false, use: false, weaponSlot: -1, nadeCycle: false, dash: 0, melee: false, cycleAmmo: false, grapple: false, spaceJump: false, leap: 0, torch: false };
     // any mouse/keyboard input hands the wheel back to the desk

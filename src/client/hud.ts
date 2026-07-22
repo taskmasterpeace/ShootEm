@@ -11,6 +11,7 @@ import { SegMeter } from './segmeter';
 import { classLinger, MAX_LINGER } from '../sim/perception';
 import type { World } from '../sim/world';
 import { scienceObjectiveText } from '../sim/science-runtime';
+import { k9ControlState } from './k9-controls';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -221,6 +222,15 @@ export class Hud {
   update(world: World, localId: number, scoreboardHeld: boolean, now: number) {
     const s = world.soldiers.get(localId);
     if (!s) return;
+
+    const k9 = k9ControlState(s, world.soldiers.values());
+    const k9Panel = $('k9-controls');
+    k9Panel.classList.toggle('hidden', !k9.visible);
+    $('k9-status').textContent = k9.status;
+    $('k9-stay-label').textContent = k9.stayLabel;
+    ($('k9-sic') as HTMLButtonElement).disabled = k9.disabled;
+    ($('k9-stay') as HTMLButtonElement).disabled = k9.disabled;
+    k9Panel.classList.toggle('waiting', k9.status === 'WAITING · DOOR');
 
     // vitals — THE RING, big (one language: you read your own at T2)
     const hasPlate = (s.maxArmor ?? 0) > 0;

@@ -353,6 +353,8 @@ async function startGame() {
   const input = new Input(canvas);
   const chat = new Chat(name);
   hud.show();
+  $('k9-sic').onclick = () => input.queueK9('sic');
+  $('k9-stay').onclick = () => input.queueK9('stay');
   chat.show();
   hud.waypointsEnabled = selectedEquipment.some((id) => EQUIPMENT[id]?.waypoints);
   chat.deliverMail(); // stored messages arrive the moment you deploy

@@ -36,6 +36,13 @@ describe('input queue: no lost one-shot presses', () => {
     expect(repeat.weaponSlot).toBe(-1); // nor a weapon switch
   });
 
+  it('never repeats a K9 order when the queue starves', () => {
+    const s = newCmdQueue();
+    pushCmd(s, cmd({ k9: 'sic' }), 1000);
+    expect(drainCmd(s, 1000)!.k9).toBe('sic');
+    expect(drainCmd(s, 1010)!.k9).toBeUndefined();
+  });
+
   it('caps at 8 and drops the OLDEST, keeping the newest presses', () => {
     const s = newCmdQueue();
     for (let i = 0; i < 12; i++) pushCmd(s, cmd({ aimYaw: i }), 1000);

@@ -37,6 +37,15 @@
         <div id="match-timer"></div>
       </div>
       <aside id="science-mission-panel" class="science-mission-panel" aria-live="polite" hidden></aside>
+      <section id="k9-controls" class="hidden" aria-label="K9 commands">
+        <div class="k9-readout"><span>K9</span><strong id="k9-status">HEEL</strong></div>
+        <button id="k9-sic" type="button" title="Send dog to clear the aimed building (K / L3)">
+          <span class="k9-key">K · L3</span><b>SIC</b><small>CLEAR AIMED BUILDING</small>
+        </button>
+        <button id="k9-stay" type="button" title="Order dog to stay or return to heel (L / R3)">
+          <span class="k9-key">L · R3</span><b id="k9-stay-label">STAY</b><small>HOLD / RETURN</small>
+        </button>
+      </section>
       <div id="killfeed"></div>
       <div id="hud-bottom-left">
         <!-- UI-BIBLE §09: the UNIFIED STATUS STRIP — one chip row for every
