@@ -81,6 +81,37 @@ describe('time bomb — the demolition timer', () => {
   });
 });
 
+describe('plasma grenade — the stick', () => {
+  it('adheres to the body it grazes, rides it, then bursts on the fuse', () => {
+    const w = new World({ seed: 6, mode: 'tdm', matchMinutes: 10 });
+    const t = w.addSoldier('T', 'infantry', 0, 'human'); t.pos = { x: 0, y: 0, z: 0 }; t.yaw = 0;
+    const e = w.addSoldier('E', 'infantry', 1, 'human'); e.pos = { x: 6, y: 0, z: 0 }; e.armor = 0;
+    // a flat throw straight down the barrel (the stick is proximity, not arc)
+    w.throwProjectile(t, 'plasma_nade', 1.2, 22, false, 14, 1, false);
+    let stuck = false;
+    for (let i = 0; i < 60 && !stuck; i++) { w.step(1 / 60, new Map()); for (const ev of w.takeEvents()) if (ev.type === 'plasma_stick') stuck = true; }
+    expect(stuck, 'it latched onto the body it grazed').toBe(true);
+    const p = [...w.projectiles.values()].find((x) => x.stuckTo === e.id);
+    expect(p, 'the charge is riding him, not detonated in flight').toBeTruthy();
+    const hp0 = e.hp;
+    for (let i = 0; i < 100; i++) w.step(1 / 60, new Map()); // let the ~1.3s fuse burn
+    expect(hp0 - e.hp, 'the burst took the host it rode').toBeGreaterThan(0);
+    expect([...w.projectiles.values()].some((x) => x.stuckTo === e.id), 'the charge is spent').toBe(false);
+  });
+
+  it('grazing nobody, it flies on and bursts where it lands (normal arc)', () => {
+    const w = new World({ seed: 6, mode: 'tdm', matchMinutes: 10 });
+    const t = w.addSoldier('T', 'infantry', 0, 'human'); t.pos = { x: 0, y: 0, z: 0 }; t.yaw = 0;
+    w.throwProjectile(t, 'plasma_nade', 1.4, 20, true, 18, 1, true); // nobody in the way
+    let landed = false;
+    for (let i = 0; i < 300 && !landed; i++) {
+      w.step(1 / 60, new Map());
+      for (const ev of w.takeEvents()) if (ev.type === 'explosion') landed = true;
+    }
+    expect(landed, 'an unstuck plasma grenade still detonates on landing').toBe(true);
+  });
+});
+
 describe('spider mine — the vulture', () => {
   it('lies dormant, wakes on approach, then skitters the enemy down', () => {
     const w = new World({ seed: 5, mode: 'tdm', matchMinutes: 10 });

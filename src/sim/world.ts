@@ -4760,9 +4760,46 @@ export class World {
   // ---------- projectiles ----------
 
   /** Special payloads detonate into effects instead of damage. */
+  /** THE PLASMA STICK: a plasma charge adheres to the first enemy it grazes and
+   *  RIDES their position until a ~1.3s fuse — so a stuck man who runs to his
+   *  squad carries the burst into them (Robert). Returns true if it handled the
+   *  projectile this tick (stuck/riding/burst); false = keep flying. */
+  private stepPlasmaStick(id: number, p: Projectile): boolean {
+    const FUSE = 1.3;
+    if (p.stuckTo !== undefined) {
+      const host = this.soldiers.get(p.stuckTo);
+      if (!host || !host.alive || this.time >= (p.stuckAt ?? 0) + FUSE) {
+        this.detonatePayload(p);                // fuse done or host gone — burst
+        this.projectiles.delete(id);
+        return true;
+      }
+      p.pos = { x: host.pos.x, y: 1.2, z: host.pos.z }; // ride the body
+      p.vel = { x: 0, y: 0, z: 0 };
+      return true;
+    }
+    // not stuck yet: does it graze an enemy at (roughly) body height?
+    for (const e of this.soldiers.values()) {
+      if (!e.alive || e.team === p.team || e.vehicleId >= 0) continue;
+      if (Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) < 1.4 && Math.abs((e.pos.y ?? 0) - p.pos.y) < 2.2) {
+        p.stuckTo = e.id; p.stuckAt = this.time; p.vel = { x: 0, y: 0, z: 0 };
+        this.emit({ type: 'plasma_stick', pos: { ...p.pos }, soldierId: e.id });
+        return true;
+      }
+    }
+    return false; // fly on — it'll stick later or land and burst as a normal arc
+  }
+
   private detonatePayload(p: Projectile): boolean {
     // generated arsenal payloads (smoke / phosphorus launchers)
     const payload = WEAPONS[p.weapon]?.payload;
+    if (payload === 'plasma') {
+      // THE PLASMA BURST: an energy splash off the stuck charge (bites armor via
+      // the plasma tracer), and it leaves a brief burning patch — the stick that
+      // keeps on giving. Uses the carrier's own numbers (M3 lesson).
+      this.explode(p.pos, WEAPONS[p.weapon]?.splash ? WEAPONS[p.weapon] : WEAPONS.plasma_nade, p.ownerId, p.team, p.airScaled);
+      this.spawnGadget('fire_field', p.team, p.ownerId, { x: p.pos.x, y: 0, z: p.pos.z }, Infinity, 4);
+      return true;
+    }
     if (payload === 'smoke') {
       this.spawnGadget('smoke_field', p.team, p.ownerId, p.pos, Infinity, 12);
       this.emit({ type: 'beacon_planted', pos: { ...p.pos }, text: 'Smoke deployed' });
@@ -4832,6 +4869,9 @@ export class World {
         this.projectiles.delete(id);
         continue;
       }
+      // PLASMA STICK: adhered, it rides its host until the fuse blows; unstuck,
+      // grazing an enemy latches it — otherwise it flies on (returns false).
+      if (def.payload === 'plasma' && this.stepPlasmaStick(id, p)) continue;
       // TIME FIELDS: a round inside a bubble crawls — its whole advance
       // (including gravity) integrates at mul, and its fuse clock stretches
       // to match (bornAt slides forward), so a slowed grenade doesn't cheat
