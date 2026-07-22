@@ -10,6 +10,7 @@ import { HAND_FRAG_REACH, aimSpreadMul, meleeWindupFor, type World } from '../si
 import { audio, type SoundName } from './audio';
 import { BIOME_AUDIO } from './soundscape';
 import { settings } from './settings';
+import { buildReticleShadow, buildStandingReticle, isStandingReticle } from './reticle';
 import { darknessFloor, setDarknessFrame, sweepDarkness } from './darkness';
 import { Particles, FlashLights, Fireballs } from './effects';
 import { JOINT_NAMES, isUndead, poseSoldierJoints, CAST_SCHOOL, FLIGHT_POSES, RECOIL_SCALE, stepYawSpring, throwArmCurve, WEAPON_HOLDS, type GaitState, type CastSchool } from './animation';
@@ -241,6 +242,11 @@ export class Renderer {
   private lastCorpseWorld: World | null = null;
   /** STATUS §1: the local player's aim ring — facing + the live accuracy cone. */
   private aimRing: THREE.Group | null = null;
+  /** THE RETICLE FAMILY (Robert): a STANDING reticle (crosshair/dot/…) floated
+   *  in front of you + its ground shadow, rebuilt only when style/colour change. */
+  private standingReticle: THREE.Group | null = null;
+  private reticleShadow: THREE.Mesh | null = null;
+  private reticleKey = '';
   private spinners: THREE.Object3D[] = [];
   private beams: { mesh: THREE.Mesh; until: number }[] = [];
   /** §BEAMS row 188: live HELD streams, one per pouring soldier — a unit
@@ -1363,6 +1369,65 @@ export class Renderer {
   /** Robert's MELEE PULSE-RING UI: the grab-reach pulses expand to the grab
    *  radius and fade; the guard arc lights a blue frontal wedge under you
    *  while you brace. Both are local-player tells, world-space under the feet. */
+  /** 'auto' picks a reticle by the weapon FAMILY (Robert: "based on the family
+   *  of weapons"): a shotgun gets a wide ringdot, a sniper a fine cross, a
+   *  launcher brackets, everything else the classic crosshair. */
+  private resolveReticleStyle(local: Soldier): import('./settings').ReticleStyle {
+    if (settings.reticle !== 'auto') return settings.reticle;
+    const def = WEAPONS[local.weapons[local.weaponIdx]];
+    const fam = def?.family;
+    if (fam === 'shotgun' || fam === 'slugger' || fam === 'scatter') return 'ringdot';
+    if (def && def.tracer === 'rail') return 'cross'; // marksman rails: a fine reticle
+    if (fam === 'at_rocket' || fam === 'ap_rocket' || fam === 'mortar' || fam === 'artillery' || fam === 'grenade') return 'brackets';
+    if ((def?.range ?? 40) >= 90) return 'dot'; // long reach: a clean dot
+    return 'crosshair';
+  }
+
+  /** THE RETICLE FAMILY (Robert). Shows exactly ONE cursor for the local player:
+   *  the ground WEDGE, the ground spread CIRCLE (handled in updateMeleeRings), or
+   *  a STANDING reticle floated out in front + a ground shadow. */
+  private updateReticle(local: Soldier | undefined) {
+    const style = local ? this.resolveReticleStyle(local) : 'wedge';
+    const wdef = local ? WEAPONS[local.weapons[local.weaponIdx]] : undefined;
+    // --- the GROUND WEDGE (direction FIXED: +Z-forward mesh needs π/2−yaw) ---
+    if (local && style === 'wedge') {
+      if (!this.aimRing) { this.aimRing = buildAimRing(); this.scene.add(this.aimRing); }
+      this.aimRing.visible = true;
+      this.aimRing.position.set(local.pos.x, local.pos.y + 0.02, local.pos.z);
+      this.aimRing.rotation.y = Math.PI / 2 - local.yaw;
+      const half = Math.min(0.55, (wdef?.spread ?? 0.03) * aimSpreadMul(local) * AIM_SCALE);
+      (this.aimRing.getObjectByName('aimL') as THREE.Object3D | null)?.rotation.set(0, half, 0);
+      (this.aimRing.getObjectByName('aimR') as THREE.Object3D | null)?.rotation.set(0, -half, 0);
+    } else if (this.aimRing) this.aimRing.visible = false;
+    // --- a STANDING reticle floated in front, billboarded, with a ground shadow ---
+    if (local && isStandingReticle(style)) {
+      const key = `${style}|${settings.reticleColor}`;
+      if (this.reticleKey !== key || !this.standingReticle) {
+        if (this.standingReticle) { this.scene.remove(this.standingReticle); this.standingReticle.traverse((o) => { const m = o as THREE.Mesh; m.geometry?.dispose?.(); (m.material as THREE.Material)?.dispose?.(); }); }
+        this.standingReticle = buildStandingReticle(style, settings.reticleColor);
+        this.scene.add(this.standingReticle);
+        if (!this.reticleShadow) { this.reticleShadow = buildReticleShadow(); this.scene.add(this.reticleShadow); }
+        this.reticleKey = key;
+      }
+      // "choose how far it's gonna be away" — reticleDist slides the float reach
+      const reach = 7 + settings.reticleDist * Math.min(28, (wdef?.range ?? 40) * 0.6);
+      const ax = local.pos.x + Math.cos(local.yaw) * reach;
+      const az = local.pos.z + Math.sin(local.yaw) * reach;
+      // "the size" — reticleScale × (grows a touch with the live spread cone)
+      const spreadMul = 1 + (wdef ? Math.min(0.7, wdef.spread * aimSpreadMul(local) * AIM_SCALE) : 0);
+      const scale = settings.reticleScale * spreadMul * 1.4;
+      const r = this.standingReticle;
+      r.visible = true;
+      r.position.set(ax, 1.35, az); // stands up: its foot nearly meets the ground
+      r.scale.setScalar(scale);
+      r.quaternion.copy(this.camera.quaternion); // billboard — always reads flat-on
+      if (this.reticleShadow) { this.reticleShadow.visible = true; this.reticleShadow.position.set(ax, 0.04, az); this.reticleShadow.scale.setScalar(scale * 0.8); }
+    } else {
+      if (this.standingReticle) this.standingReticle.visible = false;
+      if (this.reticleShadow) this.reticleShadow.visible = false;
+    }
+  }
+
   private updateMeleeRings(world: World, local: Soldier | undefined) {
     const t = world.time;
     // grab pulses — expand 0.2 → ~2.3u over 0.35s, fading out
@@ -1412,7 +1477,9 @@ export class Renderer {
     // spreadless/beam arms, and for gods (their aim isn't a cone).
     const wid = local?.weapons[local.weaponIdx];
     const wdef = wid ? WEAPONS[wid] : undefined;
-    const showSpread = !!local && local.alive && local.vehicleId < 0 && !local.ascendant
+    // the GROUND spread circle is now one reticle CHOICE among the family — it
+    // shows only when the player has picked the 'circle' style (Robert).
+    const showSpread = settings.reticle === 'circle' && !!local && local.alive && local.vehicleId < 0 && !local.ascendant
       && !!wdef && wdef.spread > 0.001 && wdef.range > 3 && wdef.tracer !== 'beam';
     if (showSpread) {
       if (!this.spreadRing) {
@@ -2233,22 +2300,12 @@ export class Renderer {
       bc.mesh.position.y = -Math.max(0, age - (BATTLEFIELD_CORPSE_LINGER - 1)) * 0.5;
     }
 
-    // STATUS §1 / W1.2 — the AIM RING follows the local player, facing where you
-    // aim, its wedge OPENING with the live accuracy cone (crouch tightens, a
-    // sprint or an airborne shot sprays). Hidden in a vehicle (you aim the
-    // turret), while dead, or on any replay/killcam.
-    if (local && local.alive && local.vehicleId < 0 && !this.replayView && !world.mode.over) {
-      if (!this.aimRing) { this.aimRing = buildAimRing(); this.scene.add(this.aimRing); }
-      this.aimRing.visible = true;
-      this.aimRing.position.set(local.pos.x, local.pos.y + 0.02, local.pos.z);
-      this.aimRing.rotation.y = -local.yaw; // sim yaw is math-angle; three rotates opposite
-      const wdef = WEAPONS[local.weapons[local.weaponIdx]];
-      const half = Math.min(0.55, (wdef?.spread ?? 0.03) * aimSpreadMul(local) * AIM_SCALE);
-      (this.aimRing.getObjectByName('aimL') as THREE.Object3D | null)?.rotation.set(0, half, 0);
-      (this.aimRing.getObjectByName('aimR') as THREE.Object3D | null)?.rotation.set(0, -half, 0);
-    } else if (this.aimRing) {
-      this.aimRing.visible = false;
-    }
+    // THE RETICLE (Robert): the local player's aim cursor, routed through the
+    // reticle family — the ground wedge (direction fixed), the ground spread
+    // circle, or a STANDING crosshair floated out in front with a ground shadow.
+    // Hidden in a vehicle (you aim the turret), while dead, or on a replay.
+    const showReticle = !!local && local.alive && local.vehicleId < 0 && !this.replayView && !world.mode.over;
+    this.updateReticle(showReticle ? local : undefined);
 
     // vehicles
     for (const v of world.vehicles.values()) {
