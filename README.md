@@ -52,9 +52,16 @@ Then enter `ws://<host-ip>:3401` in the Multiplayer field on the menu. One room 
 npm run build        # typecheck + production bundle → dist/
 npm test             # 176 sim tests (combat, modes, vehicles, arsenal balance, ranges, drones, visuals, netcode)
 npm run sounds       # regenerate the CC0 synth sound pack from source
+npm run map:import:sf # rebuild the frozen Potrero/Dogpatch real-city theater
 ```
 
 Dev extras while `npm run dev` is up: the **[model & physics harness](docs/HARNESS.md)** at `/harness.html` and the **Sound Lab & Review** at `/sound-review.html`.
+
+### Real-city pilot
+
+The `geocity` theater is a 900×900-unit Potrero Hill / Dogpatch battlefield compiled from real street and building geometry plus USGS elevation. It runs through the ordinary `GameMap`, renderer, vehicle, AI, and Map Maker paths; selected source parcels receive native enterable procedural interiors. Matches never contact a map service—the checked-in artifact is the runtime input.
+
+The import command reuses the artifact's frozen source snapshot for deterministic rebuilds. Remove or relocate the output first only when intentionally refreshing source data, then review the resulting attribution, validation report, and diff. Architecture, limits, and licensing notes are in **[docs/GEOSPATIAL-MAPS.md](docs/GEOSPATIAL-MAPS.md)**.
 
 ## Controls
 
