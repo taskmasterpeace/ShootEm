@@ -195,10 +195,11 @@ export const LSW_ARMS: Record<WeaponId, WeaponDef> = {
   lsw_stormcaller: A({ id: 'lsw_stormcaller', name: 'Sky-Spark Javelins', damage: 34, rof: 3, speed: 140, spread: 0.01, range: 52, sound: 'rail', tracer: 'plasma', icon: '🌩', charge: { t: 0.7, mul: 2 } }),
   lsw_wraith: A({ id: 'lsw_wraith', name: 'Ghost-Static', damage: 22, rof: 4.5, speed: 140, spread: 0.02, range: 38, sound: 'rail', tracer: 'plasma', icon: '👻', pierce: 3 }),
   lsw_dominator: A({ id: 'lsw_dominator', name: 'Psi-Arc', damage: 25, rof: 4, speed: 140, spread: 0.01, range: 46, sound: 'rail', tracer: 'plasma', icon: '🧵', tether: true }),
-  // ── THE THROWN-SUN SCHOOL — slow enough to SEE (ignite waits on the fire system) ──
-  lsw_firebrand: A({ id: 'lsw_firebrand', name: 'Flame Gouts', damage: 20, rof: 5, speed: 30, spread: 0.03, range: 30, splash: 2.6, splashDamage: 16, sound: 'flame', tracer: 'flame', icon: '🔥' }),
-  lsw_inferno: A({ id: 'lsw_inferno', name: 'Fireball Spit', damage: 40, rof: 2.5, speed: 26, spread: 0.02, range: 36, splash: 2.5, splashDamage: 18, sound: 'flame', tracer: 'flame', icon: '☄', charge: { t: 0.6, mul: 2 } }),
-  lsw_pyroclasm: A({ id: 'lsw_pyroclasm', name: 'Magma Bolts', damage: 48, rof: 2, speed: 24, spread: 0.02, range: 40, splash: 3, splashDamage: 22, sound: 'flame', tracer: 'flame', icon: '🌋', cluster: 3 }),
+  // ── THE THROWN-SUN SCHOOL — slow enough to SEE, and now they LAY FIRE where they
+  // land: `ignite` is consumed in explode() (W7.3 field-fire shipped 2026-07-22) ──
+  lsw_firebrand: A({ id: 'lsw_firebrand', name: 'Flame Gouts', damage: 20, rof: 5, speed: 30, spread: 0.03, range: 30, splash: 2.6, splashDamage: 16, sound: 'flame', tracer: 'flame', icon: '🔥', ignite: true }),
+  lsw_inferno: A({ id: 'lsw_inferno', name: 'Fireball Spit', damage: 40, rof: 2.5, speed: 26, spread: 0.02, range: 36, splash: 2.5, splashDamage: 18, sound: 'flame', tracer: 'flame', icon: '☄', charge: { t: 0.6, mul: 2 }, ignite: true }),
+  lsw_pyroclasm: A({ id: 'lsw_pyroclasm', name: 'Magma Bolts', damage: 48, rof: 2, speed: 24, spread: 0.02, range: 40, splash: 3, splashDamage: 22, sound: 'flame', tracer: 'flame', icon: '🌋', cluster: 3, ignite: true }),
   lsw_plaguebearer: A({ id: 'lsw_plaguebearer', name: 'Bile Lobber', damage: 34, rof: 2.8, speed: 26, spread: 0.03, range: 32, splash: 2.5, splashDamage: 16, sound: 'flame', tracer: 'acid', icon: '🤢', gasAfter: { kind: 'caustic', r: 2.5, life: 5 } }),
   lsw_venom: A({ id: 'lsw_venom', name: 'Needle Spray', damage: 8, rof: 12, speed: 60, spread: 0.06, range: 30, sound: 'smg', tracer: 'acid', icon: '💉', pierce: 1, gasAfter: { kind: 'poison', r: 2, life: 4 } }),
   lsw_riptide: A({ id: 'lsw_riptide', name: 'Hydro-Lance', damage: 30, rof: 3.4, speed: 80, spread: 0.015, range: 38, knockback: 3, sound: 'plasma', tracer: 'beam', icon: '🌊', beam: 'lance' }),

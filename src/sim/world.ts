@@ -3621,6 +3621,22 @@ export class World {
       }
     }
 
+    // INFANTRY'S Q IS ITS FRAG. The class is named for its grenades (the ×4
+    // bag, the biggest in the roster) but its ABILITY key was dead — Q now
+    // throws the same hand frag as G, drawing from the SAME grenade pool +
+    // cooldown, so it grants a live ability key, never extra throughput.
+    // (docs/ABILITIES.md flagged "infantry's Q is dead"; this wires the branch.)
+    if (cmd.ability && c.ability === 'grenade' && s.grenades > 0 && this.time >= s.nextGrenadeAt) {
+      s.grenades--;
+      s.nextGrenadeAt = this.time + 1.2;
+      // cursor-clamped reach, same as the G-key hand frag below (reachTo isn't
+      // in scope yet — it's a local declared further down the grenade block)
+      const reach = Math.max(4, Math.min(cmd.aimDist ?? HAND_FRAG_REACH, HAND_FRAG_REACH));
+      this.throwProjectile(s, 'gl', 1.4, 16, true, reach, cmd.lob ?? 1, true);
+      this.emit({ type: 'shot', pos: s.pos, weapon: 'gl', soldierId: s.id });
+      if (s.cloaked) s.cloaked = false;
+    }
+
     // grenade key: orbital designator > demolition kit > class special > frag.
     // Every thrown item is cursor-targeted: it lands at cmd.aimDist, clamped
     // to the item's max reach (proven top-down mechanic — throw at the cursor).
@@ -6254,6 +6270,12 @@ export class World {
         if (!c.neutralized && Math.hypot(c.pos.x - pos.x, c.pos.z - pos.z) <= def.splash) c.neutralized = true;
       }
     }
+    // THE THROWN-SUN LANDS BURNING (W7.3): an `ignite` payload sets the ground
+    // alight where it detonates — the one choke point every splash passes
+    // through, so firebrand/inferno/pyroclasm all get it free. igniteAt
+    // self-guards flammability + FIRE_CAP + dedup and rolls no RNG, so a shot
+    // over bare deck — and every fire-free replay — stays byte-identical.
+    if (def.ignite) this.igniteAt(pos.x, pos.z);
     this.emit({ type: 'explosion', pos: { ...pos }, weapon: def.id, radius: def.splash, killRadius: killR });
     const owner = this.soldiers.get(ownerId);
     for (const s of this.soldiers.values()) {

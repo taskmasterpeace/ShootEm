@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PlayerCmd } from '../src/sim/types';
 import { World } from '../src/sim/world';
+import { WEAPONS } from '../src/sim/data';
 import { S_GRASS, S_PLATE } from '../src/sim/map';
 import { tileIndex, tileToWorld } from '../src/sim/map-geometry';
 
@@ -110,6 +111,25 @@ describe('field fire — the flamethrower lays fire (Phase 2)', () => {
     for (let i = 0; i < 60; i++) {
       w.step(1 / 30, new Map([[s.id, cmd({ aimYaw: 0, aimDist: 6, fire: true })]]));
     }
+    expect(w.fires.length).toBe(0);
+  });
+});
+
+describe('field fire — the thrown-sun lands burning (ignite payload)', () => {
+  it('an ignite splash weapon lights the flammable ground where it detonates', () => {
+    const w = fireWorld();
+    grassPatch(w, 50, 50);
+    const at = tileToWorld(w.map.geometry, 50, 50);
+    expect(w.fires.length).toBe(0);
+    w.explode({ x: at.x, y: 0, z: at.z }, WEAPONS.lsw_firebrand, -1, 1); // firebrand carries ignite:true
+    expect(w.fires.length).toBe(1);
+  });
+
+  it('a NON-ignite splash weapon over the same grass leaves it cold', () => {
+    const w = fireWorld();
+    grassPatch(w, 50, 50);
+    const at = tileToWorld(w.map.geometry, 50, 50);
+    w.explode({ x: at.x, y: 0, z: at.z }, WEAPONS.gl, -1, 1); // hand frag: splash, but no ignite
     expect(w.fires.length).toBe(0);
   });
 });
