@@ -473,11 +473,13 @@ describe('the upgraded yards', () => {
     }
   });
 
-  it('every yard is a MAZE now — wings of hallways, and the middle opens up', () => {
+  it('every yard is a MAZE — and the yards are WILDLY different (§2b)', () => {
     // Robert: "think Pac-Man, but a little bit simpler… a maze on each side,
-    // then it opens up." Wings carry the walls; the plaza stays open ground.
-    for (const f of PAINTBALL_FIELDS) {
-      const map = generatePaintballField(f.seed, f.theme);
+    // then it opens up" + "we change the fields up so all of them are wildly
+    // different." Kopje is the OPEN yard (Belt country), Deck Nine the dense
+    // knife fight, Grit Alley in between — measured, not vibes:
+    const wingWalls = (theme: (typeof PAINTBALL_FIELDS)[number]['theme'], seed: number) => {
+      const map = generatePaintballField(seed, theme);
       let wings = 0, plaza = 0;
       for (let tz = 37; tz <= 63; tz++) {
         for (let tx = 37; tx <= 63; tx++) {
@@ -485,9 +487,17 @@ describe('the upgraded yards', () => {
           if (tx >= 47 && tx <= 53) plaza++; else wings++;
         }
       }
-      expect(wings, `${f.name} has its hallways`).toBeGreaterThan(60);
-      expect(plaza, `${f.name}'s middle stays open`).toBeLessThan(8);
-    }
+      expect(plaza, `${theme}'s middle stays open`).toBeLessThan(8);
+      return wings;
+    };
+    const kopje = wingWalls('savanna', 1101);
+    const deck = wingWalls('starship', 2202);
+    const grit = wingWalls('titan', 3303);
+    expect(kopje, 'Kopje still reads as a maze').toBeGreaterThan(40);
+    expect(deck, 'Deck Nine is the dense one').toBeGreaterThan(90);
+    expect(grit, 'Grit Alley sits between them').toBeGreaterThan(60);
+    expect(kopje, 'the OPEN yard is measurably opener').toBeLessThan(grit);
+    expect(grit).toBeLessThan(deck);
   });
 
   it('every corner of every maze is walkable from the spawn gate (flood fill)', () => {

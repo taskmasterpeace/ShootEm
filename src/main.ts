@@ -41,6 +41,9 @@ import { MILITARY_MISSIONS, createMilitaryMissionLaunch, type MilitaryMissionId 
 import { renderMilitaryMissionModeCard, renderMilitaryMissionModal } from './client/military-missions-ui';
 import { RangeCourse, loadWall } from './client/range';
 import { RingDrill } from './client/ringdrill';
+import { FieldTracker, advanceGauntlet, loadFieldRecord, saveFieldRecord } from './client/fieldrecord';
+import { checkBelt, holderOf, loadTrophies, settleCup } from './client/trophies';
+import { PAINTBALL_FIELDS } from './sim/map';
 import { loadSettings, saveSettings, settings, type BloodLevel, type DarknessLevel, type ReticleStyle } from './client/settings';
 import { darknessUniforms } from './client/darkness';
 import { k9HandlerForTeam } from './sim/k9-orders';
@@ -60,6 +63,9 @@ const BOT_NAMES = [
 ];
 
 let selectedMode: ModeId = 'ctf';
+/** THE GAUNTLET (COMPETITIVE-ARC §2): armed = the next paintball deploy is a
+ *  ladder series (you alone vs a pack the size of your current rung). */
+let gauntletArmed = false;
 /** MOTOR TRIALS: which raceboard the player takes to the grid (comet/vector/sprite). */
 let selectedRaceBoard: VehicleKind = 'vector';
 let selectedClass: ClassId = 'infantry';
@@ -354,6 +360,24 @@ function openMilitaryMissionModal() {
   });
 }
 
+/** The gauntlet block: toggle + the ladder's standing line (rung, depth, and
+ *  who currently wears the honors — the yard's shelf at a glance). */
+function paintGauntletBlock() {
+  const name = ($('player-name') as HTMLInputElement)?.value?.trim() || 'You';
+  const st = loadFieldRecord(name);
+  const t = loadTrophies();
+  const btn = $('gauntlet-toggle') as HTMLButtonElement;
+  btn.textContent = gauntletArmed
+    ? `🏆 GAUNTLET ARMED — RUNG ${st.gauntlet.rung} (1v${st.gauntlet.rung})`
+    : '🏆 Casual yard (click to arm the Gauntlet)';
+  btn.classList.toggle('selected', gauntletArmed);
+  const cup = holderOf(t.cup);
+  const belt = t.belt.reigns.length ? t.belt.reigns[t.belt.reigns.length - 1] : null;
+  $('gauntlet-status').textContent =
+    `depth ${st.record.gauntletDepth || '—'} · best run ${st.record.gauntletBestRun || '—'}`
+    + ` · CUP: ${cup ?? 'vacant'} · BELT: ${belt ? `${belt.holder} (${belt.score})` : 'unclaimed'}`;
+}
+
 function buildMenu() {
   const modeRow = $('mode-select');
   modeRow.innerHTML = '';
@@ -375,6 +399,8 @@ function buildMenu() {
       $('science-clone-block').style.display = id === 'science' ? '' : 'none';
       // the board pick only exists on the grid
       $('race-board-block').style.display = (id === 'race' || id === 'timetrial') ? '' : 'none';
+      $('gauntlet-block').style.display = id === 'paintball' ? '' : 'none';
+      if (id === 'paintball') paintGauntletBlock();
     };
     modeRow.appendChild(card);
   });
@@ -382,6 +408,13 @@ function buildMenu() {
   $('roster-block').style.display = (selectedMode === 'horde' || selectedMode === 'survival') ? '' : 'none';
   $('science-clone-block').style.display = selectedMode === 'science' ? '' : 'none';
   $('race-board-block').style.display = (selectedMode === 'race' || selectedMode === 'timetrial') ? '' : 'none';
+  $('gauntlet-block').style.display = selectedMode === 'paintball' ? '' : 'none';
+  if (selectedMode === 'paintball') paintGauntletBlock();
+  ($('gauntlet-toggle') as HTMLButtonElement).onclick = () => {
+    gauntletArmed = !gauntletArmed;
+    audio.play('ui_click');
+    paintGauntletBlock();
+  };
 
   const quickDeploy = $('science-preset-cards');
   quickDeploy.innerHTML = SCIENCE_PRESETS.map(sciencePresetCardHTML).join('');
@@ -671,9 +704,25 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     : null;
   rangeOfficial = false; // one-shot flag — consumed by this deploy
   // READ THE RING (§UI): the boot-camp station — three dummies, splat the weakest
-  const ringDrill = selectedMode === 'paintball'
+  const ringDrill = selectedMode === 'paintball' && !gauntletArmed
     ? new RingDrill((t, big) => hud.announce(t, !!big, 0))
     : null;
+  // THE FIELD RECORD (COMPETITIVE-ARC §1): every yard match folds into the
+  // paintball card — splats, outnumbered splits, spills, the longest ball.
+  // The tracker also feeds the BELT live: beat the standing distance and the
+  // honor moves mid-match.
+  const yardField = selectedMode === 'paintball'
+    ? (PAINTBALL_FIELDS.find((f) => f.theme === selectedTheme)?.name ?? selectedTheme)
+    : '';
+  const fieldTracker = selectedMode === 'paintball' ? new FieldTracker(name, yardField) : null;
+  let honorsSettled = false;
+  if (fieldTracker) {
+    const trophies = loadTrophies();
+    fieldTracker.onSplat = (dist, fld) => {
+      const line = checkBelt(trophies, name, dist, fld);
+      if (line) hud.announce(line, true, world.time);
+    };
+  }
 
   // THE SCORE (Robert's tracks): soldier combat → LSW inbound/walking → the
   // real monsters. The director reads the sim twice a second and crossfades.
@@ -730,7 +779,13 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     // the pack carries a SPREAD of markers — a blitz sprayer, a Fan for the
     // doorways, a lobber for the angles — so every hunt sounds different
     const packMarkers = ['marker_blitz', 'marker_scatter', 'marker_lobber'] as const;
-    if (pb.role === 'hunter') {
+    if (gauntletArmed) {
+      // THE GAUNTLET (COMPETITIVE-ARC §2): you, alone, against a pack the
+      // size of your rung — the roster IS the asymmetry, so 1v1 through 1v7
+      // all resolve through the same hunters-vs-hunted law.
+      const rung = loadFieldRecord(name).gauntlet.rung;
+      for (let i = 0; i < rung; i++) world.addSoldier(wrap(n++), 'infantry', 1, 'bot', { primary: packMarkers[i % packMarkers.length] });
+    } else if (pb.role === 'hunter') {
       for (let i = 0; i < packSize - 1; i++) world.addSoldier(wrap(n++), 'infantry', 0, 'bot', { primary: packMarkers[i % packMarkers.length] });
       world.addSoldier(wrap(n), 'infantry', 1, 'bot', { primary: 'marker_pump' });
     } else {
@@ -952,6 +1007,20 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     tracker?.update(world, me.id, dt);
     course?.update(world, dt);
     ringDrill?.update(world, me.id, events);
+    fieldTracker?.step(world, events, me.id);
+    // the whistle settles the HONORS and the LADDER — exactly once
+    if (fieldTracker?.finished && !honorsSettled) {
+      honorsSettled = true;
+      const trophies = loadTrophies();
+      const cupLine = settleCup(trophies, world, me.id, yardField, gauntletArmed);
+      if (cupLine) hud.announce(cupLine, true, world.time);
+      if (gauntletArmed) {
+        const st = fieldTracker.stored;
+        const line = advanceGauntlet(st, world.mode.winner === me.team);
+        saveFieldRecord(st);
+        hud.announce(line, true, world.time);
+      }
+    }
     if (world.mode.over && scienceLaunch && world.science) {
       const aftermath = finalizeScienceLaunch(scienceLaunch, world.science, campaign ?? undefined);
       if (aftermath) {

@@ -814,18 +814,31 @@ export function generatePaintballField(seed: number, theme: ThemeId = 'savanna')
   // Reachability is guaranteed by construction: every lane is continuous
   // N-S, every wall column carries multiple doors, and the plaza joins the
   // wings. Water (stamped later) melts extra holes through the columns.
-  const WING_WALLS = [A0 + 4, A0 + 7, A0 + 10]; // west wing; east is the mirror
+  // THE YARDS ARE WILDLY DIFFERENT (Robert, COMPETITIVE-ARC §2b) — same maze
+  // grammar, three dialects, so records mean something PER FIELD:
+  //   savanna  → THE OPEN YARD (Kopje): two thin columns, generous doors —
+  //              long grass sightlines. Belt country: the only yard where a
+  //              40u splat is on the table.
+  //   starship → THE KNIFE FIGHT (Deck Nine): three columns, stingy doors —
+  //              the densest lattice. The Fan's home.
+  //   titan    → THE JUNKYARD (Grit Alley): three columns, standard doors,
+  //              and half again the plaza cover — grenade and angle play.
+  const WING_WALLS = theme === 'savanna'
+    ? [A0 + 5, A0 + 10]
+    : [A0 + 4, A0 + 7, A0 + 10]; // west wing; east is the mirror
+  const doorMod = theme === 'starship' ? 7 : theme === 'savanna' ? 5 : 6;
   const doorPhase = WING_WALLS.map(() => rng.int(0, 5));
   WING_WALLS.forEach((wx, k) => {
     for (let tz = A0 + 1; tz <= A1 - 1; tz++) {
-      if ((tz - A0 + doorPhase[k] + k * 3) % 6 < 2) continue; // the doorways
+      if ((tz - A0 + doorPhase[k] + k * 3) % doorMod < 2) continue; // the doorways
       grid[tz * GRID + wx] = T_WALL;
       grid[tz * GRID + (A0 + A1 - wx)] = T_WALL; // the east wing, mirrored
     }
   });
   // the plaza gets its bunkers — inflatable cover lives in the OPEN, the
   // hallways stay clean for the long shots
-  for (let i = 0; i < 6; i++) {
+  const plazaStamps = theme === 'titan' ? 9 : 6;
+  for (let i = 0; i < plazaStamps; i++) {
     const tx = mid - 3 + rng.int(0, 3); // west half of the plaza; east mirrors
     const tz = A0 + 2 + rng.int(0, A1 - A0 - 4);
     const kind = rng.next() < 0.6 ? T_COVER : T_CLIMB;
