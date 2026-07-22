@@ -30,3 +30,4 @@
 2026-07-22 IT-31: #102 2/3 shipped (bob live-measured 0.16, corner-nudge); weight-ease -> needs-robert (ice-pin law conflict). 29 closed, 9 needs-robert.
 2026-07-22 IT-32: #21 closed (MSAA tier — L6 complete). 30 closed, 9 needs-robert.
 2026-07-22 IT-33: #103 closed (Jackals shaped into LORE from COF canon). 31 closed, 9 needs-robert.
+2026-07-22 IT-34: full-gate attestation (tsc 0 / 2297 / build ✓) + report refreshed. State: 31 closed · 9 needs-robert · 0 blocked · 72 grindable. Next window opens on #10 (stepVehicle carve + end-state hash), then #82 air fixes, #89 moodle rail.
