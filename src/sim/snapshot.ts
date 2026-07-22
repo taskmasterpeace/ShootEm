@@ -156,6 +156,7 @@ export function cullSnapshotFor(w: World, snap: Snapshot, viewerId: number): Sna
   const vehicles = snap.vehicles.filter((v) => {
     if (v.team === team) return true;
     if (v.burrowed) return false;                             // deep is TRULY deep
+    if (v.submerged && !w.submarineDetectedForTeam(v, team)) return false;
     const ecmDead = v.systems && v.systems.ecm <= 0;          // dead ECM broadcasts you
     return ecmDead || seesPoint(v.pos.x, v.pos.z, 1.8);
   });

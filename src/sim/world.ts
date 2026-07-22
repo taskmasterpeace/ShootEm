@@ -1579,6 +1579,19 @@ export class World {
     );
   }
 
+  submarineDetectedForTeam(target: Vehicle, team: Team): boolean {
+    if (target.team === team || !target.submerged) return true;
+    for (const source of this.vehicles.values()) {
+      if (!source.alive || source.team !== team) continue;
+      const distance = Math.hypot(source.pos.x - target.pos.x, source.pos.z - target.pos.z);
+      if (source.kind === 'submarine' && source.seats.some((id) => id >= 0) && distance <= 65) return true;
+      const crew = VEHICLES[source.kind].crew;
+      const sensorIndex = crew?.indexOf('sensors') ?? -1;
+      if (sensorIndex >= 0 && source.systems.sensors > 0 && source.seats[sensorIndex + 1] >= 0 && distance <= 55) return true;
+    }
+    return false;
+  }
+
   spawnVehicle(kind: VehicleKind, team: Team, padPos: Vec3, padId = -1): Vehicle {
     const def = VEHICLES[kind];
     const v: Vehicle = {

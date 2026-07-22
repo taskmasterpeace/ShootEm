@@ -2294,7 +2294,8 @@ export class Renderer {
       // must hold LOS to the hull (tested at ~1.8u, a turret's height).
       if (!world.puppet && local && v.team !== localTeam) {
         const ecmDead = !!v.systems && v.systems.ecm <= 0;
-        if (v.burrowed || (!ecmDead && !enemyVisibleAt(v.pos.x, v.pos.z, 1.8))) {
+        if (v.burrowed || (v.submerged && !world.submarineDetectedForTeam(v, localTeam))
+            || (!v.submerged && !ecmDead && !enemyVisibleAt(v.pos.x, v.pos.z, 1.8))) {
           mesh.visible = false;
           continue;
         }
