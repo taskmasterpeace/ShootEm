@@ -1560,6 +1560,7 @@ export class Hud {
       `<td>${s.longestKill > 0 ? s.longestKill.toFixed(0) + 'u' : '—'}</td><td>${s.vehicleKills || '—'}</td><td>${Math.floor(s.score)}</td></tr>`;
 
     let html = '';
+    let roster = ''; // #111: the who-killed-who table, built apart so it can dock
     if (m.over) {
       // ── THE HERO HEADER: the verdict from YOUR side, and the score that
       // decided it — the emotional beat the flat "X wins" line never had
@@ -1585,9 +1586,9 @@ export class Hud {
 
     // ── THE ROSTER (a flag mode adds CAP / RET, so the flag game is legible) ──
     const flagCols = isFlag ? '<th class="cap" title="Flags captured">CAP</th><th title="Flags returned on defense">RET</th>' : '';
-    html += `<table><tr><th>Callsign</th><th>Class</th>${flagCols}<th>K</th><th>D</th><th title="Longest kill">Long</th><th title="Vehicles wrecked">Wreck</th><th>Score</th></tr>`;
+    roster += `<table><tr><th>Callsign</th><th>Class</th>${flagCols}<th>K</th><th>D</th><th title="Longest kill">Long</th><th title="Vehicles wrecked">Wreck</th><th>Score</th></tr>`;
     if (m.id === 'survival' || m.id === 'horde' || m.id === 'safehouse' || m.id === 'science') {
-      html += soldiers.map(row).join('');
+      roster += soldiers.map(row).join('');
     } else {
       for (const team of [0, 1] as Team[]) {
         // detail #6, the flesh-vs-chrome ledger: clones are the treasure,
@@ -1598,18 +1599,26 @@ export class Hud {
           if (s.kind === 'human') flesh += s.deaths; else chrome += s.deaths;
         }
         const tally = isFlag ? `${Math.floor(m.scores[team])} <span class="th-unit">CAPTURED</span>` : `${Math.floor(m.scores[team])}`;
-        html += `<tr class="team-head t${team}"><td colspan="${cols}"><div class="th-flex"><span>${TEAM_NAMES[team]} — ${tally}</span>` +
+        roster += `<tr class="team-head t${team}"><td colspan="${cols}"><div class="th-flex"><span>${TEAM_NAMES[team]} — ${tally}</span>` +
           `<span class="th-losses">FLESH ${flesh} · CHROME ${chrome} lost</span></div></td></tr>`;
-        html += soldiers.filter((s) => s.team === team).map(row).join('');
+        roster += soldiers.filter((s) => s.team === team).map(row).join('');
       }
     }
-    html += '</table>';
+    roster += '</table>';
 
     if (m.over && isFlag) html += this.renderFlagLog(m.target); // the capture story
     if (m.over) html += this.renderArsenal(); // your per-weapon record — the rich after-action
     if (m.over && this.careerHtml) html += this.careerHtml; // §3.4: what this match added
     if (m.over) html += `<p class="aar-foot">Returning to base…</p>`;
-    sb.innerHTML = html;
+    // #111 THE AFTER-MATCH RESHAPE (Robert: "you can't even see it on the
+    // screen completely… not a big fan of that standard screen"): match over →
+    // the STORY leads (verdict, honors, the flag run, your arsenal, career),
+    // and the who-killed-who roster docks to a scrollable side column that can
+    // never push the report off screen. Mid-match TAB keeps the plain table.
+    sb.classList.toggle('over', m.over);
+    sb.innerHTML = m.over
+      ? `<div class="sb-story">${html}</div><div class="sb-roster"><h3>The Roster</h3>${roster}</div>`
+      : html + roster;
   }
 
   /** Post-match career pane (the Record, §3.4) — set by the match tracker. */

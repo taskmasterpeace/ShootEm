@@ -854,6 +854,22 @@ html, body {
   z-index: 20; width: min(52rem, 94vw);
   background: oklch(0.17 0.02 80 / 0.92); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 1.5rem; backdrop-filter: blur(10px);
+  /* #111: the board may NEVER outgrow the screen — whatever the roster size */
+  max-height: 92vh; overflow-y: auto;
+}
+/* #111 THE AFTER-MATCH RESHAPE: match over = the story leads, the roster docks.
+   Two independent scroll columns under one hard viewport cap. */
+#scoreboard.over {
+  width: min(76rem, 96vw);
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(19rem, 24rem);
+  gap: 0 1.5rem; align-items: start; overflow: hidden;
+}
+#scoreboard.over .sb-story  { overflow-y: auto; max-height: calc(92vh - 3rem); min-width: 0; padding-right: 0.25rem; }
+#scoreboard.over .sb-roster { overflow-y: auto; max-height: calc(92vh - 3rem); border-left: 1px solid var(--border); padding-left: 1.5rem; }
+#scoreboard.over .sb-roster h3 { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 0.5rem; font-weight: 600; }
+@media (max-width: 900px) {
+  #scoreboard.over { grid-template-columns: 1fr; overflow-y: auto; }
+  #scoreboard.over .sb-story, #scoreboard.over .sb-roster { max-height: none; overflow: visible; border-left: none; padding-left: 0; }
 }
 #scoreboard h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.3rem; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 1rem; }
 #scoreboard table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
