@@ -98,6 +98,10 @@ expect(prepareSciencePreset(k9)).toEqual(prepareSciencePreset(k9));
 
 - [x] **Step 4: Document exact cards and verified behavior.**
 
-- [ ] **Step 5: Run `npx tsc --noEmit`, `npx vitest run`, `npm run lint`, and `npm run build`.**
+- [x] **Step 5: Run `npx tsc --noEmit`, `npx vitest run`, `npm run lint`, and `npm run build`.**
 
-- [ ] **Step 6: Run repository hygiene checks and commit** with `docs: ship science quick deploy cards`.
+- [x] **Step 6: Run repository hygiene checks and commit** with `docs: ship science quick deploy cards`.
+
+Completion evidence: desktop and 390px browser playtests launched two distinct
+presets with zero console errors; TypeScript, ESLint, and production build
+passed; Vitest completed 158 files and 1,746 tests with zero failures.

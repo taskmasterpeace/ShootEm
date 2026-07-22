@@ -70,7 +70,7 @@ The public record of what shipped, written for players and backers — not engin
   sites, multi-floor objectives/extraction, guard search, dog scent/stairs,
   and dog ladder refusal.
 - Fresh release gates pass: TypeScript emits no diagnostics; the full suite is
-  **157 files / 1,739 tests** green; ESLint reports zero errors; and Vite emits
+  **158 files / 1,746 tests** green; ESLint reports zero errors; and Vite emits
   the production bundle.
 
 ### Fixed during visual production
