@@ -918,6 +918,10 @@ function setMode(mode: string) {
     const frame = document.getElementById('beams-frame') as HTMLIFrameElement | null;
     if (frame && !frame.src) frame.src = '/beams.html';
   }
+  if (mode === 'instruments') {
+    const frame = document.getElementById('instrument-frame') as HTMLIFrameElement | null;
+    if (frame && !frame.src) frame.src = '/instruments.html';
+  }
   matchupCtl?.setActive(mode === 'matchup');
   for (const t of Array.from(document.querySelectorAll<HTMLButtonElement>('.tab')))
     t.classList.toggle('active', t.dataset.mode === mode);

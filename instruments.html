@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>War World — Radar &amp; Instrument Lab</title>
+  <link rel="stylesheet" href="/src/styles.css" />
+  <style>
+    html, body { overflow: auto; min-height: 100%; background: oklch(0.12 0.012 74); }
+    body { padding: 72px 32px 48px; }
+    .instrument-lab { max-width: 980px; margin: 0 auto; }
+    .instrument-lab header { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 24px; }
+    .instrument-lab h1 { font-family: var(--font-display); font-size: 1.7rem; letter-spacing: 0.04em; }
+    .instrument-lab h1 span { color: var(--accent); }
+    .instrument-lab header p { max-width: 34rem; color: var(--muted); font: 0.72rem/1.5 var(--font-mono); }
+    #instrument-fixtures { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 24px; }
+    .fixture-button { appearance: none; border: 1px solid var(--border); background: var(--card); color: var(--muted); padding: 7px 11px; font: 0.67rem var(--font-mono); letter-spacing: 0.05em; cursor: pointer; transition: 0.18s; }
+    .fixture-button:hover { color: var(--text); border-color: var(--accent); }
+    .fixture-button.active { color: var(--accent); border-color: var(--accent); background: oklch(0.2 0.035 74); }
+    .lab-stage { display: grid; grid-template-columns: minmax(320px, 1fr) 264px; gap: 24px; align-items: center; min-height: 390px; padding: 28px; border: 1px solid var(--border); background: radial-gradient(circle at 70% 40%, oklch(0.21 0.025 78), oklch(0.13 0.012 74) 62%); }
+    #scope-fixture { width: 100%; max-width: 520px; aspect-ratio: 1; border: 1px solid var(--border); background: oklch(0.1 0.01 74); justify-self: center; }
+    .instrument-stack { align-self: end; }
+    .instrument-stack #vehicle-instruments { display: block; width: 264px; height: 110px; }
+    #fixture-notes { margin-top: 12px; color: var(--muted); font: 0.65rem/1.45 var(--font-mono); }
+    .lab-legend { margin-top: 18px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .lab-legend span { border-left: 2px solid var(--accent); background: var(--card); padding: 8px 10px; color: var(--muted); font: 0.62rem var(--font-mono); }
+    @media (max-width: 720px) {
+      body { padding: 24px 14px; }
+      .instrument-lab header { display: block; }
+      .lab-stage { grid-template-columns: 1fr; padding: 14px; }
+      .instrument-stack { justify-self: center; }
+      .lab-legend { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="instrument-lab">
+    <header><div><h1>RADAR <span>/ INSTRUMENT LAB</span></h1><p>Production presenters over the PixelLab gunmetal-dial frame. The art is decorative chrome; every needle, number, altitude pip, track and warning below is live data.</p></div></header>
+    <nav id="instrument-fixtures" aria-label="Instrument fixtures"></nav>
+    <section class="lab-stage">
+      <canvas id="scope-fixture" width="520" height="520" aria-label="Radar scope fixture"></canvas>
+      <div class="instrument-stack">
+        <section id="vehicle-instruments" aria-label="Vehicle instruments"></section>
+        <p id="fixture-notes"></p>
+      </div>
+    </section>
+    <div class="lab-legend"><span>△ AIR · B/S/C BAND</span><span>□ GROUND / MACHINE</span><span>⌄ SURFACE · SONAR ARCS</span><span>○ JAM UNCERTAINTY</span></div>
+  </main>
+  <script type="module" src="/src/harness/instruments.ts"></script>
+</body>
+</html>

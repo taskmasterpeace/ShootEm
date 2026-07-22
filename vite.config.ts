@@ -72,6 +72,8 @@ export default defineConfig({
         style: resolve(__dirname, 'style.html'),
         // the beam lab — continuous beams: hose / kamehameha / heat / flamer (/beams.html)
         beams: resolve(__dirname, 'beams.html'),
+        // radar/minimap + PixelLab aircraft instrument state bench
+        instruments: resolve(__dirname, 'instruments.html'),
       },
     },
   },
