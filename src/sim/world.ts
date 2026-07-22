@@ -76,6 +76,10 @@ const CORPSE_CRITICAL_WINDOW = 2;
  *  to full, so denial takes a real (brief) burn. Chemistry (BNR) and a blast's
  *  complete destruction stay instant (§6.2). Tunable. */
 const INC_BURN_PER_HIT = 0.5;
+// §6.1 FIELD FIRE (W7.3) — a burning tile lives ~5.5s, hurts who stands in it
+// at FIRE_DPS, and ~1.1s after it catches it spreads to its flammable orthogonal
+// neighbours ONCE. A hard tile cap keeps a grass sea from becoming a fork bomb.
+const FIRE_LIFE = 5.5, FIRE_DPS = 9, FIRE_SPREAD_DELAY = 1.1, FIRE_CAP = 80, FIRE_BURN_RATE = 0.6;
 /** STATUS §1 / W1.4 — BALLISTIC FALLOFF: a bullet tires as it flies, so range
  *  costs stopping-power. Energy weapons (rail/beam/plasma) are EXEMPT — light
  *  doesn't lose steam. Full damage out to 55% of the weapon's range, then a
@@ -428,6 +432,10 @@ export class World {
   outbreakEnabled = false;
   /** exposed bodies on the reanimation clock (§6) — capped, oldest forgotten */
   corpses: { pos: Vec3; reanimatesAt: number; neutralized: boolean; name: string; classId: ClassId; warned?: boolean; burn?: number }[] = [];
+  /** §6.1 FIRE (W7.3): burning TILES — grass/wood catch from incendiary rounds,
+   *  scorch who stands in them, SPREAD to flammable neighbours, and burn down.
+   *  Deterministic (no RNG, metered cadence); snapshot-serialized so it replays. */
+  fires: { tx: number; tz: number; until: number; spreadAt: number }[] = [];
   /** §BEAMS row 189: this tick's registered held streams (cleared each step) */
   private tickBeams: { s: Soldier; def: WeaponDef; wid: WeaponId; surge: boolean }[] = [];
   /** live beam-vs-beam CLASHES keyed 'aId-bId' (a<b). t = the node's position
@@ -763,6 +771,64 @@ export class World {
     const t = this.map.grid[idx];
     if (isDoorTile(t) && t !== T_METAL_DOOR) this.damageDoor(idx, dmg, byId);
     else this.damageWall(tx, tz, dmg, heavy);
+  }
+
+  // ---------- §6.1 FIELD FIRE (W7.3) ----------
+
+  /** A tile catches fire when its wall material OR its ground surface is
+   *  flammable (grass ground; wood cover/doors/frames). Out of bounds never burns. */
+  private tileFlammable(tx: number, tz: number): boolean {
+    const geo = this.map.geometry;
+    if (tx < 0 || tz < 0 || tx >= geo.cols || tz >= geo.rows) return false;
+    const idx = tileIndex(geo, tx, tz);
+    return materialOf(this.map.grid[idx]).flammable || materialForSurface(this.map.surface[idx]).flammable;
+  }
+
+  /** Light a tile — if it's flammable, not already ablaze, and under the cap. */
+  igniteTile(tx: number, tz: number): void {
+    if (this.fires.length >= FIRE_CAP || !this.tileFlammable(tx, tz)) return;
+    if (this.fires.some((f) => f.tx === tx && f.tz === tz)) return;
+    this.fires.push({ tx, tz, until: this.time + FIRE_LIFE, spreadAt: this.time + FIRE_SPREAD_DELAY });
+  }
+
+  /** Ignite the tile under a world point — an incendiary round's impact. */
+  igniteAt(x: number, z: number): void {
+    const [tx, tz] = worldToTile(this.map.geometry, x, z);
+    this.igniteTile(tx, tz);
+  }
+
+  /** Burn down, spread to flammable neighbours ONCE, and scorch the living + the
+   *  dead standing in the flames. Deterministic — no RNG (empty ⇒ early out, so
+   *  fire-free replays are byte-identical). */
+  private stepFires(dt: number): void {
+    if (!this.fires.length) return;
+    const geo = this.map.geometry;
+    const spread: [number, number][] = [];
+    this.fires = this.fires.filter((f) => {
+      if (this.time >= f.until) return false;            // burnt out
+      if (f.spreadAt > 0 && this.time >= f.spreadAt) {   // the neighbours catch, once
+        f.spreadAt = 0;
+        spread.push([f.tx + 1, f.tz], [f.tx - 1, f.tz], [f.tx, f.tz + 1], [f.tx, f.tz - 1]);
+      }
+      return true;
+    });
+    for (const [tx, tz] of spread) this.igniteTile(tx, tz);
+    if (!this.fires.length) return;
+    const burning = new Set(this.fires.map((f) => f.tz * 4096 + f.tx));
+    const keyAt = (x: number, z: number) => { const [tx, tz] = worldToTile(geo, x, z); return tz * 4096 + tx; };
+    // scorch the living standing in fire (metered DoT); riders + gods exempt
+    for (const s of this.soldiers.values()) {
+      if (!s.alive || s.vehicleId >= 0 || s.ascendant !== undefined) continue;
+      if (burning.has(keyAt(s.pos.x, s.pos.z))) this.damageSoldier(s, FIRE_DPS * dt, -1, 'flamer');
+    }
+    // burn down corpses caught in the flames — the FIELD path to §6.1 neutralization
+    for (const c of this.corpses) {
+      if (c.neutralized) continue;
+      if (burning.has(keyAt(c.pos.x, c.pos.z))) {
+        c.burn = (c.burn ?? 0) + FIRE_BURN_RATE * dt;
+        if (c.burn >= 1) c.neutralized = true;
+      }
+    }
   }
 
   id(): number { return this.nextId++; }
@@ -2029,6 +2095,7 @@ export class World {
     this.stepRadar();
     for (const t of this.turrets.values()) this.stepTurret(t, dt);
     this.stepProjectiles(dt);
+    this.stepFires(dt); // §6.1 field fire — burn/spread/scorch (no-op when nothing's alight)
     this.stepMines(dt);
     this.stepPickups(dt);
     this.stepGadgets(dt);
@@ -5467,6 +5534,12 @@ export class World {
     if (payload === 'fire') {
       this.spawnGadget('fire_field', p.team, p.ownerId, p.pos, Infinity, 10);
       this.emit({ type: 'explosion', pos: { ...p.pos }, weapon: 'flamer' });
+      // §6.1 W7.3: the incendiary sets the GROUND alight — flammable tiles in the
+      // splash catch and then spread on their own (grass fields, wood cover).
+      const [ctx, ctz] = worldToTile(this.map.geometry, p.pos.x, p.pos.z);
+      for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) {
+        if (dx * dx + dz * dz <= 5) this.igniteTile(ctx + dx, ctz + dz);
+      }
       return true;
     }
     if (payload === 'concussion') {
@@ -5738,7 +5811,9 @@ export class World {
           p.pos.x += (p.vel.x / vl) * (this.map.geometry.tile + 0.5);
           p.pos.z += (p.vel.z / vl) * (this.map.geometry.tile + 0.5);
         } else {
-          // 3. IGNITE (proj.ignite & mat.flammable) wires here when the fire system lands.
+          // 3. IGNITE (§6.1 W7.3): an incendiary round on flammable cover starts a
+          // fire on that tile — wood/grass catch, metal/masonry shrug it off.
+          if (p.incendiary && mat?.flammable) this.igniteAt(p.pos.x, p.pos.z);
           // 4. IMPACT — detonate/splash, else the round dies and DAMAGES the wall
           // per its material (soft cover shreds, masonry/metal shrug small arms —
           // the heavyOnly gate lives in damageWall). Ground hits (no mat) just splat.

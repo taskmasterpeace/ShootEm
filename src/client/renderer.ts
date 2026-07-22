@@ -2593,6 +2593,17 @@ export class Renderer {
     // THRASHES in its final seconds before it rises — so the horde is seen to
     // grow from a body, never a blank spawn. Hidden until the dead-soldier mesh
     // has cleared (RESPAWN_DELAY), so there is never a doubled corpse.
+    // §6.1 FIELD FIRE: flames lick up from every burning tile, dark smoke above.
+    if (!world.puppet && world.fires.length) {
+      const fgeo = world.map.geometry;
+      const smoke = Math.floor(world.time * 5) % 2 === 0; // thin the smoke — it's heavy
+      for (const f of world.fires) {
+        const fc = tileToWorld(fgeo, f.tx, f.tz);
+        this.particles.emit({ pos: { x: fc.x, y: 0.2, z: fc.z }, count: 2, color: 0xff6a1a, speed: 1.6, life: 0.5, spread: 0.9, up: 3.6, gravity: -3.5, size: 0.8 });
+        this.particles.emit({ pos: { x: fc.x, y: 0.15, z: fc.z }, count: 1, color: 0xffd23d, speed: 1.2, life: 0.32, spread: 0.6, up: 2.8, gravity: -2.5, size: 0.55 });
+        if (smoke) this.particles.emit({ pos: { x: fc.x, y: 1.2, z: fc.z }, count: 1, color: 0x2a2a2a, speed: 0.8, life: 1.6, spread: 0.7, up: 3.2, gravity: -1.5, size: 1.0 });
+      }
+    }
     const liveCorpses = new Set<World['corpses'][number]>();
     if (!world.puppet) {
       for (const c of world.corpses) {
