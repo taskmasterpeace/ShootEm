@@ -779,6 +779,10 @@ export interface Vehicle {
   /** V4: the Anvil's remaining iron, and whether the Cradle is still aboard */
   bombLoad?: number;
   nukeAboard?: boolean;
+  /** STEALTH (mountain warfare): a low-signature airframe (Reaper) is hidden
+   *  from enemy radar tracks beyond visual range UNTIL it fires — the strike
+   *  reveals it for a short window. `this.time < revealedUntil` = paints again. */
+  revealedUntil?: number;
   /** J1 THE SKY HAS FLOORS: discrete altitude band (0 = on the deck, 1-3 in
    *  the air). Q climbs, E dives, and at band 0 the E key becomes the door.
    *  Continuous height is unreadable from a top-down camera; a BAND can be

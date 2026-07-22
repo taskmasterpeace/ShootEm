@@ -659,6 +659,10 @@ WEAPONS.torpedo = W({
 
 /** heat-seeker top speed as a fraction of the flyer's — it always loses a drag race */
 export const SAM_SPEED_RATIO = 0.92;
+/** STEALTH (mountain warfare): the range past which a low-signature airframe
+ *  (Reaper) drops off enemy radar + SAM lock — a picket that gets this close
+ *  still gets its shot. The whole point of the bomber is slipping the belt. */
+export const STEALTH_VISUAL_RANGE = 42;
 
 WEAPONS.sam_missile = W({
   id: 'sam_missile', name: 'Peregrine SAM', damage: 120, rof: 0.7,

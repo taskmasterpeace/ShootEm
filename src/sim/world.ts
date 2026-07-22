@@ -1,4 +1,4 @@
-import { AMMO_INFO, CLASSES, DOG_NAMES, DOG_STATS, EQUIPMENT, IRON_STATS, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
+import { AMMO_INFO, CLASSES, DOG_NAMES, DOG_STATS, EQUIPMENT, IRON_STATS, SAM_SPEED_RATIO, STEALTH_VISUAL_RANGE, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
 import {
   CLIMB_H, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS,
@@ -2134,6 +2134,11 @@ export class World {
 
     for (const target of [...this.vehicles.values()].sort((a, b) => a.id - b.id)) {
       if (!target.alive || target.id === emitter.id) continue;
+      // STEALTH (mountain warfare): a low-signature airframe stays off enemy
+      // radar past visual range UNTIL it fires — the strike lights it up. Its
+      // ECM/domain treatment is otherwise normal once it's paintable.
+      if (VEHICLES[target.kind].stealth && this.time >= (target.revealedUntil ?? 0)
+          && Math.hypot(target.pos.x - emitter.pos.x, target.pos.z - emitter.pos.z) > STEALTH_VISUAL_RANGE) continue;
       observe(
         'vehicle', target.id, target.team, target.pos, target.yaw, asElevationLevel(target.band),
         radarDomainForVehicle(target.kind, target.band ?? 0, !!target.submerged), target.systems.ecm > 0,
@@ -4225,7 +4230,8 @@ export class World {
       // STEALTH (mountain warfare): a Reaper slips radar — no lock beyond visual
       // range. A picket that gets close still gets its shot; flying straight over
       // an alerted line is the risk. This is the whole point of the airframe.
-      if (VEHICLES[t.kind].stealth && Math.hypot(t.pos.x - v.pos.x, t.pos.z - v.pos.z) > 42) continue;
+      if (VEHICLES[t.kind].stealth && this.time >= (t.revealedUntil ?? 0)
+          && Math.hypot(t.pos.x - v.pos.x, t.pos.z - v.pos.z) > STEALTH_VISUAL_RANGE) continue;
       consider(t.pos, t, asElevationLevel(t.band));
     }
     for (const e of this.soldiers.values()) {
@@ -5292,6 +5298,9 @@ export class World {
         ...(def.flies ? { elevationWeapon: 'aircraft' as const } : {}),
       };
       this.launch(p);
+      // a STEALTH airframe that fires LIGHTS UP on radar for a short window —
+      // "not on the radar until the ground erupts" (mountain warfare)
+      if (def.stealth) v.revealedUntil = this.time + 4;
       recordVehicleEvent(this.vehicleTelemetry, {
         kind: 'shot', t: this.time, vehicleId: v.id, vehicleKind: v.kind,
         theaterId: this.map.theater?.id ?? 'classic', seed: this.map.seed,
