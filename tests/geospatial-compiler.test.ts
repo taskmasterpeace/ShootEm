@@ -57,6 +57,35 @@ const fixture = (): GeoSliceSource => ({
   retrievedAt: '2026-07-22',
 });
 
+const fixtureWithSixParcels = (): GeoSliceSource => {
+  const source = fixture();
+  const parcel = (
+    id: string,
+    west: number,
+    south: number,
+    use: string,
+  ): GeoSliceSource['buildings'][number] => ({
+    id,
+    use,
+    floors: use === 'house' ? 1 : 2,
+    polygon: [
+      { longitude: west, latitude: south },
+      { longitude: west + 0.00036, latitude: south },
+      { longitude: west + 0.00036, latitude: south + 0.0003 },
+      { longitude: west, latitude: south + 0.0003 },
+    ],
+  });
+  source.buildings = [
+    parcel('way/north-west', -122.40105, 37.75525, 'house'),
+    parcel('way/north-east', -122.39936, 37.75525, 'retail'),
+    parcel('way/south-west', -122.40105, 37.75445, 'house'),
+    parcel('way/south-east', -122.39936, 37.75445, 'house'),
+    parcel('way/far-north', -122.40085, 37.75568, 'school'),
+    parcel('way/far-south', -122.39955, 37.75404, 'house'),
+  ];
+  return source;
+};
+
 const reachable = (grid: Uint8Array, cols: number, start: number, target: number): boolean => {
   const seen = new Uint8Array(grid.length);
   const queue = [start];
@@ -102,5 +131,28 @@ describe('geospatial map compiler', () => {
       return z * options.geometry.cols + x;
     };
     expect(reachable(first.map.grid, options.geometry.cols, toIndex(first.map.basePos[0]), toIndex(first.map.basePos[1]))).toBe(true);
+  });
+
+  it('adds Miami district routes, distributed interiors, labels, and presentation', () => {
+    const result = compileGeospatialMap(fixtureWithSixParcels(), {
+      seed: 33056,
+      cityId: '69:miami:e08:2700000',
+      geometry: { cols: 96, rows: 96, tile: 3 },
+      style: 'miami-gardens',
+      maxPlayableBuildings: 4,
+      controlPointNames: ['183RD STREET', 'CIVIC CENTER', 'CAROL CITY EAST'],
+    });
+
+    expect(result.map.theater?.routes.filter((route) => route.domain === 'ground')).toHaveLength(2);
+    expect(result.map.theater?.routes.some((route) => route.domain === 'foot')).toBe(true);
+    expect(result.map.houses.length).toBeGreaterThanOrEqual(2);
+    expect(result.map.controlPoints.map((point) => point.name)).toEqual([
+      '183RD STREET',
+      'CIVIC CENTER',
+      'CAROL CITY EAST',
+    ]);
+    expect(result.map.geospatial?.style).toBe('miami-gardens');
+    expect(result.map.geospatial?.buildingHeight).toHaveLength(96 * 96);
+    expect(result.map.geospatial?.decor.some((decor) => decor.kind === 'palm')).toBe(true);
   });
 });

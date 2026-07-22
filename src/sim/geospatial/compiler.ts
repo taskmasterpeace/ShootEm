@@ -11,6 +11,8 @@ import {
   T_WALL,
   T_WATER,
   type GameMap,
+  type GeospatialDecor,
+  type GeospatialMapMeta,
 } from '../map';
 import {
   geometryLength,
@@ -41,6 +43,8 @@ export interface CompileGeospatialOptions {
   geometry?: MapGeometry;
   rotation?: number;
   maxPlayableBuildings?: number;
+  style?: GeospatialMapMeta['style'];
+  controlPointNames?: [string, string, string];
 }
 
 export interface CompiledGeospatialMap {
@@ -192,7 +196,7 @@ function archetypeFor(building: GeoBuilding): BuildingArchetype {
   return 'cottage';
 }
 
-function stampPlayableBuilding(
+function stampPlayableBuildings(
   map: GameMap,
   sourceBuildings: readonly GeoBuilding[],
   projectedBuildings: readonly ProjectedGeoBuilding[],
@@ -200,11 +204,15 @@ function stampPlayableBuilding(
   seed: number,
   roadCells: ReadonlySet<number>,
   overlay: GameplayOverlayChange[],
+  limit: number,
 ): number {
+  if (limit <= 0) return 0;
   const candidates = projectedBuildings
     .map((building, index) => ({ building, source: sourceBuildings[index], bounds: boundsOf(building, map.geometry) }))
     .sort((a, b) => b.bounds.area - a.bounds.area || a.building.id.localeCompare(b.building.id));
-  for (let index = 0; index < candidates.length; index++) {
+  const occupied: Array<{ minX: number; minZ: number; maxX: number; maxZ: number }> = [];
+  let stamped = 0;
+  for (let index = 0; index < candidates.length && stamped < limit; index++) {
     const candidate = candidates[index];
     const floors = Math.max(1, Math.min(3, Math.round(candidate.source.floors ?? ((candidate.source.height ?? 4) / 4)))) as 1 | 2 | 3;
     const generated = generateCityBuilding({
@@ -219,8 +227,19 @@ function stampPlayableBuilding(
     if (generated.width > availableWidth || generated.height > availableHeight) continue;
     const tx = candidate.bounds.minX + Math.floor((availableWidth - generated.width) / 2);
     const tz = candidate.bounds.minZ + Math.floor((availableHeight - generated.height) / 2);
+    const placement = { minX: tx, minZ: tz, maxX: tx + generated.width - 1, maxZ: tz + generated.height - 1 };
+    if (occupied.some((other) => placement.minX <= other.maxX && placement.maxX >= other.minX
+      && placement.minZ <= other.maxZ && placement.maxZ >= other.minZ)) continue;
+    let crossesRoad = false;
+    for (let z = placement.minZ; z <= placement.maxZ && !crossesRoad; z++) {
+      for (let x = placement.minX; x <= placement.maxX; x++) {
+        if (roadCells.has(tileIndex(map.geometry, x, z))) { crossesRoad = true; break; }
+      }
+    }
+    if (crossesRoad) continue;
     const claims: Array<{ idx: number; t: number }> = [];
-    const upperLayers = [map.grid2];
+    const upperLayers = map.upperLayers ?? [map.grid2];
+    upperLayers[0] = map.grid2;
     const ctx: StampCtx = {
       geometry: map.geometry,
       grid: map.grid,
@@ -230,9 +249,10 @@ function stampPlayableBuilding(
       pickups: map.pickups,
       houses: map.houses,
       claims,
-      rng: new Rng(seed ^ 0x6275696c),
+      rng: new Rng(seed ^ 0x6275696c ^ index),
     };
     if (!stampBuilding(ctx, generated.def, tx, tz)) continue;
+    occupied.push(placement);
     if (upperLayers.length > 1 || generated.floors > 1) map.upperLayers = upperLayers;
     map.propCovered.push(...claims.filter((claim) => map.grid[claim.idx] === claim.t).map((claim) => claim.idx));
     map.buildingMeta = {
@@ -274,9 +294,68 @@ function stampPlayableBuilding(
         map.surface[cell] = S_PLATE;
       }
     }
-    return 1;
+    stamped++;
   }
-  return 0;
+  return stamped;
+}
+
+function backgroundBuildingHeight(
+  sourceBuildings: readonly GeoBuilding[],
+  projectedBuildings: readonly ProjectedGeoBuilding[],
+  geometry: MapGeometry,
+): Uint8Array {
+  const result = new Uint8Array(geometryLength(geometry));
+  for (let buildingIndex = 0; buildingIndex < projectedBuildings.length; buildingIndex++) {
+    const source = sourceBuildings[buildingIndex];
+    const storeys = Math.max(1, Math.min(4, Math.round(source.floors ?? ((source.height ?? 4) / 4))));
+    for (const index of rasterPolygon(projectedBuildings[buildingIndex].polygon, geometry)) result[index] = storeys;
+  }
+  return result;
+}
+
+function buildDistrictDecor(
+  map: GameMap,
+  classification: Uint8Array,
+  roadCells: ReadonlySet<number>,
+  seed: number,
+  style: GeospatialMapMeta['style'],
+): GeospatialDecor[] {
+  if (style !== 'miami-gardens') return [];
+  const decor: GeospatialDecor[] = [];
+  const rng = new Rng(seed ^ 0x33056);
+  const roads = [...roadCells].sort((a, b) => a - b);
+  const offsets = [[4, 0], [-4, 0], [0, 4], [0, -4], [5, 0], [0, 5]] as const;
+  for (let cursor = 0; cursor < roads.length && decor.length < 72; cursor += 17) {
+    const road = roads[cursor];
+    const x = road % map.geometry.cols;
+    const z = Math.floor(road / map.geometry.cols);
+    const ordered = [...offsets].sort(() => rng.next() - 0.5);
+    for (const [dx, dz] of ordered) {
+      const tx = x + dx;
+      const tz = z + dz;
+      if (!inBounds(map.geometry, tx, tz)) continue;
+      const index = tileIndex(map.geometry, tx, tz);
+      if (classification[index] === GEO_CLASS_ROAD || classification[index] === GEO_CLASS_BUILDING
+        || classification[index] === GEO_CLASS_WATER) continue;
+      if (map.grid[index] !== T_OPEN && map.grid[index] !== T_GRASS) continue;
+      const pos = tileToWorld(map.geometry, tx, tz);
+      if (map.basePos.some((base) => Math.hypot(base.x - pos.x, base.z - pos.z) < 28)) continue;
+      const kind = decor.length % 3 === 1 ? 'streetlight' : 'palm';
+      decor.push({ kind, pos, scale: kind === 'palm' ? rng.range(0.85, 1.25) : 1, rot: rng.range(0, Math.PI * 2) });
+      break;
+    }
+  }
+  for (const point of map.controlPoints) {
+    for (const side of [-1, 1]) {
+      decor.push({
+        kind: 'barrier',
+        pos: { x: point.pos.x, y: point.pos.y, z: point.pos.z + side * map.geometry.tile * 2 },
+        scale: 1,
+        rot: Math.PI / 2,
+      });
+    }
+  }
+  return decor;
 }
 
 function sealUnreachablePockets(map: GameMap, start: number, overlay: GameplayOverlayChange[]): void {
@@ -329,6 +408,7 @@ export function compileGeospatialMap(
   map.surface.fill(S_GRIT);
   const classification = new Uint8Array(geometryLength(geometry));
   const overlay: GameplayOverlayChange[] = [];
+  const buildingHeight = backgroundBuildingHeight(source.buildings, projected.buildings, geometry);
 
   for (const feature of projected.land) {
     for (const index of rasterPolygon(feature.polygon, geometry)) {
@@ -384,7 +464,7 @@ export function compileGeospatialMap(
   map.height = terrain.height;
   map.ramp = terrain.ramp;
 
-  const playableBuildings = options.maxPlayableBuildings === 0 ? 0 : stampPlayableBuilding(
+  const playableBuildings = stampPlayableBuildings(
     map,
     source.buildings,
     projected.buildings,
@@ -392,6 +472,7 @@ export function compileGeospatialMap(
     options.seed,
     roadCells,
     overlay,
+    Math.max(0, options.maxPlayableBuildings ?? 4),
   );
 
   // A parcel may touch a mapped centerline. The route contract wins: keep the
@@ -410,21 +491,32 @@ export function compileGeospatialMap(
   map.flagPos = [{ ...west }, { ...east }];
   map.spawns = [spawnRing(map, westRoad), spawnRing(map, eastRoad)];
   const routeAt = (fraction: number) => routePath[Math.min(routePath.length - 1, Math.floor((routePath.length - 1) * fraction))];
-  map.controlPoints = [
-    { name: 'POTRERO WEST', pos: tileToWorld(geometry, routeAt(0.25) % geometry.cols, Math.floor(routeAt(0.25) / geometry.cols)) },
-    { name: 'DOGPATCH', pos: tileToWorld(geometry, routeAt(0.5) % geometry.cols, Math.floor(routeAt(0.5) / geometry.cols)) },
-    { name: 'INDUSTRIAL EAST', pos: tileToWorld(geometry, routeAt(0.75) % geometry.cols, Math.floor(routeAt(0.75) / geometry.cols)) },
-  ];
+  const controlPointNames = options.controlPointNames ?? ['WEST APPROACH', 'CIVIC CENTER', 'EAST APPROACH'];
+  map.controlPoints = controlPointNames.map((name, index) => {
+    const routeIndex = routeAt((index + 1) / 4);
+    return { name, pos: tileToWorld(geometry, routeIndex % geometry.cols, Math.floor(routeIndex / geometry.cols)) };
+  });
   map.hillPos = { ...map.controlPoints[1].pos };
   const routePoints = routePath
     .filter((_, index) => index === 0 || index === routePath.length - 1 || index % 12 === 0)
     .map((index) => tileToWorld(geometry, index % geometry.cols, Math.floor(index / geometry.cols)));
+  const footRoadClasses = new Set(['footway', 'path', 'cycleway', 'living_street']);
+  const footSource = projected.roads
+    .filter((road) => footRoadClasses.has(road.roadClass) && road.points.length >= 2)
+    .sort((a, b) => {
+      const length = (road: typeof a) => road.points.slice(1).reduce((sum, point, index) =>
+        sum + Math.hypot(point.x - road.points[index].x, point.z - road.points[index].z), 0);
+      return length(b) - length(a) || a.id.localeCompare(b.id);
+    })[0];
+  const footRoutePoints = footSource?.points.map((point) => ({ x: point.x, y: 0, z: point.z })) ?? routePoints;
   map.theater = {
     id: 'city',
     name: source.name,
     domains: ['foot', 'ground', 'air'],
     routes: [
       { id: 'geocity:street-spine', domain: 'ground', width: 18, points: routePoints },
+      { id: 'geocity:service-route', domain: 'ground', width: 18, points: routePoints.map((point) => ({ ...point })) },
+      { id: 'geocity:foot-flank', domain: 'foot', width: 6, points: footRoutePoints },
       { id: 'geocity:air-corridor', domain: 'air', width: 90, points: [{ ...west }, { ...east }] },
     ],
     landingZones: [
@@ -442,6 +534,14 @@ export function compileGeospatialMap(
     { kind: 'transportheli', team: 0, pos: { ...west } },
     { kind: 'transportheli', team: 1, pos: { ...east } },
   ];
+  map.geospatial = {
+    sourceId: source.id,
+    cityId: options.cityId,
+    style: options.style ?? 'default',
+    classification,
+    buildingHeight,
+    decor: buildDistrictDecor(map, classification, roadCells, options.seed, options.style ?? 'default'),
+  };
 
   sealUnreachablePockets(map, westRoad, overlay);
 
