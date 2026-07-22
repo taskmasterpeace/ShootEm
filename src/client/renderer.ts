@@ -4506,8 +4506,14 @@ export class Renderer {
     let verbRollX = 0;
     if (s.dashUntil !== undefined && t < s.dashUntil) verbLean = -0.45;
     // SLIDE-OFF-SPRINT: a deeper backward lean than the dash — the body reads
-    // as skidding low along the deck, eased out over the slide's tail.
-    if (s.slideUntil !== undefined && t < s.slideUntil) verbLean = -0.7 * ((s.slideUntil - t) / 0.55);
+    // as skidding low along the deck, eased out over the slide's tail, and the
+    // boots THROW UP DUST so the skid reads on the ground, not just the spine.
+    if (s.slideUntil !== undefined && t < s.slideUntil) {
+      verbLean = -0.7 * ((s.slideUntil - t) / 0.55);
+      if (s.pos.y < 0.3 && Math.random() < 0.6) {
+        this.particles.emit({ pos: { x: s.pos.x, y: 0.12, z: s.pos.z }, count: 2, color: 0x8a7a5c, speed: 2.6, life: 0.4, spread: 0.6, up: 1.3, gravity: 4 });
+      }
+    }
     if (s.rollUntil !== undefined && t < s.rollUntil) {
       const k = 1 - (s.rollUntil - t) / 0.5;
       verbRollX = (s.rollDir ?? 1) * k * Math.PI * 2; // one full sideways revolution
@@ -4552,6 +4558,28 @@ export class Renderer {
       mesh.scale.y = sy;
       const wide = base * Math.sqrt(base / sy);
       mesh.scale.x = wide; mesh.scale.z = wide;
+    }
+
+    // ---- COIL-LEAP LAND (movement dress, C-1 rig debt): a regular trooper's
+    // leap must END WITH WEIGHT — a dust ring + a quick squash when the boots
+    // hit, gated on a real fall so a stair-step never thuds. (LSW leapers have
+    // their own dress above; this is the paper-doll body reading its own leap.)
+    if (!s.ascendant && s.kind !== 'dog') {
+      const lud = mesh.userData as { wasAir?: boolean; peakY?: number; landAt?: number; baseSY?: number };
+      lud.baseSY ??= mesh.scale.y;
+      const inAir = s.pos.y > 0.35;
+      if (inAir) lud.peakY = Math.max(lud.peakY ?? 0, s.pos.y);
+      if (lud.wasAir && !inAir && s.alive && (lud.peakY ?? 0) > 1.3) {
+        lud.landAt = t;
+        this.particles.emit({ pos: { x: s.pos.x, y: 0.12, z: s.pos.z }, count: 10, color: 0xbfae90, speed: 4.5, life: 0.45, spread: 1.5, up: 1.4, gravity: -3, size: 0.45 });
+      }
+      if (!inAir) lud.peakY = 0;
+      lud.wasAir = inAir;
+      if (lud.landAt !== undefined) {
+        const since = t - lud.landAt;
+        if (since < 0.2) mesh.scale.y = lud.baseSY! * (0.82 + 0.18 * (since / 0.2)); // squash → recover
+        else { lud.landAt = undefined; mesh.scale.y = lud.baseSY!; }
+      }
     }
 
     // ---- BLINK DRESS (movement dress §Task 9): a blink-walker leaves a fading
