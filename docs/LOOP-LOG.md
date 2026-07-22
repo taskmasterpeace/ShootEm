@@ -32,3 +32,4 @@
 2026-07-22 IT-33: #103 closed (Jackals shaped into LORE from COF canon). 31 closed, 9 needs-robert.
 2026-07-22 IT-34: full-gate attestation (tsc 0 / 2297 / build ✓) + report refreshed. State: 31 closed · 9 needs-robert · 0 blocked · 72 grindable. Next window opens on #10 (stepVehicle carve + end-state hash), then #82 air fixes, #89 moodle rail.
 2026-07-22 IT-35: #10 closed-with-evidence (carve already on main, c91f649, clause-verified). 32 closed. Next: #82 air fixes.
+2026-07-22 IT-36/37: #8 + #9 closed-with-evidence (a250caf roster cache, f75ef99 losClearXZ — dedicated commits verified in code). 34 closed.
