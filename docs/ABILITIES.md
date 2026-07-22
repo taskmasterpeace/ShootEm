@@ -36,7 +36,7 @@
 
 | Class | HP / spd | Primary | Secondary | ABILITY (Q) | GRENADE (G) |
 |---|---|---|---|---|---|
-| **Infantry** | 100 / 10.5 | AR-606 (13, r66) | Pistol | ⚠ **nothing — not wired** | Frag ×**4** (passive) |
+| **Infantry** | 100 / 10.5 | AR-606 (13, r66) | Pistol | **FRAG (Q)** — throws a hand frag, shares the G pool + cooldown | Frag ×**4** |
 | **Heavy** | 145 / 8.2 | AC-Mk2 (16, r56) | **MML** (65, splash 5.4/45) | **SHIELD DOME** — 80 energy, **400hp / 30s**, one at a time | Frag ×2 |
 | **Jump** | 90 / 11.5 | Kuchler SMG (9, r40) | GL-40 (55, arcs) | **Jetpack** — on SPACE, not Q | Frag ×2 |
 | **Engineer** | 110 / 9.5 | CAW-8 (9×8, r26) | Repair Gun | **Build Sentry** — 80 energy, **max 2**, 180hp | ⚠ **MINE** — max 3, arms 1.2s, **80 dmg** |
@@ -45,7 +45,7 @@
 | **Pathfinder** | 85 / **12.5** | Impulse (30, knockback 17) | Pistol | **Warp Beacon** — plants a paired portal, any teammate uses it | ⚠ **TARGET BEACON** — pings enemies in 25u for 15s |
 | **Ghost** | 90 / 11 | Plasma (21, ∞ reserve) | Pistol | **Recon Drone** — humans fly it FPV; pings 22u through walls | ⚠ **EMP** — stuns vehicles 4s, **evicts all possession**, strips cloaks |
 
-> ⚠ **Four classes do NOT throw a frag on G** — engineer plants a mine, pathfinder throws a target beacon, ghost throws an EMP. And **infantry's Q is dead**: `data.ts` declares `ability: 'grenade'` but `applyCmd` has no branch for it (only cloak/drone/heal/jetpack/shield/turret/warp are wired). Pressing Q as infantry does nothing — its "ability" is really the passive 4 frags.
+> ⚠ **Four classes do NOT throw a frag on G** — engineer plants a mine, pathfinder throws a target beacon, ghost throws an EMP. **Infantry's Q is now wired** (was dead): `ability: 'grenade'` throws a hand frag on Q, drawing from the same grenade pool + cooldown as G — a live ability key, not extra throughput.
 
 ---
 
