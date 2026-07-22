@@ -20,6 +20,7 @@ import { LSWS, THREAT } from '../sim/lsw';
 import { SYSTEM_IDS, type AscendantId, type ClassId, type SoldierKind, type VehicleDef, type VehicleKind, type WeaponDef, type WeaponId } from '../sim/types';
 import { buildSoldier, dressAsLsw } from './models/soldiers';
 import { buildVehicle } from './models/vehicles';
+import { ascendantCost, classCost, fmtCost, threatBounty, vehicleCost, weaponCost } from './codex-cost';
 
 // ── reference weapons for shots-to-kill, and the zombie the numbers answer to ─
 // Robert: "add the damage to kill a zombie for the weapons — a regular old
@@ -128,6 +129,7 @@ const txt = (v: unknown) => (v == null || v === '' ? '—' : String(v));
 const yn = (v: unknown) => (v ? '●' : '·');
 
 const VEHICLE_STATS: Stat[] = [
+  { key: 'cost', label: 'Cost', better: 0, sheet: true, fmt: fmtCost },
   { key: 'hp', label: 'Hull', better: 1, sheet: true, fmt: n0 },
   { key: 'sysHp', label: 'Per system', better: 1, fmt: n0 },
   { key: 'ehp', label: 'Total damage taken', better: 1, sheet: true, fmt: n0 },
@@ -149,6 +151,7 @@ const VEHICLE_STATS: Stat[] = [
 ];
 
 const WEAPON_STATS: Stat[] = [
+  { key: 'cost', label: 'Cost', better: 0, sheet: true, fmt: fmtCost },
   { key: 'family', label: 'Family', better: 0, sheet: true, fmt: txt },
   { key: 'fireMode', label: 'Fire mode', better: 0, sheet: true, fmt: txt }, // 10.1: the trigger discipline
   { key: 'secondary', label: 'Secondary', better: 0, fmt: txt },             // RMB: the under-barrel surprise
@@ -171,6 +174,7 @@ const WEAPON_STATS: Stat[] = [
 ];
 
 const CLASS_STATS: Stat[] = [
+  { key: 'cost', label: 'Cost', better: 0, sheet: true, fmt: fmtCost },
   { key: 'hp', label: 'Health', better: 1, sheet: true, fmt: n0 },
   { key: 'speed', label: 'Speed (u/s)', better: 1, sheet: true, fmt: n1 },
   { key: 'regen', label: 'Stamina regen', better: 1, sheet: true, fmt: (v) => `${n1(v)}×` },
@@ -187,6 +191,7 @@ const CLASS_STATS: Stat[] = [
 // weapon, and — the law that matters — HOW MANY RIFLE ROUNDS KILL IT, because
 // "threat buys HP, never immunity" is only real if the sheet proves it.
 const ASCENDANT_STATS: Stat[] = [
+  { key: 'cost', label: 'Cost', better: 0, sheet: true, fmt: fmtCost },
   { key: 'threatName', label: 'Threat', better: 0, sheet: true, fmt: txt },
   { key: 'hp', label: 'Health', better: 1, sheet: true, fmt: n0 },
   { key: 'faction', label: 'Stable', better: 0, sheet: true, fmt: txt },
@@ -205,6 +210,7 @@ const ASCENDANT_STATS: Stat[] = [
 // section"). Undead + Iron Eaters, with the shots-to-kill by rifle / shotgun /
 // pistol so a player knows what closes the distance and what does not.
 const THREAT_STATS: Stat[] = [
+  { key: 'bounty', label: 'Bounty', better: 1, sheet: true, fmt: fmtCost },
   { key: 'family', label: 'Kind', better: 0, sheet: true, fmt: txt },
   { key: 'hp', label: 'Health', better: 1, sheet: true, fmt: n0 },
   { key: 'plate', label: 'Molt (armor)', better: 1, sheet: true, fmt: (v) => (v ? n0(v) : '·') },
@@ -226,7 +232,7 @@ function vehicleRows(): Row[] {
   return (Object.keys(VEHICLES) as VehicleKind[]).map((kind) => {
     const d = VEHICLES[kind];
     const w = d.weapon ? WEAPONS[d.weapon] : undefined;
-    return {
+    const row: Row = {
       id: kind,
       name: d.name,
       hp: d.hp,
@@ -248,6 +254,7 @@ function vehicleRows(): Row[] {
       mobileSpawn: d.mobileSpawn,
       liftoff: d.liftoffTime ?? 0,
     };
+    return { ...row, cost: vehicleCost(row, d) };
   });
 }
 
@@ -257,7 +264,7 @@ function weaponRows(): Row[] {
     const d = WEAPONS[id];
     const perMan = soldierDamagePerShot(d);
     const perHull = vehicleDamagePerShot(d);
-    return {
+    const row: Row = {
       id,
       name: d.name,
       family: d.family ? `${d.family}${d.tier ? ` mk${d.tier}` : ''}` : '—',
@@ -280,6 +287,7 @@ function weaponRows(): Row[] {
       knockback: d.knockback,
       ragdolls: d.knockback >= RAGDOLL_AT,
     };
+    return { ...row, cost: weaponCost(row) };
   });
 }
 
@@ -288,7 +296,7 @@ function classRows(): Row[] {
     const c = CLASSES[id];
     const p = WEAPONS[c.primary];
     const s = WEAPONS[c.secondary];
-    return {
+    const row: Row = {
       id,
       name: c.name,
       hp: c.hp,
@@ -302,6 +310,7 @@ function classRows(): Row[] {
       prange: p.range,
       desc: c.desc,
     };
+    return { ...row, cost: classCost(row) };
   });
 }
 
@@ -312,7 +321,7 @@ function ascendantRows(): Row[] {
     const g = LSWS[id];
     const arm = WEAPONS[g.weapon];
     const hp = THREAT[g.threat].hp;
-    return {
+    const row: Row = {
       id,
       name: g.name,
       threatName: THREAT[g.threat].name,
@@ -330,6 +339,7 @@ function ascendantRows(): Row[] {
       scale: g.scale,
       desc: `Threat ${THREAT[g.threat].name} · ${TEAM_NAMES[g.faction]}. Signature power: ${g.activeLabel}.`,
     };
+    return { ...row, cost: ascendantCost(row) };
   });
 }
 
@@ -337,7 +347,7 @@ function threatRows(): Row[] {
   const zed = (Object.keys(ZOMBIE_STATS) as (keyof typeof ZOMBIE_STATS)[]).map((k) => {
     const z = ZOMBIE_STATS[k];
     const cap = k.charAt(0).toUpperCase() + k.slice(1);
-    return {
+    const row: Row = {
       id: k, name: cap, family: 'Undead', hp: z.hp, plate: 0, speed: z.speed,
       rifleShots: shotsToKill(z.hp, REF.rifle),
       shotgunShots: shotsToKill(z.hp, REF.shotgun),
@@ -345,12 +355,13 @@ function threatRows(): Row[] {
       score: z.score,
       desc: `The undead. ${z.hp} HP, moves ${z.speed} u/s.`,
     };
+    return { ...row, bounty: threatBounty(row) };
   });
   const iron = (Object.keys(IRON_STATS) as (keyof typeof IRON_STATS)[]).map((k) => {
     const i = IRON_STATS[k];
     const pool = i.hp + i.plate; // the molt sheds first, then the frame is EXPOSED
     const cap = k.charAt(0).toUpperCase() + k.slice(1);
-    return {
+    const row: Row = {
       id: k, name: cap, family: 'Iron Eater', hp: i.hp, plate: i.plate, speed: i.speed,
       rifleShots: shotsToKill(pool, REF.rifle),
       shotgunShots: shotsToKill(pool, REF.shotgun),
@@ -358,6 +369,7 @@ function threatRows(): Row[] {
       score: i.score,
       desc: `Scrap given hunger. ${i.plate} molt over ${i.hp} frame — strip the plate and the frame takes DOUBLE.`,
     };
+    return { ...row, bounty: threatBounty(row) };
   });
   return [...zed, ...iron];
 }
