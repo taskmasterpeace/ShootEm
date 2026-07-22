@@ -22,6 +22,28 @@ describe('geospatial source adapters', () => {
     ])).toThrow(/1.2 km/i);
   });
 
+  it('accepts the Miami district style and three control-point names', () => {
+    const parsed = parseImportArgs([
+      '--id', 'miami-gardens-33056-civic-front',
+      '--name', 'Miami Gardens 33056 / Civic Front',
+      '--bbox', '-80.24827,25.93991,-80.23929,25.94799',
+      '--city', '69:miami:e08:2700000',
+      '--seed', '33056',
+      '--retrieved-at', '2026-07-22',
+      '--style', 'miami-gardens',
+      '--control-points', '183RD STREET|CIVIC CENTER|CAROL CITY EAST',
+      '--output', 'src/data/geospatial/miami-gardens-33056.json',
+    ]);
+
+    expect(parsed.style).toBe('miami-gardens');
+    expect(parsed.controlPointNames).toEqual(['183RD STREET', 'CIVIC CENTER', 'CAROL CITY EAST']);
+    expect(() => parseImportArgs([
+      '--id', 'bad', '--name', 'Bad', '--bbox', '-80.24827,25.93991,-80.23929,25.94799',
+      '--city', '69:miami:e08:2700000', '--seed', '1', '--retrieved-at', '2026-07-22',
+      '--style', 'purple-city', '--control-points', 'ONE|TWO', '--output', 'bad.json',
+    ])).toThrow(/style|control/i);
+  });
+
   it('keeps numeric artifact arrays compact inside readable JSON', () => {
     const json = stringifyArtifact({ name: 'fixture', values: [1, 2, 3], nested: { ok: true } });
     expect(json).toContain('"values": [1,2,3]');

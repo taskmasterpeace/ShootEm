@@ -15,6 +15,8 @@ export interface ImportArgs {
   seed: number;
   retrievedAt: string;
   output: string;
+  style: 'default' | 'miami-gardens';
+  controlPointNames: [string, string, string];
 }
 
 const requiredArgs = ['id', 'name', 'bbox', 'city', 'seed', 'retrieved-at', 'output'] as const;
@@ -51,6 +53,15 @@ export function parseImportArgs(argv: readonly string[]): ImportArgs {
   if (!Number.isInteger(seed)) throw new Error('--seed must be an integer');
   const retrievedAt = values.get('retrieved-at')!;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(retrievedAt)) throw new Error('--retrieved-at must be YYYY-MM-DD');
+  const style = values.get('style') ?? 'default';
+  if (style !== 'default' && style !== 'miami-gardens') {
+    throw new Error("--style must be 'default' or 'miami-gardens'");
+  }
+  const controlPointParts = (values.get('control-points') ?? 'WEST APPROACH|CIVIC CENTER|EAST APPROACH')
+    .split('|').map((name) => name.trim());
+  if (controlPointParts.length !== 3 || controlPointParts.some((name) => !name)) {
+    throw new Error('--control-points must contain exactly three non-empty names separated by |');
+  }
 
   return {
     id: values.get('id')!,
@@ -60,6 +71,8 @@ export function parseImportArgs(argv: readonly string[]): ImportArgs {
     seed,
     retrievedAt,
     output: values.get('output')!,
+    style,
+    controlPointNames: controlPointParts as [string, string, string],
   };
 }
 
@@ -149,6 +162,9 @@ export async function importGeospatialMap(args: ImportArgs): Promise<void> {
     seed: args.seed,
     cityId: args.cityId,
     geometry: { cols: 300, rows: 300, tile: 3 },
+    style: args.style,
+    controlPointNames: args.controlPointNames,
+    maxPlayableBuildings: 6,
   });
   const bands = [0, 0, 0];
   for (const value of compiled.map.height ?? []) bands[value]++;
