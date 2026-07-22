@@ -52,7 +52,7 @@ function runtimeFixture(): ScienceMissionRuntime {
     entry: { x: 0, y: 0, z: 0 }, extraction: { x: 0, y: 0, z: 0 },
     guardPosts: [], civilianSpawns: [], dogPosts: [], reinforcementPosts: [], convoyRoute: [],
     encounterBudget: { initialGuards: 4, reserveGuards: 2, initialCivilians: 0, dogTeams: 0, patrolSectors: 2, firstRoomGuards: 2, threat: 54 },
-    clonesRemaining: 5, clonesSpent: 0, detections: 0, alarm: false,
+    clonesRemaining: 5, clonesSpent: 0, detections: 0, alarm: false, awareness: 'ghost',
     civilianIds: [], targetIds: [], guardIds: [], dogIds: [], vehicleTargetIds: [], interacted: new Set(),
     reinforcementAt: Infinity, reinforcementsDeployed: false, convoyWaypoint: 2, applied: false,
   };

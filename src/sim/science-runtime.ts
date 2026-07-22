@@ -1,4 +1,5 @@
 import { perceivesNow } from './perception';
+import { noteIndoorAlert } from './indoor-ai';
 import type { ScienceMapLayout } from './science-map';
 import { scienceEncounterBudget, scienceGuardRole, type ScienceEncounterBudget, type ScienceMissionSpec, type ScienceVerb } from './science';
 import { worldFloorForHeight } from './map-layers';
@@ -14,6 +15,15 @@ export interface ScienceObjective {
   required: number;
   progress: number;
   complete: boolean;
+}
+
+export type ScienceAwareness = 'ghost' | 'searching' | 'alarmed';
+
+export interface SciencePendingReport {
+  guardId: number;
+  lastKnown: Vec3;
+  floor: number;
+  completeAt: number;
 }
 
 export interface ScienceMissionRuntime {
@@ -32,6 +42,9 @@ export interface ScienceMissionRuntime {
   clonesSpent: number;
   detections: number;
   alarm: boolean;
+  awareness: ScienceAwareness;
+  pendingReport?: SciencePendingReport;
+  lastReported?: Vec3;
   civilianIds: number[];
   targetIds: number[];
   guardIds: number[];
@@ -109,6 +122,7 @@ export function createScienceRuntime(spec: ScienceMissionSpec, layout: ScienceMa
     clonesSpent: 0,
     detections: 0,
     alarm: false,
+    awareness: 'ghost',
     civilianIds: [],
     targetIds: [],
     guardIds: [],
@@ -194,6 +208,7 @@ export function populateScienceMission(world: World, layout: ScienceMapLayout): 
   }
   if (runtime.spec.complication === 'alarm-net') {
     runtime.alarm = true;
+    runtime.awareness = 'alarmed';
     runtime.detections = 1;
     runtime.reinforcementAt = world.time + 4;
     world.emit({ type: 'announce', text: 'ALARM NET LIVE — SECURITY IS MOBILIZING', big: true });
@@ -275,17 +290,42 @@ export function stepScienceMission(world: World, dt: number): void {
   const operators = [...world.soldiers.values()].filter((soldier) =>
     soldier.alive && soldier.team === 0 && (soldier.kind === 'human' || soldier.kind === 'bot'));
 
-  if (!runtime.alarm) {
-    const detected = runtime.guardIds.some((id) => {
-      const guard = world.soldiers.get(id);
-      return guard?.alive && operators.some((operator) =>
-        perceivesNow(world.map.grid, [guard], world.pinged, operator, 32, world.smokeBlobs, undefined, world.map.grid2, world.map.upperLayers));
-    });
-    if (detected) {
+  if (runtime.pendingReport) {
+    const report = runtime.pendingReport;
+    const reporter = world.soldiers.get(report.guardId);
+    if (!reporter?.alive) {
+      runtime.pendingReport = undefined;
+      runtime.awareness = runtime.alarm ? 'alarmed' : 'ghost';
+    } else if (world.time >= report.completeAt) {
+      runtime.lastReported = { ...report.lastKnown };
+      runtime.pendingReport = undefined;
       runtime.alarm = true;
-      runtime.detections++;
+      runtime.awareness = 'alarmed';
       runtime.reinforcementAt = world.time + 4;
+      noteIndoorAlert(world.indoorTactics, report.lastKnown, report.floor, world.time);
       world.emit({ type: 'announce', text: 'ALARM — SECURITY IS MOBILIZING', big: true });
+    }
+  }
+
+  if (!runtime.alarm && !runtime.pendingReport) {
+    let witness: { guard: Soldier; operator: Soldier } | undefined;
+    for (const id of runtime.guardIds) {
+      const guard = world.soldiers.get(id);
+      if (!guard?.alive) continue;
+      const operator = operators.find((candidate) => perceivesNow(world.map.grid, [guard], world.pinged,
+        candidate, 32, world.smokeBlobs, undefined, world.map.grid2, world.map.upperLayers));
+      if (operator) { witness = { guard, operator }; break; }
+    }
+    if (witness) {
+      runtime.detections++;
+      runtime.awareness = 'searching';
+      runtime.pendingReport = {
+        guardId: witness.guard.id,
+        lastKnown: { ...witness.operator.pos, y: witness.operator.floor * 4 },
+        floor: witness.operator.floor,
+        completeAt: world.time + 1.5,
+      };
+      world.emit({ type: 'announce', text: 'SECURITY REPORTING — STOP THE CALL', big: false });
     }
   }
 

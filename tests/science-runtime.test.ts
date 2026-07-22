@@ -159,16 +159,54 @@ describe('science mission objective compiler', () => {
     expect([...world.soldiers.values()].filter((soldier) => soldier.kind === 'scientist')).toEqual([]);
   });
 
-  it('detection raises the alarm exactly once', () => {
+  it('direct sight starts an interruptible report before the facility alarm', () => {
     const world = missionWorld('steal');
     const operator = world.addSoldier('Operator', 'infantry', 0, 'human');
     const guard = [...world.soldiers.values()].find((soldier) => soldier.team === 1 && soldier.kind === 'bot')!;
     operator.pos = { ...guard.pos };
 
     stepScienceMission(world, 1 / 60);
-    stepScienceMission(world, 1 / 60);
-    expect(world.science?.alarm).toBe(true);
+    expect(world.science?.alarm).toBe(false);
+    expect(world.science?.awareness).toBe('searching');
+    expect(world.science?.pendingReport?.guardId).toBe(guard.id);
     expect(world.science?.detections).toBe(1);
+  });
+
+  it('cancels a report when the reporting guard is stopped', () => {
+    const world = missionWorld('steal');
+    const operator = world.addSoldier('Operator', 'infantry', 0, 'human');
+    const guard = world.soldiers.get(world.science!.guardIds[0])!;
+    operator.pos = { ...guard.pos };
+    stepScienceMission(world, 1 / 60);
+
+    operator.pos = { x: -999, y: 0, z: -999 };
+    world.damageSoldier(guard, 9999, operator.id, 'pistol');
+    world.time += 2;
+    stepScienceMission(world, 1 / 60);
+
+    expect(world.science?.pendingReport).toBeUndefined();
+    expect(world.science?.awareness).toBe('ghost');
+    expect(world.science?.alarm).toBe(false);
+  });
+
+  it('shares only the completed report position, never the live operator position', () => {
+    const world = missionWorld('steal');
+    const operator = world.addSoldier('Operator', 'infantry', 0, 'human');
+    const guard = world.soldiers.get(world.science!.guardIds[0])!;
+    operator.pos = { ...guard.pos };
+    stepScienceMission(world, 1 / 60);
+    const sighting = { ...world.science!.pendingReport!.lastKnown };
+
+    operator.pos = { x: sighting.x + 24, y: sighting.y, z: sighting.z + 24 };
+    world.time += 2;
+    stepScienceMission(world, 1 / 60);
+
+    expect(world.science?.alarm).toBe(true);
+    expect(world.science?.awareness).toBe('alarmed');
+    expect(world.science?.lastReported).toEqual(sighting);
+    world.time += 1;
+    stepScienceMission(world, 1 / 60);
+    expect(world.science?.lastReported).toEqual(sighting);
   });
 
   it('an alarm deploys one deterministic reinforcement beat', () => {
@@ -179,7 +217,9 @@ describe('science mission objective compiler', () => {
     const originalGuards = world.science!.guardIds.length;
 
     stepScienceMission(world, 1 / 60);
-    world.time += 5;
+    world.time += 2;
+    stepScienceMission(world, 1 / 60);
+    world.time += 4.1;
     stepScienceMission(world, 1 / 60);
     stepScienceMission(world, 1 / 60);
     expect(world.science?.guardIds).toHaveLength(originalGuards + world.science!.encounterBudget.reserveGuards);
@@ -192,6 +232,7 @@ describe('science mission objective compiler', () => {
     const world = new World({ seed: scienceMission.seed, mode: 'science', scienceMission });
 
     expect(world.science?.alarm).toBe(true);
+    expect(world.science?.awareness).toBe('alarmed');
     expect(world.science?.detections).toBe(1);
     expect(world.science?.reinforcementAt).toBe(world.time + 4);
   });

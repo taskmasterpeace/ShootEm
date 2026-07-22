@@ -37,7 +37,7 @@ import { SoldierIndex } from './spatial';
 import { generateScienceMission, type ScienceMissionSpec } from './science';
 import { generateScienceMap } from './science-map';
 import { createScienceRuntime, onScienceDeath, populateScienceMission, tryScienceInteraction, type ScienceMissionRuntime } from './science-runtime';
-import { createIndoorTacticalState, noteIndoorAlert, recordIndoorScent, type IndoorTacticalState } from './indoor-ai';
+import { createIndoorTacticalState, recordIndoorScent, type IndoorTacticalState } from './indoor-ai';
 import { issueK9Command, k9AimPoint } from './k9-orders';
 
 const RESPAWN_DELAY = 4;
@@ -1649,13 +1649,10 @@ export class World {
     // Boots leave a short, bounded trail even when optics lose them to cloak
     // or darkness. Outdoor battles never allocate this indoor machinery.
     if (this.indoorTactics) {
-      let alertSource: Soldier | undefined;
       for (const operator of this.soldiers.values()) {
         if (!operator.alive || operator.team !== 0 || (operator.kind !== 'human' && operator.kind !== 'bot')) continue;
         recordIndoorScent(this.indoorTactics, operator.id, { ...operator.pos, y: operator.floor * 4 }, this.time);
-        alertSource ??= operator;
       }
-      if (this.science?.alarm && alertSource) noteIndoorAlert(this.indoorTactics, alertSource.pos, alertSource.floor, this.time);
     }
 
     for (const s of this.soldiers.values()) {

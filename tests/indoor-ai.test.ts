@@ -24,6 +24,18 @@ const fixture = () => {
 };
 
 describe('indoor tactical memory', () => {
+  it('copies a reported position instead of retaining a live target reference', () => {
+    const state = fixture();
+    const sighting = { ...state.roomCenters[0] };
+    noteIndoorAlert(state, sighting, 0, 1);
+    sighting.x += 50;
+    sighting.z += 50;
+
+    expect(state.alert?.pos).not.toEqual(sighting);
+    expect(state.alert?.pos.x).toBeCloseTo(state.roomCenters[0].x);
+    expect(state.alert?.pos.z).toBeCloseTo(state.roomCenters[0].z);
+  });
+
   it('builds an immutable room graph with stairs connecting every storey', () => {
     const state = fixture();
     expect(state.navigation.rooms.length).toBeGreaterThan(3);
