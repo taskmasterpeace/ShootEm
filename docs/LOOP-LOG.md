@@ -39,3 +39,4 @@
 2026-07-22 IT-41: #82 built (forward arc, X flares, burning flares, AAM 58). 38 closed, 9 needs-robert.
 2026-07-22 IT-42: #89 built (moodle stamp live-proven all transitions; strip=rail; hudOpacity). 39 closed, 9 needs-robert.
 2026-07-22 IT-43: #91 built (feed glyphs, vocabulary 13, live-proven). 40 closed, 9 needs-robert.
+2026-07-22 IT-44: #79 rangefinder shipped (RANGE chip live-proven); strike+C4 remain on the ticket. 40 closed.
