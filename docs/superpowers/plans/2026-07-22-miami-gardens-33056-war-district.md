@@ -28,7 +28,7 @@
 - Modify: `src/sim/geospatial/terrain.ts`
 - Modify: `scripts/import-geospatial-map.ts`
 - Test: `tests/geospatial-terrain.test.ts`
-- Test: `tests/geospatial-import.test.ts`
+- Test: `tests/geospatial-sources.test.ts`
 
 **Interfaces:**
 - Consumes: `compileTerrainSamples(samples, geometry, roadCells)`.
@@ -51,7 +51,7 @@ it('uses at most two bands for low rolling relief', () => {
 
 - [ ] **Step 2: Verify the tests fail**
 
-Run: `npx vitest run tests/geospatial-terrain.test.ts tests/geospatial-import.test.ts`
+Run: `npx vitest run tests/geospatial-terrain.test.ts tests/geospatial-sources.test.ts`
 
 Expected: the sub-two-meter case contains quantile-created higher bands, and the importer still demands all three bands.
 
@@ -70,14 +70,14 @@ In the importer, assert only that every height byte is in `0..2`; do not require
 
 - [ ] **Step 4: Run the focused tests**
 
-Run: `npx vitest run tests/geospatial-terrain.test.ts tests/geospatial-import.test.ts`
+Run: `npx vitest run tests/geospatial-terrain.test.ts tests/geospatial-sources.test.ts`
 
 Expected: both files pass.
 
 - [ ] **Step 5: Commit**
 
 ```powershell
-git add -- src/sim/geospatial/terrain.ts scripts/import-geospatial-map.ts tests/geospatial-terrain.test.ts tests/geospatial-import.test.ts
+git add -- src/sim/geospatial/terrain.ts scripts/import-geospatial-map.ts tests/geospatial-terrain.test.ts tests/geospatial-sources.test.ts
 git commit -m "fix: preserve flat real-city terrain"
 ```
 
@@ -281,7 +281,7 @@ git commit -m "feat: render the Miami Gardens war district"
 **Files:**
 - Create: `src/data/geospatial/miami-gardens-33056.json`
 - Modify: `scripts/import-geospatial-map.ts`
-- Test: `tests/geospatial-import.test.ts`
+- Test: `tests/geospatial-sources.test.ts`
 
 **Interfaces:**
 - Adds CLI arguments: `--style` and `--control-points`.
@@ -303,7 +303,7 @@ expect(parseImportArgs([
 
 - [ ] **Step 2: Verify the test fails**
 
-Run: `npx vitest run tests/geospatial-import.test.ts`
+Run: `npx vitest run tests/geospatial-sources.test.ts`
 
 Expected: new fields are absent.
 
@@ -328,7 +328,7 @@ Expected: identical hashes.
 - [ ] **Step 6: Commit**
 
 ```powershell
-git add -- scripts/import-geospatial-map.ts tests/geospatial-import.test.ts src/data/geospatial/miami-gardens-33056.json
+git add -- scripts/import-geospatial-map.ts tests/geospatial-sources.test.ts src/data/geospatial/miami-gardens-33056.json
 git commit -m "feat: import the Miami Gardens 33056 battlefield"
 ```
 
