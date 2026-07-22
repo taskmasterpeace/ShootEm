@@ -19,3 +19,4 @@
 2026-07-22 IT-20: #28 built (lazy GLB probes, network-log proof). 18 closed, 8 needs-robert.
 2026-07-22 IT-21: #11 closed-with-evidence (already fixed a8dcdde, encasedBodies recompute verified). Next: #23 particle idle upload.
 2026-07-22 IT-22: #23 built (touched-gated particle upload). 20 closed, 8 needs-robert.
+2026-07-22 IT-23: #15 built (server accumulator tick). 21 closed. Next: #16 per-tick rolls (M0's other half).
