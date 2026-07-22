@@ -4,7 +4,7 @@
 // gunfire carries a street, a footstep dies at the wall.
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
-import { SOUND_NAMES, distanceCutoff, earshotFor, voVoicesToCut } from '../src/client/audio';
+import { ONE_SHOT_CAP, SOUND_NAMES, distanceCutoff, earshotFor, oneShotToCut, voVoicesToCut } from '../src/client/audio';
 
 describe('acoustic classes', () => {
   it('a cannon carries the map; a rifle carries a street; a footstep barely a room', () => {
@@ -122,5 +122,30 @@ describe('air absorption (distance darkens before it silences)', () => {
   it('beyond earshot the floor holds — no negative or absurd cutoffs', () => {
     expect(distanceCutoff(500, 95)).toBeGreaterThanOrEqual(1100);
     expect(distanceCutoff(0, 1)).toBeLessThanOrEqual(16100);
+  });
+});
+
+describe('opt #24 — the one-shot cap (oneShotToCut is the law)', () => {
+  const mk = (n: number, vol = 0.5) => Array.from({ length: n }, () => ({ vol }));
+
+  it('under the cap: room for everyone', () => {
+    expect(oneShotToCut(mk(ONE_SHOT_CAP - 1), 0.1)).toBeNull();
+  });
+
+  it('at the cap: the quietest yields to a louder arrival', () => {
+    const live = [...mk(ONE_SHOT_CAP - 1, 0.8), { vol: 0.2 }];
+    const cut = oneShotToCut(live, 0.5);
+    expect(cut).not.toBeNull();
+    expect(cut).not.toBe('skip');
+    expect((cut as { vol: number }).vol).toBe(0.2); // the whisper, not a boom
+  });
+
+  it('at the cap: an arrival quieter than the whole field is skipped', () => {
+    expect(oneShotToCut(mk(ONE_SHOT_CAP, 0.8), 0.1)).toBe('skip');
+  });
+
+  it('equal volume: the arrival wins (fresh sound beats a stale twin)', () => {
+    const live = mk(ONE_SHOT_CAP, 0.5);
+    expect(oneShotToCut(live, 0.5)).not.toBe('skip');
   });
 });

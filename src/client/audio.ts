@@ -294,6 +294,23 @@ export function earshotFor(name: string): Earshot {
  * positional god-mouths + 1 announcer. The announcer never talks over itself;
  * gods yield oldest-first, keeping the newest so a fresh line always plays.
  */
+/** opt #24 — THE ONE-SHOT CAP. At most this many non-voice one-shots ring at
+ *  once; past it the mix is mud and the CPU is paying for sources nobody can
+ *  hear (the compressor was hiding the pile-up, not preventing it). */
+export const ONE_SHOT_CAP = 24;
+
+/** The one-shot eviction law, pure so the test can hold it: under the cap →
+ *  null (just play). At the cap → the QUIETEST live one-shot yields IF the
+ *  arrival is at least as loud (a whisper never evicts a boom); an arrival
+ *  quieter than everything already ringing returns 'skip' — saturated field,
+ *  nobody would have heard it. */
+export function oneShotToCut<T extends { vol: number }>(live: T[], incomingVol: number): T | 'skip' | null {
+  if (live.length < ONE_SHOT_CAP) return null;
+  let quietest = live[0];
+  for (const v of live) if (v.vol < quietest.vol) quietest = v;
+  return quietest.vol <= incomingVol ? quietest : 'skip';
+}
+
 export function voVoicesToCut<T extends { ann: boolean }>(live: T[], incomingAnn: boolean): T[] {
   if (incomingAnn) return live.filter((v) => v.ann); // one announcer at a time
   const gods = live.filter((v) => !v.ann);           // oldest first (push order)
@@ -409,6 +426,8 @@ export class AudioEngine {
   // oldest fading out when a new line needs the slot.
   private voBus: GainNode | null = null;
   private voVoices: { src: AudioBufferSourceNode; gain: GainNode; slot: string; ann: boolean; ended: boolean }[] = [];
+  /** opt #24: every live non-voice one-shot, for the cap (see oneShotToCut) */
+  private oneShots: { src: AudioBufferSourceNode; gain: GainNode; vol: number; ended: boolean }[] = [];
 
   async init(preload: 'core' | 'all' = isFullCatalogToolPage() ? 'all' : 'core') {
     if (this.ctx) {
@@ -646,6 +665,23 @@ export class AudioEngine {
       const vj = ear.jitter * 1.5;
       vol *= 1 - vj + Math.random() * vj * 2;
     }
+    // VOICE ROUTING: gods and the announcer ride the voice bus (capped), and a
+    // talking god ducks the firefight for a beat so the line reads
+    const isVo = name.startsWith('vo_') || name.startsWith('ann_');
+    // THE ONE-SHOT CAP (opt #24): a 12-source teamfight used to spawn sources
+    // without limit — every grenade tick, shell, and footstep its own live
+    // BufferSource+Gain+Panner chain, and a busy minute could hold hundreds
+    // alive at once (the compressor hid the clipping; the CPU paid anyway).
+    // Now one-shots live in a capped pool: at the cap, the QUIETEST live
+    // one-shot yields to a louder arrival (a whisper never evicts a boom),
+    // and an arrival quieter than everything already ringing is simply
+    // skipped — the field is saturated; nobody would have heard it.
+    if (!isVo) {
+      this.oneShots = this.oneShots.filter((v) => !v.ended);
+      const cut = oneShotToCut(this.oneShots, vol);
+      if (cut === 'skip') return true; // saturated — that counts as played
+      if (cut) this.fadeCutVo(cut);
+    }
     const src = this.ctx.createBufferSource();
     src.buffer = buf;
     src.playbackRate.value = rate;
@@ -653,9 +689,6 @@ export class AudioEngine {
     g.gain.value = vol;
     const p = this.ctx.createStereoPanner();
     p.pan.value = pan;
-    // VOICE ROUTING: gods and the announcer ride the voice bus (capped), and a
-    // talking god ducks the firefight for a beat so the line reads
-    const isVo = name.startsWith('vo_') || name.startsWith('ann_');
     const dest: AudioNode = isVo ? (this.voBus ?? this.master) : this.master;
     if (isVo) { this.gateVo(name); this.duck(0.28, 0.6); }
     if (Number.isFinite(cutoff) && cutoff < 15500) {
@@ -671,6 +704,10 @@ export class AudioEngine {
       const voice = { src, gain: g, slot: name, ann: name.startsWith('ann_'), ended: false };
       this.voVoices.push(voice);
       src.onended = () => { voice.ended = true; };
+    } else {
+      const shot = { src, gain: g, vol, ended: false };
+      this.oneShots.push(shot);
+      src.onended = () => { shot.ended = true; };
     }
     return true;
   }
