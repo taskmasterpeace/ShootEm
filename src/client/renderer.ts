@@ -308,6 +308,16 @@ export class Renderer {
   private nameSprites = new Map<number, { sprite: THREE.Sprite; ctx: CanvasRenderingContext2D; tex: THREE.CanvasTexture; key: string }>();
   private localId = -1; // set each frame in update(); lets animateSoldier know which soldier is YOU
   private classVo = new ClassVo(); // the mortal-class barks find their moments (client-side)
+  /** opt #12: per-mesh named-part cache — getObjectByName is a RECURSIVE tree
+   *  walk, and the hot loops (vehicles, gadgets, capes) asked for up to a
+   *  dozen parts per mesh per frame. First ask walks; every later ask is a
+   *  map hit. A rebuilt mesh is a new object with fresh userData, so the
+   *  cache can never serve a stale tree. Absent parts cache as null. */
+  private part(mesh: THREE.Object3D, name: string): THREE.Object3D | null {
+    const cache = (mesh.userData.partCache ??= Object.create(null)) as Record<string, THREE.Object3D | null>;
+    const hit = cache[name];
+    return hit !== undefined ? hit : (cache[name] = mesh.getObjectByName(name) ?? null);
+  }
   // tunneler support: map tile index → wall/cover instance so digs collapse visually
   private wallInst: THREE.InstancedMesh | null = null;
   private coverInst: THREE.InstancedMesh | null = null;
@@ -1577,7 +1587,7 @@ export class Renderer {
         const arch = buildGate();
         arch.position.set(end.x, 0, end.z);
         this.scene.add(arch);
-        const spin = arch.getObjectByName('spin');
+        const spin = this.part(arch, 'spin');
         if (spin) this.spinners.push(spin);
       }
     }
@@ -1636,8 +1646,8 @@ export class Renderer {
       this.aimRing.position.set(local.pos.x, local.pos.y + 0.02, local.pos.z);
       this.aimRing.rotation.y = Math.PI / 2 - local.yaw;
       const half = Math.min(0.55, (wdef?.spread ?? 0.03) * aimSpreadMul(local) * AIM_SCALE);
-      (this.aimRing.getObjectByName('aimL') as THREE.Object3D | null)?.rotation.set(0, half, 0);
-      (this.aimRing.getObjectByName('aimR') as THREE.Object3D | null)?.rotation.set(0, -half, 0);
+      (this.part(this.aimRing, 'aimL') as THREE.Object3D | null)?.rotation.set(0, half, 0);
+      (this.part(this.aimRing, 'aimR') as THREE.Object3D | null)?.rotation.set(0, -half, 0);
     } else if (this.aimRing) this.aimRing.visible = false;
     // --- a STANDING reticle floated in front, billboarded, with a ground shadow ---
     if (local && isStandingReticle(style)) {
@@ -1698,9 +1708,9 @@ export class Renderer {
       }
       this.laserBeam.position.set(mx, my, mz);
       this.laserBeam.rotation.y = -local.yaw; // +X-forward beam → aim
-      const beam = this.laserBeam.getObjectByName('beam');
+      const beam = this.part(this.laserBeam, 'beam');
       if (beam) { beam.scale.y = len; beam.position.x = len / 2; } // stretch along +X, keep the base at the muzzle
-      const dot = this.laserBeam.getObjectByName('dot');
+      const dot = this.part(this.laserBeam, 'dot');
       if (dot) dot.position.x = len;
     } else if (this.laserBeam) this.laserBeam.visible = false;
   }
@@ -2758,7 +2768,7 @@ export class Renderer {
         }
       }
       // open vehicles show their rider only while someone's actually aboard
-      const rider = mesh.getObjectByName('rider');
+      const rider = this.part(mesh, 'rider');
       if (rider) rider.visible = v.seats[0] >= 0;
       let hoverBob =
         v.kind === 'skiff' ? Math.sin(world.time * 3 + v.id) * 0.15 + 0.3 :
@@ -2807,7 +2817,7 @@ export class Renderer {
         // the burner shows: the thrust flame STRETCHES on the thrust axis
         // (a lance of fire, not a bigger candle) and flickers at 30Hz
         for (const tn of ['thrustL', 'thrustR']) {
-          const fl = mesh.getObjectByName(tn);
+          const fl = this.part(mesh, tn);
           if (fl) {
             const want = v.burnerOn ? 2.6 : 1;
             const cur = (fl.scale.x + (want - fl.scale.x) * Math.min(1, dt * 8));
@@ -2848,7 +2858,7 @@ export class Renderer {
         const spoolLeft = Math.max(0, (v.spoolUntil ?? 0) - world.time);
         const spool = hasPilot ? 1 - Math.min(1, spoolLeft / lift) : 0;
         for (const name of ['rotorL', 'rotorR']) {
-          const rotor = mesh.getObjectByName(name);
+          const rotor = this.part(mesh, name);
           if (rotor) rotor.rotation.y += dt * (1.5 + (hasPilot ? spool * 17 : 0));
         }
       }
@@ -2907,15 +2917,15 @@ export class Renderer {
         const ph = ((mesh.userData.stride as number | undefined) ?? 0) + dt * (1.5 + vSpeed * 1.6);
         mesh.userData.stride = ph;
         const swing = Math.min(1, vSpeed / 3) * 0.5;
-        const legL = mesh.getObjectByName('legL');
-        const legR = mesh.getObjectByName('legR');
+        const legL = this.part(mesh, 'legL');
+        const legR = this.part(mesh, 'legR');
         if (legL && legR) {
           legL.rotation.z = Math.sin(ph) * swing;
           legR.rotation.z = -Math.sin(ph) * swing;
         }
       }
       if (v.kind === 'tunneler') {
-        const drill = mesh.getObjectByName('drill');
+        const drill = this.part(mesh, 'drill');
         const vSpeed = Math.hypot(v.vel.x, v.vel.z);
         if (drill) drill.rotation.x += dt * (2 + vSpeed * 3);
         // deep runs sink the hull out of sight; both teams only see churned earth
@@ -2930,13 +2940,13 @@ export class Renderer {
       }
       if (v.kind === 'submarine') {
         const vSpeed = Math.hypot(v.vel.x, v.vel.z);
-        const propeller = mesh.getObjectByName('propeller');
+        const propeller = this.part(mesh, 'propeller');
         if (propeller) propeller.rotation.x += dt * (2 + vSpeed * 1.8);
         const depth = (mesh.userData.depth as number | undefined) ?? -0.25;
         const nextDepth = depth + ((v.submerged ? -2.4 : -0.25) - depth) * Math.min(1, dt * 2.5);
         mesh.userData.depth = nextDepth;
         mesh.position.y = nextDepth;
-        const sonarRing = mesh.getObjectByName('sonarRing');
+        const sonarRing = this.part(mesh, 'sonarRing');
         if (sonarRing) {
           sonarRing.visible = !!v.submerged;
           sonarRing.position.y = -nextDepth + 0.04;
@@ -2963,14 +2973,14 @@ export class Renderer {
       }
 
       // ambulance lightbar + tunneler warning lamp pulse
-      const vPulse = mesh.getObjectByName('pulse') as THREE.Mesh | undefined;
+      const vPulse = this.part(mesh, 'pulse') as THREE.Mesh | undefined;
       const vpm = vPulse?.material as THREE.MeshStandardMaterial | undefined;
       if (vpm) vpm.emissiveIntensity = 0.6 + 0.4 * Math.sin(world.time * 6 + v.id);
       // transport radar bar sweeps
-      const radar = mesh.getObjectByName('spin');
+      const radar = this.part(mesh, 'spin');
       if (radar) radar.rotation.y = world.time * 2.5;
       // ambulance heal aura breathes so the radius reads at a glance
-      const healRing = mesh.getObjectByName('healRing') as THREE.Mesh | undefined;
+      const healRing = this.part(mesh, 'healRing') as THREE.Mesh | undefined;
       if (healRing) {
         const hm = healRing.material as THREE.MeshBasicMaterial;
         hm.opacity = 0.18 + 0.14 * Math.sin(world.time * 2.5);
@@ -3033,7 +3043,7 @@ export class Renderer {
           this.particles.emit({ pos: at, count: 1, color: 0x333333, speed: 1, life: 1.8, spread: 0.5, up: 3, gravity: -2, size: 0.8 });
         }
       }
-      const turret = mesh.getObjectByName('turret');
+      const turret = this.part(mesh, 'turret');
       if (turret) turret.rotation.y = -(v.turretYaw - v.yaw);
       // wheels roll with signed ground speed
       const wheels = mesh.userData.wheels as THREE.Group[] | undefined;
@@ -3042,7 +3052,7 @@ export class Renderer {
         for (const axle of wheels) axle.rotation.z -= (fwdSpeed * dt) / 0.42;
       }
       // mounted-gun recoil
-      const gunRecoil = mesh.getObjectByName('gunRecoil');
+      const gunRecoil = this.part(mesh, 'gunRecoil');
       if (gunRecoil) {
         const shotAt = this.vehRecoilAt.get(v.id) ?? -1;
         const kick = Math.max(0, 1 - (world.time - shotAt) / (v.kind === 'tank' ? 0.35 : 0.12));
@@ -3067,7 +3077,7 @@ export class Renderer {
       // skiff thruster glow pulse
       if (v.kind === 'skiff') {
         for (const name of ['thrustL', 'thrustR']) {
-          const ring = mesh.getObjectByName(name) as THREE.Mesh | undefined;
+          const ring = this.part(mesh, name) as THREE.Mesh | undefined;
           const rm = ring?.material as THREE.MeshStandardMaterial | undefined;
           if (rm) rm.emissiveIntensity = 0.7 + Math.sin(world.time * 9 + v.id) * 0.3;
         }
@@ -3083,9 +3093,9 @@ export class Renderer {
         this.scene.add(mesh);
         this.turretMeshes.set(t.id, mesh);
       }
-      const head = mesh.getObjectByName('head');
+      const head = this.part(mesh, 'head');
       if (head) head.rotation.y = -t.yaw;
-      const eye = mesh.getObjectByName('eye') as THREE.Mesh | undefined;
+      const eye = this.part(mesh, 'eye') as THREE.Mesh | undefined;
       const em = eye?.material as THREE.MeshStandardMaterial | undefined;
       if (em) em.emissiveIntensity = 0.55 + Math.sin(world.time * 4 + t.id) * 0.45;
     }
@@ -3136,7 +3146,7 @@ export class Renderer {
       const tr = mesh.userData.tracer as string;
       if (tr === 'paint') {
         // it WOBBLES rather than spins — a ball of liquid under its own skin
-        const goo = mesh.getObjectByName('goo');
+        const goo = this.part(mesh, 'goo');
         const w = Math.sin(world.time * 26 + p.id) * 0.08;
         if (goo) goo.scale.set(1 + w, 0.86 - w, 1 + w * 0.5);
       }
@@ -3147,7 +3157,7 @@ export class Renderer {
         this.particles.emit({ pos: { x: p.pos.x, y: p.pos.y, z: p.pos.z }, count: 1, color: 0x552e18, speed: 1, life: 0.5, spread: 0.15, up: 0, gravity: -1.5, size: 0.5 });
         this.particles.emit({ pos: { x: p.pos.x, y: p.pos.y, z: p.pos.z }, count: 1, color: 0xff8c30, speed: 1.5, life: 0.14, spread: 0.1, up: 0, size: 0.35 });
       } else if (tr === 'plasma') {
-        const halo = mesh.getObjectByName('halo');
+        const halo = this.part(mesh, 'halo');
         if (halo) halo.scale.setScalar(0.9 + Math.sin(world.time * 30 + p.id) * 0.2);
         this.particles.emit({ pos: { x: p.pos.x, y: p.pos.y, z: p.pos.z }, count: 1, color: 0x60c8ff, speed: 0.5, life: 0.2, spread: 0.08, up: 0, size: 0.22 });
       } else if (tr === 'flame') {
@@ -3246,7 +3256,7 @@ export class Renderer {
         this.gadgetMeshes.set(g.id, mesh);
       }
       mesh.position.set(g.pos.x, g.type === 'drone' || g.type === 'supply_pod' ? g.pos.y : 0, g.pos.z);
-      const spin = mesh.getObjectByName('spin');
+      const spin = this.part(mesh, 'spin');
       if (spin) spin.rotation.z = world.time * 2.2;
       // FPV drones face their heading; a dead-stick drone tumbles as it falls
       if (g.type === 'drone') {
@@ -3269,7 +3279,7 @@ export class Renderer {
       }
       if (g.type === 'time_bomb') {
         // the blinker flashes faster as the fuse burns down — the telegraph
-        const blink = mesh.getObjectByName('bombBlink');
+        const blink = this.part(mesh, 'bombBlink');
         if (blink) {
           const left = g.expiresAt - world.time;
           const rate = left > 2 ? 4 : left > 1 ? 10 : 22;
@@ -3277,7 +3287,7 @@ export class Renderer {
         }
       }
       // spy cameras pan back and forth, watching
-      const camHead = mesh.getObjectByName('camHead');
+      const camHead = this.part(mesh, 'camHead');
       if (camHead) camHead.rotation.y = Math.sin(world.time * 0.7 + g.id) * 0.9;
       // smoke drifts and thins as it expires; phosphorus flames flicker
       if (g.type === 'smoke_field') {
@@ -3319,7 +3329,7 @@ export class Renderer {
         mesh.rotation.y = -(g.phase ?? 0) - Math.PI / 2;
         mesh.position.y = g.pos.y + Math.sin(world.time * 4 + g.id) * 0.15;
       }
-      const pulse = mesh.getObjectByName('pulse') as THREE.Mesh | undefined;
+      const pulse = this.part(mesh, 'pulse') as THREE.Mesh | undefined;
       const pm = pulse?.material as THREE.MeshStandardMaterial | undefined;
       if (pm) {
         // orbital lamp blinks faster as it arms
@@ -3612,7 +3622,7 @@ export class Renderer {
         const mesh = this.flagMeshes[i];
         if (!mesh) return;
         mesh.position.set(f.pos.x, f.carrierId >= 0 ? 1.2 : 0, f.pos.z);
-        const cloth = mesh.getObjectByName('cloth');
+        const cloth = this.part(mesh, 'cloth');
         if (cloth) cloth.rotation.y = Math.sin(world.time * 2.2) * 0.25;
       });
     }
@@ -4215,7 +4225,7 @@ export class Renderer {
         // THE ICE IS THE METER: cracks bloom with the mash, and the block
         // stresses brighter as it's about to give (emissive climbs).
         const frac = Math.min(1, s.struggle ?? 0);
-        const cracks = ice.getObjectByName('cracks') as THREE.LineSegments | undefined;
+        const cracks = this.part(ice, 'cracks') as THREE.LineSegments | undefined;
         if (cracks) (cracks.material as THREE.LineBasicMaterial).opacity = frac * 0.9;
         (ice.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.35 + frac * 0.5;
       } else if (wasVisible && !this.replayView) {
@@ -4702,13 +4712,13 @@ export class Renderer {
       // THE CAPE LIVES (dressAsLsw hangs it; this waves it — same law as the
       // CTF flag's cloth): a breeze sway, and it TRAILS when the god moves.
       if (s.ascendant) {
-        const cape = mesh.getObjectByName('cape');
+        const cape = this.part(mesh, 'cape');
         if (cape) {
           const spd = Math.hypot(s.vel.x, s.vel.z);
           cape.rotation.x = -0.12 - Math.min(1, spd / 9) * 0.55 + Math.sin(t * 2.1 + s.id) * 0.06;
           cape.rotation.y = Math.sin(t * 1.7 + s.id * 2) * 0.1;
         }
-        const dial = mesh.getObjectByName('clockdial');
+        const dial = this.part(mesh, 'clockdial');
         if (dial) dial.rotation.x = t * 0.45; // chronos' clock turns, slowly, always
       }
       if (hold.hideGun || meleeRig) {
