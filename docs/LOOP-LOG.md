@@ -9,3 +9,4 @@
 2026-07-22 IT-10: #57 built (amb_winter synthesized bed, seamless, deterministic). Next: decision-labeled epics -> needs-robert sweep.
 2026-07-22 IT-11: needs-robert sweep — #63 #67 #69 #71 #72 #75 labeled with exact questions. Next: continue atomics (#54, perf hours-items).
 2026-07-22 IT-12: #111 built (after-match reshape, live-verified). Next: #54 held-gun grip or perf hours-items.
+2026-07-22 IT-13: #54 -> needs-robert (grip fix forked on #98-vs-#74 body decision; investigation posted). Next: #24 audio source cap.
