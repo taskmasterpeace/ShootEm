@@ -3533,6 +3533,10 @@ export class World {
           s.vel.z *= drag;
         }
       } else {
+        // (#102's weight-ease was attempted here and REVERTED: tests/ice.test.ts
+        // deliberately pins "dirt stops dead / the skate is ICE-ONLY" — that
+        // pin and the universal-weight ask are two Robert laws in conflict.
+        // needs-robert on #102; until ruled, the snap stands.)
         s.vel.x = tvx;
         s.vel.z = tvz;
       }
@@ -4649,6 +4653,23 @@ export class World {
     const blockedZ = airborne ? blocksAir(s.pos.x, nz) : groundBlocked(s.pos.x, nz);
     if (!blockedX) s.pos.x = nx;
     if (!blockedZ) s.pos.z = nz;
+    // #102 CORNER-NUDGE (the close-quarters catch): both axes vetoed while
+    // genuinely moving = an outer-corner spike, not a wall — the per-axis
+    // slide has nothing to slide along and the body used to stall dead on
+    // the point. Borrow the unstick's own escape: a half-speed step toward
+    // the nearest open tile centre. Deterministic, grounded-only, and it
+    // only ever runs in the exact frame both probes say no.
+    if (blockedX && blockedZ && !airborne && s.pos.y <= 0.05
+        && Math.abs(s.vel.x) + Math.abs(s.vel.z) > 1) {
+      const around = nearestOpenTile(this.map.grid, nx, nz, 2, this.map.geometry);
+      if (around) {
+        const dx = around.x - s.pos.x, dz = around.z - s.pos.z;
+        const dl = Math.hypot(dx, dz) || 1;
+        const step = Math.min(dl, 3.5 * dt);
+        const cx = s.pos.x + (dx / dl) * step, cz = s.pos.z + (dz / dl) * step;
+        if (!groundBlocked(cx, cz)) { s.pos.x = cx; s.pos.z = cz; }
+      }
+    }
     s.pos.x = Math.max(-halfWidth(this.map.geometry) + 2, Math.min(halfWidth(this.map.geometry) - 2, s.pos.x));
     s.pos.z = Math.max(-halfDepth(this.map.geometry) + 2, Math.min(halfDepth(this.map.geometry) - 2, s.pos.z));
     if (!trueFlight && s.pos.y <= 0.05 && this.tryStairs(s)) return;

@@ -4552,13 +4552,18 @@ export class Renderer {
       j.head.rotation.y = Math.max(-0.6, Math.min(0.6, yawDiff));
     }
 
-    // body: bob while moving, breathe while idle, lean into the run
-    const bob = moving ? Math.abs(Math.sin(phase)) * 0.055 : Math.sin(t * 1.8 + s.id) * 0.012;
+    // body: bob while moving, breathe while idle, lean into the run.
+    // #102 (Robert: "our characters when they move, they don't bob at all"):
+    // the bob EXISTED at 0.055u — about three pixels at our camera distance,
+    // invisible. Tripled and given a sharper double-beat (|sin| already gives
+    // two footfalls per phase); the run-lean deepens with speed below so the
+    // whole body reads effort instead of gliding.
+    const bob = moving ? Math.abs(Math.sin(phase)) * 0.16 : Math.sin(t * 1.8 + s.id) * 0.012;
     mesh.position.y = s.pos.y + bob;
     // HOVER BOB (§Task 9): the wraith never touches down — a slow float on top
     // of its 0.6u hover, so the body drifts instead of standing on air
     if (s.ascendant === 'wraith') mesh.position.y += Math.sin(t * 2 + s.id) * 0.09;
-    const lean = airborne ? -0.3 : -Math.min(speed / 14, 1) * (zed ? 0.18 : 0.09);
+    const lean = airborne ? -0.3 : -Math.min(speed / 14, 1) * (zed ? 0.18 : 0.2);
     // STAGGER (Robert: "a little bit of knock back" — the shove was always in
     // the sim; nothing SOLD it). Tip the body along the blast's forward
     // component: shoved from behind you pitch back on your heels, shoved from
