@@ -6,6 +6,7 @@
 // force on them is the one under test.
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
+import { isBlocked } from '../src/sim/map';
 import type { Mine } from '../src/sim/types';
 import { World } from '../src/sim/world';
 
@@ -99,16 +100,46 @@ describe('plasma grenade — the stick', () => {
     expect([...w.projectiles.values()].some((x) => x.stuckTo === e.id), 'the charge is spent').toBe(false);
   });
 
-  it('grazing nobody, it flies on and bursts where it lands (normal arc)', () => {
+  it('sticks where it LANDS on the ground — no bounce, no roll (Robert)', () => {
     const w = new World({ seed: 6, mode: 'tdm', matchMinutes: 10 });
     const t = w.addSoldier('T', 'infantry', 0, 'human'); t.pos = { x: 0, y: 0, z: 0 }; t.yaw = 0;
-    w.throwProjectile(t, 'plasma_nade', 1.4, 20, true, 18, 1, true); // nobody in the way
-    let landed = false;
-    for (let i = 0; i < 300 && !landed; i++) {
-      w.step(1 / 60, new Map());
-      for (const ev of w.takeEvents()) if (ev.type === 'explosion') landed = true;
+    w.throwProjectile(t, 'plasma_nade', 1.4, 18, true, 16, 1, false); // nobody in the way
+    let p: { stuckPos?: { x: number; z: number } } | undefined;
+    for (let i = 0; i < 240; i++) {
+      w.step(1 / 60, new Map()); w.takeEvents();
+      p = [...w.projectiles.values()][0];
+      if (p?.stuckPos) break;
     }
-    expect(landed, 'an unstuck plasma grenade still detonates on landing').toBe(true);
+    expect(p?.stuckPos, 'it clung to the ground where it landed').toBeTruthy();
+    const lx = p!.stuckPos!.x, lz = p!.stuckPos!.z;
+    for (let i = 0; i < 4; i++) w.step(1 / 60, new Map()); // it must NOT roll
+    const still = [...w.projectiles.values()][0];
+    expect(still && Math.hypot(still.pos.x - lx, still.pos.z - lz), 'stuck fast — no roll').toBeLessThan(0.2);
+  });
+
+  it('sticks to a WALL it flies into (no bounce)', () => {
+    const w = new World({ seed: 6, mode: 'tdm', matchMinutes: 10 });
+    // find an open spot with a wall a few units to its east (+x)
+    let spot: { x: number; z: number } | undefined;
+    for (let x = -120; x <= 116 && !spot; x += 2) {
+      for (let z = -120; z <= 120; z += 2) {
+        if (!isBlocked(w.map.grid, x, z) && !isBlocked(w.map.grid, x + 1, z) && isBlocked(w.map.grid, x + 4, z)) {
+          spot = { x, z }; break;
+        }
+      }
+    }
+    expect(spot, 'the map has a wall to test against').toBeTruthy();
+    const t = w.addSoldier('T', 'infantry', 0, 'human'); t.pos = { x: spot!.x, y: 0, z: spot!.z }; t.yaw = 0;
+    w.throwProjectile(t, 'plasma_nade', 1.4, 22, false, 10, 1, false); // flat, straight at the wall
+    let p: { stuckPos?: { x: number; z: number } } | undefined;
+    for (let i = 0; i < 90; i++) {
+      w.step(1 / 60, new Map()); w.takeEvents();
+      p = [...w.projectiles.values()][0];
+      if (p?.stuckPos) break;
+    }
+    expect(p?.stuckPos, 'it clung to the wall it met').toBeTruthy();
+    // it stuck AT the wall (didn't pass through), on the near side
+    expect(p!.stuckPos!.x, 'stopped at the wall face, not inside it').toBeLessThan(spot!.x + 4);
   });
 });
 

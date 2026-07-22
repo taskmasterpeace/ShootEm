@@ -125,6 +125,10 @@ export interface WeaponDef {
     cells?: number;
   };
   // ── PROJECTILE EFFECTS (composable; consumed in world.ts projectile step) ──
+  /** STICKY (Robert): no bounce, no roll — it ADHERES to the first thing it
+   *  touches (wall, ground, vehicle, or body) and detonates on its fuse from
+   *  right there. A stuck body carries the charge until it blows. */
+  sticky?: boolean;
   /** passes through n bodies + n penetrable-cover tiles before dying */
   pierce?: number;
   /** ignores plate: the round's damage lands on flesh (red number through armor) */
@@ -790,9 +794,12 @@ export interface Projectile {
   bounce?: boolean;
   /** the settle tick already rang once — a rolling grenade tings on arrival, not per frame */
   tinked?: boolean;
-  /** PLASMA STICK: the soldier this charge has ADHERED to (it rides their
-   *  position until the fuse blows); `stuckAt` is when it latched on. */
+  /** STICKY grenade adhesion (Robert). Exactly one is set once it latches:
+   *  `stuckTo` = a soldier it rides, `stuckVehicle` = a hull it rides, `stuckPos`
+   *  = a fixed point on a wall/the ground. `stuckAt` starts the fuse. */
   stuckTo?: number;
+  stuckVehicle?: number;
+  stuckPos?: Vec3;
   stuckAt?: number;
   /** remaining body/cover pass-throughs (init from WeaponDef.pierce at launch) */
   pierce?: number;

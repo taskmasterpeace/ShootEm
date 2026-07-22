@@ -4797,25 +4797,35 @@ export class World {
 
   // ---------- projectiles ----------
 
-  /** Special payloads detonate into effects instead of damage. */
-  /** THE PLASMA STICK: a plasma charge adheres to the first enemy it grazes and
-   *  RIDES their position until a ~1.3s fuse — so a stuck man who runs to his
-   *  squad carries the burst into them (Robert). Returns true if it handled the
-   *  projectile this tick (stuck/riding/burst); false = keep flying. */
-  private stepPlasmaStick(id: number, p: Projectile): boolean {
+  /** STICKY GRENADE (Robert: "no bounce, stick to what they hit"): the charge
+   *  ADHERES to the first thing it touches and detonates on a ~1.3s fuse from
+   *  right there — a body or hull it RIDES (a stuck man carries it into his
+   *  squad), a wall or the ground it CLINGS to. Returns true if it handled the
+   *  projectile this tick (stuck/riding/burst); false = keep flying. `px/py/pz`
+   *  is the pre-move position, used to back a wall-hit off to just outside. */
+  private stepSticky(id: number, p: Projectile, px: number, py: number, pz: number): boolean {
     const FUSE = 1.3;
+    const burst = () => { this.detonatePayload(p); this.projectiles.delete(id); };
+    // ── already stuck: ride/cling and count the fuse ──
     if (p.stuckTo !== undefined) {
       const host = this.soldiers.get(p.stuckTo);
-      if (!host || !host.alive || this.time >= (p.stuckAt ?? 0) + FUSE) {
-        this.detonatePayload(p);                // fuse done or host gone — burst
-        this.projectiles.delete(id);
-        return true;
-      }
-      p.pos = { x: host.pos.x, y: 1.2, z: host.pos.z }; // ride the body
-      p.vel = { x: 0, y: 0, z: 0 };
+      if (!host || !host.alive || this.time >= (p.stuckAt ?? 0) + FUSE) { burst(); return true; }
+      p.pos = { x: host.pos.x, y: 1.2, z: host.pos.z }; p.vel = { x: 0, y: 0, z: 0 }; // ride the body
       return true;
     }
-    // not stuck yet: does it graze an enemy at (roughly) body height?
+    if (p.stuckVehicle !== undefined) {
+      const v = this.vehicles.get(p.stuckVehicle);
+      if (!v || !v.alive || this.time >= (p.stuckAt ?? 0) + FUSE) { burst(); return true; }
+      p.pos = { x: v.pos.x, y: 1.0, z: v.pos.z }; p.vel = { x: 0, y: 0, z: 0 }; // ride the hull
+      return true;
+    }
+    if (p.stuckPos) {
+      p.pos = { ...p.stuckPos }; p.vel = { x: 0, y: 0, z: 0 }; // clinging to a wall / the ground
+      if (this.time >= (p.stuckAt ?? 0) + FUSE) { burst(); return true; }
+      return true;
+    }
+    // ── not stuck yet: what did it just touch? ──
+    // 1. a BODY at (roughly) body height — the plasma stick
     for (const e of this.soldiers.values()) {
       if (!e.alive || e.team === p.team || e.vehicleId >= 0) continue;
       if (Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) < 1.4 && Math.abs((e.pos.y ?? 0) - p.pos.y) < 2.2) {
@@ -4824,7 +4834,31 @@ export class World {
         return true;
       }
     }
-    return false; // fly on — it'll stick later or land and burst as a normal arc
+    // 2. a VEHICLE hull
+    for (const v of this.vehicles.values()) {
+      if (!v.alive || v.team === p.team) continue;
+      if (Math.hypot(v.pos.x - p.pos.x, v.pos.z - p.pos.z) < VEHICLES[v.kind].radius + 0.6 && Math.abs(v.pos.y - p.pos.y) < 3) {
+        p.stuckVehicle = v.id; p.stuckAt = this.time; p.vel = { x: 0, y: 0, z: 0 };
+        this.emit({ type: 'plasma_stick', pos: { ...p.pos } });
+        return true;
+      }
+    }
+    // 3. a WALL (it flew INTO a blocked tile below the wall tier) — back off to
+    //    just outside and cling to the face
+    if (p.pos.y < 4.05 && isBlocked(this.map.grid, p.pos.x, p.pos.z)) {
+      p.stuckPos = { x: px, y: Math.max(0.3, py), z: pz };
+      p.stuckAt = this.time; p.vel = { x: 0, y: 0, z: 0 };
+      this.emit({ type: 'plasma_stick', pos: { ...p.stuckPos } });
+      return true;
+    }
+    // 4. the GROUND — cling where it lands, no bounce, no roll
+    if (p.pos.y <= 0.16 && p.vel.y <= 0) {
+      p.stuckPos = { x: p.pos.x, y: 0.16, z: p.pos.z };
+      p.stuckAt = this.time; p.vel = { x: 0, y: 0, z: 0 };
+      this.emit({ type: 'plasma_stick', pos: { ...p.stuckPos } });
+      return true;
+    }
+    return false; // still in the air, touched nothing — fly on
   }
 
   private detonatePayload(p: Projectile): boolean {
@@ -4907,9 +4941,6 @@ export class World {
         this.projectiles.delete(id);
         continue;
       }
-      // PLASMA STICK: adhered, it rides its host until the fuse blows; unstuck,
-      // grazing an enemy latches it — otherwise it flies on (returns false).
-      if (def.payload === 'plasma' && this.stepPlasmaStick(id, p)) continue;
       // TIME FIELDS: a round inside a bubble crawls — its whole advance
       // (including gravity) integrates at mul, and its fuse clock stretches
       // to match (bornAt slides forward), so a slowed grenade doesn't cheat
@@ -4919,10 +4950,17 @@ export class World {
         const tm = this.timeMulAt(p.pos.x, p.pos.z);
         if (tm < 1) { tdt = dt * tm; p.bornAt += dt * (1 - tm); }
       }
+      const px = p.pos.x, py = p.pos.y, pz = p.pos.z; // pre-move, to back off a wall
       if (p.arc) p.vel.y -= this.gravity * 0.7 * tdt;
       p.pos.x += p.vel.x * tdt;
       p.pos.y += p.vel.y * tdt;
       p.pos.z += p.vel.z * tdt;
+
+      // STICKY (Robert: "no bounce, stick to what they hit"): the charge adheres
+      // to the first thing it touches — a body, a hull, a wall, the ground — and
+      // detonates on its fuse from right there. Runs BEFORE the bounce/wall/hit
+      // logic below, so a sticky round never bounces or rolls.
+      if (def.sticky && this.stepSticky(id, p, px, py, pz)) continue;
 
       // BOOMERANG: fly out for half the ttl, then whip back toward the owner and
       // clear the struck list so it can hit again on the return leg (flip once)

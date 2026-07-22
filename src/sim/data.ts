@@ -60,7 +60,7 @@ const CORE_WEAPONS: Record<WeaponId, WeaponDef> = {
   grav_nade: W({ id: 'grav_nade', name: 'G-7 Singularity', damage: 0, rof: 0.8, speed: 16, clip: 1, reserve: 0, range: 26, splash: 6, splashDamage: 34, knockback: 0, arc: true, payload: 'grav', sound: 'thump', tracer: 'canister', icon: '🌀' }),
   // THE STICK (Robert): a plasma charge that ADHERES to the first body it meets
   // and rides it to the grave — ~1.3s fuse, then an energy burst that bites armor.
-  plasma_nade: W({ id: 'plasma_nade', name: 'P-11 Plasma Stick', damage: 0, rof: 0.8, speed: 22, clip: 1, reserve: 0, range: 28, splash: 4.5, splashDamage: 58, knockback: 12, arc: true, payload: 'plasma', sound: 'plasma', tracer: 'plasma', icon: '🔵' }),
+  plasma_nade: W({ id: 'plasma_nade', name: 'P-11 Plasma Stick', damage: 0, rof: 0.8, speed: 22, clip: 1, reserve: 0, range: 28, splash: 4.5, splashDamage: 58, knockback: 12, arc: true, payload: 'plasma', sticky: true, sound: 'plasma', tracer: 'plasma', icon: '🔵' }),
   // THE DEMOLITION TIMER (Robert: "time bombs"): planted at your feet, it BEEPS
   // down a ~4s fuse (telegraphed — the enemy can flee) then LEVELS the room. The
   // blast numbers below; damage ≥100 breaches masonry (it's a demo charge).
