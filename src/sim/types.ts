@@ -872,6 +872,12 @@ export interface Mine {
   ownerId: number;
   pos: Vec3;
   armedAt: number;
+  /** SPIDER MINE: lies dormant until an enemy strays into its wake radius, then
+   *  it POPS and SKITTERS them down (the vulture mine). Absent = a plain
+   *  proximity mine. `awake` latches once woken; `yaw` steers the chase. */
+  spider?: boolean;
+  awake?: boolean;
+  yaw?: number;
 }
 
 export interface FlagState {
@@ -900,6 +906,7 @@ export interface SimEvent {
     | 'point_captured' | 'wave_start' | 'vehicle_enter' | 'vehicle_exit'
     | 'vehicle_destroyed' | 'turret_built' | 'heal' | 'jetpack' | 'cloak'
     | 'announce' | 'match_over' | 'mine_planted'
+    | 'mine_wake'      // a spider mine woke and is skittering for a kill
     | 'warp' | 'blink' | 'emp' | 'orbital_strike' | 'gravlift'
     | 'grav_well'      // a singularity grenade opened a gravity well (the pull VFX)
     | 'plasma_stick'   // a plasma charge ADHERED to a body — the fuse is lit

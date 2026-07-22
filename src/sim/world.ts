@@ -6091,9 +6091,10 @@ export class World {
 
   // ---------- mines & pickups ----------
 
-  stepMines(_dt: number) {
+  stepMines(dt: number) {
     for (const [id, m] of this.mines) {
       if (this.time < m.armedAt) continue;
+      if (m.spider) { this.stepSpiderMine(id, m, dt); continue; } // the vulture mine walks
       for (const s of this.soldiers.values()) {
         if (!s.alive || s.team === m.team || s.pos.y > 1) continue;
         if (Math.hypot(s.pos.x - m.pos.x, s.pos.z - m.pos.z) < 2) {
@@ -6112,6 +6113,45 @@ export class World {
           this.mines.delete(id);
           break;
         }
+      }
+    }
+  }
+
+  /** THE SPIDER MINE (Robert): planted dormant — a glint on the ground — until
+   *  an enemy strays into its wake radius. Then it POPS and SKITTERS them down
+   *  (the skitter's own walk: faster than boots, wall-checked, no climbing),
+   *  detonating on contact with a heavier bite than a static mine. */
+  private stepSpiderMine(id: number, m: Mine, dt: number) {
+    const WAKE = 11;
+    let tgt: Soldier | undefined, td = Infinity;
+    for (const s of this.soldiers.values()) {
+      if (!s.alive || s.team === m.team || s.pos.y > 1 || s.vehicleId >= 0) continue;
+      const d = Math.hypot(s.pos.x - m.pos.x, s.pos.z - m.pos.z);
+      if (d < td) { td = d; tgt = s; }
+    }
+    if (!m.awake) {
+      if (tgt && td < WAKE) { m.awake = true; this.emit({ type: 'mine_wake', pos: { ...m.pos }, soldierId: m.ownerId }); }
+      return; // dormant: it lies still until prey is near
+    }
+    if (tgt) m.yaw = Math.atan2(tgt.pos.z - m.pos.z, tgt.pos.x - m.pos.x);
+    const sp = 9; // faster than boots, slower than bullets
+    const nx = m.pos.x + Math.cos(m.yaw ?? 0) * sp * dt;
+    const nz = m.pos.z + Math.sin(m.yaw ?? 0) * sp * dt;
+    if (!isBlocked(this.map.grid, nx, m.pos.z)) m.pos.x = nx; // slide along walls
+    if (!isBlocked(this.map.grid, m.pos.x, nz)) m.pos.z = nz;
+    if (tgt && td < 1.5) {
+      const def = { ...WEAPONS.gl, damage: 95, splash: 4.5, splashDamage: 78, knockback: 14 };
+      this.explode({ ...m.pos, y: 0.4 }, def as (typeof WEAPONS)[WeaponId], m.ownerId, m.team);
+      this.mines.delete(id);
+      return;
+    }
+    for (const v of this.vehicles.values()) {
+      if (!v.alive || v.team === m.team) continue;
+      if (Math.hypot(v.pos.x - m.pos.x, v.pos.z - m.pos.z) < VEHICLES[v.kind].radius + 1.2) {
+        this.damageVehicle(v, 240, m.ownerId, 'gl');
+        this.emit({ type: 'explosion', pos: { ...m.pos }, weapon: 'gl' });
+        this.mines.delete(id);
+        return;
       }
     }
   }

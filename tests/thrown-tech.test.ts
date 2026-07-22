@@ -6,6 +6,7 @@
 // force on them is the one under test.
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
+import type { Mine } from '../src/sim/types';
 import { World } from '../src/sim/world';
 
 const step = (w: World, secs: number) => {
@@ -77,5 +78,29 @@ describe('time bomb — the demolition timer', () => {
     const hp0 = e.hp;
     w.step(1 / 60, new Map());
     expect(e.hp, 'a struck charge cooks off early').toBeLessThan(hp0);
+  });
+});
+
+describe('spider mine — the vulture', () => {
+  it('lies dormant, wakes on approach, then skitters the enemy down', () => {
+    const w = new World({ seed: 5, mode: 'tdm', matchMinutes: 10 });
+    const o = w.addSoldier('O', 'engineer', 0, 'human'); o.pos = { x: 60, y: 0, z: 60 };
+    const e = w.addSoldier('E', 'infantry', 1, 'human'); e.pos = { x: 20, y: 0, z: 0 }; e.armor = 0;
+    const m: Mine = { id: 999001, team: 0, ownerId: o.id, pos: { x: 0, y: 0, z: 0 }, armedAt: 0, spider: true };
+    w.mines.set(m.id, m);
+    // enemy is FAR (20u > 11u wake) — the mine sleeps and does not move
+    step(w, 0.5);
+    expect(m.awake, 'far away: it sleeps').toBeFalsy();
+    expect(m.pos.x, 'and does not budge').toBe(0);
+    // prey strays into the wake radius
+    e.pos = { x: 8, y: 0, z: 0 };
+    let woke = false;
+    for (let i = 0; i < 30 && !woke; i++) { w.step(1 / 60, new Map()); for (const ev of w.takeEvents()) if (ev.type === 'mine_wake') woke = true; }
+    expect(woke, 'prey in range: it POPS').toBe(true);
+    // it chases and detonates on the (stationary) enemy
+    const hp0 = e.hp;
+    for (let i = 0; i < 60 * 2; i++) w.step(1 / 60, new Map());
+    expect(hp0 - e.hp, 'the vulture ran him down').toBeGreaterThan(0);
+    expect(w.mines.has(m.id), 'the mine is spent on the kill').toBe(false);
   });
 });
