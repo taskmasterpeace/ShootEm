@@ -5434,6 +5434,12 @@ export class Renderer {
           // one twice; the settle tick arrives naturally quieter (energy's spent).
           if (e.pos) audio.play('nade_tink', { pos: e.pos, volume: 0.6, rate: 0.92 + Math.random() * 0.34 });
           break;
+        case 'nuke_armed':
+          // THE WARHEAD IS LIVE: a map-wide klaxon that owns the field for a
+          // beat — non-positional so BOTH teams hear it exactly (the counterplay
+          // IS the warning). The banner text is handled by the HUD.
+          if (e.big) audio.play('orbital_charge', { volume: 0.95, rate: 0.8 });
+          break;
         case 'vo':
           // a spoken line: positional = the LSW's own mouth (only nearby
           // ears hear it — the earshot class does the math); no pos = the

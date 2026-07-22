@@ -1702,7 +1702,12 @@ export class Hud {
            e.type === 'flag_returned' || e.type === 'point_captured' || e.type === 'wave_start' ||
            e.type === 'match_over' || e.type === 'pod_incoming' || e.type === 'beacon_planted' ||
            e.type === 'system_damaged' || e.type === 'hacked' || e.type === 'operation_phase' ||
-           e.type === 'operation_complete') && e.text) {
+           e.type === 'operation_complete' ||
+           // THE CRADLE TELEGRAPH: a map-reshaping warhead must never be a
+           // surprise — the arm + release both carry text and shout it to the
+           // whole field. The `&& e.text` guard keeps ORDINARY bomb drops
+           // (which carry no text) silent; only the warhead speaks here.
+           e.type === 'nuke_armed' || e.type === 'bomb_away') && e.text) {
         this.announce(e.text, !!e.big, now);
       }
       // SUBTITLES (positional truth): an LSW's spoken line is captioned only
