@@ -452,7 +452,7 @@ describe('the play types', () => {
       events.push(...w.takeEvents());
     }
     const packIds = new Set(pack.map((h) => h.id));
-    const barks = events.filter((e) => e.type === 'announce' && e.soldierId !== undefined && packIds.has(e.soldierId));
+    const barks = events.filter((e) => e.type === 'bark' && e.soldierId !== undefined && packIds.has(e.soldierId));
     expect(barks.length, 'somebody called their play at the whistle').toBeGreaterThan(0);
   });
 });

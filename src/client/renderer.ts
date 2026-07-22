@@ -818,6 +818,56 @@ export class Renderer {
     this.blastRings.push({ mesh: ring, born: now, life: 0.5, r0: splashR * 0.35, r1: splashR, grow: true, peak: 0.7 });
   }
 
+  // ---- overhead barks: the yard's mouths ----------------------------------
+  /** speaker id → the floating line above their head */
+  private barks = new Map<number, { sprite: THREE.Sprite; until: number }>();
+
+  /** hang a line of trash talk over a soldier's head for a beat */
+  private spawnBark(soldierId: number, text: string, now: number) {
+    const old = this.barks.get(soldierId);
+    if (old) { this.scene.remove(old.sprite); old.sprite.material.map?.dispose(); old.sprite.material.dispose(); }
+    const cvs = document.createElement('canvas');
+    const ctx = cvs.getContext('2d')!;
+    const font = '600 26px "Share Tech Mono", monospace';
+    ctx.font = font;
+    const w = Math.min(460, Math.ceil(ctx.measureText(text).width) + 34);
+    cvs.width = w; cvs.height = 44;
+    ctx.font = font;
+    // the chip: ink with a paint-white line — tactical, readable at yard zoom
+    ctx.fillStyle = 'rgba(12,12,14,0.82)';
+    ctx.fillRect(0, 0, w, 44);
+    ctx.strokeStyle = 'rgba(242,244,246,0.85)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(1, 1, w - 2, 42);
+    ctx.fillStyle = '#f2f4f6';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, w / 2, 23, w - 20);
+    const tex = new THREE.CanvasTexture(cvs);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    sprite.scale.set(w / 92, 44 / 92, 1);
+    sprite.renderOrder = 5;
+    this.scene.add(sprite);
+    this.barks.set(soldierId, { sprite, until: now + 2.8 });
+  }
+
+  /** follow the speakers, fade the tails, sweep the expired */
+  private updateBarks(now: number) {
+    for (const [id, b] of this.barks) {
+      const mesh = this.soldierMeshes.get(id);
+      if (now >= b.until || !mesh || !mesh.visible) {
+        this.scene.remove(b.sprite);
+        b.sprite.material.map?.dispose();
+        b.sprite.material.dispose();
+        this.barks.delete(id);
+        continue;
+      }
+      b.sprite.position.set(mesh.position.x, mesh.position.y + 3.1, mesh.position.z);
+      b.sprite.material.opacity = Math.min(1, (b.until - now) / 0.5);
+    }
+  }
+
   /** Build one precipitation particle system for the given sky. */
   private buildPrecip(k: WeatherKind): { kind: WeatherKind; obj: THREE.Object3D; pos: Float32Array; n: number } {
     if (k === 'rain' || k === 'storm') {
@@ -4060,6 +4110,7 @@ export class Renderer {
     this.particles.update(dt);
     this.flashes.update(world.time, dt);
     this.fireballs.update(dt);
+    this.updateBarks(world.time);
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -5442,6 +5493,12 @@ export class Renderer {
           }
           break;
         }
+        case 'bark':
+          // TRASH TALK, OVERHEAD (Robert: "I wanna see what they're saying —
+          // the words appear over their head"): one floating chip per mouth,
+          // replaced if they speak again before it fades.
+          if (e.soldierId !== undefined && e.text) this.spawnBark(e.soldierId, e.text, world.time);
+          break;
         case 'spill':
           if (e.pos) {
             // a fumbled pod: INTACT balls bounce and roll at the feet — they

@@ -17,6 +17,7 @@
 // its own workstream (see the GitHub issue); these lines are its script.
 // ---------------------------------------------------------------------------
 import { hash01 } from './rng';
+import { personaByName } from './personas';
 import type { Soldier, Vec3 } from './types';
 import type { World } from './world';
 
@@ -26,6 +27,11 @@ export type PbStyle = 'rusher' | 'flanker' | 'anchor';
 export function pbStyleFor(id: number): PbStyle {
   const r = hash01(id * 17 + 3);
   return r < 0.34 ? 'rusher' : r < 0.67 ? 'flanker' : 'anchor';
+}
+
+/** A persona DECLARES its style; anonymous bots draw from the id hash. */
+export function pbStyleOf(s: Pick<Soldier, 'id' | 'pbStyle'>): PbStyle {
+  return s.pbStyle ?? pbStyleFor(s.id);
 }
 
 /** Where a HUNTER wants to be, by personality. The return is an intent the
@@ -46,7 +52,7 @@ export function pbHuntObjective(w: World, s: Soldier, prey: Soldier): Vec3 {
     // that only camps let the first AI probe stall into 120-second
     // hide-and-seek; the sweeper is what flushes the rabbit back into play.
     const anchorPos = mark ? { x: mark.x, z: mark.z } : w.map.hillPos;
-    if (pbStyleFor(s.id) === 'rusher') {
+    if (pbStyleOf(s) === 'rusher') {
       const beat = Math.floor(w.time / 7) + s.id;
       const [sx, sz] = EVADE_SPOTS[beat % EVADE_SPOTS.length];
       return { x: sx, y: 0, z: sz };
@@ -64,7 +70,7 @@ export function pbHuntObjective(w: World, s: Soldier, prey: Soldier): Vec3 {
   // y-channel contract: storey, never altitude (a hopping prey is ground floor)
   const py = prey.floor === 1 ? 4 : 0;
   const d = Math.hypot(hx - s.pos.x, hz - s.pos.z);
-  const style = pbStyleFor(s.id);
+  const style = pbStyleOf(s);
   if (style === 'flanker' && d > 9) {
     // aim BESIDE the mark, perpendicular to the approach — the arc tightens
     // as the gap closes, so a flanker arrives from the wall, not the front
@@ -147,9 +153,34 @@ const BARKS: Record<PbStyle, { start: string[]; splat: string[] }> = {
   },
 };
 
-/** One positioned bark, deterministic off (id, sim-time second). */
-export function pbBark(w: World, s: Soldier, moment: 'start' | 'splat') {
-  const lines = BARKS[pbStyleFor(s.id)][moment];
+/** One overhead bark, deterministic off (id, sim-time second). A PERSONA
+ *  speaks its own script (src/sim/personas.ts); an anonymous bot borrows the
+ *  style table. 'bark' events render as words hanging over the speaker's
+ *  head (Robert: "I wanna SEE what they're saying"). */
+export function pbBark(w: World, s: Soldier, moment: 'start' | 'splat' | 'taunt') {
+  const persona = personaByName.get(s.name);
+  const lines = persona
+    ? persona.lines[moment]
+    : BARKS[pbStyleOf(s)][moment === 'taunt' ? 'splat' : moment];
   const line = lines[Math.floor(hash01(s.id * 7 + Math.floor(w.time) * 13 + 1) * lines.length) % lines.length];
-  w.emit({ type: 'announce', pos: { ...s.pos }, soldierId: s.id, text: line, big: false });
+  w.emit({ type: 'bark', pos: { ...s.pos }, soldierId: s.id, text: line });
+}
+
+/** PROXIMITY TAUNTS (Robert: "they should be able to YELL at me when they're
+ *  within distance"): a bot that closes on a living enemy HUMAN runs its
+ *  mouth — once per mouth per cooldown, deterministic gate, no rng draws. */
+export function pbProximityTaunts(w: World) {
+  for (const s of w.humansAndBots()) {
+    if (s.kind !== 'bot' || !s.alive || s.dummy) continue;
+    if (w.time < (s.pbTauntAt ?? 0)) continue;
+    for (const h of w.soldiers.values()) {
+      if (h.kind !== 'human' || !h.alive || h.team === s.team) continue;
+      const d = Math.hypot(h.pos.x - s.pos.x, h.pos.z - s.pos.z);
+      if (d < 14 && d > 2) {
+        s.pbTauntAt = w.time + 9 + hash01(s.id * 3 + Math.floor(w.time)) * 5;
+        pbBark(w, s, 'taunt');
+        break;
+      }
+    }
+  }
 }

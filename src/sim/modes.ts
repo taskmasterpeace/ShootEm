@@ -3,7 +3,7 @@ import { losClear, type GameMap } from './map';
 import { isBoard, isZed, type ModeId, type ModeState, type RacerState, type RaceTrack, type Team, type ZedKind, type IronKind } from './types';
 import type { World } from './world';
 import { stepScienceMission } from './science-runtime';
-import { pbBark } from './paintball';
+import { pbBark, pbProximityTaunts } from './paintball';
 
 const MATCH_TIME = 15 * 60;
 
@@ -175,6 +175,17 @@ function stepPaintball(w: World, dt: number) {
     return;
   }
 
+  // A PRACTICE YARD (the Gallery): when one side has no roster at all —
+  // drill dummies aren't players (humansAndBots excludes them) — there is
+  // nothing to referee. The round machinery stands down entirely, or the
+  // whistle would end a phantom round every 4 seconds and keep re-spawning
+  // the shooter off their own firing line.
+  {
+    const count: [number, number] = [0, 0];
+    for (const s of w.humansAndBots()) count[s.team]++;
+    if (count[0] === 0 || count[1] === 0) return;
+  }
+
   // paint is final (per round): the splatted watch from the dead-box.
   // A FRESH splat gets a bark from whoever threw the paint — the play types
   // talk (Robert: "our play types are gonna drive what they say").
@@ -207,6 +218,9 @@ function stepPaintball(w: World, dt: number) {
     }
   }
   m.scores = hunted === 0 ? [tags, 0] : [0, tags];
+
+  // the mouths run when they close on a human (persona proximity taunts)
+  pbProximityTaunts(w);
 
   const liveHunted = [...w.soldiers.values()].some((s) => s.alive && s.team === hunted && (s.kind === 'human' || s.kind === 'bot'));
   const liveHunters = [...w.soldiers.values()].some((s) => s.alive && s.team !== hunted && (s.kind === 'human' || s.kind === 'bot'));

@@ -519,6 +519,10 @@ export interface Soldier {
   lastKillerId: number;
   /** paintball: this splat already drew its trash-talk bark (reset each round) */
   pbSplatBarked?: boolean;
+  /** paintball: declared play style (personas) — overrides the id-hash deal */
+  pbStyle?: 'rusher' | 'flanker' | 'anchor';
+  /** paintball: next time this mouth may yell a proximity taunt */
+  pbTauntAt?: number;
   /** which storey this soldier stands on: 0 ground, 1 the grid2 layer (§8.4) */
   floor: number;
   /** brief stair debounce; direction records an intentional reversal. */
@@ -1120,6 +1124,7 @@ export interface SimEvent {
     | 'reanimated'     // THE OUTBREAK: an exposed corpse got back up (§6)
     | 'whistle'        // paintball referee: a round just started or ended
     | 'spill'          // paintball: a fumbled pod dumped balls at the feet (pos = where)
+    | 'bark'           // paintball trash talk: text hangs OVER the speaker's head (soldierId = mouth)
     | 'encased'        // a soldier was frozen alive in the ice block (§21.6)
     | 'lsw_active'     // a piloted LSW fired its signature (text = ascendant id)
     | 'nade_bounce'    // a hand grenade kissed the ground — the tick before the bang

@@ -33,6 +33,8 @@ export interface FieldRecord {
   longestSplatField: string;
   gauntletDepth: number;
   gauntletBestRun: number;
+  /** THE GALLERY (§6): personal-best run score */
+  galleryBest?: number;
 }
 
 /** THE GAUNTLET ladder (COMPETITIVE-ARC §2): rung N = you vs a pack of N.
@@ -194,9 +196,9 @@ export class FieldTracker {
           if (e.soldierId === undefined) break;
           if (e.soldierId === meId) { r.outs++; break; }
           const victim = w.soldiers.get(e.soldierId);
-          // only PLAYERS count — a boot-camp dummy is a lesson, not a splat
-          // (and never a Belt distance)
-          if (victim && (victim.kind === 'human' || victim.kind === 'bot')
+          // only PLAYERS count — a drill dummy (RingDrill, the Gallery) is a
+          // lesson, not a splat, and NEVER a Belt distance
+          if (victim && (victim.kind === 'human' || victim.kind === 'bot') && !victim.dummy
             && victim.team !== me.team && victim.lastKillerId === meId && e.pos) {
             r.splats++;
             const dist = Math.hypot(me.pos.x - e.pos.x, me.pos.z - e.pos.z);

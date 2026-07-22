@@ -34,7 +34,12 @@ export interface TrophyLedger {
   reigns: TrophyReign[];
 }
 
-interface TrophyStore { cup: TrophyLedger; belt: TrophyLedger }
+interface TrophyStore {
+  cup: TrophyLedger;
+  belt: TrophyLedger;
+  /** THE HOUSE SCORE — the Gallery's standing record (COMPETITIVE-ARC §6) */
+  gallery?: { holder: string; score: number; at: number };
+}
 
 const KEY = 'ww_trophies';
 /** the Belt's opening bar: the first claim must be a genuinely LONG ball —
@@ -91,6 +96,19 @@ export function checkBelt(st: TrophyStore, shooter: string, dist: number, field:
   return prev && prev !== shooter
     ? `THE LONGBALL BELT MOVES — ${shooter.toUpperCase()} · ${dist.toFixed(1)}u ON ${field.toUpperCase()} (from ${prev})`
     : `THE LONGBALL BELT — ${shooter.toUpperCase()} SETS THE MARK: ${dist.toFixed(1)}u ON ${field.toUpperCase()}`;
+}
+
+/** A Gallery run just banked `score`. If it beats the HOUSE SCORE, the house
+ *  changes hands. Returns the announce line, or null. */
+export function checkGalleryRecord(st: TrophyStore, who: string, score: number): string | null {
+  if (score <= 0) return null;
+  const g = st.gallery;
+  if (g && score <= g.score) return null;
+  st.gallery = { holder: who, score, at: Date.now() };
+  saveTrophies(st);
+  return g
+    ? `THE HOUSE SCORE FALLS — ${who.toUpperCase()}: ${score} (was ${g.holder} · ${g.score})`
+    : `THE HOUSE SCORE IS SET — ${who.toUpperCase()}: ${score}`;
 }
 
 /** A yard series just ended. Settle the CUP. Returns the announce, or null.

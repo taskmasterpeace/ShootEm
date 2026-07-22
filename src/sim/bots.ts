@@ -35,7 +35,7 @@ import { visionMult } from './weather';
 import { LSWS } from './lsw';
 import { threatAt } from './influence';
 import { dogWindowHesitation, indoorCivilianWaypoint, indoorGuardWaypoint, strongestDogScent } from './indoor-ai';
-import { pbHuntObjective, pbPreyObjective, pbStyleFor } from './paintball';
+import { pbHuntObjective, pbPreyObjective, pbStyleOf } from './paintball';
 import { hash01 } from './rng';
 import {
   closedDoorAhead,
@@ -1434,7 +1434,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
           }
         }
       }
-      if (!cmd.dash && pbStyleFor(s.id) === 'rusher' && d > 10 && d < 24
+      if (!cmd.dash && pbStyleOf(s) === 'rusher' && d > 10 && d < 24
           && s.energy >= 70 && w.time >= (s.nextDashAt ?? 0)) {
         cmd.dash = 1; // the hallway burst — paid from the same tank as everyone
       }
