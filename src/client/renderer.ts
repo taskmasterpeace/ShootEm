@@ -547,7 +547,10 @@ export class Renderer {
   }
 
   constructor(canvas: HTMLCanvasElement) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    // opt #21: MSAA rides the quality tier — LOW skips multisampling entirely
+    // (with the DPR cap from #31, a 4K iGPU laptop finally has a full escape
+    // hatch instead of 8.3M multisampled pixels it never asked for)
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: settings.quality !== 'low' });
     // opt #31: LOW caps DPR at 1.25 — a 4K iGPU laptop stops rendering 8.3M
     // multisampled pixels it can't afford (also half of #21's ask)
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, settings.quality === 'low' ? 1.25 : 2));
