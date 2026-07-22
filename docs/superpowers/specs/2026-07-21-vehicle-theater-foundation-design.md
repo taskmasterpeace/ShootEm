@@ -1,7 +1,7 @@
 # Vehicle Theater Foundation — Design
 
 **Date:** 2026-07-21  
-**Status:** Approved direction; written-spec review pending  
+**Status:** Shipped and production-verified
 **Branch:** `codex/military-operations`  
 **Worktree:** `D:/git/ShootEM/.claude/worktrees/military-operations`
 

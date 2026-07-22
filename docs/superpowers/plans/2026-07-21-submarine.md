@@ -1,6 +1,10 @@
 # Military Operations Submarine Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+**Execution status:** COMPLETE — Barracuda ships with deep staging, Q depth
+control, sonar concealment, torpedo combat, Operation manifests, procedural
+presentation, and 20 passing submerged duel scenarios.
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Ship the Barracuda submarine with real deep-water movement, torpedo combat, sonar concealment, AI fights, and production evidence.
 
@@ -33,7 +37,7 @@
 - Produces: `VehicleKind` `submarine`; `VehicleDef.submersible`; `Vehicle.submerged`; `WeaponDef.torpedo`; `WEAPONS.torpedo`; dive control on Q.
 - Consumes: mounted-weapon launch, water collision, vehicle damage, ability debounce.
 
-- [ ] **Step 1: Write failing depth and weapon tests**
+- [x] **Step 1: Write failing depth and weapon tests**
 
 ```ts
 it('dives only over deep water and moves slower underwater', () => {
@@ -51,21 +55,21 @@ it('rejects surface fire and accepts torpedoes while submerged', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run: `npx vitest run tests/submarine.test.ts tests/waterline.test.ts`  
 Expected: FAIL because the Barracuda, depth state, and torpedo law are absent.
 
-- [ ] **Step 3: Implement minimal naval depth law**
+- [x] **Step 3: Implement minimal naval depth law**
 
 Add a 320 HP, 17u/s, four-seat Barracuda with weapons/sensors/comms crew, radius 2.8, cost 4, `boat: true`, and `submersible: true`. Q dives only when center plus four collision-radius probes are `T_DEEP`; Q always surfaces. Apply a 0.72 submerged speed multiplier and deep-only collision. Mark torpedo projectiles/definitions and reject every non-torpedo direct or splash hit against submerged vehicles.
 
-- [ ] **Step 4: Run tests and verify GREEN**
+- [x] **Step 4: Run tests and verify GREEN**
 
 Run: `npx vitest run tests/submarine.test.ts tests/waterline.test.ts tests/vehicle-telemetry.test.ts tests/operations.test.ts`  
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/sim/types.ts src/sim/data.ts src/sim/operations.ts src/sim/world.ts tests/submarine.test.ts tests/waterline.test.ts
@@ -89,7 +93,7 @@ git commit -m "feat: add submarine depth combat"
 - Produces: one deep Barracuda pad per team in Coastal/Ocean; deep route selection; named `propeller`; submerged render depth.
 - Consumes: `placeDomainPad`, authored deep routes, `buildVehicle`, renderer vehicle update.
 
-- [ ] **Step 1: Add failing pad, route, and visual tests**
+- [x] **Step 1: Add failing pad, route, and visual tests**
 
 ```ts
 submarine: ['turret', 'gunRecoil', 'propeller'],
@@ -97,21 +101,21 @@ submarine: ['turret', 'gunRecoil', 'propeller'],
 
 Assert Coastal/Ocean have two submarine pads on `T_DEEP`, dry theaters have none, and `vehicleRouteFor` returns a `deep` route for Barracuda.
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run: `npx vitest run tests/theaters.test.ts tests/ai-vehicles.test.ts tests/visual.test.ts`  
 Expected: FAIL because pads, deep routing, and model are absent.
 
-- [ ] **Step 3: Implement map integration and model**
+- [x] **Step 3: Implement map integration and model**
 
 Map `submarine` pads to the `deep` domain and validate `T_DEEP`. Stage pads on the first/last points of authored deep routes. Select `deep` in vehicle AI. Build the long pressure hull, sail, planes, tubes, team stripe, torpedo recoil group, and named propeller. Ease rendered height between -0.25u and -2.4u and spin the propeller with speed.
 
-- [ ] **Step 4: Run tests and verify GREEN**
+- [x] **Step 4: Run tests and verify GREEN**
 
 Run: `npx vitest run tests/theaters.test.ts tests/theater-performance.test.ts tests/ai-vehicles.test.ts tests/visual.test.ts tests/waterline.test.ts`  
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/sim/theater-builder.ts src/sim/theaters.ts src/sim/theaters/domain.ts src/sim/bots.ts src/client/models/vehicles.ts src/client/renderer.ts tests/theaters.test.ts tests/ai-vehicles.test.ts tests/visual.test.ts
@@ -131,7 +135,7 @@ git commit -m "feat: stage submarines on deep routes"
 - Produces: `World.submarineDetectedForTeam(target, team)`; snapshot conceal/reveal rules.
 - Consumes: vehicle crew station layout, systems health, distances, local renderer team.
 
-- [ ] **Step 1: Write failing sonar tests**
+- [x] **Step 1: Write failing sonar tests**
 
 ```ts
 it('removes an undetected submerged enemy from the wire', () => {
@@ -146,21 +150,21 @@ it('reveals it to a staffed live sensor station in sonar range', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run: `npx vitest run tests/culling.test.ts tests/sim.test.ts`  
 Expected: FAIL because submerged contacts are still serialized normally.
 
-- [ ] **Step 3: Implement shared sonar predicate**
+- [x] **Step 3: Implement shared sonar predicate**
 
 Friendly targets always return true. Surface targets return true. For an enemy submerged target, return true for a friendly submarine within 65u or a friendly alive vehicle within 55u whose `sensors` station seat is staffed and sensor system HP is positive. Use the predicate in both snapshot culling and local renderer visibility.
 
-- [ ] **Step 4: Run tests and verify GREEN**
+- [x] **Step 4: Run tests and verify GREEN**
 
 Run: `npx vitest run tests/culling.test.ts tests/sim.test.ts tests/visual.test.ts`  
 Expected: PASS without leaking hidden coordinates.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/sim/world.ts src/sim/snapshot.ts src/client/renderer.ts tests/culling.test.ts tests/sim.test.ts
@@ -182,7 +186,7 @@ git commit -m "feat: conceal submarines behind sonar"
 - Produces: `runSubmarineBattle`, `runSubmarineMatrix`, `evaluateSubmarineMatrix`; stable naval report.
 - Consumes: deep route AI, sonar, torpedo telemetry, existing scenario command.
 
-- [ ] **Step 1: Write failing real-simulation matrix tests**
+- [x] **Step 1: Write failing real-simulation matrix tests**
 
 ```ts
 it('passes Coastal and Ocean submarine fights over ten seeds', () => {
@@ -194,21 +198,21 @@ it('passes Coastal and Ocean submarine fights over ten seeds', () => {
 
 Each row requires route completion, dive, first contact, torpedo shots/hits, finite position, zero wrong-depth incidents, and damage or loss.
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run: `npx vitest run tests/submarine-scenarios.test.ts`  
 Expected: FAIL because submarine scenario APIs are absent.
 
-- [ ] **Step 3: Implement deep-route combat AI and matrix**
+- [x] **Step 3: Implement deep-route combat AI and matrix**
 
 Barracuda bots dive after clearing the pad, follow deep anchors, acquire detectable naval hulls, fire torpedoes after the shared reaction delay, and never steer through shallow water while submerged. Add dive/surface/wrong-depth telemetry and compact matrix rows.
 
-- [ ] **Step 4: Generate and verify reports**
+- [x] **Step 4: Generate and verify reports**
 
 Run: `npm run test:vehicle-scenarios`  
 Expected: foundation 210 PASS, rotorcraft 100 PASS, submarine 20 PASS; stable JSON/Markdown reports written.
 
-- [ ] **Step 5: Run focused gates and commit**
+- [x] **Step 5: Run focused gates and commit**
 
 Run: `npx tsc --noEmit`  
 Run: `npx vitest run tests/submarine.test.ts tests/submarine-scenarios.test.ts tests/waterline.test.ts tests/culling.test.ts tests/visual.test.ts tests/theaters.test.ts tests/vehicle-scenarios.test.ts`  

@@ -8,7 +8,22 @@ The complete playable loop now ships: the Scar exposes one deterministic Operati
 
 The principal implementation is `src/sim/operations.ts`, `operation-map.ts`, `operation-pads.ts`, `operation-runtime.ts`, `world.ts`, `src/client/campaign.ts`, `operations-ui.ts`, `hud.ts`, `dossier.ts`, `newspaper.ts`, and the Scar wiring in `src/main.ts`. The production proof is the full suite plus the dedicated `operations`, `operation-map`, `operation-runtime`, `operation-settlement`, `operation-effects`, `operations-ui`, `operations-integration`, `operation-hud`, and `operation-record` tests.
 
-Release verification on 2026-07-21 after merging current `main`: `npx tsc --noEmit`, all 144 Vitest files / 1,824 tests, `npm run lint`, and `npm run build` passed. A live browser smoke verified Scar selection, manifest validation, exact treasury staging, reload persistence, cancellation/refund, and a clean browser console.
+The vehicle-theater expansion also ships six map-owned battlefields—City
+600×600u, Desert 900×900u, Countryside 900×900u, Mountain 600×900u,
+Coastal 900×600u, and Ocean 900×900u—plus the shared **Ground / Building /
+Sky / Clouds** elevation law. The seasonal motor pool can commit named Shrike
+attack helicopters, Condor transport helicopters, Pike gunboats, and
+Barracuda attack submarines. Existing seasons migrate the newly commissioned
+hulls into their pool without resetting losses or records.
+
+Release verification on 2026-07-21 in `codex/military-operations`:
+`npx tsc --noEmit`, all 159 Vitest files / 1,928 tests, `npm run lint`,
+and `npm run build` passed. `npm run test:vehicle-scenarios` passed all
+330 deterministic vehicle fights. Live browser smokes verified all six Map
+Maker sources under the six-law audit, the complete 20-hull model stage and
+pad palette, Shrike/Condor/Barracuda procedural models, the 900×600 Coastal
+Operation briefing, and the migrated named airframes/submarines in its real
+manifest planner with a clean console.
 
 ## What an Operation is
 
@@ -114,7 +129,9 @@ War-chest payout; steal the enemy's opening purse; cheaper family-wide requisiti
 
 Sector air superiority; channel sea control; permanent CAS allotment; escort wing; deny enemy CAS; carrier slot; coastal-battery cover; early warning; base no-fly zone; submarine picket.
 
-Carrier and submarine rewards are strategic modifiers in this version. They do not expose fake playable hulls before those vehicles ship.
+Carrier rewards and the submarine-picket reward remain strategic modifiers.
+The Barracuda itself is now a real playable and committable hull; no carrier
+hull is fabricated before carrier gameplay ships.
 
 ### Doctrine and intel
 
@@ -139,16 +156,18 @@ The Courier reports the aftermath from the enemy perspective.
 
 - Destroyed vehicles leave the national motor pool for the remainder of the season; armistice replenishes it.
 - Captured facilities persist for the season and reset at armistice.
-- The shipped flyer/gunship supports CAS and Airborne Insertion. A dedicated helicopter may replace it later without changing mission verbs.
-- Sea gameplay uses the shipped Pike gunboat. Submarines and carriers remain sites and strategic effects until their hulls ship.
+- CAS fields the dedicated Shrike attack helicopter; Airborne Insertion fields the nine-seat Condor transport helicopter and its grounded mobile spawn.
+- Sea gameplay fields the Pike gunboat and Barracuda attack submarine. Carriers remain sites and strategic effects until a carrier hull ships.
 
 ## Shipped play space
 
 - Land: tank, APC, buggy, bike, mech, tunneler, emplacement.
-- Air: Vulture strike jet, Falcon interceptor, Anvil bomber, Lance AA track, flyer/gunship.
-- Sea: Pike gunboat.
+- Air: Vulture strike jet, Falcon interceptor, Anvil bomber, Lance AA track, Shrike attack helicopter, Condor transport helicopter, and the legacy flyer/gunship.
+- Sea: Pike gunboat and Barracuda attack submarine, with deep routes, sonar concealment, depth control, and torpedoes.
 - Support: transport and ambulance.
-- Altitude bands and automatic AA.
+- Four named elevation levels—Ground, Building, Sky, Clouds—and automatic AA.
+- Six vehicle-scale biome theaters from 600×600u to 900×900u, with mission-owned rectangular geometry and domain routes.
+- AI telemetry and reproducible evidence across 330 vehicle battle scenarios (`npm run test:vehicle-scenarios`).
 - Water and crossing conversion.
 - Treasury, persistent named motor pool, pass-limited Operation windows, and armistice reset.
 - Operation Officer planning modal with commitment, domain, support, cost, and validation readouts.

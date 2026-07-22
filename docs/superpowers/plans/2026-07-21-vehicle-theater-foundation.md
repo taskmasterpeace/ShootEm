@@ -1,6 +1,10 @@
 # Vehicle Theater Foundation Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+**Execution status:** COMPLETE — shipped on `codex/military-operations`; 210
+foundation scenarios, the full 1,928-test suite, all production gates, and the
+six-theater browser smoke passed on 2026-07-21.
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Ship map-owned rectangular geometry, six 600–900-unit Military Operation theaters, four semantic elevation levels, and deterministic vehicle-aware AI telemetry without changing legacy 300-unit battles.
 
@@ -605,7 +609,7 @@ git commit -m "test: enforce vehicle theater laws"
 - Produces: `WorldOptions.theaterId?: TheaterId` for direct scenarios, multiplayer puppets, and replays.
 - Consumes: `generateTheater`, Operation sites/verbs/domains, manifest hull definitions.
 
-- [ ] **Step 1: Write failing operation selection tests**
+- [x] **Step 1: Write failing operation selection tests**
 
 ```ts
 const inventory: OperationHull[] = [
@@ -654,13 +658,13 @@ it('rejects a client theater whose deterministic map identity differs', () => {
 });
 ```
 
-- [ ] **Step 2: Run operation tests and verify RED**
+- [x] **Step 2: Run operation tests and verify RED**
 
 Run: `npx vitest run tests/theater-operations.test.ts tests/theater-network.test.ts tests/operation-map.test.ts tests/operations-ui.test.ts`
 
 Expected: FAIL because operation theater selection is absent.
 
-- [ ] **Step 3: Implement selection, dressing, and briefing details**
+- [x] **Step 3: Implement selection, dressing, and briefing details**
 
 Map site/verb combinations exactly:
 
@@ -682,13 +686,13 @@ snapshot application when the identity differs. Replay constructors retain
 the same theater id and identity; legacy welcome/replay data without them uses
 the classic generator unchanged.
 
-- [ ] **Step 4: Run Operation integration tests**
+- [x] **Step 4: Run Operation integration tests**
 
 Run: `npx vitest run tests/theater-operations.test.ts tests/theater-network.test.ts tests/operation-map.test.ts tests/operation-runtime.test.ts tests/operations-ui.test.ts tests/operations-integration.test.ts tests/sim.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Operation integration**
+- [x] **Step 5: Commit Operation integration**
 
 ```bash
 git add src/sim/world.ts src/sim/operation-map.ts src/sim/operations.ts src/sim/snapshot.ts src/server/server.ts src/client/net.ts src/client/replay.ts src/client/operations-ui.ts src/harness/mapmaker.ts tests/theater-operations.test.ts tests/theater-network.test.ts tests/operation-map.test.ts tests/operations-ui.test.ts
@@ -711,7 +715,7 @@ git commit -m "feat: route military operations to vehicle theaters"
 - Produces: `ElevationLevel = 0 | 1 | 2 | 3`, `ElevationWeaponClass`, `ELEVATION_LABEL`, `ELEVATION_ALT`, `maxElevationFor`, `canWeaponReachElevation`, `collidesAtElevation`.
 - Consumes: `VehicleDef`, terrain/tall-obstacle lookup, projectile `airScaled`.
 
-- [ ] **Step 1: Write failing elevation-law tests**
+- [x] **Step 1: Write failing elevation-law tests**
 
 ```ts
 import { ELEVATION_ALT, ELEVATION_LABEL, canWeaponReachElevation } from '../src/sim/elevation';
@@ -735,13 +739,13 @@ it('ordinary fire stops at Building, MANPADS at Sky, and Lance reaches Clouds', 
 });
 ```
 
-- [ ] **Step 2: Run elevation tests and verify RED**
+- [x] **Step 2: Run elevation tests and verify RED**
 
 Run: `npx vitest run tests/elevation.test.ts tests/airwar.test.ts`
 
 Expected: FAIL because the semantic module does not exist.
 
-- [ ] **Step 3: Implement the shared elevation law**
+- [x] **Step 3: Implement the shared elevation law**
 
 ```ts
 export type ElevationLevel = 0 | 1 | 2 | 3;
@@ -755,13 +759,13 @@ export const canWeaponReachElevation = (kind: ElevationWeaponClass, level: Eleva
 
 Use typed values for transitions and snapshots. Building checks tall structures/ridges and deals speed-scaled crash damage. Sky clears ordinary roofs. Clouds apply weather/cloud target-lock penalties but remain hittable by Lance/air weapons. Jets at Ground/Building retain minimum airspeed and cannot hover; rotors cap at Sky. Renderer removes its local `BAND_ALT`; HUD prints `ALT SKY 2/3` and Q/E hints from the shared labels.
 
-- [ ] **Step 4: Run air, AA, snapshot, HUD, and renderer-law tests**
+- [x] **Step 4: Run air, AA, snapshot, HUD, and renderer-law tests**
 
 Run: `npx vitest run tests/elevation.test.ts tests/airwar.test.ts tests/antiair.test.ts tests/flight.test.ts tests/sim.test.ts tests/operation-hud.test.ts tests/visual.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit elevation semantics**
+- [x] **Step 5: Commit elevation semantics**
 
 ```bash
 git add src/sim/elevation.ts src/sim/types.ts src/sim/world.ts src/sim/snapshot.ts src/client/renderer.ts src/client/hud.ts tests/elevation.test.ts tests/airwar.test.ts
@@ -782,7 +786,7 @@ git commit -m "feat: formalize four elevation levels"
 - Produces: `vehicleRouteFor(world, soldier, vehicle): TheaterRoute | null`, `vehicleWaypoint`, `assignVehicleRoles`, `runScenario`, `makeRouteProbe`, `makeAirProbe`.
 - Consumes: `GameMap.theater.routes`, landing zones, vehicle domain and elevation.
 
-- [ ] **Step 1: Write failing deterministic route-probe tests**
+- [x] **Step 1: Write failing deterministic route-probe tests**
 
 ```ts
 it.each(['city', 'desert', 'countryside', 'mountain', 'coastal', 'ocean'] as const)
@@ -801,23 +805,23 @@ it('a jet uses Building Sky and Clouds during a strike profile', () => {
 });
 ```
 
-- [ ] **Step 2: Run AI vehicle tests and verify RED**
+- [x] **Step 2: Run AI vehicle tests and verify RED**
 
 Run: `npx vitest run tests/vehicle-scenarios.test.ts tests/ai-vehicles.test.ts`
 
 Expected: FAIL because route probes and theater-aware piloting are absent.
 
-- [ ] **Step 3: Implement domain route following**
+- [x] **Step 3: Implement domain route following**
 
 Choose routes by stable hash `(soldier.id, vehicle.id, route.id)`, not iteration accident. Ground vehicles use geometry-aware BFS to the next route point. Boats follow surface routes rather than a hard-coded 33u moat. Aircraft follow patrol/approach points with wrap-aware steering; strike AI descends Clouds→Sky→Building on approach, fires, then climbs. A route point advances inside `max(6, route.width/2)`. After two three-second low-displacement windows, reverse/repath; the third files a persistent stall and exits only when the vehicle can lawfully disembark.
 
-- [ ] **Step 4: Run AI route and legacy behavior tests**
+- [x] **Step 4: Run AI route and legacy behavior tests**
 
 Run: `npx vitest run tests/vehicle-scenarios.test.ts tests/ai-vehicles.test.ts tests/ai-behavior.test.ts tests/botbrain.test.ts tests/bots-nav.test.ts tests/waterline.test.ts tests/airwar.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit vehicle AI**
+- [x] **Step 5: Commit vehicle AI**
 
 ```bash
 git add src/sim/bots.ts src/sim/types.ts src/sim/world.ts src/sim/scenario-runner.ts tests/vehicle-scenarios.test.ts tests/ai-vehicles.test.ts
@@ -839,7 +843,7 @@ git commit -m "feat: teach vehicle AI theater routes"
 - Produces: `VehicleSample`, `VehicleIncident`, `VehicleAggregate`, `VehicleTelemetry`, `createVehicleTelemetry`, `stepVehicleTelemetry`, `recordVehicleEvent`, `vehicleTelemetryReport`; scenario helpers `runTelemetryProbe`, `boxedVehicleProbe`, `runDuel`.
 - Consumes: live World vehicles, elevation, operation/theater metadata, damage/death/objective events.
 
-- [ ] **Step 1: Write failing recorder tests**
+- [x] **Step 1: Write failing recorder tests**
 
 ```ts
 it('records bounded deterministic movement and elevation data', () => {
@@ -866,23 +870,23 @@ it('reports combat by attacker and victim hull kind', () => {
 });
 ```
 
-- [ ] **Step 2: Run recorder tests and verify RED**
+- [x] **Step 2: Run recorder tests and verify RED**
 
 Run: `npx vitest run tests/vehicle-telemetry.test.ts tests/blackbox.test.ts`
 
 Expected: FAIL because vehicle telemetry does not exist.
 
-- [ ] **Step 3: Implement bounded sampling, incidents, and event counters**
+- [x] **Step 3: Implement bounded sampling, incidents, and event counters**
 
 Sample every two sim seconds. Store prior vehicle position per id and count alive/crewed/moving/engaged by team/domain/kind; distance; commanded speed versus displacement; elevation seconds; route progress. File incidents for six seconds of commanded movement with less than 1.2u displacement, wrong surface, non-finite position, crash, bailout, abandon, and boundary wrap. Hook projectile shots/hits, vehicle deaths, objective progress, landing, and route completion through explicit `recordVehicleEvent` calls. Cap samples at 600 and incidents at 80. Extend `__ww.blackbox()` and saved last-flight data with a `vehicles` member.
 
-- [ ] **Step 4: Run telemetry and combat regressions**
+- [x] **Step 4: Run telemetry and combat regressions**
 
 Run: `npx vitest run tests/vehicle-telemetry.test.ts tests/blackbox.test.ts tests/airwar.test.ts tests/antiair.test.ts tests/requisition.test.ts tests/operation-runtime.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit vehicle telemetry**
+- [x] **Step 5: Commit vehicle telemetry**
 
 ```bash
 git add src/sim/vehicle-telemetry.ts src/sim/blackbox.ts src/sim/world.ts src/sim/scenario-runner.ts src/main.ts tests/vehicle-telemetry.test.ts tests/blackbox.test.ts
@@ -904,7 +908,7 @@ git commit -m "feat: record vehicle battle telemetry"
 - Produces: `VehicleScenario`, `VehicleScenarioResult`, `runVehicleScenario`, `runFoundationMatrix`, `evaluateFoundationMatrix`.
 - Consumes: theater generation, World, route AI, vehicle telemetry.
 
-- [ ] **Step 1: Add failing matrix acceptance tests**
+- [x] **Step 1: Add failing matrix acceptance tests**
 
 ```ts
 it('passes the foundation scenario matrix', () => {
@@ -921,13 +925,13 @@ it('passes the foundation scenario matrix', () => {
 });
 ```
 
-- [ ] **Step 2: Run matrix test and verify RED**
+- [x] **Step 2: Run matrix test and verify RED**
 
 Run: `npx vitest run tests/vehicle-scenarios.test.ts`
 
 Expected: FAIL because the runner and evaluator do not exist.
 
-- [ ] **Step 3: Implement deterministic route, duel, and combined-arms scenarios**
+- [x] **Step 3: Implement deterministic route, duel, and combined-arms scenarios**
 
 The matrix includes six theaters × ten seeds for route probes; mirrored tank duels in City/Desert/Countryside/Mountain; Falcon superiority and Vulture strike/intercept runs on every 900u air axis; Pike pursuit/blockade/beach-support runs in Coastal/Ocean; and one three-domain Operation sequence per compatible theater. Each result stores scenario id, seed, theater, manifests, duration, winner, first contact, objective completion, telemetry summary, structural violations, and timing samples.
 
@@ -939,19 +943,19 @@ Add package script:
 
 The script writes stable-key JSON and a Markdown table. It exits non-zero on any acceptance violation.
 
-- [ ] **Step 4: Run, tune, and preserve the real report**
+- [x] **Step 4: Run, tune, and preserve the real report**
 
 Run: `npm run test:vehicle-scenarios`
 
 Expected: exit 0; report records all scenarios, zero structural/route failures, contact times inside bands, maximum mirrored win rate ≤0.70, and performance inside budgets. If a band fails, tune map route distance, AI steering, or existing vehicle combat data; do not weaken the band or omit the seed.
 
-- [ ] **Step 5: Run the focused foundation suite**
+- [x] **Step 5: Run the focused foundation suite**
 
 Run: `npx vitest run tests/map-geometry.test.ts tests/variable-map-runtime.test.ts tests/theaters.test.ts tests/theater-performance.test.ts tests/theater-operations.test.ts tests/elevation.test.ts tests/vehicle-telemetry.test.ts tests/vehicle-scenarios.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit runner and measured evidence**
+- [x] **Step 6: Commit runner and measured evidence**
 
 ```bash
 git add src/sim/scenario-runner.ts scripts/run-vehicle-scenarios.ts package.json tests/vehicle-scenarios.test.ts tests/theater-performance.test.ts docs/reference/vehicle-theaters/foundation-report.json docs/reference/vehicle-theaters/foundation-report.md
@@ -970,7 +974,7 @@ git commit -m "test: measure vehicle theater battles"
 - Consumes: all foundation implementation and evidence.
 - Produces: accurate shipped documentation and checked plan state.
 
-- [ ] **Step 1: Update docs with exact shipped behavior and evidence**
+- [x] **Step 1: Update docs with exact shipped behavior and evidence**
 
 Document the six dimensions, map-owned geometry, theater selection table,
 Ground/Building/Sky/Clouds rules, scenario command, measured report path, and
@@ -978,7 +982,7 @@ performance results. Mark only the foundation shipped. Keep attack/transport
 helicopters and submarine/naval expansion explicitly next; do not mark the
 overall active goal complete.
 
-- [ ] **Step 2: Run the full automated production gates**
+- [x] **Step 2: Run the full automated production gates**
 
 ```bash
 npx tsc --noEmit
@@ -989,7 +993,7 @@ npm run build
 
 Expected: all commands exit 0; the full Vitest suite reports zero failed files and zero failed tests.
 
-- [ ] **Step 3: Run manual browser smokes**
+- [x] **Step 3: Run manual browser smokes**
 
 Start Vite with the repository's normal command. In the Map Maker open City,
 Mountain, Coastal, and Ocean at seeds `7749`, `4207`, `5150`, and `31`.
@@ -999,7 +1003,7 @@ briefing dimensions/domains, deployment, rectangular minimap, elevation chip,
 aircraft wrap, objective progress, and `__ww.blackbox('report')` vehicle data.
 Expected: no console errors, invalid pads, visible freezes, or broken controls.
 
-- [ ] **Step 4: Inspect git scope and commit docs**
+- [x] **Step 4: Inspect git scope and commit docs**
 
 Run: `git status --short` and `git diff --check`.
 
@@ -1010,7 +1014,7 @@ git add docs/MAP-STRATEGY.md docs/MILITARY-MISSIONS.md docs/STATUS.md docs/super
 git commit -m "docs: mark vehicle theater foundation shipped"
 ```
 
-- [ ] **Step 5: Begin the mandatory rotorcraft design cycle**
+- [x] **Step 5: Begin the mandatory rotorcraft design cycle**
 
 Read the shipped foundation report and start
 `docs/superpowers/specs/2026-07-21-rotorcraft-design.md` through the brainstorming

@@ -1,7 +1,7 @@
 # Military Operations Submarine — Design
 
 **Date:** 2026-07-21  
-**Status:** Approved through Robert's “follow your recommendations” and “don't stop until built” direction  
+**Status:** Shipped and production-verified
 **Depends on:** Vehicle Theater Foundation and Military Rotorcraft
 
 ## Purpose
