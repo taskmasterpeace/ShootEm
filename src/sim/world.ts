@@ -5562,6 +5562,13 @@ export class World {
       const d = Math.hypot(v.pos.x - pos.x, v.pos.z - pos.z);
       if (d < def.splash + VEHICLES[v.kind].radius) {
         this.damageVehicle(v, (def.splashDamage + def.damage * 0.5) * (1 - d / (def.splash + 2)), ownerId, def.id);
+        const attacker = this.soldiers.get(ownerId);
+        const attackerHull = attacker && attacker.vehicleId >= 0 ? this.vehicles.get(attacker.vehicleId) : undefined;
+        if (attackerHull) recordVehicleEvent(this.vehicleTelemetry, {
+          kind: 'hit', t: this.time, vehicleId: attackerHull.id, vehicleKind: attackerHull.kind,
+          theaterId: this.map.theater?.id ?? 'classic', seed: this.map.seed,
+          x: v.pos.x, z: v.pos.z, detail: `${def.id}->${v.kind}`,
+        });
       }
     }
     for (const t of this.turrets.values()) {

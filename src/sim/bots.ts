@@ -895,6 +895,16 @@ function buildingAhead(w: World, vehicle: Vehicle, distance = 36): boolean {
   return false;
 }
 
+function insertionZone(w: World, s: Soldier) {
+  const zones = [...(w.map.theater?.landingZones ?? [])]
+    .filter((zone) => zone.side === null || zone.side === s.team)
+    .sort((a, b) => Number(a.side !== null) - Number(b.side !== null) || a.id.localeCompare(b.id));
+  const existing = zones.find((zone) => zone.id === s.botLandingZoneId);
+  const selected = existing ?? zones[0];
+  if (selected) s.botLandingZoneId = selected.id;
+  return selected;
+}
+
 function stableRouteHash(soldierId: number, vehicleId: number, routeId: string): number {
   let hash = (0x811c9dc5 ^ soldierId ^ Math.imul(vehicleId, 0x9e3779b1)) >>> 0;
   for (let i = 0; i < routeId.length; i++) {
@@ -989,10 +999,26 @@ export function assignVehicleRoles(w: World): void {
 
 function stepTheaterVehicle(w: World, s: Soldier, vehicle: Vehicle, route: TheaterRoute, cmd: PlayerCmd): PlayerCmd {
   const def = VEHICLES[vehicle.kind];
-  const point = vehicleWaypoint(w, s, vehicle, route);
+  const zone = s.botAirProfile === 'insertion' && vehicle.kind === 'transportheli' ? insertionZone(w, s) : undefined;
+  const point = zone?.pos ?? vehicleWaypoint(w, s, vehicle, route);
   if (!point) return cmd;
 
   const dGoal = Math.hypot(point.x - vehicle.pos.x, point.z - vehicle.pos.z);
+  if (zone && dGoal <= zone.radius * 0.65) {
+    cmd.aimYaw = vehicle.yaw;
+    cmd.moveX = 0;
+    cmd.moveZ = 0;
+    if (asElevationLevel(vehicle.band) > 0) cmd.use = true;
+    else if (!s.botVehicleRouteCompleted) {
+      s.botVehicleRouteCompleted = true;
+      recordVehicleEvent(w.vehicleTelemetry, {
+        kind: 'landing', t: w.time, vehicleId: vehicle.id, vehicleKind: vehicle.kind,
+        theaterId: w.map.theater?.id ?? 'classic', seed: w.map.seed,
+        x: vehicle.pos.x, z: vehicle.pos.z, detail: zone.id,
+      });
+    }
+    return cmd;
+  }
   if (w.time >= (s.botMoveCheckAt ?? 0)) {
     const moved = Math.hypot(vehicle.pos.x - (s.botLastX ?? vehicle.pos.x), vehicle.pos.z - (s.botLastZ ?? vehicle.pos.z));
     if (s.botLastX !== undefined && moved < 1.2 && dGoal > Math.max(6, route.width / 2)) {
@@ -1032,6 +1058,12 @@ function stepTheaterVehicle(w: World, s: Soldier, vehicle: Vehicle, route: Theat
     const index = s.botVehicleRouteIndex ?? 1;
     const progress = index / Math.max(1, route.points.length - 1);
     const desired = progress <= 0.34 ? 2 : progress <= 0.67 && !buildingAhead(w, vehicle) ? 1 : 3;
+    const level = asElevationLevel(vehicle.band);
+    if (level < desired) cmd.ability = true;
+    else if (level > desired) cmd.use = true;
+  }
+  if (def.flies && (s.botAirProfile === 'support' || s.botAirProfile === 'insertion')) {
+    const desired = buildingAhead(w, vehicle) ? 2 : s.botAirProfile === 'support' ? 1 : 2;
     const level = asElevationLevel(vehicle.band);
     if (level < desired) cmd.ability = true;
     else if (level > desired) cmd.use = true;

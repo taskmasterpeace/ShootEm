@@ -1,5 +1,5 @@
 import { VEHICLES } from './data';
-import { asElevationLevel } from './elevation';
+import { asElevationLevel, maxElevationFor } from './elevation';
 import { generateTheater, THEATER_DEFS } from './theaters';
 import type { TheaterId } from './theater-types';
 import type { PlayerCmd, Soldier, Vehicle, VehicleKind } from './types';
@@ -190,12 +190,12 @@ export interface VehicleScenarioResult {
   timingSamples: { steps: number; simulatedSeconds: number };
 }
 
-function crewVehicle(world: World, kind: VehicleKind, team: 0 | 1, pos: { x: number; y: number; z: number }, routeId: string, profile: 'patrol' | 'strike' = 'patrol') {
+function crewVehicle(world: World, kind: VehicleKind, team: 0 | 1, pos: { x: number; y: number; z: number }, routeId: string, profile: NonNullable<Soldier['botAirProfile']> = 'patrol') {
   const soldier = world.addSoldier(`SCENARIO-${team}-${kind}`, 'infantry', team, 'bot');
   const vehicle = world.spawnVehicle(kind, team, pos);
   vehicle.seats[0] = soldier.id;
   vehicle.spoolUntil = 0;
-  if (VEHICLES[kind].flies) vehicle.band = 3;
+  if (VEHICLES[kind].flies) vehicle.band = maxElevationFor(VEHICLES[kind]);
   soldier.vehicleId = vehicle.id;
   soldier.seat = 0;
   soldier.enteredVehicleAt = -10;
@@ -307,4 +307,66 @@ export function evaluateFoundationMatrix(report: FoundationMatrixReport): Founda
     ? Math.max(sideZeroWins, decisive.length - sideZeroWins) / decisive.length
     : 0.5;
   return { structuralFailures, routeFailures, contactFailures, fixedWingFirstContact: range(fixedWing), groundNavalFirstContact: range(groundNaval), maxMirroredWinRate };
+}
+
+export interface RotorcraftInsertionResult {
+  landed: boolean;
+  nonFinite: number;
+  persistentStalls: number;
+  crashes: number;
+  telemetry: VehicleTelemetrySnapshot;
+}
+
+export function runRotorcraftInsertion(theaterId: Exclude<TheaterId, 'ocean'>, seed: number, seconds: number): RotorcraftInsertionResult {
+  const world = new World({ seed, mode: 'tdm', botsPerTeam: 0, map: generateTheater(theaterId, seed) });
+  world.vehicles.clear();
+  const route = world.map.theater!.routes.filter((candidate) => candidate.domain === 'air').sort((a, b) => a.id.localeCompare(b.id))[0];
+  if (!route) throw new Error(`${theaterId} has no insertion air route`);
+  const { soldier, vehicle } = crewVehicle(world, 'transportheli', 0, route.points[0], route.id, 'insertion');
+  let nonFinite = 0;
+  observe(world, () => {
+    if (![vehicle.pos.x, vehicle.pos.y, vehicle.pos.z, vehicle.vel.x, vehicle.vel.z].every(Number.isFinite)) nonFinite++;
+  });
+  runScenario(world, seconds);
+  const telemetry = vehicleTelemetrySnapshot(world.vehicleTelemetry);
+  return {
+    landed: telemetry.incidents.some((incident) => incident.kind === 'landing' && incident.vehicleId === vehicle.id),
+    nonFinite,
+    persistentStalls: soldier.botVehiclePersistentStalls ?? 0,
+    crashes: telemetry.incidents.filter((incident) => incident.kind === 'crash' && incident.vehicleId === vehicle.id).length,
+    telemetry,
+  };
+}
+
+export interface RotorcraftSupportResult {
+  firstContact: number | null;
+  shots: number;
+  hits: number;
+  targetHp: number;
+  targetMaxHp: number;
+  telemetry: VehicleTelemetrySnapshot;
+}
+
+export function runRotorcraftSupport(theaterId: Exclude<TheaterId, 'ocean'>, seed: number, seconds: number): RotorcraftSupportResult {
+  const world = new World({ seed, mode: 'tdm', botsPerTeam: 0, map: generateTheater(theaterId, seed) });
+  world.vehicles.clear();
+  const route = world.map.theater!.routes.filter((candidate) => candidate.domain === 'air').sort((a, b) => a.id.localeCompare(b.id))[0];
+  if (!route) throw new Error(`${theaterId} has no support air route`);
+  crewVehicle(world, 'attackheli', 0, route.points[0], route.id, 'support');
+  const targetCrew = world.addSoldier('SUPPORT-TARGET', 'infantry', 1, 'human');
+  const target = world.spawnVehicle('tank', 1, route.points[Math.min(1, route.points.length - 1)]);
+  target.seats[0] = targetCrew.id;
+  targetCrew.vehicleId = target.id;
+  targetCrew.seat = 0;
+  targetCrew.enteredVehicleAt = -10;
+  runScenario(world, seconds);
+  const telemetry = vehicleTelemetrySnapshot(world.vehicleTelemetry);
+  return {
+    firstContact: telemetry.summary.firstContact ?? null,
+    shots: telemetry.summary.shotsByKind.attackheli ?? 0,
+    hits: telemetry.summary.hitsByKind.attackheli ?? 0,
+    targetHp: target.hp,
+    targetMaxHp: target.maxHp,
+    telemetry,
+  };
 }

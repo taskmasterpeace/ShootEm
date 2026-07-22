@@ -10,7 +10,7 @@ export const VEHICLE_INCIDENT_LIMIT = 80;
 
 export type VehicleIncidentKind =
   | 'stuck' | 'wrong_surface' | 'non_finite' | 'crash' | 'bailout'
-  | 'abandon' | 'boundary_wrap' | 'route_complete';
+  | 'abandon' | 'boundary_wrap' | 'route_complete' | 'landing';
 
 export interface VehicleSampleEntry {
   id: number;
@@ -121,7 +121,10 @@ export function recordVehicleEvent(telemetry: VehicleTelemetry, event: VehicleTe
   else if (event.kind === 'route_complete') {
     telemetry.summary.routeCompletions++;
     fileIncident(telemetry, event, true);
-  } else if (event.kind !== 'landing') {
+  } else if (event.kind === 'landing') {
+    telemetry.summary.objectiveProgress++;
+    fileIncident(telemetry, event, true);
+  } else {
     fileIncident(telemetry, event);
   }
 }

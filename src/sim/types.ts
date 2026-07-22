@@ -657,7 +657,8 @@ export interface Soldier {
   botVehicleRouteCompleted?: boolean;
   botVehicleStallWindows?: number;
   botVehiclePersistentStalls?: number;
-  botAirProfile?: 'patrol' | 'strike';
+  botAirProfile?: 'patrol' | 'strike' | 'support' | 'insertion';
+  botLandingZoneId?: string;
   /** per-LIFE personality salt, rolled at spawn (−1 | 0 | 1): lane bias,
    *  indoor posting, ride appetite — each life tries something different
    *  (Robert's respawn-variety ask) */
