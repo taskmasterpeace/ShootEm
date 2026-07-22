@@ -861,6 +861,25 @@ export class Hud {
       $('viral-num').textContent = `${Math.round(viral)}% ${state}`;
     } else vc.classList.add('hidden');
 
+    // §6.2 THE BURN READOUT (#56): both burn paths (field fire :828, incendiary
+    // rounds :5946) fill c.burn 0→1 in the sim with no readout — a corpse
+    // cooking near you now reads its meter with the vitals, the fire's promise
+    // that this one won't get back up. Nearest burning body inside 7u wins;
+    // 'hot' breathes once the burn passes two-thirds.
+    const bc = $('burn-chip');
+    let burnBest = 0, burnDist = Infinity;
+    for (const c of world.corpses) {
+      const b = c.burn ?? 0;
+      if (c.neutralized || b <= 0) continue;
+      const d = Math.hypot(c.pos.x - s.pos.x, c.pos.z - s.pos.z);
+      if (d <= 7 && d < burnDist) { burnDist = d; burnBest = b; }
+    }
+    if (burnBest > 0 && s.alive) {
+      bc.classList.remove('hidden');
+      bc.classList.toggle('hot', burnBest >= 0.66);
+      $('burn-num').textContent = `CORPSE BURNING · ${Math.min(99, Math.round(burnBest * 100))}%`;
+    } else bc.classList.add('hidden');
+
     // UI-BIBLE §09 — THE UNIFIED STATUS STRIP. Every timed player state gets a
     // chip here, DERIVED from live sim fields (§03 law 2), priority-ordered
     // (§03: critical first), six visible then +N (§15). Replaces the scattered
