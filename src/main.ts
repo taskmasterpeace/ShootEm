@@ -7,7 +7,9 @@ import { ammoReport, blackboxReport, type BbIncident, type BbSample } from './si
 import { vehicleTelemetryReport, vehicleTelemetrySnapshot, type VehicleTelemetrySnapshot } from './sim/vehicle-telemetry';
 import { mapSizeForPlayers } from './sim/fronts';
 import { WEATHER_MODS } from './sim/weather';
-import { mountOnboarding, onMatchEnd, paintballConfig } from './client/onboarding';
+import { onMatchEnd, paintballConfig } from './client/onboarding';
+import { mountFrontend } from './client/frontend';
+import { factionTeam, loadIdentity, type PlayerIdentity } from './client/identity';
 import { StableConsole, isCommissioned } from './client/stable';
 import { audio } from './client/audio';
 import { Chat } from './client/chat';
@@ -64,6 +66,9 @@ let selectedEquipment: string[] = [];
 /** §14 onboarding: a named paintball field pins the map seed for the match */
 let seedOverride: number | undefined;
 let difficulty: Difficulty = 'veteran';
+/** The side you deploy on — your enlisted faction (identity.ts). 0 = The United
+ *  Front, 1 = The Collective. Set from the assigned faction at boot/enlistment. */
+let playerTeam: Team = 0;
 let botsPerTeam = 12; // 32B: 12v12 target — bots fill every open position
 let scienceClones = 4;
 let queuedScienceLaunch: ScienceLaunchState | null = null;
@@ -603,7 +608,14 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   // reload fires beforeunload as well — a harmless double write)
   flightWorld = world;
   window.addEventListener('beforeunload', saveFlight);
-  const me = world.addSoldier(name, selectedClass, 0, 'human', currentLoadout());
+  // Your enlisted faction is the side you deploy on — but only in the standard
+  // team-vs-team war. Paintball (hunter/prey roles), co-op & science (PvE) and
+  // the range keep the local player on team 0, where their rosters are pinned.
+  const factionModes = !(selectedMode === 'paintball' || isCoopMode(selectedMode)
+    || selectedMode === 'range' || selectedMode === 'science');
+  const pt: Team = factionModes ? playerTeam : 0;
+  const et: Team = (1 - pt) as Team;
+  const me = world.addSoldier(name, selectedClass, pt, 'human', currentLoadout());
   applyScarMods(world, campaignFrontId); // §8.5: the front's wound shapes the field
   // DEATH RE-SELECT (Robert: "select my stuff after every time I die and just
   // continue on"): the K.I.A. overlay grows a class rack. Clicking while dead
@@ -633,8 +645,8 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   new StableConsole({
     mode: selectedMode,
     commissioned: isCommissioned(dossier),
-    team: () => 0,
-    call: (id) => world.requestLsw(id, 0, me.id),
+    team: () => pt,
+    call: (id) => world.requestLsw(id, pt, me.id),
     stock: () => world.materiel[0],
     announce: (t) => hud.announce(t, false, world.time),
   });
@@ -704,20 +716,22 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
       s.equipment = [];
     }
   } else {
+    // your side fills around you (one fewer — you're the last seat); the enemy
+    // faction fills full. pt/et carry your enlisted faction into the roster.
     for (let i = 0; i < Math.max(0, botsPerTeam - 1); i++) {
       const cls = classPool[i % classPool.length];
-      world.addSoldier(wrap(n++), cls, 0, 'bot', botLoadout(cls));
+      world.addSoldier(wrap(n++), cls, pt, 'bot', botLoadout(cls));
     }
     for (let i = 0; i < botsPerTeam; i++) {
       const cls = classPool[(i + 3) % classPool.length];
-      world.addSoldier(wrap(n++), cls, 1, 'bot', botLoadout(cls));
+      world.addSoldier(wrap(n++), cls, et, 'bot', botLoadout(cls));
     }
   }
   // §5.3: each fighting side fields one K9, including authored science
   // rosters. An eligible local soldier owns the friendly dog; AI fills in.
   if (selectedMode !== 'range' && selectedMode !== 'paintball') {
     for (const team of [0, 1] as const) {
-      const handler = k9HandlerForTeam(world.soldiers.values(), team, team === 0 ? me.id : -1);
+      const handler = k9HandlerForTeam(world.soldiers.values(), team, team === pt ? me.id : -1);
       if (handler) world.addDog(handler);
     }
   }
@@ -895,9 +909,9 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
         // morale event when the winner fought poor (Robert: "if you won and
         // were underfunded it increased your morale… that officer could do")
         {
-          const myTeam = 0 as const;
+          const myTeam = pt;
           const mine = world.warCost(myTeam);
-          const theirs = world.warCost(1);
+          const theirs = world.warCost(et);
           extras += `<p style="margin-top:0.35rem">⛁ WAR COST — yours ${mine} · theirs ${theirs}</p>`;
           if (!exercise && world.mode.underdog === myTeam && dossier) {
             dossier.soldier.morale = (dossier.soldier.morale ?? 0) + 1;
@@ -959,7 +973,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
               at: Date.now(), matchRef: `season:${armistice.season}`,
             });
             // a tour IS one season (4A): the next tour opens with the new season
-            dossier.tours.push({ faction: 0, season: campaign.season, startedAt: Date.now() });
+            dossier.tours.push({ faction: playerTeam, season: campaign.season, startedAt: Date.now() });
             void saveDossier(dossier);
             // NOTE: this used to `hud.careerHtml +=` and then get clobbered by
             // the assignment below — the Armistice pane never actually showed.
@@ -1584,18 +1598,18 @@ window.addEventListener('keydown', (e) => {
     && $('onboarding').classList.contains('hidden')) startGame();
 });
 
-// §14 THE FIRST HOUR: new recruits skip the menu entirely — boot camp is a
-// paintball match. The overlay drives marker/field pick → skirmishes →
-// profile → first war drop → the path split; veterans never see it again.
-mountOnboarding({
-  launch(cfg) {
-    selectedMilitaryMissionId = null;
-    selectedMode = cfg.mode;
-    selectedTheme = cfg.theme;
-    seedOverride = cfg.seed;
-    if (cfg.classId) selectedClass = cfg.classId;
-    if (cfg.equipment) selectedEquipment = cfg.equipment.filter((id) => EQUIPMENT[id]);
-    activeFrontId = null;
-    startGame();
-  },
+// THE FRONT DOOR: first run enlists you (name → homeland → the faction the
+// sheet assigns you); every run after lands on the main menu (Single Player /
+// Multiplayer soon / Options). SINGLE PLAYER drops the overlay to this deploy
+// screen; the assigned faction becomes the side you deploy on.
+function applyIdentity(id: PlayerIdentity) {
+  const nameInput = $('player-name') as HTMLInputElement;
+  if (nameInput) nameInput.value = id.callsign;
+  playerTeam = factionTeam(id.faction);
+}
+mountFrontend({
+  enterMenu() { $('menu').classList.remove('hidden'); },
+  onIdentity: applyIdentity,
 });
+// a returning player already has an identity — seed the team before any deploy
+{ const id0 = loadIdentity(); if (id0) playerTeam = factionTeam(id0.faction); }

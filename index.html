@@ -15,6 +15,9 @@
   <div id="app">
     <canvas id="game-canvas"></canvas>
     <div id="onboarding" class="hidden"></div>
+    <!-- OPTIONS: a persistent home for every setting, filled once from the deploy
+         form so the settings DOM survives the front-door shell re-rendering. -->
+    <div id="options-panel" class="hidden"></div>
     <div id="pause-overlay" class="hidden">
       <div class="pause-box">
         <h2>PAUSED</h2>
@@ -127,6 +130,7 @@
     <div id="scoreboard" class="hidden"></div>
     <div id="menu">
       <div class="menu-inner">
+        <button id="to-frontmenu" type="button" title="Back to the main menu">◄ MENU</button>
         <div class="title-lockup">
           <img class="game-emblem" src="/art/emblem.png" alt="War World command insignia" width="128" height="128" />
           <div>
@@ -234,7 +238,7 @@
             </div>
           </div>
         </div>
-        <div class="menu-section">
+        <div class="menu-section" id="settings-section">
           <h3>Settings</h3>
           <div class="setup-row">
             <div class="setup-block">

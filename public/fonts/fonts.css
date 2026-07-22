@@ -5,3 +5,7 @@
 @font-face{font-family:'Oswald';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/oswald-700.woff2') format('woff2');}
 @font-face{font-family:'Saira Stencil One';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/saira-stencil-one.woff2') format('woff2');}
 @font-face{font-family:'Share Tech Mono';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/share-tech-mono.woff2') format('woff2');}
+/* Country flags — Twemoji (CC-BY 4.0, Twitter). Windows/Edge lack flag glyphs
+   in Segoe UI Emoji, so regional-indicator pairs render as bare letters without
+   this face. Apply only to flag spans via .flag-emoji. */
+@font-face{font-family:'Twemoji Country Flags';unicode-range:U+1F1E6-1F1FF;font-display:swap;src:url('/fonts/TwemojiCountryFlags.woff2') format('woff2');}
