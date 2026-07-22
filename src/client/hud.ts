@@ -894,9 +894,15 @@ export class Hud {
       db.querySelector('b')!.textContent = 'DOWN';
       const left = Math.max(0, (s.downedUntil ?? 0) - world.time);
       const beingLifted = (s.reviveProgress ?? 0) > 0;
+      // #80: the way OUT when nobody's coming — hold SPACE to take the reprint
+      // now. The held count reads back as a filling percent so the commit is
+      // visible (and an accidental tap visibly does nothing).
+      const giving = (s.giveUpTicks ?? 0) > 0;
       $('down-timer').textContent = beingLifted
         ? `medic on you — ${Math.round((s.reviveProgress ?? 0) * 100)}% lifted`
-        : `bleeding out ${left.toFixed(0)}s · crawl (WASD) to a medic`;
+        : giving
+          ? `giving up — ${Math.min(99, Math.round(((s.giveUpTicks ?? 0) / 48) * 100))}% · release SPACE to fight on`
+          : `bleeding out ${left.toFixed(0)}s · crawl (WASD) to a medic · hold SPACE — reprint now`;
       // CRAWL TO MEDIC (Robert): point the way out. Nearest friendly MEDIC first,
       // then any teammate who can lift you — an arrow to steer the crawl by + range.
       const dm = $('down-medic');

@@ -536,6 +536,9 @@ export interface Soldier {
   downedUntil: number;
   /** who put them down — credited with the kill if the clock, not a finisher, ends it */
   downedBy: number;
+  /** #80: consecutive ticks JUMP has been held while downed — at the threshold
+   *  the soldier gives up and takes the reprint now (skip the bleed-out). */
+  giveUpTicks?: number;
   /** seconds of teammate E-hold accumulated toward a field revive */
   reviveProgress: number;
   /** id of the downed teammate this soldier is hauling right now (-1 = none) */

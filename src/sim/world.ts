@@ -147,6 +147,7 @@ const WRITEOFF_RANGE = 25;   // ...AND this far from its pad = command strikes i
 const DOWNED_HP = 25;       // the bleed pool — finisher damage chews through this
 const BLEEDOUT_TIME = 20;   // seconds a downed soldier can hold on for help
 const DOWNED_CRAWL = 0.25;  // crawl speed as a fraction of class speed
+const GIVE_UP_TICKS = 48;   // #80: hold JUMP this many ticks while downed (~0.8s) to skip the bleed-out
 const REVIVE_CHANNEL = 3;   // seconds a non-medic must hold E to lift someone
 const REVIVE_HP = 0.4;      // revived soldiers stand up grateful, not fresh
 const AID_RANGE = 2;        // how close a helper must be to drag or revive
@@ -3138,6 +3139,19 @@ export class World {
     // §4.3: downed soldiers crawl — quarter speed, no trigger, no toys, no doors.
     // Everything below (weapons, abilities, vehicles, E-interactions) is for the upright.
     if (s.downed) {
+      // #80 SKIP THE BLEED-OUT (Robert: "you gotta be able to just respawn —
+      // ain't gonna be no people around by you"): HOLD SPACE ~0.8s while downed
+      // to give up and take the reprint now. resolveSpace turns a ground-class
+      // HOLD into crouch (tap=jump edge), so we count EITHER verb — neither
+      // means anything else to a downed body. A held count, never a single
+      // press, so a stray tap can't kill you while the medic is ten steps out.
+      if (cmd.jump || cmd.crouch) {
+        s.giveUpTicks = (s.giveUpTicks ?? 0) + 1;
+        if (s.giveUpTicks >= GIVE_UP_TICKS) {
+          this.damageSoldier(s, s.hp + 1, s.downedBy, 'bleedout');
+          return;
+        }
+      } else if (s.giveUpTicks) s.giveUpTicks = 0;
       const crawl = CLASSES[s.classId].speed * DOWNED_CRAWL;
       const clen = Math.hypot(cmd.moveX, cmd.moveZ) || 1;
       s.vel.x = (cmd.moveX / clen) * crawl;
@@ -4905,6 +4919,7 @@ export class World {
     victim.downedUntil = this.time + BLEEDOUT_TIME;
     victim.downedBy = attackerId;
     victim.reviveProgress = 0;
+    victim.giveUpTicks = 0; // #80: each down starts the give-up hold fresh
     victim.vel.x = 0;
     victim.vel.z = 0;
     const attacker = this.soldiers.get(attackerId);

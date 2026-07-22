@@ -177,3 +177,28 @@ describe('down, not out', () => {
     expect(a.alive).toBe(true);
   });
 });
+
+describe('#80 skip the bleed-out — hold SPACE to reprint now', () => {
+  it('holding the space verb ~1s while downed gives up (dead before the clock)', () => {
+    const w = world();
+    const a = w.addSoldier('A', 'infantry', 0, 'human');
+    const b = w.addSoldier('B', 'infantry', 1, 'human');
+    w.damageSoldier(a, a.hp + 5, b.id, 'ar606');
+    expect(a.downed).toBe(true);
+    run(w, new Map([[a.id, cmd({ crouch: true })]]), 1.2); // ground-class HOLD resolves to crouch
+    expect(a.downed).toBe(false);
+    expect(a.alive).toBe(false); // took the reprint — long before the 20s clock
+  });
+
+  it('a stray tap does NOT kill — the count resets on release', () => {
+    const w = world();
+    const a = w.addSoldier('A', 'infantry', 0, 'human');
+    const b = w.addSoldier('B', 'infantry', 1, 'human');
+    w.damageSoldier(a, a.hp + 5, b.id, 'ar606');
+    run(w, new Map([[a.id, cmd({ jump: true })]]), 0.3);  // 18 ticks — under the 48 threshold
+    run(w, new Map([[a.id, cmd()]]), 0.1);                // released — counter resets
+    run(w, new Map([[a.id, cmd({ jump: true })]]), 0.3);  // another sub-threshold hold
+    expect(a.downed).toBe(true);
+    expect(a.alive).toBe(true);   // still fighting for it
+  });
+});
