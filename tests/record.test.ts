@@ -70,4 +70,25 @@ describe('the Record — dossier pipeline', () => {
     expect(d.lifetime.deaths).toBe(1);
     expect(d.lifetime.wins).toBe(0);
   });
+
+  it('can produce a field-exercise summary without changing the service record', async () => {
+    const w = new World({ seed: 31, mode: 'conquest' });
+    const serviceRecord = freshDossier('Reyes');
+    const exerciseRecord = structuredClone(serviceRecord);
+    const me = w.addSoldier('Reyes', 'infantry', 0, 'human');
+    const foe = w.addSoldier('Vex', 'infantry', 1, 'human');
+    const tracker = new MatchTracker(exerciseRecord, 'Reyes', 'infantry', 'conquest', 31, false);
+    tracker.applyEvents(w.takeEvents(), w, me.id);
+    w.damageSoldier(foe, 999, me.id, 'rifle');
+    tracker.applyEvents(w.takeEvents(), w, me.id);
+    w.mode.over = true;
+    w.mode.winner = 0;
+
+    const summary = await tracker.finalize(w, me.id);
+
+    expect(summary?.kills).toBe(1);
+    expect(exerciseRecord.lifetime.matches).toBe(1);
+    expect(serviceRecord.lifetime.matches).toBe(0);
+    expect(serviceRecord.lifetime.kills).toBe(0);
+  });
 });

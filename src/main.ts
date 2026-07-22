@@ -25,6 +25,8 @@ import { MatchTracker, RANKS, commandCertification, loadDossier, rankFor, rankIn
 import { FRONTS, SCAR_TEXT, applyResult, bandOf, cancelCampaignOperation, checkSeasonEnd, consumeOperationBattleBonuses, holdTheLine, loadCampaign, operationBattleBonuses, saveCampaign, settleCampaignOperation, stageCampaignOperation, type Campaign, type SettlementReceipt } from './client/campaign';
 import { buildOperationBoardModel, createSuggestedManifest, renderManifestDialog, renderOperationsBoard } from './client/operations-ui';
 import { OPERATION_EFFECTS, OPERATION_SITES, type OperationManifest, type OperationPlan } from './sim/operations';
+import { MILITARY_MISSIONS, createMilitaryMissionLaunch, type MilitaryMissionId } from './sim/military-missions';
+import { renderMilitaryMissionModeCard, renderMilitaryMissionModal } from './client/military-missions-ui';
 import { fileIssue, renderIssueHTML, renderPressInto, loadPress } from './client/newspaper';
 import { RangeCourse, loadWall } from './client/range';
 import { RingDrill } from './client/ringdrill';
@@ -47,6 +49,7 @@ const BOT_NAMES = [
 let selectedMode: ModeId = 'ctf';
 let selectedClass: ClassId = 'infantry';
 let selectedTheme: ThemeId = 'savanna';
+let selectedMilitaryMissionId: MilitaryMissionId | null = null;
 let selectedEquipment: string[] = [];
 /** §14 onboarding: a named paintball field pins the map seed for the match */
 let seedOverride: number | undefined;
@@ -261,6 +264,63 @@ function wireSetupControls() {
   };
 }
 
+function paintMilitaryMissionEntry() {
+  const modeRow = $('mode-select');
+  let host = document.getElementById('military-missions-entry');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'military-missions-entry';
+    modeRow.appendChild(host);
+  }
+  host.innerHTML = renderMilitaryMissionModeCard(selectedMilitaryMissionId !== null, selectedMilitaryMissionId);
+  const card = $('military-missions-card') as HTMLButtonElement;
+  card.onclick = () => {
+    audio.play('ui_click');
+    openMilitaryMissionModal();
+  };
+  ($('deploy-btn') as HTMLButtonElement).textContent = selectedMilitaryMissionId ? 'DEPLOY MISSION' : 'DEPLOY';
+}
+
+function closeMilitaryMissionModal() {
+  document.getElementById('military-missions-modal')?.remove();
+  document.removeEventListener('keydown', onMilitaryMissionModalKey);
+  ($('military-missions-card') as HTMLButtonElement | null)?.focus();
+}
+
+function onMilitaryMissionModalKey(event: KeyboardEvent) {
+  if (event.key === 'Escape') closeMilitaryMissionModal();
+}
+
+function openMilitaryMissionModal() {
+  document.getElementById('military-missions-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend', renderMilitaryMissionModal(selectedMilitaryMissionId, !!campaign?.activeOperation));
+  const backdrop = $('military-missions-modal');
+  const dialog = backdrop.querySelector<HTMLElement>('[role="dialog"]')!;
+  const close = () => { audio.play('ui_click'); closeMilitaryMissionModal(); };
+  backdrop.querySelectorAll<HTMLButtonElement>('[data-military-close]').forEach((button) => { button.onclick = close; });
+  backdrop.onclick = (event) => { if (event.target === backdrop) close(); };
+  backdrop.querySelectorAll<HTMLButtonElement>('[data-military-mission]').forEach((button) => {
+    button.onclick = () => {
+      const id = button.dataset.militaryMission as MilitaryMissionId;
+      const mission = MILITARY_MISSIONS.find((entry) => entry.id === id);
+      if (!mission) return;
+      selectedMilitaryMissionId = id;
+      selectedMode = mission.mode;
+      activeFrontId = null;
+      $('mode-select').querySelectorAll('.select-card').forEach((entry) => entry.classList.remove('selected'));
+      audio.play('ui_click');
+      closeMilitaryMissionModal();
+      paintMilitaryMissionEntry();
+      $('roster-block').style.display = 'none';
+    };
+  });
+  document.addEventListener('keydown', onMilitaryMissionModalKey);
+  requestAnimationFrame(() => {
+    const selected = backdrop.querySelector<HTMLButtonElement>('.mission-card.selected');
+    (selected ?? dialog).focus();
+  });
+}
+
 function buildMenu() {
   const modeRow = $('mode-select');
   modeRow.innerHTML = '';
@@ -270,14 +330,17 @@ function buildMenu() {
     card.innerHTML = `<div class="icon">${MODE_INFO[id].icon}</div><div class="name">${MODE_INFO[id].name}</div><div class="desc">${MODE_INFO[id].desc}</div>`;
     card.onclick = () => {
       selectedMode = id;
+      selectedMilitaryMissionId = null;
       audio.play('ui_click');
       modeRow.querySelectorAll('.select-card').forEach((c) => c.classList.remove('selected'));
       card.classList.add('selected');
+      paintMilitaryMissionEntry();
       // THE ROSTER LAW: the horde-composition pick only exists where a horde does
       $('roster-block').style.display = (id === 'horde' || id === 'survival') ? '' : 'none';
     };
     modeRow.appendChild(card);
   });
+  paintMilitaryMissionEntry();
   $('roster-block').style.display = (selectedMode === 'horde' || selectedMode === 'survival') ? '' : 'none';
 
   const classRow = $('class-select');
@@ -349,7 +412,7 @@ async function startGame() {
     window.location.reload(); // clean slate: disposes scene, sockets, listeners
   };
 
-  if (serverUrl) {
+  if (serverUrl && !selectedMilitaryMissionId) {
     // ---- multiplayer ----
     const net = new NetGame(serverUrl, name, selectedClass, selectedMode, currentLoadout(), chat, hud, isCommissioned(dossier));
     try {
@@ -443,30 +506,32 @@ function saveFlight() {
 };
 
 function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: Input, name: string, endGame: () => void) {
-  const deployedOperation = activeFrontId && campaign?.activeOperation?.plan.frontId === activeFrontId
+  const exercise = selectedMilitaryMissionId ? createMilitaryMissionLaunch(selectedMilitaryMissionId) : null;
+  const campaignFrontId = exercise ? null : activeFrontId;
+  const deployedOperation = campaignFrontId && campaign?.activeOperation?.plan.frontId === campaignFrontId
     ? campaign.activeOperation
     : null;
-  const seed = deployedOperation?.plan.seed ?? seedOverride ?? (Math.random() * 0xffffffff) >>> 0;
+  const seed = exercise?.seed ?? deployedOperation?.plan.seed ?? seedOverride ?? (Math.random() * 0xffffffff) >>> 0;
   seedOverride = undefined;
   const world = new World({
-    seed, mode: selectedMode, difficulty, botsPerTeam, matchMinutes, theme: selectedTheme,
+    seed, mode: exercise?.mode ?? selectedMode, difficulty, botsPerTeam, matchMinutes, theme: selectedTheme,
     hordeRoster, // THE ROSTER LAW: iron never mixes with zombies unless asked
     // B1: banked morale opens the stable richer for YOUR side (capped in-world)
     moraleBoost: [Math.min(3, dossier?.soldier.morale ?? 0), 0],
     // §8.2+33C: a Scar deploy lands on AUTHORED ground, at the tier the
     // lobby's headcount earns — the size rides the id (front@size) so
     // world.ts stays the LSW dev's untouched file.
-    frontId: activeFrontId ? `${activeFrontId}@${mapSizeForPlayers(botsPerTeam)}` : undefined,
+    frontId: campaignFrontId ? `${campaignFrontId}@${mapSizeForPlayers(botsPerTeam)}` : undefined,
     // W3.4 PASS ESCALATION: a campaign battle fights at the front's pass —
     // P1 no gods, P2 their stable only, P3 both. Off the map: everything.
-    lswPass: activeFrontId ? (campaign?.fronts[activeFrontId]?.pass ?? 3) : 3,
-    operationBonuses: activeFrontId && campaign ? operationBattleBonuses(campaign, activeFrontId) : undefined,
-    operation: deployedOperation?.plan,
-    operationManifest: deployedOperation?.manifest,
-    operationInventory: deployedOperation && campaign ? campaign.motorPool : undefined,
+    lswPass: campaignFrontId ? (campaign?.fronts[campaignFrontId]?.pass ?? 3) : 3,
+    operationBonuses: campaignFrontId && campaign ? operationBattleBonuses(campaign, campaignFrontId) : undefined,
+    operation: exercise?.plan ?? deployedOperation?.plan,
+    operationManifest: exercise?.manifest ?? deployedOperation?.manifest,
+    operationInventory: exercise?.inventory ?? (deployedOperation && campaign ? campaign.motorPool : undefined),
   });
-  if (activeFrontId && campaign) {
-    consumeOperationBattleBonuses(campaign, activeFrontId);
+  if (campaignFrontId && campaign) {
+    consumeOperationBattleBonuses(campaign, campaignFrontId);
     saveCampaign(campaign);
   }
   // carry the feel knobs into the match (Robert's global speed control)
@@ -478,7 +543,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   flightWorld = world;
   window.addEventListener('beforeunload', saveFlight);
   const me = world.addSoldier(name, selectedClass, 0, 'human', currentLoadout());
-  applyScarMods(world, activeFrontId); // §8.5: the front's wound shapes the field
+  applyScarMods(world, campaignFrontId); // §8.5: the front's wound shapes the field
   // DEATH RE-SELECT (Robert: "select my stuff after every time I die and just
   // continue on"): the K.I.A. overlay grows a class rack. Clicking while dead
   // re-signs the next print — spawn() derives the whole kit from the choice.
@@ -515,8 +580,9 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   // the Record (§3.4): fold this match into the dossier as it happens
   // the yard stays out of the Record (§14 Q3: one legacy beat per phase —
   // the dossier starts writing at the first WAR drop, not in the paint)
-  const tracker = dossier && selectedMode !== 'paintball'
-    ? new MatchTracker(dossier, name, selectedClass, selectedMode, seed) : null;
+  const trackedDossier = exercise && dossier ? structuredClone(dossier) : dossier;
+  const tracker = trackedDossier && selectedMode !== 'paintball'
+    ? new MatchTracker(trackedDossier, name, selectedClass, selectedMode, seed, !exercise) : null;
   // the Proving Grounds (§3.3): stage the course; 18B decided practice vs official
   const course = selectedMode === 'range'
     ? new RangeCourse(rangeOfficial, name, dossier, (t, big) => hud.announce(t, !!big, 0))
@@ -532,7 +598,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   const music = new MusicDirector();
 
   // replays: the director runs the killcam + match-highlights state machine
-  const director = new ReplayDirector(seed, selectedMode, selectedTheme);
+  const director = new ReplayDirector(seed, world.mode.id, world.map.theme, world.map.theater?.id);
   const banner = $('replay-banner');
   const setBanner = (text: string | null) => {
     banner.classList.toggle('hidden', !text);
@@ -597,7 +663,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   renderer.buildStaticWorld(world);
   course?.begin(world, me.id);
   ringDrill?.begin(world, me.id);
-  hud.announce(MODE_INFO[selectedMode].name.toUpperCase(), true, 0);
+  hud.announce(exercise ? `${exercise.missionName.toUpperCase()} · ${exercise.theaterName.toUpperCase()}` : MODE_INFO[selectedMode].name.toUpperCase(), true, 0);
   // §7: tell the player the officer channel is open (once per deploy)
   if (lswAllowed(selectedMode)) {
     const [a, b] = lswsForTeam(0 as Team);
@@ -747,6 +813,9 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
         renderBarracks(); // the record just grew
         // §17.B's third leg, finally visible: fight → record grew → WAR MOVED
         let extras = '';
+        if (exercise && operationResult) {
+          extras += `<p style="margin-top:0.35rem"><b>FIELD EXERCISE ${operationResult.won ? 'COMPLETE' : 'FAILED'}</b> · ${exercise.plan.codename} · ${operationResult.completedPhaseIds.length}/${exercise.plan.phases.length} phases · ${exercise.theaterName}</p>`;
+        }
         // B1 THE WAR LEDGER on the closing screen: both sides' books, and the
         // morale event when the winner fought poor (Robert: "if you won and
         // were underfunded it increased your morale… that officer could do")
@@ -755,7 +824,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
           const mine = world.warCost(myTeam);
           const theirs = world.warCost(1);
           extras += `<p style="margin-top:0.35rem">⛁ WAR COST — yours ${mine} · theirs ${theirs}</p>`;
-          if (world.mode.underdog === myTeam && dossier) {
+          if (!exercise && world.mode.underdog === myTeam && dossier) {
             dossier.soldier.morale = (dossier.soldier.morale ?? 0) + 1;
             dossier.journal.unshift({
               text: `UNDERFUNDED VICTORY — we won on ${mine} against their ${theirs}. Morale rose to ${dossier.soldier.morale}. An army that believes fights on a fuller stable.`,
@@ -767,8 +836,8 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
         }
         // the Living Campaign: this battle moves its front (22B)
         let pressFront: { name: string; control: number; delta: number } | undefined;
-        if (activeFrontId && campaign) {
-          const front = campaign.fronts[activeFrontId];
+        if (campaignFrontId && campaign) {
+          const front = campaign.fronts[campaignFrontId];
           const before = front?.control ?? 0;
           // W3.3: your dead spend the front's clones — and CLONE INFECTION
           // doubles the bill for every HOT death (the reprint + the body
@@ -797,12 +866,12 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
               extras += `<p style="margin-top:0.35rem;color:var(--danger)">OPERATION SETTLEMENT HOLD · ${operationReceipt.errors.join(' · ')}</p>`;
             }
           } else {
-            applyResult(campaign, activeFrontId, sum.won, Date.now(), (sum.deaths ?? 0) + viralBill);
+            applyResult(campaign, campaignFrontId, sum.won, Date.now(), (sum.deaths ?? 0) + viralBill);
           }
           if (viralBill > 0) extras += `<p style="margin-top:0.35rem">☣ ${viralBill} turned — the vats paid double</p>`;
           if (front) {
             const d = front.control - before;
-            const fname = FRONTS.find((f) => f.id === activeFrontId)?.name ?? activeFrontId;
+            const fname = FRONTS.find((f) => f.id === campaignFrontId)?.name ?? campaignFrontId;
             pressFront = { name: fname, control: front.control, delta: d };
             extras += `<p style="margin-top:0.35rem">⚑ ${fname.toUpperCase()}: control ${d >= 0 ? '+' : ''}${d} → ${front.control}</p>`;
           }
@@ -882,7 +951,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
         // N1 THE PRESS FILES (Robert: "we could literally make newspapers…
         // to show all the three things that happened"). One issue per battle:
         // the duel, the money, the field. Archived as data in the MAP tab.
-        {
+        if (!exercise) {
           let ace = { name: '—', kills: 0 };
           let longest = 0;
           for (const s2 of world.humansAndBots()) {
@@ -1074,14 +1143,14 @@ function renderBarracks() {
     <div class="bk-card"><h4>War journal</h4>${journal}</div>`;
   const practice = root.querySelector<HTMLButtonElement>('#pg-practice');
   if (practice) practice.onclick = () => {
-    activeFrontId = null; rangeOfficial = false; selectedMode = 'range'; startGame();
+    activeFrontId = null; selectedMilitaryMissionId = null; rangeOfficial = false; selectedMode = 'range'; startGame();
   };
   const official = root.querySelector<HTMLButtonElement>('#pg-official');
   if (official) official.onclick = () => {
     // 18B: a permanent score is only meaningful when knowingly accepted
     const warning = 'OFFICIAL QUALIFICATION ATTEMPT\n\nThis one counts — forever. Your score and percentile go on The Wall and in your dossier, permanently. Practice runs are unlimited; official is one shot.\n\nReady?';
     if (confirm(warning)) {
-      activeFrontId = null; rangeOfficial = true; selectedMode = 'range'; startGame();
+      activeFrontId = null; selectedMilitaryMissionId = null; rangeOfficial = true; selectedMode = 'range'; startGame();
     }
   };
 }
@@ -1244,6 +1313,7 @@ function renderScarMap() {
       audio.play('ui_click');
       const f = FRONTS.find((x) => x.id === btn.dataset.front)!;
       activeFrontId = f.id;
+      selectedMilitaryMissionId = null;
       selectedMode = f.mode;
       selectedTheme = f.theme;
       renderScarMap();
@@ -1352,6 +1422,7 @@ window.addEventListener('keydown', (e) => {
 // profile → first war drop → the path split; veterans never see it again.
 mountOnboarding({
   launch(cfg) {
+    selectedMilitaryMissionId = null;
     selectedMode = cfg.mode;
     selectedTheme = cfg.theme;
     seedOverride = cfg.seed;

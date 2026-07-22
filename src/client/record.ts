@@ -302,6 +302,7 @@ export class MatchTracker {
     private classId: ClassId,
     private mode: ModeId,
     seed: number,
+    private persist = true,
   ) {
     this.matchRef = `${mode}:${seed}:${Date.now()}`;
   }
@@ -416,7 +417,7 @@ export class MatchTracker {
     // crash-safety checkpoint: fold what we have every 30s
     if (world.time - this.lastCheckpoint >= 30) {
       this.lastCheckpoint = world.time;
-      void saveDossier(this.foldInto(structuredClone(this.dossier), world, meId, null));
+      if (this.persist) void saveDossier(this.foldInto(structuredClone(this.dossier), world, meId, null));
     }
   }
 
@@ -502,7 +503,7 @@ export class MatchTracker {
     this.dossier.journal.unshift(...journal);
     if (this.dossier.journal.length > 200) this.dossier.journal.length = 200;
     this.dossier.soldier.rankPoints += medals.length * 25;
-    await saveDossier(this.dossier);
+    if (this.persist) await saveDossier(this.dossier);
     const meScore = meS && this.startScore >= 0 ? Math.max(0, meS.score - this.startScore) : 0;
     return {
       kills: this.kills, deaths: this.deaths, score: meScore, won,
