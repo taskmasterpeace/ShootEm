@@ -1,5 +1,5 @@
-import { T_DEEP, T_METAL, T_OPEN, T_WATER, type GameMap } from '../map';
-import { inBounds, tileIndex, tileToWorld } from '../map-geometry';
+import { T_DEEP, T_METAL, T_OPEN, T_WATER, SKY_LEVEL, type GameMap } from '../map';
+import { allocateLayer, inBounds, tileIndex, tileToWorld } from '../map-geometry';
 import {
   addLandingZone, carveRoute, createTheaterBase, finalizeTheater, placeDomainPad,
   requiredLaneTiles, routePoints, seededTheaterRng, stageRotorcraftPads, stageSubmarinePads,
@@ -62,11 +62,27 @@ function sealMountainPockets(map: GameMap): void {
 export function generateMountainTheater(def: TheaterDef, seed: number): GameMap {
   const map = createTheaterBase(def, seed);
   const rng = seededTheaterRng(map);
+  // TERRAIN ELEVATION: the massifs RISE now, they aren't flat walls. Height falls
+  // off radially — a Sky-level (2) summit, a Building-level (1) shoulder, Ground
+  // at the foot. Tall terrain blocks sight OVER it, caps rotorcraft (a heli can't
+  // clear a Sky ridge; a jet in Clouds flies over), and renders as real relief.
+  // The massif stays impassable masonry in v1 — climbing the slopes is a Phase-2
+  // ability — so movement/physics are untouched and every existing test holds.
+  const height = allocateLayer(map.geometry);
+  const setHeight = (tx: number, tz: number, lv: number) => {
+    if (!inBounds(map.geometry, tx, tz) || tx === 0 || tz === 0 || tx === map.geometry.cols - 1 || tz === map.geometry.rows - 1) return;
+    const i = tileIndex(map.geometry, tx, tz);
+    if (lv > height[i]) height[i] = lv;
+  };
   // Alternating massifs form three readable north/south choices.
   for (const [cx, cz, rx, rz] of [[48, 68, 31, 48], [145, 104, 30, 55], [55, 205, 34, 58], [146, 245, 32, 42]] as const) {
     for (let z = cz - rz; z <= cz + rz; z++) for (let x = cx - rx; x <= cx + rx; x++) {
       const nx = (x - cx) / rx, nz = (z - cz) / rz;
-      if (nx * nx + nz * nz <= 1 + rng.next() * 0.05) setTile(map, x, z, T_METAL);
+      const r2 = nx * nx + nz * nz;
+      if (r2 <= 1 + rng.next() * 0.05) {
+        setTile(map, x, z, T_METAL);
+        setHeight(x, z, r2 < 0.45 ? SKY_LEVEL : 1); // Sky summit core, Building shoulder
+      }
     }
     for (let i = 0; i < 18; i++) {
       const angle = (i / 18) * Math.PI * 2;
@@ -75,10 +91,12 @@ export function generateMountainTheater(def: TheaterDef, seed: number): GameMap 
       if (!inBounds(map.geometry, tx, tz)) continue;
       const idx = tileIndex(map.geometry, tx, tz);
       map.grid[idx] = T_METAL;
+      setHeight(tx, tz, 1); // the foot boulders read as the shoulder
       map.props.push({ type: 'rock', pos: tileToWorld(map.geometry, tx, tz), scale: 1.2 + rng.next() * 1.1, rot: rng.range(0, Math.PI) });
       map.propCovered.push(idx);
     }
   }
+  map.height = height;
   carveRoute(map, { id: 'mountain:pass', domain: 'ground', width: laneWidth(map, 4), points: routePoints(map, [[0.03, 0.5], [0.28, 0.42], [0.7, 0.55], [0.97, 0.5]]) });
   carveRoute(map, { id: 'mountain:ridge', domain: 'ground', width: laneWidth(map, 1), points: routePoints(map, [[0.03, 0.5], [0.3, 0.2], [0.72, 0.18], [0.97, 0.5]]) });
   carveRoute(map, { id: 'mountain:valley', domain: 'ground', width: laneWidth(map, 2), points: routePoints(map, [[0.03, 0.5], [0.32, 0.78], [0.68, 0.82], [0.97, 0.5]]) });
@@ -94,6 +112,17 @@ export function generateMountainTheater(def: TheaterDef, seed: number): GameMap 
     ['north-saddle', 0.5, 0.13, null], ['south-saddle', 0.5, 0.87, null],
   ];
   for (const [id, x, z, side] of zones) addLandingZone(map, { id: `mountain:${id}`, pos: routePoints(map, [[x, z]])[0], radius: 18, slope: 0.08, side });
+  // LOCATIONS OF INTEREST the game needs — RADAR STATIONS a stealth bomber slips
+  // (anyone else gets painted and locked), and forward fuel/ammo CACHES on the
+  // shelves and saddles that make holding the high ground pay.
+  for (const [x, z] of [[0.26, 0.24], [0.74, 0.76]] as const) {
+    map.props.push({ type: 'silo', pos: routePoints(map, [[x, z]])[0], scale: 1.35, rot: (x + z) * Math.PI }); // deterministic rot — never shift the theater rng
+  }
+  // caches sit ON the carved routes (guaranteed reachable from both bases —
+  // arbitrary shelf points fail the READABLE law).
+  for (const [x, z, kind] of [[0.28, 0.42, 'ammo'], [0.7, 0.55, 'ammo'], [0.5, 0.5, 'energy'], [0.32, 0.78, 'medkit'], [0.68, 0.82, 'medkit']] as const) {
+    map.pickups.push({ type: kind, pos: routePoints(map, [[x, z]])[0] });
+  }
   placeDomainPad(map, 'aatrack', 0, routePoints(map, [[0.3, 0.2]])[0]);
   placeDomainPad(map, 'aatrack', 1, routePoints(map, [[0.7, 0.8]])[0]);
   stageRotorcraftPads(map);
