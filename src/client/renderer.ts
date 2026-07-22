@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
-import { CLIMB_H, F2_BALCONY, F2_DOOR_H, F2_DOOR_H_OPEN, F2_DOOR_V, F2_DOOR_V_OPEN, F2_RAIL_H, F2_RAIL_V, F2_SHUTTER, F2_SHUTTER_OPEN, F2_SLIT, F2_STAIR_E, F2_STAIR_N, F2_STAIR_S, F2_STAIR_W, F2_THIN_WALL_H, F2_THIN_WALL_HV, F2_THIN_WALL_V, F2_WALL, F2_WELL, THIN_WALL, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_SECTION_SHUTTER, T_SECTION_SHUTTER_OPEN, T_SLIT, T_STAIRS_N, T_STAIRS_W, T_THIN_DOOR_H, T_THIN_DOOR_H_OPEN, T_THIN_DOOR_V, T_THIN_DOOR_V_OPEN, T_THIN_WALL_H, T_THIN_WALL_HV, T_THIN_WALL_V, T_WALL, T_WATER, TILE, blocksShot, doorIsOpen, houseAt, isDoorTile, isWindowTile, losClear, surfaceAt, tileAt, windowIsBroken, windowSpansX } from '../sim/map';
+import { CLIMB_H, F2_BALCONY, F2_DOOR_H, F2_DOOR_H_OPEN, F2_DOOR_V, F2_DOOR_V_OPEN, F2_RAIL_H, F2_RAIL_V, F2_SHUTTER, F2_SHUTTER_OPEN, F2_SLIT, F2_STAIR_E, F2_STAIR_N, F2_STAIR_S, F2_STAIR_W, F2_THIN_WALL_H, F2_THIN_WALL_HV, F2_THIN_WALL_V, F2_WALL, F2_WELL, THIN_WALL, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_SECTION_SHUTTER, T_SECTION_SHUTTER_OPEN, T_SLIT, T_STAIRS_N, T_STAIRS_W, T_THIN_DOOR_H, T_THIN_DOOR_H_OPEN, T_THIN_DOOR_V, T_THIN_DOOR_V_OPEN, T_THIN_WALL_H, T_THIN_WALL_HV, T_THIN_WALL_V, T_WALL, T_WATER, TILE, blocksShot, doorIsOpen, houseAt, isDoorTile, isWindowTile, losClear, surfaceAt, tileAt, windowIsBroken, windowSpansX, TERRAIN_U } from '../sim/map';
 import { floorHeight, floorLayer } from '../sim/map-layers';
 import { halfDepth, halfWidth, tileToWorld, worldDepth, worldToTile, worldWidth } from '../sim/map-geometry';
 import { materialForSurface, materialOf, type ImpactKind } from '../sim/materials';
@@ -1042,7 +1042,11 @@ export class Renderer {
     const tintCol = new THREE.Color();
     wallTiles.forEach(([x, z], i) => {
       const center = tileToWorld(geometry, x, z);
-      m4.setPosition(center.x, 2, center.z);
+      // TERRAIN ELEVATION: an elevated blocking tile rises to its terrain top.
+      const th = world.map.height ? (TERRAIN_U[world.map.height[z * cols + x]] ?? 0) : 0;
+      const wallH = th > 4 ? th : 4;
+      m4.makeScale(1, wallH / 4, 1);
+      m4.setPosition(center.x, wallH / 2, center.z);
       wallInst.setMatrixAt(i, m4);
       const tint = houseTint.get(z * cols + x);
       // base material is white, so the instance colour is the final albedo:
@@ -1202,7 +1206,13 @@ export class Renderer {
       metalInst.castShadow = metalInst.receiveShadow = true;
       metalTiles.forEach(([x, z], i) => {
         const center = tileToWorld(geometry, x, z);
-        m4.setPosition(center.x, 2, center.z);
+        // TERRAIN ELEVATION: a T_METAL massif tile RISES to its terrain top, so
+        // the mountains read as real relief — a Sky summit stands 16u tall, a
+        // Building shoulder 4u. Plain metal walls (height 0) stay their 4u box.
+        const th = world.map.height ? (TERRAIN_U[world.map.height[z * cols + x]] ?? 0) : 0;
+        const wallH = th > 4 ? th : 4;
+        m4.makeScale(1, wallH / 4, 1);
+        m4.setPosition(center.x, wallH / 2, center.z);
         metalInst.setMatrixAt(i, m4);
       });
       this.scene.add(metalInst);
