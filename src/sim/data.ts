@@ -48,6 +48,13 @@ const CORE_WEAPONS: Record<WeaponId, WeaponDef> = {
   smoke_nade: W({ id: 'smoke_nade', name: 'M-77 Smoke', damage: 0, rof: 0.8, speed: 16, clip: 1, reserve: 0, range: 26, arc: true, payload: 'smoke', sound: 'thump', tracer: 'canister' }),
   fire_nade: W({ id: 'fire_nade', name: 'T-4 Incendiary', damage: 0, rof: 0.8, speed: 16, clip: 1, reserve: 0, range: 26, arc: true, payload: 'fire', sound: 'thump', tracer: 'canister' }),
   conc_nade: W({ id: 'conc_nade', name: 'C-9 Concussion', damage: 0, rof: 0.8, speed: 16, clip: 1, reserve: 0, range: 26, splash: 6.5, splashDamage: 18, knockback: 26, arc: true, payload: 'concussion', sound: 'thump', tracer: 'canister', icon: '💫' }),
+  // THE SINGULARITY (Robert): lands, opens a gravity WELL that YANKS the enemy
+  // squad into a cluster for ~1.2s, then COLLAPSES on the pile. splash/splashDamage
+  // here are the implosion; the pull does no damage of its own — it sets the kill up.
+  grav_nade: W({ id: 'grav_nade', name: 'G-7 Singularity', damage: 0, rof: 0.8, speed: 16, clip: 1, reserve: 0, range: 26, splash: 6, splashDamage: 34, knockback: 0, arc: true, payload: 'grav', sound: 'thump', tracer: 'canister', icon: '🌀' }),
+  // THE STICK (Robert): a plasma charge that ADHERES to the first body it meets
+  // and rides it to the grave — ~1.3s fuse, then an energy burst that bites armor.
+  plasma_nade: W({ id: 'plasma_nade', name: 'P-11 Plasma Stick', damage: 0, rof: 0.8, speed: 22, clip: 1, reserve: 0, range: 28, splash: 4.5, splashDamage: 58, knockback: 12, arc: true, payload: 'plasma', sound: 'plasma', tracer: 'plasma', icon: '🔵' }),
   // M3 THE REPLACEMENT (Robert: "I don't think we need to add weapons, I
   // think we need to replace weapons… concussion grenades, no fire, just
   // concussed, with maximum knockback"). The jump trooper's GL-40 becomes

@@ -108,8 +108,9 @@ export interface WeaponDef {
   family?: WeaponFamily;
   /** Mk tier within the family (1..3) — drives the stat curve */
   tier?: number;
-  /** special detonation instead of damage: emp burst, beacons, smoke/fire fields */
-  payload?: 'emp' | 'target_beacon' | 'orbital' | 'smoke' | 'fire' | 'concussion';
+  /** special detonation instead of damage: emp burst, beacons, smoke/fire fields,
+   *  a gravity well that YANKS a squad into a cluster, or a STICKY plasma charge */
+  payload?: 'emp' | 'target_beacon' | 'orbital' | 'smoke' | 'fire' | 'concussion' | 'grav' | 'plasma';
   /** landing this projectile pins the victim on every enemy screen for 5s (tag dart) */
   tagsTarget?: boolean;
   /** SECONDARY FIRE (right mouse) — the under-barrel surprise:
@@ -899,6 +900,9 @@ export interface SimEvent {
     | 'vehicle_destroyed' | 'turret_built' | 'heal' | 'jetpack' | 'cloak'
     | 'announce' | 'match_over' | 'mine_planted'
     | 'warp' | 'blink' | 'emp' | 'orbital_strike' | 'gravlift'
+    | 'grav_well'      // a singularity grenade opened a gravity well (the pull VFX)
+    | 'plasma_stick'   // a plasma charge ADHERED to a body — the fuse is lit
+    | 'bomb_planted' | 'bomb_beep' // a time bomb was set / its countdown ticks
     | 'beacon_planted' | 'gadget_destroyed' | 'pod_incoming' | 'pod_landed'
     | 'drone_crash'    // an FPV drone lost link and hit the ground
     | 'dig'            // tunneler ground a wall tile to rubble
