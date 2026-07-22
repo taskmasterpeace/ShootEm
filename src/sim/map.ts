@@ -249,6 +249,24 @@ export interface BuildingMapMeta {
   }[];
 }
 
+/** Visual-only treatment for an attributable real-world slice. None of these
+ * objects participate in collision; authoritative play still reads the grid. */
+export interface GeospatialDecor {
+  kind: 'palm' | 'streetlight' | 'barrier';
+  pos: Vec3;
+  scale: number;
+  rot: number;
+}
+
+export interface GeospatialMapMeta {
+  sourceId: string;
+  cityId: string;
+  style: 'default' | 'miami-gardens';
+  classification: Uint8Array;
+  buildingHeight: Uint8Array;
+  decor: GeospatialDecor[];
+}
+
 export interface GameMap {
   seed: number;
   theme: ThemeId;
@@ -265,6 +283,8 @@ export interface GameMap {
   upperLayers?: Uint8Array[];
   /** Authoring/generator provenance; absent on legacy battle maps. */
   buildingMeta?: BuildingMapMeta;
+  /** Source classification plus non-colliding district presentation. */
+  geospatial?: GeospatialMapMeta;
   /** the SURFACE layer (§8.6): S_* per tile — movement, sound, and tracks */
   surface: Uint8Array;
   /** TERRAIN ELEVATION (v1, docs/superpowers/specs/2026-07-22-terrain-elevation):

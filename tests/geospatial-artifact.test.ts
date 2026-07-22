@@ -33,6 +33,14 @@ describe('geospatial artifact codec', () => {
     doc.map.height = Uint8Array.from({ length: 256 }, (_, index) => index % 3);
     doc.map.ramp = Uint8Array.from({ length: 256 }, (_, index) => index % 11 === 0 ? 1 : 0);
     const classification = Uint8Array.from({ length: 256 }, (_, index) => index % 5);
+    doc.map.geospatial = {
+      sourceId: 'fixture',
+      cityId: '69:miami:e08:2700000',
+      style: 'miami-gardens',
+      classification,
+      buildingHeight: Uint8Array.from({ length: 256 }, (_, index) => index % 4),
+      decor: [{ kind: 'palm', pos: { x: 3, y: 0, z: 6 }, scale: 1, rot: 0 }],
+    };
     const artifact = artifactFromMap(doc.map, {
       classification,
       source: source(),
@@ -43,8 +51,11 @@ describe('geospatial artifact codec', () => {
     expect(restored.grid).toEqual(doc.map.grid);
     expect(restored.height).toEqual(doc.map.height);
     expect(restored.ramp).toEqual(doc.map.ramp);
+    expect(restored.geospatial).toEqual(doc.map.geospatial);
     expect(artifact.geography.classification).toEqual(encodeByteRuns(classification));
     restored.controlPoints[0].name = 'changed';
+    restored.geospatial!.decor[0].scale = 4;
     expect(artifact.gameplay.objects.controlPoints[0].name).not.toBe('changed');
+    expect(artifact.geography.presentation?.decor[0].scale).toBe(1);
   });
 });

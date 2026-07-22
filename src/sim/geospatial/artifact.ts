@@ -1,4 +1,4 @@
-import type { GameMap } from '../map';
+import type { GameMap, GeospatialDecor, GeospatialMapMeta } from '../map';
 import { geometryLength, validateGeometry, type MapGeometry } from '../map-geometry';
 import type { ThemeId } from '../types';
 import type { GeoAttribution, GeoSliceSource } from './types';
@@ -40,6 +40,13 @@ export interface GeoMapArtifactV1 {
     ramp: ByteRuns;
     source: GeoSliceSource;
     attribution: GeoAttribution[];
+    presentation?: {
+      sourceId: string;
+      cityId: string;
+      style: GeospatialMapMeta['style'];
+      buildingHeight: ByteRuns;
+      decor: GeospatialDecor[];
+    };
   };
   gameplay: {
     seed: number;
@@ -134,6 +141,15 @@ export function artifactFromMap(
       ramp: encodeByteRuns(ramp),
       source: structuredClone(options.source),
       attribution: structuredClone(options.source.attribution),
+      ...(map.geospatial ? {
+        presentation: {
+          sourceId: map.geospatial.sourceId,
+          cityId: map.geospatial.cityId,
+          style: map.geospatial.style,
+          buildingHeight: encodeByteRuns(map.geospatial.buildingHeight),
+          decor: structuredClone(map.geospatial.decor),
+        },
+      } : {}),
     },
     gameplay: {
       seed: map.seed,
@@ -160,7 +176,16 @@ export function mapFromArtifact(artifact: GeoMapArtifactV1): GameMap {
   const surface = decodeByteRuns(artifact.gameplay.surface, length);
   const height = decodeByteRuns(artifact.geography.height, length);
   const ramp = decodeByteRuns(artifact.geography.ramp, length);
-  decodeByteRuns(artifact.geography.classification, length);
+  const classification = decodeByteRuns(artifact.geography.classification, length);
+  const presentation = artifact.geography.presentation;
+  const geospatial: GeospatialMapMeta | undefined = presentation ? {
+    sourceId: presentation.sourceId,
+    cityId: presentation.cityId,
+    style: presentation.style,
+    classification,
+    buildingHeight: decodeByteRuns(presentation.buildingHeight, length),
+    decor: structuredClone(presentation.decor),
+  } : undefined;
   const upperLayers = artifact.gameplay.upperLayers.map((layer) => decodeByteRuns(layer, length));
   if (upperLayers.length) upperLayers[0] = grid2;
   validateGeometry(geometry, grid, grid2, surface, height, ramp, ...upperLayers);
@@ -175,6 +200,7 @@ export function mapFromArtifact(artifact: GeoMapArtifactV1): GameMap {
     height,
     ramp,
     ...(upperLayers.length ? { upperLayers } : {}),
+    ...(geospatial ? { geospatial } : {}),
     ...objects,
   };
 }

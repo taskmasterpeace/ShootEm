@@ -14,7 +14,7 @@ import {
   T_OPEN, T_WALL, T_COVER, T_WATER, T_DEEP, T_SLIT, T_DOOR, T_DOOR_OPEN, T_METAL, T_LADDER, T_CLIMB,
   T_THIN_WALL_H, T_THIN_WALL_V, T_THIN_DOOR_H, T_THIN_DOOR_V, T_WINDOW_H, T_WINDOW_V,
   T_STAIRS_N, T_STAIRS_E, T_STAIRS_S, T_STAIRS_W, T_SECTION_SHUTTER,
-  type BuildingMapMeta, type GameMap, type PropSpec, type PickupSpawn, type VehiclePad, type House, type TileClaim,
+  type BuildingMapMeta, type GameMap, type GeospatialMapMeta, type PropSpec, type PickupSpawn, type VehiclePad, type House, type TileClaim,
 } from './map';
 import { ensureUpperFloor } from './map-layers';
 import { buildingAuthoringLayoutFromMap, validateWholeBuilding } from './building-navigation';
@@ -63,6 +63,13 @@ function cloneMap(m: GameMap): GameMap {
     ...(m.height ? { height: m.height.slice() } : {}),
     ...(m.ramp ? { ramp: m.ramp.slice() } : {}),
     ...(m.buildingMeta ? { buildingMeta: structuredClone(m.buildingMeta) } : {}),
+    ...(m.geospatial ? {
+      geospatial: {
+        ...structuredClone(m.geospatial),
+        classification: m.geospatial.classification.slice(),
+        buildingHeight: m.geospatial.buildingHeight.slice(),
+      },
+    } : {}),
     basePos: [{ ...m.basePos[0] }, { ...m.basePos[1] }],
     spawns: [m.spawns[0].map((s) => ({ ...s })), m.spawns[1].map((s) => ({ ...s }))],
     flagPos: [{ ...m.flagPos[0] }, { ...m.flagPos[1] }],
@@ -233,6 +240,10 @@ export interface MapJSONV2 extends MapJSONBase {
   v: 2;
   upperLayers: number[][];
   buildingMeta?: BuildingMapMeta;
+  geospatial?: Omit<GeospatialMapMeta, 'classification' | 'buildingHeight'> & {
+    classification: number[];
+    buildingHeight: number[];
+  };
   height?: number[];
   ramp?: number[];
 }
@@ -246,6 +257,13 @@ export function serializeDoc(doc: MakerDoc): MapJSONV2 {
     grid: [...m.grid], grid2: [...m.grid2], surface: [...m.surface],
     upperLayers: (m.upperLayers ?? [m.grid2]).map((layer) => [...layer]),
     ...(m.buildingMeta ? { buildingMeta: structuredClone(m.buildingMeta) } : {}),
+    ...(m.geospatial ? {
+      geospatial: {
+        ...structuredClone(m.geospatial),
+        classification: [...m.geospatial.classification],
+        buildingHeight: [...m.geospatial.buildingHeight],
+      },
+    } : {}),
     ...(m.height ? { height: [...m.height] } : {}),
     ...(m.ramp ? { ramp: [...m.ramp] } : {}),
     basePos: m.basePos, spawns: m.spawns, flagPos: m.flagPos, hillPos: m.hillPos,
@@ -273,6 +291,13 @@ export function deserializeDoc(json: MapJSON): MakerDoc {
     grid, grid2, surface,
     ...(upperLayers ? { upperLayers } : {}),
     ...(json.v === 2 && json.buildingMeta ? { buildingMeta: structuredClone(json.buildingMeta) } : {}),
+    ...(json.v === 2 && json.geospatial ? {
+      geospatial: {
+        ...structuredClone(json.geospatial),
+        classification: Uint8Array.from(json.geospatial.classification),
+        buildingHeight: Uint8Array.from(json.geospatial.buildingHeight),
+      },
+    } : {}),
     ...(height ? { height } : {}),
     ...(ramp ? { ramp } : {}),
     basePos: json.basePos, spawns: json.spawns, flagPos: json.flagPos, hillPos: json.hillPos,
