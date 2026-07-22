@@ -24,6 +24,17 @@ export const LEAP_CHARGE_MS = 900;
 /** Charge (0..1) a SPACE release carries. 0 = not a leap: a tap (that's the
  *  jump), no direction held (that was just a duck), or a held-thrust class.
  *  Pure, like resolveSpace — the contract lives in a test, not the DOM. */
+/** ANALOG MOVEMENT (Robert: "slow when barely moved, full when it's all the
+ *  way"). Maps a raw left-stick magnitude to a drive in [0,1] — a RADIAL
+ *  deadzone, then the usable travel rescaled so a gentle push crawls and a firm
+ *  push runs — and reports whether the stick is pushed far enough to SPRINT (the
+ *  keyboard-SHIFT equivalent). Pure, so the feel is locked in a test. */
+export function analogDrive(mag: number, deadzone: number): { drive: number; sprint: boolean } {
+  if (mag <= deadzone) return { drive: 0, sprint: false };
+  const drive = Math.min(1, (mag - deadzone) / (1 - deadzone));
+  return { drive, sprint: drive >= 0.9 };
+}
+
 export function leapChargeOnRelease(
   spaceHeldMode: boolean, heldMs: number, hasDir: boolean,
 ): number {
@@ -178,9 +189,21 @@ export class Input {
     const btn = (i: number) => !!pad.buttons[i]?.pressed || (pad.buttons[i]?.value ?? 0) > 0.35;
     const rose = (i: number) => btn(i) && !this.prevPadButtons[i];
 
-    // left stick: movement
-    const mx = dead(pad.axes[0] ?? 0), mz = dead(pad.axes[1] ?? 0);
-    if (mx !== 0 || mz !== 0) { cmd.moveX = mx; cmd.moveZ = mz; this.gamepadActive = true; }
+    // left stick: ANALOG movement (Robert: "slow when barely moved, full when
+    // it's all the way"). A RADIAL deadzone, then the usable travel is rescaled
+    // to span 0→1 so a gentle push crawls and a firm push runs — the sim already
+    // honours sub-unit intent as sub-full speed (world.ts "normalize DOWN only").
+    // The last of the travel spends into a SPRINT, so the stick reaches the
+    // character's true top speed the way a keyboard player's SHIFT does.
+    const lx = pad.axes[0] ?? 0, lz = pad.axes[1] ?? 0;
+    const lmag = Math.hypot(lx, lz);
+    if (lmag > settings.padDeadzone) {
+      const { drive, sprint } = analogDrive(lmag, settings.padDeadzone);
+      cmd.moveX = (lx / lmag) * drive;
+      cmd.moveZ = (lz / lmag) * drive;
+      if (sprint) cmd.sprint = true; // pushed all the way — the full-speed run
+      this.gamepadActive = true;
+    }
 
     // right stick: twin-stick aim — the last real deflection persists, so
     // letting the stick spring back doesn't snap your aim to zero
