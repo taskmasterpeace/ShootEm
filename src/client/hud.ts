@@ -4,7 +4,7 @@ import { audio, earshotFor } from './audio';
 import { icon } from './icons';
 import { T_CLIMB, T_WALL, losClear, houseAt } from '../sim/map';
 import { LEGACY_GEOMETRY, halfDepth, halfWidth, worldDepth, worldWidth, type MapGeometry } from '../sim/map-geometry';
-import { isZed, type SimEvent, type Soldier, type Team, type Vec3 } from '../sim/types';
+import { isZed, type SimEvent, type Soldier, type Team, type Vec3, type VehicleKind } from '../sim/types';
 import { drawGrade, drawNumber, RING_COLORS } from './ring';
 import { weaponPortrait } from './weaponcam';
 import { weaponBrand } from './models/weapons';
@@ -15,6 +15,7 @@ import { OPERATION_COMPLICATIONS, OPERATION_EFFECTS, type OperationHull, type Op
 import type { OperationResult } from '../sim/operation-runtime';
 import type { SettlementReceipt } from './campaign';
 import { ELEVATION_LABEL, asElevationLevel, maxElevationFor } from '../sim/elevation';
+import { RADAR_PROFILES, headingDegrees, trackAlpha, type RadarSource } from '../sim/radar';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -33,6 +34,16 @@ export function minimapWorldPoint(geometry: MapGeometry, size: number, x: number
   };
 }
 
+export function radarRangeEllipse(geometry: MapGeometry, size: number, range: number): { radiusX: number; radiusY: number } {
+  return { radiusX: range / worldWidth(geometry) * size, radiusY: range / worldDepth(geometry) * size };
+}
+
+export function radarSweepAngle(now: number, nextSweepAt: number, cadence: number): number {
+  const remaining = Math.max(0, Math.min(cadence, nextSweepAt - now));
+  const progress = 1 - remaining / Math.max(0.001, cadence);
+  return -Math.PI / 2 + progress * Math.PI * 2;
+}
+
 export function vehicleMobilityHint(kind: keyof typeof VEHICLES, rawBand: number, submerged = false): string {
   const def = VEHICLES[kind];
   if (def.submersible) {
@@ -42,6 +53,126 @@ export function vehicleMobilityHint(kind: keyof typeof VEHICLES, rawBand: number
   const band = asElevationLevel(rawBand);
   const ceiling = maxElevationFor(def);
   return ` · ALT ${ELEVATION_LABEL[band]} ${band}/${ceiling} · Q climb · E ${band > 0 ? 'dive' : 'exit'}${band >= 2 ? ' — AA-controlled airspace' : ''}`;
+}
+
+export interface VehicleInstrumentInput {
+  kind: VehicleKind;
+  yaw: number;
+  vel: Vec3;
+  band: number;
+  submerged: boolean;
+  burnerOn: boolean;
+  spoolRemaining: number;
+  sensorsHp: number;
+  sensorsMax: number;
+  radar: { source: RadarSource; range: number; freshTracks: number; jammed: boolean } | null;
+  locked: boolean;
+}
+
+export interface VehicleInstrumentState {
+  kind: VehicleKind;
+  speed: number;
+  speedText: string;
+  speedPercent: number;
+  needleDegrees: number;
+  heading: number;
+  headingText: string;
+  altitudePips: [boolean, boolean, boolean, boolean];
+  altitudeBand: number;
+  altitudeText: string;
+  flightMode: string;
+  radarText: string;
+  radarJammed: boolean;
+  threatText: string;
+  locked: boolean;
+}
+
+// World yaw 0 faces +X (east); +PI/2 faces +Z (south on the north-up map).
+const CARDINALS = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'] as const;
+
+export function vehicleInstrumentState(input: VehicleInstrumentInput): VehicleInstrumentState {
+  const def = VEHICLES[input.kind];
+  const speed = Math.hypot(input.vel.x, input.vel.z);
+  const speedPercent = speed / Math.max(1, def.speed);
+  const heading = headingDegrees(input.yaw);
+  const cardinal = CARDINALS[Math.round(heading / 45) % CARDINALS.length];
+  const band = asElevationLevel(input.band);
+  const fixedWing = !!def.minAirspeed;
+  const flightMode = def.submersible
+    ? (input.submerged ? 'SUBMERGED' : 'SURFACE')
+    : fixedWing
+      ? input.burnerOn ? 'AB' : speed < def.speed * (def.minAirspeed ?? 0) * 0.9 ? 'STALL' : 'CRUISE'
+      : input.spoolRemaining > 0 ? `SPOOL ${input.spoolRemaining.toFixed(1)}` : 'FLIGHT';
+  const sourceLabel: Record<RadarSource, string> = {
+    fixedWing: 'RDR AIR', rotorcraft: 'RDR ROTOR', staffedSensors: 'RDR TEAM',
+    surfaceNaval: 'RDR SURFACE', sonar: 'SONAR',
+  };
+  const radarText = input.sensorsHp <= 0
+    ? 'SEN DEAD'
+    : input.radar
+      ? `${sourceLabel[input.radar.source]} ${input.radar.range} · ${input.radar.freshTracks} TRACK${input.radar.freshTracks === 1 ? '' : 'S'}${input.radar.jammed ? ' · JAM' : ''}`
+      : 'RDR PASSIVE';
+  return {
+    kind: input.kind,
+    speed: +speed.toFixed(1),
+    speedText: speed.toFixed(1),
+    speedPercent,
+    needleDegrees: -128 + Math.max(0, Math.min(1, speedPercent)) * 256,
+    heading,
+    headingText: `${cardinal} ${heading}°`,
+    altitudePips: [0, 1, 2, 3].map((level) => level === band) as [boolean, boolean, boolean, boolean],
+    altitudeBand: band,
+    altitudeText: def.submersible ? (input.submerged ? 'DEPTH D' : 'DEPTH S') : `ALT ${['G', 'B', 'S', 'C'][band]}`,
+    flightMode,
+    radarText,
+    radarJammed: input.radar?.jammed ?? false,
+    threatText: input.locked ? 'LOCK · MISSILE INBOUND' : 'THREAT CLEAR',
+    locked: input.locked,
+  };
+}
+
+export function renderVehicleInstruments(state: VehicleInstrumentState): string {
+  const pips = ['G', 'B', 'S', 'C'].map((label, index) =>
+    `<span class="instrument-alt-pip${state.altitudePips[index] ? ' active' : ''}">${label}</span>`,
+  ).join('');
+  return `<div class="instrument-data-bay"><span id="instrument-mode">${state.flightMode}</span><strong id="instrument-speed">${state.speedText}<small> U/S</small></strong><span id="instrument-heading">${state.headingText}</span><span id="instrument-altitude" aria-label="${state.altitudeText}">${pips}</span><span id="instrument-radar" class="${state.radarJammed ? 'warn' : ''}">${state.radarText}</span><span id="instrument-threat" class="${state.locked ? 'danger' : ''}">${state.threatText}</span></div><div class="airspeed-dial" aria-label="Airspeed ${state.speedText} units per second"><i id="airspeed-needle" style="transform:rotate(${state.needleDegrees.toFixed(1)}deg)"></i><b>${Math.round(state.speedPercent * 100)}</b></div>`;
+}
+
+export interface RadarDisplayState {
+  source: RadarSource;
+  range: number;
+  cadence: number;
+  origin: Vec3;
+  freshTracks: number;
+  jammed: boolean;
+  nextSweepAt: number;
+}
+
+export function radarDisplayState(world: World, local: Soldier): RadarDisplayState | null {
+  let vehicle = local.vehicleId >= 0 ? world.vehicles.get(local.vehicleId) : undefined;
+  let source: RadarSource | null = null;
+  if (vehicle?.alive && vehicle.seats[0] === local.id && vehicle.systems.sensors > 0) {
+    const def = VEHICLES[vehicle.kind];
+    if (def.submersible && vehicle.submerged) source = 'sonar';
+    else if (def.flies) source = def.minAirspeed ? 'fixedWing' : 'rotorcraft';
+    else if (def.boat || def.submersible) source = 'surfaceNaval';
+  }
+  if (!source) {
+    vehicle = [...world.vehicles.values()]
+      .filter((candidate) => candidate.alive && candidate.team === local.team && !candidate.submerged
+        && candidate.systems.sensors > 0 && world.crewAt(candidate, 'sensors')?.alive)
+      .sort((a, b) => a.id - b.id)[0];
+    if (vehicle) source = 'staffedSensors';
+  }
+  if (!vehicle || !source) return null;
+  const profile = RADAR_PROFILES[source];
+  const tracks = [...world.radarTracksFor(local.team).values()].filter((track) => track.expiresAt > world.time);
+  return {
+    source, range: profile.range, cadence: profile.cadence, origin: { ...vehicle.pos },
+    freshTracks: tracks.length,
+    jammed: tracks.some((track) => track.jammed),
+    nextSweepAt: world.nextRadarSweep.get(`${vehicle.id}:${source}`) ?? world.time,
+  };
 }
 
 type OperationHudEvent = SimEvent & { type: 'operation_phase' | 'operation_progress' | 'operation_complete' };
@@ -126,6 +257,7 @@ export class Hud {
   private announceUntil = 0;
   private minimapEl = $('minimap') as HTMLCanvasElement;
   private minimapCtx = this.minimapEl.getContext('2d')!;
+  private vehicleInstruments = $('vehicle-instruments');
   private mapBg: HTMLCanvasElement | null = null;
   private mapBgGeometry = '';
   private minimapGeometry: MapGeometry = { ...LEGACY_GEOMETRY };
@@ -377,6 +509,7 @@ export class Hud {
 
     // weapon / vehicle line
     const inVehicle = s.vehicleId >= 0;
+    this.vehicleInstruments.classList.add('hidden');
     if (inVehicle) {
       const v = world.vehicles.get(s.vehicleId);
       if (v) {
@@ -437,6 +570,24 @@ export class Hud {
         const hintEl = $('ability-hint');
         hintEl.textContent = `${role} · E exit${mobilityTxt}${flareTxt}${locked ? ' · ⚠ MISSILE INBOUND' : ''}`;
         hintEl.classList.toggle('warn', locked);
+        const vehicleDef = VEHICLES[v.kind];
+        if (s.seat === 0 && (vehicleDef.flies || vehicleDef.boat || vehicleDef.submersible)) {
+          const radar = radarDisplayState(world, s);
+          const instrument = vehicleInstrumentState({
+            kind: v.kind, yaw: v.yaw, vel: v.vel, band: v.band ?? 0,
+            submerged: !!v.submerged, burnerOn: !!v.burnerOn,
+            spoolRemaining: Math.max(0, v.spoolUntil - world.time),
+            sensorsHp: v.systems.sensors, sensorsMax: vehicleDef.systemHp ?? 60,
+            radar: radar ? {
+              source: radar.source, range: radar.range,
+              freshTracks: radar.freshTracks, jammed: radar.jammed,
+            } : null,
+            locked,
+          });
+          this.vehicleInstruments.innerHTML = renderVehicleInstruments(instrument);
+          this.vehicleInstruments.classList.remove('hidden');
+          this.vehicleInstruments.setAttribute('aria-label', `${vehicleDef.name} instruments, ${instrument.speedText} units per second, heading ${instrument.heading}, ${instrument.altitudeText}, ${instrument.radarText}, ${instrument.threatText}`);
+        }
         // per-system damage record as pips: ENG WPN SEN ECM COM
         const max = VEHICLES[v.kind].systemHp ?? 60;
         this.sysPips.style.display = 'flex';
@@ -986,6 +1137,74 @@ export class Hud {
     if (m.hillPos) dot(m.hillPos.x, m.hillPos.z, m.hillHolder === -1 ? '#ffffff' : m.hillHolder === 0 ? '#e8a33d' : '#3dbde8', 5);
     if (m.points) for (const p of m.points) dot(p.pos.x, p.pos.z, p.owner === -1 ? '#ffffff' : p.owner === 0 ? '#e8a33d' : '#3dbde8', 4.5);
     if (m.flags) for (const f of m.flags) dot(f.pos.x, f.pos.z, f.team === 0 ? '#e8a33d' : '#3dbde8', 4);
+
+    // Tactical radar lives ON the map instead of competing with it. Tracks
+    // are frozen sim records; this renderer never looks up their hidden live
+    // targets. Direct LOS marks later in the draw order replace hollow radar
+    // glyphs with solid truth when the player's eyes actually have it.
+    const radar = radarDisplayState(world, local);
+    if (radar) {
+      const [ox, oy] = toMap(radar.origin.x, radar.origin.z);
+      const { radiusX, radiusY } = radarRangeEllipse(geometry, S, radar.range);
+      const angle = radarSweepAngle(world.time, radar.nextSweepAt, radar.cadence);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(232, 163, 61, 0.34)';
+      ctx.lineWidth = 0.8;
+      for (const scale of [0.5, 1]) {
+        ctx.beginPath();
+        ctx.ellipse(ox, oy, radiusX * scale, radiusY * scale, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = 'rgba(232, 163, 61, 0.74)';
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(ox + Math.cos(angle) * radiusX, oy + Math.sin(angle) * radiusY);
+      ctx.stroke();
+      const sourceName: Record<RadarSource, string> = {
+        fixedWing: 'RDR AIR', rotorcraft: 'RDR ROTOR', staffedSensors: 'RDR TEAM',
+        surfaceNaval: 'RDR SURFACE', sonar: 'SONAR',
+      };
+      ctx.fillStyle = radar.jammed ? '#f5b21a' : '#e8d9a0';
+      ctx.font = '7px "Share Tech Mono", monospace';
+      ctx.fillText(`${sourceName[radar.source]} ${radar.range}${radar.jammed ? ' · JAM' : ''}`, 5, 10);
+      for (const track of world.radarTracksFor(local.team).values()) {
+        if (track.expiresAt <= world.time) continue;
+        const alpha = trackAlpha(track, world.time);
+        const [px, py] = toMap(track.pos.x, track.pos.z);
+        ctx.save();
+        ctx.globalAlpha = 0.2 + alpha * 0.8;
+        ctx.strokeStyle = '#ff5040';
+        ctx.fillStyle = '#ff5040';
+        ctx.lineWidth = 1.2;
+        if (track.jammed) {
+          const uncertainty = 4 + (1 - track.precision) * 10;
+          ctx.beginPath();
+          ctx.arc(px, py, uncertainty, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        if (track.domain === 'air') {
+          ctx.beginPath();
+          ctx.moveTo(px, py - 4); ctx.lineTo(px + 3.5, py + 3); ctx.lineTo(px - 3.5, py + 3);
+          ctx.closePath(); ctx.stroke();
+        } else if (track.domain === 'ground') {
+          ctx.strokeRect(px - 3, py - 3, 6, 6);
+        } else if (track.domain === 'surface') {
+          ctx.beginPath();
+          ctx.moveTo(px - 4, py - 2); ctx.lineTo(px, py + 3); ctx.lineTo(px + 4, py - 2);
+          ctx.stroke();
+        } else {
+          ctx.beginPath(); ctx.arc(px, py - 1, 4, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+          ctx.beginPath(); ctx.arc(px, py + 1, 4, 1.15 * Math.PI, 1.85 * Math.PI); ctx.stroke();
+        }
+        const tag = track.domain === 'submerged' ? 'D' : track.domain === 'air' ? ['', 'B', 'S', 'C'][track.band] : '';
+        if (tag) {
+          ctx.font = '6px "Share Tech Mono", monospace';
+          ctx.fillText(tag, px + 5, py - 4);
+        }
+        ctx.restore();
+      }
+      ctx.restore();
+    }
 
     // ---- advanced line of sight ----
     // You see what YOU can see. A head cam network adds everything your

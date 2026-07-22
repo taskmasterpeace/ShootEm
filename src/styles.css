@@ -477,6 +477,62 @@ html, body {
 }
 #minimap.large { width: min(430px, 60vh); height: min(430px, 60vh); }
 
+/* VEHICLE INSTRUMENTS — live telemetry over PixelLab's empty gunmetal dial.
+   The PNG contributes only riveted chrome; labels, needle and states remain
+   crisp DOM data and the dark vector plate underneath is its fail-safe. */
+#vehicle-instruments {
+  position: relative; width: min(264px, 34vh); height: 110px; overflow: hidden;
+  background-color: oklch(0.14 0.014 74 / 0.94);
+  background-image: url('../docs/reference/hud/hud-B-gunmetal-dial.png');
+  background-size: 100% 100%; background-repeat: no-repeat;
+  border: 1px solid var(--border-bright); border-radius: var(--radius);
+  filter: saturate(0.78) contrast(1.08); box-shadow: 0 5px 18px rgb(0 0 0 / 42%);
+  font-family: var(--font-mono); text-align: left; color: var(--text);
+}
+#vehicle-instruments::before, #vehicle-instruments::after {
+  content: ''; position: absolute; z-index: 3; width: 11px; height: 11px; pointer-events: none;
+  border: 0 solid var(--accent);
+}
+#vehicle-instruments::before { left: -1px; top: -1px; border-left-width: 2px; border-top-width: 2px; }
+#vehicle-instruments::after { right: -1px; bottom: -1px; border-right-width: 2px; border-bottom-width: 2px; }
+.instrument-data-bay {
+  position: absolute; left: 30px; top: 18px; width: 157px; height: 78px;
+  display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 14px 25px 17px 18px;
+  gap: 1px 7px; align-items: center; z-index: 2;
+  text-shadow: 0 1px 2px #000;
+}
+#instrument-mode { color: var(--accent); font-size: 0.61rem; letter-spacing: 0.12em; }
+#instrument-speed { grid-row: 2 / 4; font-size: 1.55rem; line-height: 1; color: oklch(0.88 0.12 82); font-weight: 500; }
+#instrument-speed small { font-size: 0.52rem; color: var(--muted); letter-spacing: 0.08em; }
+#instrument-heading { grid-column: 2; grid-row: 1; color: var(--text); font-size: 0.65rem; text-align: right; }
+#instrument-altitude { grid-column: 2; grid-row: 2; display: flex; justify-content: flex-end; gap: 3px; }
+.instrument-alt-pip {
+  display: inline-grid; place-items: center; width: 17px; height: 15px;
+  color: oklch(0.5 0.02 78); border: 1px solid oklch(0.32 0.018 74); font-size: 0.55rem;
+}
+.instrument-alt-pip.active { color: #15130d; background: var(--accent); border-color: var(--accent); box-shadow: 0 0 6px oklch(0.76 0.16 74 / 65%); }
+#instrument-radar { grid-column: 1 / 3; grid-row: 4; color: oklch(0.82 0.06 190); font-size: 0.55rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#instrument-radar.warn { color: var(--accent); }
+#instrument-threat { grid-column: 2; grid-row: 3; text-align: right; color: var(--ok); font-size: 0.5rem; white-space: nowrap; }
+#instrument-threat.danger { color: var(--danger); animation: instrument-lock 0.75s ease-in-out infinite alternate; }
+@keyframes instrument-lock { from { opacity: 0.62; } to { opacity: 1; text-shadow: 0 0 7px var(--danger); } }
+.airspeed-dial { position: absolute; right: 5px; top: 5px; width: 60px; height: 54px; z-index: 2; }
+#airspeed-needle {
+  position: absolute; left: calc(50% - 1px); top: 8px; width: 2px; height: 21px;
+  background: oklch(0.91 0.03 78); box-shadow: 0 0 3px #000; transform-origin: 50% 100%;
+  transition: transform 0.12s linear;
+}
+.airspeed-dial::after { content: ''; position: absolute; left: calc(50% - 3px); top: 26px; width: 6px; height: 6px; background: #171713; border: 1px solid var(--accent); border-radius: 50%; }
+.airspeed-dial b { position: absolute; top: 42px; left: 0; right: 0; text-align: center; color: var(--accent); font-size: 0.5rem; font-weight: 500; }
+
+@media (max-height: 700px) {
+  #hud-bottom-right { gap: 0.35rem; }
+  #vehicle-instruments { height: 90px; }
+  .instrument-data-bay { top: 12px; height: 65px; grid-template-rows: 12px 22px 14px 15px; }
+  #instrument-speed { font-size: 1.3rem; }
+  .airspeed-dial { top: 3px; transform: scale(0.86); transform-origin: top right; }
+}
+
 #hitmarker {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
   font-size: 1.4rem; color: oklch(0.95 0.02 80); opacity: 0; font-weight: 700;
