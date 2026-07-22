@@ -1420,10 +1420,16 @@ export class Renderer {
       const scale = settings.reticleScale * spreadMul * 1.4;
       const r = this.standingReticle;
       r.visible = true;
-      r.position.set(ax, 1.35, az); // stands up: its foot nearly meets the ground
       r.scale.setScalar(scale);
-      r.quaternion.copy(this.camera.quaternion); // billboard — always reads flat-on
-      if (this.reticleShadow) { this.reticleShadow.visible = true; this.reticleShadow.position.set(ax, 0.04, az); this.reticleShadow.scale.setScalar(scale * 0.8); }
+      // PLANTED IN THE WORLD (Robert: "physically in the 3D world… the bottom
+      // touching the ground… NOT facing the camera"). A VERTICAL plane standing
+      // at the aim point, its FOOT on the ground; it only YAWS to face the camera
+      // (stays upright), so the angled view foreshortens it like a real standing
+      // target/sign, instead of a flat camera-locked billboard.
+      r.rotation.set(0, Math.atan2(this.camPos.x - ax, this.camPos.z - az), 0);
+      const foot = 0.58 * scale; // the reticle's built half-height (ring/bars) × scale
+      r.position.set(ax, foot, az); // center at half-height → bottom sits on the ground
+      if (this.reticleShadow) { this.reticleShadow.visible = true; this.reticleShadow.position.set(ax, 0.04, az); this.reticleShadow.scale.setScalar(scale * 0.85); }
     } else {
       if (this.standingReticle) this.standingReticle.visible = false;
       if (this.reticleShadow) this.reticleShadow.visible = false;
