@@ -16,3 +16,4 @@
 2026-07-22 IT-17: #62 slice 2 (Odessa variants rotate). 15 closed, 8 needs-robert, epics progressing.
 2026-07-22 IT-18: #18 built (hidden-tab drop + 300 cap). Next: #19 replay structuredClone or #10 parked hulls.
 2026-07-22 IT-19: #29 built (scar map: stable node + 610KB JPEG, live-verified sameNode). 17 closed.
+2026-07-22 IT-20: #28 built (lazy GLB probes, network-log proof). 18 closed, 8 needs-robert.
