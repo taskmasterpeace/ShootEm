@@ -1418,27 +1418,47 @@ export class Hud {
     ctx.stroke();
   }
 
-  /** Post-match honors, computed straight from the trophy ledger. */
-  private renderTrophies(world: World): string {
+  /** Post-match honors, computed straight from the trophy ledger. A flag mode
+   *  leads with the FLAG honors — the run and the defense are the real story. */
+  private renderTrophies(world: World, isFlag = false): string {
     const pool = world.humansAndBots();
     if (!pool.length) return '';
-    const best = <K extends 'score' | 'kills' | 'longestKill' | 'healGiven' | 'vehicleKills'>(key: K) =>
-      [...pool].sort((a, b) => (b[key] as number) - (a[key] as number))[0];
-    const awards: { icon: string; title: string; s: Soldier; detail: string }[] = [];
-    const mvp = best('score');
-    if (mvp.score > 0) awards.push({ icon: '🏆', title: 'MVP', s: mvp, detail: `${Math.floor(mvp.score)} score` });
-    const gun = best('kills');
+    const top = <K extends 'score' | 'kills' | 'longestKill' | 'healGiven' | 'vehicleKills' | 'captures' | 'flagReturns'>(key: K) =>
+      [...pool].sort((a, b) => ((b[key] as number | undefined) ?? 0) - ((a[key] as number | undefined) ?? 0))[0];
+    const awards: { icon: string; title: string; s: Soldier; detail: string; hero?: boolean }[] = [];
+    if (isFlag) {
+      const runner = top('captures');
+      if ((runner.captures ?? 0) > 0) awards.push({ icon: '🚩', title: 'Flag Runner', s: runner, detail: `${runner.captures} captured`, hero: true });
+      const keeper = top('flagReturns');
+      if ((keeper.flagReturns ?? 0) > 0) awards.push({ icon: '🛡️', title: 'Flag Defender', s: keeper, detail: `${keeper.flagReturns} returned`, hero: true });
+    }
+    const mvp = top('score');
+    if (mvp.score > 0) awards.push({ icon: '🏆', title: 'MVP', s: mvp, detail: `${Math.floor(mvp.score)} score`, hero: !isFlag });
+    const gun = top('kills');
     if (gun.kills > 0) awards.push({ icon: '💀', title: 'Top Gun', s: gun, detail: `${gun.kills} kills` });
-    const marksman = best('longestKill');
+    const marksman = top('longestKill');
     if (marksman.longestKill > 0) awards.push({ icon: '🎯', title: 'Longest Shot', s: marksman, detail: `${marksman.longestKill.toFixed(1)}u` });
-    const medic = best('healGiven');
+    const medic = top('healGiven');
     if (medic.healGiven > 0) awards.push({ icon: '⚕️', title: 'Combat Medic', s: medic, detail: `${Math.round(medic.healGiven)} healed` });
-    const buster = best('vehicleKills');
+    const buster = top('vehicleKills');
     if (buster.vehicleKills > 0) awards.push({ icon: '💥', title: 'Tank Buster', s: buster, detail: `${buster.vehicleKills} wrecks` });
     if (!awards.length) return '';
     return `<div class="trophy-row">${awards.map((a) =>
-      `<div class="trophy"><div class="t-icon">${a.icon}</div><div class="t-title">${a.title}</div><div class="t-name t${a.s.team}">${a.s.name}</div><div class="t-detail">${a.detail}</div></div>`,
+      `<div class="trophy${a.hero ? ' hero' : ''}"><div class="t-icon">${a.icon}</div><div class="t-title">${a.title}</div><div class="t-name t${a.s.team}">${a.s.name}</div><div class="t-detail">${a.detail}</div></div>`,
     ).join('')}</div>`;
+  }
+
+  /** The flag run — every capture in order with the running score, the winning
+   *  one crowned. The match's actual STORY, not a lone final number. */
+  private renderFlagLog(target: number): string {
+    if (this.flagCaps.length < 1) return '';
+    const tally = [0, 0];
+    const chips = this.flagCaps.map((c) => {
+      tally[c.team]++;
+      const won = tally[c.team] >= target;
+      return `<span class="flagcap t${c.team}${won ? ' won' : ''}">${won ? '👑 ' : ''}<b>${c.name}</b><span class="fc-score">${tally[0]}–${tally[1]}</span></span>`;
+    }).join('<span class="fc-arrow">›</span>');
+    return `<div class="aar-log"><h3>The flag run</h3><div class="flagcap-row">${chips}</div></div>`;
   }
 
   /** "YOUR ARSENAL — this deployment" (Robert: "way more details… we captured
@@ -1465,13 +1485,42 @@ export class Hud {
     const sb = $('scoreboard');
     const m = world.mode;
     const soldiers = [...world.humansAndBots()].sort((a, b) => b.score - a.score || b.kills - a.kills); // copy: humansAndBots() is cached (opt #8), never sort it in place
+    const isFlag = m.id === 'ctf'; // flag modes earn the flag treatment
+    const me = world.soldiers.get(localId);
+    const cols = isFlag ? 9 : 7;
     const row = (s: Soldier) =>
-      `<tr class="${s.id === localId ? 'me' : ''}"><td>${s.name}</td><td>${CLASSES[s.classId].name}</td><td>${s.kills}</td><td>${s.deaths}</td>` +
+      `<tr class="${s.id === localId ? 'me' : ''}"><td>${s.name}</td><td>${CLASSES[s.classId].name}</td>` +
+      (isFlag ? `<td class="cap">${(s.captures ?? 0) || '—'}</td><td class="ret">${(s.flagReturns ?? 0) || '—'}</td>` : '') +
+      `<td>${s.kills}</td><td>${s.deaths}</td>` +
       `<td>${s.longestKill > 0 ? s.longestKill.toFixed(0) + 'u' : '—'}</td><td>${s.vehicleKills || '—'}</td><td>${Math.floor(s.score)}</td></tr>`;
-    let html = `<h2>${MODE_INFO[m.id].name}${m.over ? ` — ${m.winner === -1 ? 'Draw' : TEAM_NAMES[m.winner as Team] + ' wins'}` : ''}</h2>`;
-    if (m.over) html += this.renderTrophies(world); // the honors roll
-    html += `<table>
-      <tr><th>Callsign</th><th>Class</th><th>K</th><th>D</th><th title="Longest kill">Long</th><th title="Vehicles wrecked">Wreck</th><th>Score</th></tr>`;
+
+    let html = '';
+    if (m.over) {
+      // ── THE HERO HEADER: the verdict from YOUR side, and the score that
+      // decided it — the emotional beat the flat "X wins" line never had
+      const draw = m.winner === -1;
+      const iWon = !draw && me !== undefined && m.winner === me.team;
+      const verdict = draw ? 'STALEMATE' : iWon ? 'VICTORY' : 'DEFEAT';
+      const vclass = draw ? 'draw' : iWon ? 'win' : 'loss';
+      html += `<div class="aar-hero ${vclass}">
+          <div class="aar-verdict">${verdict}</div>
+          <div class="aar-scoreline">
+            <span class="asl-name t0">${TEAM_NAMES[0]}</span>
+            <span class="asl-num t0">${Math.floor(m.scores[0])}</span>
+            <span class="asl-sep">${isFlag ? '⚑' : '·'}</span>
+            <span class="asl-num t1">${Math.floor(m.scores[1])}</span>
+            <span class="asl-name t1">${TEAM_NAMES[1]}</span>
+          </div>
+          <div class="aar-mode">${MODE_INFO[m.id].name}${isFlag ? ` — first to ${m.target} flags` : ''}</div>
+        </div>`;
+      html += this.renderTrophies(world, isFlag); // the honors roll — flag honors first
+    } else {
+      html += `<h2>${MODE_INFO[m.id].name}</h2>`;
+    }
+
+    // ── THE ROSTER (a flag mode adds CAP / RET, so the flag game is legible) ──
+    const flagCols = isFlag ? '<th class="cap" title="Flags captured">CAP</th><th title="Flags returned on defense">RET</th>' : '';
+    html += `<table><tr><th>Callsign</th><th>Class</th>${flagCols}<th>K</th><th>D</th><th title="Longest kill">Long</th><th title="Vehicles wrecked">Wreck</th><th>Score</th></tr>`;
     if (m.id === 'survival' || m.id === 'horde' || m.id === 'safehouse' || m.id === 'science') {
       html += soldiers.map(row).join('');
     } else {
@@ -1483,20 +1532,27 @@ export class Hud {
           if (s.team !== team) continue;
           if (s.kind === 'human') flesh += s.deaths; else chrome += s.deaths;
         }
-        html += `<tr class="team-head t${team}"><td colspan="7">${TEAM_NAMES[team]} — ${Math.floor(m.scores[team])}` +
-          `<span style="float:right;font-size:0.78em;color:var(--muted)">LOSSES — FLESH ${flesh} · CHROME ${chrome}</span></td></tr>`;
+        const tally = isFlag ? `${Math.floor(m.scores[team])} <span class="th-unit">CAPTURED</span>` : `${Math.floor(m.scores[team])}`;
+        html += `<tr class="team-head t${team}"><td colspan="${cols}"><div class="th-flex"><span>${TEAM_NAMES[team]} — ${tally}</span>` +
+          `<span class="th-losses">FLESH ${flesh} · CHROME ${chrome} lost</span></div></td></tr>`;
         html += soldiers.filter((s) => s.team === team).map(row).join('');
       }
     }
     html += '</table>';
+
+    if (m.over && isFlag) html += this.renderFlagLog(m.target); // the capture story
     if (m.over) html += this.renderArsenal(); // your per-weapon record — the rich after-action
     if (m.over && this.careerHtml) html += this.careerHtml; // §3.4: what this match added
-    if (m.over) html += `<p style="margin-top:1rem;color:var(--muted)">Returning to menu…</p>`;
+    if (m.over) html += `<p class="aar-foot">Returning to base…</p>`;
     sb.innerHTML = html;
   }
 
   /** Post-match career pane (the Record, §3.4) — set by the match tracker. */
   careerHtml = '';
+
+  /** CTF: the capture TIMELINE, collected live from flag_captured events — the
+   *  after-action "story" (who sealed it, and when). Reset each fresh match. */
+  private flagCaps: { team: Team; name: string; timeLeft: number }[] = [];
 
   /** Detail #1: which print of you is currently walking. You deploy as
    *  PRINT 1; every reprint increments. Reset when a fresh match's clock
@@ -1515,7 +1571,7 @@ export class Hud {
   }
 
   applyEvents(events: SimEvent[], world: World, localId: number, now: number) {
-    if (world.time < this.lastSimTime) { this.prints = 1; this.gunLedger.clear(); } // new match
+    if (world.time < this.lastSimTime) { this.prints = 1; this.gunLedger.clear(); this.flagCaps = []; } // new match
     this.lastSimTime = world.time;
     if (!world.operation) this.operationHud = null;
     for (const event of events) {
@@ -1596,6 +1652,11 @@ export class Hud {
         void el.offsetWidth; // restart the animation
         el.classList.add('show');
         audio.play('hitmarker', { volume: 0.5, rate: 0.7 }); // a lower, heavier tick than the hit ✕
+      }
+      if (e.type === 'flag_captured') { // the capture timeline for the after-action story
+        const name = (e.text ?? '').split(' captured')[0] || TEAM_NAMES[(e.team ?? 0) as Team];
+        this.flagCaps.push({ team: (e.team ?? 0) as Team, name, timeLeft: world.mode.timeLeft });
+        if (this.flagCaps.length > 16) this.flagCaps.shift();
       }
       if ((e.type === 'announce' || e.type === 'flag_taken' || e.type === 'flag_captured' ||
            e.type === 'flag_returned' || e.type === 'point_captured' || e.type === 'wave_start' ||

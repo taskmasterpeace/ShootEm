@@ -441,6 +441,11 @@ export interface Soldier {
   vehicleKills: number;
   /** hit points healed into allies */
   healGiven: number;
+  /** CTF (and flag modes): flags CAPTURED (carried home) and flags RETURNED on
+   *  defense — the flag game's real currency, surfaced in the after-action
+   *  honors + per-player columns. Optional: absent = 0, no init churn. */
+  captures?: number;
+  flagReturns?: number;
   // sci-fi kit
   pushX: number;      // knockback impulse, decays
   pushZ: number;

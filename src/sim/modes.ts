@@ -295,6 +295,7 @@ function stepCtf(w: World, _dt: number) {
         if (ownFlag.atHome && Math.hypot(carrier.pos.x - base.x, carrier.pos.z - base.z) < 7) {
           m.scores[carrier.team]++;
           carrier.score += 50;
+          carrier.captures = (carrier.captures ?? 0) + 1; // CTF: credit the runner
           carrier.carryingFlag = -1;
           flag.carrierId = -1;
           flag.atHome = true;
@@ -325,6 +326,7 @@ function stepCtf(w: World, _dt: number) {
         flag.atHome = true;
         flag.pos = { ...flag.homePos };
         s.score += 10;
+        s.flagReturns = (s.flagReturns ?? 0) + 1; // CTF: credit the defender
         w.emit({ type: 'flag_returned', pos: flag.homePos, team: flag.team, text: `${TEAM_NAMES[flag.team]} flag returned` });
         break;
       }

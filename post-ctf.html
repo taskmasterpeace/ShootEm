@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Post-CTF AAR — design harness</title>
+  <link rel="stylesheet" href="/fonts/fonts.css" />
+  <link rel="stylesheet" href="/src/styles.css" />
+  <style>
+    html { min-height: 100%; }
+    body { min-height: 1600px; margin: 0; background:
+      radial-gradient(120% 90% at 50% 0%, oklch(0.19 0.02 74) 0%, oklch(0.12 0.012 74) 60%) no-repeat; }
+    #scoreboard { position: static !important; transform: none !important; margin: 1.75rem 0 1.75rem 2rem; }
+    .harness-tag { position: fixed; top: 8px; left: 10px; font: 11px var(--font-mono); color: var(--muted); letter-spacing: 0.08em; }
+  </style>
+</head>
+<body>
+  <div class="harness-tag">POST-CTF AAR · IMPROVED (harness)</div>
+  <div id="scoreboard"></div>
+  <script>
+    const TEAM0 = 'The United Front', TEAM1 = 'The Collective';
+    // trophies — flag honors FIRST (hero), then the generic roll
+    const trophies = [
+      { icon: '🚩', title: 'Flag Runner', name: 'DOZER', team: 0, detail: '2 captured', hero: true },
+      { icon: '🛡️', title: 'Flag Defender', name: 'STITCH', team: 0, detail: '4 returned', hero: true },
+      { icon: '🏆', title: 'MVP', name: 'DOZER', team: 0, detail: '340 score' },
+      { icon: '💀', title: 'Top Gun', name: 'VULTURE', team: 1, detail: '14 kills' },
+      { icon: '🎯', title: 'Longest Shot', name: 'REAPER-7', team: 0, detail: '88.0u' },
+      { icon: '⚕️', title: 'Combat Medic', name: 'MENDER', team: 1, detail: '220 healed' },
+      { icon: '💥', title: 'Tank Buster', name: 'VULTURE', team: 1, detail: '3 wrecks' },
+    ];
+    // rows: [name, class, CAP, RET, K, D, Long, Wreck, Score, isMe]
+    const t0 = [
+      ['DOZER', 'Assault', 2, 1, 11, 6, '62u', 2, 340],
+      ['REAPER-7', 'Recon', 0, 2, 9, 8, '88u', '—', 210, true],
+      ['STITCH', 'Medic', 1, 4, 3, 4, '—', '—', 235],
+      ['ANVIL', 'Heavy', 0, 1, 7, 9, '41u', 1, 155],
+      ['SPARK', 'Engineer', 0, 0, 4, 7, '33u', '—', 120],
+      ['BOT-KILO', 'Assault', 0, 0, 6, 10, '38u', '—', 95],
+    ];
+    const t1 = [
+      ['VULTURE', 'Assault', 1, 0, 14, 9, '45u', 3, 315],
+      ['GHOST', 'Recon', 1, 1, 8, 7, '76u', '—', 220],
+      ['MENDER', 'Medic', 0, 2, 2, 5, '—', '—', 190],
+      ['SLAB', 'Heavy', 0, 1, 6, 11, '29u', 1, 110],
+      ['BOT-NINE', 'Engineer', 0, 0, 3, 8, '31u', '—', 80],
+    ];
+    // the flag run: [name, team]
+    const flagRun = [['DOZER', 0], ['GHOST', 1], ['DOZER', 0], ['VULTURE', 1], ['STITCH', 0]];
+    const TARGET = 3;
+    const arsenal = [['AR-606 Kuchler', 9, '88u', '—'], ['Combat Knife', 1, '—', '—'], ['Frag Grenade', 2, '—', '—']];
+
+    const row = (r) => `<tr class="${r[9] ? 'me' : ''}"><td>${r[0]}</td><td>${r[1]}</td>` +
+      `<td class="cap">${r[2] || '—'}</td><td class="ret">${r[3] || '—'}</td>` +
+      `<td>${r[4]}</td><td>${r[5]}</td><td>${r[6]}</td><td>${r[7]}</td><td>${r[8]}</td></tr>`;
+    const teamHead = (name, team, caps, flesh, chrome) =>
+      `<tr class="team-head t${team}"><td colspan="9"><div class="th-flex"><span>${name} — ${caps} <span class="th-unit">CAPTURED</span></span>` +
+      `<span class="th-losses">FLESH ${flesh} · CHROME ${chrome} lost</span></div></td></tr>`;
+
+    let html = `<div class="aar-hero win">
+        <div class="aar-verdict">VICTORY</div>
+        <div class="aar-scoreline">
+          <span class="asl-name t0">${TEAM0}</span><span class="asl-num t0">3</span>
+          <span class="asl-sep">⚑</span>
+          <span class="asl-num t1">2</span><span class="asl-name t1">${TEAM1}</span>
+        </div>
+        <div class="aar-mode">Capture the Flag — first to 3 flags</div>
+      </div>`;
+    html += `<div class="trophy-row">${trophies.map((a) =>
+      `<div class="trophy${a.hero ? ' hero' : ''}"><div class="t-icon">${a.icon}</div><div class="t-title">${a.title}</div><div class="t-name t${a.team}">${a.name}</div><div class="t-detail">${a.detail}</div></div>`).join('')}</div>`;
+    html += `<table><tr><th>Callsign</th><th>Class</th><th class="cap" title="Flags captured">CAP</th><th title="Flags returned on defense">RET</th><th>K</th><th>D</th><th title="Longest kill">Long</th><th title="Vehicles wrecked">Wreck</th><th>Score</th></tr>`;
+    html += teamHead(TEAM0, 0, 3, 18, 6) + t0.map(row).join('');
+    html += teamHead(TEAM1, 1, 2, 22, 9) + t1.map(row).join('');
+    html += `</table>`;
+    // the flag run
+    const tally = [0, 0];
+    const chips = flagRun.map(([name, team]) => {
+      tally[team]++; const won = tally[team] >= TARGET;
+      return `<span class="flagcap t${team}${won ? ' won' : ''}">${won ? '👑 ' : ''}<b>${name}</b><span class="fc-score">${tally[0]}–${tally[1]}</span></span>`;
+    }).join('<span class="fc-arrow">›</span>');
+    html += `<div class="aar-log"><h3>The flag run</h3><div class="flagcap-row">${chips}</div></div>`;
+    html += `<div class="arsenal"><h3>Your Arsenal — this deployment</h3><table><tr><th>Weapon</th><th>Kills</th><th>Longest</th><th>Hulls wrecked</th></tr>` +
+      arsenal.map((a) => `<tr><td>${a[0]}</td><td>${a[1]}</td><td>${a[2]}</td><td>${a[3]}</td></tr>`).join('') + `</table></div>`;
+    html += `<div id="career-pane"><h3>THIS DEPLOYMENT ADDED</h3><p>+235 score · Rank: <b>Corporal</b> ▴▴ · 🎖 Flag Defender</p></div>`;
+    html += `<p class="aar-foot">Returning to base…</p>`;
+    document.getElementById('scoreboard').innerHTML = html;
+  </script>
+</body>
+</html>

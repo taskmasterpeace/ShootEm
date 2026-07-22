@@ -765,7 +765,7 @@ html, body {
 /* ============ SCOREBOARD ============ */
 #scoreboard {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  z-index: 20; width: min(46rem, 92vw);
+  z-index: 20; width: min(52rem, 94vw);
   background: oklch(0.17 0.02 80 / 0.92); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 1.5rem; backdrop-filter: blur(10px);
 }
@@ -1007,9 +1007,9 @@ html, body {
 }
 
 /* ============ POST-MATCH TROPHIES ============ */
-.trophy-row { display: flex; gap: 0.6rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.trophy-row { display: flex; gap: 0.6rem; margin-bottom: 1rem; flex-wrap: wrap; justify-content: center; }
 .trophy {
-  flex: 1; min-width: 6.5rem; text-align: center;
+  flex: 0 1 8rem; min-width: 6.5rem; text-align: center;
   background: oklch(0.22 0.035 75 / 0.6); border: 1px solid oklch(0.45 0.08 75 / 0.6);
   border-radius: var(--radius); padding: 0.6rem 0.4rem;
 }
@@ -1025,6 +1025,49 @@ html, body {
 .arsenal h3 { font-family: var(--font-display); font-weight: 400; font-size: 0.82rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); margin-bottom: 0.4rem; }
 .arsenal td:first-child { font-weight: 600; }
 .arsenal td { color: var(--muted); }
+
+/* ── POST-MATCH AAR: the hero verdict, the deciding score, the flag story ── */
+.aar-hero { text-align: center; margin-bottom: 1.15rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+.aar-verdict {
+  font-family: var(--font-display); font-weight: 400; font-size: 2.7rem; line-height: 1;
+  letter-spacing: 0.09em; text-transform: uppercase;
+}
+.aar-hero.win .aar-verdict { color: var(--accent); text-shadow: 0 0 26px oklch(0.76 0.16 74 / 0.45), 0 2px 0 oklch(0 0 0 / 0.55); }
+.aar-hero.loss .aar-verdict { color: var(--team1); text-shadow: 0 2px 0 oklch(0 0 0 / 0.55); }
+.aar-hero.draw .aar-verdict { color: var(--muted); }
+.aar-scoreline { display: flex; align-items: center; justify-content: center; gap: 0.55rem; margin-top: 0.55rem; }
+.asl-name { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.asl-name.t0, .asl-num.t0 { color: var(--team0); }
+.asl-name.t1, .asl-num.t1 { color: var(--team1); }
+.asl-num { font-family: var(--font-display); font-size: 2rem; line-height: 1; min-width: 1.3em; font-variant-numeric: tabular-nums; }
+.asl-num.t0 { text-align: right; }
+.asl-num.t1 { text-align: left; }
+.asl-sep { color: var(--accent); font-size: 1rem; opacity: 0.85; }
+.aar-mode { margin-top: 0.5rem; font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.trophy.hero { border-color: var(--accent); background: oklch(0.25 0.055 75 / 0.6); }
+.trophy.hero .t-icon { filter: drop-shadow(0 0 7px oklch(0.76 0.16 74 / 0.55)); }
+
+/* the flag run — the capture timeline (the match's story) */
+.aar-log { margin-top: 1.1rem; }
+.aar-log h3 { font-family: var(--font-display); font-weight: 400; font-size: 0.82rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); margin-bottom: 0.5rem; }
+.flagcap-row { display: flex; align-items: center; gap: 0.25rem; flex-wrap: wrap; }
+.flagcap { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.22rem 0.5rem; border: 1px solid var(--border); border-left-width: 2px; border-radius: 0.4rem; font-size: 0.74rem; background: oklch(0.2 0.02 78 / 0.6); }
+.flagcap.t0 { border-left-color: var(--team0); }
+.flagcap.t1 { border-left-color: var(--team1); }
+.flagcap.won { border-color: var(--accent); background: oklch(0.27 0.07 75 / 0.62); }
+.flagcap b { font-weight: 600; }
+.flagcap.t0 b { color: var(--team0); }
+.flagcap.t1 b { color: var(--team1); }
+.flagcap .fc-score { font-family: var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.fc-arrow { color: var(--muted); opacity: 0.45; }
+
+/* team-head + flag columns: the CAPTURED unit and a losses tag that never clips */
+#scoreboard .team-head .th-flex { display: flex; justify-content: space-between; align-items: baseline; gap: 0.4rem 1.2rem; flex-wrap: wrap; }
+#scoreboard .team-head .th-unit { font-family: var(--font-mono); font-size: 0.6em; letter-spacing: 0.08em; opacity: 0.72; }
+#scoreboard .team-head .th-losses { white-space: nowrap; font: 400 0.64em var(--font-mono); letter-spacing: 0.03em; color: var(--muted); }
+#scoreboard th.cap, #scoreboard td.cap { color: var(--accent); }
+#scoreboard td.cap { font-weight: 700; }
+.aar-foot { margin-top: 1.1rem; text-align: center; font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
 
 /* ============ REPLAY / KILLCAM ============ */
 #replay-banner {
