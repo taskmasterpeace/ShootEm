@@ -29,6 +29,7 @@ export const THEME_WEATHER: Record<ThemeId, WeatherKind[]> = {
   // open flats: dust storms and clear skies. Fog would gut a map whose whole
   // point is the long fire lane, so it is not on the menu.
   hardpan:  ['clear', 'clear', 'clear', 'dust', 'dust', 'night'],
+  winter:   ['clear', 'clear', 'fog', 'night'],              // == europa menu: same seed→sky roll (byte-identical)
 };
 
 export interface WeatherMods {

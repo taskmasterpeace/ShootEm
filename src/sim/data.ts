@@ -820,4 +820,8 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
   // lanes, almost no interiors — a map built so armour and aircraft can
   // actually manoeuvre instead of getting stuck in somebody's kitchen.
   hardpan: { id: 'hardpan', name: 'The Hardpan — Armor Country', desc: 'Cracked flats and long fire lanes. Bring the whole motor pool.', icon: '🛞', gravity: 22, gen: 'armor' },
+  // WINTER — snowbound mountains. Sim-identical to the old europa mountain
+  // theme (gravity 9, grit surface, same sky menu) so Crown Divide's play is
+  // unchanged; only the palette turns the ice-moon blue into snow white.
+  winter: { id: 'winter', name: 'Terra — Winter', desc: 'Snowbound peaks and frozen passes. The mountain war in deep winter.', icon: '🏔️', gravity: 9, gen: 'field' },
 };

@@ -120,6 +120,14 @@ export const THEME_PALETTES: Record<string, ThemePalette> = {
     open: (r) => { const g = 150 + r * 30; return `rgb(${g - 24}, ${g - 8}, ${g + 4})`; }, // nitrogen ice
     water: (r) => `rgb(${16 + r * 6}, ${34 + r * 10}, ${52 + r * 12})`, // crevasse deep
   },
+  winter: {
+    // snowbound mountains: a bright overcast sky, cool sun, deep white snowpack
+    sky: 0xbcccd8, fog: 0xccd6de, fogNear: 70, fogFar: 200,
+    sun: 0xf4f8ff, sunIntensity: 1.5, hemiSky: 0xdce8f4, hemiGround: 0x8a94a0,
+    wall: 0x9aa6b0, cover: 0xc4ccd4,
+    open: (r) => { const g = 208 + r * 32; return `rgb(${g - 6}, ${g}, ${g + 6})`; }, // snowpack, faintly blue in the drifts
+    water: (r) => `rgb(${120 + r * 20}, ${150 + r * 24}, ${172 + r * 24})`, // frozen melt / slush
+  },
 };
 
 /** EMBODIMENT: the LSW's attackPose (on its def, upper-case) → the pose the

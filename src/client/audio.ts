@@ -24,6 +24,7 @@ export const SOUND_NAMES = [
   // per-theme ambience beds (looped low under the match; ducked, never loud)
   'amb_savanna', 'amb_starship', 'amb_asteroid', 'amb_europa', 'amb_titan', 'amb_triton',
   'amb_hardpan', // V5 armor country — the one bed that is synthesized, not AI-made
+  'amb_winter', // snowbound mountains — bed slot registered; fill it from the Sound Editor
   'door', // door swing: creak + latch (E did it)
   'door_hit', // fist/claw pounding the wood — the siege heartbeat
   'door_break', // planks give way — the siege payoff

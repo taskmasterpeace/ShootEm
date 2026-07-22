@@ -30,4 +30,5 @@ export const BIOME_AUDIO: Record<ThemeId, BiomeAudio> = {
   titan:    { surface: 'gritty colony road', footstep: 'footstep_grit',  ambience: 'amb_titan',    ambVol: 0.22 },
   triton:   { surface: 'hard ice',           footstep: 'footstep_ice',   ambience: 'amb_triton',   ambVol: 0.24 },
   hardpan:  { surface: 'cracked hardpan',    footstep: 'footstep_grit',  ambience: 'amb_hardpan',  ambVol: 0.2 },
+  winter:   { surface: 'packed snow',        footstep: 'footstep_ice',   ambience: 'amb_winter',   ambVol: 0.24 },
 };

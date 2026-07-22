@@ -86,6 +86,7 @@ const SURFACE: Record<ThemeId, number> = {
   titan: S_GRIT,
   triton: S_GRIT,
   hardpan: S_DIRT,
+  winter: S_GRIT,
 };
 
 const tileToWorld = (tx: number, tz: number, floor = 0, geometry: MapGeometry = LEGACY_GEOMETRY): Vec3 => ({

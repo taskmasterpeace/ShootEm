@@ -18,6 +18,7 @@ const SURFACE_BY_THEME = {
   titan: S_GRIT,
   triton: S_DIRT,
   hardpan: S_DIRT,
+  winter: S_GRIT, // == europa: keeps the mountain theater surface byte-identical
 } as const;
 
 /** Minimum whole-tile corridor for one hull or two opposing hulls to pass. */
