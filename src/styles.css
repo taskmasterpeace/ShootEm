@@ -1706,3 +1706,25 @@ kbd.key + kbd.key { margin-left: 0.15rem; }
 .dmg-arc.on { animation: dmg-arc-fade 0.9s ease-out forwards; }
 @keyframes dmg-arc-fade { 0% { opacity: 0.95; } 55% { opacity: 0.85; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .dmg-arc.on { animation: none; opacity: 0.85; transition: opacity 0.9s; } }
+
+/* ── THE SERVICE NET (reviews.ts) — the Codex's field-rating layer ── */
+.cx-net { border: 1px solid #2a2f37; border-left: 3px solid var(--accent, #e8a33d); padding: 0.5rem 0.7rem; margin: 0.6rem 0; }
+.cx-net-head { display: flex; align-items: center; gap: 0.7rem; }
+.cx-stars { color: var(--accent, #e8a33d); letter-spacing: 0.15em; font-size: 0.85rem; }
+.cx-net-meta { color: #93a0b0; font-size: 0.68rem; letter-spacing: 0.08em; }
+.cx-netbtn { margin-left: auto; background: none; border: 1px solid #2a2f37; color: #e8a33d;
+  font: inherit; font-size: 0.66rem; letter-spacing: 0.12em; padding: 0.2rem 0.5rem; cursor: pointer; }
+.cx-netbtn:hover { border-color: #e8a33d; }
+.cx-netbtn:disabled { color: #93a0b0; cursor: default; }
+.cx-net-body { margin-top: 0.6rem; display: flex; flex-direction: column; gap: 0.55rem; max-height: 15rem; overflow-y: auto; }
+.cx-file { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; padding-bottom: 0.45rem; border-bottom: 1px dashed #2a2f37; }
+.cx-star { background: none; border: none; color: #e8a33d; font-size: 1rem; cursor: pointer; padding: 0 0.1rem; }
+.cx-star:not(.on) { color: #4a5563; }
+.cx-review { border-bottom: 1px solid #20242b; padding-bottom: 0.45rem; }
+.cx-review.mine { border-left: 2px solid #e8a33d; padding-left: 0.5rem; }
+.cx-rv-top { display: flex; gap: 0.6rem; align-items: center; }
+.cx-rv-mine { color: #e8a33d; font-size: 0.6rem; letter-spacing: 0.14em; }
+.cx-rv-phrase { margin: 0.15rem 0; font-size: 0.78rem; color: #e7ecf2; }
+.cx-rv-card { background: none; border: none; color: #93a0b0; font: inherit; font-size: 0.64rem;
+  letter-spacing: 0.06em; cursor: pointer; padding: 0; text-align: left; }
+.cx-rv-card:hover { color: #e8a33d; } /* the print card IS the drill-down into who's talking */

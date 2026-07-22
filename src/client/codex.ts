@@ -15,6 +15,7 @@
 // asserts the Codex predicts it, so the mirror can't rot quietly.
 // ---------------------------------------------------------------------------
 import * as THREE from 'three';
+import { PHRASES, SECTION_CATEGORY, aggregate, fileGate, fileReview, reviewsFor, reviewerClassName, starRow, type ReviewCategory } from './reviews';
 import { CLASSES, VEHICLES, WEAPONS, ZOMBIE_STATS, IRON_STATS, TEAM_NAMES } from '../sim/data';
 import { LSWS, THREAT } from '../sim/lsw';
 import { SYSTEM_IDS, type AscendantId, type ClassId, type SoldierKind, type VehicleDef, type VehicleKind, type WeaponDef, type WeaponId } from '../sim/types';
@@ -598,12 +599,29 @@ function renderDetail(root: HTMLElement) {
   const pin = pins().includes(row.id);
   const stats = sec.stats.map((s) =>
     `<div class="cx-stat"><span>${esc(s.label)}</span><b>${esc((s.fmt ?? txt)(row[s.key]))}</b></div>`).join('');
+  // THE SERVICE NET (Robert's goal): the item's field rating — the war's own
+  // voices, your filing first. Premade phrases only; the drill-down opens the
+  // reviews with each reviewer's PRINT CARD.
+  const cat = SECTION_CATEGORY[section];
+  const agg = cat ? aggregate(row.id, cat) : null;
+  const netHtml = agg ? `
+    <div class="cx-net" id="cx-net">
+      <div class="cx-net-head">
+        <span class="cx-stars">${starRow(agg.avg)}</span>
+        <span class="cx-net-meta">${agg.avg.toFixed(1)} · ${agg.count} FILED</span>
+        <button class="cx-netbtn" id="cx-net-open">SERVICE NET ▸</button>
+      </div>
+      <div class="cx-net-body hidden" id="cx-net-body"></div>
+    </div>` : '';
   root.innerHTML = `
     <div class="cx-bench" id="cx-bench">${sec.model ? '' : '<span class="cx-nobench">No model — this is a weapon system, carried</span>'}</div>
     <h4 class="cx-dname">${esc(row.name)}</h4>
     ${typeof row.desc === 'string' ? `<p class="cx-desc">${esc(row.desc)}</p>` : ''}
     <div class="cx-stats">${stats}</div>
+    ${netHtml}
     <button class="cx-pinbtn${pin ? ' on' : ''}" id="cx-pin">${pin ? '✕ Unpin' : '⊕ Pin to compare'}</button>`;
+
+  if (agg && cat) wireServiceNet(root, row.id, cat);
 
   const btn = root.querySelector<HTMLButtonElement>('#cx-pin')!;
   btn.onclick = () => {
@@ -617,6 +635,49 @@ function renderDetail(root: HTMLElement) {
 
   const host = root.querySelector<HTMLElement>('#cx-bench')!;
   if (sec.model) mountTurntable(host, sec.model, row.id);
+}
+
+/** THE SERVICE NET drill-down + filing flow. Premade phrases only — the
+ *  select IS the spam armor; the gate adds the cooldown; one filing per item
+ *  per print (a refile replaces). Every review wears its print card. */
+function wireServiceNet(root: HTMLElement, itemId: string, cat: ReviewCategory) {
+  const openBtn = root.querySelector<HTMLButtonElement>('#cx-net-open')!;
+  const body = root.querySelector<HTMLElement>('#cx-net-body')!;
+  let stars: 1 | 2 | 3 | 4 | 5 = 4;
+  const drawNet = () => {
+    const reviews = reviewsFor(itemId, cat);
+    const rows = reviews.map((rv) => `
+      <div class="cx-review${rv.mine ? ' mine' : ''}">
+        <div class="cx-rv-top"><span class="cx-stars">${starRow(rv.stars)}</span>${rv.mine ? '<span class="cx-rv-mine">YOUR FILING</span>' : ''}</div>
+        <p class="cx-rv-phrase">${esc(rv.phrase)}</p>
+        <button class="cx-rv-card" data-rv="${esc(rv.reviewer.callsign)}">
+          ${esc(rv.reviewer.callsign)} · PRINT ${rv.reviewer.print} · ${esc(reviewerClassName(rv.reviewer.classId))} · ${esc(rv.reviewer.nation)}${rv.reviewer.confirms ? ` · ${rv.reviewer.confirms} CONFIRMED` : ''}
+        </button>
+      </div>`).join('');
+    const band = stars >= 4 ? 'hi' : stars === 3 ? 'mid' : 'lo';
+    const phrases = PHRASES[cat][band].map((p, i) => `<option value="${i}">${esc(p)}</option>`).join('');
+    const gate = fileGate();
+    body.innerHTML = `
+      <div class="cx-file">
+        <div class="cx-file-stars">${[1, 2, 3, 4, 5].map((n) =>
+          `<button class="cx-star${n <= stars ? ' on' : ''}" data-s="${n}">${n <= stars ? '★' : '☆'}</button>`).join('')}</div>
+        <select class="armory-select" id="cx-rv-phrase-pick">${phrases}</select>
+        <button class="cx-netbtn" id="cx-rv-file" ${gate ? 'disabled' : ''}>${gate || 'FILE'}</button>
+      </div>
+      ${rows}`;
+    body.querySelectorAll<HTMLButtonElement>('.cx-star').forEach((b) => {
+      b.onclick = () => { stars = Number(b.dataset.s) as typeof stars; drawNet(); };
+    });
+    const fileBtn = body.querySelector<HTMLButtonElement>('#cx-rv-file')!;
+    fileBtn.onclick = () => {
+      const pick = body.querySelector<HTMLSelectElement>('#cx-rv-phrase-pick')!;
+      if (fileReview(itemId, stars, Number(pick.value))) draw(); // re-render: your filing tops the net
+    };
+  };
+  openBtn.onclick = () => {
+    body.classList.toggle('hidden');
+    if (!body.classList.contains('hidden')) drawNet();
+  };
 }
 
 function mountTurntable(host: HTMLElement, kind: ModelKind, id: string) {
