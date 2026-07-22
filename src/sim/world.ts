@@ -31,9 +31,13 @@ import { ruleOnClassRequest } from './officer';
 import { SoldierIndex } from './spatial';
 import { createVehicleTelemetry, recordVehicleEvent, stepVehicleTelemetry, type VehicleTelemetry } from './vehicle-telemetry';
 import {
-  asElevationLevel, canWeaponReachElevation, collidesAtElevation, maxElevationFor, targetLockRangeAtElevation,
+  ELEVATION_ALT, asElevationLevel, canWeaponReachElevation, collidesAtElevation, maxElevationFor, targetLockRangeAtElevation,
   type ElevationLevel, type ElevationWeaponClass,
 } from './elevation';
+import {
+  RADAR_PROFILES, headingDegrees, radarDomainForVehicle, radarTrackKey, weatherRadarMultiplier,
+  type RadarEmitterProfile, type RadarTrack,
+} from './radar';
 
 const RESPAWN_DELAY = 4;
 /** THE OUTBREAK (§4): how fast an exposed soldier's Viral Load creeps toward
@@ -455,6 +459,10 @@ export class World {
    *  and stuck-body incidents. Read via __ww.blackbox(). See sim/blackbox.ts. */
   vehicleTelemetry: VehicleTelemetry = createVehicleTelemetry();
   blackbox: Blackbox = createBlackbox(this.vehicleTelemetry);
+  /** Authoritative last-known radar/sonar truth. HUD and AI read these copies,
+   *  never a hidden target's live position between scheduled sweeps. */
+  radarTracks: [Map<string, RadarTrack>, Map<string, RadarTrack>] = [new Map(), new Map()];
+  nextRadarSweep = new Map<string, number>();
   /** Last commanded hull speed, sampled by the vehicle black box. */
   vehicleCommandedSpeed = new Map<number, number>();
   /** §13 AMMO DIAGNOSTICS: per-weapon shot tally for the blackbox's ammo
@@ -1887,6 +1895,7 @@ export class World {
     }
 
     for (const v of this.vehicles.values()) this.stepVehicle(v, cmds, dt);
+    this.stepRadar();
     for (const t of this.turrets.values()) this.stepTurret(t, dt);
     this.stepProjectiles(dt);
     this.stepMines(dt);
@@ -1938,6 +1947,91 @@ export class World {
   sightClear(from: Vec3, to: Vec3): boolean {
     if (smokeBlocks(from.x, from.z, to.x, to.z, this.smokeBlobs)) return false;
     return losClear(this.map.grid, { x: from.x, y: 1.4, z: from.z }, { x: to.x, y: 1.4, z: to.z }, 1.4, this.map.geometry);
+  }
+
+  radarTracksFor(team: Team): ReadonlyMap<string, RadarTrack> {
+    return this.radarTracks[team];
+  }
+
+  /** Scheduled battlefield sensors. Keeping this in the sim means replay,
+   *  AI, HUD, and a future server all consume the same imperfect truth. */
+  stepRadar(): void {
+    type Emitter = { vehicle: Vehicle; profile: RadarEmitterProfile };
+    const emitters: Emitter[] = [];
+    for (const vehicle of [...this.vehicles.values()].sort((a, b) => a.id - b.id)) {
+      if (!vehicle.alive || vehicle.systems.sensors <= 0 || vehicle.stunnedUntil > this.time) continue;
+      const def = VEHICLES[vehicle.kind];
+      const pilot = this.soldiers.get(vehicle.seats[0]);
+      if (pilot?.alive) {
+        if (def.submersible && vehicle.submerged) emitters.push({ vehicle, profile: RADAR_PROFILES.sonar });
+        else if (def.flies) emitters.push({ vehicle, profile: def.minAirspeed ? RADAR_PROFILES.fixedWing : RADAR_PROFILES.rotorcraft });
+        else if (def.boat || def.submersible) emitters.push({ vehicle, profile: RADAR_PROFILES.surfaceNaval });
+      }
+      const sensor = this.crewAt(vehicle, 'sensors');
+      if (!vehicle.submerged && sensor?.alive) emitters.push({ vehicle, profile: RADAR_PROFILES.staffedSensors });
+    }
+    // Weak returns first; stronger/longer-range sources win same-tick overlap.
+    emitters.sort((a, b) => a.profile.range - b.profile.range || a.vehicle.id - b.vehicle.id || a.profile.source.localeCompare(b.profile.source));
+    for (const emitter of emitters) {
+      const scheduleKey = `${emitter.vehicle.id}:${emitter.profile.source}`;
+      if (this.time + 1e-9 < (this.nextRadarSweep.get(scheduleKey) ?? 0)) continue;
+      this.nextRadarSweep.set(scheduleKey, this.time + emitter.profile.cadence);
+      this.sweepRadar(emitter.vehicle, emitter.profile);
+    }
+    for (const tracks of this.radarTracks) {
+      for (const [key, track] of tracks) if (track.expiresAt <= this.time) tracks.delete(key);
+    }
+  }
+
+  private sweepRadar(emitter: Vehicle, profile: RadarEmitterProfile): void {
+    const range = profile.range * weatherRadarMultiplier(this.weather, profile.source);
+    const receivingTeam = emitter.team;
+    const observe = (
+      targetType: RadarTrack['targetType'], targetId: number, team: Team, pos: Vec3, yaw: number,
+      band: ElevationLevel, domain: RadarTrack['domain'], ecmAlive: boolean,
+    ) => {
+      if (team === receivingTeam || !profile.domains.includes(domain)) return;
+      const jammed = profile.source !== 'sonar' && ecmAlive;
+      const effectiveRange = range * (jammed ? 0.65 : 1);
+      if (Math.hypot(pos.x - emitter.pos.x, pos.z - emitter.pos.z) > effectiveRange) return;
+      if (!this.radarLineClear(emitter, pos, domain)) return;
+      const precision = jammed ? 0.45 : 1;
+      const observed = jammed ? this.jammedRadarPosition(emitter.id, targetId, profile.cadence, pos, precision) : { ...pos };
+      const key = radarTrackKey(targetType, targetId);
+      this.radarTracks[receivingTeam].set(key, {
+        key, targetId, targetType, receivingTeam, pos: observed,
+        heading: headingDegrees(yaw), band, domain, source: profile.source,
+        observedAt: this.time,
+        expiresAt: this.time + profile.cadence * (jammed ? 2 : 3),
+        precision, jammed,
+      });
+    };
+
+    for (const target of [...this.vehicles.values()].sort((a, b) => a.id - b.id)) {
+      if (!target.alive || target.id === emitter.id) continue;
+      observe(
+        'vehicle', target.id, target.team, target.pos, target.yaw, asElevationLevel(target.band),
+        radarDomainForVehicle(target.kind, target.band ?? 0, !!target.submerged), target.systems.ecm > 0,
+      );
+    }
+    for (const target of [...this.soldiers.values()].sort((a, b) => a.id - b.id)) {
+      if (!target.alive || target.vehicleId >= 0) continue;
+      observe('soldier', target.id, target.team, target.pos, target.yaw, asElevationLevel(target.floor), 'ground', false);
+    }
+  }
+
+  private radarLineClear(emitter: Vehicle, target: Vec3, domain: RadarTrack['domain']): boolean {
+    if (domain === 'air' || domain === 'submerged') return true;
+    const emitterHeight = ELEVATION_ALT[asElevationLevel(emitter.band)] + 1.4;
+    return losClear(this.map.grid, emitter.pos, target, emitterHeight, this.map.geometry);
+  }
+
+  private jammedRadarPosition(emitterId: number, targetId: number, cadence: number, pos: Vec3, precision: number): Vec3 {
+    const pulse = Math.floor((this.time + 1e-9) / cadence);
+    const hash = ((targetId * 1103515245) ^ (emitterId * 12345) ^ (pulse * 2654435761)) >>> 0;
+    const angle = (hash % 360) * Math.PI / 180;
+    const radius = 3 + (1 - precision) * 7;
+    return { x: pos.x + Math.cos(angle) * radius, y: pos.y, z: pos.z + Math.sin(angle) * radius };
   }
 
   /** Stamp what each team can see this tick. Death wipes the trail — a corpse
