@@ -64,6 +64,12 @@ const FOG_K: Record<WeatherKind, [number, number]> = {
   snow: [0.55, 0.5], dust: [0.5, 0.48], night: [0.95, 0.82],
 };
 const DUST_TINT = new THREE.Color(0xa9825a);
+// opt #25 (R11): moment-FX geometries are SHARED units — instances scale them;
+// only cheap per-instance materials (opacity animates) are created/disposed.
+const GEO_BLAST_DISC = new THREE.CircleGeometry(1, 28);
+const GEO_BLAST_RING = new THREE.RingGeometry(0.86, 1.0, 44);
+const GEO_SMUDGE_RING = new THREE.RingGeometry(0.55, 1.0, 20);
+const GEO_SWEEP_RING = new THREE.RingGeometry(0.92, 1.0, 40);
 interface RagState { t0: number; pitch: number; roll: number; cap: Record<string, number>; seed: number; style: CollapseStyle; yaw0: number }
 /** Overshoot-and-settle ease — gives limbs a floppy, physical follow-through. */
 function easeOutBack(x: number): number {
@@ -367,7 +373,7 @@ export class Renderer {
   // §19.2 sound-and-movement: footstep clocks for enemies you HEAR but can't
   // see, and the smudges their noise smears through the dark
   private unseenStepAt = new Map<number, number>();
-  private smudges: { mesh: THREE.Mesh; until: number }[] = [];
+  private smudges: { mesh: THREE.Mesh; until: number; base: number }[] = []; // opt #25: base = spawn scale
   // THE BLAST RINGS (Robert: "a circle in the center, and a radius around
   // that"). Each explosion stamps two ground rings sized to the SIM's own
   // numbers — a bright kill DISC (die inside it) and an expanding splash
@@ -808,13 +814,14 @@ export class Renderer {
   private spawnSmudge(pos: { x: number; z: number }, size: number, now: number) {
     if (this.smudges.length >= 12) return;
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(size * 0.55, size, 20),
+      GEO_SMUDGE_RING, // opt #25: shared unit geometry, scaled to the smudge
       new THREE.MeshBasicMaterial({ color: 0xcfc6b8, transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide }),
     );
     ring.rotation.x = -Math.PI / 2;
+    ring.scale.setScalar(size);
     ring.position.set(pos.x, 0.15, pos.z);
     this.scene.add(ring);
-    this.smudges.push({ mesh: ring, until: now + 0.7 });
+    this.smudges.push({ mesh: ring, until: now + 0.7, base: size });
   }
 
   /** Stamp the two blast rings sized to the sim (kill radius + splash reach).
@@ -822,20 +829,21 @@ export class Renderer {
   private spawnBlastRings(pos: { x: number; z: number }, killR: number, splashR: number, color: number, now: number) {
     if (this.blastRings.length > 40) {
       const gone = this.blastRings.shift()!;
-      this.scene.remove(gone.mesh); gone.mesh.geometry.dispose(); (gone.mesh.material as THREE.Material).dispose();
+      this.scene.remove(gone.mesh); (gone.mesh.material as THREE.Material).dispose(); // opt #25: geometry is shared
     }
     // the KILL DISC — a filled heart, brightest, gone in a blink
     const disc = new THREE.Mesh(
-      new THREE.CircleGeometry(Math.max(0.4, killR), 28),
+      GEO_BLAST_DISC, // opt #25: shared unit geometry, scaled per blast
       new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide }),
     );
     disc.rotation.x = -Math.PI / 2;
+    disc.scale.setScalar(Math.max(0.4, killR));
     disc.position.set(pos.x, 0.12, pos.z);
     this.scene.add(disc);
     this.blastRings.push({ mesh: disc, born: now, life: 0.42, r0: killR, r1: killR, grow: false, peak: 0.5 });
     // the SPLASH RING — a shockwave that shoots out to the true reach, then fades
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(0.86, 1.0, 44),
+      GEO_BLAST_RING, // opt #25: shared unit geometry (0.86..1.0 ratio baked)
       new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide }),
     );
     ring.rotation.x = -Math.PI / 2;
@@ -3019,7 +3027,7 @@ export class Renderer {
         if (world.time >= (this.nextSweepAt.get(v.id) ?? 0)) {
           this.nextSweepAt.set(v.id, world.time + 2);
           const ring = new THREE.Mesh(
-            new THREE.RingGeometry(0.92, 1.0, 40),
+            GEO_SWEEP_RING, // opt #25: shared unit geometry
             new THREE.MeshBasicMaterial({
               color: TEAM_COLORS[v.team], transparent: true, opacity: 0.55,
               side: THREE.DoubleSide, depthWrite: false,
@@ -3382,10 +3390,10 @@ export class Renderer {
       const left = sm.until - world.time;
       const k = Math.max(0, left / 0.7);
       (sm.mesh.material as THREE.MeshBasicMaterial).opacity = k * 0.28;
-      sm.mesh.scale.setScalar(1 + (1 - k) * 1.1);
+      sm.mesh.scale.setScalar(sm.base * (1 + (1 - k) * 1.1)); // opt #25: grow from the smudge size
       if (left <= 0) {
         this.scene.remove(sm.mesh);
-        sm.mesh.geometry.dispose();
+        
         (sm.mesh.material as THREE.Material).dispose();
         this.smudges.splice(i, 1);
       }
@@ -3407,7 +3415,7 @@ export class Renderer {
         mat.opacity = b.peak * k * k; // and snaps out
       }
       if (age >= b.life) {
-        this.scene.remove(b.mesh); b.mesh.geometry.dispose(); mat.dispose();
+        this.scene.remove(b.mesh); mat.dispose(); // opt #25: geometry is shared
         this.blastRings.splice(i, 1);
       }
     }
@@ -3667,8 +3675,7 @@ export class Renderer {
       (sw.mesh.material as THREE.MeshBasicMaterial).opacity = 0.55 * (1 - k);
       if (k >= 1) {
         this.scene.remove(sw.mesh);
-        sw.mesh.geometry.dispose();
-        (sw.mesh.material as THREE.Material).dispose();
+        (sw.mesh.material as THREE.Material).dispose(); // opt #25: geometry is shared
         this.sweepRings.splice(i, 1);
       }
     }
