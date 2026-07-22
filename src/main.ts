@@ -100,6 +100,7 @@ const FAMILY_LABELS: Partial<Record<WeaponFamily, string>> = {
   hmg: 'HMGs', at_rocket: 'AT Rockets', ap_rocket: 'AP Rockets', mortar: 'Mortars',
   artillery: 'Artillery', scatter: 'Scatter', sonic: 'Sonic', flamethrower: 'Flame',
   grenade: 'Grenades', special: 'Special', melee: 'Unarmed', melee_weapon: 'Melee',
+  marker: 'Markers',
 };
 
 /** One weapon's telemetry line — the readout a picker card and slot share. */

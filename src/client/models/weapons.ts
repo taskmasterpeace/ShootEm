@@ -736,6 +736,147 @@ const buildMeleeWeapon: FamilyBuilder = (k, def) => {
   return g;
 };
 
+// --------------------------------------------------------------------------
+// PAINTBALL MARKERS (Robert's yard overhaul: "need models of the guns that
+// fit our game… imagine a transparent hopper, and you seeing it slowly come
+// out"). Real tournament anatomy, not a reskinned rifle: anodized milled
+// body, ported barrel, vertical regulator grip, HPA tank riding the shoulder
+// as the stock, and a TRANSPARENT hopper on top with individually named
+// balls — the renderer's live-hopper hook shows the fill level dwindle and
+// drops a ball through the feedneck on every shot (see client/hopper.ts).
+// --------------------------------------------------------------------------
+
+/** Deterministic ball packing inside the hopper shell: unit offsets within
+ *  the ellipsoid, ordered BOTTOM-FIRST so "the first K balls visible" always
+ *  reads as a fill level. Index 0 is the ball that feeds last. */
+const HOPPER_SLOTS: [number, number, number][] = [
+  [0.45, -0.55, 0.25], [-0.45, -0.55, 0.25], [0.0, -0.6, -0.4],
+  [0.45, -0.5, -0.32], [-0.45, -0.5, -0.32], [0.0, -0.52, 0.52],
+  [0.32, -0.08, 0.02], [-0.3, -0.08, 0.36], [-0.3, -0.05, -0.36],
+  [0.3, -0.02, -0.4], [0.0, 0.34, 0.1], [0.36, 0.32, 0.3],
+];
+
+/** One marker builder, three personalities read off the id: the Blitz is the
+ *  compact electro speedball gun, the Pump is the long woodsball classic,
+ *  the Lobber is a fat-bore paint mortar. Every variant carries the same
+ *  named-hopper contract. */
+const buildMarker: FamilyBuilder = (_k, def) => {
+  const id = def?.id ?? 'marker_blitz';
+  const pump = id === 'marker_pump';
+  const lob = id === 'marker_lobber';
+
+  // paintball guns are the one arm in the game that gets to be LOUD about
+  // color — anodized bodies, not military furniture (house law: never purple)
+  const ano = mat(lob ? 0xd96a1e : pump ? 0x5a6b3a : 0x148f83, { metal: 0.55, rough: 0.3 });
+  const black = mat(0x1b1b1e, { rough: 0.65 });
+  const silver = mat(0x9aa2aa, { metal: 0.7, rough: 0.35 });
+  const shellM = mat(0xc4dbe2, { metal: 0.05, rough: 0.12 });
+  shellM.transparent = true;
+  shellM.opacity = 0.28;
+  shellM.depthWrite = false;
+  shellM.side = THREE.DoubleSide;
+  // default fill shades — the live hook retints `paint` to the OWNER's paint
+  // color in a match (the hopper is identity, same law as the tracer)
+  const paint = mat(lob ? 0x2e9dff : pump ? 0xffd23e : 0xff7a1a, { rough: 0.35 });
+  const white = mat(0xf2f4f6, { rough: 0.35 });
+
+  const g = new THREE.Group();
+  const bodyLen = pump ? 0.34 : lob ? 0.3 : 0.32;
+  const bodyH = lob ? 0.09 : 0.075;
+  const body = box(bodyLen, bodyH, 0.06, ano);
+  g.add(body);
+
+  // barrel: thin and ported on the shooters, a fat bore on the Lobber
+  const bLen = pump ? 0.42 : lob ? 0.22 : 0.3;
+  const bR = lob ? 0.052 : 0.019;
+  const barrel = cyl(bR, bR, bLen, silver, lob ? 8 : 6);
+  barrel.rotation.z = Math.PI / 2;
+  const muzzleX = bodyLen / 2 + bLen / 2 - 0.01;
+  barrel.position.set(muzzleX, 0.005, 0);
+  g.add(barrel);
+  // porting band at the tip — the fluted end every real barrel wears
+  const port = new THREE.Mesh(
+    new THREE.CylinderGeometry(bR + 0.006, bR + 0.006, lob ? 0.05 : 0.07, lob ? 8 : 6, 1, true), black);
+  port.rotation.z = Math.PI / 2;
+  port.position.set(muzzleX + bLen / 2 - (lob ? 0.035 : 0.05), 0.005, 0);
+  g.add(port);
+
+  // trigger frame: raked grip + guard
+  const grip = box(0.055, 0.12, 0.045, black);
+  grip.position.set(-0.12, -bodyH / 2 - 0.05, 0);
+  grip.rotation.z = 0.24;
+  g.add(grip);
+  const guard = box(0.09, 0.014, 0.04, black);
+  guard.position.set(-0.05, -bodyH / 2 - 0.045, 0);
+  g.add(guard);
+
+  // the front hand: a vertical regulator grip on the gas line (the Pump
+  // trades it for the slide handle under the barrel)
+  let foreAnchor: THREE.Vector3;
+  if (pump) {
+    const slide = box(0.13, 0.045, 0.055, mat(0x4a3320, { rough: 0.8 }));
+    slide.position.set(0.3, -0.055, 0);
+    g.add(slide);
+    foreAnchor = new THREE.Vector3(0.3, -0.05, 0);
+  } else {
+    const reg = cyl(0.021, 0.026, 0.11, black, 6);
+    reg.position.set(0.1, -bodyH / 2 - 0.05, 0);
+    g.add(reg);
+    foreAnchor = new THREE.Vector3(0.1, -bodyH / 2 - 0.045, 0);
+  }
+
+  // HPA tank: the fat bottle that IS the stock — butted to the shoulder
+  const tankR = lob ? 0.05 : 0.042;
+  const tank = cyl(tankR, tankR, pump ? 0.18 : 0.22, silver, 8);
+  tank.rotation.z = Math.PI / 2 - 0.16; // dropped a hair, the real shoulder rake
+  tank.position.set(-bodyLen / 2 - (pump ? 0.1 : 0.12), -0.045, 0);
+  g.add(tank);
+
+  // feedneck + the see-through hopper. Ball count is the CLIP's own story:
+  // the Pump shows all 8, the Lobber all 6 — one visible ball per shot.
+  const balls = pump ? 8 : lob ? 6 : 11;
+  const rx = lob ? 0.095 : pump ? 0.075 : 0.085;
+  const ry = lob ? 0.075 : pump ? 0.058 : 0.065;
+  const rz = lob ? 0.07 : pump ? 0.055 : 0.06;
+  const hopperC = new THREE.Vector3(0.04, bodyH / 2 + 0.045 + ry, 0);
+  const neck = cyl(0.02, 0.024, 0.05, black, 6);
+  neck.position.set(hopperC.x, bodyH / 2 + 0.022, 0);
+  g.add(neck);
+
+  const ballR = lob ? 0.03 : 0.02;
+  const ballGeo = new THREE.IcosahedronGeometry(ballR, 0);
+  for (let i = 0; i < balls; i++) {
+    const s = HOPPER_SLOTS[i % HOPPER_SLOTS.length];
+    const b = new THREE.Mesh(ballGeo, i % 3 === 2 ? white : paint);
+    b.name = `pb-ball-${i}`;
+    b.position.set(
+      hopperC.x + s[0] * rx * 0.72,
+      hopperC.y + s[1] * ry * 0.72,
+      hopperC.z + s[2] * rz * 0.72,
+    );
+    g.add(b);
+  }
+  // the feed ball: invisible until the hook drops it through the neck
+  const feed = new THREE.Mesh(ballGeo, paint);
+  feed.name = 'pb-feed';
+  feed.visible = false;
+  feed.position.set(hopperC.x, hopperC.y - ry * 0.6, 0);
+  g.add(feed);
+
+  const shell = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), shellM);
+  shell.name = 'pb-shell';
+  shell.scale.set(rx, ry, rz);
+  shell.position.copy(hopperC);
+  shell.renderOrder = 2; // draw AFTER the balls so they show through the tint
+  g.add(shell);
+
+  // the live-hopper contract (client/hopper.ts reads this, tests pin it)
+  g.userData.hopper = { balls, ballR, center: { x: hopperC.x, y: hopperC.y, z: hopperC.z }, ry };
+  g.userData.hopperMats = { paint };
+  g.userData.anchors = { grip: new THREE.Vector3(-0.13, -bodyH / 2 - 0.05, 0), handguard: foreAnchor };
+  return g;
+};
+
 const BUILDERS: Record<string, FamilyBuilder> = {
   pistol: buildPistol,
   rifle: buildRifleFam,
@@ -757,6 +898,7 @@ const BUILDERS: Record<string, FamilyBuilder> = {
   special: buildSpecial,
   melee: buildUnarmed,
   melee_weapon: buildMeleeWeapon,
+  marker: buildMarker,
 };
 
 /** Brand off the generated id (`family_brand_mk`); hand-tuned core ids and

@@ -112,6 +112,9 @@ export const WEAPON_HOLDS: Record<string, HoldDef> = {
   melee: { armL: 0, armR: 0, gunY: 0, gunZ: 0, gunRotZ: 0, hideGun: true },
   melee_weapon: { armL: 0.45, armR: 0.65, gunY: 0.08, gunZ: 0, gunRotZ: 0.6 },
   special: { armL: 0, armR: 0, gunY: 0, gunZ: 0, gunRotZ: 0 },
+  // paintball marker: the tournament snap-shoot — tucked tight to the chest,
+  // a hair higher than a rifle (the tank rides the shoulder, not the pocket)
+  marker: { armL: 0.05, armR: 0.05, gunY: 0.03, gunZ: 0, gunRotZ: 0 },
 };
 
 /** recoil personality per family (feel pass #4): kick multiplier, recovery
@@ -133,6 +136,7 @@ export const RECOIL_SCALE: Record<string, { kick: number; recover: number; flip:
   ap_rocket: { kick: 2.0, recover: 0.3, flip: 0.15 },
   mortar: { kick: 2.4, recover: 0.35, flip: 0.1 },
   grenade: { kick: 0.4, recover: 0.08, flip: 0 },
+  marker: { kick: 0.35, recover: 0.05, flip: 0.03 }, // compressed air barely shrugs
 };
 
 /** THE POWER-CAST SCHOOLS (feel pass #6): how a god throws a signature.

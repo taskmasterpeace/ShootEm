@@ -4,13 +4,16 @@
 // three points or survives the clock; the pack paints them out.
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
+import * as THREE from 'three';
 import {
   GRID, PAINTBALL_FIELDS, T_COVER, T_OPEN, T_WALL, TILE, WORLD,
   generatePaintballField, isBlocked, tileAt,
 } from '../src/sim/map';
 import { WEAPONS } from '../src/sim/data';
 import { World } from '../src/sim/world';
-import type { PlayerCmd, Projectile, WeaponId } from '../src/sim/types';
+import { buildWeaponModel } from '../src/client/models';
+import { updateHopper } from '../src/client/hopper';
+import type { PlayerCmd, Projectile, Soldier, WeaponId } from '../src/sim/types';
 
 const cmd = (over: Partial<PlayerCmd> = {}): PlayerCmd => ({
   moveX: 0, moveZ: 0, aimYaw: 0, fire: false, altFire: false, jump: false,
@@ -113,18 +116,41 @@ describe('the rules', () => {
     }
   });
 
-  it('balls fly slow enough to SEE — paint you can dodge (Robert: too hard)', () => {
-    // Measured against a RIFLE, not against a constant. The old bar was
-    // `speed <= 65`, which the Blitz cleared at 46 while still feeling too
-    // fast — because what matters is not the absolute number (every
-    // projectile is scaled by the speed slider) but how paint compares to
-    // live rounds. Robert, second pass: "they should actually be WAY slower
-    // than the bullets, allowing people to kind of move out of the way."
+  it('balls fly in the paint band — dodgeable, never floaty (Robert, third pass)', () => {
+    // Measured against a RIFLE, not against a constant — what matters is how
+    // paint compares to live rounds, not the absolute number. The bar has
+    // moved twice: pass one "too hard" pulled paint under the rifle; pass two
+    // pinned it at a quarter-rifle; pass three found THAT floaty ("the
+    // paintball seemed too slow… way faster than it is right now, but slower
+    // than the bullets"). The band that survives all three: direct-fire
+    // markers fly at roughly half a rifle round — never under 0.45x (floaty),
+    // never over 0.7x (undodgeable). The Lobber arcs, so it only wears the
+    // ceiling; its drama is the rainbow, not the straight line.
     const rifle = WEAPONS.ar606.speed;
     for (const id of ['marker_blitz', 'marker_pump', 'marker_lobber']) {
       const ratio = WEAPONS[id].speed / rifle;
-      expect(ratio, `${id} flies at ${ratio.toFixed(2)}x a rifle round`).toBeLessThan(0.4);
+      expect(ratio, `${id} flies at ${ratio.toFixed(2)}x a rifle round`).toBeLessThan(0.7);
     }
+    for (const id of ['marker_blitz', 'marker_pump']) {
+      const ratio = WEAPONS[id].speed / rifle;
+      expect(ratio, `${id} floats at ${ratio.toFixed(2)}x a rifle round`).toBeGreaterThan(0.45);
+    }
+  });
+
+  it('the dash works in the yard — the stamina burst is paintball law too (Robert)', () => {
+    // "we have the dashes right… but what if you could do that during
+    // paintball?" You can — movement verbs are global, not mode-gated —
+    // and this test keeps it that way. The prey spawns on the east fence,
+    // so the dash aims WEST, into the yard.
+    const { w, prey } = yard();
+    const e0 = prey.energy;
+    const x0 = prey.pos.x;
+    w.step(1 / 60, new Map([[prey.id, cmd({ dash: 1, aimYaw: Math.PI })]]));
+    const events = w.takeEvents();
+    expect(events.some((e) => e.type === 'dash'), 'the dash event fires in paintball').toBe(true);
+    expect(prey.energy, 'the burst is PAID for — stamina is the meter').toBeLessThan(e0 - 20);
+    for (let i = 0; i < 30; i++) w.step(1 / 60, new Map([[prey.id, cmd()]]));
+    expect(x0 - prey.pos.x, 'the burst actually carries you').toBeGreaterThan(1.5);
   });
 
   it('the yard stays sunny — no whiteout in anyone\'s first hour', () => {
@@ -239,6 +265,76 @@ describe('the series', () => {
       expect(h.ownerId, 'a miss must still wear its thrower').toBe(shooter.id);
       expect(h.soldierId, 'a miss must not flash a phantom tag').toBeUndefined();
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// THE LIVING HOPPER (Robert: "imagine a transparent hopper, and you seeing it
+// like slowly come out… see a ball just drop out of each one"). The marker
+// models carry a see-through shell with named balls; client/hopper.ts drives
+// them off the sim's REAL clip. These tests pin both halves of the contract.
+// ---------------------------------------------------------------------------
+describe('the living hopper', () => {
+  const gunFor = (id: string) => buildWeaponModel(id);
+  const soldierWith = (id: WeaponId, clip: number) =>
+    ({ weapons: [id], weaponIdx: 0, clip: [clip] }) as unknown as Soldier;
+
+  it('every marker ships the hopper contract: shell, named balls, feed ball', () => {
+    for (const id of ['marker_blitz', 'marker_pump', 'marker_lobber'] as const) {
+      const g = gunFor(id);
+      const spec = g.userData.hopper as { balls: number };
+      expect(spec, `${id} declares its hopper`).toBeTruthy();
+      for (let i = 0; i < spec.balls; i++) {
+        expect(g.getObjectByName(`pb-ball-${i}`), `${id} ball ${i}`).toBeTruthy();
+      }
+      const shell = g.getObjectByName('pb-shell') as THREE.Mesh;
+      expect(shell, `${id} shell`).toBeTruthy();
+      expect((shell.material as THREE.MeshStandardMaterial).transparent, 'you can SEE the paint').toBe(true);
+      const feed = g.getObjectByName('pb-feed')!;
+      expect(feed.visible, 'the feed ball waits for a shot').toBe(false);
+    }
+  });
+
+  it('the pump and the lobber show ONE ball per shot — the clip is the shell', () => {
+    expect((gunFor('marker_pump').userData.hopper as { balls: number }).balls).toBe(WEAPONS.marker_pump.clip);
+    expect((gunFor('marker_lobber').userData.hopper as { balls: number }).balls).toBe(WEAPONS.marker_lobber.clip);
+  });
+
+  it('the shell drains with the clip, a shot drops the feed ball, a reload refills', () => {
+    const g = gunFor('marker_pump');
+    const step = (clip: number, frames = 1) => {
+      for (let f = 0; f < frames; f++) updateHopper(g, soldierWith('marker_pump', clip), f / 60, 1 / 60);
+    };
+    const visible = () => {
+      let n = 0;
+      for (let i = 0; i < 8; i++) if (g.getObjectByName(`pb-ball-${i}`)!.visible) n++;
+      return n;
+    };
+    step(8);
+    expect(visible(), 'a full clip is a full shell').toBe(8);
+    step(4);
+    expect(visible(), 'half a clip is half a shell').toBe(4);
+    const feed = g.getObjectByName('pb-feed')!;
+    expect(feed.visible, 'the shot sends a ball through the neck').toBe(true);
+    step(4, 60); // let the drop finish — the ball is swallowed by the body
+    expect(feed.visible).toBe(false);
+    step(0);
+    expect(visible(), 'an empty gun is an empty window').toBe(0);
+    step(8);
+    expect(visible(), 'the reload pours the pod back in').toBe(8);
+  });
+
+  it('a shot RATTLES the load — and a settled hopper sits still again', () => {
+    const g = gunFor('marker_blitz');
+    const s30 = soldierWith('marker_blitz', 30);
+    updateHopper(g, s30, 0, 1 / 60);
+    const ball = g.getObjectByName('pb-ball-0')!;
+    const rest = (ball.userData.rest as THREE.Vector3).clone();
+    updateHopper(g, soldierWith('marker_blitz', 29), 0.5, 1 / 60);
+    expect(ball.position.distanceTo(rest), 'the load shifts when the gun cycles').toBeGreaterThan(0.0005);
+    // ~2 seconds of quiet and the balls settle back onto their rests
+    for (let f = 0; f < 120; f++) updateHopper(g, soldierWith('marker_blitz', 29), 0.5 + f / 60, 1 / 60);
+    expect(ball.position.distanceTo(rest)).toBeLessThan(0.0005);
   });
 });
 

@@ -107,17 +107,17 @@ const CORE_WEAPONS: Record<WeaponId, WeaponDef> = {
   // rides the §4.3 overkill rule — paint skips the crawl, nobody bleeds. ----
   // Reloads are LONG on purpose (Robert): fumbling pods into the hopper while
   // the pack closes in IS paintball — the reload bar becomes the drama.
-  // Balls fly SLOW on purpose (Robert, twice — most recently "they go too
-  // fast, they should actually be way slower than the bullets, allowing
-  // people to kind of move out of the way"). A marker now flies at a QUARTER
-  // of a rifle round (28 vs the AR-606's 110), because in paintball the ball
-  // being dodgeable IS the game — you should see it leave the barrel and have
-  // time to not be there. Bots lead your current velocity, so changing
-  // direction beats the math.
+  // Ball speed has been tuned by Robert THREE times now, and the law that
+  // survived all three passes is a RATIO, not a number: paint must fly well
+  // under a live round (dodging IS the game) but can't float (the quarter-
+  // rifle era "seemed too slow… way faster than it is right now, but slower
+  // than the bullets"). Markers now fly at roughly HALF a rifle round —
+  // you still see the ball leave the barrel, you just have to actually move.
+  // Bots lead your current velocity, so changing direction beats the math.
   // They are also `training: true` — paint marks men, never buildings.
-  marker_blitz: W({ id: 'marker_blitz', name: 'Blitz Marker', damage: 999, rof: 7, speed: 28, spread: 0.05, clip: 30, reloadTime: 2.6, reserve: 300, range: 34, sound: 'marker', tracer: 'paint', training: true, icon: '🎨' }),
-  marker_pump: W({ id: 'marker_pump', name: 'Pump Marker', damage: 999, rof: 1.3, speed: 38, spread: 0.006, clip: 8, reloadTime: 3.2, reserve: 80, range: 52, sound: 'marker_pump', tracer: 'paint', training: true, icon: '🎨' }),
-  marker_lobber: W({ id: 'marker_lobber', name: 'The Lobber', damage: 999, rof: 1.8, speed: 19, spread: 0.01, clip: 6, reloadTime: 3.5, reserve: 48, range: 36, splash: 1.8, splashDamage: 999, arc: true, sound: 'marker_lob', tracer: 'paint', training: true, icon: '🎨' }),
+  marker_blitz: W({ id: 'marker_blitz', name: 'Blitz Marker', damage: 999, rof: 7, speed: 60, spread: 0.05, clip: 30, reloadTime: 2.6, reserve: 300, range: 34, family: 'marker', sound: 'marker', tracer: 'paint', training: true, icon: '🎨' }),
+  marker_pump: W({ id: 'marker_pump', name: 'Pump Marker', damage: 999, rof: 1.3, speed: 72, spread: 0.006, clip: 8, reloadTime: 3.2, reserve: 80, range: 52, family: 'marker', sound: 'marker_pump', tracer: 'paint', training: true, icon: '🎨' }),
+  marker_lobber: W({ id: 'marker_lobber', name: 'The Lobber', damage: 999, rof: 1.8, speed: 34, spread: 0.01, clip: 6, reloadTime: 3.5, reserve: 48, range: 36, splash: 1.8, splashDamage: 999, arc: true, family: 'marker', sound: 'marker_lob', tracer: 'paint', training: true, icon: '🎨' }),
   // ---- alt-fire internals (never drawn from the armory; fired by fireAltWeapon) ----
   tag_dart: W({ id: 'tag_dart', name: 'Tag Dart', damage: 4, rof: 1, speed: 160, spread: 0.002, clip: 1, reserve: 0, range: 100, sound: 'rail', tracer: 'rail', tagsTarget: true }),
   plasma_orb: W({ id: 'plasma_orb', name: 'Plasma Overcharge', damage: 60, rof: 1, speed: 40, spread: 0.004, clip: 1, reserve: 0, range: 54, splash: 3.5, splashDamage: 40, knockback: 8, sound: 'plasma', tracer: 'plasma' }),

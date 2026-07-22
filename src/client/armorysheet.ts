@@ -31,7 +31,7 @@ for (const f of FAMILIES) {
   );
   rows.push({ label: f.label.toUpperCase(), ids });
 }
-for (const fam of ['grenade', 'special'] as const) {
+for (const fam of ['grenade', 'special', 'marker'] as const) {
   const ids = Object.keys(WEAPONS).filter((id) => WEAPONS[id].family === fam);
   rows.push({ label: fam.toUpperCase(), ids });
 }
@@ -110,8 +110,11 @@ function overview() {
 function focus(ri: number) {
   focusRow = Math.max(0, Math.min(rows.length - 1, ri));
   const z = originZ + focusRow * PITCH_Z;
-  camera.position.set(0, 11, z + 10.5);
-  camera.lookAt(0, 1, z - 0.5);
+  // center on the row's ACTUAL spread — a 3-gun row (markers) used to sit
+  // off-frame left while the camera framed the 12-wide grid's middle
+  const cx = originX + ((rows[focusRow].ids.length - 1) * PITCH_X) / 2;
+  camera.position.set(cx, 11, z + 10.5);
+  camera.lookAt(cx, 1, z - 0.5);
 }
 overview();
 

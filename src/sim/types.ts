@@ -238,6 +238,7 @@ export type WeaponFamily =
   | 'pistol' | 'rifle' | 'carbine' | 'smg' | 'shotgun' | 'slugger' | 'laser'
   | 'lmg' | 'hmg' | 'at_rocket' | 'ap_rocket' | 'mortar' | 'artillery'
   | 'scatter' | 'sonic' | 'flamethrower' | 'grenade' | 'special' | 'melee' | 'melee_weapon'
+  | 'marker' // paintball — yard-issue only, never in a class armory
   | 'lsw'; // signature arms — one god each, never issued, never dropped
 
 export interface ClassDef {
