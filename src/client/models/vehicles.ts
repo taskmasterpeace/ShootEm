@@ -7,6 +7,13 @@ import { buildRider } from './soldiers';
 
 export function buildVehicle(kind: VehicleKind, team: Team): THREE.Group {
   const g = new THREE.Group();
+  // THE NEW AIR PROGRAM reuses proven airframe models (planform is the read at
+  // command zoom): Warhawk→strike jet, Specter→interceptor, Reaper→bomber,
+  // Hydra→attack heli. Distinct stats, shared silhouette family for v1.
+  const modelKind: VehicleKind = kind === 'gunship' ? 'strikejet'
+    : kind === 'airsuperiority' ? 'interceptor'
+    : kind === 'stealthbomber' ? 'bomber'
+    : kind === 'gunheli' ? 'attackheli' : kind;
   const teamCol = TEAM_COLORS[team];
   const body = mat(team === 0 ? 0x74602f : 0x2f6478, { rough: 0.55, metal: 0.35 });
   const bodyDark = mat(team === 0 ? 0x57481f : 0x224b5c, { rough: 0.6, metal: 0.3 });
@@ -33,7 +40,7 @@ export function buildVehicle(kind: VehicleKind, team: Team): THREE.Group {
   recoil.name = 'gunRecoil';
   turret.add(recoil);
 
-  switch (kind) {
+  switch (modelKind) {
     case 'submarine': {
       const pressureHull = cyl(0.92, 0.92, 5.8, body, 12);
       pressureHull.rotation.z = Math.PI / 2;

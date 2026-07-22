@@ -30,6 +30,10 @@ export type VehicleKind =
   | 'transportheli'// Condor transport helicopter — airborne insertion + mobile spawn
   | 'strikejet'    // V2 Vulture — air-to-ground jet. CANNOT HOVER.
   | 'interceptor'  // V2 Falcon — air-to-air jet. CANNOT HOVER.
+  | 'gunship'      // Warhawk — heavy tank-buster gun jet, slow & tough
+  | 'airsuperiority'// Specter — long-reach AAM air-superiority fighter, fragile
+  | 'stealthbomber'// Reaper — radar-slipping stealth bomber, precision bombs
+  | 'gunheli'      // Hydra — guided multi-rocket attack helicopter
   | 'aatrack'      // V3 Lance — ground-to-air homing launcher, paper-thin
   | 'bomber'       // V4 Anvil — slow heavy payload, needs an escort
   | 'transport'    // crewed transport craft — sensors/ECM/comms stations + 4 passengers
@@ -236,6 +240,10 @@ export interface VehicleDef {
   bankAngle?: number;
   /** V3: fires homing missiles at aircraft (AA track, SAM turret) */
   antiAir?: boolean;
+  /** STEALTH (mountain warfare): radar/SAM cannot LOCK this airframe beyond a
+   *  short visual range — a Reaper slips coverage that would kill any other
+   *  bomber. It still takes a hit if something gets close and sees it. */
+  stealth?: boolean;
   /**
    * GRIP RATE (Robert: "the hoverboard's controlled too well — it should be a
    * little bit more slippery, and fun"). Every hull used to rebuild its

@@ -6,9 +6,9 @@ import { generateCoastalTheater, generateMountainTheater, generateOceanTheater }
 
 export const THEATER_DEFS: Record<TheaterId, TheaterDef> = {
   city: { id: 'city', name: 'Iron Meridian', geometry: { cols: 200, rows: 200, tile: 3 }, theme: 'starship', domains: ['foot', 'ground', 'air'], freeDogfight: false, defaultPads: ['tank', 'attackheli', 'transportheli'] },
-  desert: { id: 'desert', name: 'Sirocco Reach', geometry: { cols: 300, rows: 300, tile: 3 }, theme: 'hardpan', domains: ['foot', 'ground', 'air'], freeDogfight: true, defaultPads: ['tank', 'attackheli', 'transportheli', 'strikejet'] },
-  countryside: { id: 'countryside', name: 'Green March', geometry: { cols: 300, rows: 300, tile: 3 }, theme: 'savanna', domains: ['foot', 'ground', 'air'], freeDogfight: true, defaultPads: ['tank', 'apc', 'attackheli', 'transportheli'] },
-  mountain: { id: 'mountain', name: 'Crown Divide', geometry: { cols: 200, rows: 300, tile: 3 }, theme: 'europa', domains: ['foot', 'ground', 'air'], freeDogfight: false, defaultPads: ['buggy', 'attackheli', 'transportheli'] },
+  desert: { id: 'desert', name: 'Sirocco Reach', geometry: { cols: 300, rows: 300, tile: 3 }, theme: 'hardpan', domains: ['foot', 'ground', 'air'], freeDogfight: true, defaultPads: ['tank', 'attackheli', 'transportheli', 'strikejet', 'gunship', 'airsuperiority'] },
+  countryside: { id: 'countryside', name: 'Green March', geometry: { cols: 300, rows: 300, tile: 3 }, theme: 'savanna', domains: ['foot', 'ground', 'air'], freeDogfight: true, defaultPads: ['tank', 'apc', 'attackheli', 'transportheli', 'airsuperiority'] },
+  mountain: { id: 'mountain', name: 'Crown Divide', geometry: { cols: 200, rows: 300, tile: 3 }, theme: 'europa', domains: ['foot', 'ground', 'air'], freeDogfight: false, defaultPads: ['buggy', 'attackheli', 'transportheli', 'gunship', 'gunheli', 'stealthbomber'] },
   coastal: { id: 'coastal', name: 'Breaker Coast', geometry: { cols: 300, rows: 200, tile: 3 }, theme: 'triton', domains: ['foot', 'ground', 'air', 'surface', 'deep'], freeDogfight: true, defaultPads: ['tank', 'boat', 'submarine', 'attackheli', 'transportheli', 'strikejet'] },
   ocean: { id: 'ocean', name: 'Pelagic Expanse', geometry: { cols: 300, rows: 300, tile: 3 }, theme: 'triton', domains: ['air', 'surface', 'deep'], freeDogfight: true, defaultPads: ['boat', 'submarine', 'strikejet', 'interceptor'] },
 };

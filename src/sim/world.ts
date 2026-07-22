@@ -4191,6 +4191,10 @@ export class World {
     };
     for (const t of this.vehicles.values()) {
       if (t.team === v.team || !this.vehicleAirborne(t)) continue;
+      // STEALTH (mountain warfare): a Reaper slips radar — no lock beyond visual
+      // range. A picket that gets close still gets its shot; flying straight over
+      // an alerted line is the risk. This is the whole point of the airframe.
+      if (VEHICLES[t.kind].stealth && Math.hypot(t.pos.x - v.pos.x, t.pos.z - v.pos.z) > 42) continue;
       consider(t.pos, t, asElevationLevel(t.band));
     }
     for (const e of this.soldiers.values()) {

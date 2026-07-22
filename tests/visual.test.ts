@@ -179,6 +179,11 @@ const VEHICLE_PARTS: Record<VehicleKind, string[]> = {
   interceptor: ['turret', 'gunRecoil', 'thrustL', 'thrustR'],
   bomber: ['turret', 'gunRecoil', 'thrustL', 'thrustR', 'bay'],
   aatrack: ['turret', 'gunRecoil', 'spin'],
+  // the new air program reuses proven airframes (see buildVehicle remap)
+  gunship: ['turret', 'gunRecoil', 'thrustL', 'podL', 'podR'],       // Warhawk → strike jet
+  airsuperiority: ['turret', 'gunRecoil', 'thrustL', 'thrustR'],     // Specter → interceptor
+  stealthbomber: ['turret', 'gunRecoil', 'thrustL', 'thrustR', 'bay'], // Reaper → bomber
+  gunheli: ['turret', 'gunRecoil', 'rotorL', 'rotorR'],              // Hydra → attack heli
 };
 
 describe('visual: vehicles', () => {

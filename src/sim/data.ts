@@ -465,6 +465,38 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
     hover: true, flies: true, systemHp: 30, liftoffTime: 3.5,
     minAirspeed: 0.6, bankAngle: 0.3, bombs: 12,
   },
+  // ==== THE NEW AIR PROGRAM (mountain warfare) ====
+  // WARHAWK — the A-10 school: a slow, armoured gun jet built around one huge
+  // AP cannon. Murders armour and ground, helpless against a real fighter.
+  gunship: {
+    kind: 'gunship', name: 'Warhawk Gun Jet', cost: 4, hp: 130, speed: 30, turnRate: 1.5,
+    weapon: 'warhawk_gun', altWeapon: 'warhawk_pods', seats: 1, mobileSpawn: false, radius: 1.9,
+    hover: true, flies: true, systemHp: 20, liftoffTime: 1.6,
+    minAirspeed: 0.4, bankAngle: 0.55,
+  },
+  // SPECTER — reaches further than the Falcon with a heavy AAM, but it's a
+  // glass cannon: get inside its missile and it folds.
+  airsuperiority: {
+    kind: 'airsuperiority', name: 'Specter Fighter', cost: 4, hp: 70, speed: 44, turnRate: 1.9,
+    weapon: 'specter_aam', altWeapon: 'specter_cannon', seats: 1, mobileSpawn: false, radius: 1.6,
+    hover: true, flies: true, systemHp: 16, liftoffTime: 1.3,
+    minAirspeed: 0.5, bankAngle: 0.85,
+  },
+  // REAPER — the only airframe radar can't lock. Slips the SAMs and the AA
+  // tracks to put a precision stick on a protected target — if it flies straight.
+  stealthbomber: {
+    kind: 'stealthbomber', name: 'Reaper Stealth Bomber', cost: 6, hp: 150, speed: 24, turnRate: 0.9,
+    weapon: 'reaper_bombs', seats: 2, mobileSpawn: false, radius: 2.8,
+    hover: true, flies: true, systemHp: 26, liftoffTime: 3,
+    minAirspeed: 0.55, bankAngle: 0.35, bombs: 8, stealth: true,
+  },
+  // HYDRA — a gunship heli that volleys guided rockets from standoff. Deadlier
+  // reach than the Shrike, softer airframe.
+  gunheli: {
+    kind: 'gunheli', name: 'Hydra Gunship Heli', cost: 4, hp: 115, speed: 25, turnRate: 2.4,
+    weapon: 'hydra_guided', altWeapon: 'hydra_cannon', seats: 2, mobileSpawn: false, radius: 2.2,
+    hover: true, flies: true, systemHp: 24, liftoffTime: 3,
+  },
   transport: {
     kind: 'transport', name: 'Atlas Transport', cost: 3, hp: 520, speed: 12, turnRate: 1.6,
     weapon: 'transport_mg', seats: 9, mobileSpawn: true, radius: 2.6,
@@ -543,6 +575,51 @@ WEAPONS.vulture_mg = W({
 WEAPONS.falcon_cannon = W({
   id: 'falcon_cannon', name: 'Falcon Autocannon', damage: 26, rof: 7,
   speed: 150, spread: 0.012, clip: 60, reloadTime: 2.6, reserve: Infinity, range: 74,
+  sound: 'autocannon', tracer: 'bullet',
+});
+
+// ---------------------------------------------------------------------------
+// THE NEW AIR PROGRAM (mountain warfare) — two more fixed-wing jets, a radar-
+// slipping stealth bomber, and a guided-rocket gunship helicopter. Each airframe
+// is a SIDEGRADE: the Warhawk out-guns the Vulture on armour but is slower and
+// can't dogfight; the Specter reaches further than the Falcon but is fragile;
+// the Reaper is the only thing radar can't lock — and the only bomber that has
+// to fly straight to do it; the Hydra volleys guided rockets from standoff but
+// pays in a soft airframe. Balance guarded by the range-band + sidegrade suites.
+// ---------------------------------------------------------------------------
+WEAPONS.warhawk_gun = W({  // A-10 school: a slow jet built around one enormous gun
+  id: 'warhawk_gun', name: 'Warhawk GAU Cannon', damage: 40, rof: 5.5,
+  speed: 165, spread: 0.02, clip: 45, reloadTime: 3.0, reserve: Infinity, range: 92,
+  sound: 'autocannon', tracer: 'bullet',
+});
+WEAPONS.warhawk_pods = W({
+  id: 'warhawk_pods', name: 'Warhawk Rocket Pods', damage: 44, rof: 3.0,
+  speed: 60, spread: 0.03, clip: 16, reloadTime: 3.6, reserve: 48, range: 66,
+  splash: 3.4, splashDamage: 30, knockback: 8, sound: 'rocket', tracer: 'rocket',
+});
+WEAPONS.specter_aam = W({  // reach-out-and-touch air-to-air missile
+  id: 'specter_aam', name: 'Specter AAM', damage: 100, rof: 0.6,
+  speed: 52, spread: 0, clip: 4, reloadTime: 4.0, reserve: 24, range: 128,
+  splash: 3.0, splashDamage: 50, knockback: 9, sound: 'rocket', tracer: 'rocket',
+});
+WEAPONS.specter_cannon = W({
+  id: 'specter_cannon', name: 'Specter Cannon', damage: 24, rof: 7.5,
+  speed: 155, spread: 0.014, clip: 60, reloadTime: 2.6, reserve: Infinity, range: 76,
+  sound: 'autocannon', tracer: 'bullet',
+});
+WEAPONS.reaper_bombs = W({  // precision iron — heavier and fewer than the Anvil's
+  id: 'reaper_bombs', name: 'Reaper JDAM Stick', damage: 120, rof: 1.6, speed: 14,
+  clip: 8, reserve: 0, range: 34, splash: 8, splashDamage: 100, knockback: 22,
+  arc: true, sound: 'thump', tracer: 'shell',
+});
+WEAPONS.hydra_guided = W({  // the guided multi-rocket volley
+  id: 'hydra_guided', name: 'Hydra Guided Pod', damage: 38, rof: 3.5,
+  speed: 66, spread: 0.02, clip: 18, reloadTime: 3.4, reserve: 54, range: 76,
+  splash: 3.4, splashDamage: 30, knockback: 8, sound: 'rocket', tracer: 'rocket',
+});
+WEAPONS.hydra_cannon = W({
+  id: 'hydra_cannon', name: 'Hydra Chin Gun', damage: 12, rof: 9,
+  speed: 135, spread: 0.026, clip: 50, reloadTime: 2.2, reserve: Infinity, range: 62,
   sound: 'autocannon', tracer: 'bullet',
 });
 
