@@ -61,9 +61,10 @@ const SHADOW_BOX_S = 60;
 // opt #26: static per-frame tables — never rebuilt in the hot loop
 const FOG_K: Record<WeatherKind, [number, number]> = {
   clear: [1, 1], rain: [0.8, 0.72], storm: [0.55, 0.48], fog: [0.3, 0.3],
-  snow: [0.55, 0.5], dust: [0.5, 0.48], night: [0.95, 0.82],
+  snow: [0.55, 0.5], dust: [0.5, 0.48], night: [0.82, 0.68], /* #104: the dark closes in */
 };
 const DUST_TINT = new THREE.Color(0xa9825a);
+const NIGHT_TINT = new THREE.Color(0x0a0e1a); // #104: blue-black — night TURNS, not just dims
 // opt #25 (R11): moment-FX geometries are SHARED units — instances scale them;
 // only cheap per-instance materials (opacity animates) are created/disposed.
 const GEO_BLAST_DISC = new THREE.CircleGeometry(1, 28);
@@ -635,6 +636,14 @@ export class Renderer {
     if (k === 'dust') {
       (this.scene.background as THREE.Color).lerp(DUST_TINT, 0.4 * hard); // opt #26
       fog.color.lerp(DUST_TINT, 0.4 * hard);
+    }
+    // #104 NIGHT IS NIGHT (Robert: "I want night time to feel more like night
+    // time"): the sky and the air TURN blue-black instead of just dimming —
+    // the tint is what makes muzzle flashes, tracers, field fire and the
+    // flare's magnesium heart suddenly own the field after dark.
+    if (k === 'night') {
+      (this.scene.background as THREE.Color).lerp(NIGHT_TINT, 0.55 * hard);
+      fog.color.lerp(NIGHT_TINT, 0.55 * hard);
     }
 
     // light: night drops the war into blue-black; a storm flashes back
