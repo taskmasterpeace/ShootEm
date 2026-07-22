@@ -2,7 +2,7 @@ import { AMMO_INFO, CLASSES, EQUIPMENT, MODE_INFO, TEAM_NAMES, VEHICLES, WEAPONS
 import { LSWS, VO_LINES } from '../sim/lsw';
 import { fmtLap } from '../sim/modes';
 import { audio, earshotFor } from './audio';
-import { icon } from './icons';
+import { icon, type IconName } from './icons';
 import { T_CLIMB, T_WALL, losClear, houseAt } from '../sim/map';
 import { LEGACY_GEOMETRY, halfDepth, halfWidth, worldDepth, worldWidth, type MapGeometry } from '../sim/map-geometry';
 import { isZed, type SimEvent, type Soldier, type Team, type Vec3, type VehicleKind } from '../sim/types';
@@ -711,7 +711,16 @@ export class Hud {
         const resN = poolN ?? s.reserve[s.weaponIdx];
         const res = Number.isFinite(resN) ? resN : '∞';
         const ammoTag = ballistic && s.ammoType ? ` · ${s.ammoType.toUpperCase()}` : '';
-        ammoEl.textContent = `${clip} / ${res}${ammoTag}`;
+        // #91 THE FEED GLYPH (Robert: "a lightning bolt for the energy... a
+        // bullet if it's regular... incendiary, bullet with a yellow tip"):
+        // one icon from the vocabulary ahead of the count — energy weapons
+        // wear the bolt, INC burns, AP pierces, plain ball otherwise. No
+        // emoji (house law); the glyph inherits the counter's warn color.
+        const feed = (def.tracer === 'plasma' || def.tracer === 'beam' || !Number.isFinite(s.reserve[s.weaponIdx])) ? 'energy'
+          : ballistic && s.ammoType === 'inc' ? 'incendiary'
+          : ballistic && s.ammoType === 'ap' ? 'ap'
+          : 'ball';
+        setHTML(ammoEl, `${icon(feed as IconName, feed === 'incendiary' ? 'ico-inc' : '')} ${clip} / ${res}${ammoTag}`);
         // the counter itself warns you before the click of an empty mag
         const lowMag = Number.isFinite(clipN) && clipN > 0 && clipN <= def.clip * 0.25;
         ammoEl.classList.toggle('no-ammo', Number.isFinite(clipN) && clipN === 0);

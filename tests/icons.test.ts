@@ -13,7 +13,7 @@ describe('§16.3 — the icon language', () => {
       'infection', 'incendiary', 'ap', 'corpse', 'rising'] as const) {
       expect(ICON_NAMES).toContain(name);
     }
-    expect(ICON_NAMES.length).toBe(11);
+    expect(ICON_NAMES.length).toBe(13); // #91 grew the vocabulary: +energy +ball (deliberate extension)
   });
 
   it('every icon is an inline SVG that inherits color', () => {
@@ -28,7 +28,7 @@ describe('§16.3 — the icon language', () => {
 
   it('the glyphs are distinct — eleven concepts, eleven drawings', () => {
     const bodies = new Set(ICON_NAMES.map((n) => icon(n)));
-    expect(bodies.size).toBe(11);
+    expect(bodies.size).toBe(13); // every concept still draws differently
   });
 
   it('NO emoji — the vocabulary is pure markup', () => {

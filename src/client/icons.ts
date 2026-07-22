@@ -23,7 +23,9 @@ export type IconName =
   | 'incendiary' // flame
   | 'ap'         // pointed round through a plate
   | 'corpse'     // body silhouette with timer
-  | 'rising';    // rising silhouette
+  | 'rising'     // rising silhouette
+  | 'energy'     // #91: hard-angle bolt — an energy weapon's feed
+  | 'ball';      // #91: plain slug silhouette — the ordinary round
 
 /** Each glyph is the INNER markup of a 14×14 viewBox. Strokes only (plus the
  *  rare solid core), so currentColor carries the whole vocabulary. */
@@ -39,6 +41,8 @@ const GLYPHS: Record<IconName, string> = {
   ap: '<path d="M8 2v10" stroke-width="1.5"/><path d="M2 7h6l3 0-3 0" stroke-width="1.5"/><path d="M8 4.5 12.5 7 8 9.5" stroke-width="1.4" fill="currentColor"/>',
   corpse: '<path d="M2 11h10" stroke-width="1.5"/><ellipse cx="4" cy="9.7" rx="1.3" ry="1.1" stroke-width="1.3"/><path d="M5.5 10.2h5" stroke-width="1.8"/><circle cx="10.5" cy="4" r="2.4" stroke-width="1.2"/><path d="M10.5 2.8V4l.9.6" stroke-width="1.1"/>',
   rising: '<circle cx="7" cy="5.5" r="1.8" stroke-width="1.4"/><path d="M7 7.5V12M4.5 9.5h5" stroke-width="1.5"/><path d="M2.5 5 2.5 2m0 0L1 3.5M2.5 2 4 3.5" stroke-width="1.2"/>',
+  energy: '<path d="M8.5 1.5 4 8h3l-1.5 4.5L10 6H7z" stroke-width="1.3" fill="currentColor" fill-opacity="0.25"/>',
+  ball: '<path d="M4 5h4a3 3 0 0 1 0 0l2.5 2-2.5 2H4z" stroke-width="1.3"/><path d="M4 5v4" stroke-width="1.5"/>',
 };
 
 /** Render an icon inline. 1em square, baseline-tucked, inherits color. */
