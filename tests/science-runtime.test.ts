@@ -275,3 +275,27 @@ describe('science mission clone printer', () => {
     expect(operator.alive).toBe(false);
   });
 });
+
+describe('science armor policy', () => {
+  it('suppresses issued armor for every ordinary science print', () => {
+    const world = missionWorld('steal');
+    const operator = world.addSoldier('Operator', 'infantry', 0, 'human', {
+      equipment: ['armor_vest', 'power_armor'],
+    });
+
+    expect(operator.equipment).toEqual([]);
+    expect(operator.armor).toBe(0);
+    expect(operator.maxArmor).toBe(0);
+  });
+
+  it('does not change armor equipment in battle modes', () => {
+    const world = new World({ seed: 7302, mode: 'tdm', botsPerTeam: 0 });
+    const soldier = world.addSoldier('Rifleman', 'infantry', 0, 'human', {
+      equipment: ['armor_vest'],
+    });
+
+    expect(soldier.equipment).toEqual(['armor_vest']);
+    expect(soldier.armor).toBeGreaterThan(0);
+    expect(soldier.maxArmor).toBe(soldier.armor);
+  });
+});

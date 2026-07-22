@@ -15,7 +15,16 @@ describe('science mission generator', () => {
 
     expect(a).toEqual(b);
     expect(a.squadSize).toBe(6);
+    expect(a.armorPolicy).toBe('none');
     expect(validateScienceMission(a)).toEqual([]);
+  });
+
+  it('keeps an explicit armor exception deterministic', () => {
+    const a = generateScienceMission(7750, { armorPolicy: 'rare-specialist' });
+    const b = generateScienceMission(7750, { armorPolicy: 'rare-specialist' });
+
+    expect(a).toEqual(b);
+    expect(a.armorPolicy).toBe('rare-specialist');
   });
 
   it('compiles every verb and every site through the same contract', () => {

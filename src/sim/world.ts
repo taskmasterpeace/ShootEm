@@ -648,6 +648,7 @@ export class World {
 
   addSoldier(name: string, classId: ClassId, team: Team, kind: SoldierKind, loadout?: Loadout): Soldier {
     const c = CLASSES[classId];
+    const scienceNoArmor = this.mode.id === 'science' && this.science?.spec.armorPolicy === 'none';
     // bots draw varied primaries from the class armory; humans pass a loadout
     let primary = loadout?.primary && WEAPONS[loadout.primary] ? loadout.primary : c.primary;
     const secondary = loadout?.secondary && WEAPONS[loadout.secondary] ? loadout.secondary : c.secondary;
@@ -673,7 +674,8 @@ export class World {
       pushX: 0, pushZ: 0, nextWarpAt: 0, orbitals: 0, manpads: 0, lastKillerId: -1,
       floor: 0,
       armor: 0, maxArmor: 0, protectedUntil: 0,
-      equipment: (loadout?.equipment ?? []).filter((id) => EQUIPMENT[id]).slice(0, 2),
+      equipment: (loadout?.equipment ?? []).filter((id) => EQUIPMENT[id]
+        && (!scienceNoArmor || (id !== 'armor_vest' && id !== 'power_armor'))).slice(0, 2),
       medikitReady: true, nextPsiAt: 0, nextRepairAt: 0,
       downed: false, downedUntil: 0, downedBy: -1, reviveProgress: 0, draggingId: -1,
       meleeStrikeAt: 0, meleeYaw: 0, meleeWeapon: '',
@@ -1389,7 +1391,8 @@ export class World {
     // before hp and never heals back (medics fix flesh, not ceramic).
     // Total effective pool is unchanged from the old maxHp bonus.
     let plate = 0;
-    for (const id of s.equipment) plate += EQUIPMENT[id]?.hpBonus ?? 0;
+    const scienceNoArmor = this.mode.id === 'science' && this.science?.spec.armorPolicy === 'none';
+    if (!scienceNoArmor) for (const id of s.equipment) plate += EQUIPMENT[id]?.hpBonus ?? 0;
     s.hp = c.hp; s.maxHp = c.hp; s.armor = plate; s.maxArmor = plate; s.energy = 100;
     s.alive = true; s.cloaked = false; s.vehicleId = -1; s.seat = -1;
     s.carryingFlag = -1;

@@ -19,6 +19,9 @@ export const SCIENCE_COMPLICATIONS = [
 ] as const;
 export type ScienceComplication = typeof SCIENCE_COMPLICATIONS[number];
 
+export const SCIENCE_ARMOR_POLICIES = ['none', 'rare-specialist', 'armored-site'] as const;
+export type ScienceArmorPolicy = typeof SCIENCE_ARMOR_POLICIES[number];
+
 export const SCIENCE_REWARDS = [
   { id: 'front-reinforcement', label: 'Front Reinforcement', description: 'Print 40 clones into this front.' },
   { id: 'theater-reinforcement', label: 'Theater Reinforcement', description: 'Bank 25 clones in the theater reserve.' },
@@ -50,6 +53,7 @@ export interface ScienceMissionSpec {
   cityId?: string;
   cityName?: string;
   security?: number;
+  armorPolicy: ScienceArmorPolicy;
 }
 
 export interface ScienceMissionOptions {
@@ -60,6 +64,7 @@ export interface ScienceMissionOptions {
   reward?: ScienceRewardId;
   squadSize?: number;
   cityId?: string;
+  armorPolicy?: ScienceArmorPolicy;
 }
 
 export interface ScienceEncounterBudgetOptions {
@@ -200,6 +205,7 @@ export function generateScienceMission(seed: number, options: ScienceMissionOpti
     cityId: selectedCity.id,
     cityName: selectedCity.name,
     security: architecture.security,
+    armorPolicy: options.armorPolicy ?? 'none',
   };
 }
 
@@ -210,6 +216,9 @@ export function validateScienceMission(spec: ScienceMissionSpec): string[] {
   if (!SCIENCE_SITES.includes(spec.site)) issues.push(`unknown site: ${String(spec.site)}`);
   if (spec.complication !== undefined && !SCIENCE_COMPLICATIONS.includes(spec.complication)) {
     issues.push(`unknown complication: ${String(spec.complication)}`);
+  }
+  if (!SCIENCE_ARMOR_POLICIES.includes(spec.armorPolicy)) {
+    issues.push(`unknown armor policy: ${String(spec.armorPolicy)}`);
   }
   if (!SCIENCE_REWARDS.some((reward) => reward.id === spec.reward)) {
     issues.push(`unknown reward: ${String(spec.reward)}`);

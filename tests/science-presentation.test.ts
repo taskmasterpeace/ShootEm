@@ -45,7 +45,7 @@ function runtimeFixture(): ScienceMissionRuntime {
   return {
     spec: {
       id: 'SM-TEST', seed: 7, verb: 'steal', site: 'research-annex', theme: 'starship',
-      reward: 'front-reinforcement', squadSize: 5, briefing: 'Secure the program core.',
+      reward: 'front-reinforcement', squadSize: 5, briefing: 'Secure the program core.', armorPolicy: 'none',
     },
     phase: 'objective',
     objective: { kind: 'interact', label: 'Secure the program core', pos: [], required: 1, progress: 0, complete: false },
