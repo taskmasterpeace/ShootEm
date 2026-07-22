@@ -53,6 +53,8 @@ class Room {
   theme: ThemeId;
   private tickCount = 0;
   private interval: ReturnType<typeof setInterval>;
+  /** opt #15: wall-clock anchor for the accumulator tick loop */
+  private lastTickAt = 0;
 
   /** 32B: competitive rooms hold TEAM_TARGET bodies per side, bots filling
    *  every open position; joins/leaves swap a bot out/in so the war never
@@ -103,7 +105,20 @@ class Room {
     this.theme = THEME_ROTATION[Math.floor(Math.random() * THEME_ROTATION.length)];
     this.world = new World({ seed, mode, theme: this.theme });
     this.fillBots();
-    this.interval = setInterval(() => this.tick(), TICK * 1000);
+    // opt #15 (N6): a raw setInterval PERMANENTLY dilates sim time — every
+    // late callback (GC pause, busy event loop) pushed the whole schedule
+    // back, so server minutes ran long and never caught up. The accumulator
+    // steps by wall-clock owed ticks instead: late callbacks run the ticks
+    // they owe (snapshot cadence self-regulates via tickCount % SNAP_EVERY),
+    // and a hard stall drops time rather than death-spiraling (cap 5).
+    this.lastTickAt = Date.now();
+    this.interval = setInterval(() => {
+      const now = Date.now();
+      let owed = Math.floor((now - this.lastTickAt) / (TICK * 1000));
+      if (owed <= 0) return;
+      if (owed > 5) { this.lastTickAt = now - 5 * TICK * 1000; owed = 5; }
+      for (let i = 0; i < owed; i++) { this.lastTickAt += TICK * 1000; this.tick(); }
+    }, TICK * 500); // poll at 2× tick rate: a due tick lands within half a tick
     console.log(`[room:${mode}] created (seed ${seed}, theme ${this.theme})`);
   }
 
