@@ -315,7 +315,7 @@ function buildOptionsPanel() {
   wrap.appendChild(holder);
   // the wiring already bound these exact elements — moving the subtree keeps
   // every listener live and the settings singleton untouched.
-  for (const secId of ['settings-section', 'controls-section', 'mp-section']) {
+  for (const secId of ['settings-section', 'controls-section', 'controller-section', 'mp-section']) {
     const sec = document.getElementById(secId);
     if (sec) holder.appendChild(sec);
   }

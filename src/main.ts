@@ -1653,6 +1653,37 @@ audio.setMasterVolume(settings.masterVolume);
   const laser = $('set-laser') as HTMLInputElement;
   laser.checked = settings.laser;
   laser.onchange = () => { settings.laser = laser.checked; saveSettings(); };
+
+  // CONTROLLER (Robert: "controller configuration in the menu"). The twin-stick
+  // gamepad already ships; these knobs feed input.ts's pollGamepad live.
+  const padOn = $('set-pad-enabled') as HTMLInputElement;
+  padOn.checked = settings.padEnabled;
+  padOn.onchange = () => { settings.padEnabled = padOn.checked; saveSettings(); };
+  const padDz = $('set-pad-deadzone') as HTMLInputElement;
+  const padDzVal = $('pad-dz-val');
+  padDz.value = String(Math.round(settings.padDeadzone * 100));
+  padDzVal.textContent = `${Math.round(settings.padDeadzone * 100)}%`;
+  padDz.oninput = () => { settings.padDeadzone = Number(padDz.value) / 100; padDzVal.textContent = `${padDz.value}%`; saveSettings(); };
+  const padSens = $('set-pad-sens') as HTMLInputElement;
+  const padSensVal = $('pad-sens-val');
+  padSens.value = String(Math.round(settings.padSensitivity * 100));
+  padSensVal.textContent = `${settings.padSensitivity.toFixed(1)}×`;
+  padSens.oninput = () => { settings.padSensitivity = Number(padSens.value) / 100; padSensVal.textContent = `${settings.padSensitivity.toFixed(1)}×`; saveSettings(); };
+  const padInv = $('set-pad-inverty') as HTMLInputElement;
+  padInv.checked = settings.padInvertY;
+  padInv.onchange = () => { settings.padInvertY = padInv.checked; saveSettings(); };
+  // live connection status (Chrome only lists a pad after a button press)
+  const padStatus = $('pad-status');
+  const refreshPadStatus = () => {
+    const pads = navigator.getGamepads ? [...navigator.getGamepads()] : [];
+    const pad = pads.find((p) => p);
+    if (!pad) { padStatus.textContent = '🎮 No controller detected — plug one in and press a button'; padStatus.classList.remove('on'); }
+    else { padStatus.textContent = `🎮 ${(pad.id.replace(/\(.*?\)/g, '').trim() || 'Controller')} connected · ${pad.buttons.length} buttons`; padStatus.classList.add('on'); }
+  };
+  refreshPadStatus();
+  window.addEventListener('gamepadconnected', refreshPadStatus);
+  window.addEventListener('gamepaddisconnected', refreshPadStatus);
+  setInterval(refreshPadStatus, 1000);
 }
 $('deploy-btn').addEventListener('click', () => { activeFrontId = null; startGame(); });
 window.addEventListener('keydown', (e) => {

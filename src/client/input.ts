@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CLASSES } from '../sim/data';
 import type { K9Command, PlayerCmd, Soldier } from '../sim/types';
+import { settings } from './settings';
 
 /** STATUS §1 / W1.3 — SPACE is a tap/hold: a quick TAP jumps, a HOLD ducks.
  *  The window a press must beat to count as a tap (else it's a duck). */
@@ -172,8 +173,8 @@ export class Input {
   private pollGamepad(local: Soldier, cmd: PlayerCmd) {
     const pads = typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : [];
     const pad = pads && [...pads].find((p) => p && p.mapping === 'standard') || (pads && pads[0]);
-    if (!pad) { this.gamepadActive = false; return; }
-    const dead = (v: number) => (Math.abs(v) < 0.18 ? 0 : v);
+    if (!pad || !settings.padEnabled) { this.gamepadActive = false; return; }
+    const dead = (v: number) => (Math.abs(v) < settings.padDeadzone ? 0 : v);
     const btn = (i: number) => !!pad.buttons[i]?.pressed || (pad.buttons[i]?.value ?? 0) > 0.35;
     const rose = (i: number) => btn(i) && !this.prevPadButtons[i];
 
@@ -183,10 +184,10 @@ export class Input {
 
     // right stick: twin-stick aim — the last real deflection persists, so
     // letting the stick spring back doesn't snap your aim to zero
-    const ax = dead(pad.axes[2] ?? 0), az = dead(pad.axes[3] ?? 0);
+    const ax = dead(pad.axes[2] ?? 0), az = dead(settings.padInvertY ? -(pad.axes[3] ?? 0) : (pad.axes[3] ?? 0));
     const mag = Math.hypot(ax, az);
     if (mag > 0.25) {
-      this.padAim = { yaw: Math.atan2(az, ax), dist: 8 + mag * 30, has: true };
+      this.padAim = { yaw: Math.atan2(az, ax), dist: 8 + mag * 30 * settings.padSensitivity, has: true };
       this.gamepadActive = true;
     }
     if (this.gamepadActive && this.padAim.has) {

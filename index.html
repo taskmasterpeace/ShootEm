@@ -386,6 +386,67 @@
           </div>
           <div class="ctl-note">Every row above is read from the code, not aspiration. Rebinding comes later — this board is the truth of today.</div>
         </div>
+        <div class="menu-section" id="controller-section">
+          <h3>Controller <span class="opt">(gamepad — PS/Xbox, plug &amp; play)</span></h3>
+          <div class="setup-row">
+            <div class="setup-block" style="flex:1 1 100%">
+              <label>Status</label>
+              <div id="pad-status" class="pad-status">🎮 No controller detected — plug one in and press a button</div>
+            </div>
+          </div>
+          <div class="setup-row">
+            <div class="setup-block">
+              <label>Controller</label>
+              <label style="display:flex;align-items:center;gap:0.5rem;text-transform:none;font-size:0.85rem;cursor:pointer">
+                <input type="checkbox" id="set-pad-enabled" style="accent-color:var(--accent);width:1rem;height:1rem"> Enable controller input
+              </label>
+            </div>
+            <div class="setup-block">
+              <label>Stick deadzone <span id="pad-dz-val">18%</span></label>
+              <input type="range" id="set-pad-deadzone" min="5" max="40" step="1" value="18" style="width:170px; accent-color: var(--accent)">
+            </div>
+            <div class="setup-block">
+              <label>Aim sensitivity <span id="pad-sens-val">1.0×</span></label>
+              <input type="range" id="set-pad-sens" min="50" max="200" step="5" value="100" style="width:170px; accent-color: var(--accent)">
+            </div>
+            <div class="setup-block">
+              <label>Aim</label>
+              <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer">
+                <input type="checkbox" id="set-pad-inverty" style="accent-color:var(--accent);width:1rem;height:1rem"> Invert Y
+              </label>
+            </div>
+          </div>
+          <div class="controls-grid">
+            <div class="ctl-group">
+              <h4>Sticks</h4>
+              <div class="ctl-row"><kbd class="key">L-Stick</kbd><span class="what">move</span></div>
+              <div class="ctl-row"><kbd class="key">R-Stick</kbd><span class="what">aim (twin-stick)</span></div>
+              <div class="ctl-row"><kbd class="key">L3</kbd><span class="what">K9 sic — clear aimed building</span></div>
+              <div class="ctl-row"><kbd class="key">R3</kbd><span class="what">K9 stay / heel</span></div>
+            </div>
+            <div class="ctl-group">
+              <h4>Triggers &amp; bumpers</h4>
+              <div class="ctl-row"><kbd class="key">RT</kbd><span class="what">fire</span></div>
+              <div class="ctl-row"><kbd class="key">LT</kbd><span class="what">alt-fire</span></div>
+              <div class="ctl-row"><kbd class="key">RB</kbd><span class="what">hold — aim grenade · release — throw</span></div>
+              <div class="ctl-row"><kbd class="key">LB</kbd><span class="what">cycle weapon</span></div>
+            </div>
+            <div class="ctl-group">
+              <h4>Face buttons</h4>
+              <div class="ctl-row"><kbd class="key">A ✕</kbd><span class="what">jump</span></div>
+              <div class="ctl-row"><kbd class="key">B ○</kbd><span class="what">reload</span></div>
+              <div class="ctl-row"><kbd class="key">X □</kbd><span class="what">use / enter</span></div>
+              <div class="ctl-row"><kbd class="key">Y △</kbd><span class="what">ability</span></div>
+            </div>
+            <div class="ctl-group">
+              <h4>D-pad &amp; more</h4>
+              <div class="ctl-row"><kbd class="key">◄ ►</kbd><span class="what">weapon slots</span></div>
+              <div class="ctl-row"><kbd class="key">▲ ▼</kbd><span class="what">zoom in / out</span></div>
+              <div class="ctl-row"><kbd class="key">Back</kbd><span class="what">scoreboard (hold)</span></div>
+            </div>
+          </div>
+          <div class="ctl-note">Twin-stick: left stick moves, right stick aims. Any keyboard/mouse input hands the wheel straight back.</div>
+        </div>
         <div class="menu-section" id="mp-section">
           <h3>Multiplayer <span class="opt">(optional — leave blank to fight bots offline)</span></h3>
           <input id="server-url" type="text" placeholder="ws://192.168.1.217:3401" />

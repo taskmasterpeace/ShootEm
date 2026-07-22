@@ -503,6 +503,10 @@ html, body {
 #to-frontmenu { position: absolute; top: 1rem; left: 1rem; z-index: 3; background: var(--bg-deep); border: 1px solid var(--border); border-radius: var(--radius); color: var(--muted); font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.1em; padding: 0.4rem 0.7rem; cursor: pointer; transition: border-color 0.15s, color 0.15s; }
 #to-frontmenu:hover { border-color: var(--accent); color: var(--text); }
 
+/* Controller config: the live connection line, dim until a pad answers */
+.pad-status { font-family: var(--font-mono); font-size: 0.82rem; color: var(--muted); background: var(--bg-deep); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.5rem 0.75rem; }
+.pad-status.on { color: var(--good, oklch(0.78 0.16 145)); border-color: color-mix(in oklab, var(--good, oklch(0.78 0.16 145)) 45%, transparent); }
+
 .obj-chip {
   background: oklch(0.18 0.02 80 / 0.75); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 0.3rem 0.7rem; font-weight: 600;

@@ -60,6 +60,15 @@ export interface Settings {
   reticleDist: number;   // 0..1 → near .. far in front (standing reticles)
   reticleScale: number;  // 0.5..2
   laser: boolean;
+  /** CONTROLLER (Robert: "controller configuration in the menu"). The gamepad
+   *  twin-stick support already ships; these expose its feel. `padEnabled`
+   *  gates the poll entirely; `padDeadzone` (0.05..0.4) is the stick dead
+   *  centre; `padSensitivity` (0.5..2) scales how far the right stick throws
+   *  your aim; `padInvertY` flips the aim stick's vertical axis. */
+  padEnabled: boolean;
+  padDeadzone: number;
+  padSensitivity: number;
+  padInvertY: boolean;
 }
 
 const KEY = 'ww_settings';
@@ -84,6 +93,9 @@ export const settings: Settings = {
   // THE RETICLE: default to the STANDING crosshair out in front (Robert's ask),
   // house amber, a mid float distance, unit size, laser off.
   reticle: 'crosshair', reticleColor: 0xe8a33d, reticleDist: 0.6, reticleScale: 1, laser: false,
+  // CONTROLLER: on by default (a plugged pad just works); the hardcoded feel
+  // that shipped becomes the defaults here — deadzone 0.18, unit sensitivity.
+  padEnabled: true, padDeadzone: 0.18, padSensitivity: 1, padInvertY: false,
 };
 
 const RETICLE_STYLES: ReticleStyle[] = ['auto', 'wedge', 'circle', 'crosshair', 'dot', 'cross', 'chevron', 'brackets', 'ringdot'];
@@ -102,6 +114,10 @@ export function loadSettings(): Settings {
     if (typeof raw.reticleDist === 'number') settings.reticleDist = Math.max(0, Math.min(1, raw.reticleDist));
     if (typeof raw.reticleScale === 'number') settings.reticleScale = Math.max(0.5, Math.min(2, raw.reticleScale));
     if (typeof raw.laser === 'boolean') settings.laser = raw.laser;
+    if (typeof raw.padEnabled === 'boolean') settings.padEnabled = raw.padEnabled;
+    if (typeof raw.padDeadzone === 'number') settings.padDeadzone = Math.max(0.05, Math.min(0.4, raw.padDeadzone));
+    if (typeof raw.padSensitivity === 'number') settings.padSensitivity = Math.max(0.5, Math.min(2, raw.padSensitivity));
+    if (typeof raw.padInvertY === 'boolean') settings.padInvertY = raw.padInvertY;
     // a profile from before this generation keeps every OTHER preference but
     // takes the new speed tuning once, then is stamped so it never happens again
     if ((raw.speedGen ?? 0) >= SPEED_GEN) {
