@@ -377,7 +377,7 @@ export function stepScienceMission(world: World, dt: number): void {
       const operator = operators.find((candidate) => world.time >= (candidate.scienceConcealedUntil ?? 0)
         && perceivesNow(world.map.grid, [guard], world.pinged,
         candidate, 32, world.smokeBlobs, undefined, world.map.grid2,
-        world.map.geometry, world.map.upperLayers));
+        world.map.geometry, world.map.upperLayers, world.map.height));
       if (operator) { witness = { guard, operator }; break; }
     }
     if (witness) {

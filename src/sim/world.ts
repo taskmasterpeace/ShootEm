@@ -2201,7 +2201,7 @@ export class World {
         if (s.team === team) continue;
         if (!s.alive) { this.lastSeen[team].delete(s.id); continue; }
         if (perceivesNow(this.map.grid, eyes, this.pinged, s, range, this.smokeBlobs,
-          revealed, this.map.grid2, this.map.geometry, this.map.upperLayers)) {
+          revealed, this.map.grid2, this.map.geometry, this.map.upperLayers, this.map.height)) {
           this.lastSeen[team].set(s.id, { t: this.time, x: s.pos.x, z: s.pos.z });
         }
       }

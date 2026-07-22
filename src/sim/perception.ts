@@ -12,7 +12,7 @@
 // governing what it already governs. Flanking, ambush, and checking corners
 // all come back the moment sight has a shape.
 // ---------------------------------------------------------------------------
-import { T_GRASS, losClearUpper, losClearXZ, losCrossFloor, tileAt } from './map';
+import { T_GRASS, losClearUpper, losClearXZ, losCrossFloor, tileAt, terrainTopAt, losClearTerrain } from './map';
 import { LEGACY_GEOMETRY, type MapGeometry } from './map-geometry';
 import type { Soldier, Team } from './types';
 
@@ -98,14 +98,17 @@ export function smokeBlocks(ax: number, az: number, bx: number, bz: number, smok
  *  multiplayer path) and the renderer's local-play cull so they never diverge. */
 export function eyesSeePoint(
   grid: Uint8Array, eyes: Soldier[], x: number, z: number, range: number, _y = 1.4,
-  geometry: MapGeometry = LEGACY_GEOMETRY,
+  geometry: MapGeometry = LEGACY_GEOMETRY, height?: Uint8Array,
 ): boolean {
   // `_y` is the caller's target height (a hull tests ~1.8) — kept advisory: the
   // march is at ground eye height 1.4 exactly as losClear always did. opt #9:
   // losClearXZ takes coords, no per-call literals; geometry keeps big maps honest.
+  // TERRAIN: a mountain between eye and point blocks it (absent height → skipped).
+  const tgtTop = terrainTopAt(height, x, z, geometry) + 1.4;
   return eyes.some((e) =>
     Math.hypot(x - e.pos.x, z - e.pos.z) < range &&
-    losClearXZ(grid, e.pos.x, e.pos.z, x, z, 1.4, geometry));
+    losClearXZ(grid, e.pos.x, e.pos.z, x, z, 1.4, geometry) &&
+    (!height || losClearTerrain(height, e.pos.x, terrainTopAt(height, e.pos.x, e.pos.z, geometry) + 1.4, e.pos.z, x, tgtTop, z, geometry)));
 }
 
 /** Can this set of friendly eyes perceive enemy soldier `s` RIGHT NOW?
@@ -121,19 +124,25 @@ export function perceivesNow(
 export function perceivesNow(
   grid: Uint8Array, eyes: Soldier[], pinged: Set<number>, s: Soldier,
   range?: number, smokes?: SmokeBlob[], revealed?: Set<number>, grid2?: Uint8Array,
-  geometry?: MapGeometry, upperLayers?: Uint8Array[],
+  geometry?: MapGeometry, upperLayers?: Uint8Array[], height?: Uint8Array,
 ): boolean;
 export function perceivesNow(
   grid: Uint8Array, eyes: Soldier[], pinged: Set<number>, s: Soldier,
   range = PERCEIVE_RANGE, smokes: SmokeBlob[] = [], revealed?: Set<number>, grid2?: Uint8Array,
   geometryOrUpperLayers: MapGeometry | Uint8Array[] = LEGACY_GEOMETRY,
-  explicitUpperLayers?: Uint8Array[],
+  explicitUpperLayers?: Uint8Array[], height?: Uint8Array,
 ): boolean {
   const legacyUpperLayers = Array.isArray(geometryOrUpperLayers) ? geometryOrUpperLayers : undefined;
   const geometry: MapGeometry = legacyUpperLayers
     ? LEGACY_GEOMETRY
     : geometryOrUpperLayers as MapGeometry;
   const upperLayers = explicitUpperLayers ?? legacyUpperLayers;
+  // TERRAIN ELEVATION: on a map with height, a mountain between eye and target
+  // blocks the sightline, and high ground sees over lower terrain. Ground pairs
+  // only (upstairs/air ride above terrain). Absent height → true, byte-identical.
+  const terrainClear = (e: Soldier, t: Soldier): boolean => !height ? true
+    : losClearTerrain(height, e.pos.x, terrainTopAt(height, e.pos.x, e.pos.z, geometry) + 1.4, e.pos.z,
+        t.pos.x, terrainTopAt(height, t.pos.x, t.pos.z, geometry) + 1.4, t.pos.z, geometry);
   if (s.cloaked && !pinged.has(s.id)) return false;   // cloak is TRUE
   if (s.carryingFlag !== -1) return true;             // objective intel is public
   if (pinged.has(s.id)) return true;
@@ -172,7 +181,7 @@ export function perceivesNow(
     const ef = e.floor ?? 0;
     const sf = s.floor ?? 0;
     if (ef === sf) {
-      if (ef === 0) return losClearXZ(grid, e.pos.x, e.pos.z, s.pos.x, s.pos.z, 1.4, geometry);
+      if (ef === 0) return losClearXZ(grid, e.pos.x, e.pos.z, s.pos.x, s.pos.z, 1.4, geometry) && terrainClear(e, s);
       const layer = upperFor(ef);
       return layer !== undefined
         ? losClearUpper(layer, { x: e.pos.x, y: 5.4, z: e.pos.z }, { x: s.pos.x, y: 5.4, z: s.pos.z }, 5.4, geometry)

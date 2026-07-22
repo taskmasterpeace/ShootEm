@@ -267,6 +267,14 @@ export interface GameMap {
   buildingMeta?: BuildingMapMeta;
   /** the SURFACE layer (§8.6): S_* per tile — movement, sound, and tracks */
   surface: Uint8Array;
+  /** TERRAIN ELEVATION (v1, docs/superpowers/specs/2026-07-22-terrain-elevation):
+   *  per-tile ground height 0..2 (Ground / Building / Sky-mountain). ABSENT = flat
+   *  (every legacy map), so nothing pays until a map places terrain. See
+   *  TERRAIN_U / terrainTopAt / losClearTerrain. Static after gen; replicated once. */
+  height?: Uint8Array;
+  /** per-tile ramp flag (1 = a graded slope a vehicle can drive between levels);
+   *  absent/0 = a step/cliff. Only meaningful where `height` varies. */
+  ramp?: Uint8Array;
   basePos: [Vec3, Vec3];
   spawns: [Vec3[], Vec3[]];
   flagPos: [Vec3, Vec3];
@@ -605,6 +613,58 @@ export function losClearXZ(grid: Uint8Array, ax: number, az: number, bx: number,
   for (let i = 1; i < steps; i++) {
     const t = i / steps;
     if (blocksShot(grid, ax + dx * t, az + dz * t, y, geometry)) return false;
+  }
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// TERRAIN ELEVATION (v1) — the ground itself has height. Four vertical bands,
+// one scale shared with elevation.ts: Ground / Building / Sky / Clouds. Terrain
+// climbs the lower three; Clouds is jet-only air (no terrain). Heights are
+// NON-LINEAR — a Sky mountain (16u) is ~4× a Building rise (4u) — so mountains
+// mean something. Per-tile `height` is 0..2; absent = flat (byte-identical).
+// ---------------------------------------------------------------------------
+/** level → world units. Ground 0 · Building 4 (≈WALL_H) · Sky/mountain 16. */
+export const TERRAIN_U = [0, 4, 16] as const;
+export const SKY_LEVEL = 2; // the mountain band; rotorcraft cap here (elevation.ts)
+
+/** Ground height (world units) at a world position; 0 flat / out of bounds. */
+export function terrainTopAt(height: Uint8Array | undefined, x: number, z: number, geometry: MapGeometry = LEGACY_GEOMETRY): number {
+  if (!height) return 0;
+  const [tx, tz] = geometryWorldToTile(geometry, x, z);
+  if (!geometryInBounds(geometry, tx, tz)) return 0;
+  return TERRAIN_U[height[geometryTileIndex(geometry, tx, tz)]] ?? 0;
+}
+
+/** terrain LEVEL (0..2) at a world position; 0 flat / out of bounds. */
+export function terrainLevelAt(height: Uint8Array | undefined, x: number, z: number, geometry: MapGeometry = LEGACY_GEOMETRY): number {
+  if (!height) return 0;
+  const [tx, tz] = geometryWorldToTile(geometry, x, z);
+  if (!geometryInBounds(geometry, tx, tz)) return 0;
+  return height[geometryTileIndex(geometry, tx, tz)] ?? 0;
+}
+
+/** true if this tile is a graded ramp (a vehicle can change level across it). */
+export function isRampAt(ramp: Uint8Array | undefined, x: number, z: number, geometry: MapGeometry = LEGACY_GEOMETRY): boolean {
+  if (!ramp) return false;
+  const [tx, tz] = geometryWorldToTile(geometry, x, z);
+  if (!geometryInBounds(geometry, tx, tz)) return false;
+  return ramp[geometryTileIndex(geometry, tx, tz)] === 1;
+}
+
+/** TERRAIN occlusion: true if the line A→B is not blocked by higher GROUND
+ *  between them. `ay`/`by` are ABSOLUTE heights (each end's terrain top + its
+ *  eye/muzzle stance). A tile whose ground rises above the interpolated line
+ *  blocks. Returns true immediately when there's no height layer, so flat maps
+ *  cost nothing and stay byte-identical — this composes ON TOP of the wall LOS. */
+export function losClearTerrain(height: Uint8Array | undefined, ax: number, ay: number, az: number, bx: number, by: number, bz: number, geometry: MapGeometry = LEGACY_GEOMETRY): boolean {
+  if (!height) return true;
+  const dx = bx - ax, dz = bz - az, dy = by - ay;
+  const dist = Math.hypot(dx, dz);
+  const steps = Math.max(1, Math.ceil(dist / (geometry.tile * 0.5)));
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps;
+    if (terrainTopAt(height, ax + dx * t, az + dz * t, geometry) > ay + dy * t + 0.001) return false;
   }
   return true;
 }
