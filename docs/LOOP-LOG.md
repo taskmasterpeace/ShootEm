@@ -4,3 +4,4 @@
 2026-07-22 IT-4: #43/#44/#45 closed-with-evidence (shipped 2605b4f, verified perception.ts:157 guard + eyesSeePoint wiring). Next: #57 amb_winter (S) or #56 burn meter.
 2026-07-22 IT-5/6: #53 + #52 closed-with-evidence (rubble in open() since 7a5a4b1; door-IQ ordered before separation). Next: #56 burn meter (build).
 2026-07-22 IT-7: #56 built + live-verified (CORPSE BURNING chip). Foreign untracked file noted: tests/geospatial-visuals.test.ts (left alone). Next: #57 amb_winter or #80 skip bleed-out.
+2026-07-22 IT-8: #80 built (hold-SPACE give-up, 12 downed tests green). SHARED-TREE ALERT: second instance landing Miami-Gardens geospatial (theaters.test geocity seed 7 red is THEIRS; their uncommitted files left alone). Next: #57 amb_winter.
