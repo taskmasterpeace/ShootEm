@@ -27,6 +27,12 @@ const CORE_WEAPONS: Record<WeaponId, WeaponDef> = {
     alt: { kind: 'burst', ammo: 3, cooldown: 2.6 } }), // under-barrel flame burp
   kuchler: W({ id: 'kuchler', name: 'Kuchler K6 SMG', damage: 9, rof: 12, speed: 95, spread: 0.05, clip: 40, reloadTime: 1.3, range: 40, sound: 'smg' }),
   caw: W({ id: 'caw', name: 'CAW-8 Shotgun', damage: 9, rof: 1.4, speed: 80, spread: 0.11, pellets: 8, clip: 6, reloadTime: 2.2, reserve: 60, range: 26, sound: 'shotgun', tracer: 'shell' }),
+  // THE BOOMSTICK (Robert: "duel barrel"): the sawn-off hero of the scatter
+  // family. Both barrels on ONE press (fireMode double), a 2-round clip so that
+  // press empties it — then you break it open and reload. Murder point-blank
+  // (11×11 pellets), useless past a room (range 18, wide choke). DPS-neutral by
+  // the fireMode law; the burst is front-loaded, the sheet unchanged.
+  boomstick: W({ id: 'boomstick', name: 'The Boomstick', damage: 11, rof: 1.5, speed: 76, spread: 0.17, pellets: 11, clip: 2, reloadTime: 2.7, reserve: 24, range: 18, fireMode: 'double', family: 'scatter', sound: 'shotgun', tracer: 'shell', icon: '💥' }),
   rg2: W({ id: 'rg2', name: 'RG-2 Railgun', damage: 85, rof: 0.8, speed: 300, spread: 0.001, clip: 4, reloadTime: 2.4, reserve: 32, range: 125, sound: 'rail', tracer: 'rail',
     alt: { kind: 'tag', ammo: 4, cooldown: 1.4 } }), // tag dart — pin the runner, then line up the real shot
   ac_mk2: W({ id: 'ac_mk2', name: 'AC-Mk2 Autocannon', damage: 16, rof: 6.5, speed: 100, spread: 0.04, clip: 60, reloadTime: 2.8, reserve: 300, range: 56, sound: 'autocannon' }),

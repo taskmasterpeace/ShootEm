@@ -73,6 +73,22 @@ describe('10.1 — fire modes', () => {
     expect(s.nextFireAt, 'the pair pays the pair price').toBeGreaterThanOrEqual(t0 + 2 / def.rof - 0.001);
   });
 
+  it('THE BOOMSTICK: a sawn-off — 2-round clip emptied in one press, murder point-blank', () => {
+    const w = quiet(); const s = shooter(w);
+    const def = WEAPONS.boomstick;
+    expect(def.fireMode, 'both barrels').toBe('double');
+    expect(def.clip, 'two barrels, two shells').toBe(2);
+    expect(def.family, 'the scatter family — THE double-barrel').toBe('scatter');
+    expect(def.range, 'a sawn-off reaches a room, no further').toBeLessThan(27);
+    s.weapons[0] = 'boomstick'; s.weaponIdx = 0; s.clip[0] = 2; s.reserve[0] = def.reserve; s.yaw = 0;
+    const e = w.addSoldier('E', 'infantry', 1, 'human'); e.pos = { x: 6, y: 0, z: 0 }; e.armor = 0;
+    const hp0 = e.hp;
+    w.step(1 / 60, new Map([[s.id, cmd({ fire: true, aimYaw: 0 })]])); // one press
+    expect(s.clip[0], 'both barrels emptied the gun in one press').toBe(0);
+    for (let i = 0; i < 24; i++) w.step(1 / 60, new Map()); // let the wall of shot land
+    expect(hp0 - e.hp, 'point-blank, a wall of shot').toBeGreaterThan(40);
+  });
+
   it('row 177: the shooty core carries per-family SECONDARIES — and they fire', () => {
     // the four proven alt kinds, spread by family idiom
     const famAlt = (k: string) => FAMILIES.find((f) => f.family === k)!.base.alt?.kind;
