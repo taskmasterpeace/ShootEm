@@ -3,6 +3,7 @@ import { losClear, type GameMap } from './map';
 import { isBoard, isZed, type ModeId, type ModeState, type RacerState, type RaceTrack, type Team, type ZedKind, type IronKind } from './types';
 import type { World } from './world';
 import { stepScienceMission } from './science-runtime';
+import { pbBark } from './paintball';
 
 const MATCH_TIME = 15 * 60;
 
@@ -169,9 +170,18 @@ function stepPaintball(w: World, dt: number) {
     return;
   }
 
-  // paint is final (per round): the splatted watch from the dead-box
+  // paint is final (per round): the splatted watch from the dead-box.
+  // A FRESH splat gets a bark from whoever threw the paint — the play types
+  // talk (Robert: "our play types are gonna drive what they say").
   for (const s of w.humansAndBots()) {
-    if (!s.alive) s.respawnAt = Infinity;
+    if (!s.alive) {
+      s.respawnAt = Infinity;
+      if (!s.pbSplatBarked) {
+        s.pbSplatBarked = true;
+        const killer = s.lastKillerId >= 0 ? w.soldiers.get(s.lastKillerId) : undefined;
+        if (killer?.alive && killer.kind === 'bot') pbBark(w, killer, 'splat');
+      }
+    }
   }
 
   // tag points: a live prey standing on an untagged pad claims it in 2s
@@ -244,15 +254,22 @@ function startPaintballRound(w: World) {
     w.spawn(s); // fresh hp/pos + brief protection…
     // …but spawn() deals the ARMY kit (sidearm + frags). Yard law is marker
     // only — re-impose it every round or round 2 turns into a grenade fight.
+    // The bag carries paint: two paint grenades per round (the world.ts
+    // paintball branch is the only thing G can throw here).
     const marker = s.weapons[0];
     s.weapons = [marker];
     s.clip = [WEAPONS[marker].clip];
     s.reserve = [WEAPONS[marker].reserve];
     s.weaponIdx = 0;
-    s.grenades = 0;
+    s.grenades = 2;
+    s.smokes = 0; s.firebombs = 0; s.concs = 0; s.gravs = 0; s.plasmas = 0; s.timebombs = 0;
+    s.pbSplatBarked = false; // fresh round, fresh trash talk
   }
   w.emit({ type: 'whistle', pos: w.map.hillPos });
   w.emit({ type: 'announce', text: `ROUND ${m.round}`, big: true });
+  // one hunter calls their play at the whistle — the pack has a MOOD now
+  const pack = [...w.humansAndBots()].filter((s) => s.kind === 'bot' && s.team !== (m.huntedTeam ?? 1));
+  if (pack.length) pbBark(w, pack[(m.round ?? 0) % pack.length], 'start');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

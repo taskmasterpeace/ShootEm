@@ -517,6 +517,8 @@ export interface Soldier {
   /** who last killed this soldier (-1 = nobody/self/environment) — the killcam
    *  frames the duel between victim and killer instead of just the corpse */
   lastKillerId: number;
+  /** paintball: this splat already drew its trash-talk bark (reset each round) */
+  pbSplatBarked?: boolean;
   /** which storey this soldier stands on: 0 ground, 1 the grid2 layer (§8.4) */
   floor: number;
   /** brief stair debounce; direction records an intentional reversal. */
@@ -950,6 +952,9 @@ export interface Projectile {
   stuckVehicle?: number;
   stuckPos?: Vec3;
   stuckAt?: number;
+  /** PAINTBALL: this ball hit a bunker and DIDN'T bust — it skipped off and
+   *  is dead paint now: it never bounces again, never splats, never tags. */
+  paintDud?: boolean;
   /** remaining body/cover pass-throughs (init from WeaponDef.pierce at launch) */
   pierce?: number;
   /** remaining ricochets (init from WeaponDef.ricochet at launch) */

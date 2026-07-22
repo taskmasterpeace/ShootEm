@@ -6,13 +6,16 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import {
-  GRID, PAINTBALL_FIELDS, T_COVER, T_OPEN, T_WALL, TILE, WORLD,
+  GRID, PAINTBALL_FIELDS, S_DIRT, T_COVER, T_OPEN, T_WALL, TILE, WORLD,
   generatePaintballField, isBlocked, tileAt,
 } from '../src/sim/map';
 import { WEAPONS } from '../src/sim/data';
 import { World } from '../src/sim/world';
 import { buildWeaponModel } from '../src/client/models';
 import { updateHopper } from '../src/client/hopper';
+import { PAINTBALL_MARKERS } from '../src/client/onboarding';
+import { pbHuntObjective, pbPreyObjective, pbStyleFor } from '../src/sim/paintball';
+import { hash01 } from '../src/sim/rng';
 import type { PlayerCmd, Projectile, Soldier, WeaponId } from '../src/sim/types';
 
 const cmd = (over: Partial<PlayerCmd> = {}): PlayerCmd => ({
@@ -111,7 +114,7 @@ describe('the rules', () => {
   });
 
   it('markers are honest paint: every one splats in a single hit', () => {
-    for (const id of ['marker_blitz', 'marker_pump', 'marker_lobber']) {
+    for (const id of ['marker_blitz', 'marker_pump', 'marker_lobber', 'marker_scatter']) {
       expect(WEAPONS[id].damage).toBeGreaterThanOrEqual(999);
     }
   });
@@ -127,11 +130,11 @@ describe('the rules', () => {
     // never over 0.7x (undodgeable). The Lobber arcs, so it only wears the
     // ceiling; its drama is the rainbow, not the straight line.
     const rifle = WEAPONS.ar606.speed;
-    for (const id of ['marker_blitz', 'marker_pump', 'marker_lobber']) {
+    for (const id of ['marker_blitz', 'marker_pump', 'marker_lobber', 'marker_scatter']) {
       const ratio = WEAPONS[id].speed / rifle;
       expect(ratio, `${id} flies at ${ratio.toFixed(2)}x a rifle round`).toBeLessThan(0.7);
     }
-    for (const id of ['marker_blitz', 'marker_pump']) {
+    for (const id of ['marker_blitz', 'marker_pump', 'marker_scatter']) {
       const ratio = WEAPONS[id].speed / rifle;
       expect(ratio, `${id} floats at ${ratio.toFixed(2)}x a rifle round`).toBeGreaterThan(0.45);
     }
@@ -191,17 +194,20 @@ describe('the series', () => {
     for (const p of w.mode.points!) expect(p.owner).toBe(-1);  // pads wiped
   });
 
-  it('round 2 keeps yard law: marker only, no sidearm, no frags', () => {
+  it('round 2 keeps yard law: marker only, no sidearm, paint grenades only', () => {
     const { w, prey, hunters } = yard();
     // impose match-setup yard law (main.ts does this at deploy)
-    for (const s of [prey, ...hunters]) { s.weapons = [s.weapons[0]]; s.clip = [30]; s.reserve = [100]; s.grenades = 0; }
+    for (const s of [prey, ...hunters]) { s.weapons = [s.weapons[0]]; s.clip = [30]; s.reserve = [100]; s.grenades = 2; }
     w.damageSoldier(prey, 999, -1, 'marker_blitz');
     run(w, 5); // round ends, intermission passes, round 2 starts
     expect(w.mode.round).toBe(2);
     for (const s of [prey, ...hunters]) {
       expect(s.weapons.length, `${s.name} smuggled a sidearm past the whistle`).toBe(1);
       expect(s.weapons[0].startsWith('marker'), `${s.name} holds ${s.weapons[0]}`).toBe(true);
-      expect(s.grenades, `${s.name} smuggled frags into the yard`).toBe(0);
+      // the bag refills with PAINT — two paint grenades, and every live pouch empty
+      expect(s.grenades, `${s.name}'s paint-grenade bag`).toBe(2);
+      expect((s.smokes ?? 0) + (s.firebombs ?? 0) + (s.concs ?? 0) + (s.gravs ?? 0)
+        + (s.plasmas ?? 0) + (s.timebombs ?? 0), `${s.name} smuggled live ordnance in`).toBe(0);
     }
   });
 
@@ -265,6 +271,222 @@ describe('the series', () => {
       expect(h.ownerId, 'a miss must still wear its thrower').toBe(shooter.id);
       expect(h.soldierId, 'a miss must not flash a phantom tag').toBeUndefined();
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PAINT GRENADES (Robert: "we need to have paintball grenades") — G in the
+// yard throws a paint bomb and NOTHING else; the circle splats, the walls
+// don't care. Two per round, refilled at every whistle.
+// ---------------------------------------------------------------------------
+describe('paint grenades', () => {
+  it('G throws paint in the yard — never the army frag', () => {
+    const { w, hunters } = yard();
+    const thrower = hunters[0];
+    thrower.grenades = 2;
+    w.step(1 / 60, new Map([[thrower.id, cmd({ grenade: true, aimDist: 8 })]]));
+    const shots = w.takeEvents().filter((e) => e.type === 'shot' && e.soldierId === thrower.id);
+    expect(shots.length, 'the press threw SOMETHING').toBeGreaterThan(0);
+    expect(shots[0].weapon, 'and it was paint').toBe('paint_nade');
+    expect(thrower.grenades).toBe(1);
+  });
+
+  it('the burst splats the circle — one bomb, whole-squad paint', () => {
+    const { w, hunters } = yard();
+    // stand the pack in a knot and burst a paint bomb on top of them
+    for (const h of hunters) { h.pos = { x: 5, y: 0, z: 5 }; h.protectedUntil = 0; }
+    w.explode({ x: 5, y: 0.5, z: 5 }, WEAPONS.paint_nade, -1, 1);
+    for (const h of hunters) expect(h.alive, `${h.name} wore the circle`).toBe(false);
+  });
+
+  it('a fresh round refills the bag — two paint grenades at the whistle', () => {
+    const { w, prey, hunters } = yard();
+    hunters[0].grenades = 0;
+    w.damageSoldier(prey, 999, -1, 'marker_blitz');
+    for (let i = 0; i < Math.ceil(5 * 60); i++) w.step(1 / 60, new Map());
+    expect(w.mode.round).toBe(2);
+    expect(hunters[0].grenades).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SOME BALLS DON'T BUST (Robert) — a clean face hit sometimes skips off the
+// bunker instead of breaking: no splat, and a bounced ball is DEAD paint (it
+// can never tag anyone). Deterministic off the projectile id, so the same
+// firefight always bounces the same balls.
+// ---------------------------------------------------------------------------
+describe('the bounce', () => {
+  /** ids where hash01(id*31+7) lands under / over the 0.22 bounce chance */
+  function idsFor(bounce: boolean): number {
+    for (let id = 90100; id < 91000; id++) {
+      const r = hash01(id * 31 + 7);
+      if (bounce ? r < 0.22 : r >= 0.22) return id;
+    }
+    throw new Error('no id found');
+  }
+
+  function fireAtWall(id: number) {
+    const w = new World({ seed: 4, mode: 'tdm' });
+    const tx = Math.floor(GRID / 2), tz = Math.floor(GRID / 2);
+    const idx = tz * GRID + tx;
+    w.map.grid[idx] = T_WALL;
+    for (let d = 1; d <= 4; d++) w.map.grid[idx - d] = T_OPEN;
+    const cx = (tx + 0.5) * TILE - WORLD / 2;
+    const cz = (tz + 0.5) * TILE - WORLD / 2;
+    const def = WEAPONS.marker_blitz;
+    const p = {
+      id, weapon: 'marker_blitz', ownerId: -1, team: 0,
+      pos: { x: cx - TILE * 2.5, y: 1, z: cz },
+      vel: { x: def.speed, y: 0, z: 0 },
+      bornAt: w.time, ttl: 3, arc: false,
+    } as Projectile;
+    w.launch(p);
+    // step until the ball meets the wall (or dies)
+    for (let i = 0; i < 60 && w.projectiles.has(id); i++) {
+      w.step(1 / 60, new Map());
+      const live = w.projectiles.get(id);
+      if (live?.paintDud) return { w, survived: true, p: live };
+    }
+    return { w, survived: w.projectiles.has(id), p: w.projectiles.get(id) };
+  }
+
+  it('the lucky ball skips off the bunker — alive, flying backwards, dead paint', () => {
+    const { survived, p } = fireAtWall(idsFor(true));
+    expect(survived, 'the ball did not break').toBe(true);
+    expect(p!.paintDud).toBe(true);
+    expect(p!.vel.x, 'it reflected off the face').toBeLessThan(0);
+  });
+
+  it('the ordinary ball busts on the wall like always', () => {
+    const { survived } = fireAtWall(idsFor(false));
+    expect(survived, 'paint broke on the bunker').toBe(false);
+  });
+
+  it('a bounced ball cannot tag a body — real paintball law', () => {
+    const { w } = yard();
+    const victim = w.addSoldier('Bystander', 'infantry', 0, 'human', { primary: 'marker_blitz' });
+    victim.pos = { x: 10, y: 0, z: 10 };
+    victim.protectedUntil = 0;
+    const id = 95001;
+    w.launch({
+      id, weapon: 'marker_blitz', ownerId: -1, team: 1,
+      pos: { x: 8, y: 1, z: 10 }, vel: { x: 30, y: 0, z: 0 },
+      bornAt: w.time, ttl: 1, arc: false, paintDud: true,
+    } as Projectile);
+    for (let i = 0; i < 30; i++) w.step(1 / 60, new Map());
+    expect(victim.alive, 'dead paint slid right past').toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// THE FAN (Robert: "shotgun paintball stuff") — seven balls in one press,
+// the shortest leash in the yard.
+// ---------------------------------------------------------------------------
+describe('the Fan', () => {
+  it('is a real spread weapon on the shortest leash', () => {
+    const d = WEAPONS.marker_scatter;
+    expect(d.pellets).toBe(7);
+    expect(d.range, 'CQC band — doorways, not lanes').toBeLessThanOrEqual(27);
+    expect(d.training).toBe(true);
+  });
+  it('is on the yard rack', () => {
+    expect(PAINTBALL_MARKERS.some((m) => m.id === 'marker_scatter')).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PLAY TYPES (Robert: "they just run right towards you… add different play
+// types, 'cause our play types are gonna drive what they say") — every bot
+// hunts by personality, the prey runs the SAFEST pad, and the styles TALK.
+// ---------------------------------------------------------------------------
+describe('the play types', () => {
+  it('the yard deals all three personalities', () => {
+    const seen = new Set<string>();
+    for (let id = 1; id <= 40; id++) seen.add(pbStyleFor(id));
+    expect([...seen].sort()).toEqual(['anchor', 'flanker', 'rusher']);
+  });
+
+  it('a flanker closes on the WALL side, a rusher goes down the throat', () => {
+    const { w, prey } = yard();
+    prey.pos = { x: 20, y: 0, z: 0 };
+    // synthetic hunters with KNOWN personalities (ids scanned off the hash)
+    const idOf = (want: string) => {
+      for (let id = 500; id < 900; id++) if (pbStyleFor(id) === want) return id;
+      throw new Error(`no ${want} id`);
+    };
+    const at = (id: number) => ({ id, team: 0, pos: { x: -20, y: 0, z: 0 }, floor: 0 }) as unknown as Soldier;
+    const flank = pbHuntObjective(w, at(idOf('flanker')), prey);
+    expect(Math.abs(flank.z - prey.pos.z), 'the flanker swings wide of the prey').toBeGreaterThan(3);
+    const rush = pbHuntObjective(w, at(idOf('rusher')), prey);
+    expect(rush.x, 'the rusher charges straight in').toBeCloseTo(prey.pos.x, 1);
+    expect(rush.z).toBeCloseTo(prey.pos.z, 1);
+  });
+
+  it('the prey runs the SAFEST open pad — farthest from the pack', () => {
+    const { w, hunters, prey } = yard();
+    // park the whole pack on top of tag point A (the center)
+    const a = w.mode.points![0];
+    for (const h of hunters) h.pos = { ...a.pos };
+    const o = pbPreyObjective(w, prey)!;
+    const dA = Math.hypot(o.x - a.pos.x, o.z - a.pos.z);
+    expect(dA, 'the prey did NOT pick the guarded pad').toBeGreaterThan(3);
+  });
+
+  it('the whistle draws a bark from the pack — the play types TALK', () => {
+    // bot hunters this time — barks are a bot voice (humans talk for themselves)
+    const w = new World({ seed: PAINTBALL_FIELDS[0].seed, mode: 'paintball', theme: PAINTBALL_FIELDS[0].theme });
+    const pack = [0, 1, 2].map((i) =>
+      w.addSoldier(`Pack${i}`, 'infantry', 0, 'bot', { primary: 'marker_blitz' }));
+    const prey = w.addSoldier('Prey', 'infantry', 1, 'human', { primary: 'marker_pump' });
+    w.step(1 / 60, new Map());
+    w.damageSoldier(prey, 999, -1, 'marker_blitz');
+    const events: { type: string; text?: string; soldierId?: number }[] = [];
+    for (let i = 0; i < Math.ceil(5 * 60); i++) {
+      w.step(1 / 60, new Map());
+      events.push(...w.takeEvents());
+    }
+    const packIds = new Set(pack.map((h) => h.id));
+    const barks = events.filter((e) => e.type === 'announce' && e.soldierId !== undefined && packIds.has(e.soldierId));
+    expect(barks.length, 'somebody called their play at the whistle').toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// THE YARDS THEMSELVES (goal round 2): worn ground, Deck Nine's corridors,
+// trees on the Kopje.
+// ---------------------------------------------------------------------------
+describe('the upgraded yards', () => {
+  it('the ground is no longer wall-to-wall lawn — the center spine is worn dirt', () => {
+    for (const f of PAINTBALL_FIELDS) {
+      const map = generatePaintballField(f.seed, f.theme);
+      let worn = 0;
+      for (const sf of map.surface) if (sf === S_DIRT) worn++;
+      // every theme's base fill is grass/plate/grit — bare S_DIRT only exists
+      // where boots wore it in (the spine alone is ~58 tiles)
+      expect(worn, `${f.name} shows wear`).toBeGreaterThan(40);
+    }
+  });
+
+  it('Deck Nine fights in corridors — long wall runs with doorways', () => {
+    const map = generatePaintballField(2202, 'starship');
+    // count interior wall tiles (inside the arena, not the rim)
+    let interior = 0;
+    for (let tz = 38; tz <= 62; tz++) {
+      for (let tx = 38; tx <= 62; tx++) {
+        if (map.grid[tz * GRID + tx] === T_WALL) interior++;
+      }
+    }
+    expect(interior, 'the ring stands').toBeGreaterThan(30);
+    // and the doorways breathe: the center point is still reachable on foot
+    expect(isBlocked(map.grid, map.controlPoints[0].pos.x, map.controlPoints[0].pos.z)).toBe(false);
+  });
+
+  it('the Kopje grows trees — honest collision, covered visuals', () => {
+    const map = generatePaintballField(1101, 'savanna');
+    const trees = map.props.filter((p) => p.type === 'tree');
+    expect(trees.length, 'mirrored acacias').toBeGreaterThanOrEqual(4);
+    expect(map.propCovered.length).toBe(trees.length);
+    for (const idx of map.propCovered) expect(map.grid[idx], 'the trunk claims its tile').toBe(T_WALL);
   });
 });
 
@@ -353,7 +575,7 @@ describe('the living hopper', () => {
 // what a training round IS: it marks men, never buildings.
 // ---------------------------------------------------------------------------
 describe('training rounds leave the architecture alone', () => {
-  const MARKERS = ['marker_blitz', 'marker_pump', 'marker_lobber'] as const;
+  const MARKERS = ['marker_blitz', 'marker_pump', 'marker_lobber', 'marker_scatter', 'paint_nade'] as const;
 
   /**
    * Fire a REAL round at a real tile and let the sim resolve it. An earlier

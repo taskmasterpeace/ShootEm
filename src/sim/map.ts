@@ -802,26 +802,93 @@ export function generatePaintballField(seed: number, theme: ThemeId = 'savanna')
   for (let tz = A0; tz <= A1; tz++)
     for (let tx = A0; tx <= A1; tx++) grid[tz * GRID + tx] = T_OPEN;
 
-  // mirrored cover: pairs of crates, short wall stubs, and a few CLIMB
-  // barricades — enough angles to teach peeking, never a maze
   const mid = (A0 + A1) / 2;
-  const stamps = theme === 'starship' ? 16 : 13;
-  for (let i = 0; i < stamps; i++) {
-    const tx = A0 + 2 + rng.int(0, (A1 - A0) / 2 - 3); // west half; east is the mirror
-    const tz = A0 + 2 + rng.int(0, A1 - A0 - 4);
-    const kind = rng.next() < 0.55 ? T_COVER : rng.next() < 0.5 ? T_WALL : T_CLIMB;
-    const len = kind === T_WALL ? rng.int(2, 3) : rng.int(1, 2);
-    const horiz = rng.next() < 0.5;
-    for (let k = 0; k < len; k++) {
-      const x = tx + (horiz ? k : 0), z = tz + (horiz ? 0 : k);
-      if (x <= A0 || x >= A1 || z <= A0 || z >= A1) continue;
-      grid[z * GRID + x] = kind;
-      const mx = A0 + A1 - x; // vertical-line mirror
-      grid[z * GRID + mx] = kind;
+  if (theme === 'starship') {
+    // DECK NINE GROWS ITS CORRIDORS (Robert: "we don't have enough corridor
+    // combat"): a walled ring with door gaps every few tiles — real hallway
+    // fighting, angles at every doorway — plus a light scatter of crates
+    // inside the ring. Symmetric by construction, no mirror needed.
+    const off = 7;
+    for (const wx of [mid - off, mid + off]) {
+      for (let tz = A0 + 3; tz <= A1 - 3; tz++) {
+        if ((tz - A0) % 5 < 2) continue; // the doorways
+        grid[tz * GRID + wx] = T_WALL;
+      }
+    }
+    for (const wz of [mid - off, mid + off]) {
+      for (let tx = A0 + 3; tx <= A1 - 3; tx++) {
+        if ((tx - A0) % 5 < 2) continue;
+        grid[wz * GRID + tx] = T_WALL;
+      }
+    }
+    for (let i = 0; i < 8; i++) {
+      const tx = A0 + 2 + rng.int(0, (A1 - A0) / 2 - 3);
+      const tz = A0 + 2 + rng.int(0, A1 - A0 - 4);
+      const kind = rng.next() < 0.6 ? T_COVER : T_CLIMB;
+      grid[tz * GRID + tx] = kind;
+      grid[tz * GRID + (A0 + A1 - tx)] = kind; // vertical-line mirror
+    }
+  } else {
+    // mirrored cover: pairs of crates, short wall stubs, and a few CLIMB
+    // barricades — enough angles to teach peeking, never a maze
+    for (let i = 0; i < 13; i++) {
+      const tx = A0 + 2 + rng.int(0, (A1 - A0) / 2 - 3); // west half; east is the mirror
+      const tz = A0 + 2 + rng.int(0, A1 - A0 - 4);
+      const kind = rng.next() < 0.55 ? T_COVER : rng.next() < 0.5 ? T_WALL : T_CLIMB;
+      const len = kind === T_WALL ? rng.int(2, 3) : rng.int(1, 2);
+      const horiz = rng.next() < 0.5;
+      for (let k = 0; k < len; k++) {
+        const x = tx + (horiz ? k : 0), z = tz + (horiz ? 0 : k);
+        if (x <= A0 || x >= A1 || z <= A0 || z >= A1) continue;
+        grid[z * GRID + x] = kind;
+        const mx = A0 + A1 - x; // vertical-line mirror
+        grid[z * GRID + mx] = kind;
+      }
     }
   }
   // the center stays honest: a clear lane through the middle for the duel
   for (let tz = mid - 1; tz <= mid + 1; tz++) grid[tz * GRID + mid] = T_OPEN;
+
+  const P = (tx: number, tz: number): Vec3 => ({ x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 });
+
+  // GROUND VARIETY (Robert: "we got all grass right now"): the yard reads
+  // PLAYED-ON — a worn dirt spine down the center lane and a few mirrored
+  // scuffed patches where boots have argued with the turf.
+  for (let tz = A0; tz <= A1; tz++) {
+    surface[tz * GRID + mid] = S_DIRT;
+    surface[tz * GRID + mid - 1] = S_DIRT;
+  }
+  for (let i = 0; i < 5; i++) {
+    const px = A0 + 3 + rng.int(0, (A1 - A0) / 2 - 4);
+    const pz = A0 + 3 + rng.int(0, A1 - A0 - 6);
+    const wear = rng.next() < 0.5 ? S_DIRT : S_GRIT;
+    for (let dz = 0; dz <= 1; dz++) {
+      for (let dx = 0; dx <= 1; dx++) {
+        surface[(pz + dz) * GRID + px + dx] = wear;
+        surface[(pz + dz) * GRID + (A0 + A1 - px - dx)] = wear;
+      }
+    }
+  }
+
+  // TREES ON THE KOPJE (Robert: "I don't know how paintballs look when they
+  // hit trees" — they burst on the trunk like anything else, and now you can
+  // see it): mirrored acacias for the savanna yard. The trunk claims its
+  // tile (T_WALL = honest collision), propCovered hands the box's visual to
+  // the tree mesh, so no invisible-wall drift is possible.
+  const props: PropSpec[] = [];
+  const propCovered: number[] = [];
+  if (theme === 'savanna') {
+    const spots: [number, number][] = [[A0 + 5, A0 + 5], [A0 + 9, A1 - 7], [mid - 3, A0 + 8]];
+    for (const [tx, tz] of spots) {
+      for (const x of [tx, A0 + A1 - tx]) {
+        const idx = tz * GRID + x;
+        if (grid[idx] !== T_OPEN) continue; // never overwrite a pool or a pad
+        grid[idx] = T_WALL;
+        propCovered.push(idx);
+        props.push({ type: 'tree', pos: P(x, tz), scale: 1.15 + ((x * 7 + tz * 13) % 5) * 0.08, rot: ((x * 31 + tz * 17) % 63) / 10 });
+      }
+    }
+  }
 
   // WATER (Robert: 'have water — should feel like a paintball field'): every
   // yard gets a shallow feature you splash through — wading is a choice
@@ -837,7 +904,6 @@ export function generatePaintballField(seed: number, theme: ThemeId = 'savanna')
   }
 
 
-  const P = (tx: number, tz: number): Vec3 => ({ x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 });
   // three tag points for the prey: center + two mirrored corners
   const controlPoints = [
     { name: 'A', pos: P(mid, mid) },
@@ -871,8 +937,8 @@ export function generatePaintballField(seed: number, theme: ThemeId = 'savanna')
     flagPos: [P(A0 + 2, mid), P(A1 - 2, mid)],
     hillPos: P(mid, mid),
     controlPoints,
-    vehiclePads: [], pickups: [], props: [], zombieSpawns: [],
-    houses: [], gates: [], pads, propCovered: [],
+    vehiclePads: [], pickups: [], props, zombieSpawns: [],
+    houses: [], gates: [], pads, propCovered,
   };
 }
 

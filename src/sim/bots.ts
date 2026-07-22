@@ -35,6 +35,7 @@ import { visionMult } from './weather';
 import { LSWS } from './lsw';
 import { threatAt } from './influence';
 import { dogWindowHesitation, indoorCivilianWaypoint, indoorGuardWaypoint, strongestDogScent } from './indoor-ai';
+import { pbHuntObjective, pbPreyObjective } from './paintball';
 import {
   closedDoorAhead,
   dogInsideAssignedBuilding,
@@ -407,15 +408,15 @@ export function objectiveFor(w: World, s: Soldier): Vec3 {
       return socket ?? science.extraction;
     }
     case 'paintball': {
-      // §14: the prey runs the tag circuit; the pack converges on the prey
+      // §14 + play types (Robert: "they just run right towards you"): the
+      // prey runs the SAFEST open pad; each hunter hunts by PERSONALITY —
+      // rushers charge, flankers swing wide, anchors hold the tag circuit.
       const hunted = m.huntedTeam ?? 1;
       if (s.team === hunted) {
-        const open = m.points?.find((p) => p.owner !== hunted);
-        return open ? open.pos : w.map.basePos[s.team];
+        return pbPreyObjective(w, s) ?? w.map.basePos[s.team];
       }
       const prey = [...w.soldiers.values()].find((e) => e.alive && e.team === hunted && (e.kind === 'human' || e.kind === 'bot'));
-      // y-channel contract: storey, never altitude (a hopping prey is ground floor)
-      return prey ? { x: prey.pos.x, y: prey.floor === 1 ? 4 : 0, z: prey.pos.z } : w.map.hillPos;
+      return prey ? pbHuntObjective(w, s, prey) : w.map.hillPos;
     }
     default: // tdm — hunt toward the enemy-side / midfield blend
       // (the z term used to drop the 0.6·hill.z, skewing the whole team's

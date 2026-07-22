@@ -113,6 +113,7 @@ export const PAINTBALL_MARKERS: { id: WeaponId; blurb: string }[] = [
   { id: 'marker_blitz', blurb: 'Spray and move. Volume wins.' },
   { id: 'marker_pump', blurb: 'One ball, one splat. Aim wins.' },
   { id: 'marker_lobber', blurb: 'Paint from above. Angles win.' },
+  { id: 'marker_scatter', blurb: 'Seven balls, one press. Doorways win.' },
 ];
 
 /** The paint rack (Robert: pick your paintballs). No purple — house law.

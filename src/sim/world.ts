@@ -22,7 +22,7 @@ import {
   stairDirectionAt,
 } from './map-layers';
 import { materialOf, materialForSurface, DRILL_BASE } from './materials';
-import { Rng } from './rng';
+import { Rng, hash01 } from './rng';
 import {
   SYSTEM_IDS, isCoopMode, isZed,
   type WeaponDef,
@@ -3697,9 +3697,19 @@ export class World {
       const grenadeGateBefore = s.nextGrenadeAt; // any branch that acts moves this
       // manpads only claims the key while an aircraft is locked — no lock, no wasted round
       const samTarget = s.manpads > 0 && this.hasEquip(s, 'samLauncher') ? this.samLockTarget(s) : null;
+      // THE YARD THROWS PAINT (Robert: "we need to have paintball grenades").
+      // In paintball, G is a paint bomb and NOTHING else — the whole bag law
+      // lives on this one branch, so no pouch can smuggle live ordnance in.
+      if (this.mode.id === 'paintball') {
+        if (s.grenades > 0) {
+          s.grenades--;
+          s.nextGrenadeAt = this.time + 1.6;
+          this.throwProjectile(s, 'paint_nade', 1.4, 16, true, reachTo(WEAPONS.paint_nade.range), cmd.lob ?? 1, true);
+          this.emit({ type: 'shot', pos: s.pos, weapon: 'paint_nade', soldierId: s.id });
+        }
       // the bag override: with smoke or fire in hand, G throws THAT — the
       // class payload chain below never sees the press. Cycle back for it.
-      if (s.nadeSel === 1 && (s.smokes ?? 0) > 0) {
+      } else if (s.nadeSel === 1 && (s.smokes ?? 0) > 0) {
         s.smokes = (s.smokes ?? 0) - 1;
         s.nextGrenadeAt = this.time + 1.2;
         this.throwProjectile(s, 'smoke_nade', 1.4, 16, true, reachTo(WEAPONS.smoke_nade.range), cmd.lob ?? 1, true);
@@ -5825,6 +5835,15 @@ export class World {
           if (blockX) { p.vel.x = -p.vel.x; p.pos.x = ox; } else { p.vel.z = -p.vel.z; p.pos.z = oz; }
           p.ricochet!--; p.dmgMul = (p.dmgMul ?? 1) * 0.7;
           this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, ownerId: p.ownerId });
+        } else if (mat && plain && def.training && !p.paintDud && blockX !== blockZ
+          && hash01(p.id * 31 + 7) < 0.22) {
+          // SOME BALLS DON'T BUST (Robert): a clean face hit at yard speeds
+          // sometimes skips off the bunker instead of breaking — no splat, no
+          // paint, and a DEAD ball from then on (a bounced ball never tags;
+          // that's real paintball law). Deterministic off the projectile id —
+          // hash, not rng.next(), so the stream stays byte-identical.
+          if (blockX) { p.vel.x = -p.vel.x * 0.5; p.pos.x = ox; } else { p.vel.z = -p.vel.z * 0.5; p.pos.z = oz; }
+          p.paintDud = true;
         } else if (mat && plain && (p.pierce ?? 0) > 0 && mat.penetrable) {
           // 2. PENETRATE thin cover (wood/sandbag/grass/rubble) — chip it, bleed
           // 15% dmg, and step a full tile past so we don't re-hit the same tile
@@ -5856,8 +5875,9 @@ export class World {
 
       // hit soldiers — opt #38 (S2): a heal beam touches its OWN side, a round
       // its enemies; only bodies within the 0.9u hit radius can connect, and
-      // the id-sorted per-team query keeps first-hit order identical
-      if (!dead) {
+      // the id-sorted per-team query keeps first-hit order identical.
+      // A bounced (unbroken) paintball is dead paint — it can't tag anyone.
+      if (!dead && !p.paintDud) {
         const targetTeam = (def.heals ? p.team : 1 - p.team) as Team;
         for (const s of this.soldierIndex.near(targetTeam, p.pos.x, p.pos.z, 1.2, PROJ_SCRATCH)) {
           if (!s.alive || s.vehicleId >= 0) continue;

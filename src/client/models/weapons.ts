@@ -764,10 +764,11 @@ const buildMarker: FamilyBuilder = (_k, def) => {
   const id = def?.id ?? 'marker_blitz';
   const pump = id === 'marker_pump';
   const lob = id === 'marker_lobber';
+  const fan = id === 'marker_scatter';
 
   // paintball guns are the one arm in the game that gets to be LOUD about
   // color — anodized bodies, not military furniture (house law: never purple)
-  const ano = mat(lob ? 0xd96a1e : pump ? 0x5a6b3a : 0x148f83, { metal: 0.55, rough: 0.3 });
+  const ano = mat(lob ? 0xd96a1e : pump ? 0x5a6b3a : fan ? 0xc9a227 : 0x148f83, { metal: 0.55, rough: 0.3 });
   const black = mat(0x1b1b1e, { rough: 0.65 });
   const silver = mat(0x9aa2aa, { metal: 0.7, rough: 0.35 });
   const shellM = mat(0xc4dbe2, { metal: 0.05, rough: 0.12 });
@@ -777,7 +778,7 @@ const buildMarker: FamilyBuilder = (_k, def) => {
   shellM.side = THREE.DoubleSide;
   // default fill shades — the live hook retints `paint` to the OWNER's paint
   // color in a match (the hopper is identity, same law as the tracer)
-  const paint = mat(lob ? 0x2e9dff : pump ? 0xffd23e : 0xff7a1a, { rough: 0.35 });
+  const paint = mat(lob ? 0x2e9dff : pump ? 0xffd23e : fan ? 0x3fbf4f : 0xff7a1a, { rough: 0.35 });
   const white = mat(0xf2f4f6, { rough: 0.35 });
 
   const g = new THREE.Group();
@@ -786,20 +787,29 @@ const buildMarker: FamilyBuilder = (_k, def) => {
   const body = box(bodyLen, bodyH, 0.06, ano);
   g.add(body);
 
-  // barrel: thin and ported on the shooters, a fat bore on the Lobber
-  const bLen = pump ? 0.42 : lob ? 0.22 : 0.3;
+  // barrel: thin and ported on the shooters, a fat bore on the Lobber,
+  // short with a flared spreader cone on the Fan (seven balls, one press)
+  const bLen = pump ? 0.42 : lob ? 0.22 : fan ? 0.2 : 0.3;
   const bR = lob ? 0.052 : 0.019;
   const barrel = cyl(bR, bR, bLen, silver, lob ? 8 : 6);
   barrel.rotation.z = Math.PI / 2;
   const muzzleX = bodyLen / 2 + bLen / 2 - 0.01;
   barrel.position.set(muzzleX, 0.005, 0);
   g.add(barrel);
-  // porting band at the tip — the fluted end every real barrel wears
-  const port = new THREE.Mesh(
-    new THREE.CylinderGeometry(bR + 0.006, bR + 0.006, lob ? 0.05 : 0.07, lob ? 8 : 6, 1, true), black);
-  port.rotation.z = Math.PI / 2;
-  port.position.set(muzzleX + bLen / 2 - (lob ? 0.035 : 0.05), 0.005, 0);
-  g.add(port);
+  if (fan) {
+    // the spreader: a widening funnel — the Fan's whole silhouette idea
+    const flare = cyl(0.048, 0.02, 0.1, black, 8);
+    flare.rotation.z = -Math.PI / 2;
+    flare.position.set(muzzleX + bLen / 2 + 0.04, 0.005, 0);
+    g.add(flare);
+  } else {
+    // porting band at the tip — the fluted end every real barrel wears
+    const port = new THREE.Mesh(
+      new THREE.CylinderGeometry(bR + 0.006, bR + 0.006, lob ? 0.05 : 0.07, lob ? 8 : 6, 1, true), black);
+    port.rotation.z = Math.PI / 2;
+    port.position.set(muzzleX + bLen / 2 - (lob ? 0.035 : 0.05), 0.005, 0);
+    g.add(port);
+  }
 
   // trigger frame: raked grip + guard
   const grip = box(0.055, 0.12, 0.045, black);
@@ -834,7 +844,7 @@ const buildMarker: FamilyBuilder = (_k, def) => {
 
   // feedneck + the see-through hopper. Ball count is the CLIP's own story:
   // the Pump shows all 8, the Lobber all 6 — one visible ball per shot.
-  const balls = pump ? 8 : lob ? 6 : 11;
+  const balls = pump ? 8 : lob ? 6 : fan ? 8 : 11;
   const rx = lob ? 0.095 : pump ? 0.075 : 0.085;
   const ry = lob ? 0.075 : pump ? 0.058 : 0.065;
   const rz = lob ? 0.07 : pump ? 0.055 : 0.06;

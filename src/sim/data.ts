@@ -118,6 +118,14 @@ const CORE_WEAPONS: Record<WeaponId, WeaponDef> = {
   marker_blitz: W({ id: 'marker_blitz', name: 'Blitz Marker', damage: 999, rof: 7, speed: 60, spread: 0.05, clip: 30, reloadTime: 2.6, reserve: 300, range: 34, family: 'marker', sound: 'marker', tracer: 'paint', training: true, icon: '🎨' }),
   marker_pump: W({ id: 'marker_pump', name: 'Pump Marker', damage: 999, rof: 1.3, speed: 72, spread: 0.006, clip: 8, reloadTime: 3.2, reserve: 80, range: 52, family: 'marker', sound: 'marker_pump', tracer: 'paint', training: true, icon: '🎨' }),
   marker_lobber: W({ id: 'marker_lobber', name: 'The Lobber', damage: 999, rof: 1.8, speed: 34, spread: 0.01, clip: 6, reloadTime: 3.5, reserve: 48, range: 36, splash: 1.8, splashDamage: 999, arc: true, family: 'marker', sound: 'marker_lob', tracer: 'paint', training: true, icon: '🎨' }),
+  // THE FAN (Robert: "I don't know if they got shotgun paintball stuff"):
+  // seven balls in one press — a wall of paint that owns the doorway and
+  // nothing past it. CQC band (range 16), the shortest leash in the yard.
+  marker_scatter: W({ id: 'marker_scatter', name: 'The Fan', damage: 999, rof: 1.1, speed: 55, spread: 0.16, pellets: 7, clip: 4, reloadTime: 2.9, reserve: 56, range: 16, family: 'marker', sound: 'marker_pump', tracer: 'paint', training: true, icon: '🎨' }),
+  // PAINT GRENADE (Robert: "we need to have paintball grenades"): the yard's
+  // one thrown item — a paint bomb that splats everyone in its circle. Thrown
+  // with G through the world.ts paintball branch; never leaves the yard.
+  paint_nade: W({ id: 'paint_nade', name: 'Paint Grenade', damage: 999, rof: 1, speed: 16, spread: 0, clip: 1, reserve: 0, range: 22, splash: 2.6, splashDamage: 999, arc: true, sound: 'marker_lob', tracer: 'paint', training: true, icon: '🎨' }),
   // ---- alt-fire internals (never drawn from the armory; fired by fireAltWeapon) ----
   tag_dart: W({ id: 'tag_dart', name: 'Tag Dart', damage: 4, rof: 1, speed: 160, spread: 0.002, clip: 1, reserve: 0, range: 100, sound: 'rail', tracer: 'rail', tagsTarget: true }),
   plasma_orb: W({ id: 'plasma_orb', name: 'Plasma Overcharge', damage: 60, rof: 1, speed: 40, spread: 0.004, clip: 1, reserve: 0, range: 54, splash: 3.5, splashDamage: 40, knockback: 8, sound: 'plasma', tracer: 'plasma' }),

@@ -727,21 +727,27 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     // with a pack of two; round 2 you're alone and three markers want you.
     const pb = paintballConfig();
     const packSize = 3;
+    // the pack carries a SPREAD of markers — a blitz sprayer, a Fan for the
+    // doorways, a lobber for the angles — so every hunt sounds different
+    const packMarkers = ['marker_blitz', 'marker_scatter', 'marker_lobber'] as const;
     if (pb.role === 'hunter') {
-      for (let i = 0; i < packSize - 1; i++) world.addSoldier(wrap(n++), 'infantry', 0, 'bot', { primary: 'marker_blitz' });
+      for (let i = 0; i < packSize - 1; i++) world.addSoldier(wrap(n++), 'infantry', 0, 'bot', { primary: packMarkers[i % packMarkers.length] });
       world.addSoldier(wrap(n), 'infantry', 1, 'bot', { primary: 'marker_pump' });
     } else {
-      for (let i = 0; i < packSize; i++) world.addSoldier(wrap(n++), 'infantry', 1, 'bot', { primary: 'marker_blitz' });
+      for (let i = 0; i < packSize; i++) world.addSoldier(wrap(n++), 'infantry', 1, 'bot', { primary: packMarkers[i % packMarkers.length] });
     }
-    // everyone plays paintball RULES: marker only, no sidearm, no frags —
-    // paint is the whole vocabulary of the yard
+    // everyone plays paintball RULES: marker only, no sidearm, no live frags —
+    // paint is the whole vocabulary of the yard. The bag holds TWO paint
+    // grenades (world.ts's paintball branch is the only thing G can throw).
     for (const s of world.soldiers.values()) {
       const marker = s.id === me.id ? pb.marker : s.weapons[0];
       s.weapons = [marker];
       s.clip = [WEAPONS[marker].clip];
       s.reserve = [WEAPONS[marker].reserve];
       s.weaponIdx = 0;
-      s.grenades = 0;
+      s.grenades = 2;
+      // empty every other pouch so the X-cycle can't even ADVERTISE ordnance
+      s.smokes = 0; s.firebombs = 0; s.concs = 0; s.gravs = 0; s.plasmas = 0; s.timebombs = 0;
       s.equipment = [];
     }
   } else {
