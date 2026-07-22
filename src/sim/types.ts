@@ -90,6 +90,13 @@ export interface WeaponDef {
   splashDamage: number;
   /** lobbed ballistic arc (grenade launcher) */
   arc: boolean;
+  /** GUIDED / HOMING (mountain warfare): the round steers to a target it
+   *  acquires as it leaves the tube. 'air' = heat-seeker vs aircraft (launch
+   *  speed capped below jet top-speed so a maneuvering target can extend away
+   *  and flares still seduce it — the Specter AAM); 'ground' = the guided
+   *  rocket that tracks the nearest enemy HULL (the Hydra tank-killer). Absent
+   *  = a dumb round; falls back to dumb flight when nothing is in the cone. */
+  homing?: 'air' | 'ground';
   /** heals instead of hurts (repair/medibeam) */
   heals: boolean;
   /** shove applied to victims (impulse cannon) */
@@ -869,6 +876,10 @@ export interface Projectile {
   /** Ragebeast's flesh: the SOLDIER this glob hunts (turn-rate capped —
    *  sidestep hard and it overshoots). Target dead/encased = flies dumb. */
   homingSoldierId?: number;
+  /** GUIDED ground rocket (Hydra): homes on a HULL (ground or low air), flying
+   *  low with a moderate turn rate — set by `homing:'ground'` at launch. A SAM
+   *  (guided undefined) stays airborne-only with the tighter SAM profile. */
+  guided?: boolean;
   /** hand grenades BANK (Robert): walls reflect it instead of detonating it.
    *  Launcher shells never set this — a GL-40 round still eats the wall. */
   bounce?: boolean;

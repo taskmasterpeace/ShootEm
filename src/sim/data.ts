@@ -597,10 +597,10 @@ WEAPONS.warhawk_pods = W({
   speed: 60, spread: 0.03, clip: 16, reloadTime: 3.6, reserve: 48, range: 66,
   splash: 3.4, splashDamage: 30, knockback: 8, sound: 'rocket', tracer: 'rocket',
 });
-WEAPONS.specter_aam = W({  // reach-out-and-touch air-to-air missile
+WEAPONS.specter_aam = W({  // heat-seeker air-to-air missile — homes on aircraft
   id: 'specter_aam', name: 'Specter AAM', damage: 100, rof: 0.6,
   speed: 52, spread: 0, clip: 4, reloadTime: 4.0, reserve: 24, range: 128,
-  splash: 3.0, splashDamage: 50, knockback: 9, sound: 'rocket', tracer: 'rocket',
+  splash: 3.0, splashDamage: 50, knockback: 9, homing: 'air', sound: 'rocket', tracer: 'rocket',
 });
 WEAPONS.specter_cannon = W({
   id: 'specter_cannon', name: 'Specter Cannon', damage: 24, rof: 7.5,
@@ -612,10 +612,10 @@ WEAPONS.reaper_bombs = W({  // precision iron — heavier and fewer than the Anv
   clip: 8, reserve: 0, range: 34, splash: 8, splashDamage: 100, knockback: 22,
   arc: true, sound: 'thump', tracer: 'shell',
 });
-WEAPONS.hydra_guided = W({  // the guided multi-rocket volley
+WEAPONS.hydra_guided = W({  // the guided multi-rocket volley — homes on hulls
   id: 'hydra_guided', name: 'Hydra Guided Pod', damage: 38, rof: 3.5,
   speed: 66, spread: 0.02, clip: 18, reloadTime: 3.4, reserve: 54, range: 76,
-  splash: 3.4, splashDamage: 30, knockback: 8, sound: 'rocket', tracer: 'rocket',
+  splash: 3.4, splashDamage: 30, knockback: 8, homing: 'ground', sound: 'rocket', tracer: 'rocket',
 });
 WEAPONS.hydra_cannon = W({
   id: 'hydra_cannon', name: 'Hydra Chin Gun', damage: 12, rof: 9,

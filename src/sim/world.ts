@@ -4106,6 +4106,37 @@ export class World {
       if (p.ignite === undefined && def.ignite) p.ignite = def.ignite;
       if (p.dmgMul === undefined) p.dmgMul = 1;
     }
+    // GUIDED / HOMING (mountain warfare): a `homing` weapon acquires a target as
+    // it clears the tube — one launch door, so primary + alt + drive-by all get
+    // it. 'air' heat-seeks the nearest airborne enemy and is CAPPED below jet
+    // top-speed (a maneuvering target extends away; flares still steal it — the
+    // Specter AAM). 'ground' is the guided rocket, tracking the nearest enemy
+    // hull (the Hydra tank-killer). No hull in the forward cone → it flies dumb.
+    if (def?.homing && p.homingVehicleId === undefined && p.homingSoldierId === undefined) {
+      const heading = Math.atan2(p.vel.z, p.vel.x);
+      let best: Vehicle | undefined, bestD = def.range;
+      for (const t of this.vehicles.values()) {
+        if (t.team === p.team || !t.alive) continue;
+        if (def.homing === 'air' && !this.vehicleAirborne(t)) continue;
+        const d = Math.hypot(t.pos.x - p.pos.x, t.pos.z - p.pos.z);
+        if (d >= bestD) continue;
+        let da = Math.atan2(t.pos.z - p.pos.z, t.pos.x - p.pos.x) - heading;
+        da = Math.atan2(Math.sin(da), Math.cos(da));
+        if (Math.abs(da) < 1.4) { best = t; bestD = d; } // ~80° forward cone, nearest wins
+      }
+      if (best) {
+        p.homingVehicleId = best.id;
+        if (def.homing === 'ground') {
+          p.guided = true;
+        } else {
+          // the SAM speed law — a heat-seeker never outruns the fastest jet, so
+          // straight extension always opens the gap (keeps the dogfight skillful)
+          const cap = VEHICLES.interceptor.speed * SAM_SPEED_RATIO;
+          const cur = Math.hypot(p.vel.x, p.vel.z) || 1;
+          if (cur > cap) { p.vel.x *= cap / cur; p.vel.z *= cap / cur; }
+        }
+      }
+    }
     // J1 THE AIR FRAME: ordnance that lives in the vehicle-speed frame scales
     // WITH the vehicles. The two sliders default to different values (0.35
     // projectiles, 0.8 vehicles), and rounds fired at or by aircraft used to
@@ -4259,7 +4290,8 @@ export class World {
       tx = flare.pos.x; tz = flare.pos.z;
     } else if (p.homingVehicleId !== undefined) {
       const v = this.vehicles.get(p.homingVehicleId);
-      if (!v || !this.vehicleAirborne(v)) { p.homingVehicleId = undefined; return false; } // target gone — fly dumb
+      // a SAM needs an airborne target; a GUIDED rocket also tracks a hull on the deck
+      if (!v || !v.alive || (!p.guided && !this.vehicleAirborne(v))) { p.homingVehicleId = undefined; return false; }
       tx = v.pos.x; tz = v.pos.z;
     } else if (p.homingSoldierId !== undefined) {
       // Ragebeast's flesh hunts a SOLDIER — low, turn-rate capped: sidestep
@@ -4293,12 +4325,13 @@ export class World {
     const cur = Math.atan2(p.vel.z, p.vel.x);
     let da = Math.atan2(tz - p.pos.z, tx - p.pos.x) - cur;
     da = Math.atan2(Math.sin(da), Math.cos(da));
-    const maxTurn = SAM_TURN_RATE * dt;
+    // a guided rocket turns SOFTER than a SAM — a hard-juking target can beat it
+    const maxTurn = (p.guided ? 2.8 : SAM_TURN_RATE) * dt;
     const yaw = cur + Math.max(-maxTurn, Math.min(maxTurn, da));
     p.vel.x = Math.cos(yaw) * speed;
     p.vel.z = Math.sin(yaw) * speed;
-    // cruise above the walls, dive under the vehicle-hit ceiling on final approach
-    const wantY = Math.hypot(tx - p.pos.x, tz - p.pos.z) < 8 ? SAM_DIVE_ALT : SAM_CRUISE_ALT;
+    // the SAM cruises high then dives; the guided rocket rides low onto the hull
+    const wantY = p.guided ? 1.6 : (Math.hypot(tx - p.pos.x, tz - p.pos.z) < 8 ? SAM_DIVE_ALT : SAM_CRUISE_ALT);
     p.pos.y += (wantY - p.pos.y) * Math.min(1, 8 * dt);
     p.vel.y = 0;
     return false;
