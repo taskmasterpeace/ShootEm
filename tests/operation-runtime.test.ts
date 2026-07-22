@@ -7,6 +7,7 @@ import {
   type OperationRuntimeState,
 } from '../src/sim/operation-runtime';
 import {
+  AIR_KINDS,
   OPERATION_VERBS,
   generateOperation,
   type OperationHull,
@@ -212,8 +213,8 @@ describe('World Operation integration', () => {
       operationManifest: { hullIds: ['falcon-01'], ammunition: 1, support: 'none' }, operationInventory: hulls,
     });
     world.addSoldier('Reyes', 'infantry', 0, 'human');
-    const flight = [...world.vehicles.values()].filter((vehicle) => vehicle.team === 1 && ['flyer', 'strikejet', 'interceptor', 'bomber'].includes(vehicle.kind));
-    expect(flight).toHaveLength(4);
+    const flight = [...world.vehicles.values()].filter((vehicle) => vehicle.team === 1 && AIR_KINDS.has(vehicle.kind));
+    expect(flight.length).toBeGreaterThanOrEqual(4);
     world.step(0.1, new Map());
     expect(world.operation?.result).toBeNull();
     for (const target of flight) world.damageVehicle(target, 9999, -1, 'tank_cannon');

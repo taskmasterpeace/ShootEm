@@ -146,6 +146,6 @@ describe('Operation rewards enter the next battle', () => {
     const wet = makeWorld('river_crossing');
     const boat = [...wet.vehicles.values()].find((vehicle) => vehicle.team === 0 && vehicle.kind === 'boat');
     expect(boat).toBeTruthy();
-    expect([T_WATER, T_DEEP]).toContain(tileAt(wet.map.grid, boat!.pos.x, boat!.pos.z));
+    expect([T_WATER, T_DEEP]).toContain(tileAt(wet.map.grid, boat!.pos.x, boat!.pos.z, wet.map.geometry));
   });
 });
