@@ -40,6 +40,63 @@ export const SOUND_NAMES = [
   'vo_infiltrator_cloak_broken', 'vo_infiltrator_rail_shot',
   'vo_infiltrator_rail_kill', 'vo_infiltrator_cloak_ready',
   'vo_infiltrator_cloak_empty',
+  // Full mortal-class personality packs. Death slots are declared above;
+  // these lines lazy-load on first play so deployment stays lightweight.
+  // infantry
+  'vo_infantry_intro', 'vo_infantry_deploy', 'vo_infantry_move', 'vo_infantry_attack',
+  'vo_infantry_hold', 'vo_infantry_taking_fire', 'vo_infantry_grenade_in', 'vo_infantry_reload',
+  'vo_infantry_kill', 'vo_infantry_kill_multi', 'vo_infantry_low_health', 'vo_infantry_downed',
+  'vo_infantry_ally_downed', 'vo_infantry_reviving', 'vo_infantry_revived', 'vo_infantry_flag_pickup',
+  'vo_infantry_carrier_escort', 'vo_infantry_flag_dropped', 'vo_infantry_flag_capture', 'vo_infantry_frag_ready',
+  'vo_infantry_frag_throw', 'vo_infantry_frag_cook', 'vo_infantry_frag_bad_bounce', 'vo_infantry_frag_flush',
+  // heavy
+  'vo_heavy_intro', 'vo_heavy_deploy', 'vo_heavy_move', 'vo_heavy_attack',
+  'vo_heavy_hold', 'vo_heavy_taking_fire', 'vo_heavy_grenade_in', 'vo_heavy_reload',
+  'vo_heavy_kill', 'vo_heavy_kill_multi', 'vo_heavy_low_health', 'vo_heavy_downed',
+  'vo_heavy_ally_downed', 'vo_heavy_reviving', 'vo_heavy_revived', 'vo_heavy_flag_pickup',
+  'vo_heavy_carrier_escort', 'vo_heavy_flag_dropped', 'vo_heavy_flag_capture', 'vo_heavy_shield_up',
+  'vo_heavy_shield_failing', 'vo_heavy_autocannon_brace', 'vo_heavy_missile_armor', 'vo_heavy_missile_hit',
+  'vo_heavy_autocannon_empty',
+  // jump
+  'vo_jump_intro', 'vo_jump_deploy', 'vo_jump_move', 'vo_jump_attack',
+  'vo_jump_hold', 'vo_jump_taking_fire', 'vo_jump_grenade_in', 'vo_jump_reload',
+  'vo_jump_kill', 'vo_jump_kill_multi', 'vo_jump_low_health', 'vo_jump_downed',
+  'vo_jump_ally_downed', 'vo_jump_reviving', 'vo_jump_revived', 'vo_jump_flag_pickup',
+  'vo_jump_carrier_escort', 'vo_jump_flag_dropped', 'vo_jump_flag_capture', 'vo_jump_jet_ignite',
+  'vo_jump_airborne_attack', 'vo_jump_fuel_low', 'vo_jump_fuel_empty', 'vo_jump_hard_landing',
+  'vo_jump_jet_ready', 'vo_jump_air_watched',
+  // engineer
+  'vo_engineer_intro', 'vo_engineer_deploy', 'vo_engineer_move', 'vo_engineer_attack',
+  'vo_engineer_hold', 'vo_engineer_taking_fire', 'vo_engineer_grenade_in', 'vo_engineer_reload',
+  'vo_engineer_kill', 'vo_engineer_kill_multi', 'vo_engineer_low_health', 'vo_engineer_downed',
+  'vo_engineer_ally_downed', 'vo_engineer_reviving', 'vo_engineer_revived', 'vo_engineer_flag_pickup',
+  'vo_engineer_carrier_escort', 'vo_engineer_flag_dropped', 'vo_engineer_flag_capture', 'vo_engineer_turret_built',
+  'vo_engineer_turret_target', 'vo_engineer_turret_lost', 'vo_engineer_mine_planted', 'vo_engineer_vehicle_repair',
+  'vo_engineer_vehicle_repaired', 'vo_engineer_contamination_cleared',
+  // medic
+  'vo_medic_intro', 'vo_medic_deploy', 'vo_medic_move', 'vo_medic_attack',
+  'vo_medic_hold', 'vo_medic_taking_fire', 'vo_medic_grenade_in', 'vo_medic_reload',
+  'vo_medic_kill', 'vo_medic_kill_multi', 'vo_medic_low_health', 'vo_medic_downed',
+  'vo_medic_ally_downed', 'vo_medic_reviving', 'vo_medic_revived', 'vo_medic_flag_pickup',
+  'vo_medic_carrier_escort', 'vo_medic_flag_dropped', 'vo_medic_flag_capture', 'vo_medic_heal_start',
+  'vo_medic_heal_critical', 'vo_medic_heal_complete', 'vo_medic_self_stim', 'vo_medic_infection_reduced',
+  'vo_medic_beam_empty', 'vo_medic_patient_moving',
+  // pathfinder
+  'vo_pathfinder_intro', 'vo_pathfinder_deploy', 'vo_pathfinder_move', 'vo_pathfinder_attack',
+  'vo_pathfinder_hold', 'vo_pathfinder_taking_fire', 'vo_pathfinder_grenade_in', 'vo_pathfinder_reload',
+  'vo_pathfinder_kill', 'vo_pathfinder_kill_multi', 'vo_pathfinder_low_health', 'vo_pathfinder_downed',
+  'vo_pathfinder_ally_downed', 'vo_pathfinder_reviving', 'vo_pathfinder_revived', 'vo_pathfinder_flag_pickup',
+  'vo_pathfinder_carrier_escort', 'vo_pathfinder_flag_dropped', 'vo_pathfinder_flag_capture', 'vo_pathfinder_beacon_alpha',
+  'vo_pathfinder_beacon_beta', 'vo_pathfinder_link_live', 'vo_pathfinder_warp_enter', 'vo_pathfinder_impulse_fire',
+  'vo_pathfinder_impulse_kill', 'vo_pathfinder_beacon_destroyed',
+  // ghost
+  'vo_ghost_intro', 'vo_ghost_deploy', 'vo_ghost_move', 'vo_ghost_attack',
+  'vo_ghost_hold', 'vo_ghost_taking_fire', 'vo_ghost_grenade_in', 'vo_ghost_reload',
+  'vo_ghost_kill', 'vo_ghost_kill_multi', 'vo_ghost_low_health', 'vo_ghost_downed',
+  'vo_ghost_ally_downed', 'vo_ghost_reviving', 'vo_ghost_revived', 'vo_ghost_flag_pickup',
+  'vo_ghost_carrier_escort', 'vo_ghost_flag_dropped', 'vo_ghost_flag_capture', 'vo_ghost_drone_launch',
+  'vo_ghost_drone_fpv', 'vo_ghost_drone_mark', 'vo_ghost_signal_low', 'vo_ghost_drone_destroyed',
+  'vo_ghost_emp_planted', 'vo_ghost_emp_stall',
   // crew chatter: a squadmate boarding your ride tells you so (tts-say barks)
   'crew_letsgo', 'crew_gogogo', 'crew_punchit', 'crew_allin',
   // per-surface footsteps — biome designation lives in src/client/soundscape.ts;
