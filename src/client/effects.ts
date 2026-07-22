@@ -69,8 +69,16 @@ export class Particles {
   }
 
   update(dt: number) {
+    // opt #23 (R9): the pool used to stamp needsUpdate EVERY frame — ~72KB of
+    // position+color re-uploaded to the GPU per frame even with zero live
+    // particles (the common case: menus, quiet marches). Now the upload only
+    // happens on frames where a particle actually moved or died; a death's
+    // final hide-below-ground write still ships (it sets touched on its way
+    // out), and a fully idle pool costs the GPU nothing.
+    let touched = false;
     for (let i = 0; i < MAX_PARTICLES; i++) {
       if (this.life[i] <= 0) continue;
+      touched = true;
       this.life[i] -= dt;
       if (this.life[i] <= 0) {
         this.pos[i * 3 + 1] = -100; // hide below ground
@@ -89,8 +97,10 @@ export class Particles {
       this.col[i * 3 + 1] *= 0.9 + k * 0.08;
       this.col[i * 3 + 2] *= 0.9 + k * 0.08;
     }
-    this.geo.attributes.position.needsUpdate = true;
-    this.geo.attributes.color.needsUpdate = true;
+    if (touched) {
+      this.geo.attributes.position.needsUpdate = true;
+      this.geo.attributes.color.needsUpdate = true;
+    }
   }
 }
 
