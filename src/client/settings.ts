@@ -59,6 +59,10 @@ export interface Settings {
   reticleColor: number;
   reticleDist: number;   // 0..1 → near .. far in front (standing reticles)
   reticleScale: number;  // 0.5..2
+  /** how a STANDING reticle yaws (Robert tunes this live): 'shooter' = faces
+   *  YOU so the shot passes through the circle (his 07-22 law, default);
+   *  'screen' = squared to the camera like a flat overlay (the old behavior). */
+  reticleFacing: 'shooter' | 'screen';
   laser: boolean;
   /** CONTROLLER (Robert: "controller configuration in the menu"). The gamepad
    *  twin-stick support already ships; these expose its feel. `padEnabled`
@@ -92,7 +96,7 @@ export const settings: Settings = {
   projectileSpeed: 0.35, moveSpeed: 0.8, vehicleSpeed: 0.8,
   // THE RETICLE: default to the STANDING crosshair out in front (Robert's ask),
   // house amber, a mid float distance, unit size, laser off.
-  reticle: 'crosshair', reticleColor: 0xe8a33d, reticleDist: 0.6, reticleScale: 1, laser: false,
+  reticle: 'crosshair', reticleColor: 0xe8a33d, reticleDist: 0.6, reticleScale: 1, reticleFacing: 'shooter', laser: false,
   // CONTROLLER: on by default (a plugged pad just works); the hardcoded feel
   // that shipped becomes the defaults here — deadzone 0.18, unit sensitivity.
   padEnabled: true, padDeadzone: 0.18, padSensitivity: 1, padInvertY: false,
@@ -113,6 +117,7 @@ export function loadSettings(): Settings {
     if (typeof raw.reticleColor === 'number') settings.reticleColor = raw.reticleColor & 0xffffff;
     if (typeof raw.reticleDist === 'number') settings.reticleDist = Math.max(0, Math.min(1, raw.reticleDist));
     if (typeof raw.reticleScale === 'number') settings.reticleScale = Math.max(0.5, Math.min(2, raw.reticleScale));
+    if (raw.reticleFacing === 'shooter' || raw.reticleFacing === 'screen') settings.reticleFacing = raw.reticleFacing;
     if (typeof raw.laser === 'boolean') settings.laser = raw.laser;
     if (typeof raw.padEnabled === 'boolean') settings.padEnabled = raw.padEnabled;
     if (typeof raw.padDeadzone === 'number') settings.padDeadzone = Math.max(0.05, Math.min(0.4, raw.padDeadzone));

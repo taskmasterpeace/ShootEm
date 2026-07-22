@@ -18,12 +18,14 @@ function bar(cx: number, cy: number, len: number, thick: number, axis: 'x' | 'y'
 }
 
 /** Build a STANDING reticle in its own local space (facing +Z, ~1u tall). The
- *  renderer bills it toward the camera and scales it. A shared material keeps it
- *  a flat, always-on-top overlay (depthTest off) in the chosen colour. */
+ *  renderer yaws it to FACE THE SHOOTER (the shot passes through the circle) and
+ *  scales it. Robert's 07-22 rulings: soften it to a translucent overlay look
+ *  ("make it opaque a little so it look like a overlay"), and it HIDES behind
+ *  cover — depthTest ON, so a wall between you and the aim point eats it. */
 export function buildStandingReticle(style: ReticleStyle, color: number): THREE.Group {
   const g = new THREE.Group();
-  const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthTest: false, depthWrite: false, side: THREE.DoubleSide });
-  g.renderOrder = 999; // overlay: draws over the world
+  const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.62, depthTest: true, depthWrite: false, side: THREE.DoubleSide });
+  g.renderOrder = 999; // still late in the queue so its own translucency stacks clean
   const T = 0.05; // bar thickness
   const add = (m: THREE.Object3D) => { (m as THREE.Mesh).renderOrder = 999; g.add(m); };
   switch (style) {

@@ -1644,21 +1644,22 @@ export class Renderer {
       const r = this.standingReticle;
       r.visible = true;
       r.scale.setScalar(scale);
-      // PLANTED IN THE WORLD (Robert: "physically in the 3D world… the bottom
-      // touching the ground… NOT facing the camera"). A VERTICAL plane standing
-      // at the aim point, its FOOT on the ground; it only YAWS to sit square to
-      // the camera (stays upright), so the angled view foreshortens it like a
-      // real standing target/sign, instead of a flat camera-locked billboard.
-      //
-      // FACE THE SAME WAY AT EVERY AIM (Robert: the old math "turned relative to
-      // the character" — only right at 12:00, wrong turning left). The camera is
-      // a fixed top-down rig looking toward −Z, so its horizontal forward is
-      // CONSTANT no matter where you aim. Yaw the reticle by THAT (−forward), not
-      // by the reticle→camera vector — which used the aim-dependent point (ax,az)
-      // and so re-aimed the face as you turned. Now every reticle sits square to
-      // the screen like an overlay, identical at 12:00, 9:00, or 6:00.
-      const fwd = this.camera.getWorldDirection(this.tmpDir);
-      r.rotation.set(0, Math.atan2(-fwd.x, -fwd.z), 0);
+      // PLANTED IN THE WORLD, FACING THE SHOOTER (Robert's 07-22 ruling — the
+      // square-to-the-camera version still read as "twisting when I turn"). The
+      // law in his words: "it's supposed to change WITH me and stay… so that
+      // when you shoot, it goes right through the circle in that 3D world."
+      // So the vertical plane's NORMAL points back down the aim line at the
+      // player — a target downrange always squared to the one shooting it. It
+      // rotates rigidly with your yaw (never re-aims against the camera), and
+      // the top-down view foreshortens it naturally on side aims — the
+      // in-the-world read. He tunes it himself: settings.reticleFacing flips
+      // between this and the old squared-to-screen overlay, live in Options.
+      if (settings.reticleFacing === 'screen') {
+        const fwd = this.camera.getWorldDirection(this.tmpDir);
+        r.rotation.set(0, Math.atan2(-fwd.x, -fwd.z), 0);
+      } else {
+        r.rotation.set(0, Math.atan2(local.pos.x - ax, local.pos.z - az), 0);
+      }
       const foot = 0.58 * scale; // the reticle's built half-height (ring/bars) × scale
       r.position.set(ax, foot, az); // center at half-height → bottom sits on the ground
       if (this.reticleShadow) { this.reticleShadow.visible = true; this.reticleShadow.position.set(ax, 0.04, az); this.reticleShadow.scale.setScalar(scale * 0.85); }
