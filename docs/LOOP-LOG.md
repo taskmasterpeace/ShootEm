@@ -6,3 +6,4 @@
 2026-07-22 IT-7: #56 built + live-verified (CORPSE BURNING chip). Foreign untracked file noted: tests/geospatial-visuals.test.ts (left alone). Next: #57 amb_winter or #80 skip bleed-out.
 2026-07-22 IT-8: #80 built (hold-SPACE give-up, 12 downed tests green). SHARED-TREE ALERT: second instance landing Miami-Gardens geospatial (theaters.test geocity seed 7 red is THEIRS; their uncommitted files left alone). Next: #57 amb_winter.
 2026-07-22 IT-9: #58 half-closed (shipping log written; terrain-lab + license → needs-robert). Next: #57 amb_winter.
+2026-07-22 IT-10: #57 built (amb_winter synthesized bed, seamless, deterministic). Next: decision-labeled epics -> needs-robert sweep.
