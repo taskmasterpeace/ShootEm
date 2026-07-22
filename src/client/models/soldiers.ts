@@ -25,7 +25,16 @@ const GLB_BODIES: Partial<Record<ClassId, string>> = Object.fromEntries(
   GLB_CLASSES.map((c) => [c, `/models/soldier_${c}.glb`]),
 );
 const glbBodies = new Map<string, THREE.Group>();
-if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+// opt #28 (L8): the probes used to fire AT MODULE IMPORT — eight requests
+// (existing files ~1MB each, absent classes 404) contending with fonts and
+// main chunks before the menu ever painted, in sessions that might never
+// deploy. Now the first buildSoldier() call pulls the trigger (the props
+// pattern): menu-only sessions fetch nothing, and the per-build "never pop
+// mid-soldier" law is untouched — a body still swaps only between builds.
+let glbProbesFired = false;
+function ensureGlbBodies() {
+  if (glbProbesFired || typeof window === 'undefined' || typeof document === 'undefined') return;
+  glbProbesFired = true;
   for (const url of Object.values(GLB_BODIES)) {
     try {
       new GLTFLoader().load(url, (gltf) => {
@@ -122,6 +131,7 @@ export function repairGlbRig(root: THREE.Object3D): void {
 }
 
 export function buildSoldier(team: Team, classId: ClassId, kind: SoldierKind, weaponId?: string): THREE.Group {
+  ensureGlbBodies(); // opt #28: first deploy pulls the trigger, not module import
   if (kind === 'scientist') return buildScientist();
   if (kind === 'dog') return buildDog(team);
   if (kind === 'scraprat' || kind === 'junkhound' || kind === 'weaver' || kind === 'ravager') return buildIronEater(kind);
