@@ -4,6 +4,47 @@ The public record of what shipped, written for players and backers — not engin
 
 ---
 
+## Unreleased — 2026-07-22 · "The Mountain, the Fire, and the Front Door"
+
+### New
+
+- **Mountain warfare.** Terrain relief arrives: winter and mountain theaters with
+  real elevation, four new airframes with guided rockets, air-to-air missiles,
+  stealth detection, and the Sky-gate. Fixed-wing combat over ridgelines.
+- **Fire that spreads.** Incendiary rounds, grenades, and the flamethrower's
+  stream now set flammable ground alight — grass catches, fire spreads, and it
+  burns down corpses. The thrown-sun gods' fireballs land burning too, and a
+  corpse cooking near you reads its burn meter with your vitals.
+- **The front door.** Enlistment gives every soldier a homeland: pick your
+  country (all 168 real cities pickers), the sheet assigns your faction, and the
+  main menu, Options screen, and controller configuration greet you properly.
+  Boot camp — the paintball yard — takes every fresh recruit's first deploy.
+- **The mortal classes speak.** Seven class voice packs plus Odessa the
+  Infiltrator: intros, deploys, kills, going down, getting back up, and the
+  whole flag run — each in the operator's own voice, capped so the radio never
+  babbles.
+- **The kill cam directs.** Long kills ride the round, rail kills freeze for the
+  autopsy card, and great kills earn the killer a reward cut. Tank and plane
+  wrecks get their moment.
+- **Motor Trials.** Hoverboard racing — two modes, three boards, ghosts, and AI
+  rivals.
+- **After-action report v2.** Per-player flag stats, THE FLAG RUN timeline, your
+  nemesis and your prey.
+
+### Improved
+
+- The reticle rotates with you and hides behind cover; a Facing toggle in
+  Options lets you choose. The codex prices everything in credits. Downed
+  soldiers can hold SPACE to take the reprint immediately when nobody can reach
+  them.
+
+### Fixed
+
+- Infantry's Q ability now throws a real frag. The nuclear-warhead arming
+  klaxon is heard by both teams again. Boot camp no longer skips itself.
+
+---
+
 ## Unreleased — 2026-07-21 · "Every Door Goes Somewhere"
 
 ### New
