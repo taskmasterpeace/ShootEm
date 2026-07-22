@@ -8,6 +8,16 @@ The public record of what shipped, written for players and backers — not engin
 
 ### New
 
+- **Handlers can clear a house with their dog.** Infantry and Engineer players
+  now own the friendly K9 in offline battles and Science Missions. Aim at a
+  building and press **K / L3 / SIC**; press **L / R3** for Stay and again for
+  Heel. The live command deck reports clearing and closed-door waits.
+- **The dog knows the boundary of the order.** It can find hidden or cloaked
+  hostile occupants inside the assigned building, sweep all three storeys by
+  stairs, and bite with the existing K9 weapon. It refuses ladders, doors, and
+  intact glass. A closed door waits for the human to open it, then the same
+  sweep continues.
+
 - **The world has addresses.** 168 countries and 1,050 cities now drive the
   architecture and security of Science Mission sites, with city provenance in
   briefings and aftermath reports.
@@ -28,6 +38,16 @@ The public record of what shipped, written for players and backers — not engin
   without stacking the entry room.
 
 ### Verification record
+
+- The in-app production playtest assigned the friendly dog to the local
+  handler, exercised Stay → Heel, issued SIC at a visible building, and watched
+  the live deck transition **HEEL → CLEARING → WAITING · DOOR**. The dog stopped
+  outside the closed entry and the browser reported zero runtime errors.
+- Focused simulation coverage proves hidden Level-3 acquisition, stair-only
+  routing, nose-radius pinging, bite damage, ladder refusal, closed ground and
+  upper-door waits, human-opened continuation, intact glass, Stay anchoring,
+  Heel recall, two-second clear confirmation, snapshot replication, command
+  authority, and non-repeating network one-shots.
 
 - In-app browser playtests generated a three-storey Belgrade command villa,
   mall section, and secure archive. All six battlefield laws and all eight

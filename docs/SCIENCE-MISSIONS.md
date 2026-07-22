@@ -1,6 +1,32 @@
 # SCIENCE MISSIONS — shipped v1 and catalog direction
 ### Locked 2026-07-20 · production slice shipped 2026-07-21 on `codex/science-missions`.
 
+## K9 BUILDING-CLEAR COMMANDS — 2026-07-21
+
+Eligible Infantry and Engineer players now own their side's working dog in
+offline battles and authored Science Missions. The handler deck appears only
+while both handler and dog are operational:
+
+- **K / L3 / SIC** sends the dog to the building under the handler's aim. The
+  simulation validates the building and selects occupants; clients never send
+  enemy IDs. Hidden, crouched, dark, and cloaked hostile humans/bots inside that
+  one building can be found, but team-wide intel is emitted only when the dog
+  reaches its normal nose radius.
+- **L / R3 / STAY** anchors the dog. It may bite something already in reach but
+  will not chase. Pressing the same command again changes the deck to **HEEL**
+  and recalls it to the handler.
+- A SIC dog sweeps deterministic room centers, uses Ground/L2/L3 stairs, and
+  confirms an empty building for two seconds before announcing clear. It never
+  uses ladders, opens or damages a door, or breaks intact glass.
+- A closed ground or upper-floor door produces **WAITING · DOOR** and a
+  rate-limited bark. The handler must open it with the normal E verb; the dog
+  then resumes the same authoritative sweep. Upper thin-door changes replicate
+  with their floor and orientation intact.
+
+The compact amber command deck shows HEEL, STAY, CLEARING, and WAITING · DOOR
+from replicated simulation state. A forward glyph marks a clearing dog, a
+square marks a holding dog, and Heel adds no battlefield clutter.
+
 ## CITY BUILDING MAP MAKER — 2026-07-21
 
 Science sites now come from the same complete-building grammar exposed in the
