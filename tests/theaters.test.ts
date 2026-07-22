@@ -7,9 +7,10 @@ import { T_DEEP, T_WATER } from '../src/sim/map';
 
 describe('vehicle theater catalog and base builder', () => {
   const seeds = [7, 31, 42, 99, 4207, 5150, 7749, 1337, 90210, 606];
-  it('locks the seven approved dimensions', () => {
+  it('locks the eight approved dimensions', () => {
     expect(Object.fromEntries(Object.entries(THEATER_DEFS).map(([id, def]) => [id, def.geometry]))).toEqual({
       city: { cols: 200, rows: 200, tile: 3 },
+      geocity: { cols: 300, rows: 300, tile: 3 },
       desert: { cols: 300, rows: 300, tile: 3 },
       countryside: { cols: 300, rows: 300, tile: 3 },
       mountain: { cols: 200, rows: 300, tile: 3 },
@@ -76,7 +77,7 @@ describe('vehicle theater catalog and base builder', () => {
   });
 
   it('stages both military rotorcraft for each team in land-capable theaters', () => {
-    for (const id of ['city', 'desert', 'countryside', 'mountain', 'coastal'] as const) {
+    for (const id of ['city', 'geocity', 'desert', 'countryside', 'mountain', 'coastal'] as const) {
       const map = generateTheater(id, 4207);
       for (const team of [0, 1] as const) {
         expect(map.vehiclePads.some((pad) => pad.team === team && pad.kind === 'attackheli'), `${id} team ${team} Shrike`).toBe(true);
@@ -129,7 +130,7 @@ describe('vehicle theater catalog and base builder', () => {
     })).toBe(true);
   });
 
-  it.each(['city', 'desert', 'countryside', 'mountain'] as const)('%s never stages a submarine', (id) => {
+  it.each(['city', 'geocity', 'desert', 'countryside', 'mountain'] as const)('%s never stages a submarine', (id) => {
     expect(generateTheater(id, 42).vehiclePads.some((pad) => pad.kind === 'submarine')).toBe(false);
   });
 

@@ -21,6 +21,7 @@ import {
   type MapGeometry,
 } from '../map-geometry';
 import { Rng } from '../rng';
+import { frontWalkable } from '../fronts';
 import { createTheaterBase } from '../theater-builder';
 import type { TheaterDef } from '../theater-types';
 import type { GameplayOverlayChange } from './artifact';
@@ -265,6 +266,9 @@ function stampPlayableBuilding(
     if (nearest >= 0) {
       const target = tileToWorld(map.geometry, nearest % map.geometry.cols, Math.floor(nearest / map.geometry.cols));
       for (const cell of rasterLine([start, target], map.geometry.tile, map.geometry)) {
+        const cellX = cell % map.geometry.cols;
+        const cellZ = Math.floor(cell / map.geometry.cols);
+        if (cellX >= house.tx && cellX < house.tx + house.tw && cellZ >= house.tz && cellZ < house.tz + house.th) continue;
         if (map.grid[cell] === T_WALL) overlay.push({ index: cell, reason: 'open_flank' });
         map.grid[cell] = T_OPEN;
         map.surface[cell] = S_PLATE;
@@ -273,6 +277,34 @@ function stampPlayableBuilding(
     return 1;
   }
   return 0;
+}
+
+function sealUnreachablePockets(map: GameMap, start: number, overlay: GameplayOverlayChange[]): void {
+  const seen = new Uint8Array(map.grid.length);
+  const queue = [start];
+  seen[start] = 1;
+  for (let cursor = 0; cursor < queue.length; cursor++) {
+    const index = queue[cursor];
+    const x = index % map.geometry.cols;
+    const z = Math.floor(index / map.geometry.cols);
+    for (const [dx, dz] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) {
+      const nx = x + dx;
+      const nz = z + dz;
+      if (!inBounds(map.geometry, nx, nz)) continue;
+      const neighbor = tileIndex(map.geometry, nx, nz);
+      if (!seen[neighbor] && frontWalkable(map.grid[neighbor])) {
+        seen[neighbor] = 1;
+        queue.push(neighbor);
+      }
+    }
+  }
+  for (let index = 0; index < map.grid.length; index++) {
+    if (!seen[index] && frontWalkable(map.grid[index])) {
+      map.grid[index] = T_WALL;
+      map.surface[index] = S_GRIT;
+      overlay.push({ index, reason: 'remove_low_confidence' });
+    }
+  }
 }
 
 export function compileGeospatialMap(
@@ -410,6 +442,8 @@ export function compileGeospatialMap(
     { kind: 'transportheli', team: 0, pos: { ...west } },
     { kind: 'transportheli', team: 1, pos: { ...east } },
   ];
+
+  sealUnreachablePockets(map, westRoad, overlay);
 
   for (let x = 0; x < geometry.cols; x++) {
     map.grid[tileIndex(geometry, x, 0)] = T_WALL;

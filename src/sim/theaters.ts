@@ -3,9 +3,11 @@ import type { GameMap } from './map';
 import type { TheaterDef, TheaterId } from './theater-types';
 import { generateCityTheater, generateCountrysideTheater, generateDesertTheater, generateSteppeTheater } from './theaters/land';
 import { generateCoastalTheater, generateMountainTheater, generateOceanTheater } from './theaters/domain';
+import { generateGeospatialTheater } from './theaters/geospatial';
 
 export const THEATER_DEFS: Record<TheaterId, TheaterDef> = {
   city: { id: 'city', name: 'Iron Meridian', geometry: { cols: 200, rows: 200, tile: 3 }, theme: 'starship', domains: ['foot', 'ground', 'air'], freeDogfight: false, defaultPads: ['tank', 'attackheli', 'transportheli'] },
+  geocity: { id: 'geocity', name: 'Potrero Hill / Dogpatch', geometry: { cols: 300, rows: 300, tile: 3 }, theme: 'titan', domains: ['foot', 'ground', 'air'], freeDogfight: false, defaultPads: ['tank', 'attackheli', 'transportheli'] },
   desert: { id: 'desert', name: 'Sirocco Reach', geometry: { cols: 300, rows: 300, tile: 3 }, theme: 'hardpan', domains: ['foot', 'ground', 'air'], freeDogfight: true, defaultPads: ['tank', 'attackheli', 'transportheli', 'strikejet', 'gunship', 'airsuperiority'] },
   countryside: { id: 'countryside', name: 'Green March', geometry: { cols: 300, rows: 300, tile: 3 }, theme: 'savanna', domains: ['foot', 'ground', 'air'], freeDogfight: true, defaultPads: ['tank', 'apc', 'attackheli', 'transportheli', 'airsuperiority'] },
   mountain: { id: 'mountain', name: 'Crown Divide', geometry: { cols: 200, rows: 300, tile: 3 }, theme: 'winter', domains: ['foot', 'ground', 'air'], freeDogfight: false, defaultPads: ['buggy', 'attackheli', 'transportheli', 'gunship', 'gunheli', 'stealthbomber'] },
@@ -30,6 +32,7 @@ function generateCatalogBase(id: TheaterId, seed: number): GameMap {
 }
 
 export function generateTheater(id: TheaterId, seed: number): GameMap {
+  if (id === 'geocity') return generateGeospatialTheater(THEATER_DEFS.geocity, seed);
   if (id === 'city') return generateCityTheater(THEATER_DEFS.city, seed);
   if (id === 'desert') return generateDesertTheater(THEATER_DEFS.desert, seed);
   if (id === 'countryside') return generateCountrysideTheater(THEATER_DEFS.countryside, seed);
