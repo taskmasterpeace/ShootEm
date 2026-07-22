@@ -174,6 +174,19 @@ html, body {
 .select-card .icon { font-size: 1.6rem; filter: saturate(1.05); }
 .select-card .name { font-weight: 600; margin: 0.35rem 0 0.15rem; font-size: 0.98rem; letter-spacing: 0.02em; text-transform: uppercase; }
 .select-card .desc { color: var(--muted); font-size: 0.78rem; line-height: 1.4; }
+#military-missions-entry { display: contents; }
+.mission-launch-card {
+  appearance: none; color: var(--text); text-align: left; font: inherit;
+  background:
+    linear-gradient(90deg, oklch(0.76 0.16 74 / 0.08) 1px, transparent 1px),
+    linear-gradient(0deg, oklch(0.76 0.16 74 / 0.08) 1px, transparent 1px),
+    linear-gradient(145deg, oklch(0.23 0.035 74), oklch(0.14 0.015 74));
+  background-size: 18px 18px, 18px 18px, auto;
+}
+.mission-launch-card:focus-visible, .mission-card:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+.mission-launch-card > span { display: block; }
+.mission-kicker { color: var(--accent); font: 700 0.61rem var(--font-mono); letter-spacing: 0.12em; }
+.mission-card-cta { margin-top: 0.65rem; color: var(--accent); font: 700 0.65rem var(--font-mono); letter-spacing: 0.08em; }
 .setup-row { display: flex; gap: 2rem; flex-wrap: wrap; align-items: flex-end; }
 .setup-block label {
   display: block; font-size: 0.72rem; font-weight: 600; color: var(--muted);
@@ -1051,11 +1064,48 @@ html, body {
 .op-ready { margin-top: 0.6rem; color: var(--ok); font: 0.7rem var(--font-mono); letter-spacing: 0.08em; }
 .op-modal-actions { justify-content: flex-end; }
 .op-modal-actions .op-primary, .op-modal-actions .op-secondary { flex: 0 1 auto; min-width: 12rem; }
+.mission-modal { width: min(68rem, 97vw); max-height: min(54rem, 96vh); padding: 1.15rem; }
+.mission-modal-head p { max-width: 48rem; margin-top: 0.35rem; color: var(--muted); font-size: 0.78rem; line-height: 1.45; }
+.mission-grid {
+  min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem; padding: 0.8rem 0.3rem 0.8rem 0;
+}
+.mission-card {
+  appearance: none; position: relative; display: flex; flex-direction: column; min-width: 0; padding: 0.85rem;
+  border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); text-align: left; cursor: pointer;
+  background:
+    linear-gradient(90deg, oklch(0.76 0.16 74 / 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, oklch(0.76 0.16 74 / 0.045) 1px, transparent 1px),
+    linear-gradient(155deg, oklch(0.21 0.024 74), oklch(0.16 0.014 74));
+  background-size: 24px 24px, 24px 24px, auto;
+  font: inherit; transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
+}
+.mission-card::before, .mission-card::after { content: ''; position: absolute; width: 13px; height: 13px; border: 0 solid var(--border-bright); }
+.mission-card::before { top: -1px; left: -1px; border-top-width: 2px; border-left-width: 2px; }
+.mission-card::after { right: -1px; bottom: -1px; border-right-width: 2px; border-bottom-width: 2px; }
+.mission-card:hover { transform: translateY(-2px); border-color: var(--border-bright); box-shadow: 0 12px 30px oklch(0 0 0 / 0.32); }
+.mission-card.selected { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent), 0 0 26px oklch(0.76 0.16 74 / 0.11); }
+.mission-card.selected::before, .mission-card.selected::after { border-color: var(--accent); }
+.mission-card-top { display: flex; justify-content: space-between; align-items: center; }
+.mission-card-icon { color: var(--accent); font-size: 1.75rem; line-height: 1; }
+.mission-card-index { color: var(--muted); font: 0.68rem var(--font-mono); letter-spacing: 0.1em; }
+.mission-card-title { margin-top: 0.35rem; font-weight: 700; font-size: 1.02rem; letter-spacing: -0.015em; }
+.mission-card-theater { color: var(--accent); font: 700 0.65rem var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; }
+.mission-card-tagline { margin: 0.45rem 0 0.65rem; color: var(--muted); font-size: 0.75rem; line-height: 1.4; }
+.mission-card-specs { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.mission-card-specs span { padding: 0.22rem 0.38rem; border: 1px solid var(--border); border-radius: 2px; color: var(--muted); font: 0.61rem var(--font-mono); letter-spacing: 0.06em; }
+.mission-card-package { display: grid; gap: 0.15rem; margin-top: 0.6rem; color: var(--text); font: 0.66rem var(--font-mono); line-height: 1.4; }
+.mission-card-package b { color: var(--muted); font-size: 0.58rem; letter-spacing: 0.09em; }
+.mission-card-select { margin-top: auto; padding-top: 0.65rem; color: var(--accent); font: 700 0.62rem var(--font-mono); letter-spacing: 0.08em; }
+.mission-modal-foot { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+.mission-modal-foot > span { color: var(--muted); font: 0.66rem var(--font-mono); line-height: 1.4; }
 @media (max-width: 720px) {
   .op-hulls { grid-template-columns: 1fr; }
   .op-logistics, .op-cost-grid { grid-template-columns: 1fr 1fr; }
   .op-modal-actions { flex-direction: column-reverse; }
   .op-modal-actions .op-primary, .op-modal-actions .op-secondary { width: 100%; }
+  .mission-grid { grid-template-columns: 1fr; }
+  .mission-modal-foot { align-items: stretch; flex-direction: column; }
 }
 
 /* ── THE CODEX (V6): the master sheet ──────────────────────────────────────
