@@ -19,9 +19,11 @@ building parcels receive native one-to-three-storey procedural interiors;
 background buildings become simplified voxel-like masses. A deterministic
 gameplay pass adds routes, cover, objectives, spawns, and underground fiction.
 
-The first checked-in pilot uses a roughly 900 m urban/industrial slice in
-Pittsburgh, Pennsylvania. Pittsburgh exercises the hard parts at once: a
-legible road network, mixed building stock, and meaningful terrain relief.
+The first checked-in pilot uses a roughly 900 m urban/industrial slice around
+Potrero Hill and Dogpatch in San Francisco, California. San Francisco exercises
+the hard parts at once: a legible road network, mixed building stock, and
+meaningful terrain relief, while matching a city profile already present in
+War World's data catalog.
 The import command remains coordinate-driven so another slice can replace it
 without changing the compiler.
 
@@ -59,7 +61,7 @@ extraction input under the standard Map Tiles policy.
 
 The pilot ships:
 
-- one real, checked-in Pittsburgh map artifact;
+- one real, checked-in San Francisco map artifact;
 - an offline CLI that fetches or accepts source features for a bounding box;
 - source attribution and release/provenance metadata;
 - road, water, building, and elevation compilation;
@@ -286,7 +288,7 @@ The vertical slice is accepted only when:
 
 Visual verification must inspect the pilot from command height and at street
 scale. Success means the result feels like a deliberate War World battlefield
-whose street and relief pattern came from Pittsburgh—not a GIS screenshot and
+whose street and relief pattern came from San Francisco—not a GIS screenshot and
 not an unplayable exact replica.
 
 ## 14. Follow-on sequence
