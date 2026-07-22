@@ -19,10 +19,12 @@ describe('science print-reserve encounter scaling', () => {
         verb: 'steal',
         floors: 3,
       });
-      expect(budget.initialGuards).toBeGreaterThanOrEqual(2);
-      expect(budget.initialGuards + budget.initialCivilians + budget.dogTeams).toBeLessThanOrEqual(16);
-      expect(budget.reserveGuards).toBeGreaterThanOrEqual(1);
-      expect(budget.dogTeams).toBeLessThanOrEqual(2);
+      expect(budget.initialGuards).toBeGreaterThanOrEqual(3);
+      expect(budget.initialGuards).toBeLessThanOrEqual(7);
+      expect(budget.initialGuards + budget.initialCivilians + budget.dogTeams).toBeLessThanOrEqual(12);
+      expect(budget.reserveGuards).toBeGreaterThanOrEqual(0);
+      expect(budget.reserveGuards).toBeLessThanOrEqual(2);
+      expect(budget.dogTeams).toBeLessThanOrEqual(1);
       expect(budget.firstRoomGuards).toBeLessThanOrEqual(2);
       expect(budget.threat).toBeGreaterThanOrEqual(priorThreat);
       priorThreat = budget.threat;
@@ -43,12 +45,30 @@ describe('science print-reserve encounter scaling', () => {
     const world = new World({ seed: spec.seed, mode: 'science', scienceMission: spec });
     const runtime = world.science!;
     expect(runtime.guardIds).toHaveLength(runtime.encounterBudget.initialGuards);
-    expect(runtime.dogIds).toHaveLength(2);
+    expect(runtime.dogIds).toHaveLength(runtime.encounterBudget.dogTeams);
     const before = runtime.guardIds.length;
     runtime.alarm = true;
     runtime.reinforcementAt = world.time;
     world.step(1 / 60, new Map());
     expect(runtime.guardIds).toHaveLength(before + runtime.encounterBudget.reserveGuards);
+  });
+
+  it('issues civilian security weapons instead of the military class armory', () => {
+    for (let seed = 9400; seed < 9410; seed++) {
+      const spec = generateScienceMission(seed, { site: 'research-annex', squadSize: 8, complication: null });
+      const world = new World({ seed: spec.seed, mode: 'science', scienceMission: spec });
+      const runtime = world.science!;
+      runtime.alarm = true;
+      runtime.reinforcementAt = world.time;
+      world.step(1 / 60, new Map());
+
+      const guards = runtime.guardIds.map((id) => world.soldiers.get(id)!);
+      expect(guards.length).toBeLessThanOrEqual(9);
+      expect(guards.every((guard) => guard.classId === 'infantry')).toBe(true);
+      expect(guards.every((guard) => guard.weapons[0] === 'pistol' || guard.weapons[0] === 'kuchler')).toBe(true);
+      expect(guards.every((guard) => guard.armor === 0 && guard.maxArmor === 0)).toBe(true);
+      expect(guards.every((guard) => guard.grenades === 0 && guard.firebombs === 0 && guard.timebombs === 0)).toBe(true);
+    }
   });
 });
 

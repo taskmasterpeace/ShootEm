@@ -85,6 +85,13 @@ export interface ScienceEncounterBudget {
   threat: number;
 }
 
+export type ScienceGuardRole = 'pistol' | 'smg';
+
+/** Civilian security gets deliberate issue weapons, never a class-armory roll. */
+export function scienceGuardRole(index: number, total: number, reserve = false): ScienceGuardRole {
+  return (reserve && index === 0) || (!reserve && total >= 5 && index === total - 1) ? 'smg' : 'pistol';
+}
+
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
 /** A print commitment buys mission tolerance and proportionally raises the
@@ -97,13 +104,11 @@ export function scienceEncounterBudget(options: ScienceEncounterBudgetOptions): 
     || options.verb === 'hold' || options.verb === 'decapitate' ? 1 : 0;
   const initialCivilians = options.verb === 'rescue' ? clamp(2 + Math.floor(prints / 4), 2, 4)
     : options.complication === 'no-kill' ? 2 : 0;
-  const dogTeams = security >= 0.82 && prints >= 7 ? 2
-    : security >= 0.48 && prints >= 3 ? 1 : 0;
-  const maxGuards = Math.max(2, 16 - initialCivilians - dogTeams);
-  const initialGuards = Math.min(maxGuards,
-    2 + Math.ceil(prints * 0.72) + Math.round(security * 2) + verbPressure);
-  const reserveGuards = 1 + Math.ceil((prints - 1) / 2)
-    + (options.complication === 'alarm-net' ? 1 : 0);
+  const dogTeams = security >= 0.55 && prints >= 3 ? 1 : 0;
+  const initialGuards = clamp(3 + (prints >= 3 ? 1 : 0) + (prints >= 7 ? 1 : 0)
+    + (security >= 0.82 ? 1 : 0) + verbPressure, 3, 7);
+  const reserveGuards = clamp((prints >= 4 ? 1 : 0)
+    + (prints >= 8 || options.complication === 'alarm-net' ? 1 : 0), 0, 2);
   const patrolSectors = clamp(Math.ceil(initialGuards / 2), 2, Math.max(2, options.floors * 3));
   const firstRoomGuards = Math.min(2, initialGuards);
   const threat = initialGuards * 10 + reserveGuards * 7 + dogTeams * 12

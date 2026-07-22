@@ -1,6 +1,6 @@
 import { perceivesNow } from './perception';
 import type { ScienceMapLayout } from './science-map';
-import { scienceEncounterBudget, type ScienceEncounterBudget, type ScienceMissionSpec, type ScienceVerb } from './science';
+import { scienceEncounterBudget, scienceGuardRole, type ScienceEncounterBudget, type ScienceMissionSpec, type ScienceVerb } from './science';
 import { worldFloorForHeight } from './map-layers';
 import type { Soldier, Vec3 } from './types';
 import type { World } from './world';
@@ -128,6 +128,23 @@ function hostileTargetCount(verb: ScienceVerb): number {
   return 0;
 }
 
+function issueScienceGuard(world: World, name: string, index: number, total: number, reserve = false): Soldier {
+  const role = scienceGuardRole(index, total, reserve);
+  const guard = world.addSoldier(name, 'infantry', 1, 'bot', {
+    primary: role === 'smg' ? 'kuchler' : 'pistol',
+    secondary: 'pistol',
+    equipment: [],
+  });
+  guard.grenades = 0;
+  guard.smokes = 0;
+  guard.firebombs = 0;
+  guard.concs = 0;
+  guard.gravs = 0;
+  guard.plasmas = 0;
+  guard.timebombs = 0;
+  return guard;
+}
+
 /** Deal actors onto authored sockets; every combatant still uses stock brains and weapons. */
 export function populateScienceMission(world: World, layout: ScienceMapLayout): void {
   const runtime = world.science;
@@ -144,7 +161,7 @@ export function populateScienceMission(world: World, layout: ScienceMapLayout): 
           : runtime.spec.verb === 'ambush' && namedTarget
             ? `Convoy Guard ${targetCount - (runtime.guardPosts.length - 1 - i)}`
             : `Security ${i + 1}`;
-    const guard = world.addSoldier(name, i % 4 === 0 ? 'heavy' : 'infantry', 1, 'bot');
+    const guard = issueScienceGuard(world, name, i, runtime.guardPosts.length);
     guard.pos = { ...runtime.guardPosts[i] };
     guard.floor = worldFloorForHeight(guard.pos.y);
     guard.yaw = Math.PI;
@@ -275,7 +292,7 @@ export function stepScienceMission(world: World, dt: number): void {
   if (runtime.alarm && !runtime.reinforcementsDeployed && world.time >= runtime.reinforcementAt) {
     runtime.reinforcementsDeployed = true;
     for (let i = 0; i < runtime.encounterBudget.reserveGuards; i++) {
-      const guard = world.addSoldier(`Response ${i + 1}`, i === 0 ? 'heavy' : 'infantry', 1, 'bot');
+      const guard = issueScienceGuard(world, `Response ${i + 1}`, i, runtime.encounterBudget.reserveGuards, true);
       guard.pos = { ...(runtime.reinforcementPosts[i % runtime.reinforcementPosts.length]
         ?? runtime.guardPosts[i % runtime.guardPosts.length]) };
       guard.floor = worldFloorForHeight(guard.pos.y);

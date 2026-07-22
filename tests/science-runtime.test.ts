@@ -182,7 +182,7 @@ describe('science mission objective compiler', () => {
     world.time += 5;
     stepScienceMission(world, 1 / 60);
     stepScienceMission(world, 1 / 60);
-    expect(world.science?.guardIds).toHaveLength(originalGuards + 3);
+    expect(world.science?.guardIds).toHaveLength(originalGuards + world.science!.encounterBudget.reserveGuards);
   });
 
   it('alarm-net complications begin hot and schedule the response team', () => {
