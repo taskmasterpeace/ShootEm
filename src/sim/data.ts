@@ -27,6 +27,12 @@ const CORE_WEAPONS: Record<WeaponId, WeaponDef> = {
     alt: { kind: 'burst', ammo: 3, cooldown: 2.6 } }), // under-barrel flame burp
   kuchler: W({ id: 'kuchler', name: 'Kuchler K6 SMG', damage: 9, rof: 12, speed: 95, spread: 0.05, clip: 40, reloadTime: 1.3, range: 40, sound: 'smg' }),
   caw: W({ id: 'caw', name: 'CAW-8 Shotgun', damage: 9, rof: 1.4, speed: 80, spread: 0.11, pellets: 8, clip: 6, reloadTime: 2.2, reserve: 60, range: 26, sound: 'shotgun', tracer: 'shell' }),
+  // THE BOOMSTICK (Robert: "duel barrel"): the sawn-off hero of the scatter
+  // family. Both barrels on ONE press (fireMode double), a 2-round clip so that
+  // press empties it — then you break it open and reload. Murder point-blank
+  // (11×11 pellets), useless past a room (range 18, wide choke). DPS-neutral by
+  // the fireMode law; the burst is front-loaded, the sheet unchanged.
+  boomstick: W({ id: 'boomstick', name: 'The Boomstick', damage: 11, rof: 1.5, speed: 76, spread: 0.17, pellets: 11, clip: 2, reloadTime: 2.7, reserve: 24, range: 18, fireMode: 'double', family: 'scatter', sound: 'shotgun', tracer: 'shell', icon: '💥' }),
   rg2: W({ id: 'rg2', name: 'RG-2 Railgun', damage: 85, rof: 0.8, speed: 300, spread: 0.001, clip: 4, reloadTime: 2.4, reserve: 32, range: 125, sound: 'rail', tracer: 'rail',
     alt: { kind: 'tag', ammo: 4, cooldown: 1.4 } }), // tag dart — pin the runner, then line up the real shot
   ac_mk2: W({ id: 'ac_mk2', name: 'AC-Mk2 Autocannon', damage: 16, rof: 6.5, speed: 100, spread: 0.04, clip: 60, reloadTime: 2.8, reserve: 300, range: 56, sound: 'autocannon' }),
@@ -48,6 +54,17 @@ const CORE_WEAPONS: Record<WeaponId, WeaponDef> = {
   smoke_nade: W({ id: 'smoke_nade', name: 'M-77 Smoke', damage: 0, rof: 0.8, speed: 16, clip: 1, reserve: 0, range: 26, arc: true, payload: 'smoke', sound: 'thump', tracer: 'canister' }),
   fire_nade: W({ id: 'fire_nade', name: 'T-4 Incendiary', damage: 0, rof: 0.8, speed: 16, clip: 1, reserve: 0, range: 26, arc: true, payload: 'fire', sound: 'thump', tracer: 'canister' }),
   conc_nade: W({ id: 'conc_nade', name: 'C-9 Concussion', damage: 0, rof: 0.8, speed: 16, clip: 1, reserve: 0, range: 26, splash: 6.5, splashDamage: 18, knockback: 26, arc: true, payload: 'concussion', sound: 'thump', tracer: 'canister', icon: '💫' }),
+  // THE SINGULARITY (Robert): lands, opens a gravity WELL that YANKS the enemy
+  // squad into a cluster for ~1.2s, then COLLAPSES on the pile. splash/splashDamage
+  // here are the implosion; the pull does no damage of its own — it sets the kill up.
+  grav_nade: W({ id: 'grav_nade', name: 'G-7 Singularity', damage: 0, rof: 0.8, speed: 16, clip: 1, reserve: 0, range: 26, splash: 6, splashDamage: 34, knockback: 0, arc: true, payload: 'grav', sound: 'thump', tracer: 'canister', icon: '🌀' }),
+  // THE STICK (Robert): a plasma charge that ADHERES to the first body it meets
+  // and rides it to the grave — ~1.3s fuse, then an energy burst that bites armor.
+  plasma_nade: W({ id: 'plasma_nade', name: 'P-11 Plasma Stick', damage: 0, rof: 0.8, speed: 22, clip: 1, reserve: 0, range: 28, splash: 4.5, splashDamage: 58, knockback: 12, arc: true, payload: 'plasma', sound: 'plasma', tracer: 'plasma', icon: '🔵' }),
+  // THE DEMOLITION TIMER (Robert: "time bombs"): planted at your feet, it BEEPS
+  // down a ~4s fuse (telegraphed — the enemy can flee) then LEVELS the room. The
+  // blast numbers below; damage ≥100 breaches masonry (it's a demo charge).
+  time_bomb: W({ id: 'time_bomb', name: 'TX-4 Demolition Charge', damage: 120, rof: 0.5, speed: 1, clip: 1, reserve: 0, range: 4, splash: 8, splashDamage: 90, knockback: 20, sound: 'thump', tracer: 'none', icon: '⏱️' }),
   // M3 THE REPLACEMENT (Robert: "I don't think we need to add weapons, I
   // think we need to replace weapons… concussion grenades, no fire, just
   // concussed, with maximum knockback"). The jump trooper's GL-40 becomes

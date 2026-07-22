@@ -719,6 +719,11 @@ export class World {
    *  owner's team are exempt; vehicles move only when CREWED (an abandoned
    *  wreck is nobody's toy — the §8.1a requisition law). */
   forceFields: { x: number; z: number; r: number; radial: number; fx?: number; fz?: number; team: Team; ownerId: number; until: number }[] = [];
+  /** DELAYED DETONATIONS — a blast that goes off later, on its own clock (the
+   *  grav grenade's implosion once the pull has clustered the squad; a time
+   *  bomb's countdown). Processed at the top of step(); resolves through the
+   *  shared explode() so rings/falloff come free. */
+  pendingBlasts: { x: number; y: number; z: number; at: number; weapon: WeaponId; ownerId: number; team: Team }[] = [];
   /** §17 MATERIEL (finish-list #4): each faction's purse for LSW calls —
    *  opens at 10, drips +1 every 60s (cap 14). THREAT[].materiel is the
    *  price per tier, so a T4 costs most of the afternoon. */
@@ -760,6 +765,15 @@ export class World {
         v.vel.z += (-dz * inv * f.radial + (f.fz ?? 0)) * 0.6;
       }
     }
+  }
+
+  /** Fire any delayed blast whose clock has come due (grav implosions, time
+   *  bombs). Resolves through the shared explode() so the rings/falloff are free. */
+  private stepPendingBlasts() {
+    if (!this.pendingBlasts.some((b) => this.time >= b.at)) return;
+    const ready = this.pendingBlasts.filter((b) => this.time >= b.at);
+    this.pendingBlasts = this.pendingBlasts.filter((b) => this.time < b.at);
+    for (const b of ready) this.explode({ x: b.x, y: b.y, z: b.z }, WEAPONS[b.weapon], b.ownerId, b.team);
   }
 
   /** TIME FIELDS (§4.4 #3, the shared mechanic → Chronos): zones where
@@ -1565,6 +1579,7 @@ export class World {
     }
     if (!this.mode.over) this.stepLswDrops(); // §21.6: telegraphed LSW landings
     if (this.forceFields.length) this.stepForceFields(); // §4.4 #2: the pulls and the shoves
+    if (this.pendingBlasts.length) this.stepPendingBlasts(); // grav implosions, time-bomb countdowns
     this.stepCorpses(dt);                               // the dead finish falling
     if (this.outbreakEnabled) this.stepOutbreak(dt);    // the living incubate, the dead rise
     this.stepAntiAir();                                 // V3: the sky is never free
@@ -2196,6 +2211,26 @@ export class World {
               };
               this.pickups.set(pk.id, pk);
             });
+            this.gadgets.delete(id);
+            continue;
+          }
+          break;
+        }
+        case 'time_bomb': {
+          // THE DEMOLITION TIMER (Robert): a big charge counting down. It BEEPS
+          // faster as it nears zero — the telegraph, so the enemy gets a chance
+          // to run — then LEVELS the room. Struck to death (hp<=0) it cooks off
+          // where it stands. Detonates through the shared explode() (damage 120
+          // ≥100 so it breaches masonry — it's a demo charge).
+          const left = g.expiresAt - this.time;
+          const period = left > 2 ? 1 : left > 1 ? 0.5 : 0.22; // the beep tightens
+          if (this.time >= (g.phase ?? 0)) {
+            g.phase = this.time + period;
+            this.emit({ type: 'bomb_beep', pos: { ...g.pos }, soldierId: g.ownerId });
+          }
+          if (this.time >= g.expiresAt || g.hp <= 0) {
+            this.explode({ x: g.pos.x, y: 0.4, z: g.pos.z }, WEAPONS.time_bomb, g.ownerId, g.team);
+            this.emit({ type: 'explosion', pos: { ...g.pos }, weapon: 'time_bomb' });
             this.gadgets.delete(id);
             continue;
           }
@@ -4914,6 +4949,18 @@ export class World {
       }
       return true;
     }
+    if (payload === 'grav') {
+      // THE SINGULARITY: a gravity WELL opens where it lands — a strong INWARD
+      // pull (negative radial) that drags the enemy squad off their feet and
+      // into a cluster for ~1.2s — then the well COLLAPSES on the pile (the
+      // implosion, scheduled through pendingBlasts). The pull does no damage of
+      // its own; it sets the kill up (a teammate's frag cashes it, or the
+      // implosion does). The owner's team is exempt (forceField team-gates).
+      this.forceFields.push({ x: p.pos.x, z: p.pos.z, r: 6.5, radial: -16, team: p.team, ownerId: p.ownerId, until: this.time + 1.2 });
+      this.pendingBlasts.push({ x: p.pos.x, y: p.pos.y, z: p.pos.z, at: this.time + 1.2, weapon: 'grav_nade', ownerId: p.ownerId, team: p.team });
+      this.emit({ type: 'grav_well', pos: { ...p.pos }, soldierId: p.ownerId });
+      return true;
+    }
     switch (p.weapon) {
       case 'emp':
         this.empBlast(p.pos, p.team, p.ownerId);
@@ -6214,9 +6261,10 @@ export class World {
 
   // ---------- mines & pickups ----------
 
-  stepMines(_dt: number) {
+  stepMines(dt: number) {
     for (const [id, m] of this.mines) {
       if (this.time < m.armedAt) continue;
+      if (m.spider) { this.stepSpiderMine(id, m, dt); continue; } // the vulture mine walks
       for (const s of this.soldiers.values()) {
         if (!s.alive || s.team === m.team || s.pos.y > 1) continue;
         if (Math.hypot(s.pos.x - m.pos.x, s.pos.z - m.pos.z) < 2) {
@@ -6235,6 +6283,45 @@ export class World {
           this.mines.delete(id);
           break;
         }
+      }
+    }
+  }
+
+  /** THE SPIDER MINE (Robert): planted dormant — a glint on the ground — until
+   *  an enemy strays into its wake radius. Then it POPS and SKITTERS them down
+   *  (the skitter's own walk: faster than boots, wall-checked, no climbing),
+   *  detonating on contact with a heavier bite than a static mine. */
+  private stepSpiderMine(id: number, m: Mine, dt: number) {
+    const WAKE = 11;
+    let tgt: Soldier | undefined, td = Infinity;
+    for (const s of this.soldiers.values()) {
+      if (!s.alive || s.team === m.team || s.pos.y > 1 || s.vehicleId >= 0) continue;
+      const d = Math.hypot(s.pos.x - m.pos.x, s.pos.z - m.pos.z);
+      if (d < td) { td = d; tgt = s; }
+    }
+    if (!m.awake) {
+      if (tgt && td < WAKE) { m.awake = true; this.emit({ type: 'mine_wake', pos: { ...m.pos }, soldierId: m.ownerId }); }
+      return; // dormant: it lies still until prey is near
+    }
+    if (tgt) m.yaw = Math.atan2(tgt.pos.z - m.pos.z, tgt.pos.x - m.pos.x);
+    const sp = 9; // faster than boots, slower than bullets
+    const nx = m.pos.x + Math.cos(m.yaw ?? 0) * sp * dt;
+    const nz = m.pos.z + Math.sin(m.yaw ?? 0) * sp * dt;
+    if (!isBlocked(this.map.grid, nx, m.pos.z)) m.pos.x = nx; // slide along walls
+    if (!isBlocked(this.map.grid, m.pos.x, nz)) m.pos.z = nz;
+    if (tgt && td < 1.5) {
+      const def = { ...WEAPONS.gl, damage: 95, splash: 4.5, splashDamage: 78, knockback: 14 };
+      this.explode({ ...m.pos, y: 0.4 }, def as (typeof WEAPONS)[WeaponId], m.ownerId, m.team);
+      this.mines.delete(id);
+      return;
+    }
+    for (const v of this.vehicles.values()) {
+      if (!v.alive || v.team === m.team) continue;
+      if (Math.hypot(v.pos.x - m.pos.x, v.pos.z - m.pos.z) < VEHICLES[v.kind].radius + 1.2) {
+        this.damageVehicle(v, 240, m.ownerId, 'gl');
+        this.emit({ type: 'explosion', pos: { ...m.pos }, weapon: 'gl' });
+        this.mines.delete(id);
+        return;
       }
     }
   }
