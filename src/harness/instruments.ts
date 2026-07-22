@@ -6,7 +6,7 @@ const base = (over: Partial<VehicleInstrumentInput>): VehicleInstrumentInput => 
   kind: 'interceptor', yaw: 0, vel: { x: 32, y: 0, z: 0 }, band: 3,
   submerged: false, burnerOn: false, spoolRemaining: 0,
   sensorsHp: 14, sensorsMax: 14,
-  radar: { source: 'fixedWing', range: 125, freshTracks: 3, jammed: false },
+  radar: { source: 'fixedWing', range: 500, freshTracks: 3, jammed: false },
   locked: false, ...over,
 });
 
@@ -17,7 +17,7 @@ const fixtures: Fixture[] = [
   { id: 'condor-team', label: 'CONDOR / TEAM RADAR', notes: 'Staffed sensor station shares the strongest 160-unit picture.', input: base({ kind: 'transportheli', vel: { x: 18, y: 0, z: 4 }, band: 2, sensorsHp: 42, sensorsMax: 42, radar: { source: 'staffedSensors', range: 160, freshTracks: 6, jammed: false } }) },
   { id: 'barracuda', label: 'BARRACUDA / SONAR', notes: 'Submerged navigation replaces altitude with depth and excludes all air returns.', input: base({ kind: 'submarine', vel: { x: 8, y: 0, z: 0 }, band: 0, submerged: true, sensorsHp: 60, sensorsMax: 60, radar: { source: 'sonar', range: 80, freshTracks: 2, jammed: false } }) },
   { id: 'sensor-dead', label: 'SENSOR DAMAGED', notes: 'Destroyed sensors fail closed; old tracks fade rather than refreshing.', input: base({ sensorsHp: 0, radar: null }) },
-  { id: 'jammed', label: 'JAMMED', notes: 'Live enemy ECM shortens reach, offsets the observed point and draws uncertainty rings.', input: base({ radar: { source: 'fixedWing', range: 125, freshTracks: 4, jammed: true } }) },
+  { id: 'jammed', label: 'JAMMED', notes: 'Live enemy ECM shortens reach, offsets the observed point and draws uncertainty rings.', input: base({ radar: { source: 'fixedWing', range: 500, freshTracks: 4, jammed: true } }) },
   { id: 'lock', label: 'MISSILE INBOUND', notes: 'Threat state is red, animated and repeated in text; color is never the only warning.', input: base({ locked: true }) },
 ];
 
@@ -35,7 +35,11 @@ function drawScope(fixture: Fixture): void {
   for (const radius of [85, 170, 245]) { ctx.beginPath(); ctx.arc(size / 2, size / 2, radius, 0, Math.PI * 2); ctx.stroke(); }
   ctx.strokeStyle = 'rgba(232, 163, 61, 0.72)'; ctx.beginPath(); ctx.moveTo(size / 2, size / 2); ctx.lineTo(size / 2 + 205, size / 2 - 110); ctx.stroke();
   ctx.fillStyle = '#e8d9a0'; ctx.font = '16px "Share Tech Mono", monospace';
-  const source = fixture.input.radar?.source === 'sonar' ? 'SONAR 80' : fixture.input.radar?.source === 'staffedSensors' ? 'RDR TEAM 160' : 'RDR AIR 125';
+  const source = fixture.input.radar?.source === 'sonar'
+    ? `SONAR ${fixture.input.radar.range}`
+    : fixture.input.radar?.source === 'staffedSensors'
+      ? `RDR TEAM ${fixture.input.radar.range}`
+      : `RDR AIR ${fixture.input.radar?.range ?? 0}`;
   ctx.fillText(`${source}${fixture.input.radar?.jammed ? ' · JAM' : ''}`, 16, 25);
   const marks: Array<[number, number, 'sub' | 'surface' | 'air' | 'ground']> = fixture.input.radar?.source === 'sonar'
     ? [[315, 330, 'sub'], [205, 170, 'surface']]

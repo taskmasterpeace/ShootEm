@@ -3,7 +3,7 @@ import { RADAR_PROFILES, headingDegrees, radarDomainForVehicle, radarTrackKey, t
 
 describe('radar profiles', () => {
   it('keeps approved ranges and sweep cadences', () => {
-    expect(RADAR_PROFILES.fixedWing).toMatchObject({ range: 125, cadence: 1.25 });
+    expect(RADAR_PROFILES.fixedWing).toMatchObject({ range: 500, cadence: 1.25 });
     expect(RADAR_PROFILES.rotorcraft).toMatchObject({ range: 90, cadence: 1.5 });
     expect(RADAR_PROFILES.staffedSensors).toMatchObject({ range: 160, cadence: 2 });
     expect(RADAR_PROFILES.surfaceNaval).toMatchObject({ range: 105, cadence: 1.75 });

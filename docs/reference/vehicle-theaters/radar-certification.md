@@ -5,7 +5,7 @@ Date: **2026-07-21**
 
 ## Production surface
 
-- Five deterministic sources ship: fixed-wing radar (125u / 1.25s), rotorcraft radar (90u / 1.5s), staffed team sensors (160u / 2s), surface naval radar (105u / 1.75s), and submerged sonar (80u / 2.25s).
+- Five deterministic sources ship: fixed-wing radar (500u / 1.25s, enlarged 4× for theater-scale awareness), rotorcraft radar (90u / 1.5s), staffed team sensors (160u / 2s), surface naval radar (105u / 1.75s), and submerged sonar (80u / 2.25s).
 - Tracks are sim-owned, serializable last-known observations. A moving target stays at its swept point until the next pulse and then fades after its source-specific hold window.
 - Weather attenuates radar range. Live ECM reduces non-sonar reach to 65%, offsets the observed point deterministically, lowers precision to 0.45, and draws an uncertainty ring. Destroyed sensors stop new sweeps.
 - Low ground radar respects walls. High aircraft radar clears ordinary buildings, while Mountain-theater ridge tiles remain terrain-scale blockers. Sonar resolves surface/submerged domains and excludes air.

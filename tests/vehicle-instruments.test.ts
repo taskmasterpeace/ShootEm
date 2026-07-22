@@ -7,9 +7,9 @@ import { World } from '../src/sim/world';
 
 describe('vehicle instrument presenters', () => {
   it('keeps radar range circular in rectangular world space', () => {
-    expect(radarRangeEllipse({ cols: 200, rows: 300, tile: 3 }, 220, 125)).toEqual({
-      radiusX: 125 / 600 * 220,
-      radiusY: 125 / 900 * 220,
+    expect(radarRangeEllipse({ cols: 200, rows: 300, tile: 3 }, 220, 500)).toEqual({
+      radiusX: 500 / 600 * 220,
+      radiusY: 500 / 900 * 220,
     });
     expect(radarSweepAngle(10, 11.25, 1.25)).toBeCloseTo(-Math.PI / 2);
     expect(radarSweepAngle(10.625, 11.25, 1.25)).toBeCloseTo(Math.PI / 2);
@@ -33,7 +33,7 @@ describe('vehicle instrument presenters', () => {
     sensor.seat = 2;
 
     expect(radarDisplayState(world, pilot)).toMatchObject({
-      source: 'fixedWing', range: 125, cadence: 1.25, origin: jet.pos,
+      source: 'fixedWing', range: 500, cadence: 1.25, origin: jet.pos,
     });
     pilot.vehicleId = -1;
     pilot.seat = -1;
@@ -48,7 +48,7 @@ describe('vehicle instrument presenters', () => {
       kind: 'interceptor', yaw: -Math.PI / 2, vel: { x: 0, y: 0, z: -30 },
       band: 3, submerged: false, burnerOn: false, spoolRemaining: 0,
       sensorsHp: 14, sensorsMax: 14,
-      radar: { source: 'fixedWing', range: 125, freshTracks: 2, jammed: false },
+      radar: { source: 'fixedWing', range: 500, freshTracks: 2, jammed: false },
       locked: false,
     });
     expect(state.heading).toBe(270);
@@ -56,7 +56,7 @@ describe('vehicle instrument presenters', () => {
     expect(state.speed).toBe(30);
     expect(state.speedPercent).toBeCloseTo(30 / 46);
     expect(state.altitudePips).toEqual([false, false, false, true]);
-    expect(state.radarText).toBe('RDR AIR 125 · 2 TRACKS');
+    expect(state.radarText).toBe('RDR AIR 500 · 2 TRACKS');
     expect(state.flightMode).toBe('CRUISE');
   });
 
@@ -65,7 +65,7 @@ describe('vehicle instrument presenters', () => {
       kind: 'strikejet', yaw: 0, vel: { x: 42, y: 0, z: 0 },
       band: 2, submerged: false, burnerOn: true, spoolRemaining: 0,
       sensorsHp: 16, sensorsMax: 16,
-      radar: { source: 'fixedWing', range: 125, freshTracks: 1, jammed: true },
+      radar: { source: 'fixedWing', range: 500, freshTracks: 1, jammed: true },
       locked: true,
     });
     const html = renderVehicleInstruments(state);

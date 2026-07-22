@@ -32,7 +32,7 @@ export interface RadarTrack {
 }
 
 export const RADAR_PROFILES = {
-  fixedWing: { source: 'fixedWing', range: 125, cadence: 1.25, domains: ['air', 'ground', 'surface'] },
+  fixedWing: { source: 'fixedWing', range: 500, cadence: 1.25, domains: ['air', 'ground', 'surface'] },
   rotorcraft: { source: 'rotorcraft', range: 90, cadence: 1.5, domains: ['air', 'ground'] },
   staffedSensors: { source: 'staffedSensors', range: 160, cadence: 2, domains: ['air', 'ground', 'surface'] },
   surfaceNaval: { source: 'surfaceNaval', range: 105, cadence: 1.75, domains: ['air', 'surface'] },

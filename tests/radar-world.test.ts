@@ -26,6 +26,23 @@ function crew(world: World, kind: VehicleKind, team: 0 | 1, x = 0, z = 0): { pil
 }
 
 describe('world radar sweeps', () => {
+  it('gives fixed-wing radar the approved four-times detection radius', () => {
+    const world = quiet(generateTheater('desert', 42));
+    const { vehicle: jet } = crew(world, 'interceptor', 0);
+    jet.band = 3;
+    const { vehicle: distant } = crew(world, 'strikejet', 1, 400, 0);
+    distant.band = 3;
+    distant.systems.ecm = 0;
+    const { vehicle: beyond } = crew(world, 'strikejet', 1, 510, 0);
+    beyond.band = 3;
+    beyond.systems.ecm = 0;
+
+    world.stepRadar();
+
+    expect(world.radarTracksFor(0).has(`v:${distant.id}`)).toBe(true);
+    expect(world.radarTracksFor(0).has(`v:${beyond.id}`)).toBe(false);
+  });
+
   it('holds a swept aircraft at its last-known point until the next pulse', () => {
     const world = quiet();
     const { vehicle: jet } = crew(world, 'interceptor', 0);
@@ -50,15 +67,15 @@ describe('world radar sweeps', () => {
   });
 
   it('reduces live-ECM range and returns an uncertain offset inside it', () => {
-    const world = quiet();
+    const world = quiet(generateTheater('desert', 42));
     const { vehicle: jet } = crew(world, 'interceptor', 0);
     jet.band = 3;
-    const { vehicle: far } = crew(world, 'transportheli', 1, 100, 0);
+    const { vehicle: far } = crew(world, 'transportheli', 1, 400, 0);
     far.band = 2;
     world.stepRadar();
     expect(world.radarTracksFor(0).has(`v:${far.id}`)).toBe(false);
 
-    const { vehicle: near } = crew(world, 'transportheli', 1, 60, 0);
+    const { vehicle: near } = crew(world, 'transportheli', 1, 300, 0);
     near.band = 2;
     world.time = 1.25;
     world.stepRadar();
