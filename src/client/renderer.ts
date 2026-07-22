@@ -14,7 +14,7 @@ import { audio, type SoundName } from './audio';
 import { ClassVo } from './classvo';
 import { BIOME_AUDIO } from './soundscape';
 import { settings } from './settings';
-import { buildLaser, buildReticleShadow, buildStandingReticle, isStandingReticle } from './reticle';
+import { buildLaser, buildReticleShadow, buildStandingReticle, isStandingReticle, rangeState } from './reticle';
 import { darknessFloor, setDarknessFrame, sweepDarkness } from './darkness';
 import { Particles, FlashLights, Fireballs } from './effects';
 import { JOINT_NAMES, isUndead, poseSoldierJoints, CAST_SCHOOL, FLIGHT_POSES, RECOIL_SCALE, stepYawSpring, throwArmCurve, WEAPON_HOLDS, type GaitState, type CastSchool } from './animation';
@@ -1744,7 +1744,11 @@ export class Renderer {
       if (beam) { beam.scale.y = len; beam.position.x = len / 2; } // stretch along +X, keep the base at the muzzle
       const dot = this.part(this.laserBeam, 'dot');
       if (dot) dot.position.x = len;
-    } else if (this.laserBeam) this.laserBeam.visible = false;
+      rangeState.len = len; // #79: the measured read the HUD prints
+    } else {
+      if (this.laserBeam) this.laserBeam.visible = false;
+      rangeState.len = -1;
+    }
   }
 
   private updateMeleeRings(world: World, local: Soldier | undefined) {

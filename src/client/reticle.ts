@@ -9,6 +9,10 @@
 import * as THREE from 'three';
 import type { ReticleStyle } from './settings';
 
+/** #79 THE RANGEFINDER: the laser's marched length, written by the renderer
+ *  each frame it draws the beam, read by the HUD's range chip. -1 = no beam. */
+export const rangeState = { len: -1 };
+
 /** a thin bar centered at (cx,cy), `len` long on the given axis, `thick` wide */
 function bar(cx: number, cy: number, len: number, thick: number, axis: 'x' | 'y', mat: THREE.Material): THREE.Mesh {
   const geo = axis === 'x' ? new THREE.PlaneGeometry(len, thick) : new THREE.PlaneGeometry(thick, len);

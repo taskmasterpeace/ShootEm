@@ -3,6 +3,7 @@ import { LSWS, VO_LINES } from '../sim/lsw';
 import { fmtLap } from '../sim/modes';
 import { audio, earshotFor } from './audio';
 import { icon, type IconName } from './icons';
+import { rangeState } from './reticle';
 import { T_CLIMB, T_WALL, losClear, houseAt } from '../sim/map';
 import { LEGACY_GEOMETRY, halfDepth, halfWidth, worldDepth, worldWidth, type MapGeometry } from '../sim/map-geometry';
 import { isZed, type SimEvent, type Soldier, type Team, type Vec3, type VehicleKind } from '../sim/types';
@@ -919,6 +920,16 @@ export class Hud {
       mc.classList.toggle('hot', stampHot);
       $('moodle-txt').textContent = stamp;
     } else mc.classList.add('hidden');
+
+    // #79 THE RANGEFINDER (Robert: "I hear you say 2u and 9u a lot — what if
+    // we had something to MEASURE distance?"): when the personal laser is
+    // lit, the beam's marched length prints under the mag — the wall or the
+    // weapon's reach, whichever the light hits first.
+    const rc = $('range-chip');
+    if (rangeState.len >= 0 && s.alive) {
+      rc.classList.remove('hidden');
+      rc.textContent = `RANGE ${rangeState.len.toFixed(0)}u`;
+    } else rc.classList.add('hidden');
 
     // UI-BIBLE §09 — THE UNIFIED STATUS STRIP. Every timed player state gets a
     // chip here, DERIVED from live sim fields (§03 law 2), priority-ordered
