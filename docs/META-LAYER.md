@@ -245,3 +245,11 @@ Robert: the 3 flight levels need to read **HIGHER** — the top band especially,
 
 ## §B REORDERED (Claude's hands-on lane, updated)
 Done: beam fixes · melee-minigame eliminated · pulse-ring · ammo-dwindle · **guns-too-big (plate)** · **ground spread-circle reticle** (`c22da2f`). Next, in order: **(1) the held-gun grip/animation in-game** (why the harness rig isn't on the live body) · (2) **unify the harness** + regen dummies + sneak scenarios · (3) the **stealth footstep/noise** mechanic + ground-ripple · (4) loot button + loadout slots · (5) the 5 selectable reticles + the "choose how far" knob (builds on the shipped spread ring) · (6) wire the UI-MASTER design language (shape-channel marks, slot inventory) · (7) bilateral fire · (8) capsule force-field · (9) racing/tank sim modes. AVOID: altitude bands (LSW-flight worktree), audio/SOUND_NAMES beyond append (announcer worktree).
+
+---
+
+# META-LAYER v3.2 — MILITARY OPERATIONS SHIPPED (2026-07-21)
+
+The first full strategy-path loop is now real. **Operations ship; Expeditions and Private Matters remain designed.** The Scar offers a pass-limited planning window where the Operation Officer commits treasury, ammunition, support, and named seasonal hulls. P1 teaches on a skirmish pocket, P2 moves to standard combined arms, and P3 opens a large front. The match runs ordered objectives plus a real complication, reports their state in the HUD and AAR, and settles losses and the selected strategic effect exactly once.
+
+The return loop is also live: facilities, territory, materiel, air/sea control, doctrine, and intelligence modify later battles or campaign state; destroyed named vehicles remain lost until armistice; survivors retain sorties and vehicle-type kills; the dossier advances Command certification; and the Front Courier records the result from the enemy perspective. This completes the Operation link in the v3 chain—**Operations capture sites → the next battle starts changed**—without pretending the Expedition, persistent crew-person, PRINT, or Private Matter links have shipped.

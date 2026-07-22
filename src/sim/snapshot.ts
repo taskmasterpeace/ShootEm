@@ -3,6 +3,8 @@ import { SEEN_LINGER, SEEN_LINGER_GEARED, eyesSeePoint, perceivesNow, seenRecent
 import type { WeatherState } from './weather';
 import type { Gadget, Mine, ModeId, ModeState, Pickup, Projectile, SimEvent, Soldier, ThemeId, Turret, Vehicle } from './types';
 import { World } from './world';
+import { assertMapIdentity, mapIdentity } from './map-identity';
+import type { TheaterId } from './theater-types';
 
 /**
  * A puppet world renders authoritative snapshots without simulating: same
@@ -10,8 +12,27 @@ import { World } from './world';
  * applySnapshot is the only source of truth. Used by the multiplayer client
  * and the replay player — one recipe, one home.
  */
-export function createPuppetWorld(seed: number, mode: ModeId, theme: ThemeId | undefined): World {
-  const w = new World({ seed, mode, theme });
+export interface MapHandshake {
+  theaterId?: TheaterId;
+  mapIdentity: string;
+}
+
+export function mapHandshake(world: World): MapHandshake {
+  return {
+    ...(world.map.theater ? { theaterId: world.map.theater.id } : {}),
+    mapIdentity: mapIdentity(world.map),
+  };
+}
+
+export function createPuppetWorld(
+  seed: number,
+  mode: ModeId,
+  theme: ThemeId | undefined,
+  theaterId?: TheaterId,
+  expectedMapIdentity?: string,
+): World {
+  const w = new World({ seed, mode, theme, theaterId });
+  if (expectedMapIdentity) assertMapIdentity(w.map, expectedMapIdentity);
   w.puppet = true;
   w.soldiers.clear();
   w.vehicles.clear();
@@ -112,7 +133,7 @@ export function cullSnapshotFor(w: World, snap: Snapshot, viewerId: number): Sna
   const range = w.perceiveRange();
   const linger = viewer.equipment.includes('tracking_optics') ? SEEN_LINGER_GEARED : SEEN_LINGER;
   const eyes = [...w.soldiers.values()].filter((s) => s.alive && s.team === team);
-  const seesPoint = (x: number, z: number, y = 1.4) => eyesSeePoint(w.map.grid, eyes, x, z, range, y);
+  const seesPoint = (x: number, z: number, y = 1.4) => eyesSeePoint(w.map.grid, eyes, x, z, range, y, w.map.geometry);
 
   const soldiers = snap.soldiers.flatMap((s) => {
     if (s.team === team) return [s];
@@ -123,7 +144,7 @@ export function cullSnapshotFor(w: World, snap: Snapshot, viewerId: number): Sna
     // would leak live coordinates through the linger window.
     const mark = w.lastSeen[team].get(s.id);
     const freshNow = (mark !== undefined && snap.time - mark.t < 0.001)
-      || perceivesNow(w.map.grid, eyes, w.pinged, s, range, [], undefined, w.map.grid2);
+      || perceivesNow(w.map.grid, eyes, w.pinged, s, range, [], undefined, w.map.grid2, w.map.geometry);
     if (freshNow) return [s];
     // §19.1 GHOSTS: within the linger you get the spot you LOST them —
     // frozen — never their live path behind the wall. Re-acquired = live.
@@ -135,6 +156,7 @@ export function cullSnapshotFor(w: World, snap: Snapshot, viewerId: number): Sna
   const vehicles = snap.vehicles.filter((v) => {
     if (v.team === team) return true;
     if (v.burrowed) return false;                             // deep is TRULY deep
+    if (v.submerged && !w.submarineDetectedForTeam(v, team)) return false;
     const ecmDead = v.systems && v.systems.ecm <= 0;          // dead ECM broadcasts you
     return ecmDead || seesPoint(v.pos.x, v.pos.z, 1.8);
   });

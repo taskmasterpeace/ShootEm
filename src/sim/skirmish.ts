@@ -21,7 +21,10 @@ import {
 } from './buildings';
 import { boxFor } from './fronts';
 import { Rng } from './rng';
+import { LEGACY_GEOMETRY } from './map-geometry';
 import type { Team, ThemeId, Vec3, VehicleKind } from './types';
+import type { OperationSiteId } from './operations';
+import { dressOperationPads } from './operation-pads';
 
 // ---------------------------------------------------------------------------
 // the kit — the fronts' primitives, distilled for one purpose
@@ -142,7 +145,13 @@ const CP_NAME: Record<string, string> = {
 // ---------------------------------------------------------------------------
 // THE BUILDER
 // ---------------------------------------------------------------------------
-export function generateSkirmishMap(theme: ThemeId, seed: number): GameMap {
+export interface SkirmishOperationProfile {
+  site: OperationSiteId;
+  objectiveLabels: string[];
+  vehicles: Array<{ id: string; kind: VehicleKind }>;
+}
+
+export function generateSkirmishMap(theme: ThemeId, seed: number, profile?: SkirmishOperationProfile): GameMap {
   const box = boxFor('small'); // 62×62 — the squad-scale pocket
   const carved = theme === 'asteroid';
   const baseSurf = theme === 'savanna' ? S_GRASS : theme === 'titan' ? S_GRIT : theme === 'starship' ? S_PLATE
@@ -317,8 +326,8 @@ export function generateSkirmishMap(theme: ThemeId, seed: number): GameMap {
 
   const cpFor = (s: { def: BuildingDef; tx: number; tz: number }) =>
     ({ name: CP_NAME[s.def.id] ?? 'SITE', pos: tw(s.tx, s.tz) });
-  return {
-    seed, theme, grid, grid2: d.grid2, surface,
+  const map: GameMap = {
+    seed, theme, geometry: { ...LEGACY_GEOMETRY }, grid, grid2: d.grid2, surface,
     basePos: [tw(btx[0], midZ), tw(btx[1], midZ)],
     spawns: [spawnRing(btx[0], midZ), spawnRing(btx[1], midZ)],
     flagPos: [tw(btx[0], midZ), tw(btx[1], midZ)],
@@ -327,4 +336,13 @@ export function generateSkirmishMap(theme: ThemeId, seed: number): GameMap {
     vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns,
     houses: d.houses, gates: [], pads: [], propCovered: settle(grid, claims),
   };
+  if (!profile) return map;
+
+  const objectivePositions = [tw(C, C + 2), ...supports.map((s) => tw(s.tx, s.tz))];
+  map.controlPoints = profile.objectiveLabels.map((name, i) => ({
+    name: name.toUpperCase(),
+    pos: { ...objectivePositions[i % objectivePositions.length] },
+  }));
+  dressOperationPads(map, profile.vehicles);
+  return map;
 }

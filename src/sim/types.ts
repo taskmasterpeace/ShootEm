@@ -26,6 +26,8 @@ export type VehicleKind =
   | 'hoverboard'   // one-trooper personal hover deck — fast, fragile, unarmed
   | 'bike'         // recon bike — fastest ground vehicle, light MG
   | 'flyer'        // gunship flyer — soars over walls, plasma
+  | 'attackheli'   // Shrike attack helicopter — anti-armor rockets + chin gun
+  | 'transportheli'// Condor transport helicopter — airborne insertion + mobile spawn
   | 'strikejet'    // V2 Vulture — air-to-ground jet. CANNOT HOVER.
   | 'interceptor'  // V2 Falcon — air-to-air jet. CANNOT HOVER.
   | 'aatrack'      // V3 Lance — ground-to-air homing launcher, paper-thin
@@ -35,7 +37,8 @@ export type VehicleKind =
   | 'tunneler'     // tunneling machine — grinds through walls, glacially slow
   | 'emplacement'  // static emplacement gun — manned artillery, does not move
   | 'mech'         // bipedal assault walker — strides over low cover, stomps
-  | 'boat';        // river gunboat — water-locked, fast on the channel, MG
+  | 'boat'         // river gunboat — water-locked, fast on the channel, MG
+  | 'submarine';   // Barracuda — deep-route hunter, sonar + torpedoes
 
 /** Damageable vehicle subsystems. Crew stations correspond to the last three. */
 export type SystemId = 'engine' | 'weapon' | 'sensors' | 'ecm' | 'comms';
@@ -158,6 +161,8 @@ export interface WeaponDef {
   };
   /** on death, burst into k submunitions (~40% dmg each) that bounce */
   cluster?: number;
+  /** Naval-depth ordnance: the only projectile class that reaches a submerged hull. */
+  torpedo?: boolean;
   /** on soldier-hit, arc to n nearest extra enemies */
   chain?: number;
   /** links to the struck target (pull / leash) */
@@ -265,6 +270,8 @@ export interface VehicleDef {
   immobile?: boolean;
   /** water-locked: moves ONLY on water tiles — land is its wall (gunboat) */
   boat?: boolean;
+  /** may toggle a separate surface/submerged naval depth state */
+  submersible?: boolean;
 }
 
 /** Per-subsystem damage record: hp remaining for each SystemId. */
@@ -657,6 +664,16 @@ export interface Soldier {
   botLastX?: number;
   botLastZ?: number;
   botMoveCheckAt?: number;
+  /** Vehicle-theater route state. Route ids are authored metadata, never
+   * inferred from iteration order or a fixed-size map assumption. */
+  botVehicleRouteId?: string;
+  botVehicleRouteIndex?: number;
+  botVehicleRouteDir?: 1 | -1;
+  botVehicleRouteCompleted?: boolean;
+  botVehicleStallWindows?: number;
+  botVehiclePersistentStalls?: number;
+  botAirProfile?: 'patrol' | 'strike' | 'support' | 'insertion';
+  botLandingZoneId?: string;
   /** per-LIFE personality salt, rolled at spawn (−1 | 0 | 1): lane bias,
    *  indoor posting, ride appetite — each life tries something different
    *  (Robert's respawn-variety ask) */
@@ -708,7 +725,9 @@ export interface Vehicle {
    *  the air). Q climbs, E dives, and at band 0 the E key becomes the door.
    *  Continuous height is unreadable from a top-down camera; a BAND can be
    *  drawn. 0/absent for anything that doesn't fly. */
-  band?: number;
+  band?: import('./elevation').ElevationLevel;
+  /** A crewed rotorcraft may remain on its skids after a deliberate descent. */
+  landed?: boolean;
   /** W5.1: the crash-scrape rate limit — a band-1 hull grinding a building
    *  takes speed-scaled damage at most once per half-second */
   nextCrashAt?: number;
@@ -745,6 +764,14 @@ export interface Vehicle {
   overloadAt?: number;
   overloadBy?: number;
   overloadTeam?: Team;
+  /** Stable national motor-pool identity for Operation settlement. */
+  operationHullId?: string;
+  /** Runtime objective identity when this hull is the defended target. */
+  operationObjectiveId?: string;
+  /** Scorched-earth prize: losing this friendly asset fails the Operation. */
+  operationPrize?: boolean;
+  /** Naval depth is independent from aircraft elevation bands. */
+  submerged?: boolean;
 }
 
 export interface Turret {
@@ -783,6 +810,8 @@ export interface Projectile {
    *  shear the air war apart (at defaults 0.35 vs 0.8, jets outran their own
    *  rockets and no SAM could ever catch anyone). */
   airScaled?: boolean;
+  /** Vertical reach is independent of projectile speed scaling. */
+  elevationWeapon?: import('./elevation').ElevationWeaponClass;
   homingVehicleId?: number;
   /** heat-seeker: flare gadget that seduced it off the aircraft */
   homingFlareId?: number;
@@ -982,7 +1011,8 @@ export interface SimEvent {
     | 'bomb_away'      // V4: the bay opened
     | 'nuke_armed'     // V4: the warhead is live and everyone can hear it
     | 'damage'         // a number worth showing floated off a victim (see amount/armorHit)
-    | 'vo';            // a spoken line: text = sound slot; pos = positional speech, absent = announcer net
+    | 'vo'             // a spoken line: text = sound slot; pos = positional speech, absent = announcer net
+    | 'operation_phase' | 'operation_progress' | 'operation_complete';
   pos?: Vec3;
   weapon?: WeaponId;
   /** On an 'explosion': the two rings the client draws — `killRadius` is the
@@ -1024,6 +1054,10 @@ export interface SimEvent {
   team?: Team;
   text?: string;
   big?: boolean;
+  operationId?: string;
+  phaseId?: string;
+  progress?: number;
+  won?: boolean;
   /** which subsystem for 'system_damaged' */
   system?: SystemId;
   /** grid tile index for 'dig' */

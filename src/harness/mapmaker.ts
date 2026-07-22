@@ -5,7 +5,7 @@
 // one-click 3D preview of the map you're actually editing.
 // ---------------------------------------------------------------------------
 import {
-  loadFront, loadSkirmish, blankDoc, serializeDoc, deserializeDoc, validateDoc,
+  loadFront, loadSkirmish, loadTheater, blankDoc, serializeDoc, deserializeDoc, validateDoc,
   paintTile, paintSurface, placeProp, erasePropAt,
   addControlPoint, addPickup, addPad, addMouth, moveObject, deleteObject, pickObject, objectPos,
   stamp, deleteHouse, undo, redo, buildingById,
@@ -14,14 +14,16 @@ import {
   type MakerDoc, type LawReport, type MapJSON, type ObjectRef,
 } from '../sim/mapedit';
 import {
-  GRID, TILE, WORLD,
   S_DIRT, S_GRASS, S_ICE, S_GRIT, S_PLATE, S_WET, S_MUD,
   type PropSpec, type PickupSpawn,
 } from '../sim/map';
+import { tileToWorld, worldToTile, worldDepth, worldWidth } from '../sim/map-geometry';
 import { FRONTS } from '../client/campaign';
 import type { MapSize } from '../sim/fronts';
 import type { GameMap } from '../sim/map';
 import type { VehicleKind } from '../sim/types';
+import { THEATER_DEFS } from '../sim/theaters';
+import type { TheaterId } from '../sim/theater-types';
 
 // ---------------------------------------------------------------------------
 // palette — reads EXACTLY like the atlas (same alphabet, same colors)
@@ -44,7 +46,11 @@ const PROP_COLORS: Record<string, string> = {
   bunker: '#4a4640', clone_bay: '#3cbde8',
 };
 const PROP_KINDS: PropSpec['type'][] = ['rock', 'tree', 'crate', 'wreck', 'silo', 'flare_stack', 'crane', 'memorial', 'bunker', 'clone_bay'];
-const PAD_KINDS: VehicleKind[] = ['tank', 'apc', 'buggy', 'bike', 'skiff', 'flyer', 'transport', 'ambulance', 'tunneler', 'mech', 'boat', 'emplacement'];
+const PAD_KINDS: VehicleKind[] = [
+  'tank', 'apc', 'buggy', 'bike', 'skiff', 'flyer', 'attackheli', 'transportheli',
+  'strikejet', 'interceptor', 'bomber', 'aatrack', 'transport', 'ambulance',
+  'tunneler', 'mech', 'boat', 'submarine', 'emplacement',
+];
 const PICKUP_KINDS: PickupSpawn['type'][] = ['medkit', 'ammo', 'energy', 'flamer'];
 
 type Tool =
@@ -89,6 +95,7 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
         <option value="sk:triton">❄️ Triton station</option>
         <option value="sk:asteroid">☄️ Asteroid mine</option>
       </optgroup>
+      <optgroup label="Vehicle theaters">${Object.values(THEATER_DEFS).map((theater) => `<option value="th:${theater.id}">${theater.name} · ${theater.id}</option>`).join('')}</optgroup>
     </select>
     <select id="mk-size">
       <option value="small">small · ≤6/team</option>
@@ -212,31 +219,33 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
   let px = 6; // pixels per tile
   function fit() {
     const wrap = root.querySelector<HTMLElement>('#mk-canvas-wrap')!;
-    const s = Math.floor(Math.min(wrap.clientWidth, wrap.clientHeight - 24) / GRID);
+    const { cols, rows } = doc.map.geometry;
+    const s = Math.floor(Math.min(wrap.clientWidth / cols, (wrap.clientHeight - 24) / rows));
     px = Math.max(3, s);
     const dpr = window.devicePixelRatio || 1;
-    canvas.style.width = `${GRID * px}px`;
-    canvas.style.height = `${GRID * px}px`;
-    canvas.width = GRID * px * dpr;
-    canvas.height = GRID * px * dpr;
+    canvas.style.width = `${cols * px}px`;
+    canvas.style.height = `${rows * px}px`;
+    canvas.width = cols * px * dpr;
+    canvas.height = rows * px * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     draw();
   }
 
   function draw() {
     const m = doc.map;
-    ctx.clearRect(0, 0, GRID * px, GRID * px);
+    const { cols, rows } = m.geometry;
+    ctx.clearRect(0, 0, cols * px, rows * px);
     // ground: terrain alphabet over surface tints
-    for (let z = 0; z < GRID; z++) for (let x = 0; x < GRID; x++) {
-      const t = m.grid[z * GRID + x];
-      ctx.fillStyle = TILE_COLORS[t] ?? SURF_TINT[m.surface[z * GRID + x]] ?? '#50504a';
+    for (let z = 0; z < rows; z++) for (let x = 0; x < cols; x++) {
+      const t = m.grid[z * cols + x];
+      ctx.fillStyle = TILE_COLORS[t] ?? SURF_TINT[m.surface[z * cols + x]] ?? '#50504a';
       ctx.fillRect(x * px, z * px, px + 0.5, px + 0.5);
     }
     // orphan heat (the loupe's red)
     if (showOrphans) {
       ctx.fillStyle = 'rgba(220,40,40,0.55)';
-      for (let z = 0; z < GRID; z++) for (let x = 0; x < GRID; x++) {
-        const i = z * GRID + x;
+      for (let z = 0; z < rows; z++) for (let x = 0; x < cols; x++) {
+        const i = z * cols + x;
         if (report.seen[i] === 0 && m.grid[i] !== T_WALL && m.grid[i] !== T_METAL && m.grid[i] !== T_COVER
           && m.grid[i] !== T_SLIT && m.grid[i] !== T_CLIMB) {
           ctx.fillRect(x * px, z * px, px + 0.5, px + 0.5);
@@ -255,10 +264,8 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
     ctx.setLineDash([]);
     // grid every 10
     ctx.strokeStyle = 'rgba(255,255,255,0.07)';
-    for (let i = 0; i <= GRID; i += 10) {
-      line(i * px, 0, i * px, GRID * px);
-      line(0, i * px, GRID * px, i * px);
-    }
+    for (let x = 0; x <= cols; x += 10) line(x * px, 0, x * px, rows * px);
+    for (let z = 0; z <= rows; z += 10) line(0, z * px, cols * px, z * px);
     // props
     for (const p of m.props) {
       const [tx, tz] = w2t(p.pos.x, p.pos.z);
@@ -315,7 +322,7 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
   }
 
   const w2t = (x: number, z: number): [number, number] =>
-    [Math.floor((x + WORLD / 2) / TILE), Math.floor((z + WORLD / 2) / TILE)];
+    worldToTile(doc.map.geometry, x, z);
   function dot(tx: number, tz: number, color: string, r = 2) {
     ctx.fillStyle = color;
     ctx.beginPath();
@@ -421,11 +428,11 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
   const tileAtEvent = (e: MouseEvent): [number, number] => {
     const r = canvas.getBoundingClientRect();
     return [
-      Math.max(0, Math.min(GRID - 1, Math.floor((e.clientX - r.left) / px))),
-      Math.max(0, Math.min(GRID - 1, Math.floor((e.clientY - r.top) / px))),
+      Math.max(0, Math.min(doc.map.geometry.cols - 1, Math.floor(((e.clientX - r.left) / r.width) * doc.map.geometry.cols))),
+      Math.max(0, Math.min(doc.map.geometry.rows - 1, Math.floor(((e.clientY - r.top) / r.height) * doc.map.geometry.rows))),
     ];
   };
-  const w = (tx: number, tz: number) => ({ x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 });
+  const w = (tx: number, tz: number) => tileToWorld(doc.map.geometry, tx, tz);
 
   canvas.addEventListener('mousedown', (e) => {
     const [tx, tz] = tileAtEvent(e);
@@ -481,11 +488,13 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
   }
 
   function updateHint(tx: number, tz: number) {
-    const t = doc.map.grid[tz * GRID + tx];
+    const idx = tz * doc.map.geometry.cols + tx;
+    const t = doc.map.grid[idx];
     const tName = MAKER_TILES.find((x) => x.id === t)?.name ?? `T${t}`;
-    const sName = SURF_NAMES.find(([id]) => id === doc.map.surface[tz * GRID + tx])?.[1] ?? '';
+    const sName = SURF_NAMES.find(([id]) => id === doc.map.surface[idx])?.[1] ?? '';
     const hi = doc.map.houses.findIndex((h) => tx >= h.tx && tx < h.tx + h.tw && tz >= h.tz && tz < h.tz + h.th);
     hintEl.textContent = `(${tx},${tz}) ${tName}${sName ? ' · ' + sName : ''}${hi >= 0 ? ` · building ${hi}` : ''} — ${toolLabel()}`;
+    hintEl.textContent = `${worldWidth(doc.map.geometry)}×${worldDepth(doc.map.geometry)}u · ${hintEl.textContent}`;
   }
   function toolLabel(): string {
     const t = tool; // a local const keeps the discriminated-union narrowing alive inside closures
@@ -513,6 +522,9 @@ export function mountMaker(root: HTMLElement, deps: Deps) {
     const v = frontSel.value;
     if (v.startsWith('sk:')) {
       doc = loadSkirmish(v.slice(3) as import('../sim/types').ThemeId, Number(seedIn.value) >>> 0);
+      sel = null; report = validateDoc(doc); afterOp();
+    } else if (v.startsWith('th:')) {
+      doc = loadTheater(v.slice(3) as TheaterId, Number(seedIn.value) >>> 0);
       sel = null; report = validateDoc(doc); afterOp();
     } else {
       loadInto(v, sizeSel.value as MapSize, Number(seedIn.value) >>> 0);

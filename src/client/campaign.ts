@@ -1,4 +1,14 @@
-import type { ModeId, ThemeId } from '../sim/types';
+import type { ModeId, ThemeId, VehicleKind } from '../sim/types';
+import {
+  OPERATION_EFFECTS,
+  validateManifest,
+  type OperationEffectId,
+  type OperationHull,
+  type OperationManifest,
+  type OperationPlan,
+  type OperationBattleBonuses,
+} from '../sim/operations';
+import type { OperationResult } from '../sim/operation-runtime';
 
 // ---------------------------------------------------------------------------
 // The Living Campaign v1 (DD §8.5) — the Scar goes live. Ten named fronts,
@@ -58,42 +68,191 @@ export interface FrontState {
   pass: 1 | 2 | 3;
 }
 
+export interface MotorPoolHull extends OperationHull {
+  sorties: number;
+  killsByKind: Partial<Record<VehicleKind, number>>;
+  reservedFor?: string;
+  lostAt?: number;
+}
+
+export interface OperationWindow {
+  frontId: string;
+  pass: 1 | 2 | 3;
+  consumed: boolean;
+  operationId?: string;
+}
+
+export interface CampaignModifier {
+  id: OperationEffectId;
+  scope: 'season' | 'front' | 'next_battle';
+  uses: number;
+  value: number;
+  frontId?: string;
+}
+
+export interface ActiveCampaignOperation {
+  plan: OperationPlan;
+  manifest: OperationManifest;
+  charged: number;
+  stagedAt: number;
+}
+
+export interface SettlementReceipt {
+  ok: boolean;
+  duplicate: boolean;
+  operationId: string;
+  won: boolean;
+  effect?: OperationEffectId;
+  treasuryDelta: number;
+  hullsLost: string[];
+  hullsReturned: string[];
+  errors: string[];
+}
+
+export interface OperationHistoryEntry {
+  operationId: string;
+  won: boolean;
+  effect: OperationEffectId;
+  settledAt: number;
+  receipt: SettlementReceipt | null;
+}
+
+export interface FiscalEfficiency {
+  sorties: number;
+  cleanSheets: number;
+  materielSpent: number;
+  hullsLost: number;
+  totalScore: number;
+}
+
 /** W3.3: a front's starting reserve scales with its importance. */
 export const CLONE_SEED = 400;
 export const cloneSeedFor = (f: FrontDef) => Math.round(CLONE_SEED * f.importance);
 /** a won battle convoys replacements in (never past the seed) */
 export const CLONE_RECOVER = 60;
 export interface Campaign {
-  v: 1;
+  v: 2;
   season: number;
   updatedAt: number;
   fronts: Record<string, FrontState>;
   /** the Morning Dispatch: latest campaign lines, newest first */
   dispatch: { text: string; at: number; simulated: boolean }[];
+  treasury: number;
+  motorPool: MotorPoolHull[];
+  facilities: OperationEffectId[];
+  modifiers: CampaignModifier[];
+  operationWindows: Record<string, OperationWindow>;
+  activeOperation: ActiveCampaignOperation | null;
+  operationHistory: OperationHistoryEntry[];
+  doctrine: string[];
+  intel: string[];
+  fiscalEfficiency: FiscalEfficiency;
 }
 
 const LS_KEY = 'ww_campaign';
 
+export const OPERATION_TREASURY_SEED = 100;
+export const MOTOR_POOL_SEED = {
+  tank: 4, apc: 4, buggy: 6, bike: 6, mech: 2, tunneler: 2, emplacement: 4,
+  aatrack: 3, transport: 3, ambulance: 3,
+  strikejet: 3, interceptor: 3, bomber: 2, flyer: 3, boat: 4,
+  attackheli: 2, transportheli: 2, submarine: 2,
+} as const satisfies Partial<Record<VehicleKind, number>>;
+
+const HULL_CALLSIGNS = ['Aegis', 'Bastion', 'Cinder', 'Dauntless', 'Ember', 'Fury', 'Gauntlet', 'Harrier'];
+
+export function freshMotorPool(): MotorPoolHull[] {
+  const pool: MotorPoolHull[] = [];
+  let serial = 0;
+  for (const [kind, count] of Object.entries(MOTOR_POOL_SEED) as [keyof typeof MOTOR_POOL_SEED, number][]) {
+    for (let i = 0; i < count; i++) {
+      const registry = serial++;
+      pool.push({
+        id: `${kind}-${String(i + 1).padStart(2, '0')}`,
+        kind,
+        name: `${HULL_CALLSIGNS[registry % HULL_CALLSIGNS.length]} ${String(registry + 1).padStart(2, '0')}`,
+        status: 'available',
+        sorties: 0,
+        killsByKind: {},
+      });
+    }
+  }
+  return pool;
+}
+
+export const operationWindowKey = (frontId: string, pass: 1 | 2 | 3) => `${frontId}:p${pass}`;
+
+export function freshOperationWindows(): Record<string, OperationWindow> {
+  const windows: Record<string, OperationWindow> = {};
+  for (const front of FRONTS) for (const pass of [1, 2, 3] as const) {
+    windows[operationWindowKey(front.id, pass)] = { frontId: front.id, pass, consumed: false };
+  }
+  return windows;
+}
+
 export function freshCampaign(now = Date.now()): Campaign {
   const fronts: Record<string, FrontState> = {};
   for (const f of FRONTS) fronts[f.id] = { control: 0, scarActive: false, lastBattleAt: 0, clones: cloneSeedFor(f), pass: 1 };
-  return { v: 1, season: 1, updatedAt: now, fronts, dispatch: [] };
+  return {
+    v: 2, season: 1, updatedAt: now, fronts, dispatch: [],
+    treasury: OPERATION_TREASURY_SEED,
+    motorPool: freshMotorPool(),
+    facilities: [], modifiers: [], operationWindows: freshOperationWindows(),
+    activeOperation: null, operationHistory: [], doctrine: [], intel: [],
+    fiscalEfficiency: { sorties: 0, cleanSheets: 0, materielSpent: 0, hullsLost: 0, totalScore: 0 },
+  };
+}
+
+/** Upgrade v1 and repair partial v2 saves without discarding the living war. */
+export function migrateCampaign(raw: unknown, now = Date.now()): Campaign {
+  const source = raw && typeof raw === 'object'
+    ? raw as Partial<Omit<Campaign, 'v'>> & { v?: number }
+    : null;
+  const campaign = freshCampaign(now);
+  if (!source || (source.v !== 1 && source.v !== 2)) return campaign;
+  if (typeof source.season === 'number') campaign.season = source.season;
+  if (typeof source.updatedAt === 'number') campaign.updatedAt = source.updatedAt;
+  if (Array.isArray(source.dispatch)) campaign.dispatch = source.dispatch.slice(0, 60);
+  if (source.fronts && typeof source.fronts === 'object') {
+    for (const front of FRONTS) {
+      const saved = source.fronts[front.id] as Partial<FrontState> | undefined;
+      if (!saved) continue;
+      campaign.fronts[front.id] = {
+        control: typeof saved.control === 'number' ? saved.control : 0,
+        scarActive: saved.scarActive === true,
+        lastBattleAt: typeof saved.lastBattleAt === 'number' ? saved.lastBattleAt : 0,
+        clones: typeof saved.clones === 'number' ? saved.clones : cloneSeedFor(front),
+        pass: saved.pass === 2 || saved.pass === 3 ? saved.pass : 1,
+      };
+    }
+  }
+  if (source.v === 2) {
+    if (typeof source.treasury === 'number') campaign.treasury = source.treasury;
+    if (Array.isArray(source.motorPool) && source.motorPool.length > 0) {
+      const savedPool = source.motorPool;
+      const savedIds = new Set(savedPool.map((hull) => hull.id));
+      campaign.motorPool = [...savedPool, ...freshMotorPool().filter((hull) => !savedIds.has(hull.id))];
+    }
+    if (Array.isArray(source.facilities)) campaign.facilities = [...source.facilities];
+    if (Array.isArray(source.modifiers)) campaign.modifiers = [...source.modifiers];
+    if (source.operationWindows && typeof source.operationWindows === 'object') {
+      for (const [key, window] of Object.entries(source.operationWindows)) {
+        if (window && typeof window === 'object') campaign.operationWindows[key] = { ...window };
+      }
+    }
+    campaign.activeOperation = source.activeOperation ?? null;
+    if (Array.isArray(source.operationHistory)) campaign.operationHistory = [...source.operationHistory];
+    if (Array.isArray(source.doctrine)) campaign.doctrine = [...source.doctrine];
+    if (Array.isArray(source.intel)) campaign.intel = [...source.intel];
+    if (source.fiscalEfficiency) campaign.fiscalEfficiency = { ...campaign.fiscalEfficiency, ...source.fiscalEfficiency };
+  }
+  return campaign;
 }
 
 export function loadCampaign(now = Date.now()): Campaign {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (raw) {
-      const c = JSON.parse(raw) as Campaign;
-      if (c.v === 1) {
-        for (const f of FRONTS) {
-          c.fronts[f.id] ??= { control: 0, scarActive: false, lastBattleAt: 0, clones: cloneSeedFor(f), pass: 1 };
-          c.fronts[f.id].clones ??= cloneSeedFor(f); // W3.3 migration: old saves get full reserves
-          c.fronts[f.id].pass ??= 1;                 // W3.4 migration: the war starts at pass one
-        }
-        return c;
-      }
-    }
+    if (raw) return migrateCampaign(JSON.parse(raw), now);
   } catch { /* fresh theatre */ }
   return freshCampaign(now);
 }
@@ -101,6 +260,244 @@ export function loadCampaign(now = Date.now()): Campaign {
 export function saveCampaign(c: Campaign) {
   c.updatedAt = Date.now();
   try { localStorage.setItem(LS_KEY, JSON.stringify(c)); } catch { /* storage full — the war plays on */ }
+}
+
+export interface StageOperationResult {
+  ok: boolean;
+  errors: string[];
+  charged: number;
+}
+
+export function stageCampaignOperation(
+  campaign: Campaign,
+  plan: OperationPlan,
+  manifest: OperationManifest,
+  now = Date.now(),
+): StageOperationResult {
+  const errors: string[] = [];
+  const front = FRONTS.find((entry) => entry.id === plan.frontId);
+  const state = campaign.fronts[plan.frontId];
+  const window = campaign.operationWindows[operationWindowKey(plan.frontId, plan.pass)];
+  if (!front || !state || !window) errors.push('This Operation points at an unknown front.');
+  else {
+    if (state.pass !== plan.pass) errors.push(`${front.name} is currently at Pass ${state.pass}, not Pass ${plan.pass}.`);
+    if (window.consumed) errors.push(`The Pass ${plan.pass} Operation window at ${front.name} is already spent.`);
+  }
+  if (campaign.activeOperation) errors.push(`Operation ${campaign.activeOperation.plan.codename} is already staged.`);
+  const validation = validateManifest(plan, manifest, campaign.motorPool);
+  errors.push(...validation.errors);
+  const charged = plan.launchCost + validation.cost;
+  if (campaign.treasury < charged) errors.push('National treasury cannot fund this Operation.');
+  if (errors.length > 0) return { ok: false, errors, charged };
+
+  campaign.treasury -= charged;
+  for (const id of manifest.hullIds) {
+    const hull = campaign.motorPool.find((entry) => entry.id === id)!;
+    hull.status = 'reserved';
+    hull.reservedFor = plan.id;
+  }
+  campaign.activeOperation = {
+    plan: structuredClone(plan),
+    manifest: structuredClone(manifest),
+    charged,
+    stagedAt: now,
+  };
+  campaign.dispatch.unshift({ text: `Operation ${plan.codename} staged at ${front!.name} — treasury committed ${charged}.`, at: now, simulated: false });
+  if (campaign.dispatch.length > 60) campaign.dispatch.length = 60;
+  return { ok: true, errors: [], charged };
+}
+
+export function cancelCampaignOperation(campaign: Campaign, operationId: string, now = Date.now()): boolean {
+  const active = campaign.activeOperation;
+  if (!active || active.plan.id !== operationId) return false;
+  campaign.treasury += active.charged;
+  for (const hull of campaign.motorPool) {
+    if (hull.reservedFor !== operationId) continue;
+    hull.status = 'available';
+    delete hull.reservedFor;
+  }
+  campaign.activeOperation = null;
+  campaign.dispatch.unshift({ text: `Operation ${active.plan.codename} canceled — ${active.charged} returned to treasury.`, at: now, simulated: false });
+  if (campaign.dispatch.length > 60) campaign.dispatch.length = 60;
+  return true;
+}
+
+function addModifier(campaign: Campaign, id: OperationEffectId, scope: CampaignModifier['scope'], value: number, frontId?: string) {
+  const existing = campaign.modifiers.find((modifier) => modifier.id === id && modifier.scope === scope && modifier.frontId === frontId);
+  if (existing) {
+    if (existing.uses >= 0) existing.uses++;
+    existing.value += value;
+  } else {
+    campaign.modifiers.push({ id, scope, uses: scope === 'season' ? -1 : 1, value, ...(frontId ? { frontId } : {}) });
+  }
+}
+
+function pushUnique(list: string[], value: string) {
+  if (!list.includes(value)) list.push(value);
+}
+
+function moveFront(campaign: Campaign, frontId: string, delta: number) {
+  const front = campaign.fronts[frontId];
+  if (front) front.control = Math.max(-100, Math.min(100, Math.round((front.control + delta) * 10) / 10));
+}
+
+/** Every reward has a mechanical destination. Flavor-only rewards are forbidden. */
+export function applyOperationEffect(campaign: Campaign, plan: OperationPlan, _result: OperationResult, now = Date.now()) {
+  const id = plan.effect;
+  const definition = OPERATION_EFFECTS.find((effect) => effect.id === id)!;
+  if (definition.category === 'facility') {
+    if (!campaign.facilities.includes(id)) campaign.facilities.push(id);
+  } else {
+    switch (id) {
+      case 'take_sector': moveFront(campaign, plan.frontId, 12); break;
+      case 'push_front': moveFront(campaign, plan.frontId, 8); break;
+      case 'open_supply_route': addModifier(campaign, id, 'front', 1, plan.frontId); break;
+      case 'deny_supply_route': addModifier(campaign, id, 'front', -1, plan.frontId); break;
+      case 'seize_high_ground': addModifier(campaign, id, 'season', 1, plan.frontId); break;
+      case 'hold_chokepoint': addModifier(campaign, id, 'front', 1, plan.frontId); break;
+      case 'split_front': moveFront(campaign, plan.frontId, 10); addModifier(campaign, id, 'season', 1, plan.frontId); break;
+      case 'flip_city': moveFront(campaign, plan.frontId, 15); break;
+      case 'forward_base': addModifier(campaign, id, 'season', 1, plan.frontId); break;
+      case 'claim_midfield': addModifier(campaign, id, 'next_battle', 1, plan.frontId); break;
+      case 'war_chest': campaign.treasury += 20; break;
+      case 'steal_opening_purse': addModifier(campaign, id, 'next_battle', 3, plan.frontId); break;
+      case 'cheaper_requisition': addModifier(campaign, id, 'season', 0.2); break;
+      case 'artillery_barrage': addModifier(campaign, id, 'next_battle', 1, plan.frontId); break;
+      case 'preplaced_hazards': addModifier(campaign, id, 'next_battle', 3, plan.frontId); break;
+      case 'rearm_pads': addModifier(campaign, id, 'season', 1, plan.frontId); break;
+      case 'captured_vehicle': {
+        const sequence = campaign.motorPool.filter((hull) => hull.kind === 'buggy').length + 1;
+        campaign.motorPool.push({
+          id: `captured-buggy-s${campaign.season}-${sequence}`,
+          kind: 'buggy', name: `Prize ${String(sequence).padStart(2, '0')}`,
+          status: 'available', sorties: 0, killsByKind: {},
+        });
+        break;
+      }
+      case 'ground_enemy_air': addModifier(campaign, id, 'next_battle', 1, plan.frontId); break;
+      case 'sink_convoy': addModifier(campaign, id, 'front', -3, plan.frontId); break;
+      case 'fiscal_efficiency': campaign.fiscalEfficiency.totalScore += 10; break;
+      case 'air_superiority_control': case 'sea_control': case 'cas_allotment': case 'escort_wing':
+      case 'deny_enemy_cas': case 'carrier_slot': case 'coastal_cover': case 'early_warning':
+      case 'no_fly_zone': case 'submarine_picket':
+        addModifier(campaign, id, 'season', 1, plan.frontId); break;
+      case 'doctrine_node': case 'vehicle_retrofit':
+        pushUnique(campaign.doctrine, id); break;
+      case 'reveal_manifest': case 'nemesis_file': case 'opening_fog_lift': case 'radio_intercept': case 'see_enemy_books':
+        pushUnique(campaign.intel, id); break;
+      case 'veteran_recovery': addModifier(campaign, id, 'season', 1); break;
+      case 'commendation': campaign.fiscalEfficiency.totalScore += 5; break;
+      case 'courier_headline': addModifier(campaign, id, 'next_battle', 1, plan.frontId); break;
+      case 'capture_airfield': case 'capture_port': case 'capture_fuel_farm': case 'capture_rail_hub': case 'capture_forge':
+      case 'capture_clone_hub': case 'capture_radar': case 'capture_sam': case 'capture_repair_depot': case 'capture_bridge':
+        break; // handled by the facility category above
+    }
+  }
+  campaign.dispatch.unshift({ text: `Operation ${plan.codename} effect secured: ${definition.name}.`, at: now, simulated: false });
+  if (campaign.dispatch.length > 60) campaign.dispatch.length = 60;
+}
+
+export function settleCampaignOperation(campaign: Campaign, result: OperationResult, now = Date.now()): SettlementReceipt {
+  const previous = campaign.operationHistory.find((entry) => entry.operationId === result.operationId);
+  if (previous) {
+    return previous.receipt
+      ? { ...previous.receipt, duplicate: true }
+      : { ok: true, duplicate: true, operationId: result.operationId, won: previous.won, effect: previous.effect, treasuryDelta: 0, hullsLost: [], hullsReturned: [], errors: [] };
+  }
+  const active = campaign.activeOperation;
+  if (!active || active.plan.id !== result.operationId) {
+    return { ok: false, duplicate: false, operationId: result.operationId, won: result.won, treasuryDelta: 0, hullsLost: [], hullsReturned: [], errors: ['No matching staged Operation.'] };
+  }
+  const treasuryBefore = campaign.treasury;
+  const window = campaign.operationWindows[operationWindowKey(active.plan.frontId, active.plan.pass)];
+  if (window) {
+    window.consumed = true;
+    window.operationId = active.plan.id;
+  }
+  const lost = new Set(result.destroyedHullIds);
+  const returned: string[] = [];
+  for (const id of active.manifest.hullIds) {
+    const hull = campaign.motorPool.find((entry) => entry.id === id);
+    if (!hull) continue;
+    hull.sorties++;
+    delete hull.reservedFor;
+    if (lost.has(id)) {
+      hull.status = 'lost';
+      hull.lostAt = now;
+    } else {
+      hull.status = 'available';
+      returned.push(id);
+    }
+    for (const [kind, count] of Object.entries(result.hullKills?.[id] ?? {}) as [VehicleKind, number][]) {
+      hull.killsByKind[kind] = (hull.killsByKind[kind] ?? 0) + count;
+    }
+  }
+  campaign.treasury = Math.max(0, campaign.treasury - result.collateral * 4);
+  campaign.fiscalEfficiency.sorties++;
+  campaign.fiscalEfficiency.materielSpent += active.charged;
+  campaign.fiscalEfficiency.hullsLost += result.destroyedHullIds.length;
+  if (result.cleanSheet && result.won) {
+    campaign.fiscalEfficiency.cleanSheets++;
+    campaign.fiscalEfficiency.totalScore += 5;
+    campaign.treasury += 8;
+  }
+  campaign.fiscalEfficiency.totalScore += result.won
+    ? Math.max(1, Math.round(30 / Math.max(1, active.charged + result.destroyedHullIds.length * 4)))
+    : 0;
+  if (result.won) applyOperationEffect(campaign, active.plan, result, now);
+  applyResult(campaign, active.plan.frontId, result.won, now, 0);
+
+  const receipt: SettlementReceipt = {
+    ok: true, duplicate: false, operationId: result.operationId, won: result.won,
+    ...(result.won ? { effect: active.plan.effect } : {}),
+    treasuryDelta: campaign.treasury - treasuryBefore,
+    hullsLost: [...result.destroyedHullIds], hullsReturned: returned, errors: [],
+  };
+  campaign.operationHistory.push({ operationId: result.operationId, won: result.won, effect: active.plan.effect, settledAt: now, receipt });
+  campaign.activeOperation = null;
+  return receipt;
+}
+
+export function operationBattleBonuses(campaign: Campaign, frontId: string): OperationBattleBonuses {
+  const applies = (modifier: CampaignModifier) => !modifier.frontId || modifier.frontId === frontId;
+  const modifiers = campaign.modifiers.filter(applies);
+  const value = (id: OperationEffectId) => modifiers.filter((modifier) => modifier.id === id).reduce((sum, modifier) => sum + modifier.value, 0);
+  const has = (id: OperationEffectId) => modifiers.some((modifier) => modifier.id === id);
+  const facility = (id: OperationEffectId) => campaign.facilities.includes(id);
+  return {
+    openingMateriel: value('steal_opening_purse') + Math.max(0, value('open_supply_route'))
+      + (facility('capture_fuel_farm') ? 2 : 0) + (has('courier_headline') ? 1 : 0),
+    enemyMaterielPenalty: value('steal_opening_purse') + Math.max(0, -value('deny_supply_route'))
+      + Math.max(0, -value('sink_convoy')) + (has('split_front') ? 1 : 0)
+      + (has('submarine_picket') ? 1 : 0) + (campaign.intel.includes('see_enemy_books') ? 1 : 0),
+    requisitionDiscount: Math.min(0.5, value('cheaper_requisition')
+      + (facility('capture_fuel_farm') ? 0.15 : 0) + (facility('capture_forge') ? 0.1 : 0)
+      + (campaign.doctrine.includes('doctrine_node') ? 0.05 : 0) + (campaign.doctrine.includes('vehicle_retrofit') ? 0.05 : 0)),
+    denyEnemyAir: has('ground_enemy_air') || has('no_fly_zone') || has('air_superiority_control') || has('deny_enemy_cas'),
+    earlyWarningSeconds: has('early_warning') || has('seize_high_ground') || has('submarine_picket')
+      || facility('capture_radar') || campaign.intel.includes('reveal_manifest') || campaign.intel.includes('radio_intercept') ? 30 : 0,
+    fogLiftSeconds: campaign.intel.includes('opening_fog_lift') || campaign.intel.includes('nemesis_file') ? 30 : 0,
+    forwardSpawn: has('forward_base') || has('claim_midfield') || facility('capture_rail_hub'),
+    repairPad: facility('capture_repair_depot') || has('veteran_recovery') || campaign.doctrine.includes('vehicle_retrofit'),
+    rearmPad: has('rearm_pads'),
+    bridgeAccess: facility('capture_bridge'),
+    samCover: facility('capture_sam') || has('no_fly_zone'),
+    cas: facility('capture_airfield') || has('cas_allotment') || has('carrier_slot'),
+    escortWing: has('escort_wing') || has('carrier_slot'),
+    artillery: Math.max(0, Math.round(value('artillery_barrage'))),
+    hazards: Math.max(0, Math.round(value('preplaced_hazards'))) + (has('hold_chokepoint') ? 1 : 0),
+    coastalCover: has('coastal_cover'),
+    navalSupport: facility('capture_port') || has('sea_control') || has('carrier_slot') || has('submarine_picket'),
+  };
+}
+
+export function consumeOperationBattleBonuses(campaign: Campaign, frontId: string) {
+  for (let i = campaign.modifiers.length - 1; i >= 0; i--) {
+    const modifier = campaign.modifiers[i];
+    if (modifier.scope !== 'next_battle' || (modifier.frontId && modifier.frontId !== frontId)) continue;
+    modifier.uses--;
+    if (modifier.uses <= 0) campaign.modifiers.splice(i, 1);
+  }
 }
 
 /** Fold one battle into the war (22B). `deaths` is YOUR side's body count —
@@ -120,7 +517,7 @@ export function applyResult(c: Campaign, frontId: string, won: boolean | null, n
   const seed = cloneSeedFor(def);
   const clonesBefore = st.clones ?? seed;
   st.clones = Math.max(0, clonesBefore - deaths);
-  if (won && st.clones > 0) st.clones = Math.min(seed, st.clones + CLONE_RECOVER);
+  if (won && st.clones > 0) st.clones = Math.min(seed, st.clones + CLONE_RECOVER + (c.facilities.includes('capture_clone_hub') ? 40 : 0));
   if (st.clones === 0 && clonesBefore > 0) {
     st.control = -100; // no bodies to hold it — the Collective walks in
     lines.push(`${def.name} has run DRY of clones — the front is LOST. The vats stand empty.`);
@@ -182,6 +579,12 @@ export function checkSeasonEnd(c: Campaign, now = Date.now()): Armistice | null 
   );
   if (c.dispatch.length > 60) c.dispatch.length = 60;
   for (const f of FRONTS) c.fronts[f.id] = { control: 0, scarActive: false, lastBattleAt: 0, clones: cloneSeedFor(f), pass: 1 }; // the armistice refills the vats and calms the war
+  c.treasury = OPERATION_TREASURY_SEED;
+  c.motorPool = freshMotorPool();
+  c.facilities = [];
+  c.modifiers = [];
+  c.operationWindows = freshOperationWindows();
+  c.activeOperation = null;
   c.season = season + 1;
   return { winner, season, frontsHeld: held[winner] };
 }

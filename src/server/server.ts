@@ -9,13 +9,11 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
 import { World, type Loadout } from '../sim/world';
-import { cullSnapshotFor, takeSnapshot, wireRound } from '../sim/snapshot';
+import { cullSnapshotFor, mapHandshake, takeSnapshot, wireRound } from '../sim/snapshot';
 import { isCoopMode, type AscendantId, type ClassId, type ModeId, type PlayerCmd, type ThemeId } from '../sim/types';
 import { LSWS } from '../sim/lsw';
 import { drainCmd, newCmdQueue, pushCmd, resetCmdQueue, type CmdQueueState } from './input-queue';
-import {
-  FRONTS, applyNudge, cloneSeedFor, freshCampaign, stageOperation, type Campaign,
-} from '../client/campaign';
+import { applyNudge, freshCampaign, migrateCampaign, stageOperation, type Campaign } from '../client/campaign';
 import {
   campaignSummary, keyOk, roomStatus, type WarroomCmd, type WarroomCmdResult, type WarroomStatus,
 } from './warroom';
@@ -119,7 +117,10 @@ class Room {
     const soldier = this.world.addSoldier(name.slice(0, 16) || 'Recruit', classId, team, 'human', loadout);
     const client: Client = { ws, soldierId: soldier.id, name: soldier.name, inputs: newCmdQueue() };
     this.clients.add(client);
-    ws.send(JSON.stringify({ t: 'welcome', id: soldier.id, seed: this.world.opts.seed, mode: this.mode, theme: this.theme }));
+    ws.send(JSON.stringify({
+      t: 'welcome', id: soldier.id, seed: this.world.opts.seed, mode: this.mode, theme: this.theme,
+      ...mapHandshake(this.world),
+    }));
     // deliver any comms stored for this callsign while they were offline
     const mail = mailbox.get(soldier.name.toLowerCase());
     if (mail?.length) {
@@ -217,7 +218,10 @@ class Room {
       c.soldierId = soldier.id;
       resetCmdQueue(c.inputs);
       if (c.ws.readyState === WebSocket.OPEN) {
-        c.ws.send(JSON.stringify({ t: 'welcome', id: soldier.id, seed, mode: this.mode, theme: this.theme }));
+        c.ws.send(JSON.stringify({
+          t: 'welcome', id: soldier.id, seed, mode: this.mode, theme: this.theme,
+          ...mapHandshake(this.world),
+        }));
       }
     }
     console.log(`[room:${this.mode}] match restarted (seed ${seed})`);
@@ -277,15 +281,7 @@ const CAMPAIGN_FILE = process.env.WARROOM_CAMPAIGN ?? resolve(process.cwd(), '.w
 
 function loadServerCampaign(): Campaign {
   try {
-    const c = JSON.parse(readFileSync(CAMPAIGN_FILE, 'utf8')) as Campaign;
-    if (c.v === 1) {
-      for (const f of FRONTS) {
-        c.fronts[f.id] ??= { control: 0, scarActive: false, lastBattleAt: 0, clones: cloneSeedFor(f), pass: 1 };
-        c.fronts[f.id].clones ??= cloneSeedFor(f); // W3.3 migration
-        c.fronts[f.id].pass ??= 1;                 // W3.4 migration
-      }
-      return c;
-    }
+    return migrateCampaign(JSON.parse(readFileSync(CAMPAIGN_FILE, 'utf8')));
   } catch { /* fresh theatre — first boot or a mangled file */ }
   return freshCampaign();
 }

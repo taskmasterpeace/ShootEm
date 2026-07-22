@@ -12,8 +12,9 @@ import { KILLCAM_CAM, MATCH_LINGER_NET_MS, ReplayDirector } from './replay';
 import { onMatchEnd } from './onboarding';
 import type { Renderer } from './renderer';
 import type { DamageText } from './damagetext';
+import type { TheaterId } from '../sim/theater-types';
 
-interface WelcomeMsg { t: 'welcome'; id: number; seed: number; mode: ModeId; theme?: ThemeId; }
+interface WelcomeMsg { t: 'welcome'; id: number; seed: number; mode: ModeId; theme?: ThemeId; theaterId?: TheaterId; mapIdentity?: string; }
 interface SnapMsg { t: 'snap'; snap: Snapshot; }
 interface ChatMsgWire { t: 'chat'; channel: string; from: string; fromTeam: number; text: string; }
 interface MailMsgWire { t: 'mail'; items: { from: string; text: string; at: number }[]; }
@@ -52,8 +53,8 @@ export class NetGame {
           clearTimeout(timeout);
           this.myId = msg.id;
           // puppet world: server state is the truth
-          this.world = createPuppetWorld(msg.seed, msg.mode, msg.theme);
-          this.director = new ReplayDirector(msg.seed, msg.mode, msg.theme);
+          this.world = createPuppetWorld(msg.seed, msg.mode, msg.theme, msg.theaterId, msg.mapIdentity);
+          this.director = new ReplayDirector(msg.seed, msg.mode, msg.theme, msg.theaterId, msg.mapIdentity);
           // comms flow through the server once online
           this.chat.onSend = (m) => {
             if (this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify({ t: 'chat', channel: m.channel, text: m.text }));

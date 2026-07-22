@@ -5,6 +5,16 @@ import { carveInterior } from './interior';
 import { fillRegions } from './chunks';
 import { THEMES } from './data';
 import type { ModeId, Team, ThemeId, Vec3, VehicleKind } from './types';
+import type { OperationPhaseKind, OperationScale, OperationSiteId } from './operations';
+import type { TheaterMetadata } from './theater-types';
+import {
+  LEGACY_GEOMETRY,
+  inBounds as geometryInBounds,
+  tileIndex as geometryTileIndex,
+  tileToWorld as geometryTileToWorld,
+  worldToTile as geometryWorldToTile,
+  type MapGeometry,
+} from './map-geometry';
 
 export const TILE = 3;          // world units per tile (33C: standard fronts ~300u)
 export const GRID = 100;        // tiles per side
@@ -70,11 +80,15 @@ export const SURF_WHEELS: Record<number, number> = { [S_DIRT]: 1, [S_GRASS]: 1, 
 export const SURF_TRACKS: Record<number, number> = { [S_DIRT]: 1, [S_GRASS]: 1, [S_ICE]: 0.9, [S_GRIT]: 0.9, [S_PLATE]: 1, [S_WET]: 0.95, [S_MUD]: 0.85 };
 
 /** surface under a world position */
-export function surfaceAt(surface: Uint8Array, x: number, z: number): number {
-  const tx = Math.floor((x + WORLD / 2) / TILE);
-  const tz = Math.floor((z + WORLD / 2) / TILE);
-  if (tx < 0 || tz < 0 || tx >= GRID || tz >= GRID) return S_DIRT;
-  return surface[tz * GRID + tx];
+export function surfaceAt(
+  surface: Uint8Array,
+  x: number,
+  z: number,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): number {
+  const [tx, tz] = geometryWorldToTile(geometry, x, z);
+  if (!geometryInBounds(geometry, tx, tz)) return S_DIRT;
+  return surface[geometryTileIndex(geometry, tx, tz)];
 }
 
 /** which house (index into map.houses) contains this point, -1 = open sky */
@@ -110,9 +124,13 @@ export function pruneStrandedCrops(props: PropSpec[], grid: Uint8Array): PropSpe
   });
 }
 
-export function houseAt(houses: House[], x: number, z: number): number {
-  const tx = Math.floor((x + WORLD / 2) / TILE);
-  const tz = Math.floor((z + WORLD / 2) / TILE);
+export function houseAt(
+  houses: House[],
+  x: number,
+  z: number,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): number {
+  const [tx, tz] = geometryWorldToTile(geometry, x, z);
   for (let i = 0; i < houses.length; i++) {
     const h = houses[i];
     if (tx >= h.tx && tx < h.tx + h.tw && tz >= h.tz && tz < h.tz + h.th) return i;
@@ -147,6 +165,12 @@ export interface VehiclePad {
   kind: VehicleKind;
   team: Team;
   pos: Vec3;
+  /** Named national-pool hull committed to this Operation pad. */
+  operationHullId?: string;
+  /** Destructible mission target carried by this pad's spawned vehicle. */
+  operationObjectiveId?: string;
+  /** Scorched-earth prize the attacking force must keep alive. */
+  operationPrize?: boolean;
 }
 
 export interface PickupSpawn {
@@ -173,6 +197,10 @@ export interface House {
 export interface GameMap {
   seed: number;
   theme: ThemeId;
+  /** Authoritative tile dimensions. Legacy battlefields are 100×100×3. */
+  geometry: MapGeometry;
+  /** Vehicle-scale theater routes, landing zones, and domain metadata. */
+  theater?: TheaterMetadata;
   grid: Uint8Array; // GRID*GRID
   /** the SECOND STOREY (§8.4 Phase-2): F2_* per tile — void unless a
    *  two-storey building stamped an upper floor here. Static after gen. */
@@ -201,17 +229,45 @@ export interface GameMap {
    *  never re-derives footprints — the drift that caused every invisible-wall
    *  bug is structurally impossible. Guarded by tests/walls.test.ts. */
   propCovered: number[];
+  /** Military Operations metadata. Stock modes ignore it; the objective
+   * runtime consumes this serializable layer without reverse-engineering
+   * control-point labels or map geometry. */
+  operation?: {
+    operationId: string;
+    site: OperationSiteId;
+    scale: OperationScale;
+    objectives: Array<{
+      id: string;
+      phaseId: string;
+      kind: OperationPhaseKind;
+      pos: Vec3;
+      radius: number;
+      targetCount?: number;
+      targetPropIndex?: number;
+    }>;
+    protectedZones: Array<{ pos: Vec3; radius: number }>;
+  };
 }
 
-export function tileAt(grid: Uint8Array, x: number, z: number): number {
-  const tx = Math.floor((x + WORLD / 2) / TILE);
-  const tz = Math.floor((z + WORLD / 2) / TILE);
-  if (tx < 0 || tz < 0 || tx >= GRID || tz >= GRID) return T_WALL;
-  return grid[tz * GRID + tx];
+export function tileAt(
+  grid: Uint8Array,
+  x: number,
+  z: number,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): number {
+  const [tx, tz] = geometryWorldToTile(geometry, x, z);
+  if (!geometryInBounds(geometry, tx, tz)) return T_WALL;
+  return grid[geometryTileIndex(geometry, tx, tz)];
 }
 
-export function isBlocked(grid: Uint8Array, x: number, z: number, hover = false): boolean {
-  const t = tileAt(grid, x, z);
+export function isBlocked(
+  grid: Uint8Array,
+  x: number,
+  z: number,
+  hover = false,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): boolean {
+  const t = tileAt(grid, x, z, geometry);
   if (t === T_WATER) return false;   // shallow: wadeable by everyone (slowly)
   if (t === T_DEEP) return !hover;   // deep: hover only — soldiers SWIM via their own physics
   // slits and CLOSED doors block movement always; open doors are a doorway.
@@ -227,9 +283,14 @@ export function isBlocked(grid: Uint8Array, x: number, z: number, hover = false)
  * doorway, a bad spawn) could otherwise never move again. Ring-by-ring scan
  * keeps it nearest-first; null means everything nearby is masonry too.
  */
-export function nearestOpenTile(grid: Uint8Array, x: number, z: number, maxR = 4): { x: number; z: number } | null {
-  const tx = Math.floor((x + WORLD / 2) / TILE);
-  const tz = Math.floor((z + WORLD / 2) / TILE);
+export function nearestOpenTile(
+  grid: Uint8Array,
+  x: number,
+  z: number,
+  maxR = 4,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): { x: number; z: number } | null {
+  const [tx, tz] = geometryWorldToTile(geometry, x, z);
   for (let r = 1; r <= maxR; r++) {
     let best: { x: number; z: number } | null = null;
     let bestD = Infinity;
@@ -237,10 +298,11 @@ export function nearestOpenTile(grid: Uint8Array, x: number, z: number, maxR = 4
       for (let dx = -r; dx <= r; dx++) {
         if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue; // this ring's shell only
         const nx = tx + dx, nz = tz + dz;
-        if (nx < 0 || nx >= GRID || nz < 0 || nz >= GRID) continue;
-        const cx = (nx + 0.5) * TILE - WORLD / 2;
-        const cz = (nz + 0.5) * TILE - WORLD / 2;
-        if (isBlocked(grid, cx, cz)) continue; // deep water is no refuge either
+        if (!geometryInBounds(geometry, nx, nz)) continue;
+        const center = geometryTileToWorld(geometry, nx, nz);
+        const cx = center.x;
+        const cz = center.z;
+        if (isBlocked(grid, cx, cz, false, geometry)) continue; // deep water is no refuge either
         const d = Math.hypot(cx - x, cz - z);
         if (d < bestD) { bestD = d; best = { x: cx, z: cz }; }
       }
@@ -251,8 +313,14 @@ export function nearestOpenTile(grid: Uint8Array, x: number, z: number, maxR = 4
 }
 
 /** Blocks projectiles/sight: walls always; cover and water never (shots fly over). */
-export function blocksShot(grid: Uint8Array, x: number, z: number, y: number): boolean {
-  const t = tileAt(grid, x, z);
+export function blocksShot(
+  grid: Uint8Array,
+  x: number,
+  z: number,
+  y: number,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): boolean {
+  const t = tileAt(grid, x, z, geometry);
   if (t === T_WALL) return y < WALL_H;   // walls are 4 units tall
   if (t === T_COVER) return y < COVER_H; // low cover
   if (t === T_SLIT) return !(y >= 1.2 && y <= 1.8); // the firing band — muzzle height passes
@@ -276,28 +344,45 @@ export const F2_SLIT = 3;   // upper window — fire band 5.2..5.8 (the sniper n
 export const F2_WELL = 4;   // the ladder well: walkable, E descends
 
 /** Upper-layer shot blocking — walls live in the 4..8 band. */
-export function blocksShotUpper(grid2: Uint8Array, x: number, z: number, y: number): boolean {
+export function blocksShotUpper(
+  grid2: Uint8Array,
+  x: number,
+  z: number,
+  y: number,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): boolean {
   if (y < 4 || y >= 8) return false;
-  const t = tileAt(grid2, x, z);
+  const t = tileAt(grid2, x, z, geometry);
   if (t === F2_WALL) return true;
   if (t === F2_SLIT) return !(y >= 5.2 && y <= 5.8);
   return false;
 }
 
 /** Is this upper tile standable? (Anything but void — walls stop you first.) */
-export const upperBlocked = (grid2: Uint8Array, x: number, z: number): boolean => {
-  const t = tileAt(grid2, x, z);
+export const upperBlocked = (
+  grid2: Uint8Array,
+  x: number,
+  z: number,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): boolean => {
+  const t = tileAt(grid2, x, z, geometry);
   return t === F2_WALL || t === F2_SLIT;
 };
 
 /** March a ray across the grid; true if line of sight is clear at the given height. */
-export function losClear(grid: Uint8Array, a: Vec3, b: Vec3, y = 1.4): boolean {
+export function losClear(
+  grid: Uint8Array,
+  a: Vec3,
+  b: Vec3,
+  y = 1.4,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): boolean {
   const dx = b.x - a.x, dz = b.z - a.z;
   const dist = Math.hypot(dx, dz);
-  const steps = Math.max(1, Math.ceil(dist / (TILE * 0.5)));
+  const steps = Math.max(1, Math.ceil(dist / (geometry.tile * 0.5)));
   for (let i = 1; i < steps; i++) {
     const t = i / steps;
-    if (blocksShot(grid, a.x + dx * t, a.z + dz * t, y)) return false;
+    if (blocksShot(grid, a.x + dx * t, a.z + dz * t, y, geometry)) return false;
   }
   return true;
 }
@@ -307,13 +392,13 @@ export function losClear(grid: Uint8Array, a: Vec3, b: Vec3, y = 1.4): boolean {
  *  marches at its own `y`), so this is byte-for-byte equal to
  *  losClear(grid, {x:ax,_,z:az}, {x:bx,_,z:bz}, y). Perception evaluates it up
  *  to ~5,760× per tick at horde scale — this kills ~11.5k object allocs/tick. */
-export function losClearXZ(grid: Uint8Array, ax: number, az: number, bx: number, bz: number, y = 1.4): boolean {
+export function losClearXZ(grid: Uint8Array, ax: number, az: number, bx: number, bz: number, y = 1.4, geometry: MapGeometry = LEGACY_GEOMETRY): boolean {
   const dx = bx - ax, dz = bz - az;
   const dist = Math.hypot(dx, dz);
-  const steps = Math.max(1, Math.ceil(dist / (TILE * 0.5)));
+  const steps = Math.max(1, Math.ceil(dist / (geometry.tile * 0.5)));
   for (let i = 1; i < steps; i++) {
     const t = i / steps;
-    if (blocksShot(grid, ax + dx * t, az + dz * t, y)) return false;
+    if (blocksShot(grid, ax + dx * t, az + dz * t, y, geometry)) return false;
   }
   return true;
 }
@@ -323,13 +408,19 @@ export function losClearXZ(grid: Uint8Array, ax: number, az: number, bx: number,
  *  5.2–5.8 firing band. This is what makes two soldiers who are BOTH on a
  *  second storey obey the upper walls between them, instead of reading the
  *  ground floor's layout by accident (sight-plan A3 step 2). */
-export function losClearUpper(grid2: Uint8Array, a: Vec3, b: Vec3, y = 5.4): boolean {
+export function losClearUpper(
+  grid2: Uint8Array,
+  a: Vec3,
+  b: Vec3,
+  y = 5.4,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): boolean {
   const dx = b.x - a.x, dz = b.z - a.z;
   const dist = Math.hypot(dx, dz);
-  const steps = Math.max(1, Math.ceil(dist / (TILE * 0.5)));
+  const steps = Math.max(1, Math.ceil(dist / (geometry.tile * 0.5)));
   for (let i = 1; i < steps; i++) {
     const t = i / steps;
-    if (blocksShotUpper(grid2, a.x + dx * t, a.z + dz * t, y)) return false;
+    if (blocksShotUpper(grid2, a.x + dx * t, a.z + dz * t, y, geometry)) return false;
   }
   return true;
 }
@@ -402,9 +493,12 @@ export const PAINTBALL_FIELDS = [
  *  is seen OVER — and kills the FLOOR-PLAN GIVEAWAY: an interior ground room
  *  still hides behind its own walls, so nobody reads the plan through the
  *  floor. `up` is the upstairs end, `dn` the ground end. */
-export function losCrossFloor(grid: Uint8Array, grid2: Uint8Array, up: Vec3, dn: Vec3): boolean {
+export function losCrossFloor(
+  grid: Uint8Array, grid2: Uint8Array, up: Vec3, dn: Vec3,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): boolean {
   const mid = { x: (up.x + dn.x) / 2, y: 0, z: (up.z + dn.z) / 2 };
-  return losClearUpper(grid2, up, mid) && losClear(grid, mid, dn);
+  return losClearUpper(grid2, up, mid, 5.4, geometry) && losClear(grid, mid, dn, 1.4, geometry);
 }
 
 export function generatePaintballField(seed: number, theme: ThemeId = 'savanna'): GameMap {
@@ -482,7 +576,7 @@ export function generatePaintballField(seed: number, theme: ThemeId = 'savanna')
   }
 
   return {
-    seed, theme, grid, grid2, surface,
+    seed, theme, geometry: { ...LEGACY_GEOMETRY }, grid, grid2, surface,
     basePos: [P(A0 + 1, mid), P(A1 - 1, mid)],
     spawns,
     flagPos: [P(A0 + 2, mid), P(A1 - 2, mid)],
@@ -693,7 +787,7 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
   // V2/V3: the air program joins the motor pool. The AIRFIELD (strike jet,
   // interceptor, bomber) and the LANCE that answers the enemy's.
   const padKinds: VehicleKind[] = ['buggy', 'tank', 'apc', 'skiff', 'bike', 'flyer', 'transport', 'ambulance', 'tunneler', 'hoverboard', 'mech',
-    'strikejet', 'interceptor', 'bomber', 'aatrack'];
+    'strikejet', 'interceptor', 'bomber', 'aatrack', 'attackheli', 'transportheli'];
   for (let side = 0 as Team; side < 2; side++) {
     const [btx, btz] = baseT[side];
     const fwd = side === 0 ? 1 : -1;
@@ -718,18 +812,20 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
       [fwd * 14, -15], [fwd * 14, -20],  // strike jet · interceptor, on the flight line
       [fwd * 14, -25],                    // bomber — the end slot, biggest hangar
       [fwd * 19, -6],                     // the Lance guards the field; off the gate lane
+      [fwd * 14, -30], [fwd * 14, -35],  // open-air Shrike and Condor helipads
     ];
     padKinds.forEach((kind, i) => {
       const [ox, oz] = padOffsets[i];
       // aircraft get a wider clear — a hangar's canopy needs the whole yard
-      const aircraft = kind === 'strikejet' || kind === 'interceptor' || kind === 'bomber';
+      const fixedWing = kind === 'strikejet' || kind === 'interceptor' || kind === 'bomber';
+      const aircraft = fixedWing || kind === 'attackheli' || kind === 'transportheli';
       clearArea(grid, btx + ox, btz + oz, aircraft ? 4 : 3); // a yard the hull can pull out of
       const at = tileToWorld(btx + ox, btz + oz);
       vehiclePads.push({ kind, team: side as Team, pos: at });
       // A1: every airframe sleeps in its own building — the bomber's is
       // taller and wider because the bomber is. Open face toward the front,
       // which is also the direction the runway leaves.
-      if (aircraft) {
+      if (fixedWing) {
         // the hangar wraps the TAIL, not the whole airframe — a plane fully
         // under its roof is a plane the top-down camera cannot find. Nose
         // pokes out of the mouth, so "my jet is home" reads at any zoom.
@@ -926,7 +1022,7 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
   }
 
   const outdoorProps = pruneStrandedCrops(pruneIndoorProps(props, houses), grid);
-  return { seed, theme, grid, grid2, surface, basePos, spawns, flagPos, hillPos, controlPoints, vehiclePads, pickups, props: outdoorProps, zombieSpawns, houses, gates, pads, propCovered: settleClaims(grid, claims, outdoorProps) };
+  return { seed, theme, geometry: { ...LEGACY_GEOMETRY }, grid, grid2, surface, basePos, spawns, flagPos, hillPos, controlPoints, vehiclePads, pickups, props: outdoorProps, zombieSpawns, houses, gates, pads, propCovered: settleClaims(grid, claims, outdoorProps) };
 }
 
 /**
@@ -1039,7 +1135,7 @@ function generateNeighborhood(seed: number): GameMap {
   surface.fill(S_GRASS);
   const hoodProps = pruneIndoorProps(props, houses);
   return {
-    seed, theme: 'savanna', grid, grid2, surface, basePos, spawns,
+    seed, theme: 'savanna', geometry: { ...LEGACY_GEOMETRY }, grid, grid2, surface, basePos, spawns,
     flagPos: [basePos[0], basePos[1]],
     hillPos,
     controlPoints: [

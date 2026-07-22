@@ -55,4 +55,15 @@ describe('W4.3 — the corrections box', () => {
     expect(renderIssueHTML(cur, prev)).toContain('np-corrections');
     expect(renderIssueHTML(cur)).not.toContain('np-corrections');
   });
+
+  it('prints Operation facts as an enemy-perspective action report', () => {
+    const paper = renderIssueHTML(issue({ operation: {
+      codename: 'Amber Hammer', site: 'rail hub', outcome: 'victory', hullsLost: 1,
+      aceHull: 'Aegis 01', objectivesCompleted: 2, objectivesTotal: 2, reward: 'Capture a rail hub',
+    } }));
+    expect(paper).toContain('ENEMY ACTION REPORT');
+    expect(paper).toContain('AMBER HAMMER BREAKS THE LINE');
+    expect(paper).toContain('Aegis 01');
+    expect(paper).toContain('Capture a rail hub');
+  });
 });

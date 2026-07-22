@@ -61,6 +61,28 @@ describe('interest-managed snapshots (68A)', () => {
     expect(snap.mines.map((m) => m.id)).toContain(999);
   });
 
+  it('removes an undetected submerged enemy from the wire', () => {
+    const { w, me } = staged();
+    const submarine = w.spawnVehicle('submarine', 1, { x: me.pos.x + 10, y: 0, z: me.pos.z });
+    submarine.submerged = true;
+    expect(cullSnapshotFor(w, takeSnapshot(w, []), me.id).vehicles.map((vehicle) => vehicle.id)).not.toContain(submarine.id);
+  });
+
+  it('reveals a submerged enemy to a staffed live sensor station in sonar range', () => {
+    const { w, me } = staged();
+    const submarine = w.spawnVehicle('submarine', 1, { x: me.pos.x + 35, y: 0, z: me.pos.z });
+    submarine.submerged = true;
+    const sensorVehicle = w.spawnVehicle('transportheli', 0, { x: me.pos.x + 5, y: 0, z: me.pos.z });
+    const sensorOperator = w.addSoldier('SONAR', 'infiltrator', 0, 'human');
+    sensorVehicle.seats[2] = sensorOperator.id;
+    sensorOperator.vehicleId = sensorVehicle.id;
+    sensorOperator.seat = 2;
+
+    expect(cullSnapshotFor(w, takeSnapshot(w, []), me.id).vehicles.map((vehicle) => vehicle.id)).toContain(submarine.id);
+    sensorVehicle.systems.sensors = 0;
+    expect(cullSnapshotFor(w, takeSnapshot(w, []), me.id).vehicles.map((vehicle) => vehicle.id)).not.toContain(submarine.id);
+  });
+
   it('objective intel is public: the flag carrier is always visible', () => {
     const { w, me } = staged();
     const runner = w.addSoldier('Runner', 'infantry', 1, 'human');

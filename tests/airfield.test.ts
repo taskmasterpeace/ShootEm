@@ -14,8 +14,17 @@ import {
 import type { Team } from '../src/sim/types';
 
 const AIRCRAFT = ['strikejet', 'interceptor', 'bomber'] as const;
+const ROTORCRAFT = ['attackheli', 'transportheli'] as const;
 
 describe('A1 — the airfield', () => {
+  it('stages two open-air rotorcraft pads beside each flight line', () => {
+    const m = generateMap(42, 'tdm', 'savanna');
+    for (const team of [0, 1] as Team[]) {
+      const pads = m.vehiclePads.filter((pad) => pad.team === team && (ROTORCRAFT as readonly string[]).includes(pad.kind));
+      expect(pads.map((pad) => pad.kind).sort()).toEqual([...ROTORCRAFT].sort());
+      expect(pads.every((pad) => !isBlocked(m.grid, pad.pos.x, pad.pos.z))).toBe(true);
+    }
+  });
   it('THE FIELD IS TOGETHER: all three airframes park within one strip', () => {
     const m = generateMap(42, 'tdm', 'savanna');
     for (const team of [0, 1] as Team[]) {

@@ -1,5 +1,6 @@
 import type { House, PickupSpawn, PropSpec } from './map';
-import { F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_COVER, T_DOOR, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL, TILE, WORLD } from './map';
+import { F2_FLOOR, F2_SLIT, F2_WALL, F2_WELL, GRID, T_COVER, T_DOOR, T_LADDER, T_METAL, T_OPEN, T_SLIT, T_WALL } from './map';
+import { LEGACY_GEOMETRY, tileToWorld as geometryTileToWorld, type MapGeometry } from './map-geometry';
 import type { Rng } from './rng';
 import type { ThemeId } from './types';
 
@@ -704,6 +705,8 @@ export function stencilConnected(def: BuildingDef): boolean {
 }
 
 export interface StampCtx {
+  /** Authoritative dimensions; omitted by legacy generators. */
+  geometry?: MapGeometry;
   grid: Uint8Array;
   /** the second-storey layer (F2_*) — stamped from rows2 */
   grid2: Uint8Array;
@@ -714,17 +717,17 @@ export interface StampCtx {
   rng: Rng;
 }
 
-const tileToWorld = (tx: number, tz: number) =>
-  ({ x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 });
-
 /** Stamp a template at tile (tx,tz). Bounds-checked; registers the roof rect. */
 export function stampBuilding(ctx: StampCtx, def: BuildingDef, tx: number, tz: number, pickupSeq = 0): boolean {
+  const geometry = ctx.geometry ?? LEGACY_GEOMETRY;
+  const { cols, rows } = geometry;
+  const toWorld = (x: number, z: number) => geometryTileToWorld(geometry, x, z);
   const h = def.rows.length;
   const w = Math.max(...def.rows.map((r) => r.length));
-  if (tx < 2 || tz < 2 || tx + w >= GRID - 2 || tz + h >= GRID - 2) return false;
+  if (tx < 2 || tz < 2 || tx + w >= cols - 2 || tz + h >= rows - 2) return false;
   // clear the footprint plus a one-tile apron so doors always open onto ground
   for (let z = tz - 1; z <= tz + h; z++)
-    for (let x = tx - 1; x <= tx + w; x++) ctx.grid[z * GRID + x] = T_OPEN;
+    for (let x = tx - 1; x <= tx + w; x++) ctx.grid[z * cols + x] = T_OPEN;
   let seq = pickupSeq;
   let interior: { x: number; z: number } | null = null;
   let frontDoor: { x: number; z: number } | null = null;
@@ -733,7 +736,7 @@ export function stampBuilding(ctx: StampCtx, def: BuildingDef, tx: number, tz: n
     for (let rx = 0; rx < w; rx++) {
       const ch = row[rx] ?? ' ';
       const gx = tx + rx, gz = tz + rz;
-      const idx = gz * GRID + gx;
+      const idx = gz * cols + gx;
       switch (ch) {
         case '#': ctx.grid[idx] = T_WALL; break;
         case 'M': ctx.grid[idx] = T_METAL; break;
@@ -746,11 +749,11 @@ export function stampBuilding(ctx: StampCtx, def: BuildingDef, tx: number, tz: n
         case 'C':
           ctx.grid[idx] = T_COVER;
           ctx.claims.push({ idx, t: T_COVER });
-          ctx.props.push({ type: 'crate', pos: tileToWorld(gx, gz), scale: 1, rot: ctx.rng.range(0, Math.PI) });
+          ctx.props.push({ type: 'crate', pos: toWorld(gx, gz), scale: 1, rot: ctx.rng.range(0, Math.PI) });
           break;
         case 'P':
           ctx.grid[idx] = T_OPEN;
-          ctx.pickups.push({ type: seq++ % 2 === 0 ? 'medkit' : 'ammo', pos: tileToWorld(gx, gz) });
+          ctx.pickups.push({ type: seq++ % 2 === 0 ? 'medkit' : 'ammo', pos: toWorld(gx, gz) });
           if (!interior) interior = { x: gx, z: gz };
           break;
         case '.':
@@ -769,7 +772,7 @@ export function stampBuilding(ctx: StampCtx, def: BuildingDef, tx: number, tz: n
     for (let rz = 0; rz < def.rows2.length; rz++) {
       const row = def.rows2[rz];
       for (let rx = 0; rx < w; rx++) {
-        const idx = (tz + rz) * GRID + tx + rx;
+        const idx = (tz + rz) * cols + tx + rx;
         switch (row[rx] ?? ' ') {
           case '#': ctx.grid2[idx] = F2_WALL; break;
           case 'S': ctx.grid2[idx] = F2_SLIT; break;
@@ -801,8 +804,8 @@ export function stampBuilding(ctx: StampCtx, def: BuildingDef, tx: number, tz: n
     : fullRect ? 'gable' : 'flat';
   ctx.houses.push({
     id: ctx.houses.length,
-    center: tileToWorld(center.x, center.z),
-    door: tileToWorld(door.x, door.z),
+    center: toWorld(center.x, center.z),
+    door: toWorld(door.x, door.z),
     tx, tz, tw: w, th: h,
     floors: def.floors,
     roof, maskRows,
