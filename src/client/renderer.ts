@@ -1898,10 +1898,15 @@ export class Renderer {
       const p = a.clone().addScaledVector(dir, d);
       ticks.push(p.clone().addScaledVector(perp, -0.45), p.clone().addScaledVector(perp, 0.45));
     }
-    this.autopsyTicks!.geometry.setFromPoints(ticks.length ? ticks : [a, a]);
+    // the tick COUNT changes as the range does, so setFromPoints on the reused
+    // buffer overflows it — rebuild the geometry fresh (dispose the old first).
+    if (ticks.length && autopsy) {
+      this.autopsyTicks!.geometry.dispose();
+      this.autopsyTicks!.geometry = new THREE.BufferGeometry().setFromPoints(ticks);
+      this.autopsyTicks!.visible = true;
+    } else this.autopsyTicks!.visible = false;
     this.autopsyReticle!.position.set(b.x, 0.14, b.z);
     this.autopsyReticle!.scale.setScalar(1 + 0.14 * Math.sin(time * 7));
-    this.autopsyTicks!.visible = autopsy;
     this.autopsyReticle!.visible = autopsy;
   }
 
