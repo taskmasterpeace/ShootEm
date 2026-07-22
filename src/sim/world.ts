@@ -38,6 +38,7 @@ import { generateScienceMission, type ScienceMissionSpec } from './science';
 import { generateScienceMap } from './science-map';
 import { createScienceRuntime, onScienceDeath, populateScienceMission, tryScienceInteraction, type ScienceMissionRuntime } from './science-runtime';
 import { createIndoorTacticalState, noteIndoorAlert, recordIndoorScent, type IndoorTacticalState } from './indoor-ai';
+import { issueK9Command, k9AimPoint } from './k9-orders';
 
 const RESPAWN_DELAY = 4;
 /** THE OUTBREAK (§4): how fast an exposed soldier's Viral Load creeps toward
@@ -2412,6 +2413,18 @@ export class World {
 
   applyCmd(s: Soldier, cmd: PlayerCmd, dt: number) {
     s.yaw = cmd.aimYaw;
+    if (cmd.k9) {
+      const result = issueK9Command(this, s, cmd.k9, k9AimPoint(s.pos, cmd.aimYaw, cmd.aimDist ?? 12));
+      if (!result.ok) {
+        if (result.reason === 'no-building') {
+          this.emit({ type: 'announce', pos: { ...s.pos }, soldierId: s.id, text: 'NO BUILDING AT MARK', big: false });
+        }
+      } else {
+        const order = result.dog.k9Order === 'sic' ? 'CLEARING'
+          : result.dog.k9Order === 'stay' ? 'STAY' : 'HEEL';
+        this.emit({ type: 'announce', pos: { ...result.dog.pos }, soldierId: s.id, text: `K9 · ${order}`, big: false });
+      }
+    }
     s.crouching = !!cmd.crouch && !s.downed; // the duck is a HELD stance
     // THE GUARD (OUTBREAK-SPEC §12): a HELD brace, gated on stamina — an empty
     // tank can't hold it (the meter IS the mechanic, same as sprint). Computed

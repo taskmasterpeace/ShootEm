@@ -2,11 +2,20 @@ import { describe, expect, it } from 'vitest';
 import {
   buildingAtOrderPoint,
   hostilesInK9Building,
+  issueK9Command,
   k9AimPoint,
   setK9Sic,
   setK9Stay,
 } from '../src/sim/k9-orders';
+import { applySnapshot, createPuppetWorld, takeSnapshot } from '../src/sim/snapshot';
+import type { PlayerCmd } from '../src/sim/types';
 import { World } from '../src/sim/world';
+
+const cmd = (over: Partial<PlayerCmd> = {}): PlayerCmd => ({
+  moveX: 0, moveZ: 0, aimYaw: 0, fire: false, altFire: false, jump: false,
+  use: false, ability: false, reload: false, grenade: false, weaponSlot: -1,
+  ...over,
+});
 
 describe('K9 orders', () => {
   it('selects the aimed house or a house no farther than eight units away', () => {
@@ -65,5 +74,71 @@ describe('K9 orders', () => {
     expect(k9AimPoint({ x: 10, y: 0, z: 20 }, Math.PI / 2, 12)).toEqual({ x: 10, y: 0, z: 32 });
     expect(k9AimPoint({ x: 10, y: 0, z: 20 }, 0, Infinity)).toEqual({ x: 10, y: 0, z: 20 });
     expect(k9AimPoint({ x: 10, y: 0, z: 20 }, 0, 500)).toEqual({ x: 90, y: 0, z: 20 });
+  });
+
+  it('accepts commands only from the owner and preserves an order when no building is aimed', () => {
+    const world = new World({ seed: 42, mode: 'safehouse' });
+    const handler = world.addSoldier('Handler', 'infantry', 0, 'human');
+    const stranger = world.addSoldier('Stranger', 'infantry', 0, 'human');
+    const dog = world.addDog(handler);
+    setK9Stay(dog);
+    const before = { order: dog.k9Order, anchor: dog.k9StayAnchor };
+
+    expect(issueK9Command(world, stranger, 'stay', stranger.pos)).toEqual({ ok: false, reason: 'no-dog' });
+    expect(issueK9Command(world, handler, 'sic', { x: 999, y: 0, z: 999 }))
+      .toEqual({ ok: false, reason: 'no-building' });
+    expect({ order: dog.k9Order, anchor: dog.k9StayAnchor }).toEqual(before);
+  });
+
+  it('stores a validated building order without accepting a client target id', () => {
+    const world = new World({ seed: 42, mode: 'safehouse' });
+    const handler = world.addSoldier('Handler', 'infantry', 0, 'human');
+    const dog = world.addDog(handler);
+    const house = world.map.houses[0];
+
+    expect(issueK9Command(world, handler, 'sic', house.center)).toMatchObject({ ok: true });
+    expect(dog.k9Order).toBe('sic');
+    expect(dog.k9BuildingId).toBe(0);
+    expect(dog.k9OrderPos).toEqual(house.center);
+    expect(dog.k9TargetId).toBeUndefined();
+  });
+
+  it('round-trips authoritative K9 order state through a snapshot', () => {
+    const world = new World({ seed: 42, mode: 'tdm' });
+    const handler = world.addSoldier('Handler', 'infantry', 0, 'human');
+    const dog = world.addDog(handler);
+    dog.k9Order = 'sic';
+    dog.k9BuildingId = 3;
+    dog.k9OrderPos = { x: 8, y: 0, z: 12 };
+    dog.k9StayAnchor = { x: 1, y: 0, z: 2 };
+    dog.k9Door = 20_050;
+    dog.k9SearchIndex = 4;
+    dog.k9ClearSince = 7.5;
+
+    const puppet = createPuppetWorld(42, 'tdm', undefined);
+    applySnapshot(puppet, takeSnapshot(world, []));
+    expect(puppet.soldiers.get(dog.id)).toMatchObject({
+      k9Order: 'sic',
+      k9BuildingId: 3,
+      k9OrderPos: { x: 8, y: 0, z: 12 },
+      k9StayAnchor: { x: 1, y: 0, z: 2 },
+      k9Door: 20_050,
+      k9SearchIndex: 4,
+      k9ClearSince: 7.5,
+    });
+  });
+
+  it('applies a one-shot K9 command from authoritative aim data', () => {
+    const world = new World({ seed: 42, mode: 'safehouse' });
+    const handler = world.addSoldier('Handler', 'infantry', 0, 'human');
+    const dog = world.addDog(handler);
+    const house = world.map.houses[0];
+    handler.pos = { x: house.center.x - 20, y: 0, z: house.center.z };
+
+    world.applyCmd(handler, cmd({ k9: 'sic', aimYaw: 0, aimDist: 20 }), 1 / 60);
+
+    expect(dog.k9Order).toBe('sic');
+    expect(dog.k9BuildingId).toBe(0);
+    expect(world.takeEvents().some((event) => event.type === 'announce' && event.text?.includes('CLEARING'))).toBe(true);
   });
 });
