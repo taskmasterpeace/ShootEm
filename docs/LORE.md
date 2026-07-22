@@ -69,6 +69,25 @@ roster in code IS the Iron Eaters (`IronKind`, `src/sim/types.ts:249`):
 - **Zombies are a separate horde** — the Outbreak: zombie / spitter /
   brute / sprinter / bomber / stalker (`ZedKind`, `src/sim/types.ts:238`).
 
+## THE JACKALS 📋 DESIGN SHAPED (issue #103 · full canon: docs/LORE-COF-INTEGRATION.md §3-5, COF `bible/factions/THE_JACKALS.md`)
+Hunters of living super weapons — **a deniable guild, not a nation**: both
+factions hire them and both disown them. Born in the Jackal Years (Year 3,
+Season 2) when LSW blood became the black market's hardest currency.
+- **The first Jackal is SANDRA, "the L.A. Jackal"** — a Black American woman,
+  unhurried, clinical; her ring whispers under her lines. In-game she IS the
+  `venatrix` body (snap-traps + harpoon = Jackal fieldcraft, renamed per the
+  COF rename table), and the extraction mode's apex third-party spawn.
+- **The kit is capture, not slaughter:** traps, tag darts, harpoon-and-reel,
+  containment — a Jackal paid for a LIVE god earns triple. Balance law holds:
+  gods get reach and presence, never immunity; Jackals are the proof.
+- **Mission hooks:** THE JACKAL RUN (#110 — off-books salvage, no imprint
+  refresh); the captured-gods ruling (steal DNA → field one clone NOW) makes
+  every Jackal both a rival and a vendor; Scientist Hunt crews hire them.
+- **Never contradicted:** Greys stay allies · no supervillains · two
+  time-travelers only · the Iron Eaters remain the precursor, not a Jackal
+  client. Codex THREATS entry lands when they become a spawnable entity
+  (#110/#112 build work).
+
 ## The escalation the player meets 📋 DESIGN
 1. **Clones & robots** — the human war, fought in bodies you can reprint
    and machines you can't mourn.
