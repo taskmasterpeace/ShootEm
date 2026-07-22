@@ -390,6 +390,16 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
     weapon: 'flyer_plasma', seats: 2, mobileSpawn: false, radius: 1.6,
     hover: true, flies: true, systemHp: 22, liftoffTime: 2.5,
   },
+  attackheli: {
+    kind: 'attackheli', name: 'Shrike Attack Helicopter', cost: 3, hp: 105, speed: 27, turnRate: 2.5,
+    weapon: 'heli_rockets', altWeapon: 'heli_cannon', seats: 2, mobileSpawn: false, radius: 2.2,
+    hover: true, flies: true, systemHp: 24, liftoffTime: 3,
+  },
+  transportheli: {
+    kind: 'transportheli', name: 'Condor Transport Helicopter', cost: 4, hp: 260, speed: 21, turnRate: 1.65,
+    weapon: 'transport_mg', seats: 9, mobileSpawn: true, radius: 3,
+    crew: ['gunner', 'sensors', 'comms'], hover: true, flies: true, systemHp: 42, liftoffTime: 4,
+  },
   // ==== V2 THE FIXED-WING PAIR ====
   // Both CANNOT HOVER (minAirspeed): release the stick and they keep flying.
   // Both are made of glass — the M3 armour ladder says the sky costs you your
@@ -485,6 +495,16 @@ WEAPONS.vulture_rockets = W({
   id: 'vulture_rockets', name: 'Talon Rocket Pod', damage: 48, rof: 3.2,
   speed: 62, spread: 0.03, clip: 14, reloadTime: 3.4, reserve: 56, range: 62,
   splash: 3.6, splashDamage: 34, knockback: 9, sound: 'rocket', tracer: 'rocket',
+});
+WEAPONS.heli_rockets = W({
+  id: 'heli_rockets', name: 'Shrike Hydra Pod', damage: 34, rof: 2.4,
+  speed: 58, spread: 0.025, clip: 12, reloadTime: 3.2, reserve: 48, range: 68,
+  splash: 3.2, splashDamage: 26, knockback: 7, sound: 'rocket', tracer: 'rocket',
+});
+WEAPONS.heli_cannon = W({
+  id: 'heli_cannon', name: 'Shrike Chin Cannon', damage: 11, rof: 9,
+  speed: 130, spread: 0.028, clip: 50, reloadTime: 2.2, reserve: Infinity, range: 60,
+  sound: 'autocannon', tracer: 'bullet',
 });
 // J1 (Robert: "we might need machine guns, of course") — the Vulture's belly
 // gun. Rockets gut armour; the MG is for the men beside it. Alt-fire, its own

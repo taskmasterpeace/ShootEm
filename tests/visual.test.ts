@@ -165,6 +165,8 @@ const VEHICLE_PARTS: Record<VehicleKind, string[]> = {
   hoverboard: ['thrustL'],
   bike: ['rider', 'turret', 'gunRecoil'],
   flyer: ['turret', 'gunRecoil', 'rotorL', 'rotorR'],
+  attackheli: ['turret', 'gunRecoil', 'rotorL', 'rotorR'],
+  transportheli: ['turret', 'gunRecoil', 'rotorL', 'rotorR'],
   transport: ['turret', 'gunRecoil', 'spin'],
   ambulance: ['pulse', 'healRing'],
   tunneler: ['drill', 'pulse'],

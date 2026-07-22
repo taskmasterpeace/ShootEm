@@ -74,6 +74,18 @@ describe('vehicle theater catalog and base builder', () => {
     expect(new Set(map.theater?.landingZones.map((zone) => zone.side))).toEqual(new Set([0, 1, null]));
   });
 
+  it('stages both military rotorcraft for each team in land-capable theaters', () => {
+    for (const id of ['city', 'desert', 'countryside', 'mountain', 'coastal'] as const) {
+      const map = generateTheater(id, 4207);
+      for (const team of [0, 1] as const) {
+        expect(map.vehiclePads.some((pad) => pad.team === team && pad.kind === 'attackheli'), `${id} team ${team} Shrike`).toBe(true);
+        expect(map.vehiclePads.some((pad) => pad.team === team && pad.kind === 'transportheli'), `${id} team ${team} Condor`).toBe(true);
+      }
+    }
+    const ocean = generateTheater('ocean', 4207);
+    expect(ocean.vehiclePads.some((pad) => pad.kind === 'attackheli' || pad.kind === 'transportheli')).toBe(false);
+  });
+
   it('mountain exposes pass, ridge, and valley alternatives plus a long air axis', () => {
     const map = generateTheater('mountain', 4207);
     expect(new Set(map.theater!.routes.filter((route) => route.domain === 'ground').map((route) => route.id)))

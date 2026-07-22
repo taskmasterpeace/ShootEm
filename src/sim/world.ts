@@ -1465,10 +1465,10 @@ export class World {
     s.meleeStrikeAt = 0; s.meleeWeapon = ''; // no swing survives a respawn
     s.meleeCharge = 0; s.meleeChargeMul = undefined; // and no half-built Power Strike
     s.guarding = false; s.grabbedUntil = undefined; s.grabbedBy = undefined; s.ctrlStruggle = undefined; s.chokeProgress = undefined; s.chokingId = undefined; s.humanShield = undefined; // no hold survives it either
-    // mobile spawn: a crewed APC or transport with a LIVE comms system
+    // mobile spawn: a crewed APC/transport with live comms. Flying transports
+    // become reinforcement doors only after they put skids on the ground.
     const mobile = [...this.vehicles.values()].find(
-      (v) => v.alive && v.team === s.team && VEHICLES[v.kind].mobileSpawn &&
-        v.systems.comms > 0 && v.seats.some((id) => id >= 0),
+      (v) => v.team === s.team && this.vehicleMobileSpawnActive(v),
     );
     // enemy-aware spawn selection (55B): of the team's ring points, take the
     // one farthest from any living enemy — never drop a soldier in a lap.
@@ -1563,6 +1563,13 @@ export class World {
     const out = {} as VehicleSystems;
     for (const id of SYSTEM_IDS) out[id] = hp;
     return out;
+  }
+
+  vehicleMobileSpawnActive(vehicle: Vehicle): boolean {
+    const def = VEHICLES[vehicle.kind];
+    return vehicle.alive && def.mobileSpawn && vehicle.systems.comms > 0
+      && vehicle.seats.some((id) => id >= 0)
+      && (!def.flies || (vehicle.band ?? 0) === 0);
   }
 
   spawnVehicle(kind: VehicleKind, team: Team, padPos: Vec3, padId = -1): Vehicle {

@@ -26,6 +26,8 @@ export type VehicleKind =
   | 'hoverboard'   // one-trooper personal hover deck — fast, fragile, unarmed
   | 'bike'         // recon bike — fastest ground vehicle, light MG
   | 'flyer'        // gunship flyer — soars over walls, plasma
+  | 'attackheli'   // Shrike attack helicopter — anti-armor rockets + chin gun
+  | 'transportheli'// Condor transport helicopter — airborne insertion + mobile spawn
   | 'strikejet'    // V2 Vulture — air-to-ground jet. CANNOT HOVER.
   | 'interceptor'  // V2 Falcon — air-to-air jet. CANNOT HOVER.
   | 'aatrack'      // V3 Lance — ground-to-air homing launcher, paper-thin

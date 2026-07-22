@@ -1,8 +1,8 @@
-import { T_DEEP, T_METAL, T_OPEN, T_WALL, T_WATER, type GameMap } from '../map';
+import { T_DEEP, T_METAL, T_OPEN, T_WATER, type GameMap } from '../map';
 import { inBounds, tileIndex, tileToWorld } from '../map-geometry';
 import {
   addLandingZone, carveRoute, createTheaterBase, finalizeTheater, placeDomainPad,
-  requiredLaneTiles, routePoints, seededTheaterRng,
+  requiredLaneTiles, routePoints, seededTheaterRng, stageRotorcraftPads,
 } from '../theater-builder';
 import type { TheaterDef } from '../theater-types';
 
@@ -96,6 +96,7 @@ export function generateMountainTheater(def: TheaterDef, seed: number): GameMap 
   for (const [id, x, z, side] of zones) addLandingZone(map, { id: `mountain:${id}`, pos: routePoints(map, [[x, z]])[0], radius: 18, slope: 0.08, side });
   placeDomainPad(map, 'aatrack', 0, routePoints(map, [[0.3, 0.2]])[0]);
   placeDomainPad(map, 'aatrack', 1, routePoints(map, [[0.7, 0.8]])[0]);
+  stageRotorcraftPads(map);
   return finalizeTheater(map);
 }
 
@@ -125,6 +126,7 @@ export function generateCoastalTheater(def: TheaterDef, seed: number): GameMap {
   placeDomainPad(map, 'boat', 1, routePoints(map, [[0.9, 0.72]])[0]);
   placeDomainPad(map, 'tank', 0, routePoints(map, [[0.08, 0.42]])[0]);
   placeDomainPad(map, 'tank', 1, routePoints(map, [[0.92, 0.42]])[0]);
+  stageRotorcraftPads(map);
   return finalizeTheater(map);
 }
 

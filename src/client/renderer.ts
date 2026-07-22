@@ -2320,11 +2320,6 @@ export class Renderer {
         const alt = prev + (target - prev) * Math.min(1, dt * 2.2);
         this.flyerAlt.set(v.id, alt);
         hoverBob = alt;
-        // rotors wind from idle tick-over to a full blur as the spool completes
-        for (const rn of ['rotorL', 'rotorR']) {
-          const rotor = mesh.getObjectByName(rn);
-          if (rotor) rotor.rotation.y += dt * (1.5 + (hasPilot ? k * 17 : 0));
-        }
       }
       // THE FIXED WING EARNS THE SKY TOO (Robert: "planes have to start off
       // grounded"). Only the flyer had altitude code — strikejet, interceptor
@@ -2387,6 +2382,16 @@ export class Renderer {
             setTimeout(() => audio.play('thump', { pos: { ...v.pos }, volume: 0.45 }), 90);
           }
           this.burnerWas.set(v.id, !!v.burnerOn);
+        }
+      }
+      if (v.kind === 'flyer' || v.kind === 'attackheli' || v.kind === 'transportheli') {
+        const hasPilot = v.seats[0] >= 0;
+        const lift = vdef.liftoffTime ?? 2.5;
+        const spoolLeft = Math.max(0, (v.spoolUntil ?? 0) - world.time);
+        const spool = hasPilot ? 1 - Math.min(1, spoolLeft / lift) : 0;
+        for (const name of ['rotorL', 'rotorR']) {
+          const rotor = mesh.getObjectByName(name);
+          if (rotor) rotor.rotation.y += dt * (1.5 + (hasPilot ? spool * 17 : 0));
         }
       }
       mesh.position.set(v.pos.x, hoverBob, v.pos.z);

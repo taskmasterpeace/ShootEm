@@ -282,7 +282,7 @@ export interface OperationBattleBonuses {
 }
 
 export const LAND_KINDS: ReadonlySet<VehicleKind> = new Set(['buggy', 'tank', 'apc', 'bike', 'aatrack', 'transport', 'ambulance', 'tunneler', 'emplacement', 'mech']);
-export const AIR_KINDS: ReadonlySet<VehicleKind> = new Set(['flyer', 'strikejet', 'interceptor', 'bomber']);
+export const AIR_KINDS: ReadonlySet<VehicleKind> = new Set(['flyer', 'attackheli', 'transportheli', 'strikejet', 'interceptor', 'bomber']);
 export const SEA_KINDS: ReadonlySet<VehicleKind> = new Set(['boat']);
 const DOMAIN_KINDS: Record<OperationDomain, ReadonlySet<VehicleKind>> = { land: LAND_KINDS, air: AIR_KINDS, sea: SEA_KINDS };
 const NAVIGABLE_SITES: ReadonlySet<OperationSiteId> = new Set(['river_crossing', 'coastal_battery', 'port', 'carrier_anchorage']);

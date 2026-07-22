@@ -1,9 +1,9 @@
 import { BUILDINGS, stampBuilding, type StampCtx } from '../buildings';
-import { T_COVER, T_GRASS, T_METAL, T_OPEN, T_WALL, type GameMap, type PropSpec } from '../map';
+import { T_COVER, T_GRASS, T_OPEN, T_WALL, type GameMap, type PropSpec } from '../map';
 import { inBounds, tileIndex, tileToWorld } from '../map-geometry';
 import {
   addLandingZone, carveRoute, createTheaterBase, finalizeTheater, placeDomainPad,
-  requiredLaneTiles, routePoints, seededTheaterRng,
+  requiredLaneTiles, routePoints, seededTheaterRng, stageRotorcraftPads,
 } from '../theater-builder';
 import type { TheaterDef } from '../theater-types';
 
@@ -75,6 +75,7 @@ export function generateCityTheater(def: TheaterDef, seed: number): GameMap {
   placeDomainPad(map, 'tank', 0, routePoints(map, [[0.08, 0.5]])[0]);
   placeDomainPad(map, 'tank', 1, routePoints(map, [[0.92, 0.5]])[0]);
   settleClaims(map, ctx.claims);
+  stageRotorcraftPads(map);
   return finalizeTheater(map);
 }
 
@@ -118,6 +119,7 @@ export function generateDesertTheater(def: TheaterDef, seed: number): GameMap {
   placeDomainPad(map, 'tank', 0, routePoints(map, [[0.08, 0.5]])[0]);
   placeDomainPad(map, 'tank', 1, routePoints(map, [[0.92, 0.5]])[0]);
   settleClaims(map, ctx.claims);
+  stageRotorcraftPads(map);
   return finalizeTheater(map);
 }
 
@@ -178,5 +180,6 @@ export function generateCountrysideTheater(def: TheaterDef, seed: number): GameM
   placeDomainPad(map, 'apc', 0, routePoints(map, [[0.08, 0.5]])[0]);
   placeDomainPad(map, 'apc', 1, routePoints(map, [[0.92, 0.5]])[0]);
   settleClaims(map, ctx.claims);
+  stageRotorcraftPads(map);
   return finalizeTheater(map);
 }

@@ -771,7 +771,7 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
   // V2/V3: the air program joins the motor pool. The AIRFIELD (strike jet,
   // interceptor, bomber) and the LANCE that answers the enemy's.
   const padKinds: VehicleKind[] = ['buggy', 'tank', 'apc', 'skiff', 'bike', 'flyer', 'transport', 'ambulance', 'tunneler', 'hoverboard', 'mech',
-    'strikejet', 'interceptor', 'bomber', 'aatrack'];
+    'strikejet', 'interceptor', 'bomber', 'aatrack', 'attackheli', 'transportheli'];
   for (let side = 0 as Team; side < 2; side++) {
     const [btx, btz] = baseT[side];
     const fwd = side === 0 ? 1 : -1;
@@ -796,18 +796,20 @@ export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savann
       [fwd * 14, -15], [fwd * 14, -20],  // strike jet · interceptor, on the flight line
       [fwd * 14, -25],                    // bomber — the end slot, biggest hangar
       [fwd * 19, -6],                     // the Lance guards the field; off the gate lane
+      [fwd * 14, -30], [fwd * 14, -35],  // open-air Shrike and Condor helipads
     ];
     padKinds.forEach((kind, i) => {
       const [ox, oz] = padOffsets[i];
       // aircraft get a wider clear — a hangar's canopy needs the whole yard
-      const aircraft = kind === 'strikejet' || kind === 'interceptor' || kind === 'bomber';
+      const fixedWing = kind === 'strikejet' || kind === 'interceptor' || kind === 'bomber';
+      const aircraft = fixedWing || kind === 'attackheli' || kind === 'transportheli';
       clearArea(grid, btx + ox, btz + oz, aircraft ? 4 : 3); // a yard the hull can pull out of
       const at = tileToWorld(btx + ox, btz + oz);
       vehiclePads.push({ kind, team: side as Team, pos: at });
       // A1: every airframe sleeps in its own building — the bomber's is
       // taller and wider because the bomber is. Open face toward the front,
       // which is also the direction the runway leaves.
-      if (aircraft) {
+      if (fixedWing) {
         // the hangar wraps the TAIL, not the whole airframe — a plane fully
         // under its roof is a plane the top-down camera cannot find. Nose
         // pokes out of the mouth, so "my jet is home" reads at any zoom.

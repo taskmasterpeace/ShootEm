@@ -491,6 +491,77 @@ export function buildVehicle(kind: VehicleKind, team: Team): THREE.Group {
       turret.position.set(0.9, 1.3, 0);
       break;
     }
+    case 'attackheli': {
+      const fuselage = box(3.8, 0.75, 1.15, body);
+      fuselage.position.y = 1.45;
+      g.add(fuselage);
+      const canopy = box(1.25, 0.52, 0.92, mat(0x13252b, { rough: 0.2, metal: 0.65 }));
+      canopy.position.set(1.35, 1.78, 0);
+      canopy.rotation.z = -0.08;
+      g.add(canopy);
+      const tail = box(2.4, 0.24, 0.3, bodyDark);
+      tail.position.set(-2.55, 1.58, 0);
+      g.add(tail);
+      const fin = box(0.5, 0.85, 0.1, bodyDark);
+      fin.position.set(-3.55, 1.98, 0);
+      g.add(fin);
+      for (const side of [1, -1]) {
+        const wing = box(1.2, 0.12, 0.75, bodyDark);
+        wing.position.set(0.15, 1.4, side * 0.95);
+        g.add(wing);
+        const pod = cyl(0.17, 0.17, 1.05, dark, 8);
+        pod.rotation.z = Math.PI / 2;
+        pod.position.set(0.25, 1.28, side * 1.28);
+        g.add(pod);
+      }
+      for (const [name, y, phase] of [['rotorL', 2.35, 0], ['rotorR', 2.5, Math.PI / 4]] as const) {
+        const rotor = new THREE.Group();
+        rotor.name = name;
+        rotor.position.set(-0.35, y, 0);
+        rotor.rotation.y = phase;
+        rotor.add(box(0.16, 0.04, 4.7, dark), box(4.7, 0.04, 0.16, dark));
+        g.add(rotor);
+      }
+      const chin = box(1.2, 0.14, 0.14, dark);
+      chin.position.set(0.6, 0, 0);
+      recoil.add(chin);
+      turret.position.set(1.25, 1.05, 0);
+      break;
+    }
+    case 'transportheli': {
+      const cabin = box(5.8, 1.25, 2.2, body);
+      cabin.position.y = 1.55;
+      g.add(cabin);
+      const cockpit = box(1.25, 0.9, 1.9, mat(0x14262c, { rough: 0.22, metal: 0.6 }));
+      cockpit.position.set(2.55, 1.85, 0);
+      g.add(cockpit);
+      for (const side of [1, -1]) {
+        const sponson = box(2.2, 0.35, 0.55, bodyDark);
+        sponson.position.set(-0.35, 1.12, side * 1.35);
+        g.add(sponson);
+        const skid = box(4.8, 0.12, 0.12, dark);
+        skid.position.set(-0.1, 0.72, side * 1.25);
+        g.add(skid);
+      }
+      for (const [name, x] of [['rotorL', 1.7], ['rotorR', -1.75]] as const) {
+        const mast = cyl(0.09, 0.09, 0.75, dark, 8);
+        mast.position.set(x, 2.75, 0);
+        g.add(mast);
+        const rotor = new THREE.Group();
+        rotor.name = name;
+        rotor.position.set(x, 3.15, 0);
+        rotor.add(box(0.16, 0.05, 4.4, dark), box(4.4, 0.05, 0.16, dark));
+        g.add(rotor);
+      }
+      const doorGun = box(1.35, 0.13, 0.13, dark);
+      doorGun.position.set(0.45, 0, 0);
+      recoil.add(doorGun);
+      turret.position.set(0.2, 1.7, -1.3);
+      const stripe = box(5.82, 0.11, 0.22, glow);
+      stripe.position.set(0, 1.72, 1.11);
+      g.add(stripe);
+      break;
+    }
     case 'transport': {
       // long crew hull with sensor mast, ECM fins, comms dish — a rolling ops center
       const hull = box(4.2, 1.3, 2.2, body);
