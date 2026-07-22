@@ -108,6 +108,32 @@ export const SOUND_SPECS = {
   door_break:   { cat: 'impacts', desc: 'Wooden door splintering apart and crashing down — planks cracking, wood debris falling', dur: 1.1 },
 };
 
+/** Fill editor/review entries for shipped slots that use a specialized
+ * generator (VO, announcer, procedural effects) instead of this SFX table. */
+export function inferSoundSpec(name) {
+  const spoken = /^(vo_|ann_|crew_)/.test(name);
+  const cat = name.startsWith('vo_') ? 'voices'
+    : name.startsWith('ann_') ? 'announcer'
+      : name.startsWith('crew_') ? 'voices'
+        : name.startsWith('amb_') ? 'ambience'
+          : 'other';
+  const label = name.replaceAll('_', ' ');
+  return {
+    cat,
+    desc: spoken ? `${label} - spoken line; import or edit a directed replacement below` : `${label} sound effect`,
+    dur: 1,
+    generatable: !spoken,
+  };
+}
+
+/** Merge the handcrafted prompts with every sound name shipped on disk. */
+export function completeSoundSpecs(names) {
+  return Object.fromEntries([...new Set(names)].sort().map((name) => [
+    name,
+    SOUND_SPECS[name] ? { ...SOUND_SPECS[name], generatable: true } : inferSoundSpec(name),
+  ]));
+}
+
 export const CATEGORIES = {
   weapons: 'Weapons',
   impacts: 'Impacts & explosions',
@@ -116,17 +142,24 @@ export const CATEGORIES = {
   tech: 'Abilities / sci-fi tech',
   ui: 'Objective / UI / match',
   ambience: 'Ambience beds (looped)',
+  voices: 'Character & crew voices (import/edit)',
+  announcer: 'Announcer calls (import/edit)',
+  other: 'Specialized / procedural effects',
 };
 
 // run directly → emit the browser copy
 const invoked = (process.argv[1] || '').replace(/\\/g, '/');
 if (invoked.endsWith('tools/sound-specs.mjs')) {
-  const { writeFileSync, mkdirSync } = await import('node:fs');
+  const { writeFileSync, mkdirSync, readdirSync } = await import('node:fs');
   const { dirname, join } = await import('node:path');
   const { fileURLToPath } = await import('node:url');
-  const out = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'audio', 'sound-specs.json');
+  const audioDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'audio');
+  const out = join(audioDir, 'sound-specs.json');
   mkdirSync(dirname(out), { recursive: true });
-  const arr = Object.entries(SOUND_SPECS).map(([name, s]) => ({ name, ...s }));
+  const names = readdirSync(audioDir)
+    .filter((name) => /\.(wav|ogg)$/i.test(name))
+    .map((name) => name.replace(/\.(wav|ogg)$/i, ''));
+  const arr = Object.entries(completeSoundSpecs(names)).map(([name, s]) => ({ name, ...s }));
   writeFileSync(out, JSON.stringify({ categories: CATEGORIES, sounds: arr }, null, 2));
   console.log(`Wrote ${arr.length} specs → ${out}`);
 }

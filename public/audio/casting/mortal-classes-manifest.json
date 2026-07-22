@@ -1,0 +1,1953 @@
+{
+  "title": "War World Mortal Class Cast",
+  "language": "en-US",
+  "total": 186,
+  "cast": {
+    "infantry": {
+      "name": "Gabriel \"Gabe\" Reyes",
+      "role": "Infantry",
+      "voice": "Achird",
+      "safePersona": "Gabe Reyes, a warm working-man South Texas baritone with calm, grounded authority and restrained practical humor.",
+      "persona": "Gabriel \"Gabe\" Reyes, a 34-year-old Mexican-American infantryman from South Texas. Warm working-man baritone with a restrained South Texas cadence. Dependable, observant, and quietly protective: the squad anchor rather than a shouting drill sergeant. His humor is practical and sparse, and immediate danger strips every joke away.",
+      "fadePersona": "Gabriel \"Gabe\" Reyes, a warm South Texas working-man baritone. His breath is weak but his instinct is still to protect the squad.",
+      "style": [
+        "Keep the delivery plainspoken and grounded, never a movie-trailer soldier.",
+        "Let warmth appear most clearly when he helps another trooper."
+      ]
+    },
+    "heavy": {
+      "name": "Omar \"Big O\" Haddad",
+      "role": "Heavy Weapons",
+      "voice": "Algenib",
+      "safePersona": "Omar Haddad, a cavernous textured Detroit bass with patient warmth, precise timing, and gently underplayed humor.",
+      "persona": "Omar \"Big O\" Haddad, a 43-year-old Lebanese-American heavy-weapons operator from Dearborn. Cavernous textured bass with a Detroit edge and the warmth of a patient favorite uncle. He treats enormous firepower like ordinary factory equipment: careful, competent, faintly amused. Never play him as stupid, lumbering, or a cartoon giant.",
+      "fadePersona": "Omar \"Big O\" Haddad, a deep textured Detroit bass. His great physical presence is failing, but he remains concerned about the squad and the loaded weapon beside him.",
+      "style": [
+        "Use measured weight and an audible smile in dry lines.",
+        "When danger spikes, turn the bass into a clear protective command without slowing the information."
+      ]
+    },
+    "jump": {
+      "name": "Keisha \"Kite\" Bell",
+      "role": "Jump Trooper",
+      "voice": "Laomedeia",
+      "safePersona": "Keisha \"Kite\" Bell, a quick bright South Florida alto with agile sarcasm, clean diction, and breath that tracks rapid motion.",
+      "persona": "Keisha \"Kite\" Bell, a 28-year-old Black woman from Miami Gardens and a veteran jump trooper. Quick bright alto, authentic South Florida Black English rhythm, streetwise observation, and agile sarcasm. Her breath and pace track the jetpack: controlled before launch, exhilarated in flight, breathless after landing, genuinely alarmed when thrust fails. No caricature and no invented slang.",
+      "fadePersona": "Keisha \"Kite\" Bell, a quick bright South Florida alto now thinned by failing breath. The confidence drops away and her care for the squad comes through.",
+      "style": [
+        "Keep the wit quick and specific; never turn every line into a punch line.",
+        "Let altitude, acceleration, breath, and landing impact physically change the read."
+      ]
+    },
+    "engineer": {
+      "name": "Naveen \"Patch\" Singh",
+      "role": "Combat Engineer",
+      "voice": "Sadaltager",
+      "safePersona": "Naveen \"Patch\" Singh, a textured knowledgeable Brampton tenor with methodical patience and extremely dry understatement.",
+      "persona": "Naveen \"Patch\" Singh, a 48-year-old Punjabi-Canadian combat engineer from Brampton. Textured knowledgeable tenor with an easy Canadian cadence and subtle Punjabi musicality. Methodical, patient, and extremely dry. He speaks to machinery more gently than he speaks to careless soldiers, but his concern becomes sincere when somebody is hurt.",
+      "fadePersona": "Naveen \"Patch\" Singh, a textured patient Brampton tenor. His focus narrows to one last practical concern as strength leaves him.",
+      "style": [
+        "Deliver technical observations as lived competence, not robotic jargon.",
+        "Dry remarks stay underplayed; emergencies become loud, exact, and human."
+      ]
+    },
+    "medic": {
+      "name": "Dr. Amina \"Doc\" Okafor",
+      "role": "Field Medic",
+      "voice": "Kore",
+      "safePersona": "Doctor Amina \"Doc\" Okafor, a controlled Nigerian-British contralto with crisp authority, clinical precision, and direct warmth.",
+      "persona": "Doctor Amina \"Doc\" Okafor, a 39-year-old Nigerian-British field medic. Controlled contralto with crisp London-influenced English and a natural Nigerian cadence. Brisk, authoritative, and intolerant of preventable injuries. The clinical wit protects a deeply compassionate core that becomes unmistakable when a patient is frightened or fading.",
+      "fadePersona": "Doctor Amina \"Doc\" Okafor, a controlled contralto whose breath is now barely supported. Even at the edge of consciousness she is thinking about the patient beside her.",
+      "style": [
+        "Make commands medically precise and instantly obeyable.",
+        "When treating a critical patient, lose the dryness and reveal direct human warmth."
+      ]
+    },
+    "pathfinder": {
+      "name": "Mateo \"Skip\" Alvarez",
+      "role": "Pathfinder",
+      "voice": "Sadachbia",
+      "safePersona": "Mateo \"Skip\" Alvarez, a fast buoyant Bronx tenor with warm rhythm, forward momentum, and delight in clever timing.",
+      "persona": "Mateo \"Skip\" Alvarez, a 30-year-old Puerto Rican pathfinder from the Bronx. Fast buoyant tenor with warm New York rhythm and restless forward momentum. He sees battlefields as doors, angles, and shortcuts. Clever without being slippery, upbeat without being childish, and most alive when a route nobody else saw suddenly works.",
+      "fadePersona": "Mateo \"Skip\" Alvarez, a warm quick Bronx tenor slowed almost to stillness. He uses the last breath to keep the squad route safe.",
+      "style": [
+        "Keep his pace agile but every tactical word intelligible.",
+        "His pleasure comes from geometry and timing, not reckless chaos."
+      ]
+    },
+    "ghost": {
+      "name": "Elias \"Switch\" Baptiste",
+      "role": "Ghost",
+      "voice": "Schedar",
+      "safePersona": "Elias \"Switch\" Baptiste, a soft low Brooklyn baritone with measured cadence, close-headset focus, and quiet observational confidence.",
+      "persona": "Elias \"Switch\" Baptiste, a 35-year-old Haitian-American Ghost operator from Brooklyn. Soft low baritone, measured Brooklyn cadence, and intense observational focus. He is quiet because he is listening, not because he is supernatural. Nearly conversational during surveillance work, sharply louder when physical danger reaches the team. Never play him as sinister or emotionless.",
+      "fadePersona": "Elias \"Switch\" Baptiste, a soft low Brooklyn baritone losing signal and breath together. The final words are a factual sign-off with fear underneath.",
+      "style": [
+        "Recon lines stay close, low, and intimate as though sharing one headset.",
+        "Emergency lines break the hush immediately and carry exact spatial information."
+      ]
+    }
+  },
+  "lines": [
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_intro",
+      "text": "Gabe Reyes. Rifle up, eyes open. Stay near me and we all get home.",
+      "scene": "The match begins and this operator introduces themself over close squad comms.",
+      "notes": [
+        "Give the squad a memorable first impression without sounding like a résumé.",
+        "Land the final promise as genuine capability."
+      ]
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_deploy",
+      "text": "Nothing fancy. We take the ground, then we keep it.",
+      "scene": "The deployment gate opens and the squad takes its first steps into live fire.",
+      "notes": [
+        "Speak while checking equipment and moving.",
+        "Confident readiness, with no ceremonial announcer cadence."
+      ]
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_move",
+      "text": "On me. Short rushes.",
+      "scene": "The operator calls a short tactical relocation while the squad is exposed.",
+      "notes": [
+        "Keep the instruction clipped and useful.",
+        "Physical movement must be audible under the words."
+      ]
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_attack",
+      "text": "Front sight, center mass. Work ’em.",
+      "scene": "The squad commits to an attack and the operator calls the opening push.",
+      "notes": [
+        "Project over weapons with immediate command energy.",
+        "No theatrical battle speech; this is happening now."
+      ]
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_hold",
+      "text": "This patch is ours. Make ’em pay rent.",
+      "scene": "The squad has reached defensible ground and must stop an enemy push.",
+      "notes": [
+        "Firm controlled command rather than panic.",
+        "The character believes this position can be held."
+      ]
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_taking_fire",
+      "text": "Contact, front-left! Get small!",
+      "scene": "Incoming rounds snap close and the operator identifies the threat direction.",
+      "notes": [
+        "Urgent battlefield shout with sharp consonants.",
+        "Fear may flash through, but the information stays clear."
+      ]
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_grenade_in",
+      "text": "Frag! Off the wall—move!",
+      "scene": "A live grenade lands inside the squad position with only seconds to move.",
+      "notes": [
+        "Full alarm shout; no humor survives this moment.",
+        "Fast enough to save a life, never garbled."
+      ]
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_reload",
+      "text": "Changing magazine. Cover my lane.",
+      "scene": "The weapon runs low during contact and the operator asks the squad to cover the lane.",
+      "notes": [
+        "Short breath and active hands under the line.",
+        "Report the vulnerability without melodrama."
+      ]
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_kill",
+      "text": "One down. Keep scanning.",
+      "scene": "A single enemy drops and the operator immediately checks for the next threat.",
+      "notes": [
+        "Controlled confirmation rather than celebration.",
+        "Let the personality color the release after danger."
+      ]
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_kill_multi",
+      "text": "Lane’s clear. Push it before they reconsider.",
+      "scene": "Several enemies fall in one fast exchange and a lane suddenly opens.",
+      "notes": [
+        "Allow a brief flash of satisfaction.",
+        "Keep momentum pointed toward the next action."
+      ]
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_low_health",
+      "text": "I’m hit. Still useful.",
+      "scene": "The operator is badly wounded but remains upright and combat-capable.",
+      "notes": [
+        "Strained breath and real pain beneath professional control.",
+        "Do not make the injury sound trivial."
+      ]
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_downed",
+      "text": "I’m down, not done. Drag me in.",
+      "scene": "The operator hits the ground wounded and cannot fight until a teammate reaches them.",
+      "notes": [
+        "Painfully loud enough for nearby help.",
+        "Vulnerability replaces swagger without becoming melodrama."
+      ]
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_ally_downed",
+      "text": "We got one down! I’m going.",
+      "scene": "A teammate falls nearby and the operator commits to reaching them.",
+      "notes": [
+        "Protective urgency aimed at both the casualty and the squad.",
+        "Keep moving while speaking."
+      ]
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_reviving",
+      "text": "Stay with me. Breathe and look at me.",
+      "scene": "The operator kneels under danger and works to bring a wounded teammate back.",
+      "notes": [
+        "Close, direct voice meant for one frightened person.",
+        "Warmth and focus matter more than wit."
+      ]
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_revived",
+      "text": "There we go. Back in the fight.",
+      "scene": "A teammate has just pulled the operator back from the edge and they regain their feet.",
+      "notes": [
+        "Unsteady first breath, then returning purpose.",
+        "Gratitude can be brief but must be real."
+      ]
+    },
+    {
+      "classId": "infantry",
+      "slot": "death_infantry",
+      "text": "Tell ’em... we held.",
+      "scene": "Strength gives way and the battlefield recedes while the operator manages a final thought.",
+      "notes": [
+        "Breath is failing, but articulate “Tell ’em” as two distinct words before the pause.",
+        "Fade on “held” without adding a scream or extra words."
+      ]
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_flag_pickup",
+      "text": "Flag’s with me. Build me a road.",
+      "scene": "The operator takes the enemy flag and immediately begins the dangerous route home.",
+      "notes": [
+        "Report possession while already moving.",
+        "The increased danger is understood beneath the personality."
+      ]
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_carrier_escort",
+      "text": "Carrier moving. Shoulders out, eyes wide.",
+      "scene": "A friendly carrier crosses exposed ground and needs the squad to close around them.",
+      "notes": [
+        "Protective tactical command first.",
+        "Keep pace with a moving carrier."
+      ]
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_flag_dropped",
+      "text": "Flag loose! Nobody dies staring at it!",
+      "scene": "The friendly carrier falls and both teams begin converging on the loose flag.",
+      "notes": [
+        "Immediate battlefield yell with clean information.",
+        "No joke; the recovery window is brief."
+      ]
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_flag_capture",
+      "text": "That’s home. That’s a point. Reset.",
+      "scene": "The flag reaches home after a dangerous run and the squad earns one breath of relief.",
+      "notes": [
+        "Controlled celebration that belongs to this character.",
+        "Finish ready to reset for the next run."
+      ]
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_frag_ready",
+      "text": "Frag ready. Call the pocket.",
+      "scene": "A grenade is in hand while the squad identifies a protected enemy pocket.",
+      "notes": [
+        "Controlled warning to friendlies nearby.",
+        "Build anticipation without dragging the timing."
+      ]
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_frag_throw",
+      "text": "Sending one!",
+      "scene": "The operator throws a live fragmentation grenade into the called pocket.",
+      "notes": [
+        "Sharp throwing exertion and loud warning.",
+        "The line lands with the release of the arm."
+      ]
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_frag_cook",
+      "text": "Cooking it... now!",
+      "scene": "The operator holds the fuse for a dangerous beat before throwing.",
+      "notes": [
+        "Count the risk in a tight controlled voice.",
+        "Explode into the final word as the grenade leaves."
+      ]
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_frag_bad_bounce",
+      "text": "Bad bounce! Break!",
+      "scene": "The thrown grenade ricochets back toward friendly ground.",
+      "notes": [
+        "Immediate alarm yell with genuine surprise.",
+        "Drop all composure and save the squad."
+      ]
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_frag_flush",
+      "text": "There they go. Rifles finish it.",
+      "scene": "The blast forces enemies out of cover into the rifle lane.",
+      "notes": [
+        "Quick confirmation while reacquiring the rifle sight.",
+        "The satisfaction is tactical, not cruel."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_intro",
+      "text": "Omar Haddad. You bring me targets; I bring the weather.",
+      "scene": "The match begins and this operator introduces themself over close squad comms.",
+      "notes": [
+        "Give the squad a memorable first impression without sounding like a résumé.",
+        "Land the final promise as genuine capability."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_deploy",
+      "text": "Big gun, small doorway. We will negotiate.",
+      "scene": "The deployment gate opens and the squad takes its first steps into live fire.",
+      "notes": [
+        "Speak while checking equipment and moving.",
+        "Confident readiness, with no ceremonial announcer cadence."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_move",
+      "text": "I am moving. The ammunition is moving slower.",
+      "scene": "The operator calls a short tactical relocation while the squad is exposed.",
+      "notes": [
+        "Keep the instruction clipped and useful.",
+        "Physical movement must be audible under the words."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_attack",
+      "text": "Heavy fire, coming through!",
+      "scene": "The squad commits to an attack and the operator calls the opening push.",
+      "notes": [
+        "Project over weapons with immediate command energy.",
+        "No theatrical battle speech; this is happening now."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_hold",
+      "text": "Behind me. We make our stand here.",
+      "scene": "The squad has reached defensible ground and must stop an enemy push.",
+      "notes": [
+        "Firm controlled command rather than panic.",
+        "The character believes this position can be held."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_taking_fire",
+      "text": "Rounds on the heavy! I noticed!",
+      "scene": "Incoming rounds snap close and the operator identifies the threat direction.",
+      "notes": [
+        "Urgent battlefield shout with sharp consonants.",
+        "Fear may flash through, but the information stays clear."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_grenade_in",
+      "text": "Grenade! Outside the dome—move!",
+      "scene": "A live grenade lands inside the squad position with only seconds to move.",
+      "notes": [
+        "Full alarm shout; no humor survives this moment.",
+        "Fast enough to save a life, never garbled."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_reload",
+      "text": "Long reload. This is why I have friends.",
+      "scene": "The weapon runs low during contact and the operator asks the squad to cover the lane.",
+      "notes": [
+        "Short breath and active hands under the line.",
+        "Report the vulnerability without melodrama."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_kill",
+      "text": "That problem has become spare parts.",
+      "scene": "A single enemy drops and the operator immediately checks for the next threat.",
+      "notes": [
+        "Controlled confirmation rather than celebration.",
+        "Let the personality color the release after danger."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_kill_multi",
+      "text": "See? A very efficient meeting.",
+      "scene": "Several enemies fall in one fast exchange and a lane suddenly opens.",
+      "notes": [
+        "Allow a brief flash of satisfaction.",
+        "Keep momentum pointed toward the next action."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_low_health",
+      "text": "Armor’s gone. Omar remains.",
+      "scene": "The operator is badly wounded but remains upright and combat-capable.",
+      "notes": [
+        "Strained breath and real pain beneath professional control.",
+        "Do not make the injury sound trivial."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_downed",
+      "text": "Big target is down. Little help?",
+      "scene": "The operator hits the ground wounded and cannot fight until a teammate reaches them.",
+      "notes": [
+        "Painfully loud enough for nearby help.",
+        "Vulnerability replaces swagger without becoming melodrama."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_ally_downed",
+      "text": "Stay there. I am bringing the wall.",
+      "scene": "A teammate falls nearby and the operator commits to reaching them.",
+      "notes": [
+        "Protective urgency aimed at both the casualty and the squad.",
+        "Keep moving while speaking."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_reviving",
+      "text": "Easy, my friend. Heavy hands can still be gentle.",
+      "scene": "The operator kneels under danger and works to bring a wounded teammate back.",
+      "notes": [
+        "Close, direct voice meant for one frightened person.",
+        "Warmth and focus matter more than wit."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_revived",
+      "text": "Ah. Back to being everybody’s wall.",
+      "scene": "A teammate has just pulled the operator back from the edge and they regain their feet.",
+      "notes": [
+        "Unsteady first breath, then returning purpose.",
+        "Gratitude can be brief but must be real."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "death_heavy",
+      "text": "Gun’s still loaded... do not waste it.",
+      "scene": "Strength gives way and the battlefield recedes while the operator manages a final thought.",
+      "notes": [
+        "Barely supported voice with breath failing between phrases.",
+        "No scream, no melodrama, and no added words."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_flag_pickup",
+      "text": "I have the flag. This was not the fast plan.",
+      "scene": "The operator takes the enemy flag and immediately begins the dangerous route home.",
+      "notes": [
+        "Report possession while already moving.",
+        "The increased danger is understood beneath the personality."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_carrier_escort",
+      "text": "Stay behind the heavy. Yes, that is me.",
+      "scene": "A friendly carrier crosses exposed ground and needs the squad to close around them.",
+      "notes": [
+        "Protective tactical command first.",
+        "Keep pace with a moving carrier."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_flag_dropped",
+      "text": "Flag is down! I will make room around it!",
+      "scene": "The friendly carrier falls and both teams begin converging on the loose flag.",
+      "notes": [
+        "Immediate battlefield yell with clean information.",
+        "No joke; the recovery window is brief."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_flag_capture",
+      "text": "Slow delivery. Same receipt.",
+      "scene": "The flag reaches home after a dangerous run and the squad earns one breath of relief.",
+      "notes": [
+        "Controlled celebration that belongs to this character.",
+        "Finish ready to reset for the next run."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_shield_up",
+      "text": "Dome up! Bring your breathing inside.",
+      "scene": "The heavy plants a shield dome as fire closes around nearby teammates.",
+      "notes": [
+        "Large protective command that invites the squad inside.",
+        "Relief and responsibility arrive together."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_shield_failing",
+      "text": "Dome is cracking! Choose your next cover!",
+      "scene": "Impacts fracture the dome and only moments of protection remain.",
+      "notes": [
+        "Full warning shout over cracking energy.",
+        "Make the squad choose new cover immediately."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_autocannon_brace",
+      "text": "Bracing. Let it eat.",
+      "scene": "The heavy plants their feet, shoulders the autocannon, and opens a sustained lane.",
+      "notes": [
+        "Deep braced breath with controlled anticipation.",
+        "The last phrase releases the weapon’s weight."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_missile_armor",
+      "text": "Armor marked. Missile away!",
+      "scene": "The launcher finds a crewed armored target and a missile leaves the tube.",
+      "notes": [
+        "Clear anti-armor call above mechanical noise.",
+        "Respect the danger of the target."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_missile_hit",
+      "text": "Direct hit. The machine felt that.",
+      "scene": "The missile strikes the target vehicle and visibly damages it.",
+      "notes": [
+        "Solid professional confirmation.",
+        "Underplay the satisfaction."
+      ]
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_autocannon_empty",
+      "text": "Cannon dry. This is socially awkward.",
+      "scene": "The autocannon belt ends during an exposed fight.",
+      "notes": [
+        "Dry surprise under immediate vulnerability.",
+        "Keep working the mechanism while speaking."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_intro",
+      "text": "Keisha Bell—Kite on comms. If you lose me, look up.",
+      "scene": "The match begins and this operator introduces themself over close squad comms.",
+      "notes": [
+        "Give the squad a memorable first impression without sounding like a résumé.",
+        "Land the final promise as genuine capability."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_deploy",
+      "text": "Y’all take the road. I’m allergic to traffic.",
+      "scene": "The deployment gate opens and the squad takes its first steps into live fire.",
+      "notes": [
+        "Speak while checking equipment and moving.",
+        "Confident readiness, with no ceremonial announcer cadence."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_move",
+      "text": "Roofline. Meet me there.",
+      "scene": "The operator calls a short tactical relocation while the squad is exposed.",
+      "notes": [
+        "Keep the instruction clipped and useful.",
+        "Physical movement must be audible under the words."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_attack",
+      "text": "Dropping in—make room!",
+      "scene": "The squad commits to an attack and the operator calls the opening push.",
+      "notes": [
+        "Project over weapons with immediate command energy.",
+        "No theatrical battle speech; this is happening now."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_hold",
+      "text": "I got high side. Don’t make me babysit low.",
+      "scene": "The squad has reached defensible ground and must stop an enemy push.",
+      "notes": [
+        "Firm controlled command rather than panic.",
+        "The character believes this position can be held."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_taking_fire",
+      "text": "Oh, they mad-mad! Shots from the east!",
+      "scene": "Incoming rounds snap close and the operator identifies the threat direction.",
+      "notes": [
+        "Urgent battlefield shout with sharp consonants.",
+        "Fear may flash through, but the information stays clear."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_grenade_in",
+      "text": "Grenade! Cute—move!",
+      "scene": "A live grenade lands inside the squad position with only seconds to move.",
+      "notes": [
+        "Full alarm shout; no humor survives this moment.",
+        "Fast enough to save a life, never garbled."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_reload",
+      "text": "Reloading in the air. Terrible life choices.",
+      "scene": "The weapon runs low during contact and the operator asks the squad to cover the lane.",
+      "notes": [
+        "Short breath and active hands under the line.",
+        "Report the vulnerability without melodrama."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_kill",
+      "text": "Caught you looking straight ahead.",
+      "scene": "A single enemy drops and the operator immediately checks for the next threat.",
+      "notes": [
+        "Controlled confirmation rather than celebration.",
+        "Let the personality color the release after danger."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_kill_multi",
+      "text": "That whole corner needed an attitude adjustment.",
+      "scene": "Several enemies fall in one fast exchange and a lane suddenly opens.",
+      "notes": [
+        "Allow a brief flash of satisfaction.",
+        "Keep momentum pointed toward the next action."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_low_health",
+      "text": "Jet’s fine. I am less fine.",
+      "scene": "The operator is badly wounded but remains upright and combat-capable.",
+      "notes": [
+        "Strained breath and real pain beneath professional control.",
+        "Do not make the injury sound trivial."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_downed",
+      "text": "Okay, gravity won one. Come get me.",
+      "scene": "The operator hits the ground wounded and cannot fight until a teammate reaches them.",
+      "notes": [
+        "Painfully loud enough for nearby help.",
+        "Vulnerability replaces swagger without becoming melodrama."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_ally_downed",
+      "text": "Hold on! I’m coming over the wall!",
+      "scene": "A teammate falls nearby and the operator commits to reaching them.",
+      "notes": [
+        "Protective urgency aimed at both the casualty and the squad.",
+        "Keep moving while speaking."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_reviving",
+      "text": "Don’t quit while I’m down here being responsible.",
+      "scene": "The operator kneels under danger and works to bring a wounded teammate back.",
+      "notes": [
+        "Close, direct voice meant for one frightened person.",
+        "Warmth and focus matter more than wit."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_revived",
+      "text": "See? Can’t keep good trouble grounded.",
+      "scene": "A teammate has just pulled the operator back from the edge and they regain their feet.",
+      "notes": [
+        "Unsteady first breath, then returning purpose.",
+        "Gratitude can be brief but must be real."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "death_jump",
+      "text": "Hey... don’t let ’em take the sky.",
+      "scene": "Strength gives way and the battlefield recedes while the operator manages a final thought.",
+      "notes": [
+        "Weak breath, but articulate every word after the pause and make “sky” unmistakably distinct.",
+        "The care for the squad replaces the usual sarcasm."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_flag_pickup",
+      "text": "Got the flag. Tell the ground crew to keep up.",
+      "scene": "The operator takes the enemy flag and immediately begins the dangerous route home.",
+      "notes": [
+        "Report possession while already moving.",
+        "The increased danger is understood beneath the personality."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_carrier_escort",
+      "text": "Carrier below me. Touch them and I drop on you.",
+      "scene": "A friendly carrier crosses exposed ground and needs the squad to close around them.",
+      "notes": [
+        "Protective tactical command first.",
+        "Keep pace with a moving carrier."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_flag_dropped",
+      "text": "Flag down! I can reach it—cover me!",
+      "scene": "The friendly carrier falls and both teams begin converging on the loose flag.",
+      "notes": [
+        "Immediate battlefield yell with clean information.",
+        "No joke; the recovery window is brief."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_flag_capture",
+      "text": "Air mail, delivered.",
+      "scene": "The flag reaches home after a dangerous run and the squad earns one breath of relief.",
+      "notes": [
+        "Controlled celebration that belongs to this character.",
+        "Finish ready to reset for the next run."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_jet_ignite",
+      "text": "Kite going vertical.",
+      "scene": "The jump trooper squeezes the controls and the jetpack lifts hard from the ground.",
+      "notes": [
+        "Voice rises physically with acceleration.",
+        "A bright confident launch, not a posed catchphrase."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_airborne_attack",
+      "text": "From your blind side!",
+      "scene": "The jump trooper dives through an enemy blind angle and fires in motion.",
+      "notes": [
+        "Shout through wind and acceleration.",
+        "Fast, delighted, and fully committed."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_fuel_low",
+      "text": "Tank’s coughing. I’m coming down.",
+      "scene": "The fuel gauge falls into reserve while the trooper is still airborne.",
+      "notes": [
+        "Breath tightens and confidence becomes calculation.",
+        "Urgent report without panic."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_fuel_empty",
+      "text": "No thrust! Clear my landing!",
+      "scene": "Thrust cuts out at dangerous altitude and the trooper begins falling.",
+      "notes": [
+        "Genuine alarm shout with breath knocked loose.",
+        "The landing warning must dominate everything."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_hard_landing",
+      "text": "Feet down. Knees filing complaints.",
+      "scene": "The trooper hits the ground hard after a fast descent.",
+      "notes": [
+        "Speak through the impact and recovery breath.",
+        "Dry humor arrives only after confirming survival."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_jet_ready",
+      "text": "Fuel’s back. Sky’s mine.",
+      "scene": "The pack finishes recharging and can lift again.",
+      "notes": [
+        "Energy and confidence return to the voice.",
+        "Keep the line moving toward the next launch."
+      ]
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_air_watched",
+      "text": "They got eyes up. Changing altitude.",
+      "scene": "Enemy weapons begin tracking the trooper’s altitude and expected path.",
+      "notes": [
+        "Quick tactical recalculation in mid-air.",
+        "No bravado; changing altitude is survival."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_intro",
+      "text": "Naveen Singh. Patch if something is broken. Mister Singh if you broke it.",
+      "scene": "The match begins and this operator introduces themself over close squad comms.",
+      "notes": [
+        "Give the squad a memorable first impression without sounding like a résumé.",
+        "Land the final promise as genuine capability."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_deploy",
+      "text": "Give me thirty seconds and one defensible corner.",
+      "scene": "The deployment gate opens and the squad takes its first steps into live fire.",
+      "notes": [
+        "Speak while checking equipment and moving.",
+        "Confident readiness, with no ceremonial announcer cadence."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_move",
+      "text": "Moving the workshop.",
+      "scene": "The operator calls a short tactical relocation while the squad is exposed.",
+      "notes": [
+        "Keep the instruction clipped and useful.",
+        "Physical movement must be audible under the words."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_attack",
+      "text": "Tools down. Shotgun up.",
+      "scene": "The squad commits to an attack and the operator calls the opening push.",
+      "notes": [
+        "Project over weapons with immediate command energy.",
+        "No theatrical battle speech; this is happening now."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_hold",
+      "text": "This position has good bones. Let me improve it.",
+      "scene": "The squad has reached defensible ground and must stop an enemy push.",
+      "notes": [
+        "Firm controlled command rather than panic.",
+        "The character believes this position can be held."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_taking_fire",
+      "text": "They are shooting the engineer. Predictable and rude.",
+      "scene": "Incoming rounds snap close and the operator identifies the threat direction.",
+      "notes": [
+        "Urgent battlefield shout with sharp consonants.",
+        "Fear may flash through, but the information stays clear."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_grenade_in",
+      "text": "Explosive in the workspace! Clear!",
+      "scene": "A live grenade lands inside the squad position with only seconds to move.",
+      "notes": [
+        "Full alarm shout; no humor survives this moment.",
+        "Fast enough to save a life, never garbled."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_reload",
+      "text": "Feeding the problem-solver.",
+      "scene": "The weapon runs low during contact and the operator asks the squad to cover the lane.",
+      "notes": [
+        "Short breath and active hands under the line.",
+        "Report the vulnerability without melodrama."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_kill",
+      "text": "Diagnosis: poor maintenance.",
+      "scene": "A single enemy drops and the operator immediately checks for the next threat.",
+      "notes": [
+        "Articulate “Diagnosis” clearly before a small dry pause.",
+        "Underplay the joke and keep scanning the lane."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_kill_multi",
+      "text": "That repair is beyond warranty.",
+      "scene": "Several enemies fall in one fast exchange and a lane suddenly opens.",
+      "notes": [
+        "Allow a brief flash of satisfaction.",
+        "Keep momentum pointed toward the next action."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_low_health",
+      "text": "Leaking in several non-approved places.",
+      "scene": "The operator is badly wounded but remains upright and combat-capable.",
+      "notes": [
+        "Strained breath and real pain beneath professional control.",
+        "Do not make the injury sound trivial."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_downed",
+      "text": "Patch requires patching. Yes, I hear it.",
+      "scene": "The operator hits the ground wounded and cannot fight until a teammate reaches them.",
+      "notes": [
+        "Painfully loud enough for nearby help.",
+        "Vulnerability replaces swagger without becoming melodrama."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_ally_downed",
+      "text": "Patient on the floor. Cover me.",
+      "scene": "A teammate falls nearby and the operator commits to reaching them.",
+      "notes": [
+        "Protective urgency aimed at both the casualty and the squad.",
+        "Keep moving while speaking."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_reviving",
+      "text": "I fix people reluctantly. Hold still.",
+      "scene": "The operator kneels under danger and works to bring a wounded teammate back.",
+      "notes": [
+        "Close, direct voice meant for one frightened person.",
+        "Warmth and focus matter more than wit."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_revived",
+      "text": "Excellent. I remain billable.",
+      "scene": "A teammate has just pulled the operator back from the edge and they regain their feet.",
+      "notes": [
+        "Unsteady first breath, then returning purpose.",
+        "Gratitude can be brief but must be real."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "death_engineer",
+      "text": "Don’t leave... the turret facing the wall.",
+      "scene": "Strength gives way and the battlefield recedes while the operator manages a final thought.",
+      "notes": [
+        "Barely supported voice with breath failing between phrases.",
+        "No scream, no melodrama, and no added words."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_flag_pickup",
+      "text": "Flag acquired. I did not bring the fast boots.",
+      "scene": "The operator takes the enemy flag and immediately begins the dangerous route home.",
+      "notes": [
+        "Report possession while already moving.",
+        "The increased danger is understood beneath the personality."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_carrier_escort",
+      "text": "Bring the carrier through my sentry arc.",
+      "scene": "A friendly carrier crosses exposed ground and needs the squad to close around them.",
+      "notes": [
+        "Protective tactical command first.",
+        "Keep pace with a moving carrier."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_flag_dropped",
+      "text": "Flag down near me! I can fortify it!",
+      "scene": "The friendly carrier falls and both teams begin converging on the loose flag.",
+      "notes": [
+        "Immediate battlefield yell with clean information.",
+        "No joke; the recovery window is brief."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_flag_capture",
+      "text": "Delivered within acceptable tolerances.",
+      "scene": "The flag reaches home after a dangerous run and the squad earns one breath of relief.",
+      "notes": [
+        "Controlled celebration that belongs to this character.",
+        "Finish ready to reset for the next run."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_turret_built",
+      "text": "Sentry seated. Arc is clear.",
+      "scene": "The engineer locks a sentry into position and verifies its firing arc.",
+      "notes": [
+        "Satisfied technical confirmation.",
+        "Hands remain on the mechanism during the line."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_turret_target",
+      "text": "Sentry has movement. Heads down.",
+      "scene": "The sentry rotates and acquires approaching movement.",
+      "notes": [
+        "Warn the squad without competing with the weapon.",
+        "Quiet confidence in the machine."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_turret_lost",
+      "text": "My sentry is gone. I take that personally.",
+      "scene": "Enemy fire destroys the engineer’s deployed sentry.",
+      "notes": [
+        "Personal irritation breaks through professional focus.",
+        "The loss is tactical, not sentimental melodrama."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_mine_planted",
+      "text": "Mine armed. Remember where your feet are.",
+      "scene": "The engineer arms a concealed mine on ground friendlies may cross later.",
+      "notes": [
+        "Low precise warning for nearby teammates.",
+        "Make the location feel memorable without adding coordinates."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_vehicle_repair",
+      "text": "Hold her steady. I have the engine.",
+      "scene": "The engineer works inside a damaged engine compartment while the fight continues.",
+      "notes": [
+        "Speak through effort and clattering tools.",
+        "Calm the driver while diagnosing the machine."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_vehicle_repaired",
+      "text": "Vehicle is clean. Try not to invent a new noise.",
+      "scene": "The damaged vehicle returns to dependable operating condition.",
+      "notes": [
+        "Measured satisfaction after listening to the engine.",
+        "The dry warning is affectionate toward the machine."
+      ]
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_contamination_cleared",
+      "text": "Contamination cleared. Metal may breathe again.",
+      "scene": "The engineer purges corrosive contamination from a vehicle system.",
+      "notes": [
+        "Relief after careful dangerous work.",
+        "Treat the machine like a patient without becoming whimsical."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_intro",
+      "text": "Doctor Amina Okafor. I keep you alive; you make that difficult.",
+      "scene": "The match begins and this operator introduces themself over close squad comms.",
+      "notes": [
+        "Give the squad a memorable first impression without sounding like a résumé.",
+        "Land the final promise as genuine capability."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_deploy",
+      "text": "Check your seals, your magazines, and the person beside you.",
+      "scene": "The deployment gate opens and the squad takes its first steps into live fire.",
+      "notes": [
+        "Speak while checking equipment and moving.",
+        "Confident readiness, with no ceremonial announcer cadence."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_move",
+      "text": "Move. Bleeding may continue en route.",
+      "scene": "The operator calls a short tactical relocation while the squad is exposed.",
+      "notes": [
+        "Keep the instruction clipped and useful.",
+        "Physical movement must be audible under the words."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_attack",
+      "text": "Contact. I am a doctor with a weapon, not a pacifist.",
+      "scene": "The squad commits to an attack and the operator calls the opening push.",
+      "notes": [
+        "Project over weapons with immediate command energy.",
+        "No theatrical battle speech; this is happening now."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_hold",
+      "text": "Triage point here. Bring me anyone still arguing.",
+      "scene": "The squad has reached defensible ground and must stop an enemy push.",
+      "notes": [
+        "Firm controlled command rather than panic.",
+        "The character believes this position can be held."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_taking_fire",
+      "text": "They are targeting the medic. How original.",
+      "scene": "Incoming rounds snap close and the operator identifies the threat direction.",
+      "notes": [
+        "Urgent battlefield shout with sharp consonants.",
+        "Fear may flash through, but the information stays clear."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_grenade_in",
+      "text": "Grenade! Patients and future patients—move!",
+      "scene": "A live grenade lands inside the squad position with only seconds to move.",
+      "notes": [
+        "Full alarm shout; no humor survives this moment.",
+        "Fast enough to save a life, never garbled."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_reload",
+      "text": "Reloading. Please avoid emergencies for three seconds.",
+      "scene": "The weapon runs low during contact and the operator asks the squad to cover the lane.",
+      "notes": [
+        "Short breath and active hands under the line.",
+        "Report the vulnerability without melodrama."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_kill",
+      "text": "Threat treated.",
+      "scene": "A single enemy drops and the operator immediately checks for the next threat.",
+      "notes": [
+        "Controlled confirmation rather than celebration.",
+        "Let the personality color the release after danger."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_kill_multi",
+      "text": "Preventive medicine.",
+      "scene": "Several enemies fall in one fast exchange and a lane suddenly opens.",
+      "notes": [
+        "Allow a brief flash of satisfaction.",
+        "Keep momentum pointed toward the next action."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_low_health",
+      "text": "I am injured. Inconvenient, not terminal.",
+      "scene": "The operator is badly wounded but remains upright and combat-capable.",
+      "notes": [
+        "Strained breath and real pain beneath professional control.",
+        "Do not make the injury sound trivial."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_downed",
+      "text": "Medic down. Yes, the irony is noted.",
+      "scene": "The operator hits the ground wounded and cannot fight until a teammate reaches them.",
+      "notes": [
+        "Painfully loud enough for nearby help.",
+        "Vulnerability replaces swagger without becoming melodrama."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_ally_downed",
+      "text": "I see you. Keep pressure on it.",
+      "scene": "A teammate falls nearby and the operator commits to reaching them.",
+      "notes": [
+        "Protective urgency aimed at both the casualty and the squad.",
+        "Keep moving while speaking."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_reviving",
+      "text": "Eyes open. You are not leaving my shift.",
+      "scene": "The operator kneels under danger and works to bring a wounded teammate back.",
+      "notes": [
+        "Close, direct voice meant for one frightened person.",
+        "Warmth and focus matter more than wit."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_revived",
+      "text": "Thank you. Now point me at my patient.",
+      "scene": "A teammate has just pulled the operator back from the edge and they regain their feet.",
+      "notes": [
+        "Unsteady first breath, then returning purpose.",
+        "Gratitude can be brief but must be real."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "death_medic",
+      "text": "Keep... the beam on them.",
+      "scene": "Strength gives way and the battlefield recedes while the operator manages a final thought.",
+      "notes": [
+        "Barely supported voice with breath failing between phrases.",
+        "No scream, no melodrama, and no added words."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_flag_pickup",
+      "text": "I have the flag. Apparently everyone else was bleeding.",
+      "scene": "The operator takes the enemy flag and immediately begins the dangerous route home.",
+      "notes": [
+        "Report possession while already moving.",
+        "The increased danger is understood beneath the personality."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_carrier_escort",
+      "text": "Protect the carrier. I will keep them moving.",
+      "scene": "A friendly carrier crosses exposed ground and needs the squad to close around them.",
+      "notes": [
+        "Protective tactical command first.",
+        "Keep pace with a moving carrier."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_flag_dropped",
+      "text": "Flag down! Stabilize the lane first!",
+      "scene": "The friendly carrier falls and both teams begin converging on the loose flag.",
+      "notes": [
+        "Immediate battlefield yell with clean information.",
+        "No joke; the recovery window is brief."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_flag_capture",
+      "text": "Objective secured. Now who needs stitches?",
+      "scene": "The flag reaches home after a dangerous run and the squad earns one breath of relief.",
+      "notes": [
+        "Controlled celebration that belongs to this character.",
+        "Finish ready to reset for the next run."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_heal_start",
+      "text": "Beam on you. Stop dodging your healthcare.",
+      "scene": "The medic connects the medi-beam to a moving wounded teammate.",
+      "notes": [
+        "Firm close instruction with controlled care.",
+        "The patient needs to trust the voice immediately."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_heal_critical",
+      "text": "Stay with me. Breathe when I tell you.",
+      "scene": "A teammate is fading and the medic fights to keep them conscious.",
+      "notes": [
+        "Drop the wit entirely and speak with fierce warmth.",
+        "Make each breath instruction precise and personal."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_heal_complete",
+      "text": "Stable. Try not to reopen anything.",
+      "scene": "The patient stabilizes and can return to the fight.",
+      "notes": [
+        "Professional relief, still monitoring them.",
+        "The warning is protective rather than scolding."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_self_stim",
+      "text": "Self-stim. Doctor’s orders.",
+      "scene": "The medic injects herself while wounded so she can continue treating others.",
+      "notes": [
+        "Brief pain and clinical control.",
+        "The line is a decision, not a joke."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_infection_reduced",
+      "text": "Load reduced. Infection is not permission to panic.",
+      "scene": "Treatment lowers a dangerous viral load before it can take hold.",
+      "notes": [
+        "Reassuring authority over a frightening diagnosis.",
+        "Keep panic out of both voices."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_beam_empty",
+      "text": "Beam is dry. Cover me while it charges.",
+      "scene": "The medi-beam charge empties while wounded teammates still need help.",
+      "notes": [
+        "Urgent command with restrained frustration.",
+        "The recharge window feels dangerous."
+      ]
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_patient_moving",
+      "text": "If you want treatment, stop running from the doctor!",
+      "scene": "A wounded teammate repeatedly dodges out of the medi-beam.",
+      "notes": [
+        "Project across the firefight with exasperated authority.",
+        "The irritation comes from genuine concern."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_intro",
+      "text": "Mateo Alvarez. Call me Skip. Maps show where people went; I show where we’re going.",
+      "scene": "The match begins and this operator introduces themself over close squad comms.",
+      "notes": [
+        "Give the squad a memorable first impression without sounding like a résumé.",
+        "Land the final promise as genuine capability."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_deploy",
+      "text": "The long way is for people with no imagination.",
+      "scene": "The deployment gate opens and the squad takes its first steps into live fire.",
+      "notes": [
+        "Speak while checking equipment and moving.",
+        "Confident readiness, with no ceremonial announcer cadence."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_move",
+      "text": "Cutting left. Trust me for six seconds.",
+      "scene": "The operator calls a short tactical relocation while the squad is exposed.",
+      "notes": [
+        "Keep the instruction clipped and useful.",
+        "Physical movement must be audible under the words."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_attack",
+      "text": "I’m in their side pocket—push!",
+      "scene": "The squad commits to an attack and the operator calls the opening push.",
+      "notes": [
+        "Project over weapons with immediate command energy.",
+        "No theatrical battle speech; this is happening now."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_hold",
+      "text": "This lane bends through me now.",
+      "scene": "The squad has reached defensible ground and must stop an enemy push.",
+      "notes": [
+        "Firm controlled command rather than panic.",
+        "The character believes this position can be held."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_taking_fire",
+      "text": "They found the shortcut! Need pressure!",
+      "scene": "Incoming rounds snap close and the operator identifies the threat direction.",
+      "notes": [
+        "Urgent battlefield shout with sharp consonants.",
+        "Fear may flash through, but the information stays clear."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_grenade_in",
+      "text": "Grenade on the route! Reroute!",
+      "scene": "A live grenade lands inside the squad position with only seconds to move.",
+      "notes": [
+        "Full alarm shout; no humor survives this moment.",
+        "Fast enough to save a life, never garbled."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_reload",
+      "text": "Reloading. Keep the doorway rude.",
+      "scene": "The weapon runs low during contact and the operator asks the squad to cover the lane.",
+      "notes": [
+        "Short breath and active hands under the line.",
+        "Report the vulnerability without melodrama."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_kill",
+      "text": "You watched the road. Rookie mistake.",
+      "scene": "A single enemy drops and the operator immediately checks for the next threat.",
+      "notes": [
+        "Controlled confirmation rather than celebration.",
+        "Let the personality color the release after danger."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_kill_multi",
+      "text": "Shortcut just became a toll booth.",
+      "scene": "Several enemies fall in one fast exchange and a lane suddenly opens.",
+      "notes": [
+        "Allow a brief flash of satisfaction.",
+        "Keep momentum pointed toward the next action."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_low_health",
+      "text": "I’m clipped. Speed’s still paid for.",
+      "scene": "The operator is badly wounded but remains upright and combat-capable.",
+      "notes": [
+        "Strained breath and real pain beneath professional control.",
+        "Do not make the injury sound trivial."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_downed",
+      "text": "Route’s closed. Need a pickup.",
+      "scene": "The operator hits the ground wounded and cannot fight until a teammate reaches them.",
+      "notes": [
+        "Painfully loud enough for nearby help.",
+        "Vulnerability replaces swagger without becoming melodrama."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_ally_downed",
+      "text": "I can reach them. Hold the lane.",
+      "scene": "A teammate falls nearby and the operator commits to reaching them.",
+      "notes": [
+        "Protective urgency aimed at both the casualty and the squad.",
+        "Keep moving while speaking."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_reviving",
+      "text": "Took the fast way to you. Stay awake.",
+      "scene": "The operator kneels under danger and works to bring a wounded teammate back.",
+      "notes": [
+        "Close, direct voice meant for one frightened person.",
+        "Warmth and focus matter more than wit."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_revived",
+      "text": "Back on my feet. Where’s the gap?",
+      "scene": "A teammate has just pulled the operator back from the edge and they regain their feet.",
+      "notes": [
+        "Unsteady first breath, then returning purpose.",
+        "Gratitude can be brief but must be real."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "death_pathfinder",
+      "text": "Close... the route behind me.",
+      "scene": "Strength gives way and the battlefield recedes while the operator manages a final thought.",
+      "notes": [
+        "Barely supported voice with breath failing between phrases.",
+        "No scream, no melodrama, and no added words."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_flag_pickup",
+      "text": "Flag on the express line. Clear my exit.",
+      "scene": "The operator takes the enemy flag and immediately begins the dangerous route home.",
+      "notes": [
+        "Report possession while already moving.",
+        "The increased danger is understood beneath the personality."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_carrier_escort",
+      "text": "I’m opening a lane for the carrier.",
+      "scene": "A friendly carrier crosses exposed ground and needs the squad to close around them.",
+      "notes": [
+        "Protective tactical command first.",
+        "Keep pace with a moving carrier."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_flag_dropped",
+      "text": "Flag fell off-route! Swing back!",
+      "scene": "The friendly carrier falls and both teams begin converging on the loose flag.",
+      "notes": [
+        "Immediate battlefield yell with clean information.",
+        "No joke; the recovery window is brief."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_flag_capture",
+      "text": "Shortest distance between us and winning.",
+      "scene": "The flag reaches home after a dangerous run and the squad earns one breath of relief.",
+      "notes": [
+        "Controlled celebration that belongs to this character.",
+        "Finish ready to reset for the next run."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_beacon_alpha",
+      "text": "Beacon Alpha planted. This is where we leave.",
+      "scene": "The pathfinder plants the first end of a warp route in defensible ground.",
+      "notes": [
+        "Quick location confirmation with forward momentum.",
+        "This is half a plan, not a completed victory."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_beacon_beta",
+      "text": "Beacon Beta live. This is where we surprise them.",
+      "scene": "The second beacon locks in near the objective and completes the surprise route.",
+      "notes": [
+        "Excited but tactically clear.",
+        "Let the success of the geometry light the voice."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_link_live",
+      "text": "Pair is hot. Step clean or lose your lunch.",
+      "scene": "The two warp beacons synchronize and the corridor opens.",
+      "notes": [
+        "Warn newcomers about the physical transition.",
+        "Pleased confidence without slowing traffic."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_warp_enter",
+      "text": "Taking the shortcut—now.",
+      "scene": "The pathfinder steps into the live warp corridor under enemy pressure.",
+      "notes": [
+        "Low quick commitment close to the microphone.",
+        "The line disappears into the transition."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_impulse_fire",
+      "text": "Impulse out! Give ’em room to fly!",
+      "scene": "The impulse cannon releases a concussive shot toward grouped enemies.",
+      "notes": [
+        "Strong exertion and immediate space-making command.",
+        "Enjoy the physics without sounding cruel."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_impulse_kill",
+      "text": "Sent them the scenic way.",
+      "scene": "A knocked enemy is carried away and finished by the impact.",
+      "notes": [
+        "Brief surprised satisfaction.",
+        "Keep scanning the new lane."
+      ]
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_beacon_destroyed",
+      "text": "Link is dead. Somebody found my door.",
+      "scene": "Enemy fire destroys one endpoint and collapses the route.",
+      "notes": [
+        "Sharp disappointed warning to the squad.",
+        "The tactical loss matters more than wounded pride."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_intro",
+      "text": "Elias Baptiste. Switch on comms. I see the room before the room sees us.",
+      "scene": "The match begins and this operator introduces themself over close squad comms.",
+      "notes": [
+        "Give the squad a memorable first impression without sounding like a résumé.",
+        "Land the final promise as genuine capability."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_deploy",
+      "text": "Keep talking. Noise gives me edges.",
+      "scene": "The deployment gate opens and the squad takes its first steps into live fire.",
+      "notes": [
+        "Speak while checking equipment and moving.",
+        "Confident readiness, with no ceremonial announcer cadence."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_move",
+      "text": "Moving underneath their attention.",
+      "scene": "The operator calls a short tactical relocation while the squad is exposed.",
+      "notes": [
+        "Keep the instruction clipped and useful.",
+        "Physical movement must be audible under the words."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_attack",
+      "text": "Marked lane. Take the shot.",
+      "scene": "The squad commits to an attack and the operator calls the opening push.",
+      "notes": [
+        "Project over weapons with immediate command energy.",
+        "No theatrical battle speech; this is happening now."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_hold",
+      "text": "I have eyes through the wall. Hold still and listen.",
+      "scene": "The squad has reached defensible ground and must stop an enemy push.",
+      "notes": [
+        "Keep this low and close as though sharing one headset.",
+        "The quiet is tactical concentration, never a spooky affectation."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_taking_fire",
+      "text": "They found my body! Break their sightline!",
+      "scene": "Incoming rounds snap close and the operator identifies the threat direction.",
+      "notes": [
+        "Urgent battlefield shout with sharp consonants.",
+        "Fear may flash through, but the information stays clear."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_grenade_in",
+      "text": "Charge in! Three steps, any direction!",
+      "scene": "A live grenade lands inside the squad position with only seconds to move.",
+      "notes": [
+        "Full alarm shout; no humor survives this moment.",
+        "Fast enough to save a life, never garbled."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_reload",
+      "text": "Reloading. Drone keeps watch.",
+      "scene": "The weapon runs low during contact and the operator asks the squad to cover the lane.",
+      "notes": [
+        "Short breath and active hands under the line.",
+        "Report the vulnerability without melodrama."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_kill",
+      "text": "Contact erased.",
+      "scene": "A single enemy drops and the operator immediately checks for the next threat.",
+      "notes": [
+        "Controlled confirmation rather than celebration.",
+        "Let the personality color the release after danger."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_kill_multi",
+      "text": "Their picture just went dark.",
+      "scene": "Several enemies fall in one fast exchange and a lane suddenly opens.",
+      "notes": [
+        "Allow a brief flash of satisfaction.",
+        "Keep momentum pointed toward the next action."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_low_health",
+      "text": "I’m bleeding. Signal remains.",
+      "scene": "The operator is badly wounded but remains upright and combat-capable.",
+      "notes": [
+        "Strained breath and real pain beneath professional control.",
+        "Do not make the injury sound trivial."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_downed",
+      "text": "Switch is down. Feed is still live.",
+      "scene": "The operator hits the ground wounded and cannot fight until a teammate reaches them.",
+      "notes": [
+        "Painfully loud enough for nearby help.",
+        "Vulnerability replaces swagger without becoming melodrama."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_ally_downed",
+      "text": "Friendly down. I have the safe approach.",
+      "scene": "A teammate falls nearby and the operator commits to reaching them.",
+      "notes": [
+        "Protective urgency aimed at both the casualty and the squad.",
+        "Keep moving while speaking."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_reviving",
+      "text": "Stay quiet. Let them think the room is empty.",
+      "scene": "The operator kneels under danger and works to bring a wounded teammate back.",
+      "notes": [
+        "Close, direct voice meant for one frightened person.",
+        "Warmth and focus matter more than wit."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_revived",
+      "text": "Back online.",
+      "scene": "A teammate has just pulled the operator back from the edge and they regain their feet.",
+      "notes": [
+        "Unsteady first breath, then returning purpose.",
+        "Gratitude can be brief but must be real."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "death_ghost",
+      "text": "Feed... terminated.",
+      "scene": "Strength gives way and the battlefield recedes while the operator manages a final thought.",
+      "notes": [
+        "Barely supported voice with breath failing between phrases.",
+        "No scream, no melodrama, and no added words."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_flag_pickup",
+      "text": "Flag in hand. Their cameras missed the exchange.",
+      "scene": "The operator takes the enemy flag and immediately begins the dangerous route home.",
+      "notes": [
+        "Report possession while already moving.",
+        "The increased danger is understood beneath the personality."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_carrier_escort",
+      "text": "Carrier covered. I am watching the watchers.",
+      "scene": "A friendly carrier crosses exposed ground and needs the squad to close around them.",
+      "notes": [
+        "Protective tactical command first.",
+        "Keep pace with a moving carrier."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_flag_dropped",
+      "text": "Flag down. Enemy eyes converging.",
+      "scene": "The friendly carrier falls and both teams begin converging on the loose flag.",
+      "notes": [
+        "Immediate battlefield yell with clean information.",
+        "No joke; the recovery window is brief."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_flag_capture",
+      "text": "They never saw the handoff.",
+      "scene": "The flag reaches home after a dangerous run and the squad earns one breath of relief.",
+      "notes": [
+        "Controlled celebration that belongs to this character.",
+        "Finish ready to reset for the next run."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_drone_launch",
+      "text": "Little eye, up.",
+      "scene": "The Ghost releases a compact recon drone into the air.",
+      "notes": [
+        "Quiet intimate send-off close to one headset.",
+        "Almost no projection; conceal the operator’s position."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_drone_fpv",
+      "text": "Taking the drone. Guard the quiet body.",
+      "scene": "The Ghost’s vision transfers into the piloted drone while their body stays exposed.",
+      "notes": [
+        "Low precise report as attention leaves the body.",
+        "Trust the squad with the vulnerability."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_drone_mark",
+      "text": "Marked. Through the wall, three meters right.",
+      "scene": "The drone identifies an enemy through a wall and feeds an exact offset.",
+      "notes": [
+        "Very quiet close-mic spatial instruction.",
+        "Measured certainty; do not make the mark theatrical."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_signal_low",
+      "text": "Signal degrading. Bringing the eye home.",
+      "scene": "Distance and interference begin breaking the drone video feed.",
+      "notes": [
+        "Quietly articulate “signal degrading” as two distinct technical words.",
+        "Stay controlled and close to the headset while information breaks up."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_drone_destroyed",
+      "text": "Eye is gone. We work blind.",
+      "scene": "The drone feed flashes out after enemy fire destroys it.",
+      "notes": [
+        "A small involuntary reaction, then a factual report.",
+        "The loss leaves the voice more exposed."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_emp_planted",
+      "text": "EMP set. Armor’s about to forget its name.",
+      "scene": "The Ghost arms an EMP charge beside an active enemy vehicle.",
+      "notes": [
+        "Near-whispered confidence while remaining hidden.",
+        "The threat is technical and imminent."
+      ]
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_emp_stall",
+      "text": "Vehicle stalled. Move before it remembers.",
+      "scene": "The EMP discharges and the enemy vehicle loses power.",
+      "notes": [
+        "Quiet confirmation that immediately drives team movement.",
+        "Do not celebrate before the squad exploits the opening."
+      ]
+    }
+  ]
+}

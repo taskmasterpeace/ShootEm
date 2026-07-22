@@ -1,0 +1,468 @@
+{
+  "character": "Odessa Broussard",
+  "role": "Infiltrator",
+  "voice": "Gacrux",
+  "language": "en-US",
+  "persona": "Odessa Broussard, called Miss Dee by the squad, is a 68-year-old Black American woman born and raised in New Orleans, Louisiana. She is an Infiltrator and veteran intelligence field operative: observant, socially graceful, protective of frightened soldiers, and merciless toward anyone who mistakes warmth for weakness. Her voice is a low smoky contralto with breath, chest resonance, musical phrasing, and an authentic deep New Orleans Southern Black English accent. Her humor is dry and situational. People find her endearing because she listens, remembers names, and makes danger feel survivable. She never turns her age into a running joke, never becomes a caricature, and never sounds like a neutral audiobook narrator.",
+  "lines": [
+    {
+      "slot": "vo_infiltrator_intro",
+      "text": "Odessa Broussard, baby. You keep your head down, and Miss Dee will keep the other side guessing.",
+      "scene": "The match has just begun. Odessa checks her railgun, looks over a nervous new squad, and introduces herself over close-range comms.",
+      "notes": [
+        "Warm, confident introduction with a smile that can be heard.",
+        "Let the promise on the final phrase carry quiet capability, not bravado."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_deploy_1",
+      "text": "All right, darlings. Let's go make ourselves difficult to find.",
+      "scene": "The insertion doors open and the squad moves into a loud battlefield.",
+      "notes": [
+        "Conversational command voice: affectionate first, focused by the final words.",
+        "She is already scanning exits while everyone else is looking forward."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_deploy_2",
+      "text": "Check your corners. I'll check the places corners try to hide.",
+      "scene": "A second deployment into close urban fighting with blind alleys and broken rooms.",
+      "notes": [
+        "Dry wit under professional caution.",
+        "Crisp enough for the squad to obey without asking what she means."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_idle_1",
+      "text": "Quiet like this usually means somebody's planning something foolish.",
+      "scene": "A suspicious lull between firefights. Odessa listens instead of relaxing.",
+      "notes": [
+        "Low and thoughtful, spoken mostly to the nearest squadmate.",
+        "The humor is a private observation, never a punchline."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_idle_2",
+      "text": "Mm-hm. Take your time. Trouble always gets impatient first.",
+      "scene": "Odessa waits in cover while an unseen enemy refuses to reveal a position.",
+      "notes": [
+        "Patient, musical, nearly under her breath.",
+        "A small knowing smile beneath real concentration."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_move_1",
+      "text": "I'm moving. Try not to announce it for me.",
+      "scene": "A squad leader orders Odessa across an exposed lane.",
+      "notes": [
+        "Low practical acknowledgement while she starts moving.",
+        "The second sentence is affectionate teasing, not irritation."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_move_2",
+      "text": "On my way, sugar. Quiet feet.",
+      "scene": "Odessa accepts a short repositioning order near enemies.",
+      "notes": [
+        "Compact, calm, and intimate enough for squad comms.",
+        "Drop the volume slightly on Quiet feet as if secrecy begins immediately."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_attack_1",
+      "text": "I see the opening. Let me have it.",
+      "scene": "An enemy turns away and exposes a clean flank.",
+      "notes": [
+        "Alert recognition followed by controlled appetite.",
+        "No shouting; confidence is more dangerous at normal volume."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_attack_2",
+      "text": "Keep their eyes up front. I'll handle the surprise.",
+      "scene": "The squad begins a frontal attack while Odessa takes the hidden route.",
+      "notes": [
+        "Give the first sentence clear tactical authority.",
+        "Finish with pleased understatement, already moving away from the microphone."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_hold_1",
+      "text": "I'll hold here. Nothing passes without introducing itself.",
+      "scene": "Odessa is ordered to guard a narrow approach alone.",
+      "notes": [
+        "Settled and watchful, claiming the space without raising her voice.",
+        "The wit is dry; the threat beneath it is real."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_hold_2",
+      "text": "This corner and I are acquainted now.",
+      "scene": "She settles into a concealed firing angle and becomes completely still.",
+      "notes": [
+        "Soft, content, almost domestic.",
+        "A tiny smile; she likes a patient ambush."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_help_ack",
+      "text": "I hear you, baby. Hold on, I'm coming.",
+      "scene": "A squadmate calls urgently for help from the next room.",
+      "notes": [
+        "Immediate warmth, then accelerating urgency as she moves.",
+        "The reassurance must sound personal and believable."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_spot_infantry",
+      "text": "Two riflemen, left side. Walking like nobody told them.",
+      "scene": "Odessa sees two unaware enemy infantry crossing an opening.",
+      "notes": [
+        "First sentence is a clean tactical report.",
+        "Second sentence carries quiet amusement without slowing the information."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_spot_armor",
+      "text": "Armor on the lane. Big, loud, and very sure of itself.",
+      "scene": "A tank enters view and begins turning its gun toward the squad.",
+      "notes": [
+        "Firm warning with urgency held under control.",
+        "Dry contempt on the final phrase, never fearlessness."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_spot_air",
+      "text": "Aircraft overhead. Find something solid and become fond of it.",
+      "scene": "A hostile aircraft dives toward exposed infantry.",
+      "notes": [
+        "Fast, clear field-report cadence.",
+        "Protective command with one flash of wit, not a leisurely joke."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_spot_cloak",
+      "text": "Cloak shimmer, near the wall. Oh, somebody thinks they're subtle.",
+      "scene": "Odessa catches a tiny distortion from another cloaked operative.",
+      "notes": [
+        "Hushed tactical warning so the target does not realize it has been seen.",
+        "Cool professional amusement; she recognizes an amateur mistake."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_taking_fire",
+      "text": "They've got my position! Break their sightline!",
+      "scene": "Rounds strike the cover around Odessa and the enemy has found her angle.",
+      "notes": [
+        "Yell over immediate gunfire with trained clarity.",
+        "Urgent, not panicked; both sentences must remain intelligible."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_suppressed",
+      "text": "I'm pinned! Put something loud in their direction!",
+      "scene": "Sustained fire traps Odessa behind thin cover and she needs the squad to answer.",
+      "notes": [
+        "Shout in a strong command voice while keeping low.",
+        "Frustration and danger, with no playful softness left."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_grenade_in",
+      "text": "GRENADE! MOVE, BABIES, MOVE!",
+      "scene": "An enemy grenade lands among the squad at Odessa feet.",
+      "notes": [
+        "Full emergency yell from the diaphragm; this must cut through battle noise.",
+        "Protective terror drives the repeated command, never theatrical excitement."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_grenade_out",
+      "text": "Little gift going out. Don't crowd the doorway.",
+      "scene": "Odessa throws a fragmentation grenade through a defended doorway.",
+      "notes": [
+        "Quick matter-of-fact warning timed to the throw.",
+        "Dry smile on Little gift, then practical squad safety."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_reload",
+      "text": "Changing magazines. Keep them entertained.",
+      "scene": "Her railgun is empty while enemies are still pressing the position.",
+      "notes": [
+        "Clipped and breath-aware while hands work.",
+        "The second sentence is a calm request for covering fire."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_reload_dry",
+      "text": "DRY! I need five seconds and a small miracle!",
+      "scene": "The weapon clicks empty at the worst possible moment.",
+      "notes": [
+        "Sharp battlefield shout with a flash of genuine alarm.",
+        "Land small miracle as pressured wit, not comedy."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_ammo_low",
+      "text": "Last magazine. Time to make every answer count.",
+      "scene": "Odessa checks her reserve and finds only one magazine remaining.",
+      "notes": [
+        "Low, sober inventory report.",
+        "Resolve settles into the final phrase."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_kill_1",
+      "text": "Mm. You should've watched the quiet side.",
+      "scene": "A clean rail shot drops an enemy who never saw Odessa flank.",
+      "notes": [
+        "Quiet satisfaction immediately after recoil.",
+        "Underplay the line; it is an observation, not a celebration."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_kill_2",
+      "text": "There you go. Lie still for Miss Dee.",
+      "scene": "A dangerous enemy finally goes down at close range.",
+      "notes": [
+        "Soft and almost soothing, which makes the threat sharper.",
+        "No cruelty or cackle; she wants the danger to remain down."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_kill_3",
+      "text": "All that noise, and still you missed the important part.",
+      "scene": "A loud enemy fires wildly at decoys while Odessa ends the fight from concealment.",
+      "notes": [
+        "Dry disbelief with controlled breath after the shot.",
+        "The important part is Odessa, but she never needs to say so."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_kill_revenge",
+      "text": "I remembered you. Aren't you touched?",
+      "scene": "Odessa finds and eliminates the soldier who killed her in the previous life.",
+      "notes": [
+        "Recognition first, velvet sarcasm second.",
+        "Keep the anger cold and contained."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_kill_multi",
+      "text": "Two down. They came together; seemed rude to separate them.",
+      "scene": "One lined-up rail shot drops two enemies.",
+      "notes": [
+        "Brief surprise becomes pleased understatement.",
+        "A little breathless from repositioning, but never rushed."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_low_health",
+      "text": "I'm hurt. Still thinking, though. That's the dangerous part.",
+      "scene": "Odessa is bleeding badly behind cover but remains tactically alert.",
+      "notes": [
+        "Pain shortens the breath and roughens the voice.",
+        "Find steady resolve by the final sentence; no invulnerable bravado."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_downed",
+      "text": "I'm down! Don't you mourn me while I'm still talking!",
+      "scene": "Odessa hits the ground wounded and needs immediate help.",
+      "notes": [
+        "First sentence is a shocked shout on impact.",
+        "Second sentence is strained command and characterful defiance through pain."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_ally_downed",
+      "text": "Soldier down! Cover that body, I'm going to them!",
+      "scene": "A squadmate collapses in the open and Odessa commits to a rescue.",
+      "notes": [
+        "Loud command voice, protective and decisive.",
+        "She is already moving before the last words."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_reviving",
+      "text": "Stay with me, sweetheart. Breathe first; complain later.",
+      "scene": "Odessa kneels under fire with both hands keeping a wounded soldier alive.",
+      "notes": [
+        "Close, warm, and steady enough to give the patient something to follow.",
+        "The wit is gentle reassurance, never dismissal of pain."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_revived",
+      "text": "Thank you, baby. Now point me toward the rude one.",
+      "scene": "A medic pulls Odessa back to her feet while the fight continues nearby.",
+      "notes": [
+        "Breath returns unevenly; gratitude is completely sincere.",
+        "A dangerous little smile arrives on the final phrase."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_last_stand",
+      "text": "Just me, then. All right. I've had quieter evenings.",
+      "scene": "Odessa realizes every squadmate is down and enemies are closing.",
+      "notes": [
+        "Let loneliness register for one beat before discipline takes over.",
+        "Final phrase is gallows wit used to steady herself."
+      ]
+    },
+    {
+      "slot": "death_infiltrator",
+      "text": "Oh... hush now... I was listening...",
+      "scene": "Odessa takes a fatal hit while concealed; the battlefield noise seems to recede as she falls.",
+      "notes": [
+        "Barely voiced and fading, with breath failing between thoughts.",
+        "No melodrama, no scream; the quiet operative dies listening."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_vehicle_enter",
+      "text": "Scoot over. Miss Dee is riding.",
+      "scene": "Odessa climbs into a crowded friendly vehicle as it begins moving.",
+      "notes": [
+        "Warm, practical, and lightly amused.",
+        "Sound physically closer and enclosed, but do not add effects."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_vehicle_damaged",
+      "text": "This machine is coming apart! Ease her back!",
+      "scene": "Heavy impacts tear pieces from the vehicle around Odessa.",
+      "notes": [
+        "Shout over mechanical chaos with urgent command clarity.",
+        "She respects the machine and wants the driver to save it."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_vehicle_bail",
+      "text": "OUT! OUT OF THE VEHICLE, NOW!",
+      "scene": "Fire reaches the vehicle cabin and detonation is seconds away.",
+      "notes": [
+        "Full emergency shout; sharp consonants and no humor.",
+        "Protective authority must make hesitation feel impossible."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_flag_pickup",
+      "text": "I've got their colours. Well, won't they be embarrassed.",
+      "scene": "Odessa takes the enemy flag and turns toward the long route home.",
+      "notes": [
+        "A quick factual report followed by delighted understatement.",
+        "She knows the danger has just increased and is moving while speaking."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_carrier_escort",
+      "text": "Stay close to that runner. Pride is heavy when you are carrying it.",
+      "scene": "A friendly flag carrier crosses exposed ground and needs an escort.",
+      "notes": [
+        "Protective tactical instruction first.",
+        "The final observation is wry but never slows the urgency."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_flag_dropped",
+      "text": "Flag is down! Clear the ground around it!",
+      "scene": "The carrier falls and both teams converge on the dropped flag.",
+      "notes": [
+        "Immediate battlefield yell with clean information.",
+        "No wit here; the opening is too brief."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_flag_capture",
+      "text": "That is our capture. Clean work, babies. Almost elegant.",
+      "scene": "The flag reaches home after a dangerous run and the squad gets one breath of relief.",
+      "notes": [
+        "Controlled celebration, proud and warmly approving.",
+        "Almost elegant is a soft dry button, not a criticism."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_cloak_on_1",
+      "text": "Now, let's become a rumor.",
+      "scene": "Odessa activates her cloak a few steps from enemies and disappears.",
+      "notes": [
+        "Whisper close to the microphone, conspiratorial and pleased.",
+        "The voice becomes smaller as if she is already withholding her presence."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_cloak_on_2",
+      "text": "Keep looking forward, darling. That's where I used to be.",
+      "scene": "The cloak seals around Odessa while an enemy watches the wrong doorway.",
+      "notes": [
+        "Whisper with slow, razor-dry amusement.",
+        "No broad joke; this is private confidence spoken inside danger."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_cloak_move",
+      "text": "Easy now... even the air is listening.",
+      "scene": "Odessa moves inches behind an alert enemy while cloaked.",
+      "notes": [
+        "Whisper on the edge of breath, extremely intimate and controlled.",
+        "Slow the rhythm because every footstep matters."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_cloak_detected",
+      "text": "Mm. Those eyes are better than I expected.",
+      "scene": "An enemy turns toward the distortion and almost identifies Odessa.",
+      "notes": [
+        "Very low urgent murmur, breath briefly held.",
+        "Respect the threat; the wit covers a real recalculation."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_cloak_broken",
+      "text": "CLOAK'S GONE! I NEED COVER!",
+      "scene": "An impact tears down the cloak in full view of several enemies.",
+      "notes": [
+        "Explosive emergency yell caused by sudden exposure.",
+        "Fast, frightened, and professionally clear; no composure pose."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_rail_shot",
+      "text": "Hold still... just a little longer.",
+      "scene": "Odessa settles the rail sight on an unaware distant target while cloaked.",
+      "notes": [
+        "Whisper with patient concentration and minimal breath.",
+        "The words are for herself, not a taunt the target can hear."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_rail_kill",
+      "text": "One clean line. That is all it takes.",
+      "scene": "A precise rail shot passes through the target exactly as planned.",
+      "notes": [
+        "Quiet professional satisfaction after releasing held breath.",
+        "No excitement; precision itself is the pleasure."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_cloak_ready",
+      "text": "Cloak is back. Let's try subtlety again.",
+      "scene": "The cloak finishes recharging after a loud exposed fight.",
+      "notes": [
+        "Relieved low voice with dry self-awareness.",
+        "She becomes calmer as the option to disappear returns."
+      ]
+    },
+    {
+      "slot": "vo_infiltrator_cloak_empty",
+      "text": "Cloak is dry. No more magic until it charges.",
+      "scene": "Odessa tries the cloak and finds the energy reserve empty.",
+      "notes": [
+        "Quiet warning to the squad with restrained frustration.",
+        "Keep moving; this is information, not a complaint."
+      ]
+    }
+  ]
+}

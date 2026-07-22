@@ -13,6 +13,90 @@ export const SOUND_NAMES = [
   // per-class death cries (see tools/gen-sounds.mjs)
   'death_infantry', 'death_heavy', 'death_jump', 'death_engineer',
   'death_medic', 'death_infiltrator', 'death_pathfinder', 'death_ghost',
+  // Odessa "Miss Dee" Broussard — the Infiltrator's first full mortal-class
+  // bark pack. These are authored against real gameplay moments; wiring stays
+  // out of this audio-only branch while the sim merge is being reconciled.
+  'vo_infiltrator_intro', 'vo_infiltrator_deploy_1', 'vo_infiltrator_deploy_2',
+  'vo_infiltrator_idle_1', 'vo_infiltrator_idle_2',
+  'vo_infiltrator_move_1', 'vo_infiltrator_move_2',
+  'vo_infiltrator_attack_1', 'vo_infiltrator_attack_2',
+  'vo_infiltrator_hold_1', 'vo_infiltrator_hold_2', 'vo_infiltrator_help_ack',
+  'vo_infiltrator_spot_infantry', 'vo_infiltrator_spot_armor',
+  'vo_infiltrator_spot_air', 'vo_infiltrator_spot_cloak',
+  'vo_infiltrator_taking_fire', 'vo_infiltrator_suppressed',
+  'vo_infiltrator_grenade_in', 'vo_infiltrator_grenade_out',
+  'vo_infiltrator_reload', 'vo_infiltrator_reload_dry', 'vo_infiltrator_ammo_low',
+  'vo_infiltrator_kill_1', 'vo_infiltrator_kill_2', 'vo_infiltrator_kill_3',
+  'vo_infiltrator_kill_revenge', 'vo_infiltrator_kill_multi',
+  'vo_infiltrator_low_health', 'vo_infiltrator_downed',
+  'vo_infiltrator_ally_downed', 'vo_infiltrator_reviving',
+  'vo_infiltrator_revived', 'vo_infiltrator_last_stand',
+  'vo_infiltrator_vehicle_enter', 'vo_infiltrator_vehicle_damaged',
+  'vo_infiltrator_vehicle_bail',
+  'vo_infiltrator_flag_pickup', 'vo_infiltrator_carrier_escort',
+  'vo_infiltrator_flag_dropped', 'vo_infiltrator_flag_capture',
+  'vo_infiltrator_cloak_on_1', 'vo_infiltrator_cloak_on_2',
+  'vo_infiltrator_cloak_move', 'vo_infiltrator_cloak_detected',
+  'vo_infiltrator_cloak_broken', 'vo_infiltrator_rail_shot',
+  'vo_infiltrator_rail_kill', 'vo_infiltrator_cloak_ready',
+  'vo_infiltrator_cloak_empty',
+  // Full mortal-class personality packs. Death slots are declared above;
+  // these lines lazy-load on first play so deployment stays lightweight.
+  // infantry
+  'vo_infantry_intro', 'vo_infantry_deploy', 'vo_infantry_move', 'vo_infantry_attack',
+  'vo_infantry_hold', 'vo_infantry_taking_fire', 'vo_infantry_grenade_in', 'vo_infantry_reload',
+  'vo_infantry_kill', 'vo_infantry_kill_multi', 'vo_infantry_low_health', 'vo_infantry_downed',
+  'vo_infantry_ally_downed', 'vo_infantry_reviving', 'vo_infantry_revived', 'vo_infantry_flag_pickup',
+  'vo_infantry_carrier_escort', 'vo_infantry_flag_dropped', 'vo_infantry_flag_capture', 'vo_infantry_frag_ready',
+  'vo_infantry_frag_throw', 'vo_infantry_frag_cook', 'vo_infantry_frag_bad_bounce', 'vo_infantry_frag_flush',
+  // heavy
+  'vo_heavy_intro', 'vo_heavy_deploy', 'vo_heavy_move', 'vo_heavy_attack',
+  'vo_heavy_hold', 'vo_heavy_taking_fire', 'vo_heavy_grenade_in', 'vo_heavy_reload',
+  'vo_heavy_kill', 'vo_heavy_kill_multi', 'vo_heavy_low_health', 'vo_heavy_downed',
+  'vo_heavy_ally_downed', 'vo_heavy_reviving', 'vo_heavy_revived', 'vo_heavy_flag_pickup',
+  'vo_heavy_carrier_escort', 'vo_heavy_flag_dropped', 'vo_heavy_flag_capture', 'vo_heavy_shield_up',
+  'vo_heavy_shield_failing', 'vo_heavy_autocannon_brace', 'vo_heavy_missile_armor', 'vo_heavy_missile_hit',
+  'vo_heavy_autocannon_empty',
+  // jump
+  'vo_jump_intro', 'vo_jump_deploy', 'vo_jump_move', 'vo_jump_attack',
+  'vo_jump_hold', 'vo_jump_taking_fire', 'vo_jump_grenade_in', 'vo_jump_reload',
+  'vo_jump_kill', 'vo_jump_kill_multi', 'vo_jump_low_health', 'vo_jump_downed',
+  'vo_jump_ally_downed', 'vo_jump_reviving', 'vo_jump_revived', 'vo_jump_flag_pickup',
+  'vo_jump_carrier_escort', 'vo_jump_flag_dropped', 'vo_jump_flag_capture', 'vo_jump_jet_ignite',
+  'vo_jump_airborne_attack', 'vo_jump_fuel_low', 'vo_jump_fuel_empty', 'vo_jump_hard_landing',
+  'vo_jump_jet_ready', 'vo_jump_air_watched',
+  // engineer
+  'vo_engineer_intro', 'vo_engineer_deploy', 'vo_engineer_move', 'vo_engineer_attack',
+  'vo_engineer_hold', 'vo_engineer_taking_fire', 'vo_engineer_grenade_in', 'vo_engineer_reload',
+  'vo_engineer_kill', 'vo_engineer_kill_multi', 'vo_engineer_low_health', 'vo_engineer_downed',
+  'vo_engineer_ally_downed', 'vo_engineer_reviving', 'vo_engineer_revived', 'vo_engineer_flag_pickup',
+  'vo_engineer_carrier_escort', 'vo_engineer_flag_dropped', 'vo_engineer_flag_capture', 'vo_engineer_turret_built',
+  'vo_engineer_turret_target', 'vo_engineer_turret_lost', 'vo_engineer_mine_planted', 'vo_engineer_vehicle_repair',
+  'vo_engineer_vehicle_repaired', 'vo_engineer_contamination_cleared',
+  // medic
+  'vo_medic_intro', 'vo_medic_deploy', 'vo_medic_move', 'vo_medic_attack',
+  'vo_medic_hold', 'vo_medic_taking_fire', 'vo_medic_grenade_in', 'vo_medic_reload',
+  'vo_medic_kill', 'vo_medic_kill_multi', 'vo_medic_low_health', 'vo_medic_downed',
+  'vo_medic_ally_downed', 'vo_medic_reviving', 'vo_medic_revived', 'vo_medic_flag_pickup',
+  'vo_medic_carrier_escort', 'vo_medic_flag_dropped', 'vo_medic_flag_capture', 'vo_medic_heal_start',
+  'vo_medic_heal_critical', 'vo_medic_heal_complete', 'vo_medic_self_stim', 'vo_medic_infection_reduced',
+  'vo_medic_beam_empty', 'vo_medic_patient_moving',
+  // pathfinder
+  'vo_pathfinder_intro', 'vo_pathfinder_deploy', 'vo_pathfinder_move', 'vo_pathfinder_attack',
+  'vo_pathfinder_hold', 'vo_pathfinder_taking_fire', 'vo_pathfinder_grenade_in', 'vo_pathfinder_reload',
+  'vo_pathfinder_kill', 'vo_pathfinder_kill_multi', 'vo_pathfinder_low_health', 'vo_pathfinder_downed',
+  'vo_pathfinder_ally_downed', 'vo_pathfinder_reviving', 'vo_pathfinder_revived', 'vo_pathfinder_flag_pickup',
+  'vo_pathfinder_carrier_escort', 'vo_pathfinder_flag_dropped', 'vo_pathfinder_flag_capture', 'vo_pathfinder_beacon_alpha',
+  'vo_pathfinder_beacon_beta', 'vo_pathfinder_link_live', 'vo_pathfinder_warp_enter', 'vo_pathfinder_impulse_fire',
+  'vo_pathfinder_impulse_kill', 'vo_pathfinder_beacon_destroyed',
+  // ghost
+  'vo_ghost_intro', 'vo_ghost_deploy', 'vo_ghost_move', 'vo_ghost_attack',
+  'vo_ghost_hold', 'vo_ghost_taking_fire', 'vo_ghost_grenade_in', 'vo_ghost_reload',
+  'vo_ghost_kill', 'vo_ghost_kill_multi', 'vo_ghost_low_health', 'vo_ghost_downed',
+  'vo_ghost_ally_downed', 'vo_ghost_reviving', 'vo_ghost_revived', 'vo_ghost_flag_pickup',
+  'vo_ghost_carrier_escort', 'vo_ghost_flag_dropped', 'vo_ghost_flag_capture', 'vo_ghost_drone_launch',
+  'vo_ghost_drone_fpv', 'vo_ghost_drone_mark', 'vo_ghost_signal_low', 'vo_ghost_drone_destroyed',
+  'vo_ghost_emp_planted', 'vo_ghost_emp_stall',
   // crew chatter: a squadmate boarding your ride tells you so (tts-say barks)
   'crew_letsgo', 'crew_gogogo', 'crew_punchit', 'crew_allin',
   // per-surface footsteps — biome designation lives in src/client/soundscape.ts;
@@ -128,6 +212,18 @@ export const SOUND_NAMES = [
   'ann_cataclysm_inbound', 'ann_cataclysm_landed', 'ann_cataclysm_down', 'ann_cataclysm_rampage',
 ] as const;
 export type SoundName = (typeof SOUND_NAMES)[number];
+
+/** Gameplay needs combat sounds immediately, but loading every spoken line up
+ * front turns first deploy into 460 fetches and hundreds of MiB of decoded
+ * PCM. The harness and Sound Review deliberately preload the whole catalog. */
+export function preloadSoundNames(all: boolean): readonly SoundName[] {
+  return all ? SOUND_NAMES : SOUND_NAMES.filter((name) => !name.startsWith('vo_') && !name.startsWith('ann_'));
+}
+
+function isFullCatalogToolPage(): boolean {
+  if (typeof location === 'undefined') return false;
+  return /\/(?:harness|sound-review)\.html$/.test(location.pathname);
+}
 
 // ---------------------------------------------------------------------------
 // ACOUSTIC CLASSES — how far each kind of sound carries, how much a wall
@@ -292,6 +388,8 @@ export class AudioEngine {
   private buffers = new Map<string, AudioBuffer>();
   private stock = new Map<string, AudioBuffer>();   // untouched originals
   private custom = new Set<string>();               // names carrying user sounds
+  private customRaw = new Map<string, ArrayBuffer>();
+  private loading = new Map<SoundName, Promise<boolean>>();
   private master: GainNode | null = null;
   private prefs: Record<string, SoundPref> = loadPrefs();
   listener: Vec3 = { x: 0, y: 0, z: 0 };
@@ -312,8 +410,11 @@ export class AudioEngine {
   private voBus: GainNode | null = null;
   private voVoices: { src: AudioBufferSourceNode; gain: GainNode; slot: string; ann: boolean; ended: boolean }[] = [];
 
-  async init() {
-    if (this.ctx) return;
+  async init(preload: 'core' | 'all' = isFullCatalogToolPage() ? 'all' : 'core') {
+    if (this.ctx) {
+      if (preload === 'all') await Promise.all(preloadSoundNames(true).map((name) => this.loadSound(name)));
+      return;
+    }
     this.ctx = new AudioContext();
     this.master = this.ctx.createGain();
     this.master.gain.value = this.masterVolume;
@@ -335,8 +436,9 @@ export class AudioEngine {
     // firefight instead of ducking itself
     this.voBus = this.ctx.createGain();
     this.voBus.connect(comp);
+    const initialNames = preloadSoundNames(preload === 'all');
     await Promise.all(
-      SOUND_NAMES.map(async (name) => {
+      initialNames.map(async (name) => {
         try {
           // opt #1 (L3): ship Opus (.ogg, ~15× smaller than WAV, no audible
           // loss at this use) and fall back to the WAV source if it's missing
@@ -353,7 +455,9 @@ export class AudioEngine {
     );
     // user-supplied sounds from the harness Sound Lab override stock
     const customs = await idbGetAll();
+    this.customRaw = customs;
     for (const [name, raw] of customs) {
+      if (!initialNames.includes(name as SoundName)) continue;
       try {
         this.buffers.set(name, await this.ctx.decodeAudioData(raw.slice(0)));
         this.custom.add(name);
@@ -362,6 +466,37 @@ export class AudioEngine {
     // which sounds are DESIGNATED to loop in-game (the Sound Editor writes
     // loop-flags.json). Missing file = nothing designated, all one-shots.
     await this.loadLoopFlags();
+  }
+
+  /** Fetch and decode one slot once. Core SFX call this during init; spoken
+   * lines call it on demand. Missing or undecodable assets stay non-fatal. */
+  private loadSound(name: SoundName): Promise<boolean> {
+    if (this.buffers.has(name)) return Promise.resolve(true);
+    const inFlight = this.loading.get(name);
+    if (inFlight) return inFlight;
+    const job = (async () => {
+      if (!this.ctx) return false;
+      let active: AudioBuffer | undefined;
+      try {
+        let res = await fetch(`/audio/${name}.ogg`);
+        if (!res.ok) res = await fetch(`/audio/${name}.wav`);
+        if (res.ok) {
+          active = await this.ctx.decodeAudioData(await res.arrayBuffer());
+          this.stock.set(name, active);
+        }
+      } catch { /* a custom sound may still make this slot playable */ }
+      const raw = this.customRaw.get(name);
+      if (raw) {
+        try {
+          active = await this.ctx.decodeAudioData(raw.slice(0));
+          this.custom.add(name);
+        } catch { /* undecodable upload: stock stands */ }
+      }
+      if (active) this.buffers.set(name, active);
+      return !!active;
+    })().finally(() => this.loading.delete(name));
+    this.loading.set(name, job);
+    return job;
   }
 
   resume() {
@@ -415,6 +550,7 @@ export class AudioEngine {
     try {
       const buf = await this.ctx.decodeAudioData(raw.slice(0));
       await idbPut(name, raw);
+      this.customRaw.set(name, raw);
       this.buffers.set(name, buf);
       this.custom.add(name);
       return true;
@@ -426,6 +562,7 @@ export class AudioEngine {
   /** Back to the stock CC0 sound. */
   async clearCustom(name: SoundName) {
     await idbDelete(name);
+    this.customRaw.delete(name);
     this.custom.delete(name);
     const stock = this.stock.get(name);
     if (stock) this.buffers.set(name, stock);
@@ -460,7 +597,12 @@ export class AudioEngine {
     if (!this.ctx || !this.master) return false;
     if (name === 'footstep') name = this.footstepDefault; // the swappable default
     const buf = this.buffers.get(name);
-    if (!buf) return false;
+    if (!buf) {
+      if (!name.startsWith('vo_') && !name.startsWith('ann_')) return false;
+      const queued = { ...opts, ...(opts.pos ? { pos: { ...opts.pos } } : {}) };
+      void this.loadSound(name).then((loaded) => { if (loaded) this.play(name, queued); });
+      return true;
+    }
 
     // throttle identical sounds within 30ms (bot firefights spam hard)
     const now = this.ctx.currentTime;

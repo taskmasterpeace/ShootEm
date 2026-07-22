@@ -1,0 +1,370 @@
+{
+  "generated": "2026-07-22T08:58:12.436Z",
+  "threshold": 0.78,
+  "summary": {
+    "total": 51,
+    "clean": 51,
+    "off": 0,
+    "missing": 0,
+    "errors": 0
+  },
+  "rows": [
+    {
+      "slot": "death_infiltrator",
+      "scripted": "Oh... hush now... I was listening...",
+      "heard": "Oh, hush now. I was listening.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_ally_downed",
+      "scripted": "Soldier down! Cover that body, I'm going to them!",
+      "heard": "Soldier down! Cover that body! I'm going to him!",
+      "similarity": 0.9,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_ammo_low",
+      "scripted": "Last magazine. Time to make every answer count.",
+      "heard": "Last Magazine. Time to make every answer count.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_attack_1",
+      "scripted": "I see the opening. Let me have it.",
+      "heard": "I see the opening. Let me have it.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_attack_2",
+      "scripted": "Keep their eyes up front. I'll handle the surprise.",
+      "heard": "Keep they eyes up front. I'll handle the surprise.",
+      "similarity": 0.94,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_carrier_escort",
+      "scripted": "Stay close to that runner. Pride is heavy when you are carrying it.",
+      "heard": "Stay close to that runner. Pride is heavy when you are carrying it.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_cloak_broken",
+      "scripted": "CLOAK'S GONE! I NEED COVER!",
+      "heard": "Cloak's gone! I need cover!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_cloak_detected",
+      "scripted": "Mm. Those eyes are better than I expected.",
+      "heard": "Those eyes are better than I expected.",
+      "similarity": 0.97,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_cloak_empty",
+      "scripted": "Cloak is dry. No more magic until it charges.",
+      "heard": "Cloak is dry. No more magic until it charges.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_cloak_move",
+      "scripted": "Easy now... even the air is listening.",
+      "heard": "Easy now. Even the air is listening.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_cloak_on_1",
+      "scripted": "Now, let's become a rumor.",
+      "heard": "Now, let's become a Roma.",
+      "similarity": 0.8,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_cloak_on_2",
+      "scripted": "Keep looking forward, darling. That's where I used to be.",
+      "heard": "Keep looking forward, darling. That's where I used to be.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_cloak_ready",
+      "scripted": "Cloak is back. Let's try subtlety again.",
+      "heard": "Cloak is back. Let's try subtlety again.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_deploy_1",
+      "scripted": "All right, darlings. Let's go make ourselves difficult to find.",
+      "heard": "Alright darlings, let's go make ourselves difficult to find.",
+      "similarity": 0.99,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_deploy_2",
+      "scripted": "Check your corners. I'll check the places corners try to hide.",
+      "heard": "Check your corners. I'll check the places corners try to hide.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_downed",
+      "scripted": "I'm down! Don't you mourn me while I'm still talking!",
+      "heard": "I'm down. Don't you mind me while I'm still talking.",
+      "similarity": 0.88,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_flag_capture",
+      "scripted": "That is our capture. Clean work, babies. Almost elegant.",
+      "heard": "That is our capture. Clean work, babies. Almost elegant.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_flag_dropped",
+      "scripted": "Flag is down! Clear the ground around it!",
+      "heard": "Flag is down. Clear the ground around it.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_flag_pickup",
+      "scripted": "I've got their colours. Well, won't they be embarrassed.",
+      "heard": "I've got they colors, but won't they be embarrassed?",
+      "similarity": 0.79,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_grenade_in",
+      "scripted": "GRENADE! MOVE, BABIES, MOVE!",
+      "heard": "Grenade! Move babies, move!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_grenade_out",
+      "scripted": "Little gift going out. Don't crowd the doorway.",
+      "heard": "Lil' Gif goin' out, don't crowd the doorway.",
+      "similarity": 0.81,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_help_ack",
+      "scripted": "I hear you, baby. Hold on, I'm coming.",
+      "heard": "I hear you, baby. Hold on. I'm coming.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_hold_1",
+      "scripted": "I'll hold here. Nothing passes without introducing itself.",
+      "heard": "I'll hold here. Nothing passes without introducing itself.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_hold_2",
+      "scripted": "This corner and I are acquainted now.",
+      "heard": "This corner and I are acquainted now.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_idle_1",
+      "scripted": "Quiet like this usually means somebody's planning something foolish.",
+      "heard": "Quiet like this usually means somebody's planning something foolish.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_idle_2",
+      "scripted": "Mm-hm. Take your time. Trouble always gets impatient first.",
+      "heard": "Mm-hmm. Take your time. Trouble always gets impatient first.",
+      "similarity": 0.99,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_intro",
+      "scripted": "Odessa Broussard, baby. You keep your head down, and Miss Dee will keep the other side guessing.",
+      "heard": "Odessa Bruce sod, baby. You keep your head down, and Miss D will keep the other side guessing.",
+      "similarity": 0.88,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_kill_1",
+      "scripted": "Mm. You should've watched the quiet side.",
+      "heard": "Hmm. You should have watched the quiet side.",
+      "similarity": 0.92,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_kill_2",
+      "scripted": "There you go. Lie still for Miss Dee.",
+      "heard": "There you go. Lie still for Miss D.",
+      "similarity": 0.96,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_kill_3",
+      "scripted": "All that noise, and still you missed the important part.",
+      "heard": "All that noise is still your misty important part.",
+      "similarity": 0.81,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_kill_multi",
+      "scripted": "Two down. They came together; seemed rude to separate them.",
+      "heard": "Tilt out, they came together, seemed rude to separate them.",
+      "similarity": 0.85,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_kill_revenge",
+      "scripted": "I remembered you. Aren't you touched?",
+      "heard": "I remembered you. All that you touched.",
+      "similarity": 0.83,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_last_stand",
+      "scripted": "Just me, then. All right. I've had quieter evenings.",
+      "heard": "Just me then. All right. I've had quieter evenings.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_low_health",
+      "scripted": "I'm hurt. Still thinking, though. That's the dangerous part.",
+      "heard": "I'm hurt. Still thinking, though. That's the dangerous part.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_move_1",
+      "scripted": "I'm moving. Try not to announce it for me.",
+      "heard": "I'm moving. Try not to announce it for me.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_move_2",
+      "scripted": "On my way, sugar. Quiet feet.",
+      "heard": "On my way, sugar. Quiet feet.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_rail_kill",
+      "scripted": "One clean line. That is all it takes.",
+      "heard": "One clean line. That is all it takes.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_rail_shot",
+      "scripted": "Hold still... just a little longer.",
+      "heard": "Hold still just a little longer.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_reload",
+      "scripted": "Changing magazines. Keep them entertained.",
+      "heard": "Changing magazines. Keep them entertained.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_reload_dry",
+      "scripted": "DRY! I need five seconds and a small miracle!",
+      "heard": "Dry! I need five seconds and a small miracle!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_revived",
+      "scripted": "Thank you, baby. Now point me toward the rude one.",
+      "heard": "Thank you, baby. Now point me toward the rude one.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_reviving",
+      "scripted": "Stay with me, sweetheart. Breathe first; complain later.",
+      "heard": "Stay with me, sweetheart. Breathe first. Complain later.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_spot_air",
+      "scripted": "Aircraft overhead. Find something solid and become fond of it.",
+      "heard": "Aircraft Overhead. Find something solid and become fond of it.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_spot_armor",
+      "scripted": "Armor on the lane. Big, loud, and very sure of itself.",
+      "heard": "Alma on the lane, big, loud, and very sure of itself.",
+      "similarity": 0.88,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_spot_cloak",
+      "scripted": "Cloak shimmer, near the wall. Oh, somebody thinks they're subtle.",
+      "heard": "Cloak shimmer near the wall. Oh, somebody thinks they subtle.",
+      "similarity": 0.96,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_spot_infantry",
+      "scripted": "Two riflemen, left side. Walking like nobody told them.",
+      "heard": "Two riflemen, left side, walking like nobody told them.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_suppressed",
+      "scripted": "I'm pinned! Put something loud in their direction!",
+      "heard": "I'm pinned. Put something loud in their direction.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_taking_fire",
+      "scripted": "They've got my position! Break their sightline!",
+      "heard": "They've got my position. Break their sight line.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_vehicle_bail",
+      "scripted": "OUT! OUT OF THE VEHICLE, NOW!",
+      "heard": "Out! Out of the vehicle now!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_vehicle_damaged",
+      "scripted": "This machine is coming apart! Ease her back!",
+      "heard": "This machine is coming apart! Ease her back!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "slot": "vo_infiltrator_vehicle_enter",
+      "scripted": "Scoot over. Miss Dee is riding.",
+      "heard": "Scoot over, Miss D is riding.",
+      "similarity": 0.91,
+      "status": "ok"
+    }
+  ]
+}

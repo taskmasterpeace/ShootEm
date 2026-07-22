@@ -1,0 +1,1501 @@
+{
+  "generated": "2026-07-22T15:16:21.093Z",
+  "threshold": 0.78,
+  "summary": {
+    "total": 186,
+    "clean": 186,
+    "off": 0,
+    "missing": 0,
+    "errors": 0
+  },
+  "rows": [
+    {
+      "classId": "engineer",
+      "slot": "death_engineer",
+      "scripted": "Don’t leave... the turret facing the wall.",
+      "heard": "Don't leave the turret facing the wall.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "death_ghost",
+      "scripted": "Feed... terminated.",
+      "heard": "feet terminated",
+      "similarity": 0.85,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "death_heavy",
+      "scripted": "Gun’s still loaded... do not waste it.",
+      "heard": "Guns still loaded. Do not waste it.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "death_infantry",
+      "scripted": "Tell ’em... we held.",
+      "heard": "Tell him we held.",
+      "similarity": 0.78,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "death_jump",
+      "scripted": "Hey... don’t let ’em take the sky.",
+      "heard": "Hey, don't let him take the sky.",
+      "similarity": 0.88,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "death_medic",
+      "scripted": "Keep... the beam on them.",
+      "heard": "Keep the beam on them.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "death_pathfinder",
+      "scripted": "Close... the route behind me.",
+      "heard": "Close. The route behind me.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_ally_downed",
+      "scripted": "Patient on the floor. Cover me.",
+      "heard": "\"'Patient on the floor. Cover me.'",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_attack",
+      "scripted": "Tools down. Shotgun up.",
+      "heard": "Tools down. Shotgun up.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_carrier_escort",
+      "scripted": "Bring the carrier through my sentry arc.",
+      "heard": "Bring the carrier through my sentry arc.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_contamination_cleared",
+      "scripted": "Contamination cleared. Metal may breathe again.",
+      "heard": "Contamination cleared. Metal may breathe again.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_deploy",
+      "scripted": "Give me thirty seconds and one defensible corner.",
+      "heard": "Give me thirty seconds in one defensible corner.",
+      "similarity": 0.91,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_downed",
+      "scripted": "Patch requires patching. Yes, I hear it.",
+      "heard": "Patch requires patching. Yes, I hear it.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_flag_capture",
+      "scripted": "Delivered within acceptable tolerances.",
+      "heard": "delivered within acceptable tolerances.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_flag_dropped",
+      "scripted": "Flag down near me! I can fortify it!",
+      "heard": "Flag down near me. I can fortify it.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_flag_pickup",
+      "scripted": "Flag acquired. I did not bring the fast boots.",
+      "heard": "\"'Flag acquired. \"'I did not bring the fast boots.'",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_grenade_in",
+      "scripted": "Explosive in the workspace! Clear!",
+      "heard": "Explosive in the workspace! Clear!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_hold",
+      "scripted": "This position has good bones. Let me improve it.",
+      "heard": "This position has good bones. Let me improve it.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_intro",
+      "scripted": "Naveen Singh. Patch if something is broken. Mister Singh if you broke it.",
+      "heard": "Naveen Singh, patch if something is broken. Mr. Singh, if you broke it.",
+      "similarity": 0.95,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_kill",
+      "scripted": "Diagnosis: poor maintenance.",
+      "heard": "Diagnosis? Poor maintenance.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_kill_multi",
+      "scripted": "That repair is beyond warranty.",
+      "heard": "That repair is beyond warranty.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_low_health",
+      "scripted": "Leaking in several non-approved places.",
+      "heard": "\"'leaking in several non-approved places.'",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_mine_planted",
+      "scripted": "Mine armed. Remember where your feet are.",
+      "heard": "Mine armed. Remember where your feet are.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_move",
+      "scripted": "Moving the workshop.",
+      "heard": "Moving the workshop.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_reload",
+      "scripted": "Feeding the problem-solver.",
+      "heard": "Feeding the problem solver?",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_revived",
+      "scripted": "Excellent. I remain billable.",
+      "heard": "Excellent. I remain billable.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_reviving",
+      "scripted": "I fix people reluctantly. Hold still.",
+      "heard": "I fix people reluctantly. Hold still.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_taking_fire",
+      "scripted": "They are shooting the engineer. Predictable and rude.",
+      "heard": "They are shooting the engineer! Predictable and rude.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_turret_built",
+      "scripted": "Sentry seated. Arc is clear.",
+      "heard": "Sentry seated. Arc is clear.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_turret_lost",
+      "scripted": "My sentry is gone. I take that personally.",
+      "heard": "My sentry is gone. I take that personally.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_turret_target",
+      "scripted": "Sentry has movement. Heads down.",
+      "heard": "Sentry has movement. Heads down.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_vehicle_repair",
+      "scripted": "Hold her steady. I have the engine.",
+      "heard": "Hold her steady. I have the engine.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "engineer",
+      "slot": "vo_engineer_vehicle_repaired",
+      "scripted": "Vehicle is clean. Try not to invent a new noise.",
+      "heard": "Vehicle is clean. Try not to invent a new noise.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_ally_downed",
+      "scripted": "Friendly down. I have the safe approach.",
+      "heard": "Friendly down. I have the safe approach.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_attack",
+      "scripted": "Marked lane. Take the shot.",
+      "heard": "Mark Lane. Take the shot.",
+      "similarity": 0.89,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_carrier_escort",
+      "scripted": "Carrier covered. I am watching the watchers.",
+      "heard": "Gary are covered. I am watching the watchers.",
+      "similarity": 0.83,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_deploy",
+      "scripted": "Keep talking. Noise gives me edges.",
+      "heard": "Keep talking. Noise gives me edges.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_downed",
+      "scripted": "Switch is down. Feed is still live.",
+      "heard": "Switch is down. Feed is still live.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_drone_destroyed",
+      "scripted": "Eye is gone. We work blind.",
+      "heard": "Her eye is gone. We work blind.",
+      "similarity": 0.93,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_drone_fpv",
+      "scripted": "Taking the drone. Guard the quiet body.",
+      "heard": "Taking the drone. Guard the quiet body.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_drone_launch",
+      "scripted": "Little eye, up.",
+      "heard": "Little eye up.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_drone_mark",
+      "scripted": "Marked. Through the wall, three meters right.",
+      "heard": "Marked. Through the wall. Three meters right.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_emp_planted",
+      "scripted": "EMP set. Armor’s about to forget its name.",
+      "heard": "EMP Sen. Armor's about to forget its name.",
+      "similarity": 0.94,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_emp_stall",
+      "scripted": "Vehicle stalled. Move before it remembers.",
+      "heard": "Vehicle stalled. Move before it remembers.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_flag_capture",
+      "scripted": "They never saw the handoff.",
+      "heard": "They never saw the handoff.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_flag_dropped",
+      "scripted": "Flag down. Enemy eyes converging.",
+      "heard": "Flag down. Enemy eyes converging.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_flag_pickup",
+      "scripted": "Flag in hand. Their cameras missed the exchange.",
+      "heard": "Flag in hand. Their cameras missed the exchange.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_grenade_in",
+      "scripted": "Charge in! Three steps, any direction!",
+      "heard": "Charge in three steps any direction",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_hold",
+      "scripted": "I have eyes through the wall. Hold still and listen.",
+      "heard": "I have eyes through the wall. Hold still and listen.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_intro",
+      "scripted": "Elias Baptiste. Switch on comms. I see the room before the room sees us.",
+      "heard": "Elias Baptiste. Switch on comms. I see the room before the room sees us.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_kill",
+      "scripted": "Contact erased.",
+      "heard": "Contact Erased.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_kill_multi",
+      "scripted": "Their picture just went dark.",
+      "heard": "Their picture just went dark.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_low_health",
+      "scripted": "I’m bleeding. Signal remains.",
+      "heard": "Ah. Bleed. Signal remains.",
+      "similarity": 0.78,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_move",
+      "scripted": "Moving underneath their attention.",
+      "heard": "Moving underneath their attention.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_reload",
+      "scripted": "Reloading. Drone keeps watch.",
+      "heard": "Reloading. Drone Keeps Watch.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_revived",
+      "scripted": "Back online.",
+      "heard": "Back online.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_reviving",
+      "scripted": "Stay quiet. Let them think the room is empty.",
+      "heard": "Stay quiet. Let them think the room is empty.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_signal_low",
+      "scripted": "Signal degrading. Bringing the eye home.",
+      "heard": "Signal degrading. Bringing the eye home.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "ghost",
+      "slot": "vo_ghost_taking_fire",
+      "scripted": "They found my body! Break their sightline!",
+      "heard": "They found my body! Break their sight line!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_ally_downed",
+      "scripted": "Stay there. I am bringing the wall.",
+      "heard": "Stay there! I am bringing the wall!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_attack",
+      "scripted": "Heavy fire, coming through!",
+      "heard": "Heavy fire coming through.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_autocannon_brace",
+      "scripted": "Bracing. Let it eat.",
+      "heard": "Bracing! Let it eat!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_autocannon_empty",
+      "scripted": "Cannon dry. This is socially awkward.",
+      "heard": "Cannon dry. This is socially awkward.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_carrier_escort",
+      "scripted": "Stay behind the heavy. Yes, that is me.",
+      "heard": "Stay behind the heavy. Yes, that is me.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_deploy",
+      "scripted": "Big gun, small doorway. We will negotiate.",
+      "heard": "Big gun, small doorway. We will negotiate.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_downed",
+      "scripted": "Big target is down. Little help?",
+      "heard": "Ugh! Big target is down! Little help?",
+      "similarity": 0.94,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_flag_capture",
+      "scripted": "Slow delivery. Same receipt.",
+      "heard": "Slow delivery, same receipt.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_flag_dropped",
+      "scripted": "Flag is down! I will make room around it!",
+      "heard": "Flag is down. I will make room around it.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_flag_pickup",
+      "scripted": "I have the flag. This was not the fast plan.",
+      "heard": "I have the flag. This was not the fast plan.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_grenade_in",
+      "scripted": "Grenade! Outside the dome—move!",
+      "heard": "GRENADE! OUTSIDE THE DOME! MOVE!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_hold",
+      "scripted": "Behind me. We make our stand here.",
+      "heard": "Behind me, we make our stand here.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_intro",
+      "scripted": "Omar Haddad. You bring me targets; I bring the weather.",
+      "heard": "Omar Haddad. You bring me targets, I bring the weather.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_kill",
+      "scripted": "That problem has become spare parts.",
+      "heard": "That problem has become spare parts.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_kill_multi",
+      "scripted": "See? A very efficient meeting.",
+      "heard": "See? A very efficient meeting.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_low_health",
+      "scripted": "Armor’s gone. Omar remains.",
+      "heard": "Armors gone, Omar remains.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_missile_armor",
+      "scripted": "Armor marked. Missile away!",
+      "heard": "Armor marked. Missile away.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_missile_hit",
+      "scripted": "Direct hit. The machine felt that.",
+      "heard": "Direct hit. The machine felt that.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_move",
+      "scripted": "I am moving. The ammunition is moving slower.",
+      "heard": "I am moving. The ammunition is moving slower.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_reload",
+      "scripted": "Long reload. This is why I have friends.",
+      "heard": "Ah, long reload. This is why I have friends.",
+      "similarity": 0.97,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_revived",
+      "scripted": "Ah. Back to being everybody’s wall.",
+      "heard": "Back to being everybody's wall.",
+      "similarity": 0.96,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_reviving",
+      "scripted": "Easy, my friend. Heavy hands can still be gentle.",
+      "heard": "Easy, my friend. Heavy hands can still be gentle.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_shield_failing",
+      "scripted": "Dome is cracking! Choose your next cover!",
+      "heard": "Dome is cracking! Choose your next cover!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_shield_up",
+      "scripted": "Dome up! Bring your breathing inside.",
+      "heard": "Dome up! Bring your breathing inside!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "heavy",
+      "slot": "vo_heavy_taking_fire",
+      "scripted": "Rounds on the heavy! I noticed!",
+      "heard": "Rounds on the heavy, I noticed.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_ally_downed",
+      "scripted": "We got one down! I’m going.",
+      "heard": "We got one down! I'm going!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_attack",
+      "scripted": "Front sight, center mass. Work ’em.",
+      "heard": "Front sight, center mass, work them.",
+      "similarity": 0.92,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_carrier_escort",
+      "scripted": "Carrier moving. Shoulders out, eyes wide.",
+      "heard": "Carrier moving, shoulders out, eyes wide.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_deploy",
+      "scripted": "Nothing fancy. We take the ground, then we keep it.",
+      "heard": "Nothing fancy. We take the ground and we keep it.",
+      "similarity": 0.88,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_downed",
+      "scripted": "I’m down, not done. Drag me in.",
+      "heard": "I'm down! Not done! Drag me in!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_flag_capture",
+      "scripted": "That’s home. That’s a point. Reset.",
+      "heard": "That's home. That's a point. Reset.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_flag_dropped",
+      "scripted": "Flag loose! Nobody dies staring at it!",
+      "heard": "Flag loose! Nobody dies staring at it!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_flag_pickup",
+      "scripted": "Flag’s with me. Build me a road.",
+      "heard": "Flags with me. Build me a road.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_frag_bad_bounce",
+      "scripted": "Bad bounce! Break!",
+      "heard": "Bad bounce! Break!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_frag_cook",
+      "scripted": "Cooking it... now!",
+      "heard": "Cookin' it. Now!",
+      "similarity": 0.86,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_frag_flush",
+      "scripted": "There they go. Rifles finish it.",
+      "heard": "There they go. Rifles finish it.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_frag_ready",
+      "scripted": "Frag ready. Call the pocket.",
+      "heard": "Frag ready. Call the pocket.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_frag_throw",
+      "scripted": "Sending one!",
+      "heard": "Send in one.",
+      "similarity": 0.82,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_grenade_in",
+      "scripted": "Frag! Off the wall—move!",
+      "heard": "Frag! Off the wall! Move!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_hold",
+      "scripted": "This patch is ours. Make ’em pay rent.",
+      "heard": "This patch is ours. Make them pay rent.",
+      "similarity": 0.93,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_intro",
+      "scripted": "Gabe Reyes. Rifle up, eyes open. Stay near me and we all get home.",
+      "heard": "K. Bray is. Rifle up, eyes open. Stay near me. We all get home.",
+      "similarity": 0.79,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_kill",
+      "scripted": "One down. Keep scanning.",
+      "heard": "One down. Keep scanning.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_kill_multi",
+      "scripted": "Lane’s clear. Push it before they reconsider.",
+      "heard": "Lane's clear. Push it before they reconsider.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_low_health",
+      "scripted": "I’m hit. Still useful.",
+      "heard": "I'm hit. Still useful.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_move",
+      "scripted": "On me. Short rushes.",
+      "heard": "On me. Short rushes.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_reload",
+      "scripted": "Changing magazine. Cover my lane.",
+      "heard": "Changing magazine. Cover my lane.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_revived",
+      "scripted": "There we go. Back in the fight.",
+      "heard": "There we go. I'm back in the fight.",
+      "similarity": 0.91,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_reviving",
+      "scripted": "Stay with me. Breathe and look at me.",
+      "heard": "Stay with me. Breathe and look at me.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "infantry",
+      "slot": "vo_infantry_taking_fire",
+      "scripted": "Contact, front-left! Get small!",
+      "heard": "Contact! Front left! Get small!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_air_watched",
+      "scripted": "They got eyes up. Changing altitude.",
+      "heard": "They got eyes up. Changing altitude.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_airborne_attack",
+      "scripted": "From your blind side!",
+      "heard": "From your blind side!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_ally_downed",
+      "scripted": "Hold on! I’m coming over the wall!",
+      "heard": "Hold on, I'm coming over the wall.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_attack",
+      "scripted": "Dropping in—make room!",
+      "heard": "Drop it in! Make room!",
+      "similarity": 0.81,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_carrier_escort",
+      "scripted": "Carrier below me. Touch them and I drop on you.",
+      "heard": "Carrier below me! Touch him and I drop on you!",
+      "similarity": 0.9,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_deploy",
+      "scripted": "Y’all take the road. I’m allergic to traffic.",
+      "heard": "Y'all take the road. I'm allergic to traffic.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_downed",
+      "scripted": "Okay, gravity won one. Come get me.",
+      "heard": "Okay, Gravity 1-1, come get me.",
+      "similarity": 0.78,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_flag_capture",
+      "scripted": "Air mail, delivered.",
+      "heard": "Air Mail. Delivered.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_flag_dropped",
+      "scripted": "Flag down! I can reach it—cover me!",
+      "heard": "Flag down! I can reach it! Cover me!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_flag_pickup",
+      "scripted": "Got the flag. Tell the ground crew to keep up.",
+      "heard": "Got the flag. Tell the ground crew to keep up.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_fuel_empty",
+      "scripted": "No thrust! Clear my landing!",
+      "heard": "No thrust! Clear my landing!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_fuel_low",
+      "scripted": "Tank’s coughing. I’m coming down.",
+      "heard": "Tank's coughing. I'm coming down.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_grenade_in",
+      "scripted": "Grenade! Cute—move!",
+      "heard": "Grenade! Cue! Move!",
+      "similarity": 0.89,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_hard_landing",
+      "scripted": "Feet down. Knees filing complaints.",
+      "heard": "Feet down. Knees filing complaints.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_hold",
+      "scripted": "I got high side. Don’t make me babysit low.",
+      "heard": "I got high side. Don't make me babysit low.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_intro",
+      "scripted": "Keisha Bell—Kite on comms. If you lose me, look up.",
+      "heard": "Keisha Bell, Kite On Combs. If you lose me, look up.",
+      "similarity": 0.95,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_jet_ignite",
+      "scripted": "Kite going vertical.",
+      "heard": "Kite going vertical!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_jet_ready",
+      "scripted": "Fuel’s back. Sky’s mine.",
+      "heard": "Fuel's back. Sky's mine.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_kill",
+      "scripted": "Caught you looking straight ahead.",
+      "heard": "Caught you looking straight ahead.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_kill_multi",
+      "scripted": "That whole corner needed an attitude adjustment.",
+      "heard": "That whole corner needed an attitude adjustment.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_low_health",
+      "scripted": "Jet’s fine. I am less fine.",
+      "heard": "Jet's fine. I am less fine.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_move",
+      "scripted": "Roofline. Meet me there.",
+      "heard": "Roofline, meet me there.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_reload",
+      "scripted": "Reloading in the air. Terrible life choices.",
+      "heard": "Reloading in the air. Terrible life choices.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_revived",
+      "scripted": "See? Can’t keep good trouble grounded.",
+      "heard": "See? Can't keep good trouble grounded.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_reviving",
+      "scripted": "Don’t quit while I’m down here being responsible.",
+      "heard": "Don't quit while I'm down here being responsible.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "jump",
+      "slot": "vo_jump_taking_fire",
+      "scripted": "Oh, they mad-mad! Shots from the east!",
+      "heard": "Oh, they mad mad. Shots from the east.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_ally_downed",
+      "scripted": "I see you. Keep pressure on it.",
+      "heard": "I see you. Keep pressure on it.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_attack",
+      "scripted": "Contact. I am a doctor with a weapon, not a pacifist.",
+      "heard": "Contact. I am a doctor with a weapon, not a pacifist.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_beam_empty",
+      "scripted": "Beam is dry. Cover me while it charges.",
+      "heard": "Beam is dry. Cover me while it charges.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_carrier_escort",
+      "scripted": "Protect the carrier. I will keep them moving.",
+      "heard": "Protect the carrier. I will keep them moving.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_deploy",
+      "scripted": "Check your seals, your magazines, and the person beside you.",
+      "heard": "Check your seals, your magazines and the person beside you.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_downed",
+      "scripted": "Medic down. Yes, the irony is noted.",
+      "heard": "Medic down. Yes, the irony is noted.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_flag_capture",
+      "scripted": "Objective secured. Now who needs stitches?",
+      "heard": "Objective secured. Now who needs stitches?",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_flag_dropped",
+      "scripted": "Flag down! Stabilize the lane first!",
+      "heard": "Flag down! Stabilise the lane first!",
+      "similarity": 0.93,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_flag_pickup",
+      "scripted": "I have the flag. Apparently everyone else was bleeding.",
+      "heard": "I have the flag. Apparently everyone else was bleeding.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_grenade_in",
+      "scripted": "Grenade! Patients and future patients—move!",
+      "heard": "Grenade! Patience and future patience move!",
+      "similarity": 0.83,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_heal_complete",
+      "scripted": "Stable. Try not to reopen anything.",
+      "heard": "Stable. Try not to reopen anything.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_heal_critical",
+      "scripted": "Stay with me. Breathe when I tell you.",
+      "heard": "Stay with me. Breathe when I tell you.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_heal_start",
+      "scripted": "Beam on you. Stop dodging your healthcare.",
+      "heard": "Beam on you. Stop dodging your health care.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_hold",
+      "scripted": "Triage point here. Bring me anyone still arguing.",
+      "heard": "Triage point here. Bring me anyone still arguing.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_infection_reduced",
+      "scripted": "Load reduced. Infection is not permission to panic.",
+      "heard": "Load reduced. Infection is not permission to panic.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_intro",
+      "scripted": "Doctor Amina Okafor. I keep you alive; you make that difficult.",
+      "heard": "Dr. Amina Okafor, I keep you alive, you make that difficult.",
+      "similarity": 0.94,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_kill",
+      "scripted": "Threat treated.",
+      "heard": "Threat treated.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_kill_multi",
+      "scripted": "Preventive medicine.",
+      "heard": "Preventive medicine.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_low_health",
+      "scripted": "I am injured. Inconvenient, not terminal.",
+      "heard": "I am injured. Inconvenient, not terminal.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_move",
+      "scripted": "Move. Bleeding may continue en route.",
+      "heard": "Move. Bleeding may continue en route.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_patient_moving",
+      "scripted": "If you want treatment, stop running from the doctor!",
+      "heard": "If you want treatment, stop running from the doctor.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_reload",
+      "scripted": "Reloading. Please avoid emergencies for three seconds.",
+      "heard": "Reloading. Please avoid emergencies for three seconds.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_revived",
+      "scripted": "Thank you. Now point me at my patient.",
+      "heard": "Thank you. Now point me at my patient.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_reviving",
+      "scripted": "Eyes open. You are not leaving my shift.",
+      "heard": "Eyes open. You are not leaving my shift.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_self_stim",
+      "scripted": "Self-stim. Doctor’s orders.",
+      "heard": "Self-stim. Doctor's orders.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "medic",
+      "slot": "vo_medic_taking_fire",
+      "scripted": "They are targeting the medic. How original.",
+      "heard": "They are targeting the medic. How original.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_ally_downed",
+      "scripted": "I can reach them. Hold the lane.",
+      "heard": "I can reach him. Hold the lane.",
+      "similarity": 0.84,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_attack",
+      "scripted": "I’m in their side pocket—push!",
+      "heard": "I'm in their side pocket! Push!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_beacon_alpha",
+      "scripted": "Beacon Alpha planted. This is where we leave.",
+      "heard": "Beacon Alpha Planet. This is where we leave.",
+      "similarity": 0.9,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_beacon_beta",
+      "scripted": "Beacon Beta live. This is where we surprise them.",
+      "heard": "Big and Beta Live, this is where we surprise them.",
+      "similarity": 0.84,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_beacon_destroyed",
+      "scripted": "Link is dead. Somebody found my door.",
+      "heard": "Link is dead. Somebody found my door.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_carrier_escort",
+      "scripted": "I’m opening a lane for the carrier.",
+      "heard": "I'm opening a lane for the carrier.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_deploy",
+      "scripted": "The long way is for people with no imagination.",
+      "heard": "The long way is for people with no imagination.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_downed",
+      "scripted": "Route’s closed. Need a pickup.",
+      "heard": "Route's closed! Need a pickup!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_flag_capture",
+      "scripted": "Shortest distance between us and winning.",
+      "heard": "Haha, shortest distance between us and winning.",
+      "similarity": 0.94,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_flag_dropped",
+      "scripted": "Flag fell off-route! Swing back!",
+      "heard": "Flag fell off route! Swing back!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_flag_pickup",
+      "scripted": "Flag on the express line. Clear my exit.",
+      "heard": "Flag on the express line! Clear my exit!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_grenade_in",
+      "scripted": "Grenade on the route! Reroute!",
+      "heard": "Grenade on the route! Reroute!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_hold",
+      "scripted": "This lane bends through me now.",
+      "heard": "This lane bends through me now!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_impulse_fire",
+      "scripted": "Impulse out! Give ’em room to fly!",
+      "heard": "Impulse out! Give him room to fly!",
+      "similarity": 0.9,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_impulse_kill",
+      "scripted": "Sent them the scenic way.",
+      "heard": "Ha! Sent them the scenic way!",
+      "similarity": 0.95,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_intro",
+      "scripted": "Mateo Alvarez. Call me Skip. Maps show where people went; I show where we’re going.",
+      "heard": "Mateo Alvarez. Call me Skip. Maps show where people went. I show where we're going.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_kill",
+      "scripted": "You watched the road. Rookie mistake.",
+      "heard": "You watch the road. Rookie mistake.",
+      "similarity": 0.93,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_kill_multi",
+      "scripted": "Shortcut just became a toll booth.",
+      "heard": "Shortcut just became a toll booth.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_link_live",
+      "scripted": "Pair is hot. Step clean or lose your lunch.",
+      "heard": "Paris hot? Step clean or lose your lunch.",
+      "similarity": 0.95,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_low_health",
+      "scripted": "I’m clipped. Speed’s still paid for.",
+      "heard": "I'm clipped. Speed's still paid for.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_move",
+      "scripted": "Cutting left. Trust me for six seconds.",
+      "heard": "Cut and left. Trust me for six seconds.",
+      "similarity": 0.85,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_reload",
+      "scripted": "Reloading. Keep the doorway rude.",
+      "heard": "Reloading! Keep the doorway rude!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_revived",
+      "scripted": "Back on my feet. Where’s the gap?",
+      "heard": "Back on my feet. Where's the gat?",
+      "similarity": 0.96,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_reviving",
+      "scripted": "Took the fast way to you. Stay awake.",
+      "heard": "Took the fast way to you. Stay awake.",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_taking_fire",
+      "scripted": "They found the shortcut! Need pressure!",
+      "heard": "They found the shortcut! Need pressure!",
+      "similarity": 1,
+      "status": "ok"
+    },
+    {
+      "classId": "pathfinder",
+      "slot": "vo_pathfinder_warp_enter",
+      "scripted": "Taking the shortcut—now.",
+      "heard": "Taking the shortcut, now!",
+      "similarity": 1,
+      "status": "ok"
+    }
+  ]
+}
