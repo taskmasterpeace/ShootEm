@@ -95,6 +95,9 @@ html, body {
 .ww-ico { width: 1em; height: 1em; vertical-align: -0.15em; display: inline-block; }
 .ico-inc { color: #e8c33d; } /* #91: the yellow tip on an incendiary feed */
 #range-chip { font-family: var(--font-mono, monospace); font-size: 0.72rem; letter-spacing: 0.08em; color: #37e83a; opacity: 0.85; } /* #79: the laser's number, laser-green */
+#weapon-rack { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0.15rem 0; } /* #84 */
+.rack-slot { font-size: 0.62rem; letter-spacing: 0.06em; color: #93a0b0; border: 1px solid #2a2f37; padding: 0.1rem 0.35rem; }
+.rack-slot.active { color: #e8a33d; border-color: #e8a33d; }
 /* §16.2 the MELEE STANCE LINE — readiness chips; dim = not now */
 #stance-line { display: flex; gap: 0.7rem; font-size: 0.62rem; letter-spacing: 0.08em; color: #e8a33d; opacity: 0.85; margin-top: 0.15rem; }
 #stance-line.hidden { display: none; }

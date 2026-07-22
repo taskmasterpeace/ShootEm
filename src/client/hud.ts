@@ -678,6 +678,14 @@ export class Hud {
       // coach-ui: NO emoji in the lockup — the 🎯 rendered magenta (a house-law
       // violation) and full-color emoji broke the mono/stencil type system
       $('weapon-name').textContent = def.name;
+      // #84 THE RACK (Robert: "we gotta be able to show all the stuff we
+      // got"): every carried weapon with its slot number, the drawn one lit —
+      // a picked-up rifle finally SHOWS as yours instead of hiding behind
+      // the switch key. setHTML-gated; identical racks cost nothing.
+      setHTML($('weapon-rack'), s.weapons.map((wid, i) => {
+        const wd = WEAPONS[wid];
+        return `<span class="rack-slot${i === s.weaponIdx ? ' active' : ''}">${i + 1} ${wd?.name ?? wid}</span>`;
+      }).join(''));
       const ammoEl = $('ammo-count');
       // THE ONE METER (§8): reload first (they're exclusive), else the Impact
       // Charge — same segmented bar, same lead-notch, whatever it's measuring
