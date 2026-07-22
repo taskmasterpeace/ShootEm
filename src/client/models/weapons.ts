@@ -682,9 +682,18 @@ const buildSpecial: FamilyBuilder = (k) => {
   return g;
 };
 
-const buildUnarmed: FamilyBuilder = () => {
+const buildUnarmed: FamilyBuilder = (k) => {
   const g = new THREE.Group();
-  g.userData.anchors = { grip: new THREE.Vector3(0, 0, 0), handguard: null };
+  // The armory registry requires a bounded silhouette even though the soldier
+  // renderer hides this family and uses the body's real hands. These are the
+  // two cloth wraps represented by the Bare Hands inventory card.
+  const rightWrap = box(0.34, 0.08, 0.08, k.dark);
+  rightWrap.position.set(0.06, -0.05, -0.06);
+  g.add(rightWrap);
+  const leftWrap = box(0.3, 0.075, 0.075, k.dark);
+  leftWrap.position.set(0.04, 0.06, 0.06);
+  g.add(leftWrap);
+  g.userData.anchors = { grip: new THREE.Vector3(-0.08, -0.05, -0.06), handguard: null };
   return g;
 };
 
