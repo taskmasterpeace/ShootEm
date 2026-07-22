@@ -1,7 +1,7 @@
 import type { MapGeometry } from './map-geometry';
 import type { Team, ThemeId, Vec3, VehicleKind } from './types';
 
-export type TheaterId = 'city' | 'desert' | 'countryside' | 'mountain' | 'coastal' | 'ocean';
+export type TheaterId = 'city' | 'desert' | 'countryside' | 'mountain' | 'coastal' | 'ocean' | 'steppe';
 export type TheaterDomain = 'foot' | 'ground' | 'air' | 'surface' | 'deep';
 
 export interface TheaterRoute {

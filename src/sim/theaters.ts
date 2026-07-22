@@ -1,7 +1,7 @@
 import { addLandingZone, carveRoute, createTheaterBase, finalizeTheater, routePoints } from './theater-builder';
 import type { GameMap } from './map';
 import type { TheaterDef, TheaterId } from './theater-types';
-import { generateCityTheater, generateCountrysideTheater, generateDesertTheater } from './theaters/land';
+import { generateCityTheater, generateCountrysideTheater, generateDesertTheater, generateSteppeTheater } from './theaters/land';
 import { generateCoastalTheater, generateMountainTheater, generateOceanTheater } from './theaters/domain';
 
 export const THEATER_DEFS: Record<TheaterId, TheaterDef> = {
@@ -11,6 +11,7 @@ export const THEATER_DEFS: Record<TheaterId, TheaterDef> = {
   mountain: { id: 'mountain', name: 'Crown Divide', geometry: { cols: 200, rows: 300, tile: 3 }, theme: 'winter', domains: ['foot', 'ground', 'air'], freeDogfight: false, defaultPads: ['buggy', 'attackheli', 'transportheli', 'gunship', 'gunheli', 'stealthbomber'] },
   coastal: { id: 'coastal', name: 'Breaker Coast', geometry: { cols: 300, rows: 200, tile: 3 }, theme: 'triton', domains: ['foot', 'ground', 'air', 'surface', 'deep'], freeDogfight: true, defaultPads: ['tank', 'boat', 'submarine', 'attackheli', 'transportheli', 'strikejet'] },
   ocean: { id: 'ocean', name: 'Pelagic Expanse', geometry: { cols: 300, rows: 300, tile: 3 }, theme: 'triton', domains: ['air', 'surface', 'deep'], freeDogfight: true, defaultPads: ['boat', 'submarine', 'strikejet', 'interceptor'] },
+  steppe: { id: 'steppe', name: 'Ashen Steppe', geometry: { cols: 300, rows: 300, tile: 3 }, theme: 'hardpan', domains: ['foot', 'ground', 'air'], freeDogfight: true, defaultPads: ['tank', 'apc', 'strikejet', 'interceptor', 'gunship', 'airsuperiority', 'attackheli'] },
 };
 
 function generateCatalogBase(id: TheaterId, seed: number): GameMap {
@@ -35,6 +36,7 @@ export function generateTheater(id: TheaterId, seed: number): GameMap {
   if (id === 'mountain') return generateMountainTheater(THEATER_DEFS.mountain, seed);
   if (id === 'coastal') return generateCoastalTheater(THEATER_DEFS.coastal, seed);
   if (id === 'ocean') return generateOceanTheater(THEATER_DEFS.ocean, seed);
+  if (id === 'steppe') return generateSteppeTheater(THEATER_DEFS.steppe, seed);
   return generateCatalogBase(id, seed);
 }
 

@@ -1,6 +1,6 @@
 import { BUILDINGS, stampBuilding, type StampCtx } from '../buildings';
 import { T_COVER, T_GRASS, T_OPEN, T_WALL, type GameMap, type PropSpec } from '../map';
-import { inBounds, tileIndex, tileToWorld } from '../map-geometry';
+import { allocateLayer, inBounds, tileIndex, tileToWorld } from '../map-geometry';
 import {
   addLandingZone, carveRoute, createTheaterBase, finalizeTheater, placeDomainPad,
   requiredLaneTiles, routePoints, seededTheaterRng, stageRotorcraftPads,
@@ -119,6 +119,65 @@ export function generateDesertTheater(def: TheaterDef, seed: number): GameMap {
   placeDomainPad(map, 'tank', 0, routePoints(map, [[0.08, 0.5]])[0]);
   placeDomainPad(map, 'tank', 1, routePoints(map, [[0.92, 0.5]])[0]);
   settleClaims(map, ctx.claims);
+  stageRotorcraftPads(map);
+  return finalizeTheater(map);
+}
+
+export function generateSteppeTheater(def: TheaterDef, seed: number): GameMap {
+  // FLAT + LARGE — the "ambiguous large terrain" (Robert): long sightlines, few
+  // obstacles, the ground where armour and aircraft actually manoeuvre. The
+  // drama is space, not walls. Cover is sparse and low; a handful of gentle
+  // rises give the eyes their high ground (the flat-large mountain variant).
+  const map = createTheaterBase(def, seed);
+  const rng = seededTheaterRng(map);
+  const cols = map.geometry.cols, rows = map.geometry.rows;
+  // sparse micro-cover — small rock outcrops scattered wide, never sealing the flat
+  for (let i = 0; i < 26; i++) {
+    const cx = rng.int(24, cols - 24), cz = rng.int(24, rows - 24);
+    const n = rng.int(2, 5);
+    for (let j = 0; j < n; j++) {
+      const tx = cx + rng.int(-3, 3), tz = cz + rng.int(-3, 3);
+      setTile(map, tx, tz, rng.next() < 0.4 ? T_WALL : T_COVER);
+      addProp(map, 'rock', tx, tz, 0.7 + rng.next() * 0.8, rng.range(0, Math.PI));
+    }
+  }
+  // gentle observation rises (height level 1 — Building band, still walkable):
+  // mirrored so neither side owns the sightline. Uses the terrain height layer,
+  // so the LOS system already lets the high ground see over the flat.
+  const height = allocateLayer(map.geometry);
+  const setHeight = (tx: number, tz: number, lv: number) => {
+    if (tx <= 1 || tz <= 1 || tx >= cols - 1 || tz >= rows - 1) return;
+    height[tileIndex(map.geometry, tx, tz)] = lv;
+  };
+  for (const [fx, fz] of [[0.28, 0.3], [0.72, 0.7], [0.3, 0.72], [0.7, 0.28], [0.5, 0.5]] as const) {
+    const cx = Math.round(fx * cols), cz = Math.round(fz * rows);
+    for (let dz = -5; dz <= 5; dz++) for (let dx = -5; dx <= 5; dx++) {
+      if (dx * dx + dz * dz <= 26) setHeight(cx + dx, cz + dz, 1);
+    }
+  }
+  map.height = height;
+  // wide armour lanes across the flat + one big open air loop (freeDogfight)
+  const armorWidth = laneWidth(map, true, 3);
+  carveRoute(map, { id: 'steppe:west-east', domain: 'ground', width: armorWidth, points: routePoints(map, [[0.03, 0.5], [0.3, 0.42], [0.7, 0.58], [0.97, 0.5]]) });
+  carveRoute(map, { id: 'steppe:north-arc', domain: 'ground', width: laneWidth(map, true), points: routePoints(map, [[0.03, 0.5], [0.3, 0.25], [0.7, 0.25], [0.97, 0.5]]) });
+  carveRoute(map, { id: 'steppe:south-arc', domain: 'ground', width: laneWidth(map, true), points: routePoints(map, [[0.03, 0.5], [0.3, 0.75], [0.7, 0.75], [0.97, 0.5]]) });
+  carveRoute(map, { id: 'steppe:high-loop', domain: 'air', width: 130, points: routePoints(map, [[0.01, 0.1], [0.35, 0.05], [0.7, 0.08], [0.99, 0.12], [0.7, 0.92], [0.3, 0.95], [0.01, 0.88]]) });
+  map.controlPoints = [
+    { name: 'THE CROSSROADS', pos: routePoints(map, [[0.5, 0.5]])[0] },
+    { name: 'NORTH RISE', pos: routePoints(map, [[0.3, 0.28]])[0] },
+    { name: 'SOUTH RISE', pos: routePoints(map, [[0.7, 0.72]])[0] },
+  ];
+  // supply at the crossroads + on the mirrored rises (the OPs)
+  for (const [fx, fz, kind] of [[0.5, 0.5, 'ammo'], [0.28, 0.3, 'energy'], [0.72, 0.7, 'energy'], [0.2, 0.5, 'medkit'], [0.8, 0.5, 'medkit']] as const) {
+    map.pickups.push({ type: kind, pos: routePoints(map, [[fx, fz]])[0] });
+  }
+  // mirrored LZs + the two opposing motor pools
+  for (const [index, fraction] of [[0, [0.16, 0.3]], [1, [0.84, 0.7]], [2, [0.5, 0.15]], [3, [0.5, 0.85]]] as const) {
+    const pos = routePoints(map, [fraction as [number, number]])[0];
+    addLandingZone(map, { id: `steppe:lz-${index}`, pos, radius: 26, slope: 0, side: index < 2 ? index as 0 | 1 : null });
+  }
+  placeDomainPad(map, 'tank', 0, routePoints(map, [[0.07, 0.5]])[0]);
+  placeDomainPad(map, 'tank', 1, routePoints(map, [[0.93, 0.5]])[0]);
   stageRotorcraftPads(map);
   return finalizeTheater(map);
 }

@@ -7,7 +7,7 @@ import { T_DEEP, T_WATER } from '../src/sim/map';
 
 describe('vehicle theater catalog and base builder', () => {
   const seeds = [7, 31, 42, 99, 4207, 5150, 7749, 1337, 90210, 606];
-  it('locks the six approved dimensions', () => {
+  it('locks the seven approved dimensions', () => {
     expect(Object.fromEntries(Object.entries(THEATER_DEFS).map(([id, def]) => [id, def.geometry]))).toEqual({
       city: { cols: 200, rows: 200, tile: 3 },
       desert: { cols: 300, rows: 300, tile: 3 },
@@ -15,6 +15,7 @@ describe('vehicle theater catalog and base builder', () => {
       mountain: { cols: 200, rows: 300, tile: 3 },
       coastal: { cols: 300, rows: 200, tile: 3 },
       ocean: { cols: 300, rows: 300, tile: 3 },
+      steppe: { cols: 300, rows: 300, tile: 3 },
     });
   });
 
