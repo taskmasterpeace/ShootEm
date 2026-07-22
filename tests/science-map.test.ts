@@ -21,6 +21,7 @@ import {
 import { stampBuilding, stencilConnected, type BuildingDef, type StampCtx } from '../src/sim/buildings';
 import { generateScienceMap, scienceMapReachable } from '../src/sim/science-map';
 import { SCIENCE_SITES, generateScienceMission } from '../src/sim/science';
+import { validateScienceOperationGraph } from '../src/sim/science-operation';
 
 const tileCenter = (tx: number, tz: number) => ({
   x: (tx + 0.5) * TILE - WORLD / 2,
@@ -99,6 +100,8 @@ describe('science mission maps', () => {
 
     expect(first.map.grid).toEqual(second.map.grid);
     expect(first.bounds).toEqual(second.bounds);
+    expect(first.operationGraph).toEqual(second.operationGraph);
+    expect(validateScienceOperationGraph(first.operationGraph)).toEqual([]);
     expect(first.map.props.filter((prop) => prop.type === 'clone_bay')).toHaveLength(1);
     expect(first.objectiveSockets.length).toBeGreaterThanOrEqual(3);
     expect(first.guardPosts.length).toBeGreaterThanOrEqual(4);

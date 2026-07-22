@@ -48,6 +48,19 @@ describe('science mission objective compiler', () => {
     expect(scienceObjectiveText(world.science!)).toBeTruthy();
   });
 
+  it('attaches patrols, report nodes, and permanent floor-aware waypoints', () => {
+    const world = missionWorld('steal');
+    const runtime = world.science!;
+
+    expect(runtime.operationGraph.metrics.rooms).toBeGreaterThanOrEqual(2);
+    expect(runtime.patrolRoutes).toHaveLength(runtime.encounterBudget.initialGuards);
+    expect(runtime.reportNodes.length).toBeGreaterThanOrEqual(1);
+    expect(runtime.missionWaypoints.some((waypoint) => waypoint.kind === 'insertion' && waypoint.active)).toBe(true);
+    expect(runtime.missionWaypoints.some((waypoint) => waypoint.kind === 'objective' && waypoint.active)).toBe(true);
+    expect(runtime.missionWaypoints.some((waypoint) => waypoint.kind === 'extraction' && !waypoint.active)).toBe(true);
+    expect(runtime.missionWaypoints.every((waypoint) => waypoint.floor === Math.round(waypoint.pos.y / 4))).toBe(true);
+  });
+
   it.each(Object.keys(primitive) as ScienceVerb[])('%s can complete its primary and extract', (verb) => {
     const world = missionWorld(verb);
     const runtime = world.science!;
@@ -94,6 +107,8 @@ describe('science mission objective compiler', () => {
     expect(tryScienceInteraction(world, operator, 1)).toBe(true);
     expect(world.science?.objective.complete).toBe(true);
     expect(world.science?.phase).toBe('extract');
+    expect(world.science?.missionWaypoints.some((waypoint) => waypoint.kind === 'objective' && waypoint.active)).toBe(false);
+    expect(world.science?.missionWaypoints.some((waypoint) => waypoint.kind === 'extraction' && waypoint.active)).toBe(true);
   });
 
   it('requires the operator to climb to an upstairs villa objective', () => {

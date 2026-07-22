@@ -34,6 +34,7 @@ import {
 import { floorLayer, ladderWellAt, stairDirectionAt } from './map-layers';
 import { Rng } from './rng';
 import type { ScienceMissionSpec, ScienceSite } from './science';
+import { generateScienceOperationGraph, validateScienceOperationGraph, type ScienceOperationGraph } from './science-operation';
 import type { ThemeId, Vec3 } from './types';
 
 export interface ScienceMapLayout {
@@ -48,6 +49,7 @@ export interface ScienceMapLayout {
   reinforcementPosts: Vec3[];
   convoyRoute: Vec3[];
   bounds: { minTx: number; minTz: number; maxTx: number; maxTz: number };
+  operationGraph: ScienceOperationGraph;
 }
 
 interface SiteProfile {
@@ -256,7 +258,19 @@ export function generateScienceMap(spec: ScienceMissionSpec): ScienceMapLayout {
     pads: [],
     propCovered: [...new Set(claims.filter((claim) => grid[claim.idx] === claim.t).map((claim) => claim.idx))],
   };
-  return { map, building, entry, extraction, objectiveSockets, guardPosts, civilianSpawns, dogPosts, reinforcementPosts, convoyRoute, bounds };
+  const operationGraph = generateScienceOperationGraph({
+    seed: spec.seed,
+    map,
+    building,
+    entry,
+    extraction,
+    objectives: objectiveSockets,
+    guardPosts,
+    reinforcementPosts,
+  });
+  const operationIssues = validateScienceOperationGraph(operationGraph);
+  if (operationIssues.length) throw new Error(`invalid science operation graph: ${operationIssues.join('; ')}`);
+  return { map, building, entry, extraction, objectiveSockets, guardPosts, civilianSpawns, dogPosts, reinforcementPosts, convoyRoute, bounds, operationGraph };
 }
 
 function walkableAt(map: GameMap, floor: number, tx: number, tz: number): boolean {

@@ -1,6 +1,7 @@
 import { perceivesNow } from './perception';
 import { noteIndoorAlert } from './indoor-ai';
 import type { ScienceMapLayout } from './science-map';
+import type { ScienceOperationGraph, SciencePatrolRoute } from './science-operation';
 import { scienceEncounterBudget, scienceGuardRole, type ScienceEncounterBudget, type ScienceMissionSpec, type ScienceVerb } from './science';
 import { worldFloorForHeight } from './map-layers';
 import type { Soldier, Vec3 } from './types';
@@ -26,6 +27,17 @@ export interface SciencePendingReport {
   completeAt: number;
 }
 
+export type ScienceMissionWaypointKind = 'insertion' | 'objective' | 'extraction' | 'report';
+
+export interface ScienceMissionWaypoint {
+  id: string;
+  kind: ScienceMissionWaypointKind;
+  label: string;
+  pos: Vec3;
+  floor: number;
+  active: boolean;
+}
+
 export interface ScienceMissionRuntime {
   spec: ScienceMissionSpec;
   phase: 'objective' | 'extract' | 'won' | 'failed';
@@ -38,6 +50,10 @@ export interface ScienceMissionRuntime {
   reinforcementPosts: Vec3[];
   convoyRoute: Vec3[];
   encounterBudget: ScienceEncounterBudget;
+  operationGraph: ScienceOperationGraph;
+  patrolRoutes: SciencePatrolRoute[];
+  reportNodes: Vec3[];
+  missionWaypoints: ScienceMissionWaypoint[];
   clonesRemaining: number;
   clonesSpent: number;
   detections: number;
@@ -118,6 +134,24 @@ export function createScienceRuntime(spec: ScienceMissionSpec, layout: ScienceMa
     reinforcementPosts: layout.reinforcementPosts.map((pos) => ({ ...pos })),
     convoyRoute: layout.convoyRoute.map((pos) => ({ ...pos })),
     encounterBudget,
+    operationGraph: layout.operationGraph,
+    patrolRoutes: layout.operationGraph.patrolRoutes.slice(0, encounterBudget.initialGuards).map((route) => ({
+      ...route,
+      points: route.points.map((pos) => ({ ...pos })),
+      roomIds: [...route.roomIds],
+    })),
+    reportNodes: layout.operationGraph.reportNodes.map((node) => ({ ...node.pos })),
+    missionWaypoints: [
+      { id: 'insertion', kind: 'insertion', label: 'INSERTION', pos: { ...layout.entry }, floor: worldFloorForHeight(layout.entry.y), active: true },
+      ...layout.objectiveSockets.slice(0, 4).map((pos, index) => ({
+        id: `objective-${index + 1}`, kind: 'objective' as const, label: index === 0 ? 'OBJECTIVE' : `OBJECTIVE ${index + 1}`,
+        pos: { ...pos }, floor: worldFloorForHeight(pos.y), active: true,
+      })),
+      ...layout.operationGraph.reportNodes.map((node, index) => ({
+        id: `report-${index + 1}`, kind: 'report' as const, label: 'REPORT', pos: { ...node.pos }, floor: node.floor, active: false,
+      })),
+      { id: 'extraction', kind: 'extraction', label: 'EXTRACTION', pos: { ...layout.extraction }, floor: worldFloorForHeight(layout.extraction.y), active: false },
+    ],
     clonesRemaining: spec.squadSize,
     clonesSpent: 0,
     detections: 0,
@@ -232,7 +266,32 @@ function finishPrimary(world: World): void {
   runtime.objective.complete = true;
   runtime.objective.progress = runtime.objective.required;
   runtime.phase = 'extract';
+  setMissionWaypointKind(runtime, 'objective', false);
+  setMissionWaypointKind(runtime, 'report', false);
+  setMissionWaypointKind(runtime, 'extraction', true);
   world.emit({ type: 'announce', text: 'PRIMARY COMPLETE — RETURN TO THE FIELD PRINTER', big: true });
+}
+
+function setMissionWaypointKind(runtime: ScienceMissionRuntime, kind: ScienceMissionWaypointKind, active: boolean): void {
+  for (const waypoint of runtime.missionWaypoints) {
+    if (waypoint.kind === kind) waypoint.active = active;
+  }
+}
+
+function activateNearestReportWaypoint(runtime: ScienceMissionRuntime, origin: Vec3): void {
+  let nearest: ScienceMissionWaypoint | undefined;
+  let nearestDistance = Infinity;
+  for (const waypoint of runtime.missionWaypoints) {
+    if (waypoint.kind !== 'report') continue;
+    waypoint.active = false;
+    const distance = Math.hypot(waypoint.pos.x - origin.x, waypoint.pos.z - origin.z)
+      + Math.abs(waypoint.pos.y - origin.y) * 2;
+    if (distance < nearestDistance) {
+      nearest = waypoint;
+      nearestDistance = distance;
+    }
+  }
+  if (nearest) nearest.active = true;
 }
 
 function failScience(world: World, text: string): void {
@@ -296,11 +355,13 @@ export function stepScienceMission(world: World, dt: number): void {
     if (!reporter?.alive) {
       runtime.pendingReport = undefined;
       runtime.awareness = runtime.alarm ? 'alarmed' : 'ghost';
+      setMissionWaypointKind(runtime, 'report', false);
     } else if (world.time >= report.completeAt) {
       runtime.lastReported = { ...report.lastKnown };
       runtime.pendingReport = undefined;
       runtime.alarm = true;
       runtime.awareness = 'alarmed';
+      setMissionWaypointKind(runtime, 'report', false);
       runtime.reinforcementAt = world.time + 4;
       noteIndoorAlert(world.indoorTactics, report.lastKnown, report.floor, world.time);
       world.emit({ type: 'announce', text: 'ALARM — SECURITY IS MOBILIZING', big: true });
@@ -325,6 +386,7 @@ export function stepScienceMission(world: World, dt: number): void {
         floor: witness.operator.floor,
         completeAt: world.time + 1.5,
       };
+      activateNearestReportWaypoint(runtime, witness.guard.pos);
       world.emit({ type: 'announce', text: 'SECURITY REPORTING — STOP THE CALL', big: false });
     }
   }
