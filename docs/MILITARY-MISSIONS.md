@@ -16,14 +16,39 @@ attack helicopters, Condor transport helicopters, Pike gunboats, and
 Barracuda attack submarines. Existing seasons migrate the newly commissioned
 hulls into their pool without resetting losses or records.
 
+## Direct-launch field exercises — SHIPPED
+
+The Deploy screen now includes one **MILITARY MISSIONS** card that opens six
+curated, immediately playable exercises. These are not mockups or separate
+minigames: every card launches the production Operation map generator,
+ordered phase runtime, bot war, radar/sonar, four elevation bands, and issued
+vehicle package.
+
+| Card | Theater | Size | Mission | Issued package |
+|---|---|---:|---|---|
+| Urban Assault | Iron Meridian / City | 600×600u | take the rail hub, hold the junction | Mastodon tank, Shrike attack helicopter |
+| Air Superiority | Sirocco Reach / Desert | 900×900u | clear the sky, seize the airfield | Falcon interceptor, Mastodon tank |
+| Convoy Interdiction | Green March / Countryside | 900×900u | break the escort, secure the road | Vulture strike jet, Bastion APC |
+| Pass Assault | Crown Divide / Mountain | 600×900u | insert beyond the ridge, take the pass | Condor transport helicopter, Jackal buggy |
+| Beachhead | Breaker Coast / Coastal | 900×600u | land the force, take the shore strongpoint | Pike gunboat, Mastodon tank, Barracuda submarine |
+| Naval Hunt | Pelagic Expanse / Ocean | 900×900u | hunt the screen, hold the channel | Barracuda submarine, Pike gunboat, Falcon interceptor |
+
+Exercises always launch locally, even when a multiplayer URL is configured.
+They have zero campaign cost and do not cancel a staged Operation, consume an
+Operation window, change treasury/front control, lose seasonal hulls, file a
+Courier edition, or alter the player's persistent service record. Their AAR
+is session-only and names the exercise, theater, and completed phases.
+
 Release verification on 2026-07-21 in `codex/military-operations`:
-`npx tsc --noEmit`, all 159 Vitest files / 1,928 tests, `npm run lint`,
+`npx tsc --noEmit`, all 164 Vitest files / 1,963 tests, `npm run lint`,
 and `npm run build` passed. `npm run test:vehicle-scenarios` passed all
 330 deterministic vehicle fights. Live browser smokes verified all six Map
 Maker sources under the six-law audit, the complete 20-hull model stage and
 pad palette, Shrike/Condor/Barracuda procedural models, the 900×600 Coastal
 Operation briefing, and the migrated named airframes/submarines in its real
-manifest planner with a clean console.
+manifest planner with a clean console. The direct launcher was also deployed
+through every one of its six cards in the live browser; each reached its
+mission-specific Operation HUD and ordered objectives.
 
 ## What an Operation is
 
