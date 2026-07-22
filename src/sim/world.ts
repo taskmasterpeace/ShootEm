@@ -21,7 +21,7 @@ import {
   shotBlockedAtHeight,
   stairDirectionAt,
 } from './map-layers';
-import { materialOf, materialForSurface, DRILL_BASE } from './materials';
+import { MATERIALS, materialOf, materialForSurface, DRILL_BASE } from './materials';
 import { Rng } from './rng';
 import {
   SYSTEM_IDS, isCoopMode, isZed,
@@ -3513,32 +3513,35 @@ export class World {
     // ballistic ("no air control"). Land where you aimed or learn to aim.
     if (!s.leaping) {
       const tvx = mx * k * speed, tvz = mz * k * speed;
-      // ICE IS SLICK (row 240 — the `slick` flag was dead data): on a slick
-      // floor the boots don't BITE. Instead of snapping velocity to intent,
-      // it EASES toward it (low grip) and COASTS when you let go — you skate,
-      // you overshoot the corner, a shove sends you sliding. Grounded only;
-      // the airborne arc and the leap own their own physics.
-      const slick = s.pos.y <= 0.05
-        && (this.isFrozenWater(s.pos.x, s.pos.z) // row 246: frozen water IS ice
-          || materialForSurface(surfaceAt(this.map.surface, s.pos.x, s.pos.z, this.map.geometry)).slick === true);
-      if (slick) {
+      // THE WEIGHT LAW (#102 — Robert 2026-07-22: "fix that snappiness. I do
+      // wanna decelerate depending on what surface you're on"): boots never
+      // TELEPORT to intent. Grounded velocity EASES toward it at the floor
+      // material's GRIP — metal deck bites hardest, dirt is firm, grit shifts,
+      // mud sucks, and ice barely holds (row 240's skate is now the low end of
+      // ONE dial, not a special case). Letting go BRAKES at the same grip —
+      // firm ground settles in a beat, slick ground keeps row 246's long
+      // glide. Grounded only; the airborne arc and the leap own their own
+      // physics (air keeps full authority, exactly as before).
+      const grounded = s.pos.y <= 0.05;
+      if (grounded) {
+        const mat = this.isFrozenWater(s.pos.x, s.pos.z) // row 246: frozen water IS ice
+          ? MATERIALS.ice
+          : materialForSurface(surfaceAt(this.map.surface, s.pos.x, s.pos.z, this.map.geometry));
+        const g = mat.grip ?? 12;
         if (len > 0.01) {
-          // pushing off: the boots EASE toward intent, never snap (low grip)
-          const grip = Math.min(1, dt * 4.5);
-          s.vel.x += (tvx - s.vel.x) * grip;
-          s.vel.z += (tvz - s.vel.z) * grip;
+          // pushing off: ease toward intent at the material's bite
+          const bite = Math.min(1, dt * g);
+          s.vel.x += (tvx - s.vel.x) * bite;
+          s.vel.z += (tvz - s.vel.z) * bite;
         } else {
-          // COASTING with no input: ice has almost no friction — a long glide
-          // that bleeds off slowly (~0.98/tick), not a dead stop.
-          const drag = Math.max(0, 1 - dt * 1.2);
+          // let-go: firm floors brake hard (a settling step, not a freeze
+          // frame); slick floors barely brake at all — the coast that made
+          // row 240 (~0.98/tick, a long glide that bleeds off slowly)
+          const drag = Math.max(0, 1 - dt * (mat.slick ? 1.2 : g * 1.6));
           s.vel.x *= drag;
           s.vel.z *= drag;
         }
       } else {
-        // (#102's weight-ease was attempted here and REVERTED: tests/ice.test.ts
-        // deliberately pins "dirt stops dead / the skate is ICE-ONLY" — that
-        // pin and the universal-weight ask are two Robert laws in conflict.
-        // needs-robert on #102; until ruled, the snap stands.)
         s.vel.x = tvx;
         s.vel.z = tvz;
       }

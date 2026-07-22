@@ -32,28 +32,33 @@ export interface Material {
   impact: ImpactKind;      // hit + drill-face VFX/sound
   walk?: { sol: number; wheel: number; track: number }; // only if it's ever a floor (hover ignores)
   slick?: boolean;         // ice — momentum carries
+  /** THE WEIGHT LAW (#102): how hard boots BITE this floor, per second — the
+   *  rate velocity eases toward move intent (and the base of the stopping
+   *  brake). Metal deck grabs hardest, dirt is firm, grit shifts underfoot,
+   *  mud sucks, ice barely holds. Only meaningful on floor materials. */
+  grip?: number;
 }
 
 // the substances (starting values — all tunable) ---------------------------
 export const MATERIALS = {
-  dirt:      { name: 'Dirt',       hp: Infinity, hardness: 0, drill: 0,    heavyOnly: false, ricochet: 0,   penetrable: true,  flammable: false, impact: 'puff',     walk: { sol: 1, wheel: 1, track: 1 } },
-  grass:     { name: 'Grass',      hp: 20,       hardness: 0, drill: 1.5,  heavyOnly: false, ricochet: 0,   penetrable: true,  flammable: true,  impact: 'rustle',   walk: { sol: 0.85, wheel: 1, track: 1 } },
+  dirt:      { name: 'Dirt',       hp: Infinity, hardness: 0, drill: 0,    heavyOnly: false, ricochet: 0,   penetrable: true,  flammable: false, impact: 'puff',     walk: { sol: 1, wheel: 1, track: 1 }, grip: 13 },
+  grass:     { name: 'Grass',      hp: 20,       hardness: 0, drill: 1.5,  heavyOnly: false, ricochet: 0,   penetrable: true,  flammable: true,  impact: 'rustle',   walk: { sol: 0.85, wheel: 1, track: 1 }, grip: 12 },
   wood:      { name: 'Wood',       hp: 60,       hardness: 0, drill: 1.5,  heavyOnly: false, ricochet: 0,   penetrable: true,  flammable: true,  impact: 'splinter' },
   woodFrame: { name: 'Wood frame', hp: 140,      hardness: 0, drill: 1.3,  heavyOnly: false, ricochet: 0,   penetrable: true,  flammable: true,  impact: 'splinter' },
   sandbag:   { name: 'Earthwork',  hp: 80,       hardness: 1, drill: 1.2,  heavyOnly: false, ricochet: 0,   penetrable: true,  flammable: false, impact: 'puff' },
   masonry:   { name: 'Masonry',    hp: 300,      hardness: 2, drill: 0.7,  heavyOnly: true,  ricochet: 0,   penetrable: false, flammable: false, impact: 'dust' },
   stone:     { name: 'Stone',      hp: 600,      hardness: 2, drill: 0.4,  heavyOnly: true,  ricochet: 0.3, penetrable: false, flammable: false, impact: 'chips' },
-  metal:     { name: 'Metal',      hp: 650,      hardness: 3, drill: 0.3,  heavyOnly: true,  ricochet: 0.8, penetrable: false, flammable: false, impact: 'spark',   walk: { sol: 1, wheel: 1.05, track: 1 } },
+  metal:     { name: 'Metal',      hp: 650,      hardness: 3, drill: 0.3,  heavyOnly: true,  ricochet: 0.8, penetrable: false, flammable: false, impact: 'spark',   walk: { sol: 1, wheel: 1.05, track: 1 }, grip: 14 },
   metalDoor: { name: 'Metal door', hp: 900,      hardness: 3, drill: 0.25, heavyOnly: true,  ricochet: 0.6, penetrable: false, flammable: false, impact: 'spark' },
-  ice:       { name: 'Ice',        hp: 100,      hardness: 1, drill: 1,    heavyOnly: false, ricochet: 0.6, penetrable: false, flammable: false, impact: 'shatter', walk: { sol: 1, wheel: 0.85, track: 0.9 }, slick: true },
-  grit:      { name: 'Grit',       hp: Infinity, hardness: 0, drill: 0,    heavyOnly: false, ricochet: 0,   penetrable: true,  flammable: false, impact: 'puff',     walk: { sol: 0.92, wheel: 0.72, track: 0.9 } },
-  wet:       { name: 'Wet',        hp: Infinity, hardness: 0, drill: 0,    heavyOnly: false, ricochet: 0,   penetrable: true,  flammable: false, impact: 'splash',   walk: { sol: 0.96, wheel: 0.9, track: 0.95 } },
-  mud:       { name: 'Mud',        hp: Infinity, hardness: 0, drill: 0,    heavyOnly: false, ricochet: 0,   penetrable: true,  flammable: false, impact: 'splash',   walk: { sol: 0.8, wheel: 0.6, track: 0.85 } },
-  water:     { name: 'Water',      hp: Infinity, hardness: 0, drill: 0,    heavyOnly: false, ricochet: 0,   penetrable: true,  flammable: false, impact: 'splash' },
+  ice:       { name: 'Ice',        hp: 100,      hardness: 1, drill: 1,    heavyOnly: false, ricochet: 0.6, penetrable: false, flammable: false, impact: 'shatter', walk: { sol: 1, wheel: 0.85, track: 0.9 }, slick: true, grip: 4.5 },
+  grit:      { name: 'Grit',       hp: Infinity, hardness: 0, drill: 0,    heavyOnly: false, ricochet: 0,   penetrable: true,  flammable: false, impact: 'puff',     walk: { sol: 0.92, wheel: 0.72, track: 0.9 }, grip: 9 },
+  wet:       { name: 'Wet',        hp: Infinity, hardness: 0, drill: 0,    heavyOnly: false, ricochet: 0,   penetrable: true,  flammable: false, impact: 'splash',   walk: { sol: 0.96, wheel: 0.9, track: 0.95 }, grip: 8 },
+  mud:       { name: 'Mud',        hp: Infinity, hardness: 0, drill: 0,    heavyOnly: false, ricochet: 0,   penetrable: true,  flammable: false, impact: 'splash',   walk: { sol: 0.8, wheel: 0.6, track: 0.85 }, grip: 6 },
+  water:     { name: 'Water',      hp: Infinity, hardness: 0, drill: 0,    heavyOnly: false, ricochet: 0,   penetrable: true,  flammable: false, impact: 'splash', grip: 8 },
   // NOTE: spec set rubble heavyOnly:false, but small-arms-breakable rubble shifted
   // the threat-balance law (stormcaller stopped dying to its counter). Kept heavy-
   // gated to protect that law — revisit with a re-tune if we want small-arms clearing.
-  rubble:    { name: 'Rubble',     hp: 120,      hardness: 1, drill: 1,    heavyOnly: true,  ricochet: 0,   penetrable: true,  flammable: false, impact: 'dust',     walk: { sol: 0.6, wheel: 0.6, track: 0.6 } },
+  rubble:    { name: 'Rubble',     hp: 120,      hardness: 1, drill: 1,    heavyOnly: true,  ricochet: 0,   penetrable: true,  flammable: false, impact: 'dust',     walk: { sol: 0.6, wheel: 0.6, track: 0.6 }, grip: 7 },
   bedrock:   { name: 'Bedrock',    hp: Infinity, hardness: 3, drill: 0,    heavyOnly: true,  ricochet: 0.5, penetrable: false, flammable: false, impact: 'spark' },
 } satisfies Record<string, Material>;
 
