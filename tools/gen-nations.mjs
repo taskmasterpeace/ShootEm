@@ -123,6 +123,51 @@ for (const c of countries) {
   c.faction = c.mi > medianMi ? 'collective' : 'united_front';
 }
 
+// ── CITIES — real cities per country so the enlistee PICKS a hometown, never
+// types into a blank. Source: the shipped map-cities.json (142 countries); the
+// 26 small nations it misses get a hand-verified capital + majors here. ────────
+const CITY_SUPPLEMENT = {
+  'Iceland': ['Reykjavik', 'Kopavogur', 'Hafnarfjordur', 'Akureyri', 'Reykjanesbaer'],
+  'Namibia': ['Windhoek', 'Walvis Bay', 'Swakopmund', 'Oshakati', 'Rundu'],
+  'South Sudan': ['Juba', 'Wau', 'Malakal', 'Yei', 'Aweil'],
+  'Western Sahara': ['Laayoune', 'Dakhla', 'Smara', 'Boujdour'],
+  'Botswana': ['Gaborone', 'Francistown', 'Molepolole', 'Maun', 'Serowe'],
+  'Eswatini': ['Mbabane', 'Manzini', 'Lobamba', 'Nhlangano'],
+  'São Tomé and Príncipe': ['São Tomé', 'Santo António', 'Neves', 'Trindade'],
+  'Equatorial Guinea': ['Malabo', 'Bata', 'Ebebiyin', 'Mongomo'],
+  'Guyana': ['Georgetown', 'Linden', 'New Amsterdam', 'Bartica'],
+  'Suriname': ['Paramaribo', 'Lelydorp', 'Nieuw Nickerie', 'Moengo'],
+  'Papua New Guinea': ['Port Moresby', 'Lae', 'Mount Hagen', 'Madang', 'Wewak'],
+  'Solomon Islands': ['Honiara', 'Auki', 'Gizo', 'Munda'],
+  'Brunei': ['Bandar Seri Begawan', 'Kuala Belait', 'Seria', 'Tutong'],
+  'Estonia': ['Tallinn', 'Tartu', 'Narva', 'Parnu', 'Kohtla-Jarve'],
+  'Bosnia and Herzegovina': ['Sarajevo', 'Banja Luka', 'Tuzla', 'Zenica', 'Mostar'],
+  'Albania': ['Tirana', 'Durres', 'Vlore', 'Shkoder', 'Elbasan'],
+  'Moldova': ['Chisinau', 'Tiraspol', 'Balti', 'Bender', 'Ribnita'],
+  'Slovakia': ['Bratislava', 'Kosice', 'Presov', 'Zilina', 'Nitra'],
+  'North Macedonia': ['Skopje', 'Bitola', 'Kumanovo', 'Prilep', 'Tetovo'],
+  'Slovenia': ['Ljubljana', 'Maribor', 'Celje', 'Kranj', 'Koper'],
+  'Monaco': ['Monaco', 'Monte Carlo', 'La Condamine', 'Fontvieille'],
+  'Andorra': ['Andorra la Vella', 'Escaldes-Engordany', 'Encamp', 'Sant Julia de Loria'],
+  'Montenegro': ['Podgorica', 'Niksic', 'Herceg Novi', 'Budva', 'Bar'],
+  'The Bahamas': ['Nassau', 'Freeport', 'West End', 'Coopers Town'],
+  'Belize': ['Belmopan', 'Belize City', 'San Ignacio', 'Orange Walk', 'Dangriga'],
+  'Fiji': ['Suva', 'Nadi', 'Lautoka', 'Labasa', 'Ba'],
+};
+{
+  const mapCities = JSON.parse(fs.readFileSync('D:/git/ShootEM/src/data/map-cities.json', 'utf8'));
+  const byCode = {};
+  for (const ct of mapCities) { const code = String(ct.countryCode); (byCode[code] ||= []).push(ct.name); }
+  for (const c of countries) {
+    let cities = byCode[String(c.code)] || [];
+    if (!cities.length) cities = CITY_SUPPLEMENT[c.name] || [];
+    c.cities = [...new Set(cities)].slice(0, 12);
+  }
+  const empty = countries.filter(c => !c.cities.length);
+  console.error(`cities: ${countries.filter(c => c.cities.length).length}/${countries.length} covered` +
+    (empty.length ? ` — STILL EMPTY: ${empty.map(c => c.name).join(', ')}` : ' ✓'));
+}
+
 // ── validate the parse against the shipped map dataset (no drift) ─────────────
 try {
   const mapCountries = JSON.parse(fs.readFileSync('D:/git/ShootEM/src/data/map-countries.json', 'utf8'));
@@ -193,11 +238,14 @@ lines.push("  /** Cloning policy, as the sheet's words: 'Banned' | 'Regulated' |
 lines.push('  cloning: string;');
 lines.push("  /** LSW regulation, as the sheet's words. */");
 lines.push('  lswReg: string;');
+lines.push('  /** Real cities of this nation — the enlistee PICKS a hometown from these. */');
+lines.push('  cities: string[];');
 lines.push('}');
 lines.push('');
 lines.push('export const NATIONS: Nation[] = [');
 for (const c of countries.sort((a, b) => a.name.localeCompare(b.name))) {
-  lines.push(`  { code: ${c.code}, name: '${esc(c.name)}', iso2: '${c.iso2}', flag: '${c.flag}', population: ${c.population}, motto: '${esc(c.motto)}', nationality: '${esc(c.nationality)}', government: '${esc(c.government)}', perception: '${esc(c.perception)}', leaderTitle: '${esc(c.leaderTitle)}', president: '${esc(c.president)}', faction: '${c.faction}', military: ${c.military}, intel: ${c.intel}, science: ${c.science}, lswActivity: ${c.lswActivity}, cloning: '${esc(c.cloning)}', lswReg: '${esc(c.lswReg)}' },`);
+  const cityList = c.cities.map(n => `'${esc(n)}'`).join(', ');
+  lines.push(`  { code: ${c.code}, name: '${esc(c.name)}', iso2: '${c.iso2}', flag: '${c.flag}', population: ${c.population}, motto: '${esc(c.motto)}', nationality: '${esc(c.nationality)}', government: '${esc(c.government)}', perception: '${esc(c.perception)}', leaderTitle: '${esc(c.leaderTitle)}', president: '${esc(c.president)}', faction: '${c.faction}', military: ${c.military}, intel: ${c.intel}, science: ${c.science}, lswActivity: ${c.lswActivity}, cloning: '${esc(c.cloning)}', lswReg: '${esc(c.lswReg)}', cities: [${cityList}] },`);
 }
 lines.push('];');
 lines.push('');

@@ -497,8 +497,8 @@ html, body {
 .enl-town { display: flex; flex-direction: column; gap: 0.35rem; }
 .enl-town label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
 .enl-town .opt { text-transform: none; letter-spacing: 0; }
-.enl-towninput { width: 100%; box-sizing: border-box; background: var(--bg-deep); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font-mono); font-size: 1rem; padding: 0.6rem 0.85rem; }
-.enl-towninput:focus { outline: none; border-color: var(--accent); }
+.enl-townselect { width: 100%; box-sizing: border-box; background: var(--bg-deep); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font-mono); font-size: 1rem; padding: 0.6rem 0.85rem; cursor: pointer; accent-color: var(--accent); }
+.enl-townselect:focus { outline: none; border-color: var(--accent); }
 
 #to-frontmenu { position: absolute; top: 1rem; left: 1rem; z-index: 3; background: var(--bg-deep); border: 1px solid var(--border); border-radius: var(--radius); color: var(--muted); font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.1em; padding: 0.4rem 0.7rem; cursor: pointer; transition: border-color 0.15s, color 0.15s; }
 #to-frontmenu:hover { border-color: var(--accent); color: var(--text); }

@@ -19,6 +19,13 @@ describe('nations — the enlistment roster', () => {
     }
   });
 
+  it('every nation has real cities — the enlistee PICKS a hometown, never a blank', () => {
+    for (const n of NATIONS) {
+      expect(n.cities.length, `${n.name} has no cities`).toBeGreaterThan(0);
+      for (const c of n.cities) expect(typeof c === 'string' && c.length > 0, `${n.name} bad city`).toBe(true);
+    }
+  });
+
   it('every flag is a regional-indicator pair matching its ISO2', () => {
     for (const n of NATIONS) {
       const expected = [...n.iso2].map((c) => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65)).join('');

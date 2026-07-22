@@ -12,7 +12,6 @@
 // stays lean. Identity is biography (src/client/identity.ts) — never the sim.
 // ---------------------------------------------------------------------------
 import { NATIONS, type Nation } from '../data/nations';
-import { citiesForCountry } from '../sim/city-profile';
 import {
   clearIdentity, factionDoctrine, factionLabel, loadIdentity, nationOf, saveIdentity,
   type PlayerIdentity,
@@ -248,24 +247,19 @@ function renderReview() {
     </div>`;
   wrap.appendChild(dossier);
 
-  // hometown — free text, seeded with the nation's real cities (META §5: typed city)
-  const cities = citiesForCountry(String(nation.code));
+  // hometown — a PICK from the nation's real cities, never a blank to fill in.
+  const cities = nation.cities;
   const townWrap = document.createElement('div');
   townWrap.className = 'enl-town';
   townWrap.innerHTML = `<label>Hometown <span class="opt">— where in ${escapeHtml(nation.name)}?</span></label>`;
-  const town = document.createElement('input');
-  town.type = 'text';
-  town.maxLength = 28;
-  town.setAttribute('list', 'enl-city-list');
-  town.placeholder = cities.length ? `e.g. ${cities[0].name}` : 'Your city';
+  const town = document.createElement('select');
+  town.className = 'enl-townselect';
+  for (const c of cities) { const o = document.createElement('option'); o.value = c; o.textContent = c; town.appendChild(o); }
+  // keep the draft's pick if it's still valid for this country, else the first city
+  draft.hometown = cities.includes(draft.hometown) ? draft.hometown : (cities[0] ?? '');
   town.value = draft.hometown;
-  town.className = 'enl-towninput';
-  town.oninput = () => { draft.hometown = town.value.trim(); };
-  const list = document.createElement('datalist');
-  list.id = 'enl-city-list';
-  for (const c of cities) { const o = document.createElement('option'); o.value = c.name; list.appendChild(o); }
+  town.onchange = () => { draft.hometown = town.value; };
   townWrap.appendChild(town);
-  townWrap.appendChild(list);
   wrap.appendChild(townWrap);
 
   const go = document.createElement('button');
@@ -275,7 +269,7 @@ function renderReview() {
     const id: PlayerIdentity = {
       callsign: draft.callsign || 'Recruit',
       nationCode: nation.code,
-      hometown: draft.hometown || (cities[0]?.name ?? ''),
+      hometown: draft.hometown || (cities[0] ?? ''),
       faction: nation.faction,
       created: Date.now(),
     };
