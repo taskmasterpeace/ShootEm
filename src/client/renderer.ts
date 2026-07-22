@@ -353,6 +353,7 @@ export class Renderer {
    *  flies the camera down the round's path muzzle→chest, 'autopsy' freezes and
    *  pins the shot line, 'wreck'/'wide' pull back for the fireball. null = live. */
   killcamShotKind: import('./replay').KillcamKind | null = null;
+  killcamLocalIsShooter = false; // reward cam: local is the SHOOTER, so the ride flies the other way
   private killcamRideT = 0;      // ride progress in seconds, reset per fresh killcam
   private lastKillcamFocus = -2; // detect a new killcam start to reset the ride
   private autopsyLine: THREE.Line | null = null; // the world-space shot line (autopsy/ride)
@@ -3717,8 +3718,12 @@ export class Renderer {
       // did that come from?" with a camera move instead of a text label.
       let ride: THREE.Vector3 | null = null;
       if (shotKind === 'ride' && duel) {
-        const muzzle = new THREE.Vector3(duel.pos.x, 1.7, duel.pos.z);
-        const chest = new THREE.Vector3(local.pos.x, 1.35, local.pos.z);
+        // fly from the SHOOTER's muzzle to the VICTIM's chest — in a death cam
+        // local is the victim, in a reward cam local is the shooter, so swap.
+        const shooter = this.killcamLocalIsShooter ? local : duel;
+        const victim = this.killcamLocalIsShooter ? duel : local;
+        const muzzle = new THREE.Vector3(shooter.pos.x, 1.7, shooter.pos.z);
+        const chest = new THREE.Vector3(victim.pos.x, 1.35, victim.pos.z);
         const flightT = Math.max(2.0, muzzle.distanceTo(chest) * 0.05); // pace by range
         const k = Math.min(1, this.killcamRideT / flightT);
         const along = new THREE.Vector3().lerpVectors(muzzle, chest, 0.12 + k * 0.72);

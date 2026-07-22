@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { applySnapshot, takeSnapshot } from '../src/sim/snapshot';
 import {
-  KILLCAM_PRE, KILLCAM_S, KILLCAM_SPEED, REPLAY_HZ, ReplayPlayer,
+  KILLCAM_PRE, KILLCAM_S, KILLCAM_SPEED, REPLAY_HZ, ReplayDirector, ReplayPlayer,
   killcamSpeedAt, type ReplayFrame,
 } from '../src/client/replay';
 import { World } from '../src/sim/world';
@@ -123,5 +123,33 @@ describe('the death cam window', () => {
     expect(impact, 'the moment of the kill must be the slowest').toBeLessThan(approach);
     expect(impact).toBeLessThan(fall);
     expect(approach, 'the run-up should not drag').toBeGreaterThan(fall);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// THE REWARD KILL-CAM (Robert's shot #4): a great kill earns a brief cut of the
+// moment instead of the death cam's punishment — the same machinery, framing
+// the soldier YOU dropped. Rate-limited so it stays a treat.
+// ---------------------------------------------------------------------------
+describe('the reward kill-cam', () => {
+  it('fires on a great kill, frames your victim as the SHOOTER, and rate-limits', () => {
+    const w = world();
+    const dir = new ReplayDirector(7, 'tdm', undefined);
+    for (let i = 0; i < 15; i++) { w.step(0.1, new Map()); dir.recorder.record(w); } // lay a tape
+
+    const took = dir.rewardKillCam(w, 42, '★ LONGSHOT · 80u', 'ride');
+    expect(took, 'a great kill earns the cut').toBe(true);
+    expect(dir.killcamActive).toBe(true);
+    expect(dir.shotKind).toBe('ride');
+    expect(dir.localIsShooter, 'YOU fired the round, so the ride flies your way').toBe(true);
+    expect(dir.killerId, 'it frames the soldier you dropped').toBe(42);
+
+    // a second great kill an instant later is suppressed — a treat, not a barrage
+    expect(dir.rewardKillCam(w, 43, '★ MULTI-KILL', 'duel')).toBe(false);
+  });
+
+  it('will not fire with no tape to clip', () => {
+    const dir = new ReplayDirector(7, 'tdm', undefined);
+    expect(dir.rewardKillCam(world(), 1, '★ x', 'duel')).toBe(false);
   });
 });
