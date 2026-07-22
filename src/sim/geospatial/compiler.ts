@@ -203,6 +203,7 @@ function stampPlayableBuildings(
   cityId: string,
   seed: number,
   roadCells: ReadonlySet<number>,
+  accessRoadCells: ReadonlySet<number>,
   overlay: GameplayOverlayChange[],
   limit: number,
 ): number {
@@ -275,7 +276,7 @@ function stampPlayableBuildings(
     const start = { x: house.door.x, z: house.door.z + map.geometry.tile };
     let nearest = -1;
     let nearestDistance = Number.POSITIVE_INFINITY;
-    for (const roadIndex of roadCells) {
+    for (const roadIndex of accessRoadCells) {
       const road = tileToWorld(map.geometry, roadIndex % map.geometry.cols, Math.floor(roadIndex / map.geometry.cols));
       const distance = Math.hypot(road.x - start.x, road.z - start.z);
       if (distance < nearestDistance) {
@@ -285,7 +286,9 @@ function stampPlayableBuildings(
     }
     if (nearest >= 0) {
       const target = tileToWorld(map.geometry, nearest % map.geometry.cols, Math.floor(nearest / map.geometry.cols));
-      for (const cell of rasterLine([start, target], map.geometry.tile, map.geometry)) {
+      // Two tiles wide guarantees four-connected approaches even when the
+      // nearest source road lies on a diagonal from the generated doorway.
+      for (const cell of rasterLine([start, target], map.geometry.tile * 2, map.geometry)) {
         const cellX = cell % map.geometry.cols;
         const cellZ = Math.floor(cell / map.geometry.cols);
         if (cellX >= house.tx && cellX < house.tx + house.tw && cellZ >= house.tz && cellZ < house.tz + house.th) continue;
@@ -464,6 +467,11 @@ export function compileGeospatialMap(
   map.height = terrain.height;
   map.ramp = terrain.ramp;
 
+  // Seal uncertain source islands before fitting mission interiors. Door
+  // connectors are authored afterwards, so a valid approach can never be
+  // mistaken for a disconnected GIS sliver and sealed back into a facade.
+  sealUnreachablePockets(map, westRoad, overlay);
+
   const playableBuildings = stampPlayableBuildings(
     map,
     source.buildings,
@@ -471,6 +479,7 @@ export function compileGeospatialMap(
     options.cityId,
     options.seed,
     roadCells,
+    new Set(component),
     overlay,
     Math.max(0, options.maxPlayableBuildings ?? 4),
   );
@@ -542,8 +551,6 @@ export function compileGeospatialMap(
     buildingHeight,
     decor: buildDistrictDecor(map, classification, roadCells, options.seed, options.style ?? 'default'),
   };
-
-  sealUnreachablePockets(map, westRoad, overlay);
 
   for (let x = 0; x < geometry.cols; x++) {
     map.grid[tileIndex(geometry, x, 0)] = T_WALL;

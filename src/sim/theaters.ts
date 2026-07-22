@@ -7,7 +7,7 @@ import { generateGeospatialTheater } from './theaters/geospatial';
 
 export const THEATER_DEFS: Record<TheaterId, TheaterDef> = {
   city: { id: 'city', name: 'Iron Meridian', geometry: { cols: 200, rows: 200, tile: 3 }, theme: 'starship', domains: ['foot', 'ground', 'air'], freeDogfight: false, defaultPads: ['tank', 'attackheli', 'transportheli'] },
-  geocity: { id: 'geocity', name: 'Potrero Hill / Dogpatch', geometry: { cols: 300, rows: 300, tile: 3 }, theme: 'titan', domains: ['foot', 'ground', 'air'], freeDogfight: false, defaultPads: ['tank', 'attackheli', 'transportheli'] },
+  geocity: { id: 'geocity', name: 'Miami Gardens 33056 / Civic Front', geometry: { cols: 300, rows: 300, tile: 3 }, theme: 'hardpan', domains: ['foot', 'ground', 'air'], freeDogfight: false, defaultPads: ['tank', 'attackheli', 'transportheli'] },
   desert: { id: 'desert', name: 'Sirocco Reach', geometry: { cols: 300, rows: 300, tile: 3 }, theme: 'hardpan', domains: ['foot', 'ground', 'air'], freeDogfight: true, defaultPads: ['tank', 'attackheli', 'transportheli', 'strikejet', 'gunship', 'airsuperiority'] },
   countryside: { id: 'countryside', name: 'Green March', geometry: { cols: 300, rows: 300, tile: 3 }, theme: 'savanna', domains: ['foot', 'ground', 'air'], freeDogfight: true, defaultPads: ['tank', 'apc', 'attackheli', 'transportheli', 'airsuperiority'] },
   mountain: { id: 'mountain', name: 'Crown Divide', geometry: { cols: 200, rows: 300, tile: 3 }, theme: 'winter', domains: ['foot', 'ground', 'air'], freeDogfight: false, defaultPads: ['buggy', 'attackheli', 'transportheli', 'gunship', 'gunheli', 'stealthbomber'] },
