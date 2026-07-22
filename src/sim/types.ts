@@ -292,6 +292,9 @@ export function isIron(k: SoldierKind): k is IronKind {
   return IRON_KINDS.has(k);
 }
 
+export type K9Order = 'heel' | 'sic' | 'stay';
+export type K9Command = 'sic' | 'stay';
+
 export interface Soldier {
   id: number;
   kind: SoldierKind;
@@ -371,6 +374,22 @@ export interface Soldier {
   nextAbilityAt: number;
   /** K9 handler pairing — the dog's handler id. -1 for everyone who isn't a dog. */
   ownerId: number;
+  /** Handler-authored K9 order. Optional keeps old snapshots and recordings valid. */
+  k9Order?: K9Order;
+  /** Index into map.houses while clearing a building. */
+  k9BuildingId?: number;
+  /** Validated world point used to select the assigned building. */
+  k9OrderPos?: Vec3;
+  /** Exact point a STAY dog returns to after a shove. */
+  k9StayAnchor?: Vec3;
+  /** Current simulation-selected hostile; clients never nominate this id. */
+  k9TargetId?: number;
+  /** Packed floor*GRID²+tile index of the closed door stopping the dog. */
+  k9Door?: number;
+  /** Deterministic index into the assigned building's room sweep. */
+  k9SearchIndex?: number;
+  /** When the dog first found no uncleared room or hostile. */
+  k9ClearSince?: number;
   // trophy ledger — feeds the post-match awards
   /** farthest kill, in world units */
   longestKill: number;
@@ -1121,4 +1140,6 @@ export interface PlayerCmd {
   /** THE OUTBREAK (OUTBREAK-SPEC §11): one-frame tap to cycle ammunition TYPE
    *  ball → armor-piercing → incendiary. B on the keyboard. */
   cycleAmmo?: boolean;
+  /** Handler-only one-frame K9 order. Aim comes from aimYaw/aimDist. */
+  k9?: K9Command;
 }
