@@ -81,11 +81,26 @@ Science Missions is now a native offline War World mode. Free Play exposes a
 perception, bots, vehicles, LSWs, scientists, zombies, doors, second storeys,
 HUD, campaign save, and Front Courier.
 
+### Quick Deploy
+
+The Deploy tab now opens with five permanent one-click Science operations. Each
+card commits eight prints, selects the matching class and environment, restores
+that class's issue weapons, and launches a deterministic free-play mission. It
+does not consume a campaign Science window.
+
+| Card | Mission | Issued class |
+|---|---|---|
+| K9 House Clear | Hunt · officer villa | Infantry handler |
+| Researcher Rescue | Rescue · research annex | Field Medic |
+| Clone Vault Raid | Raid · clone vault · alarm net | Combat Engineer |
+| Quarantine Sweep | Deny · quarantine zone · third party | Heavy Weapons |
+| Airfield Ambush | Ambush · enemy airfield | Heavy Weapons |
+
 ### How to play
 
-- Pick **Science Mission** under Deploy, set **Mission Clone Stock** from 1–8,
-  choose class/loadout/environment, and deploy; or select a front on **Map** and
-  use **Run Science Mission**.
+- Pick any **Science Missions · Quick Deploy** card for an immediate authored
+  test; configure the generic **Science Mission** mode manually; or select a
+  front on **Map** and use **Run Science Mission**.
 - Movement, aim, fire, reload, crouch, equipment, and melee are the normal War
   World controls. Press **E** to open mission doors, secure terminals/stores,
   arm denial points, attach captives, and use the villa stair/ladder well.

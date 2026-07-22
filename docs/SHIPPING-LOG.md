@@ -8,6 +8,11 @@ The public record of what shipped, written for players and backers — not engin
 
 ### New
 
+- **Five Science Missions are always one click away.** The Deploy screen now
+  opens with K9 House Clear, Researcher Rescue, Clone Vault Raid, Quarantine
+  Sweep, and Airfield Ambush. Each card loads its intended class, environment,
+  deterministic site, and eight-print reserve without spending campaign data.
+
 - **Handlers can clear a house with their dog.** Infantry and Engineer players
   now own the friendly K9 in offline battles and Science Missions. Aim at a
   building and press **K / L3 / SIC**; press **L / R3** for Stay and again for
@@ -38,6 +43,12 @@ The public record of what shipped, written for players and backers — not engin
   without stacking the entry room.
 
 ### Verification record
+
+- Desktop and 390px in-app playtests launched **K9 House Clear** as Hunt at an
+  officer villa with the Infantry handler kit, then **Researcher Rescue** as
+  Rescue at a research annex with the Field Medic kit and eight prints. All
+  five cards stayed readable and keyboard-addressable; the browser reported no
+  runtime errors.
 
 - The in-app production playtest assigned the friendly dog to the local
   handler, exercised Stay → Heel, issued SIC at a visible building, and watched
