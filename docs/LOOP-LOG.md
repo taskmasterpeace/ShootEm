@@ -43,3 +43,4 @@
 2026-07-22 IT-45: #104 built (night tint + deeper fog, live transition proven). 41 closed, 9 needs-robert.
 2026-07-22 IT-46: #96 built (/ui-gallery.html live-verified). 42 closed, 9 needs-robert.
 2026-07-22 IT-47: #84 built (the rack, switch-follow live-proven). 43 closed, 9 needs-robert.
+2026-07-22 IT-48: readiness report refreshed at 43-closed; board synced. Next: #87 red dot + laser day/night pass.

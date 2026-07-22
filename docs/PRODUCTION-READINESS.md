@@ -1,12 +1,13 @@
 # PRODUCTION READINESS — the running report
-### Maintained by the ROAD TO PRODUCTION loop. Updated at iteration 34, 2026-07-22 (night). FULL GATE ATTESTED at this state: tsc 0 · 2,297/2,297 tests · build clean. Board: 72 grindable · 9 needs-robert · 0 blocked. docs/LOOP-LOG.md is the per-iteration ledger; the GitHub board is the truth.
+### Maintained by the ROAD TO PRODUCTION loop. Updated at iteration 48, 2026-07-23 (small hours). FULL GATE green on every commit: tsc 0 · 2,297 tests · build clean. Board: ~60 grindable · 9 needs-robert · 0 blocked. 43 CLOSED this loop.
 
 ## Where the game stands
 **Playable, single-player complete-feeling, multiplayer-ready at the foundation.** The full gate (tsc 0 · 2,297 tests / 205 files · vite build) is green on every commit this loop. All commits LOCAL per loop law.
 
-## What shipped this loop (31 closed, 34 iterations)
+## What shipped this loop (43 closed, 48 iterations)
 **Regressions & bugs (all fixed or verified-fixed):** boot camp re-hung (live-verified enlist→menu→yard) · reticle face-the-shooter law + Options toggle · nuke telegraph heard again · infantry Q live · TDM drift term · door-dance · breach-blind bots · the fog trio (#43-45) · after-match reshape (story leads, roster docks, never overflows — live-proven).
 **Feel & features:** hold-SPACE skip-bleed-out (12 downed tests) · corpse-burn chip (live-proven) · amb_winter synthesized bed · Odessa's numbered VO variants rotate (#62 slice) · the FEEL PASS 2/3 (#102: bob 0.055→0.16 live-measured, run-lean deepened, corner-nudge — the weight-ease is a law conflict on Robert's desk) · the Jackals shaped into LORE from COF canon (#103) · MSAA joins the quality tier (#21 complete).
+**Wave 2 (iterations 35-47):** #10 drivetrain carve verified · #8/#9 churn+LOS closed via landed waves · minimap 30Hz (60→26 live) · HUD setHTML gate (scoreboard 60→1 reparse) · FX unit geometries · #82 air fixes (forward arc, X flares, burning flares, AAM 58) · #89 moodle stamp + hudOpacity (all transitions live-proven) · #91 feed glyphs (vocabulary 13) · #79 rangefinder (RANGE 34u live) · #104 night TURNS blue-black (transition proven) · #96 /ui-gallery.html (the decision sheet) · #84 THE RACK (switch-follow proven) · #103 Jackals in LORE.
 **Performance (the hours-tier lane is DRAINED):** one-shot audio cap (policy-tested) · per-mesh part cache (32 sites) · housekeeping scans gated + one-door arm methods · hidden-tab event drop + cap · scar map 3.6MB→610KB behind a stable node (live sameNode proof) · lazy GLB probes (network-log proof: 0 at menu, 8 at first build) · idle particle upload gated · **the QUALITY tier + camera-following shadow box** (the audit's #1 line; both tiers live-proven) · flash pool by tier · projectile template clones (51 rounds / 3 templates, shared GPU assets live-proven) · hot-loop alloc scrub · replay ring without structuredClone (pinning test proves the copy list) · **multiplayer M0 COMPLETE** (accumulator server tick + per-second bot rolls, both step-rate test families green).
 
 ## Blocked
