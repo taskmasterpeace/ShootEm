@@ -58,6 +58,12 @@ export const WEAPON_TINTS: Record<string, number> = {
 const RAG_JOINTS = ['legL', 'legR', 'shinL', 'shinR', 'armL', 'armR', 'head', 'torso'] as const;
 // opt #31: the sun-shadow ortho half-size — tight because the box FOLLOWS the camera
 const SHADOW_BOX_S = 60;
+// opt #26: static per-frame tables — never rebuilt in the hot loop
+const FOG_K: Record<WeatherKind, [number, number]> = {
+  clear: [1, 1], rain: [0.8, 0.72], storm: [0.55, 0.48], fog: [0.3, 0.3],
+  snow: [0.55, 0.5], dust: [0.5, 0.48], night: [0.95, 0.82],
+};
+const DUST_TINT = new THREE.Color(0xa9825a);
 interface RagState { t0: number; pitch: number; roll: number; cap: Record<string, number>; seed: number; style: CollapseStyle; yaw0: number }
 /** Overshoot-and-settle ease — gives limbs a floppy, physical follow-through. */
 function easeOutBack(x: number): number {
@@ -312,6 +318,11 @@ export class Renderer {
   private classVo = new ClassVo(); // the mortal-class barks find their moments (client-side)
   /** opt #13: projectile template cache — rounds are clones sharing GPU assets */
   private projTemplates = new Map<string, THREE.Object3D>();
+  // opt #26: per-frame scratch — the hottest loop allocates nothing
+  private revealRoofScratch = new Set<number>();
+  private revealUpperScratch = new Set<number>();
+  private autopsyDir = new THREE.Vector3();
+  private autopsyPerp = new THREE.Vector3();
   /** opt #12: per-mesh named-part cache — getObjectByName is a RECURSIVE tree
    *  walk, and the hot loops (vehicles, gadgets, capes) asked for up to a
    *  dozen parts per mesh per frame. First ask walks; every later ask is a
@@ -391,10 +402,10 @@ export class Renderer {
   private crewLine = 0;
   private killerRing: THREE.Mesh | null = null;             // pulsing marker over the killer
   /** cutaway roofs (§8.4): fade when the viewed soldier stands beneath one */
-  private roofs: { group: THREE.Group; mats: THREE.MeshStandardMaterial[]; house: { tx: number; tz: number; tw: number; th: number } }[] = [];
+  private roofs: { group: THREE.Group; mats: THREE.MeshStandardMaterial[]; house: { tx: number; tz: number; tw: number; th: number }; houseIdx: number }[] = [];
   /** second-storey shells (walls + floor slab) per two-storey house — faded
    *  like roofs when the focus stands on the ground floor beneath them */
-  private uppers: { group: THREE.Group; floor: number; house: { tx: number; tz: number; tw: number; th: number }; mats: THREE.MeshStandardMaterial[] }[] = [];
+  private uppers: { group: THREE.Group; floor: number; house: { tx: number; tz: number; tw: number; th: number }; mats: THREE.MeshStandardMaterial[]; houseIdx: number }[] = [];
   private ladderMeshes: THREE.Group[] = [];
   /** persistent drill debris — capped FIFO so long sieges don't leak */
   private rubble: THREE.Mesh[] = [];
@@ -580,11 +591,9 @@ export class Renderer {
       if (c.mesh.position.z > wrapZ) c.mesh.position.z = -wrapZ;
     }
 
-    // atmosphere grading toward the front's mood
-    const fogK: Record<WeatherKind, [number, number]> = {
-      clear: [1, 1], rain: [0.8, 0.72], storm: [0.55, 0.48], fog: [0.3, 0.3],
-      snow: [0.55, 0.5], dust: [0.5, 0.48], night: [0.95, 0.82],
-    };
+    // atmosphere grading toward the front's mood (opt #26: FOG_K is a module
+    // constant — this record used to be rebuilt every frame)
+    const fogK = FOG_K;
     const fog = this.scene.fog as THREE.Fog;
     fog.near += (this.baseAtmo.fogNear * lerp(1, fogK[k][0], hard) - fog.near) * Math.min(1, dt * 1.2);
     fog.far += (this.baseAtmo.fogFar * lerp(1, fogK[k][1], hard) - fog.far) * Math.min(1, dt * 1.2);
@@ -615,8 +624,8 @@ export class Renderer {
     (this.scene.background as THREE.Color).copy(this.baseAtmo.sky).multiplyScalar(skyMul);
     fog.color.copy(this.baseAtmo.fogColor).multiplyScalar(skyMul);
     if (k === 'dust') {
-      (this.scene.background as THREE.Color).lerp(new THREE.Color(0xa9825a), 0.4 * hard);
-      fog.color.lerp(new THREE.Color(0xa9825a), 0.4 * hard);
+      (this.scene.background as THREE.Color).lerp(DUST_TINT, 0.4 * hard); // opt #26
+      fog.color.lerp(DUST_TINT, 0.4 * hard);
     }
 
     // light: night drops the war into blue-black; a storm flashes back
@@ -1420,7 +1429,7 @@ export class Renderer {
         }
         group.renderOrder = 2 + floor;
         this.scene.add(group);
-        this.uppers.push({ group, floor, house: h, mats: [matU, matF, frameMat] });
+        this.uppers.push({ group, floor, house: h, mats: [matU, matF, frameMat], houseIdx: world.map.houses.indexOf(h) }); // opt #26: stamped once
       }
     }
 
@@ -1559,7 +1568,7 @@ export class Renderer {
       group.renderOrder = 3;
       group.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) m.castShadow = true; });
       this.scene.add(group);
-      this.roofs.push({ group, mats, house: h });
+      this.roofs.push({ group, mats, house: h, houseIdx: world.map.houses.indexOf(h) }); // opt #26: stamped once
     }
 
     // walls the sim already dug (mid-match join) come down immediately
@@ -1931,9 +1940,10 @@ export class Renderer {
     (this.autopsyLineMesh!.material as THREE.LineBasicMaterial).opacity = autopsy ? 0.6 + 0.35 * Math.abs(Math.sin(time * 6)) : 0.85;
     // rangefinder ticks every 8u — the "measured" read; and the impact reticle
     // at the hit. Both are the AUTOPSY's tell; the ride/wreck show only the line.
-    const dir = new THREE.Vector3().subVectors(b, a); const len = dir.length();
+    const dir = this.autopsyDir.subVectors(b, a); // opt #26: scratch
+    const len = dir.length();
     if (len > 0.01) dir.normalize();
-    const perp = new THREE.Vector3(-dir.z, 0, dir.x);
+    const perp = this.autopsyPerp.set(-dir.z, 0, dir.x);
     const ticks: THREE.Vector3[] = [];
     for (let d = 8; d < len - 2; d += 8) {
       const p = a.clone().addScaledVector(dir, d);
@@ -2187,8 +2197,8 @@ export class Renderer {
     // under an opaque lid — "I looked in the open window and the house lied."
     // Puppet worlds trust the wire (the server culled to what we may see);
     // local worlds ask the sim's lastSeen trail directly.
-    const revealRoof = new Set<number>();   // house idx: seen hostile on its top floor
-    const revealUpper = new Set<number>();  // 2-storey house idx: seen hostile downstairs
+    const revealRoof = this.revealRoofScratch; revealRoof.clear();   // opt #26: persistent, cleared per frame
+    const revealUpper = this.revealUpperScratch; revealUpper.clear();
     {
       const focus = world.soldiers.get(localId);
       if (focus) {
@@ -2211,7 +2221,7 @@ export class Renderer {
     if (this.uppers.length) {
       const focus = world.soldiers.get(localId);
       for (const u of this.uppers) {
-        const uIdx = world.map.houses.indexOf(u.house as typeof world.map.houses[number]);
+        const uIdx = u.houseIdx; // opt #26: no per-frame O(houses) scan
         const inThis = (focus && focus.floor < u.floor &&
           houseAt(world.map.houses, focus.pos.x, focus.pos.z, world.map.geometry) === uIdx) || revealUpper.has(uIdx);
         const target = inThis ? 0.13 : 0.97;
@@ -2231,7 +2241,7 @@ export class Renderer {
       const focus = world.soldiers.get(localId);
       const inHouse = focus ? houseAt(world.map.houses, focus.pos.x, focus.pos.z, world.map.geometry) : -1;
       for (const r of this.roofs) {
-        const hIdx = world.map.houses.indexOf(r.house as typeof world.map.houses[number]);
+        const hIdx = r.houseIdx; // opt #26: no per-frame O(houses) scan
         let open = hIdx === inHouse || revealRoof.has(hIdx);
         if (!open && focus) {
           const h = r.house;
