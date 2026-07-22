@@ -4,6 +4,7 @@ import {
   hostilesInK9Building,
   issueK9Command,
   k9AimPoint,
+  k9HandlerForTeam,
   setK9Sic,
   setK9Stay,
 } from '../src/sim/k9-orders';
@@ -18,6 +19,14 @@ const cmd = (over: Partial<PlayerCmd> = {}): PlayerCmd => ({
 });
 
 describe('K9 orders', () => {
+  it('assigns the friendly K9 to the eligible local soldier before a bot', () => {
+    const world = new World({ seed: 42, mode: 'science' });
+    const bot = world.addSoldier('Bot', 'infantry', 0, 'bot');
+    const local = world.addSoldier('Local', 'engineer', 0, 'human');
+    expect(k9HandlerForTeam(world.soldiers.values(), 0, local.id)?.id).toBe(local.id);
+    expect(k9HandlerForTeam(world.soldiers.values(), 0, 999)?.id).toBe(bot.id);
+  });
+
   it('selects the aimed house or a house no farther than eight units away', () => {
     const world = new World({ seed: 42, mode: 'safehouse' });
     const house = world.map.houses[0];

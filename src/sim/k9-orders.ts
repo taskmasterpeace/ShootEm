@@ -9,7 +9,7 @@ import {
   type GameMap,
 } from './map';
 import { floorLayer } from './map-layers';
-import type { K9Command, Soldier, Vec3 } from './types';
+import type { K9Command, Soldier, Team, Vec3 } from './types';
 import type { World } from './world';
 
 export const K9_BUILDING_SNAP = 8;
@@ -23,6 +23,18 @@ export function ownedDog(soldiers: Iterable<Soldier>, handlerId: number): Soldie
     if (soldier.kind === 'dog' && soldier.ownerId === handlerId) return soldier;
   }
   return undefined;
+}
+
+/** One K9 per side; the local eligible soldier gets first refusal offline. */
+export function k9HandlerForTeam(
+  soldiers: Iterable<Soldier>, team: Team, preferredId = -1,
+): Soldier | undefined {
+  const eligible = [...soldiers].filter((soldier) =>
+    soldier.alive && soldier.team === team
+    && (soldier.kind === 'human' || soldier.kind === 'bot')
+    && (soldier.classId === 'infantry' || soldier.classId === 'engineer'),
+  );
+  return eligible.find((soldier) => soldier.id === preferredId) ?? eligible.find((soldier) => soldier.kind === 'bot') ?? eligible[0];
 }
 
 export function k9AimPoint(pos: Vec3, yaw: number, distance: number): Vec3 {

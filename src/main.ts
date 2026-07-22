@@ -30,6 +30,7 @@ import { RangeCourse, loadWall } from './client/range';
 import { RingDrill } from './client/ringdrill';
 import { loadSettings, saveSettings, settings, type BloodLevel, type DarknessLevel } from './client/settings';
 import { darknessUniforms } from './client/darkness';
+import { k9HandlerForTeam } from './sim/k9-orders';
 
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -601,11 +602,12 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
       const cls = classPool[(i + 3) % classPool.length];
       world.addSoldier(wrap(n++), cls, 1, 'bot', botLoadout(cls));
     }
-    // §5.3: each side fields one K9, paired to its first infantry/engineer bot
+  }
+  // §5.3: each fighting side fields one K9, including authored science
+  // rosters. An eligible local soldier owns the friendly dog; AI fills in.
+  if (selectedMode !== 'range' && selectedMode !== 'paintball') {
     for (const team of [0, 1] as const) {
-      const handler = [...world.soldiers.values()].find(
-        (s) => s.kind === 'bot' && s.team === team && (s.classId === 'infantry' || s.classId === 'engineer'),
-      );
+      const handler = k9HandlerForTeam(world.soldiers.values(), team, team === 0 ? me.id : -1);
       if (handler) world.addDog(handler);
     }
   }
