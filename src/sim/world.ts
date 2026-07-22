@@ -6,7 +6,7 @@ import {
   T_METAL_DOOR, T_OPEN, T_RUBBLE, T_SLIT, T_THIN_WALL_H, T_THIN_WALL_HV,
   T_WALL, T_WATER, blocksShot, breakWindowTile, doorIsOpen,
   generateMap, isBlocked, isDoorTile, isWindowTile, losClear, nearestOpenTile,
-  surfaceAt, thinTileBlocks, tileAt, toggleDoorType,
+  surfaceAt, thinTileBlocks, tileAt, toggleDoorType, terrainLevelAt, SKY_LEVEL,
   windowIsBroken, type GameMap,
 } from './map';
 import {
@@ -5163,7 +5163,16 @@ export class World {
         // 2+ soars the sanctuary above the roofline (BAND_ALT clears the
         // 8.15 rooftops); the deck (band 0) keeps its legacy taxi pass.
         // Cover crates and climb barricades sit UNDER the low-flight deck.
-        if (def.flies && collidesAtElevation(asElevationLevel(v.band), 1) && (v.band ?? 0) > 0 && this.buildingAt(nx, nz)) {
+        // THE MOUNTAIN WALL (mountain warfare): a Sky-height massif blocks any
+        // aircraft that can't cruise ABOVE it — "helicopters can't fly over
+        // mountains, but jets can." A rotorcraft (band ceiling 2) NEVER clears
+        // the ridge; a jet clears only while cruising band 3 (the clouds over
+        // the peaks). Held out of the mountain, it must route through a pass.
+        if (def.flies && terrainLevelAt(this.map.height, nx, nz, this.map.geometry) >= SKY_LEVEL
+            && !(maxElevationFor(def) >= 3 && (v.band ?? 0) >= 3)) {
+          v.vel.x *= -0.35; // the ridge wins — the airframe is rebuffed
+          v.vel.z *= -0.35;
+        } else if (def.flies && collidesAtElevation(asElevationLevel(v.band), 1) && (v.band ?? 0) > 0 && this.buildingAt(nx, nz)) {
           const spd = Math.hypot(v.vel.x, v.vel.z);
           if (spd > 4 && this.time >= (v.nextCrashAt ?? 0)) {
             v.nextCrashAt = this.time + 0.5;
