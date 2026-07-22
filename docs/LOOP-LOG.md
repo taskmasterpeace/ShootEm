@@ -28,3 +28,4 @@
 2026-07-22 IT-29: #19 built (recordSnapshot, pinning test proves copies). 28 closed, 8 needs-robert.
 2026-07-22 IT-30: #22 closed (resolved via #19 + by-ref adoption verdict; raw-wire storage rejected with citations). #10 queued as next-window opener (300-line stepVehicle carve + end-state hash). 29 closed.
 2026-07-22 IT-31: #102 2/3 shipped (bob live-measured 0.16, corner-nudge); weight-ease -> needs-robert (ice-pin law conflict). 29 closed, 9 needs-robert.
+2026-07-22 IT-32: #21 closed (MSAA tier — L6 complete). 30 closed, 9 needs-robert.
