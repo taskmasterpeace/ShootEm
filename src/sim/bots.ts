@@ -1110,7 +1110,22 @@ function stepTheaterVehicle(w: World, s: Soldier, vehicle: Vehicle, route: Theat
       const d = Math.hypot(t.pos.x - vehicle.pos.x, t.pos.z - vehicle.pos.z);
       if (d < bestD) { bestD = d; airPrey = t; }
     }
-    if (airPrey) point = { x: airPrey.pos.x, y: point.y, z: airPrey.pos.z };
+    if (airPrey) {
+      point = { x: airPrey.pos.x, y: point.y, z: airPrey.pos.z };
+      // ENERGY FIGHT: if the prey has slid well behind the nose at close range (a
+      // merge overshoot), commit to a short straight EXTENSION to rebuild energy +
+      // separation, then re-merge — instead of a slow death-spiral scissors.
+      let off = Math.atan2(airPrey.pos.z - vehicle.pos.z, airPrey.pos.x - vehicle.pos.x) - vehicle.yaw;
+      while (off > Math.PI) off -= Math.PI * 2;
+      while (off < -Math.PI) off += Math.PI * 2;
+      const preyD = Math.hypot(airPrey.pos.x - vehicle.pos.x, airPrey.pos.z - vehicle.pos.z);
+      if (Math.abs(off) > 1.9 && preyD < WEAPONS[def.weapon].range * 0.7 && w.time >= (s.botExtendUntil ?? 0)) {
+        s.botExtendUntil = w.time + 1.1;
+      }
+      if (w.time < (s.botExtendUntil ?? 0)) {
+        point = { x: vehicle.pos.x + Math.cos(vehicle.yaw) * 60, y: point.y, z: vehicle.pos.z + Math.sin(vehicle.yaw) * 60 };
+      }
+    }
   }
 
   const dGoal = Math.hypot(point.x - vehicle.pos.x, point.z - vehicle.pos.z);

@@ -731,6 +731,10 @@ export interface Soldier {
   botVehicleStallWindows?: number;
   botVehiclePersistentStalls?: number;
   botAirProfile?: 'patrol' | 'strike' | 'support' | 'insertion';
+  /** ENERGY FIGHT: a dogfighting pilot that overshoots its prey commits to a
+   *  short straight EXTENSION (rebuild energy/separation) until this time, then
+   *  re-merges — instead of cranking into a slow death-spiral. */
+  botExtendUntil?: number;
   botLandingZoneId?: string;
   /** per-LIFE personality salt, rolled at spawn (−1 | 0 | 1): lane bias,
    *  indoor posting, ride appetite — each life tries something different

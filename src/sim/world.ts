@@ -5,7 +5,7 @@ import {
   SURF_WHEELS, T_COVER, T_DOOR, T_GRASS, T_METAL,
   T_METAL_DOOR, T_OPEN, T_RUBBLE, T_SLIT, T_THIN_WALL_H, T_THIN_WALL_HV,
   T_WALL, T_WATER, blocksShot, breakWindowTile, doorIsOpen,
-  generateMap, isBlocked, isDoorTile, isWindowTile, losClear, nearestOpenTile,
+  generateMap, isBlocked, isDoorTile, isWindowTile, losClear, losClearTerrain, nearestOpenTile,
   surfaceAt, thinTileBlocks, tileAt, toggleDoorType, terrainLevelAt, SKY_LEVEL,
   windowIsBroken, type GameMap,
 } from './map';
@@ -4298,6 +4298,13 @@ export class World {
       const v = this.vehicles.get(p.homingVehicleId);
       // a SAM needs an airborne target; a GUIDED rocket also tracks a hull on the deck
       if (!v || !v.alive || (!p.guided && !this.vehicleAirborne(v))) { p.homingVehicleId = undefined; return false; }
+      // BREAK LOCK BEHIND A RIDGE (mountain warfare): a Sky mountain between the
+      // seeker and its prey blinds it — a pilot who ducks behind the ridge shakes
+      // the missile. Only bites where terrain has height (the mountain theater).
+      if (!losClearTerrain(this.map.height, p.pos.x, p.pos.y, p.pos.z,
+          v.pos.x, ELEVATION_ALT[asElevationLevel(v.band)] + 1.4, v.pos.z, this.map.geometry)) {
+        p.homingVehicleId = undefined; return false;
+      }
       tx = v.pos.x; tz = v.pos.z;
     } else if (p.homingSoldierId !== undefined) {
       // Ragebeast's flesh hunts a SOLDIER — low, turn-rate capped: sidestep

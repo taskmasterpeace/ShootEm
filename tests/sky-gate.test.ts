@@ -82,3 +82,37 @@ describe('the mountain wall — rotorcraft Sky-gate', () => {
     expect(v.pos.x, 'a low jet cannot ghost through the ridge').toBeLessThan(at.x);
   });
 });
+
+// a homing missile that loses sight of its prey behind a Sky ridge drops the
+// lock — "break missile lock behind a ridge" (the pilot-AI dogfight tie-in)
+function lockScenario(stamp: boolean, id: number) {
+  const w = new World({ seed: 42, mode: 'tdm', botsPerTeam: 0 });
+  const at = peakWithApproach(w);
+  if (stamp) stampPeak(w, at); // the ridge sits between the missile and the jet
+  const jet = w.spawnVehicle('interceptor', 1, { x: at.x + 8, y: 0, z: at.z });
+  jet.alive = true; jet.band = 1; // low — below the 16u peak, ducked behind it
+  const pilot = w.addSoldier('P', 'infantry', 1, 'human');
+  jet.seats[0] = pilot.id; pilot.vehicleId = jet.id; pilot.seat = 0; pilot.alive = true;
+  const p = w.launch({
+    id, weapon: 'sam_missile', ownerId: -1, team: 0,
+    pos: { x: at.x - 8, y: 3, z: at.z }, vel: { x: 30, y: 0, z: 0 },
+    bornAt: 0, ttl: 8, arc: false, airScaled: true, elevationWeapon: 'manpads',
+    homingVehicleId: jet.id,
+  } as never);
+  return { w, p, jet };
+}
+
+describe('break missile lock behind a ridge', () => {
+  it('a Sky ridge between the seeker and its prey BREAKS the lock', () => {
+    const { w, p } = lockScenario(true, 900500);
+    expect(p.homingVehicleId).toBeDefined();
+    w.step(1 / 60, new Map());
+    expect(p.homingVehicleId, 'the ridge blinded the seeker').toBeUndefined();
+  });
+
+  it('with a CLEAR line the lock holds (control)', () => {
+    const { w, p, jet } = lockScenario(false, 900501);
+    w.step(1 / 60, new Map());
+    expect(p.homingVehicleId, 'clear sky keeps the lock').toBe(jet.id);
+  });
+});
