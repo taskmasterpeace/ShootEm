@@ -1,9 +1,12 @@
-import { GRID, T_OPEN, T_RUBBLE, breakWindowTile, doorIsOpen, isDoorTile, isWindowTile, toggleDoorTile } from './map';
+import { T_OPEN, T_RUBBLE, breakWindowTile, doorIsOpen, isDoorTile, isWindowTile, toggleDoorTile } from './map';
+import { geometryLength } from './map-geometry';
 import { floorLayer } from './map-layers';
 import { SEEN_LINGER, SEEN_LINGER_GEARED, eyesSeePoint, perceivesNow, seenRecently } from './perception';
 import type { WeatherState } from './weather';
 import type { Gadget, Mine, ModeId, ModeState, Pickup, Projectile, SimEvent, Soldier, ThemeId, Turret, Vehicle } from './types';
 import { World } from './world';
+import { assertMapIdentity, mapIdentity } from './map-identity';
+import type { TheaterId } from './theater-types';
 
 /**
  * A puppet world renders authoritative snapshots without simulating: same
@@ -11,8 +14,27 @@ import { World } from './world';
  * applySnapshot is the only source of truth. Used by the multiplayer client
  * and the replay player — one recipe, one home.
  */
-export function createPuppetWorld(seed: number, mode: ModeId, theme: ThemeId | undefined): World {
-  const w = new World({ seed, mode, theme });
+export interface MapHandshake {
+  theaterId?: TheaterId;
+  mapIdentity: string;
+}
+
+export function mapHandshake(world: World): MapHandshake {
+  return {
+    ...(world.map.theater ? { theaterId: world.map.theater.id } : {}),
+    mapIdentity: mapIdentity(world.map),
+  };
+}
+
+export function createPuppetWorld(
+  seed: number,
+  mode: ModeId,
+  theme: ThemeId | undefined,
+  theaterId?: TheaterId,
+  expectedMapIdentity?: string,
+): World {
+  const w = new World({ seed, mode, theme, theaterId });
+  if (expectedMapIdentity) assertMapIdentity(w.map, expectedMapIdentity);
   w.puppet = true;
   w.soldiers.clear();
   w.vehicles.clear();
@@ -42,7 +64,7 @@ export interface Snapshot {
   /** door tiles that ever changed, with their CURRENT state packed in:
    *  idx*2 + (open ? 1 : 0) — cheap, cumulative, order-free */
   doors: number[];
-  /** cumulative broken panes packed as floor*GRID²+idx */
+  /** cumulative broken panes packed as floor*map-area+idx */
   glass: number[];
   /** §8.8 the sky — every client renders the same storm */
   weather: WeatherState;
@@ -88,8 +110,9 @@ export function takeSnapshot(w: World, events: SimEvent[]): Snapshot {
     dug: w.dug,
     breached: w.breached,
     doors: w.doorChanges.map((packed) => {
-      const floor = Math.floor(packed / (GRID * GRID));
-      const idx = packed % (GRID * GRID);
+      const area = geometryLength(w.map.geometry);
+      const floor = Math.floor(packed / area);
+      const idx = packed % area;
       const tile = floorLayer(w.map, floor)[idx];
       return packed * 2 + (doorIsOpen(tile, floor > 0) ? 1 : 0);
     }),
@@ -121,7 +144,7 @@ export function cullSnapshotFor(w: World, snap: Snapshot, viewerId: number): Sna
   const range = w.perceiveRange();
   const linger = viewer.equipment.includes('tracking_optics') ? SEEN_LINGER_GEARED : SEEN_LINGER;
   const eyes = [...w.soldiers.values()].filter((s) => s.alive && s.team === team);
-  const seesPoint = (x: number, z: number, y = 1.4) => eyesSeePoint(w.map.grid, eyes, x, z, range, y);
+  const seesPoint = (x: number, z: number, y = 1.4) => eyesSeePoint(w.map.grid, eyes, x, z, range, y, w.map.geometry);
 
   const soldiers = snap.soldiers.flatMap((s) => {
     if (s.team === team) return [s];
@@ -132,7 +155,8 @@ export function cullSnapshotFor(w: World, snap: Snapshot, viewerId: number): Sna
     // would leak live coordinates through the linger window.
     const mark = w.lastSeen[team].get(s.id);
     const freshNow = (mark !== undefined && snap.time - mark.t < 0.001)
-      || perceivesNow(w.map.grid, eyes, w.pinged, s, range, [], undefined, w.map.grid2, w.map.upperLayers);
+      || perceivesNow(w.map.grid, eyes, w.pinged, s, range, [], undefined,
+        w.map.grid2, w.map.geometry, w.map.upperLayers);
     if (freshNow) return [s];
     // §19.1 GHOSTS: within the linger you get the spot you LOST them —
     // frozen — never their live path behind the wall. Re-acquired = live.
@@ -144,6 +168,7 @@ export function cullSnapshotFor(w: World, snap: Snapshot, viewerId: number): Sna
   const vehicles = snap.vehicles.filter((v) => {
     if (v.team === team) return true;
     if (v.burrowed) return false;                             // deep is TRULY deep
+    if (v.submerged && !w.submarineDetectedForTeam(v, team)) return false;
     const ecmDead = v.systems && v.systems.ecm <= 0;          // dead ECM broadcasts you
     return ecmDead || seesPoint(v.pos.x, v.pos.z, 1.8);
   });
@@ -201,8 +226,9 @@ export function applySnapshot(w: World, snap: Snapshot) {
   if (snap.doors) {
     for (const packed of snap.doors) {
       const doorIndex = packed >> 1;
-      const floor = Math.floor(doorIndex / (GRID * GRID));
-      const idx = doorIndex % (GRID * GRID);
+      const area = geometryLength(w.map.geometry);
+      const floor = Math.floor(doorIndex / area);
+      const idx = doorIndex % area;
       try {
         const layer = floorLayer(w.map, floor);
         const tile = layer[idx];
@@ -217,8 +243,9 @@ export function applySnapshot(w: World, snap: Snapshot) {
   }
   if (snap.glass) {
     for (const packed of snap.glass) {
-      const floor = Math.floor(packed / (GRID * GRID));
-      const idx = packed % (GRID * GRID);
+      const area = geometryLength(w.map.geometry);
+      const floor = Math.floor(packed / area);
+      const idx = packed % area;
       try {
         const layer = floorLayer(w.map, floor);
         if (isWindowTile(layer[idx], floor > 0)) layer[idx] = breakWindowTile(layer[idx], floor > 0);

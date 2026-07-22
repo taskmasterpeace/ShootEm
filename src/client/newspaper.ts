@@ -21,6 +21,17 @@ export interface SciencePressData {
 // that prints it.
 // ---------------------------------------------------------------------------
 
+export interface OperationPressFacts {
+  codename: string;
+  site: string;
+  outcome: 'victory' | 'defeat';
+  hullsLost: number;
+  aceHull?: string;
+  objectivesCompleted: number;
+  objectivesTotal: number;
+  reward?: string;
+}
+
 export interface PressIssue {
   at: number;                 // real-world print time
   season: number;
@@ -43,6 +54,7 @@ export interface PressIssue {
   theirKills: number;
   medals: string[];           // "🎖 name" strings, already formatted
   science?: SciencePressData;
+  operation?: OperationPressFacts;
 }
 
 const KEY = 'ww_press';
@@ -79,6 +91,13 @@ const hash = (i: PressIssue) => Math.abs(Math.floor(i.at / 1000)) % 3;
 
 function mainHeadline(i: PressIssue): string {
   if (i.science) return scienceHeadline(i);
+  if (i.operation) {
+    const code = i.operation.codename.toUpperCase();
+    const site = i.operation.site.toUpperCase();
+    return i.operation.outcome === 'victory'
+      ? [`ENEMY OPERATION ${code} TAKES ${site}`, `${site} LOST IN ${code} RAID`, `${code} BREAKS THE LINE AT ${site}`][hash(i)]
+      : [`OPERATION ${code} REPULSED`, `${site} HOLDS AGAINST ${code}`, `${code} FORCE TURNED BACK`][hash(i)];
+  }
   if (i.frontName) {
     const f = i.frontName.toUpperCase();
     if ((i.controlDelta ?? 0) > 0) {
@@ -118,6 +137,15 @@ function fieldLead(i: PressIssue): string {
   const score = `${i.myKills}–${i.theirKills}`;
   const medals = i.medals.length ? ` Decorations issued: ${i.medals.join(', ')}.` : '';
   return `${i.modeName} closed ${score}.${medals}`;
+}
+
+function operationLead(i: PressIssue): string | null {
+  const op = i.operation;
+  if (!op) return null;
+  const result = op.outcome === 'victory' ? 'The enemy completed' : 'Our defenders stopped';
+  const ace = op.aceHull ? ` Their leading hull was ${op.aceHull}.` : '';
+  const reward = op.reward ? ` Strategic consequence: ${op.reward}.` : '';
+  return `${result} ${op.objectivesCompleted} of ${op.objectivesTotal} objectives at ${op.site}; ${op.hullsLost} committed hull${op.hullsLost === 1 ? '' : 's'} lost.${ace}${reward}`;
 }
 
 // ── the corrections desk (W4.3) ────────────────────────────────────────────
@@ -171,6 +199,7 @@ export function renderIssueHTML(i: PressIssue, prev?: PressIssue): string {
       <section><h3>THE LEDGER</h3><p>${esc(moneyLead(i))}</p></section>
       <section><h3>THE FIELD</h3><p>${esc(fieldLead(i))}</p></section>
     </div>`;
+  const operation = operationLead(i);
   return `
   <article class="np-paper${i.won ? '' : ' np-lost'}">
     <header class="np-masthead">
@@ -180,6 +209,7 @@ export function renderIssueHTML(i: PressIssue, prev?: PressIssue): string {
     </header>
     <h2 class="np-headline">${esc(mainHeadline(i))}</h2>
     ${control}
+    ${operation ? `<div class="np-operation"><span>ENEMY ACTION REPORT</span><p>${esc(operation)}</p></div>` : ''}
     ${columns}
     ${science?.ghost ? '<div class="np-banner">★ GHOST RUN — NO ALARM RAISED ★</div>' : i.underdog ? '<div class="np-banner">★ UNDERFUNDED VICTORY — MORALE RISES ★</div>' : ''}
     ${correction ? `<div class="np-corrections"><h4>CORRECTIONS</h4><p>${esc(correction)}</p></div>` : ''}

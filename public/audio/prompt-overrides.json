@@ -1,0 +1,18 @@
+{
+  "cloak": {
+    "desc": "Cloak toggle — shimmering phase whoosh",
+    "dur": 1
+  },
+  "footstep_c": {
+    "desc": "ONE single soft tactical boot step — quick light scuff, stealthy",
+    "dur": 0.4
+  },
+  "plasma": {
+    "desc": "Plasma rifle bolt",
+    "dur": 0.6
+  },
+  "rail": {
+    "desc": "Railgun round",
+    "dur": 1
+  }
+}

@@ -22,6 +22,7 @@
 import { isBlocked } from './map';
 import type { Soldier } from './types';
 import type { World } from './world';
+import type { VehicleTelemetry } from './vehicle-telemetry';
 
 export const BB_SAMPLE_EVERY = 2;   // seconds of sim time between samples
 export const BB_MAX_SAMPLES = 600;  // ring buffer ≈ 20 minutes
@@ -78,13 +79,14 @@ export interface Blackbox {
   /** consecutive knotted samples per team */
   knotRuns: [number, number];
   lastKnotFiledAt: [number, number];
+  vehicles: VehicleTelemetry;
 }
 
-export function createBlackbox(): Blackbox {
+export function createBlackbox(vehicles: VehicleTelemetry): Blackbox {
   return {
     nextAt: BB_SAMPLE_EVERY, samples: [], incidents: [],
     prev: new Map(), stuckRuns: new Map(),
-    knotRuns: [0, 0], lastKnotFiledAt: [-Infinity, -Infinity],
+    knotRuns: [0, 0], lastKnotFiledAt: [-Infinity, -Infinity], vehicles,
   };
 }
 
@@ -106,7 +108,7 @@ function member(w: World, s: Soldier, disp: number): BbMember {
     x: +s.pos.x.toFixed(1), z: +s.pos.z.toFixed(1),
     spd: +Math.hypot(s.vel.x, s.vel.z).toFixed(1),
     disp: +disp.toFixed(1),
-    blocked: isBlocked(w.map.grid, s.pos.x, s.pos.z),
+    blocked: isBlocked(w.map.grid, s.pos.x, s.pos.z, false, w.map.geometry),
     firing: s.nextFireAt > w.time - 3,
   };
   if (s.botGoal) m.goal = { x: +s.botGoal.x.toFixed(0), z: +s.botGoal.z.toFixed(0) };
@@ -160,7 +162,7 @@ export function stepBlackbox(w: World) {
       disps.set(s.id, disp === Infinity ? 99 : disp);
       const isStuck = disp < STUCK_DISP && Math.hypot(s.vel.x, s.vel.z) > STUCK_SPD;
       if (isStuck) stuck++;
-      if (isBlocked(w.map.grid, s.pos.x, s.pos.z)) blocked++;
+      if (isBlocked(w.map.grid, s.pos.x, s.pos.z, false, w.map.geometry)) blocked++;
       nextPrev.set(s.id, { x: s.pos.x, z: s.pos.z });
 
       // stuck incident: fires once when a body crosses PERSIST samples

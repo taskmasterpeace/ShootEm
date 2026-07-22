@@ -75,4 +75,11 @@ describe('the black box (crowd flight recorder)', () => {
     expect(last.teams[0].n).toBe(2);
     expect(last.teams[0].nearBase).toBe(1); // Homebody in, Roamer out
   });
+
+  it('exposes vehicle telemetry beside crowd diagnostics', () => {
+    const w = new World({ seed: 24, mode: 'tdm', matchMinutes: 15 });
+    expect(w.blackbox.vehicles).toBe(w.vehicleTelemetry);
+    run(w, BB_SAMPLE_EVERY + 0.5);
+    expect(w.blackbox.vehicles.samples.length).toBeGreaterThan(0);
+  });
 });

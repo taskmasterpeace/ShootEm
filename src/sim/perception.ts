@@ -13,6 +13,7 @@
 // all come back the moment sight has a shape.
 // ---------------------------------------------------------------------------
 import { T_GRASS, losClearUpper, losClearXZ, losCrossFloor, tileAt } from './map';
+import { LEGACY_GEOMETRY, type MapGeometry } from './map-geometry';
 import type { Soldier, Team } from './types';
 
 /** How far friendly eyes reach (mirrors the minimap; §8.8 weather taxes it). */
@@ -95,13 +96,16 @@ export function smokeBlocks(ax: number, az: number, bx: number, bz: number, smok
  *  ground grid at 1.4, so it is advisory today, but it keeps the call sites
  *  honest about height (a hull tests at ~1.8). Shared by cullSnapshotFor (the
  *  multiplayer path) and the renderer's local-play cull so they never diverge. */
-export function eyesSeePoint(grid: Uint8Array, eyes: Soldier[], x: number, z: number, range: number, _y = 1.4): boolean {
+export function eyesSeePoint(
+  grid: Uint8Array, eyes: Soldier[], x: number, z: number, range: number, _y = 1.4,
+  geometry: MapGeometry = LEGACY_GEOMETRY,
+): boolean {
   // `_y` is the caller's target height (a hull tests ~1.8) — kept advisory: the
-  // march is at ground eye height 1.4 exactly as losClear always did, so this
-  // stays byte-identical. opt #9: losClearXZ takes coords, no per-call literals.
+  // march is at ground eye height 1.4 exactly as losClear always did. opt #9:
+  // losClearXZ takes coords, no per-call literals; geometry keeps big maps honest.
   return eyes.some((e) =>
     Math.hypot(x - e.pos.x, z - e.pos.z) < range &&
-    losClearXZ(grid, e.pos.x, e.pos.z, x, z));
+    losClearXZ(grid, e.pos.x, e.pos.z, x, z, 1.4, geometry));
 }
 
 /** Can this set of friendly eyes perceive enemy soldier `s` RIGHT NOW?
@@ -109,7 +113,27 @@ export function eyesSeePoint(grid: Uint8Array, eyes: Soldier[], x: number, z: nu
  *  are the standing clouds: they block the cone and the ring alike (a
  *  grenade that "affects visibility" — Robert — or it's just décor). Pings
  *  are electronic and the flag is public intel; smoke fools eyes, not radios. */
-export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<number>, s: Soldier, range = PERCEIVE_RANGE, smokes: SmokeBlob[] = [], revealed?: Set<number>, grid2?: Uint8Array, upperLayers?: Uint8Array[]): boolean {
+export function perceivesNow(
+  grid: Uint8Array, eyes: Soldier[], pinged: Set<number>, s: Soldier,
+  range?: number, smokes?: SmokeBlob[], revealed?: Set<number>, grid2?: Uint8Array,
+  upperLayers?: Uint8Array[],
+): boolean;
+export function perceivesNow(
+  grid: Uint8Array, eyes: Soldier[], pinged: Set<number>, s: Soldier,
+  range?: number, smokes?: SmokeBlob[], revealed?: Set<number>, grid2?: Uint8Array,
+  geometry?: MapGeometry, upperLayers?: Uint8Array[],
+): boolean;
+export function perceivesNow(
+  grid: Uint8Array, eyes: Soldier[], pinged: Set<number>, s: Soldier,
+  range = PERCEIVE_RANGE, smokes: SmokeBlob[] = [], revealed?: Set<number>, grid2?: Uint8Array,
+  geometryOrUpperLayers: MapGeometry | Uint8Array[] = LEGACY_GEOMETRY,
+  explicitUpperLayers?: Uint8Array[],
+): boolean {
+  const legacyUpperLayers = Array.isArray(geometryOrUpperLayers) ? geometryOrUpperLayers : undefined;
+  const geometry: MapGeometry = legacyUpperLayers
+    ? LEGACY_GEOMETRY
+    : geometryOrUpperLayers as MapGeometry;
+  const upperLayers = explicitUpperLayers ?? legacyUpperLayers;
   if (s.cloaked && !pinged.has(s.id)) return false;   // cloak is TRUE
   if (s.carryingFlag !== -1) return true;             // objective intel is public
   if (pinged.has(s.id)) return true;
@@ -127,7 +151,7 @@ export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<numb
   // the cone loses you beyond 14u, and beyond the footstep RING itself if you
   // DUCK. The truth-tellers: your own muzzle flash (revealed), a ping, the
   // flag in your hands (public, above) -- and an LSW never fits in the grass.
-  if (s.ascendant === undefined && !revealed?.has(s.id) && tileAt(grid, s.pos.x, s.pos.z) === T_GRASS) {
+  if (s.ascendant === undefined && !revealed?.has(s.id) && tileAt(grid, s.pos.x, s.pos.z, geometry) === T_GRASS) {
     range = Math.min(range, s.crouching ? RING : 14);
   }
   // MUZZLE FLASH cuts the murk (§8.8): a shooter is a bright tell, seen past
@@ -148,11 +172,11 @@ export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<numb
     const ef = e.floor ?? 0;
     const sf = s.floor ?? 0;
     if (ef === sf) {
-      if (ef === 0) return losClearXZ(grid, e.pos.x, e.pos.z, s.pos.x, s.pos.z);
+      if (ef === 0) return losClearXZ(grid, e.pos.x, e.pos.z, s.pos.x, s.pos.z, 1.4, geometry);
       const layer = upperFor(ef);
       return layer !== undefined
-        ? losClearUpper(layer, { x: e.pos.x, y: 5.4, z: e.pos.z }, { x: s.pos.x, y: 5.4, z: s.pos.z })
-        : losClearXZ(grid, e.pos.x, e.pos.z, s.pos.x, s.pos.z);
+        ? losClearUpper(layer, { x: e.pos.x, y: 5.4, z: e.pos.z }, { x: s.pos.x, y: 5.4, z: s.pos.z }, 5.4, geometry)
+        : losClearXZ(grid, e.pos.x, e.pos.z, s.pos.x, s.pos.z, 1.4, geometry);
     }
     if (ef === 0 || sf === 0) {
       const upstairs = ef > 0 ? e : s;
@@ -161,15 +185,15 @@ export function perceivesNow(grid: Uint8Array, eyes: Soldier[], pinged: Set<numb
       return layer !== undefined
         ? losCrossFloor(grid, layer,
           { x: upstairs.pos.x, y: 5.4, z: upstairs.pos.z },
-          { x: downstairs.pos.x, y: 1.4, z: downstairs.pos.z })
-        : losClearXZ(grid, e.pos.x, e.pos.z, s.pos.x, s.pos.z);
+          { x: downstairs.pos.x, y: 1.4, z: downstairs.pos.z }, geometry)
+        : losClearXZ(grid, e.pos.x, e.pos.z, s.pos.x, s.pos.z, 1.4, geometry);
     }
     const eyeLayer = upperFor(ef);
     const targetLayer = upperFor(sf);
     if (!eyeLayer || !targetLayer) return false;
     const mid = { x: (e.pos.x + s.pos.x) / 2, y: 5.4, z: (e.pos.z + s.pos.z) / 2 };
-    return losClearUpper(eyeLayer, { x: e.pos.x, y: 5.4, z: e.pos.z }, mid)
-      && losClearUpper(targetLayer, mid, { x: s.pos.x, y: 5.4, z: s.pos.z });
+    return losClearUpper(eyeLayer, { x: e.pos.x, y: 5.4, z: e.pos.z }, mid, 5.4, geometry)
+      && losClearUpper(targetLayer, mid, { x: s.pos.x, y: 5.4, z: s.pos.z }, 5.4, geometry);
   };
   return eyes.some((e) =>
     eyeSees(e, s.pos.x, s.pos.z, range) &&

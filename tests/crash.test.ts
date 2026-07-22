@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { GRID, T_METAL, T_SLIT, T_WALL, TILE, WORLD, tileAt } from '../src/sim/map';
 import type { PlayerCmd } from '../src/sim/types';
 import { World } from '../src/sim/world';
+import type { ElevationLevel } from '../src/sim/elevation';
 
 const cmd = (over: Partial<PlayerCmd> = {}): PlayerCmd => ({
   moveX: 0, moveZ: 0, aimYaw: 0, fire: false, altFire: false, jump: false,
@@ -37,7 +38,7 @@ function findWallWithApproach(w: World): { x: number; z: number } {
 }
 
 /** a piloted strikejet aimed dead at the wall from 3.5u out */
-function jetAt(w: World, wall: { x: number; z: number }, band: number) {
+function jetAt(w: World, wall: { x: number; z: number }, band: ElevationLevel) {
   const p = w.addSoldier('P', 'infantry', 0, 'human');
   p.alive = true;
   const v = w.spawnVehicle('strikejet', 0, { x: wall.x - 3.5, y: 0, z: wall.z });

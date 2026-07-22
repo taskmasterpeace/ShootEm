@@ -12,7 +12,6 @@ import {
   F2_STAIR_N,
   F2_STAIR_W,
   F2_WELL,
-  GRID,
   S_DIRT,
   S_GRASS,
   S_GRIT,
@@ -25,13 +24,20 @@ import {
   T_STAIRS_N,
   T_STAIRS_W,
   T_WALL,
-  TILE,
-  WORLD,
   isDoorTile,
   losClear,
   registerThinGrid,
   type GameMap,
 } from './map';
+import {
+  LEGACY_GEOMETRY,
+  geometryLength,
+  inBounds,
+  tileIndex,
+  tileToWorld as geometryTileToWorld,
+  worldToTile as geometryWorldToTile,
+  type MapGeometry,
+} from './map-geometry';
 import { floorLayer, ladderWellAt, stairDirectionAt } from './map-layers';
 import { Rng } from './rng';
 import type { ScienceMissionSpec, ScienceSite } from './science';
@@ -82,16 +88,13 @@ const SURFACE: Record<ThemeId, number> = {
   hardpan: S_DIRT,
 };
 
-const tileToWorld = (tx: number, tz: number, floor = 0): Vec3 => ({
-  x: (tx + 0.5) * TILE - WORLD / 2,
+const tileToWorld = (tx: number, tz: number, floor = 0, geometry: MapGeometry = LEGACY_GEOMETRY): Vec3 => ({
+  ...geometryTileToWorld(geometry, tx, tz),
   y: floor * 4,
-  z: (tz + 0.5) * TILE - WORLD / 2,
 });
 
-const worldToTile = (pos: Vec3): [number, number] => [
-  Math.floor((pos.x + WORLD / 2) / TILE),
-  Math.floor((pos.z + WORLD / 2) / TILE),
-];
+const worldToTile = (pos: Vec3, geometry: MapGeometry = LEGACY_GEOMETRY): [number, number] =>
+  geometryWorldToTile(geometry, pos.x, pos.z);
 
 function pickSpread(points: Vec3[], count: number): Vec3[] {
   if (!points.length || count <= 0) return [];
@@ -138,6 +141,7 @@ function uniquePoints(points: Vec3[]): Vec3[] {
  * and airfield sites keep a small exterior apron; every indoor site uses the
  * same whole-building grammar as the Map Maker. */
 export function generateScienceMap(spec: ScienceMissionSpec): ScienceMapLayout {
+  const geometry = { ...LEGACY_GEOMETRY };
   const profile = SCIENCE_SITE_BUILDINGS[spec.site];
   const cityId = spec.cityId ?? CITY_MAP_PROFILES[spec.seed % CITY_MAP_PROFILES.length].id;
   const building = generateCityBuilding({
@@ -147,18 +151,18 @@ export function generateScienceMap(spec: ScienceMissionSpec): ScienceMapLayout {
     floors: profile.floors,
   });
   const rng = new Rng(spec.seed ^ 0x5c1e7e);
-  const grid = new Uint8Array(GRID * GRID);
-  const grid2 = new Uint8Array(GRID * GRID);
+  const grid = new Uint8Array(geometryLength(geometry));
+  const grid2 = new Uint8Array(geometryLength(geometry));
   const upperLayers = [grid2];
-  const surface = new Uint8Array(GRID * GRID);
+  const surface = new Uint8Array(geometryLength(geometry));
   surface.fill(SURFACE[spec.theme]);
   const props: GameMap['props'] = [];
   const pickups: GameMap['pickups'] = [];
   const houses: GameMap['houses'] = [];
   const claims: { idx: number; t: number }[] = [];
 
-  const tx = 50 - Math.floor(building.width / 2);
-  const tz = 50 - Math.floor(building.height / 2);
+  const tx = Math.floor(geometry.cols / 2) - Math.floor(building.width / 2);
+  const tz = Math.floor(geometry.rows / 2) - Math.floor(building.height / 2);
   const bounds = {
     minTx: tx - 3,
     minTz: tz - 3,
@@ -166,25 +170,26 @@ export function generateScienceMap(spec: ScienceMissionSpec): ScienceMapLayout {
     maxTz: tz + building.height + 2,
   };
   for (let x = bounds.minTx; x <= bounds.maxTx; x++) {
-    grid[bounds.minTz * GRID + x] = T_WALL;
-    grid[bounds.maxTz * GRID + x] = T_WALL;
+    grid[tileIndex(geometry, x, bounds.minTz)] = T_WALL;
+    grid[tileIndex(geometry, x, bounds.maxTz)] = T_WALL;
   }
   for (let z = bounds.minTz; z <= bounds.maxTz; z++) {
-    grid[z * GRID + bounds.minTx] = T_WALL;
-    grid[z * GRID + bounds.maxTx] = T_WALL;
+    grid[tileIndex(geometry, bounds.minTx, z)] = T_WALL;
+    grid[tileIndex(geometry, bounds.maxTx, z)] = T_WALL;
   }
 
-  const ctx: StampCtx = { grid, grid2, upperLayers, props, pickups, houses, claims, rng };
+  const ctx: StampCtx = { grid, grid2, upperLayers, geometry, props, pickups, houses, claims, rng };
   if (!stampBuilding(ctx, building.def, tx, tz)) throw new Error(`science site out of bounds: ${spec.site}`);
   registerThinGrid(grid);
+  for (const layer of upperLayers) registerThinGrid(layer);
 
   const entry = outsideEntry(building, tx, tz);
-  const [entryTx, entryTz] = worldToTile(entry);
+  const [entryTx, entryTz] = worldToTile(entry, geometry);
   const extraction = tileToWorld(Math.max(bounds.minTx + 1, entryTx - 1), Math.min(bounds.maxTz - 1, entryTz + 1));
   const cloneTx = Math.max(bounds.minTx + 1, entryTx - 2);
   const cloneTz = entryTz;
   const clonePos = tileToWorld(cloneTx, cloneTz);
-  const cloneIdx = cloneTz * GRID + cloneTx;
+  const cloneIdx = tileIndex(geometry, cloneTx, cloneTz);
   grid[cloneIdx] = T_COVER;
   claims.push({ idx: cloneIdx, t: T_COVER });
   props.push({ type: 'clone_bay', pos: clonePos, scale: 0.9, rot: Math.PI / 2 });
@@ -208,7 +213,7 @@ export function generateScienceMap(spec: ScienceMissionSpec): ScienceMapLayout {
   ]).sort((a, b) => {
     const exposed = (post: Vec3) => post.y === entry.y
       && Math.hypot(post.x - entry.x, post.z - entry.z) <= 32
-      && losClear(grid, { ...entry, y: entry.y + 1.4 }, { ...post, y: post.y + 1.4 });
+      && losClear(grid, { ...entry, y: entry.y + 1.4 }, { ...post, y: post.y + 1.4 }, 1.4, geometry);
     return Number(exposed(a)) - Number(exposed(b))
       || Math.hypot(b.x - entry.x, b.z - entry.z) - Math.hypot(a.x - entry.x, a.z - entry.z);
   }).slice(0, 12);
@@ -237,6 +242,7 @@ export function generateScienceMap(spec: ScienceMissionSpec): ScienceMapLayout {
   const map: GameMap = {
     seed: spec.seed,
     theme: spec.theme,
+    geometry,
     grid,
     grid2,
     upperLayers,
@@ -281,8 +287,8 @@ export function generateScienceMap(spec: ScienceMissionSpec): ScienceMapLayout {
 }
 
 function walkableAt(map: GameMap, floor: number, tx: number, tz: number): boolean {
-  if (tx < 0 || tz < 0 || tx >= GRID || tz >= GRID) return false;
-  const tile = floorLayer(map, floor)[tz * GRID + tx];
+  if (!inBounds(map.geometry, tx, tz)) return false;
+  const tile = floorLayer(map, floor)[tileIndex(map.geometry, tx, tz)];
   if (floor === 0) return tile === T_OPEN || tile === T_RUBBLE || tile === T_LADDER
     || (tile >= T_STAIRS_N && tile <= T_STAIRS_W) || isDoorTile(tile);
   return tile === F2_FLOOR || tile === F2_WELL || tile === F2_BALCONY
@@ -294,24 +300,25 @@ function walkableAt(map: GameMap, floor: number, tx: number, tz: number): boolea
  * aligned stairs are walked, and ladder wells are explicit vertical links. */
 export function scienceMapReachable(layout: ScienceMapLayout): boolean {
   const { map } = layout;
-  const [startX, startZ] = worldToTile(layout.entry);
-  const area = GRID * GRID;
-  const start = startZ * GRID + startX;
+  const [startX, startZ] = worldToTile(layout.entry, map.geometry);
+  const area = geometryLength(map.geometry);
+  const start = tileIndex(map.geometry, startX, startZ);
   const queue = [start];
   const seen = new Set<number>(queue);
   while (queue.length) {
     const node = queue.shift()!;
     const floor = Math.floor(node / area);
     const tile = node % area;
-    const x = tile % GRID, z = Math.floor(tile / GRID);
+    const x = tile % map.geometry.cols, z = Math.floor(tile / map.geometry.cols);
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
       const nx = x + dx, nz = z + dz;
-      const next = floor * area + nz * GRID + nx;
+      const next = floor * area + tileIndex(map.geometry, nx, nz);
       if (!seen.has(next) && walkableAt(map, floor, nx, nz)) { seen.add(next); queue.push(next); }
     }
     for (const nextFloor of [floor - 1, floor + 1]) {
       if (nextFloor < 0 || nextFloor >= layout.building.floors) continue;
-      const wx = tileToWorld(x, z).x, wz = tileToWorld(x, z).z;
+      const world = tileToWorld(x, z, 0, map.geometry);
+      const wx = world.x, wz = world.z;
       const ladder = ladderWellAt(map, floor, wx, wz) && ladderWellAt(map, nextFloor, wx, wz);
       const stair = stairDirectionAt(map, floor, wx, wz);
       const other = stairDirectionAt(map, nextFloor, wx, wz);
@@ -321,8 +328,8 @@ export function scienceMapReachable(layout: ScienceMapLayout): boolean {
     }
   }
   return [...layout.objectiveSockets, layout.extraction].every((target) => {
-    const [x, z] = worldToTile(target);
+    const [x, z] = worldToTile(target, map.geometry);
     const floor = Math.max(0, Math.min(layout.building.floors - 1, Math.floor(target.y / 4)));
-    return seen.has(floor * area + z * GRID + x);
+    return seen.has(floor * area + tileIndex(map.geometry, x, z));
   });
 }

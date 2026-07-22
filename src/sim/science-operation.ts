@@ -1,6 +1,7 @@
 import { buildingAuthoringLayoutFromMap, deriveBuildingNavigation, type BuildingPortalKind } from './building-navigation';
 import type { GeneratedBuilding } from './building-generator';
-import { TILE, WORLD, type GameMap } from './map';
+import type { GameMap } from './map';
+import { tileToWorld } from './map-geometry';
 import type { Vec3 } from './types';
 
 export type ScienceOperationNodeKind = 'insertion' | 'room' | 'objective' | 'report' | 'response' | 'extraction';
@@ -58,7 +59,6 @@ export interface GenerateScienceOperationGraphInput {
 }
 
 const floorFor = (pos: Vec3) => Math.max(0, Math.round(pos.y / 4));
-const tileWorld = (tile: number) => (tile + 0.5) * TILE - WORLD / 2;
 const distance = (a: Vec3, b: Vec3) => Math.hypot(a.x - b.x, a.z - b.z) + Math.abs(a.y - b.y) * 2;
 const copy = (pos: Vec3): Vec3 => ({ ...pos });
 
@@ -112,15 +112,16 @@ export function generateScienceOperationGraph(input: GenerateScienceOperationGra
   const roomNodes: ScienceOperationNode[] = navigation.rooms.map((room) => {
     const sum = room.tiles.reduce((acc, tile) => ({ x: acc.x + tile.x, z: acc.z + tile.z }), { x: 0, z: 0 });
     const count = Math.max(1, room.tiles.length);
+    const center = tileToWorld(input.map.geometry, source.origin.tx + sum.x / count, source.origin.tz + sum.z / count);
     return {
       id: `room-${room.id}`,
       kind: 'room',
       roomId: room.id,
       floor: room.floor,
       pos: {
-        x: tileWorld(source.origin.tx + sum.x / count),
+        x: center.x,
         y: room.floor * 4,
-        z: tileWorld(source.origin.tz + sum.z / count),
+        z: center.z,
       },
     };
   });

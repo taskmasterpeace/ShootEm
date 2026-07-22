@@ -1,5 +1,9 @@
 import { CLASSES, DOG_STATS, VEHICLES, WEAPONS, weaponNoiseRadius } from './data';
-import { GRID, T_CLIMB, T_COVER, T_GRASS, T_LADDER, T_METAL_DOOR, T_OPEN, T_RUBBLE, T_STAIRS_N, T_STAIRS_W, T_WATER, TILE, WORLD, doorIsOpen, isBlocked, isDoorTile, losClear, tileAt } from './map';
+import {
+  T_CLIMB, T_COVER, T_DOOR, T_GRASS, T_LADDER, T_METAL,
+  T_METAL_DOOR, T_OPEN, T_RUBBLE, T_SLIT, T_STAIRS_N, T_STAIRS_W, T_WALL,
+  T_WATER, doorIsOpen, isBlocked, isDoorTile, losClear, tileAt,
+} from './map';
 import {
   MAX_BUILDING_FLOORS,
   floorBlocked,
@@ -11,6 +15,7 @@ import {
   stairDirectionAt,
   worldFloorForHeight,
 } from './map-layers';
+import { halfDepth, halfWidth, tileToWorld, worldToTile } from './map-geometry';
 import { type ClassId, type PlayerCmd, type Soldier, type Team, type Vec3, type Vehicle, isIron, isZed } from './types';
 import { type World } from './world';
 import { BOT_TUNING as TUNE, DIFFICULTY } from './bot-tuning';
@@ -30,6 +35,9 @@ import {
   k9SearchWaypoints,
   setK9Heel,
 } from './k9-orders';
+import type { TheaterDomain, TheaterRoute } from './theater-types';
+import { asElevationLevel } from './elevation';
+import { recordVehicleEvent } from './vehicle-telemetry';
 
 const noCmd = (): PlayerCmd => ({
   moveX: 0, moveZ: 0, aimYaw: 0, fire: false, altFire: false, jump: false,
@@ -45,22 +53,27 @@ const SPRINTER_WAKE_NOISE = 18;
 
 // ---------- grid pathfinding (BFS, uniform cost) ----------
 
-const toTile = (v: number) => Math.floor((v + WORLD / 2) / TILE);
-const toWorld = (t: number) => (t + 0.5) * TILE - WORLD / 2;
-
-// BFS scratch, reused across repaths. Allocating two GRID²-slot arrays per
+// BFS scratch, reused across repaths. Allocating two map-sized arrays per
 // call was pure GC churn — 24 bots repathing is megabytes/sec of garbage on
 // a low-end machine. Safe to share: pathStep is synchronous and never nests.
-const AREA = GRID * GRID;
 // two layers: index = floor·AREA + tile (the ground-only fast path uses
 // layer 0 exclusively, byte-identical to the classic single-layer walk)
-const bfsPrev = new Int32Array(AREA * MAX_BUILDING_FLOORS);
-const bfsQ = new Int32Array(AREA * MAX_BUILDING_FLOORS);
+let bfsPrev = new Int32Array(0);
+let bfsQ = new Int32Array(0);
 // A* scratch: g/f scores in INTEGER octile cost (straight 10, diagonal 14) so
 // the ordering is exact and replay-stable. Neither needs clearing between runs —
 // a slot is only ever read when bfsPrev marks that node visited this search.
-const aG = new Int32Array(AREA * MAX_BUILDING_FLOORS);
-const aF = new Int32Array(AREA * MAX_BUILDING_FLOORS);
+let aG = new Int32Array(0);
+let aF = new Int32Array(0);
+
+function ensurePathScratch(area: number): void {
+  const size = area * MAX_BUILDING_FLOORS;
+  if (bfsPrev.length >= size) return;
+  bfsPrev = new Int32Array(size);
+  bfsQ = new Int32Array(size);
+  aG = new Int32Array(size);
+  aF = new Int32Array(size);
+}
 
 /** BFS from start tile to goal tile; returns the next reachable waypoint (LOS-smoothed) or null.
  *  `wheels` plans for a VEHICLE: doorways, ladders, and barricades come off
@@ -68,8 +81,14 @@ const aF = new Int32Array(AREA * MAX_BUILDING_FLOORS);
  *  themselves in walls: the driver had a compass, never a map). */
 function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false, wheels = false, fromFloor = 0, toFloor = 0, allowLadders = true): (Vec3 & { climb?: boolean }) | null {
   const grid = w.map.grid;
-  const sx = toTile(from.x), sz = toTile(from.z);
-  let gx = toTile(to.x), gz = toTile(to.z);
+  const geometry = w.map.geometry;
+  const { cols, rows, tile } = geometry;
+  const area = cols * rows;
+  ensurePathScratch(area);
+  const toTile = (x: number, z: number) => worldToTile(geometry, x, z);
+  const toWorld = (tx: number, tz: number) => tileToWorld(geometry, tx, tz);
+  const [sx, sz] = toTile(from.x, from.z);
+  let [gx, gz] = toTile(to.x, to.z);
   // LADDER IQ: any storey in play routes through the layered walk below
   // (still a plain BFS — it runs far less often than this ground fast path).
   if (fromFloor !== 0 || toFloor !== 0) return pathStepLayered(w, from, to, fromFloor, toFloor, allowLadders);
@@ -84,13 +103,13 @@ function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false, wheels = fal
   // (and delivers a jump trooper TO the barricade, where climb IQ burns).
   const open = wheels
     ? (x: number, z: number) => {
-      if (x < 0 || z < 0 || x >= GRID || z >= GRID) return false;
-      const t = grid[z * GRID + x];
+      if (x < 0 || z < 0 || x >= cols || z >= rows) return false;
+      const t = grid[z * cols + x];
       return t === T_OPEN || t === T_WATER;
     }
     : (x: number, z: number) => {
-      if (x < 0 || z < 0 || x >= GRID || z >= GRID) return false;
-      const t = grid[z * GRID + x];
+      if (x < 0 || z < 0 || x >= cols || z >= rows) return false;
+      const t = grid[z * cols + x];
       // GRASS is walkable concealment (forests are grass, not wall — "choke,
       // not seal") and RUBBLE is a breached wall (destruction only ever OPENS a
       // path); the planner treated both as sealed, so bots detoured around
@@ -121,11 +140,11 @@ function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false, wheels = fal
   const prev = bfsPrev.fill(-1);
   const heap = bfsQ;
   let heapN = 0;
-  const startIdx = sz * GRID + sx;
-  const goalIdx = gz * GRID + gx;
+  const startIdx = sz * cols + sx;
+  const goalIdx = gz * cols + gx;
   // octile distance in the same integer units as the step costs
   const h = (n: number) => {
-    const dx = Math.abs((n % GRID) - gx), dz = Math.abs(((n / GRID) | 0) - gz);
+    const dx = Math.abs((n % cols) - gx), dz = Math.abs(((n / cols) | 0) - gz);
     return 10 * (dx + dz) - 6 * Math.min(dx, dz);
   };
   const before = (a: number, b: number) => (aF[a] !== aF[b] ? aF[a] < aF[b] : a < b);
@@ -161,17 +180,17 @@ function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false, wheels = fal
   aF[startIdx] = h(startIdx);
   push(startIdx);
   let found = false;
-  const dirs = [1, -1, GRID, -GRID, GRID + 1, GRID - 1, -GRID + 1, -GRID - 1];
+  const dirs = [1, -1, cols, -cols, cols + 1, cols - 1, -cols + 1, -cols - 1];
   let expanded = 0;
-  while (heapN > 0 && expanded < GRID * GRID) {
+  while (heapN > 0 && expanded < area) {
     const cur = pop();
     expanded++;
     if (cur === goalIdx) { found = true; break; }
-    const cx = cur % GRID, cz = (cur / GRID) | 0;
+    const cx = cur % cols, cz = (cur / cols) | 0;
     for (const d of dirs) {
       const nxt = cur + d;
-      const nx = nxt % GRID, nz = (nxt / GRID) | 0;
-      if (nx < 0 || nz < 0 || nxt < 0 || nxt >= AREA) continue;
+      const nx = nxt % cols, nz = (nxt / cols) | 0;
+      if (nx < 0 || nz < 0 || nxt < 0 || nxt >= area) continue;
       if (Math.abs(nx - cx) > 1 || Math.abs(nz - cz) > 1) continue; // wrap guard
       if (!open(nx, nz)) continue;
       // no diagonal corner cutting
@@ -202,11 +221,11 @@ function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false, wheels = fal
   // wheels judge the ray by THEIR menu (an open doorway walks, but no hull
   // fits through it); boots keep the classic isBlocked truth
   const solid = wheels
-    ? (x: number, z: number) => !open(toTile(x), toTile(z))
-    : (x: number, z: number) => isBlocked(grid, x, z);
+    ? (x: number, z: number) => { const [tx, tz] = toTile(x, z); return !open(tx, tz); }
+    : (x: number, z: number) => isBlocked(grid, x, z, false, geometry);
   const walkClear = (a: Vec3, bx: number, bz: number): boolean => {
     const dx = bx - a.x, dz = bz - a.z;
-    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / (TILE * 0.4)));
+    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / (tile * 0.4)));
     let px = a.x, pz = a.z;
     for (let i = 1; i <= steps; i++) {
       const t = i / steps;
@@ -221,10 +240,10 @@ function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false, wheels = fal
   };
   let target = path[0];
   for (let i = Math.min(path.length - 1, 24); i > 0; i--) {
-    const px = toWorld(path[i] % GRID), pz = toWorld((path[i] / GRID) | 0);
-    if (walkClear(from, px, pz)) { target = path[i]; break; }
+    const p = toWorld(path[i] % cols, (path[i] / cols) | 0);
+    if (walkClear(from, p.x, p.z)) { target = path[i]; break; }
   }
-  return { x: toWorld(target % GRID), y: 0, z: toWorld((target / GRID) | 0) };
+  return toWorld(target % cols, (target / cols) | 0);
 }
 
 /**
@@ -236,32 +255,37 @@ function pathStep(w: World, from: Vec3, to: Vec3, canClimb = false, wheels = fal
  */
 function pathStepLayered(w: World, from: Vec3, to: Vec3, fromFloor: number, toFloor: number, allowLadders: boolean): (Vec3 & { climb?: boolean }) | null {
   const grid = w.map.grid;
-  const sx = toTile(from.x), sz = toTile(from.z);
-  let gx = toTile(to.x), gz = toTile(to.z);
+  const geometry = w.map.geometry;
+  const { cols, rows, tile } = geometry;
+  const area = cols * rows;
+  ensurePathScratch(area);
+  const [sx, sz] = worldToTile(geometry, from.x, from.z);
+  let [gx, gz] = worldToTile(geometry, to.x, to.z);
+  const toWorld = (tx: number, tz: number) => tileToWorld(geometry, tx, tz);
   if (!floorExists(w.map, fromFloor) || !floorExists(w.map, toFloor)) return null;
   if (sx === gx && sz === gz && fromFloor === toFloor) return null;
   const openGround = (x: number, z: number) => {
-    if (x < 0 || z < 0 || x >= GRID || z >= GRID) return false;
-    const t = grid[z * GRID + x];
+    if (x < 0 || z < 0 || x >= cols || z >= rows) return false;
+    const t = grid[z * cols + x];
     return t === T_OPEN || (isDoorTile(t) && t !== T_METAL_DOOR)
       || (t >= T_STAIRS_N && t <= T_STAIRS_W)
       || t === T_WATER || t === T_LADDER || t === T_GRASS || t === T_RUBBLE;
   };
   const openUpper = (floor: number, x: number, z: number) => {
-    if (x < 0 || z < 0 || x >= GRID || z >= GRID) return false;
+    if (x < 0 || z < 0 || x >= cols || z >= rows) return false;
     if (!floorExists(w.map, floor)) return false;
-    const wx = toWorld(x), wz = toWorld(z);
-    const tile = floorLayer(w.map, floor)[z * GRID + x];
-    return hasFloorAt(w.map, floor, wx, wz)
-      && (isDoorTile(tile, true) || !floorBlocked(w.map, floor, wx, wz));
+    const pos = toWorld(x, z);
+    const floorTile = floorLayer(w.map, floor)[z * cols + x];
+    return hasFloorAt(w.map, floor, pos.x, pos.z)
+      && (isDoorTile(floorTile, true) || !floorBlocked(w.map, floor, pos.x, pos.z));
   };
   const openAt = (f: number, x: number, z: number) => (f === 0 ? openGround(x, z) : openUpper(f, x, z));
-  const transitionAt = (floor: number, nextFloor: number, tile: number): 'ladder' | 'stairs' | null => {
+  const transitionAt = (floor: number, nextFloor: number, tileIdx: number): 'ladder' | 'stairs' | null => {
     if (nextFloor < 0 || nextFloor >= MAX_BUILDING_FLOORS || !floorExists(w.map, nextFloor)) return null;
-    const x = toWorld(tile % GRID), z = toWorld((tile / GRID) | 0);
-    if (allowLadders && ladderWellAt(w.map, floor, x, z) && ladderWellAt(w.map, nextFloor, x, z)) return 'ladder';
-    const a = stairDirectionAt(w.map, floor, x, z);
-    const b = stairDirectionAt(w.map, nextFloor, x, z);
+    const pos = toWorld(tileIdx % cols, (tileIdx / cols) | 0);
+    if (allowLadders && ladderWellAt(w.map, floor, pos.x, pos.z) && ladderWellAt(w.map, nextFloor, pos.x, pos.z)) return 'ladder';
+    const a = stairDirectionAt(w.map, floor, pos.x, pos.z);
+    const b = stairDirectionAt(w.map, nextFloor, pos.x, pos.z);
     return a && b && a.x === b.x && a.z === b.z ? 'stairs' : null;
   };
 
@@ -282,25 +306,25 @@ function pathStepLayered(w: World, from: Vec3, to: Vec3, fromFloor: number, toFl
   const prev = bfsPrev.fill(-1);
   const q = bfsQ;
   let head = 0, tail = 0;
-  const startIdx = fromFloor * AREA + sz * GRID + sx;
-  const goalIdx = toFloor * AREA + gz * GRID + gx;
+  const startIdx = fromFloor * area + sz * cols + sx;
+  const goalIdx = toFloor * area + gz * cols + gx;
   q[tail++] = startIdx;
   prev[startIdx] = startIdx;
   let found = false;
-  const dirs = [1, -1, GRID, -GRID, GRID + 1, GRID - 1, -GRID + 1, -GRID - 1];
+  const dirs = [1, -1, cols, -cols, cols + 1, cols - 1, -cols + 1, -cols - 1];
   let expanded = 0;
-  while (head < tail && expanded < AREA * MAX_BUILDING_FLOORS) {
+  while (head < tail && expanded < area * MAX_BUILDING_FLOORS) {
     const cur = q[head++];
     expanded++;
     if (cur === goalIdx) { found = true; break; }
-    const f = Math.floor(cur / AREA);
-    const t = cur % AREA;
-    const cx = t % GRID, cz = (t / GRID) | 0;
+    const f = Math.floor(cur / area);
+    const t = cur % area;
+    const cx = t % cols, cz = (t / cols) | 0;
     for (const d of dirs) {
       const nt = t + d;
-      const nx = nt % GRID, nz = (nt / GRID) | 0;
+      const nx = nt % cols, nz = (nt / cols) | 0;
       if (Math.abs(nx - cx) > 1 || Math.abs(nz - cz) > 1) continue; // wrap guard
-      const nIdx = f * AREA + nt;
+      const nIdx = f * area + nt;
       if (prev[nIdx] !== -1 || !openAt(f, nx, nz)) continue;
       if (nx !== cx && nz !== cz && (!openAt(f, cx, nz) || !openAt(f, nx, cz))) continue;
       prev[nIdx] = cur;
@@ -309,7 +333,7 @@ function pathStepLayered(w: World, from: Vec3, to: Vec3, fromFloor: number, toFl
     // Same-tile vertical links: ladders require E; aligned stairs are walked.
     for (const nf of [f - 1, f + 1]) {
       if (!transitionAt(f, nf, t)) continue;
-      const oIdx = nf * AREA + t;
+      const oIdx = nf * area + t;
       if (prev[oIdx] === -1) { prev[oIdx] = cur; q[tail++] = oIdx; }
     }
   }
@@ -327,28 +351,29 @@ function pathStepLayered(w: World, from: Vec3, to: Vec3, fromFloor: number, toFl
   // after it (same tile, other storey) is the climb itself
   let cross = path.length;
   for (let i = 0; i < path.length; i++) {
-    if (Math.floor(path[i] / AREA) !== fromFloor) { cross = i; break; }
+    if (Math.floor(path[i] / area) !== fromFloor) { cross = i; break; }
   }
   const y = floorHeight(fromFloor);
   if (cross === 0) {
-    const nextFloor = Math.floor(path[0] / AREA);
-    const transition = transitionAt(fromFloor, nextFloor, sz * GRID + sx);
-    let x = toWorld(sx), z = toWorld(sz);
+    const nextFloor = Math.floor(path[0] / area);
+    const transition = transitionAt(fromFloor, nextFloor, sz * cols + sx);
+    const current = toWorld(sx, sz);
+    let { x, z } = current;
     if (transition === 'stairs') {
       const stair = stairDirectionAt(w.map, fromFloor, x, z)!;
       const direction = nextFloor > fromFloor ? 1 : -1;
-      x += stair.x * direction * TILE * 0.35;
-      z += stair.z * direction * TILE * 0.35;
+      x += stair.x * direction * tile * 0.35;
+      z += stair.z * direction * tile * 0.35;
     }
     return { x, y, z, climb: transition === 'ladder' };
   }
   const solid = fromFloor === 0
-    ? (x: number, z: number) => isBlocked(grid, x, z)
+    ? (x: number, z: number) => isBlocked(grid, x, z, false, geometry)
     : (x: number, z: number) => floorBlocked(w.map, fromFloor, x, z)
       || !hasFloorAt(w.map, fromFloor, x, z);
   const walkClearL = (bx: number, bz: number): boolean => {
     const dx = bx - from.x, dz = bz - from.z;
-    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / (TILE * 0.4)));
+    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / (tile * 0.4)));
     let px = from.x, pz = from.z;
     for (let i = 1; i <= steps; i++) {
       const t = i / steps;
@@ -358,22 +383,23 @@ function pathStepLayered(w: World, from: Vec3, to: Vec3, fromFloor: number, toFl
     }
     return true;
   };
-  let target = path[0] % AREA;
+  let target = path[0] % area;
   let targetI = 0;
   for (let i = Math.min(cross - 1, 24); i > 0; i--) {
-    const t = path[i] % AREA;
-    const px = toWorld(t % GRID), pz = toWorld((t / GRID) | 0);
-    if (walkClearL(px, pz)) { target = t; targetI = i; break; }
+    const t = path[i] % area;
+    const pos = toWorld(t % cols, (t / cols) | 0);
+    if (walkClearL(pos.x, pos.z)) { target = t; targetI = i; break; }
   }
   const atTransition = cross < path.length && targetI === cross - 1;
-  const nextFloor = atTransition ? Math.floor(path[cross] / AREA) : fromFloor;
+  const nextFloor = atTransition ? Math.floor(path[cross] / area) : fromFloor;
   const transition = atTransition ? transitionAt(fromFloor, nextFloor, target) : null;
-  let x = toWorld(target % GRID), z = toWorld((target / GRID) | 0);
+  const targetPos = toWorld(target % cols, (target / cols) | 0);
+  let { x, z } = targetPos;
   if (transition === 'stairs') {
     const stair = stairDirectionAt(w.map, fromFloor, x, z)!;
     const direction = nextFloor > fromFloor ? 1 : -1;
-    x += stair.x * direction * TILE * 0.35;
-    z += stair.z * direction * TILE * 0.35;
+    x += stair.x * direction * tile * 0.35;
+    z += stair.z * direction * tile * 0.35;
   }
   return { x, y, z, climb: transition === 'ladder' };
 }
@@ -410,7 +436,7 @@ function findTarget(w: World, s: Soldier, maxRange: number, pingRange = maxRange
     // ping reveals them. The same clamp the player's own eyes use (perception.ts),
     // so crouching in cover to break contact finally works against the AI.
     let reach = pinged ? pingRange : maxRange;
-    if (!pinged && e.ascendant === undefined && tileAt(w.map.grid, e.pos.x, e.pos.z) === T_GRASS) {
+    if (!pinged && e.ascendant === undefined && tileAt(w.map.grid, e.pos.x, e.pos.z, w.map.geometry) === T_GRASS) {
       reach = Math.min(reach, e.crouching ? TUNE.grassCrouched : TUNE.grassRumor);
     }
     if (d >= reach) return; // past the eye AND unmarked
@@ -435,7 +461,7 @@ function findTarget(w: World, s: Soldier, maxRange: number, pingRange = maxRange
     // and as a VIEWER it isn't blinded by its own cloud (fixes a bot Eclipse
     // wandering her own dome with her rifle silent). Walls still hide, always.
     const seen = (s.ascendant !== undefined || e.ascendant !== undefined)
-      ? losClear(w.map.grid, { x: s.pos.x, y: 1.4, z: s.pos.z }, { x: e.pos.x, y: 1.4, z: e.pos.z })
+      ? losClear(w.map.grid, { x: s.pos.x, y: 1.4, z: s.pos.z }, { x: e.pos.x, y: 1.4, z: e.pos.z }, 1.4, w.map.geometry)
       : w.sightClear(s.pos, e.pos);
     if (!seen) return;
     // NEMESIS (delight): a grudge weights the pick toward the enemy who last
@@ -452,13 +478,40 @@ function findTarget(w: World, s: Soldier, maxRange: number, pingRange = maxRange
 }
 
 function enemyVehicleNear(w: World, s: Soldier, maxRange: number) {
-  let best: { pos: Vec3; d: number } | null = null;
+  let best: { id: number; pos: Vec3; d: number } | null = null;
   for (const v of w.vehicles.values()) {
     if (!v.alive || v.team === s.team || !v.seats.some((x) => x >= 0)) continue;
+    if (v.submerged && !w.submarineDetectedForTeam(v, s.team)) continue;
     const d = Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z);
-    if (d < maxRange && (!best || d < best.d)) best = { pos: v.pos, d };
+    if (d < maxRange && (!best || d < best.d)) best = { id: v.id, pos: v.pos, d };
   }
   return best;
+}
+
+/** Electronic intel is a destination, never a hidden target reference. The
+ * copy is deliberate: a bot can pursue this frozen point while the real
+ * contact moves elsewhere between scheduled sweeps. */
+export function radarSearchPoint(w: World, s: Soldier): Vec3 | null {
+  let best: Vec3 | null = null;
+  let bestDistance = Infinity;
+  for (const track of w.radarTracksFor(s.team).values()) {
+    if (track.expiresAt <= w.time) continue;
+    const distance = Math.hypot(track.pos.x - s.pos.x, track.pos.z - s.pos.z);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = { ...track.pos };
+    }
+  }
+  return best;
+}
+
+function vehicleCrewReacted(w: World, s: Soldier, targetKey: number): boolean {
+  if (s.botAcqId !== targetKey) {
+    s.botAcqId = targetKey;
+    const difficulty = DIFFICULTY[w.opts.difficulty ?? 'veteran'];
+    s.botAcquireAt = w.time + Math.max(0.6, difficulty.react * 2) / w.director.pressure;
+  }
+  return w.time >= (s.botAcquireAt ?? 0);
 }
 
 // ---------- objective selection per mode ----------
@@ -729,11 +782,11 @@ export function objectiveFor(w: World, s: Soldier): Vec3 {
         // every death at (0,90).) Each raid meets only the enemy's guards:
         // CTF becomes a race.
         const side = 1;
-        const wing = WORLD * 0.3;
+        const wing = Math.min(halfWidth(w.map.geometry), halfDepth(w.map.geometry)) * 0.6;
         const wp = {
-          x: Math.max(-WORLD / 2 + 9, Math.min(WORLD / 2 - 9, (base.x + enemyFlag.pos.x) / 2 - (az / al) * side * wing)),
+          x: Math.max(-halfWidth(w.map.geometry) + 9, Math.min(halfWidth(w.map.geometry) - 9, (base.x + enemyFlag.pos.x) / 2 - (az / al) * side * wing)),
           y: 0,
-          z: Math.max(-WORLD / 2 + 9, Math.min(WORLD / 2 - 9, (base.z + enemyFlag.pos.z) / 2 + (ax / al) * side * wing)),
+          z: Math.max(-halfDepth(w.map.geometry) + 9, Math.min(halfDepth(w.map.geometry) - 9, (base.z + enemyFlag.pos.z) / 2 + (ax / al) * side * wing)),
         };
         // hand off wing→flag by PROGRESS along the base→flag axis, which
         // only ever increases as you advance — a distance-to-waypoint test
@@ -864,14 +917,14 @@ export const DOCTRINE: Record<ClassId, Doctrine> = {
 
 /** Grid index of a CLOSED door within arm's reach along a heading, or -1. */
 function doorAhead(w: World, pos: Vec3, yaw: number): number {
-  for (const reach of [TILE * 0.6, TILE * 1.3]) {
+  const { cols, rows } = w.map.geometry;
+  for (const reach of [w.map.geometry.tile * 0.6, w.map.geometry.tile * 1.3]) {
     const x = pos.x + Math.cos(yaw) * reach;
     const z = pos.z + Math.sin(yaw) * reach;
-    const tx = Math.floor((x + WORLD / 2) / TILE);
-    const tz = Math.floor((z + WORLD / 2) / TILE);
-    if (tx < 1 || tz < 1 || tx >= GRID - 1 || tz >= GRID - 1) continue;
-    const tile = w.map.grid[tz * GRID + tx];
-    if (isDoorTile(tile) && !doorIsOpen(tile) && tile !== T_METAL_DOOR) return tz * GRID + tx;
+    const [tx, tz] = worldToTile(w.map.geometry, x, z);
+    if (tx < 1 || tz < 1 || tx >= cols - 1 || tz >= rows - 1) continue;
+    const door = w.map.grid[tz * cols + tx];
+    if (isDoorTile(door) && !doorIsOpen(door) && door !== T_METAL_DOOR) return tz * cols + tx;
   }
   return -1;
 }
@@ -885,16 +938,17 @@ function doorAhead(w: World, pos: Vec3, yaw: number): number {
  *  behaviour (the downed crawl just wants the closest thing to hide behind). */
 function nearestCover(w: World, pos: Vec3, range: number, team: Team | -1 = -1): Vec3 | null {
   const grid = w.map.grid;
-  const cx = toTile(pos.x), cz = toTile(pos.z);
-  const r = Math.ceil(range / TILE);
+  const { cols, rows, tile } = w.map.geometry;
+  const [cx, cz] = worldToTile(w.map.geometry, pos.x, pos.z);
+  const r = Math.ceil(range / tile);
   let best: Vec3 | null = null;
   let bestScore = Infinity;
   for (let dz = -r; dz <= r; dz++) {
     for (let dx = -r; dx <= r; dx++) {
       const tx = cx + dx, tz = cz + dz;
-      if (tx < 0 || tz < 0 || tx >= GRID || tz >= GRID) continue;
-      if (grid[tz * GRID + tx] !== T_COVER) continue;
-      const px = toWorld(tx), pz = toWorld(tz);
+      if (tx < 0 || tz < 0 || tx >= cols || tz >= rows) continue;
+      if (grid[tz * cols + tx] !== T_COVER) continue;
+      const { x: px, z: pz } = tileToWorld(w.map.geometry, tx, tz);
       const d = Math.hypot(px - pos.x, pz - pos.z);
       if (d >= range) continue;
       // distance in units + threat weighted so a genuinely hot tile loses to a
@@ -910,15 +964,222 @@ function nearestCover(w: World, pos: Vec3, range: number, team: Team | -1 = -1):
  *  out that a jump trooper can light the jet BEFORE the wall arrives — the
  *  jet climbs ~9.5u/s, so one tile of warning buys the 2.5u lip easily. */
 function climbAhead(w: World, pos: Vec3, yaw: number): boolean {
-  for (const reach of [TILE * 0.7, TILE * 1.5]) {
+  const { cols, rows } = w.map.geometry;
+  for (const reach of [w.map.geometry.tile * 0.7, w.map.geometry.tile * 1.5]) {
     const x = pos.x + Math.cos(yaw) * reach;
     const z = pos.z + Math.sin(yaw) * reach;
-    const tx = Math.floor((x + WORLD / 2) / TILE);
-    const tz = Math.floor((z + WORLD / 2) / TILE);
-    if (tx < 1 || tz < 1 || tx >= GRID - 1 || tz >= GRID - 1) continue;
-    if (w.map.grid[tz * GRID + tx] === T_CLIMB) return true;
+    const [tx, tz] = worldToTile(w.map.geometry, x, z);
+    if (tx < 1 || tz < 1 || tx >= cols - 1 || tz >= rows - 1) continue;
+    if (w.map.grid[tz * cols + tx] === T_CLIMB) return true;
   }
   return false;
+}
+
+function buildingAhead(w: World, vehicle: Vehicle, distance = 36): boolean {
+  const radius = VEHICLES[vehicle.kind].radius;
+  const sideX = -Math.sin(vehicle.yaw) * radius * 0.8;
+  const sideZ = Math.cos(vehicle.yaw) * radius * 0.8;
+  for (let ahead = 0; ahead <= distance; ahead += w.map.geometry.tile) {
+    const x = vehicle.pos.x + Math.cos(vehicle.yaw) * ahead;
+    const z = vehicle.pos.z + Math.sin(vehicle.yaw) * ahead;
+    for (const offset of [-1, 0, 1]) {
+      const tile = tileAt(w.map.grid, x + sideX * offset, z + sideZ * offset, w.map.geometry);
+      if (tile === T_WALL || tile === T_SLIT || tile === T_DOOR || tile === T_METAL || tile === T_METAL_DOOR) return true;
+    }
+  }
+  return false;
+}
+
+function insertionZone(w: World, s: Soldier) {
+  const zones = [...(w.map.theater?.landingZones ?? [])]
+    .filter((zone) => zone.side === null || zone.side === s.team)
+    .sort((a, b) => Number(a.side !== null) - Number(b.side !== null) || a.id.localeCompare(b.id));
+  const existing = zones.find((zone) => zone.id === s.botLandingZoneId);
+  const selected = existing ?? zones[0];
+  if (selected) s.botLandingZoneId = selected.id;
+  return selected;
+}
+
+function stableRouteHash(soldierId: number, vehicleId: number, routeId: string): number {
+  let hash = (0x811c9dc5 ^ soldierId ^ Math.imul(vehicleId, 0x9e3779b1)) >>> 0;
+  for (let i = 0; i < routeId.length; i++) {
+    hash ^= routeId.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash;
+}
+
+function vehicleRouteDomain(vehicle: Vehicle): TheaterDomain {
+  const def = VEHICLES[vehicle.kind];
+  return def.flies ? 'air' : def.submersible ? 'deep' : def.boat ? 'surface' : 'ground';
+}
+
+/** Stable compatible route selection for a crewed vehicle. */
+export function vehicleRouteFor(w: World, s: Soldier, vehicle: Vehicle): TheaterRoute | null {
+  const routes = (w.map.theater?.routes ?? [])
+    .filter((route) => route.domain === vehicleRouteDomain(vehicle))
+    .sort((a, b) => a.id.localeCompare(b.id));
+  if (!routes.length) return null;
+  if (s.botVehicleRouteId) {
+    const existing = routes.find((route) => route.id === s.botVehicleRouteId);
+    if (existing) return existing;
+  }
+  let best = routes[0];
+  let bestHash = stableRouteHash(s.id, vehicle.id, best.id);
+  for (const route of routes.slice(1)) {
+    const hash = stableRouteHash(s.id, vehicle.id, route.id);
+    if (hash < bestHash) { best = route; bestHash = hash; }
+  }
+  s.botVehicleRouteId = best.id;
+  return best;
+}
+
+/** Return and advance the next authored anchor for this driver. */
+export function vehicleWaypoint(_w: World, s: Soldier, vehicle: Vehicle, route: TheaterRoute): Vec3 | null {
+  if (route.points.length < 2) return null;
+  if (s.botVehicleRouteId !== route.id || s.botVehicleRouteIndex === undefined) {
+    s.botVehicleRouteId = route.id;
+    s.botVehicleRouteDir = vehicle.team === 0 ? 1 : -1;
+    s.botVehicleRouteIndex = vehicle.team === 0 ? 1 : route.points.length - 2;
+  }
+  const dir = s.botVehicleRouteDir ?? 1;
+  let index = s.botVehicleRouteIndex;
+  const threshold = Math.max(6, route.width / 2);
+  if (Math.hypot(route.points[index].x - vehicle.pos.x, route.points[index].z - vehicle.pos.z) <= threshold) {
+    const next = index + dir;
+    if (next < 0 || next >= route.points.length) {
+      if (!s.botVehicleRouteCompleted) {
+        s.botVehicleRouteCompleted = true;
+        recordVehicleEvent(_w.vehicleTelemetry, {
+          kind: 'route_complete', t: _w.time, vehicleId: vehicle.id, vehicleKind: vehicle.kind,
+          theaterId: _w.map.theater?.id ?? 'classic', seed: _w.map.seed,
+          x: vehicle.pos.x, z: vehicle.pos.z, detail: route.id,
+        });
+      }
+      s.botVehicleRouteDir = dir === 1 ? -1 : 1;
+      index = Math.max(0, Math.min(route.points.length - 1, index - dir));
+    } else {
+      index = next;
+    }
+    s.botVehicleRouteIndex = index;
+  }
+  return { ...route.points[index] };
+}
+
+/** Deterministically give nearby theater bots a driver role and route state. */
+export function assignVehicleRoles(w: World): void {
+  if (!w.map.theater) return;
+  const bots = [...w.soldiers.values()].filter((soldier) => soldier.kind === 'bot' && soldier.alive).sort((a, b) => a.id - b.id);
+  const vehicles = [...w.vehicles.values()].filter((vehicle) => vehicle.alive).sort((a, b) => a.id - b.id);
+  for (const vehicle of vehicles) {
+    let driver = vehicle.seats[0] >= 0 ? w.soldiers.get(vehicle.seats[0]) : undefined;
+    if (!driver) {
+      driver = bots.find((bot) => bot.vehicleId < 0 && bot.team === vehicle.team
+        && Math.hypot(bot.pos.x - vehicle.pos.x, bot.pos.z - vehicle.pos.z) <= 12);
+      if (driver) {
+        vehicle.seats[0] = driver.id;
+        driver.vehicleId = vehicle.id;
+        driver.seat = 0;
+        driver.enteredVehicleAt = w.time;
+        vehicle.spoolUntil = w.time + (VEHICLES[vehicle.kind].liftoffTime ?? 0);
+      }
+    }
+    if (driver?.kind === 'bot') {
+      const route = vehicleRouteFor(w, driver, vehicle);
+      if (route) vehicleWaypoint(w, driver, vehicle, route);
+      if (VEHICLES[vehicle.kind].flies && !driver.botAirProfile) driver.botAirProfile = 'patrol';
+    }
+  }
+}
+
+function stepTheaterVehicle(w: World, s: Soldier, vehicle: Vehicle, route: TheaterRoute, cmd: PlayerCmd): PlayerCmd {
+  const def = VEHICLES[vehicle.kind];
+  const zone = s.botAirProfile === 'insertion' && vehicle.kind === 'transportheli' ? insertionZone(w, s) : undefined;
+  const point = zone?.pos ?? vehicleWaypoint(w, s, vehicle, route);
+  if (!point) return cmd;
+
+  const dGoal = Math.hypot(point.x - vehicle.pos.x, point.z - vehicle.pos.z);
+  if (zone && dGoal <= zone.radius * 0.65) {
+    cmd.aimYaw = vehicle.yaw;
+    cmd.moveX = 0;
+    cmd.moveZ = 0;
+    if (asElevationLevel(vehicle.band) > 0) cmd.use = true;
+    else if (!s.botVehicleRouteCompleted) {
+      s.botVehicleRouteCompleted = true;
+      recordVehicleEvent(w.vehicleTelemetry, {
+        kind: 'landing', t: w.time, vehicleId: vehicle.id, vehicleKind: vehicle.kind,
+        theaterId: w.map.theater?.id ?? 'classic', seed: w.map.seed,
+        x: vehicle.pos.x, z: vehicle.pos.z, detail: zone.id,
+      });
+    }
+    return cmd;
+  }
+  if (w.time >= (s.botMoveCheckAt ?? 0)) {
+    const moved = Math.hypot(vehicle.pos.x - (s.botLastX ?? vehicle.pos.x), vehicle.pos.z - (s.botLastZ ?? vehicle.pos.z));
+    if (s.botLastX !== undefined && moved < 1.2 && dGoal > Math.max(6, route.width / 2)) {
+      s.botVehicleStallWindows = (s.botVehicleStallWindows ?? 0) + 1;
+      if (s.botVehicleStallWindows >= 3) {
+        s.botVehiclePersistentStalls = (s.botVehiclePersistentStalls ?? 0) + 1;
+        s.botVehicleStallWindows = 0;
+      }
+    } else {
+      s.botVehicleStallWindows = 0;
+    }
+    s.botLastX = vehicle.pos.x;
+    s.botLastZ = vehicle.pos.z;
+    s.botMoveCheckAt = w.time + 3;
+  }
+
+  let wantYaw = Math.atan2(point.z - vehicle.pos.z, point.x - vehicle.pos.x);
+  let inbound: { x: number; z: number } | null = null;
+  if (def.flies) {
+    for (const projectile of w.projectiles.values()) {
+      if (projectile.team !== s.team && projectile.homingVehicleId === vehicle.id) { inbound = projectile.pos; break; }
+    }
+  }
+  if (inbound) {
+    const away = Math.atan2(vehicle.pos.z - inbound.z, vehicle.pos.x - inbound.x);
+    wantYaw = away + (s.id % 2 ? 0.87 : -0.87);
+    if (vehicle.flares > 0) cmd.grenade = true;
+  }
+  let delta = wantYaw - vehicle.yaw;
+  while (delta > Math.PI) delta -= Math.PI * 2;
+  while (delta < -Math.PI) delta += Math.PI * 2;
+  cmd.moveX = Math.max(-1, Math.min(1, delta * 2));
+  cmd.moveZ = (s.botVehicleStallWindows ?? 0) > 0 ? 0.35 : Math.abs(delta) < 1.1 ? -1 : -0.2;
+  cmd.aimYaw = vehicle.yaw;
+
+  if (def.submersible && !vehicle.submerged && w.canSubmerge(vehicle)) cmd.ability = true;
+
+  if (def.flies && s.botAirProfile === 'strike') {
+    const index = s.botVehicleRouteIndex ?? 1;
+    const progress = index / Math.max(1, route.points.length - 1);
+    const desired = progress <= 0.34 ? 2 : progress <= 0.67 && !buildingAhead(w, vehicle) ? 1 : 3;
+    const level = asElevationLevel(vehicle.band);
+    if (level < desired) cmd.ability = true;
+    else if (level > desired) cmd.use = true;
+  }
+  if (def.flies && (s.botAirProfile === 'support' || s.botAirProfile === 'insertion')) {
+    const desired = buildingAhead(w, vehicle) ? 2 : s.botAirProfile === 'support' ? 1 : 2;
+    const level = asElevationLevel(vehicle.band);
+    if (level < desired) cmd.ability = true;
+    else if (level > desired) cmd.use = true;
+  }
+
+  if (def.weapon) {
+    const target = findTarget(w, s, WEAPONS[def.weapon].range);
+    if (target) {
+      cmd.aimYaw = leadYaw(vehicle.pos, target, WEAPONS[def.weapon].speed);
+      cmd.fire = vehicleCrewReacted(w, s, target.id);
+    } else {
+      const targetVehicle = enemyVehicleNear(w, s, WEAPONS[def.weapon].range);
+      if (targetVehicle) {
+        cmd.aimYaw = Math.atan2(targetVehicle.pos.z - vehicle.pos.z, targetVehicle.pos.x - vehicle.pos.x);
+        cmd.fire = vehicleCrewReacted(w, s, -targetVehicle.id - 1);
+      }
+    }
+  }
+  return cmd;
 }
 
 // ---------- main bot brain ----------
@@ -964,6 +1225,9 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
       }
       return cmd;
     }
+
+    const theaterRoute = vehicleRouteFor(w, s, v);
+    if (theaterRoute) return stepTheaterVehicle(w, s, v, theaterRoute, cmd);
 
     // the Pike PATROLS: a boat can rarely reach a land objective, so it owns
     // the water instead — circle the ring with the deck gun talking, and
@@ -1096,7 +1360,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     let bowBlocked = false;
     if (!flying) {
       const bx = v.pos.x + Math.cos(v.yaw) * 5.5, bz = v.pos.z + Math.sin(v.yaw) * 5.5;
-      const bt = tileAt(w.map.grid, bx, bz);
+      const bt = tileAt(w.map.grid, bx, bz, w.map.geometry);
       bowBlocked = !(bt === T_OPEN || bt === T_WATER);
     }
     cmd.moveZ = Math.abs(dy) < 1.1 ? (bowBlocked ? -0.3 : -1) : -0.2; // forward
@@ -1130,7 +1394,8 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
   // full weapon reach (the AI leans on its instruments too).
   const sightRange = Math.max(TUNE.weatherFloor, acqRange * visionMult(w.weather));
   const target = findTarget(w, s, sightRange, acqRange);
-  const goal = cachedObjective(w, s);
+  const radarGoal = target ? null : radarSearchPoint(w, s);
+  const goal = radarGoal && w.mode.id === 'tdm' ? radarGoal : cachedObjective(w, s);
   const indoorDest = !target && s.team === 1
     ? indoorGuardWaypoint(w.indoorTactics, s.id, s.pos, s.floor, w.time)
     : null;
@@ -1226,11 +1491,12 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
       const ax = goal.x - s.pos.x, az = goal.z - s.pos.z;
       const al = Math.hypot(ax, az) || 1;
       const side = (s.botLifeSeed ?? 0) * 15;
-      const cap = (v: number) => Math.max(-WORLD / 2 + 9, Math.min(WORLD / 2 - 9, v));
+      const capX = (v: number) => Math.max(-halfWidth(w.map.geometry) + 9, Math.min(halfWidth(w.map.geometry) - 9, v));
+      const capZ = (v: number) => Math.max(-halfDepth(w.map.geometry) + 9, Math.min(halfDepth(w.map.geometry) - 9, v));
       dest = {
-        x: cap(s.pos.x + ax * 0.55 - (az / al) * side),
+        x: capX(s.pos.x + ax * 0.55 - (az / al) * side),
         y: 0,
-        z: cap(s.pos.z + az * 0.55 + (ax / al) * side),
+        z: capZ(s.pos.z + az * 0.55 + (ax / al) * side),
       };
     }
     // LADDER IQ — which storey is this route trying to reach? OBJECTIVES
@@ -1259,7 +1525,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     // to the destination; stepLsw owns the altitude. (Vehicles got this fix; the
     // LSW fliers didn't.)
     const fliesOverIt = s.ascendant !== undefined && LSWS[s.ascendant].flies;
-    const wp = (fliesOverIt || (dDest < 4 && s.floor === 0 && destFloor === 0 && losClear(w.map.grid, s.pos, dest, 0.6)))
+    const wp = (fliesOverIt || (dDest < 4 && s.floor === 0 && destFloor === 0 && losClear(w.map.grid, s.pos, dest, 0.6, w.map.geometry)))
       ? { x: dest.x, y: 0, z: dest.z }
       : pathStep(w, s.pos, dest, s.classId === 'jump', false, s.floor, destFloor) ?? { x: dest.x, y: 0, z: dest.z };
     s.botGoal = wp;
@@ -1312,7 +1578,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
   if (!target && s.kind === 'bot') {
     const wdef = WEAPONS[s.weapons[s.weaponIdx]];
     const nest = enemyTurretNear(w, s.team, s.pos, wdef.range * 0.95);
-    if (nest && losClear(w.map.grid, { ...s.pos, y: 1.4 }, { ...nest.pos, y: 1.4 })) {
+    if (nest && losClear(w.map.grid, { ...s.pos, y: 1.4 }, { ...nest.pos, y: 1.4 }, 1.4, w.map.geometry)) {
       cmd.aimYaw = Math.atan2(nest.pos.z - s.pos.z, nest.pos.x - s.pos.x);
       cmd.fire = true;
       nestAim = true;
@@ -1423,7 +1689,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
       // real doors/stairs, close decisively, then let the shared swing arc land.
       if (!s.botGoal || w.time >= (s.botRepathAt ?? 0)) {
         s.botRepathAt = w.time + 0.35;
-        const clear = losClear(w.map.grid, s.pos, target.pos, 0.6);
+        const clear = losClear(w.map.grid, s.pos, target.pos, 0.6, w.map.geometry);
         s.botGoal = clear ? { ...target.pos }
           : (pathStep(w, s.pos, target.pos, false, false, s.floor, target.floor) ?? { ...target.pos });
       }
@@ -1535,7 +1801,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
       cmd.weaponSlot = 1;
       const d = Math.hypot(patient.pos.x - s.pos.x, patient.pos.z - s.pos.z);
       cmd.aimYaw = Math.atan2(patient.pos.z - s.pos.z, patient.pos.x - s.pos.x);
-      if (d < 12 && losClear(w.map.grid, { ...s.pos, y: 1.4 }, { ...patient.pos, y: 1.4 })) {
+      if (d < 12 && losClear(w.map.grid, { ...s.pos, y: 1.4 }, { ...patient.pos, y: 1.4 }, 1.4, w.map.geometry)) {
         cmd.fire = true;
         mvx = (patient.pos.x - s.pos.x) / 10;
         mvz = (patient.pos.z - s.pos.z) / 10;
@@ -1587,9 +1853,10 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
   if (!target && (mvx !== 0 || mvz !== 0) && w.time >= (s.botUseAt ?? 0)) {
     const idx = doorAhead(w, s.pos, Math.atan2(mvz, mvx));
     if (idx >= 0) {
+      const door = tileToWorld(w.map.geometry, idx % w.map.geometry.cols, (idx / w.map.geometry.cols) | 0);
       cmd.aimYaw = Math.atan2(
-        toWorld((idx / GRID) | 0) - s.pos.z,
-        toWorld(idx % GRID) - s.pos.x,
+        door.z - s.pos.z,
+        door.x - s.pos.x,
       );
       cmd.use = true;
       s.botUseAt = w.time + 0.8;
@@ -1602,7 +1869,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
   // routes THROUGH barricades for this class, so the cue always comes).
   if (s.classId === 'jump' && (mvx !== 0 || mvz !== 0)) {
     if (climbAhead(w, s.pos, Math.atan2(mvz, mvx)) ||
-        (s.pos.y > 0.2 && tileAt(w.map.grid, s.pos.x, s.pos.z) === T_CLIMB)) {
+        (s.pos.y > 0.2 && tileAt(w.map.grid, s.pos.x, s.pos.z, w.map.geometry) === T_CLIMB)) {
       cmd.jump = true;
     }
   }
@@ -1707,7 +1974,7 @@ export function stepScientist(w: World, s: Soldier, dt: number) {
   if (leader && leader.alive && leader.vehicleId < 0) {
     const d = Math.hypot(leader.pos.x - s.pos.x, leader.pos.z - s.pos.z);
     if (d > 2.2) {
-      const step = losClear(w.map.grid, s.pos, leader.pos, 0.6)
+      const step = losClear(w.map.grid, s.pos, leader.pos, 0.6, w.map.geometry)
         ? leader.pos
         : (pathStep(w, s.pos, leader.pos) ?? leader.pos);
       const dx = step.x - s.pos.x, dz = step.z - s.pos.z;
@@ -1784,7 +2051,8 @@ function driveK9Toward(w: World, dog: Soldier, target: Vec3, targetFloor: number
   if (w.time >= (dog.botRepathAt ?? 0)
       || (dog.botGoal != null
         && Math.hypot(dog.botGoal.x - dog.pos.x, dog.botGoal.z - dog.pos.z) < 0.8)) {
-    const clear = dog.floor === 0 && targetFloor === 0 && losClear(w.map.grid, dog.pos, target, 0.6);
+    const clear = dog.floor === 0 && targetFloor === 0
+      && losClear(w.map.grid, dog.pos, target, 0.6, w.map.geometry);
     dog.botGoal = clear
       ? { ...target }
       : (pathStep(w, dog.pos, target, false, false, dog.floor, targetFloor, false) ?? undefined);
@@ -1945,7 +2213,7 @@ export function stepDog(w: World, s: Soldier, dt: number) {
     // chase & takedown — the horde's pathing, so walls don't save anyone
     if (!s.botGoal || w.time >= (s.botRepathAt ?? 0)) {
       s.botRepathAt = w.time + 0.5;
-      const clear = s.floor === target.floor && losClear(w.map.grid, s.pos, target.pos, 0.6);
+      const clear = s.floor === target.floor && losClear(w.map.grid, s.pos, target.pos, 0.6, w.map.geometry);
       s.botGoal = clear ? { ...target.pos }
         : (pathStep(w, s.pos, target.pos, false, false, s.floor, target.floor, false) ?? { ...target.pos });
     }
@@ -1987,7 +2255,7 @@ export function stepDog(w: World, s: Soldier, dt: number) {
       if (!s.botGoal || w.time >= (s.botRepathAt ?? 0) ||
           Math.hypot(s.botGoal.x - s.pos.x, s.botGoal.z - s.pos.z) < 1.5) {
         s.botRepathAt = w.time + 0.6;
-        const clear = s.floor === handler.floor && losClear(w.map.grid, s.pos, handler.pos, 0.6);
+        const clear = s.floor === handler.floor && losClear(w.map.grid, s.pos, handler.pos, 0.6, w.map.geometry);
         s.botGoal = clear ? { ...handler.pos }
           : (pathStep(w, s.pos, handler.pos, false, false, s.floor, handler.floor, false) ?? { ...handler.pos });
       }
@@ -2035,7 +2303,7 @@ export function stepIron(w: World, s: Soldier, dt: number) {
   }
   if (s.kind === 'junkhound' && s.pos.y <= 0.05) {
     // spring legs: a cover line one tile ahead is a JUMP, not a wall
-    const aheadT = tileAt(w.map.grid, s.pos.x + Math.cos(s.yaw) * 2.4, s.pos.z + Math.sin(s.yaw) * 2.4);
+    const aheadT = tileAt(w.map.grid, s.pos.x + Math.cos(s.yaw) * 2.4, s.pos.z + Math.sin(s.yaw) * 2.4, w.map.geometry);
     if (aheadT === T_COVER || aheadT === T_CLIMB) s.vel.y = 7.5;
   }
   if (s.kind === 'weaver' && w.time >= s.nextAbilityAt) {
@@ -2085,8 +2353,8 @@ export function stepIron(w: World, s: Soldier, dt: number) {
       const rush = 15;
       const nx = s.pos.x + Math.cos(s.yaw) * rush * dt;
       const nz = s.pos.z + Math.sin(s.yaw) * rush * dt;
-      if (!isBlocked(w.map.grid, nx, s.pos.z)) s.pos.x = nx;
-      if (!isBlocked(w.map.grid, s.pos.x, nz)) s.pos.z = nz;
+      if (!isBlocked(w.map.grid, nx, s.pos.z, false, w.map.geometry)) s.pos.x = nx;
+      if (!isBlocked(w.map.grid, s.pos.x, nz, false, w.map.geometry)) s.pos.z = nz;
       // contact: the SLAM
       let hit = false;
       for (const e of w.soldierIndex.near((1 - s.team) as Team, s.pos.x, s.pos.z, 3, IRON_SLAM_SCRATCH)) {
@@ -2153,7 +2421,7 @@ export function stepZombie(w: World, s: Soldier, dt: number) {
           }
         }
         if (s.botGoal) {
-          const step = losClear(w.map.grid, s.pos, s.botGoal, 0.6)
+          const step = losClear(w.map.grid, s.pos, s.botGoal, 0.6, w.map.geometry)
             ? s.botGoal
             : (pathStep(w, s.pos, s.botGoal) ?? s.botGoal);
           const dx = step.x - s.pos.x, dz = step.z - s.pos.z;
@@ -2197,7 +2465,7 @@ export function stepZombie(w: World, s: Soldier, dt: number) {
     // event, not a muzzle.
     const gunR = weaponNoiseRadius(WEAPONS[best.weapons[best.weaponIdx]], best.ammoType);
     const wake = bestD < SPRINTER_WAKE_NEAR
-      || (bestD < sightR && losClear(w.map.grid, { ...s.pos, y: 1.2 }, { ...best.pos, y: 1.2 }))
+      || (bestD < sightR && losClear(w.map.grid, { ...s.pos, y: 1.2 }, { ...best.pos, y: 1.2 }, 1.4, w.map.geometry))
       || (firedRecently && bestD < gunR)
       || (landedLoud && bestD < SPRINTER_WAKE_NOISE);
     if (wake) {
@@ -2230,11 +2498,11 @@ export function stepZombie(w: World, s: Soldier, dt: number) {
     let nx = s.pos.x + dir.x * hop;
     let nz = s.pos.z + dir.z * hop;
     // never materialize inside a wall — back off along the blink line
-    for (let back = 0; back < 6 && isBlocked(w.map.grid, nx, nz); back++) {
+    for (let back = 0; back < 6 && isBlocked(w.map.grid, nx, nz, false, w.map.geometry); back++) {
       nx -= dir.x * 1.2;
       nz -= dir.z * 1.2;
     }
-    if (!isBlocked(w.map.grid, nx, nz)) {
+    if (!isBlocked(w.map.grid, nx, nz, false, w.map.geometry)) {
       w.emit({ type: 'blink', pos: { ...s.pos } });
       s.pos.x = nx;
       s.pos.z = nz;
@@ -2248,13 +2516,13 @@ export function stepZombie(w: World, s: Soldier, dt: number) {
   // spitters keep distance and spit — but only with a sightline; a spitter
   // staring at a closed door falls through to the melee path and claws it
   const wdef = WEAPONS[s.weapons[0]];
-  if (isSpitter && bestD < 24 && losClear(w.map.grid, { ...s.pos, y: 1.2 }, { ...best.pos, y: 1.2 })) {
+  if (isSpitter && bestD < 24 && losClear(w.map.grid, { ...s.pos, y: 1.2 }, { ...best.pos, y: 1.2 }, 1.4, w.map.geometry)) {
     if (bestD < 14) {
       // back away
       s.vel.x = -Math.cos(s.yaw) * speed * 0.7;
       s.vel.z = -Math.sin(s.yaw) * speed * 0.7;
     } else { s.vel.x = 0; s.vel.z = 0; }
-    if (w.time >= s.nextFireAt && losClear(w.map.grid, { ...s.pos, y: 1.2 }, { ...best.pos, y: 1.2 })) {
+    if (w.time >= s.nextFireAt && losClear(w.map.grid, { ...s.pos, y: 1.2 }, { ...best.pos, y: 1.2 }, 1.4, w.map.geometry)) {
       s.nextFireAt = w.time + 1 / wdef.rof;
       w.fireZombieSpit(s, best);
     }
@@ -2262,7 +2530,7 @@ export function stepZombie(w: World, s: Soldier, dt: number) {
     // pathfind around walls every so often, otherwise beeline
     if (!s.botGoal || w.time >= (s.botRepathAt ?? 0)) {
       s.botRepathAt = w.time + 1.2 + (s.id % 7) * 0.1;
-      const clear = losClear(w.map.grid, s.pos, best.pos, 0.6);
+      const clear = losClear(w.map.grid, s.pos, best.pos, 0.6, w.map.geometry);
       s.botGoal = clear ? { ...best.pos } : (pathStep(w, s.pos, best.pos) ?? { ...best.pos });
     }
     const dx = s.botGoal.x - s.pos.x, dz = s.botGoal.z - s.pos.z;
@@ -2283,7 +2551,8 @@ export function stepZombie(w: World, s: Soldier, dt: number) {
       }
       s.vel.x = 0;
       s.vel.z = 0;
-      s.yaw = Math.atan2(toWorld((doorIdx / GRID) | 0) - s.pos.z, toWorld(doorIdx % GRID) - s.pos.x);
+      const door = tileToWorld(w.map.geometry, doorIdx % w.map.geometry.cols, (doorIdx / w.map.geometry.cols) | 0);
+      s.yaw = Math.atan2(door.z - s.pos.z, door.x - s.pos.x);
       if (w.time >= s.nextFireAt) {
         s.nextFireAt = w.time + 1 / wdef.rof;
         w.damageDoor(doorIdx, wdef.damage * (s.kind === 'brute' ? 5 : 1), s.id);

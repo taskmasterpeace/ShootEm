@@ -15,9 +15,9 @@ import {
   isBlocked,
   tileAt,
   upperBlocked,
-  GRID,
   type GameMap,
 } from './map';
+import { geometryLength } from './map-geometry';
 import type { SoldierKind } from './types';
 
 export const MAX_BUILDING_FLOORS = 3;
@@ -52,24 +52,24 @@ export function ensureUpperFloor(map: GameMap, floor: number): Uint8Array {
   // Repair imported/constructed documents that copied Level 2 instead of
   // preserving its alias. grid2 remains the canonical compatibility field.
   map.upperLayers[0] = map.grid2;
-  while (map.upperLayers.length < floor) map.upperLayers.push(new Uint8Array(GRID * GRID));
+  while (map.upperLayers.length < floor) map.upperLayers.push(new Uint8Array(geometryLength(map.geometry)));
   return map.upperLayers[floor - 1];
 }
 
 export function tileAtFloor(map: GameMap, floor: number, x: number, z: number): number {
-  return tileAt(floorLayer(map, floor), x, z);
+  return tileAt(floorLayer(map, floor), x, z, map.geometry);
 }
 
 export function floorBlocked(map: GameMap, floor: number, x: number, z: number): boolean {
-  if (floor === 0) return isBlocked(map.grid, x, z);
-  return upperBlocked(floorLayer(map, floor), x, z);
+  if (floor === 0) return isBlocked(map.grid, x, z, false, map.geometry);
+  return upperBlocked(floorLayer(map, floor), x, z, map.geometry);
 }
 
 export function floorShotBlocked(map: GameMap, floor: number, x: number, z: number, y: number): boolean {
-  if (floor === 0) return blocksShot(map.grid, x, z, y);
+  if (floor === 0) return blocksShot(map.grid, x, z, y, map.geometry);
   // Upper collision codes are storey-relative. Rebase Level 3's world height
   // into the original Level 2 band used by blocksShotUpper.
-  return blocksShotUpper(floorLayer(map, floor), x, z, y - (floor - 1) * STOREY_HEIGHT);
+  return blocksShotUpper(floorLayer(map, floor), x, z, y - (floor - 1) * STOREY_HEIGHT, map.geometry);
 }
 
 export function worldFloorForHeight(y: number): number {
@@ -78,7 +78,7 @@ export function worldFloorForHeight(y: number): number {
 
 /** Terrain collision at a world-space height, including the matching upper layer. */
 export function shotBlockedAtHeight(map: GameMap, x: number, z: number, y: number): boolean {
-  if (blocksShot(map.grid, x, z, y)) return true;
+  if (blocksShot(map.grid, x, z, y, map.geometry)) return true;
   const floor = worldFloorForHeight(y);
   return floor > 0 && floorExists(map, floor) && floorShotBlocked(map, floor, x, z, y);
 }

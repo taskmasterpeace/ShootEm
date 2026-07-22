@@ -31,6 +31,7 @@
         <div class="dmg-arc"></div><div class="dmg-arc"></div><div class="dmg-arc"></div><div class="dmg-arc"></div>
       </div>
       <div id="hud-top">
+        <div id="operation-objective" class="hidden"></div>
         <div id="objective-bar"></div>
         <div id="mode-status"></div>
         <div id="weather-chip"></div>
@@ -65,6 +66,9 @@
       </div>
       <div id="hud-bottom-right">
         <canvas id="minimap" width="440" height="440"></canvas>
+        <!-- AIR / SEA INSTRUMENTS: live values over the empty PixelLab
+             gunmetal-dial frame. The art is chrome; every fact stays DOM text. -->
+        <section id="vehicle-instruments" class="hidden" aria-label="Vehicle instruments" aria-live="polite"></section>
         <div id="weapon-block">
           <!-- B1 THE WEAPON-CAM (Robert: "I wanna see what I'm using"): the
                EXACT equipped model, baked per weapon id, maker-tinted chrome -->
@@ -150,7 +154,7 @@
         </div>
         <div class="menu-section">
           <h3>Game Mode</h3>
-          <div id="mode-select" class="card-row"></div>
+          <div id="mode-select" class="card-row"><div id="military-missions-entry"></div></div>
         </div>
         <div class="menu-section">
           <h3>Class</h3>
@@ -273,6 +277,47 @@
               <button id="set-speed-reset" class="ob-alt" style="font-size:0.8rem">Reset speeds to default</button>
             </div>
           </div>
+          <h3 style="margin-top:1rem">Reticle <span class="opt">(your aim cursor — Robert's family)</span></h3>
+          <div class="setup-row" style="margin-top:0.5rem">
+            <div class="setup-block">
+              <label>Style</label>
+              <select id="set-reticle" class="armory-select" style="width:13rem">
+                <option value="auto">Auto — by weapon family</option>
+                <option value="crosshair">Crosshair — standing</option>
+                <option value="dot">Dot — standing</option>
+                <option value="cross">Cross — standing</option>
+                <option value="chevron">Chevron — standing</option>
+                <option value="brackets">Brackets — standing</option>
+                <option value="ringdot">Ring + dot — standing</option>
+                <option value="wedge">Wedge — on the ground</option>
+                <option value="circle">Circle — on the ground</option>
+              </select>
+            </div>
+            <div class="setup-block">
+              <label>Color</label>
+              <select id="set-reticle-color" class="armory-select" style="width:9rem">
+                <option value="0xe8a33d">Amber</option>
+                <option value="0x35c9d6">Cyan</option>
+                <option value="0x4cd964">Green</option>
+                <option value="0xff3b30">Red</option>
+                <option value="0xffa030">Orange</option>
+                <option value="0xffffff">White</option>
+              </select>
+            </div>
+            <div class="setup-block">
+              <label>Distance in front <span id="ret-dist-val">60%</span></label>
+              <input type="range" id="set-reticle-dist" min="0" max="100" step="5" value="60" style="width:150px; accent-color: var(--accent)">
+            </div>
+            <div class="setup-block">
+              <label>Size <span id="ret-size-val">1.0×</span></label>
+              <input type="range" id="set-reticle-size" min="50" max="200" step="5" value="100" style="width:150px; accent-color: var(--accent)">
+            </div>
+            <div class="setup-block" style="align-self:flex-end">
+              <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer">
+                <input type="checkbox" id="set-laser" style="accent-color:var(--accent);width:1rem;height:1rem"> Personal green laser
+              </label>
+            </div>
+          </div>
         </div>
         <div class="menu-section" id="controls-section">
           <h3>Controls <span class="opt">(the full board — every bind as it truly is)</span></h3>
@@ -319,6 +364,7 @@
               <div class="ctl-row"><kbd class="key">E</kbd><span class="what">enter · exit (aircraft: landed only)</span></div>
               <div class="ctl-row"><kbd class="key">Q</kbd><span class="what">aircraft — climb one band</span></div>
               <div class="ctl-row"><kbd class="key">E</kbd><span class="what">aircraft — dive one band · deck = door</span></div>
+              <div class="ctl-row"><kbd class="key">Q</kbd><span class="what">submarine — dive / surface (deep water only)</span></div>
               <div class="ctl-row"><kbd class="key">Space</kbd><span class="what">handbrake drift (wheels, driver)</span></div>
             </div>
           </div>
@@ -332,6 +378,8 @@
         <p class="controls-hint">WASD move · Mouse aim/fire · Space tap = jump / hold = duck (jet classes fly) · E enter vehicle · Q ability · R reload · hold G aim grenade, release to throw · X cycle grenade · B cycle ammo (7 types) · hold F charge strike / tap = quick · hold V guard · Z grapple · 1-3 weapons · M map size · TAB scoreboard</p>
         <a id="harness-link" href="/harness.html" title="Model · physics · combat debug harness (dev tool)"
            style="display:inline-block;margin-top:10px;font-size:12px;color:#7c8899;text-decoration:none;opacity:0.75">🔧 Model / physics harness</a>
+        <a id="soundedit-link" href="/sound-editor.html" title="Regenerate, import, crop, stitch, and approve every game sound (dev tool)"
+           style="display:inline-block;margin-top:10px;margin-left:16px;font-size:12px;color:#7c8899;text-decoration:none;opacity:0.75">🎙 Sound editor</a>
         </div><!-- /tab-deploy -->
 
         <!-- BARRACKS: the Dossier made visible (DD §3.4 surfaces v1) -->

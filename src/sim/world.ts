@@ -1,6 +1,14 @@
 import { AMMO_INFO, CLASSES, DOG_NAMES, DOG_STATS, EQUIPMENT, IRON_STATS, SAM_SPEED_RATIO, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
-import { CLIMB_H, GRID, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS, SURF_WHEELS, T_COVER, T_DOOR, T_GRASS, T_METAL, T_METAL_DOOR, T_OPEN, T_RUBBLE, T_SLIT, T_THIN_WALL_H, T_THIN_WALL_HV, T_WALL, T_WATER, TILE, WORLD, blocksShot, breakWindowTile, doorIsOpen, generateMap, isBlocked, isDoorTile, isWindowTile, losClear, nearestOpenTile, surfaceAt, thinTileBlocks, tileAt, toggleDoorType, windowIsBroken, type GameMap } from './map';
+import {
+  CLIMB_H, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS,
+  SURF_WHEELS, T_COVER, T_DOOR, T_GRASS, T_METAL,
+  T_METAL_DOOR, T_OPEN, T_RUBBLE, T_SLIT, T_THIN_WALL_H, T_THIN_WALL_HV,
+  T_WALL, T_WATER, blocksShot, breakWindowTile, doorIsOpen,
+  generateMap, isBlocked, isDoorTile, isWindowTile, losClear, nearestOpenTile,
+  surfaceAt, thinTileBlocks, tileAt, toggleDoorType,
+  windowIsBroken, type GameMap,
+} from './map';
 import {
   actorCanUseVerticalTransition,
   floorBlocked,
@@ -24,14 +32,21 @@ import {
   type Vehicle, type VehicleKind, type VehicleSystems, type WeaponId, type ZedKind, isIron, type IronKind } from './types';
 import { stepMode, initMode } from './modes';
 import { generateFront } from './fronts';
+import { generateOperationMap } from './operation-map';
+import { generateTheater } from './theaters';
+import type { TheaterId } from './theater-types';
+import { operationWaterSpawns } from './operation-pads';
+import { createOperationRuntime, stepWorldOperation, type OperationRuntimeState } from './operation-runtime';
+import { AIR_KINDS, type OperationBattleBonuses, type OperationHull, type OperationManifest, type OperationPlan } from './operations';
 import { LSW_BRAINS } from './lsw/index';
 import { ICE_HOLD, ICE_HOLD_DRAIN, LSWS, STRUGGLE_HP, STRUGGLE_SECS, THREAT, lswAllowed, lswsForTeam } from './lsw';
-import { stepBot, stepDog, stepIron, stepScientist, stepZombie } from './bots';
+import { assignVehicleRoles, stepBot, stepDog, stepIron, stepScientist, stepZombie } from './bots';
 import { PERCEIVE_RANGE, perceivesNow, smokeBlocks, type SeenMark, type SmokeBlob } from './perception';
 import { THEME_WEATHER, airGrounded, moveMult, visionMult, weatherAnnounce, type WeatherState } from './weather';
 import { newDirector, stepDirector, type DirectorState } from './director';
 import { buildInfluence, newInfluence, type InfluenceField } from './influence';
 import { createBlackbox, stepBlackbox, type Blackbox } from './blackbox';
+import { clampWorld, halfDepth, halfWidth, tileIndex, tileToWorld, worldToTile, wrapWorld } from './map-geometry';
 import { ruleOnClassRequest } from './officer';
 import { SoldierIndex } from './spatial';
 import { generateScienceMission, type ScienceMissionSpec } from './science';
@@ -39,6 +54,15 @@ import { generateScienceMap } from './science-map';
 import { createScienceRuntime, onScienceDeath, populateScienceMission, tryScienceInteraction, type ScienceMissionRuntime } from './science-runtime';
 import { createIndoorTacticalState, recordIndoorScent, type IndoorTacticalState } from './indoor-ai';
 import { issueK9Command, k9AimPoint } from './k9-orders';
+import { createVehicleTelemetry, recordVehicleEvent, stepVehicleTelemetry, type VehicleTelemetry } from './vehicle-telemetry';
+import {
+  ELEVATION_ALT, asElevationLevel, canWeaponReachElevation, collidesAtElevation, maxElevationFor, targetLockRangeAtElevation,
+  type ElevationLevel, type ElevationWeaponClass,
+} from './elevation';
+import {
+  RADAR_PROFILES, headingDegrees, radarDomainForVehicle, radarTrackKey, weatherRadarMultiplier,
+  type RadarEmitterProfile, type RadarTrack,
+} from './radar';
 
 const RESPAWN_DELAY = 4;
 /** THE OUTBREAK (§4): how fast an exposed soldier's Viral Load creeps toward
@@ -314,6 +338,10 @@ export type Difficulty = 'recruit' | 'veteran' | 'elite';
 export interface WorldOptions {
   seed: number;
   mode: ModeId;
+  /** Pre-built deterministic ground for scenarios, tools, and authored theater launches. */
+  map?: GameMap;
+  /** Vehicle-scale theater source. Explicit maps and Operation maps win. */
+  theaterId?: TheaterId;
   botsPerTeam?: number;
   difficulty?: Difficulty;
   /** B1: morale banked by underfunded victories opens the stable richer —
@@ -341,6 +369,10 @@ export interface WorldOptions {
   lswPass?: 1 | 2 | 3;
   /** Compact science operation compiled into this world's map and runtime. */
   scienceMission?: ScienceMissionSpec;
+  operation?: OperationPlan;
+  operationManifest?: OperationManifest;
+  operationInventory?: OperationHull[];
+  operationBonuses?: OperationBattleBonuses;
 }
 
 /** Custom deploy loadout: armory weapons + up to two equipment picks. */
@@ -368,7 +400,7 @@ export class World {
   soldiers = new Map<number, Soldier>();
   /** opt #38 (S2): the per-tick spatial index — rebuilt at the top of step();
    *  queries return id-sorted supersets, call sites keep their own filters */
-  soldierIndex = new SoldierIndex();
+  soldierIndex = new SoldierIndex(); // the constructor reassigns with map geometry
   /** opt #11 (S8): the encased-body list, recomputed once at the top of step().
    *  `groundBlocked` used to walk the WHOLE roster hunting ice per grounded
    *  soldier ×2/tick — O(S²) for a state that's almost always empty; now it
@@ -475,7 +507,15 @@ export class World {
   /** THE BLACK BOX (Robert: "put the tools in there") — always-on crowd flight
    *  recorder: 2s-cadence spread/near-base/stuck time series + persisted-knot
    *  and stuck-body incidents. Read via __ww.blackbox(). See sim/blackbox.ts. */
-  blackbox: Blackbox = createBlackbox();
+  vehicleTelemetry: VehicleTelemetry = createVehicleTelemetry();
+  blackbox: Blackbox = createBlackbox(this.vehicleTelemetry);
+  /** Authoritative last-known radar/sonar truth. HUD and AI read these copies,
+   *  never a hidden target's live position between scheduled sweeps. */
+  radarTracks: [Map<string, RadarTrack>, Map<string, RadarTrack>] = [new Map(), new Map()];
+  private radarTrackHistory: [Set<string>, Set<string>] = [new Set(), new Set()];
+  nextRadarSweep = new Map<string, number>();
+  /** Last commanded hull speed, sampled by the vehicle black box. */
+  vehicleCommandedSpeed = new Map<number, number>();
   /** §13 AMMO DIAGNOSTICS: per-weapon shot tally for the blackbox's ammo
    *  report (authoritative-side only — never rides the snapshot). */
   ammoShotsByWeapon = new Map<string, number>();
@@ -483,6 +523,16 @@ export class World {
    *  campaign vat DOUBLE (the reprint AND the risen body). */
   viralDeaths: [number, number] = [0, 0];
   private nextId = 1;
+  /** Present only for a Military Operation; stock matches never touch it. */
+  operation?: OperationRuntimeState;
+  /** Protected-zone damage accumulated for the no-collateral settlement. */
+  operationCollateral = 0;
+  operationRequisitionDiscount = 0;
+  operationEarlyWarningSeconds = 0;
+  operationFogLiftUntil = 0;
+  operationRepairPadPos?: Vec3;
+  operationBridgeAccess = false;
+  operationArtillery = 0;
 
   constructor(public opts: WorldOptions) {
     this.rng = new Rng(opts.seed ^ 0xbeef);
@@ -492,11 +542,23 @@ export class World {
     const scienceLayout = scienceSpec ? generateScienceMap(scienceSpec) : undefined;
     // authored front ground first (§8.2); the recipe generator is the
     // fallback for free play and any front this build doesn't know
-    this.map = scienceLayout?.map ?? (opts.frontId ? generateFront(opts.frontId, opts.seed) : null)
-      ?? generateMap(opts.seed, opts.mode, opts.theme ?? 'savanna');
+    this.map = scienceLayout?.map ?? opts.map ?? ((opts.operation && opts.operationManifest && opts.operationInventory
+      ? generateOperationMap(opts.operation, opts.operationManifest, opts.operationInventory)
+      : null)
+      ?? (opts.theaterId ? generateTheater(opts.theaterId, opts.seed) : null)
+      ?? (opts.frontId ? generateFront(opts.frontId, opts.seed) : null)
+       ?? generateMap(opts.seed, opts.mode, opts.theme ?? 'savanna'));
+    this.soldierIndex = new SoldierIndex(this.map.geometry);
     this.indoorTactics = createIndoorTacticalState(this.map) ?? undefined;
     this.gravity = THEMES[this.map.theme].gravity;
     this.mode = initMode(opts.mode, this.map, opts.matchMinutes);
+    if (opts.operation) {
+      this.operation = createOperationRuntime(opts.operation);
+      this.mode.timeLeft = Infinity;
+      if (this.operation.setup.weather === 'storm') {
+        this.weather = { kind: 'storm', intensity: 0.9, until: Infinity };
+      }
+    }
     if (opts.mode === 'paintball') this.weather.until = Infinity; // the yard stays sunny
     // THE OUTBREAK plays LIVE in the horde modes — where the dead already walk,
     // the fallen now rise with them (opts.outbreak forces it on elsewhere).
@@ -511,9 +573,18 @@ export class World {
         this.materiel[t] = Math.min(14, this.materiel[t] + Math.min(3, Math.max(0, opts.moraleBoost[t])));
       }
     }
+    if (opts.operationBonuses) this.applyOperationBattleBonuses(opts.operationBonuses);
+    if (opts.operationManifest?.support === 'artillery') this.operationArtillery++;
+    if (opts.operationManifest?.support === 'cas' && this.operation?.setup.deniedSupport !== 'cas') {
+      const home = this.map.vehiclePads.find((pad) => pad.team === 0)?.pos ?? this.map.basePos[0];
+      this.map.vehiclePads.push({ kind: 'strikejet', team: 0, pos: { x: home.x + 3, y: 0, z: home.z - 3 } });
+    }
     this.map.vehiclePads.forEach((pad, padId) => {
       if (isCoopMode(opts.mode) && pad.kind !== 'ambulance' && pad.kind !== 'emplacement') return;
-      this.spawnVehicle(pad.kind, pad.team, pad.pos, padId);
+      const vehicle = this.spawnVehicle(pad.kind, pad.team, pad.pos, padId);
+      vehicle.operationHullId = pad.operationHullId;
+      vehicle.operationObjectiveId = pad.operationObjectiveId;
+      vehicle.operationPrize = pad.operationPrize;
     });
     if (scienceSpec && scienceLayout) {
       this.science = createScienceRuntime(scienceSpec, scienceLayout);
@@ -528,7 +599,66 @@ export class World {
       this.pickups.set(this.nextId, { id: this.nextId, type: p.type, pos: { ...p.pos }, respawnAt: 0 });
       this.nextId++;
     }
+    if (this.operation?.setup.defenderLswRequired) {
+      const objective = this.map.operation?.objectives[0]?.pos ?? this.map.hillPos;
+      const defenders = lswsForTeam(1);
+      if (defenders.length > 0) this.addLsw(defenders[this.rng.int(0, defenders.length - 1)], 1, objective);
+    }
     this.refreshHomeDoors(); // base-zone doors learn whose base they serve
+  }
+
+  private applyOperationBattleBonuses(bonuses: OperationBattleBonuses) {
+    this.materiel[0] = Math.min(14, this.materiel[0] + bonuses.openingMateriel);
+    this.materiel[1] = Math.max(0, this.materiel[1] - bonuses.enemyMaterielPenalty);
+    this.operationRequisitionDiscount = bonuses.requisitionDiscount;
+    this.operationEarlyWarningSeconds = bonuses.earlyWarningSeconds;
+    this.operationFogLiftUntil = bonuses.fogLiftSeconds;
+    this.operationBridgeAccess = bonuses.bridgeAccess;
+    this.operationArtillery = bonuses.artillery;
+
+    if (bonuses.denyEnemyAir) {
+      this.map.vehiclePads = this.map.vehiclePads.filter((pad) => pad.team !== 1 || !AIR_KINDS.has(pad.kind));
+    }
+    const home = this.map.vehiclePads.find((pad) => pad.team === 0)?.pos ?? this.map.basePos[0];
+    const addPad = (kind: VehicleKind, dx: number, dz: number) => {
+      if (!this.map.vehiclePads.some((pad) => pad.team === 0 && pad.kind === kind)) {
+        this.map.vehiclePads.push({ kind, team: 0, pos: { x: home.x + dx, y: 0, z: home.z + dz } });
+      }
+    };
+    if (bonuses.samCover) addPad('aatrack', 0, 3);
+    if (bonuses.cas) addPad('strikejet', 0, -3);
+    if (bonuses.escortWing) addPad('interceptor', 3, 0);
+    if (bonuses.coastalCover) addPad('emplacement', -3, 0);
+    if (bonuses.navalSupport && !this.map.vehiclePads.some((pad) => pad.team === 0 && pad.kind === 'boat')) {
+      const wet = operationWaterSpawns(this.map)[0];
+      if (wet) this.map.vehiclePads.push({ kind: 'boat', team: 0, pos: { ...wet } });
+    }
+    if (bonuses.rearmPad) this.map.pickups.push({ type: 'ammo', pos: { ...home } });
+    if (bonuses.repairPad) this.operationRepairPadPos = { ...home };
+    if (bonuses.forwardSpawn && this.map.controlPoints[0]) {
+      const forward = { ...this.map.controlPoints[0].pos };
+      this.map.spawns[0] = this.map.spawns[0].map(() => ({ ...forward }));
+    }
+    const hazardCenter = this.map.controlPoints[0]?.pos ?? this.map.hillPos;
+    for (let i = 0; i < bonuses.hazards; i++) {
+      const angle = (i / Math.max(1, bonuses.hazards)) * Math.PI * 2;
+      const id = this.id();
+      this.mines.set(id, {
+        id, team: 0, ownerId: -1, armedAt: 0,
+        pos: { x: hazardCenter.x + Math.cos(angle) * 3, y: 0, z: hazardCenter.z + Math.sin(angle) * 3 },
+      });
+    }
+    if (bonuses.earlyWarningSeconds > 0) {
+      this.emit({ type: 'announce', text: `EARLY WARNING — enemy air manifest visible ${bonuses.earlyWarningSeconds}s out.` });
+    }
+  }
+
+  callOperationArtillery(pos: Vec3, team: Team): boolean {
+    if (this.operationArtillery <= 0) return false;
+    this.operationArtillery--;
+    this.emit({ type: 'orbital_strike', pos: { ...pos }, team, text: 'OFF-MAP BATTERY — SHOT OUT' });
+    this.explode({ ...pos }, WEAPONS.gl, -1, team);
+    return true;
   }
 
   /** Does this soldier carry the given equipment effect? */
@@ -552,8 +682,8 @@ export class World {
   damageDoor(idx: number, dmg: number, byId = -1): boolean {
     const t = this.map.grid[idx];
     if (!isDoorTile(t) || t === T_METAL_DOOR || dmg <= 0) return false;
-    const tx = idx % GRID, tz = (idx / GRID) | 0;
-    const pos = { x: (tx + 0.5) * TILE - WORLD / 2, y: 1, z: (tz + 0.5) * TILE - WORLD / 2 };
+    const tx = idx % this.map.geometry.cols, tz = (idx / this.map.geometry.cols) | 0;
+    const pos = { ...tileToWorld(this.map.geometry, tx, tz), y: 1 };
     const hp = (this.doorHp.get(idx) ?? DOOR_HP) - dmg;
     if (hp > 0) {
       this.doorHp.set(idx, hp);
@@ -571,8 +701,8 @@ export class World {
 
   /** Grind a wall/cover tile to open ground (tunneler). */
   digTile(tx: number, tz: number) {
-    if (tx < 1 || tz < 1 || tx >= GRID - 1 || tz >= GRID - 1) return; // border holds
-    const idx = tz * GRID + tx;
+    if (tx < 1 || tz < 1 || tx >= this.map.geometry.cols - 1 || tz >= this.map.geometry.rows - 1) return; // border holds
+    const idx = tileIndex(this.map.geometry, tx, tz);
     const t = this.map.grid[idx];
     // structure is dinner — the drill grinds anything with a positive drill rate
     // in the MATERIALS table: walls, cover, slits, doors, barricades, AND metal
@@ -582,7 +712,7 @@ export class World {
     this.dug.push(idx);
     this.emit({
       type: 'dig', tile: idx,
-      pos: { x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 },
+      pos: tileToWorld(this.map.geometry, tx, tz),
     });
   }
 
@@ -596,8 +726,8 @@ export class World {
    *   · ONE SEAM: damage arrives here from the same explode() every shell
    *     already uses; sight/movement change purely by the tile's new type. */
   damageWall(tx: number, tz: number, dmg: number, heavy: boolean) {
-    if (tx < 1 || tz < 1 || tx >= GRID - 1 || tz >= GRID - 1) return; // the rim holds, always
-    const idx = tz * GRID + tx;
+    if (tx < 1 || tz < 1 || tx >= this.map.geometry.cols - 1 || tz >= this.map.geometry.rows - 1) return; // the rim holds, always
+    const idx = tileIndex(this.map.geometry, tx, tz);
     const t = this.map.grid[idx];
     const rubble = t === T_RUBBLE;
     // this system eats destructible structure/cover/rubble — NOT metal (drill
@@ -611,7 +741,7 @@ export class World {
     const hp = (this.wallHp.get(idx) ?? mat.hp) - dmg;
     if (hp > 0) { this.wallHp.set(idx, hp); return; }    // damaged, still standing
     this.wallHp.delete(idx);
-    const pos = { x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 };
+    const pos = tileToWorld(this.map.geometry, tx, tz);
     if (rubble) {
       // the pile itself dies — gone, open ground (rides the dug wire)
       this.map.grid[idx] = T_OPEN;
@@ -628,9 +758,10 @@ export class World {
    *  own break path (damageDoor), everything else is damageWall. The surface-
    *  reaction resolve uses this so penetrate + impact chip doors too. */
   private damageSurface(x: number, z: number, dmg: number, heavy: boolean, byId: number) {
-    const tx = Math.floor((x + WORLD / 2) / TILE), tz = Math.floor((z + WORLD / 2) / TILE);
-    const t = this.map.grid[tz * GRID + tx];
-    if (isDoorTile(t) && t !== T_METAL_DOOR) this.damageDoor(tz * GRID + tx, dmg, byId);
+    const [tx, tz] = worldToTile(this.map.geometry, x, z);
+    const idx = tileIndex(this.map.geometry, tx, tz);
+    const t = this.map.grid[idx];
+    if (isDoorTile(t) && t !== T_METAL_DOOR) this.damageDoor(idx, dmg, byId);
     else this.damageWall(tx, tz, dmg, heavy);
   }
 
@@ -1025,8 +1156,8 @@ export class World {
           }
           // the slam cracks masonry in the ring (heavy — breaches cover walls)
           if (sw > 0) {
-            const cx = Math.floor((s.pos.x + WORLD / 2) / TILE), cz = Math.floor((s.pos.z + WORLD / 2) / TILE);
-            const rt = Math.ceil(sw / TILE);
+            const [cx, cz] = worldToTile(this.map.geometry, s.pos.x, s.pos.z);
+            const rt = Math.ceil(sw / this.map.geometry.tile);
             for (let dzt = -rt; dzt <= rt; dzt++) for (let dxt = -rt; dxt <= rt; dxt++) {
               if (dxt * dxt + dzt * dzt <= rt * rt) this.damageWall(cx + dxt, cz + dzt, lw.damage, true);
             }
@@ -1064,7 +1195,7 @@ export class World {
         for (const hop of [15, 10, 5]) {
           const nx = s.pos.x + (dx / dl) * Math.min(hop, dl);
           const nz = s.pos.z + (dz / dl) * Math.min(hop, dl);
-          if (!isBlocked(this.map.grid, nx, nz)) {
+          if (!isBlocked(this.map.grid, nx, nz, false, this.map.geometry)) {
             this.emit({ type: 'blink', pos: { ...s.pos } });
             s.pos = { x: nx, y: 0, z: nz };
             this.emit({ type: 'blink', pos: { ...s.pos } });
@@ -1119,8 +1250,8 @@ export class World {
       // THE WALL SLAM. Bodies stop dead against masonry instead of sliding
       // along it — and a body that arrives fast enough says so, which is the
       // hook the renderer hangs the crunch and the smear on.
-      const hitX = isBlocked(this.map.grid, nx, s.pos.z);
-      const hitZ = isBlocked(this.map.grid, s.pos.x, nz);
+      const hitX = isBlocked(this.map.grid, nx, s.pos.z, false, this.map.geometry);
+      const hitZ = isBlocked(this.map.grid, s.pos.x, nz, false, this.map.geometry);
       if (hitX || hitZ) {
         const speed = Math.hypot(s.pushX, s.pushZ);
         if (speed > 9) {
@@ -1131,8 +1262,8 @@ export class World {
           if (hitZ) s.pushZ = 0;
         }
       }
-      if (!hitX) s.pos.x = Math.max(-WORLD / 2 + 1, Math.min(WORLD / 2 - 1, nx));
-      if (!hitZ) s.pos.z = Math.max(-WORLD / 2 + 1, Math.min(WORLD / 2 - 1, nz));
+      if (!hitX) s.pos.x = Math.max(-halfWidth(this.map.geometry) + 1, Math.min(halfWidth(this.map.geometry) - 1, nx));
+      if (!hitZ) s.pos.z = Math.max(-halfDepth(this.map.geometry) + 1, Math.min(halfDepth(this.map.geometry) - 1, nz));
       // friction: a body in the air keeps its momentum; one on the deck skids
       // to a stop like the sack of meat it now is
       const drag = grounded ? 7 : 1.2;
@@ -1428,10 +1559,10 @@ export class World {
     s.meleeCharge = 0; s.meleeChargeMul = undefined; // and no half-built Power Strike
     s.bleedingUntil = undefined; s.bleedNextAt = undefined; s.bleedSourceId = undefined; s.bleedWeapon = undefined;
     s.guarding = false; s.grabbedUntil = undefined; s.grabbedBy = undefined; s.ctrlStruggle = undefined; s.chokeProgress = undefined; s.chokingId = undefined; s.humanShield = undefined; // no hold survives it either
-    // mobile spawn: a crewed APC or transport with a LIVE comms system
+    // mobile spawn: a crewed APC/transport with live comms. Flying transports
+    // become reinforcement doors only after they put skids on the ground.
     const mobile = this.opts.mode !== 'science' ? [...this.vehicles.values()].find(
-      (v) => v.alive && v.team === s.team && VEHICLES[v.kind].mobileSpawn &&
-        v.systems.comms > 0 && v.seats.some((id) => id >= 0),
+      (v) => v.team === s.team && this.vehicleMobileSpawnActive(v),
     ) : undefined;
     // enemy-aware spawn selection (55B): of the team's ring points, take the
     // one farthest from any living enemy — never drop a soldier in a lap.
@@ -1476,7 +1607,7 @@ export class World {
         // THE STATUE LAW: a mate standing inside masonry (or treading deep
         // water) is a trap, not an anchor — spawning the squad onto a stuck
         // body is how one frozen soldier became a frozen fireteam.
-        if (safe && !isBlocked(this.map.grid, m.pos.x, m.pos.z)) { matePos = m.pos; break; }
+        if (safe && !isBlocked(this.map.grid, m.pos.x, m.pos.z, false, this.map.geometry)) { matePos = m.pos; break; }
       }
     }
     // the APC is a door, not a clown car — a third rides it, not half
@@ -1491,12 +1622,12 @@ export class World {
     for (let i = 0; i < 12 && !placed; i++) {
       px = base.x + this.rng.range(-2.6, 2.6);
       pz = base.z + this.rng.range(-2.6, 2.6);
-      placed = !isBlocked(this.map.grid, px, pz);
+      placed = !isBlocked(this.map.grid, px, pz, false, this.map.geometry);
     }
     for (let i = 0; i < 12 && !placed; i++) {
       px = ringPick.x + this.rng.range(-2.6, 2.6);
       pz = ringPick.z + this.rng.range(-2.6, 2.6);
-      placed = !isBlocked(this.map.grid, px, pz);
+      placed = !isBlocked(this.map.grid, px, pz, false, this.map.geometry);
     }
     if (!placed) { px = ringPick.x; pz = ringPick.z; }
     s.pos = { x: px, y: 0, z: pz };
@@ -1529,6 +1660,33 @@ export class World {
     const out = {} as VehicleSystems;
     for (const id of SYSTEM_IDS) out[id] = hp;
     return out;
+  }
+
+  vehicleMobileSpawnActive(vehicle: Vehicle): boolean {
+    const def = VEHICLES[vehicle.kind];
+    return vehicle.alive && def.mobileSpawn && vehicle.systems.comms > 0
+      && vehicle.seats.some((id) => id >= 0)
+      && (!def.flies || (vehicle.band ?? 0) === 0);
+  }
+
+  canSubmerge(vehicle: Vehicle): boolean {
+    const radius = VEHICLES[vehicle.kind].radius;
+    return [[0, 0], [radius, 0], [-radius, 0], [0, radius], [0, -radius]].every(([dx, dz]) =>
+      tileAt(this.map.grid, vehicle.pos.x + dx, vehicle.pos.z + dz, this.map.geometry) === T_DEEP,
+    );
+  }
+
+  submarineDetectedForTeam(target: Vehicle, team: Team): boolean {
+    if (target.team === team || !target.submerged) return true;
+    for (const source of this.vehicles.values()) {
+      if (!source.alive || source.team !== team) continue;
+      const distance = Math.hypot(source.pos.x - target.pos.x, source.pos.z - target.pos.z);
+      if (source.kind === 'submarine' && source.seats.some((id) => id >= 0) && distance <= 65) return true;
+      const crew = VEHICLES[source.kind].crew;
+      const sensorIndex = crew?.indexOf('sensors') ?? -1;
+      if (sensorIndex >= 0 && source.systems.sensors > 0 && source.seats[sensorIndex + 1] >= 0 && distance <= 55) return true;
+    }
+    return false;
   }
 
   spawnVehicle(kind: VehicleKind, team: Team, padPos: Vec3, padId = -1): Vehicle {
@@ -1579,8 +1737,13 @@ export class World {
     // per-soldier movement scan reads a short list instead of the full roster.
     this.encasedBodies.length = 0;
     for (const o of this.soldiers.values()) if (o.encasedUntil !== undefined && o.alive) this.encasedBodies.push(o);
-    if (!this.mode.over) stepMode(this, dt);
+    if (this.tick === 1 && this.map.theater) assignVehicleRoles(this);
+    if (!this.mode.over) {
+      if (this.operation) stepWorldOperation(this, dt);
+      else stepMode(this, dt);
+    }
     stepBlackbox(this); // the crowd flight recorder samples on its own 2s clock
+    stepVehicleTelemetry(this);
     this.stepHomeDoors(); // base doors open for their own; shut behind them
     // the materiel drip (§17): war production never stops, it just crawls
     if (this.time >= this.nextMaterielDripAt) {
@@ -1849,6 +2012,7 @@ export class World {
     }
 
     for (const v of this.vehicles.values()) this.stepVehicle(v, cmds, dt);
+    this.stepRadar();
     for (const t of this.turrets.values()) this.stepTurret(t, dt);
     this.stepProjectiles(dt);
     this.stepMines(dt);
@@ -1899,7 +2063,119 @@ export class World {
    *  smoke, and a grenade that doesn't affect visibility is just décor. */
   sightClear(from: Vec3, to: Vec3): boolean {
     if (smokeBlocks(from.x, from.z, to.x, to.z, this.smokeBlobs)) return false;
-    return losClear(this.map.grid, { x: from.x, y: 1.4, z: from.z }, { x: to.x, y: 1.4, z: to.z });
+    return losClear(this.map.grid, { x: from.x, y: 1.4, z: from.z }, { x: to.x, y: 1.4, z: to.z }, 1.4, this.map.geometry);
+  }
+
+  radarTracksFor(team: Team): ReadonlyMap<string, RadarTrack> {
+    return this.radarTracks[team];
+  }
+
+  /** Scheduled battlefield sensors. Keeping this in the sim means replay,
+   *  AI, HUD, and a future server all consume the same imperfect truth. */
+  stepRadar(): void {
+    type Emitter = { vehicle: Vehicle; profile: RadarEmitterProfile };
+    const emitters: Emitter[] = [];
+    for (const vehicle of [...this.vehicles.values()].sort((a, b) => a.id - b.id)) {
+      if (!vehicle.alive || vehicle.systems.sensors <= 0 || vehicle.stunnedUntil > this.time) continue;
+      const def = VEHICLES[vehicle.kind];
+      const pilot = this.soldiers.get(vehicle.seats[0]);
+      if (pilot?.alive) {
+        if (def.submersible && vehicle.submerged) emitters.push({ vehicle, profile: RADAR_PROFILES.sonar });
+        else if (def.flies) emitters.push({ vehicle, profile: def.minAirspeed ? RADAR_PROFILES.fixedWing : RADAR_PROFILES.rotorcraft });
+        else if (def.boat || def.submersible) emitters.push({ vehicle, profile: RADAR_PROFILES.surfaceNaval });
+      }
+      const sensor = this.crewAt(vehicle, 'sensors');
+      if (!vehicle.submerged && sensor?.alive) emitters.push({ vehicle, profile: RADAR_PROFILES.staffedSensors });
+    }
+    // Weak returns first; stronger/longer-range sources win same-tick overlap.
+    emitters.sort((a, b) => a.profile.range - b.profile.range || a.vehicle.id - b.vehicle.id || a.profile.source.localeCompare(b.profile.source));
+    for (const emitter of emitters) {
+      const scheduleKey = `${emitter.vehicle.id}:${emitter.profile.source}`;
+      if (this.time + 1e-9 < (this.nextRadarSweep.get(scheduleKey) ?? 0)) continue;
+      this.nextRadarSweep.set(scheduleKey, this.time + emitter.profile.cadence);
+      this.recordRadarTelemetry(emitter.vehicle, 'radar_sweep', emitter.profile.source);
+      this.sweepRadar(emitter.vehicle, emitter.profile);
+    }
+    for (const tracks of this.radarTracks) {
+      for (const [key, track] of tracks) if (track.expiresAt <= this.time) tracks.delete(key);
+    }
+  }
+
+  private sweepRadar(emitter: Vehicle, profile: RadarEmitterProfile): void {
+    const range = profile.range * weatherRadarMultiplier(this.weather, profile.source);
+    const receivingTeam = emitter.team;
+    const observe = (
+      targetType: RadarTrack['targetType'], targetId: number, team: Team, pos: Vec3, yaw: number,
+      band: ElevationLevel, domain: RadarTrack['domain'], ecmAlive: boolean,
+    ) => {
+      if (team === receivingTeam || !profile.domains.includes(domain)) return;
+      const jammed = profile.source !== 'sonar' && ecmAlive;
+      const effectiveRange = range * (jammed ? 0.65 : 1);
+      if (Math.hypot(pos.x - emitter.pos.x, pos.z - emitter.pos.z) > effectiveRange) return;
+      if (!this.radarLineClear(emitter, pos, domain)) return;
+      const precision = jammed ? 0.45 : 1;
+      const observed = jammed ? this.jammedRadarPosition(emitter.id, targetId, profile.cadence, pos, precision) : { ...pos };
+      const key = radarTrackKey(targetType, targetId);
+      const previous = this.radarTracks[receivingTeam].get(key);
+      const reacquired = this.radarTrackHistory[receivingTeam].has(key)
+        && (!previous || previous.expiresAt <= this.time);
+      this.radarTracks[receivingTeam].set(key, {
+        key, targetId, targetType, receivingTeam, pos: observed,
+        heading: headingDegrees(yaw), band, domain, source: profile.source,
+        observedAt: this.time,
+        expiresAt: this.time + profile.cadence * (jammed ? 2 : 3),
+        precision, jammed,
+      });
+      this.recordRadarTelemetry(emitter, 'radar_contact', `${profile.source}:${domain}`);
+      if (jammed) this.recordRadarTelemetry(emitter, 'radar_jammed', `${profile.source}:${domain}`);
+      if (reacquired) this.recordRadarTelemetry(emitter, 'radar_reacquired', `${profile.source}:${domain}`);
+      this.radarTrackHistory[receivingTeam].add(key);
+    };
+
+    for (const target of [...this.vehicles.values()].sort((a, b) => a.id - b.id)) {
+      if (!target.alive || target.id === emitter.id) continue;
+      observe(
+        'vehicle', target.id, target.team, target.pos, target.yaw, asElevationLevel(target.band),
+        radarDomainForVehicle(target.kind, target.band ?? 0, !!target.submerged), target.systems.ecm > 0,
+      );
+    }
+    for (const target of [...this.soldiers.values()].sort((a, b) => a.id - b.id)) {
+      if (!target.alive || target.vehicleId >= 0) continue;
+      observe('soldier', target.id, target.team, target.pos, target.yaw, asElevationLevel(target.floor), 'ground', false);
+    }
+  }
+
+  private radarLineClear(emitter: Vehicle, target: Vec3, domain: RadarTrack['domain']): boolean {
+    if (domain === 'air' || domain === 'submerged') return true;
+    // Ordinary structures stop low emitters but sit below Sky/Clouds. Crown
+    // Divide's wall alphabet represents full ridgelines, so even high aircraft
+    // must acquire ground returns through a pass instead of seeing through the
+    // mountain. 3.8 stays just below the shared 4u wall/ridge silhouette.
+    const flightHeight = ELEVATION_ALT[asElevationLevel(emitter.band)] + 1.4;
+    const emitterHeight = this.map.theater?.id === 'mountain'
+      ? Math.min(flightHeight, 3.8)
+      : flightHeight;
+    return losClear(this.map.grid, emitter.pos, target, emitterHeight, this.map.geometry);
+  }
+
+  private jammedRadarPosition(emitterId: number, targetId: number, cadence: number, pos: Vec3, precision: number): Vec3 {
+    const pulse = Math.floor((this.time + 1e-9) / cadence);
+    const hash = ((targetId * 1103515245) ^ (emitterId * 12345) ^ (pulse * 2654435761)) >>> 0;
+    const angle = (hash % 360) * Math.PI / 180;
+    const radius = 3 + (1 - precision) * 7;
+    return { x: pos.x + Math.cos(angle) * radius, y: pos.y, z: pos.z + Math.sin(angle) * radius };
+  }
+
+  private recordRadarTelemetry(
+    vehicle: Vehicle,
+    kind: 'radar_sweep' | 'radar_contact' | 'radar_jammed' | 'radar_reacquired',
+    detail: string,
+  ): void {
+    recordVehicleEvent(this.vehicleTelemetry, {
+      kind, t: this.time, vehicleId: vehicle.id, vehicleKind: vehicle.kind,
+      theaterId: this.map.theater?.id ?? 'classic', seed: this.map.seed,
+      x: vehicle.pos.x, z: vehicle.pos.z, detail,
+    });
   }
 
   /** Stamp what each team can see this tick. Death wipes the trail — a corpse
@@ -1924,7 +2200,8 @@ export class World {
       for (const s of this.soldiers.values()) {
         if (s.team === team) continue;
         if (!s.alive) { this.lastSeen[team].delete(s.id); continue; }
-        if (perceivesNow(this.map.grid, eyes, this.pinged, s, range, this.smokeBlobs, revealed, this.map.grid2, this.map.upperLayers)) {
+        if (perceivesNow(this.map.grid, eyes, this.pinged, s, range, this.smokeBlobs,
+          revealed, this.map.grid2, this.map.geometry, this.map.upperLayers)) {
           this.lastSeen[team].set(s.id, { t: this.time, x: s.pos.x, z: s.pos.z });
         }
       }
@@ -1941,7 +2218,7 @@ export class World {
       for (const e of this.soldiers.values()) {
         if (!e.alive || e.team === s.team || this.pinged.has(e.id)) continue;
         const d = Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z);
-        if (d < bestD && !losClear(this.map.grid, { ...s.pos, y: 1.4 }, { ...e.pos, y: 1.4 })) {
+        if (d < bestD && !losClear(this.map.grid, { ...s.pos, y: 1.4 }, { ...e.pos, y: 1.4 }, 1.4, this.map.geometry)) {
           best = e; bestD = d;
         }
       }
@@ -2015,9 +2292,9 @@ export class World {
     this.nextPodAt = this.time + 90;
     // find an open tile in the central band
     for (let tries = 0; tries < 40; tries++) {
-      const x = this.rng.range(-WORLD / 3, WORLD / 3);
-      const z = this.rng.range(-WORLD / 3, WORLD / 3);
-      if (!isBlocked(this.map.grid, x, z) && !isBlocked(this.map.grid, x + 2, z) && !isBlocked(this.map.grid, x - 2, z)) {
+      const x = this.rng.range(-halfWidth(this.map.geometry) * 2 / 3, halfWidth(this.map.geometry) * 2 / 3);
+      const z = this.rng.range(-halfDepth(this.map.geometry) * 2 / 3, halfDepth(this.map.geometry) * 2 / 3);
+      if (!isBlocked(this.map.grid, x, z, false, this.map.geometry) && !isBlocked(this.map.grid, x + 2, z, false, this.map.geometry) && !isBlocked(this.map.grid, x - 2, z, false, this.map.geometry)) {
         const g: Gadget = {
           id: this.id(), type: 'supply_pod', team: 0, ownerId: -1,
           pos: { x, y: 40, z }, hp: Infinity, maxHp: Infinity,
@@ -2091,8 +2368,8 @@ export class World {
           const sp = 8.5; // faster than boots, slower than bullets
           const nx = g.pos.x + Math.cos(g.yaw ?? 0) * sp * dt;
           const nz = g.pos.z + Math.sin(g.yaw ?? 0) * sp * dt;
-          if (!isBlocked(this.map.grid, nx, g.pos.z)) g.pos.x = nx; // slide along walls
-          if (!isBlocked(this.map.grid, g.pos.x, nz)) g.pos.z = nz;
+          if (!isBlocked(this.map.grid, nx, g.pos.z, false, this.map.geometry)) g.pos.x = nx; // slide along walls
+          if (!isBlocked(this.map.grid, g.pos.x, nz, false, this.map.geometry)) g.pos.z = nz;
           if (tgt && td < 1.3) {
             this.explode({ ...g.pos, y: 0.4 }, WEAPONS.skitter_bang, g.ownerId, g.team);
             this.gadgets.delete(id);
@@ -2117,7 +2394,7 @@ export class World {
           for (const s of this.soldiers.values()) {
             if (!s.alive || s.team === g.team) continue;
             const d = Math.hypot(s.pos.x - g.pos.x, s.pos.z - g.pos.z);
-            if (d < 20 && losClear(this.map.grid, { ...g.pos, y: 1.6 }, { ...s.pos, y: 1.2 })) this.pinged.add(s.id);
+            if (d < 20 && losClear(this.map.grid, { ...g.pos, y: 1.6 }, { ...s.pos, y: 1.2 }, 1.4, this.map.geometry)) this.pinged.add(s.id);
           }
           break;
         }
@@ -2176,8 +2453,8 @@ export class World {
             // everything; the control link is the leash.
             const owner = this.soldiers.get(g.ownerId);
             if (!owner || !owner.alive) { this.crashDrone(g); break; } // operator down → dead stick
-            g.pos.x = Math.max(-WORLD / 2 + 2, Math.min(WORLD / 2 - 2, g.pos.x + (g.vel?.x ?? 0) * dt));
-            g.pos.z = Math.max(-WORLD / 2 + 2, Math.min(WORLD / 2 - 2, g.pos.z + (g.vel?.z ?? 0) * dt));
+            g.pos.x = Math.max(-halfWidth(this.map.geometry) + 2, Math.min(halfWidth(this.map.geometry) - 2, g.pos.x + (g.vel?.x ?? 0) * dt));
+            g.pos.z = Math.max(-halfDepth(this.map.geometry) + 2, Math.min(halfDepth(this.map.geometry) - 2, g.pos.z + (g.vel?.z ?? 0) * dt));
             g.pos.y = 2.6;
             const d = Math.hypot(g.pos.x - owner.pos.x, g.pos.z - owner.pos.z);
             g.signal = Math.max(0, Math.min(1, 1 - d / DRONE_RANGE));
@@ -2405,9 +2682,10 @@ export class World {
   /** W5.1: tiles TALL enough to swat a band-1 hull — building fabric only
    *  (cover crates and climb barricades sit under the low-flight deck). */
   private buildingAt(x: number, z: number): boolean {
-    const t = tileAt(this.map.grid, x, z);
+    const t = tileAt(this.map.grid, x, z, this.map.geometry);
     return t === T_WALL || t === T_SLIT || t === T_DOOR || t === T_METAL || t === T_METAL_DOOR
-      || (t >= T_THIN_WALL_H && t <= T_THIN_WALL_HV && blocksShot(this.map.grid, x, z, 2));
+      || (t >= T_THIN_WALL_H && t <= T_THIN_WALL_HV
+        && blocksShot(this.map.grid, x, z, 2, this.map.geometry));
   }
 
   /** §11.3: the type this reload would LOAD — the selected special when the
@@ -2798,7 +3076,8 @@ export class World {
           // The same gate stands between the last dive and the door, so the
           // tap that lands you can never also throw you out.
           if (this.time >= s.nextAbilityAt) {
-            v.band = (v.band ?? 1) - 1;
+            v.band = asElevationLevel((v.band ?? 1) - 1);
+            if (v.band === 0) v.landed = true;
             s.nextAbilityAt = this.time + 0.28;
           }
         } else if (!flightDef.flies || s.seat !== 0 || this.time >= s.nextAbilityAt) {
@@ -2808,8 +3087,23 @@ export class World {
       if (cmd.ability && s.seat === 0 && flightDef.flies && this.time >= v.spoolUntil
           && this.time >= s.nextAbilityAt) {
         // jets own band 3; rotors top out at 2 (the design's ceiling rule)
-        v.band = Math.min(flightDef.minAirspeed ? 3 : 2, (v.band ?? 0) + 1);
+        v.landed = false;
+        v.band = asElevationLevel(Math.min(maxElevationFor(flightDef), (v.band ?? 0) + 1));
         s.nextAbilityAt = this.time + 0.28;
+      }
+      if (cmd.ability && s.seat === 0 && flightDef.submersible && this.time >= s.nextAbilityAt) {
+        if (v.submerged || this.canSubmerge(v)) {
+          v.submerged = !v.submerged;
+          s.nextAbilityAt = this.time + 1.5;
+          recordVehicleEvent(this.vehicleTelemetry, {
+            kind: v.submerged ? 'dive' : 'surface', t: this.time,
+            vehicleId: v.id, vehicleKind: v.kind,
+            theaterId: this.map.theater?.id ?? 'classic', seed: this.map.seed,
+            x: v.pos.x, z: v.pos.z,
+          });
+        } else {
+          s.nextAbilityAt = this.time + 0.35;
+        }
       }
       // breacher depth toggle: deep is silent and passes under walls, but
       // crawls and can't dig — surfacing is where the grinding happens
@@ -2899,6 +3193,7 @@ export class World {
           vel: { x: Math.cos(yaw) * wdef.speed, y: 0, z: Math.sin(yaw) * wdef.speed },
           bornAt: this.time, ttl: wdef.range / wdef.speed, arc: false,
           airScaled: !!mgDef.flies,
+          elevationWeapon: 'aircraft',
         } as Projectile);
         this.emit({ type: 'shot', pos: { ...v.pos }, weapon: mgDef.altWeapon, soldierId: s.id });
       }
@@ -2975,7 +3270,7 @@ export class World {
 
     // deep water takes both your hands: no shooting, no throwing, no jumping
     // row 246: frozen water carries your weight — you WALK across, not swim.
-    const swimming = tileAt(this.map.grid, s.pos.x, s.pos.z) === T_DEEP
+    const swimming = tileAt(this.map.grid, s.pos.x, s.pos.z, this.map.geometry) === T_DEEP
       && !this.isFrozenWater(s.pos.x, s.pos.z);
 
     if (cmd.use) {
@@ -3028,7 +3323,7 @@ export class World {
 
     // movement intent (armor weighs you down)
     const c = CLASSES[s.classId];
-    let speed = c.speed * (SURF_SOLDIER[surfaceAt(this.map.surface, s.pos.x, s.pos.z)] ?? 1) // §8.6
+    let speed = c.speed * (SURF_SOLDIER[surfaceAt(this.map.surface, s.pos.x, s.pos.z, this.map.geometry)] ?? 1) // §8.6
       * moveMult(this.weather, 'soldier') // §8.8 snow drags boots
       * this.moveSpeedMul; // Robert's global movement knob (1 = shipped feel)
     if (s.cloaked) speed *= 0.8;
@@ -3053,7 +3348,7 @@ export class World {
     // ECLIPSE'S DARK SLIDE: +15% in smoke or long grass, -10% in the open —
     // terrain-reading as movement identity
     if (s.ascendant === 'eclipse') {
-      const dark = this.smoked.has(s.id) || tileAt(this.map.grid, s.pos.x, s.pos.z) === T_GRASS;
+      const dark = this.smoked.has(s.id) || tileAt(this.map.grid, s.pos.x, s.pos.z, this.map.geometry) === T_GRASS;
       speed *= dark ? 1.15 : 0.9;
     }
     // THE SEAM SANITIZER (found by the threat rig): a brain that emits NaN
@@ -3082,7 +3377,7 @@ export class World {
       // the airborne arc and the leap own their own physics.
       const slick = s.pos.y <= 0.05
         && (this.isFrozenWater(s.pos.x, s.pos.z) // row 246: frozen water IS ice
-          || materialForSurface(surfaceAt(this.map.surface, s.pos.x, s.pos.z)).slick === true);
+          || materialForSurface(surfaceAt(this.map.surface, s.pos.x, s.pos.z, this.map.geometry)).slick === true);
       if (slick) {
         if (len > 0.01) {
           // pushing off: the boots EASE toward intent, never snap (low grip)
@@ -3182,7 +3477,7 @@ export class World {
       // replanting an end moves it
       const existing = next === 'warpA' ? mineA : mineB;
       if (existing) this.gadgets.delete(existing.id);
-      if (!isBlocked(this.map.grid, s.pos.x, s.pos.z)) {
+      if (!isBlocked(this.map.grid, s.pos.x, s.pos.z, false, this.map.geometry)) {
         const g = this.spawnGadget(next, s.team, s.id, s.pos, 150);
         s.energy -= 50;
         s.nextAbilityAt = this.time + 1;
@@ -3227,7 +3522,7 @@ export class World {
       if (mine.length < 2) {
         const fx = s.pos.x + Math.cos(s.yaw) * 2.5;
         const fz = s.pos.z + Math.sin(s.yaw) * 2.5;
-        if (!isBlocked(this.map.grid, fx, fz)) {
+        if (!isBlocked(this.map.grid, fx, fz, false, this.map.geometry)) {
           const t: Turret = {
             id: this.id(), team: s.team, pos: { x: fx, y: 0, z: fz }, yaw: s.yaw,
             hp: 180, maxHp: 180, nextFireAt: 0, ownerId: s.id, alive: true,
@@ -3366,7 +3661,7 @@ export class World {
       } else if (this.hasEquip(s, 'deployCamera')) {
         // spy camera: planted at your feet, feeds the team (2 active max)
         const mine = [...this.gadgets.values()].filter((g) => g.type === 'camera' && g.ownerId === s.id);
-        if (mine.length < 2 && !isBlocked(this.map.grid, s.pos.x, s.pos.z)) {
+        if (mine.length < 2 && !isBlocked(this.map.grid, s.pos.x, s.pos.z, false, this.map.geometry)) {
           this.spawnGadget('camera', s.team, s.id, s.pos, 50);
           s.nextGrenadeAt = this.time + 1.5;
           this.emit({ type: 'beacon_planted', pos: { ...s.pos }, soldierId: s.id, text: 'Spy camera planted' });
@@ -3848,6 +4143,7 @@ export class World {
     };
     for (const v of this.vehicles.values()) {
       if (v.team === s.team || !this.vehicleAirborne(v)) continue;
+      if (!canWeaponReachElevation('manpads', asElevationLevel(v.band))) continue;
       consider(v.pos, v);
     }
     // TRUE FLIGHT (§4.4 #5): an LSW under its own power IS an aircraft —
@@ -3873,7 +4169,7 @@ export class World {
       id: this.id(), weapon: 'sam_missile', ownerId: s.id, team: s.team,
       pos: { x: s.pos.x + Math.cos(yaw) * 0.8, y: s.pos.y + 1.6, z: s.pos.z + Math.sin(yaw) * 0.8 },
       vel: { x: Math.cos(yaw) * speed, y: 0, z: Math.sin(yaw) * speed },
-      bornAt: this.time, ttl: def.range / speed, arc: false, airScaled: true,
+      bornAt: this.time, ttl: def.range / speed, arc: false, airScaled: true, elevationWeapon: 'manpads',
       ...(flesh ? { homingSoldierId: target.id } : { homingVehicleId: target.id }),
     };
     this.launch(p);
@@ -3888,13 +4184,14 @@ export class World {
   hullLockTarget(v: Vehicle): Vehicle | Soldier | null {
     let best: Vehicle | Soldier | null = null;
     let bestD = WEAPONS.aa_missile.range;
-    const consider = (pos: Vec3, cand: Vehicle | Soldier) => {
+    const consider = (pos: Vec3, cand: Vehicle | Soldier, level: ElevationLevel = 2) => {
       const d = Math.hypot(pos.x - v.pos.x, pos.z - v.pos.z);
-      if (d < bestD) { best = cand; bestD = d; }
+      const lockRange = targetLockRangeAtElevation(WEAPONS.aa_missile.range, level, this.weather.intensity);
+      if (d < bestD && d < lockRange) { best = cand; bestD = d; }
     };
     for (const t of this.vehicles.values()) {
       if (t.team === v.team || !this.vehicleAirborne(t)) continue;
-      consider(t.pos, t);
+      consider(t.pos, t, asElevationLevel(t.band));
     }
     for (const e of this.soldiers.values()) {
       if (!e.alive || e.team === v.team || e.ascendant === undefined) continue;
@@ -3918,7 +4215,7 @@ export class World {
       id: this.id(), weapon: 'aa_missile', ownerId, team: v.team,
       pos: { x: v.pos.x + Math.cos(yaw) * 1.4, y: v.pos.y + 1.8, z: v.pos.z + Math.sin(yaw) * 1.4 },
       vel: { x: Math.cos(yaw) * speed, y: 0, z: Math.sin(yaw) * speed },
-      bornAt: this.time, ttl: def.range / speed, arc: false, airScaled: true,
+      bornAt: this.time, ttl: def.range / speed, arc: false, airScaled: true, elevationWeapon: 'lance',
       ...(flesh ? { homingSoldierId: target.id } : { homingVehicleId: target.id }),
     };
     this.launch(p);
@@ -3952,7 +4249,7 @@ export class World {
       const flare = this.gadgets.get(p.homingFlareId);
       if (!flare) { p.homingFlareId = undefined; return false; } // burnt out — fly dumb
       if (Math.hypot(flare.pos.x - p.pos.x, flare.pos.z - p.pos.z) < 2) {
-        this.explode(flare.pos, WEAPONS.sam_missile, p.ownerId, p.team, p.airScaled); // eats the decoy
+        this.explode(flare.pos, WEAPONS.sam_missile, p.ownerId, p.team, p.elevationWeapon ?? !!p.airScaled); // eats the decoy
         return true;
       }
       tx = flare.pos.x; tz = flare.pos.z;
@@ -3971,7 +4268,7 @@ export class World {
       const sam = p.weapon === 'sam_missile';
       if (sam && e.pos.y < 1.5) { p.homingSoldierId = undefined; return false; } // dove under the seeker head
       if (Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) < (sam ? 1.6 : 1.2)) {
-        this.explode({ ...e.pos }, sam ? WEAPONS.sam_missile : WEAPONS.flesh_glob, p.ownerId, p.team, p.airScaled);
+        this.explode({ ...e.pos }, sam ? WEAPONS.sam_missile : WEAPONS.flesh_glob, p.ownerId, p.team, p.elevationWeapon ?? !!p.airScaled);
         return true;
       }
       const speed = Math.hypot(p.vel.x, p.vel.z) || 1;
@@ -4037,8 +4334,8 @@ export class World {
       const nz = s.pos.z + (s.vel.z + s.pushZ) * dt;
       if (!floorBlocked(this.map, s.floor, nx, s.pos.z)) s.pos.x = nx;
       if (!floorBlocked(this.map, s.floor, s.pos.x, nz)) s.pos.z = nz;
-      s.pos.x = Math.max(-WORLD / 2 + 2, Math.min(WORLD / 2 - 2, s.pos.x));
-      s.pos.z = Math.max(-WORLD / 2 + 2, Math.min(WORLD / 2 - 2, s.pos.z));
+      s.pos.x = Math.max(-halfWidth(this.map.geometry) + 2, Math.min(halfWidth(this.map.geometry) - 2, s.pos.x));
+      s.pos.z = Math.max(-halfDepth(this.map.geometry) + 2, Math.min(halfDepth(this.map.geometry) - 2, s.pos.z));
       this.tryStairs(s);
       if (s.floor > 0 && !hasFloorAt(this.map, s.floor, s.pos.x, s.pos.z)) {
         s.floor = highestSupportedFloorBelow(this.map, s.floor, s.pos.x, s.pos.z);
@@ -4101,7 +4398,7 @@ export class World {
     }
     // water drags EVERYONE the same way — players, bots, the horde: wading
     // is slow, swimming is slower (and swimming means no trigger finger)
-    const tHere = tileAt(this.map.grid, s.pos.x, s.pos.z);
+    const tHere = tileAt(this.map.grid, s.pos.x, s.pos.z, this.map.geometry);
     // …and rubble drags at the boots the same way: a breach is a lane, not a road
     // row 246: a frozen tile is a solid crossing — no wade drag (the slick
     // skate governs the feel instead)
@@ -4124,17 +4421,17 @@ export class World {
     const blocksAir = (x: number, z: number) => {
       // TRUE FLIGHT: above the wall tier NOTHING on the grid blocks a flier
       if (trueFlight && s.pos.y > 4.05) return false;
-      const t = tileAt(this.map.grid, x, z);
+      const t = tileAt(this.map.grid, x, z, this.map.geometry);
       if (t === T_CLIMB) return s.pos.y <= CLIMB_H;
       return t === T_WALL || t === T_SLIT || t === T_METAL || t === T_DEEP;
     };
     const groundBlocked = (x: number, z: number) => {
-      const t = tileAt(this.map.grid, x, z);
+      const t = tileAt(this.map.grid, x, z, this.map.geometry);
       // PHANTOM'S PHASE-STEP (movement doctrine): his walk treats LOW COVER
       // as air — full walls still need his Q
       if (s.ascendant === 'phantom' && t === T_COVER) return false;
       if (t === T_DEEP || t === T_WATER) return false; // wade in, swim deeper
-      if (isBlocked(this.map.grid, x, z)) return true;
+      if (isBlocked(this.map.grid, x, z, false, this.map.geometry)) return true;
       // THE ICE BLOCK IS A BLOCK (§21.6, closing Frostbite's Notes gap): an
       // encased soldier is a real 1-tile obstacle — nobody walks through a
       // frozen man, friend or foe. opt #11 (S8): read the tick-top encased list
@@ -4150,8 +4447,8 @@ export class World {
     const blockedZ = airborne ? blocksAir(s.pos.x, nz) : groundBlocked(s.pos.x, nz);
     if (!blockedX) s.pos.x = nx;
     if (!blockedZ) s.pos.z = nz;
-    s.pos.x = Math.max(-WORLD / 2 + 2, Math.min(WORLD / 2 - 2, s.pos.x));
-    s.pos.z = Math.max(-WORLD / 2 + 2, Math.min(WORLD / 2 - 2, s.pos.z));
+    s.pos.x = Math.max(-halfWidth(this.map.geometry) + 2, Math.min(halfWidth(this.map.geometry) - 2, s.pos.x));
+    s.pos.z = Math.max(-halfDepth(this.map.geometry) + 2, Math.min(halfDepth(this.map.geometry) - 2, s.pos.z));
     if (!trueFlight && s.pos.y <= 0.05 && this.tryStairs(s)) return;
     // THE UNSTICK (statue law, defense in depth): whatever put a grounded
     // body ON a blocked tile — a leap landing, a door closed on the doorway,
@@ -4159,8 +4456,8 @@ export class World {
     // The integrator above only vetoes destinations, so a body deep inside
     // masonry would otherwise stand frozen forever while its squad accretes
     // around it. hover=true spares swimmers: deep water is legal physics.
-    if (s.pos.y <= 0.05 && isBlocked(this.map.grid, s.pos.x, s.pos.z, true)) {
-      const esc = nearestOpenTile(this.map.grid, s.pos.x, s.pos.z);
+    if (s.pos.y <= 0.05 && isBlocked(this.map.grid, s.pos.x, s.pos.z, true, this.map.geometry)) {
+      const esc = nearestOpenTile(this.map.grid, s.pos.x, s.pos.z, 4, this.map.geometry);
       if (esc) {
         const dx = esc.x - s.pos.x, dz = esc.z - s.pos.z;
         const dl = Math.hypot(dx, dz) || 1;
@@ -4186,8 +4483,7 @@ export class World {
     if (target < 0 || !floorExists(this.map, target)) return false;
     const other = stairDirectionAt(this.map, target, s.pos.x, s.pos.z);
     if (!other || other.x !== stair.x || other.z !== stair.z || !hasFloorAt(this.map, target, s.pos.x, s.pos.z)) return false;
-    const tx = Math.floor((s.pos.x + WORLD / 2) / TILE);
-    const tz = Math.floor((s.pos.z + WORLD / 2) / TILE);
+    const [tx, tz] = worldToTile(this.map.geometry, s.pos.x, s.pos.z);
     s.floor = target;
     // Put the boots at the entry side of the next stacked flight. The tile is
     // an abstract whole stair run; this gives continuous movement enough room
@@ -4198,8 +4494,9 @@ export class World {
       : null;
     const continues = nextStair?.x === stair.x && nextStair.z === stair.z;
     const side = continues ? -direction : direction;
-    s.pos.x = (tx + 0.5) * TILE - WORLD / 2 + stair.x * side * TILE * 0.4;
-    s.pos.z = (tz + 0.5) * TILE - WORLD / 2 + stair.z * side * TILE * 0.4;
+    const center = tileToWorld(this.map.geometry, tx, tz);
+    s.pos.x = center.x + stair.x * side * this.map.geometry.tile * 0.4;
+    s.pos.z = center.z + stair.z * side * this.map.geometry.tile * 0.4;
     s.pos.y = floorHeight(target);
     s.vel.y = 0;
     s.stairDirection = direction;
@@ -4265,16 +4562,17 @@ export class World {
     const floor = s.floor ?? 0;
     const upper = floor > 0;
     const layer = floorLayer(this.map, floor);
-    for (const reach of [TILE * 0.6, TILE * 1.3]) {
+    const { cols, rows, tile } = this.map.geometry;
+    const area = cols * rows;
+    for (const reach of [tile * 0.6, tile * 1.3]) {
       const x = s.pos.x + Math.cos(s.yaw) * reach;
       const z = s.pos.z + Math.sin(s.yaw) * reach;
-      const tx = Math.floor((x + WORLD / 2) / TILE);
-      const tz = Math.floor((z + WORLD / 2) / TILE);
-      if (tx < 1 || tz < 1 || tx >= GRID - 1 || tz >= GRID - 1) continue;
-      const idx = tz * GRID + tx;
+      const [tx, tz] = worldToTile(this.map.geometry, x, z);
+      if (tx < 1 || tz < 1 || tx >= cols - 1 || tz >= rows - 1) continue;
+      const idx = tileIndex(this.map.geometry, tx, tz);
       const t = layer[idx];
       if (!isDoorTile(t, upper) || (!upper && t === T_METAL_DOOR)) continue;
-      this.toggleDoorTile(floor * GRID * GRID + idx, s.id);
+      this.toggleDoorTile(floor * area + idx, s.id);
       return true;
     }
     return false;
@@ -4284,15 +4582,17 @@ export class World {
    *  and the home-door automation — one grid flip, one replication entry,
    *  one event, whoever the hand was. */
   private toggleDoorTile(packed: number, soldierId: number) {
-    const floor = Math.floor(packed / (GRID * GRID));
-    const idx = packed % (GRID * GRID);
+    const area = this.map.geometry.cols * this.map.geometry.rows;
+    const floor = Math.floor(packed / area);
+    const idx = packed % area;
     const layer = floorLayer(this.map, floor);
     const t = layer[idx];
     layer[idx] = toggleDoorType(t, floor > 0);
     if (this.doorChanges.indexOf(packed) < 0) this.doorChanges.push(packed);
+    const pos = tileToWorld(this.map.geometry, idx % this.map.geometry.cols, Math.floor(idx / this.map.geometry.cols));
     this.emit({
       type: 'door', tile: packed, soldierId,
-      pos: { x: ((idx % GRID) + 0.5) * TILE - WORLD / 2, y: floorHeight(floor), z: (Math.floor(idx / GRID) + 0.5) * TILE - WORLD / 2 },
+      pos: { ...pos, y: floorHeight(floor) },
     });
   }
 
@@ -4306,12 +4606,13 @@ export class World {
     this.homeDoors = [];
     if (this.opts.mode === 'science') return; // infiltration doors belong to the operator, not base automation
     const R = 42; // the base zone: today's spawn yards, tomorrow's compounds
-    for (let z = 1; z < GRID - 1; z++) {
-      for (let x = 1; x < GRID - 1; x++) {
-        const idx = z * GRID + x;
+    const { cols, rows } = this.map.geometry;
+    for (let z = 1; z < rows - 1; z++) {
+      for (let x = 1; x < cols - 1; x++) {
+        const idx = tileIndex(this.map.geometry, x, z);
         const t = this.map.grid[idx];
         if (!isDoorTile(t) || t === T_METAL_DOOR) continue;
-        const wx = (x + 0.5) * TILE - WORLD / 2, wz = (z + 0.5) * TILE - WORLD / 2;
+        const { x: wx, z: wz } = tileToWorld(this.map.geometry, x, z);
         for (const team of [0, 1] as const) {
           const b = this.map.basePos[team];
           if (Math.hypot(b.x - wx, b.z - wz) <= R) { this.homeDoors.push({ idx, team }); break; }
@@ -4325,8 +4626,7 @@ export class World {
     for (const d of this.homeDoors) {
       const t = this.map.grid[d.idx];
       if (!isDoorTile(t) || t === T_METAL_DOOR) continue; // breached away — the hole stays a hole
-      const x = ((d.idx % GRID) + 0.5) * TILE - WORLD / 2;
-      const z = (Math.floor(d.idx / GRID) + 0.5) * TILE - WORLD / 2;
+      const { x, z } = tileToWorld(this.map.geometry, d.idx % this.map.geometry.cols, Math.floor(d.idx / this.map.geometry.cols));
       let ownerNear = false, anyoneInDoorway = false;
       for (const s of this.soldiers.values()) {
         if (!s.alive || s.floor !== 0 || (s.kind !== 'human' && s.kind !== 'bot')) continue;
@@ -4343,7 +4643,7 @@ export class World {
   /** door tiles whose state ever changed — replicated so puppets stay true */
   doorChanges: number[] = [];
 
-  /** Broken panes packed as floor*GRID²+idx. Cumulative and idempotent like
+  /** Broken panes packed as floor*map-area+idx. Cumulative and idempotent like
    * breached walls, so late-joining puppets inherit the exact facade. */
   glassChanges: number[] = [];
 
@@ -4351,21 +4651,18 @@ export class World {
     let layer: Uint8Array;
     try { layer = floorLayer(this.map, floor); }
     catch { return false; }
-    const tx = Math.floor((x + WORLD / 2) / TILE), tz = Math.floor((z + WORLD / 2) / TILE);
-    if (tx < 0 || tz < 0 || tx >= GRID || tz >= GRID) return false;
-    const idx = tz * GRID + tx;
+    const [tx, tz] = worldToTile(this.map.geometry, x, z);
+    const { cols, rows } = this.map.geometry;
+    if (tx < 0 || tz < 0 || tx >= cols || tz >= rows) return false;
+    const idx = tileIndex(this.map.geometry, tx, tz);
     const before = layer[idx];
     if (!isWindowTile(before, floor > 0) || windowIsBroken(before, floor > 0)) return false;
     layer[idx] = breakWindowTile(before, floor > 0);
-    const packed = floor * GRID * GRID + idx;
+    const packed = floor * cols * rows + idx;
     if (!this.glassChanges.includes(packed)) this.glassChanges.push(packed);
     this.emit({
       type: 'glass',
-      pos: {
-        x: (tx + 0.5) * TILE - WORLD / 2,
-        y: floorHeight(floor) + 1.5,
-        z: (tz + 0.5) * TILE - WORLD / 2,
-      },
+      pos: { ...tileToWorld(this.map.geometry, tx, tz), y: floorHeight(floor) + 1.5 },
       tile: packed,
     });
     return true;
@@ -4375,12 +4672,12 @@ export class World {
    *  activation key again — same verb as doors and vehicles. */
   private tryLadder(s: Soldier): boolean {
     if (!actorCanUseVerticalTransition(s.kind, 'ladder')) return false;
-    for (const reach of [0, TILE * 0.6]) {
+    const { cols, rows, tile } = this.map.geometry;
+    for (const reach of [0, tile * 0.6]) {
       const x = s.pos.x + Math.cos(s.yaw) * reach;
       const z = s.pos.z + Math.sin(s.yaw) * reach;
-      const tx = Math.floor((x + WORLD / 2) / TILE);
-      const tz = Math.floor((z + WORLD / 2) / TILE);
-      if (tx < 1 || tz < 1 || tx >= GRID - 1 || tz >= GRID - 1) continue;
+      const [tx, tz] = worldToTile(this.map.geometry, x, z);
+      if (tx < 1 || tz < 1 || tx >= cols - 1 || tz >= rows - 1) continue;
       if (!ladderWellAt(this.map, s.floor, x, z)) continue;
       const canUp = floorExists(this.map, s.floor + 1)
         && ladderWellAt(this.map, s.floor + 1, x, z);
@@ -4397,8 +4694,9 @@ export class World {
       const targetCanDown = target > 0 && ladderWellAt(this.map, target - 1, x, z);
       if (!targetCanUp) s.ladderDirection = -1;
       else if (!targetCanDown) s.ladderDirection = 1;
-      s.pos.x = (tx + 0.5) * TILE - WORLD / 2;
-      s.pos.z = (tz + 0.5) * TILE - WORLD / 2;
+      const center = tileToWorld(this.map.geometry, tx, tz);
+      s.pos.x = center.x;
+      s.pos.z = center.z;
       s.pos.y = floorHeight(target);
       s.vel.x = 0;
       s.vel.y = 0;
@@ -4445,7 +4743,7 @@ export class World {
     if (sp < 0.1) return; // grip held, but nobody's going anywhere
     const tx = s.pos.x - (s.vel.x / sp) * DRAG_OFFSET;
     const tz = s.pos.z - (s.vel.z / sp) * DRAG_OFFSET;
-    if (!isBlocked(this.map.grid, tx, tz)) {
+    if (!isBlocked(this.map.grid, tx, tz, false, this.map.geometry)) {
       body.pos.x = tx;
       body.pos.z = tz;
     }
@@ -4535,6 +4833,7 @@ export class World {
           // a pilot taking the stick starts the rotor spool — no liftoff until it's done
           const lift = VEHICLES[v.kind].liftoffTime;
           if (seat === 0 && lift) {
+            v.landed = false;
             v.spoolUntil = this.time + lift;
             this.emit({ type: 'announce', text: `${VEHICLES[v.kind].name}: rotors spooling…` });
           }
@@ -4547,15 +4846,21 @@ export class World {
   }
 
   exitVehicle(s: Soldier, v: Vehicle) {
+    const airborne = !!VEHICLES[v.kind].flies && (v.band ?? 0) > 0;
     v.seats[s.seat] = -1;
     // last one out starts the abandonment clock — hotwire and write-off run on it
     if (!v.seats.some((id) => id >= 0)) v.abandonedAt = this.time;
+    recordVehicleEvent(this.vehicleTelemetry, {
+      kind: airborne ? 'bailout' : 'abandon', t: this.time, vehicleId: v.id, vehicleKind: v.kind,
+      theaterId: this.map.theater?.id ?? 'classic', seed: this.map.seed,
+      x: v.pos.x, z: v.pos.z, detail: s.name,
+    });
     s.vehicleId = -1;
     s.seat = -1;
     const side = v.yaw + Math.PI / 2;
     const ex = v.pos.x + Math.cos(side) * (VEHICLES[v.kind].radius + 1.5);
     const ez = v.pos.z + Math.sin(side) * (VEHICLES[v.kind].radius + 1.5);
-    s.pos = isBlocked(this.map.grid, ex, ez) ? { ...v.pos } : { x: ex, y: 0, z: ez };
+    s.pos = isBlocked(this.map.grid, ex, ez, false, this.map.geometry) ? { ...v.pos } : { x: ex, y: 0, z: ez };
     this.emit({ type: 'vehicle_exit', pos: s.pos, soldierId: s.id, vehicleId: v.id });
   }
 
@@ -4632,6 +4937,7 @@ export class World {
 
   stepVehicle(v: Vehicle, cmds: Map<number, PlayerCmd>, dt: number) {
     if (!v.alive) {
+      if (this.operation) return; // an Operation has a finite manifest; wrecks do not print back in
       if (this.time >= v.respawnAt && !this.mode.over) {
         // co-op support vehicles respawn too; battle vehicles only outside co-op
         const support = v.kind === 'ambulance' || v.kind === 'emplacement';
@@ -4646,6 +4952,7 @@ export class World {
         v.seats.fill(-1);
         v.systems = this.freshSystems(v.kind);
         v.burrowed = false; // wrecks come back surfaced
+        v.submerged = false;
         v.flares = FLARES_PER_LIFE;
       }
       return;
@@ -4677,6 +4984,7 @@ export class World {
       if (driverCmd.use && driver && this.time - driver.enteredVehicleAt > 0.3
           && !(VEHICLES[v.kind].flies && (v.band ?? 0) > 0)) this.exitVehicle(driver, v);
     }
+    this.vehicleCommandedSpeed.set(v.id, driverCmd && !stunned ? Math.abs(driverCmd.moveZ) * def.speed : 0);
 
     // a manned gunner station overrides the driver's trigger (transport)
     const gunner = this.crewAt(v, 'gunner');
@@ -4719,10 +5027,10 @@ export class World {
       // dead engine limps at 35% throttle response
       const engineMult = v.systems.engine > 0 ? 1 : 0.35;
       // a deep breacher shoves through packed earth — half pace
-      const depthMult = def.digs && v.burrowed ? 0.5 : 1;
+      const depthMult = def.digs && v.burrowed ? 0.5 : def.submersible && v.submerged ? 0.72 : 1;
       // §8.6: the ground has a say — hover ignores it, legs read it like boots,
       // tracks shrug at what swallows wheels
-      const surf = surfaceAt(this.map.surface, v.pos.x, v.pos.z);
+      const surf = surfaceAt(this.map.surface, v.pos.x, v.pos.z, this.map.geometry);
       const tracked = v.kind === 'tank' || v.kind === 'apc' || v.kind === 'tunneler';
       const surfMult = (def.hover || def.flies ? 1
         : def.strider ? (SURF_SOLDIER[surf] ?? 1)
@@ -4747,8 +5055,8 @@ export class World {
       // J1 band lifecycle: taking the sky opens at the airframe's home band
       // (jets 3, rotors 2); an empty aircraft is parked, band 0.
       if (def.flies) {
-        if (flown && (v.band ?? 0) === 0) v.band = def.minAirspeed ? 3 : 2;
-        if (v.seats[0] < 0) v.band = 0;
+        if (flown && (v.band ?? 0) === 0 && !v.landed) v.band = def.minAirspeed ? 3 : 2;
+        if (v.seats[0] < 0) { v.band = 0; v.landed = true; }
       }
       // J1 THE AFTERBURNER (Robert): hold sprint and the pilot's own tank
       // feeds the engine — 1.4x thrust while energy lasts, refilling when the
@@ -4804,7 +5112,7 @@ export class World {
       // structure, in which case it may keep soaring until it finds clear
       // ground (never trap a hull inside a wall it legally flew onto)
       const stormGrounded = def.flies && airGrounded(this.weather) &&
-        !isBlocked(this.map.grid, v.pos.x, v.pos.z, true);
+        !isBlocked(this.map.grid, v.pos.x, v.pos.z, true, this.map.geometry);
       if ((def.flies && !stormGrounded) || (def.digs && v.burrowed)) {
         // W5.1 THE SKYLINE IS REAL: at band 1 (low flight, ~2u) a hull can
         // meet a BUILDING — walls, slits, doorframes, metal. Speed-scaled
@@ -4812,11 +5120,16 @@ export class World {
         // 2+ soars the sanctuary above the roofline (BAND_ALT clears the
         // 8.15 rooftops); the deck (band 0) keeps its legacy taxi pass.
         // Cover crates and climb barricades sit UNDER the low-flight deck.
-        if (def.flies && v.band === 1 && this.buildingAt(nx, nz)) {
+        if (def.flies && collidesAtElevation(asElevationLevel(v.band), 1) && (v.band ?? 0) > 0 && this.buildingAt(nx, nz)) {
           const spd = Math.hypot(v.vel.x, v.vel.z);
           if (spd > 4 && this.time >= (v.nextCrashAt ?? 0)) {
             v.nextCrashAt = this.time + 0.5;
             this.damageVehicle(v, 12 + spd * 2.2, -1, 'crash');
+            recordVehicleEvent(this.vehicleTelemetry, {
+              kind: 'crash', t: this.time, vehicleId: v.id, vehicleKind: v.kind,
+              theaterId: this.map.theater?.id ?? 'classic', seed: this.map.seed,
+              x: nx, z: nz, detail: `${spd.toFixed(1)}u/s`,
+            });
             this.emit({ type: 'explosion', pos: { x: nx, y: 2, z: nz }, weapon: 'gl' });
           }
           v.vel.x *= -0.25; // the wall wins — the hull rebuffs
@@ -4830,9 +5143,9 @@ export class World {
       } else {
         // tunneler grinds the wall ahead into rubble instead of stopping
         if (def.digs && Math.abs(throttle) > 0.1 && this.time >= v.nextDigAt) {
-          const aheadX = v.pos.x + Math.cos(v.yaw) * (r + TILE * 0.6) * Math.sign(throttle);
-          const aheadZ = v.pos.z + Math.sin(v.yaw) * (r + TILE * 0.6) * Math.sign(throttle);
-          const t = tileAt(this.map.grid, aheadX, aheadZ);
+          const aheadX = v.pos.x + Math.cos(v.yaw) * (r + this.map.geometry.tile * 0.6) * Math.sign(throttle);
+          const aheadZ = v.pos.z + Math.sin(v.yaw) * (r + this.map.geometry.tile * 0.6) * Math.sign(throttle);
+          const t = tileAt(this.map.grid, aheadX, aheadZ, this.map.geometry);
           const dmat = materialOf(t);
           if (dmat.drill > 0) {
             // grind time scales by 1/drill: masonry ~0.35s, metal ~0.82s, the
@@ -4840,20 +5153,24 @@ export class World {
             // a spark shower at the drill face the whole time it grinds.
             v.nextDigAt = this.time + DRILL_BASE / dmat.drill;
             if (dmat.impact === 'spark') this.emit({ type: 'sparks', pos: { x: aheadX, y: 1.2, z: aheadZ } });
-            this.digTile(Math.floor((aheadX + WORLD / 2) / TILE), Math.floor((aheadZ + WORLD / 2) / TILE));
+            const [digX, digZ] = worldToTile(this.map.geometry, aheadX, aheadZ);
+            this.digTile(digX, digZ);
           }
         }
         const hover = !!def.hover;
         // striders (mech) step OVER low cover — only walls and water stop legs
         const blockedAt = def.boat
           // boats live ON the water: every land tile is their wall
-          ? (x: number, z: number) => { const t = tileAt(this.map.grid, x, z); return t !== T_WATER && t !== T_DEEP; }
+          ? (x: number, z: number) => {
+              const t = tileAt(this.map.grid, x, z, this.map.geometry);
+              return def.submersible && v.submerged ? t !== T_DEEP : t !== T_WATER && t !== T_DEEP;
+            }
           : def.strider
             // legs step over HOP-tier cover, but the CLIMB and WALL tiers
             // (§8.7) are taller than a mech's stride — barricades, walls,
             // metal, and slits all say no
-            ? (x: number, z: number) => { const t = tileAt(this.map.grid, x, z); return t === T_WALL || t === T_METAL || t === T_SLIT || t === T_CLIMB || t === T_DEEP; }
-            : (x: number, z: number) => isBlocked(this.map.grid, x, z, hover);
+            ? (x: number, z: number) => { const t = tileAt(this.map.grid, x, z, this.map.geometry); return t === T_WALL || t === T_METAL || t === T_SLIT || t === T_CLIMB || t === T_DEEP; }
+            : (x: number, z: number) => isBlocked(this.map.grid, x, z, hover, this.map.geometry);
         const clearAt = (x: number, z: number) =>
           !blockedAt(x + r, z) && !blockedAt(x - r, z) &&
           !blockedAt(x, z + r) && !blockedAt(x, z - r);
@@ -4866,12 +5183,19 @@ export class World {
       // taxiing off the map is not a maneuver). Seam distances don't wrap:
       // a SAM reads the long way round, which is the price of the trick.
       if (def.flies && (v.band ?? 0) > 0) {
-        const E = WORLD / 2 - 1;
-        if (v.pos.x > E) v.pos.x = -E; else if (v.pos.x < -E) v.pos.x = E;
-        if (v.pos.z > E) v.pos.z = -E; else if (v.pos.z < -E) v.pos.z = E;
+        const beforeX = v.pos.x, beforeZ = v.pos.z;
+        const wrapped = wrapWorld(this.map.geometry, v.pos, 1);
+        v.pos.x = wrapped.x;
+        v.pos.z = wrapped.z;
+        if (beforeX !== wrapped.x || beforeZ !== wrapped.z) recordVehicleEvent(this.vehicleTelemetry, {
+          kind: 'boundary_wrap', t: this.time, vehicleId: v.id, vehicleKind: v.kind,
+          theaterId: this.map.theater?.id ?? 'classic', seed: this.map.seed,
+          x: wrapped.x, z: wrapped.z,
+        });
       } else {
-        v.pos.x = Math.max(-WORLD / 2 + 3, Math.min(WORLD / 2 - 3, v.pos.x));
-        v.pos.z = Math.max(-WORLD / 2 + 3, Math.min(WORLD / 2 - 3, v.pos.z));
+        const clamped = clampWorld(this.map.geometry, v.pos, 3);
+        v.pos.x = clamped.x;
+        v.pos.z = clamped.z;
       }
     } else {
       v.vel.x = 0; v.vel.z = 0;
@@ -4928,8 +5252,14 @@ export class World {
         bornAt: this.time, ttl: wdef.range / wdef.speed, arc: false,
         // an aircraft's rounds live in ITS speed frame — see launch()
         airScaled: !!def.flies,
+        ...(def.flies ? { elevationWeapon: 'aircraft' as const } : {}),
       };
       this.launch(p);
+      recordVehicleEvent(this.vehicleTelemetry, {
+        kind: 'shot', t: this.time, vehicleId: v.id, vehicleKind: v.kind,
+        theaterId: this.map.theater?.id ?? 'classic', seed: this.map.seed,
+        x: v.pos.x, z: v.pos.z, detail: def.weapon,
+      });
       this.emit({ type: 'shot', pos: { ...p.pos }, weapon: def.weapon, soldierId: shooter.id });
     }
   }
@@ -4939,7 +5269,7 @@ export class World {
     for (const s of this.soldiers.values()) {
       if (!s.alive || s.team === team || s.vehicleId >= 0 || (s.cloaked && !this.pinged.has(s.id))) continue;
       const d = Math.hypot(s.pos.x - pos.x, s.pos.z - pos.z);
-      if (d < bestD && losClear(this.map.grid, { ...pos, y: 1.6 }, { ...s.pos, y: 1.2 })) { best = s; bestD = d; }
+      if (d < bestD && losClear(this.map.grid, { ...pos, y: 1.6 }, { ...s.pos, y: 1.2 }, 1.4, this.map.geometry)) { best = s; bestD = d; }
     }
     return best;
   }
@@ -4954,7 +5284,7 @@ export class World {
     for (const s of this.soldiers.values()) {
       if (!s.alive || s.team === t.team || (s.cloaked && s.kind !== 'zombie')) continue;
       const d = Math.hypot(s.pos.x - t.pos.x, s.pos.z - t.pos.z);
-      if (d < bestD && losClear(this.map.grid, t.pos, s.pos, 1.4)) { best = s; bestD = d; }
+      if (d < bestD && losClear(this.map.grid, t.pos, s.pos, 1.4, this.map.geometry)) { best = s; bestD = d; }
     }
     if (best) {
       t.yaw = Math.atan2(best.pos.z - t.pos.z, best.pos.x - t.pos.x);
@@ -5024,7 +5354,7 @@ export class World {
     }
     // 3. a WALL (it flew INTO a blocked tile below the wall tier) — back off to
     //    just outside and cling to the face
-    if (p.pos.y < 4.05 && isBlocked(this.map.grid, p.pos.x, p.pos.z)) {
+    if (p.pos.y < 4.05 && isBlocked(this.map.grid, p.pos.x, p.pos.z, false, this.map.geometry)) {
       p.stuckPos = { x: px, y: Math.max(0.3, py), z: pz };
       p.stuckAt = this.time; p.vel = { x: 0, y: 0, z: 0 };
       this.emit({ type: 'plasma_stick', pos: { ...p.stuckPos } });
@@ -5070,7 +5400,7 @@ export class World {
       // the CL-40's max-knockback round brings its own (hardcoding conc_nade
       // here would cap every concussion weapon at the hand grenade's shove)
       const def = WEAPONS[p.weapon]?.splash ? WEAPONS[p.weapon] : WEAPONS.conc_nade;
-      this.explode(p.pos, def, p.ownerId, p.team, p.airScaled);
+      this.explode(p.pos, def, p.ownerId, p.team, p.elevationWeapon ?? !!p.airScaled);
       for (const s of this.soldiers.values()) {
         if (!s.alive || s.vehicleId >= 0 || s.team === p.team) continue;
         if (this.time < s.protectedUntil) continue;
@@ -5277,8 +5607,8 @@ export class World {
         const floor = p.pos.y >= 8 ? 2 : p.pos.y >= 4 ? 1 : 0;
         try {
           const layer = floorLayer(this.map, floor);
-          const pane = tileAt(layer, p.pos.x, p.pos.z);
-          if (isWindowTile(pane, floor > 0) && !windowIsBroken(pane, floor > 0) && thinTileBlocks(pane, p.pos.x, p.pos.z, floor > 0)
+          const pane = tileAt(layer, p.pos.x, p.pos.z, this.map.geometry);
+          if (isWindowTile(pane, floor > 0) && !windowIsBroken(pane, floor > 0) && thinTileBlocks(pane, p.pos.x, p.pos.z, floor > 0, this.map.geometry)
             && this.shatterWindowAt(p.pos.x, p.pos.z, floor)) dead = true;
         } catch { /* projectile is above an unallocated storey */ }
         if (dead) { this.projectiles.delete(id); continue; }
@@ -5308,11 +5638,11 @@ export class World {
         // → impact. A ground hit (y<=0) always impacts. splash/payload rounds
         // (rockets, GLs) always impact — they detonate on any surface.
         const py = Math.max(p.pos.y, 0);
-        const wall = p.pos.y > 0 && blocksShot(this.map.grid, p.pos.x, p.pos.z, py);
-        const mat = wall ? materialOf(tileAt(this.map.grid, p.pos.x, p.pos.z)) : null;
+        const wall = p.pos.y > 0 && blocksShot(this.map.grid, p.pos.x, p.pos.z, py, this.map.geometry);
+        const mat = wall ? materialOf(tileAt(this.map.grid, p.pos.x, p.pos.z, this.map.geometry)) : null;
         const ox = p.pos.x - p.vel.x * dt, oz = p.pos.z - p.vel.z * dt;
-        const blockX = wall && blocksShot(this.map.grid, p.pos.x, oz, py);
-        const blockZ = wall && blocksShot(this.map.grid, ox, p.pos.z, py);
+        const blockX = wall && blocksShot(this.map.grid, p.pos.x, oz, py, this.map.geometry);
+        const blockZ = wall && blocksShot(this.map.grid, ox, p.pos.z, py, this.map.geometry);
         const plain = def.splash <= 0 && !def.heals; // ricochet/pierce are for plain rounds
         if (mat && plain && (p.ricochet ?? 0) > 0 && mat.ricochet > 0 && blockX !== blockZ && this.rng.next() < mat.ricochet) {
           // 1. RICOCHET — bank off the blocked axis, bleed 30% dmg, keep flying
@@ -5327,14 +5657,15 @@ export class World {
           if (!def.training) this.damageSurface(p.pos.x, p.pos.z, def.damage * (p.dmgMul ?? 1), def.damage >= 100, p.ownerId);
           p.pierce!--; p.dmgMul = (p.dmgMul ?? 1) * 0.85;
           const vl = Math.hypot(p.vel.x, p.vel.z) || 1;
-          p.pos.x += (p.vel.x / vl) * (TILE + 0.5); p.pos.z += (p.vel.z / vl) * (TILE + 0.5);
+          p.pos.x += (p.vel.x / vl) * (this.map.geometry.tile + 0.5);
+          p.pos.z += (p.vel.z / vl) * (this.map.geometry.tile + 0.5);
         } else {
           // 3. IGNITE (proj.ignite & mat.flammable) wires here when the fire system lands.
           // 4. IMPACT — detonate/splash, else the round dies and DAMAGES the wall
           // per its material (soft cover shreds, masonry/metal shrug small arms —
           // the heavyOnly gate lives in damageWall). Ground hits (no mat) just splat.
           if (this.detonatePayload(p)) { /* payload delivered */ }
-          else if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team, p.airScaled);
+          else if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team, p.elevationWeapon ?? !!p.airScaled);
           else {
             // a TRAINING round marks the wall and stops there — paint has no
             // business breaching masonry (see WeaponDef.training)
@@ -5398,7 +5729,7 @@ export class World {
                 this.emit({ type: 'heal', pos: s.pos, soldierId: s.id });
               } else continue; // beam passes through clean, full-health allies
             } else if (def.splash > 0) {
-              this.explode(p.pos, def, p.ownerId, p.team, p.airScaled);
+              this.explode(p.pos, def, p.ownerId, p.team, p.elevationWeapon ?? !!p.airScaled);
             } else {
               // read the plate BEFORE the round resolves — damageSoldier eats
               // the armor, so asking afterward always says "bare"
@@ -5502,8 +5833,10 @@ export class World {
           // game for everything (the old y<3 rule), but bands 2-3 can only be
           // touched by AIR-SCALED ordnance — SAMs, MANPADS, and guns fired
           // from aircraft. A ground rifle can no longer clip a high bomber.
-          const vBand = v.band ?? 0;
-          const inReach = vBand <= 1 ? p.pos.y < 3 : p.airScaled === true;
+          const vBand = asElevationLevel(v.band);
+          const weaponClass: ElevationWeaponClass = p.elevationWeapon ?? (p.airScaled ? 'aircraft' : 'ground');
+          const inReach = canWeaponReachElevation(weaponClass, vBand) && (vBand > 1 || p.pos.y < 3)
+            && (!v.submerged || def.torpedo === true);
           if (Math.hypot(v.pos.x - p.pos.x, v.pos.z - p.pos.z) < r + 0.3 && inReach) {
             if (def.heals && v.team === p.team) {
               if (v.hp < v.maxHp && p.weapon === 'repair') {
@@ -5514,9 +5847,16 @@ export class World {
               break;
             }
             if (v.team === p.team) break; // no friendly vehicle damage
-            if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team, p.airScaled);
+            if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team, p.elevationWeapon ?? !!p.airScaled);
             else {
               this.damageVehicle(v, def.damage, p.ownerId, p.weapon);
+              const attacker = this.soldiers.get(p.ownerId);
+              const attackerHull = attacker?.vehicleId !== undefined && attacker.vehicleId >= 0 ? this.vehicles.get(attacker.vehicleId) : undefined;
+              if (attackerHull) recordVehicleEvent(this.vehicleTelemetry, {
+                kind: 'hit', t: this.time, vehicleId: attackerHull.id, vehicleKind: attackerHull.kind,
+                theaterId: this.map.theater?.id ?? 'classic', seed: this.map.seed,
+                x: v.pos.x, z: v.pos.z, detail: v.kind,
+              });
               this.emit({ type: 'hit', pos: { ...p.pos }, weapon: p.weapon, soldierId: p.ownerId });
             }
             dead = true;
@@ -5530,7 +5870,7 @@ export class World {
         for (const t of this.turrets.values()) {
           if (!t.alive || t.team === p.team) continue;
           if (Math.hypot(t.pos.x - p.pos.x, t.pos.z - p.pos.z) < 1.2 && p.pos.y < 2.4) {
-            if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team, p.airScaled);
+            if (def.splash > 0) this.explode(p.pos, def, p.ownerId, p.team, p.elevationWeapon ?? !!p.airScaled);
             else this.damageTurret(t, def.damage);
             dead = true;
             break;
@@ -5570,7 +5910,7 @@ export class World {
 
       if (dead || this.time - p.bornAt > p.ttl) {
         if (!dead && this.detonatePayload(p)) { /* payload delivered at end of arc */ }
-        else if (!dead && def.splash > 0 && p.arc) this.explode(p.pos, def, p.ownerId, p.team, p.airScaled); // grenades detonate on timeout
+        else if (!dead && def.splash > 0 && p.arc) this.explode(p.pos, def, p.ownerId, p.team, p.elevationWeapon ?? !!p.airScaled); // grenades detonate on timeout
         // CLUSTER: burst into k bouncing submunitions (~40% dmg) on death
         if (def.cluster && !p.submunition) {
           for (let k = 0; k < def.cluster; k++) {
@@ -5633,7 +5973,7 @@ export class World {
         const kind = riseKind(s.classId); // §7: the body decides the form
         s.viralLoad = 0;
         this.damageSoldier(s, 99999, -1, 'ar606'); // overkill: no downed crawl
-        const open = nearestOpenTile(this.map.grid, s.pos.x, s.pos.z) ?? s.pos;
+        const open = nearestOpenTile(this.map.grid, s.pos.x, s.pos.z, 4, this.map.geometry) ?? s.pos;
         const z = this.addZombie(kind, { x: open.x, y: 0, z: open.z });
         z.name = `${name} (turned)`;
         this.emit({ type: 'reanimated', pos: { ...z.pos }, soldierId: z.id });
@@ -5701,7 +6041,7 @@ export class World {
         }
         return true;
       }
-      const open = nearestOpenTile(this.map.grid, c.pos.x, c.pos.z) ?? c.pos;
+      const open = nearestOpenTile(this.map.grid, c.pos.x, c.pos.z, 4, this.map.geometry) ?? c.pos;
       const z = this.addZombie(riseKind(c.classId), { x: open.x, y: 0, z: open.z });
       // MUTATION FIELD (§8/§7): a body that rots inside a contamination nest
       // rises MUTATED — a tougher, hotter phenotype (a readable, emergent cause).
@@ -5733,13 +6073,17 @@ export class World {
     if (!alreadyDown) this.emit({ type: 'ragdoll', pos: { ...s.pos }, soldierId: s.id });
   }
 
-  explode(pos: Vec3, def: (typeof WEAPONS)[WeaponId], ownerId: number, team: Team, airBurst = false) {
+  explode(pos: Vec3, def: (typeof WEAPONS)[WeaponId], ownerId: number, team: Team, airBurst: boolean | ElevationWeaponClass = false) {
     // THE TWO ZONES (Robert: "a circle in the center, and a radius around
     // that… the closer you are, the more"). The lethal HEART — a direct-hit
     // class blow — reaches `killR`; from there damage falls smoothly to
     // nothing at the splash rim. The client draws these exact two radii, so
     // the ground rings tell the literal truth about who dies where.
     const killR = Math.min(def.splash * 0.4, 2.4);
+    if (team === 0 && def.splash > 0 && this.operation?.plan.complication === 'no_collateral') {
+      const protectedHit = this.map.operation?.protectedZones.some((zone) => Math.hypot(zone.pos.x - pos.x, zone.pos.z - pos.z) <= zone.radius);
+      if (protectedHit) this.operationCollateral++;
+    }
     // THE OUTBREAK (OUTBREAK-SPEC §6.2): a blast is corpse denial — any
     // exposed body inside the splash is neutralized and never rises. (The
     // fire system will join this when W7.3 lands; v1 speaks in explosions.)
@@ -5785,10 +6129,19 @@ export class World {
       if (!v.alive || v.team === team) continue;
       // SANCTUARY LAW: GROUND blasts stop at band 1 — a frag in the street
       // doesn't wound the high sky. An AIR-BURST (SAM/air ordnance) still does.
-      if ((v.band ?? 0) >= 2 && !airBurst) continue;
+      const weaponClass: ElevationWeaponClass = typeof airBurst === 'string' ? airBurst : airBurst ? 'aircraft' : 'ground';
+      if (!canWeaponReachElevation(weaponClass, asElevationLevel(v.band))) continue;
+      if (v.submerged && !def.torpedo) continue;
       const d = Math.hypot(v.pos.x - pos.x, v.pos.z - pos.z);
       if (d < def.splash + VEHICLES[v.kind].radius) {
         this.damageVehicle(v, (def.splashDamage + def.damage * 0.5) * (1 - d / (def.splash + 2)), ownerId, def.id);
+        const attacker = this.soldiers.get(ownerId);
+        const attackerHull = attacker && attacker.vehicleId >= 0 ? this.vehicles.get(attacker.vehicleId) : undefined;
+        if (attackerHull) recordVehicleEvent(this.vehicleTelemetry, {
+          kind: 'hit', t: this.time, vehicleId: attackerHull.id, vehicleKind: attackerHull.kind,
+          theaterId: this.map.theater?.id ?? 'classic', seed: this.map.seed,
+          x: v.pos.x, z: v.pos.z, detail: `${def.id}->${v.kind}`,
+        });
       }
     }
     for (const t of this.turrets.values()) {
@@ -5803,22 +6156,24 @@ export class World {
     // markers do, which made one lobbed ball a demolition charge that
     // flattened every destructible tile within 3.3u of where it landed.
     if (def.splash > 0 && def.splashDamage > 0 && !def.training) {
-      const r = Math.ceil(def.splash / TILE) + 1;
-      const ctx = Math.floor((pos.x + WORLD / 2) / TILE), ctz = Math.floor((pos.z + WORLD / 2) / TILE);
-      for (let tz = Math.max(1, ctz - r); tz <= Math.min(GRID - 2, ctz + r); tz++) {
-        for (let tx = Math.max(1, ctx - r); tx <= Math.min(GRID - 2, ctx + r); tx++) {
-          const idx = tz * GRID + tx;
+      const { cols, rows, tile } = this.map.geometry;
+      const r = Math.ceil(def.splash / tile) + 1;
+      const [ctx, ctz] = worldToTile(this.map.geometry, pos.x, pos.z);
+      for (let tz = Math.max(1, ctz - r); tz <= Math.min(rows - 2, ctz + r); tz++) {
+        for (let tx = Math.max(1, ctx - r); tx <= Math.min(cols - 2, ctx + r); tx++) {
+          const idx = tileIndex(this.map.geometry, tx, tz);
           const g = this.map.grid[idx];
-          const d = Math.hypot((tx + 0.5) * TILE - WORLD / 2 - pos.x, (tz + 0.5) * TILE - WORLD / 2 - pos.z);
-          if (d >= def.splash + TILE * 0.5) continue;
+          const center = tileToWorld(this.map.geometry, tx, tz);
+          const d = Math.hypot(center.x - pos.x, center.z - pos.z);
+          if (d >= def.splash + tile * 0.5) continue;
           if (isDoorTile(g) && g !== T_METAL_DOOR) {
             // ×1.5: dumb wood takes a blast worse than a dodging soldier does
-            this.damageDoor(idx, (def.splashDamage + def.damage * 0.5) * 1.5 * (1 - d / (def.splash + TILE)), ownerId);
+            this.damageDoor(idx, (def.splashDamage + def.damage * 0.5) * 1.5 * (1 - d / (def.splash + tile)), ownerId);
           } else {
             // DESTRUCTION: masonry in the blast takes the same ledger hit.
             // HEAVY (120mm-class, damage ≥ 100) breaches structure; anything
             // with real splash chips soft cover. damageWall sorts the tiers.
-            this.damageWall(tx, tz, (def.splashDamage + def.damage * 0.5) * (1 - d / (def.splash + TILE)), def.damage >= 100);
+            this.damageWall(tx, tz, (def.splashDamage + def.damage * 0.5) * (1 - d / (def.splash + tile)), def.damage >= 100);
           }
         }
       }
@@ -5836,7 +6191,9 @@ export class World {
    *  which has not yet thawed? Lazy — no sweep, just a clock check. */
   isFrozenWater(x: number, z: number): boolean {
     if (this.frozenWater.size === 0) return false;
-    const idx = Math.floor((z + WORLD / 2) / TILE) * GRID + Math.floor((x + WORLD / 2) / TILE);
+    const [tx, tz] = worldToTile(this.map.geometry, x, z);
+    if (tx < 0 || tx >= this.map.geometry.cols || tz < 0 || tz >= this.map.geometry.rows) return false;
+    const idx = tileIndex(this.map.geometry, tx, tz);
     return (this.frozenWater.get(idx) ?? 0) > this.time;
   }
 
@@ -5845,16 +6202,17 @@ export class World {
    *  calls this each tick he stands near a shore, so the bridge forms under
    *  him and lingers a beat after he moves on. Deterministic (no rng). */
   freezeWaterNear(x: number, z: number, radius: number, until: number) {
-    const r = Math.ceil(radius / TILE);
-    const cx = Math.floor((x + WORLD / 2) / TILE), cz = Math.floor((z + WORLD / 2) / TILE);
+    const { cols, rows, tile } = this.map.geometry;
+    const r = Math.ceil(radius / tile);
+    const [cx, cz] = worldToTile(this.map.geometry, x, z);
     for (let dz = -r; dz <= r; dz++) {
       for (let dx = -r; dx <= r; dx++) {
         const tx = cx + dx, tz = cz + dz;
-        if (tx < 0 || tx >= GRID || tz < 0 || tz >= GRID) continue;
-        const idx = tz * GRID + tx;
+        if (tx < 0 || tx >= cols || tz < 0 || tz >= rows) continue;
+        const idx = tileIndex(this.map.geometry, tx, tz);
         const t = this.map.grid[idx];
         if (t !== T_WATER && t !== T_DEEP) continue;
-        const wx = tx * TILE - WORLD / 2 + TILE / 2, wz = tz * TILE - WORLD / 2 + TILE / 2;
+        const { x: wx, z: wz } = tileToWorld(this.map.geometry, tx, tz);
         if (Math.hypot(wx - x, wz - z) > radius) continue;
         const wasFrozen = (this.frozenWater.get(idx) ?? 0) > this.time;
         this.frozenWater.set(idx, until);
@@ -5907,7 +6265,7 @@ export class World {
       const fx = Math.cos(b.s.yaw), fz = Math.sin(b.s.yaw);
       let end = b.def.range;
       for (let d = 1; d <= b.def.range; d += 1) {
-        if (blocksShot(this.map.grid, b.s.pos.x + fx * d, b.s.pos.z + fz * d, 1.3)) { end = d; break; }
+        if (blocksShot(this.map.grid, b.s.pos.x + fx * d, b.s.pos.z + fz * d, 1.3, this.map.geometry)) { end = d; break; }
       }
       return { fx, fz, end };
     };
@@ -5987,7 +6345,7 @@ export class World {
     let node: Soldier | undefined;
     walk: for (let d = 1; d <= def.range; d += 1) {
       const px = s.pos.x + fx * d, pz = s.pos.z + fz * d;
-      if (blocksShot(this.map.grid, px, pz, 1.3)) break;
+      if (blocksShot(this.map.grid, px, pz, 1.3, this.map.geometry)) break;
       // Robert: "it was going through vehicles." A hull is a wall to a beam —
       // it DRINKS the pour and (unless the stream drills) STOPS the ray. A
       // LANCE bores through; a SIPHON/TORRENT stops in the steel.
@@ -6019,7 +6377,7 @@ export class World {
       let fans = 0;
       for (const c of cands) {
         if (fans >= pr.count) break;
-        if (!losClear(this.map.grid, node.pos, c.e.pos, 1.3)) continue;
+        if (!losClear(this.map.grid, node.pos, c.e.pos, 1.3, this.map.geometry)) continue;
         this.damageSoldier(c.e, held.dps * pr.frac * dt, s.id, wid);
         fans++;
       }
@@ -6362,6 +6720,11 @@ export class World {
     if (v.hp <= 0) {
       v.hp = 0;
       v.alive = false;
+      recordVehicleEvent(this.vehicleTelemetry, {
+        kind: 'loss', t: this.time, vehicleId: v.id, vehicleKind: v.kind,
+        theaterId: this.map.theater?.id ?? 'classic', seed: this.map.seed,
+        x: v.pos.x, z: v.pos.z, detail: weapon,
+      });
       // B1: a wreck goes on its owner team's bill at requisition value
       this.warLedger[v.team].hulls += VEHICLES[v.kind].cost ?? 1;
       v.respawnAt = this.time + VEHICLE_RESPAWN;
@@ -6445,8 +6808,8 @@ export class World {
     const sp = 9; // faster than boots, slower than bullets
     const nx = m.pos.x + Math.cos(m.yaw ?? 0) * sp * dt;
     const nz = m.pos.z + Math.sin(m.yaw ?? 0) * sp * dt;
-    if (!isBlocked(this.map.grid, nx, m.pos.z)) m.pos.x = nx; // slide along walls
-    if (!isBlocked(this.map.grid, m.pos.x, nz)) m.pos.z = nz;
+    if (!isBlocked(this.map.grid, nx, m.pos.z, false, this.map.geometry)) m.pos.x = nx; // slide along walls
+    if (!isBlocked(this.map.grid, m.pos.x, nz, false, this.map.geometry)) m.pos.z = nz;
     if (tgt && td < 1.5) {
       const def = { ...WEAPONS.gl, damage: 95, splash: 4.5, splashDamage: 78, knockback: 14 };
       this.explode({ ...m.pos, y: 0.4 }, def as (typeof WEAPONS)[WeaponId], m.ownerId, m.team);

@@ -1,5 +1,8 @@
-import type { ClassId, ModeId, SimEvent, Team } from '../sim/types';
+import type { ClassId, ModeId, SimEvent, Team, VehicleKind } from '../sim/types';
 import type { World } from '../sim/world';
+import type { SettlementReceipt } from './campaign';
+import { manifestCost, type OperationHull, type OperationManifest, type OperationPlan } from '../sim/operations';
+import type { OperationResult } from '../sim/operation-runtime';
 
 // ---------------------------------------------------------------------------
 // The Record (DD §3.4, Slice 1) — the Dossier: one versioned document holding
@@ -15,8 +18,33 @@ export interface MedalAward { id: string; name: string; icon: string; earnedAt: 
 export interface JournalEntry { text: string; at: number; matchRef: string }
 export interface QualRecord { score: number; percentile: number; grade: string; firstAttemptAt: number }
 
+export interface OperationVehicleRecord {
+  id: string;
+  name: string;
+  kind: VehicleKind;
+  sorties: number;
+  survived: number;
+  lost: number;
+  cleanSheets: number;
+  killsByKind: Partial<Record<VehicleKind, number>>;
+}
+
+export interface OperationCareerRecord {
+  operationIds: string[];
+  sorties: number;
+  wins: number;
+  cleanSheets: number;
+  objectivesCompleted: number;
+  materielCommitted: number;
+  hullsLost: number;
+  fiscalEfficiency: number;
+  certificationPoints: number;
+  vehicles: Record<string, OperationVehicleRecord>;
+  aces: string[];
+}
+
 export interface Dossier {
-  v: 1;
+  v: 2;
   soldier: { callsign: string; created: number; rankPoints: number;
     /** B1: underfunded victories bank morale — the officer's proof his side
      *  fights above its budget. Spent as opening materiel on later deploys. */
@@ -32,11 +60,18 @@ export interface Dossier {
   quals: Partial<Record<ClassId, QualRecord>>;
   medals: MedalAward[];
   journal: JournalEntry[];
+  operations: OperationCareerRecord;
 }
+
+const freshOperationCareer = (): OperationCareerRecord => ({
+  operationIds: [], sorties: 0, wins: 0, cleanSheets: 0, objectivesCompleted: 0,
+  materielCommitted: 0, hullsLost: 0, fiscalEfficiency: 0, certificationPoints: 0,
+  vehicles: {}, aces: [],
+});
 
 export function freshDossier(callsign: string): Dossier {
   return {
-    v: 1,
+    v: 2,
     soldier: { callsign, created: Date.now(), rankPoints: 0 },
     tours: [{ faction: 0, season: 1, startedAt: Date.now() }],
     lifetime: { matches: 0, wins: 0, kills: 0, deaths: 0, score: 0, perClass: {}, perWeapon: {} },
@@ -44,7 +79,98 @@ export function freshDossier(callsign: string): Dossier {
     quals: {},
     medals: [],
     journal: [],
+    operations: freshOperationCareer(),
   };
+}
+
+/** Upgrade old local careers in place conceptually, while returning a repaired copy. */
+export function migrateDossier(raw: unknown, callsign: string): Dossier {
+  const source = raw && typeof raw === 'object' ? raw as Record<string, unknown> & { v?: number } : null;
+  if (!source || (source.v !== 1 && source.v !== 2)) return freshDossier(callsign);
+  const base = freshDossier(callsign);
+  const legacy = source as unknown as Omit<Partial<Dossier>, 'v'> & { v?: 1 | 2; operations?: Partial<OperationCareerRecord> };
+  const operations = legacy.operations;
+  return {
+    ...base,
+    ...legacy,
+    v: 2,
+    soldier: { ...base.soldier, ...(legacy.soldier ?? {}), callsign: callsign || legacy.soldier?.callsign || base.soldier.callsign },
+    lifetime: {
+      ...base.lifetime,
+      ...(legacy.lifetime ?? {}),
+      perClass: { ...base.lifetime.perClass, ...(legacy.lifetime?.perClass ?? {}) },
+      perWeapon: { ...base.lifetime.perWeapon, ...(legacy.lifetime?.perWeapon ?? {}) },
+    },
+    tours: Array.isArray(legacy.tours) ? legacy.tours : base.tours,
+    armory: Array.isArray(legacy.armory) ? legacy.armory : [],
+    quals: legacy.quals ?? {},
+    medals: Array.isArray(legacy.medals) ? legacy.medals : [],
+    journal: Array.isArray(legacy.journal) ? legacy.journal : [],
+    operations: {
+      ...freshOperationCareer(),
+      ...(operations ?? {}),
+      operationIds: Array.isArray(operations?.operationIds) ? operations.operationIds : [],
+      vehicles: operations?.vehicles && typeof operations.vehicles === 'object' ? operations.vehicles : {},
+      aces: Array.isArray(operations?.aces) ? operations.aces : [],
+    },
+  };
+}
+
+export function commandCertification(record: OperationCareerRecord): { points: number; name: string; nextAt: number | null } {
+  const ladder = [
+    { at: 0, name: 'Provisional Command' },
+    { at: 4, name: 'Field Certified' },
+    { at: 10, name: 'Combined-Arms Certified' },
+    { at: 20, name: 'Operation Officer' },
+  ];
+  let index = 0;
+  while (index + 1 < ladder.length && record.certificationPoints >= ladder[index + 1].at) index++;
+  return { points: record.certificationPoints, name: ladder[index].name, nextAt: ladder[index + 1]?.at ?? null };
+}
+
+export interface RecordOperationServiceInput {
+  plan: OperationPlan;
+  manifest: OperationManifest;
+  result: OperationResult;
+  receipt: SettlementReceipt;
+  inventory: readonly OperationHull[];
+}
+
+export function recordOperationService(dossier: Dossier, input: RecordOperationServiceInput): { recorded: boolean; certification: ReturnType<typeof commandCertification> } {
+  const record = dossier.operations;
+  if (input.receipt.duplicate || record.operationIds.includes(input.result.operationId)) {
+    return { recorded: false, certification: commandCertification(record) };
+  }
+  record.operationIds.push(input.result.operationId);
+  record.sorties++;
+  if (input.result.won) record.wins++;
+  if (input.result.cleanSheet) record.cleanSheets++;
+  record.objectivesCompleted += input.result.completedPhaseIds.length;
+  record.materielCommitted += input.plan.launchCost + manifestCost(input.manifest, input.inventory);
+  record.hullsLost += input.receipt.hullsLost.length;
+  const points = input.result.completedPhaseIds.length + (input.result.won ? 2 : 0) + (input.result.cleanSheet ? 1 : 0) - Math.min(2, input.result.collateral);
+  record.certificationPoints += Math.max(0, points);
+  record.fiscalEfficiency = Math.max(0, Math.round(((record.cleanSheets + record.wins) * 100) / Math.max(1, record.sorties * 2) - (record.hullsLost * 5)));
+
+  const byId = new Map(input.inventory.map((hull) => [hull.id, hull]));
+  for (const id of input.manifest.hullIds) {
+    const hull = byId.get(id);
+    if (!hull) continue;
+    const vehicle = (record.vehicles[id] ??= {
+      id, name: hull.name, kind: hull.kind, sorties: 0, survived: 0, lost: 0,
+      cleanSheets: 0, killsByKind: {},
+    });
+    vehicle.sorties++;
+    if (input.receipt.hullsLost.includes(id)) vehicle.lost++;
+    else vehicle.survived++;
+    if (input.result.cleanSheet) vehicle.cleanSheets++;
+    for (const [kind, count] of Object.entries(input.result.hullKills?.[id] ?? {}) as [VehicleKind, number][]) {
+      vehicle.killsByKind[kind] = (vehicle.killsByKind[kind] ?? 0) + count;
+    }
+    const totalKills = Object.values(vehicle.killsByKind).reduce((sum, count) => sum + (count ?? 0), 0);
+    if (totalKills >= 3 && !record.aces.includes(id)) record.aces.push(id);
+  }
+  return { recorded: true, certification: commandCertification(record) };
 }
 
 // ---- rank ladder: points buy the record a name --------------------------------
@@ -98,17 +224,14 @@ function openDb(): Promise<IDBDatabase> {
 export async function loadDossier(callsign: string): Promise<Dossier> {
   try {
     const db = await openDb();
-    const d = await new Promise<Dossier | undefined>((resolve, reject) => {
+    const d = await new Promise<unknown>((resolve, reject) => {
       const tx = db.transaction(IDB_STORE, 'readonly');
       const req = tx.objectStore(IDB_STORE).get('me');
-      req.onsuccess = () => resolve(req.result as Dossier | undefined);
+      req.onsuccess = () => resolve(req.result as unknown);
       req.onerror = () => reject(req.error);
     });
     db.close();
-    if (d && d.v === 1) {
-      d.soldier.callsign = callsign || d.soldier.callsign; // callsign follows the player
-      return d;
-    }
+    if (d && typeof d === 'object') return migrateDossier(d, callsign);
   } catch { /* first boot, private browsing, or node — a fresh record */ }
   return freshDossier(callsign);
 }
@@ -170,6 +293,7 @@ export class MatchTracker {
   private startScore = -1;
   private lastCheckpoint = 0;
   private finalized = false;
+  private operationKillsByHull: Record<string, Partial<Record<VehicleKind, number>>> = {};
   readonly matchRef: string;
 
   constructor(
@@ -178,6 +302,7 @@ export class MatchTracker {
     private classId: ClassId,
     private mode: ModeId,
     seed: number,
+    private persist = true,
   ) {
     this.matchRef = `${mode}:${seed}:${Date.now()}`;
   }
@@ -191,6 +316,14 @@ export class MatchTracker {
       this.startHealGiven = meS.healGiven;
     }
     for (const e of events) {
+      if (e.type === 'vehicle_destroyed' && e.killerId !== undefined && e.vehKind) {
+        const killer = world.soldiers.get(e.killerId);
+        const hullId = killer && killer.vehicleId >= 0 ? world.vehicles.get(killer.vehicleId)?.operationHullId : undefined;
+        if (hullId) {
+          const kills = (this.operationKillsByHull[hullId] ??= {});
+          kills[e.vehKind] = (kills[e.vehKind] ?? 0) + 1;
+        }
+      }
       if (e.type !== 'death') continue;
       const mine = e.killerName === this.me;
       if (!this.sawAnyKill && e.killerName) {
@@ -226,6 +359,10 @@ export class MatchTracker {
         this.teammateDeaths.push({ killerName: e.killerName, victimName: e.victimName, at: world.time });
       }
     }
+  }
+
+  operationHullKills(): Record<string, Partial<Record<VehicleKind, number>>> {
+    return structuredClone(this.operationKillsByHull);
   }
 
   /** THE AAR VIEWS (Robert: "at the end of the match we need WAY more
@@ -280,7 +417,7 @@ export class MatchTracker {
     // crash-safety checkpoint: fold what we have every 30s
     if (world.time - this.lastCheckpoint >= 30) {
       this.lastCheckpoint = world.time;
-      void saveDossier(this.foldInto(structuredClone(this.dossier), world, meId, null));
+      if (this.persist) void saveDossier(this.foldInto(structuredClone(this.dossier), world, meId, null));
     }
   }
 
@@ -366,7 +503,7 @@ export class MatchTracker {
     this.dossier.journal.unshift(...journal);
     if (this.dossier.journal.length > 200) this.dossier.journal.length = 200;
     this.dossier.soldier.rankPoints += medals.length * 25;
-    await saveDossier(this.dossier);
+    if (this.persist) await saveDossier(this.dossier);
     const meScore = meS && this.startScore >= 0 ? Math.max(0, meS.score - this.startScore) : 0;
     return {
       kills: this.kills, deaths: this.deaths, score: meScore, won,

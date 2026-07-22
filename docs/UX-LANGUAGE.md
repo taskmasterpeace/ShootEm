@@ -481,9 +481,11 @@ Legend: status ✅ shipped · 🔨 partial · ❌ missing · 📋 designed.
 | MISSILE INBOUND | TAG on role line, red blink (top-severity) | weapon block | DANGER | ✅ |
 | Flares `G flares ●●●` | PIP-ROW burn-down | weapon block | IDLE | ✅ |
 | Afterburner + SONIC BOOM cone-ring + late double-crack | world VFX (flame stretch, shimmer cone, vapor ring 0.4s shred) | world | IMPULSE | ❌→✦ |
-| Altitude band `ALT ▁▃▅` + Q/E | CHIP + minimap ring-per-band | weapon block + minimap | IDLE | ❌ |
-| Rotor spool / SPOOLING | METER charge + world dust ring | weapon block + world | ACTIVE | 🔨 |
-| Stall floor `AIRSPEED — NO HOVER` (once) | TAG teach-once | weapon block | IDLE | ❌ |
+| PixelLab flight instruments: airspeed needle + digital %, compass heading, `STALL / CRUISE / AB` | live TAGs + instrument DIAL over the gunmetal reference plate | vehicle instrument plate | IDLE→WARN | ✅ 2026-07-21 |
+| Altitude band `G / B / S / C` + Q/E | four-state PIP-ROW; active band repeated in text | vehicle instrument plate + vehicle block | IDLE | ✅ 2026-07-21 |
+| Tactical radar / sonar: range rings, scheduled sweep, hollow domain glyphs, last-known hold/fade | RING + rotating MARK sweep + MARK→GHOST; hostile red is redundant with shape and domain label | minimap + vehicle instrument plate | IDLE→WARN | ✅ 2026-07-21 |
+| Radar degradation: `SEN DEAD`, `JAM`, offset contact + uncertainty ring | DEAD/WARN TAG + hollow uncertainty RING | minimap + vehicle instrument plate | WARN/DEAD | ✅ 2026-07-21 |
+| Rotor spool / `SPOOL n.n` | live TAG countdown; existing rotor world presentation remains separate | vehicle instrument plate | ACTIVE | ✅ 2026-07-21 |
 | Bomb pips `BOMBS ▮▮▮▮` / nuke armed | PIP-ROW + everyone's radiation CHIP + hull strobe | weapon block + top bar + world | DANGER | ❌ |
 | Hotwire lockpick ring (snaps on move) | RING + snap IMPULSE | target orbit | ACTIVE | ❌ |
 | Abandonment/write-off clocks | TAG lines under [E] prompt | walk-up BANNER | IDLE | ❌ |
@@ -492,7 +494,7 @@ Legend: status ✅ shipped · 🔨 partial · ❌ missing · 📋 designed.
 | Ambulance heal bubble breathes w/ pulse | world RING + green-cross IMPULSEs | world | ACTIVE | 🔨 |
 | Overload fuse `BAIL — 2.0…` | BANNER (danger, whole block flashes) | fullscreen | DANGER | ❌ |
 | Walk-up `[E] Enter · seats` | BANNER (prompt) + PIP-ROW | fullscreen bottom | IDLE | ✅ |
-| **SUBMARINES (future)** — depth ladder `DEPTH ▂▄▆`, crush-depth warning, sonar ping ring, torpedo lock | CHIP (mirror of ALT) + WARN→DANGER ladder + minimap RING sweep + MISSILE-INBOUND grammar reused | weapon block + minimap | full ladder | ❌ future — fully expressible, zero new primitives |
+| Submarine `SURFACE / SUBMERGED`, `DEPTH S / D`, sonar-only sweep and surface/submerged returns | CHIP mirror of ALT + minimap RING sweep + distinct surface/submerged MARK shapes | vehicle instrument plate + minimap | IDLE/ACTIVE | ✅ 2026-07-21 |
 
 ### 7.10 Fields, domes, time
 | Element | Primitive(s) | Surface | States | Status |

@@ -3,10 +3,11 @@ import {
   F2_BALCONY, F2_DOOR_H, F2_DOOR_V, F2_FLOOR, F2_RAIL_H, F2_SHUTTER,
   F2_SLIT, F2_STAIR_N, F2_THIN_WALL_H, F2_THIN_WALL_HV, F2_THIN_WALL_V,
   F2_WALL, F2_WELL, F2_WINDOW_H, F2_WINDOW_V,
-  GRID, T_COVER, T_DOOR, T_LADDER, T_METAL, T_OPEN, T_SECTION_SHUTTER,
+  T_COVER, T_DOOR, T_LADDER, T_METAL, T_OPEN, T_SECTION_SHUTTER,
   T_SLIT, T_STAIRS_N, T_THIN_DOOR_H, T_THIN_DOOR_V, T_THIN_WALL_H,
-  T_THIN_WALL_HV, T_THIN_WALL_V, T_WALL, T_WINDOW_H, T_WINDOW_V, TILE, WORLD,
+  T_THIN_WALL_HV, T_THIN_WALL_V, T_WALL, T_WINDOW_H, T_WINDOW_V,
 } from './map';
+import { LEGACY_GEOMETRY, tileToWorld as geometryTileToWorld, type MapGeometry } from './map-geometry';
 import type { Rng } from './rng';
 import type { ThemeId } from './types';
 
@@ -721,6 +722,8 @@ export function stencilConnected(def: BuildingDef): boolean {
 }
 
 export interface StampCtx {
+  /** Authoritative dimensions; omitted by legacy generators. */
+  geometry?: MapGeometry;
   grid: Uint8Array;
   /** the second-storey layer (F2_*) — stamped from rows2 */
   grid2: Uint8Array;
@@ -734,17 +737,17 @@ export interface StampCtx {
   rng: Rng;
 }
 
-const tileToWorld = (tx: number, tz: number) =>
-  ({ x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 });
-
 /** Stamp a template at tile (tx,tz). Bounds-checked; registers the roof rect. */
 export function stampBuilding(ctx: StampCtx, def: BuildingDef, tx: number, tz: number, pickupSeq = 0): boolean {
+  const geometry = ctx.geometry ?? LEGACY_GEOMETRY;
+  const { cols, rows } = geometry;
+  const toWorld = (x: number, z: number) => geometryTileToWorld(geometry, x, z);
   const h = def.rows.length;
   const w = Math.max(...def.rows.map((r) => r.length));
-  if (tx < 2 || tz < 2 || tx + w >= GRID - 2 || tz + h >= GRID - 2) return false;
+  if (tx < 2 || tz < 2 || tx + w >= cols - 2 || tz + h >= rows - 2) return false;
   // clear the footprint plus a one-tile apron so doors always open onto ground
   for (let z = tz - 1; z <= tz + h; z++)
-    for (let x = tx - 1; x <= tx + w; x++) ctx.grid[z * GRID + x] = T_OPEN;
+    for (let x = tx - 1; x <= tx + w; x++) ctx.grid[z * cols + x] = T_OPEN;
   let seq = pickupSeq;
   let interior: { x: number; z: number } | null = null;
   let frontDoor: { x: number; z: number } | null = null;
@@ -753,7 +756,7 @@ export function stampBuilding(ctx: StampCtx, def: BuildingDef, tx: number, tz: n
     for (let rx = 0; rx < w; rx++) {
       const ch = row[rx] ?? ' ';
       const gx = tx + rx, gz = tz + rz;
-      const idx = gz * GRID + gx;
+      const idx = gz * cols + gx;
       switch (ch) {
         case '#': ctx.grid[idx] = T_WALL; break;
         case '-': ctx.grid[idx] = T_THIN_WALL_H; break;
@@ -778,11 +781,11 @@ export function stampBuilding(ctx: StampCtx, def: BuildingDef, tx: number, tz: n
         case 'C':
           ctx.grid[idx] = T_COVER;
           ctx.claims.push({ idx, t: T_COVER });
-          ctx.props.push({ type: 'crate', pos: tileToWorld(gx, gz), scale: 1, rot: ctx.rng.range(0, Math.PI) });
+          ctx.props.push({ type: 'crate', pos: toWorld(gx, gz), scale: 1, rot: ctx.rng.range(0, Math.PI) });
           break;
         case 'P':
           ctx.grid[idx] = T_OPEN;
-          ctx.pickups.push({ type: seq++ % 2 === 0 ? 'medkit' : 'ammo', pos: tileToWorld(gx, gz) });
+          ctx.pickups.push({ type: seq++ % 2 === 0 ? 'medkit' : 'ammo', pos: toWorld(gx, gz) });
           if (!interior) interior = { x: gx, z: gz };
           break;
         case '.':
@@ -802,7 +805,7 @@ export function stampBuilding(ctx: StampCtx, def: BuildingDef, tx: number, tz: n
   if (authoredLayers.length > 1) {
     const targets = ctx.upperLayers ?? [ctx.grid2];
     targets[0] = ctx.grid2;
-    while (targets.length < authoredLayers.length - 1) targets.push(new Uint8Array(GRID * GRID));
+    while (targets.length < authoredLayers.length - 1) targets.push(new Uint8Array(cols * rows));
     ctx.upperLayers = targets;
     for (let floor = 1; floor < authoredLayers.length; floor++) {
       const rows = authoredLayers[floor];
@@ -810,7 +813,7 @@ export function stampBuilding(ctx: StampCtx, def: BuildingDef, tx: number, tz: n
       for (let rz = 0; rz < rows.length; rz++) {
         const row = rows[rz];
         for (let rx = 0; rx < w; rx++) {
-          const idx = (tz + rz) * GRID + tx + rx;
+          const idx = (tz + rz) * cols + tx + rx;
           switch (row[rx] ?? ' ') {
             case '#': case 'M': target[idx] = F2_WALL; break;
             case 'S': target[idx] = F2_SLIT; break;
@@ -854,8 +857,8 @@ export function stampBuilding(ctx: StampCtx, def: BuildingDef, tx: number, tz: n
     : fullRect ? 'gable' : 'flat';
   ctx.houses.push({
     id: ctx.houses.length,
-    center: tileToWorld(center.x, center.z),
-    door: tileToWorld(door.x, door.z),
+    center: toWorld(center.x, center.z),
+    door: toWorld(door.x, door.z),
     tx, tz, tw: w, th: h,
     floors: def.floors,
     roof, maskRows,
@@ -874,10 +877,11 @@ export interface AvoidZone { tx: number; tz: number; r: number }
 
 /**
  * Deal `pairs` mirrored building pairs onto the west half of a battle map;
- * each original at (tx,tz) gets its mirrored twin at GRID-1-tx-w. Seeded,
+ * each original at (tx,tz) gets its mirrored twin across the map. Seeded,
  * collision-checked against avoid zones and previously placed rects.
  */
 export function placeBuildings(ctx: StampCtx, pairs: number, avoid: AvoidZone[]): number {
+  const geometry = ctx.geometry ?? LEGACY_GEOMETRY;
   const placed: { tx: number; tz: number; w: number; h: number }[] = [];
   let done = 0;
   let attempts = 0;
@@ -895,8 +899,8 @@ export function placeBuildings(ctx: StampCtx, pairs: number, avoid: AvoidZone[])
           : BUILDINGS[ctx.rng.int(0, BUILDINGS.length - 1)];
     const h = def.rows.length;
     const w = Math.max(...def.rows.map((r) => r.length));
-    const tx = ctx.rng.int(22, 45 - w);
-    const tz = ctx.rng.int(10, GRID - 12 - h);
+    const tx = ctx.rng.int(22, Math.floor(geometry.cols / 2) - 5 - w);
+    const tz = ctx.rng.int(10, geometry.rows - 12 - h);
     const cx = tx + w / 2, cz = tz + h / 2;
     if (avoid.some((a) => Math.hypot(cx - a.tx, cz - a.tz) < a.r + Math.max(w, h) / 2)) continue;
     const margin = 4;
@@ -904,9 +908,9 @@ export function placeBuildings(ctx: StampCtx, pairs: number, avoid: AvoidZone[])
       tx < p.tx + p.w + margin && tx + w + margin > p.tx &&
       tz < p.tz + p.h + margin && tz + h + margin > p.tz)) continue;
     if (!stampBuilding(ctx, def, tx, tz, done * 2)) continue;
-    stampBuilding(ctx, mirrorDef(def), GRID - 1 - tx - w, tz, done * 2 + 1);
+    stampBuilding(ctx, mirrorDef(def), geometry.cols - 1 - tx - w, tz, done * 2 + 1);
     placed.push({ tx, tz, w, h });
-    placed.push({ tx: GRID - 1 - tx - w, tz, w, h });
+    placed.push({ tx: geometry.cols - 1 - tx - w, tz, w, h });
     done++;
   }
   return done;

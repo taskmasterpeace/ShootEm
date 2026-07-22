@@ -1,5 +1,6 @@
 import { buildingAuthoringLayoutFromMap, deriveBuildingNavigation, type BuildingNavigation } from './building-navigation';
-import { GRID, TILE, WORLD, isWindowTile, windowIsBroken, type GameMap } from './map';
+import { isWindowTile, windowIsBroken, type GameMap } from './map';
+import { inBounds, tileIndex, tileToWorld, worldToTile, type MapGeometry } from './map-geometry';
 import { floorLayer } from './map-layers';
 import type { Vec3 } from './types';
 
@@ -37,6 +38,7 @@ export interface IndoorTacticalState {
   readonly navigation: BuildingNavigation;
   readonly roomCenters: readonly Vec3[];
   readonly origin: { tx: number; tz: number };
+  readonly geometry: Readonly<MapGeometry>;
   memories: Map<number, IndoorActorMemory>;
   scents: Map<number, IndoorScentNode[]>;
   claims: Map<number, { actorId: number; until: number }>;
@@ -49,7 +51,6 @@ const SCENT_SECONDS = 8;
 const SCENT_NODES = 24;
 const DOG_HANDLER_PULL = 32;
 
-const worldCell = (tile: number) => (tile + 0.5) * TILE - WORLD / 2;
 const distance = (a: Vec3, b: Vec3) => Math.hypot(a.x - b.x, a.z - b.z);
 
 function freezeNavigation(navigation: BuildingNavigation): BuildingNavigation {
@@ -75,23 +76,26 @@ export function createIndoorTacticalState(map: GameMap): IndoorTacticalState | n
   const roomCenters = navigation.rooms.map((room) => {
     const sum = room.tiles.reduce((acc, tile) => ({ x: acc.x + tile.x, z: acc.z + tile.z }), { x: 0, z: 0 });
     const count = Math.max(1, room.tiles.length);
+    const center = tileToWorld(map.geometry, source.origin.tx + sum.x / count, source.origin.tz + sum.z / count);
     return Object.freeze({
-      x: worldCell(source.origin.tx + sum.x / count),
+      x: center.x,
       y: room.floor * FLOOR_HEIGHT,
-      z: worldCell(source.origin.tz + sum.z / count),
+      z: center.z,
     });
   });
   return {
     navigation,
     roomCenters: Object.freeze(roomCenters),
     origin: Object.freeze({ ...source.origin }),
+    geometry: Object.freeze({ ...map.geometry }),
     memories: new Map(), scents: new Map(), claims: new Map(), nextBarkAt: new Map(),
   };
 }
 
 function roomAt(state: IndoorTacticalState, pos: Vec3, floor: number): number {
-  const tx = Math.floor((pos.x + WORLD / 2) / TILE) - state.origin.tx;
-  const tz = Math.floor((pos.z + WORLD / 2) / TILE) - state.origin.tz;
+  const [worldTx, worldTz] = worldToTile(state.geometry, pos.x, pos.z);
+  const tx = worldTx - state.origin.tx;
+  const tz = worldTz - state.origin.tz;
   return state.navigation.roomByCell[floor]?.[tz]?.[tx] ?? -1;
 }
 
@@ -255,10 +259,9 @@ export function dogWindowHesitation(map: GameMap, from: Vec3, to: Vec3, floor: n
   try { layer = floorLayer(map, floor); } catch { return false; }
   for (let step = 1; step <= 10; step++) {
     const t = step / 10;
-    const tx = Math.floor((from.x + (to.x - from.x) * t + WORLD / 2) / TILE);
-    const tz = Math.floor((from.z + (to.z - from.z) * t + WORLD / 2) / TILE);
-    if (tx < 0 || tz < 0 || tx >= GRID || tz >= GRID) continue;
-    const tile = layer[tz * GRID + tx];
+    const [tx, tz] = worldToTile(map.geometry, from.x + (to.x - from.x) * t, from.z + (to.z - from.z) * t);
+    if (!inBounds(map.geometry, tx, tz)) continue;
+    const tile = layer[tileIndex(map.geometry, tx, tz)];
     if (isWindowTile(tile, floor > 0) && !windowIsBroken(tile, floor > 0)) return true;
   }
   return false;

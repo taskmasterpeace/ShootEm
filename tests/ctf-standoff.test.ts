@@ -11,7 +11,7 @@
 // escort of a LIVE run is a ring around the runner, never his exact tile.
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
-import { guardsHome, objectiveFor } from '../src/sim/bots';
+import { defendsNow, guardsHome, objectiveFor } from '../src/sim/bots';
 import { World } from '../src/sim/world';
 import type { Soldier } from '../src/sim/types';
 
@@ -57,8 +57,8 @@ describe('the CTF standoff breaker', () => {
     const { w, bots } = ctfWorld(36);
     const { t0carrier, t1carrier } = rigStandoff(w, bots);
 
-    const hunter = bots.find((b) => b.team === 0 && b.id !== t0carrier.id && !guardsHome(b))!;
-    const guard = bots.find((b) => b.team === 0 && guardsHome(b))!;
+    const hunter = bots.find((b) => b.team === 0 && b.id !== t0carrier.id && !defendsNow(w, b))!;
+    const guard = bots.find((b) => b.team === 0 && defendsNow(w, b))!;
     // park the teammates somewhere neutral so rescue logic stays quiet
     hunter.pos = { x: -60, y: 0, z: 10 };
     guard.pos = { x: -90, y: 0, z: 5 };

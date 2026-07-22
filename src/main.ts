@@ -4,6 +4,7 @@ import { isCoopMode, type ClassId, type ModeId, type PlayerCmd, type Team, type 
 import { LSWS, lswAllowed, lswsForTeam } from './sim/lsw';
 import { World, type Difficulty, type Loadout } from './sim/world';
 import { ammoReport, blackboxReport, type BbIncident, type BbSample } from './sim/blackbox';
+import { vehicleTelemetryReport, vehicleTelemetrySnapshot, type VehicleTelemetrySnapshot } from './sim/vehicle-telemetry';
 import { mapSizeForPlayers } from './sim/fronts';
 import { WEATHER_MODS } from './sim/weather';
 import { mountOnboarding, onMatchEnd, paintballConfig } from './client/onboarding';
@@ -12,7 +13,7 @@ import { audio } from './client/audio';
 import { Chat } from './client/chat';
 import { pauseCodex, renderCodex } from './client/codex';
 import { StaticOverlay } from './client/effects';
-import { Hud, setRankChip } from './client/hud';
+import { Hud, renderOperationAfterAction, setRankChip } from './client/hud';
 import { initGodMode } from './client/godmode';
 import { Input } from './client/input';
 import { MusicDirector } from './client/music';
@@ -20,15 +21,24 @@ import { Renderer } from './client/renderer';
 import { DamageText } from './client/damagetext';
 import { NetGame } from './client/net';
 import { MATCH_LINGER_LOCAL_MS, ReplayDirector } from './client/replay';
-import { MatchTracker, RANKS, loadDossier, rankFor, rankInsignia, saveDossier, type Dossier } from './client/record';
-import { FRONTS, SCAR_TEXT, applyResult, bandOf, checkSeasonEnd, holdTheLine, loadCampaign, saveCampaign, scienceWindowsFor, type Campaign } from './client/campaign';
+import { MatchTracker, RANKS, commandCertification, loadDossier, rankFor, rankInsignia, recordOperationService, saveDossier, type Dossier } from './client/record';
+import {
+  FRONTS, SCAR_TEXT, applyResult, bandOf, cancelCampaignOperation, checkSeasonEnd,
+  consumeOperationBattleBonuses, holdTheLine, loadCampaign, operationBattleBonuses,
+  saveCampaign, scienceWindowsFor, settleCampaignOperation, stageCampaignOperation,
+  type Campaign, type SettlementReceipt,
+} from './client/campaign';
 import { esc, fileIssue, renderIssueHTML, renderPressInto, loadPress } from './client/newspaper';
 import { finalizeScienceLaunch, prepareScarScienceMission, prepareScienceMission, type ScienceLaunchState } from './client/science-flow';
 import { renderSciencePanel, scienceCampaignBankHTML, scienceDebriefHTML } from './client/science';
 import { scienceReward } from './sim/science';
+import { buildOperationBoardModel, createSuggestedManifest, renderManifestDialog, renderOperationsBoard } from './client/operations-ui';
+import { OPERATION_EFFECTS, OPERATION_SITES, type OperationManifest, type OperationPlan } from './sim/operations';
+import { MILITARY_MISSIONS, createMilitaryMissionLaunch, type MilitaryMissionId } from './sim/military-missions';
+import { renderMilitaryMissionModeCard, renderMilitaryMissionModal } from './client/military-missions-ui';
 import { RangeCourse, loadWall } from './client/range';
 import { RingDrill } from './client/ringdrill';
-import { loadSettings, saveSettings, settings, type BloodLevel, type DarknessLevel } from './client/settings';
+import { loadSettings, saveSettings, settings, type BloodLevel, type DarknessLevel, type ReticleStyle } from './client/settings';
 import { darknessUniforms } from './client/darkness';
 import { k9HandlerForTeam } from './sim/k9-orders';
 import { SCIENCE_PRESETS, prepareSciencePreset, sciencePresetCardHTML } from './client/science-presets';
@@ -49,6 +59,7 @@ const BOT_NAMES = [
 let selectedMode: ModeId = 'ctf';
 let selectedClass: ClassId = 'infantry';
 let selectedTheme: ThemeId = 'savanna';
+let selectedMilitaryMissionId: MilitaryMissionId | null = null;
 let selectedEquipment: string[] = [];
 /** §14 onboarding: a named paintball field pins the map seed for the match */
 let seedOverride: number | undefined;
@@ -276,6 +287,63 @@ function wireSetupControls() {
   };
 }
 
+function paintMilitaryMissionEntry() {
+  const modeRow = $('mode-select');
+  let host = document.getElementById('military-missions-entry');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'military-missions-entry';
+    modeRow.appendChild(host);
+  }
+  host.innerHTML = renderMilitaryMissionModeCard(selectedMilitaryMissionId !== null, selectedMilitaryMissionId);
+  const card = $('military-missions-card') as HTMLButtonElement;
+  card.onclick = () => {
+    audio.play('ui_click');
+    openMilitaryMissionModal();
+  };
+  ($('deploy-btn') as HTMLButtonElement).textContent = selectedMilitaryMissionId ? 'DEPLOY MISSION' : 'DEPLOY';
+}
+
+function closeMilitaryMissionModal() {
+  document.getElementById('military-missions-modal')?.remove();
+  document.removeEventListener('keydown', onMilitaryMissionModalKey);
+  ($('military-missions-card') as HTMLButtonElement | null)?.focus();
+}
+
+function onMilitaryMissionModalKey(event: KeyboardEvent) {
+  if (event.key === 'Escape') closeMilitaryMissionModal();
+}
+
+function openMilitaryMissionModal() {
+  document.getElementById('military-missions-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend', renderMilitaryMissionModal(selectedMilitaryMissionId, !!campaign?.activeOperation));
+  const backdrop = $('military-missions-modal');
+  const dialog = backdrop.querySelector<HTMLElement>('[role="dialog"]')!;
+  const close = () => { audio.play('ui_click'); closeMilitaryMissionModal(); };
+  backdrop.querySelectorAll<HTMLButtonElement>('[data-military-close]').forEach((button) => { button.onclick = close; });
+  backdrop.onclick = (event) => { if (event.target === backdrop) close(); };
+  backdrop.querySelectorAll<HTMLButtonElement>('[data-military-mission]').forEach((button) => {
+    button.onclick = () => {
+      const id = button.dataset.militaryMission as MilitaryMissionId;
+      const mission = MILITARY_MISSIONS.find((entry) => entry.id === id);
+      if (!mission) return;
+      selectedMilitaryMissionId = id;
+      selectedMode = mission.mode;
+      activeFrontId = null;
+      $('mode-select').querySelectorAll('.select-card').forEach((entry) => entry.classList.remove('selected'));
+      audio.play('ui_click');
+      closeMilitaryMissionModal();
+      paintMilitaryMissionEntry();
+      $('roster-block').style.display = 'none';
+    };
+  });
+  document.addEventListener('keydown', onMilitaryMissionModalKey);
+  requestAnimationFrame(() => {
+    const selected = backdrop.querySelector<HTMLButtonElement>('.mission-card.selected');
+    (selected ?? dialog).focus();
+  });
+}
+
 function buildMenu() {
   const modeRow = $('mode-select');
   modeRow.innerHTML = '';
@@ -287,15 +355,18 @@ function buildMenu() {
       selectedMode = id;
       activeFrontId = null;
       queuedScienceLaunch = null;
+      selectedMilitaryMissionId = null;
       audio.play('ui_click');
       modeRow.querySelectorAll('.select-card').forEach((c) => c.classList.remove('selected'));
       card.classList.add('selected');
+      paintMilitaryMissionEntry();
       // THE ROSTER LAW: the horde-composition pick only exists where a horde does
       $('roster-block').style.display = (id === 'horde' || id === 'survival') ? '' : 'none';
       $('science-clone-block').style.display = id === 'science' ? '' : 'none';
     };
     modeRow.appendChild(card);
   });
+  paintMilitaryMissionEntry();
   $('roster-block').style.display = (selectedMode === 'horde' || selectedMode === 'survival') ? '' : 'none';
   $('science-clone-block').style.display = selectedMode === 'science' ? '' : 'none';
 
@@ -314,6 +385,7 @@ function buildMenu() {
       activeFrontId = null;
       seedOverride = undefined;
       queuedScienceLaunch = prepareSciencePreset(preset);
+      selectedMilitaryMissionId = null;
       quickDeploy.querySelectorAll<HTMLButtonElement>('button').forEach((card) => { card.disabled = true; });
       audio.play('ui_click');
       void startGame();
@@ -392,7 +464,7 @@ async function startGame() {
     window.location.reload(); // clean slate: disposes scene, sockets, listeners
   };
 
-  if (serverUrl && selectedMode !== 'science') {
+  if (serverUrl && selectedMode !== 'science' && !selectedMilitaryMissionId) {
     // ---- multiplayer ----
     const net = new NetGame(serverUrl, name, selectedClass, selectedMode, currentLoadout(), chat, hud, isCommissioned(dossier));
     try {
@@ -476,26 +548,33 @@ function saveFlight() {
       scores: flightWorld.mode.scores,
       samples: flightWorld.blackbox.samples,
       incidents: flightWorld.blackbox.incidents,
+      vehicles: vehicleTelemetrySnapshot(flightWorld.vehicleTelemetry),
     }));
   } catch { /* storage full or blocked — the log is a luxury, never a crash */ }
 }
 (window as unknown as Record<string, unknown>).__flight = (mode?: 'raw') => {
   const raw = localStorage.getItem('ww:lastFlight');
   if (!raw) return 'no stored flight — play a match first';
-  const f = JSON.parse(raw) as { at: string; mode: string; simTime: number; scores: number[]; samples: BbSample[]; incidents: BbIncident[] };
+  const f = JSON.parse(raw) as { at: string; mode: string; simTime: number; scores: number[]; samples: BbSample[]; incidents: BbIncident[]; vehicles?: VehicleTelemetrySnapshot };
   if (mode === 'raw') return f;
-  return `LAST FLIGHT — ${f.mode} · ${f.simTime}s sim · scores ${f.scores.join(':')} · saved ${f.at}\n${blackboxReport(f)}`;
+  return `LAST FLIGHT — ${f.mode} · ${f.simTime}s sim · scores ${f.scores.join(':')} · saved ${f.at}\n${blackboxReport(f)}${f.vehicles ? `\n${vehicleTelemetryReport(f.vehicles)}` : ''}`;
 };
 
 function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: Input, name: string, endGame: () => void) {
-  const seed = queuedScienceLaunch?.spec.seed ?? seedOverride ?? (Math.random() * 0xffffffff) >>> 0;
+  const exercise = selectedMilitaryMissionId ? createMilitaryMissionLaunch(selectedMilitaryMissionId) : null;
+  const campaignFrontId = exercise || selectedMode === 'science' ? null : activeFrontId;
+  const deployedOperation = campaignFrontId && campaign?.activeOperation?.plan.frontId === campaignFrontId
+    ? campaign.activeOperation
+    : null;
+  const seed = exercise?.seed ?? queuedScienceLaunch?.spec.seed ?? deployedOperation?.plan.seed
+    ?? seedOverride ?? (Math.random() * 0xffffffff) >>> 0;
   seedOverride = undefined;
   const scienceLaunch = selectedMode === 'science'
     ? (queuedScienceLaunch ?? prepareScienceMission(seed, null, scienceClones, { theme: selectedTheme }))
     : null;
   queuedScienceLaunch = null;
   const world = new World({
-    seed, mode: selectedMode, difficulty, botsPerTeam, matchMinutes, theme: selectedTheme,
+    seed, mode: exercise?.mode ?? selectedMode, difficulty, botsPerTeam, matchMinutes, theme: selectedTheme,
     scienceMission: scienceLaunch?.spec,
     hordeRoster, // THE ROSTER LAW: iron never mixes with zombies unless asked
     // B1: banked morale opens the stable richer for YOUR side (capped in-world)
@@ -503,11 +582,19 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     // §8.2+33C: a Scar deploy lands on AUTHORED ground, at the tier the
     // lobby's headcount earns — the size rides the id (front@size) so
     // world.ts stays the LSW dev's untouched file.
-    frontId: activeFrontId && selectedMode !== 'science' ? `${activeFrontId}@${mapSizeForPlayers(botsPerTeam)}` : undefined,
+    frontId: campaignFrontId ? `${campaignFrontId}@${mapSizeForPlayers(botsPerTeam)}` : undefined,
     // W3.4 PASS ESCALATION: a campaign battle fights at the front's pass —
     // P1 no gods, P2 their stable only, P3 both. Off the map: everything.
-    lswPass: activeFrontId ? (campaign?.fronts[activeFrontId]?.pass ?? 3) : 3,
+    lswPass: campaignFrontId ? (campaign?.fronts[campaignFrontId]?.pass ?? 3) : 3,
+    operationBonuses: campaignFrontId && campaign ? operationBattleBonuses(campaign, campaignFrontId) : undefined,
+    operation: exercise?.plan ?? deployedOperation?.plan,
+    operationManifest: exercise?.manifest ?? deployedOperation?.manifest,
+    operationInventory: exercise?.inventory ?? (deployedOperation && campaign ? campaign.motorPool : undefined),
   });
+  if (campaignFrontId && campaign) {
+    consumeOperationBattleBonuses(campaign, campaignFrontId);
+    saveCampaign(campaign);
+  }
   // carry the feel knobs into the match (Robert's global speed control)
   world.projectileSpeedMul = settings.projectileSpeed;
   world.moveSpeedMul = settings.moveSpeed;
@@ -517,7 +604,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   flightWorld = world;
   window.addEventListener('beforeunload', saveFlight);
   const me = world.addSoldier(name, selectedClass, 0, 'human', currentLoadout());
-  if (selectedMode !== 'science') applyScarMods(world, activeFrontId); // §8.5: the front's wound shapes the field
+  applyScarMods(world, campaignFrontId); // §8.5: the front's wound shapes the field
   // DEATH RE-SELECT (Robert: "select my stuff after every time I die and just
   // continue on"): the K.I.A. overlay grows a class rack. Clicking while dead
   // re-signs the next print — spawn() derives the whole kit from the choice.
@@ -554,8 +641,9 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   // the Record (§3.4): fold this match into the dossier as it happens
   // the yard stays out of the Record (§14 Q3: one legacy beat per phase —
   // the dossier starts writing at the first WAR drop, not in the paint)
-  const tracker = dossier && selectedMode !== 'paintball' && selectedMode !== 'science'
-    ? new MatchTracker(dossier, name, selectedClass, selectedMode, seed) : null;
+  const trackedDossier = exercise && dossier ? structuredClone(dossier) : dossier;
+  const tracker = trackedDossier && selectedMode !== 'paintball' && selectedMode !== 'science'
+    ? new MatchTracker(trackedDossier, name, selectedClass, selectedMode, seed, !exercise) : null;
   // the Proving Grounds (§3.3): stage the course; 18B decided practice vs official
   const course = selectedMode === 'range'
     ? new RangeCourse(rangeOfficial, name, dossier, (t, big) => hud.announce(t, !!big, 0))
@@ -571,7 +659,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   const music = new MusicDirector();
 
   // replays: the director runs the killcam + match-highlights state machine
-  const director = new ReplayDirector(seed, selectedMode, selectedTheme);
+  const director = new ReplayDirector(seed, world.mode.id, world.map.theme, world.map.theater?.id);
   const banner = $('replay-banner');
   const setBanner = (text: string | null) => {
     banner.classList.toggle('hidden', !text);
@@ -638,7 +726,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   renderSciencePanel($('science-mission-panel'), world.science);
   course?.begin(world, me.id);
   ringDrill?.begin(world, me.id);
-  hud.announce(MODE_INFO[selectedMode].name.toUpperCase(), true, 0);
+  hud.announce(exercise ? `${exercise.missionName.toUpperCase()} · ${exercise.theaterName.toUpperCase()}` : MODE_INFO[selectedMode].name.toUpperCase(), true, 0);
   // §7: tell the player the officer channel is open (once per deploy)
   if (lswAllowed(selectedMode)) {
     const [a, b] = lswsForTeam(0 as Team);
@@ -678,8 +766,8 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   // Each new incident also console.warns live (see the frame loop below).
   const blackbox = (mode?: 'report') =>
     mode === 'report'
-      ? `${blackboxReport(world.blackbox)}\n${ammoReport(world)}` // §13: the ammo economy rides the report
-      : { samples: world.blackbox.samples, incidents: world.blackbox.incidents };
+      ? `${blackboxReport(world.blackbox)}\n${vehicleTelemetryReport(world.vehicleTelemetry)}\n${ammoReport(world)}` // §13: the ammo economy rides the report
+      : { samples: world.blackbox.samples, incidents: world.blackbox.incidents, vehicles: vehicleTelemetrySnapshot(world.vehicleTelemetry) };
   (window as unknown as Record<string, unknown>).__ww = { world, me, renderer, hud, input, audio, recorder: director.recorder, replay: director.player, director, crowd, blackbox, darkness: darknessUniforms }; // debug/testing handle (darkness: live cone uniforms — eval-side imports get FRESH module instances, this doesn't)
 
   const FIXED = 1 / 60;
@@ -793,9 +881,16 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     if (world.mode.over && tracker) {
       void tracker.finalize(world, me.id).then((sum) => {
         if (!sum) return;
+        const operationResult = world.operation?.result
+          ? { ...world.operation.result, hullKills: tracker.operationHullKills() }
+          : undefined;
+        let operationReceipt: SettlementReceipt | undefined;
         renderBarracks(); // the record just grew
         // §17.B's third leg, finally visible: fight → record grew → WAR MOVED
         let extras = '';
+        if (exercise && operationResult) {
+          extras += `<p style="margin-top:0.35rem"><b>FIELD EXERCISE ${operationResult.won ? 'COMPLETE' : 'FAILED'}</b> · ${exercise.plan.codename} · ${operationResult.completedPhaseIds.length}/${exercise.plan.phases.length} phases · ${exercise.theaterName}</p>`;
+        }
         // B1 THE WAR LEDGER on the closing screen: both sides' books, and the
         // morale event when the winner fought poor (Robert: "if you won and
         // were underfunded it increased your morale… that officer could do")
@@ -804,7 +899,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
           const mine = world.warCost(myTeam);
           const theirs = world.warCost(1);
           extras += `<p style="margin-top:0.35rem">⛁ WAR COST — yours ${mine} · theirs ${theirs}</p>`;
-          if (world.mode.underdog === myTeam && dossier) {
+          if (!exercise && world.mode.underdog === myTeam && dossier) {
             dossier.soldier.morale = (dossier.soldier.morale ?? 0) + 1;
             dossier.journal.unshift({
               text: `UNDERFUNDED VICTORY — we won on ${mine} against their ${theirs}. Morale rose to ${dossier.soldier.morale}. An army that believes fights on a fuller stable.`,
@@ -816,18 +911,42 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
         }
         // the Living Campaign: this battle moves its front (22B)
         let pressFront: { name: string; control: number; delta: number } | undefined;
-        if (activeFrontId && campaign) {
-          const front = campaign.fronts[activeFrontId];
+        if (campaignFrontId && campaign) {
+          const front = campaign.fronts[campaignFrontId];
           const before = front?.control ?? 0;
           // W3.3: your dead spend the front's clones — and CLONE INFECTION
           // doubles the bill for every HOT death (the reprint + the body
           // that rose against the line)
           const viralBill = world.viralDeaths?.[0] ?? 0;
-          applyResult(campaign, activeFrontId, sum.won, Date.now(), (sum.deaths ?? 0) + viralBill);
+          if (operationResult) {
+            operationReceipt = settleCampaignOperation(campaign, operationResult, Date.now());
+            if (operationReceipt.ok) {
+              const treasury = operationReceipt.treasuryDelta >= 0 ? `+${operationReceipt.treasuryDelta}` : String(operationReceipt.treasuryDelta);
+              extras += `<p style="margin-top:0.35rem"><b>OPERATION ${operationResult.won ? 'COMPLETE' : 'FAILED'}</b> · treasury ${treasury} · ${operationReceipt.hullsLost.length} hulls lost · ${operationReceipt.hullsReturned.length} returned</p>`;
+              if (dossier && deployedOperation) {
+                const service = recordOperationService(dossier, {
+                  plan: deployedOperation.plan,
+                  manifest: deployedOperation.manifest,
+                  result: operationResult,
+                  receipt: operationReceipt,
+                  inventory: campaign.motorPool,
+                });
+                if (service.recorded) {
+                  const next = service.certification.nextAt === null ? 'maximum grade' : `${service.certification.nextAt - service.certification.points} pts to next grade`;
+                  extras += `<p style="margin-top:0.25rem">COMMAND CERTIFICATION · <b>${service.certification.name}</b> · ${service.certification.points} pts · ${next}</p>`;
+                  void saveDossier(dossier);
+                }
+              }
+            } else {
+              extras += `<p style="margin-top:0.35rem;color:var(--danger)">OPERATION SETTLEMENT HOLD · ${operationReceipt.errors.join(' · ')}</p>`;
+            }
+          } else {
+            applyResult(campaign, campaignFrontId, sum.won, Date.now(), (sum.deaths ?? 0) + viralBill);
+          }
           if (viralBill > 0) extras += `<p style="margin-top:0.35rem">☣ ${viralBill} turned — the vats paid double</p>`;
           if (front) {
             const d = front.control - before;
-            const fname = FRONTS.find((f) => f.id === activeFrontId)?.name ?? activeFrontId;
+            const fname = FRONTS.find((f) => f.id === campaignFrontId)?.name ?? campaignFrontId;
             pressFront = { name: fname, control: front.control, delta: d };
             extras += `<p style="margin-top:0.35rem">⚑ ${fname.toUpperCase()}: control ${d >= 0 ? '+' : ''}${d} → ${front.control}</p>`;
           }
@@ -894,11 +1013,20 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
             ${longShot.d > 0 ? `<span>🎯 longest shot of the match — <b>${longShot.name}</b>, ${longShot.d.toFixed(0)}u</span>` : ''}</div>
           </div>`;
         }
+        if (operationResult && operationReceipt?.ok && deployedOperation && campaign) {
+          hud.careerHtml += renderOperationAfterAction({
+            plan: deployedOperation.plan,
+            manifest: deployedOperation.manifest,
+            result: operationResult,
+            receipt: operationReceipt,
+            inventory: campaign.motorPool,
+          });
+        }
 
         // N1 THE PRESS FILES (Robert: "we could literally make newspapers…
         // to show all the three things that happened"). One issue per battle:
         // the duel, the money, the field. Archived as data in the MAP tab.
-        {
+        if (!exercise) {
           let ace = { name: '—', kills: 0 };
           let longest = 0;
           for (const s2 of world.humansAndBots()) {
@@ -907,20 +1035,42 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
           }
           const kills: [number, number] = [0, 0];
           for (const s2 of world.humansAndBots()) kills[s2.team] += s2.kills;
+          const operationAce = operationResult
+            ? Object.entries(operationResult.hullKills ?? {}).map(([id, byKind]) => ({
+              id,
+              kills: Object.values(byKind).reduce((total, count) => total + (count ?? 0), 0),
+            })).sort((a, b) => b.kills - a.kills)[0]
+            : undefined;
+          const operationSite = deployedOperation
+            ? OPERATION_SITES.find((site) => site.id === deployedOperation.plan.site)?.name
+            : undefined;
+          const operationReward = deployedOperation
+            ? OPERATION_EFFECTS.find((effect) => effect.id === deployedOperation.plan.effect)?.name
+            : undefined;
           fileIssue({
             at: Date.now(),
             season: campaign?.season ?? 1,
             frontName: pressFront?.name,
             controlAfter: pressFront?.control,
             controlDelta: pressFront?.delta,
-            won: sum.won === true, // a draw prints as a hard day, not a win
-            modeName: MODE_INFO[world.mode.id]?.name ?? world.mode.id.toUpperCase(),
+            won: operationResult?.won ?? sum.won === true, // a draw prints as a hard day, not a win
+            modeName: operationResult ? 'Military Operation' : MODE_INFO[world.mode.id]?.name ?? world.mode.id.toUpperCase(),
             aceName: ace.name, aceKills: ace.kills, longestShot: Math.round(longest),
             myCost: world.warCost(0), theirCost: world.warCost(1),
             underdog: world.mode.underdog === 0,
             morale: dossier?.soldier.morale,
             myKills: kills[0], theirKills: kills[1],
             medals: sum.medals.map((m) => `${m.icon} ${m.name}`),
+            ...(operationResult && deployedOperation ? { operation: {
+              codename: deployedOperation.plan.codename,
+              site: operationSite ?? deployedOperation.plan.site,
+              outcome: operationResult.won ? 'victory' as const : 'defeat' as const,
+              hullsLost: operationResult.destroyedHullIds.length,
+              ...(operationAce ? { aceHull: campaign?.motorPool.find((hull) => hull.id === operationAce.id)?.name ?? operationAce.id } : {}),
+              objectivesCompleted: operationResult.completedPhaseIds.length,
+              objectivesTotal: deployedOperation.plan.phases.length,
+              ...(operationResult.won && operationReward ? { reward: operationReward } : {}),
+            } } : {}),
           });
           // the freshest front page goes straight onto the closing screen
           const latest = loadPress()[0];
@@ -1021,6 +1171,13 @@ function renderBarracks() {
     ? `<ul class="bk-journal">${d.journal.slice(0, 25).map((j) =>
         `<li>${j.text}<span class="when">${new Date(j.at).toLocaleString()}</span></li>`).join('')}</ul>`
     : '<p class="bk-empty">The journal opens with your first battle.</p>';
+  const certification = commandCertification(d.operations);
+  const vehicleAces = Object.values(d.operations.vehicles)
+    .sort((a, b) => Object.values(b.killsByKind).reduce((sum, n) => sum + (n ?? 0), 0) - Object.values(a.killsByKind).reduce((sum, n) => sum + (n ?? 0), 0))
+    .slice(0, 5).map((vehicle) => {
+      const kills = Object.values(vehicle.killsByKind).reduce((sum, n) => sum + (n ?? 0), 0);
+      return `<div class="bk-stat-row"><span>${vehicle.name} · ${vehicle.kind}</span><b>${kills} kills · ${vehicle.sorties} sorties${vehicle.lost ? ' · LOST' : ''}</b></div>`;
+    }).join('') || '<p class="bk-empty">No named hull has entered Operation service.</p>';
   root.innerHTML = `
     <div class="bk-head">
       <span class="bk-callsign">${d.soldier.callsign}</span>
@@ -1036,6 +1193,13 @@ function renderBarracks() {
       </div>
       <div class="bk-card"><h4>By class</h4>${classRows}</div>
       <div class="bk-card"><h4>Gun locker — service history</h4>${weaponRows}</div>
+      <div class="bk-card"><h4>Operation command</h4>
+        <div class="bk-stat-row"><span>Certification</span><b>${certification.name} · ${certification.points} pts</b></div>
+        <div class="bk-stat-row"><span>Sorties / wins</span><b>${d.operations.sorties} / ${d.operations.wins}</b></div>
+        <div class="bk-stat-row"><span>Clean sheets</span><b>${d.operations.cleanSheets}</b></div>
+        <div class="bk-stat-row"><span>Fiscal Efficiency</span><b>${d.operations.fiscalEfficiency}</b></div>
+        <h4 style="margin-top:0.65rem">Vehicle aces</h4>${vehicleAces}
+      </div>
       <div class="bk-card"><h4>Qualifications — the Proving Grounds</h4>${(() => {
         const q = d.quals.infantry;
         const wall = loadWall();
@@ -1055,14 +1219,14 @@ function renderBarracks() {
     <div class="bk-card"><h4>War journal</h4>${journal}</div>`;
   const practice = root.querySelector<HTMLButtonElement>('#pg-practice');
   if (practice) practice.onclick = () => {
-    activeFrontId = null; rangeOfficial = false; selectedMode = 'range'; startGame();
+    activeFrontId = null; selectedMilitaryMissionId = null; rangeOfficial = false; selectedMode = 'range'; startGame();
   };
   const official = root.querySelector<HTMLButtonElement>('#pg-official');
   if (official) official.onclick = () => {
     // 18B: a permanent score is only meaningful when knowingly accepted
     const warning = 'OFFICIAL QUALIFICATION ATTEMPT\n\nThis one counts — forever. Your score and percentile go on The Wall and in your dossier, permanently. Practice runs are unlimited; official is one shot.\n\nReady?';
     if (confirm(warning)) {
-      activeFrontId = null; rangeOfficial = true; selectedMode = 'range'; startGame();
+      activeFrontId = null; selectedMilitaryMissionId = null; rangeOfficial = true; selectedMode = 'range'; startGame();
     }
   };
 }
@@ -1099,10 +1263,17 @@ void RANKS; // ladder is part of the public record API
 // ---------------------------------------------------------------------------
 let campaign: Campaign | null = null;
 let scarMarkers: Record<string, { n: number; name: string; x: number; y: number }> | null = null;
+let operationManifestDraft: OperationManifest | null = null;
+let operationManifestPlan: OperationPlan | null = null;
 
 async function initCampaign() {
   campaign = loadCampaign();
   holdTheLine(campaign);
+  if (campaign.activeOperation) {
+    activeFrontId = campaign.activeOperation.plan.frontId;
+    const front = FRONTS.find((entry) => entry.id === activeFrontId);
+    if (front) { selectedMode = front.mode; selectedTheme = front.theme; }
+  }
   saveCampaign(campaign); // always: the absence clock starts at first boot
   try {
     scarMarkers = (await (await fetch('/scar-markers.json')).json()).fronts;
@@ -1114,6 +1285,73 @@ function scarScienceSeed(frontId: string, pass: number, season: number): number 
   let hash = (season * 0x9e3779b1) ^ (pass * 0x85ebca6b);
   for (let i = 0; i < frontId.length; i++) hash = Math.imul(hash ^ frontId.charCodeAt(i), 16777619);
   return hash >>> 0;
+}
+
+function closeOperationPlanner() {
+  document.getElementById('operation-modal')?.remove();
+  operationManifestDraft = null;
+  operationManifestPlan = null;
+}
+
+function paintOperationPlanner() {
+  if (!campaign || !operationManifestPlan || !operationManifestDraft) return;
+  const old = document.getElementById('operation-modal');
+  const scroll = old?.querySelector<HTMLElement>('.op-hulls')?.scrollTop ?? 0;
+  old?.remove();
+  document.body.insertAdjacentHTML('beforeend', renderManifestDialog({
+    campaign,
+    plan: operationManifestPlan,
+    manifest: operationManifestDraft,
+  }));
+  const modal = document.getElementById('operation-modal')!;
+  const hulls = modal.querySelector<HTMLElement>('.op-hulls');
+  if (hulls) hulls.scrollTop = scroll;
+  modal.querySelectorAll<HTMLInputElement>('[data-operation-hull]').forEach((input) => {
+    input.onchange = () => {
+      if (!operationManifestDraft) return;
+      const id = input.dataset.operationHull!;
+      operationManifestDraft.hullIds = input.checked
+        ? [...new Set([...operationManifestDraft.hullIds, id])]
+        : operationManifestDraft.hullIds.filter((hullId) => hullId !== id);
+      paintOperationPlanner();
+    };
+  });
+  const ammo = modal.querySelector<HTMLInputElement>('#operation-ammo');
+  if (ammo) ammo.onchange = () => {
+    if (!operationManifestDraft) return;
+    operationManifestDraft.ammunition = Number(ammo.value);
+    paintOperationPlanner();
+  };
+  const support = modal.querySelector<HTMLSelectElement>('#operation-support');
+  if (support) support.onchange = () => {
+    if (!operationManifestDraft) return;
+    operationManifestDraft.support = support.value as OperationManifest['support'];
+    paintOperationPlanner();
+  };
+  const close = () => closeOperationPlanner();
+  modal.querySelector<HTMLButtonElement>('#operation-close')!.onclick = close;
+  modal.querySelector<HTMLButtonElement>('#operation-abort')!.onclick = close;
+  modal.onclick = (event) => { if (event.target === modal) close(); };
+  modal.onkeydown = (event) => { if (event.key === 'Escape') close(); };
+  modal.focus();
+  const stage = modal.querySelector<HTMLButtonElement>('#operation-stage');
+  if (stage) stage.onclick = () => {
+    if (!campaign || !operationManifestPlan || !operationManifestDraft) return;
+    const result = stageCampaignOperation(campaign, operationManifestPlan, operationManifestDraft);
+    if (!result.ok) { paintOperationPlanner(); return; }
+    activeFrontId = operationManifestPlan.frontId;
+    saveCampaign(campaign);
+    closeOperationPlanner();
+    audio.play('ui_click');
+    renderScarMap();
+  };
+}
+
+function openOperationPlanner(plan: OperationPlan) {
+  if (!campaign) return;
+  operationManifestPlan = plan;
+  operationManifestDraft = createSuggestedManifest(plan, campaign.motorPool);
+  paintOperationPlanner();
 }
 
 function renderScarMap() {
@@ -1137,6 +1375,7 @@ function renderScarMap() {
     ? prepareScienceMission(scarScienceSeed(sel.id, selSt.pass, c.season), sel, scienceClones)
     : null;
   const scienceWindows = sel && selSt ? scienceWindowsFor(c, sel.id, selSt.pass) : 0;
+  const operationModel = sel ? buildOperationBoardModel(c, sel.id) : null;
   const selHtml = sel && selSt
     ? `<b style="font-size:1.05rem">${sel.name}</b>
        <p style="color:var(--muted);font-size:0.8rem;margin:0.3rem 0">${sel.mode.toUpperCase()} · ${sel.theme} · control <b>${selSt.control > 0 ? '+' : ''}${selSt.control}</b> (${bandOf(selSt.control)})</p>
@@ -1160,6 +1399,7 @@ function renderScarMap() {
       <div id="scar-side">
         <div class="bk-card">${selHtml}</div>
         <div class="bk-card">${scienceCampaignBankHTML(c.scienceBonuses)}</div>
+        ${operationModel ? renderOperationsBoard(operationModel) : ''}
         <div class="bk-card"><h4>Morning dispatch</h4><ul class="bk-journal">${dispatch}</ul></div>
       </div>
     </div>`;
@@ -1168,6 +1408,7 @@ function renderScarMap() {
       audio.play('ui_click');
       const f = FRONTS.find((x) => x.id === btn.dataset.front)!;
       activeFrontId = f.id;
+      selectedMilitaryMissionId = null;
       selectedMode = f.mode;
       selectedTheme = f.theme;
       queuedScienceLaunch = null;
@@ -1190,6 +1431,19 @@ function renderScarMap() {
     selectedTheme = launch.spec.theme;
     saveCampaign(c); // the sortie window is spent before deployment
     void startGame();
+  };
+  const plan = root.querySelector<HTMLButtonElement>('#operation-plan');
+  if (plan && operationModel) plan.onclick = () => openOperationPlanner(operationModel.plan);
+  const operationDeploy = root.querySelector<HTMLButtonElement>('#operation-deploy');
+  if (operationDeploy) operationDeploy.onclick = () => { startGame(); };
+  const cancel = root.querySelector<HTMLButtonElement>('#operation-cancel');
+  if (cancel && c.activeOperation) cancel.onclick = () => {
+    const active = c.activeOperation;
+    if (!active || !window.confirm(`Cancel Operation ${active.plan.codename} and return its entire commitment?`)) return;
+    cancelCampaignOperation(c, active.plan.id);
+    saveCampaign(c);
+    audio.play('ui_click');
+    renderScarMap();
   };
 }
 
@@ -1264,6 +1518,28 @@ audio.setMasterVolume(settings.masterVolume);
     settings.projectileSpeed = 0.35; settings.moveSpeed = 0.8; settings.vehicleSpeed = 0.8;
     saveSettings(); syncSpeed(); pushSpeed();
   };
+
+  // THE RETICLE (Robert): style / color / distance / size / laser — all live,
+  // read by the renderer every frame, so a change shows in the next match instantly.
+  const ret = $('set-reticle') as HTMLSelectElement;
+  ret.value = settings.reticle;
+  ret.onchange = () => { settings.reticle = ret.value as ReticleStyle; saveSettings(); };
+  const retColor = $('set-reticle-color') as HTMLSelectElement;
+  retColor.value = '0x' + settings.reticleColor.toString(16).padStart(6, '0');
+  retColor.onchange = () => { settings.reticleColor = Number(retColor.value); saveSettings(); };
+  const retDist = $('set-reticle-dist') as HTMLInputElement;
+  const retDistVal = $('ret-dist-val');
+  retDist.value = String(Math.round(settings.reticleDist * 100));
+  retDistVal.textContent = `${retDist.value}%`;
+  retDist.oninput = () => { settings.reticleDist = Number(retDist.value) / 100; retDistVal.textContent = `${retDist.value}%`; saveSettings(); };
+  const retSize = $('set-reticle-size') as HTMLInputElement;
+  const retSizeVal = $('ret-size-val');
+  retSize.value = String(Math.round(settings.reticleScale * 100));
+  retSizeVal.textContent = `${settings.reticleScale.toFixed(1)}×`;
+  retSize.oninput = () => { settings.reticleScale = Number(retSize.value) / 100; retSizeVal.textContent = `${settings.reticleScale.toFixed(1)}×`; saveSettings(); };
+  const laser = $('set-laser') as HTMLInputElement;
+  laser.checked = settings.laser;
+  laser.onchange = () => { settings.laser = laser.checked; saveSettings(); };
 }
 $('deploy-btn').addEventListener('click', () => { activeFrontId = null; startGame(); });
 window.addEventListener('keydown', (e) => {
@@ -1279,6 +1555,7 @@ window.addEventListener('keydown', (e) => {
 // profile → first war drop → the path split; veterans never see it again.
 mountOnboarding({
   launch(cfg) {
+    selectedMilitaryMissionId = null;
     selectedMode = cfg.mode;
     selectedTheme = cfg.theme;
     seedOverride = cfg.seed;

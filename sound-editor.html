@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>War World — Sound Editor</title>
+<style>
+  :root {
+    --bg:#14100b; --panel:#1d1811; --panel2:#262017; --line:#3a3020;
+    --text:#efe6d6; --muted:#a99a80; --accent:#f5b21a; --accent-dim:#7a5c14; --cyan:#4fd0e0;
+    --good:#6fcf5f; --bad:#ff5a4d; --warn:#e8a33d; --radius:10px;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+    font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif; font-size:14px; line-height:1.45; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  code, .mono { font-family:ui-monospace,Menlo,Consolas,monospace; }
+  code { background:var(--panel2); padding:1px 5px; border-radius:5px; font-size:12px; }
+  button { background:var(--panel2); border:1px solid var(--line); color:var(--text); border-radius:8px;
+    padding:7px 12px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit;
+    transition:background .15s,border-color .15s,transform .05s; }
+  button:hover { border-color:var(--accent-dim); } button:active { transform:translateY(1px); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  button.primary { background:var(--accent); color:#1a1204; border-color:var(--accent); }
+  input[type=search], input[type=number], textarea, select {
+    background:var(--panel2); border:1px solid var(--line); color:var(--text); border-radius:8px;
+    padding:8px 10px; font-size:13px; font-family:inherit; }
+
+  header { position:sticky; top:0; z-index:5; background:rgba(20,16,11,0.95); backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line); padding:12px 20px 11px; }
+  h1 { margin:0 0 2px; font-size:19px; font-weight:700; letter-spacing:-0.02em; }
+  h1 .dim { color:var(--muted); font-weight:500; }
+  .sub { color:var(--muted); font-size:12.5px; margin:0; }
+  .env { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+  .chip { font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; border:1px solid var(--line); background:var(--panel2); }
+  .chip.ok { color:var(--good); border-color:#2f5a2a; } .chip.no { color:var(--bad); border-color:#5a2a26; }
+
+  .wrap { display:grid; grid-template-columns:300px minmax(0,1fr); gap:0; height:calc(100vh - 74px); }
+  /* left: the sound list */
+  aside { border-right:1px solid var(--line); overflow-y:auto; padding:12px; }
+  aside .find { position:sticky; top:0; background:var(--bg); padding-bottom:9px; }
+  aside input[type=search] { width:100%; }
+  .catlbl { font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:700; margin:14px 4px 5px; }
+  .item { display:flex; align-items:center; gap:7px; padding:6px 9px; border-radius:7px; cursor:pointer; border:1px solid transparent; }
+  .item:hover { background:var(--panel); }
+  .item.sel { background:var(--panel); border-color:var(--accent-dim); }
+  .item .nm { font-weight:600; font-size:13px; }
+  .item .lp { font-size:10px; color:var(--cyan); margin-left:auto; }
+  .item .cst { font-size:10px; color:var(--good); }
+
+  /* right: the editor */
+  main { overflow-y:auto; padding:20px 26px 80px; }
+  .empty { color:var(--muted); display:grid; place-items:center; height:60%; text-align:center; }
+  .title { font-size:22px; font-weight:800; letter-spacing:-0.02em; display:flex; align-items:center; gap:10px; }
+  .title .cat-chip { font-size:11px; font-weight:700; color:var(--muted); background:var(--panel2); border:1px solid var(--line); border-radius:6px; padding:2px 8px; text-transform:capitalize; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:15px 16px; margin-top:14px; }
+  .card h3 { margin:0 0 11px; font-size:12px; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); }
+  .row { display:flex; align-items:center; gap:11px; }
+  .play { width:40px; height:40px; flex:none; border-radius:9px; border:1px solid var(--line); background:var(--panel2); color:var(--accent); font-size:15px; display:grid; place-items:center; cursor:pointer; }
+  .play:hover { border-color:var(--accent); }
+  canvas.wave { flex:1; height:46px; min-width:0; border-radius:6px; background:#0f0c08; cursor:pointer; display:block; }
+  .dur { font-size:11px; color:var(--muted); min-width:44px; text-align:right; font-variant-numeric:tabular-nums; }
+
+  label.fld { display:block; font-size:11px; color:var(--muted); font-weight:600; margin:0 0 5px; }
+  textarea.prompt { width:100%; min-height:70px; resize:vertical; font-size:13px; line-height:1.5; }
+  .prompt-tail { font-size:11px; color:var(--accent-dim); margin-top:5px; }
+  .genbar { display:flex; align-items:center; gap:12px; margin-top:13px; flex-wrap:wrap; }
+  .genbar .grp { display:flex; align-items:center; gap:7px; }
+  .genbar .grp label { font-size:11px; color:var(--muted); }
+  .genbar input[type=number] { width:62px; }
+  .loopwrap { display:flex; align-items:center; gap:7px; margin-left:auto; }
+  .loopwrap input { accent-color:var(--cyan); width:16px; height:16px; }
+  .loopwrap label { font-size:12px; color:var(--text); }
+  #genBtn { font-size:14px; padding:9px 18px; }
+
+  .msg { margin-top:11px; font-size:12.5px; padding:9px 12px; border-radius:8px; display:none; }
+  .msg.err { display:block; background:#2a1512; border:1px solid #5a2a26; color:#ffb0a6; }
+  .msg.info { display:block; background:#191410; border:1px solid var(--line); color:var(--muted); }
+  .msg.busy { display:block; background:#1a1710; border:1px solid var(--accent-dim); color:var(--accent); }
+
+  .vgrid { display:flex; flex-wrap:wrap; gap:11px; margin-top:6px; }
+  .vcard { display:flex; flex-direction:column; gap:8px; background:var(--panel2); border:1px solid var(--line); border-radius:9px; padding:10px; width:230px; }
+  .vcard.approved { border-color:var(--good); box-shadow:inset 0 0 0 1px var(--good); }
+  .vcard .vhead { display:flex; align-items:center; gap:8px; }
+  .vcard .vplay { width:30px; height:30px; font-size:12px; padding:0; flex:none; }
+  .vcard canvas { flex:1; height:34px; min-width:0; background:#0f0c08; border-radius:5px; cursor:pointer; display:block; }
+  .vcard .approve { width:100%; }
+  .vcard.approved .approve { background:var(--good); color:#12200f; border-color:var(--good); }
+  .loopnote { font-size:11.5px; color:var(--cyan); margin-top:9px; display:none; }
+  .loopnote.on { display:block; }
+  .savedbadge { display:none; margin-top:10px; padding:9px 12px; border-radius:8px; background:#16240f; border:1px solid #2f5a2a; color:var(--good); font-size:12.5px; font-weight:600; }
+  .savedbadge.on { display:block; }
+  .savedbadge code { background:#0f1a0a; color:#bfe6ad; }
+  .item .ed { font-size:10px; color:var(--good); font-weight:700; }
+
+  /* clip & stitch */
+  .cliprow { display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-top:10px; }
+  .cliprow .hint { font-size:11px; color:var(--muted); }
+  .clipwrap { position:relative; margin-top:10px; }
+  canvas.clipwave { width:100%; height:70px; background:#0f0c08; border-radius:6px; display:block; cursor:crosshair; }
+  .tray { display:flex; flex-direction:column; gap:6px; margin-top:12px; }
+  .tray:empty::after { content:'tray empty — add a whole take or a selected region'; color:var(--muted); font-size:11.5px; }
+  .clip { display:flex; align-items:center; gap:8px; background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:6px 9px; }
+  .clip .idx { font-size:11px; color:var(--accent-dim); font-weight:700; width:16px; }
+  .clip .play { width:26px; height:26px; font-size:11px; }
+  .clip .lbl { font-size:12px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .clip .clen { font-size:10.5px; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .clip .mv, .clip .rm { width:26px; height:26px; padding:0; font-size:12px; }
+  .clip .rm:hover { border-color:var(--bad); color:var(--bad); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎙 Sound Editor <span class="dim">— War World</span></h1>
+  <p class="sub">Regenerate by prompt · import your files · crop &amp; stitch · approve. &nbsp;·&nbsp;
+    <a href="/harness.html">◂ Harness</a> &nbsp; <a href="/sound-review.html">Sound Review</a> &nbsp; <a href="/">Game ▸</a></p>
+  <div class="env" id="env"></div>
+</header>
+
+<div class="wrap">
+  <aside>
+    <div class="find"><input type="search" id="find" placeholder="filter sounds…" autocomplete="off" /></div>
+    <div id="list"></div>
+  </aside>
+  <main>
+    <div class="empty" id="empty">← pick a sound to edit</div>
+    <div id="editor" style="display:none"></div>
+  </main>
+</div>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+let SPECS = {}, VARIANTS = {}, LOOPS = {}, KEY = false, FFMPEG = false;
+let sel = null;
+const EDITED = new Set(); // sounds saved/approved this session → marked ✓ in the list
+
+/** THE "you're good" signal: approve/save writes the file to disk immediately —
+ *  this makes that visible and persistent so you know it landed. */
+function markSaved(name, what) {
+  EDITED.add(name);
+  const b = document.getElementById('savedBadge');
+  if (b) { b.className = 'savedbadge on'; b.innerHTML = `✓ SAVED — ${what} is now the LIVE <code>${name}</code>, written to <code>public/audio/${name}.wav</code> + <code>.ogg</code>. You're good — it plays in-game on next load. No other step needed.`; }
+  renderList($('find').value);
+}
+
+// ---- audio plumbing (independent of the game engine) ----------------------
+let actx; const ac = () => (actx ||= new (window.AudioContext || window.webkitAudioContext)());
+const bufCache = new Map();
+async function loadBuf(url) {
+  if (bufCache.has(url)) return bufCache.get(url);
+  try {
+    const r = await fetch(url, { cache: 'no-store' });
+    if (!r.ok) throw 0;
+    const b = await ac().decodeAudioData(await r.arrayBuffer());
+    bufCache.set(url, b); return b;
+  } catch { return null; }
+}
+// ONE sound plays at a time; every play can be stopped (long ambience beds and
+// looping previews were unstoppable before). Buttons toggle ▶ ⇄ ⏹.
+let activeSrc = null, activeBtn = null, activeBtnLabel = '▶';
+function stopActive() {
+  const s = activeSrc; activeSrc = null;
+  if (s) { try { s.onended = null; s.stop(); } catch { /* already done */ } }
+  if (activeBtn) { activeBtn.textContent = activeBtnLabel; activeBtn = null; }
+}
+function playBuf(buf, loop = false) {
+  if (!buf) return null;
+  stopActive();               // never stack — a new sound replaces the current one
+  ac().resume();
+  const s = ac().createBufferSource(); s.buffer = buf; s.loop = loop;
+  const g = ac().createGain(); g.gain.value = 0.9;
+  s.connect(g).connect(ac().destination); s.start();
+  activeSrc = s;
+  s.onended = () => { if (activeSrc === s) stopActive(); };
+  return s;
+}
+function drawWave(canvas, buf, playhead) {
+  const dpr = window.devicePixelRatio || 1, w = canvas.clientWidth || 200, h = canvas.clientHeight || 40;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  const g = canvas.getContext('2d'); g.scale(dpr, dpr); g.clearRect(0, 0, w, h);
+  if (!buf) { g.fillStyle = '#5a2a26'; g.fillRect(0, h/2 - 1, w, 2); return; }
+  const data = buf.getChannelData(0), step = Math.max(1, Math.floor(data.length / w));
+  g.fillStyle = '#f5b21a';
+  for (let x = 0; x < w; x++) {
+    let min = 1, max = -1;
+    for (let i = 0; i < step; i++) { const v = data[x*step + i] || 0; if (v < min) min = v; if (v > max) max = v; }
+    g.fillRect(x, (1-(max+1)/2)*h, 1, Math.max(1, ((1-(min+1)/2)*h) - ((1-(max+1)/2)*h)));
+  }
+  if (playhead != null) { g.fillStyle = '#efe6d6'; g.fillRect(playhead * w, 0, 1.5, h); }
+}
+function wirePlayer(playEl, canvas, buf, loop = false) {
+  drawWave(canvas, buf);
+  const baseLabel = playEl.textContent || '▶';
+  const go = () => {
+    if (!buf) return;
+    if (activeBtn === playEl) { stopActive(); return; } // click again → stop
+    const s = playBuf(buf, loop);
+    if (!s) return;
+    activeBtn = playEl; activeBtnLabel = baseLabel; playEl.textContent = '⏹';
+    const start = performance.now(), durMs = buf.duration * 1000;
+    (function frame() {
+      if (activeSrc !== s) { drawWave(canvas, buf); return; } // stopped/replaced
+      const elapsed = performance.now() - start;
+      if (!loop && elapsed >= durMs) { drawWave(canvas, buf); return; } // onended resets the button
+      drawWave(canvas, buf, (elapsed % durMs) / durMs);
+      requestAnimationFrame(frame);
+    })();
+  };
+  playEl.onclick = go; canvas.onclick = go;
+}
+
+// ---- API ------------------------------------------------------------------
+const api = {
+  specs: () => fetch('/api/sound/specs').then((r) => r.json()),
+  gen: (body) => fetch('/api/sound/gen', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((r) => r.json()),
+  approve: (body) => fetch('/api/sound/approve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((r) => r.json()),
+  loop: (body) => fetch('/api/sound/loop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((r) => r.json()),
+  save: (body) => fetch('/api/sound/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((r) => r.json()),
+};
+
+// ---- clip/stitch DSP (all client-side Web Audio) --------------------------
+/** a new mono AudioBuffer holding [t0,t1] (fractions 0..1) of `buf` */
+function sliceBuffer(buf, t0, t1) {
+  const a = Math.floor(Math.min(t0, t1) * buf.length), b = Math.ceil(Math.max(t0, t1) * buf.length);
+  const len = Math.max(1, b - a);
+  const out = ac().createBuffer(1, len, buf.sampleRate);
+  out.copyToChannel(buf.getChannelData(0).subarray(a, b), 0);
+  return out;
+}
+/** concatenate mono buffers head-to-tail, with an optional equal-power
+ *  crossfade (ms) between adjacent pieces so cut-and-combined joins don't click */
+function concatBuffers(bufs, fadeMs = 0) {
+  const sr = bufs[0]?.sampleRate || 44100;
+  const fadeReq = Math.max(0, Math.floor((fadeMs / 1000) * sr));
+  let total = bufs[0]?.length || 0;
+  for (let i = 1; i < bufs.length; i++) total += bufs[i].length - Math.min(fadeReq, bufs[i - 1].length, bufs[i].length);
+  const out = ac().createBuffer(1, Math.max(1, total), sr);
+  const o = out.getChannelData(0);
+  let pos = 0;
+  for (let bi = 0; bi < bufs.length; bi++) {
+    const d = bufs[bi].getChannelData(0);
+    const f = bi > 0 ? Math.min(fadeReq, bufs[bi - 1].length, d.length) : 0; // overlap with prev tail
+    const start = pos - f;
+    for (let i = 0; i < d.length; i++) {
+      const idx = start + i;
+      if (i < f) { const t = i / f; o[idx] = o[idx] * Math.cos((t * Math.PI) / 2) + d[i] * Math.sin((t * Math.PI) / 2); }
+      else o[idx] = d[i];
+    }
+    pos = start + d.length;
+  }
+  return out;
+}
+/** AudioBuffer (channel 0) → 16-bit PCM mono WAV ArrayBuffer */
+function encodeWav(buf) {
+  const data = buf.getChannelData(0), sr = buf.sampleRate, n = data.length;
+  const ab = new ArrayBuffer(44 + n * 2), v = new DataView(ab);
+  const str = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  str(36, 'data'); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) { const s = Math.max(-1, Math.min(1, data[i])); v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true); }
+  return ab;
+}
+function abToB64(ab) {
+  const bytes = new Uint8Array(ab); let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
+async function wireClipStitch(name) {
+  const srcSel = $('clipSrc'), wave = $('clipWave'), info = $('clipRegionInfo'), tray = $('tray');
+  let srcBuf = null, region = null, clips = [], stitched = null;
+  const localBufs = new Map(); let localCount = 0; // files imported from disk
+
+  // sources = the current live sound + any variants on disk (local files append)
+  const opts = [`<option value="/audio/${name}.ogg">current (live)</option>`];
+  for (const i of (VARIANTS[name] || [])) opts.push(`<option value="/audio/variants/${name}-${i}.wav">variant ${String.fromCharCode(64 + i)}</option>`);
+  srcSel.innerHTML = opts.join('');
+
+  const loadSrc = async () => {
+    const v = srcSel.value;
+    srcBuf = v.startsWith('local:') ? (localBufs.get(v) || null) : await loadBuf(v + '?t=' + Date.now());
+    region = null; info.textContent = srcBuf ? 'whole take' : 'source not loaded';
+    drawClip();
+  };
+
+  // 📁 bring in your own audio — it becomes a clip source you can trim, stitch,
+  // and save as the live sound or a new variant (same pipeline as generated takes)
+  $('clipFile').onclick = () => {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'audio/*,.wav,.mp3,.ogg,.m4a,.flac';
+    inp.onchange = async () => {
+      const f = inp.files?.[0]; if (!f) return;
+      try {
+        const buf = await ac().decodeAudioData(await f.arrayBuffer());
+        const key = `local:${++localCount}:${f.name}`;
+        localBufs.set(key, buf);
+        const opt = document.createElement('option'); opt.value = key; opt.text = `📁 ${f.name}`;
+        srcSel.appendChild(opt); srcSel.value = key;
+        await loadSrc();
+      } catch { info.textContent = `couldn't decode "${f.name}" as audio`; }
+    };
+    inp.click();
+  };
+  const drawClip = () => {
+    drawWave(wave, srcBuf);
+    if (srcBuf && region) {
+      const w = wave.clientWidth, h = wave.clientHeight, g = wave.getContext('2d');
+      const x0 = Math.min(region.t0, region.t1) * w, x1 = Math.max(region.t0, region.t1) * w;
+      g.fillStyle = 'rgba(79,208,224,0.22)'; g.fillRect(x0, 0, x1 - x0, h);
+      g.fillStyle = '#4fd0e0'; g.fillRect(x0, 0, 1.5, h); g.fillRect(x1 - 1.5, 0, 1.5, h);
+    }
+  };
+  srcSel.onchange = loadSrc;
+
+  // drag a region on the source wave
+  let dragging = false;
+  const xFrac = (e) => { const r = wave.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); };
+  wave.onmousedown = (e) => { if (!srcBuf) return; dragging = true; region = { t0: xFrac(e), t1: xFrac(e) }; drawClip(); };
+  wave.onmousemove = (e) => { if (!dragging) return; region.t1 = xFrac(e); drawClip();
+    info.textContent = `region ${(Math.abs(region.t1 - region.t0) * srcBuf.duration).toFixed(2)}s`; };
+  window.addEventListener('mouseup', () => { dragging = false; });
+
+  const renderTray = () => {
+    tray.innerHTML = '';
+    clips.forEach((c, i) => {
+      const el = document.createElement('div'); el.className = 'clip';
+      el.innerHTML = `<span class="idx">${i + 1}</span><button class="play">▶</button><span class="lbl">${c.label}</span><span class="clen">${c.buf.duration.toFixed(2)}s</span><button class="mv up" title="move up">↑</button><button class="mv dn" title="move down">↓</button><button class="rm" title="remove">✕</button>`;
+      el.querySelector('.play').onclick = () => playBuf(c.buf);
+      el.querySelector('.up').onclick = () => { if (i > 0) { [clips[i - 1], clips[i]] = [clips[i], clips[i - 1]]; renderTray(); } };
+      el.querySelector('.dn').onclick = () => { if (i < clips.length - 1) { [clips[i + 1], clips[i]] = [clips[i], clips[i + 1]]; renderTray(); } };
+      el.querySelector('.rm').onclick = () => { clips.splice(i, 1); renderTray(); };
+      tray.appendChild(el);
+    });
+  };
+  const addClip = (buf, label) => { clips.push({ buf, label }); renderTray(); };
+
+  $('clipWhole').onclick = () => { if (srcBuf) addClip(srcBuf, `${srcSel.selectedOptions[0].text} · whole`); };
+  $('clipAddRegion').onclick = () => {
+    if (!srcBuf || !region || Math.abs(region.t1 - region.t0) < 0.001) { info.textContent = 'drag a region first'; return; }
+    addClip(sliceBuffer(srcBuf, region.t0, region.t1), `${srcSel.selectedOptions[0].text} · clip`);
+  };
+  $('clipPlayRegion').onclick = () => { if (srcBuf && region) playBuf(sliceBuffer(srcBuf, region.t0, region.t1)); else if (srcBuf) playBuf(srcBuf); };
+  $('clipClear').onclick = () => { clips = []; stitched = null; renderTray(); $('stitchPreview').style.display = 'none'; $('stitchSave').style.display = 'none'; };
+
+  $('stitchBtn').onclick = () => {
+    if (!clips.length) { info.textContent = 'add clips to the tray first'; return; }
+    const fade = Number($('fadeMs')?.value) || 0;
+    stitched = clips.length === 1 ? clips[0].buf : concatBuffers(clips.map((c) => c.buf), fade);
+    $('stitchPreview').style.display = ''; $('stitchSave').style.display = '';
+    $('stitchDur').textContent = `${stitched.duration.toFixed(2)}s`;
+    wirePlayer($('stitchPlay'), $('stitchWave'), stitched, !!LOOPS[name]);
+  };
+  const saveStitch = async (asVariant) => {
+    if (!stitched) return;
+    $('saveMsg').textContent = 'saving…';
+    const r = await api.save({ name, wavB64: abToB64(encodeWav(stitched)), asVariant });
+    if (r.error) { $('saveMsg').textContent = r.error; return; }
+    if (asVariant) { VARIANTS[name] = [...(VARIANTS[name] || []), r.variant]; $('saveMsg').textContent = `saved as variant ${String.fromCharCode(64 + r.variant)}`; renderList($('find').value); await loadSrc(); }
+    else {
+      $('saveMsg').textContent = 'saved live ✓';
+      markSaved(name, 'The stitched take');
+      bufCache.delete(`/audio/${name}.ogg`);
+      const live = await loadBuf(`/audio/${name}.ogg?t=${Date.now()}`) || await loadBuf(`/audio/${name}.wav?t=${Date.now()}`);
+      $('curDur').textContent = live ? `${live.duration.toFixed(2)}s` : 'none';
+      wirePlayer($('curPlay'), $('curWave'), live, !!LOOPS[name]);
+    }
+  };
+  $('saveLive').onclick = () => saveStitch(false);
+  $('saveVariant').onclick = () => saveStitch(true);
+
+  await loadSrc();
+}
+
+// ---- list -----------------------------------------------------------------
+function renderList(filter = '') {
+  const q = filter.trim().toLowerCase();
+  const byCat = {};
+  for (const [name, s] of Object.entries(SPECS)) {
+    if (q && !name.toLowerCase().includes(q) && !(s.desc || '').toLowerCase().includes(q)) continue;
+    (byCat[s.cat || 'misc'] ??= []).push(name);
+  }
+  const list = $('list'); list.innerHTML = '';
+  for (const cat of Object.keys(byCat).sort()) {
+    const h = document.createElement('div'); h.className = 'catlbl'; h.textContent = `${cat} · ${byCat[cat].length}`;
+    list.appendChild(h);
+    for (const name of byCat[cat].sort()) {
+      const it = document.createElement('div'); it.className = 'item' + (name === sel ? ' sel' : ''); it.dataset.name = name;
+      it.innerHTML = `<span class="nm">${name}</span>${EDITED.has(name) ? '<span class="ed">✓</span>' : ''}${LOOPS[name] ? '<span class="lp">↻ loop</span>' : ''}${VARIANTS[name]?.length ? '<span class="cst">●</span>' : ''}`;
+      it.onclick = () => selectSound(name);
+      list.appendChild(it);
+    }
+  }
+}
+
+// ---- editor ---------------------------------------------------------------
+async function selectSound(name) {
+  stopActive(); // don't leave the previous sound (esp. an ambience bed) playing
+  sel = name;
+  document.querySelectorAll('.item').forEach((el) => el.classList.toggle('sel', el.dataset.name === name));
+  $('empty').style.display = 'none';
+  const ed = $('editor'); ed.style.display = '';
+  const s = SPECS[name];
+  ed.innerHTML = `
+    <div class="title">${name} <span class="cat-chip">${s.cat || 'misc'}</span></div>
+    <div class="card">
+      <h3>Current — live in the game</h3>
+      <div class="row"><div class="play" id="curPlay">▶</div><canvas class="wave" id="curWave"></canvas><span class="dur" id="curDur">…</span></div>
+      <div class="loopnote ${LOOPS[name] ? 'on' : ''}" id="loopNote">↻ Designated as a looping sound — the editor previews it seamless; the engine loops it via its loop bus.</div>
+      <div class="savedbadge" id="savedBadge"></div>
+    </div>
+    <div class="card">
+      <h3>Prompt → regenerate</h3>
+      <label class="fld" for="prompt">Describe the sound (ElevenLabs prompt)</label>
+      <textarea class="prompt mono" id="prompt">${(s.desc || '').replace(/</g, '&lt;')}</textarea>
+      <div class="prompt-tail">+ auto suffix: <code>${s.cat === 'ambience' ? 'seamless looping ambient bed…' : 'dry, close-mic, one-shot, no reverb tail'}</code></div>
+      <div class="genbar">
+        <div class="grp"><label>length</label><input type="number" id="dur" min="0.3" max="22" step="0.1" value="${s.dur ?? 1}"><span style="font-size:11px;color:var(--muted)">s</span></div>
+        <div class="grp"><label>takes</label><input type="number" id="n" min="1" max="5" step="1" value="3"></div>
+        <button class="primary" id="genBtn">🎙 Generate</button>
+        <div class="loopwrap"><input type="checkbox" id="loopChk" ${LOOPS[name] ? 'checked' : ''}><label for="loopChk">this sound loops</label></div>
+      </div>
+      <div class="msg" id="msg"></div>
+      <div class="vgrid" id="vgrid"></div>
+    </div>
+    <div class="card">
+      <h3>Clip &amp; stitch</h3>
+      <div class="cliprow">
+        <select id="clipSrc" title="source to clip from"></select>
+        <button id="clipFile" title="import a .wav/.mp3/.ogg from your computer">📁 add local file</button>
+        <button id="clipWhole">＋ add whole take</button>
+        <span class="hint">drag on the wave to select a region ↓</span>
+      </div>
+      <div class="clipwrap"><canvas class="clipwave" id="clipWave"></canvas></div>
+      <div class="cliprow">
+        <button id="clipPlayRegion">▶ region</button>
+        <button id="clipAddRegion">＋ add region</button>
+        <span class="hint" id="clipRegionInfo">whole take</span>
+      </div>
+      <div class="hint" style="margin-top:8px">Combine pieces from ANY take: switch the source, drag a region, ＋ add — repeat across variants/files. They stitch in tray order.</div>
+      <div class="tray" id="tray"></div>
+      <div class="cliprow">
+        <button class="primary" id="stitchBtn">🔗 Stitch → preview</button>
+        <button id="clipClear">clear tray</button>
+        <label class="hint">join crossfade <input type="number" id="fadeMs" min="0" max="150" step="1" value="8" style="width:52px"> ms</label>
+      </div>
+      <div class="row" id="stitchPreview" style="display:none;margin-top:10px">
+        <div class="play" id="stitchPlay">▶</div><canvas class="wave" id="stitchWave"></canvas><span class="dur" id="stitchDur"></span>
+      </div>
+      <div class="cliprow" id="stitchSave" style="display:none">
+        <button class="primary" id="saveLive">✓ Save as live sound</button>
+        <button id="saveVariant">＋ Save as new variant</button>
+        <span class="hint" id="saveMsg"></span>
+      </div>
+    </div>`;
+
+  // current live sound
+  const live = await loadBuf(`/audio/${name}.ogg?t=${Date.now()}`) || await loadBuf(`/audio/${name}.wav?t=${Date.now()}`);
+  $('curDur').textContent = live ? `${live.duration.toFixed(2)}s` : 'none';
+  wirePlayer($('curPlay'), $('curWave'), live, !!LOOPS[name]);
+
+  $('genBtn').onclick = () => generate(name);
+  $('loopChk').onchange = async (e) => {
+    const on = e.target.checked;
+    const r = await api.loop({ name, loop: on });
+    if (r.ok) { LOOPS = r.loops; $('loopNote').classList.toggle('on', on); renderList($('find').value); }
+  };
+
+  wireClipStitch(name);
+
+  // if variants already exist on disk, show them so you can approve without regen
+  if (VARIANTS[name]?.length) renderVariants(name, VARIANTS[name].map((i) => ({ i, url: `/audio/variants/${name}-${i}.wav?t=${Date.now()}` })), 'On disk from an earlier run — play and approve, or regenerate for fresh takes.');
+}
+
+function setMsg(kind, html) { const m = $('msg'); m.className = `msg ${kind}`; m.innerHTML = html; }
+
+async function generate(name) {
+  const text = $('prompt').value.trim();
+  const dur = Number($('dur').value) || SPECS[name].dur || 1;
+  const n = Math.max(1, Math.min(5, Number($('n').value) || 3));
+  const btn = $('genBtn'); btn.disabled = true;
+  setMsg('busy', `Generating ${n} take${n>1?'s':''} via ElevenLabs… (a few seconds each)`);
+  $('vgrid').innerHTML = '';
+  try {
+    const r = await api.gen({ name, text, dur, n });
+    if (r.error) { setMsg('err', r.error); btn.disabled = false; return; }
+    if (!r.variants?.length) { setMsg('err', 'No takes came back.' + (r.errors?.length ? '<br>' + r.errors.join('<br>') : '')); btn.disabled = false; return; }
+    VARIANTS[name] = r.variants.map((v) => v.i);
+    renderList($('find').value);
+    const note = r.errors?.length ? `${r.variants.length} take(s) ready · ${r.errors.length} failed: ${r.errors.join('; ')}` : `${r.variants.length} fresh take(s) — approve one (that saves it live), or crop &amp; stitch pieces below.`;
+    setMsg(r.errors?.length ? 'err' : 'info', note);
+    renderVariants(name, r.variants);
+  } catch (e) { setMsg('err', String(e?.message || e)); }
+  btn.disabled = false;
+}
+
+async function renderVariants(name, variants, note) {
+  if (note) setMsg('info', note);
+  const grid = $('vgrid'); grid.innerHTML = '';
+  for (const v of variants) {
+    const card = document.createElement('div'); card.className = 'vcard'; card.dataset.i = v.i;
+    const L = String.fromCharCode(64 + v.i);
+    card.innerHTML = `<div class="vhead"><button class="vplay">▶${L}</button><canvas></canvas><span class="dur">…</span></div><button class="approve">✓ Approve ${L}</button>`;
+    grid.appendChild(card);
+    const buf = await loadBuf(v.url);
+    card.querySelector('.dur').textContent = buf ? `${buf.duration.toFixed(2)}s` : 'missing';
+    wirePlayer(card.querySelector('.vplay'), card.querySelector('canvas'), buf, !!LOOPS[name]);
+    card.querySelector('.approve').onclick = () => approve(name, v.i, card);
+  }
+}
+
+async function approve(name, variant, card) {
+  card.querySelector('.approve').disabled = true;
+  const text = $('prompt').value.trim(), dur = Number($('dur').value) || undefined;
+  const r = await api.approve({ name, variant, text, dur });
+  if (r.error) { setMsg('err', r.error); card.querySelector('.approve').disabled = false; return; }
+  document.querySelectorAll('.vcard').forEach((c) => c.classList.toggle('approved', c === card));
+  markSaved(name, `Take ${String.fromCharCode(64 + variant)}`);
+  setMsg('info', `Approving IS the save — the file was written just now. Hit ▶ on “Current” to hear what's live.`);
+  // refresh the "current live" player to the approved take
+  bufCache.delete(`/audio/${name}.ogg`);
+  const live = await loadBuf(`/audio/${name}.ogg?t=${Date.now()}`) || await loadBuf(`/audio/${name}.wav?t=${Date.now()}`);
+  $('curDur').textContent = live ? `${live.duration.toFixed(2)}s` : 'none';
+  wirePlayer($('curPlay'), $('curWave'), live, !!LOOPS[name]);
+}
+
+// ---- boot -----------------------------------------------------------------
+async function boot() {
+  const d = await api.specs();
+  SPECS = d.specs || {}; VARIANTS = d.variants || {}; LOOPS = d.loops || {}; KEY = d.keyConfigured; FFMPEG = d.ffmpeg;
+  $('env').innerHTML =
+    `<span class="chip ${KEY ? 'ok' : 'no'}">${KEY ? '✓ ElevenLabs key' : '✕ no ElevenLabs key'}</span>` +
+    `<span class="chip ${FFMPEG ? 'ok' : 'no'}">${FFMPEG ? '✓ ffmpeg' : '✕ no ffmpeg'}</span>` +
+    `<span class="chip">${Object.keys(SPECS).length} sounds</span>` +
+    (KEY ? '' : `<span class="chip no">add ELEVENLABS_API_KEY to ad-lab/.env, then restart dev</span>`);
+  renderList();
+  $('find').oninput = (e) => renderList(e.target.value);
+}
+boot();
+</script>
+</body>
+</html>

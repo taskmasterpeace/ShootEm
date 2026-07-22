@@ -1,6 +1,9 @@
 import { defineConfig } from 'vitest/config'; // vite's defineConfig + the `test` key
 import { resolve } from 'node:path';
 import { readdirSync, statSync, rmSync } from 'node:fs';
+// The Sound Editor's dev-only API (regenerate sounds by prompt via ElevenLabs).
+// apply:'serve' inside — zero effect on the production build.
+import { soundEditorPlugin } from './tools/sound-editor-plugin.mjs';
 
 // opt #1 (L3): Vite copies public/ verbatim, so the WAV pack (134 MB) lands in
 // dist even though the game now fetches .ogg. Prune dist/audio/**/*.wav after
@@ -35,7 +38,7 @@ function pruneWavPlugin() {
 const PORT = process.env.PORT ? Number(process.env.PORT) : undefined;
 
 export default defineConfig({
-  plugins: [pruneWavPlugin()],
+  plugins: [pruneWavPlugin(), soundEditorPlugin()],
   // vitest: only the repo's own suite — agent worktrees under .claude/ carry
   // their own copies of the tests and must not pollute the gate counts
   test: {
@@ -72,6 +75,8 @@ export default defineConfig({
         style: resolve(__dirname, 'style.html'),
         // the beam lab — continuous beams: hose / kamehameha / heat / flamer (/beams.html)
         beams: resolve(__dirname, 'beams.html'),
+        // radar/minimap + PixelLab aircraft instrument state bench
+        instruments: resolve(__dirname, 'instruments.html'),
       },
     },
   },

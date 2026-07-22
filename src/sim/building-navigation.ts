@@ -17,7 +17,6 @@ import {
   F2_WALL,
   F2_WELL,
   F2_VOID,
-  GRID,
   T_LADDER,
   T_SECTION_SHUTTER,
   T_SECTION_SHUTTER_OPEN,
@@ -159,9 +158,9 @@ export function buildingAuthoringLayoutFromMap(map: GameMap): MapBuildingLayout 
       for (let x = 0; x < width; x++) {
         const tx = origin.tx + x, tz = origin.tz + z;
         const inGroundMask = floor > 0 || !house?.maskRows || ((house.maskRows[z] ?? 0) & (1 << x)) !== 0;
-        row += tx < 0 || tz < 0 || tx >= GRID || tz >= GRID || !inGroundMask
+        row += tx < 0 || tz < 0 || tx >= map.geometry.cols || tz >= map.geometry.rows || !inGroundMask
           ? ' '
-          : mapTileChar(layer[tz * GRID + tx], floor);
+          : mapTileChar(layer[tz * map.geometry.cols + tx], floor);
       }
       rows.push(row);
     }

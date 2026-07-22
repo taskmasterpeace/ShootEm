@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { TEAM_COLORS, VEHICLES, WEAPONS } from '../sim/data';
-import { CLIMB_H, F2_BALCONY, F2_DOOR_H, F2_DOOR_H_OPEN, F2_DOOR_V, F2_DOOR_V_OPEN, F2_RAIL_H, F2_RAIL_V, F2_SHUTTER, F2_SHUTTER_OPEN, F2_SLIT, F2_STAIR_E, F2_STAIR_N, F2_STAIR_S, F2_STAIR_W, F2_THIN_WALL_H, F2_THIN_WALL_HV, F2_THIN_WALL_V, F2_WALL, F2_WELL, GRID, THIN_WALL, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_SECTION_SHUTTER, T_SECTION_SHUTTER_OPEN, T_SLIT, T_STAIRS_N, T_STAIRS_W, T_THIN_DOOR_H, T_THIN_DOOR_H_OPEN, T_THIN_DOOR_V, T_THIN_DOOR_V_OPEN, T_THIN_WALL_H, T_THIN_WALL_HV, T_THIN_WALL_V, T_WALL, T_WATER, TILE, WORLD, blocksShot, doorIsOpen, houseAt, isDoorTile, isWindowTile, losClear, surfaceAt, tileAt, windowIsBroken, windowSpansX } from '../sim/map';
+import { CLIMB_H, F2_BALCONY, F2_DOOR_H, F2_DOOR_H_OPEN, F2_DOOR_V, F2_DOOR_V_OPEN, F2_RAIL_H, F2_RAIL_V, F2_SHUTTER, F2_SHUTTER_OPEN, F2_SLIT, F2_STAIR_E, F2_STAIR_N, F2_STAIR_S, F2_STAIR_W, F2_THIN_WALL_H, F2_THIN_WALL_HV, F2_THIN_WALL_V, F2_WALL, F2_WELL, THIN_WALL, T_CLIMB, T_DEEP, S_GRIT, S_ICE, S_MUD, S_PLATE, S_WET, T_COVER, T_DOOR, T_DOOR_OPEN, T_GRASS, T_LADDER, T_METAL, T_OPEN, T_SECTION_SHUTTER, T_SECTION_SHUTTER_OPEN, T_SLIT, T_STAIRS_N, T_STAIRS_W, T_THIN_DOOR_H, T_THIN_DOOR_H_OPEN, T_THIN_DOOR_V, T_THIN_DOOR_V_OPEN, T_THIN_WALL_H, T_THIN_WALL_HV, T_THIN_WALL_V, T_WALL, T_WATER, TILE, blocksShot, doorIsOpen, houseAt, isDoorTile, isWindowTile, losClear, surfaceAt, tileAt, windowIsBroken, windowSpansX } from '../sim/map';
 import { floorHeight, floorLayer } from '../sim/map-layers';
+import { halfDepth, halfWidth, tileToWorld, worldDepth, worldToTile, worldWidth } from '../sim/map-geometry';
 import { materialForSurface, materialOf, type ImpactKind } from '../sim/materials';
 import { TORCH_MULT, classLinger, eyesSeePoint, perceivesNow, seenRecently, type SeenMark } from '../sim/perception';
 import { paintColorFor } from './onboarding';
@@ -11,6 +12,7 @@ import { HAND_FRAG_REACH, aimSpreadMul, meleeWindupFor, type World } from '../si
 import { audio, type SoundName } from './audio';
 import { BIOME_AUDIO } from './soundscape';
 import { settings } from './settings';
+import { buildLaser, buildReticleShadow, buildStandingReticle, isStandingReticle } from './reticle';
 import { darknessFloor, setDarknessFrame, sweepDarkness } from './darkness';
 import { Particles, FlashLights, Fireballs } from './effects';
 import { JOINT_NAMES, isUndead, poseSoldierJoints, CAST_SCHOOL, FLIGHT_POSES, RECOIL_SCALE, stepYawSpring, throwArmCurve, WEAPON_HOLDS, type GaitState, type CastSchool } from './animation';
@@ -21,6 +23,7 @@ import { collapseStyleFor, type CollapseStyle } from './deathpose';
 import { buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp, buildSoldier, buildTurretMesh, buildVehicle, dressAsLsw } from './models';
 import { k9MarkerKind } from './k9-controls';
 import { activeScienceWaypoints } from './science';
+import { ELEVATION_ALT, asElevationLevel } from '../sim/elevation';
 
 const TRACER_COLORS: Record<string, number> = {
   bullet: 0xffd890, shell: 0xffb060, rocket: 0xff8840, plasma: 0x60c8ff,
@@ -244,6 +247,14 @@ export class Renderer {
   private lastCorpseWorld: World | null = null;
   /** STATUS §1: the local player's aim ring — facing + the live accuracy cone. */
   private aimRing: THREE.Group | null = null;
+  /** THE RETICLE FAMILY (Robert): a STANDING reticle (crosshair/dot/…) floated
+   *  in front of you + its ground shadow, rebuilt only when style/colour change. */
+  private standingReticle: THREE.Group | null = null;
+  private reticleShadow: THREE.Mesh | null = null;
+  private reticleKey = '';
+  /** THE PERSONAL LASER (Robert): a green beam on YOUR gun only. */
+  private laserBeam: THREE.Group | null = null;
+  private tmpDir = new THREE.Vector3(); // scratch for the camera look direction
   private spinners: THREE.Object3D[] = [];
   private beams: { mesh: THREE.Mesh; until: number }[] = [];
   /** §BEAMS row 188: live HELD streams, one per pouring soldier — a unit
@@ -512,12 +523,13 @@ export class Renderer {
       k === 'clear' ? 0.42 : k === 'night' ? 0.26 : k === 'fog' ? 0.22 :
       0.55 + 0.3 * hard;
     if (this.cloudMat) this.cloudMat.opacity += (cloudTarget - this.cloudMat.opacity) * Math.min(1, dt * 1.5);
-    const wrap = WORLD / 2 + 80;
+    const wrapX = halfWidth(world.map.geometry) + 80;
+    const wrapZ = halfDepth(world.map.geometry) + 80;
     for (const c of this.clouds) {
       c.mesh.position.x += c.drift * dt;
       c.mesh.position.z += c.drift * 0.3 * dt;
-      if (c.mesh.position.x > wrap) c.mesh.position.x = -wrap;
-      if (c.mesh.position.z > wrap) c.mesh.position.z = -wrap;
+      if (c.mesh.position.x > wrapX) c.mesh.position.x = -wrapX;
+      if (c.mesh.position.z > wrapZ) c.mesh.position.z = -wrapZ;
     }
 
     // atmosphere grading toward the front's mood
@@ -814,6 +826,10 @@ export class Renderer {
 
   buildStaticWorld(world: World) {
     const pal = THEME_PALETTES[world.map.theme] ?? THEME_PALETTES.savanna;
+    const geometry = world.map.geometry;
+    const { cols, rows, tile } = geometry;
+    const width = worldWidth(geometry);
+    const depth = worldDepth(geometry);
     // sky + atmosphere per environment — kept as MUTABLE baselines so the
     // weather pass (§8.8) can tax them and always find its way back to clear
     this.scene.fog = new THREE.Fog(pal.fog, pal.fogNear, pal.fogFar);
@@ -853,7 +869,7 @@ export class Renderer {
       const geo = new THREE.IcosahedronGeometry(1, 0);
       const m = new THREE.Mesh(geo, this.cloudMat);
       m.scale.set(9 + cloudRng(i) * 10, 2 + cloudRng(i + 50) * 1.6, 6 + cloudRng(i + 99) * 8);
-      m.position.set((cloudRng(i + 7) - 0.5) * (WORLD + 80), 48 + cloudRng(i + 13) * 20, (cloudRng(i + 31) - 0.5) * (WORLD + 80));
+      m.position.set((cloudRng(i + 7) - 0.5) * (width + 80), 48 + cloudRng(i + 13) * 20, (cloudRng(i + 31) - 0.5) * (depth + 80));
       m.rotation.y = cloudRng(i + 43) * Math.PI;
       m.castShadow = false; m.receiveShadow = false;
       this.scene.add(m);
@@ -874,7 +890,7 @@ export class Renderer {
       const geo = new THREE.IcosahedronGeometry(1, 0);
       const m = new THREE.Mesh(geo, this.shelfMat);
       m.scale.set(11 + cloudRng(i + 200) * 12, 1.1 + cloudRng(i + 250) * 0.8, 9 + cloudRng(i + 299) * 10);
-      m.position.set((cloudRng(i + 207) - 0.5) * (WORLD + 60), 11 + cloudRng(i + 213) * 2, (cloudRng(i + 231) - 0.5) * (WORLD + 60));
+      m.position.set((cloudRng(i + 207) - 0.5) * (width + 60), 11 + cloudRng(i + 213) * 2, (cloudRng(i + 231) - 0.5) * (depth + 60));
       m.rotation.y = cloudRng(i + 243) * Math.PI;
       m.castShadow = false; m.receiveShadow = false;
       this.scene.add(m);
@@ -890,10 +906,12 @@ export class Renderer {
     const cvs = document.createElement('canvas');
     cvs.width = cvs.height = 1024;
     const ctx = cvs.getContext('2d')!;
-    const px = 1024 / GRID;
-    for (let z = 0; z < GRID; z++) {
-      for (let x = 0; x < GRID; x++) {
-        const t = world.map.grid[z * GRID + x];
+    const pxX = 1024 / cols;
+    const pxZ = 1024 / rows;
+    for (let z = 0; z < rows; z++) {
+      for (let x = 0; x < cols; x++) {
+        const idx = z * cols + x;
+        const t = world.map.grid[idx];
         const n = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453;
         const r = n - Math.floor(n);
         ctx.fillStyle = t === T_WATER || t === T_DEEP ? pal.water(r) : t === T_GRASS ? '#6b7c40' : pal.open(r);
@@ -901,25 +919,25 @@ export class Renderer {
           // deep channel: the same water, drowned darker
           ctx.fillStyle = pal.water(r).replace(/\d+/g, (n) => String(Math.round(Number(n) * 0.55)));
         }
-        ctx.fillRect(x * px, z * px, px + 1, px + 1);
+        ctx.fillRect(x * pxX, z * pxZ, pxX + 1, pxZ + 1);
         // §8.6 surface tints: the ground SHOWS what it does to your boots
         if (t !== T_WATER && t !== T_DEEP) {
-          const sf = world.map.surface[z * GRID + x];
+          const sf = world.map.surface[idx];
           const tint = sf === S_MUD ? 'rgba(62,44,26,0.55)'
             : sf === S_ICE ? 'rgba(190,220,235,0.28)'
             : sf === S_PLATE ? 'rgba(120,130,145,0.22)'
             : sf === S_GRIT ? 'rgba(150,120,70,0.18)'
             : sf === S_WET ? 'rgba(60,110,120,0.16)'
             : null;
-          if (tint) { ctx.fillStyle = tint; ctx.fillRect(x * px, z * px, px + 1, px + 1); }
+          if (tint) { ctx.fillStyle = tint; ctx.fillRect(x * pxX, z * pxZ, pxX + 1, pxZ + 1); }
         }
       }
     }
     // base tint
     for (const team of [0, 1] as Team[]) {
       const b = world.map.basePos[team];
-      const cx = ((b.x + WORLD / 2) / WORLD) * 1024;
-      const cz = ((b.z + WORLD / 2) / WORLD) * 1024;
+      const cx = ((b.x + halfWidth(geometry)) / width) * 1024;
+      const cz = ((b.z + halfDepth(geometry)) / depth) * 1024;
       const grad = ctx.createRadialGradient(cx, cz, 6, cx, cz, 70);
       const col = team === 0 ? '232, 163, 61' : '61, 189, 232';
       grad.addColorStop(0, `rgba(${col}, 0.35)`);
@@ -931,7 +949,7 @@ export class Renderer {
     tex.colorSpace = THREE.SRGBColorSpace;
     this.groundMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95 });
     this.groundWet = 0;
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(WORLD, WORLD), this.groundMat);
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), this.groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     this.scene.add(ground);
@@ -957,9 +975,9 @@ export class Renderer {
     const windowTiles: [number, number, number][] = [];
     const ladderTiles: [number, number][] = [];
     let unknownWarned = false;
-    for (let z = 0; z < GRID; z++) {
-      for (let x = 0; x < GRID; x++) {
-        const idx = z * GRID + x;
+    for (let z = 0; z < rows; z++) {
+      for (let x = 0; x < cols; x++) {
+        const idx = z * cols + x;
         const t = world.map.grid[idx];
         if (t === T_OPEN || t === T_WATER || t === T_DEEP || t === T_LADDER
           || (t >= T_STAIRS_N && t <= T_STAIRS_W) || covered.has(idx)) continue;
@@ -1011,7 +1029,7 @@ export class Renderer {
         const bit = h.maskRows?.[dz];
         for (let dx = 0; dx < h.tw; dx++) {
           if (bit !== undefined && !(bit & (1 << dx))) continue; // shaped by footprint
-          houseTint.set((h.tz + dz) * GRID + (h.tx + dx), wc);
+          houseTint.set((h.tz + dz) * cols + (h.tx + dx), wc);
         }
       }
     }
@@ -1023,13 +1041,14 @@ export class Renderer {
     const wallBase = new THREE.Color(pal.wall);
     const tintCol = new THREE.Color();
     wallTiles.forEach(([x, z], i) => {
-      m4.setPosition((x + 0.5) * TILE - WORLD / 2, 2, (z + 0.5) * TILE - WORLD / 2);
+      const center = tileToWorld(geometry, x, z);
+      m4.setPosition(center.x, 2, center.z);
       wallInst.setMatrixAt(i, m4);
-      const tint = houseTint.get(z * GRID + x);
+      const tint = houseTint.get(z * cols + x);
       // base material is white, so the instance colour is the final albedo:
       // house tile → its stucco shade, everything else → the theme wall colour
       wallInst.setColorAt(i, tint !== undefined ? tintCol.setHex(tint) : wallBase);
-      this.wallInstanceByTile.set(z * GRID + x, i); // so the tunneler can grind it away
+      this.wallInstanceByTile.set(z * cols + x, i); // so the tunneler can grind it away
     });
     if (wallInst.instanceColor) wallInst.instanceColor.needsUpdate = true;
     this.scene.add(wallInst);
@@ -1041,14 +1060,15 @@ export class Renderer {
     const thinMat = new THREE.MeshStandardMaterial({ color: pal.wall, roughness: 0.9 });
     const addThin = (x: number, z: number, spansX: boolean) => {
       const mesh = new THREE.Mesh(
-        new THREE.BoxGeometry(spansX ? TILE : THIN_WALL, 4, spansX ? THIN_WALL : TILE),
+        new THREE.BoxGeometry(spansX ? tile : THIN_WALL, 4, spansX ? THIN_WALL : tile),
         thinMat,
       );
-      mesh.position.set((x + 0.5) * TILE - WORLD / 2, 2, (z + 0.5) * TILE - WORLD / 2);
+      const center = tileToWorld(geometry, x, z);
+      mesh.position.set(center.x, 2, center.z);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       this.scene.add(mesh);
-      const idx = z * GRID + x;
+      const idx = z * cols + x;
       const owned = this.thinByTile.get(idx) ?? [];
       owned.push(mesh);
       this.thinByTile.set(idx, owned);
@@ -1082,19 +1102,20 @@ export class Renderer {
         const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), frameMat);
         mesh.position.set(px, y, 0); mesh.castShadow = true; group.add(mesh); return mesh;
       };
-      part(TILE, 1, THIN_WALL, 0.5);                  // climbable/bullet-catching sill
-      part(TILE, 0.34, THIN_WALL, 3.83);              // lintel
-      part(0.16, 2.5, THIN_WALL, 2.25, -TILE * 0.44); // jambs
-      part(0.16, 2.5, THIN_WALL, 2.25, TILE * 0.44);
-      const pane = new THREE.Mesh(new THREE.BoxGeometry(TILE * 0.82, 2.45, 0.07), glassMat);
+      part(tile, 1, THIN_WALL, 0.5);                  // climbable/bullet-catching sill
+      part(tile, 0.34, THIN_WALL, 3.83);              // lintel
+      part(0.16, 2.5, THIN_WALL, 2.25, -tile * 0.44); // jambs
+      part(0.16, 2.5, THIN_WALL, 2.25, tile * 0.44);
+      const pane = new THREE.Mesh(new THREE.BoxGeometry(tile * 0.82, 2.45, 0.07), glassMat);
       pane.position.y = 2.25;
       pane.visible = !windowIsBroken(tile);
       pane.renderOrder = 3;
       group.add(pane);
-      group.position.set((x + 0.5) * TILE - WORLD / 2, 0, (z + 0.5) * TILE - WORLD / 2);
+      const center = tileToWorld(geometry, x, z);
+      group.position.set(center.x, 0, center.z);
       if (!windowSpansX(tile)) group.rotation.y = Math.PI / 2;
       this.scene.add(group);
-      this.windows.push({ group, pane, idx: z * GRID + x, floor: 0 });
+      this.windows.push({ group, pane, idx: z * cols + x, floor: 0 });
     }
 
     // TALL GRASS (finish-list 18): crossed blades per tile, wind-still and
@@ -1110,7 +1131,7 @@ export class Renderer {
       const gq = new THREE.Quaternion();
       const gs = new THREE.Vector3(1, 1, 1);
       grassTiles.forEach(([x, z], i) => {
-        const wx = (x + 0.5) * TILE - WORLD / 2, wz = (z + 0.5) * TILE - WORLD / 2;
+        const { x: wx, z: wz } = tileToWorld(geometry, x, z);
         const a = ((x * 31 + z * 17) % 7) / 7 * Math.PI; // deterministic lean
         for (let b = 0; b < 2; b++) {
           gq.setFromAxisAngle(new THREE.Vector3(0, 1, 0), a + b * Math.PI / 2);
@@ -1126,9 +1147,10 @@ export class Renderer {
     const coverInst = new THREE.InstancedMesh(new THREE.BoxGeometry(TILE * 0.95, 1.2, TILE * 0.95), coverMat, Math.max(coverTiles.length, 1));
     coverInst.castShadow = true;
     coverTiles.forEach(([x, z], i) => {
-      m4.setPosition((x + 0.5) * TILE - WORLD / 2, 0.6, (z + 0.5) * TILE - WORLD / 2);
+      const center = tileToWorld(geometry, x, z);
+      m4.setPosition(center.x, 0.6, center.z);
       coverInst.setMatrixAt(i, m4);
-      this.coverInstanceByTile.set(z * GRID + x, i);
+      this.coverInstanceByTile.set(z * cols + x, i);
     });
     this.scene.add(coverInst);
     this.coverInst = coverInst;
@@ -1146,11 +1168,12 @@ export class Renderer {
     const climbLipInst = new THREE.InstancedMesh(new THREE.BoxGeometry(TILE * 1.16, 0.18, TILE * 1.16), lipMat, Math.max(climbTiles.length, 1));
     climbLipInst.castShadow = true;
     climbTiles.forEach(([x, z], i) => {
-      m4.setPosition((x + 0.5) * TILE - WORLD / 2, CLIMB_H / 2, (z + 0.5) * TILE - WORLD / 2);
+      const center = tileToWorld(geometry, x, z);
+      m4.setPosition(center.x, CLIMB_H / 2, center.z);
       climbInst.setMatrixAt(i, m4);
-      m4.setPosition((x + 0.5) * TILE - WORLD / 2, CLIMB_H - 0.09, (z + 0.5) * TILE - WORLD / 2);
+      m4.setPosition(center.x, CLIMB_H - 0.09, center.z);
       climbLipInst.setMatrixAt(i, m4);
-      this.climbInstanceByTile.set(z * GRID + x, i); // drill food — collapses like walls
+      this.climbInstanceByTile.set(z * cols + x, i); // drill food — collapses like walls
     });
     this.scene.add(climbInst, climbLipInst);
     this.climbInst = climbInst;
@@ -1163,9 +1186,10 @@ export class Renderer {
       const highInst = new THREE.InstancedMesh(new THREE.BoxGeometry(TILE, 2.2, TILE), wallMat, slitTiles.length);
       lowInst.castShadow = highInst.castShadow = true;
       slitTiles.forEach(([x, z], i) => {
-        m4.setPosition((x + 0.5) * TILE - WORLD / 2, 0.6, (z + 0.5) * TILE - WORLD / 2);
+        const center = tileToWorld(geometry, x, z);
+        m4.setPosition(center.x, 0.6, center.z);
         lowInst.setMatrixAt(i, m4);
-        m4.setPosition((x + 0.5) * TILE - WORLD / 2, 2.9, (z + 0.5) * TILE - WORLD / 2);
+        m4.setPosition(center.x, 2.9, center.z);
         highInst.setMatrixAt(i, m4);
       });
       this.scene.add(lowInst, highInst);
@@ -1177,16 +1201,17 @@ export class Renderer {
       const metalInst = new THREE.InstancedMesh(new THREE.BoxGeometry(TILE, 4, TILE), metalMat, metalTiles.length);
       metalInst.castShadow = metalInst.receiveShadow = true;
       metalTiles.forEach(([x, z], i) => {
-        m4.setPosition((x + 0.5) * TILE - WORLD / 2, 2, (z + 0.5) * TILE - WORLD / 2);
+        const center = tileToWorld(geometry, x, z);
+        m4.setPosition(center.x, 2, center.z);
         metalInst.setMatrixAt(i, m4);
       });
       this.scene.add(metalInst);
     }
 
     // LADDERS: rails + rungs at every ladder foot — the climb to the storey above
-    for (let z = 0; z < GRID; z++)
-      for (let x = 0; x < GRID; x++)
-        if (world.map.grid[z * GRID + x] === T_LADDER) ladderTiles.push([x, z]);
+    for (let z = 0; z < rows; z++)
+      for (let x = 0; x < cols; x++)
+        if (world.map.grid[z * cols + x] === T_LADDER) ladderTiles.push([x, z]);
     for (const g of this.ladderMeshes) { this.scene.remove(g); g.traverse((o) => (o as THREE.Mesh).geometry?.dispose()); }
     this.ladderMeshes = [];
     for (const c of this.rubble) { this.scene.remove(c); c.geometry.dispose(); }
@@ -1201,7 +1226,7 @@ export class Renderer {
       const runSpan = TILE * 0.8;
       for (const [x, z] of ladderTiles) {
         const g = new THREE.Group();
-        const wx = (x + 0.5) * TILE - WORLD / 2, wz = (z + 0.5) * TILE - WORLD / 2;
+        const { x: wx, z: wz } = tileToWorld(geometry, x, z);
         for (let i = 0; i < STEPS; i++) {
           const tread = new THREE.Mesh(new THREE.BoxGeometry(TILE * 0.62, 0.14, 0.5), railMat);
           tread.position.set(0, ((i + 1) / STEPS) * 4 - 0.07, TILE * 0.36 - (i + 0.5) * (runSpan / STEPS));
@@ -1220,11 +1245,11 @@ export class Renderer {
         g.position.set(wx, 0, wz);
         // the climb tops out against the nearest solid neighbor, like the
         // old leaned ladder did — the top step lands at the wall side
-        const idx = z * GRID + x;
+        const idx = z * cols + x;
         const solid = (t: number) => t === T_WALL || t === T_METAL || t === T_SLIT;
         if (solid(world.map.grid[idx - 1])) g.rotation.y = Math.PI / 2;
         else if (solid(world.map.grid[idx + 1])) g.rotation.y = -Math.PI / 2;
-        else if (solid(world.map.grid[idx - GRID])) g.rotation.y = 0;
+        else if (solid(world.map.grid[idx - cols])) g.rotation.y = 0;
         else g.rotation.y = Math.PI;
         g.traverse((o) => { (o as THREE.Mesh).castShadow = true; });
         this.scene.add(g);
@@ -1250,74 +1275,74 @@ export class Renderer {
         const frameMat = new THREE.MeshStandardMaterial({ color: 0x8a806d, metalness: 0.16, roughness: 0.68, transparent: true, opacity: 0.97 });
         for (let z = h.tz; z < h.tz + h.th; z++) {
           for (let x = h.tx; x < h.tx + h.tw; x++) {
-            const idx = z * GRID + x;
-            const tile = layer[idx];
-            if (tile === 0) continue;
-            const wx = (x + 0.5) * TILE - WORLD / 2, wz = (z + 0.5) * TILE - WORLD / 2;
-            if (tile !== F2_WELL) {
-              const slab = new THREE.Mesh(new THREE.BoxGeometry(TILE, 0.25, TILE), matF);
+            const idx = z * cols + x;
+            const upperTile = layer[idx];
+            if (upperTile === 0) continue;
+            const { x: wx, z: wz } = tileToWorld(geometry, x, z);
+            if (upperTile !== F2_WELL) {
+              const slab = new THREE.Mesh(new THREE.BoxGeometry(tile, 0.25, tile), matF);
               slab.position.set(wx, baseY + 0.1, wz);
               group.add(slab);
             }
-            if (tile === F2_WALL) {
-              const wall = new THREE.Mesh(new THREE.BoxGeometry(TILE, 3.75, TILE), matU);
+            if (upperTile === F2_WALL) {
+              const wall = new THREE.Mesh(new THREE.BoxGeometry(tile, 3.75, tile), matU);
               wall.position.set(wx, baseY + 2.1, wz);
               wall.castShadow = true;
               group.add(wall);
-            } else if (tile === F2_SLIT) {
-              const low = new THREE.Mesh(new THREE.BoxGeometry(TILE, 1, TILE), matU);
+            } else if (upperTile === F2_SLIT) {
+              const low = new THREE.Mesh(new THREE.BoxGeometry(tile, 1, tile), matU);
               low.position.set(wx, baseY + 0.72, wz);
-              const high = new THREE.Mesh(new THREE.BoxGeometry(TILE, 2.2, TILE), matU);
+              const high = new THREE.Mesh(new THREE.BoxGeometry(tile, 2.2, tile), matU);
               high.position.set(wx, baseY + 2.9, wz);
               low.castShadow = high.castShadow = true;
               group.add(low, high);
-            } else if (tile === F2_THIN_WALL_H || tile === F2_THIN_WALL_V || tile === F2_THIN_WALL_HV || tile === F2_SHUTTER) {
+            } else if (upperTile === F2_THIN_WALL_H || upperTile === F2_THIN_WALL_V || upperTile === F2_THIN_WALL_HV || upperTile === F2_SHUTTER) {
               const addSpan = (spansX: boolean) => {
-                const wall = new THREE.Mesh(new THREE.BoxGeometry(spansX ? TILE : THIN_WALL, 4, spansX ? THIN_WALL : TILE), matU);
+                const wall = new THREE.Mesh(new THREE.BoxGeometry(spansX ? tile : THIN_WALL, 4, spansX ? THIN_WALL : tile), matU);
                 wall.position.set(wx, baseY + 2, wz); wall.castShadow = true; group.add(wall);
               };
-              if (tile === F2_THIN_WALL_H || tile === F2_THIN_WALL_HV || tile === F2_SHUTTER) addSpan(true);
-              if (tile === F2_THIN_WALL_V || tile === F2_THIN_WALL_HV) addSpan(false);
-            } else if (isWindowTile(tile, true)) {
+              if (upperTile === F2_THIN_WALL_H || upperTile === F2_THIN_WALL_HV || upperTile === F2_SHUTTER) addSpan(true);
+              if (upperTile === F2_THIN_WALL_V || upperTile === F2_THIN_WALL_HV) addSpan(false);
+            } else if (isWindowTile(upperTile, true)) {
               const window = new THREE.Group();
-              const spansX = windowSpansX(tile, true);
+              const spansX = windowSpansX(upperTile, true);
               const addFrame = (width: number, height: number, depth: number, y: number, px = 0) => {
                 const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), frameMat);
                 mesh.position.set(px, y, 0); mesh.castShadow = true; window.add(mesh);
               };
-              addFrame(TILE, 1, THIN_WALL, 0.5);
-              addFrame(TILE, 0.34, THIN_WALL, 3.83);
-              addFrame(0.16, 2.5, THIN_WALL, 2.25, -TILE * 0.44);
-              addFrame(0.16, 2.5, THIN_WALL, 2.25, TILE * 0.44);
+              addFrame(tile, 1, THIN_WALL, 0.5);
+              addFrame(tile, 0.34, THIN_WALL, 3.83);
+              addFrame(0.16, 2.5, THIN_WALL, 2.25, -tile * 0.44);
+              addFrame(0.16, 2.5, THIN_WALL, 2.25, tile * 0.44);
               const glassMat = new THREE.MeshStandardMaterial({
                 color: 0x8ed6df, emissive: 0x16383c, emissiveIntensity: 0.15,
                 transparent: true, opacity: 0.34, roughness: 0.12, side: THREE.DoubleSide, depthWrite: false,
               });
-              const pane = new THREE.Mesh(new THREE.BoxGeometry(TILE * 0.82, 2.45, 0.07), glassMat);
-              pane.position.y = 2.25; pane.visible = !windowIsBroken(tile, true); pane.renderOrder = 3; window.add(pane);
+              const pane = new THREE.Mesh(new THREE.BoxGeometry(tile * 0.82, 2.45, 0.07), glassMat);
+              pane.position.y = 2.25; pane.visible = !windowIsBroken(upperTile, true); pane.renderOrder = 3; window.add(pane);
               window.position.set(wx, baseY, wz);
               if (!spansX) window.rotation.y = Math.PI / 2;
               group.add(window);
               this.windows.push({ group: window, pane, idx, floor });
-            } else if (tile === F2_DOOR_H || tile === F2_DOOR_V) {
-              const spansX = tile === F2_DOOR_H;
-              const door = new THREE.Mesh(new THREE.BoxGeometry(spansX ? TILE : THIN_WALL, 2.2, spansX ? THIN_WALL : TILE), frameMat);
+            } else if (upperTile === F2_DOOR_H || upperTile === F2_DOOR_V) {
+              const spansX = upperTile === F2_DOOR_H;
+              const door = new THREE.Mesh(new THREE.BoxGeometry(spansX ? tile : THIN_WALL, 2.2, spansX ? THIN_WALL : tile), frameMat);
               door.position.set(wx, baseY + 1.1, wz); door.castShadow = true; group.add(door);
-            } else if (tile === F2_DOOR_H_OPEN || tile === F2_DOOR_V_OPEN || tile === F2_SHUTTER_OPEN) {
+            } else if (upperTile === F2_DOOR_H_OPEN || upperTile === F2_DOOR_V_OPEN || upperTile === F2_SHUTTER_OPEN) {
               // The opening is intentionally empty; the slab still carries the threshold.
-            } else if (tile === F2_RAIL_H || tile === F2_RAIL_V) {
-              const rail = new THREE.Mesh(new THREE.BoxGeometry(tile === F2_RAIL_H ? TILE : 0.14, 1.15, tile === F2_RAIL_H ? 0.14 : TILE), matU);
+            } else if (upperTile === F2_RAIL_H || upperTile === F2_RAIL_V) {
+              const rail = new THREE.Mesh(new THREE.BoxGeometry(upperTile === F2_RAIL_H ? tile : 0.14, 1.15, upperTile === F2_RAIL_H ? 0.14 : tile), matU);
               rail.position.set(wx, baseY + 0.72, wz); rail.castShadow = true; group.add(rail);
-            } else if (tile === F2_STAIR_N || tile === F2_STAIR_E || tile === F2_STAIR_S || tile === F2_STAIR_W) {
+            } else if (upperTile === F2_STAIR_N || upperTile === F2_STAIR_E || upperTile === F2_STAIR_S || upperTile === F2_STAIR_W) {
               const stairs = new THREE.Group();
               for (let step = 0; step < 8; step++) {
-                const tread = new THREE.Mesh(new THREE.BoxGeometry(TILE * 0.9, 0.18, TILE / 8), matF);
-                tread.position.set(0, step * 0.45, -TILE * 0.42 + step * TILE / 8); tread.castShadow = true; stairs.add(tread);
+                const tread = new THREE.Mesh(new THREE.BoxGeometry(tile * 0.9, 0.18, tile / 8), matF);
+                tread.position.set(0, step * 0.45, -tile * 0.42 + step * tile / 8); tread.castShadow = true; stairs.add(tread);
               }
               stairs.position.set(wx, baseY + 0.18, wz);
-              stairs.rotation.y = tile === F2_STAIR_E ? -Math.PI / 2 : tile === F2_STAIR_S ? Math.PI : tile === F2_STAIR_W ? Math.PI / 2 : 0;
+              stairs.rotation.y = upperTile === F2_STAIR_E ? -Math.PI / 2 : upperTile === F2_STAIR_S ? Math.PI : upperTile === F2_STAIR_W ? Math.PI / 2 : 0;
               group.add(stairs);
-            } else if (tile === F2_BALCONY) {
+            } else if (upperTile === F2_BALCONY) {
               // The slab is the walkable balcony deck; rails define its edge.
             }
           }
@@ -1334,20 +1359,21 @@ export class Renderer {
     this.doors = [];
     const doorMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2a, roughness: 0.8 });
     for (const [x, z] of doorTiles) {
-      const idx = z * GRID + x;
-      const tile = world.map.grid[idx];
+      const idx = z * cols + x;
+      const doorTile = world.map.grid[idx];
       // Thin doors carry orientation. Legacy doors retain neighbour inference.
       const solid = (t: number) => t === T_WALL || t === T_METAL || t === T_SLIT || t === T_DOOR || t === T_DOOR_OPEN;
-      const spansX = tile === T_THIN_DOOR_H || tile === T_THIN_DOOR_H_OPEN
+      const spansX = doorTile === T_THIN_DOOR_H || doorTile === T_THIN_DOOR_H_OPEN
         ? true
-        : tile === T_THIN_DOOR_V || tile === T_THIN_DOOR_V_OPEN
+        : doorTile === T_THIN_DOOR_V || doorTile === T_THIN_DOOR_V_OPEN
           ? false
           : solid(world.map.grid[idx - 1]) || solid(world.map.grid[idx + 1]);
       const mesh = new THREE.Mesh(
-        new THREE.BoxGeometry(spansX ? TILE : THIN_WALL, 2.2, spansX ? THIN_WALL : TILE),
+        new THREE.BoxGeometry(spansX ? tile : THIN_WALL, 2.2, spansX ? THIN_WALL : tile),
         doorMat.clone(),
       );
-      mesh.position.set((x + 0.5) * TILE - WORLD / 2, 1.1, (z + 0.5) * TILE - WORLD / 2);
+      const center = tileToWorld(geometry, x, z);
+      mesh.position.set(center.x, 1.1, center.z);
       mesh.castShadow = true;
       this.scene.add(mesh);
       this.doors.push({ mesh, idx, spansX, base: mesh.position.clone() });
@@ -1380,8 +1406,8 @@ export class Renderer {
         color: roofHex, roughness: 0.82, transparent: true, opacity: 0.97,
       });
       const mats = [rmat];
-      const cx = (h.tx + h.tw / 2) * TILE - WORLD / 2;
-      const cz = (h.tz + h.th / 2) * TILE - WORLD / 2;
+      const cx = (h.tx + h.tw / 2) * tile - halfWidth(geometry);
+      const cz = (h.tz + h.th / 2) * tile - halfDepth(geometry);
       const covered = (rx: number, rz: number) =>
         !h.maskRows || ((h.maskRows[rz] ?? 0) & (1 << rx)) !== 0;
       if (style === 'gable') {
@@ -1427,7 +1453,7 @@ export class Renderer {
           for (let rx = 0; rx < h.tw; rx++) {
             if (!covered(rx, rz)) continue;
             const slab = new THREE.Mesh(new THREE.BoxGeometry(TILE, 0.3, TILE), rmat);
-            slab.position.set((h.tx + rx + 0.5) * TILE - WORLD / 2 - cx, 0, (h.tz + rz + 0.5) * TILE - WORLD / 2 - cz);
+            slab.position.set((h.tx + rx + 0.5) * tile - halfWidth(geometry) - cx, 0, (h.tz + rz + 0.5) * tile - halfDepth(geometry) - cz);
             slab.castShadow = true;
             group.add(slab);
           }
@@ -1471,7 +1497,8 @@ export class Renderer {
     for (const idx of world.breached) {
       this.collapseTile(idx);
       if (world.map.grid[idx] !== T_OPEN) {
-        this.breachPile((idx % GRID + 0.5) * TILE - WORLD / 2, (Math.floor(idx / GRID) + 0.5) * TILE - WORLD / 2);
+        const center = tileToWorld(geometry, idx % cols, Math.floor(idx / cols));
+        this.breachPile(center.x, center.z);
       }
     }
 
@@ -1533,6 +1560,101 @@ export class Renderer {
   /** Robert's MELEE PULSE-RING UI: the grab-reach pulses expand to the grab
    *  radius and fade; the guard arc lights a blue frontal wedge under you
    *  while you brace. Both are local-player tells, world-space under the feet. */
+  /** 'auto' picks a reticle by the weapon FAMILY (Robert: "based on the family
+   *  of weapons"): a shotgun gets a wide ringdot, a sniper a fine cross, a
+   *  launcher brackets, everything else the classic crosshair. */
+  private resolveReticleStyle(local: Soldier): import('./settings').ReticleStyle {
+    if (settings.reticle !== 'auto') return settings.reticle;
+    const def = WEAPONS[local.weapons[local.weaponIdx]];
+    const fam = def?.family;
+    if (fam === 'shotgun' || fam === 'slugger' || fam === 'scatter') return 'ringdot';
+    if (def && def.tracer === 'rail') return 'cross'; // marksman rails: a fine reticle
+    if (fam === 'at_rocket' || fam === 'ap_rocket' || fam === 'mortar' || fam === 'artillery' || fam === 'grenade') return 'brackets';
+    if ((def?.range ?? 40) >= 90) return 'dot'; // long reach: a clean dot
+    return 'crosshair';
+  }
+
+  /** THE RETICLE FAMILY (Robert). Shows exactly ONE cursor for the local player:
+   *  the ground WEDGE, the ground spread CIRCLE (handled in updateMeleeRings), or
+   *  a STANDING reticle floated out in front + a ground shadow. */
+  private updateReticle(local: Soldier | undefined, world: World) {
+    const style = local ? this.resolveReticleStyle(local) : 'wedge';
+    const wdef = local ? WEAPONS[local.weapons[local.weaponIdx]] : undefined;
+    // --- the GROUND WEDGE (direction FIXED: +Z-forward mesh needs π/2−yaw) ---
+    if (local && style === 'wedge') {
+      if (!this.aimRing) { this.aimRing = buildAimRing(); this.scene.add(this.aimRing); }
+      this.aimRing.visible = true;
+      this.aimRing.position.set(local.pos.x, local.pos.y + 0.02, local.pos.z);
+      this.aimRing.rotation.y = Math.PI / 2 - local.yaw;
+      const half = Math.min(0.55, (wdef?.spread ?? 0.03) * aimSpreadMul(local) * AIM_SCALE);
+      (this.aimRing.getObjectByName('aimL') as THREE.Object3D | null)?.rotation.set(0, half, 0);
+      (this.aimRing.getObjectByName('aimR') as THREE.Object3D | null)?.rotation.set(0, -half, 0);
+    } else if (this.aimRing) this.aimRing.visible = false;
+    // --- a STANDING reticle floated in front, billboarded, with a ground shadow ---
+    if (local && isStandingReticle(style)) {
+      const key = `${style}|${settings.reticleColor}`;
+      if (this.reticleKey !== key || !this.standingReticle) {
+        if (this.standingReticle) { this.scene.remove(this.standingReticle); this.standingReticle.traverse((o) => { const m = o as THREE.Mesh; m.geometry?.dispose?.(); (m.material as THREE.Material)?.dispose?.(); }); }
+        this.standingReticle = buildStandingReticle(style, settings.reticleColor);
+        this.scene.add(this.standingReticle);
+        if (!this.reticleShadow) { this.reticleShadow = buildReticleShadow(); this.scene.add(this.reticleShadow); }
+        this.reticleKey = key;
+      }
+      // "choose how far it's gonna be away" — reticleDist slides the float reach
+      const reach = 7 + settings.reticleDist * Math.min(28, (wdef?.range ?? 40) * 0.6);
+      const ax = local.pos.x + Math.cos(local.yaw) * reach;
+      const az = local.pos.z + Math.sin(local.yaw) * reach;
+      // "the size" — reticleScale × (grows a touch with the live spread cone)
+      const spreadMul = 1 + (wdef ? Math.min(0.7, wdef.spread * aimSpreadMul(local) * AIM_SCALE) : 0);
+      const scale = settings.reticleScale * spreadMul * 1.4;
+      const r = this.standingReticle;
+      r.visible = true;
+      r.scale.setScalar(scale);
+      // PLANTED IN THE WORLD (Robert: "physically in the 3D world… the bottom
+      // touching the ground… NOT facing the camera"). A VERTICAL plane standing
+      // at the aim point, its FOOT on the ground; it only YAWS to sit square to
+      // the camera (stays upright), so the angled view foreshortens it like a
+      // real standing target/sign, instead of a flat camera-locked billboard.
+      //
+      // FACE THE SAME WAY AT EVERY AIM (Robert: the old math "turned relative to
+      // the character" — only right at 12:00, wrong turning left). The camera is
+      // a fixed top-down rig looking toward −Z, so its horizontal forward is
+      // CONSTANT no matter where you aim. Yaw the reticle by THAT (−forward), not
+      // by the reticle→camera vector — which used the aim-dependent point (ax,az)
+      // and so re-aimed the face as you turned. Now every reticle sits square to
+      // the screen like an overlay, identical at 12:00, 9:00, or 6:00.
+      const fwd = this.camera.getWorldDirection(this.tmpDir);
+      r.rotation.set(0, Math.atan2(-fwd.x, -fwd.z), 0);
+      const foot = 0.58 * scale; // the reticle's built half-height (ring/bars) × scale
+      r.position.set(ax, foot, az); // center at half-height → bottom sits on the ground
+      if (this.reticleShadow) { this.reticleShadow.visible = true; this.reticleShadow.position.set(ax, 0.04, az); this.reticleShadow.scale.setScalar(scale * 0.85); }
+    } else {
+      if (this.standingReticle) this.standingReticle.visible = false;
+      if (this.reticleShadow) this.reticleShadow.visible = false;
+    }
+    // --- THE PERSONAL LASER (Robert: green beam, YOUR gun only) — a separate
+    // toggle from the reticle. It marches the aim line to the first wall (capped
+    // at the weapon's reach) so it doesn't punch through the world. Rendered only
+    // for the local player, so the screen never fills with aim lasers. ---
+    if (local && settings.laser) {
+      if (!this.laserBeam) { this.laserBeam = buildLaser(); this.scene.add(this.laserBeam); }
+      this.laserBeam.visible = true;
+      const cx = Math.cos(local.yaw), cz = Math.sin(local.yaw);
+      const mx = local.pos.x + cx * 0.5, mz = local.pos.z + cz * 0.5, my = 1.3;
+      const maxLen = Math.min(50, wdef?.range ?? 40);
+      let len = maxLen;
+      for (let d = 1; d <= maxLen; d += 0.5) {
+        if (blocksShot(world.map.grid, mx + cx * d, mz + cz * d, my)) { len = d; break; }
+      }
+      this.laserBeam.position.set(mx, my, mz);
+      this.laserBeam.rotation.y = -local.yaw; // +X-forward beam → aim
+      const beam = this.laserBeam.getObjectByName('beam');
+      if (beam) { beam.scale.y = len; beam.position.x = len / 2; } // stretch along +X, keep the base at the muzzle
+      const dot = this.laserBeam.getObjectByName('dot');
+      if (dot) dot.position.x = len;
+    } else if (this.laserBeam) this.laserBeam.visible = false;
+  }
+
   private updateMeleeRings(world: World, local: Soldier | undefined) {
     const t = world.time;
     // grab pulses — expand 0.2 → ~2.3u over 0.35s, fading out
@@ -1582,7 +1704,9 @@ export class Renderer {
     // spreadless/beam arms, and for gods (their aim isn't a cone).
     const wid = local?.weapons[local.weaponIdx];
     const wdef = wid ? WEAPONS[wid] : undefined;
-    const showSpread = !!local && local.alive && local.vehicleId < 0 && !local.ascendant
+    // the GROUND spread circle is now one reticle CHOICE among the family — it
+    // shows only when the player has picked the 'circle' style (Robert).
+    const showSpread = settings.reticle === 'circle' && !!local && local.alive && local.vehicleId < 0 && !local.ascendant
       && !!wdef && wdef.spread > 0.001 && wdef.range > 3 && wdef.tracer !== 'beam';
     if (showSpread) {
       if (!this.spreadRing) {
@@ -1807,7 +1931,7 @@ export class Renderer {
     /** Should an ENEMY thing at this spot be drawn? True (no local cull) for
      *  puppets/spectators; otherwise only where a friendly eye has LOS to it. */
     const enemyVisibleAt = (x: number, z: number, y = 1.4): boolean =>
-      fogEyes === null || eyesSeePoint(world.map.grid, fogEyes, x, z, fogRange, y);
+      fogEyes === null || eyesSeePoint(world.map.grid, fogEyes, x, z, fogRange, y, world.map.geometry);
 
     // C1 ROW 81 — THE SPLIT (Robert: "3D shows what YOU see; the minimap
     // shows what your TEAM sees"). The sim's lastSeen trail is the TEAM's
@@ -1828,7 +1952,8 @@ export class Renderer {
       }
       for (const s of world.soldiers.values()) {
         if (!s.alive || s.team === localTeam) continue;
-        if (perceivesNow(world.map.grid, [local], world.pinged, s, fogRange, world.smokeBlobs, revealed, world.map.grid2, world.map.upperLayers)) {
+        if (perceivesNow(world.map.grid, [local], world.pinged, s, fogRange,
+          world.smokeBlobs, revealed, world.map.grid2, world.map.geometry, world.map.upperLayers)) {
           this.localSeen.set(s.id, { t: world.time, x: s.pos.x, z: s.pos.z });
         }
       }
@@ -1871,7 +1996,7 @@ export class Renderer {
     // audio engine asks this test per shot), and the weather dulls the whole
     // battlefield — §8.8's sound column, finally real
     audio.occlusionTest = (p) => !losClear(world.map.grid,
-      { x: audio.listener.x, y: 1.4, z: audio.listener.z }, { x: p.x, y: 1.4, z: p.z });
+      { x: audio.listener.x, y: 1.4, z: audio.listener.z }, { x: p.x, y: 1.4, z: p.z }, 1.4, world.map.geometry);
     {
       const wk = world.weather?.kind;
       audio.weatherDull = (wk === 'snow' ? 0.5 : wk === 'storm' ? 0.4 : wk === 'rain' ? 0.25 : wk === 'dust' ? 0.2 : 0)
@@ -1895,7 +2020,7 @@ export class Renderer {
           if (!s.alive || s.team === focus.team || s.vehicleId >= 0) continue;
           if (!world.puppet && !seenRecently(world.lastSeen, world.pinged, focus.team, s, world.time,
             classLinger(focus.classId, focus.equipment.includes('tracking_optics')))) continue;
-          const hIdx = houseAt(world.map.houses, s.pos.x, s.pos.z);
+          const hIdx = houseAt(world.map.houses, s.pos.x, s.pos.z, world.map.geometry);
           if (hIdx < 0) continue;
           const topFloor = Math.max(0, (world.map.houses[hIdx].floors ?? 1) - 1);
           if ((s.floor ?? 0) >= topFloor) revealRoof.add(hIdx);
@@ -1912,7 +2037,7 @@ export class Renderer {
       for (const u of this.uppers) {
         const uIdx = world.map.houses.indexOf(u.house as typeof world.map.houses[number]);
         const inThis = (focus && focus.floor < u.floor &&
-          houseAt(world.map.houses, focus.pos.x, focus.pos.z) === uIdx) || revealUpper.has(uIdx);
+          houseAt(world.map.houses, focus.pos.x, focus.pos.z, world.map.geometry) === uIdx) || revealUpper.has(uIdx);
         const target = inThis ? 0.13 : 0.97;
         for (const m of u.mats) {
           m.opacity += (target - m.opacity) * Math.min(1, dt * 8);
@@ -1928,15 +2053,16 @@ export class Renderer {
     // saw it). Distance is to the house RECT, so long walls peek too.
     if (this.roofs.length) {
       const focus = world.soldiers.get(localId);
-      const inHouse = focus ? houseAt(world.map.houses, focus.pos.x, focus.pos.z) : -1;
+      const inHouse = focus ? houseAt(world.map.houses, focus.pos.x, focus.pos.z, world.map.geometry) : -1;
       for (const r of this.roofs) {
         const hIdx = world.map.houses.indexOf(r.house as typeof world.map.houses[number]);
         let open = hIdx === inHouse || revealRoof.has(hIdx);
         if (!open && focus) {
           const h = r.house;
-          const x0 = h.tx * TILE - WORLD / 2, z0 = h.tz * TILE - WORLD / 2;
-          const dx = Math.max(x0 - focus.pos.x, 0, focus.pos.x - (x0 + h.tw * TILE));
-          const dz = Math.max(z0 - focus.pos.z, 0, focus.pos.z - (z0 + h.th * TILE));
+          const x0 = h.tx * world.map.geometry.tile - halfWidth(world.map.geometry);
+          const z0 = h.tz * world.map.geometry.tile - halfDepth(world.map.geometry);
+          const dx = Math.max(x0 - focus.pos.x, 0, focus.pos.x - (x0 + h.tw * world.map.geometry.tile));
+          const dz = Math.max(z0 - focus.pos.z, 0, focus.pos.z - (z0 + h.th * world.map.geometry.tile));
           open = dx * dx + dz * dz < 4.5 * 4.5;
         }
         const target = open ? 0.12 : 0.97;
@@ -2257,7 +2383,8 @@ export class Renderer {
       mesh.position.set(ghost?.x ?? s.pos.x, s.pos.y, ghost?.z ?? s.pos.z);
       // in the water: waders splash at boot height, swimmers sink to the neck
       {
-        const wt = world.map.grid[Math.floor((s.pos.z + WORLD / 2) / TILE) * GRID + Math.floor((s.pos.x + WORLD / 2) / TILE)];
+        const [tx, tz] = worldToTile(world.map.geometry, s.pos.x, s.pos.z);
+        const wt = world.map.grid[tz * world.map.geometry.cols + tx];
         if (wt === T_DEEP && s.pos.y < 0.5) {
           mesh.position.y -= 0.95 - Math.sin(world.time * 2.2 + s.id) * 0.06; // swimming: chin on the waterline
           if ((s.vel.x !== 0 || s.vel.z !== 0) && Math.random() < 0.15) {
@@ -2376,8 +2503,9 @@ export class Renderer {
             new THREE.MeshBasicMaterial({ color: 0xcfeaf5, transparent: true, opacity: 0.62, depthWrite: false }),
           );
           sheet.rotation.x = -Math.PI / 2;
-          const tx = idx % GRID, tz = Math.floor(idx / GRID);
-          sheet.position.set(tx * TILE - WORLD / 2 + TILE / 2, 0.06, tz * TILE - WORLD / 2 + TILE / 2);
+          const tx = idx % world.map.geometry.cols, tz = Math.floor(idx / world.map.geometry.cols);
+          const center = tileToWorld(world.map.geometry, tx, tz);
+          sheet.position.set(center.x, 0.06, center.z);
           this.scene.add(sheet);
           this.frostSheets.set(idx, sheet);
         }
@@ -2426,22 +2554,12 @@ export class Renderer {
       bc.mesh.position.y = -Math.max(0, age - (BATTLEFIELD_CORPSE_LINGER - 1)) * 0.5;
     }
 
-    // STATUS §1 / W1.2 — the AIM RING follows the local player, facing where you
-    // aim, its wedge OPENING with the live accuracy cone (crouch tightens, a
-    // sprint or an airborne shot sprays). Hidden in a vehicle (you aim the
-    // turret), while dead, or on any replay/killcam.
-    if (local && local.alive && local.vehicleId < 0 && !this.replayView && !world.mode.over) {
-      if (!this.aimRing) { this.aimRing = buildAimRing(); this.scene.add(this.aimRing); }
-      this.aimRing.visible = true;
-      this.aimRing.position.set(local.pos.x, local.pos.y + 0.02, local.pos.z);
-      this.aimRing.rotation.y = -local.yaw; // sim yaw is math-angle; three rotates opposite
-      const wdef = WEAPONS[local.weapons[local.weaponIdx]];
-      const half = Math.min(0.55, (wdef?.spread ?? 0.03) * aimSpreadMul(local) * AIM_SCALE);
-      (this.aimRing.getObjectByName('aimL') as THREE.Object3D | null)?.rotation.set(0, half, 0);
-      (this.aimRing.getObjectByName('aimR') as THREE.Object3D | null)?.rotation.set(0, -half, 0);
-    } else if (this.aimRing) {
-      this.aimRing.visible = false;
-    }
+    // THE RETICLE (Robert): the local player's aim cursor, routed through the
+    // reticle family — the ground wedge (direction fixed), the ground spread
+    // circle, or a STANDING crosshair floated out in front with a ground shadow.
+    // Hidden in a vehicle (you aim the turret), while dead, or on a replay.
+    const showReticle = !!local && local.alive && local.vehicleId < 0 && !this.replayView && !world.mode.over;
+    this.updateReticle(showReticle ? local : undefined, world);
 
     // vehicles
     for (const v of world.vehicles.values()) {
@@ -2468,7 +2586,8 @@ export class Renderer {
       // must hold LOS to the hull (tested at ~1.8u, a turret's height).
       if (!world.puppet && local && v.team !== localTeam) {
         const ecmDead = !!v.systems && v.systems.ecm <= 0;
-        if (v.burrowed || (!ecmDead && !enemyVisibleAt(v.pos.x, v.pos.z, 1.8))) {
+        if (v.burrowed || (v.submerged && !world.submarineDetectedForTeam(v, localTeam))
+            || (!v.submerged && !ecmDead && !enemyVisibleAt(v.pos.x, v.pos.z, 1.8))) {
           mesh.visible = false;
           continue;
         }
@@ -2488,17 +2607,12 @@ export class Renderer {
         const hasPilot = v.seats[0] >= 0;
         const spoolLeft = Math.max(0, (v.spoolUntil ?? 0) - world.time);
         const k = hasPilot ? 1 - Math.min(1, spoolLeft / lift) : 0;
-        const cruiseF = [0.3, 1.9, 3.4, 3.4][Math.max(0, Math.min(3, v.band ?? 2))];
+        const cruiseF = ELEVATION_ALT[asElevationLevel(v.band ?? 2)];
         const target = 0.3 + k * (cruiseF - 0.3 + Math.sin(world.time * 2.2 + v.id) * 0.25 * k);
         const prev = this.flyerAlt.get(v.id) ?? 0.3;
         const alt = prev + (target - prev) * Math.min(1, dt * 2.2);
         this.flyerAlt.set(v.id, alt);
         hoverBob = alt;
-        // rotors wind from idle tick-over to a full blur as the spool completes
-        for (const rn of ['rotorL', 'rotorR']) {
-          const rotor = mesh.getObjectByName(rn);
-          if (rotor) rotor.rotation.y += dt * (1.5 + (hasPilot ? k * 17 : 0));
-        }
       }
       // THE FIXED WING EARNS THE SKY TOO (Robert: "planes have to start off
       // grounded"). Only the flyer had altitude code — strikejet, interceptor
@@ -2514,13 +2628,12 @@ export class Renderer {
       // should VISUALLY feel like we're high"): band 2 finally clears the 8u
       // roofline its own comment promises, and band 3 is genuinely UP — the
       // sanctuary the sim now enforces reads as one.
-      const BAND_ALT = [0.12, 2.0, 8.6, 14.0];
       if (vdef.flies && v.kind !== 'flyer') {
         const lift = vdef.liftoffTime ?? 1.4;
         const hasPilot = v.seats[0] >= 0;
         const spoolLeft = Math.max(0, (v.spoolUntil ?? 0) - world.time);
         const k = hasPilot ? 1 - Math.min(1, spoolLeft / lift) : 0;
-        const cruise = BAND_ALT[Math.max(0, Math.min(3, v.band ?? 0))];
+        const cruise = ELEVATION_ALT[asElevationLevel(v.band)];
         const target = 0.12 + k * (cruise - 0.12 + Math.sin(world.time * 1.7 + v.id) * 0.18 * k);
         const prev = this.flyerAlt.get(v.id) ?? 0.12;
         const alt = prev + (target - prev) * Math.min(1, dt * 1.6);
@@ -2562,6 +2675,16 @@ export class Renderer {
             setTimeout(() => audio.play('thump', { pos: { ...v.pos }, volume: 0.45 }), 90);
           }
           this.burnerWas.set(v.id, !!v.burnerOn);
+        }
+      }
+      if (v.kind === 'flyer' || v.kind === 'attackheli' || v.kind === 'transportheli') {
+        const hasPilot = v.seats[0] >= 0;
+        const lift = vdef.liftoffTime ?? 2.5;
+        const spoolLeft = Math.max(0, (v.spoolUntil ?? 0) - world.time);
+        const spool = hasPilot ? 1 - Math.min(1, spoolLeft / lift) : 0;
+        for (const name of ['rotorL', 'rotorR']) {
+          const rotor = mesh.getObjectByName(name);
+          if (rotor) rotor.rotation.y += dt * (1.5 + (hasPilot ? spool * 17 : 0));
         }
       }
       mesh.position.set(v.pos.x, hoverBob, v.pos.z);
@@ -2638,6 +2761,21 @@ export class Renderer {
         if (v.burrowed && vSpeed > 0.5 && world.time >= (this.nextMoundAt.get(v.id) ?? 0)) {
           this.nextMoundAt.set(v.id, world.time + 0.16);
           this.particles.emit({ pos: { x: v.pos.x, y: 0.15, z: v.pos.z }, count: 3, color: 0x6b5636, speed: 1.2, life: 0.9, spread: 1.3, up: 1.8, gravity: 5, size: 0.5 });
+        }
+      }
+      if (v.kind === 'submarine') {
+        const vSpeed = Math.hypot(v.vel.x, v.vel.z);
+        const propeller = mesh.getObjectByName('propeller');
+        if (propeller) propeller.rotation.x += dt * (2 + vSpeed * 1.8);
+        const depth = (mesh.userData.depth as number | undefined) ?? -0.25;
+        const nextDepth = depth + ((v.submerged ? -2.4 : -0.25) - depth) * Math.min(1, dt * 2.5);
+        mesh.userData.depth = nextDepth;
+        mesh.position.y = nextDepth;
+        const sonarRing = mesh.getObjectByName('sonarRing');
+        if (sonarRing) {
+          sonarRing.visible = !!v.submerged;
+          sonarRing.position.y = -nextDepth + 0.04;
+          sonarRing.rotation.z = world.time * 0.2;
         }
       }
       // THE RING at the hull's feet: vehicles wear chunks too — the tank's
@@ -3156,7 +3294,7 @@ export class Renderer {
         let nodeE: (typeof s) | undefined; // PRISM: the body the stream stopped in
         walk: for (let d = 1; d <= hdef.range; d += 1) {
           const px = s.pos.x + fx * d, pz = s.pos.z + fz * d;
-          if (blocksShot(world.map.grid, px, pz, 1.3)) { end = d; break; }
+          if (blocksShot(world.map.grid, px, pz, 1.3, world.map.geometry)) { end = d; break; }
           // the drawn stream STOPS at a hull, same as the sim's damage walk —
           // the beam no longer visually passes through vehicles
           for (const v of world.vehicles.values()) {
@@ -3194,7 +3332,7 @@ export class Renderer {
           let fans = 0;
           for (const c of cands) {
             if (fans >= pr.count) break;
-            if (!losClear(world.map.grid, nodeE.pos, c.e.pos, 1.3)) continue;
+            if (!losClear(world.map.grid, nodeE.pos, c.e.pos, 1.3, world.map.geometry)) continue;
             subsWanted.push({ x: c.e.pos.x, z: c.e.pos.z });
             fans++;
           }
@@ -4453,7 +4591,7 @@ export class Renderer {
     // performs (blocksAir passes T_COVER above 0.9u) finally shows on the
     // body. Gated to the hop arc so a plain jump in the open stays a jump.
     if (!zed && !s.ascendant && s.pos.y > 0.35 && s.pos.y < 1.4 && s.vehicleId < 0) {
-      const overCover = tileAt(world.map.grid, s.pos.x, s.pos.z) === T_COVER;
+      const overCover = tileAt(world.map.grid, s.pos.x, s.pos.z, world.map.geometry) === T_COVER;
       if (overCover) {
         if (j.armL) { j.armL.rotation.z = 1.25; }        // lead hand plants down-forward
         if (j.legL) j.legL.rotation.z = 0.9;             // lead leg clears
@@ -4788,7 +4926,11 @@ export class Renderer {
           // Ragebeast's claws have three takes (Robert's pack) — pick one per
           // swing so the 3/s rending never reads as one looped sample
           else if (shotSnd === 'ragebeast_attack1') shotSnd = (['ragebeast_attack1', 'ragebeast_attack2', 'ragebeast_attack3'] as const)[Math.floor(Math.random() * 3)];
-          audio.play(shotSnd, { pos: e.pos, volume: 0.7 });
+          // a DESIGNATED-LOOP weapon (flamethrower, beam, engine — Sound Editor
+          // loop-flags) plays as ONE sustained loop that tracks the shooter and
+          // fades when firing stops, instead of a stuttered retrigger per tick
+          if (audio.hasLoopFlag(shotSnd)) audio.playSustained(shotSnd, { pos: e.pos, volume: 0.7 });
+          else audio.play(shotSnd, { pos: e.pos, volume: 0.7 });
           if (def.tracer !== 'beam' && def.tracer !== 'none') {
             this.particles.emit({ pos: e.pos, count: 3, color: 0xffcc66, speed: 3, life: 0.12, spread: 0.3, up: 1, size: 0.3 });
           } else if (def.tracer === 'beam') {
@@ -4935,9 +5077,9 @@ export class Renderer {
               // its fabric (wall→dust, door→splinter, metal→spark, water→splash),
               // open ground as the SURFACE you'd walk on (ice→shatter, deck→
               // spark, grass→rustle, dirt→puff). No more three-bucket lumping.
-              const t = tileAt(world.map.grid, e.pos.x, e.pos.z);
+              const t = tileAt(world.map.grid, e.pos.x, e.pos.z, world.map.geometry);
               const onFloor = t === T_OPEN || t === T_LADDER;
-              const mat = onFloor ? materialForSurface(surfaceAt(world.map.surface, e.pos.x, e.pos.z)) : materialOf(t);
+              const mat = onFloor ? materialForSurface(surfaceAt(world.map.surface, e.pos.x, e.pos.z, world.map.geometry)) : materialOf(t);
               this.spawnImpactFx(mat.impact, e.pos);
             }
           }

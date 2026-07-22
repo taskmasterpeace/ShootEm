@@ -10,7 +10,7 @@
 // claim lives and dies with its prop.
 // ---------------------------------------------------------------------------
 import {
-  GRID, TILE, WORLD, houseAt,
+  houseAt,
   T_OPEN, T_WALL, T_COVER, T_WATER, T_DEEP, T_SLIT, T_DOOR, T_DOOR_OPEN, T_METAL, T_LADDER, T_CLIMB,
   T_THIN_WALL_H, T_THIN_WALL_V, T_THIN_DOOR_H, T_THIN_DOOR_V, T_WINDOW_H, T_WINDOW_V,
   T_STAIRS_N, T_STAIRS_E, T_STAIRS_S, T_STAIRS_W, T_SECTION_SHUTTER,
@@ -23,6 +23,14 @@ import { FRONT_STENCILS, frontWalkable, generateFront, boxFor, type MapSize } fr
 import { generateSkirmishMap } from './skirmish';
 import { Rng } from './rng';
 import type { Team, ThemeId, VehicleKind, Vec3 } from './types';
+import { generateTheater } from './theaters';
+import type { TheaterId } from './theater-types';
+import {
+  LEGACY_GEOMETRY, geometryLength, tileIndex,
+  tileToWorld as geometryTileToWorld, validateGeometry,
+  worldToTile as geometryWorldToTile,
+  type MapGeometry,
+} from './map-geometry';
 
 // ---------------------------------------------------------------------------
 // the document
@@ -39,17 +47,17 @@ export interface MakerDoc {
   redoStack: string[];
 }
 
-const tileToWorld = (tx: number, tz: number): Vec3 =>
-  ({ x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 });
-const worldToTile = (x: number, z: number): [number, number] =>
-  [Math.floor((x + WORLD / 2) / TILE), Math.floor((z + WORLD / 2) / TILE)];
+const tileToWorld = (map: GameMap, tx: number, tz: number): Vec3 =>
+  geometryTileToWorld(map.geometry, tx, tz);
+const worldToTile = (map: GameMap, x: number, z: number): [number, number] =>
+  geometryWorldToTile(map.geometry, x, z);
 
 function cloneMap(m: GameMap): GameMap {
   const upperLayers = m.upperLayers?.map((layer) => layer.slice());
   const grid2 = upperLayers?.[0] ?? m.grid2.slice();
   if (upperLayers) upperLayers[0] = grid2;
   return {
-    seed: m.seed, theme: m.theme,
+    seed: m.seed, theme: m.theme, geometry: { ...m.geometry },
     grid: m.grid.slice(), grid2, surface: m.surface.slice(),
     ...(upperLayers ? { upperLayers } : {}),
     ...(m.buildingMeta ? { buildingMeta: structuredClone(m.buildingMeta) } : {}),
@@ -66,6 +74,18 @@ function cloneMap(m: GameMap): GameMap {
     gates: m.gates.map((g) => ({ a: { ...g.a }, b: { ...g.b } })),
     pads: m.pads.map((p) => ({ pos: { ...p.pos }, dir: { ...p.dir } })),
     propCovered: m.propCovered.slice(),
+    operation: m.operation ? {
+      ...m.operation,
+      objectives: m.operation.objectives.map((objective) => ({ ...objective, pos: { ...objective.pos } })),
+      protectedZones: m.operation.protectedZones.map((zone) => ({ ...zone, pos: { ...zone.pos } })),
+    } : undefined,
+    theater: m.theater ? {
+      ...m.theater,
+      domains: [...m.theater.domains],
+      routes: m.theater.routes.map((route) => ({ ...route, points: route.points.map((point) => ({ ...point })) })),
+      landingZones: m.theater.landingZones.map((zone) => ({ ...zone, pos: { ...zone.pos } })),
+      deepWater: [...m.theater.deepWater],
+    } : undefined,
   };
 }
 
@@ -103,11 +123,12 @@ export function loadSkirmish(theme: ThemeId, seed: number): MakerDoc {
 /** A blank battlefield: sealed rim, open box interior, two bare bases. */
 export function blankDoc(size: MapSize, seed: number, theme: GameMap['theme'] = 'savanna'): MakerDoc {
   const box = boxFor(size);
-  const grid = new Uint8Array(GRID * GRID);
-  const grid2 = new Uint8Array(GRID * GRID);
-  const surface = new Uint8Array(GRID * GRID).fill(1); // S_GRASS
-  for (let z = 0; z < GRID; z++) for (let x = 0; x < GRID; x++) {
-    if (x < box.x0 || x > box.x1 || z < box.z0 || z > box.z1) grid[z * GRID + x] = T_WALL;
+  const geometry = { ...LEGACY_GEOMETRY };
+  const grid = new Uint8Array(geometryLength(geometry));
+  const grid2 = new Uint8Array(geometryLength(geometry));
+  const surface = new Uint8Array(geometryLength(geometry)).fill(1); // S_GRASS
+  for (let z = 0; z < geometry.rows; z++) for (let x = 0; x < geometry.cols; x++) {
+    if (x < box.x0 || x > box.x1 || z < box.z0 || z > box.z1) grid[tileIndex(geometry, x, z)] = T_WALL;
   }
   const mid = Math.floor((box.z0 + box.z1) / 2);
   const bx0 = box.x0 + 10, bx1 = box.x1 - 9;
@@ -115,20 +136,20 @@ export function blankDoc(size: MapSize, seed: number, theme: GameMap['theme'] = 
     const out: Vec3[] = [];
     for (let i = 0; i < 8; i++) {
       const a = (i / 8) * Math.PI * 2;
-      out.push(tileToWorld(cx + Math.round(Math.cos(a) * 3), cz + Math.round(Math.sin(a) * 3)));
+      out.push(geometryTileToWorld(geometry, cx + Math.round(Math.cos(a) * 3), cz + Math.round(Math.sin(a) * 3)));
     }
     return out;
   };
   const map: GameMap = {
-    seed, theme, grid, grid2, surface,
-    basePos: [tileToWorld(bx0, mid), tileToWorld(bx1, mid)],
+    seed, theme, geometry, grid, grid2, surface,
+    basePos: [geometryTileToWorld(geometry, bx0, mid), geometryTileToWorld(geometry, bx1, mid)],
     spawns: [ring(bx0, mid), ring(bx1, mid)],
-    flagPos: [tileToWorld(bx0, mid), tileToWorld(bx1, mid)],
-    hillPos: tileToWorld(50, 50),
+    flagPos: [geometryTileToWorld(geometry, bx0, mid), geometryTileToWorld(geometry, bx1, mid)],
+    hillPos: geometryTileToWorld(geometry, 50, 50),
     controlPoints: [
-      { name: 'A', pos: tileToWorld(box.x0 + 20, mid) },
-      { name: 'B', pos: tileToWorld(50, 50) },
-      { name: 'C', pos: tileToWorld(box.x1 - 19, mid) },
+      { name: 'A', pos: geometryTileToWorld(geometry, box.x0 + 20, mid) },
+      { name: 'B', pos: geometryTileToWorld(geometry, 50, 50) },
+      { name: 'C', pos: geometryTileToWorld(geometry, box.x1 - 19, mid) },
     ],
     vehiclePads: [], pickups: [], props: [], zombieSpawns: [], houses: [],
     gates: [], pads: [], propCovered: [],
@@ -136,16 +157,72 @@ export function blankDoc(size: MapSize, seed: number, theme: GameMap['theme'] = 
   return { frontId: null, size, seed, mode: 'tdm', map, claims: [], rng: new Rng(seed ^ 0x5eed), undoStack: [], redoStack: [] };
 }
 
+/** Load one of the six vehicle-scale theaters as a fully editable document. */
+export function loadTheater(theaterId: TheaterId, seed: number): MakerDoc {
+  const map = generateTheater(theaterId, seed);
+  return {
+    frontId: `theater:${theaterId}`, size: 'large', seed, mode: 'operation',
+    map: cloneMap(map),
+    claims: map.propCovered.map((idx) => ({ idx, t: map.grid[idx] })),
+    rng: new Rng(seed ^ 0x5eed),
+    undoStack: [], redoStack: [],
+  };
+}
+
+/** A geometry-sized blank theater: sealed one-tile rim and open interior. */
+export function blankGeometryDoc(
+  geometry: MapGeometry,
+  seed: number,
+  theme: GameMap['theme'] = 'savanna',
+): MakerDoc {
+  const g = { ...geometry };
+  validateGeometry(g);
+  const grid = new Uint8Array(geometryLength(g));
+  const grid2 = new Uint8Array(geometryLength(g));
+  const surface = new Uint8Array(geometryLength(g)).fill(1);
+  for (let z = 0; z < g.rows; z++) for (let x = 0; x < g.cols; x++) {
+    if (x === 0 || z === 0 || x === g.cols - 1 || z === g.rows - 1) grid[tileIndex(g, x, z)] = T_WALL;
+  }
+  const midX = Math.floor(g.cols / 2);
+  const midZ = Math.floor(g.rows / 2);
+  const bx0 = 10;
+  const bx1 = g.cols - 11;
+  const ring = (cx: number, cz: number): Vec3[] => Array.from({ length: 8 }, (_, i) => {
+    const a = (i / 8) * Math.PI * 2;
+    return geometryTileToWorld(g, cx + Math.round(Math.cos(a) * 3), cz + Math.round(Math.sin(a) * 3));
+  });
+  const base0 = geometryTileToWorld(g, bx0, midZ);
+  const base1 = geometryTileToWorld(g, bx1, midZ);
+  const center = geometryTileToWorld(g, midX, midZ);
+  const map: GameMap = {
+    seed, theme, geometry: g, grid, grid2, surface,
+    basePos: [base0, base1], spawns: [ring(bx0, midZ), ring(bx1, midZ)],
+    flagPos: [{ ...base0 }, { ...base1 }], hillPos: center,
+    controlPoints: [
+      { name: 'A', pos: geometryTileToWorld(g, Math.floor(g.cols * 0.3), midZ) },
+      { name: 'B', pos: center },
+      { name: 'C', pos: geometryTileToWorld(g, Math.floor(g.cols * 0.7), midZ) },
+    ],
+    vehiclePads: [], pickups: [], props: [], zombieSpawns: [], houses: [],
+    gates: [], pads: [], propCovered: [],
+  };
+  return { frontId: null, size: 'large', seed, mode: 'tdm', map, claims: [], rng: new Rng(seed ^ 0x5eed), undoStack: [], redoStack: [] };
+}
+
 // ---------------------------------------------------------------------------
 // undo / redo — full-doc snapshots (a dev tool can afford them)
 // ---------------------------------------------------------------------------
 interface MapJSONBase {
   frontId: string | null; size: MapSize; seed: number;
+  /** v1 documents omit geometry and always migrate to the legacy grid. */
+  geometry?: MapGeometry;
   grid: number[]; grid2: number[]; surface: number[];
   basePos: [Vec3, Vec3]; spawns: [Vec3[], Vec3[]]; flagPos: [Vec3, Vec3];
   hillPos: Vec3; controlPoints: { name: string; pos: Vec3 }[];
   vehiclePads: VehiclePad[]; pickups: PickupSpawn[]; props: PropSpec[];
   zombieSpawns: Vec3[]; houses: House[]; theme: GameMap['theme'];
+  operation?: GameMap['operation'];
+  theater?: GameMap['theater'];
   claims: TileClaim[];
 }
 
@@ -161,31 +238,39 @@ export function serializeDoc(doc: MakerDoc): MapJSONV2 {
   const m = doc.map;
   return {
     v: 2, frontId: doc.frontId, size: doc.size, seed: doc.seed,
+    geometry: { ...m.geometry },
     grid: [...m.grid], grid2: [...m.grid2], surface: [...m.surface],
     upperLayers: (m.upperLayers ?? [m.grid2]).map((layer) => [...layer]),
     ...(m.buildingMeta ? { buildingMeta: structuredClone(m.buildingMeta) } : {}),
     basePos: m.basePos, spawns: m.spawns, flagPos: m.flagPos, hillPos: m.hillPos,
     controlPoints: m.controlPoints, vehiclePads: m.vehiclePads, pickups: m.pickups,
     props: m.props, zombieSpawns: m.zombieSpawns, houses: m.houses, theme: m.theme,
+    operation: m.operation,
+    theater: m.theater,
     claims: doc.claims,
   };
 }
 
 export function deserializeDoc(json: MapJSON): MakerDoc {
   if (json.v !== 1 && json.v !== 2) throw new Error(`mapedit: can't read doc version ${(json as { v?: number }).v}`);
+  const geometry = json.geometry ? { ...json.geometry } : { ...LEGACY_GEOMETRY };
   const grid = Uint8Array.from(json.grid);
   const upperLayers = json.v === 2 ? json.upperLayers.map((layer) => Uint8Array.from(layer)) : undefined;
   const grid2 = upperLayers?.[0] ?? Uint8Array.from(json.grid2);
   if (upperLayers) upperLayers[0] = grid2;
+  const surface = Uint8Array.from(json.surface);
+  validateGeometry(geometry, grid, grid2, surface, ...(upperLayers ?? []));
   const map: GameMap = {
-    seed: json.seed, theme: json.theme,
-    grid, grid2, surface: Uint8Array.from(json.surface),
+    seed: json.seed, theme: json.theme, geometry,
+    grid, grid2, surface,
     ...(upperLayers ? { upperLayers } : {}),
     ...(json.v === 2 && json.buildingMeta ? { buildingMeta: structuredClone(json.buildingMeta) } : {}),
     basePos: json.basePos, spawns: json.spawns, flagPos: json.flagPos, hillPos: json.hillPos,
     controlPoints: json.controlPoints, vehiclePads: json.vehiclePads, pickups: json.pickups,
     props: json.props, zombieSpawns: json.zombieSpawns, houses: json.houses,
     gates: [], pads: [], propCovered: settleClaims(grid, json.claims),
+    operation: json.operation,
+    theater: json.theater,
   };
   return {
     frontId: json.frontId, size: json.size, seed: json.seed, mode: 'tdm',
@@ -240,12 +325,14 @@ function afterGridWrite(doc: MakerDoc, idxs: number[]) {
  *  with the eraser first, or accept a ghost mesh). */
 export function paintTile(doc: MakerDoc, tx: number, tz: number, tile: number, brush = 1) {
   pushUndo(doc);
+  const { cols, rows } = doc.map.geometry;
   const r = Math.floor(brush / 2);
   const idxs: number[] = [];
   for (let z = tz - r; z <= tz + r; z++) for (let x = tx - r; x <= tx + r; x++) {
-    if (x < 1 || z < 1 || x >= GRID - 1 || z >= GRID - 1) continue;
-    doc.map.grid[z * GRID + x] = tile;
-    idxs.push(z * GRID + x);
+    if (x < 1 || z < 1 || x >= cols - 1 || z >= rows - 1) continue;
+    const idx = tileIndex(doc.map.geometry, x, z);
+    doc.map.grid[idx] = tile;
+    idxs.push(idx);
   }
   afterGridWrite(doc, idxs);
 }
@@ -255,20 +342,22 @@ export function paintTile(doc: MakerDoc, tx: number, tz: number, tile: number, b
 export function paintFloorTile(doc: MakerDoc, floor: 1 | 2, tx: number, tz: number, tile: number, brush = 1) {
   pushUndo(doc);
   const layer = ensureUpperFloor(doc.map, floor);
+  const { cols, rows } = doc.map.geometry;
   const r = Math.floor(brush / 2);
   for (let z = tz - r; z <= tz + r; z++) for (let x = tx - r; x <= tx + r; x++) {
-    if (x < 1 || z < 1 || x >= GRID - 1 || z >= GRID - 1) continue;
-    layer[z * GRID + x] = tile;
+    if (x < 1 || z < 1 || x >= cols - 1 || z >= rows - 1) continue;
+    layer[tileIndex(doc.map.geometry, x, z)] = tile;
   }
 }
 
 /** paint the SURFACE layer (movement/sound/paint), same brush model. */
 export function paintSurface(doc: MakerDoc, tx: number, tz: number, surf: number, brush = 1) {
   pushUndo(doc);
+  const { cols, rows } = doc.map.geometry;
   const r = Math.floor(brush / 2);
   for (let z = tz - r; z <= tz + r; z++) for (let x = tx - r; x <= tx + r; x++) {
-    if (x < 1 || z < 1 || x >= GRID - 1 || z >= GRID - 1) continue;
-    doc.map.surface[z * GRID + x] = surf;
+    if (x < 1 || z < 1 || x >= cols - 1 || z >= rows - 1) continue;
+    doc.map.surface[tileIndex(doc.map.geometry, x, z)] = surf;
   }
 }
 
@@ -276,8 +365,8 @@ export function paintSurface(doc: MakerDoc, tx: number, tz: number, surf: number
  *  tile so collision and mesh stay married (the invisible-wall law). */
 export function placeProp(doc: MakerDoc, type: PropSpec['type'], tx: number, tz: number, scale = 1, rot = 0) {
   pushUndo(doc);
-  const idx = tz * GRID + tx;
-  doc.map.props.push({ type, pos: tileToWorld(tx, tz), scale, rot });
+  const idx = tileIndex(doc.map.geometry, tx, tz);
+  doc.map.props.push({ type, pos: tileToWorld(doc.map, tx, tz), scale, rot });
   const blocks: Partial<Record<PropSpec['type'], number>> = {
     rock: T_WALL, tree: T_WALL, silo: T_WALL, flare_stack: T_WALL, crate: T_COVER, wreck: T_COVER, memorial: T_WALL,
   };
@@ -291,7 +380,7 @@ export function placeProp(doc: MakerDoc, type: PropSpec['type'], tx: number, tz:
 
 /** remove the nearest prop within the hit radius of a tile, opening its tile. */
 export function erasePropAt(doc: MakerDoc, tx: number, tz: number): boolean {
-  const w = tileToWorld(tx, tz);
+  const w = tileToWorld(doc.map, tx, tz);
   let best = -1, bestD = Infinity;
   for (let i = 0; i < doc.map.props.length; i++) {
     const p = doc.map.props[i];
@@ -303,8 +392,9 @@ export function erasePropAt(doc: MakerDoc, tx: number, tz: number): boolean {
   doc.map.props.splice(best, 1);
   // its claim dies with it, and the tile opens (map.ts settleClaims semantics)
   for (const c of doc.claims) {
-    const cx = (c.idx % GRID + 0.5) * TILE - WORLD / 2;
-    const cz = (Math.floor(c.idx / GRID) + 0.5) * TILE - WORLD / 2;
+    const center = tileToWorld(doc.map, c.idx % doc.map.geometry.cols, Math.floor(c.idx / doc.map.geometry.cols));
+    const cx = center.x;
+    const cz = center.z;
     if (Math.hypot(cx - w.x, cz - w.z) < 2.2 + 1) {
       doc.map.grid[c.idx] = T_OPEN;
       doc.claims.splice(doc.claims.indexOf(c), 1);
@@ -351,10 +441,10 @@ export function objectPos(doc: MakerDoc, ref: ObjectRef): Vec3 {
 
 /** move an object to a new tile (snap-to-tile-center, clamped inside the rim). */
 export function moveObject(doc: MakerDoc, ref: ObjectRef, tx: number, tz: number) {
-  tx = Math.max(1, Math.min(GRID - 2, tx));
-  tz = Math.max(1, Math.min(GRID - 2, tz));
+  tx = Math.max(1, Math.min(doc.map.geometry.cols - 2, tx));
+  tz = Math.max(1, Math.min(doc.map.geometry.rows - 2, tz));
   pushUndo(doc);
-  const w = tileToWorld(tx, tz);
+  const w = tileToWorld(doc.map, tx, tz);
   const m = doc.map;
   switch (ref.kind) {
     case 'cp': m.controlPoints[ref.index].pos = w; break;
@@ -363,13 +453,13 @@ export function moveObject(doc: MakerDoc, ref: ObjectRef, tx: number, tz: number
     case 'pad': m.vehiclePads[ref.index].pos = w; break;
     case 'mouth': m.zombieSpawns[ref.index] = w; break;
     case 'base': {
-      const [ox, oz] = worldToTile(m.basePos[ref.team].x, m.basePos[ref.team].z);
+      const [ox, oz] = worldToTile(m, m.basePos[ref.team].x, m.basePos[ref.team].z);
       const dx = tx - ox, dz = tz - oz;
       m.basePos[ref.team] = w;
       m.flagPos[ref.team] = w;
       m.spawns[ref.team] = m.spawns[ref.team].map((s) => {
-        const [sx, sz] = worldToTile(s.x, s.z);
-        return tileToWorld(sx + dx, sz + dz);
+        const [sx, sz] = worldToTile(m, s.x, s.z);
+        return tileToWorld(m, sx + dx, sz + dz);
       });
       break;
     }
@@ -392,20 +482,20 @@ export function deleteObject(doc: MakerDoc, ref: ObjectRef): boolean {
 
 export function addControlPoint(doc: MakerDoc, tx: number, tz: number, name?: string) {
   pushUndo(doc);
-  doc.map.controlPoints.push({ name: name ?? String.fromCharCode(65 + doc.map.controlPoints.length), pos: tileToWorld(tx, tz) });
+  doc.map.controlPoints.push({ name: name ?? String.fromCharCode(65 + doc.map.controlPoints.length), pos: tileToWorld(doc.map, tx, tz) });
 }
 export function addPickup(doc: MakerDoc, type: PickupSpawn['type'], tx: number, tz: number) {
   pushUndo(doc);
-  doc.map.pickups.push({ type, pos: tileToWorld(tx, tz) });
+  doc.map.pickups.push({ type, pos: tileToWorld(doc.map, tx, tz) });
 }
 export function addPad(doc: MakerDoc, kind: VehicleKind, tx: number, tz: number) {
   pushUndo(doc);
-  const team: Team = tx < GRID / 2 ? 0 : 1;
-  doc.map.vehiclePads.push({ kind, team, pos: tileToWorld(tx, tz) });
+  const team: Team = tx < doc.map.geometry.cols / 2 ? 0 : 1;
+  doc.map.vehiclePads.push({ kind, team, pos: tileToWorld(doc.map, tx, tz) });
 }
 export function addMouth(doc: MakerDoc, tx: number, tz: number) {
   pushUndo(doc);
-  doc.map.zombieSpawns.push(tileToWorld(tx, tz));
+  doc.map.zombieSpawns.push(tileToWorld(doc.map, tx, tz));
 }
 
 // ---- buildings ------------------------------------------------------------
@@ -417,6 +507,7 @@ export function stamp(doc: MakerDoc, def: BuildingDef, tx: number, tz: number): 
   if (def.floors >= 2) ensureUpperFloor(doc.map, 1);
   if (def.floors >= 3) ensureUpperFloor(doc.map, 2);
   const ctx: StampCtx = {
+    geometry: doc.map.geometry,
     grid: doc.map.grid, grid2: doc.map.grid2, upperLayers: doc.map.upperLayers, props: doc.map.props,
     pickups: doc.map.pickups, houses: doc.map.houses, claims: doc.claims, rng: doc.rng,
   };
@@ -434,22 +525,24 @@ export function deleteHouse(doc: MakerDoc, index: number): boolean {
   if (!h) return false;
   pushUndo(doc);
   const m = doc.map;
+  const { cols, rows } = m.geometry;
   for (let z = h.tz - 1; z <= h.tz + h.th; z++) {
     for (let x = h.tx - 1; x <= h.tx + h.tw; x++) {
-      if (x < 1 || z < 1 || x >= GRID - 1 || z >= GRID - 1) continue;
-      m.grid[z * GRID + x] = T_OPEN;
-      m.grid2[z * GRID + x] = 0;
-      for (const layer of m.upperLayers ?? []) layer[z * GRID + x] = 0;
+      if (x < 1 || z < 1 || x >= cols - 1 || z >= rows - 1) continue;
+      const idx = tileIndex(m.geometry, x, z);
+      m.grid[idx] = T_OPEN;
+      m.grid2[idx] = 0;
+      for (const layer of m.upperLayers ?? []) layer[idx] = 0;
     }
   }
   const inside = (p: Vec3) => {
-    const [px, pz] = worldToTile(p.x, p.z);
+    const [px, pz] = worldToTile(m, p.x, p.z);
     return px >= h.tx - 1 && px <= h.tx + h.tw && pz >= h.tz - 1 && pz <= h.tz + h.th;
   };
   m.props = m.props.filter((p) => !inside(p.pos));
   m.pickups = m.pickups.filter((p) => !inside(p.pos));
   doc.claims = doc.claims.filter((c) => {
-    const cx = c.idx % GRID, cz = Math.floor(c.idx / GRID);
+    const cx = c.idx % cols, cz = Math.floor(c.idx / cols);
     return !(cx >= h.tx - 1 && cx <= h.tx + h.tw && cz >= h.tz - 1 && cz <= h.tz + h.th);
   });
   m.houses.splice(index, 1);
@@ -474,24 +567,27 @@ const OUTDOOR_ONLY = new Set(['tree', 'rock', 'wreck', 'silo', 'flare_stack', 'c
 
 export function validateDoc(doc: MakerDoc): LawReport {
   const m = doc.map;
+  const { cols, rows } = m.geometry;
   const issues: LawIssue[] = [];
   const seen = flood(m, m.basePos[0]);
 
   // 1 · SEALED RIM — nobody walks off the world
   const rim: [number, number][] = [];
-  for (let i = 0; i < GRID; i++) {
+  for (let i = 0; i < cols; i++) {
     if (frontWalkable(m.grid[i])) rim.push([i, 0]);
-    if (frontWalkable(m.grid[(GRID - 1) * GRID + i])) rim.push([i, GRID - 1]);
-    if (frontWalkable(m.grid[i * GRID])) rim.push([0, i]);
-    if (frontWalkable(m.grid[i * GRID + GRID - 1])) rim.push([GRID - 1, i]);
+    if (frontWalkable(m.grid[(rows - 1) * cols + i])) rim.push([i, rows - 1]);
+  }
+  for (let i = 0; i < rows; i++) {
+    if (frontWalkable(m.grid[i * cols])) rim.push([0, i]);
+    if (frontWalkable(m.grid[i * cols + cols - 1])) rim.push([cols - 1, i]);
   }
   if (rim.length) issues.push({ law: 'SEALED RIM', detail: `${rim.length} walkable rim tiles`, tiles: rim.slice(0, 12) });
 
   // 2 · ZERO ORPHANS — every walkable tile reachable from base 0
   const orphans: [number, number][] = [];
   let orphanCount = 0;
-  for (let z = 0; z < GRID; z++) for (let x = 0; x < GRID; x++) {
-    const i = z * GRID + x;
+  for (let z = 0; z < rows; z++) for (let x = 0; x < cols; x++) {
+    const i = z * cols + x;
     if (frontWalkable(m.grid[i]) && !seen[i]) { if (orphans.length < 12) orphans.push([x, z]); orphanCount++; }
   }
   if (orphanCount) issues.push({ law: 'ZERO ORPHANS', detail: `${orphanCount} sealed walkable tiles`, tiles: orphans });
@@ -502,10 +598,10 @@ export function validateDoc(doc: MakerDoc): LawReport {
   for (const side of [0, 1] as const) {
     const floodSide = side === 0 ? seen : flood(m, m.basePos[side]);
     const check = (p: Vec3, what: string) => {
-      const [tx, tz] = worldToTile(p.x, p.z);
+      const [tx, tz] = worldToTile(m, p.x, p.z);
       for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
         const x = tx + dx, z = tz + dz;
-        if (x >= 0 && z >= 0 && x < GRID && z < GRID && floodSide[z * GRID + x]) return;
+        if (x >= 0 && z >= 0 && x < cols && z < rows && floodSide[z * cols + x]) return;
       }
       unreached.push(`${what} (base ${side})`);
       unreachedTiles.push([tx, tz]);
@@ -514,7 +610,14 @@ export function validateDoc(doc: MakerDoc): LawReport {
     check(m.hillPos, 'the hill');
     m.flagPos.forEach((f, i) => check(f, `flag ${i}`));
     m.controlPoints.forEach((c) => check(c.pos, `CP ${c.name}`));
-    m.vehiclePads.forEach((v) => check(v.pos, `${v.kind} pad`));
+    m.vehiclePads.forEach((v) => {
+      if (v.kind === 'boat') {
+        const [tx, tz] = worldToTile(m, v.pos.x, v.pos.z);
+        const tile = m.grid[tz * cols + tx];
+        if (tile === T_WATER || tile === T_DEEP) return;
+      }
+      check(v.pos, `${v.kind} pad`);
+    });
     m.pickups.forEach((p) => check(p.pos, `${p.type} drop`));
     m.houses.forEach((h, i) => check(h.door, `house ${i} door`));
     m.zombieSpawns.forEach((z2, i) => check(z2, `mouth ${i}`));
@@ -529,7 +632,7 @@ export function validateDoc(doc: MakerDoc): LawReport {
     for (let z = h.tz; z < h.tz + h.th && !inside; z++) {
       for (let x = h.tx; x < h.tx + h.tw && !inside; x++) {
         const edge = x === h.tx || z === h.tz || x === h.tx + h.tw - 1 || z === h.tz + h.th - 1;
-        if (!edge && seen[z * GRID + x] && frontWalkable(m.grid[z * GRID + x])) inside = true;
+        if (!edge && seen[z * cols + x] && frontWalkable(m.grid[z * cols + x])) inside = true;
       }
     }
     if (!inside) facades.push([h.tx, h.tz]);
@@ -539,17 +642,16 @@ export function validateDoc(doc: MakerDoc): LawReport {
   // 5 · NOTHING GROWS INDOORS
   const trespassers: [number, number][] = [];
   for (const p of m.props) {
-    if (OUTDOOR_ONLY.has(p.type) && houseAt(m.houses, p.pos.x, p.pos.z) >= 0) trespassers.push(worldToTile(p.pos.x, p.pos.z));
+    if (OUTDOOR_ONLY.has(p.type) && houseAt(m.houses, p.pos.x, p.pos.z, m.geometry) >= 0) trespassers.push(worldToTile(m, p.pos.x, p.pos.z));
   }
   if (trespassers.length) issues.push({ law: 'INDOORS', detail: `${trespassers.length} outdoor props inside buildings`, tiles: trespassers });
 
   // 6 · NO INVISIBLE WALLS — every claimed tile blocks AND has its prop
   const ghost: [number, number][] = [];
   for (const i of m.propCovered) {
-    if (m.grid[i] !== T_WALL && m.grid[i] !== T_COVER) { ghost.push([i % GRID, Math.floor(i / GRID)]); continue; }
-    const x = (i % GRID + 0.5) * TILE - WORLD / 2;
-    const z = (Math.floor(i / GRID) + 0.5) * TILE - WORLD / 2;
-    if (!m.props.some((p) => Math.hypot(p.pos.x - x, p.pos.z - z) < 1.6 + p.scale * 1.2)) ghost.push([i % GRID, Math.floor(i / GRID)]);
+    if (frontWalkable(m.grid[i])) { ghost.push([i % cols, Math.floor(i / cols)]); continue; }
+    const { x, z } = tileToWorld(m, i % cols, Math.floor(i / cols));
+    if (!m.props.some((p) => Math.hypot(p.pos.x - x, p.pos.z - z) < 1.6 + p.scale * 1.2)) ghost.push([i % cols, Math.floor(i / cols)]);
   }
   if (ghost.length) issues.push({ law: 'WALLS', detail: `${ghost.length} claimed tiles with no prop standing on them`, tiles: ghost.slice(0, 12) });
 
@@ -573,17 +675,18 @@ export function validateDoc(doc: MakerDoc): LawReport {
 }
 
 function flood(m: GameMap, from: Vec3): Uint8Array {
-  const seen = new Uint8Array(GRID * GRID);
-  const [sx, sz] = worldToTile(from.x, from.z);
-  const q: number[] = [sz * GRID + sx];
+  const { cols, rows } = m.geometry;
+  const seen = new Uint8Array(geometryLength(m.geometry));
+  const [sx, sz] = worldToTile(m, from.x, from.z);
+  const q: number[] = [sz * cols + sx];
   seen[q[0]] = 1;
   while (q.length) {
     const i = q.pop()!;
-    const x = i % GRID, z = (i / GRID) | 0;
+    const x = i % cols, z = (i / cols) | 0;
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
       const nx = x + dx, nz = z + dz;
-      if (nx < 0 || nz < 0 || nx >= GRID || nz >= GRID) continue;
-      const ni = nz * GRID + nx;
+      if (nx < 0 || nz < 0 || nx >= cols || nz >= rows) continue;
+      const ni = nz * cols + nx;
       if (!seen[ni] && frontWalkable(m.grid[ni])) { seen[ni] = 1; q.push(ni); }
     }
   }
