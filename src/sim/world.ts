@@ -2031,7 +2031,14 @@ export class World {
 
   private radarLineClear(emitter: Vehicle, target: Vec3, domain: RadarTrack['domain']): boolean {
     if (domain === 'air' || domain === 'submerged') return true;
-    const emitterHeight = ELEVATION_ALT[asElevationLevel(emitter.band)] + 1.4;
+    // Ordinary structures stop low emitters but sit below Sky/Clouds. Crown
+    // Divide's wall alphabet represents full ridgelines, so even high aircraft
+    // must acquire ground returns through a pass instead of seeing through the
+    // mountain. 3.8 stays just below the shared 4u wall/ridge silhouette.
+    const flightHeight = ELEVATION_ALT[asElevationLevel(emitter.band)] + 1.4;
+    const emitterHeight = this.map.theater?.id === 'mountain'
+      ? Math.min(flightHeight, 3.8)
+      : flightHeight;
     return losClear(this.map.grid, emitter.pos, target, emitterHeight, this.map.geometry);
   }
 

@@ -123,6 +123,21 @@ describe('world radar sweeps', () => {
     expect(world.radarTracksFor(0).get(`v:${target.id}`)?.source).toBe('fixedWing');
   });
 
+  it('treats Mountain theater ridges as terrain-scale radar blockers', () => {
+    const world = quiet(generateTheater('mountain', 4207));
+    world.map.grid.fill(T_OPEN);
+    const [wallX, wallZ] = worldToTile(world.map.geometry, 0, 0);
+    world.map.grid[wallZ * world.map.geometry.cols + wallX] = T_WALL;
+    const { vehicle: jet } = crew(world, 'interceptor', 0, -30, 0);
+    jet.band = 3;
+    const target = world.spawnVehicle('tank', 1, { x: 30, y: 0, z: 0 });
+    target.systems.ecm = 0;
+
+    world.stepRadar();
+
+    expect(world.radarTracksFor(0).has(`v:${target.id}`)).toBe(false);
+  });
+
   it('uses sonar underwater and never resolves air contacts', () => {
     const world = quiet(generateTheater('ocean', 42));
     const deep = world.map.theater!.routes.find((route) => route.domain === 'deep')!.points[0];
