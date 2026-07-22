@@ -11,20 +11,35 @@
 
 ✅ **Shipped in the Science worktree:** ordinary missions now default to zero
 armor for every actor; initial security is capped at seven with no more than two
-responders and one dog; guard issue is pistol/SMG only with military ordnance
-removed; direct sight begins an interruptible `SEARCHING` report rather than an
-instant facility alarm; a successful report distributes one copied last-known
-position and never refreshes it from the operator's live coordinates. The HUD
-now reads `GHOST` → `SEARCHING` → `ALARMED`.
+responders and one dog; guard issue is pistol/SMG/melee only with military
+ordnance removed. Direct sight begins an interruptible `SEARCHING` report rather
+than an instant facility alarm; a successful report distributes one copied
+last-known position and never refreshes it from the operator's live coordinates.
+The HUD now reads `GHOST` → `SEARCHING` → `ALARMED`.
 
-Verification: 73 focused Science/indoor checks pass; TypeScript, the complete
-158-file Vitest suite, ESLint, and the production Vite build all exit clean.
-The live Quick Deploy menu launched Researcher Rescue on the running local game
-and rendered the new `ALARMED` state after the reporting window.
+The deterministic Science operation graph compiles each authored building into
+an insertion, critical objective route, extraction, closed patrol loops, report
+nodes, and response routes. Guards actually walk those loops before contact,
+then use the existing room search and return-to-duty behavior. The HUD/minimap
+show floor-aware insertion, objective, report, and extraction markers; the Map
+Maker draws the same critical/patrol/report/response graph and its metrics.
 
-📋 **Next isolated slices:** operation-graph patrol routes/permanent waypoints
-and Map Maker overlays; then shared unarmed bot decisions plus baseball bat,
-katana, and held fire axe.
+Civilian close combat now includes bare hands, baseball bats, katanas, and fire
+axes. All four use the shared windup/arc/recovery brain: unarmed and bat deliver
+force, katana delivers credited bleed, and axe pierces issued armor. Physical
+weapons render in hand and drop as usable loot. Science K9s keep their shipped
+stairs/no-doors/no-ladders building-clear behavior.
+
+Insertion is quiet until the operator deliberately moves or attacks. Facility
+guards never classify required Rescue researchers as hostile targets, preventing
+the idle three-second mission failure found during the final browser playtest.
+
+Verification: the operation graph passes a 100-seed matrix across all ten sites;
+the insertion soak covers 30 generated seeds; TypeScript, the complete
+160-file / 1,776-test Vitest suite, ESLint, and the production Vite build all
+exit clean. The live Quick Deploy card launched Researcher Rescue and remained
+`GHOST` with 8 clones and both researchers alive for the full eight-second idle
+check.
 
 ---
 

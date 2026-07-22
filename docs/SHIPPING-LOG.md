@@ -21,6 +21,18 @@ The public record of what shipped, written for players and backers — not engin
 - **Science is normally no-armor combat.** Player prints, guards, civilians,
   targets, dogs, and responders begin with zero plate under the default Science
   ruleset, even when the menu loadout included a vest or power armor.
+- **Every operation now has a tactical spine.** A deterministic graph compiles
+  insertion, objective, extraction, critical route, closed guard patrol loops,
+  report nodes, and response routes from the building's real rooms and portals.
+  Floor-aware markers remain visible in the HUD and minimap, and guards patrol
+  those authored loops before local contact changes their duty.
+- **The Map Maker previews the actual mission logic.** Critical, patrol, report,
+  and response overlays can be toggled over the current building, alongside
+  room, edge, loop, guard, armor, and weapon metrics.
+- **Civilian melee has four distinct answers.** Bare hands and baseball bats
+  deliver force, katanas open a credited bleed, and fire axes pierce issued
+  armor. Security can close distance, use doors and stairs, swing through the
+  shared melee engine, and drop physical weapons that players can recover.
 
 - **Five Science Missions are always one click away.** The Deploy screen now
   opens with K9 House Clear, Researcher Rescue, Clone Vault Raid, Quarantine
@@ -60,9 +72,11 @@ The public record of what shipped, written for players and backers — not engin
 
 - Desktop and 390px in-app playtests launched **K9 House Clear** as Hunt at an
   officer villa with the Infantry handler kit, then **Researcher Rescue** as
-  Rescue at a research annex with the Field Medic kit and eight prints. All
-  five cards stayed readable and keyboard-addressable; the browser reported no
-  runtime errors.
+  Rescue at a research annex with the Field Medic kit and eight prints. The
+  final Researcher Rescue run stayed `GHOST` with all eight prints and both
+  captives alive through an eight-second idle insertion check. All five cards
+  stayed readable and keyboard-addressable; the browser reported no runtime
+  errors.
 
 - The in-app production playtest assigned the friendly dog to the local
   handler, exercised Stay → Heel, issued SIC at a visible building, and watched
@@ -83,12 +97,19 @@ The public record of what shipped, written for players and backers — not engin
   security, every Science verb across residential, commercial, and military
   sites, multi-floor objectives/extraction, guard search, dog scent/stairs,
   and dog ladder refusal.
+- Operation generation passes a 100-seed matrix across all ten Science sites;
+  the safe-insertion soak covers another 30 generated seeds.
 - Fresh release gates pass: TypeScript emits no diagnostics; the full suite is
-  **158 files / 1,746 tests** green; ESLint reports zero errors; and Vite emits
+  **160 files / 1,776 tests** green; ESLint reports zero errors; and Vite emits
   the production bundle.
 
 ### Fixed during visual production
 
+- Rescue security could classify required captive researchers as hostile and
+  fail the mission before the player moved. Captives are now excluded from the
+  facility target scan. The insertion concealment also lasts until deliberate
+  movement or combat input, replacing the fixed timer that could auto-alert an
+  idle player.
 - Courtyard voids could become sealed orphan pockets even while structural
   building laws were green. Ground-floor courts now receive a deliberate door,
   and launch requires both battlefield and whole-building law suites.
