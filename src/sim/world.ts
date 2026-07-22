@@ -1532,6 +1532,7 @@ export class World {
     s.downed = false; s.downedUntil = 0; s.downedBy = -1;
     s.reviveProgress = 0; s.draggingId = -1;
     s.streak = 0; s.lastStandSaid = false; // per-life delight state resets on deploy
+    s.diedInVehicle = undefined; // DEATH-DATA: the wreck-cam flag is per-death
     s.spawnedAt = this.time; // DEATH-DATA: the clock the death report reads time-alive from
     // keep the soldier's chosen armory loadout across respawns — but a
     // signature arm (family 'lsw') dies with the god: mortals get their kit
@@ -6801,6 +6802,7 @@ export class World {
         if (s) {
           s.vehicleId = -1; s.seat = -1;
           this.damageSoldier(s, 70, attackerId, weapon);
+          if (!s.alive) s.diedInVehicle = v.kind; // DEATH-DATA: the killcam frames the wreck
         }
       }
       v.seats.fill(-1);

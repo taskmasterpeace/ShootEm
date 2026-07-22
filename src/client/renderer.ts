@@ -349,6 +349,13 @@ export class Renderer {
    *  Set by the frame loops from the director; the camera frames victim+killer
    *  together and a red ring marks the killer. */
   killcamFocusId = -1;
+  /** the current killcam shot KIND (set from the director each frame): 'ride'
+   *  flies the camera down the round's path muzzle→chest, 'autopsy' freezes and
+   *  pins the shot line, 'wreck'/'wide' pull back for the fireball. null = live. */
+  killcamShotKind: import('./replay').KillcamKind | null = null;
+  private killcamRideT = 0;      // ride progress in seconds, reset per fresh killcam
+  private lastKillcamFocus = -2; // detect a new killcam start to reset the ride
+  private autopsyLine: THREE.Line | null = null; // the world-space shot line (autopsy/ride)
   /** rotates the crew-chatter bark so the squad doesn't repeat itself */
   private crewLine = 0;
   private killerRing: THREE.Mesh | null = null;             // pulsing marker over the killer
@@ -1842,6 +1849,28 @@ export class Renderer {
     ring.position.set(pos.x, 0.05, pos.z);
     this.scene.add(ring);
     return ring;
+  }
+
+  /** THE SHOT LINE (Robert's autopsy, shot #3): the round's path pinned in world
+   *  space — killer muzzle → victim chest. The autopsy freezes on it and pulses
+   *  it (the terminal read); the ride/wreck shots carry it as a tracer. null hides. */
+  private updateAutopsyLine(killer: { pos: Vec3 } | null, victim: { pos: Vec3 } | undefined, autopsy: boolean, time: number) {
+    if (!killer || !victim) {
+      if (this.autopsyLine) this.autopsyLine.visible = false;
+      return;
+    }
+    const a = new THREE.Vector3(killer.pos.x, 1.7, killer.pos.z);
+    const b = new THREE.Vector3(victim.pos.x, 1.35, victim.pos.z);
+    if (!this.autopsyLine) {
+      const mat = new THREE.LineBasicMaterial({ color: 0xe8a33d, transparent: true, opacity: 0.9, depthTest: false });
+      this.autopsyLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), mat);
+      this.autopsyLine.renderOrder = 999; // over the world — it's a terminal overlay, not geometry
+      this.scene.add(this.autopsyLine);
+    } else {
+      this.autopsyLine.geometry.setFromPoints([a, b]);
+    }
+    this.autopsyLine.visible = true;
+    (this.autopsyLine.material as THREE.LineBasicMaterial).opacity = autopsy ? 0.6 + 0.35 * Math.abs(Math.sin(time * 6)) : 0.85;
   }
 
   /** The overhead unit tag (friendlies only): a slim health meter with the name
@@ -3643,6 +3672,13 @@ export class Renderer {
     const killer = this.replayView && this.killcamFocusId >= 0 && local
       ? world.soldiers.get(this.killcamFocusId) : undefined;
     const duel = killer && killer.id !== localId ? killer : undefined;
+    // ── KILLCAM CINEMA (Robert's shot list) ──────────────────────────────────
+    const shotKind = this.replayView ? this.killcamShotKind : null;
+    if (this.killcamFocusId !== this.lastKillcamFocus) { this.killcamRideT = 0; this.lastKillcamFocus = this.killcamFocusId; }
+    if (shotKind === 'ride') this.killcamRideT += dt;
+    // the world-space SHOT LINE — the autopsy pins it, the ride/wreck carry it
+    const wantLine = !!duel && (shotKind === 'autopsy' || shotKind === 'ride' || shotKind === 'wreck');
+    this.updateAutopsyLine(wantLine ? duel! : null, local ?? undefined, shotKind === 'autopsy', world.time);
     if (this.killerRing) {
       this.killerRing.visible = !!duel;
       if (duel) {
@@ -3676,7 +3712,22 @@ export class Renderer {
           (local.pos.x + duel.pos.x) / 2 + this.lookAhead.x, 0,
           (local.pos.z + duel.pos.z) / 2 + this.lookAhead.z);
       }
-      const desired = new THREE.Vector3(target.x, dist, target.z + dist * 0.55);
+      // RIDE THE ROUND (Robert's shot #2): fly the camera down the shot line,
+      // muzzle→chest, low and just behind the round — the death answers "where
+      // did that come from?" with a camera move instead of a text label.
+      let ride: THREE.Vector3 | null = null;
+      if (shotKind === 'ride' && duel) {
+        const muzzle = new THREE.Vector3(duel.pos.x, 1.7, duel.pos.z);
+        const chest = new THREE.Vector3(local.pos.x, 1.35, local.pos.z);
+        const flightT = Math.max(2.0, muzzle.distanceTo(chest) * 0.05); // pace by range
+        const k = Math.min(1, this.killcamRideT / flightT);
+        const along = new THREE.Vector3().lerpVectors(muzzle, chest, 0.12 + k * 0.72);
+        const dir = new THREE.Vector3().subVectors(chest, muzzle).setY(0);
+        if (dir.lengthSq() < 0.04) dir.set(0, 0, 1); else dir.normalize();
+        ride = along.clone().addScaledVector(dir, -5).setY(3.1);
+        target = chest; // always look down the barrel at the victim
+      }
+      const desired = ride ?? new THREE.Vector3(target.x, dist, target.z + dist * 0.55);
       this.viewDist = dist; // overhead UI scales against the height actually flown
       this.camPos.lerp(desired, 1 - Math.pow(0.001, dt));
       if (settings.reducedMotion) this.camShake = 0; // §18 comfort valve

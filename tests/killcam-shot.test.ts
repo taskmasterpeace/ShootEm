@@ -44,4 +44,16 @@ describe('pickKillcamShot — the director shot table', () => {
     expect(s.kind).toBe('duel');
     expect(s.label).toBe('☠ Killcam');
   });
+
+  it('a HULL death (tank/plane you were riding) is a WRECK pulled WIDE', () => {
+    const tank = pickKillcamShot({ ...base, vehicleKind: 'tank' });
+    expect(tank.kind).toBe('wreck');
+    expect(tank.cam).toBeGreaterThan(KILLCAM_CAM); // wide enough for the fireball
+    expect(tank.label).toContain('DOWN');
+    // it OVERRIDES every other cue — even a fresh-spawn tank death frames the wreck
+    expect(pickKillcamShot({ ...base, vehicleKind: 'strikejet', timeAlive: 1 }).kind).toBe('wreck');
+    // a plane's banner reads as air, a ground hull as ground
+    expect(pickKillcamShot({ ...base, vehicleKind: 'strikejet' }).label).toContain('✈');
+    expect(pickKillcamShot({ ...base, vehicleKind: 'tank' }).label).toContain('◈');
+  });
 });

@@ -1091,6 +1091,18 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     renderer.camDist = replaying && director.killcamActive ? director.killcamCam : input.camDist;
     // duel framing: show the killer, answer "where did that come from?"
     renderer.killcamFocusId = replaying && director.killcamActive ? director.killerId : -1;
+    // the shot list (Robert): the renderer flies the round / pins the shot line
+    renderer.killcamShotKind = replaying && director.killcamActive ? director.shotKind : null;
+    // THE AUTOPSY readout — a stencil/mono terminal card pinned over the freeze
+    const kro = $('killcam-readout');
+    if (replaying && director.killcamActive && director.shotKind === 'autopsy' && director.readout) {
+      const r = director.readout;
+      kro.innerHTML = `<div class="kro-h">⌖ AUTOPSY</div>`
+        + `<div class="kro-row"><span>SHOOTER</span><b>${r.shooter}</b></div>`
+        + `<div class="kro-row"><span>WEAPON</span><b>${r.weapon}</b></div>`
+        + `<div class="kro-row"><span>RANGE</span><b>${r.range}u</b></div>`;
+      kro.classList.remove('hidden');
+    } else kro.classList.add('hidden');
     // grenade throw preview: hold G → arc + landing ring at the cursor
     renderer.setGrenadePreview(world, me, !replaying && input.grenadeAiming ? input.aimPoint(renderer.camera) : null, input.grenadeLob);
     // UI P0 bug fix: hover-to-read vitals were wired only in the NET loop —

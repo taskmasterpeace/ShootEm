@@ -1,6 +1,6 @@
 import { applySnapshot, createPuppetWorld, takeSnapshot, type Snapshot } from '../sim/snapshot';
-import { WEAPONS } from '../sim/data';
-import type { ModeId, PlayerCmd, ThemeId } from '../sim/types';
+import { VEHICLES, WEAPONS } from '../sim/data';
+import type { ModeId, PlayerCmd, ThemeId, VehicleKind } from '../sim/types';
 import type { World } from '../sim/world';
 import type { TheaterId } from '../sim/theater-types';
 
@@ -62,14 +62,22 @@ export const KILLCAM_CAM = 14;
  *  range, the long bullet you RIDE in on, or the straight duel. Each shot owns a
  *  banner, a camera pull, and a tempo. Pure + branch-ordered so a fresh-spawn
  *  death tells its own story first. */
-export type KillcamKind = 'spawn' | 'wide' | 'autopsy' | 'ride' | 'duel';
+export type KillcamKind = 'spawn' | 'wide' | 'autopsy' | 'ride' | 'duel' | 'wreck';
 export interface KillcamShot { kind: KillcamKind; label: string; cam: number; brisk: boolean }
 export function pickKillcamShot(p: {
   killerName?: string; weaponName?: string; tracer?: string; splash?: number; range: number; timeAlive: number;
+  vehicleKind?: VehicleKind;
 }): KillcamShot {
   const by = p.killerName
     ? `${p.killerName}${p.weaponName ? ` · ${p.weaponName}` : ''} · ${p.range}u`
     : 'the field';
+  // YOUR HULL DIED — a tank/plane/heli you were riding was destroyed. Pull WIDE
+  // for the fireball; the wreck is the shot. (Robert: "handle tank/plane deaths.")
+  if (p.vehicleKind) {
+    const hull = (VEHICLES[p.vehicleKind]?.name ?? p.vehicleKind).toUpperCase();
+    const flies = VEHICLES[p.vehicleKind]?.flies;
+    return { kind: 'wreck', label: `${flies ? '✈' : '◈'} ${hull} DOWN — ${by}`, cam: 26, brisk: false };
+  }
   // cut down within moments of printing — you barely drew breath
   if (p.killerName && p.timeAlive < 4) return { kind: 'spawn', label: `▪ SPAWN CUT — ${by}`, cam: 16, brisk: true };
   // a blast: pull the camera back to show what took you
@@ -240,6 +248,13 @@ export class ReplayDirector {
   /** The camera pull for the current killcam shot — the director varies it by
    *  death (tight autopsy → wide blast). The caller reads it while killcamActive. */
   killcamCam = KILLCAM_CAM;
+  /** the current shot's KIND — the renderer picks its camera + overlay behaviour
+   *  off this: `ride` flies the round muzzle→chest, `autopsy` freezes and draws
+   *  the shot line, `wreck` frames the fireball. */
+  shotKind: KillcamKind = 'duel';
+  /** the AUTOPSY / RIDE tactical readout — shooter · weapon · range — pinned by
+   *  the client over the frozen frame (the stencil/mono terminal read). */
+  readout: { shooter: string; weapon: string; range: number } | null = null;
 
   constructor(seed: number, mode: ModeId, theme: ThemeId | undefined, theaterId?: TheaterId, mapIdentity?: string) {
     this.player = new ReplayPlayer(seed, mode, theme, theaterId, mapIdentity);
@@ -278,9 +293,15 @@ export class ReplayDirector {
       const timeAlive = me.spawnedAt !== undefined ? world.time - me.spawnedAt : 99;
       const shot = pickKillcamShot({
         killerName: killer?.name, weaponName: wdef?.name, tracer: wdef?.tracer,
-        splash: wdef?.splash, range, timeAlive,
+        splash: wdef?.splash, range, timeAlive, vehicleKind: me.diedInVehicle,
       });
       this.killcamCam = shot.cam;
+      this.shotKind = shot.kind;
+      // the terminal readout rides the shots that earn it — the autopsy freeze,
+      // the ridden round, and the wreck (where the killer, if any, is named)
+      this.readout = (shot.kind === 'autopsy' || shot.kind === 'ride' || shot.kind === 'wreck')
+        ? { shooter: killer?.name ?? 'the field', weapon: wdef?.name ?? '—', range }
+        : null;
       // open on the run-up, and run PAST the death into footage that does not
       // exist yet — the recorder fills it in while we watch (see KILLCAM_PRE)
       this.deathT = world.time;

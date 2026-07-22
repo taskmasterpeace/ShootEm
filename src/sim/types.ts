@@ -437,6 +437,10 @@ export interface Soldier {
   spawnedAt?: number;
   /** the weapon that landed the killing blow — the killcam names it */
   lastKillWeapon?: WeaponId;
+  /** DEATH-DATA: the hull you were RIDING when it was destroyed under you — set
+   *  only when the ejection killed you, so the killcam frames the wreck (tank /
+   *  plane / heli deaths). Cleared on respawn. */
+  diedInVehicle?: VehicleKind;
   /** vehicles destroyed */
   vehicleKills: number;
   /** hit points healed into allies */

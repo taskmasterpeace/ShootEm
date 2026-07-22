@@ -1081,6 +1081,27 @@ html, body {
 }
 @keyframes replay-pulse { 50% { opacity: 0.55; } }
 
+/* THE AUTOPSY readout (Robert's shot #3): a stencil/mono terminal card pinned
+   over the frozen shot — SHOOTER · WEAPON · RANGE, the tactical read nobody
+   else's shooter does. Left-anchored so the freeze stays centre-stage. */
+#killcam-readout {
+  position: absolute; top: 50%; left: 2.5rem; transform: translateY(-50%);
+  z-index: 15; pointer-events: none; min-width: 14.5rem;
+  background: oklch(0.12 0.015 78 / 0.9); border: 1px solid var(--accent);
+  border-left-width: 3px; border-radius: 0.3rem; padding: 0.7rem 0.95rem 0.8rem;
+  box-shadow: 0 0 26px oklch(0 0 0 / 0.55); animation: replay-pulse 1.6s ease-in-out infinite;
+}
+#killcam-readout .kro-h {
+  font-family: var(--font-display); font-weight: 400; font-size: 1.15rem; letter-spacing: 0.12em;
+  color: var(--accent); margin-bottom: 0.5rem; padding-bottom: 0.35rem;
+  border-bottom: 1px solid oklch(0.4 0.06 78 / 0.5);
+}
+#killcam-readout .kro-row {
+  display: flex; justify-content: space-between; gap: 1.5rem;
+  font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.05em; padding: 0.16rem 0; color: var(--muted);
+}
+#killcam-readout .kro-row b { color: oklch(0.93 0.02 80); font-weight: 400; text-transform: uppercase; font-variant-numeric: tabular-nums; }
+
 /* ── menu tab shell (6B): Deploy | Barracks | Map(reserved) ─────────────── */
 #menu-tabs {
   display: flex; gap: 0.4rem; margin: 0.75rem 0 1.1rem;
