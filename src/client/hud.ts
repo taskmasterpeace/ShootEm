@@ -873,10 +873,28 @@ export class Hud {
       db.classList.remove('hidden');
       db.querySelector('b')!.textContent = 'DOWN';
       const left = Math.max(0, (s.downedUntil ?? 0) - world.time);
-      $('down-timer').textContent = (s.reviveProgress ?? 0) > 0
+      const beingLifted = (s.reviveProgress ?? 0) > 0;
+      $('down-timer').textContent = beingLifted
         ? `medic on you — ${Math.round((s.reviveProgress ?? 0) * 100)}% lifted`
-        : `bleeding out ${left.toFixed(0)}s · crawl — a medic can lift you`;
+        : `bleeding out ${left.toFixed(0)}s · crawl (WASD) to a medic`;
+      // CRAWL TO MEDIC (Robert): point the way out. Nearest friendly MEDIC first,
+      // then any teammate who can lift you — an arrow to steer the crawl by + range.
+      const dm = $('down-medic');
+      let best: Soldier | undefined, bestD = Infinity, foundMedic = false;
+      if (!beingLifted) for (const m of world.soldiers.values()) {
+        if (!m.alive || m.downed || m.team !== s.team || m.id === s.id || m.vehicleId >= 0) continue;
+        if (m.kind !== 'human' && m.kind !== 'bot') continue;
+        const isMedic = m.classId === 'medic';
+        const d = Math.hypot(m.pos.x - s.pos.x, m.pos.z - s.pos.z);
+        if ((isMedic && !foundMedic) || (isMedic === foundMedic && d < bestD)) { best = m; bestD = d; foundMedic = isMedic; }
+      }
+      if (best) {
+        const ang = Math.atan2(best.pos.x - s.pos.x, -(best.pos.z - s.pos.z)) * 180 / Math.PI; // 0° = up (north-locked cam)
+        dm.classList.remove('hidden');
+        dm.innerHTML = `<span class="dm-arrow" style="transform:rotate(${ang.toFixed(0)}deg)">▲</span>${foundMedic ? 'MEDIC' : 'REVIVE'} · ${bestD.toFixed(0)}u`;
+      } else dm.classList.add('hidden');
     } else if (s.alive && s.grabbedUntil !== undefined) {
+      $('down-medic').classList.add('hidden');
       // GRABBED (OUTBREAK-SPEC §14): pinned. The banner turns into the struggle
       // prompt — mash the sticks and watch the break meter climb. A zombie's
       // grip is a BITE STRUGGLE (§15.5): break it before the jaws close.
@@ -899,7 +917,7 @@ export class Hud {
           ? ` — mash MOVE before the bite! · ${pct}%`
           : ` — mash MOVE to break free · ${pct}%`;
       }
-    } else db.classList.add('hidden');
+    } else { db.classList.add('hidden'); $('down-medic').classList.add('hidden'); }
 
     // respawn overlay
     const ro = $('respawn-overlay');

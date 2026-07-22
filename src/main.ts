@@ -1112,6 +1112,8 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     // the shot list (Robert): the renderer flies the round / pins the shot line
     renderer.killcamShotKind = replaying && director.killcamActive ? director.shotKind : null;
     renderer.killcamLocalIsShooter = replaying && director.killcamActive ? director.localIsShooter : false;
+    // a REWARD cut wears gold — a confirmed kill reads as a reward, not a death
+    $('replay-banner').classList.toggle('reward', replaying && director.killcamActive && director.localIsShooter);
     // THE AUTOPSY readout — a stencil/mono terminal card pinned over the freeze
     const kro = $('killcam-readout');
     if (replaying && director.killcamActive && director.shotKind === 'autopsy' && director.readout) {
@@ -1119,7 +1121,8 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
       kro.innerHTML = `<div class="kro-h">⌖ AUTOPSY</div>`
         + `<div class="kro-row"><span>SHOOTER</span><b>${r.shooter}</b></div>`
         + `<div class="kro-row"><span>WEAPON</span><b>${r.weapon}</b></div>`
-        + `<div class="kro-row"><span>RANGE</span><b>${r.range}u</b></div>`;
+        + `<div class="kro-row"><span>RANGE</span><b>${r.range}u</b></div>`
+        + `<div class="kro-row"><span>DAMAGE</span><b>${r.damage || '—'}</b></div>`;
       kro.classList.remove('hidden');
     } else kro.classList.add('hidden');
     // grenade throw preview: hold G → arc + landing ring at the cursor

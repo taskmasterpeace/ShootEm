@@ -356,7 +356,12 @@ export class Renderer {
   killcamLocalIsShooter = false; // reward cam: local is the SHOOTER, so the ride flies the other way
   private killcamRideT = 0;      // ride progress in seconds, reset per fresh killcam
   private lastKillcamFocus = -2; // detect a new killcam start to reset the ride
-  private autopsyLine: THREE.Line | null = null; // the world-space shot line (autopsy/ride)
+  private killcamRound: THREE.Mesh | null = null; // the round itself, streaking ahead on the ride
+  private baseFov = 0;           // remembered so the ride's speed-FOV punch can restore
+  private autopsyOverlay: THREE.Group | null = null; // the autopsy shot-line overlay…
+  private autopsyLineMesh: THREE.Line | null = null; // …the round's path
+  private autopsyTicks: THREE.LineSegments | null = null; // …rangefinder ticks along it
+  private autopsyReticle: THREE.Mesh | null = null;  // …and the impact reticle at the hit
   /** rotates the crew-chatter bark so the squad doesn't repeat itself */
   private crewLine = 0;
   private killerRing: THREE.Mesh | null = null;             // pulsing marker over the killer
@@ -1853,25 +1858,66 @@ export class Renderer {
   }
 
   /** THE SHOT LINE (Robert's autopsy, shot #3): the round's path pinned in world
-   *  space — killer muzzle → victim chest. The autopsy freezes on it and pulses
-   *  it (the terminal read); the ride/wreck shots carry it as a tracer. null hides. */
+   *  space — killer muzzle → victim chest. The AUTOPSY dresses it as a measured
+   *  tactical read: rangefinder ticks down the line + a pulsing impact reticle
+   *  at the hit; the ride/wreck shots carry the bare line as a tracer. null hides. */
   private updateAutopsyLine(killer: { pos: Vec3 } | null, victim: { pos: Vec3 } | undefined, autopsy: boolean, time: number) {
     if (!killer || !victim) {
-      if (this.autopsyLine) this.autopsyLine.visible = false;
+      if (this.autopsyOverlay) this.autopsyOverlay.visible = false;
       return;
     }
     const a = new THREE.Vector3(killer.pos.x, 1.7, killer.pos.z);
     const b = new THREE.Vector3(victim.pos.x, 1.35, victim.pos.z);
-    if (!this.autopsyLine) {
-      const mat = new THREE.LineBasicMaterial({ color: 0xe8a33d, transparent: true, opacity: 0.9, depthTest: false });
-      this.autopsyLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), mat);
-      this.autopsyLine.renderOrder = 999; // over the world — it's a terminal overlay, not geometry
-      this.scene.add(this.autopsyLine);
-    } else {
-      this.autopsyLine.geometry.setFromPoints([a, b]);
+    if (!this.autopsyOverlay) {
+      this.autopsyOverlay = new THREE.Group();
+      this.autopsyLineMesh = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([a, b]),
+        new THREE.LineBasicMaterial({ color: 0xe8a33d, transparent: true, opacity: 0.9, depthTest: false }));
+      this.autopsyTicks = new THREE.LineSegments(
+        new THREE.BufferGeometry(),
+        new THREE.LineBasicMaterial({ color: 0xe8a33d, transparent: true, opacity: 0.6, depthTest: false }));
+      this.autopsyReticle = new THREE.Mesh(
+        new THREE.RingGeometry(0.85, 1.05, 28),
+        new THREE.MeshBasicMaterial({ color: 0xff5a3c, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthTest: false }));
+      this.autopsyReticle.rotation.x = -Math.PI / 2;
+      this.autopsyOverlay.add(this.autopsyLineMesh, this.autopsyTicks, this.autopsyReticle);
+      this.autopsyOverlay.renderOrder = 999; // over the world — a terminal overlay, not geometry
+      this.autopsyOverlay.traverse((o) => (o.renderOrder = 999));
+      this.scene.add(this.autopsyOverlay);
     }
-    this.autopsyLine.visible = true;
-    (this.autopsyLine.material as THREE.LineBasicMaterial).opacity = autopsy ? 0.6 + 0.35 * Math.abs(Math.sin(time * 6)) : 0.85;
+    this.autopsyOverlay.visible = true;
+    this.autopsyLineMesh!.geometry.setFromPoints([a, b]);
+    (this.autopsyLineMesh!.material as THREE.LineBasicMaterial).opacity = autopsy ? 0.6 + 0.35 * Math.abs(Math.sin(time * 6)) : 0.85;
+    // rangefinder ticks every 8u — the "measured" read; and the impact reticle
+    // at the hit. Both are the AUTOPSY's tell; the ride/wreck show only the line.
+    const dir = new THREE.Vector3().subVectors(b, a); const len = dir.length();
+    if (len > 0.01) dir.normalize();
+    const perp = new THREE.Vector3(-dir.z, 0, dir.x);
+    const ticks: THREE.Vector3[] = [];
+    for (let d = 8; d < len - 2; d += 8) {
+      const p = a.clone().addScaledVector(dir, d);
+      ticks.push(p.clone().addScaledVector(perp, -0.45), p.clone().addScaledVector(perp, 0.45));
+    }
+    this.autopsyTicks!.geometry.setFromPoints(ticks.length ? ticks : [a, a]);
+    this.autopsyReticle!.position.set(b.x, 0.14, b.z);
+    this.autopsyReticle!.scale.setScalar(1 + 0.14 * Math.sin(time * 7));
+    this.autopsyTicks!.visible = autopsy;
+    this.autopsyReticle!.visible = autopsy;
+  }
+
+  /** THE ROUND (ride polish): a bright warm bead streaking down the shot line so
+   *  you SEE the shot travel on a Ride-the-Round cut. null hides it. */
+  private updateKillcamRound(pos: THREE.Vector3 | null) {
+    if (!pos) { if (this.killcamRound) this.killcamRound.visible = false; return; }
+    if (!this.killcamRound) {
+      this.killcamRound = new THREE.Mesh(
+        new THREE.SphereGeometry(0.17, 10, 8),
+        new THREE.MeshBasicMaterial({ color: 0xfff2c8, transparent: true, opacity: 0.95, depthTest: false }));
+      this.killcamRound.renderOrder = 1000;
+      this.scene.add(this.killcamRound);
+    }
+    this.killcamRound.visible = true;
+    this.killcamRound.position.copy(pos);
   }
 
   /** The overhead unit tag (friendlies only): a slim health meter with the name
@@ -3686,9 +3732,12 @@ export class Renderer {
         this.killerRing.position.set(duel.pos.x, 0.12, duel.pos.z);
         const pulse = 1 + 0.18 * Math.sin(world.time * 5);
         this.killerRing.scale.setScalar(pulse);
+        // reward cam: the ring marks YOUR confirmed kill — GOLD, not the death
+        // cam's threat-red on the one who dropped you.
+        (this.killerRing.material as THREE.MeshBasicMaterial).color.setHex(this.killcamLocalIsShooter ? 0xffb42e : 0xff4040);
       }
     } else if (duel) {
-      this.killerRing = this.makeRing(duel.pos, 2.1, 0xff4040, 0.85);
+      this.killerRing = this.makeRing(duel.pos, 2.1, this.killcamLocalIsShooter ? 0xffb42e : 0xff4040, 0.85);
     }
     if (local) {
       const fpv = world.getPilotedDrone(localId);
@@ -3717,6 +3766,7 @@ export class Renderer {
       // muzzle→chest, low and just behind the round — the death answers "where
       // did that come from?" with a camera move instead of a text label.
       let ride: THREE.Vector3 | null = null;
+      let roundPos: THREE.Vector3 | null = null;
       if (shotKind === 'ride' && duel) {
         // fly from the SHOOTER's muzzle to the VICTIM's chest — in a death cam
         // local is the victim, in a reward cam local is the shooter, so swap.
@@ -3731,6 +3781,9 @@ export class Renderer {
         if (dir.lengthSq() < 0.04) dir.set(0, 0, 1); else dir.normalize();
         ride = along.clone().addScaledVector(dir, -5).setY(3.1);
         target = chest; // always look down the barrel at the victim
+        // the ROUND itself — a bright bead streaking AHEAD of the camera down
+        // the line, so you SEE the shot travel, not just the empty path
+        roundPos = new THREE.Vector3().lerpVectors(muzzle, chest, Math.min(1, 0.12 + k * 0.95));
       }
       const desired = ride ?? new THREE.Vector3(target.x, dist, target.z + dist * 0.55);
       this.viewDist = dist; // overhead UI scales against the height actually flown
@@ -3751,6 +3804,15 @@ export class Renderer {
       }
       this.camera.position.copy(this.camPos);
       this.camera.lookAt(target);
+      // RIDE polish: the streaking round, and a subtle speed-FOV punch — both
+      // eased straight back to normal the instant the ride is not the shot.
+      this.updateKillcamRound(roundPos);
+      if (this.baseFov === 0) this.baseFov = this.camera.fov;
+      const wantFov = roundPos ? this.baseFov + 9 : this.baseFov;
+      if (Math.abs(this.camera.fov - wantFov) > 0.03) {
+        this.camera.fov += (wantFov - this.camera.fov) * Math.min(1, 6 * dt);
+        this.camera.updateProjectionMatrix();
+      }
       // replays must not drag the audio listener to your PAST position —
       // any remaining live sounds (UI, killfeed) stay panned to the present
       if (!this.replayView) audio.listener = { x: local.pos.x, y: 0, z: local.pos.z };

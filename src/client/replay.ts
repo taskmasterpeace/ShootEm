@@ -43,14 +43,20 @@ export const KILLCAM_S = 1.8;
 export const KILLCAM_SPEED = 0.5;
 /**
  * The impact deserves its own tempo. A flat 0.5× treats the shot that killed
- * you the same as the two seconds of walking before it, so nothing lands.
- * This ramps: brisk on the approach, a near-freeze THROUGH the hit, then a
- * middle speed for the fall so the body coming to rest is legible.
+ * you the same as the two seconds of walking before it, so nothing lands. This
+ * ramps — and, unlike the old three-band STEP, it ramps SMOOTHLY so the tempo
+ * never jumps a gear: brisk on the approach, EASING into a hard near-freeze
+ * punched right on the hit, then easing back out to a medium speed for the fall
+ * so the body coming to rest stays legible. The deeper freeze (0.10, not 0.15)
+ * is the hit-stop beat that makes a hit feel like a hit.
  */
+const lerp = (a: number, b: number, k: number) => a + (b - a) * Math.max(0, Math.min(1, k));
 export function killcamSpeedAt(sinceDeath: number): number {
-  if (sinceDeath < -0.35) return 0.75;              // the run-up: keep it moving
-  if (sinceDeath < 0.18) return 0.15;               // the hit: almost stopped
-  return 0.45;                                       // the fall, and the stillness after
+  if (sinceDeath < -0.32) return 0.75;                                        // the run-up: keep it moving
+  if (sinceDeath < -0.04) return lerp(0.75, 0.10, (sinceDeath + 0.32) / 0.28); // decelerate INTO the hit
+  if (sinceDeath < 0.06) return 0.10;                                          // THE HIT: a hard near-freeze
+  if (sinceDeath < 0.50) return lerp(0.10, 0.45, (sinceDeath - 0.06) / 0.44);  // accelerate OUT to the fall
+  return 0.45;                                                                 // the fall, and the stillness after
 }
 /** Killcam camera: pulled in tight on the fight instead of the player's zoom. */
 export const KILLCAM_CAM = 14;
@@ -252,9 +258,9 @@ export class ReplayDirector {
    *  off this: `ride` flies the round muzzle→chest, `autopsy` freezes and draws
    *  the shot line, `wreck` frames the fireball. */
   shotKind: KillcamKind = 'duel';
-  /** the AUTOPSY / RIDE tactical readout — shooter · weapon · range — pinned by
-   *  the client over the frozen frame (the stencil/mono terminal read). */
-  readout: { shooter: string; weapon: string; range: number } | null = null;
+  /** the AUTOPSY / RIDE tactical readout — shooter · weapon · range · damage —
+   *  pinned by the client over the frozen frame (the stencil/mono terminal read). */
+  readout: { shooter: string; weapon: string; range: number; damage: number } | null = null;
   /** true when the LOCAL player is the SHOOTER (a reward kill-cam) not the victim
    *  (the death cam) — the ride camera flies the round from the correct end. */
   localIsShooter = false;
@@ -333,7 +339,7 @@ export class ReplayDirector {
       // the terminal readout rides the shots that earn it — the autopsy freeze,
       // the ridden round, and the wreck (where the killer, if any, is named)
       this.readout = (shot.kind === 'autopsy' || shot.kind === 'ride' || shot.kind === 'wreck')
-        ? { shooter: killer?.name ?? 'the field', weapon: wdef?.name ?? '—', range }
+        ? { shooter: killer?.name ?? 'the field', weapon: wdef?.name ?? '—', range, damage: Math.round(wdef?.damage ?? 0) }
         : null;
       // open on the run-up, and run PAST the death into footage that does not
       // exist yet — the recorder fills it in while we watch (see KILLCAM_PRE)

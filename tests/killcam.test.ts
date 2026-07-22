@@ -124,6 +124,18 @@ describe('the death cam window', () => {
     expect(impact).toBeLessThan(fall);
     expect(approach, 'the run-up should not drag').toBeGreaterThan(fall);
   });
+
+  it('the ramp is SMOOTH and freezes DEEP — no gear-jumps, a real hit-stop', () => {
+    // the deepest point is a hard near-freeze, deeper than the old 0.15 step
+    expect(killcamSpeedAt(0), 'the hit is a hard near-freeze').toBeLessThanOrEqual(0.12);
+    // adjacent samples never jump — it EASES between tempos, it does not step
+    let prev = killcamSpeedAt(-0.6);
+    for (let t = -0.6; t <= 0.85; t += 0.02) {
+      const v = killcamSpeedAt(t);
+      expect(Math.abs(v - prev), `gear-jump at ${t.toFixed(2)}s`).toBeLessThan(0.06);
+      prev = v;
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------

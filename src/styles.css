@@ -119,6 +119,11 @@ html, body {
 #down-banner b { font-size: 1.5rem; font-weight: 700; }
 #down-banner span { font-size: 0.8rem; color: #e7a9a2; letter-spacing: 0.06em; text-transform: none; }
 #down-banner.hidden { display: none; }
+/* CRAWL TO MEDIC: the way out reads GREEN (the revive lifeline), against the
+   red bleed banner — an arrow you steer the crawl by + the range to cover. */
+#down-medic { display: inline-flex; align-items: center; gap: 0.35rem; color: #6ee7a0 !important; font-weight: 700; letter-spacing: 0.08em; }
+#down-medic.hidden { display: none; }
+#down-medic .dm-arrow { display: inline-block; font-size: 1.05rem; line-height: 1; color: #6ee7a0; }
 @keyframes down-breathe { 50% { border-color: rgba(255, 71, 54, 0.35); } }
 
 /* UI P0: the homing-duel warning — a seeker on your hull talks in red */
@@ -1080,6 +1085,19 @@ html, body {
   animation: replay-pulse 1.6s ease-in-out infinite;
 }
 @keyframes replay-pulse { 50% { opacity: 0.55; } }
+
+/* THE REWARD CUT (Robert's shot #4): a confirmed kill wears GOLD and pops in —
+   it reads as a trophy, not the amber punishment of a death cam. */
+#replay-banner.reward {
+  color: #ffd24a; border-color: #ffd24a;
+  background: oklch(0.21 0.07 88 / 0.9);
+  box-shadow: 0 0 28px oklch(0.82 0.16 88 / 0.55);
+  animation: reward-pop 0.42s cubic-bezier(0.2, 1.4, 0.5, 1), replay-pulse 1.4s ease-in-out infinite 0.42s;
+}
+@keyframes reward-pop {
+  0% { transform: translateX(-50%) scale(0.6); opacity: 0; }
+  100% { transform: translateX(-50%) scale(1); opacity: 1; }
+}
 
 /* THE AUTOPSY readout (Robert's shot #3): a stencil/mono terminal card pinned
    over the frozen shot — SHOOTER · WEAPON · RANGE, the tactical read nobody
