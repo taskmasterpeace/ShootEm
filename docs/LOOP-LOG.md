@@ -7,3 +7,4 @@
 2026-07-22 IT-8: #80 built (hold-SPACE give-up, 12 downed tests green). SHARED-TREE ALERT: second instance landing Miami-Gardens geospatial (theaters.test geocity seed 7 red is THEIRS; their uncommitted files left alone). Next: #57 amb_winter.
 2026-07-22 IT-9: #58 half-closed (shipping log written; terrain-lab + license → needs-robert). Next: #57 amb_winter.
 2026-07-22 IT-10: #57 built (amb_winter synthesized bed, seamless, deterministic). Next: decision-labeled epics -> needs-robert sweep.
+2026-07-22 IT-11: needs-robert sweep — #63 #67 #69 #71 #72 #75 labeled with exact questions. Next: continue atomics (#54, perf hours-items).
