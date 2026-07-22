@@ -23,9 +23,9 @@ work.
 | Robert's design | Built as | Role | Status of the SPEC |
 |---|---|---|---|
 | **Sparrowhawk** — fast multirole strike (hp~90, hitscan cannon + rocket pods, no A2A) | **Warhawk** (hp130) | CAS / anti-ground | 🔨 Airframe + cannon + splash pods SHIP. **Concept delta:** my Warhawk is the SLOW A-10 tank-buster (hp130, dmg-40 gun); his Sparrowhawk is a FAST thin multirole (hp90). *Decision: retune Warhawk→Sparrowhawk, or keep the A-10 and add Sparrowhawk as a 5th?* |
-| **Kite** — air-superiority interceptor (hp~80, rapid cannon + heat-seeker AAM homing on aircraft) | **Specter** (hp70) | Dogfighter | 🔨 Airframe + cannon + a long-reach missile SHIP, and the pilot AI HUNTS aircraft. **GAP: the AAM does not HOME** — `specter_aam` is a dumb splash rocket (no homing flag). His Kite needs a true heat-seeker (homes on aircraft, flares counter it). |
-| **Nighthawk** — stealth bomber (hp~110, low signature, bomb bay) | **Reaper** (hp150, `stealth:true`) | Radar-evading strike | 🔨 Airframe + arc bombs (breach masonry) SHIP; stealth HALVES vehicle target-lock (`hullLockTarget`, 42u). **GAP: stealth is NOT in `radar.ts`** — the Reaper still paints on the enemy minimap. His mechanic: low signature = halved AA/SAM lock **and** no minimap track until it drops. |
-| **Copperhead** — attack heli, guided multi-rocket (hp~140, rotorcraft, mountain-gated) | **Hydra** (hp115) | Standoff tank-killer | 🔨 Airframe + a rocket volley + chin gun SHIP. **GAP 1: the rockets are NOT guided** — `hydra_guided` is a dumb splash volley (no soft-lock/homing). **GAP 2: rotorcraft are NOT Sky-gated** — a heli can still fly over a Sky peak (terrain does LOS + renders tall, but flight movement ignores height). |
+| **Kite** — air-superiority interceptor (hp~80, rapid cannon + heat-seeker AAM homing on aircraft) | **Specter** (hp70) | Dogfighter | ✅ Airframe + cannon + the pilot AI hunts aircraft, and the **AAM now HEAT-SEEKS** (`1f97547`) — homes on aircraft, speed-capped below jet top-speed so a maneuvering pilot extends away and flares seduce it. |
+| **Nighthawk** — stealth bomber (hp~110, low signature, bomb bay) | **Reaper** (hp150, `stealth:true`) | Radar-evading strike | ✅ Airframe + arc bombs (breach masonry); stealth halves SAM lock **and now suppresses the enemy minimap radar** (`9a2f7d1`) — off-radar past 42u until it fires, then paints 4s. "Not on the radar until the ground erupts." |
+| **Copperhead** — attack heli, guided multi-rocket (hp~140, rotorcraft, mountain-gated) | **Hydra** (hp115) | Standoff tank-killer | ✅ Airframe + chin gun + the **rockets now GUIDE** (`1f97547`, soft-lock a hull and steer on), and the heli is **Sky-gated** (`46bfb16`) — it can't cross a Sky peak, it routes through the passes. |
 
 **Codex + pricing:** all four auto-list in the Codex with their weapons. Deploy
 **cost** is the game's small-integer scale (Warhawk/Specter/Hydra `4`, Reaper
@@ -60,16 +60,17 @@ map his intent onto the deploy-cost scale?*
 
 ---
 
-## THE REMAINING CHECKLIST (the honest blockers — none are hard)
+## THE CHECKLIST — what shipped, what's left
 
-Priority order, each buildable on shipped systems:
+**DONE (2026-07-22):**
+1. ✅ **Rotorcraft Sky-gate** (`46bfb16`) — a Sky-height massif walls any airframe that can't cruise above it: rotorcraft (ceiling band 2) never cross, a jet clears only at band 3. `tests/sky-gate.test.ts`.
+2. ✅ **Heat-seeker AAM** (`1f97547`) — `specter_aam` homes on aircraft, speed-capped below jet top-speed so a maneuvering pilot extends away and flares seduce it.
+3. ✅ **Guided multi-rocket** (`1f97547`) — `hydra_guided` soft-locks the nearest enemy hull and steers onto it (moderate turn, dodgeable). `tests/guided.test.ts`.
+4. ✅ **Stealth radar suppression** (`9a2f7d1`) — a stealth hull is off enemy radar past 42u until it fires (then paints 4s); halved SAM lock stays. `tests/stealth-radar.test.ts`.
+6. ✅ **flat-large theater** (`8ee6230`) — Ashen Steppe, 98.6% open.
 
-1. **Rotorcraft Sky-gate** — a heli at Building band cannot cross a Sky-height massif; jets can. Wire terrain `height`/`SKY_LEVEL` into flight movement (`world.ts`). *Robert's core terrain tie-in.*
-2. **Heat-seeker AAM** — give `specter_aam` homing-on-aircraft (the `homingVehicleId` path already exists; flares already counter it).
-3. **Guided multi-rocket** — `hydra_guided` soft-locks a marked target and the salvo homes.
-4. **Stealth radar suppression** — `stealth` hides the airframe from enemy minimap radar tracks (`radar.ts`) until it drops, and halves SAM lock-range.
+**REMAINING (refinements, none goal-blocking):**
 5. **Radar sites as destructible AA-blinders** — killing the peak radar extends the stealth window (procgen LOI + a systemHp hook).
-6. **flat-large theater** — finish the open variant (in progress).
 7. **Pilot-AI refinements** — missile-lock-break behind ridges, energy extend/re-merge, heli hull-down, radar-aware bomber routing.
 8. **Procgen refinements** — ridged-noise height field, ramps, mirrored LOI + central objective.
 9. **Tuning pass** — reconcile stats/names/prices to Robert's spec once the concept + economy decisions are made.

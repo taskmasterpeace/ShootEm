@@ -90,9 +90,11 @@ auto-lists it.
 **The air-program spec of record is now `docs/AIR-PROGRAM.md`** — Robert's
 authoritative 2026-07-22 design (the four airframes' target stats, procgen, and
 pilot AI) with the honest BUILT-vs-REMAINING checklist. **No hard blockers**;
-the real remaining wiring is: rotorcraft Sky-gate, heat-seeker AAM homing,
-guided multi-rocket, stealth radar-track suppression, radar-site counterplay,
-pilot-AI refinements. **Still owed** beyond that list: **walkable elevation**
+the four goal-critical mechanics now SHIP — rotorcraft Sky-gate (`46bfb16`),
+heat-seeker AAM homing + guided multi-rocket (`1f97547`), and stealth
+radar-track suppression (`9a2f7d1`). Remaining is polish: radar-site
+counterplay + pilot-AI refinements (energy-fight, lock-break behind ridges,
+heli hull-down). **Still owed** beyond that: **walkable elevation**
 (infantry slope / vehicle ramp / cliff-climb — v1 massifs are impassable
 masonry); the live 3D relief + snow + steppe screenshots. Plan:
 `plans/2026-07-22-mountain-warfare.md`.
@@ -131,7 +133,7 @@ If you read one thing, read this. Everything below has a full row further down.
 **The war:** the 3×3 board · the two faction leaders · bots looking like robots. *(Science Missions v1, time-skip deletion, clone economy, pass escalation, and class-change requests are shipped.)*
 **Military Operations are shipped too:** six map-owned theaters, persistent manifests and stakes, direct-play exercises, and the per-map geometry runtime now sit beside Science Missions.
 **The press:** AI-generated newspaper · the base TV newscast · the unnamed-soldier fiction.
-**Air & armor:** six vehicle-scale biome theaters ✅ · Ground/Building/Sky/Clouds ✅ · **terrain elevation — mountains rise, block sight, cap rotorcraft, jets clear ✅ (2026-07-22)** · Shrike attack helicopter ✅ · Condor transport helicopter ✅ · Barracuda submarine/depth/sonar/torpedoes ✅ · scheduled radar/ECM/terrain masking ✅ · **the new air program — Warhawk gun jet · Specter fighter · Reaper stealth bomber · Hydra rocket heli, each its own model + jet-vs-jet AI ✅ (2026-07-22)** · **winter mountains ✅ · flat-large "Ashen Steppe" ✅ (2026-07-22)** · PixelLab flight instruments ✅ · air-program wiring (homing AAM/guided rockets/stealth-radar/heli-Sky-gate — see `AIR-PROGRAM.md`) + rearm pads remain.
+**Air & armor:** six vehicle-scale biome theaters ✅ · Ground/Building/Sky/Clouds ✅ · **terrain elevation — mountains rise, block sight, cap rotorcraft, jets clear ✅ (2026-07-22)** · Shrike attack helicopter ✅ · Condor transport helicopter ✅ · Barracuda submarine/depth/sonar/torpedoes ✅ · scheduled radar/ECM/terrain masking ✅ · **the new air program — Warhawk gun jet · Specter fighter · Reaper stealth bomber · Hydra rocket heli, each its own model + jet-vs-jet AI ✅ (2026-07-22)** · **winter mountains ✅ · flat-large "Ashen Steppe" ✅ · guided rockets + heat-seeker AAM + stealth-radar-evasion + heli-Sky-gate ✅ (2026-07-22)** · PixelLab flight instruments ✅ · rearm pads + air-program polish (radar-site counterplay, pilot-AI refinements — see `AIR-PROGRAM.md`) remain.
 **Weapons:** fire modes (single/auto/burst/**double-barrel**/pump) · per-family secondary fire · brand signature mechanics · and the Codex columns for all of it.
 **Beams:** continuous/held beams · **beam-vs-beam clash** · beam birth effects · the seven beam types.
 **Armed gods:** bow · spear · recall axe · summoners.
