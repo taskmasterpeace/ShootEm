@@ -1506,16 +1506,27 @@ function renderScarMap() {
   const dispatch = c.dispatch.slice(0, 10).map((d) =>
     `<li>${d.simulated ? '<em style="color:var(--muted)">(simulated)</em> ' : ''}${d.text}<span class="when">${new Date(d.at).toLocaleString()}</span></li>`).join('')
     || '<li class="bk-empty" style="border:none">No dispatches yet — the war awaits its first battle.</li>';
-  root.innerHTML = `
+  // opt #29 (L7): the theater bitmap renders ONCE — every re-render used to
+  // rebuild the whole innerHTML, re-decoding a multi-megapixel image on every
+  // marker click. Now the <img> node survives: markers and the side panel
+  // mutate in place, the bitmap never decodes twice. (Asset also cut: the
+  // 3.6MB PNG became a 610KB 2048w JPEG — same map at menu resolution.)
+  let wrap = root.querySelector<HTMLElement>('#scar-wrap');
+  if (!wrap) {
+    root.innerHTML = `
     <div id="scar-layout">
-      <div id="scar-wrap"><img src="/scar-map.png" alt="THE SCAR — theater map" draggable="false" />${markers}</div>
-      <div id="scar-side">
+      <div id="scar-wrap"><img src="/scar-map.jpg" alt="THE SCAR — theater map" draggable="false" /></div>
+      <div id="scar-side"></div>
+    </div>`;
+    wrap = root.querySelector<HTMLElement>('#scar-wrap')!;
+  }
+  wrap.querySelectorAll('.scar-marker').forEach((m) => m.remove());
+  wrap.insertAdjacentHTML('beforeend', markers);
+  root.querySelector<HTMLElement>('#scar-side')!.innerHTML = `
         <div class="bk-card">${selHtml}</div>
         <div class="bk-card">${scienceCampaignBankHTML(c.scienceBonuses)}</div>
         ${operationModel ? renderOperationsBoard(operationModel) : ''}
-        <div class="bk-card"><h4>Morning dispatch</h4><ul class="bk-journal">${dispatch}</ul></div>
-      </div>
-    </div>`;
+        <div class="bk-card"><h4>Morning dispatch</h4><ul class="bk-journal">${dispatch}</ul></div>`;
   root.querySelectorAll<HTMLButtonElement>('.scar-marker').forEach((btn) => {
     btn.onclick = () => {
       audio.play('ui_click');
