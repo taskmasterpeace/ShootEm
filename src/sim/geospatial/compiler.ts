@@ -148,6 +148,56 @@ function chooseRoadEnds(component: readonly number[], geometry: MapGeometry): [n
   return [byX[0], byX.at(-1)!];
 }
 
+function nearbyWallScore(map: GameMap, center: number, radius = 12): number {
+  const cx = center % map.geometry.cols;
+  const cz = Math.floor(center / map.geometry.cols);
+  let score = 0;
+  for (let dz = -radius; dz <= radius; dz++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      if (dx * dx + dz * dz > radius * radius) continue;
+      const x = cx + dx;
+      const z = cz + dz;
+      if (inBounds(map.geometry, x, z) && map.grid[tileIndex(map.geometry, x, z)] === T_WALL) score++;
+    }
+  }
+  return score;
+}
+
+function chooseInsetRouteEnds(map: GameMap, route: readonly number[]): [number, number] {
+  const { geometry } = map;
+  // Routes still span the imported slice for vehicles and theater validation,
+  // but combatants deploy one city-block approach inside the sealed GIS rim.
+  // Favor authored masonry in the opening camera so the slice immediately
+  // reads as a city instead of a featureless road or parking apron.
+  const margin = Math.max(6, Math.floor(Math.min(geometry.cols, geometry.rows) / 10));
+  const isInset = (index: number) => {
+    const x = index % geometry.cols;
+    const z = Math.floor(index / geometry.cols);
+    return x >= margin && z >= margin && x < geometry.cols - margin && z < geometry.rows - margin;
+  };
+  const inset = route.filter(isInset);
+  if (inset.length < 2) return [route[0], route.at(-1)!];
+
+  const pick = (startFraction: number, endFraction: number, fallback: number): number => {
+    const start = Math.floor((route.length - 1) * startFraction);
+    const end = Math.ceil((route.length - 1) * endFraction);
+    let best = fallback;
+    let bestScore = -1;
+    for (let cursor = start; cursor <= end; cursor++) {
+      const candidate = route[cursor];
+      if (!isInset(candidate)) continue;
+      const score = nearbyWallScore(map, candidate);
+      if (score > bestScore) {
+        best = candidate;
+        bestScore = score;
+      }
+    }
+    return best;
+  };
+
+  return [pick(0.16, 0.20, inset[0]), pick(0.76, 0.88, inset.at(-1)!)];
+}
+
 function setDiscOpen(map: GameMap, center: number, radius: number, overlay: GameplayOverlayChange[]): void {
   const cx = center % map.geometry.cols;
   const cz = Math.floor(center / map.geometry.cols);
@@ -328,11 +378,43 @@ function buildDistrictDecor(
   const rng = new Rng(seed ^ 0x33056);
   const roads = [...roadCells].sort((a, b) => a - b);
   const offsets = [[4, 0], [-4, 0], [0, 4], [0, -4], [5, 0], [0, 5]] as const;
+  const baseOffsets = [
+    [10, 0], [-10, 0], [0, 10], [0, -10], [8, 7], [-8, 7], [8, -7], [-8, -7],
+    [12, 0], [-12, 0], [0, 12], [0, -12],
+  ] as const;
+  const addBaseLandmark = (baseIndex: number, kind: GeospatialDecor['kind'], skip: number): void => {
+    const [bx, bz] = worldToTile(map.geometry, map.basePos[baseIndex].x, map.basePos[baseIndex].z);
+    const start = rng.int(0, baseOffsets.length - 1);
+    for (let order = 0; order < baseOffsets.length; order++) {
+      const [dx, dz] = baseOffsets[(start + order + skip) % baseOffsets.length];
+      const tx = bx + dx;
+      const tz = bz + dz;
+      if (!inBounds(map.geometry, tx, tz)) continue;
+      const index = tileIndex(map.geometry, tx, tz);
+      if (classification[index] === GEO_CLASS_ROAD || classification[index] === GEO_CLASS_BUILDING
+        || classification[index] === GEO_CLASS_WATER) continue;
+      if (map.grid[index] !== T_OPEN && map.grid[index] !== T_GRASS) continue;
+      const pos = tileToWorld(map.geometry, tx, tz);
+      if (decor.some((item) => Math.hypot(item.pos.x - pos.x, item.pos.z - pos.z) < 9)) continue;
+      decor.push({
+        kind,
+        pos,
+        scale: kind === 'palm' ? rng.range(0.95, 1.2) : 1,
+        rot: rng.range(0, Math.PI * 2),
+      });
+      return;
+    }
+  };
+  for (let baseIndex = 0; baseIndex < map.basePos.length; baseIndex++) {
+    addBaseLandmark(baseIndex, 'palm', 0);
+    addBaseLandmark(baseIndex, 'streetlight', 3);
+  }
   for (let cursor = 0; cursor < roads.length && decor.length < 72; cursor += 17) {
     const road = roads[cursor];
     const x = road % map.geometry.cols;
     const z = Math.floor(road / map.geometry.cols);
-    const ordered = [...offsets].sort(() => rng.next() - 0.5);
+    const start = rng.int(0, offsets.length - 1);
+    const ordered = offsets.map((_, index) => offsets[(start + index) % offsets.length]);
     for (const [dx, dz] of ordered) {
       const tx = x + dx;
       const tz = z + dz;
@@ -492,13 +574,14 @@ export function compileGeospatialMap(
     map.surface[index] = S_PLATE;
   }
 
-  setDiscOpen(map, westRoad, 5, overlay);
-  setDiscOpen(map, eastRoad, 5, overlay);
-  const west = tileToWorld(geometry, westRoad % geometry.cols, Math.floor(westRoad / geometry.cols));
-  const east = tileToWorld(geometry, eastRoad % geometry.cols, Math.floor(eastRoad / geometry.cols));
+  const [westBaseRoad, eastBaseRoad] = chooseInsetRouteEnds(map, routePath);
+  setDiscOpen(map, westBaseRoad, 5, overlay);
+  setDiscOpen(map, eastBaseRoad, 5, overlay);
+  const west = tileToWorld(geometry, westBaseRoad % geometry.cols, Math.floor(westBaseRoad / geometry.cols));
+  const east = tileToWorld(geometry, eastBaseRoad % geometry.cols, Math.floor(eastBaseRoad / geometry.cols));
   map.basePos = [west, east];
   map.flagPos = [{ ...west }, { ...east }];
-  map.spawns = [spawnRing(map, westRoad), spawnRing(map, eastRoad)];
+  map.spawns = [spawnRing(map, westBaseRoad), spawnRing(map, eastBaseRoad)];
   const routeAt = (fraction: number) => routePath[Math.min(routePath.length - 1, Math.floor((routePath.length - 1) * fraction))];
   const controlPointNames = options.controlPointNames ?? ['WEST APPROACH', 'CIVIC CENTER', 'EAST APPROACH'];
   map.controlPoints = controlPointNames.map((name, index) => {

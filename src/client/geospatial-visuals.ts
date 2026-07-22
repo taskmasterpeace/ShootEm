@@ -1,11 +1,32 @@
 import * as THREE from 'three';
-import { GEO_CLASS_BUILDING } from '../sim/geospatial/compiler';
+import {
+  GEO_CLASS_BUILDING,
+  GEO_CLASS_GREEN,
+  GEO_CLASS_ROAD,
+} from '../sim/geospatial/compiler';
 import type { GameMap, GeospatialMapMeta } from '../sim/map';
 
 const MIAMI_WALLS = [0xd8cbb4, 0xb8c8c2, 0xd7b9a3, 0xc8c1ae, 0xaebfba, 0xe0d7c5];
 
 export function paletteKeyForMap(map: Pick<GameMap, 'theme' | 'geospatial'>): string {
   return map.geospatial?.style === 'miami-gardens' ? 'miami-gardens' : map.theme;
+}
+
+/** Ground paint only; classification never changes collision or navigation. */
+export function geospatialGroundColor(
+  meta: GeospatialMapMeta | undefined,
+  index: number,
+  noise: number,
+): string | undefined {
+  if (meta?.style !== 'miami-gardens') return undefined;
+  const jitter = Math.round(noise * 10);
+  if (meta.classification[index] === GEO_CLASS_ROAD) {
+    return `rgb(${31 + jitter}, ${34 + jitter}, ${35 + jitter})`;
+  }
+  if (meta.classification[index] === GEO_CLASS_GREEN) {
+    return `rgb(${48 + jitter}, ${76 + jitter}, ${52 + jitter})`;
+  }
+  return `rgb(${88 + jitter}, ${84 + jitter}, ${72 + jitter})`;
 }
 
 export function backgroundWallStyle(

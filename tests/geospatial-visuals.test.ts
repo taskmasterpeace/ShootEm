@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   backgroundWallStyle,
+  geospatialGroundColor,
   paletteKeyForMap,
 } from '../src/client/geospatial-visuals';
 import { GEO_CLASS_BUILDING, GEO_CLASS_ROAD } from '../src/sim/geospatial/compiler';
@@ -26,5 +27,15 @@ describe('geospatial district visuals', () => {
     expect(backgroundWallStyle(meta(), 0)).toBeUndefined();
     expect(backgroundWallStyle(meta(), 1)).toEqual({ color: 0xd8cbb4, storeys: 1 });
     expect(backgroundWallStyle(meta(), 2)).toEqual({ color: 0xb8c8c2, storeys: 2 });
+  });
+
+  it('separates Miami asphalt from surrounding lots at command height', () => {
+    const district = meta();
+    const road = geospatialGroundColor(district, 0, 0.5);
+    const lot = geospatialGroundColor({ ...district, classification: Uint8Array.from([0]) }, 0, 0.5);
+    expect(road).toMatch(/^rgb\(/);
+    expect(lot).toMatch(/^rgb\(/);
+    expect(road).not.toBe(lot);
+    expect(geospatialGroundColor(undefined, 0, 0.5)).toBeUndefined();
   });
 });

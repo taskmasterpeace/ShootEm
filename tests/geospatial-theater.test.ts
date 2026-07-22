@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { World } from '../src/sim/world';
 import { generateTheater } from '../src/sim/theaters';
 import { validateTheater } from '../src/sim/theater-builder';
+import { T_WALL } from '../src/sim/map';
 
 describe('real-city theater integration', () => {
   it('hydrates a fresh validated Miami Gardens map for every match', () => {
@@ -19,6 +20,25 @@ describe('real-city theater integration', () => {
       'CAROL CITY EAST',
     ]);
     expect(first.height).toHaveLength(90_000);
+    for (const base of first.basePos) {
+      const x = Math.floor((base.x + 450) / 3);
+      const z = Math.floor((base.z + 450) / 3);
+      expect(Math.min(x, z, 299 - x, 299 - z)).toBeGreaterThanOrEqual(30);
+      let cityBlockInView = false;
+      for (let dz = -12; dz <= 12 && !cityBlockInView; dz++) {
+        for (let dx = -12; dx <= 12; dx++) {
+          if (Math.hypot(dx, dz) > 12) continue;
+          if (first.grid[(z + dz) * 300 + x + dx] === T_WALL) {
+            cityBlockInView = true;
+            break;
+          }
+        }
+      }
+      expect(cityBlockInView).toBe(true);
+      expect(Math.min(...first.geospatial!.decor.map((decor) =>
+        Math.hypot(decor.pos.x - base.x, decor.pos.z - base.z),
+      ))).toBeLessThanOrEqual(45);
+    }
     expect(validateTheater(first).issues).toEqual([]);
     expect(first.seed).toBe(4207);
     expect(second.seed).toBe(99);

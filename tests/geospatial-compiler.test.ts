@@ -134,10 +134,11 @@ describe('geospatial map compiler', () => {
   });
 
   it('adds Miami district routes, distributed interiors, labels, and presentation', () => {
+    const geometry = { cols: 96, rows: 96, tile: 3 } as const;
     const result = compileGeospatialMap(fixtureWithSixParcels(), {
       seed: 33056,
       cityId: '69:miami:e08:2700000',
-      geometry: { cols: 96, rows: 96, tile: 3 },
+      geometry,
       style: 'miami-gardens',
       maxPlayableBuildings: 4,
       controlPointNames: ['183RD STREET', 'CIVIC CENTER', 'CAROL CITY EAST'],
@@ -154,5 +155,10 @@ describe('geospatial map compiler', () => {
     expect(result.map.geospatial?.style).toBe('miami-gardens');
     expect(result.map.geospatial?.buildingHeight).toHaveLength(96 * 96);
     expect(result.map.geospatial?.decor.some((decor) => decor.kind === 'palm')).toBe(true);
+    for (const base of result.map.basePos) {
+      const x = Math.floor((base.x + geometry.cols * geometry.tile / 2) / geometry.tile);
+      const z = Math.floor((base.z + geometry.rows * geometry.tile / 2) / geometry.tile);
+      expect(Math.min(x, z, geometry.cols - 1 - x, geometry.rows - 1 - z)).toBeGreaterThanOrEqual(9);
+    }
   });
 });

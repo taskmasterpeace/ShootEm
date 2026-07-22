@@ -26,7 +26,7 @@ import { buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp, bu
 import { k9MarkerKind } from './k9-controls';
 import { activeScienceWaypoints } from './science';
 import { ELEVATION_ALT, asElevationLevel } from '../sim/elevation';
-import { backgroundWallStyle, buildGeospatialDecor, paletteKeyForMap } from './geospatial-visuals';
+import { backgroundWallStyle, buildGeospatialDecor, geospatialGroundColor, paletteKeyForMap } from './geospatial-visuals';
 
 const TRACER_COLORS: Record<string, number> = {
   bullet: 0xffd890, shell: 0xffb060, rocket: 0xff8840, plasma: 0x60c8ff,
@@ -946,7 +946,10 @@ export class Renderer {
         const t = world.map.grid[idx];
         const n = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453;
         const r = n - Math.floor(n);
-        ctx.fillStyle = t === T_WATER || t === T_DEEP ? pal.water(r) : t === T_GRASS ? '#6b7c40' : pal.open(r);
+        const districtGround = geospatialGroundColor(world.map.geospatial, idx, r);
+        ctx.fillStyle = t === T_WATER || t === T_DEEP ? pal.water(r)
+          : t === T_GRASS ? '#6b7c40'
+            : districtGround ?? pal.open(r);
         if (t === T_DEEP) {
           // deep channel: the same water, drowned darker
           ctx.fillStyle = pal.water(r).replace(/\d+/g, (n) => String(Math.round(Number(n) * 0.55)));
