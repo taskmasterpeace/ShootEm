@@ -135,7 +135,7 @@ export const MILITARY_MISSIONS: readonly MilitaryMissionPreset[] = [
     'real_city_assault', 'geocity', '33056 Civic Front', '⌂',
     'Fight through real Miami Gardens streets and seize the civic corridor.',
     33056, 'civic_front', 'spearhead', ['land'],
-    [phase('capture', 'Take Civic Center', 'land'), phase('defend', 'Hold 183rd Street', 'land', 90)],
+    [phase('capture', 'Take 183rd Street', 'land'), phase('defend', 'Hold Civic Center', 'land', 90)],
     [['mission-33056-tank', 'tank', 'Mastodon 56'], ['mission-33056-shrike', 'attackheli', 'Shrike 33']],
   ),
   preset(

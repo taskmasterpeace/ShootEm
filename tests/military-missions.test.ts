@@ -10,10 +10,15 @@ describe('Military Mission exercise catalog', () => {
       'city', 'geocity', 'desert', 'countryside', 'mountain', 'coastal', 'ocean',
     ]);
     expect(new Set(MILITARY_MISSIONS.map((entry) => entry.id)).size).toBe(7);
-    expect(MILITARY_MISSIONS.find((entry) => entry.theaterId === 'geocity')).toMatchObject({
+    const civicFront = MILITARY_MISSIONS.find((entry) => entry.theaterId === 'geocity');
+    expect(civicFront).toMatchObject({
       missionName: '33056 Civic Front',
       mode: 'conquest',
     });
+    expect(civicFront?.plan.phases.map((phase) => phase.label)).toEqual([
+      'Take 183rd Street',
+      'Hold Civic Center',
+    ]);
   });
 
   it.each(MILITARY_MISSIONS)('$id creates a legal launch on $theaterId', (preset) => {
