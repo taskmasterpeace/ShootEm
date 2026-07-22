@@ -4682,7 +4682,11 @@ export class Renderer {
           // Ragebeast's claws have three takes (Robert's pack) — pick one per
           // swing so the 3/s rending never reads as one looped sample
           else if (shotSnd === 'ragebeast_attack1') shotSnd = (['ragebeast_attack1', 'ragebeast_attack2', 'ragebeast_attack3'] as const)[Math.floor(Math.random() * 3)];
-          audio.play(shotSnd, { pos: e.pos, volume: 0.7 });
+          // a DESIGNATED-LOOP weapon (flamethrower, beam, engine — Sound Editor
+          // loop-flags) plays as ONE sustained loop that tracks the shooter and
+          // fades when firing stops, instead of a stuttered retrigger per tick
+          if (audio.hasLoopFlag(shotSnd)) audio.playSustained(shotSnd, { pos: e.pos, volume: 0.7 });
+          else audio.play(shotSnd, { pos: e.pos, volume: 0.7 });
           if (def.tracer !== 'beam' && def.tracer !== 'none') {
             this.particles.emit({ pos: e.pos, count: 3, color: 0xffcc66, speed: 3, life: 0.12, spread: 0.3, up: 1, size: 0.3 });
           } else if (def.tracer === 'beam') {

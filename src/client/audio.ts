@@ -358,6 +358,9 @@ export class AudioEngine {
         this.custom.add(name);
       } catch { /* undecodable upload — stock stands */ }
     }
+    // which sounds are DESIGNATED to loop in-game (the Sound Editor writes
+    // loop-flags.json). Missing file = nothing designated, all one-shots.
+    await this.loadLoopFlags();
   }
 
   resume() {
@@ -583,6 +586,86 @@ export class AudioEngine {
 
   looping(name: SoundName): boolean {
     return this.loops.has(name);
+  }
+
+  // ---- loop designations + keep-alive sustained loops (Sound Editor) --------
+  // A sound MARKED as looping (loop-flags.json) is a HELD sound — a flamethrower,
+  // an engine, a beam. In-game it should loop seamlessly while its source keeps
+  // firing, not machine-gun-retrigger. The 'shot' handler routes designated
+  // sounds through playSustained(); the loop tracks the shooter's position each
+  // tick and auto-fades ~0.4s after the last trigger. One instance per name.
+
+  private loopFlags = new Set<string>();
+  private sustained = new Map<string, { src: AudioBufferSourceNode; gain: GainNode; pan: StereoPannerNode; alive: number }>();
+  private sustainSweep: ReturnType<typeof setInterval> | null = null;
+
+  /** Load the Sound Editor's loop designations (public/audio/loop-flags.json). */
+  private async loadLoopFlags() {
+    try {
+      const flags = await (await fetch('/audio/loop-flags.json', { cache: 'no-store' })).json();
+      this.loopFlags = new Set(Object.keys(flags).filter((k) => flags[k]));
+    } catch { this.loopFlags = new Set(); }
+  }
+
+  /** Is this sound designated to loop in-game? (the 'shot' handler asks) */
+  hasLoopFlag(name: SoundName): boolean { return this.loopFlags.has(name); }
+
+  /** Live-set a designation (the Sound Editor's loop toggle, same tab). */
+  setLoopFlag(name: SoundName, on: boolean) { if (on) this.loopFlags.add(name); else this.loopFlags.delete(name); }
+
+  /**
+   * Play/refresh a DESIGNATED-LOOP sound as a sustained, positional loop. Call
+   * it every tick the source fires (idempotent: starts once, then just updates
+   * position + volume); a sweep fades it out ~0.4s after the calls stop.
+   */
+  playSustained(name: SoundName, opts: { pos?: Vec3; volume?: number } = {}): boolean {
+    if (!this.ctx || !this.master) return false;
+    const buf = this.buffers.get(name);
+    if (!buf) return false;
+    const now = this.ctx.currentTime;
+    let vol = (opts.volume ?? 1) * this.getPref(name).vol;
+    let pan = 0;
+    if (opts.pos) {
+      const ear = earshotFor(name);
+      const dx = opts.pos.x - this.listener.x, dz = opts.pos.z - this.listener.z;
+      const d = Math.hypot(dx, dz);
+      const range = ear.range * (1 - this.weatherDull * 0.3);
+      if (d > range) vol = 0; // out of earshot — hold a silent loop, let it retire
+      else { vol *= Math.pow(1 - d / range, 1.4); pan = Math.max(-0.8, Math.min(0.8, dx / 40)); }
+    }
+    let s = this.sustained.get(name);
+    if (!s) {
+      const src = this.ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+      const gain = this.ctx.createGain(); gain.gain.value = 0;
+      const p = this.ctx.createStereoPanner(); p.pan.value = pan;
+      src.connect(gain).connect(p).connect(this.master);
+      src.start();
+      s = { src, gain, pan: p, alive: now };
+      this.sustained.set(name, s);
+      this.startSustainSweep();
+    }
+    s.alive = now;
+    // ease toward the live volume/pan so a moving shooter doesn't click
+    s.gain.gain.setTargetAtTime(vol, now, 0.05);
+    s.pan.pan.setTargetAtTime(pan, now, 0.05);
+    return true;
+  }
+
+  private startSustainSweep() {
+    if (this.sustainSweep) return;
+    this.sustainSweep = setInterval(() => {
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      for (const [name, s] of this.sustained) {
+        if (now - s.alive > 0.4) { // the trigger stopped — fade out and retire
+          s.gain.gain.setTargetAtTime(0, now, 0.12);
+          const src = s.src;
+          this.sustained.delete(name);
+          setTimeout(() => { try { src.stop(); } catch { /* already stopped */ } }, 500);
+        }
+      }
+      if (this.sustained.size === 0 && this.sustainSweep) { clearInterval(this.sustainSweep); this.sustainSweep = null; }
+    }, 100);
   }
 }
 
