@@ -3326,7 +3326,7 @@ export class World {
         v.nextAltFireAt = this.time + 1 / wdef.rof;
         s.protectedUntil = 0;
         const spread = (this.rng.next() - 0.5) * 2 * wdef.spread;
-        const yaw = v.turretYaw + spread;
+        const yaw = this.forwardArc(v, v.turretYaw) + spread; // #82: no rear guns on fixed-wings
         const muzzle = mgDef.radius + 0.8;
         this.launch({
           id: this.id(), weapon: mgDef.altWeapon, ownerId: s.id, team: v.team,
@@ -3339,7 +3339,9 @@ export class World {
         this.emit({ type: 'shot', pos: { ...v.pos }, weapon: mgDef.altWeapon, soldierId: s.id });
       }
       // flyer pilots pop IR flares with the grenade key — the heat-seeker counter
-      if (cmd.grenade && s.seat === 0 && VEHICLES[v.kind].flies && v.flares > 0 && this.time >= s.nextGrenadeAt) {
+      // #82: X is the dedicated FLARE key aboard a flyer (the bag can't cycle
+      // from a pilot seat anyway); G keeps working for muscle memory
+      if ((cmd.grenade || cmd.nadeCycle) && s.seat === 0 && VEHICLES[v.kind].flies && v.flares > 0 && this.time >= s.nextGrenadeAt) {
         v.flares--;
         s.nextGrenadeAt = this.time + 1;
         const g = this.spawnGadget('flare', v.team, s.id, {
@@ -3701,7 +3703,7 @@ export class World {
     // to the item's max reach (proven top-down mechanic — throw at the cursor).
     // X rotates the grenade bag: class default → smoke → fire, skipping
     // empty pouches. The announcer names what's now in your hand.
-    if (cmd.nadeCycle) {
+    if (cmd.nadeCycle && s.vehicleId < 0) { // #82: aboard a flyer X means FLARES
       const pouches: [number, string][] = [
         [1, `SMOKE ×${s.smokes ?? 0}`],
         [2, `INCENDIARY ×${s.firebombs ?? 0}`],
@@ -5159,6 +5161,21 @@ export class World {
     }
   }
 
+  /** #82 THE FORWARD ARC: a fixed-wing's nose IS its gun mount — you cannot
+   *  shoot missiles backwards out of a jet. Firing bearings clamp into ±60°
+   *  of the heading for flying hulls with a minimum airspeed (the CANNOT-
+   *  HOVER family). Rotors hover and traverse (kept free); the bomber's
+   *  belly turret is its identity and its alt-fire is the Cradle anyway. */
+  private forwardArc(v: Vehicle, aimYaw: number): number {
+    const def = VEHICLES[v.kind];
+    if (!def.flies || !def.minAirspeed || def.bombs) return aimYaw;
+    let d = aimYaw - v.yaw;
+    while (d > Math.PI) d -= 2 * Math.PI;
+    while (d < -Math.PI) d += 2 * Math.PI;
+    const MAX = Math.PI / 3;
+    return Math.abs(d) <= MAX ? aimYaw : v.yaw + Math.sign(d) * MAX;
+  }
+
   stepVehicle(v: Vehicle, cmds: Map<number, PlayerCmd>, dt: number) {
     if (!v.alive) {
       if (this.operation) return; // an Operation has a finite manifest; wrecks do not print back in
@@ -5478,7 +5495,7 @@ export class World {
       v.nextFireAt = this.time + 1 / wdef.rof;
       shooter.protectedUntil = 0; // hostile action (55B)
       const spread = (this.rng.next() - 0.5) * 2 * wdef.spread;
-      const yaw = v.turretYaw + spread;
+      const yaw = this.forwardArc(v, v.turretYaw) + spread; // #82: jets fire FORWARD
       const muzzle = def.radius + 0.8;
       const p: Projectile = {
         id: this.id(), weapon: def.weapon, ownerId: shooter.id, team: v.team,

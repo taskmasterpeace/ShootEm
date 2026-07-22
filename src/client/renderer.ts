@@ -3356,11 +3356,20 @@ export class Renderer {
           });
         }
       } else if (g.type === 'flare') {
-        // decoy sun: sinks slowly, sputters a stream of falling sparks
+        // #82 (Robert: "flares to look like flares — it's not really clear
+        // where the flare is"): the decoy sun now BURNS — a hard magnesium
+        // strobe on the body, a white-hot core spark plus the orange fall
+        // stream every frame, so the thing a heat-seeker loves is the thing
+        // your eye finds first. Still sinks; still dies on its fuse.
         const y = Math.max(0.4, 2.4 - (world.time - g.bornAt) * 0.55);
-        for (const c of mesh.children) c.position.y = y;
+        const strobe = 1 + 0.45 * Math.abs(Math.sin(world.time * 22 + g.id));
+        for (const c of mesh.children) { c.position.y = y; c.scale.setScalar(strobe); }
         this.particles.emit({
-          pos: { x: g.pos.x, y, z: g.pos.z }, count: 1, color: 0xffa030,
+          pos: { x: g.pos.x, y, z: g.pos.z }, count: 1, color: 0xfff4d0, // the magnesium heart
+          speed: 0.6, life: 0.18, spread: 0.12, up: 0.6, size: 0.42,
+        });
+        this.particles.emit({
+          pos: { x: g.pos.x, y, z: g.pos.z }, count: 2, color: 0xffa030,
           speed: 1.5, life: 0.45, spread: 0.25, up: 1.2, gravity: 5, size: 0.25,
         });
       }
