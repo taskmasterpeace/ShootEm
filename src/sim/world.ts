@@ -2825,6 +2825,20 @@ export class World {
     }
     s.clip[s.weaponIdx] += take;
     s.reloadUntil = 0;
+    // THE POD SPILL (Robert: "sometimes they spill, sometimes they don't…
+    // reloading is a real thing in paintball"): fumbling a pod into the
+    // feedneck under pressure sometimes dumps part of it in the grass —
+    // about one reload in five, deterministic off (who, when). The spilled
+    // balls are GONE (the reserve already paid for them); the client scatters
+    // them at your feet. STAT HOOK: when the meta-layer's DEX stat lands,
+    // it buys this chance down — sure hands are a build.
+    if (def.training && this.mode.id === 'paintball' && take > 2
+        && hash01(s.id * 131 + Math.floor(this.time * 7) * 17 + 5) < 0.2) {
+      const spilled = Math.max(1, Math.round(take * 0.4));
+      s.clip[s.weaponIdx] = Math.max(0, s.clip[s.weaponIdx] - spilled);
+      this.emit({ type: 'spill', pos: { ...s.pos }, soldierId: s.id });
+      if (s.kind === 'human') this.emit({ type: 'announce', pos: { ...s.pos }, soldierId: s.id, text: 'POD SPILL!', big: false });
+    }
   }
 
   applyCmd(s: Soldier, cmd: PlayerCmd, dt: number) {
@@ -3413,6 +3427,10 @@ export class World {
       * moveMult(this.weather, 'soldier') // §8.8 snow drags boots
       * this.moveSpeedMul; // Robert's global movement knob (1 = shipped feel)
     if (s.cloaked) speed *= 0.8;
+    // PAINTBALL: the PREY runs light (no pack gear) — a half-step of pace,
+    // and a faster tank below. One-versus-three is winnable BECAUSE the
+    // rabbit is quicker than the hounds; the pack wins by cutting angles.
+    if (this.mode.id === 'paintball' && s.team === this.mode.huntedTeam) speed *= 1.12;
     // M1 SPRINT: hold the key, burn the tank. No sprinting while ducked, and
     // an empty tank simply refuses — the meter IS the mechanic.
     s.sprinting = !!cmd.sprint && !s.crouching && s.energy > 1 &&
@@ -3537,9 +3555,12 @@ export class World {
       // the class stat underneath is irrelevant once you're wearing a god
       const regenMul = s.ascendant ? (LSWS[s.ascendant]?.energyRegen ?? 1) : (c.energyRegen ?? 1);
       const beaming = this.time < (s.beamingUntil ?? 0); // a live held beam burns, doesn't refill
+      // the paintball prey's tank refills half again as fast — more dashes,
+      // more rolls, more paint dodged (the mobility half of the rabbit's edge)
+      const preyTank = this.mode.id === 'paintball' && s.team === this.mode.huntedTeam ? 1.5 : 1;
       const rate = (c.ability === 'jetpack' && !grounded) || catchingBreath || s.sprinting || s.guarding || beaming || (s.meleeCharge ?? 0) > 0
         ? 0
-        : ENERGY_REGEN * regenMul;
+        : ENERGY_REGEN * regenMul * preyTank;
       s.energy = Math.min(100, s.energy + rate * dt);
     }
 

@@ -29,40 +29,80 @@ export function pbStyleFor(id: number): PbStyle {
 }
 
 /** Where a HUNTER wants to be, by personality. The return is an intent the
- *  bot's local steering resolves — walls still get walked around. */
+ *  bot's local steering resolves — walls still get walked around.
+ *
+ *  THE PACK HUNTS BY SIGHT, NOT SONAR: the chase runs on the team's
+ *  last-seen mark of the prey, not its live position. Break line of sight
+ *  in the maze and the pack converges on a GHOST — six quiet seconds and
+ *  they give up the trail and fall back to cutting the tag circuit. This
+ *  single rule is what makes the maze walls worth hiding behind. */
 export function pbHuntObjective(w: World, s: Soldier, prey: Soldier): Vec3 {
+  const mark = w.lastSeen[s.team as 0 | 1]?.get(prey.id);
+  const stale = !mark || w.time - mark.t > 6;
+  if (stale) {
+    // trail's cold. Two jobs, split by personality: anchors/flankers DENY
+    // the circuit (camp the pads the prey still needs), while rushers SWEEP
+    // — rotating through the yard's hiding spots every few seconds. A pack
+    // that only camps let the first AI probe stall into 120-second
+    // hide-and-seek; the sweeper is what flushes the rabbit back into play.
+    const anchorPos = mark ? { x: mark.x, z: mark.z } : w.map.hillPos;
+    if (pbStyleFor(s.id) === 'rusher') {
+      const beat = Math.floor(w.time / 7) + s.id;
+      const [sx, sz] = EVADE_SPOTS[beat % EVADE_SPOTS.length];
+      return { x: sx, y: 0, z: sz };
+    }
+    const open = w.mode.points?.filter((p) => p.owner !== prey.team) ?? [];
+    if (open.length) {
+      // spread by id so cold campers cover DIFFERENT pads
+      return { ...open[s.id % open.length].pos };
+    }
+    return { x: anchorPos.x, y: 0, z: anchorPos.z };
+  }
+  // the mark is warm — hunt IT (fresh = the prey itself; lingering = where
+  // they were when the wall took them out of view)
+  const hx = mark.x, hz = mark.z;
   // y-channel contract: storey, never altitude (a hopping prey is ground floor)
   const py = prey.floor === 1 ? 4 : 0;
-  const d = Math.hypot(prey.pos.x - s.pos.x, prey.pos.z - s.pos.z);
+  const d = Math.hypot(hx - s.pos.x, hz - s.pos.z);
   const style = pbStyleFor(s.id);
   if (style === 'flanker' && d > 9) {
-    // aim BESIDE the prey, perpendicular to the approach — the arc tightens
+    // aim BESIDE the mark, perpendicular to the approach — the arc tightens
     // as the gap closes, so a flanker arrives from the wall, not the front
-    const dx = prey.pos.x - s.pos.x, dz = prey.pos.z - s.pos.z;
+    const dx = hx - s.pos.x, dz = hz - s.pos.z;
     const l = d || 1;
     const side = s.id % 2 === 0 ? 1 : -1;
     const k = Math.min(10, d * 0.5) * side;
-    return { x: prey.pos.x + (-dz / l) * k, y: py, z: prey.pos.z + (dx / l) * k };
+    return { x: hx + (-dz / l) * k, y: py, z: hz + (dx / l) * k };
   }
   if (style === 'anchor' && d > 10 && w.mode.points?.length) {
     // guard the circuit: stand on the open pad the prey most wants (the one
-    // nearest THEM) — the prey's own win condition walks them into you
+    // nearest their mark) — the prey's own win condition walks them into you
     const open = w.mode.points.filter((p) => p.owner !== prey.team);
     if (open.length) {
       let best = open[0], bd = Infinity;
       for (const p of open) {
-        const pd = Math.hypot(p.pos.x - prey.pos.x, p.pos.z - prey.pos.z);
+        const pd = Math.hypot(p.pos.x - hx, p.pos.z - hz);
         if (pd < bd) { bd = pd; best = p; }
       }
       return { x: best.pos.x, y: 0, z: best.pos.z };
     }
   }
-  // rusher — and every style once the range collapses: take the shot
-  return { x: prey.pos.x, y: py, z: prey.pos.z };
+  // rusher — and every style once the range collapses: run the mark down
+  return { x: hx, y: py, z: hz };
 }
 
-/** Where the PREY wants to be: the safest open pad — farthest from the
- *  nearest live hunter — or null when the circuit is fully tagged. */
+/** The rabbit's waiting spots: arena corners and mid-edges (world units,
+ *  inside the fence). Evasion runs the ring; the maze lanes do the rest. */
+const EVADE_SPOTS: [number, number][] = [
+  [-36, -36], [36, -36], [-36, 36], [36, 36],
+  [0, -36], [0, 36], [-36, 0], [36, 0],
+];
+
+/** Where the PREY wants to be. Two modes, and knowing which one you're in
+ *  IS the prey brain: when an open pad sits genuinely unguarded, COMMIT to
+ *  the tag run; when every pad is covered, EVADE — run the spot that
+ *  stretches the pack thinnest and let the clock do the winning (§14: the
+ *  prey wins by tags OR by outliving the whistle — evasion is scoring). */
 export function pbPreyObjective(w: World, s: Soldier): Vec3 | null {
   const open = w.mode.points?.filter((p) => p.owner !== s.team) ?? [];
   if (!open.length) return null;
@@ -76,7 +116,18 @@ export function pbPreyObjective(w: World, s: Soldier): Vec3 | null {
     }
     if (safety > bestSafety) { bestSafety = safety; best = p; }
   }
-  return { ...best.pos };
+  // an unguarded pad (or a dead pack) is a green light — go take the tag
+  if (bestSafety > 15 || !hunters.length) return { ...best.pos };
+  // every pad is covered: pull the pack across the yard instead of feeding
+  // it — best spot balances "far from every hunter" against "I can get there"
+  let ex = 0, ez = 0, bestScore = -Infinity;
+  for (const [cx, cz] of EVADE_SPOTS) {
+    let minH = Infinity;
+    for (const h of hunters) minH = Math.min(minH, Math.hypot(cx - h.pos.x, cz - h.pos.z));
+    const score = minH - Math.hypot(cx - s.pos.x, cz - s.pos.z) * 0.35;
+    if (score > bestScore) { bestScore = score; ex = cx; ez = cz; }
+  }
+  return { x: ex, y: 0, z: ez };
 }
 
 // ---- the script: what each personality SAYS -------------------------------

@@ -920,35 +920,44 @@ export class Renderer {
       place(new THREE.InstancedMesh(new THREE.ConeGeometry(TILE * 0.52, 1.7, 4), vinylMat, doritos.length), doritos, 0.85);
     }
 
-    // --- interior walls → sup'air towers (striped stacked tubes, full 4u so
-    // the visual never lies about what blocks a ball) ---
-    const stripeA = new THREE.MeshStandardMaterial({ color: 0xd83a2e, roughness: 0.3 });
-    const stripeB = new THREE.MeshStandardMaterial({ color: 0xf2f4f6, roughness: 0.3 });
-    const stripeC = new THREE.MeshStandardMaterial({ color: 0x2e9dff, roughness: 0.3 });
+    // --- interior walls → padded vinyl maze walls (Robert's maze yards put
+    // ~100 wall tiles in play, so this is INSTANCED: one body mesh + one
+    // white top rail, two draw calls total, full 4u so the visual never lies
+    // about what blocks a ball) ---
     const zero = new THREE.Matrix4().makeScale(0.0001, 0.0001, 0.0001);
+    const inner: number[] = [];
     wallTiles.forEach(([x, z], i) => {
       if (x <= minX || x >= maxX || z <= minZ || z >= maxZ) return; // the rim keeps its fence
-      const idx = z * cols + x;
-      // the masonry instance steps aside for the tower (matrix, not visibility —
+      // the masonry instance steps aside for the vinyl (matrix, not visibility —
       // instancing has no per-instance hide)
       this.wallInst?.setMatrixAt(i, zero);
-      const g = new THREE.Group();
-      const mats = hash(idx) < 0.5 ? [stripeA, stripeB, stripeA] : [stripeC, stripeB, stripeC];
-      for (let s = 0; s < 3; s++) {
-        const tube = new THREE.Mesh(new THREE.CylinderGeometry(TILE * 0.46, TILE * 0.48, 1.24, 12), mats[s]);
-        tube.position.y = 0.62 + s * 1.24;
-        tube.castShadow = true;
-        g.add(tube);
-      }
-      const cap = new THREE.Mesh(new THREE.SphereGeometry(TILE * 0.46, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2), mats[0]);
-      cap.position.y = 3.72;
-      cap.castShadow = true;
-      g.add(cap);
-      const center = tileToWorld(geometry, x, z);
-      g.position.set(center.x, 0, center.z);
-      this.scene.add(g);
+      inner.push(z * cols + x);
     });
     if (this.wallInst) this.wallInst.instanceMatrix.needsUpdate = true;
+    if (inner.length) {
+      const bodyInst = new THREE.InstancedMesh(
+        new THREE.BoxGeometry(TILE * 0.98, 3.8, TILE * 0.98), vinylMat, inner.length);
+      const railInst = new THREE.InstancedMesh(
+        new THREE.BoxGeometry(TILE * 1.06, 0.22, TILE * 1.06),
+        new THREE.MeshStandardMaterial({ color: 0xf2f4f6, roughness: 0.3 }), inner.length);
+      bodyInst.castShadow = bodyInst.receiveShadow = true;
+      railInst.castShadow = true;
+      // long RUNS read as one padded wall: color by wall-run, alternating —
+      // neighbors in the same column share a shade every few tiles
+      const WALLVINYL = [0xd83a2e, 0x2e9dff, 0xe8a33d];
+      inner.forEach((idx, i) => {
+        const x = idx % cols, z = Math.floor(idx / cols);
+        const center = tileToWorld(geometry, x, z);
+        m4.identity();
+        m4.setPosition(center.x, 1.9, center.z);
+        bodyInst.setMatrixAt(i, m4);
+        m4.setPosition(center.x, 3.9, center.z);
+        railInst.setMatrixAt(i, m4);
+        bodyInst.setColorAt(i, col.setHex(WALLVINYL[(x + (z >> 2)) % WALLVINYL.length]));
+      });
+      if (bodyInst.instanceColor) bodyInst.instanceColor.needsUpdate = true;
+      this.scene.add(bodyInst, railInst);
+    }
 
     // --- the perimeter net: poles + mesh panels wrapping the arena — the
     // thing every real field has and no war theme ever needed ---
@@ -5433,6 +5442,18 @@ export class Renderer {
           }
           break;
         }
+        case 'spill':
+          if (e.pos) {
+            // a fumbled pod: INTACT balls bounce and roll at the feet — they
+            // don't burst (unbroken paint), so round beads with gravity and
+            // no goo decal. The waste is the message.
+            const spillPaint = paintColorFor(e.soldierId ?? -1, localId);
+            this.particles.emit({
+              pos: { x: e.pos.x, y: 0.9, z: e.pos.z }, count: 8, color: spillPaint,
+              speed: 2.5, life: 0.7, spread: 0.55, up: 1.6, gravity: 12, size: 0.09,
+            });
+          }
+          break;
         case 'hit':
           if (e.pos) {
             // paintballs burst in their shooter's shade — and the splat STAYS.

@@ -803,48 +803,34 @@ export function generatePaintballField(seed: number, theme: ThemeId = 'savanna')
     for (let tx = A0; tx <= A1; tx++) grid[tz * GRID + tx] = T_OPEN;
 
   const mid = (A0 + A1) / 2;
-  if (theme === 'starship') {
-    // DECK NINE GROWS ITS CORRIDORS (Robert: "we don't have enough corridor
-    // combat"): a walled ring with door gaps every few tiles — real hallway
-    // fighting, angles at every doorway — plus a light scatter of crates
-    // inside the ring. Symmetric by construction, no mirror needed.
-    const off = 7;
-    for (const wx of [mid - off, mid + off]) {
-      for (let tz = A0 + 3; tz <= A1 - 3; tz++) {
-        if ((tz - A0) % 5 < 2) continue; // the doorways
-        grid[tz * GRID + wx] = T_WALL;
-      }
+  // THE MAZE YARDS (Robert: "more like a maze… we need hallways, the long
+  // corridors — think Pac-Man, but a little bit simpler. Maybe a maze on
+  // each side, then it opens up"): every yard is now two mirrored maze
+  // WINGS of long two-tile hallways feeding an open center plaza.
+  //
+  // Each wing runs three north-south lanes separated by wall columns; the
+  // doorways through each column are STAGGERED (per-seed phase), so crossing
+  // a wing is a zigzag — corridor fighting with an angle at every door.
+  // Reachability is guaranteed by construction: every lane is continuous
+  // N-S, every wall column carries multiple doors, and the plaza joins the
+  // wings. Water (stamped later) melts extra holes through the columns.
+  const WING_WALLS = [A0 + 4, A0 + 7, A0 + 10]; // west wing; east is the mirror
+  const doorPhase = WING_WALLS.map(() => rng.int(0, 5));
+  WING_WALLS.forEach((wx, k) => {
+    for (let tz = A0 + 1; tz <= A1 - 1; tz++) {
+      if ((tz - A0 + doorPhase[k] + k * 3) % 6 < 2) continue; // the doorways
+      grid[tz * GRID + wx] = T_WALL;
+      grid[tz * GRID + (A0 + A1 - wx)] = T_WALL; // the east wing, mirrored
     }
-    for (const wz of [mid - off, mid + off]) {
-      for (let tx = A0 + 3; tx <= A1 - 3; tx++) {
-        if ((tx - A0) % 5 < 2) continue;
-        grid[wz * GRID + tx] = T_WALL;
-      }
-    }
-    for (let i = 0; i < 8; i++) {
-      const tx = A0 + 2 + rng.int(0, (A1 - A0) / 2 - 3);
-      const tz = A0 + 2 + rng.int(0, A1 - A0 - 4);
-      const kind = rng.next() < 0.6 ? T_COVER : T_CLIMB;
-      grid[tz * GRID + tx] = kind;
-      grid[tz * GRID + (A0 + A1 - tx)] = kind; // vertical-line mirror
-    }
-  } else {
-    // mirrored cover: pairs of crates, short wall stubs, and a few CLIMB
-    // barricades — enough angles to teach peeking, never a maze
-    for (let i = 0; i < 13; i++) {
-      const tx = A0 + 2 + rng.int(0, (A1 - A0) / 2 - 3); // west half; east is the mirror
-      const tz = A0 + 2 + rng.int(0, A1 - A0 - 4);
-      const kind = rng.next() < 0.55 ? T_COVER : rng.next() < 0.5 ? T_WALL : T_CLIMB;
-      const len = kind === T_WALL ? rng.int(2, 3) : rng.int(1, 2);
-      const horiz = rng.next() < 0.5;
-      for (let k = 0; k < len; k++) {
-        const x = tx + (horiz ? k : 0), z = tz + (horiz ? 0 : k);
-        if (x <= A0 || x >= A1 || z <= A0 || z >= A1) continue;
-        grid[z * GRID + x] = kind;
-        const mx = A0 + A1 - x; // vertical-line mirror
-        grid[z * GRID + mx] = kind;
-      }
-    }
+  });
+  // the plaza gets its bunkers — inflatable cover lives in the OPEN, the
+  // hallways stay clean for the long shots
+  for (let i = 0; i < 6; i++) {
+    const tx = mid - 3 + rng.int(0, 3); // west half of the plaza; east mirrors
+    const tz = A0 + 2 + rng.int(0, A1 - A0 - 4);
+    const kind = rng.next() < 0.6 ? T_COVER : T_CLIMB;
+    grid[tz * GRID + tx] = kind;
+    grid[tz * GRID + (A0 + A1 - tx)] = kind;
   }
   // the center stays honest: a clear lane through the middle for the duel
   for (let tz = mid - 1; tz <= mid + 1; tz++) grid[tz * GRID + mid] = T_OPEN;

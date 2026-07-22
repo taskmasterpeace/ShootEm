@@ -35,7 +35,8 @@ import { visionMult } from './weather';
 import { LSWS } from './lsw';
 import { threatAt } from './influence';
 import { dogWindowHesitation, indoorCivilianWaypoint, indoorGuardWaypoint, strongestDogScent } from './indoor-ai';
-import { pbHuntObjective, pbPreyObjective } from './paintball';
+import { pbHuntObjective, pbPreyObjective, pbStyleFor } from './paintball';
+import { hash01 } from './rng';
 import {
   closedDoorAhead,
   dogInsideAssignedBuilding,
@@ -1266,7 +1267,16 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     // paintball mercy (Robert: "too hard"): the yard is where new players
     // live, so bot paint wobbles — wide enough to dodge, tight enough to
     // punish standing still. Everywhere else the math stays honest.
-    const merciful = w.mode.id === 'paintball' ? 2.2 : 1;
+    // And DODGING WORKS: a target mid-dash/roll/slide nearly doubles the
+    // wobble again — the yard's whole promise is that moving out of the way
+    // is a real answer, so the bots honor it when it's done to THEM.
+    const pbDodging = w.mode.id === 'paintball'
+      && ((target.dashUntil ?? 0) > w.time || (target.rollUntil ?? 0) > w.time || (target.slideUntil ?? 0) > w.time);
+    // …and plain SPEED earns mercy too: paint at yard velocity can't lead a
+    // sprinting serpentine — a flat-out runner roughly doubles the wobble
+    const pbRunning = w.mode.id === 'paintball'
+      ? Math.min(1.6, Math.hypot(target.vel.x, target.vel.z) * 0.12) : 0;
+    const merciful = w.mode.id === 'paintball' ? (pbDodging ? 4.0 : 2.2) * (1 + pbRunning) : 1;
     const aimErr = (w.rng.next() - 0.5) * (s.kind === 'zombie' ? 0.2 : TUNE.aimErrBase) * (d / TUNE.aimErrFalloff + 0.6)
       * DIFFICULTY[w.opts.difficulty ?? 'veteran'].aim * doc.aim * merciful / w.director.pressure;
     cmd.aimYaw = leadYaw(s.pos, target, wdef.speed) + aimErr;
@@ -1278,6 +1288,15 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     // (keeps every boss, incl. the off-limits GravWarden, byte-identical).
     const reacted = s.ascendant !== undefined || w.time >= (s.botAcquireAt ?? 0);
     if (reacted && d < (meleeFighter ? wdef.range + 0.35 : wdef.range * TUNE.fireFrac)) cmd.fire = true;
+    // PAINTBALL SNAP-SHOOTING (the yard fights differently): a paintballer
+    // shoots STRINGS, not a firehose — each bot runs its own fire/hold
+    // rhythm (~45% trigger uptime, phase off the id). Three markers hosing
+    // 20 balls a second left the prey no window to move through; strings
+    // put the GAPS back, and dodging through a gap is the whole sport.
+    if (cmd.fire && w.mode.id === 'paintball' && wdef.training) {
+      const phase = (w.time * 0.9 + hash01(s.id * 5 + 2)) % 1;
+      if (phase > 0.45) cmd.fire = false;
+    }
     if (wdef.arc) cmd.aimDist = d; // lob shells ON the target, not past it
 
     const toT = Math.atan2(target.pos.z - s.pos.z, target.pos.x - s.pos.x);
@@ -1373,6 +1392,54 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
       if (sl > 0.001) { mvx /= sl; mvz /= sl; }
     }
 
+    // PAINTBALL COMBAT (Robert: "AI for paintball that is different from
+    // regular firefights"): in the yard, dodging IS the game — so the yard
+    // bots fight like paintballers, not soldiers. Three verbs, all mode-gated
+    // and rng-free (sin/hash only — the seeded stream stays byte-identical):
+    //   1. the approach SERPENTINES — nobody walks a straight hallway at a
+    //      loaded marker; the weave makes their paint dodgeable AND yours,
+    //   2. an inbound ball triggers a sideways ROLL when the tank can pay —
+    //      you can SEE paint coming at yard speeds, so the bots see it too,
+    //   3. a RUSHER spends the dash to close the last stretch of corridor.
+    if (w.mode.id === 'paintball') {
+      // THE PREY KITES: the rabbit never trades at the pack's preferred
+      // range — inside a standoff it turns and RUNS (guns still up over
+      // the shoulder), and the serpentine below makes the run hard to lead.
+      // The radius is deliberately TIGHT (1.0×, not wider): outside it the
+      // prey works the tag circuit — a rabbit that only ever runs never
+      // scores, and tagging pads is the whole job.
+      if (s.team === (w.mode.huntedTeam ?? 1) && d < doc.standoff) {
+        mvx = -Math.cos(toT);
+        mvz = -Math.sin(toT);
+        if (s.energy >= 60) cmd.sprint = true; // spend the deeper tank ON the gap
+      }
+      if (d > doc.standoff * 0.7 || s.team === (w.mode.huntedTeam ?? 1)) {
+        const weave = Math.sin(w.time * 4.6 + s.id * 1.7);
+        const wperp = toT + Math.PI / 2;
+        mvx += Math.cos(wperp) * weave * 0.85;
+        mvz += Math.sin(wperp) * weave * 0.85;
+        const wl = Math.hypot(mvx, mvz) || 1; mvx /= wl; mvz /= wl;
+      }
+      if (s.energy >= 25 && w.time >= (s.nextDashAt ?? 0)) {
+        for (const p of w.projectiles.values()) {
+          if (p.team === s.team || p.paintDud || !WEAPONS[p.weapon]?.training) continue;
+          const rx = s.pos.x - p.pos.x, rz = s.pos.z - p.pos.z;
+          const rd = Math.hypot(rx, rz);
+          if (rd > 9 || rd < 0.5) continue;
+          const vl = Math.hypot(p.vel.x, p.vel.z) || 1;
+          if ((p.vel.x * rx + p.vel.z * rz) / (vl * rd) > 0.94) {
+            // it's coming for us — roll OFF the flight line, away from drift
+            cmd.dash = (p.vel.x * rz - p.vel.z * rx) > 0 ? 2 : 3;
+            break;
+          }
+        }
+      }
+      if (!cmd.dash && pbStyleFor(s.id) === 'rusher' && d > 10 && d < 24
+          && s.energy >= 70 && w.time >= (s.nextDashAt ?? 0)) {
+        cmd.dash = 1; // the hallway burst — paid from the same tank as everyone
+      }
+    }
+
     // out of ammo with a live enemy → BREAK TO COVER and reload, don't eat the
     // reload standing in the open (audit: a heavy emptied its 75-round LMG then
     // stood exposed 3.2s). Reload is otherwise idle-only.
@@ -1389,7 +1456,12 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
       // Engineers' G plants a MINE at their feet (world.ts routing), so a
       // mid-strafe "frag" dribbles the mine budget onto open ground — let them
       // keep it for the idle choke-planting instead.
-      if (s.classId !== 'engineer') { cmd.grenade = true; cmd.aimDist = d; }
+      // PAINTBALL: a paint grenade is for CAMPERS, not runners — an arcing
+      // 2.6u splat circle at a sprinting rabbit was an unavoidable mortar
+      // (the AI probe showed every round-1 death was a grenade, not a ball).
+      // Bots only lob paint at a target that's basically standing still.
+      const pbNadeOk = w.mode.id !== 'paintball' || Math.hypot(target.vel.x, target.vel.z) < 2;
+      if (s.classId !== 'engineer' && pbNadeOk) { cmd.grenade = true; cmd.aimDist = d; }
     }
 
     // jump troopers hop in fights

@@ -700,7 +700,18 @@ export class Hud {
         const resN = poolN ?? s.reserve[s.weaponIdx];
         const res = Number.isFinite(resN) ? resN : '∞';
         const ammoTag = ballistic && s.ammoType ? ` · ${s.ammoType.toUpperCase()}` : '';
-        ammoEl.textContent = `${clip} / ${res}${ammoTag}`;
+        // PAINTBALL READS THE HOPPER, NOT A NUMBER (Robert: "I don't want to
+        // see the exact number of paintballs — you should be able to visually
+        // look at it"): in the yard the counter goes dark. The ball pips ARE
+        // the count (marker clips are ≤40, so every pip is one real ball on
+        // the strip), and the reserve reads as PODS on the belt — one block
+        // per pod left, no arithmetic anywhere.
+        if (world.mode.id === 'paintball' && def.training) {
+          const pods = Number.isFinite(resN) ? Math.ceil(resN / Math.max(1, def.clip)) : 0;
+          ammoEl.textContent = '▮'.repeat(Math.min(pods, 10));
+        } else {
+          ammoEl.textContent = `${clip} / ${res}${ammoTag}`;
+        }
         // the counter itself warns you before the click of an empty mag
         const lowMag = Number.isFinite(clipN) && clipN > 0 && clipN <= def.clip * 0.25;
         ammoEl.classList.toggle('no-ammo', Number.isFinite(clipN) && clipN === 0);

@@ -157,6 +157,11 @@ function stepPaintball(w: World, dt: number) {
     const count: [number, number] = [0, 0];
     for (const s of w.humansAndBots()) count[s.team]++;
     m.huntedTeam = count[0] <= count[1] ? 0 : 1;
+    // THE BREAK (real paintball's "ten seconds — GO!"): the pack's guns
+    // stay COLD off the opening whistle while the rabbit breaks into the
+    // maze. Without this the AI probe showed 6-second rounds — the pack
+    // met the prey mid-field and the chase never existed.
+    holdThePack(w, m.huntedTeam);
   }
   const hunted = m.huntedTeam;
 
@@ -242,6 +247,18 @@ function endPaintballRound(w: World, winner: Team) {
   m.intermission = 4;
 }
 
+/** THE BREAK: EVERY trigger stays shut for the opening seconds of a round —
+ *  the prey runs, the pack walks on, nobody shoots (the first cut held only
+ *  the pack, and the prey executed three frozen hunters — real paintball
+ *  counts everyone down together). Grenades hold a beat longer. */
+function holdThePack(w: World, _hunted: Team) {
+  for (const s of w.humansAndBots()) {
+    s.nextFireAt = Math.max(s.nextFireAt, w.time + 8);
+    s.nextGrenadeAt = Math.max(s.nextGrenadeAt, w.time + 12);
+  }
+  w.emit({ type: 'announce', text: 'TEN SECONDS — GO!', big: false });
+}
+
 /** Walk everyone back onto the yard: fresh clip, fresh clock, wiped pads.
  *  The paint on the field STAYS — the yard remembers the series. */
 function startPaintballRound(w: World) {
@@ -267,6 +284,7 @@ function startPaintballRound(w: World) {
   }
   w.emit({ type: 'whistle', pos: w.map.hillPos });
   w.emit({ type: 'announce', text: `ROUND ${m.round}`, big: true });
+  holdThePack(w, m.huntedTeam ?? 1); // every round opens as a chase
   // one hunter calls their play at the whistle — the pack has a MOOD now
   const pack = [...w.humansAndBots()].filter((s) => s.kind === 'bot' && s.team !== (m.huntedTeam ?? 1));
   if (pack.length) pbBark(w, pack[(m.round ?? 0) % pack.length], 'start');

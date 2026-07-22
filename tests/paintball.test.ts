@@ -255,6 +255,8 @@ describe('the series', () => {
     const { w, hunters } = yard();
     const shooter = hunters[0];
     // stand him off against the map rim and hold the trigger into it
+    // (past the opening break — the whistle count holds every trigger)
+    shooter.nextFireAt = 0;
     shooter.pos.x = -140; shooter.pos.z = 0;
     const intoTheFence = cmd({ fire: true, aimYaw: -Math.PI / 2 });
     const wallHits: { ownerId?: number; soldierId?: number }[] = [];
@@ -284,6 +286,7 @@ describe('paint grenades', () => {
     const { w, hunters } = yard();
     const thrower = hunters[0];
     thrower.grenades = 2;
+    thrower.nextGrenadeAt = 0; // past the opening break's grenade hold
     w.step(1 / 60, new Map([[thrower.id, cmd({ grenade: true, aimDist: 8 })]]));
     const shots = w.takeEvents().filter((e) => e.type === 'shot' && e.soldierId === thrower.id);
     expect(shots.length, 'the press threw SOMETHING').toBeGreaterThan(0);
@@ -409,6 +412,9 @@ describe('the play types', () => {
   it('a flanker closes on the WALL side, a rusher goes down the throat', () => {
     const { w, prey } = yard();
     prey.pos = { x: 20, y: 0, z: 0 };
+    // the pack hunts by SIGHT — hand team 0 a fresh mark of the prey so the
+    // personalities engage (a cold trail sends everyone to the pads instead)
+    w.lastSeen[0].set(prey.id, { t: w.time, x: prey.pos.x, z: prey.pos.z });
     // synthetic hunters with KNOWN personalities (ids scanned off the hash)
     const idOf = (want: string) => {
       for (let id = 500; id < 900; id++) if (pbStyleFor(id) === want) return id;
@@ -467,18 +473,53 @@ describe('the upgraded yards', () => {
     }
   });
 
-  it('Deck Nine fights in corridors — long wall runs with doorways', () => {
-    const map = generatePaintballField(2202, 'starship');
-    // count interior wall tiles (inside the arena, not the rim)
-    let interior = 0;
-    for (let tz = 38; tz <= 62; tz++) {
-      for (let tx = 38; tx <= 62; tx++) {
-        if (map.grid[tz * GRID + tx] === T_WALL) interior++;
+  it('every yard is a MAZE now — wings of hallways, and the middle opens up', () => {
+    // Robert: "think Pac-Man, but a little bit simpler… a maze on each side,
+    // then it opens up." Wings carry the walls; the plaza stays open ground.
+    for (const f of PAINTBALL_FIELDS) {
+      const map = generatePaintballField(f.seed, f.theme);
+      let wings = 0, plaza = 0;
+      for (let tz = 37; tz <= 63; tz++) {
+        for (let tx = 37; tx <= 63; tx++) {
+          if (map.grid[tz * GRID + tx] !== T_WALL) continue;
+          if (tx >= 47 && tx <= 53) plaza++; else wings++;
+        }
       }
+      expect(wings, `${f.name} has its hallways`).toBeGreaterThan(60);
+      expect(plaza, `${f.name}'s middle stays open`).toBeLessThan(8);
     }
-    expect(interior, 'the ring stands').toBeGreaterThan(30);
-    // and the doorways breathe: the center point is still reachable on foot
-    expect(isBlocked(map.grid, map.controlPoints[0].pos.x, map.controlPoints[0].pos.z)).toBe(false);
+  });
+
+  it('every corner of every maze is walkable from the spawn gate (flood fill)', () => {
+    for (const f of PAINTBALL_FIELDS) {
+      const map = generatePaintballField(f.seed, f.theme);
+      // BFS over walkable tiles from the hunters' gate
+      const start = map.spawns[0][0];
+      const sx = Math.floor((start.x + WORLD / 2) / TILE), sz = Math.floor((start.z + WORLD / 2) / TILE);
+      const seen = new Uint8Array(GRID * GRID);
+      const q: number[] = [sz * GRID + sx];
+      seen[q[0]] = 1;
+      while (q.length) {
+        const cur = q.pop()!;
+        const cx = cur % GRID, cz = Math.floor(cur / GRID);
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+          const nx = cx + dx, nz = cz + dz;
+          const ni = nz * GRID + nx;
+          if (nx < 0 || nx >= GRID || nz < 0 || nz >= GRID || seen[ni]) continue;
+          const wx = (nx + 0.5) * TILE - WORLD / 2, wz = (nz + 0.5) * TILE - WORLD / 2;
+          if (isBlocked(map.grid, wx, wz)) continue;
+          seen[ni] = 1;
+          q.push(ni);
+        }
+      }
+      const reach = (p: { x: number; z: number }, what: string) => {
+        const tx = Math.floor((p.x + WORLD / 2) / TILE), tz = Math.floor((p.z + WORLD / 2) / TILE);
+        expect(seen[tz * GRID + tx], `${f.name}: ${what} is reachable on foot`).toBe(1);
+      };
+      for (const side of map.spawns) for (const p of side) reach(p, 'a spawn');
+      for (const cp of map.controlPoints) reach(cp.pos, `tag point ${cp.name}`);
+      for (const pd of map.pads) reach(pd.pos, 'a jump pad');
+    }
   });
 
   it('the Kopje grows trees — honest collision, covered visuals', () => {
@@ -487,6 +528,50 @@ describe('the upgraded yards', () => {
     expect(trees.length, 'mirrored acacias').toBeGreaterThanOrEqual(4);
     expect(map.propCovered.length).toBe(trees.length);
     for (const idx of map.propCovered) expect(map.grid[idx], 'the trunk claims its tile').toBe(T_WALL);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// THE POD SPILL (Robert: "the canisters or whatever — sometimes they spill,
+// sometimes they don't… reloading is a real thing in paintball"). About one
+// reload in five dumps part of the pod; the reserve already paid for the
+// lost balls. Deterministic off (who, when) — hash, never the rng stream.
+// ---------------------------------------------------------------------------
+describe('the pod spill', () => {
+  it('some reloads spill, most pour clean — and a spill costs real paint', () => {
+    const { w, prey } = yard();
+    prey.reserve[0] = 10000;
+    const clipMax = WEAPONS.marker_pump.clip;
+    let spills = 0, cleans = 0;
+    for (let cycle = 0; cycle < 60 && (spills === 0 || cleans === 0); cycle++) {
+      w.mode.timeLeft = 120; // hold the round open — a whistle would cancel the pour
+      prey.clip[0] = 0;
+      w.step(1 / 60, new Map([[prey.id, cmd({ reload: true })]]));
+      // keep sending an (empty) cmd — finishReload runs inside applyCmd
+      for (let i = 0; i < Math.ceil(WEAPONS.marker_pump.reloadTime * 60) + 6; i++) w.step(1 / 60, new Map([[prey.id, cmd()]]));
+      const spilled = w.takeEvents().some((e) => e.type === 'spill' && e.soldierId === prey.id);
+      if (spilled) {
+        spills++;
+        expect(prey.clip[0], 'a spilled pod loads SHORT').toBeLessThan(clipMax);
+      } else {
+        cleans++;
+        expect(prey.clip[0], 'a clean pour fills the hopper').toBe(clipMax);
+      }
+    }
+    expect(spills, 'sometimes they spill').toBeGreaterThan(0);
+    expect(cleans, 'sometimes they don\'t').toBeGreaterThan(0);
+  });
+
+  it('war-mode reloads never spill — sloppy pods are a paintball thing', () => {
+    const w = new World({ seed: 4, mode: 'tdm' });
+    const s = w.addSoldier('Rifleman', 'infantry', 0, 'human');
+    s.reserve[0] = 10000;
+    for (let cycle = 0; cycle < 25; cycle++) {
+      s.clip[0] = 0;
+      w.step(1 / 60, new Map([[s.id, cmd({ reload: true })]]));
+      for (let i = 0; i < Math.ceil((WEAPONS[s.weapons[0]].reloadTime ?? 2) * 60) + 6; i++) w.step(1 / 60, new Map());
+      expect(w.takeEvents().some((e) => e.type === 'spill'), 'no spills outside the yard').toBe(false);
+    }
   });
 });
 

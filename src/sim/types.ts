@@ -1119,6 +1119,7 @@ export interface SimEvent {
     | 'contamination'  // §8: a corpse pile curdled into a mutation-field nest
     | 'reanimated'     // THE OUTBREAK: an exposed corpse got back up (§6)
     | 'whistle'        // paintball referee: a round just started or ended
+    | 'spill'          // paintball: a fumbled pod dumped balls at the feet (pos = where)
     | 'encased'        // a soldier was frozen alive in the ice block (§21.6)
     | 'lsw_active'     // a piloted LSW fired its signature (text = ascendant id)
     | 'nade_bounce'    // a hand grenade kissed the ground — the tick before the bang
