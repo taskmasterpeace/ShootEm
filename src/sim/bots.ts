@@ -1333,6 +1333,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
   if (!vehEngage && target) {
     const d = Math.hypot(target.pos.x - s.pos.x, target.pos.z - s.pos.z);
     const wdef = WEAPONS[s.weapons[s.weaponIdx]];
+    const meleeFighter = wdef.range <= 2.5 && !wdef.heals;
     const baseDoc = DOCTRINE[s.classId];
     // LSW MELEE DOCTRINE (bots-use-their-powers): an LSW rides the infantry
     // doctrine (standoff 17u), but its signature arm and step() abilities live
@@ -1372,7 +1373,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     // LSWs are gods, not corner-peeking soldiers — no reaction beat on them
     // (keeps every boss, incl. the off-limits GravWarden, byte-identical).
     const reacted = s.ascendant !== undefined || w.time >= (s.botAcquireAt ?? 0);
-    if (reacted && d < wdef.range * TUNE.fireFrac) cmd.fire = true;
+    if (reacted && d < (meleeFighter ? wdef.range + 0.35 : wdef.range * TUNE.fireFrac)) cmd.fire = true;
     if (wdef.arc) cmd.aimDist = d; // lob shells ON the target, not past it
 
     const toT = Math.atan2(target.pos.z - s.pos.z, target.pos.x - s.pos.x);
@@ -1403,6 +1404,20 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
       // cross-storey contact: no band dance through a concrete floor — the
       // movement keeps walking the layered route (botGoal already aims at
       // the well), and the gun stays warm for the reunion
+    } else if (meleeFighter) {
+      // Fists and hand weapons own the same brain as guns: react, route through
+      // real doors/stairs, close decisively, then let the shared swing arc land.
+      if (!s.botGoal || w.time >= (s.botRepathAt ?? 0)) {
+        s.botRepathAt = w.time + 0.35;
+        const clear = losClear(w.map.grid, s.pos, target.pos, 0.6);
+        s.botGoal = clear ? { ...target.pos }
+          : (pathStep(w, s.pos, target.pos, false, false, s.floor, target.floor) ?? { ...target.pos });
+      }
+      const goal = s.botGoal ?? target.pos;
+      const dx = goal.x - s.pos.x, dz = goal.z - s.pos.z;
+      const dl = Math.hypot(dx, dz) || 1;
+      if (d > wdef.range * 0.72) { mvx = dx / dl; mvz = dz / dl; }
+      else { mvx = 0; mvz = 0; }
     } else if (committed) {
       // keep the objective movement computed above
     } else if (lowHp && !isLastOfSquad) { // the last of a squad skips retreat and fights

@@ -85,10 +85,11 @@ export interface ScienceEncounterBudget {
   threat: number;
 }
 
-export type ScienceGuardRole = 'pistol' | 'smg';
+export type ScienceGuardRole = 'pistol' | 'smg' | 'melee';
 
 /** Civilian security gets deliberate issue weapons, never a class-armory roll. */
 export function scienceGuardRole(index: number, total: number, reserve = false): ScienceGuardRole {
+  if (!reserve && index === 0) return 'melee';
   return (reserve && index === 0) || (!reserve && total >= 5 && index === total - 1) ? 'smg' : 'pistol';
 }
 

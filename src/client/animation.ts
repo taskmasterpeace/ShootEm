@@ -110,6 +110,7 @@ export const WEAPON_HOLDS: Record<string, HoldDef> = {
   mortar: { armL: 0.2, armR: 0.35, gunY: 0.24, gunZ: -0.1, gunRotZ: 0.1 },
   grenade: { armL: 0.15, armR: 0.3, gunY: -0.06, gunZ: 0, gunRotZ: -0.03 }, // lobber's cradle
   melee: { armL: 0, armR: 0, gunY: 0, gunZ: 0, gunRotZ: 0, hideGun: true },
+  melee_weapon: { armL: 0.45, armR: 0.65, gunY: 0.08, gunZ: 0, gunRotZ: 0.6 },
   special: { armL: 0, armR: 0, gunY: 0, gunZ: 0, gunRotZ: 0 },
 };
 
@@ -124,6 +125,8 @@ export const RECOIL_SCALE: Record<string, { kick: number; recover: number; flip:
   slugger: { kick: 2.6, recover: 0.35, flip: 0.1 },
   laser: { kick: 0.5, recover: 0.06, flip: 0 },
   smg: { kick: 0.6, recover: 0.05, flip: 0.06 },
+  melee: { kick: 0, recover: 0.1, flip: 0 },
+  melee_weapon: { kick: 0, recover: 0.1, flip: 0 },
   lmg: { kick: 1.4, recover: 0.12, flip: 0.04 },
   hmg: { kick: 1.6, recover: 0.14, flip: 0.05 },
   at_rocket: { kick: 2.0, recover: 0.3, flip: 0.15 },

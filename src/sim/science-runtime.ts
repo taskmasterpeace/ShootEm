@@ -178,8 +178,9 @@ function hostileTargetCount(verb: ScienceVerb): number {
 
 function issueScienceGuard(world: World, name: string, index: number, total: number, reserve = false): Soldier {
   const role = scienceGuardRole(index, total, reserve);
+  const meleeIssue = ['unarmed', 'baseball_bat', 'katana', 'fire_axe'][(total + index) % 4];
   const guard = world.addSoldier(name, 'infantry', 1, 'bot', {
-    primary: role === 'smg' ? 'kuchler' : 'pistol',
+    primary: role === 'smg' ? 'kuchler' : role === 'melee' ? meleeIssue : 'pistol',
     secondary: 'pistol',
     equipment: [],
   });

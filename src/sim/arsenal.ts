@@ -87,7 +87,7 @@ export const FAMILY_ICONS: Record<WeaponFamily, string> = {
   pistol: '🔫', rifle: '🎯', carbine: '🎯', smg: '💨', shotgun: '💥', slugger: '🔩',
   laser: '🔆', lmg: '⛓️', hmg: '⛓️', at_rocket: '🚀', ap_rocket: '🚀',
   mortar: '☄️', artillery: '☄️', scatter: '💥', sonic: '📢', flamethrower: '🔥',
-  grenade: '🧨', special: '🧰', lsw: '☄️', // signature arms — one god each
+  grenade: '🧨', special: '🧰', melee: '✊', melee_weapon: '🗡️', lsw: '☄️', // signature arms — one god each
 };
 
 /** Deterministically build the full generated arsenal. */

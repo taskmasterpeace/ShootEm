@@ -65,7 +65,7 @@ describe('science print-reserve encounter scaling', () => {
       const guards = runtime.guardIds.map((id) => world.soldiers.get(id)!);
       expect(guards.length).toBeLessThanOrEqual(9);
       expect(guards.every((guard) => guard.classId === 'infantry')).toBe(true);
-      expect(guards.every((guard) => guard.weapons[0] === 'pistol' || guard.weapons[0] === 'kuchler')).toBe(true);
+      expect(guards.every((guard) => ['pistol', 'kuchler', 'unarmed', 'baseball_bat', 'katana', 'fire_axe'].includes(guard.weapons[0]))).toBe(true);
       expect(guards.every((guard) => guard.armor === 0 && guard.maxArmor === 0)).toBe(true);
       expect(guards.every((guard) => guard.grenades === 0 && guard.firebombs === 0 && guard.timebombs === 0)).toBe(true);
     }

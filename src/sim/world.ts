@@ -289,7 +289,7 @@ const PICKUP_RESPAWN = 18;
 // is beneath scavenging, and the field tidies itself past the cap.
 const LOOT_DESPAWN = 20;
 const LOOT_MAX = 12;
-const LOOT_EXCLUDED = new Set<string>(['ar606']);
+const LOOT_EXCLUDED = new Set<string>(['ar606', 'unarmed']);
 
 // ---- anti-air: MANPADS vs flyer ----
 const MANPADS_ROUNDS = 2;    // missiles per life
@@ -1426,6 +1426,7 @@ export class World {
     s.medikitReady = true;
     s.meleeStrikeAt = 0; s.meleeWeapon = ''; // no swing survives a respawn
     s.meleeCharge = 0; s.meleeChargeMul = undefined; // and no half-built Power Strike
+    s.bleedingUntil = undefined; s.bleedNextAt = undefined; s.bleedSourceId = undefined; s.bleedWeapon = undefined;
     s.guarding = false; s.grabbedUntil = undefined; s.grabbedBy = undefined; s.ctrlStruggle = undefined; s.chokeProgress = undefined; s.chokingId = undefined; s.humanShield = undefined; // no hold survives it either
     // mobile spawn: a crewed APC or transport with a LIVE comms system
     const mobile = this.opts.mode !== 'science' ? [...this.vehicles.values()].find(
@@ -1687,6 +1688,16 @@ export class World {
       if (s.downed && this.time >= s.downedUntil) {
         this.damageSoldier(s, s.hp + 1, s.downedBy, 'bleedout');
         continue;
+      }
+      if (s.bleedingUntil !== undefined) {
+        if (this.time >= s.bleedingUntil) {
+          s.bleedingUntil = undefined; s.bleedNextAt = undefined; s.bleedSourceId = undefined; s.bleedWeapon = undefined;
+        } else if (this.time >= (s.bleedNextAt ?? 0)) {
+          const weapon = s.bleedWeapon ? WEAPONS[s.bleedWeapon] : undefined;
+          s.bleedNextAt = this.time + 0.5;
+          this.damageSoldier(s, (weapon?.bleedDps ?? 2) * 0.5, s.bleedSourceId ?? -1, s.bleedWeapon ?? 'bleedout');
+          if (!s.alive) continue;
+        }
       }
       // ENCASED (§21.6): frozen in the ice block. HOLD STILL and HP drains
       // slowly (you can outlast it); STRUGGLE — feed any move/fire input —
@@ -3694,8 +3705,9 @@ export class World {
       }
       // hit reaction: the blow staggers their aim and shoves them back a step
       victim.nextFireAt = Math.max(victim.nextFireAt, this.time + MELEE_STAGGER);
-      victim.pushX += ((victim.pos.x - s.pos.x) / dl) * 3;
-      victim.pushZ += ((victim.pos.z - s.pos.z) / dl) * 3;
+      const impactPush = 3 + (def.meleeTrait === 'force' ? def.knockback : 0);
+      victim.pushX += ((victim.pos.x - s.pos.x) / dl) * impactPush;
+      victim.pushZ += ((victim.pos.z - s.pos.z) / dl) * impactPush;
       // A working dog's bite briefly hauls the victim back toward the jaws.
       // Damage stays on the existing bite weapon; the added threat is space.
       if (s.kind === 'dog') {
@@ -3703,7 +3715,14 @@ export class World {
         victim.pushZ += ((s.pos.z - victim.pos.z) / dl) * 5;
       }
       this.emit({ type: 'hit', pos: { ...victim.pos, y: 1 }, weapon: def.id, soldierId: s.id });
-      this.damageSoldier(victim, strikeDmg, s.id, def.id);
+      const hpBefore = victim.hp;
+      this.damageSoldier(victim, strikeDmg, s.id, def.id, false, def.meleeTrait === 'pierce');
+      if (def.meleeTrait === 'blood' && victim.alive && victim.hp < hpBefore) {
+        victim.bleedingUntil = Math.max(victim.bleedingUntil ?? 0, this.time + (def.bleedSeconds ?? 2));
+        victim.bleedNextAt = Math.min(victim.bleedNextAt ?? Infinity, this.time + 0.5);
+        victim.bleedSourceId = s.id;
+        victim.bleedWeapon = def.id;
+      }
     }
   }
 

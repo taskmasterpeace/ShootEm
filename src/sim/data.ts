@@ -98,6 +98,10 @@ const CORE_WEAPONS: Record<WeaponId, WeaponDef> = {
   // F — the outbreak's answer to "out of ammo, shambler on me." Short reach,
   // real punch (drops a base shambler in ~5), reuses the claw swing engine.
   // Never occupies a weapon slot; it is always in hand at knife range.
+  unarmed: W({ id: 'unarmed', name: 'Bare Hands', damage: 18, rof: 1.8, speed: 20, spread: 0, clip: Infinity, reserve: Infinity, range: 1.9, knockback: 2, sound: 'claw', tracer: 'none', family: 'melee', meleeTrait: 'force', icon: '✊' }),
+  baseball_bat: W({ id: 'baseball_bat', name: 'Baseball Bat', damage: 30, rof: 1.15, speed: 20, spread: 0, clip: Infinity, reserve: Infinity, range: 2.4, knockback: 11, sound: 'claw', tracer: 'none', family: 'melee_weapon', meleeTrait: 'force', icon: '🏏' }),
+  katana: W({ id: 'katana', name: 'Katana', damage: 38, rof: 1.3, speed: 20, spread: 0, clip: Infinity, reserve: Infinity, range: 2.5, knockback: 2, sound: 'claw', tracer: 'none', family: 'melee_weapon', meleeTrait: 'blood', bleedSeconds: 3, bleedDps: 4, icon: '🗡️' }),
+  fire_axe: W({ id: 'fire_axe', name: 'Fire Axe', damage: 46, rof: 0.9, speed: 20, spread: 0, clip: Infinity, reserve: Infinity, range: 2.35, knockback: 6, sound: 'claw', tracer: 'none', family: 'melee_weapon', meleeTrait: 'pierce', icon: '🪓' }),
   knife: W({ id: 'knife', name: 'Combat Knife', damage: 34, rof: 1.5, speed: 20, spread: 0, clip: Infinity, reserve: Infinity, range: 2.2, sound: 'claw', tracer: 'none', icon: '🔪' }),
   // ---- paintball markers (§3.3/§14): one splat and you're OUT. Damage 999
   // rides the §4.3 overkill rule — paint skips the crawl, nobody bleeds. ----

@@ -87,6 +87,11 @@ export interface WeaponDef {
   heals: boolean;
   /** shove applied to victims (impulse cannon) */
   knockback: number;
+  /** Close-combat identity: blood leaves a wound, pierce threads issued plate,
+   * force converts the weapon's knockback into body displacement. */
+  meleeTrait?: 'blood' | 'pierce' | 'force';
+  bleedSeconds?: number;
+  bleedDps?: number;
   /**
    * A TRAINING ROUND. It settles a fight and marks a man, and it does not
    * touch architecture — no breaching, no rubble, no doors.
@@ -176,7 +181,7 @@ export interface WeaponDef {
 export type WeaponFamily =
   | 'pistol' | 'rifle' | 'carbine' | 'smg' | 'shotgun' | 'slugger' | 'laser'
   | 'lmg' | 'hmg' | 'at_rocket' | 'ap_rocket' | 'mortar' | 'artillery'
-  | 'scatter' | 'sonic' | 'flamethrower' | 'grenade' | 'special'
+  | 'scatter' | 'sonic' | 'flamethrower' | 'grenade' | 'special' | 'melee' | 'melee_weapon'
   | 'lsw'; // signature arms — one god each, never issued, never dropped
 
 export interface ClassDef {
@@ -655,6 +660,11 @@ export interface Soldier {
   /** the damage multiplier captured from the charge at commit, carried into
    *  resolveMeleeStrike and reset there. Undefined on a claw = ×1. */
   meleeChargeMul?: number;
+  /** Cutting wound state, credited to the weapon and attacker that opened it. */
+  bleedingUntil?: number;
+  bleedNextAt?: number;
+  bleedSourceId?: number;
+  bleedWeapon?: WeaponId;
   // bot brain scratch
   botGoal?: Vec3 | null;
   botRepathAt?: number;

@@ -682,6 +682,51 @@ const buildSpecial: FamilyBuilder = (k) => {
   return g;
 };
 
+const buildUnarmed: FamilyBuilder = () => {
+  const g = new THREE.Group();
+  g.userData.anchors = { grip: new THREE.Vector3(0, 0, 0), handguard: null };
+  return g;
+};
+
+/** Civilian close-combat silhouettes. These stay intentionally ordinary:
+ * sporting wood, a clean blade, and a red-headed fire axe. */
+const buildMeleeWeapon: FamilyBuilder = (k, def) => {
+  const g = new THREE.Group();
+  const wood = mat(def.id === 'baseball_bat' ? 0x8b6237 : 0x4b3524, { rough: 0.82 });
+  if (def.id === 'katana') {
+    const blade = box(0.78, 0.035, 0.025, mat(0xc7d0d2, { metal: 0.75, rough: 0.2 }));
+    blade.position.x = 0.28;
+    g.add(blade);
+    const grip = cyl(0.035, 0.035, 0.3, k.dark, 8);
+    grip.rotation.z = Math.PI / 2;
+    grip.position.x = -0.25;
+    g.add(grip);
+    const guard = box(0.035, 0.17, 0.045, k.metal);
+    guard.position.x = -0.08;
+    g.add(guard);
+  } else if (def.id === 'fire_axe') {
+    const handle = cyl(0.035, 0.045, 0.72, wood, 8);
+    handle.rotation.z = Math.PI / 2;
+    handle.position.x = 0.02;
+    g.add(handle);
+    const head = box(0.18, 0.22, 0.06, mat(0xb83b2d, { metal: 0.38, rough: 0.42 }));
+    head.position.set(0.37, 0.08, 0);
+    head.rotation.z = -0.18;
+    g.add(head);
+  } else {
+    const bat = cyl(0.065, 0.035, 0.82, wood, 10);
+    bat.rotation.z = Math.PI / 2;
+    bat.position.x = 0.08;
+    g.add(bat);
+    const tape = cyl(0.043, 0.043, 0.2, k.dark, 8);
+    tape.rotation.z = Math.PI / 2;
+    tape.position.x = -0.32;
+    g.add(tape);
+  }
+  g.userData.anchors = { grip: new THREE.Vector3(-0.28, 0, 0), handguard: new THREE.Vector3(-0.05, 0, 0) };
+  return g;
+};
+
 const BUILDERS: Record<string, FamilyBuilder> = {
   pistol: buildPistol,
   rifle: buildRifleFam,
@@ -701,6 +746,8 @@ const BUILDERS: Record<string, FamilyBuilder> = {
   flamethrower: buildFlamer,
   grenade: buildGrenadeLauncher,
   special: buildSpecial,
+  melee: buildUnarmed,
+  melee_weapon: buildMeleeWeapon,
 };
 
 /** Brand off the generated id (`family_brand_mk`); hand-tuned core ids and
