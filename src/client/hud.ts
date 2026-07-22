@@ -23,6 +23,16 @@ import { RADAR_PROFILES, headingDegrees, trackAlpha, type RadarSource } from '..
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
+/** opt #7 (R8): innerHTML assignment is never a no-op — identical strings
+ *  still reparse and rebuild every child node. Every PER-FRAME writer goes
+ *  through this gate; one-time constructor writes stay raw. */
+const setHTML = (el: HTMLElement, html: string) => {
+  const store = el as HTMLElement & { __lastHtml?: string };
+  if (store.__lastHtml === html) return;
+  store.__lastHtml = html;
+  el.innerHTML = html;
+};
+
 export function minimapPoint(geometry: MapGeometry, size: number, pos: Vec3): [number, number] {
   return [
     ((pos.x + halfWidth(geometry)) / worldWidth(geometry)) * size,
@@ -456,7 +466,7 @@ export class Hud {
     const operationEl = document.getElementById('operation-objective');
     if (operationEl) {
       operationEl.classList.toggle('hidden', !this.operationHud);
-      if (this.operationHud) operationEl.innerHTML = renderOperationHud(this.operationHud, now);
+      if (this.operationHud) setHTML(operationEl, renderOperationHud(this.operationHud, now)); // opt #7
     }
 
     const k9 = k9ControlState(s, world.soldiers.values());
@@ -598,18 +608,18 @@ export class Hud {
             } : null,
             locked,
           });
-          this.vehicleInstruments.innerHTML = renderVehicleInstruments(instrument);
+          setHTML(this.vehicleInstruments, renderVehicleInstruments(instrument)); // opt #7
           this.vehicleInstruments.classList.remove('hidden');
           this.vehicleInstruments.setAttribute('aria-label', `${vehicleDef.name} instruments, ${instrument.speedText} units per second, heading ${instrument.heading}, ${instrument.altitudeText}, ${instrument.radarText}, ${instrument.threatText}`);
         }
         // per-system damage record as pips: ENG WPN SEN ECM COM
         const max = VEHICLES[v.kind].systemHp ?? 60;
         this.sysPips.style.display = 'flex';
-        this.sysPips.innerHTML = (['engine', 'weapon', 'sensors', 'ecm', 'comms'] as const).map((id) => {
+        setHTML(this.sysPips, (['engine', 'weapon', 'sensors', 'ecm', 'comms'] as const).map((id) => {
           const hp = v.systems?.[id] ?? max;
           const state = hp <= 0 ? 'dead' : hp < max * 0.4 ? 'hurt' : 'ok';
           return `<span class="pip ${state}">${id.slice(0, 3).toUpperCase()}</span>`;
-        }).join('');
+        }).join('')); // opt #7
         // one dot per SEAT: filled = someone is in it, ◉ = the wheel, white =
         // you. An empty wheel while others ride blinks — nobody is driving.
         const seats = v.seats;
@@ -624,7 +634,7 @@ export class Hud {
             const glyph = i === 0 ? (occ >= 0 ? '◉' : '◌') : occ >= 0 ? '●' : '○';
             return `<span class="${cls.join(' ')}">${glyph}</span>`;
           }).join('');
-          this.crewPips.innerHTML = `<span class="crew-count">CREW ${filled}/${seats.length}</span>${dots}`;
+          setHTML(this.crewPips, `<span class="crew-count">CREW ${filled}/${seats.length}</span>${dots}`); // opt #7
         } else {
           this.crewPips.style.display = 'none';
         }
@@ -720,7 +730,7 @@ export class Hud {
           const shown = Math.min(def.clip, 40);
           const perPip = def.clip / shown;             // rounds each pip stands for
           if (this.ammoPipCount !== shown) {           // rebuild only on a size change
-            pips.innerHTML = Array.from({ length: shown }, () => '<i class="ap"></i>').join('');
+            setHTML(pips, Array.from({ length: shown }, () => '<i class="ap"></i>').join('')); // opt #7
             this.ammoPipCount = shown;
           }
           const litPips = Math.ceil(clipN / perPip);   // how many pips remain lit
@@ -1166,7 +1176,7 @@ export class Hud {
           : `<div class="obj-chip neutral">${icon('corpse')} BODY ${nd.toFixed(0)}u · ${Math.ceil(left)}s</div>`;
       }
     }
-    bar.innerHTML = chips;
+    setHTML(bar, chips); // opt #7
     $('mode-status').textContent = MODE_INFO[m.id].name;
     // §8.8 the sky, on the record — amber when it's costing you something
     const wx = world.weather;
@@ -1627,9 +1637,12 @@ export class Hud {
     // and the who-killed-who roster docks to a scrollable side column that can
     // never push the report off screen. Mid-match TAB keeps the plain table.
     sb.classList.toggle('over', m.over);
-    sb.innerHTML = m.over
+    // opt #7: the post-match linger used to rebuild this whole table EVERY
+    // frame — the biggest single innerHTML in the game, reparsed 60×/s while
+    // nothing changed. The gate makes identical frames free.
+    setHTML(sb, m.over
       ? `<div class="sb-story">${html}</div><div class="sb-roster"><h3>The Roster</h3>${roster}</div>`
-      : html + roster;
+      : html + roster);
   }
 
   /** Post-match career pane (the Record, §3.4) — set by the match tracker. */
