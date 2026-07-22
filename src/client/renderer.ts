@@ -26,6 +26,7 @@ import { buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp, bu
 import { k9MarkerKind } from './k9-controls';
 import { activeScienceWaypoints } from './science';
 import { ELEVATION_ALT, asElevationLevel } from '../sim/elevation';
+import { backgroundWallStyle, buildGeospatialDecor, paletteKeyForMap } from './geospatial-visuals';
 
 const TRACER_COLORS: Record<string, number> = {
   bullet: 0xffd890, shell: 0xffb060, rocket: 0xff8840, plasma: 0x60c8ff,
@@ -129,6 +130,13 @@ export const THEME_PALETTES: Record<string, ThemePalette> = {
     wall: 0x9aa6b0, cover: 0xc4ccd4,
     open: (r) => { const g = 208 + r * 32; return `rgb(${g - 6}, ${g}, ${g + 6})`; }, // snowpack, faintly blue in the drifts
     water: (r) => `rgb(${120 + r * 20}, ${150 + r * 24}, ${172 + r * 24})`, // frozen melt / slush
+  },
+  'miami-gardens': {
+    sky: 0xa9c4ce, fog: 0x91b8bd, fogNear: 105, fogFar: 310,
+    sun: 0xffe1ae, sunIntensity: 1.72, hemiSky: 0xc8e0e2, hemiGround: 0x666659,
+    wall: 0xb8ad96, cover: 0x8d887b,
+    open: (r) => { const g = 48 + r * 18; return `rgb(${g}, ${g + 3}, ${g + 4})`; },
+    water: (r) => `rgb(${20 + r * 8}, ${72 + r * 15}, ${82 + r * 17})`,
   },
 };
 
@@ -849,7 +857,7 @@ export class Renderer {
   }
 
   buildStaticWorld(world: World) {
-    const pal = THEME_PALETTES[world.map.theme] ?? THEME_PALETTES.savanna;
+    const pal = THEME_PALETTES[paletteKeyForMap(world.map)] ?? THEME_PALETTES.savanna;
     const geometry = world.map.geometry;
     const { cols, rows, tile } = geometry;
     const width = worldWidth(geometry);
@@ -1065,22 +1073,26 @@ export class Renderer {
     const wallBase = new THREE.Color(pal.wall);
     const tintCol = new THREE.Color();
     wallTiles.forEach(([x, z], i) => {
+      const index = z * cols + x;
       const center = tileToWorld(geometry, x, z);
       // TERRAIN ELEVATION: an elevated blocking tile rises to its terrain top.
-      const th = world.map.height ? (TERRAIN_U[world.map.height[z * cols + x]] ?? 0) : 0;
-      const wallH = th > 4 ? th : 4;
+      const th = world.map.height ? (TERRAIN_U[world.map.height[index]] ?? 0) : 0;
+      const district = backgroundWallStyle(world.map.geospatial, index);
+      const wallH = Math.max(th > 4 ? th : 4, (district?.storeys ?? 1) * 4);
       m4.makeScale(1, wallH / 4, 1);
       m4.setPosition(center.x, wallH / 2, center.z);
       wallInst.setMatrixAt(i, m4);
-      const tint = houseTint.get(z * cols + x);
+      const tint = houseTint.get(index) ?? district?.color;
       // base material is white, so the instance colour is the final albedo:
       // house tile → its stucco shade, everything else → the theme wall colour
       wallInst.setColorAt(i, tint !== undefined ? tintCol.setHex(tint) : wallBase);
-      this.wallInstanceByTile.set(z * cols + x, i); // so the tunneler can grind it away
+      this.wallInstanceByTile.set(index, i); // so the tunneler can grind it away
     });
     if (wallInst.instanceColor) wallInst.instanceColor.needsUpdate = true;
     this.scene.add(wallInst);
     this.wallInst = wallInst;
+    const districtDecor = buildGeospatialDecor(world.map.geospatial);
+    if (districtDecor) this.scene.add(districtDecor);
 
     // Science interiors: visible geometry uses the exact same orientation and
     // 0.42u thickness as collision. Junctions receive both crossing spans.
