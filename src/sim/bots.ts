@@ -1025,7 +1025,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
   const dGoal = Math.hypot(goal.x - s.pos.x, goal.z - s.pos.z);
 
   // --- consider grabbing an ARMED vehicle for long trips (not in survival) ---
-  if (!target && dGoal > 45 && w.opts.mode !== 'survival' && w.rng.next() < 0.02) {
+  if (!target && dGoal > 45 && w.opts.mode !== 'survival' && w.rng.next() < 0.02 * w.rollScale) {
     for (const v of w.vehicles.values()) {
       if (!v.alive || v.team !== s.team || v.seats[0] >= 0) continue;
       const kdef = VEHICLES[v.kind];
@@ -1035,7 +1035,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     }
   }
   // --- man an empty emplacement gun when enemies are pressing ---
-  if (target && w.rng.next() < 0.01) {
+  if (target && w.rng.next() < 0.01 * w.rollScale) {
     for (const v of w.vehicles.values()) {
       if (!v.alive || v.team !== s.team || !VEHICLES[v.kind].immobile || v.seats[0] >= 0) continue;
       if (Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z) < 6) { cmd.use = true; break; }
@@ -1364,7 +1364,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
       // in the band: strafe-dance, a toe still pointed at the objective —
       // re-normalized to a full stride (doc.strafe shapes the MIX of dodge
       // vs advance, not the pace; the dance was always meant at full speed)
-      if (w.rng.next() < 0.02) s.botStrafeDir = (s.botStrafeDir ?? 1) * -1;
+      if (w.rng.next() < 0.02 * w.rollScale) s.botStrafeDir = (s.botStrafeDir ?? 1) * -1;
       const perp = toT + Math.PI / 2;
       mvx = Math.cos(perp) * (s.botStrafeDir ?? 1) * doc.strafe + mvx * 0.25;
       mvz = Math.sin(perp) * (s.botStrafeDir ?? 1) * doc.strafe + mvz * 0.25;
@@ -1382,7 +1382,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     }
 
     // grenades at clusters — cursor-targeted like players: land it ON the enemy
-    if (d > TUNE.nadeMin && d < TUNE.nadeMax && s.grenades > 0 && w.rng.next() < TUNE.nadeChance) {
+    if (d > TUNE.nadeMin && d < TUNE.nadeMax && s.grenades > 0 && w.rng.next() < TUNE.nadeChance * w.rollScale) {
       // NB: the rng.next() above is drawn unconditionally — the class gate is on
       // the EFFECT, not the draw, so the seeded stream stays byte-identical.
       // Engineers' G plants a MINE at their feet (world.ts routing), so a
@@ -1392,7 +1392,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     }
 
     // jump troopers hop in fights
-    if (cls.ability === 'jetpack' && s.energy > 40 && w.rng.next() < 0.02) cmd.jump = true;
+    if (cls.ability === 'jetpack' && s.energy > 40 && w.rng.next() < 0.02 * w.rollScale) cmd.jump = true;
   } else if (!vehEngage) { // vehEngage already set aim + fire; don't clobber it
     if (!nestAim) cmd.aimYaw = Math.atan2(mvz, mvx) || s.yaw;
     // reload when idle — but never mid nest-demolition
@@ -1401,7 +1401,7 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
   }
 
   // --- class abilities ---
-  if (s.classId === 'engineer' && !target && s.energy >= 80 && dGoal < 20 && w.rng.next() < 0.01) cmd.ability = true;
+  if (s.classId === 'engineer' && !target && s.energy >= 80 && dGoal < 20 && w.rng.next() < 0.01 * w.rollScale) cmd.ability = true;
   if (s.classId === 'medic') {
     // Decision 49A — nobody bleeds out alone. A downed ally outranks the
     // merely wounded, and outranks the medic's own firefight: path to the
@@ -1447,10 +1447,10 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
   // THE CROSSING: bot eyes can't acquire a cloaked enemy beyond 9u, so the
   // sneak walks through the guard wall's whole engagement envelope unseen
   if (s.classId === 'infiltrator' && !s.cloaked && !target && s.energy > 70 &&
-      w.rng.next() < (w.mode.id === 'ctf' && raidsFlags(s) ? 0.06 : 0.008)) cmd.ability = true;
+      w.rng.next() < (w.mode.id === 'ctf' && raidsFlags(s) ? 0.06 : 0.008) * w.rollScale) cmd.ability = true;
   // ghost bots fly the recon net (49A): deploy the auto-orbit drone when a
   // fight is on and the battery allows — marks enemies for the whole team
-  if (s.classId === 'ghost' && s.energy >= 70 && target && w.rng.next() < 0.012) cmd.ability = true;
+  if (s.classId === 'ghost' && s.energy >= 70 && target && w.rng.next() < 0.012 * w.rollScale) cmd.ability = true;
 
   // MANPADS discipline (49A): a bot carrying tubes tracks the sky. An
   // airborne enemy gunship inside launch range gets the cone — aim at it and

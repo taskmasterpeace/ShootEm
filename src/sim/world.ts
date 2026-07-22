@@ -426,6 +426,9 @@ export class World {
    *  deleted mid-possession), which merely runs the scan needlessly — never a
    *  missed eviction — so count===0 skipping is byte-identical. */
   private possessionCount = 0;
+  /** opt #16: dt×60 — bots multiply per-tick roll THRESHOLDS by this so
+   *  per-second rates match at any tick rate (60Hz offline = 30Hz server). */
+  rollScale = 1;
   /** opt #27 (S9) — presence counters for the two remaining housekeeping
    *  scans: armed overload fuses and plague-infected hulls. PUBLIC because
    *  the LSW brains (voltstriker/plaguebearer) arm them; world.ts decrements
@@ -1803,6 +1806,12 @@ export class World {
   step(dt: number, cmds: Map<number, PlayerCmd>) {
     this.time += dt;
     this.tick++;
+    // opt #16 (N7): per-tick probability rolls fire at HALF rate on the 30Hz
+    // server vs the 60Hz client (measured: 59 kills vs 32 over the same 60
+    // sim-seconds). The canonical rates are the 60Hz-tuned ones; bots scale
+    // their roll THRESHOLDS by this (draws stay unconditional — the stream
+    // law: the count of rng pulls per tick must never depend on dt).
+    this.rollScale = dt * 60;
     if (this.puppet) {
       for (const s of this.soldiers.values()) if (s.alive) this.stepSoldierPhysics(s, dt);
       for (const v of this.vehicles.values()) {
