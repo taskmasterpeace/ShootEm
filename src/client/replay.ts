@@ -1,4 +1,4 @@
-import { applySnapshot, createPuppetWorld, takeSnapshot, type Snapshot } from '../sim/snapshot';
+import { applySnapshot, createPuppetWorld, recordSnapshot, takeSnapshot, type Snapshot } from '../sim/snapshot';
 import { VEHICLES, WEAPONS } from '../sim/data';
 import type { ModeId, PlayerCmd, ThemeId, VehicleKind } from '../sim/types';
 import type { World } from '../sim/world';
@@ -114,7 +114,7 @@ export class ReplayRecorder {
     if (world.time < this.nextAt) return;
     this.nextAt = world.time + 1 / REPLAY_HZ;
     // deep-freeze the snapshot so later sim mutation can't corrupt history
-    this.frames.push({ t: world.time, snap: structuredClone(takeSnapshot(world, [])) });
+    this.frames.push({ t: world.time, snap: recordSnapshot(world) }); // opt #19: explicit copies, no structuredClone
     const cutoff = world.time - REPLAY_KEEP_S;
     while (this.frames.length && this.frames[0].t < cutoff) this.frames.shift();
   }

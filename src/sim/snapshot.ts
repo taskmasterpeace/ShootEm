@@ -122,6 +122,48 @@ export function takeSnapshot(w: World, events: SimEvent[]): Snapshot {
   };
 }
 
+/**
+ * opt #19 (E4): the REPLAY-GRADE snapshot — explicit copies instead of the
+ * blanket structuredClone the recorder used to pay 10×/s (0.417ms vs 0.130ms
+ * per record; 11.5MB retained across the 140-frame ring). takeSnapshot's
+ * output aliases live sim objects in exactly the places copied below; the
+ * ring must never see a frame mutate after it was recorded, and the
+ * "byte-identical after playback" test in tests/expansion.test.ts pins it.
+ */
+export function recordSnapshot(w: World): Snapshot {
+  const s = takeSnapshot(w, []);
+  s.mode = {
+    ...s.mode,
+    scores: [...s.mode.scores],
+    roundWins: s.mode.roundWins ? [...s.mode.roundWins] : undefined,
+    tickets: s.mode.tickets ? [...s.mode.tickets] : undefined,
+    hillPos: s.mode.hillPos ? { ...s.mode.hillPos } : undefined,
+    flags: s.mode.flags?.map((f) => ({ ...f, pos: { ...f.pos } })),
+    points: s.mode.points?.map((p) => ({ ...p, pos: { ...p.pos } })),
+  };
+  s.soldiers = s.soldiers.map((x) => ({
+    ...x, pos: { ...x.pos }, vel: { ...x.vel }, weapons: [...x.weapons],
+  }));
+  s.vehicles = s.vehicles.map((v) => ({
+    ...v, pos: { ...v.pos }, vel: { ...v.vel }, seats: [...v.seats],
+    systems: { ...v.systems }, padPos: { ...v.padPos },
+  }));
+  s.turrets = s.turrets.map((t) => ({ ...t, pos: { ...t.pos } }));
+  s.projectiles = s.projectiles.map((p) => ({
+    ...p, pos: { ...p.pos }, vel: { ...p.vel }, hit: p.hit ? [...p.hit] : undefined,
+  }));
+  s.pickups = s.pickups.map((k) => ({ ...k, pos: { ...k.pos } }));
+  s.mines = s.mines.map((m) => ({ ...m, pos: { ...m.pos } }));
+  s.gadgets = s.gadgets.map((g) => ({
+    ...g, pos: { ...g.pos },
+    anchor: g.anchor ? { ...g.anchor } : undefined,
+    vel: g.vel ? { ...g.vel } : undefined,
+  }));
+  s.dug = [...s.dug];
+  s.breached = [...s.breached];
+  return s;
+}
+
 // ---------------------------------------------------------------------------
 // 68A — interest-managed snapshots. Sending hidden enemy positions to every
 // client is an architecture defect, not a future anti-cheat problem: cull
