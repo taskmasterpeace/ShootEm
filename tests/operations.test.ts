@@ -27,7 +27,8 @@ const inventory: OperationHull[] = [
 describe('Military Operations catalog', () => {
   it('ships the complete authored vocabulary with unique stable ids', () => {
     expect(OPERATION_VERBS).toHaveLength(15);
-    expect(OPERATION_SITES).toHaveLength(10);
+    expect(OPERATION_SITES).toHaveLength(11);
+    expect(OPERATION_SITES).toContainEqual({ id: 'civic_front', name: 'real-city civic front' });
     expect(OPERATION_COMPLICATIONS).toHaveLength(7);
     expect(OPERATION_EFFECTS).toHaveLength(50);
     expect(COMBINED_ARMS_SIGNATURES).toHaveLength(4);

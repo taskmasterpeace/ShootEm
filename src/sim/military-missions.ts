@@ -14,6 +14,7 @@ import type { ModeId, VehicleKind } from './types';
 
 export type MilitaryMissionId =
   | 'urban_assault'
+  | 'real_city_assault'
   | 'air_superiority'
   | 'convoy_interdiction'
   | 'pass_assault'
@@ -129,6 +130,13 @@ export const MILITARY_MISSIONS: readonly MilitaryMissionPreset[] = [
     7749, 'rail_hub', 'spearhead', ['land'],
     [phase('capture', 'Take the rail hub', 'land'), phase('defend', 'Hold the junction', 'land', 75)],
     [['mission-city-tank', 'tank', 'Mastodon 21'], ['mission-city-shrike', 'attackheli', 'Shrike 07']],
+  ),
+  preset(
+    'real_city_assault', 'geocity', '33056 Civic Front', '⌂',
+    'Fight through real Miami Gardens streets and seize the civic corridor.',
+    33056, 'civic_front', 'spearhead', ['land'],
+    [phase('capture', 'Take Civic Center', 'land'), phase('defend', 'Hold 183rd Street', 'land', 90)],
+    [['mission-33056-tank', 'tank', 'Mastodon 56'], ['mission-33056-shrike', 'attackheli', 'Shrike 33']],
   ),
   preset(
     'air_superiority', 'desert', 'Air Superiority', '△',

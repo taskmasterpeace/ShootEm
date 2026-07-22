@@ -5,11 +5,15 @@ import { THEATER_DEFS } from '../src/sim/theaters';
 import { World } from '../src/sim/world';
 
 describe('Military Mission exercise catalog', () => {
-  it('covers every vehicle theater exactly once', () => {
+  it('includes the real-city battlefield in the exercise catalog', () => {
     expect(MILITARY_MISSIONS.map((entry) => entry.theaterId)).toEqual([
-      'city', 'desert', 'countryside', 'mountain', 'coastal', 'ocean',
+      'city', 'geocity', 'desert', 'countryside', 'mountain', 'coastal', 'ocean',
     ]);
-    expect(new Set(MILITARY_MISSIONS.map((entry) => entry.id)).size).toBe(6);
+    expect(new Set(MILITARY_MISSIONS.map((entry) => entry.id)).size).toBe(7);
+    expect(MILITARY_MISSIONS.find((entry) => entry.theaterId === 'geocity')).toMatchObject({
+      missionName: '33056 Civic Front',
+      mode: 'conquest',
+    });
   });
 
   it.each(MILITARY_MISSIONS)('$id creates a legal launch on $theaterId', (preset) => {

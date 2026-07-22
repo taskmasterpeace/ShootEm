@@ -11,7 +11,7 @@ export type Commitment = 'light' | 'balanced' | 'heavy';
 
 export type OperationSiteId =
   | 'front_line' | 'strongpoint' | 'river_crossing' | 'supply_depot' | 'rail_hub'
-  | 'airfield' | 'coastal_battery' | 'port' | 'carrier_anchorage' | 'mountain_pass';
+  | 'civic_front' | 'airfield' | 'coastal_battery' | 'port' | 'carrier_anchorage' | 'mountain_pass';
 
 export type OperationVerbId =
   | 'spearhead' | 'hold_line' | 'siege' | 'interdict' | 'encircle' | 'counterbattery'
@@ -68,6 +68,7 @@ export const OPERATION_SITES: OperationSiteDef[] = [
   { id: 'river_crossing', name: 'river crossing' },
   { id: 'supply_depot', name: 'supply depot' },
   { id: 'rail_hub', name: 'rail hub' },
+  { id: 'civic_front', name: 'real-city civic front' },
   { id: 'airfield', name: 'enemy airfield' },
   { id: 'coastal_battery', name: 'coastal battery' },
   { id: 'port', name: 'port' },
@@ -76,7 +77,7 @@ export const OPERATION_SITES: OperationSiteDef[] = [
 ];
 
 export const OPERATION_VERBS: OperationVerbDef[] = [
-  { id: 'spearhead', name: 'Spearhead', domain: 'land', sites: ['front_line', 'strongpoint', 'river_crossing', 'mountain_pass'], phases: [phase('capture', 'Break the line', 'land')] },
+  { id: 'spearhead', name: 'Spearhead', domain: 'land', sites: ['front_line', 'strongpoint', 'river_crossing', 'civic_front', 'mountain_pass'], phases: [phase('capture', 'Break the line', 'land')] },
   { id: 'hold_line', name: 'Hold the Line', domain: 'land', sites: ['front_line', 'strongpoint', 'mountain_pass', 'airfield', 'port'], phases: [phase('hold', 'Dig in and hold', 'land', 90)] },
   { id: 'siege', name: 'Siege', domain: 'land', sites: ['strongpoint', 'airfield', 'coastal_battery'], phases: [phase('destroy', 'Reduce the defenses', 'land', undefined, 3), phase('capture', 'Take the breach', 'land')] },
   { id: 'interdict', name: 'Interdict', domain: 'land', sites: ['river_crossing', 'supply_depot', 'rail_hub'], phases: [phase('destroy', 'Cut the supply line', 'land', undefined, 2)] },
@@ -293,6 +294,7 @@ const SITE_THEATER: Record<OperationSiteId, TheaterId> = {
   river_crossing: 'coastal',
   supply_depot: 'desert',
   rail_hub: 'city',
+  civic_front: 'geocity',
   airfield: 'desert',
   coastal_battery: 'coastal',
   port: 'coastal',
