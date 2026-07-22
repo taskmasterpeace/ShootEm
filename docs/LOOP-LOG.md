@@ -37,3 +37,4 @@
 2026-07-22 IT-39: #7 built (setHTML gate; scoreboard 60→1 reparse live-proven). 36 closed, 9 needs-robert.
 2026-07-22 IT-40: #25 built (shared FX unit geometries). 37 closed, 9 needs-robert.
 2026-07-22 IT-41: #82 built (forward arc, X flares, burning flares, AAM 58). 38 closed, 9 needs-robert.
+2026-07-22 IT-42: #89 built (moodle stamp live-proven all transitions; strip=rail; hudOpacity). 39 closed, 9 needs-robert.
