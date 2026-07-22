@@ -4,6 +4,7 @@ import {
   reduceOperationHud,
   renderOperationAfterAction,
   renderOperationHud,
+  vehicleMobilityHint,
 } from '../src/client/hud';
 import { freshCampaign, type SettlementReceipt } from '../src/client/campaign';
 import { generateOperation, type OperationManifest } from '../src/sim/operations';
@@ -14,6 +15,11 @@ function mission() {
 }
 
 describe('Operation HUD presentation', () => {
+  it('states submarine depth and the available dive control', () => {
+    expect(vehicleMobilityHint('submarine', 0, false)).toBe(' · DEPTH SURFACE · Q dive');
+    expect(vehicleMobilityHint('submarine', 0, true)).toBe(' · DEPTH SUBMERGED · Q surface');
+  });
+
   it('shows current and next objectives, progress, elapsed time, and complication', () => {
     const plan = { ...mission(), complication: 'storm' as const };
     let state = createOperationHudState(plan, 10);

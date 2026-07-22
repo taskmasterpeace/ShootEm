@@ -2479,6 +2479,12 @@ export class Renderer {
         const nextDepth = depth + ((v.submerged ? -2.4 : -0.25) - depth) * Math.min(1, dt * 2.5);
         mesh.userData.depth = nextDepth;
         mesh.position.y = nextDepth;
+        const sonarRing = mesh.getObjectByName('sonarRing');
+        if (sonarRing) {
+          sonarRing.visible = !!v.submerged;
+          sonarRing.position.y = -nextDepth + 0.04;
+          sonarRing.rotation.z = world.time * 0.2;
+        }
       }
       // THE RING at the hull's feet: vehicles wear chunks too — the tank's
       // state of the fight reads in one glance at any zoom

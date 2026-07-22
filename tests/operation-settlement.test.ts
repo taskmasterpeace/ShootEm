@@ -7,6 +7,7 @@ import {
   cancelCampaignOperation,
   checkSeasonEnd,
   freshCampaign,
+  migrateCampaign,
   settleCampaignOperation,
   stageCampaignOperation,
   type Campaign,
@@ -69,7 +70,19 @@ describe('Operation campaign state', () => {
     expect(new Set(campaign.motorPool.map((hull) => hull.id)).size).toBe(campaign.motorPool.length);
     expect(new Set(campaign.motorPool.map((hull) => hull.name)).size).toBe(campaign.motorPool.length);
     expect(campaign.motorPool.every((hull) => hull.name.length > 3 && hull.status === 'available')).toBe(true);
+    expect(campaign.motorPool.filter((hull) => hull.kind === 'attackheli')).toHaveLength(2);
+    expect(campaign.motorPool.filter((hull) => hull.kind === 'transportheli')).toHaveLength(2);
+    expect(campaign.motorPool.filter((hull) => hull.kind === 'submarine')).toHaveLength(2);
     expect(Object.keys(campaign.operationWindows)).toHaveLength(FRONTS.length * 3);
+  });
+
+  it('adds newly commissioned rotorcraft and submarines to an existing season', () => {
+    const old = freshCampaign(1000);
+    old.motorPool = old.motorPool.filter((hull) => !['attackheli', 'transportheli', 'submarine'].includes(hull.kind));
+    const migrated = migrateCampaign(old, 2000);
+    expect(migrated.motorPool.filter((hull) => hull.kind === 'attackheli')).toHaveLength(2);
+    expect(migrated.motorPool.filter((hull) => hull.kind === 'transportheli')).toHaveLength(2);
+    expect(migrated.motorPool.filter((hull) => hull.kind === 'submarine')).toHaveLength(2);
   });
 
   it('reserves hulls and charges the exact launch plus manifest cost', () => {

@@ -12,7 +12,7 @@ import {
   type OperationSiteId,
 } from '../src/sim/operations';
 import type { GameMap } from '../src/sim/map';
-import { T_WATER, tileAt } from '../src/sim/map';
+import { T_DEEP, T_WATER, tileAt } from '../src/sim/map';
 
 const hulls: OperationHull[] = [
   { id: 'ares-01', kind: 'tank', name: 'Ares One', status: 'available' },
@@ -93,6 +93,32 @@ describe('Operation mission grounds', () => {
     expect(pikes).toHaveLength(3);
     expect(new Set(pikes.map((pad) => `${pad.pos.x}:${pad.pos.z}`)).size).toBe(3);
     for (const pike of pikes) expect(tileAt(map.grid, pike.pos.x, pike.pos.z, map.geometry)).toBe(T_WATER);
+  });
+
+  it('stages every committed Barracuda at a distinct deep-water berth', () => {
+    const submarines: OperationHull[] = [
+      { id: 'barracuda-01', kind: 'submarine', name: 'Barracuda One', status: 'available' },
+      { id: 'barracuda-02', kind: 'submarine', name: 'Barracuda Two', status: 'available' },
+    ];
+    const inventory = [...hulls, ...submarines];
+    const manifest: OperationManifest = { hullIds: submarines.map((hull) => hull.id), ammunition: 2, support: 'none' };
+    const map = generateOperationMap(planFor('carrier_anchorage', 'large', 7749), manifest, inventory);
+    const pads = map.vehiclePads.filter((pad) => pad.operationHullId?.startsWith('barracuda-'));
+    expect(pads).toHaveLength(2);
+    expect(new Set(pads.map((pad) => `${pad.pos.x}:${pad.pos.z}`)).size).toBe(2);
+    for (const pad of pads) expect(tileAt(map.grid, pad.pos.x, pad.pos.z, map.geometry)).toBe(T_DEEP);
+  });
+
+  it('stages committed Shrike and Condor airframes on their theater pads', () => {
+    const rotorcraft: OperationHull[] = [
+      { id: 'shrike-01', kind: 'attackheli', name: 'Shrike One', status: 'available' },
+      { id: 'condor-01', kind: 'transportheli', name: 'Condor One', status: 'available' },
+    ];
+    const inventory = [...hulls, ...rotorcraft];
+    const manifest: OperationManifest = { hullIds: rotorcraft.map((hull) => hull.id), ammunition: 2, support: 'none' };
+    const map = generateOperationMap(planFor('airfield', 'large', 5150), manifest, inventory);
+    expect(map.vehiclePads.filter((pad) => pad.operationHullId === 'shrike-01')).toHaveLength(1);
+    expect(map.vehiclePads.filter((pad) => pad.operationHullId === 'condor-01')).toHaveLength(1);
   });
 
   it('keeps objective metadata through Map Maker serialization', () => {

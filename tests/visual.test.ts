@@ -173,7 +173,7 @@ const VEHICLE_PARTS: Record<VehicleKind, string[]> = {
   emplacement: ['turret', 'gunRecoil'],
   mech: ['legL', 'legR', 'turret', 'gunRecoil', 'pulse'],
   boat: ['turret', 'gunRecoil'],
-  submarine: ['turret', 'gunRecoil', 'propeller'],
+  submarine: ['turret', 'gunRecoil', 'propeller', 'sonarRing'],
   // V2-V4 the air program — planform is the read at command zoom
   strikejet: ['turret', 'gunRecoil', 'thrustL', 'podL', 'podR'],
   interceptor: ['turret', 'gunRecoil', 'thrustL', 'thrustR'],
@@ -182,6 +182,11 @@ const VEHICLE_PARTS: Record<VehicleKind, string[]> = {
 };
 
 describe('visual: vehicles', () => {
+  it('marks the submarine sonar ring as a non-colliding aura', () => {
+    const ring = buildVehicle('submarine', 0).getObjectByName('sonarRing');
+    expect(ring?.userData.aura).toBe(true);
+  });
+
   it.each(Object.keys(VEHICLE_PARTS) as VehicleKind[])('%s has its working parts and fits its collision radius', (kind) => {
     const g = buildVehicle(kind, 0);
     for (const part of VEHICLE_PARTS[kind]) expect(g.getObjectByName(part), part).toBeTruthy();

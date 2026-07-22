@@ -156,6 +156,7 @@ export const MOTOR_POOL_SEED = {
   tank: 4, apc: 4, buggy: 6, bike: 6, mech: 2, tunneler: 2, emplacement: 4,
   aatrack: 3, transport: 3, ambulance: 3,
   strikejet: 3, interceptor: 3, bomber: 2, flyer: 3, boat: 4,
+  attackheli: 2, transportheli: 2, submarine: 2,
 } as const satisfies Partial<Record<VehicleKind, number>>;
 
 const HULL_CALLSIGNS = ['Aegis', 'Bastion', 'Cinder', 'Dauntless', 'Ember', 'Fury', 'Gauntlet', 'Harrier'];
@@ -227,7 +228,11 @@ export function migrateCampaign(raw: unknown, now = Date.now()): Campaign {
   }
   if (source.v === 2) {
     if (typeof source.treasury === 'number') campaign.treasury = source.treasury;
-    if (Array.isArray(source.motorPool) && source.motorPool.length > 0) campaign.motorPool = source.motorPool;
+    if (Array.isArray(source.motorPool) && source.motorPool.length > 0) {
+      const savedPool = source.motorPool;
+      const savedIds = new Set(savedPool.map((hull) => hull.id));
+      campaign.motorPool = [...savedPool, ...freshMotorPool().filter((hull) => !savedIds.has(hull.id))];
+    }
     if (Array.isArray(source.facilities)) campaign.facilities = [...source.facilities];
     if (Array.isArray(source.modifiers)) campaign.modifiers = [...source.modifiers];
     if (source.operationWindows && typeof source.operationWindows === 'object') {

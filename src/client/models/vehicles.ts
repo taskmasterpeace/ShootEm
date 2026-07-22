@@ -76,6 +76,21 @@ export function buildVehicle(kind: VehicleKind, team: Team): THREE.Group {
       const stripe = box(3.8, 0.08, 0.12, glow);
       stripe.position.set(0, 0.7, 0.93);
       g.add(stripe);
+      const sonarRing = new THREE.Mesh(
+        new THREE.RingGeometry(4.7, 5.05, 48),
+        new THREE.MeshBasicMaterial({
+          color: team === 0 ? 0x55e6dd : 0xf0ad55,
+          transparent: true,
+          opacity: 0.22,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        }),
+      );
+      sonarRing.rotation.x = -Math.PI / 2;
+      sonarRing.name = 'sonarRing';
+      sonarRing.visible = false;
+      sonarRing.userData.aura = true;
+      g.add(sonarRing);
       break;
     }
     case 'boat': {

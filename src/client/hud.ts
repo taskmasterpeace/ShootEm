@@ -33,6 +33,17 @@ export function minimapWorldPoint(geometry: MapGeometry, size: number, x: number
   };
 }
 
+export function vehicleMobilityHint(kind: keyof typeof VEHICLES, rawBand: number, submerged = false): string {
+  const def = VEHICLES[kind];
+  if (def.submersible) {
+    return ` · DEPTH ${submerged ? 'SUBMERGED · Q surface' : 'SURFACE · Q dive'}`;
+  }
+  if (!def.flies) return '';
+  const band = asElevationLevel(rawBand);
+  const ceiling = maxElevationFor(def);
+  return ` · ALT ${ELEVATION_LABEL[band]} ${band}/${ceiling} · Q climb · E ${band > 0 ? 'dive' : 'exit'}${band >= 2 ? ' — AA-controlled airspace' : ''}`;
+}
+
 type OperationHudEvent = SimEvent & { type: 'operation_phase' | 'operation_progress' | 'operation_complete' };
 
 export interface OperationHudState {
@@ -418,17 +429,13 @@ export class Hud {
         const flareTxt = flying ? ` · G flares ${'●'.repeat(Math.max(0, v.flares ?? 0)) || '—'}` : '';
         // B2 the ALT ladder (backlog 1.7c): which floor of the sky you own —
         // and at bands 2-3, the sanctuary reminder (only SAMs reach you)
-        const band = asElevationLevel(v.band);
-        const ceiling = maxElevationFor(VEHICLES[v.kind]);
-        const altTxt = flying
-          ? ` · ALT ${ELEVATION_LABEL[band]} ${band}/${ceiling} · Q climb · E ${band > 0 ? 'dive' : 'exit'}${band >= 2 ? ' — AA-controlled airspace' : ''}`
-          : '';
+        const mobilityTxt = vehicleMobilityHint(v.kind, v.band ?? 0, !!v.submerged);
         let locked = false;
         for (const p of world.projectiles.values()) {
           if (p.homingVehicleId === v.id) { locked = true; break; }
         }
         const hintEl = $('ability-hint');
-        hintEl.textContent = `${role} · E exit${altTxt}${flareTxt}${locked ? ' · ⚠ MISSILE INBOUND' : ''}`;
+        hintEl.textContent = `${role} · E exit${mobilityTxt}${flareTxt}${locked ? ' · ⚠ MISSILE INBOUND' : ''}`;
         hintEl.classList.toggle('warn', locked);
         // per-system damage record as pips: ENG WPN SEN ECM COM
         const max = VEHICLES[v.kind].systemHp ?? 60;

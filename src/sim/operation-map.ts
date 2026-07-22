@@ -164,7 +164,8 @@ function dressEnemyDomains(map: GameMap, plan: OperationPlan) {
     const required = Math.max(1, ...plan.phases
       .filter((phase) => phase.domain === 'air' && phase.kind === 'eliminate')
       .map((phase) => phase.targetCount ?? 1));
-    const existing = map.vehiclePads.filter((pad) => pad.team === 1 && AIR_KINDS.has(pad.kind)).length;
+    const existing = map.vehiclePads.filter((pad) => pad.team === 1
+      && ['flyer', 'strikejet', 'interceptor', 'bomber'].includes(pad.kind)).length;
     const spawns = enemyAirSpawns(map);
     for (let i = existing; i < required; i++) {
       const pos = spawns[i - existing];
