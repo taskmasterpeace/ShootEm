@@ -10,7 +10,7 @@ import type {
   OperationPlan,
   OperationSiteId,
 } from './operations';
-import { AIR_KINDS, operationRequiresVehicleTheater, siteTheater, theaterForOperation } from './operations';
+import { operationRequiresVehicleTheater, siteTheater, theaterForOperation } from './operations';
 import { generateTheater } from './theaters';
 
 const SITE_FRONT: Record<OperationSiteId, string> = {

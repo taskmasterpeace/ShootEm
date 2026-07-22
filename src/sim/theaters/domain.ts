@@ -87,7 +87,7 @@ export function generateMountainTheater(def: TheaterDef, seed: number): GameMap 
   map.controlPoints = [
     { name: 'HIGH PASS', pos: routePoints(map, [[0.5, 0.5]])[0] },
     { name: 'RIDGE BATTERY', pos: routePoints(map, [[0.65, 0.18]])[0] },
-    { name: 'VALLEY DEPOT', pos: routePoints(map, [[0.35, 0.8]])[0] },
+    { name: 'VALLEY DEPOT', pos: routePoints(map, [[0.32, 0.78]])[0] },
   ];
   const zones: Array<[string, number, number, 0 | 1 | null]> = [
     ['west-shelf', 0.16, 0.32, 0], ['east-shelf', 0.84, 0.68, 1],

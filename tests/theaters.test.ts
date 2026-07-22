@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { THEATER_DEFS, generateTheater } from '../src/sim/theaters';
 import { deepWaterConnected, heavyVehicleRouteCount, routesConnectBases, validateTheater } from '../src/sim/theater-builder';
-import { deserializeDoc, serializeDoc } from '../src/sim/mapedit';
+import { deserializeDoc, serializeDoc, validateDoc } from '../src/sim/mapedit';
 import { Rng } from '../src/sim/rng';
 import { T_DEEP, T_WATER } from '../src/sim/map';
 
@@ -135,6 +135,17 @@ describe('vehicle theater catalog and base builder', () => {
   it('validates all theater families over the deterministic seed matrix', () => {
     for (const id of Object.keys(THEATER_DEFS) as Array<keyof typeof THEATER_DEFS>) {
       for (const seed of seeds) expect(validateTheater(generateTheater(id, seed)).issues, `${id} seed ${seed}`).toEqual([]);
+    }
+  });
+
+  it('passes the Map Maker six-law audit over the deterministic seed matrix', () => {
+    for (const id of Object.keys(THEATER_DEFS) as Array<keyof typeof THEATER_DEFS>) {
+      for (const seed of seeds) {
+        const map = generateTheater(id, seed);
+        const doc = { frontId: null, size: 'large' as const, seed, mode: 'tdm', map, claims: [], rng: new Rng(seed), undoStack: [], redoStack: [] };
+        const report = validateDoc(doc);
+        expect(report.ok, `${id} seed ${seed}: ${report.issues.map((issue) => `${issue.law} ${issue.detail}`).join(' · ')}`).toBe(true);
+      }
     }
   });
 

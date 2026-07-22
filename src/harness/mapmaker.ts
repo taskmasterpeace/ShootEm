@@ -46,7 +46,11 @@ const PROP_COLORS: Record<string, string> = {
   bunker: '#4a4640', clone_bay: '#3cbde8',
 };
 const PROP_KINDS: PropSpec['type'][] = ['rock', 'tree', 'crate', 'wreck', 'silo', 'flare_stack', 'crane', 'memorial', 'bunker', 'clone_bay'];
-const PAD_KINDS: VehicleKind[] = ['tank', 'apc', 'buggy', 'bike', 'skiff', 'flyer', 'transport', 'ambulance', 'tunneler', 'mech', 'boat', 'emplacement'];
+const PAD_KINDS: VehicleKind[] = [
+  'tank', 'apc', 'buggy', 'bike', 'skiff', 'flyer', 'attackheli', 'transportheli',
+  'strikejet', 'interceptor', 'bomber', 'aatrack', 'transport', 'ambulance',
+  'tunneler', 'mech', 'boat', 'submarine', 'emplacement',
+];
 const PICKUP_KINDS: PickupSpawn['type'][] = ['medkit', 'ammo', 'energy', 'flamer'];
 
 type Tool =

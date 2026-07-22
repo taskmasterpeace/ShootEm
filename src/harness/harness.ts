@@ -692,7 +692,11 @@ for (const { id, team } of LSW_STABLE) {
 
 // vehicles + structures — the full motor pool
 const vehGrid = $('veh-grid');
-const VEH_KINDS = ['buggy', 'tank', 'apc', 'skiff', 'hoverboard', 'bike', 'flyer', 'transport', 'ambulance', 'tunneler', 'emplacement', 'mech'] as const;
+const VEH_KINDS = [
+  'buggy', 'tank', 'apc', 'skiff', 'hoverboard', 'bike', 'flyer',
+  'attackheli', 'transportheli', 'strikejet', 'interceptor', 'bomber', 'aatrack',
+  'transport', 'ambulance', 'tunneler', 'emplacement', 'mech', 'boat', 'submarine',
+] as const;
 for (const v of VEH_KINDS) vehGrid.appendChild(chip(v, '', () => showModel(() => buildVehicle(v, team), `Vehicle · ${v}`)));
 const structGrid = $('struct-grid');
 structGrid.appendChild(chip('turret', '', () => showModel(() => buildTurretMesh(team), 'Sentry turret')));
