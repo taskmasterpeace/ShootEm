@@ -1,7 +1,7 @@
 import type { GameMap, GeospatialDecor, GeospatialMapMeta } from '../map';
 import { geometryLength, validateGeometry, type MapGeometry } from '../map-geometry';
 import type { ThemeId } from '../types';
-import type { GeoAttribution, GeoSliceSource } from './types';
+import type { GeoAttribution, GeoSliceSource, SemanticDistrict } from './types';
 
 /** Compact JSON-safe run stream: alternating byte value and positive count. */
 export type ByteRuns = number[];
@@ -59,6 +59,15 @@ export interface GeoMapArtifactV1 {
     overlay: GameplayOverlayChange[];
   };
 }
+
+export interface GeoMapArtifactV2 extends Omit<GeoMapArtifactV1, 'schemaVersion' | 'geography'> {
+  schemaVersion: 2;
+  geography: GeoMapArtifactV1['geography'] & {
+    district: SemanticDistrict;
+  };
+}
+
+export type GeoMapArtifact = GeoMapArtifactV1 | GeoMapArtifactV2;
 
 export function encodeByteRuns(bytes: Uint8Array): ByteRuns {
   const runs: number[] = [];
@@ -119,7 +128,7 @@ export function artifactFromMap(
     source: GeoSliceSource;
     overlay?: GameplayOverlayChange[];
   },
-): GeoMapArtifactV1 {
+): GeoMapArtifact {
   const length = geometryLength(map.geometry);
   validateGeometry(
     map.geometry,
@@ -132,7 +141,8 @@ export function artifactFromMap(
   );
   const height = map.height ?? new Uint8Array(length);
   const ramp = map.ramp ?? new Uint8Array(length);
-  return {
+  const district = map.geospatial?.district;
+  const artifact: GeoMapArtifactV1 = {
     schemaVersion: 1,
     geography: {
       geometry: { ...map.geometry },
@@ -162,10 +172,19 @@ export function artifactFromMap(
       overlay: structuredClone(options.overlay ?? []),
     },
   };
+  if (!district) return artifact;
+  return {
+    ...artifact,
+    schemaVersion: 2,
+    geography: {
+      ...artifact.geography,
+      district: structuredClone(district),
+    },
+  };
 }
 
-export function mapFromArtifact(artifact: GeoMapArtifactV1): GameMap {
-  if (artifact.schemaVersion !== 1) {
+export function mapFromArtifact(artifact: GeoMapArtifact): GameMap {
+  if (artifact.schemaVersion !== 1 && artifact.schemaVersion !== 2) {
     throw new Error(`unsupported geospatial artifact version ${(artifact as { schemaVersion?: number }).schemaVersion}`);
   }
   if (!artifact.geography.attribution.length) throw new Error('geospatial artifact attribution is required');
@@ -185,6 +204,7 @@ export function mapFromArtifact(artifact: GeoMapArtifactV1): GameMap {
     classification,
     buildingHeight: decodeByteRuns(presentation.buildingHeight, length),
     decor: structuredClone(presentation.decor),
+    ...(artifact.schemaVersion === 2 ? { district: structuredClone(artifact.geography.district) } : {}),
   } : undefined;
   const upperLayers = artifact.gameplay.upperLayers.map((layer) => decodeByteRuns(layer, length));
   if (upperLayers.length) upperLayers[0] = grid2;

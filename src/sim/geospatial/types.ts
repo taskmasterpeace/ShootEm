@@ -19,6 +19,17 @@ export interface GeoRoad {
   tunnel: boolean;
 }
 
+export type DistrictProfileId = 'miami-gardens' | 'lower-manhattan' | 'tarboro';
+export type InteriorPolicy = 'embedded' | 'instanced' | 'sealed';
+export type SemanticConfidence = 'surveyed' | 'high' | 'medium' | 'low';
+export type EvidenceSource = 'osm' | 'overture' | 'nsi' | 'usgs' | 'inferred';
+
+export interface AttributeEvidence<T> {
+  value: T;
+  source: EvidenceSource;
+  confidence: SemanticConfidence;
+}
+
 export interface GeoBuilding {
   id: string;
   polygon: LonLat[];
@@ -85,4 +96,100 @@ export interface ProjectedGeoSlice {
   buildings: ProjectedGeoBuilding[];
   water: ProjectedGeoPolygonFeature[];
   land: ProjectedGeoPolygonFeature[];
+}
+
+export interface SemanticRoad {
+  id: string;
+  sourceRoadId: string;
+  roadClass: string;
+  kind: 'carriageway' | 'service' | 'driveway' | 'path';
+  width: number;
+  centerline: LocalPoint[];
+  connectorIds: string[];
+  cells: number[];
+}
+
+export interface SemanticBlock {
+  id: string;
+  polygon: LocalPoint[];
+  cells: number[];
+  area: number;
+  buildingIds: string[];
+  lotIds: string[];
+}
+
+export interface SemanticLot {
+  id: string;
+  blockId: string;
+  polygon: LocalPoint[];
+  cells: number[];
+  buildingIds: string[];
+  frontageRoadId?: string;
+  frontage: LocalPoint[];
+  setback: number;
+  yardDepth: number;
+  parking: boolean;
+}
+
+export interface SemanticEntrance {
+  id: string;
+  buildingId: string;
+  position: LocalPoint;
+  facing: number;
+  /** Tile indices forming the walkable route from the door to the pedestrian network. */
+  pedestrianConnector: number[];
+}
+
+export type SemanticRoof = 'flat' | 'gable' | 'hip' | 'mansard' | 'mixed';
+export type SemanticFacade =
+  | 'detached'
+  | 'porch'
+  | 'storefront'
+  | 'street-wall'
+  | 'podium-tower'
+  | 'industrial';
+
+export interface SemanticBuilding {
+  id: string;
+  footprint: LocalPoint[];
+  blockId: string;
+  lotId: string;
+  use: AttributeEvidence<string>;
+  floors: AttributeEvidence<number>;
+  height: AttributeEvidence<number>;
+  archetype: string;
+  roof: SemanticRoof;
+  facade: SemanticFacade;
+  entrances: SemanticEntrance[];
+  interiorPolicy: InteriorPolicy;
+}
+
+export interface DistrictDiagnostics {
+  sourceBuildingCount: number;
+  retainedBuildingCount: number;
+  footprintRetention: number;
+  unexplainedRoadOverlaps: string[];
+  disconnectedEntrances: string[];
+  disconnectedEmbeddedInteriors: string[];
+  vehicleAnchorsConnected: boolean;
+  walkableIslands: number[][];
+  removedBuildings: Array<{ id: string; reason: string }>;
+  warnings: string[];
+}
+
+export interface SemanticDistrict {
+  schemaVersion: 2;
+  id: string;
+  name: string;
+  profile: DistrictProfileId;
+  source: GeoSliceSource;
+  roads: SemanticRoad[];
+  blocks: SemanticBlock[];
+  lots: SemanticLot[];
+  buildings: SemanticBuilding[];
+  land: ProjectedGeoPolygonFeature[];
+  water: ProjectedGeoPolygonFeature[];
+  elevation: GeoElevationGrid;
+  diagnostics: DistrictDiagnostics;
+  attribution: GeoAttribution[];
 }

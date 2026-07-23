@@ -7,6 +7,7 @@ import { THEMES } from './data';
 import type { ModeId, RaceTrack, Team, ThemeId, Vec3, VehicleKind } from './types';
 import type { OperationPhaseKind, OperationScale, OperationSiteId } from './operations';
 import type { TheaterMetadata } from './theater-types';
+import type { SemanticDistrict } from './geospatial/types';
 import {
   LEGACY_GEOMETRY,
   inBounds as geometryInBounds,
@@ -261,10 +262,12 @@ export interface GeospatialDecor {
 export interface GeospatialMapMeta {
   sourceId: string;
   cityId: string;
-  style: 'default' | 'miami-gardens';
+  style: 'default' | 'miami-gardens' | 'lower-manhattan' | 'tarboro';
   classification: Uint8Array;
   buildingHeight: Uint8Array;
   decor: GeospatialDecor[];
+  /** Versioned real-city street, block, lot, building, and access graph. */
+  district?: SemanticDistrict;
 }
 
 export interface GameMap {

@@ -30,9 +30,9 @@
 - Create: `tests/geospatial-semantic-types.test.ts`
 - Modify: `tests/geospatial-artifact.test.ts`
 
-- [ ] Write a failing codec test that constructs a minimal v2 district with one connected road, block, lot, building, and entrance; round-trips it through the artifact; and verifies all semantic fields survive.
-- [ ] Write a failing compatibility test proving the current v1 Miami artifact still hydrates.
-- [ ] Add the core source and derived types:
+- [x] Write a failing codec test that constructs a minimal v2 district with one connected road, block, lot, building, and entrance; round-trips it through the artifact; and verifies all semantic fields survive.
+- [x] Write a failing compatibility test proving the current v1 Miami artifact still hydrates.
+- [x] Add the core source and derived types:
 
 ```ts
 export type DistrictProfileId = 'miami-gardens' | 'lower-manhattan' | 'tarboro';
@@ -83,10 +83,10 @@ export interface SemanticDistrict {
 }
 ```
 
-- [ ] Extend `GeospatialMapMeta` with `district?: SemanticDistrict`, add the two new style values, and keep old fields for v1 hydration.
-- [ ] Define `GeoMapArtifactV2` with semantic district data and make `mapFromArtifact` accept `GeoMapArtifactV1 | GeoMapArtifactV2`.
-- [ ] Run `npx vitest run tests/geospatial-semantic-types.test.ts tests/geospatial-artifact.test.ts`.
-- [ ] Commit: `feat: add semantic district artifact schema`
+- [x] Extend `GeospatialMapMeta` with `district?: SemanticDistrict`, add the two new style values, and keep old fields for v1 hydration.
+- [x] Define `GeoMapArtifactV2` with semantic district data and make `mapFromArtifact` accept `GeoMapArtifactV1 | GeoMapArtifactV2`.
+- [x] Run `npx vitest run tests/geospatial-semantic-types.test.ts tests/geospatial-artifact.test.ts`.
+- [x] Commit: `feat: add semantic district artifact schema`
 
 ## Task 2: Capture rich source tags and optional NSI enrichment
 
@@ -356,4 +356,3 @@ if (district.diagnostics.walkableIslands.length) throw new Error('inaccessible w
 - [ ] Audit the approved design line by line and record evidence for: three equal slices; recognizable interconnected road/block organization; building retention; profile-specific lots/massing; complete exteriors; 6–12 embedded interiors; explicit policy and reachable entrance for every retained building; vehicle/pedestrian/mission connectivity; offline runtime; attribution; performance; screenshots.
 - [ ] Check `git status --short`, ensure unrelated pre-existing edits remain unstaged, and commit only the verification report or necessary final fixes by exact path.
 - [ ] Report completion only after every hard requirement has evidence and all four gates pass.
-
