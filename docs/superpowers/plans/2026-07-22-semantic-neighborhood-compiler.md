@@ -142,8 +142,8 @@ export interface NsiBuildingRecord {
 - Create: `tests/geospatial-street-network.test.ts`
 - Modify: `src/sim/geospatial/compiler.ts`
 
-- [ ] Write failing tests for snapped endpoints, crossing connectors, road-class width resolution, intersection unions, sidewalks, driveways/service roads, and deterministic connected-component IDs.
-- [ ] Define the network output:
+- [x] Write failing tests for snapped endpoints, crossing connectors, road-class width resolution, intersection unions, sidewalks, driveways/service roads, and deterministic connected-component IDs.
+- [x] Define the network output:
 
 ```ts
 export interface StreetNetwork {
@@ -165,12 +165,12 @@ export interface StreetNetwork {
 }
 ```
 
-- [ ] Implement endpoint snapping at a scale derived from `geometry.tile`; split polylines at geometric crossings; do not connect bridge/tunnel grade separations.
-- [ ] Resolve effective width in priority order: explicit width, lanes, profile/class defaults.
-- [ ] Rasterize carriageways and service access independently; union intersection discs; derive sidewalks from outer road bands instead of painting every road cell alike.
-- [ ] Replace compiler-local `ROAD_WIDTHS`/`largestConnectedRoad` ownership with the new module.
-- [ ] Run `npx vitest run tests/geospatial-street-network.test.ts tests/geospatial-compiler.test.ts`.
-- [ ] Commit: `feat: compile connected complete streets`
+- [x] Implement endpoint snapping at a scale derived from `geometry.tile`; split polylines at geometric crossings; do not connect bridge/tunnel grade separations.
+- [x] Resolve effective width in priority order: explicit width, lanes, profile/class defaults.
+- [x] Rasterize carriageways and service access independently; union intersection discs; derive sidewalks from outer road bands instead of painting every road cell alike.
+- [x] Replace compiler-local `ROAD_WIDTHS`/`largestConnectedRoad` ownership with the new module.
+- [x] Run `npx vitest run tests/geospatial-street-network.test.ts tests/geospatial-compiler.test.ts`.
+- [x] Commit: `feat: compile connected complete streets`
 
 ## Task 4: Derive interlocking blocks, lots, frontage, and entrances
 

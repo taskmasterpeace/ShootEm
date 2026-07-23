@@ -29,6 +29,7 @@ import type { TheaterDef } from '../theater-types';
 import type { GameplayOverlayChange } from './artifact';
 import { dominantRoadAngle, projectSlice, rasterLine, rasterPolygon } from './geometry';
 import { compileTerrain } from './terrain';
+import { buildStreetNetwork } from './street-network';
 import type { GeoBuilding, GeoSliceSource, ProjectedGeoBuilding, ProjectedGeoSlice } from './types';
 
 export const GEO_CLASS_EMPTY = 0;
@@ -58,50 +59,10 @@ export interface CompiledGeospatialMap {
     playableBuildings: number;
     backgroundBuildings: number;
     roadCells: number;
+    streetConnectors: number;
+    streetSegments: number;
+    sidewalkCells: number;
   };
-}
-
-const ROAD_WIDTHS: Record<string, number> = {
-  motorway: 18,
-  trunk: 15,
-  primary: 12,
-  secondary: 10,
-  tertiary: 8,
-  residential: 6,
-  unclassified: 6,
-  living_street: 6,
-  service: 3,
-  track: 3,
-  path: 3,
-  footway: 3,
-  cycleway: 3,
-};
-
-const roadWidth = (roadClass: string, hint?: number): number =>
-  hint && hint > 0 ? hint : ROAD_WIDTHS[roadClass] ?? 3;
-
-function largestConnectedRoad(cells: ReadonlySet<number>, geometry: MapGeometry): number[] {
-  const remaining = new Set(cells);
-  let largest: number[] = [];
-  while (remaining.size) {
-    const start = remaining.values().next().value as number;
-    remaining.delete(start);
-    const component = [start];
-    for (let cursor = 0; cursor < component.length; cursor++) {
-      const index = component[cursor];
-      const x = index % geometry.cols;
-      const z = Math.floor(index / geometry.cols);
-      for (const [dx, dz] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) {
-        const nx = x + dx;
-        const nz = z + dz;
-        if (!inBounds(geometry, nx, nz)) continue;
-        const neighbor = tileIndex(geometry, nx, nz);
-        if (remaining.delete(neighbor)) component.push(neighbor);
-      }
-    }
-    if (component.length > largest.length) largest = component;
-  }
-  return largest;
 }
 
 function pathWithin(component: readonly number[], start: number, target: number, geometry: MapGeometry): number[] {
@@ -526,10 +487,15 @@ export function compileGeospatialMap(
     map.surface[index] = S_MUD;
   }
 
-  const roadCells = new Set<number>();
-  for (const road of projected.roads) {
-    if (road.tunnel) continue;
-    for (const index of rasterLine(road.points, roadWidth(road.roadClass, road.width), geometry)) {
+  const streetNetwork = buildStreetNetwork(projected.roads.filter((road) => !road.tunnel), geometry);
+  const roadCells = streetNetwork.carriagewayCells;
+  for (const index of roadCells) {
+    classification[index] = GEO_CLASS_ROAD;
+    map.grid[index] = T_OPEN;
+    map.surface[index] = S_PLATE;
+  }
+  for (const index of streetNetwork.pedestrianCells) {
+    if (!roadCells.has(index)) {
       roadCells.add(index);
       classification[index] = GEO_CLASS_ROAD;
       map.grid[index] = T_OPEN;
@@ -537,7 +503,7 @@ export function compileGeospatialMap(
     }
   }
 
-  const component = largestConnectedRoad(roadCells, geometry);
+  const component = streetNetwork.vehicleComponents[0] ?? [];
   if (component.length < Math.max(8, Math.floor(geometry.cols / 4))) {
     throw new Error(`geospatial source has no usable connected road component (${component.length} cells)`);
   }
@@ -656,6 +622,9 @@ export function compileGeospatialMap(
       playableBuildings,
       backgroundBuildings: Math.max(0, source.buildings.length - playableBuildings),
       roadCells: roadCells.size,
+      streetConnectors: streetNetwork.connectors.length,
+      streetSegments: streetNetwork.segments.length,
+      sidewalkCells: streetNetwork.sidewalkCells.size,
     },
   };
 }

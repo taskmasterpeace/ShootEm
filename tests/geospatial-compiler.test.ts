@@ -124,6 +124,9 @@ describe('geospatial map compiler', () => {
     expect(first.classification).toContain(3);
     expect(first.map.houses.length).toBeGreaterThanOrEqual(1);
     expect(first.overlay.some((change) => change.reason === 'mission_anchor')).toBe(true);
+    expect(first.diagnostics.streetConnectors).toBeGreaterThanOrEqual(5);
+    expect(first.diagnostics.streetSegments).toBeGreaterThanOrEqual(4);
+    expect(first.diagnostics.sidewalkCells).toBeGreaterThan(0);
 
     const toIndex = (position: { x: number; z: number }) => {
       const x = Math.floor((position.x + options.geometry.cols * options.geometry.tile / 2) / options.geometry.tile);
