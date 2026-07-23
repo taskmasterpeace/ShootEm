@@ -13,6 +13,12 @@ the LCD). Everything below is tuned for it.
 
 ---
 
+## DOWNLOAD IT
+
+**https://github.com/taskmasterpeace/ShootEm/releases/tag/v0.1.0-deck**
+
+One file, 117 MB, portable. Grab it from the phone, the Deck, anywhere.
+
 ## TL;DR — the fastest way to play it today
 
 1. On your PC: `npm run dist:win`
@@ -117,6 +123,11 @@ be built on Windows** — the tooling is Linux-only. Three ways round it:
 | **LB** / **RB** | previous / next app — walks the GONET's tabs |
 | **LT** / **RT** | scroll |
 | **☰ (Start)** | the screen's primary action — usually DEPLOY |
+
+**IN A MATCH, ☰ (Start) PAUSES** — and the pause screen is pad-navigable, so
+RESUME and **ABANDON MATCH** are both reachable with the stick and A. Without
+that you would be stuck in a match forever with no keyboard to escape with,
+which is exactly what the first controller run found.
 
 A hint bar sits at the bottom of every menu saying exactly this, and it
 disappears the moment a match starts.
