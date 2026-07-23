@@ -14,7 +14,7 @@ import { audio, type SoundName } from './audio';
 import { ClassVo } from './classvo';
 import { BIOME_AUDIO } from './soundscape';
 import { settings } from './settings';
-import { buildLaser, buildReticleShadow, buildStandingReticle, isStandingReticle, rangeState } from './reticle';
+import { buildLaser, buildRedDot, buildReticleShadow, buildStandingReticle, isStandingReticle, rangeState } from './reticle';
 import { darknessFloor, setDarknessFrame, sweepDarkness } from './darkness';
 import { Particles, FlashLights, Fireballs } from './effects';
 import { JOINT_NAMES, isUndead, poseSoldierJoints, CAST_SCHOOL, FLIGHT_POSES, RECOIL_SCALE, stepYawSpring, throwArmCurve, WEAPON_HOLDS, type GaitState, type CastSchool } from './animation';
@@ -287,6 +287,7 @@ export class Renderer {
   private reticleKey = '';
   /** THE PERSONAL LASER (Robert): a green beam on YOUR gun only. */
   private laserBeam: THREE.Group | null = null;
+  private redDot: THREE.Sprite | null = null; // #87: the gradient dot on the target
   private tmpDir = new THREE.Vector3(); // scratch for the camera look direction
   private spinners: THREE.Object3D[] = [];
   private beams: { mesh: THREE.Mesh; until: number }[] = [];
@@ -1733,6 +1734,23 @@ export class Renderer {
       if (this.standingReticle) this.standingReticle.visible = false;
       if (this.reticleShadow) this.reticleShadow.visible = false;
     }
+    // --- #87 THE RED DOT: a soft gradient dot ON the target — the aim line's
+    // first blocker wears it; nothing is drawn in between. Rides the same
+    // march the laser uses; depthTest off so it marks bodies, not walls-only.
+    if (local && style === 'reddot') {
+      if (!this.redDot) { this.redDot = buildRedDot(); this.scene.add(this.redDot); }
+      this.redDot.visible = true;
+      const cx = Math.cos(local.yaw), cz = Math.sin(local.yaw);
+      const mx = local.pos.x + cx * 0.5, mz = local.pos.z + cz * 0.5, my = 1.3;
+      const maxLen = Math.min(50, wdef?.range ?? 40);
+      let len = maxLen;
+      for (let d = 1; d <= maxLen; d += 0.5) {
+        if (blocksShot(world.map.grid, mx + cx * d, mz + cz * d, my)) { len = d; break; }
+      }
+      this.redDot.position.set(mx + cx * len, my, mz + cz * len);
+      this.redDot.scale.setScalar(0.45 + settings.reticleScale * 0.25);
+      rangeState.len = len; // the dot measures too (#79 chip reads it)
+    } else if (this.redDot) this.redDot.visible = false;
     // --- THE PERSONAL LASER (Robert: green beam, YOUR gun only) — a separate
     // toggle from the reticle. It marches the aim line to the first wall (capped
     // at the weapon's reach) so it doesn't punch through the world. Rendered only
@@ -1754,6 +1772,13 @@ export class Renderer {
       const dot = this.part(this.laserBeam, 'dot');
       if (dot) dot.position.x = len;
       rangeState.len = len; // #79: the measured read the HUD prints
+      // #87 the laser pass (Robert): dimmer in daylight, alive at night —
+      // it is TARGETING, not a beam show. Night is when it should read.
+      const nightK = world.weather.kind === 'night' ? Math.min(1, world.weather.intensity) : 0;
+      const beamMat = (beam as THREE.Mesh | null)?.material as THREE.MeshBasicMaterial | undefined;
+      if (beamMat) beamMat.opacity = 0.22 + 0.38 * nightK;
+      const dotMat = (dot as THREE.Mesh | null)?.material as THREE.MeshBasicMaterial | undefined;
+      if (dotMat) dotMat.opacity = 0.7 + 0.3 * nightK;
     } else {
       if (this.laserBeam) this.laserBeam.visible = false;
       rangeState.len = -1;

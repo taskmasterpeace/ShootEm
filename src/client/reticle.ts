@@ -82,7 +82,27 @@ export function buildReticleShadow(): THREE.Mesh {
 
 /** GROUND styles lie flat; STANDING styles rise on the vertical plane. */
 export function isStandingReticle(style: ReticleStyle): boolean {
-  return style !== 'wedge' && style !== 'circle';
+  return style !== 'wedge' && style !== 'circle' && style !== 'reddot';
+}
+
+/** #87 THE RED DOT (Robert: 'just a dot that appears — you don't see anything
+ *  in between... a little gradient around it'). A camera-facing sprite placed
+ *  at the aim line's first blocker; depthTest OFF so it marks the TARGET. */
+export function buildRedDot(): THREE.Sprite {
+  const cvs = document.createElement('canvas');
+  cvs.width = cvs.height = 64;
+  const ctx = cvs.getContext('2d')!;
+  const grad = ctx.createRadialGradient(32, 32, 2, 32, 32, 30);
+  grad.addColorStop(0, 'rgba(255,59,48,1)');
+  grad.addColorStop(0.35, 'rgba(255,59,48,0.55)');
+  grad.addColorStop(1, 'rgba(255,59,48,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(cvs);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }));
+  s.renderOrder = 999;
+  s.scale.setScalar(0.55);
+  return s;
 }
 
 /** THE PERSONAL LASER (Robert: "put a little green laser on it… just for your

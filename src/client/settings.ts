@@ -35,7 +35,8 @@ export type ReticleStyle =
   | 'cross'       // STANDING: a thin + with a center gap
   | 'chevron'     // STANDING: a V pointing up (the battle-sight)
   | 'brackets'    // STANDING: four corner brackets around the point
-  | 'ringdot';    // STANDING: a ring with a center dot
+  | 'ringdot'     // STANDING: a ring with a center dot
+  | 'reddot';     // #87 (Robert): a soft gradient dot ON the target — nothing drawn between
 
 export interface Settings {
   masterVolume: number;   // 0..1
@@ -107,7 +108,7 @@ export const settings: Settings = {
   padEnabled: true, padDeadzone: 0.18, padSensitivity: 1, padInvertY: false,
 };
 
-const RETICLE_STYLES: ReticleStyle[] = ['auto', 'wedge', 'circle', 'crosshair', 'dot', 'cross', 'chevron', 'brackets', 'ringdot'];
+const RETICLE_STYLES: ReticleStyle[] = ['auto', 'wedge', 'circle', 'crosshair', 'dot', 'cross', 'chevron', 'brackets', 'ringdot', 'reddot'];
 
 const clampSpeed = (v: number) => Math.max(0.25, Math.min(2, v));
 
