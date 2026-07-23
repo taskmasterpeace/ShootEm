@@ -15,6 +15,9 @@ import { ClassVo } from './classvo';
 import { BIOME_AUDIO } from './soundscape';
 import { settings } from './settings';
 import { buildLaser, buildRedDot, buildReticleShadow, buildStandingReticle, isStandingReticle, rangeState } from './reticle';
+import { buildWeaponModel } from './models/weapons';
+import { SHOP_STATIONS, VANESSA_POS } from './vanessas-place';
+import { STOCK } from './vanessas-stock';
 import { darknessFloor, setDarknessFrame, sweepDarkness } from './darkness';
 import { Particles, FlashLights, Fireballs } from './effects';
 import { JOINT_NAMES, isUndead, poseSoldierJoints, CAST_SCHOOL, FLIGHT_POSES, RECOIL_SCALE, stepYawSpring, throwArmCurve, WEAPON_HOLDS, type GaitState, type CastSchool, type Joints } from './animation';
@@ -291,6 +294,7 @@ export class Renderer {
   private redDot: THREE.Sprite | null = null; // #87: the gradient dot on the target
   private tmpDir = new THREE.Vector3(); // scratch for the camera look direction
   private spinners: THREE.Object3D[] = [];
+  private shopSpin: THREE.Group[] = []; // Vanessa's booth markers turning on their stands
   private beams: { mesh: THREE.Mesh; until: number }[] = [];
   /** §BEAMS row 188: live HELD streams, one per pouring soldier — a unit
    *  cylinder stretched muzzle→impact every frame while beamingUntil holds. */
@@ -960,6 +964,113 @@ export class Renderer {
    *  masonry for full-height sup'air towers, and the whole arena is wrapped
    *  in tournament netting on poles. Every shape sits exactly on the tile
    *  that already blocks — no new footprint math, no invisible walls. */
+  /** VANESSA'S — the shop wardrobe (#122): counter, sign, booth stands with
+   *  the real marker models turning, splats on the walls, a door frame where
+   *  you came in. Vanessa herself is a sim soldier — she renders for free. */
+  private dressVanessasShop() {
+    const mat = (color: number, o: { rough?: number; metal?: number; emissive?: number } = {}) =>
+      new THREE.MeshStandardMaterial({
+        color, roughness: o.rough ?? 0.75, metalness: o.metal ?? 0.1,
+        emissive: o.emissive ?? 0x000000, emissiveIntensity: o.emissive ? 0.7 : 0,
+      });
+    const canvasTex = (w: number, h: number, draw: (ctx: CanvasRenderingContext2D) => void) => {
+      const cvs = document.createElement('canvas');
+      cvs.width = w; cvs.height = h;
+      draw(cvs.getContext('2d')!);
+      return new THREE.CanvasTexture(cvs);
+    };
+    // THE COUNTER — Vanessa's office. Sized to SWALLOW the T_COVER crates
+    // underneath (the sim owns the blocking; the dress owns the look)
+    const counter = new THREE.Mesh(new THREE.BoxGeometry(10.4, 1.32, 3.3), mat(0x3a2f22, { rough: 0.6 }));
+    counter.position.set(VANESSA_POS.x, 0.66, VANESSA_POS.z + 3.0);
+    counter.castShadow = true; counter.receiveShadow = true;
+    this.scene.add(counter);
+    const counterTop = new THREE.Mesh(new THREE.BoxGeometry(10.8, 0.08, 3.6), mat(0x4a3d2c, { rough: 0.4, metal: 0.2 }));
+    counterTop.position.set(VANESSA_POS.x, 1.36, VANESSA_POS.z + 3.0);
+    this.scene.add(counterTop);
+    // THE SIGN — hand-painted board on the north wall
+    const signTex = canvasTex(1024, 256, (ctx) => {
+      ctx.fillStyle = '#191611'; ctx.fillRect(0, 0, 1024, 256);
+      ctx.strokeStyle = '#e8632c'; ctx.lineWidth = 10; ctx.strokeRect(14, 14, 996, 228);
+      ctx.font = '700 108px "Courier New", monospace'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#e8632c'; ctx.fillText("VANESSA'S", 512, 118);
+      ctx.font = '700 62px "Courier New", monospace'; ctx.fillStyle = '#e8a33d';
+      ctx.fillText('PAINTBALL', 512, 204);
+    });
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(7.2, 1.8), new THREE.MeshBasicMaterial({ map: signTex }));
+    sign.position.set(VANESSA_POS.x, 3.3, VANESSA_POS.z - 1.35);
+    this.scene.add(sign);
+    // splat painter — deterministic petals, one shade per booth
+    const splat = (color: number) => {
+      const c = `#${color.toString(16).padStart(6, '0')}`;
+      return canvasTex(256, 256, (ctx) => {
+        ctx.fillStyle = c; ctx.beginPath();
+        for (let a = 0; a < 12; a++) {
+          const ang = (a / 12) * Math.PI * 2;
+          const r = 58 + 30 * Math.abs(Math.sin(a * 2.7 + (color % 7)));
+          ctx.ellipse(128 + Math.cos(ang) * 18, 128 + Math.sin(ang) * 18, r, r * 0.82, ang, 0, Math.PI * 2);
+        }
+        ctx.fill();
+        for (let d = 0; d < 7; d++) {
+          const ang = (d / 7) * Math.PI * 2 + 0.4;
+          const dist = 92 + 22 * ((d * 37 + color) % 5);
+          ctx.beginPath();
+          ctx.arc(128 + Math.cos(ang) * dist, 128 + Math.sin(ang) * dist, 7 + ((d * 13) % 9), 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+    };
+    // THE BOOTHS — stand, stripe, the real marker turning, a lamp in its paint
+    for (const st of SHOP_STATIONS) {
+      if (!st.marker) continue;
+      const stock = STOCK.find((s) => s.id === st.marker);
+      if (!stock) continue;
+      // a display TABLE the size of its sim tile — swallows the cover crate
+      const block = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.28, 3.2), mat(0x2c2820, { rough: 0.8 }));
+      block.position.set(st.pos.x, 0.64, st.pos.z);
+      block.castShadow = true; block.receiveShadow = true;
+      this.scene.add(block);
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(3.28, 0.14, 3.28), mat(stock.paint, { emissive: stock.paint, rough: 0.5 }));
+      stripe.position.set(st.pos.x, 1.22, st.pos.z);
+      this.scene.add(stripe);
+      const marker = buildWeaponModel(stock.id);
+      marker.position.set(st.pos.x, 1.75, st.pos.z);
+      marker.castShadow = true;
+      this.scene.add(marker);
+      this.shopSpin.push(marker);
+      const lamp = new THREE.PointLight(stock.paint, 0.6, 7);
+      lamp.position.set(st.pos.x, 3.2, st.pos.z);
+      this.scene.add(lamp);
+      // the wall behind each booth wears its splat
+      const westSide = st.pos.x < VANESSA_POS.x;
+      const sp = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.6, 2.6),
+        new THREE.MeshBasicMaterial({ map: splat(stock.paint), transparent: true, opacity: 0.85 }),
+      );
+      sp.position.set(westSide ? st.pos.x - 4.4 : st.pos.x + 4.4, 2.0, st.pos.z);
+      sp.rotation.y = westSide ? Math.PI / 2 : -Math.PI / 2;
+      this.scene.add(sp);
+    }
+    // THE DOOR FRAME — the entrance you appeared at (south wall, inner face)
+    const exit = SHOP_STATIONS.find((s) => s.id === 'exit');
+    if (exit) {
+      const frameMat = mat(0x4a3d2c, { rough: 0.5 });
+      for (const dx of [-1.6, 1.6]) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.35, 3.4, 0.35), frameMat);
+        post.position.set(exit.pos.x + dx, 1.7, exit.pos.z + 1.4);
+        post.castShadow = true;
+        this.scene.add(post);
+      }
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(3.9, 0.4, 0.4), frameMat);
+      lintel.position.set(exit.pos.x, 3.5, exit.pos.z + 1.4);
+      this.scene.add(lintel);
+    }
+    // warm house light over the floor
+    const house = new THREE.PointLight(0xffe2b8, 0.8, 30);
+    house.position.set(VANESSA_POS.x, 6, VANESSA_POS.z + 8);
+    this.scene.add(house);
+  }
+
   private dressPaintballYard(world: World, coverTiles: [number, number][], wallTiles: [number, number][]) {
     const geometry = world.map.geometry;
     const { cols, rows } = geometry;
@@ -1482,6 +1593,12 @@ export class Renderer {
     // sup'air towers, and the arena gets its perimeter netting. Sim untouched.
     if (world.mode.id === 'paintball') {
       this.dressPaintballYard(world, coverTiles, wallTiles);
+    }
+
+    // VANESSA'S — THE PLACE (#122): the sealed room gets its shop wardrobe.
+    // Same law as the yard: the sim grid is untouched, the dress is client-only.
+    if (world.mode.id === 'shop') {
+      this.dressVanessasShop();
     }
 
     // §8.4 firing slits: two stacked boxes with a gap at 1.2–1.8 — the
@@ -4226,6 +4343,11 @@ export class Renderer {
         this.sunLight.target.position.set(fx, 0, fz);
         this.sunLight.target.updateMatrixWorld();
       }
+    }
+    // the shop's markers turn on their stands, each on its own beat
+    for (const [i, m] of this.shopSpin.entries()) {
+      m.rotation.y = world.time * 0.55 + i * 1.7;
+      m.position.y = 1.75 + Math.sin(world.time * 1.4 + i) * 0.04;
     }
     this.particles.update(dt);
     this.flashes.update(world.time, dt);

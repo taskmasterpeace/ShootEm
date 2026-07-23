@@ -1756,3 +1756,58 @@ kbd.key + kbd.key { margin-left: 0.15rem; }
 .cx-rv-card { background: none; border: none; color: #93a0b0; font: inherit; font-size: 0.64rem;
   letter-spacing: 0.06em; cursor: pointer; padding: 0; text-align: left; }
 .cx-rv-card:hover { color: #e8a33d; } /* the print card IS the drill-down into who's talking */
+
+/* ── THE PLACE (#122) + THE CONVERSATION (#124) ───────────────────────────
+   A place strips the war HUD to what a shop needs; a conversation is a COMIC
+   PANEL — bone bubble, ink border, offset shadow, letterer type. Robert's
+   order: "I wanna use that comic book fonts, though." No purple, ever. */
+#hud.place #hud-bottom-left, #hud.place #hud-bottom-right,
+#hud.place #k9-controls, #hud.place #status-strip, #hud.place #killfeed,
+#hud.place #objectives, #hud.place #announce { display: none; }
+
+#place-prompt {
+  position: absolute; left: 50%; bottom: 5.2rem; transform: translateX(-50%);
+  z-index: 22; pointer-events: none;
+  background: oklch(0.16 0.02 80 / 0.92); border: 1px solid var(--accent, #e8a33d);
+  padding: 0.4rem 1.1rem; font-size: 0.82rem; letter-spacing: 0.16em;
+  text-transform: uppercase; color: #e8a33d; white-space: nowrap;
+}
+#place-prompt b { color: #fff; border: 1px solid #e8a33d; padding: 0 0.4rem; margin-right: 0.5rem; }
+#place-prompt.hidden { display: none; }
+
+#dialogue {
+  position: absolute; left: 50%; bottom: 7.5rem; transform: translateX(-50%);
+  width: min(560px, 88vw); z-index: 30;
+}
+#dialogue.hidden { display: none; }
+.comic-panel {
+  position: relative; background: #fffdf2; color: #14120e;
+  border: 3px solid #14120e; border-radius: 16px; padding: 0.9rem 1.2rem 1rem;
+  box-shadow: 5px 5px 0 rgba(0,0,0,0.55);
+  font-family: 'Comic Sans MS', 'Chalkboard SE', 'Comic Neue', cursive;
+}
+.comic-panel::after { /* the bubble's tail — it POINTS at the speaker */
+  content: ''; position: absolute; top: -16px; left: 54%;
+  border: 12px solid transparent; border-bottom-color: #14120e;
+  border-top-width: 0;
+}
+.comic-speaker {
+  display: inline-block; background: #e8632c; color: #fff; font-weight: 700;
+  padding: 0.05rem 0.7rem; border: 2px solid #14120e; border-radius: 8px;
+  transform: rotate(-2deg); margin: -1.6rem 0 0.45rem -0.2rem;
+  letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.95rem;
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.4);
+}
+.comic-text { font-size: 1.02rem; line-height: 1.5; font-weight: 700; }
+.comic-choices { margin-top: 0.7rem; }
+.comic-choices button {
+  font-family: inherit; font-weight: 700; font-size: 0.92rem; color: #14120e;
+  background: #ffd23a; border: 2.5px solid #14120e; border-radius: 10px;
+  padding: 0.32rem 0.85rem; margin: 0 0.55rem 0.3rem 0; cursor: pointer;
+  box-shadow: 2px 2px 0 #14120e; transition: transform 0.08s, box-shadow 0.08s;
+}
+.comic-choices button:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 #14120e; background: #ffe27a; }
+.comic-choices button b {
+  display: inline-block; background: #14120e; color: #ffd23a; border-radius: 6px;
+  padding: 0 0.35rem; margin-right: 0.35rem; font-size: 0.8rem;
+}

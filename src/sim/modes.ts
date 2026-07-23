@@ -16,6 +16,11 @@ export function initMode(id: ModeId, map: GameMap, minutes?: number): ModeState 
       // the Proving Grounds never end — you leave when you're done
       m.timeLeft = Infinity;
       break;
+    case 'shop':
+      // A PLACE, not a match (#122, the amusement-park law): no clock, no
+      // whistle, no referee — you walk out when you're done
+      m.timeLeft = Infinity;
+      break;
     case 'paintball':
       // §14 decision: rounds are TWO MINUTES — three rounds fit inside seven,
       // and a new player sees the war before the war bores them
@@ -139,6 +144,7 @@ export function stepMode(w: World, dt: number) {
     case 'paintball': stepPaintball(w, dt); break;
     case 'race': case 'timetrial': stepRace(w, dt); break;
     case 'range': break; // no clock, no whistle — just the work
+    case 'shop': break;  // a place breathes on its own — stations, not scores
   }
 }
 

@@ -1,6 +1,6 @@
 export type Team = 0 | 1; // 0 = United Front (amber), 1 = Collective (cyan). Survival: all players team 0.
 
-export type ModeId = 'tdm' | 'ctf' | 'koth' | 'conquest' | 'survival' | 'horde' | 'safehouse' | 'science' | 'range' | 'paintball' | 'race' | 'timetrial';
+export type ModeId = 'tdm' | 'ctf' | 'koth' | 'conquest' | 'survival' | 'horde' | 'safehouse' | 'science' | 'range' | 'paintball' | 'race' | 'timetrial' | 'shop';
 
 /** One gate on the circuit — pass through its radius to bank progress. */
 export interface RaceCheckpoint {

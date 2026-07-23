@@ -8,6 +8,7 @@ import { vehicleTelemetryReport, vehicleTelemetrySnapshot, type VehicleTelemetry
 import { mapSizeForPlayers } from './sim/fronts';
 import { WEATHER_MODS } from './sim/weather';
 import { loadOnboarding, mountOnboarding, onMatchEnd, paintballConfig } from './client/onboarding';
+import { buildVanessasMap, SHOP_ENTRANCE, spawnVanessa, updateShopInteract } from './client/vanessas-place';
 import { mountFrontend } from './client/frontend';
 import { GhostPlayer, GhostRecorder, ghostKey, loadGhost, saveGhost } from './client/ghost';
 import { factionTeam, loadIdentity, type PlayerIdentity } from './client/identity';
@@ -389,7 +390,7 @@ function paintGauntletBlock() {
 function buildMenu() {
   const modeRow = $('mode-select');
   modeRow.innerHTML = '';
-  (Object.keys(MODE_INFO) as ModeId[]).forEach((id) => {
+  (Object.keys(MODE_INFO) as ModeId[]).filter((id) => id !== 'shop').forEach((id) => {
     const card = document.createElement('div');
     card.className = `select-card${id === selectedMode ? ' selected' : ''}`;
     card.innerHTML = `<div class="icon">${MODE_INFO[id].icon}</div><div class="name">${MODE_INFO[id].name}</div><div class="desc">${MODE_INFO[id].desc}</div>`;
@@ -430,11 +431,15 @@ function buildMenu() {
     audio.play('ui_click');
     paintGauntletBlock();
   };
-  // VANESSA'S PAINTBALL (Robert): the pro shop — walk the booths, pick the
-  // marker your next yard deploy carries (it writes the same onboarding store)
+  // VANESSA'S PAINTBALL (#122 — A PLACE, not a page): your soldier appears at
+  // the entrance in the war's own view, walks the booths, talks to Vanessa
+  // (#124 comic conversations), and TAKE writes the same onboarding store the
+  // yard deploys from. (The /vanessas.html glide-cam page stays as the
+  // brochure for anyone who types the URL.)
   ($('vanessas-btn') as HTMLButtonElement).onclick = () => {
     audio.play('ui_click');
-    location.href = '/vanessas.html';
+    selectedMode = 'shop';
+    startGame();
   };
 
   const quickDeploy = $('science-preset-cards');
@@ -641,7 +646,10 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     : null;
   queuedScienceLaunch = null;
   const world = new World({
-    seed, mode: exercise?.mode ?? selectedMode, difficulty, botsPerTeam, matchMinutes, theme: selectedTheme,
+    seed, mode: exercise?.mode ?? selectedMode, difficulty, matchMinutes, theme: selectedTheme,
+    // A PLACE (#122) is hand-built ground with nobody in it but the keeper
+    map: selectedMode === 'shop' ? buildVanessasMap() : undefined,
+    botsPerTeam: selectedMode === 'shop' ? 0 : botsPerTeam,
     scienceMission: scienceLaunch?.spec,
     hordeRoster, // THE ROSTER LAW: iron never mixes with zombies unless asked
     // B1: banked morale opens the stable richer for YOUR side (capped in-world)
@@ -675,11 +683,20 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   // the range keep the local player on team 0, where their rosters are pinned.
   const isRace = selectedMode === 'race' || selectedMode === 'timetrial';
   const factionModes = !(selectedMode === 'paintball' || isCoopMode(selectedMode)
-    || selectedMode === 'range' || selectedMode === 'science' || isRace);
+    || selectedMode === 'range' || selectedMode === 'science' || isRace
+    || selectedMode === 'shop');
   const pt: Team = factionModes ? playerTeam : 0;
   const et: Team = (1 - pt) as Team;
   const me = world.addSoldier(name, selectedClass, pt, 'human', currentLoadout());
   applyScarMods(world, campaignFrontId); // §8.5: the front's wound shapes the field
+  // THE PLACE (#122): you appear AT THE ENTRANCE (Robert's exact ask), facing
+  // the shop; Vanessa keeps her counter; the war HUD steps back to place-size
+  if (selectedMode === 'shop') {
+    me.pos = { ...SHOP_ENTRANCE };
+    me.yaw = -Math.PI / 2; // facing north — into the shop, at the counter
+    spawnVanessa(world);
+    $('hud').classList.add('place');
+  }
   // DEATH RE-SELECT (Robert: "select my stuff after every time I die and just
   // continue on"): the K.I.A. overlay grows a class rack. Clicking while dead
   // re-signs the next print — spawn() derives the whole kit from the choice.
@@ -792,8 +809,9 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
         world.forceBoard(racer, board);
       }
     }
-  } else if (selectedMode === 'range' || selectedMode === 'science') {
-    // range is solo; science already populated its authored security/civilian roster
+  } else if (selectedMode === 'range' || selectedMode === 'science' || selectedMode === 'shop') {
+    // range is solo; science populated its authored roster; a PLACE (#122)
+    // fields nobody — the keeper is spawned by the place itself
   } else if (isCoopMode(selectedMode)) {
     for (let i = 0; i < Math.min(botsPerTeam, 5); i++) {
       const cls = classPool[i % classPool.length];
@@ -1048,6 +1066,8 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     tracker?.update(world, me.id, dt);
     course?.update(world, dt);
     ringDrill?.update(world, me.id, events);
+    // the amusement-park verb (#122): walk up, read the prompt, press E
+    if (world.mode.id === 'shop') updateShopInteract(world, me, endGame);
     galleryDrill?.update(world, me.id, events, dt);
     fieldTracker?.step(world, events, me.id);
     // the whistle settles the HONORS and the LADDER — exactly once (never on
