@@ -9,7 +9,7 @@ import { paintColorFor } from './onboarding';
 import type { WeatherKind } from '../sim/weather';
 import type { SimEvent, Soldier, Team, Vec3, VehicleKind } from '../sim/types';
 import { isBoard } from '../sim/types';
-import { HAND_FRAG_REACH, aimSpreadMul, meleeWindupFor, type World } from '../sim/world';
+import { HAND_FRAG_REACH, handSpreadMul, meleeWindupFor, type World } from '../sim/world';
 import { audio, type SoundName } from './audio';
 import { ClassVo } from './classvo';
 import { BIOME_AUDIO } from './soundscape';
@@ -2216,13 +2216,24 @@ export class Renderer {
   private updateReticle(local: Soldier | undefined, world: World) {
     const style = local ? this.resolveReticleStyle(local) : 'wedge';
     const wdef = local ? WEAPONS[local.weapons[local.weaponIdx]] : undefined;
+    // THE RETICLE TELLS THE TRUTH (Robert: "the reticle should reflect your
+    // skills at shooting — smaller for some, larger for others").
+    //
+    // It used to draw with aimSpreadMul, which is STANCE ONLY, while the round
+    // actually left the barrel through handSpreadMul = stance × morale × skill
+    // (world.ts:4740). So a Master rifleman grouped ~17% tighter than his own
+    // circle promised, and a rattled soldier grouped worse than it admitted —
+    // the one HUD element whose entire job is "your shot goes in here" was
+    // wrong in both directions. Same function as the bullet now: the circle IS
+    // the cone, so practice and nerve are things you can SEE.
+    const cone = local && wdef ? handSpreadMul(local, local.weapons[local.weaponIdx]) : 1;
     // --- the GROUND WEDGE (direction FIXED: +Z-forward mesh needs π/2−yaw) ---
     if (local && style === 'wedge') {
       if (!this.aimRing) { this.aimRing = buildAimRing(); this.scene.add(this.aimRing); }
       this.aimRing.visible = true;
       this.aimRing.position.set(local.pos.x, local.pos.y + 0.02, local.pos.z);
       this.aimRing.rotation.y = Math.PI / 2 - local.yaw;
-      const half = Math.min(0.55, (wdef?.spread ?? 0.03) * aimSpreadMul(local) * AIM_SCALE);
+      const half = Math.min(0.55, (wdef?.spread ?? 0.03) * cone * AIM_SCALE);
       (this.part(this.aimRing, 'aimL') as THREE.Object3D | null)?.rotation.set(0, half, 0);
       (this.part(this.aimRing, 'aimR') as THREE.Object3D | null)?.rotation.set(0, -half, 0);
     } else if (this.aimRing) this.aimRing.visible = false;
@@ -2241,7 +2252,7 @@ export class Renderer {
       const ax = local.pos.x + Math.cos(local.yaw) * reach;
       const az = local.pos.z + Math.sin(local.yaw) * reach;
       // "the size" — reticleScale × (grows a touch with the live spread cone)
-      const spreadMul = 1 + (wdef ? Math.min(0.7, wdef.spread * aimSpreadMul(local) * AIM_SCALE) : 0);
+      const spreadMul = 1 + (wdef ? Math.min(0.7, wdef.spread * cone * AIM_SCALE) : 0);
       const scale = settings.reticleScale * spreadMul * 1.4;
       const r = this.standingReticle;
       r.visible = true;

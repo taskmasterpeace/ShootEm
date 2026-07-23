@@ -23,13 +23,16 @@ of the audit — "we have it" and "the code uses it" are different sentences.
 A stat can be WIRED for one thing and mean nothing for another — those are
 listed twice with the honest tag each time.
 
-**The one-line honest summary up front:** of the **8 master character stats,
-only 3 are wired** (Power, Agility, Weapon Handling). The other five
-(Piloting, Engineering, Leadership, Science, Charisma) are generated on every
-soldier, ride the wire, decay is *promised* — and **no line of simulation code
-reads them.** The vehicle stats, by contrast, are almost entirely wired: mass,
-grip, traction, shock, speed, turn rate, seats, HP and cost all drive
-something you can feel.
+**The one-line honest summary up front (re-audited 2026-07-23):** all **8 master
+stats and all 22 skills now reach the simulation.** They did not when this file
+was first written — the audit below is kept in full, because how a stat was dead
+is more useful than a claim that it is alive.
+
+**THE AUDIT IS A TEST NOW.** `tests/stat-wiring.test.ts` (18) asks every skill
+the only two questions that matter — *can it be EARNED?* and *does being better
+at it CHANGE anything?* — and fails the suite if either answer goes back to no.
+This document drifted once and reported "8 gun families wired" while **255 of
+316 weapons trained nothing**; it can't drift silently again.
 
 ---
 
@@ -58,11 +61,23 @@ neutral (×1) and cost nothing — zeds, dogs and legacy tests pay nothing.
 | 1 | **POWER** | melee damage · the frame (spawn HP) · later carry/breach/throw | Spawn HP = `classHP × statMul(power)`. Melee strike damage = `weaponDamage × chargeMul × statMul(power)`. | **● WIRED** (2 hooks) | `world.ts:1791`, `world.ts:4545` |
 | 2 | **AGILITY** | dash/roll recovery · later vault/climb/mount | Dash cooldown = `DASH_CD × statQuick(agility)`. Nothing else. | **● WIRED** (1 hook) | `world.ts:3312`, `world.ts:3350` |
 | 3 | **WEAPON HANDLING** | reload · later swap/ADS/recoil recovery | Every reload runs through `reloadTimeFor()` = `reloadTime × statQuick(handling)`. | **● WIRED** (1 hook) | `world.ts:611` |
-| 4 | **PILOTING** | aircraft/hover feel | Generated on every bot, carried on the print, shown on HUD as nothing. **No sim code reads it.** | **◐ DECLARED ONLY** | gen `world.ts:1024` |
-| 5 | **ENGINEERING** | repairs, turrets, field construction | Generated, carried. **No consumer.** (Repair speed is a flat weapon number; turrets ignore the stat.) | **◐ DECLARED ONLY** | gen `world.ts:1024` |
-| 6 | **LEADERSHIP** | squad size, command radius, radio authority | Generated, carried. **No consumer.** NOTE: the leadership *reach* that exists (`leadershipRadius`) reads **rankId, not this stat** — see §2.6. | **◐ DECLARED ONLY** | gen `world.ts:1024` |
-| 7 | **SCIENCE** | hacking, artifacts, lab work | Generated, carried. **No consumer.** | **◐ DECLARED ONLY** | gen `world.ts:1025` |
-| 8 | **CHARISMA** | negotiation, recruitment, black market | Generated, carried. **No consumer.** | **◐ DECLARED ONLY** | gen `world.ts:1025` |
+| 4 | **PILOTING** | aircraft/hover feel | Turn AUTHORITY on anything that leaves the ground: `controlAuthority()`. Canon-scoped — it does **not** touch a jeep, and it moves how hard the airframe turns, never how fast it goes. | **● WIRED** | `world.ts` `controlAuthority` |
+| 5 | **ENGINEERING** | repairs, turrets, field construction | `repairMul()` — what a field patch is WORTH (hull hp, subsystem brace, turret hp), and `statQuick(…,2)` on the kit's 10s cooldown. | **● WIRED** (3 hooks) | `world.ts` `repairMul`, `tryFieldKit` |
+| 6 | **LEADERSHIP** | squad size, command radius, radio authority | Multiplies `leadershipRadius(rankId)` in the morale pass at strength 3. Rank GRANTS the authority; the stat says how far the man carries it. | **● WIRED** | `world.ts` morale pass |
+| 7 | **SCIENCE** | hacking, artifacts, lab work | The hack-kit cooldown — a trained head is on the next sentry sooner. | **● WIRED** | `world.ts` `tryFieldKit` |
+| 8 | **CHARISMA** | negotiation, recruitment, black market | Hotwire/requisition RATE. This is the only place in the sim where a soldier talks somebody out of something, so it is the canon-true home: a persuasive man is out of the owner's car sooner. | **● WIRED** | `world.ts` `stepRequisition` |
+
+**The strength dial.** `statMul(v, strength)` / `statQuick(v, strength)` scale the
+same ±2%/point curve where a fuller effect is warranted. Combat hooks stay at
+strength 1 (the ±10% canon band — *stats help, they do not decide*); the utility
+hooks that cannot kill anybody take a bigger share, because a ±2% morale circle
+is not a difference any player could ever feel:
+
+| Hook | Strength | 1 → 10 swing |
+|---|---|---|
+| HP, melee, reload, dash | 1 | ±10% |
+| repair worth, kit/hack cooldown, hotwire | 2 | ±20% |
+| leadership reach, piloting authority | 3 | ±30% |
 
 **Decay ("use it or lose it")** is LOCKED in canon and repeated in the type
 comment. **Status: ○ UNBUILT.** There is no decay code anywhere — stats are set
@@ -156,10 +171,33 @@ Pilot · Radio Operator · Commander · Navigator · Mechanic · Explosives · S
 900 (a campaign of doing one thing). `skillEdge = 1 + level × 0.024 × strength`
 — Master (level 5) at strength 1 = +12%.
 
+#### THE RETICLE TELLS THE TRUTH
+
+Robert, 2026-07-23: *"the reticle should reflect your skills at shooting — think
+about it, smaller for some, larger for others."* He was describing a bug.
+
+The round left the barrel through `handSpreadMul` = **stance × morale × skill**.
+The reticle was drawn with `aimSpreadMul` = **stance only**. So the one HUD
+element whose entire job is *"your shot goes in here"* was wrong in both
+directions: a Master grouped ~14% tighter than his own circle promised, and a
+rattled soldier grouped worse than it admitted. The renderer now sizes both the
+ground wedge and the standing reticle from the **same function the bullet uses**,
+so practice and nerve are things you can SEE.
+
+Measured live, AC-Mk2, same soldier:
+
+| State | Cone |
+|---|---|
+| recruit, standing | ×1.000 |
+| recruit, sprinting | ×1.700 |
+| **Master**, standing | **×0.856** |
+| **Master**, crouched | **×0.599** |
+| **Master**, sprinting | ×1.455 |
+
 #### What is actually WIRED
 
-Only **ONE** consumer exists. `handSpreadMul` (`world.ts:134`) tightens the aim
-cone by the weapon's trained skill:
+`handSpreadMul` (`world.ts:134`) tightens the aim cone by the weapon's trained
+skill:
 
 ```
 trained = 1 / skillEdge(practiceOf(s, skillForWeapon(weapon)), 1.4)
@@ -170,14 +208,48 @@ So a Master with the matching weapon skill groups ~**17% tighter** (strength
 `practise(shooter, trains, 0.5)` (`world.ts:7648`), gated to humans/bots that
 aren't gods.
 
-| Skill | What it trains from | Wired effect | Status |
-|---|---|---|---|
-| Rifle, SMG, LMG, Sniper, Rocket, Knife, Pistol, Explosives | Landing rounds with that weapon family (`skillForWeapon`, `skills.ts:101`) | **Tighter aim cone via `handSpreadMul`** | **● WIRED** |
-| Tank Driver, Tank Gunner, Helicopter, Jet, Boat, Engineer, Medic, Dog Handler, Drone Pilot, Radio Operator, Commander, Navigator, Mechanic, Scout | mapped in the doc/`SkillDef.gives` (faster reloads on tubes, steadier hover, faster revives, the dog listens harder, etc.) | **None** — `skillForWeapon` only maps the 8 gun families; the other 14 have `gives:` text but **no consumer** | **◐ DECLARED ONLY** |
+#### THE MAP THAT WAS BROKEN (found 2026-07-23)
 
-> So 14 of the 22 skills are level-able but inert — only the gun families feed
-> `handSpreadMul`. "Faster revives", "steadier hover", "the dog holds longer"
-> are card copy, not code.
+`skillForWeapon` was written against family names that **mostly do not exist.**
+It asked for `at`, `melee`, `sniper`, `assault`, `dmr`, `railgun`, `mg`; the
+real arsenal ships `at_rocket`, `melee_weapon`, `slugger`, `carbine`, `hmg` and
+eleven more it had never heard of. Worse, every hand-tuned CORE weapon carries
+**no `family` at all** — including `ar606`, the issue rifle every infantryman
+spawns holding — so the id-prefix fallback found nothing either.
+
+**Measured: 255 of 316 weapons trained nothing.** The one wired skill in the
+game reached 19% of the guns in it, and the starting rifle was not one of them.
+
+After the fix: **49 of 316**, and those are exactly the 40 LSW god-arms (a god
+does not improve with practice — the threat table is measured against its card)
+and 9 monster attacks (claws, bites, acid). Every weapon a soldier can hold now
+teaches a trade. `family` itself was left alone, because family also picks the
+weapon's MODEL — retagging guns to fix a skill map would have silently
+restyled the arsenal.
+
+#### All 22, earned and spent
+
+| Skill | EARNED by | SPENT on |
+|---|---|---|
+| Rifle · SMG · LMG · Sniper · Rocket · Knife · Pistol · Explosives | landing rounds with that family | tighter cone — `handSpreadMul` |
+| **Tank Gunner** | firing a ground mount (`tank_cannon`, `apc_mg`, `turret_mg`…) | tighter mount — `mountSpreadMul` |
+| **Helicopter · Jet · Boat** | firing that airframe's/boat's gun **and** seat time under way | turn authority — `controlAuthority` |
+| **Tank Driver** | seat time in a moving ground hull (`practiseSeat`, 1/s, never while parked) | turn authority — `controlAuthority` |
+| **Engineer · Mechanic** | patching hulls and turrets with the kit | what a patch is WORTH — `repairMul` |
+| **Medic** | getting a downed man back on his feet | faster revive channel |
+| **Dog Handler** | every bite his dog lands | weight behind the bite |
+| **Drone Pilot** | stick time on a live FPV drone | the LEASH — how far the link survives |
+| **Radio Operator** | planting beacons | how long a targeting beacon holds the mark |
+| **Commander** | seconds actually spent steadying men inside your reach | a wider circle — the leadership reach |
+| **Navigator** | ground covered at a sprint | less wind wasted — sprint energy drain |
+| **Scout** | first eyes on a body that was not on the board | the team's perceive range (best scout only — ten recruits do not add up to one pathfinder) |
+
+> The design rule this table encodes: **a skill needs BOTH.** Earnable but never
+> spent is a number that goes up for nothing; spendable but never earnable is a
+> stat you can never actually get. Three skills were each half-wired before this
+> pass (`tank_gunner`/`medic`/`radio_operator` earnable-not-spent;
+> `tank_driver`/`commander`/`mechanic` spent-not-earnable) and four
+> (`dog_handler`, `drone_pilot`, `navigator`, `scout`) were neither.
 
 #### What you START with (skills)
 
@@ -767,9 +839,9 @@ versus what the code does.
 
 | # | Stat / system | Where it's declared | Why it's a gap |
 |---|---|---|---|
-| **1** | **5 of the 8 master stats — Piloting, Engineering, Leadership, Science, Charisma** | `types.ts:425`, generated on every soldier `world.ts:1024`, canon says each powers a whole subsystem | **The single biggest gap.** They are rolled, carried, ride the wire, and shown as intent — and **zero simulation code reads them.** A pilot's Piloting does not change how a jet flies; an Engineer's Engineering does not speed a repair; Leadership reach reads *rank*, not the Leadership stat. |
+| ~~1~~ | ~~5 of the 8 master stats~~ | — | **CLOSED 2026-07-23.** All 8 read by the sim; see §2.1. Guarded by `tests/stat-wiring.test.ts`. |
 | **2** | **Master-stat DECAY ("use it or lose it")** | LOCKED in canon + `types.ts` comment | ○ UNBUILT — no decay code exists. Stats are set once at spawn, never move. The entire "generalist cap" balancing mechanism is prose. |
-| **3** | **14 of 22 secondary skills** | `skills.ts:33`, each with a `gives:` promise | Only the 8 gun families feed `handSpreadMul`. Tank Driver, Gunner, Helicopter, Jet, Boat, Engineer, Medic, Dog Handler, Drone Pilot, Radio Operator, Commander, Navigator, Mechanic, Scout **level but do nothing** — "faster revives", "steadier hover", "the dog holds longer" are card copy. |
+| ~~3~~ | ~~14 of 22 secondary skills~~ | — | **CLOSED 2026-07-23.** All 22 are both earnable and spendable; see the table in §2.4. The related defect — `skillForWeapon` reaching only 61 of 316 weapons — is closed with it. |
 | **4** | **Per-hull CARGO CAPACITY** (Robert's pickup idea) | design intent only | ○ UNBUILT — no `cargoSpace` field. Every road hull shares the same flat 2-slot garage. The pickup's only edge over the tank today is mass/HP, not capacity. Needs a `VehicleDef.cargoSpace` number + a carried-load model. |
 | **5** | **The EXTINCTION threat tier (T4)** | `lsw.ts:38` — 5800 HP, cost 7, 40s telegraph | Fully specified, **zero roster units use it.** The top of the god ladder is empty (roster is 9× T1, 22× T2, 9× T3). |
 | **6** | **The Crusher Ram cargo** | `garage.ts:86` | ◐ — the item exists, adds 0.45t mass, but **no code reads `crusher` for the promised extra ram damage.** It's dead weight with a good blurb. |
@@ -781,16 +853,25 @@ versus what the code does.
 
 ### The one-paragraph verdict
 
-The **fight** is honestly wired: class HP/speed, every weapon number, the whole
-vehicle drivetrain (mass, grip, traction, shock, slip, speed, turn), materials,
-weather, gravity, terrain height, the LSW threat HP, morale, rank authorities,
-licences and the garage all read their numbers and change what happens. The
-**character progression** is where the gaps live: **5 of 8 master stats and 14
-of 22 skills are generated-and-shown but inert**, decay is unbuilt, and the
-meta-layer levers (nation doctrine in combat, cargo capacity, command, story-
-stats) are named but empty. Robert's complaint — "I never see evidence of the
-planned systems" — is *correct* for the RPG layer and *wrong* for the combat
-sim.
+*(The original verdict is preserved below, struck through, because the shape of
+the old gap is the most useful part of this document.)*
+
+> ~~The character progression is where the gaps live: 5 of 8 master stats and 14
+> of 22 skills are generated-and-shown but inert.~~
+
+**As of 2026-07-23:** the fight was always honestly wired — class HP/speed, every
+weapon number, the whole vehicle drivetrain, materials, weather, gravity, terrain
+height, LSW threat HP, morale, rank authorities, licences and the garage all read
+their numbers. **The character progression now is too:** 8/8 master stats and
+22/22 skills reach the simulation, and the reticle finally reports the cone the
+bullet actually flies through.
+
+What is still genuinely empty is the **meta layer**, not the character: stat
+decay, per-hull cargo capacity, the EXTINCTION T4 roster, nation doctrine in
+combat, the command/doctrine-vote layer, and the ~14 hidden story-stats. Those
+are named-but-empty and are honestly tagged as such below. Robert's original
+complaint — "I never see evidence of the planned systems" — was correct for the
+RPG layer, and is now correct only for the meta layer above it.
 
 ---
 
@@ -800,13 +881,18 @@ Counting distinct stats/fields audited above:
 
 | Bucket | Count | What's in it |
 |---|---|---|
-| **● WIRED** | **~68** | 3 master stats · HP/armor/energy/energyRegen (4) · 8 class stat-rows · 7 movement verbs · 8 gun skills (via handSpreadMul) · hometown starting-skills · morale (band + 10 shifts + carry) · rank ladder authorities (leadership reach, mayCallStable, materielBonus) · 12 licences + enforcement · ~28 VehicleDef fields that drive · garage tires/engine/chassis + mine/oil/armour · weapon core fields (damage/rof/spread/clip/reload/range/splash/knockback/homing/falloff) · 6 brand signatures · Mk-tier curve · fireModes · LSW threat HP table · terrain heights · tile types · material grip/slick/walk/hp/drill/flammable/ricochet · 7 weather rows · day-night clock · per-theme gravity · perception constants · nation faction-derivation + onboarding |
-| **◐ DECLARED ONLY** | **~24** | 5 master stats (piloting/engineering/leadership/science/charisma) · 14 secondary skills · crusher ram · `rails` route · `civilian` sim-flag · nation military/intel/science/lswActivity *for combat* |
+| **● WIRED** | **~90** | **all 8 master stats** · **all 22 skills** (earned + spent) · HP/armor/energy/energyRegen (4) · 8 class stat-rows · 7 movement verbs · 8 gun skills (via handSpreadMul) · hometown starting-skills · morale (band + 10 shifts + carry) · rank ladder authorities (leadership reach, mayCallStable, materielBonus) · 12 licences + enforcement · ~28 VehicleDef fields that drive · garage tires/engine/chassis + mine/oil/armour · weapon core fields (damage/rof/spread/clip/reload/range/splash/knockback/homing/falloff) · 6 brand signatures · Mk-tier curve · fireModes · LSW threat HP table · terrain heights · tile types · material grip/slick/walk/hp/drill/flammable/ricochet · 7 weather rows · day-night clock · per-theme gravity · perception constants · nation faction-derivation + onboarding |
+| **◐ DECLARED ONLY** | **~5** | crusher ram · `rails` route · `civilian` sim-flag · nation military/intel/science/lswActivity *for combat* |
 | **○ UNBUILT** | **~7 systems** | master-stat decay · per-hull cargo capacity · EXTINCTION T4 roster · full command/doctrine-vote layer · nation combat doctrine · the ~14 hidden story-stats · rail track generator |
 
-**Headline: 3 of 8 master stats wired · 8 of 22 skills wired · the entire
-vehicle drivetrain wired · 5 master stats + 14 skills declared-but-inert · 7
-named systems unbuilt.**
+**Headline (2026-07-23 re-audit): 8 of 8 master stats wired · 22 of 22 skills
+wired, each both earnable and spendable · 267 of 316 weapons now train a trade
+(was 61) · the reticle reports the true cone · the entire vehicle drivetrain
+wired · 4 flags declared-but-inert · 7 named META systems unbuilt.**
+
+**The audit is executable.** `tests/stat-wiring.test.ts` re-proves the two
+questions — earnable? spendable? — on every run, so this file cannot quietly
+become fiction again.
 
 *Written from the source at the cited lines. When a number here disagrees with a
 `docs/*.md`, trust this file — it was read out of the code.*

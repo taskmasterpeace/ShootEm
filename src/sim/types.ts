@@ -444,6 +444,19 @@ export interface SoldierStats {
 
 export type SoldierKind = 'human' | 'bot' | 'dog' | 'zombie' | 'spitter' | 'brute' | 'sprinter' | 'bomber' | 'stalker' | 'scientist' | 'scraprat' | 'junkhound' | 'weaver' | 'ravager';
 
+/** PRACTICE ACCUMULATORS. The gun trades are earned per landed round, which is
+ *  naturally discrete. The trades earned by TIME (seat hours, ground covered,
+ *  men steadied) need a crumb counter so they bank once a beat instead of
+ *  every tick — these are those crumbs. Never replicated; purely local wear. */
+export interface PracticeCrumbs {
+  seatPractice?: number;
+  navPractice?: number;
+  cmdPractice?: number;
+  dogPractice?: number;
+  dronePractice?: number;
+  scoutPractice?: number;
+}
+
 export type ZedKind = 'zombie' | 'spitter' | 'brute' | 'sprinter' | 'bomber' | 'stalker';
 
 const ZED_KINDS: ReadonlySet<string> = new Set(['zombie', 'spitter', 'brute', 'sprinter', 'bomber', 'stalker']);
@@ -466,7 +479,7 @@ export function isIron(k: SoldierKind): k is IronKind {
 export type K9Order = 'heel' | 'sic' | 'stay';
 export type K9Command = 'sic' | 'stay';
 
-export interface Soldier {
+export interface Soldier extends PracticeCrumbs {
   id: number;
   kind: SoldierKind;
   name: string;

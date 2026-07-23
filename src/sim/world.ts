@@ -46,7 +46,7 @@ import {
   type AscendantId, type ClassId, type Gadget, type GadgetType, type Mine, type ModeId, type ModeState,
   type Pickup, type PlayerCmd, type Projectile, type SimEvent, type Soldier,
   type SoldierKind, type SystemId, type Team, type ThemeId, type Turret, type Vec3,
-  type Vehicle, type VehicleKind, type VehicleSystems, type WeaponId, type ZedKind, isIron, isBoard, type IronKind, type SkillId } from './types';
+  type Vehicle, type VehicleDef, type VehicleKind, type VehicleSystems, type WeaponId, type ZedKind, isIron, isBoard, type IronKind, type SkillId } from './types';
 import { stepMode, initMode } from './modes';
 import { generateFront } from './fronts';
 import { generateOperationMap } from './operation-map';
@@ -658,17 +658,76 @@ export class World {
   // ── THE STATS (#127, META-LAYER canon) — visceral, perf-safe ────────────
   // Applied at EVENTS (reload start, melee resolve, spawn, dash) — never a
   // per-tick tax. 5 is today's exact numbers; the band is ±10% at 1/10.
-  /** bigger is better: melee damage, health */
-  statMul(v: number | undefined): number {
-    return v === undefined ? 1 : 1 + (v - 5) * 0.02;
+  /** bigger is better: melee damage, health.
+   *  `strength` scales the same ±2%/point curve where a fuller effect is
+   *  warranted — a whole social job reads more than one melee swing. It never
+   *  changes the SHAPE of the law, only how big a share this hook takes. */
+  statMul(v: number | undefined, strength = 1): number {
+    return v === undefined ? 1 : 1 + (v - 5) * 0.02 * strength;
   }
   /** bigger is quicker: reload duration, dash recovery */
-  statQuick(v: number | undefined): number {
-    return v === undefined ? 1 : 1 - (v - 5) * 0.02;
+  statQuick(v: number | undefined, strength = 1): number {
+    return v === undefined ? 1 : 1 - (v - 5) * 0.02 * strength;
   }
   /** WEAPON HANDLING owns the hands: every reload runs through here */
   reloadTimeFor(s: Soldier, def: WeaponDef): number {
     return def.reloadTime * this.statQuick(s.stats?.handling);
+  }
+  /** How much of a patch this pair of hands is worth: the ENGINEERING stat
+   *  (the head) times the practised trade (the hands). Engineer and Mechanic
+   *  both count — one built it, the other keeps it running. */
+  repairMul(s: Soldier): number {
+    return this.statMul(s.stats?.engineering, 2)
+      * skillEdge(Math.max(practiceOf(s, 'engineer'), practiceOf(s, 'mechanic')), 1.5);
+  }
+  /**
+   * THE HANDS ON THE CONTROLS — how hard this driver can make this hull turn.
+   *
+   * PILOTING is canon-scoped to "aircraft/hover feel", so the master stat only
+   * touches airframes. Ground and water seats answer to the practised trade
+   * (tank_driver / boat), which is what finally gives those skills a consumer.
+   * An empty seat and a statless driver both read exactly 1, so civilian
+   * traffic, bots without stats and every legacy test are untouched.
+   */
+  /**
+   * SCOUT'S EYES. The team perceives at the range of its BEST pair of eyes —
+   * one good scout lifts the whole line's picture, which is exactly what a
+   * scout is for. Taken as a max, not a sum: ten recruits do not add up to a
+   * pathfinder. An untrained team reads exactly the shipped range.
+   */
+  scoutRange(eyes: Soldier[], base: number): number {
+    let best = 0;
+    for (const e of eyes) {
+      if (e.kind !== 'human' && e.kind !== 'bot') continue;
+      const p = practiceOf(e, 'scout');
+      if (p > best) best = p;
+    }
+    return base * skillEdge(best, 1.2);
+  }
+  /** Time at the controls, banked into the trade that seat belongs to. Ticked
+   *  by stepVehicle once a second of real movement — never while parked. */
+  practiseSeat(driver: Soldier, def: VehicleDef, dt: number): void {
+    driver.seatPractice = (driver.seatPractice ?? 0) + dt;
+    if (driver.seatPractice < 1) return;
+    driver.seatPractice = 0;
+    if (def.flies || def.hover) practise(driver, def.flies && !def.hover ? 'jet' : 'helicopter', 1);
+    else if (def.boat) practise(driver, 'boat', 1);
+    else practise(driver, 'tank_driver', 1);
+  }
+  /** A mounted gun's spread multiplier — the seat's trade, practised. Stance
+   *  is meaningless in a turret, so this is skill alone (cf. handSpreadMul). */
+  mountSpreadMul(shooter: Soldier, weapon: WeaponId): number {
+    const skill = skillForWeapon(weapon);
+    return skill ? 1 / skillEdge(practiceOf(shooter, skill), 1.4) : 1;
+  }
+  controlAuthority(driver: Soldier | undefined, def: VehicleDef): number {
+    if (!driver) return 1;
+    if (def.flies || def.hover) {
+      const air = Math.max(practiceOf(driver, 'helicopter'), practiceOf(driver, 'jet'));
+      return this.statMul(driver.stats?.piloting, 3) * skillEdge(air, 1.5);
+    }
+    if (def.boat) return skillEdge(practiceOf(driver, 'boat'), 1.5);
+    return skillEdge(practiceOf(driver, 'tank_driver'), 1.5);
   }
   /** §director: the match-level pacing band (neutral with no human on field) */
   director: DirectorState = newDirector();
@@ -2494,15 +2553,31 @@ export class World {
       if (!s.alive || isZed(s.kind) || s.kind === 'dog' || s.ascendant !== undefined) continue;
       let friends = 0;
       let led = 0;
+      let ledBy: Soldier | undefined;
       for (const o of this.soldiers.values()) {
         if (!o.alive || o.id === s.id || o.team !== s.team || isZed(o.kind)) continue;
         const d = Math.hypot(o.pos.x - s.pos.x, o.pos.z - s.pos.z);
         if (d < 30) friends++;
-        const reach = leadershipRadius(o.rankId ?? 0);
-        if (reach > 0 && d < reach) led = Math.max(led, 1 - d / reach);
+        // LEADERSHIP IS REACH. Rank GRANTS the authority (ranks.ts); the stat
+        // says how far the man carries it. A natural leader holds a wider
+        // circle steady at the same rank — and the `commander` skill is the
+        // practised half of the same thing. Strength 3 on a radius, because a
+        // ±2% circle is not a difference anybody could ever feel.
+        const reach = leadershipRadius(o.rankId ?? 0)
+          * this.statMul(o.stats?.leadership, 3)
+          * skillEdge(practiceOf(o, 'commander'), 1.5);
+        if (reach > 0 && d < reach && 1 - d / reach > led) { led = 1 - d / reach; ledBy = o; }
       }
       if (!friends) shiftMorale(s, MORALE_SHIFTS.alone * dt);
-      if (led > 0) shiftMorale(s, MORALE_SHIFTS.ledWell * led * dt);
+      if (led > 0) {
+        shiftMorale(s, MORALE_SHIFTS.ledWell * led * dt);
+        // and the officer who did the steadying learns to lead by doing it —
+        // commander was spendable (the reach above) but unearnable until now
+        if (ledBy) {
+          ledBy.cmdPractice = (ledBy.cmdPractice ?? 0) + dt;
+          if (ledBy.cmdPractice >= 5) { ledBy.cmdPractice = 0; practise(ledBy, 'commander', 1); }
+        }
+      }
       // HOT FOOD IS A TACTICAL ASSET. The food truck is the other honest
       // answer to "which civilian vehicles matter": men who eat hold their
       // nerve. Standing near a live one steadies you the way an officer does.
@@ -2719,9 +2794,22 @@ export class World {
       for (const s of this.soldiers.values()) {
         if (s.team === team) continue;
         if (!s.alive) { this.lastSeen[team].delete(s.id); continue; }
-        if (perceivesNow(this.map.grid, eyes, this.pinged, s, range, this.smokeBlobs,
+        if (perceivesNow(this.map.grid, eyes, this.pinged, s, this.scoutRange(eyes, range), this.smokeBlobs,
           revealed, this.map.grid2, this.map.geometry, this.map.upperLayers, this.map.height)) {
+          const fresh = !this.lastSeen[team].has(s.id);
           this.lastSeen[team].set(s.id, { t: this.time, x: s.pos.x, z: s.pos.z });
+          // SCOUT is earned by FINDING people — the first eyes on a body that
+          // was not on the board a moment ago. Credited to the best-placed
+          // scout on the team, which is the man who did the work.
+          if (fresh) {
+            let best: Soldier | undefined; let bestD = Infinity;
+            for (const e of eyes) {
+              if (e.kind !== 'human' && e.kind !== 'bot') continue;
+              const d = Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z);
+              if (d < bestD) { bestD = d; best = e; }
+            }
+            if (best) practise(best, 'scout', 1);
+          }
         }
       }
     }
@@ -3034,8 +3122,14 @@ export class World {
             g.pos.x = Math.max(-halfWidth(this.map.geometry) + 2, Math.min(halfWidth(this.map.geometry) - 2, g.pos.x + (g.vel?.x ?? 0) * dt));
             g.pos.z = Math.max(-halfDepth(this.map.geometry) + 2, Math.min(halfDepth(this.map.geometry) - 2, g.pos.z + (g.vel?.z ?? 0) * dt));
             g.pos.y = 2.6;
+            // DRONE PILOT: the trade is RANGE. A practised operator keeps the
+            // link alive further out, which is the only thing an FPV pilot
+            // actually gets better at — and stick time is how he gets it.
+            owner.dronePractice = (owner.dronePractice ?? 0) + dt;
+            if (owner.dronePractice >= 2) { owner.dronePractice = 0; practise(owner, 'drone_pilot', 1); }
             const d = Math.hypot(g.pos.x - owner.pos.x, g.pos.z - owner.pos.z);
-            g.signal = Math.max(0, Math.min(1, 1 - d / DRONE_RANGE));
+            const leash = DRONE_RANGE * skillEdge(practiceOf(owner, 'drone_pilot'), 1.5);
+            g.signal = Math.max(0, Math.min(1, 1 - d / leash));
             if (g.signal <= 0) { this.crashDrone(g); break; } // out of range: static → gone
             for (const s of this.soldiers.values()) {
               if (!s.alive || s.team === g.team) continue;
@@ -3995,7 +4089,13 @@ export class World {
       (cmd.moveX !== 0 || cmd.moveZ !== 0);
     if (s.sprinting) {
       speed *= SPRINT_MULT;
-      s.energy = Math.max(0, s.energy - SPRINT_DRAIN * dt);
+      // NAVIGATOR: picking the line is the whole trade. He does not run faster
+      // — he wastes less wind getting there, which is the honest reading of a
+      // skill about ROUTE rather than pace.
+      s.energy = Math.max(0, s.energy - SPRINT_DRAIN * dt / skillEdge(practiceOf(s, 'navigator'), 1.5));
+      // …and ground covered at pace is how it is learned
+      s.navPractice = (s.navPractice ?? 0) + dt;
+      if (s.navPractice >= 4) { s.navPractice = 0; practise(s, 'navigator', 1); }
     }
     if (s.rageMul) speed *= s.rageMul; // Ragebeast: the wound makes him fast
     for (const eid of s.equipment) {
@@ -4707,13 +4807,24 @@ export class World {
       victim.pushZ += ((victim.pos.z - s.pos.z) / dl) * impactPush;
       // A working dog's bite briefly hauls the victim back toward the jaws.
       // Damage stays on the existing bite weapon; the added threat is space.
+      let bite = 1;
       if (s.kind === 'dog') {
         victim.pushX += ((s.pos.x - victim.pos.x) / dl) * 5;
         victim.pushZ += ((s.pos.z - victim.pos.z) / dl) * 5;
+        // DOG HANDLER: the dog is only as good as the man who trained it. His
+        // practice puts weight behind the bite, and every bite teaches him
+        // more — the skill and the animal improve together, which is the only
+        // reading of "handler" that means anything.
+        const handler = s.ownerId >= 0 ? this.soldiers.get(s.ownerId) : undefined;
+        if (handler) {
+          bite = skillEdge(practiceOf(handler, 'dog_handler'), 1.5);
+          handler.dogPractice = (handler.dogPractice ?? 0) + 1;
+          if (handler.dogPractice >= 3) { handler.dogPractice = 0; practise(handler, 'dog_handler', 1); }
+        }
       }
       this.emit({ type: 'hit', pos: { ...victim.pos, y: 1 }, weapon: def.id, soldierId: s.id });
       const hpBefore = victim.hp;
-      this.damageSoldier(victim, strikeDmg, s.id, def.id, false, def.meleeTrait === 'pierce');
+      this.damageSoldier(victim, strikeDmg * bite, s.id, def.id, false, def.meleeTrait === 'pierce');
       if (def.meleeTrait === 'blood' && victim.alive && victim.hp < hpBefore) {
         victim.bleedingUntil = Math.max(victim.bleedingUntil ?? 0, this.time + (def.bleedSeconds ?? 2));
         victim.bleedNextAt = Math.min(victim.bleedNextAt ?? Infinity, this.time + 0.5);
@@ -5278,12 +5389,16 @@ export class World {
         if (!v.alive || v.team !== s.team || (v.hp >= v.maxHp && v.infectedUntil === undefined)) continue;
         if (Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z) < VEHICLES[v.kind].radius + 2.5) {
           if (v.infectedUntil !== undefined) { v.infectedUntil = undefined; v.infectedTeam = undefined; this.infectedHullCount--; } // the cleanse
-          v.hp = Math.min(v.maxHp, v.hp + 120);
+          // ENGINEERING OWNS THE REPAIR, and the trades practise it. The kit
+          // used to be a flat 120/10s for everyone holding one — a career
+          // mechanic patched exactly as well as a rifleman who found a kit.
+          v.hp = Math.min(v.maxHp, v.hp + 120 * this.repairMul(s));
           // a field patch also braces the weakest subsystem
           let weakest: SystemId = 'engine';
           for (const id of SYSTEM_IDS) if (v.systems[id] < v.systems[weakest]) weakest = id;
-          v.systems[weakest] = Math.min(VEHICLES[v.kind].systemHp ?? 60, v.systems[weakest] + 60);
-          s.nextRepairAt = this.time + 10;
+          v.systems[weakest] = Math.min(VEHICLES[v.kind].systemHp ?? 60, v.systems[weakest] + 60 * this.repairMul(s));
+          s.nextRepairAt = this.time + 10 * this.statQuick(s.stats?.engineering, 2);
+          practise(s, 'mechanic', 4); // the trade is earned on the hulls you fix
           this.emit({ type: 'heal', pos: v.pos });
           this.emit({ type: 'announce', text: `${s.name} patched the ${VEHICLES[v.kind].name}` });
           return true;
@@ -5292,8 +5407,9 @@ export class World {
       for (const t of this.turrets.values()) {
         if (!t.alive || t.team !== s.team || t.hp >= t.maxHp) continue;
         if (Math.hypot(t.pos.x - s.pos.x, t.pos.z - s.pos.z) < 3) {
-          t.hp = Math.min(t.maxHp, t.hp + 120);
-          s.nextRepairAt = this.time + 10;
+          t.hp = Math.min(t.maxHp, t.hp + 120 * this.repairMul(s));
+          s.nextRepairAt = this.time + 10 * this.statQuick(s.stats?.engineering, 2);
+          practise(s, 'engineer', 4);
           this.emit({ type: 'heal', pos: t.pos });
           return true;
         }
@@ -5305,7 +5421,9 @@ export class World {
         if (Math.hypot(t.pos.x - s.pos.x, t.pos.z - s.pos.z) < 3) {
           t.team = s.team;
           t.ownerId = s.id;
-          s.nextRepairAt = this.time + 10;
+          // SCIENCE OWNS THE HACK (canon: "hacking, artifacts, lab work"). A
+          // trained head is back on the next sentry sooner.
+          s.nextRepairAt = this.time + 10 * this.statQuick(s.stats?.science, 2);
           s.score += 15;
           this.emit({ type: 'hacked', pos: { ...t.pos }, soldierId: s.id, text: `${s.name} hacked a sentry!` });
           return true;
@@ -5491,8 +5609,13 @@ export class World {
     if (Math.hypot(cmd.moveX, cmd.moveZ) > 0.1) {
       s.draggingId = best.id; // stepDrag hauls the body after our own physics
     } else {
-      best.reviveProgress += dt;
-      if (best.reviveProgress >= REVIVE_CHANNEL) this.reviveSoldier(best, s);
+      // MEDIC: the practised hand works the channel faster, and getting a man
+      // back on his feet is how the skill is earned in the first place.
+      best.reviveProgress += dt * skillEdge(practiceOf(s, 'medic'), 1.5);
+      if (best.reviveProgress >= REVIVE_CHANNEL) {
+        this.reviveSoldier(best, s);
+        practise(s, 'medic', 6);
+      }
     }
     return true;
   }
@@ -5720,7 +5843,12 @@ export class World {
       v.hotwireProgress = 0; // walked away mid-job — the wiring snaps back
       return;
     }
-    v.hotwireProgress += dt;
+    // CHARISMA IS NEGOTIATION (canon: "negotiation, recruitment, the black
+    // market"). This is the only place in the sim where a soldier TALKS
+    // somebody out of something, so this is where the stat lives: a persuasive
+    // man is out of the owner's car sooner, a charmless one is still fumbling
+    // with the wiring. Strength 2 — the whole job is one social roll.
+    v.hotwireProgress += dt * this.statMul(thief.stats?.charisma, 2);
     const need = thief.classId === 'engineer' ? HOTWIRE_TIME / 2 : HOTWIRE_TIME;
     if (v.hotwireProgress >= need) {
       v.team = thief.team;          // the hull flies the thief's colors — damage and all
@@ -6150,7 +6278,18 @@ export class World {
       const rollAuth = wheeled
         ? Math.max(0.4, Math.min(1, Math.abs(Math.cos(v.yaw) * v.vel.x + Math.sin(v.yaw) * v.vel.z) / (def.speed * 0.3)))
         : 1;
-      v.yaw += turn * def.turnRate * rollAuth * (handbrake ? 1.6 : 1) * dt * (throttle < 0 ? -1 : 1);
+      // WHO IS AT THE CONTROLS. PILOTING is canon-scoped to "aircraft/hover
+      // feel", so the stat only touches things that leave the ground; the
+      // ground and water seats answer to their own practised trade instead.
+      // It moves AUTHORITY, never top speed — a great pilot turns the same
+      // airframe harder, he does not make it faster.
+      v.yaw += turn * def.turnRate * rollAuth * this.controlAuthority(driver, def)
+        * (handbrake ? 1.6 : 1) * dt * (throttle < 0 ? -1 : 1);
+      // SEAT TIME IS HOW A DRIVER LEARNS. The gunnery trades are earned by
+      // landing rounds; the DRIVING trades had no earning site at all, so
+      // tank_driver could be spent forever and never rise. Ticked per second
+      // of actual movement, so idling on a pad teaches nobody anything.
+      if (driver && Math.abs(throttle) > 0.1) this.practiseSeat(driver, def, dt);
       // V2 FIXED WING: a jet has a stall floor. Whatever the stick says, it
       // never flies slower than minAirspeed × top — and it can never reverse.
       // Let go and you keep going: attack runs become PASSES, and the pilot
@@ -6477,7 +6616,12 @@ export class World {
       const wdef = WEAPONS[def.weapon];
       v.nextFireAt = this.time + 1 / wdef.rof;
       shooter.protectedUntil = 0; // hostile action (55B)
-      const spread = (this.rng.next() - 0.5) * 2 * wdef.spread;
+      // THE GUNNER'S HAND. The mount used to fire at its card spread for
+      // everyone, so a career tank gunner shot exactly like a rifleman who
+      // climbed in. skillForWeapon maps every vehicle gun to its seat's trade
+      // (tank_gunner / helicopter / jet / boat), which is also how the seat is
+      // EARNED — the same round both spends the skill and trains it.
+      const spread = (this.rng.next() - 0.5) * 2 * wdef.spread * this.mountSpreadMul(shooter, def.weapon);
       const yaw = this.forwardArc(v, v.turretYaw) + spread; // #82: jets fire FORWARD
       const muzzle = def.radius + 0.8;
       const p: Projectile = {
@@ -6670,10 +6814,17 @@ export class World {
       case 'emp':
         this.empBlast(p.pos, p.team, p.ownerId);
         return true;
-      case 'target_beacon':
-        this.spawnGadget('target_beacon', p.team, p.ownerId, p.pos, 60, 15);
+      case 'target_beacon': {
+        // RADIO OPERATOR: the trade is how long you can HOLD a mark. A
+        // practised operator keeps the beacon talking longer — the skill was
+        // already earnable off the beacon itself (skillForWeapon), it just had
+        // nowhere to be spent.
+        const op = this.soldiers.get(p.ownerId);
+        const life = 15 * (op ? skillEdge(practiceOf(op, 'radio_operator'), 1.5) : 1);
+        this.spawnGadget('target_beacon', p.team, p.ownerId, p.pos, 60, life);
         this.emit({ type: 'beacon_planted', pos: { ...p.pos }, text: 'Targeting beacon active' });
         return true;
+      }
       case 'orbital_beacon': {
         this.spawnGadget('orbital', p.team, p.ownerId, p.pos, 60);
         this.emit({ type: 'beacon_planted', pos: { ...p.pos }, text: 'ORBITAL STRIKE INBOUND', big: true });
