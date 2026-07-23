@@ -6,3 +6,4 @@
 2026-07-23 INTAKE GOAL — personnel intake shipped: psych desk (3 questions → recommendation), stamped file, PRINT AUTHORIZATION ceremony w/ canon wake line, deploy pre-select; full live walk proven.
 2026-07-23 COACH-UI GOAL — 2 six-judge panels + 13 fixes shipped (c7a82b6): glyph vocabulary replaces the emoji zoo, clock lane, sticky-commit padding, grid alignment, AA muted lift, 44px targets, steel scrollbars. Enemy-channel law escalated.
 2026-07-23 VEHICLES GOAL v2 — roster completed (48 civilian, +train/subway rails) + THE LICENCES built (12 certs, chain ladder, codex LICENCE/EARNED AT columns, 7 laws). 654cc75.
+2026-07-23 HIGH-CODE TEN — garage real, traffic, structures bite, race AI, derby, treasury, furniture, track builder (creator), jump dress, service file. ~2552 tests.
