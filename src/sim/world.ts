@@ -407,6 +407,13 @@ export interface WorldOptions {
   /** The human's rank id (see ranks.ts) — the authority to call the stable. */
   rank?: number;
   /**
+   * THE CULTURE CODE of the ground you are fighting on (src/sim/culture.ts).
+   * Drives the STREET VO — a pedestrian in a code-2 city sounds West African,
+   * one in a code-13 city sounds Jamaican. Handed in at launch; the client
+   * reads it to pick the local voice. Undefined = a neutral street.
+   */
+  cultureCode?: number;
+  /**
    * WHERE YOU ARE FROM, in the hands. The hometown archetype
    * (src/client/hometown.ts) grants two secondary skills a head start, handed
    * in here so the sim stays a pure function of its inputs.

@@ -29,8 +29,9 @@ import { allRecords, fileRun, raceClassOf } from './client/records';
 import { settleMatch, treasuryLine } from './client/treasury';
 import { renderServiceFile } from './client/service-file';
 import { currentRank, fileService } from './client/service';
-import { hometownSkills } from './client/hometown-bridge';
+import { hometownSkills, playerCultureCode } from './client/hometown-bridge';
 import { mountGamepadUI } from './client/gamepad-ui';
+import { StreetVoice } from './client/streetvoice';
 import { DECK_MORALE, cartridgeById, loadDeck, saveDeck } from './client/gonet/cartridges';
 import { SKILL_IDS, skillLevel } from './sim/skills';
 import { BAND_LABEL, bandOf as moraleBandOf, moraleOf } from './sim/morale';
@@ -920,6 +921,9 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     // WHERE YOU ARE FROM, in the hands: the hometown archetype grants two
     // secondary skills a head start on day one.
     startingSkills: hometownSkills(),
+    // THE STREET SOUNDS LIKE HOME (Robert: "different cities sound like the
+    // culture code"): the enlisted nation decides the local voice.
+    cultureCode: playerCultureCode(),
     rank: currentRank().id,
     budget: loadIdentity()
       ? [budgetMultiplier(loadIdentity()!.faction), 1]
@@ -1047,6 +1051,8 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   // and the chip says NO CLOCK instead of inventing an hour.
   setClockField(() => (world.hasClock() ? { phase01: world.clockNow(), dayOffset: world.clockDayOffset() } : null));
   const music = new MusicDirector();
+  // THE STREET VOICE — pedestrians and the vigilante, in the local culture.
+  const street = new StreetVoice();
   // HEADPHONES: the same deck the GONET corner drives, worn on the field.
   cansRef = new Headphones(audio, music);
   const cans = cansRef;
@@ -1412,6 +1418,9 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     // headphones are on the war's own score stays out of the way.
     music.setVolume(settings.masterVolume);
     if (!cans.on) music.update(world, now);
+    // the street reacts to the fight — panics at gunfire, gasps at a god
+    street.update(world, world.time);
+    for (const e of events) if (e.type === 'lsw_active' && e.pos) street.onGod(world, e.pos, world.time);
     // §7: the moment YOU become the weapon (or hand the body back), say so —
     // the Q hint is the whole tutorial
     if (me.ascendant !== pilotBody) {

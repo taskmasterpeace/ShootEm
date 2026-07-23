@@ -631,7 +631,12 @@ export class AudioEngine {
     if (name === 'footstep') name = this.footstepDefault; // the swappable default
     const buf = this.buffers.get(name);
     if (!buf) {
-      if (!name.startsWith('vo_') && !name.startsWith('ann_')) return false;
+      // lazy-loaded families: VO/announcer, and the STREET voices (there are
+      // hundreds of culture × event takes — loading them all at boot would be
+      // wasteful, and a city only ever needs its own). A missing file resolves
+      // to `false` in loadSound and boots silently, so the street is never a
+      // hard dependency.
+      if (!name.startsWith('vo_') && !name.startsWith('ann_') && !name.startsWith('street_')) return false;
       const queued = { ...opts, ...(opts.pos ? { pos: { ...opts.pos } } : {}) };
       void this.loadSound(name).then((loaded) => { if (loaded) this.play(name, queued); });
       return true;
