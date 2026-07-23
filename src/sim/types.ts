@@ -1,6 +1,6 @@
 export type Team = 0 | 1; // 0 = United Front (amber), 1 = Collective (cyan). Survival: all players team 0.
 
-export type ModeId = 'tdm' | 'ctf' | 'koth' | 'conquest' | 'survival' | 'horde' | 'safehouse' | 'science' | 'range' | 'paintball' | 'race' | 'timetrial' | 'shop';
+export type ModeId = 'tdm' | 'ctf' | 'koth' | 'conquest' | 'survival' | 'horde' | 'tide' | 'safehouse' | 'science' | 'range' | 'paintball' | 'race' | 'timetrial' | 'shop';
 
 /** One gate on the circuit — pass through its radius to bank progress. */
 export interface RaceCheckpoint {
@@ -1310,7 +1310,7 @@ export interface ModeState {
 
 /** Modes where all players share team 0 against the undead. */
 export function isCoopMode(id: ModeId): boolean {
-  return id === 'survival' || id === 'horde' || id === 'safehouse' || id === 'science';
+  return id === 'survival' || id === 'horde' || id === 'tide' || id === 'safehouse' || id === 'science';
 }
 
 export interface PlayerCmd {

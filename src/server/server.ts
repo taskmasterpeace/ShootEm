@@ -30,7 +30,7 @@ const BOT_NAMES = ['Vex', 'Talon', 'Havoc', 'Rook', 'Cinder', 'Drifter', 'Onyx',
 const CLASS_POOL: ClassId[] = ['infantry', 'infantry', 'heavy', 'jump', 'engineer', 'medic', 'infiltrator', 'pathfinder', 'ghost'];
 // Science operations carry local campaign/window state and are deliberately
 // absent from public rooms in v1; main.ts forces them onto the local host.
-const MODES: ModeId[] = ['tdm', 'ctf', 'koth', 'conquest', 'survival', 'horde', 'safehouse'];
+const MODES: ModeId[] = ['tdm', 'ctf', 'koth', 'conquest', 'survival', 'horde', 'tide', 'safehouse'];
 const THEME_ROTATION: ThemeId[] = ['savanna', 'starship', 'asteroid', 'europa', 'titan', 'triton'];
 
 /**

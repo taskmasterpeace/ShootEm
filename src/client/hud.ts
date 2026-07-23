@@ -1145,11 +1145,11 @@ export class Hud {
                  <div class="obj-chip neutral">${m.zombiesLeft ?? 0} left</div>
                  <div class="obj-chip t1">☠ ${local.kills}</div>`;
         break;
-      case 'horde': {
+      case 'horde': case 'tide': {
         const t = world.time;
         const clock = `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
         chips = `<div class="obj-chip t0">🕐 ${clock}</div>
-                 <div class="obj-chip neutral">INTENSITY ${m.wave ?? 1}</div>
+                 <div class="obj-chip neutral">${m.id === 'tide' ? 'TIDE' : 'INTENSITY'} ${m.wave ?? 1}</div>
                  <div class="obj-chip t1">☠ ${fmt(m.scores[0])} · ${m.zombiesLeft ?? 0} up</div>`;
         break;
       }
@@ -1696,7 +1696,7 @@ export class Hud {
     // ── THE ROSTER (a flag mode adds CAP / RET, so the flag game is legible) ──
     const flagCols = isFlag ? '<th class="cap" title="Flags captured">CAP</th><th title="Flags returned on defense">RET</th>' : '';
     roster += `<table><tr><th>Callsign</th><th>Class</th>${flagCols}<th>K</th><th>D</th><th title="Longest kill">Long</th><th title="Vehicles wrecked">Wreck</th><th>Score</th></tr>`;
-    if (m.id === 'survival' || m.id === 'horde' || m.id === 'safehouse' || m.id === 'science') {
+    if (m.id === 'survival' || m.id === 'horde' || m.id === 'tide' || m.id === 'safehouse' || m.id === 'science') {
       roster += soldiers.map(row).join('');
     } else {
       for (const team of [0, 1] as Team[]) {

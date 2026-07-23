@@ -70,6 +70,7 @@ export function initMode(id: ModeId, map: GameMap, minutes?: number): ModeState 
       m.timeLeft = Infinity;
       break;
     case 'horde':
+    case 'tide':
       m.wave = 0;          // repurposed: intensity level shown on the HUD
       m.zombiesLeft = 0;
       m.nextWaveAt = 3;    // first spawn
@@ -138,7 +139,7 @@ export function stepMode(w: World, dt: number) {
     case 'koth': stepKoth(w, dt); break;
     case 'conquest': stepConquest(w, dt); break;
     case 'survival': stepSurvival(w, dt); break;
-    case 'horde': stepHorde(w, dt); break;
+    case 'horde': case 'tide': stepHorde(w, dt); break;
     case 'safehouse': stepSafehouse(w, dt); break;
     case 'science': stepScienceMission(w, dt); break;
     case 'paintball': stepPaintball(w, dt); break;
@@ -721,8 +722,10 @@ function rollIronKind(w: World, wave: number): IronKind {
 // iron race fields its own roster — but the horde you fight is shamblers, with
 // the odd sprinter you hear before you see. Draws exactly one rng.next() (the
 // stream position is unchanged; only the composition moves).
-function rollZedKind(w: World): ZedKind {
-  return w.rng.next() < 0.01 ? 'sprinter' : 'zombie';
+/** The dead are almost all SLOW — that's the law. The tide halves even that:
+ *  in a sea of shamblers a single runner is an event, not a pattern. */
+function rollZedKind(w: World, tide = false): ZedKind {
+  return w.rng.next() < (tide ? 0.005 : 0.01) ? 'sprinter' : 'zombie';
 }
 
 // ---------- Endless Horde ----------
@@ -741,10 +744,16 @@ function stepHorde(w: World, _dt: number) {
   const zombies = [...w.soldiers.values()].filter((s) => s.alive && isZed(s.kind));
   m.zombiesLeft = zombies.length;
   m.scores[0] = w.humansAndBots().reduce((a, s) => a + s.kills, 0); // squad kill count
+  // THE TIDE (Robert: "right now it's a little bit of zombies and it slowly
+  // raises up — it needs to be A LOT of shamblers with very few of the quick
+  // ones"): same machinery, opposite philosophy. The horde RAMPS toward a
+  // peak; the tide IS the peak — a sea of slow dead from the first minute,
+  // sprinters twice as rare, each body softer because the MASS is the menace.
+  const tide = m.id === 'tide';
   const intensity = 1 + Math.floor(w.time / 30); // ramps every 30s
   if (intensity !== m.wave) {
     m.wave = intensity;
-    if (intensity > 1) w.emit({ type: 'wave_start', text: `INTENSITY ${intensity}`, big: true });
+    if (intensity > 1) w.emit({ type: 'wave_start', text: tide ? `THE TIDE RISES — ${intensity}` : `INTENSITY ${intensity}`, big: true });
   }
 
   // population target grows with time; difficulty scales it. MORE SHAMBLERS
@@ -752,12 +761,14 @@ function stepHorde(w: World, _dt: number) {
   // DENSER now — base 12→cap 80 (was 8→48), and it fills faster. The mass is
   // the menace: a wall of shamblers, not a zoo of specials.
   const diffMul = w.opts.difficulty === 'recruit' ? 0.7 : w.opts.difficulty === 'elite' ? 1.35 : 1;
-  const targetPop = Math.min(12 + intensity * 4, 80) * diffMul;
+  const targetPop = (tide
+    ? Math.min(55 + intensity * 5, 130)   // the sea is already in the streets
+    : Math.min(12 + intensity * 4, 80)) * diffMul;
 
   if (zombies.length < targetPop && w.time >= (m.nextWaveAt ?? 0)) {
-    // spawn cadence accelerates from 1.4s down to 0.35s
-    m.nextWaveAt = w.time + Math.max(0.35, 1.4 - w.time / 150);
-    const burst = w.rng.int(1, Math.min(5, intensity));
+    // spawn cadence: the horde accelerates 1.4s→0.35s; the tide never waits
+    m.nextWaveAt = w.time + (tide ? 0.3 : Math.max(0.35, 1.4 - w.time / 150));
+    const burst = tide ? w.rng.int(4, 8) : w.rng.int(1, Math.min(5, intensity));
     for (let i = 0; i < burst; i++) {
       const sp = w.map.zombieSpawns[w.rng.int(0, w.map.zombieSpawns.length - 1)];
       const jitter = { x: sp.x + w.rng.range(-2, 2), y: 0, z: sp.z + w.rng.range(-2, 2) };
@@ -769,8 +780,8 @@ function stepHorde(w: World, _dt: number) {
         ? w.addIronEater(rollIronKind(w, intensity), jitter)
         : roster === 'both' && intensity >= 4 && w.rng.next() < 0.25
           ? w.addIronEater(rollIronKind(w, intensity), jitter)
-          : w.addZombie(rollZedKind(w), jitter);
-      z.hp *= 1 + (intensity - 1) * 0.08;
+          : w.addZombie(rollZedKind(w, tide), jitter);
+      z.hp *= 1 + (intensity - 1) * (tide ? 0.04 : 0.08);
       z.maxHp = z.hp;
     }
   }

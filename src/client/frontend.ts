@@ -19,7 +19,8 @@ import {
 
 export interface FrontendHost {
   /** SINGLE PLAYER chosen — reveal the deploy screen. */
-  enterMenu(): void;
+  /** door: SKIRMISH lands on the war categories, PAINTBALL on the yard. */
+  enterMenu(door?: 'skirmish' | 'paintball'): void;
   /** Identity established or changed — push the callsign into the deploy form + record. */
   onIdentity(id: PlayerIdentity): void;
 }
@@ -79,10 +80,22 @@ function renderMenu() {
   buttons.className = 'fm-menu';
   wrap.appendChild(buttons);
 
-  buttons.appendChild(menuButton('▶', 'SINGLE PLAYER', 'Fight the war offline — deploy, campaign, survival.', false, () => {
-    hideOverlay();
-    host.enterMenu();
+  // SINGLE PLAYER opens the two doors (Robert's tree): SKIRMISH — the war
+  // in all its shapes — and PAINTBALL, the yard. The row toggles in place.
+  const spDoors = document.createElement('div');
+  spDoors.className = 'fm-subrow hidden';
+  buttons.appendChild(menuButton('▶', 'SINGLE PLAYER', 'Fight the war offline — skirmish or the paintball yard.', false, () => {
+    spDoors.classList.toggle('hidden');
   }));
+  spDoors.appendChild(menuButton('⚔', 'SKIRMISH', 'War, military missions, science missions, the outbreak.', false, () => {
+    hideOverlay();
+    host.enterMenu('skirmish');
+  }));
+  spDoors.appendChild(menuButton('🎨', 'PAINTBALL', 'The yard: hunters vs hunted, the Gauntlet, the pro shop.', false, () => {
+    hideOverlay();
+    host.enterMenu('paintball');
+  }));
+  buttons.appendChild(spDoors);
   buttons.appendChild(menuButton('⛨', 'MULTIPLAYER', 'Two real armies over one contested world.', true));
   buttons.appendChild(menuButton('⚙', 'OPTIONS', 'Audio, comfort, blood, speeds, reticle, controls.', false, renderOptions));
 

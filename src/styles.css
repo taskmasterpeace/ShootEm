@@ -1899,3 +1899,18 @@ body.touch #hud-bottom-left { bottom: auto; top: 3.2rem; left: calc(max(0.75rem,
   border: 1px solid var(--border); cursor: pointer;
 }
 #service-record button:hover { border-color: var(--accent); color: var(--accent); }
+
+/* the SINGLE PLAYER doors — an indented pair revealed in place */
+.fm-subrow { display: flex; flex-direction: column; gap: 0.6rem; margin-left: 1.6rem; }
+.fm-subrow.hidden { display: none; }
+
+/* the SKIRMISH categories (Robert's tree): WAR · MILITARY · SCIENCE ·
+   OUTBREAK · TRAINING · PAINTBALL — pill tabs over the mode cards */
+#mode-cats { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.7rem; }
+#mode-cats button {
+  font: 700 0.72rem var(--font-mono); letter-spacing: 0.12em; cursor: pointer;
+  padding: 0.45rem 0.9rem; border: 1px solid var(--border); background: transparent;
+  color: var(--muted); text-transform: uppercase;
+}
+#mode-cats button:hover { border-color: var(--accent); color: var(--accent); }
+#mode-cats button.on { background: var(--accent); color: #141210; border-color: var(--accent); font-weight: 700; }

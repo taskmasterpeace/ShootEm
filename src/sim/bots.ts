@@ -377,7 +377,7 @@ export function objectiveFor(w: World, s: Soldier): Vec3 {
       return { x: best.pos.x + Math.cos(a) * r, y: 0, z: best.pos.z + Math.sin(a) * r };
     }
     case 'survival':
-    case 'horde': {
+    case 'horde': case 'tide': {
       // hold near squad center
       const allies = w.humansAndBots().filter((x) => x.alive);
       if (!allies.length) return w.map.hillPos;

@@ -800,6 +800,7 @@ export const MODE_INFO: Record<string, { name: string; desc: string; icon: strin
   conquest: { name: 'Conquest', desc: 'Hold control points A/B/C. First to 500 tickets.', icon: '🎯' },
   survival: { name: 'Zombie Survival', desc: 'Co-op vs escalating undead waves.', icon: '🧟' },
   horde: { name: 'Endless Horde', desc: 'No waves, no breaks — the dead never stop coming.', icon: '🩸' },
+  tide: { name: 'The Shambler Tide', desc: 'The sea of the dead: a WALL of slow shamblers from the first minute. Runners are rumors. Mass is the menace.', icon: '🌊' },
   safehouse: { name: 'Protect the Scientist', desc: 'The horde searches house to house. Hide him, defend him, survive to evac.', icon: '🧪' },
   science: { name: 'Science Mission', desc: 'Compact black-site operation. Burn finite clones, finish the job, and extract the program.', icon: '⌬' },
   range: { name: 'Proving Grounds', desc: 'Your own patch of the war: firing lanes, dummy targets, the qualification courses (§3.3).', icon: '🎯' },

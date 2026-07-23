@@ -390,10 +390,60 @@ function paintGauntletBlock() {
     + ` · GALLERY: ${t.gallery ? `${t.gallery.holder} (${t.gallery.score})` : 'no house score'}`;
 }
 
+// THE SKIRMISH TREE (Robert: "go to skirmish — you should be able to choose
+// military missions, science missions, or war… but we gotta also include the
+// zombie stuff and the other stuff"). Categories are pill tabs; the mode
+// cards below filter to the active shelf. PAINTBALL is both a front-door
+// sibling of SKIRMISH and the last shelf here.
+const MODE_CATEGORIES: { id: string; label: string; modes: ModeId[] }[] = [
+  { id: 'war', label: 'War', modes: ['ctf', 'tdm', 'koth', 'conquest'] },
+  { id: 'military', label: 'Military Missions', modes: [] }, // the operations entry card
+  { id: 'science', label: 'Science Missions', modes: ['science'] },
+  { id: 'outbreak', label: 'Outbreak', modes: ['survival', 'horde', 'tide', 'safehouse'] },
+  { id: 'training', label: 'Training & Trials', modes: ['range', 'race', 'timetrial'] },
+  { id: 'paintball', label: 'Paintball', modes: ['paintball'] },
+];
+let modeCategory = 'war';
+
+/** Jump the deploy screen to a category shelf (the front door's two doors). */
+function setMenuCategory(cat: string) {
+  modeCategory = cat;
+  const shelf = MODE_CATEGORIES.find((c) => c.id === cat);
+  if (shelf && shelf.modes.length && !shelf.modes.includes(selectedMode)) {
+    selectedMode = shelf.modes[0];
+  }
+  buildMenu();
+}
+
 function buildMenu() {
   const modeRow = $('mode-select');
+  const shelf = MODE_CATEGORIES.find((c) => c.id === modeCategory) ?? MODE_CATEGORIES[0];
+  // the pill tabs live in their own row just above the cards
+  let cats = document.getElementById('mode-cats');
+  if (!cats) {
+    cats = document.createElement('div');
+    cats.id = 'mode-cats';
+    modeRow.parentElement!.insertBefore(cats, modeRow);
+  }
+  cats.innerHTML = '';
+  for (const c of MODE_CATEGORIES) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = c.id === modeCategory ? 'on' : '';
+    b.textContent = c.label;
+    b.onclick = () => { audio.play('ui_click'); setMenuCategory(c.id); };
+    cats.appendChild(b);
+  }
   modeRow.innerHTML = '';
-  (Object.keys(MODE_INFO) as ModeId[]).filter((id) => id !== 'shop').forEach((id) => {
+  // MILITARY MISSIONS is an operations shelf, not a mode card — its entry
+  // panel (military-missions-entry) is re-adopted by the row each rebuild
+  const milEntry = document.createElement('div');
+  milEntry.id = 'military-missions-entry';
+  milEntry.style.display = shelf.id === 'military' ? '' : 'none';
+  modeRow.appendChild(milEntry);
+  (Object.keys(MODE_INFO) as ModeId[])
+    .filter((id) => id !== 'shop' && shelf.modes.includes(id))
+    .forEach((id) => {
     const card = document.createElement('div');
     card.className = `select-card${id === selectedMode ? ' selected' : ''}`;
     card.innerHTML = `<div class="icon">${MODE_INFO[id].icon}</div><div class="name">${MODE_INFO[id].name}</div><div class="desc">${MODE_INFO[id].desc}</div>`;
@@ -407,7 +457,7 @@ function buildMenu() {
       card.classList.add('selected');
       paintMilitaryMissionEntry();
       // THE ROSTER LAW: the horde-composition pick only exists where a horde does
-      $('roster-block').style.display = (id === 'horde' || id === 'survival') ? '' : 'none';
+      $('roster-block').style.display = (id === 'horde' || id === 'tide' || id === 'survival') ? '' : 'none';
       $('science-clone-block').style.display = id === 'science' ? '' : 'none';
       // the board pick only exists on the grid
       $('race-board-block').style.display = (id === 'race' || id === 'timetrial') ? '' : 'none';
@@ -417,7 +467,7 @@ function buildMenu() {
     modeRow.appendChild(card);
   });
   paintMilitaryMissionEntry();
-  $('roster-block').style.display = (selectedMode === 'horde' || selectedMode === 'survival') ? '' : 'none';
+  $('roster-block').style.display = (selectedMode === 'horde' || selectedMode === 'tide' || selectedMode === 'survival') ? '' : 'none';
   $('science-clone-block').style.display = selectedMode === 'science' ? '' : 'none';
   $('race-board-block').style.display = (selectedMode === 'race' || selectedMode === 'timetrial') ? '' : 'none';
   $('gauntlet-block').style.display = selectedMode === 'paintball' ? '' : 'none';
@@ -1950,8 +2000,11 @@ const onboardingHost = {
   },
 };
 mountFrontend({
-  enterMenu() {
+  enterMenu(door) {
     $('menu').classList.remove('hidden');
+    // the two doors (Robert's tree): SKIRMISH lands on the WAR shelf,
+    // PAINTBALL lands on the yard's shelf — same deploy screen, aimed
+    setMenuCategory(door === 'paintball' ? 'paintball' : 'war');
     // a fresh recruit's first SINGLE PLAYER goes to the paintball yard — the
     // boot camp overlay mounts OVER the deploy screen until its state machine
     // says done; veterans (and skippers) never see it again

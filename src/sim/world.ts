@@ -627,7 +627,7 @@ export class World {
     // THE OUTBREAK plays LIVE in the horde modes — where the dead already walk,
     // the fallen now rise with them (opts.outbreak forces it on elsewhere).
     // The war-front outbreak (condition-driven, §2.1) is a later slice.
-    this.outbreakEnabled = opts.outbreak ?? (opts.mode === 'horde' || opts.mode === 'survival' || opts.mode === 'safehouse');
+    this.outbreakEnabled = opts.outbreak ?? (opts.mode === 'horde' || opts.mode === 'tide' || opts.mode === 'survival' || opts.mode === 'safehouse');
     // vehicles on pads. Co-op zombie modes field only squad support —
     // the ambulance and the emplacement guns — no armor column.
     // B1: morale arrives as opening materiel — an army that believes fights
