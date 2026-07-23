@@ -23,6 +23,7 @@ import { buildSoldier, dressAsLsw } from './models/soldiers';
 import { buildVehicle } from './models/vehicles';
 import { ascendantCost, classCost, fmtCost, threatBounty, vehicleCost, weaponCost } from './codex-cost';
 import { LICENCES, licenceFor } from '../sim/licenses';
+import { payloadOf } from '../sim/traffic';
 
 // ── reference weapons for shots-to-kill, and the zombie the numbers answer to ─
 // Robert: "add the damage to kill a zombie for the weapons — a regular old
@@ -262,6 +263,10 @@ function fleetRows(civilian: boolean): Row[] {
       shock: d.shock ?? 0,
       licence: LICENCES[licenceFor(kind)].name,
       school: LICENCES[licenceFor(kind)].school,
+      // THE CARGO IS THE WEAPON (traffic.ts): what a civilian hull is
+      // carrying is the whole answer to what it is worth on a battlefield.
+      cargo: payloadOf(kind)?.note ?? '',
+      cargoBlast: payloadOf(kind)?.blast ?? 0,
       dps: w ? sustainedDps(w, vehicleDamagePerShot(w)) : 0,
       range: w ? w.range : 0,
       radius: d.radius,

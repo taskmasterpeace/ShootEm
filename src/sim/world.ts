@@ -22,6 +22,11 @@ import {
   stairDirectionAt,
 } from './map-layers';
 import { MATERIALS, materialOf, materialForSurface, DRILL_BASE } from './materials';
+import {
+  ARRIVED, LEG_SECONDS, PANIC_RADIUS, PANIC_SECONDS, fleeTo, isPanicking, legDone,
+  newDrive, paceFor, payloadOf, steerToward, updateStuck,
+  type CivilianDrive,
+} from './traffic';
 import { licenceHeld, LICENCES, licenceFor, type LicenceId } from './licenses';
 import { practise, skillEdge, skillForWeapon, practiceOf } from './skills';
 import {
@@ -1966,7 +1971,9 @@ export class World {
     // draw of the match stream (the harness trap, paid for twice already)
     let n = 0;
     const roll = () => hash01(this.map.seed + ++n * 17.7);
-    const COUNT = 14;
+    // more ATTEMPTS than hulls wanted: the clearance check below rejects a
+    // good share of candidate spots, and a thin city is worse than a busy one
+    const COUNT = 24;
     // THE ID TRAP, paid for again: entity ids are a SHARED sequence, and bot
     // roles key off `id % 4`. Minting 14 traffic ids from the main counter
     // shifted every soldier spawned afterwards and quietly re-rolled the
@@ -1986,10 +1993,27 @@ export class World {
       const near = this.map.houses.some((h) => Math.hypot(h.center.x - x, h.center.z - z) < 26);
       const pool = near ? WORK : STREET;
       const kind = pool[Math.floor(roll() * pool.length) % pool.length];
+      // ROOM TO PULL AWAY. The point being clear is not enough — a garbage
+      // truck is not a point, and one dropped with its flank inside a wall can
+      // never move: there is nowhere to steer into and the throttle just holds
+      // it there. (Two of the fourteen sat still forever, and reversing did not
+      // free them either, because they were boxed on every side.) Require the
+      // hull's own footprint, plus a margin to turn in.
+      const room = (VEHICLES[kind].radius ?? 1.5) + 2.5;
+      let boxed = false;
+      for (let a = 0; a < 8 && !boxed; a++) {
+        const th = (a / 8) * Math.PI * 2;
+        if (isBlocked(this.map.grid, x + Math.cos(th) * room, z + Math.sin(th) * room, false, geo)) boxed = true;
+      }
+      if (boxed) continue;
       const v = this.spawnVehicle(kind, -1 as Team, { x, y: 0, z });
       v.yaw = roll() * Math.PI * 2;
       v.padTeam = -1 as Team;   // nobody's motor pool — anyone can take it
       v.abandonedAt = 0;
+      // AND IT DRIVES. Robert's line is that civilian vehicles make the
+      // world feel ALIVE, and fourteen parked cars make it feel like a car
+      // park. Each one gets somewhere to be; the autopilot does the rest.
+      v.civilianDrive = newDrive(v.pos, this.map.seed + i * 31.7, this.time);
     }
     this.nextId = mainNext; // hand the war its sequence back, untouched
   }
@@ -2399,6 +2423,10 @@ export class World {
       }
       if (!friends) shiftMorale(s, MORALE_SHIFTS.alone * dt);
       if (led > 0) shiftMorale(s, MORALE_SHIFTS.ledWell * led * dt);
+      // HOT FOOD IS A TACTICAL ASSET. The food truck is the other honest
+      // answer to "which civilian vehicles matter": men who eat hold their
+      // nerve. Standing near a live one steadies you the way an officer does.
+      if (this.foodNearby(s.pos)) shiftMorale(s, MORALE_SHIFTS.ledWell * 0.8 * dt);
       settleMorale(s, dt);
       // the behavioural half: a shaken bot wants cover, and says so to the AI
       s.shaken = s.kind === 'bot' && wantsCover(moraleOf(s));
@@ -4584,6 +4612,7 @@ export class World {
     // leads). Core weapons carry no brand — nothing here moves for them.
     if (def.brand === 'kamenel') speed *= 1.15;
     // W1.1: stance + motion bend the cone (crouch braces, sprint/airborne spray)
+    this.scareTraffic(s.pos); // gunfire is the driver's problem
     const spread = (this.rng.next() - 0.5) * 2 * def.spread * handSpreadMul(s, def.id)
       * (def.brand === 'maklov' ? 0.75 : 1);
     const yaw = s.yaw + spread;
@@ -5731,6 +5760,94 @@ export class World {
     if (this.time < tr.bailedUntil) { v.vel.x *= 0.94; v.vel.z *= 0.94; }
   }
 
+  /**
+   * THE CITY DRIVES ITSELF. A civilian hull with nobody at the wheel picks
+   * somewhere to be and goes there; when it hears shooting it runs.
+   *
+   * No soldier is spawned to drive it. Entity ids are one shared sequence
+   * and bot roles key off `id % 4` (the trap this file has paid for twice),
+   * so a city full of drivers would quietly re-roll the war's garrison. The
+   * hull simply steers itself through the same drivetrain a player uses.
+   */
+  private civilianCmd(v: Vehicle, dt: number): PlayerCmd | undefined {
+    const d = v.civilianDrive;
+    if (!d || !v.alive) return undefined;
+    // a real crew always wins the wheel — the autopilot never fights them
+    if (v.seats[0] >= 0) return undefined;
+
+    if (legDone(v.pos, d, this.time)) this.pickCivilianDestination(v, d);
+
+    const pace = paceFor(d, this.time);
+    // A WEDGED CAR BACKS OUT. A hull spawned hard against a wall has no room
+    // to turn into, so the throttle simply holds it there forever — two of the
+    // fourteen never moved an inch until this existed.
+    const speed = Math.hypot(v.vel.x, v.vel.z);
+    if (updateStuck(d, speed, pace > 0, dt, this.time)) {
+      return {
+        moveX: 0, moveZ: 0.55, aimYaw: v.yaw,   // +Z is reverse
+        fire: false, altFire: false, jump: false, use: false,
+        ability: false, reload: false, grenade: false, weaponSlot: -1,
+      };
+    }
+    const steer = steerToward(v.pos, v.yaw, d.to, pace);
+    return {
+      moveX: steer.moveX, moveZ: steer.moveZ, aimYaw: v.yaw,
+      fire: false, altFire: false, jump: false, use: false,
+      ability: false, reload: false, grenade: false, weaponSlot: -1,
+    };
+  }
+
+  /** Somewhere else to be. Open ground only — a car does not path indoors. */
+  private pickCivilianDestination(v: Vehicle, d: CivilianDrive): void {
+    const geo = this.map.geometry;
+    const halfW = halfWidth(geo) - 30;
+    const halfD = halfDepth(geo) - 30;
+    for (let tries = 0; tries < 6; tries++) {
+      // hash, never the live rng — the city must not shift the war's stream
+      const h1 = hash01(this.map.seed + v.id * 7.3 + d.legs * 13.1 + tries);
+      const h2 = hash01(this.map.seed + v.id * 11.9 + d.legs * 5.7 + tries * 3);
+      const x = (h1 * 2 - 1) * halfW;
+      const z = (h2 * 2 - 1) * halfD;
+      if (isBlocked(this.map.grid, x, z, false, geo)) continue;
+      // the compound stays clear: traffic wandering into a base is a hull
+      // in the garrison's way, and the deploy ground is pinned by tests
+      if (Math.hypot(x - this.map.basePos[0].x, z - this.map.basePos[0].z) < 75) continue;
+      if (Math.hypot(x - this.map.basePos[1].x, z - this.map.basePos[1].z) < 75) continue;
+      d.to = { x, y: 0, z };
+      d.legs++;
+      d.until = this.time + LEG_SECONDS;
+      return;
+    }
+    // nowhere to go this tick — sit still and try again shortly
+    d.until = this.time + 2;
+  }
+
+  /**
+   * GUNFIRE IS THE DRIVER'S PROBLEM. Anything loud near a civilian hull
+   * sends it away from the noise at full throttle. META-LAYER §4: civilians
+   * are what make fire discipline real — this is the half of that which
+   * needs no decision about pedestrians.
+   */
+  /** Is a living food truck within smelling distance? */
+  private foodNearby(at: Vec3): boolean {
+    for (const v of this.vehicles.values()) {
+      if (!v.alive || v.kind !== 'foodtruck') continue;
+      if (Math.hypot(v.pos.x - at.x, v.pos.z - at.z) < 18) return true;
+    }
+    return false;
+  }
+
+  scareTraffic(at: Vec3): void {
+    for (const v of this.vehicles.values()) {
+      const d = v.civilianDrive;
+      if (!d || !v.alive || v.seats[0] >= 0) continue;
+      if (Math.hypot(v.pos.x - at.x, v.pos.z - at.z) > PANIC_RADIUS) continue;
+      d.panicUntil = this.time + PANIC_SECONDS;
+      d.to = fleeTo(v.pos, at);
+      d.until = this.time + LEG_SECONDS;
+    }
+  }
+
   stepVehicle(v: Vehicle, cmds: Map<number, PlayerCmd>, dt: number) {
     if (!v.alive) {
       if (this.operation) return; // an Operation has a finite manifest; wrecks do not print back in
@@ -5766,7 +5883,7 @@ export class World {
     const stunned = this.time < v.stunnedUntil;
     const driverCmd = driver && driver.alive
       ? (cmds.get(driver.id) ?? (driver.kind === 'bot' ? stepBot(this, driver, dt) : undefined))
-      : undefined;
+      : this.civilianCmd(v, dt);
     // W5.5 THE HANDBRAKE: SPACE breaks rear grip — the tail steps out
     // (lateral bleed slows 3×), the nose whips (turn ×1.6), the engine drags
     // (×0.5). Human drivers only: a bot yanking it would look like a
@@ -5827,8 +5944,17 @@ export class World {
     // vel once. Verified carve-out (audit S6): a heal pulse needs no crew, so
     // healRadius hulls keep the full path; the passenger-bail above already ran;
     // possession/infection expiry below still run. Byte-identical over 3,600 ticks.
+    //
+    // THE TRAFFIC CARVE-OUT: a hull that DRIVES ITSELF is never "parked" in
+    // this sense. The check reads crewless-and-at-rest, which is exactly the
+    // state a civilian car is in the instant before it pulls away — so
+    // without this the autopilot could steer all it liked and the city would
+    // never move an inch. (Caught by "AND IT ACTUALLY MOVES": 0 units in
+    // eight seconds.) Fourteen hulls pay the full drivetrain; the empty
+    // battlefield furniture this optimisation was written for still skips it.
     const parked = (v.band ?? 0) === 0 && !v.burrowed && !def.healRadius
       && Math.abs(v.vel.x) < 0.01 && Math.abs(v.vel.z) < 0.01
+      && !v.civilianDrive
       && !v.seats.some((sid) => sid >= 0);
     if (parked) { v.vel.x = 0; v.vel.z = 0; }
     if (!parked && !def.immobile && !spooling) {
@@ -7036,6 +7162,7 @@ export class World {
   }
 
   explode(pos: Vec3, def: (typeof WEAPONS)[WeaponId], ownerId: number, team: Team, airBurst: boolean | ElevationWeaponClass = false) {
+    this.scareTraffic(pos); // the street hears everything loud
     // THE TWO ZONES (Robert: "a circle in the center, and a radius around
     // that… the closer you are, the more"). The lethal HEART — a direct-hit
     // class blow — reaches `killR`; from there damage falls smoothly to
@@ -7744,6 +7871,25 @@ export class World {
       // HULL TYPE it killed (Robert: "the type of vehicles they've taken out")
       this.emit({ type: 'vehicle_destroyed', pos: { ...v.pos }, killerId: attackerId, weaponId: weapon, vehKind: v.kind });
       this.emit({ type: 'explosion', pos: { ...v.pos }, weapon: 'tank_cannon' });
+      // THE CARGO IS THE WEAPON (traffic.ts). The canon's open question was
+      // "which civilian vehicles weaponize", and the honest answer is that
+      // some of them already are: a full fuel tanker is a bomb somebody drove
+      // to work, parked in plain sight, and either side can set it off.
+      const cargo = payloadOf(v.kind);
+      if (cargo && cargo.blast > 0) {
+        for (const s of this.soldiers.values()) {
+          if (!s.alive) continue;
+          const d = Math.hypot(s.pos.x - v.pos.x, s.pos.z - v.pos.z);
+          if (d > cargo.blast) continue;
+          this.damageSoldier(s, cargo.blastDamage * (1 - d / cargo.blast), attackerId, weapon);
+        }
+        if (cargo.blast > 8) {
+          // a real detonation: the ring the client draws, and the street runs
+          this.emit({ type: 'explosion', pos: { ...v.pos }, radius: cargo.blast, killRadius: cargo.blast * 0.4, weapon: 'tank_cannon' });
+          this.emit({ type: 'announce', text: 'FUEL TANKER — THE STREET WENT UP', big: true });
+          this.scareTraffic(v.pos);
+        }
+      }
       // occupants take heavy damage and are ejected
       for (const sid of v.seats) {
         if (sid < 0) continue;

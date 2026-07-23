@@ -951,6 +951,12 @@ export interface Vehicle {
   trick?: import('./boardtricks').TrickState;
   /** how long the rider has held the launch charge (boost jump) */
   chargeHeld?: number;
+  /**
+   * THE TRAFFIC: this hull drives itself. Present only on the city's own
+   * civilian machines — the moment a real crew takes the wheel, the autopilot
+   * stands down and never fights them for it.
+   */
+  civilianDrive?: import('./traffic').CivilianDrive;
   /** THE CIRCUIT: oiled until this time — the floor lies and you slide. */
   oiledUntil?: number;
   /** THE CIRCUIT: the RDS cargo row, loaded — what this hull can drop. */
