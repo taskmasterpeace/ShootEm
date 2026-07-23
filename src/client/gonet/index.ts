@@ -38,8 +38,11 @@ import {
 import { board } from '../service';
 import { SPORTS, fixtures, leagueLine, sportById, standings, type SportId } from './sports';
 import {
-  CARTRIDGES, DECK_MORALE, cartridgeById, deckLine, loadDeck, ownedCartridges, saveDeck,
+  CARTRIDGES, DECK_MORALE, cartridgeById, deckLine, fileScore, loadDeck, ownedCartridges,
+  owns, saveDeck,
 } from './cartridges';
+import { isPlayable } from './cartridge-games';
+import { playInScreen, type DeckSession } from './deck-player';
 import { allRecords } from '../records';
 import { SKILLS } from '../../sim/skills';
 import { loadFits } from '../garage-ui';
@@ -69,6 +72,8 @@ let root: HTMLElement;
 let app: GonetApp = 'desk';
 let inbox: Message[] = [];
 let unsubDeck: (() => void) | null = null;
+/** a cartridge currently running in the console screen (THE DECK) */
+let deckSession: DeckSession | null = null;
 
 // video transport state
 let vChannel: ChannelId = 'war';
@@ -114,6 +119,11 @@ if (typeof window !== 'undefined') {
 }
 
 function paint(): void {
+  // a cartridge running in the console screen owns a canvas, a RAF loop and key
+  // listeners — repainting would orphan all three. Switching app, ESC and every
+  // other repaint route through here, so this is the one place it must die.
+  deckSession?.stop();
+  deckSession = null;
   const id = loadIdentity();
   root.innerHTML = `<div class="gn">${chrome(id)}<div class="gn-body">${bodyFor(id)}</div>${corner()}</div>`;
   wire();
@@ -334,8 +344,8 @@ function deckApp(): string {
       <b>${esc(c.title)}</b>
       <span class="gn-cmaker">${esc(c.maker)} · ${c.year}</span>
       ${held
-        ? `<span class="gn-cbest">${best ? `${Math.round(best)} ${esc(c.scoreUnit)}` : 'NEVER PLAYED'}</span>`
-        : '<span class="gn-cbest locked">NOT IN YOUR LOCKER</span>'}
+        ? `<span class="gn-cbest">${best ? `${Math.round(best)} ${esc(c.scoreUnit)}` : (isPlayable(c.id) ? 'NEVER PLAYED' : 'NO RUNTIME YET')}</span>`
+        : '<span class="gn-cbest locked">FOUND IN WRECKS</span>'}
       <span class="gn-crare">${esc(c.rarity.toUpperCase())}</span>
     </button>`;
   }).join('');
@@ -688,12 +698,39 @@ function wire(): void {
     };
   });
 
-  // THE DECK — switching it on pays morale and teaches nothing, on purpose
+  // THE DECK — switching it on teaches nothing, on purpose
   q<HTMLButtonElement>('[data-cart]').forEach((b) => {
-    b.onclick = () => { const d = loadDeck(); d.inSlot = b.dataset.cart!; saveDeck(d); paint(); };
+    b.onclick = () => {
+      const d = loadDeck();
+      const id = b.dataset.cart!;
+      // the `disabled` attribute is the only thing that used to stop you
+      // slotting a cartridge you do not own — check the locker, not the markup
+      if (!cartridgeById(id) || !owns(d, id)) return;
+      d.inSlot = id; saveDeck(d); paint();
+    };
   });
   q<HTMLButtonElement>('[data-play2]').forEach((b) => {
-    b.onclick = () => { host.playCartridge(b.dataset.play2!); };
+    b.onclick = () => {
+      const id = b.dataset.play2!;
+      const d = loadDeck();
+      const cart = cartridgeById(id);
+      if (!cart || !owns(d, id)) return;
+      const screen = document.querySelector<HTMLElement>('.gn-screen2');
+      if (!screen) return;
+      // THE CARTRIDGE RUNS IN THE SCREEN. This used to be a browser alert()
+      // showing the back-of-the-box blurb — a display case with a save file.
+      deckSession?.stop();
+      deckSession = playInScreen(screen, cart, d.best[id] ?? 0, (score) => {
+        deckSession = null;
+        const save = loadDeck();
+        // fileScore owns the session count AND the personal best — it was
+        // written for exactly this and had never once been called
+        fileScore(save, id, score);
+        saveDeck(save);
+        host.playCartridge(id);   // the game's hook: a session happened
+        paint();                  // SESSIONS / BEST were stale until now
+      });
+    };
   });
 
   // briefings

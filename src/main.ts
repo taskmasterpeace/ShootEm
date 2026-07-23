@@ -71,7 +71,8 @@ import { RangeCourse, loadWall } from './client/range';
 import { RingDrill } from './client/ringdrill';
 import { FieldTracker, advanceGauntlet, loadFieldRecord, saveFieldRecord } from './client/fieldrecord';
 import { checkBelt, holderOf, loadTrophies, settleCup } from './client/trophies';
-import { PAINTBALL_FIELDS } from './sim/map';
+import { PAINTBALL_FIELDS, buildTrackMap } from './sim/map';
+import { importTrack, type BuiltTrack } from './sim/tracks';
 import { PB_PERSONAS } from './sim/personas';
 import { GalleryDrill } from './client/gallerydrill';
 import { loadSettings, saveSettings, settings, type BloodLevel, type DarknessLevel, type ReticleStyle } from './client/settings';
@@ -100,6 +101,51 @@ let gauntletArmed = false;
 let galleryArmed = false;
 /** MOTOR TRIALS: which raceboard the player takes to the grid (comet/vector/sprite). */
 let selectedRaceBoard: VehicleKind = 'vector';
+/** MOTOR TRIALS: which circuit — '' = the procedural oval, else a built-track id
+ *  off the creator's shelf (the Track Builder in the Admin Room writes it). */
+let selectedTrackId = '';
+
+const TRACK_SHELF_KEY = 'ww_tracks';
+/** The creator's shelf — every track laid in the Track Builder. */
+function loadTrackShelf(): BuiltTrack[] {
+  try {
+    const shelf = JSON.parse(localStorage.getItem(TRACK_SHELF_KEY) ?? '[]') as BuiltTrack[];
+    return Array.isArray(shelf) ? shelf : [];
+  } catch { return []; }
+}
+
+/** Paint the circuit pills: the procedural oval plus every built track on the
+ *  shelf. Re-read each time the block opens so a track laid in the Admin Room
+ *  shows up without a reload. */
+function refreshTrackPills(): void {
+  const box = document.getElementById('race-track-select');
+  if (!box) return;
+  const shelf = loadTrackShelf();
+  if (!shelf.some((t) => t.id === selectedTrackId)) selectedTrackId = ''; // deleted track → oval
+  const esc = (s: string) => s.replace(/[<>&"]/g, (c) => (({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[c] ?? c));
+  box.innerHTML = `<button class="pill${selectedTrackId ? '' : ' selected'}" data-v="">Proving Oval — procedural</button>`
+    + shelf.map((t) => `<button class="pill${selectedTrackId === t.id ? ' selected' : ''}" data-v="${esc(String(t.id))}">`
+      + `${esc(String(t.name ?? 'Track'))} — ${t.pieces?.length ?? 0} pieces</button>`).join('');
+  box.querySelectorAll<HTMLButtonElement>('.pill').forEach((btn) => {
+    btn.onclick = () => {
+      audio.play('ui_click');
+      box.querySelectorAll('.pill').forEach((b) => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedTrackId = btn.dataset.v ?? '';
+    };
+  });
+}
+
+/** The map a race deploys onto: a built track from the shelf, or undefined to
+ *  let the sim carve its procedural oval. */
+function selectedRaceMap(): ReturnType<typeof buildTrackMap> | undefined {
+  if (!selectedTrackId) return undefined;
+  const t = loadTrackShelf().find((x) => x.id === selectedTrackId);
+  if (!t) return undefined;
+  // importTrack sanitises the stored data (clamps widths, drops bad pieces).
+  const clean = importTrack(JSON.stringify(t)) ?? t;
+  return buildTrackMap(clean, selectedTheme);
+}
 let selectedClass: ClassId = 'infantry';
 let selectedTheme: ThemeId = 'savanna';
 let selectedMilitaryMissionId: MilitaryMissionId | null = null;
@@ -569,6 +615,7 @@ function buildMenu() {
       $('science-clone-block').style.display = id === 'science' ? '' : 'none';
       // the board pick only exists on the grid
       $('race-board-block').style.display = (id === 'race' || id === 'timetrial') ? '' : 'none';
+      if (id === 'race' || id === 'timetrial') refreshTrackPills();
       $('gauntlet-block').style.display = id === 'paintball' ? '' : 'none';
       if (id === 'paintball') paintGauntletBlock();
     };
@@ -578,6 +625,7 @@ function buildMenu() {
   $('roster-block').style.display = (selectedMode === 'horde' || selectedMode === 'tide' || selectedMode === 'survival') ? '' : 'none';
   $('science-clone-block').style.display = selectedMode === 'science' ? '' : 'none';
   $('race-board-block').style.display = (selectedMode === 'race' || selectedMode === 'timetrial') ? '' : 'none';
+  if (selectedMode === 'race' || selectedMode === 'timetrial') refreshTrackPills();
   $('gauntlet-block').style.display = selectedMode === 'paintball' ? '' : 'none';
   if (selectedMode === 'paintball') paintGauntletBlock();
   ($('gauntlet-toggle') as HTMLButtonElement).onclick = () => {
@@ -899,8 +947,12 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   desk.ledger.reset();
   const world = new World({
     seed, mode: exercise?.mode ?? selectedMode, difficulty, matchMinutes, theme: selectedTheme,
-    // A PLACE (#122) is hand-built ground with nobody in it but the keeper
-    map: selectedMode === 'shop' ? buildVanessasMap() : undefined,
+    // A PLACE (#122) is hand-built ground with nobody in it but the keeper;
+    // a race deploys onto the CHOSEN circuit — a track you laid in the builder,
+    // or (undefined) the sim's procedural oval.
+    map: selectedMode === 'shop' ? buildVanessasMap()
+      : (selectedMode === 'race' || selectedMode === 'timetrial') ? selectedRaceMap()
+        : undefined,
     botsPerTeam: selectedMode === 'shop' ? 0 : botsPerTeam,
     traffic: true, // #94: the world has civilian machines parked in it
     // #123 THE ONE CLOCK: hand the sim the world's day-fraction at launch —
@@ -1418,9 +1470,10 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     // headphones are on the war's own score stays out of the way.
     music.setVolume(settings.masterVolume);
     if (!cans.on) music.update(world, now);
-    // the street reacts to the fight — panics at gunfire, gasps at a god
-    street.update(world, world.time);
-    for (const e of events) if (e.type === 'lsw_active' && e.pos) street.onGod(world, e.pos, world.time);
+    // THE STREET REACTS — to the fight (panics at gunfire, gasps at a god) and
+    // to YOU: curse your driving, and if you keep at it the corner turns
+    // vigilante — challenge, warning, then a swing. GTA2's wanted level, local.
+    street.update(world, world.time, dt, events, me.id);
     // §7: the moment YOU become the weapon (or hand the body back), say so —
     // the Q hint is the whole tutorial
     if (me.ascendant !== pilotBody) {
@@ -2448,17 +2501,19 @@ mountFrontend({
     selectedMode = mode;
     void startGame();
   },
-  // THE DECK: switching a cartridge on steadies you and teaches you nothing.
+  // THE DECK: a session finished. The cartridge now RUNS — it plays in the
+  // console screen (gonet/deck-player.ts) and the GONET files the score through
+  // fileScore(), which owns the session count and the personal best. This used
+  // to be the whole feature: an alert() printing the back-of-the-box blurb.
+  //
+  // The hook stays because the run is worth reacting to: THE DECK PAYS MORALE
+  // and nothing else (DECK_MORALE) — the one honest reward for the only thing
+  // in the game with no instrumental value. Crediting it needs a once-per-
+  // deployment rule so it cannot be farmed by clicking, and that is a balance
+  // call, so the credit is deliberately NOT taken here yet.
   playCartridge(id) {
-    const d = loadDeck();
-    d.inSlot = id;
-    d.sessions++;
-    saveDeck(d);
     const c = cartridgeById(id);
-    const nl = String.fromCharCode(10);
-    alert((c ? c.title : 'CARTRIDGE') + nl + nl + (c ? c.blurb : '') + nl + nl
-      + 'The Deck warms up. For twenty minutes you are not in a war.' + nl
-      + '(+' + DECK_MORALE + ' morale on your next deployment.)');
+    if (c) console.info(`[deck] session on ${c.title} — pays ${DECK_MORALE} morale once wired`);
   },
   onIdentity: applyIdentity,
 });

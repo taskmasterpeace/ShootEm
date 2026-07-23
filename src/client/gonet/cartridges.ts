@@ -157,12 +157,19 @@ export const owns = (d: DeckSave, id: CartridgeId): boolean => !!d.owned[id];
 export const ownedCartridges = (d: DeckSave): Cartridge[] =>
   CARTRIDGES.filter((c) => owns(d, c.id));
 
-/** File a session. Returns true if it was a personal best. */
+/**
+ * File a session. Returns true if it was a personal best.
+ *
+ * Guards the score: a NaN sails past `<=` and would enshrine itself as an
+ * unbeatable best, and an Infinity would print as garbage on the shelf.
+ */
 export function fileScore(d: DeckSave, id: CartridgeId, score: number): boolean {
+  if (!cartridgeById(id)) return false;
   d.sessions++;
+  if (!Number.isFinite(score) || score < 0) return false;
   const prev = d.best[id] ?? 0;
   if (score <= prev) return false;
-  d.best[id] = score;
+  d.best[id] = Math.floor(score);
   return true;
 }
 

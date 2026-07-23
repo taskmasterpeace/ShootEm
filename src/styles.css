@@ -2852,6 +2852,10 @@ body:not(.in-match) #world-clock { left: auto; right: 0.9rem; }
 }
 .gn-screen2::after { content: ''; position: absolute; inset: 0; pointer-events: none;
   background: repeating-linear-gradient(0deg, transparent 0 2px, oklch(0 0 0 / 0.22) 2px 3px); }
+/* A CARTRIDGE, RUNNING. 160×96 hardware pixels blown up with smoothing off, so
+   a pixel stays a countable square — the screen's scanlines sit over the top. */
+.gn-playfield { width: 100%; height: auto; display: block; aspect-ratio: 160 / 96;
+  image-rendering: pixelated; image-rendering: crisp-edges; outline: none; }
 .gn-ctitle { font-family: var(--font-display); font-size: 1.6rem; line-height: 1;
   color: var(--ink, #e8a33d); letter-spacing: 0.02em; }
 .gn-cblurb { font: 0.72rem var(--font-mono); color: var(--ink, #e8a33d); opacity: 0.8; line-height: 1.5; }
