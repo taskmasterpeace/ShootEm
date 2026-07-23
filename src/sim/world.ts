@@ -22,6 +22,7 @@ import {
   stairDirectionAt,
 } from './map-layers';
 import { MATERIALS, materialOf, materialForSurface, DRILL_BASE } from './materials';
+import { CARGO, fitted, type Fit } from './garage';
 import { Rng, hash01 } from './rng';
 import {
   SYSTEM_IDS, isCoopMode, isZed,
@@ -1831,6 +1832,23 @@ export class World {
       if (sensorIndex >= 0 && source.systems.sensors > 0 && source.seats[sensorIndex + 1] >= 0 && distance <= 55) return true;
     }
     return false;
+  }
+
+  /**
+   * THE GARAGE, APPLIED. Bolt a fit onto a hull: the card is resolved ONCE
+   * here (tyres rewrite traction, engine moves top speed, chassis + cargo
+   * move the weight) and cached on the vehicle, so the hot path never pays
+   * for it. Loading cargo also fills the hull's droppables — the mines and
+   * oil in the boot ARE the ones you drop.
+   */
+  setFit(v: Vehicle, fit: Fit): Vehicle {
+    v.fit = fit;
+    v.fittedDef = fitted(v.kind, fit);
+    v.maxHp = v.fittedDef.hp;
+    v.hp = Math.min(v.hp, v.maxHp);
+    v.mines = fit.cargo.includes('mines') ? (CARGO.mines.count ?? 6) : 0;
+    v.oil = fit.cargo.includes('oil') ? (CARGO.oil.count ?? 4) : 0;
+    return v;
   }
 
   spawnVehicle(kind: VehicleKind, team: Team, padPos: Vec3, padId = -1): Vehicle {
@@ -5384,7 +5402,11 @@ export class World {
     }
     this.stepRequisition(v, cmds, dt);
     if (!v.alive) return; // the write-off can strike a hull mid-step
-    const def = VEHICLES[v.kind];
+    // THE GARAGE IS REAL: what is bolted to this hull rewrites its card —
+    // tyres change the traction profile, the engine moves top speed, the
+    // chassis and cargo change what it WEIGHS. Resolved once when the fit is
+    // set (setFit), never recomputed per tick.
+    const def = v.fittedDef ?? VEHICLES[v.kind];
     const driverId = v.seats[0];
     const driver = driverId >= 0 ? this.soldiers.get(driverId) : undefined;
     let throttle = 0, turn = 0, fire = false;

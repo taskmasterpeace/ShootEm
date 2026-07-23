@@ -26,6 +26,7 @@ import { COURSES, courseFor, layCourse } from './sim/courses';
 import { VEHICLES } from './sim/data';
 import { awardLicence, canEnrol, loadLicences } from './client/licences';
 import { allRecords, fileRun } from './client/records';
+import { fitFor, renderGarage } from './client/garage-ui';
 import { LICENCES, type LicenceId } from './sim/licenses';
 import { TouchControls, isTouchDevice } from './client/touch';
 import { currentSession, restoreSession, signOut, supabaseConfigured } from './client/auth';
@@ -296,7 +297,18 @@ function wireSetupControls() {
   wirePills('difficulty-select', (v) => { difficulty = v as Difficulty; });
   wirePills('length-select', (v) => { matchMinutes = parseInt(v); });
   wirePills('roster-select', (v) => { hordeRoster = v as typeof hordeRoster; });
-  wirePills('race-board-select', (v) => { selectedRaceBoard = v as VehicleKind; });
+  wirePills('race-board-select', (v) => { selectedRaceBoard = v as VehicleKind; paintGarage(); });
+
+  // THE GARAGE, on the deploy screen: pick a machine, then build it. The fit
+  // is per-machine and account-level, so your muscle car keeps its own setup.
+  function paintGarage() {
+    const host = document.getElementById('garage-panel');
+    if (!host) return;
+    const road = !VEHICLES[selectedRaceBoard]?.flies && !VEHICLES[selectedRaceBoard]?.boat;
+    host.style.display = road ? '' : 'none';
+    if (road) renderGarage(host, selectedRaceBoard);
+  }
+  paintGarage();
   const count = $('bots-count');
   $('bots-minus').onclick = () => {
     botsPerTeam = Math.max(0, botsPerTeam - 1);
@@ -968,6 +980,9 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     if (track) {
       const RACE_BOARDS: VehicleKind[] = ['comet', 'vector', 'sprite'];
       const meBoard = world.spawnVehicle(selectedRaceBoard, me.team, track.grid[0]);
+      // THE GARAGE IS REAL: whatever you bolted on rides onto the grid with
+      // you — the tyres, the engine, the weight, and the cargo you can drop.
+      world.setFit(meBoard, fitFor(selectedRaceBoard));
       meBoard.yaw = track.startYaw;
       me.pos = { ...track.grid[0] };
       world.forceBoard(me, meBoard);

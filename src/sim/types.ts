@@ -890,6 +890,10 @@ export interface Soldier {
 export interface Vehicle {
   /** THE JUMP (docs/RACING.md): when the wheels left the ground, so the
    *  landing can be judged against the card SHOCK STRENGTH. */
+  /** THE GARAGE (garage.ts): what is bolted to this hull. */
+  fit?: import('./garage').Fit;
+  /** the fit, resolved ONCE — stepVehicle reads this, never recomputes. */
+  fittedDef?: VehicleDef;
   airborneAt?: number;
   /** THE CIRCUIT: oiled until this time — the floor lies and you slide. */
   oiledUntil?: number;
