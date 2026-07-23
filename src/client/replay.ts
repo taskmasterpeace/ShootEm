@@ -261,9 +261,10 @@ export class ReplayDirector {
   /** the AUTOPSY / RIDE tactical readout — shooter · weapon · range · damage —
    *  pinned by the client over the frozen frame (the stencil/mono terminal read). */
   readout: { shooter: string; weapon: string; range: number; damage: number } | null = null;
-  /** true when the LOCAL player is the SHOOTER (a reward kill-cam) not the victim
-   *  (the death cam) — the ride camera flies the round from the correct end. */
-  localIsShooter = false;
+  // (There is deliberately NO cut for kills the local player scores — Robert's
+  // 2026-07-23 ruling: the cam is a DEATH experience only. A mid-fight cut
+  // stalled a living player and could never survive multiplayer, where the
+  // live world doesn't pause for anyone's highlight.)
 
   constructor(seed: number, mode: ModeId, theme: ThemeId | undefined, theaterId?: TheaterId, mapIdentity?: string) {
     this.player = new ReplayPlayer(seed, mode, theme, theaterId, mapIdentity);
@@ -277,35 +278,6 @@ export class ReplayDirector {
   /** True while the slow-mo killcam plays — the caller pulls the camera in tight. */
   get killcamActive(): boolean {
     return this.player.active && !this.player.loop;
-  }
-
-  /** rate-limit for the reward kill-cam — a great kill is a treat, not a barrage. */
-  private nextRewardAt = 0;
-
-  /**
-   * THE REWARD KILL-CAM (Robert's shot #4): a GREAT kill earns a brief cut of
-   * the moment — the SAME machinery as the death cam, but it frames the soldier
-   * YOU dropped, turning a highlight into a reward instead of a punishment. Only
-   * fires while you're alive, between other cams, and rate-limited so it stays a
-   * treat. Returns true if it took the shot.
-   */
-  rewardKillCam(world: World, victimId: number, label: string, kind: KillcamKind): boolean {
-    if (this.player.active) return false;             // never over a death cam / highlights
-    if (world.time < this.nextRewardAt) return false; // a treat, not a barrage
-    if (this.recorder.depth < 1) return false;
-    this.nextRewardAt = world.time + 14;
-    this.killerId = victimId;                          // the framed opponent = your victim
-    this.shotKind = kind;
-    this.localIsShooter = true;                        // the reward cam: YOU fired the round
-    this.killcamCam = kind === 'ride' ? 15 : 16;
-    this.readout = null;                               // the reward banner carries the story
-    this.deathT = world.time;
-    const dT = world.time;
-    this.player.start(this.recorder.clip(KILLCAM_PRE + 0.2), label, false, KILLCAM_SPEED, {
-      endT: world.time + 0.75,                         // ~1.5s total at the slow-mo ramp
-      speedFn: (t) => killcamSpeedAt(t - dT),
-    });
-    return true;
   }
 
   /**
@@ -335,7 +307,6 @@ export class ReplayDirector {
       });
       this.killcamCam = shot.cam;
       this.shotKind = shot.kind;
-      this.localIsShooter = false; // the death cam: you are the victim
       // the terminal readout rides the shots that earn it — the autopsy freeze,
       // the ridden round, and the wreck (where the killer, if any, is named)
       this.readout = (shot.kind === 'autopsy' || shot.kind === 'ride' || shot.kind === 'wreck')

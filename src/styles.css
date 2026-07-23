@@ -1216,19 +1216,6 @@ html, body {
 }
 @keyframes replay-pulse { 50% { opacity: 0.55; } }
 
-/* THE REWARD CUT (Robert's shot #4): a confirmed kill wears GOLD and pops in —
-   it reads as a trophy, not the amber punishment of a death cam. */
-#replay-banner.reward {
-  color: #ffd24a; border-color: #ffd24a;
-  background: oklch(0.21 0.07 88 / 0.9);
-  box-shadow: 0 0 28px oklch(0.82 0.16 88 / 0.55);
-  animation: reward-pop 0.42s cubic-bezier(0.2, 1.4, 0.5, 1), replay-pulse 1.4s ease-in-out infinite 0.42s;
-}
-@keyframes reward-pop {
-  0% { transform: translateX(-50%) scale(0.6); opacity: 0; }
-  100% { transform: translateX(-50%) scale(1); opacity: 1; }
-}
-
 /* THE AUTOPSY readout (Robert's shot #3): a stencil/mono terminal card pinned
    over the frozen shot — SHOOTER · WEAPON · RANGE, the tactical read nobody
    else's shooter does. Left-anchored so the freeze stays centre-stage. */

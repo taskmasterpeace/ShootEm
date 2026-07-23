@@ -139,29 +139,28 @@ describe('the death cam window', () => {
 });
 
 // ---------------------------------------------------------------------------
-// THE REWARD KILL-CAM (Robert's shot #4): a great kill earns a brief cut of the
-// moment instead of the death cam's punishment — the same machinery, framing
-// the soldier YOU dropped. Rate-limited so it stays a treat.
+// THE CAM IS A DEATH EXPERIENCE ONLY (Robert, 2026-07-23): the one-time
+// "reward kill-cam" — a cut when the LOCAL player scored a kill — was a
+// misreading. It stalled a living player mid-fight and could never survive
+// multiplayer. The door is gone; this pin keeps it gone.
 // ---------------------------------------------------------------------------
-describe('the reward kill-cam', () => {
-  it('fires on a great kill, frames your victim as the SHOOTER, and rate-limits', () => {
-    const w = world();
+describe('the cam is a death experience only', () => {
+  it('the director has no door for cutting on a local kill', () => {
     const dir = new ReplayDirector(7, 'tdm', undefined);
-    for (let i = 0; i < 15; i++) { w.step(0.1, new Map()); dir.recorder.record(w); } // lay a tape
-
-    const took = dir.rewardKillCam(w, 42, '★ LONGSHOT · 80u', 'ride');
-    expect(took, 'a great kill earns the cut').toBe(true);
-    expect(dir.killcamActive).toBe(true);
-    expect(dir.shotKind).toBe('ride');
-    expect(dir.localIsShooter, 'YOU fired the round, so the ride flies your way').toBe(true);
-    expect(dir.killerId, 'it frames the soldier you dropped').toBe(42);
-
-    // a second great kill an instant later is suppressed — a treat, not a barrage
-    expect(dir.rewardKillCam(w, 43, '★ MULTI-KILL', 'duel')).toBe(false);
+    expect((dir as unknown as Record<string, unknown>).rewardKillCam,
+      'a living player is never interrupted by their own highlight').toBeUndefined();
+    expect((dir as unknown as Record<string, unknown>).localIsShooter,
+      'the ride always flies killer→you — there is no other end').toBeUndefined();
   });
 
-  it('will not fire with no tape to clip', () => {
+  it('a living local player never triggers a cam from the update loop', () => {
+    const w = world();
+    const me = w.addSoldier('Alive', 'infantry', 0, 'human');
     const dir = new ReplayDirector(7, 'tdm', undefined);
-    expect(dir.rewardKillCam(world(), 1, '★ x', 'duel')).toBe(false);
+    for (let i = 0; i < 40; i++) {
+      w.step(0.1, new Map());
+      dir.update(w, me.id, 0.1);
+    }
+    expect(dir.killcamActive, 'no death, no cam — kills you score change nothing here').toBe(false);
   });
 });

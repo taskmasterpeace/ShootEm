@@ -423,7 +423,6 @@ export class Renderer {
    *  flies the camera down the round's path muzzle→chest, 'autopsy' freezes and
    *  pins the shot line, 'wreck'/'wide' pull back for the fireball. null = live. */
   killcamShotKind: import('./replay').KillcamKind | null = null;
-  killcamLocalIsShooter = false; // reward cam: local is the SHOOTER, so the ride flies the other way
   private killcamRideT = 0;      // ride progress in seconds, reset per fresh killcam
   private lastKillcamFocus = -2; // detect a new killcam start to reset the ride
   private killcamRound: THREE.Mesh | null = null; // the round itself, streaking ahead on the ride
@@ -4261,12 +4260,10 @@ export class Renderer {
         this.killerRing.position.set(duel.pos.x, 0.12, duel.pos.z);
         const pulse = 1 + 0.18 * Math.sin(world.time * 5);
         this.killerRing.scale.setScalar(pulse);
-        // reward cam: the ring marks YOUR confirmed kill — GOLD, not the death
-        // cam's threat-red on the one who dropped you.
-        (this.killerRing.material as THREE.MeshBasicMaterial).color.setHex(this.killcamLocalIsShooter ? 0xffb42e : 0xff4040);
+        (this.killerRing.material as THREE.MeshBasicMaterial).color.setHex(0xff4040); // the one who dropped you
       }
     } else if (duel) {
-      this.killerRing = this.makeRing(duel.pos, 2.1, this.killcamLocalIsShooter ? 0xffb42e : 0xff4040, 0.85);
+      this.killerRing = this.makeRing(duel.pos, 2.1, 0xff4040, 0.85);
     }
     if (local) {
       const fpv = world.getPilotedDrone(localId);
@@ -4297,10 +4294,10 @@ export class Renderer {
       let ride: THREE.Vector3 | null = null;
       let roundPos: THREE.Vector3 | null = null;
       if (shotKind === 'ride' && duel) {
-        // fly from the SHOOTER's muzzle to the VICTIM's chest — in a death cam
-        // local is the victim, in a reward cam local is the shooter, so swap.
-        const shooter = this.killcamLocalIsShooter ? local : duel;
-        const victim = this.killcamLocalIsShooter ? duel : local;
+        // fly from the SHOOTER's muzzle to the VICTIM's chest — the cam is a
+        // death experience only (Robert 2026-07-23), so duel is always the shooter
+        const shooter = duel;
+        const victim = local;
         const muzzle = new THREE.Vector3(shooter.pos.x, 1.7, shooter.pos.z);
         const chest = new THREE.Vector3(victim.pos.x, 1.35, victim.pos.z);
         const flightT = Math.max(2.0, muzzle.distanceTo(chest) * 0.05); // pace by range

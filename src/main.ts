@@ -1341,24 +1341,11 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
       });
     }
 
-    // THE REWARD KILL-CAM (Robert's shot #4): a GREAT local kill — a long snipe,
-    // a multi-kill, or a clutch while nearly dead — earns a brief cut of the
-    // moment, framing the soldier YOU dropped. Turns the killcam from a
-    // punishment into a reward. Rate-limited inside the director; a longshot
-    // RIDES the round in. (Conservative triggers — tune to taste in play.)
-    if (me.alive && !world.mode.over) {
-      for (const e of events) {
-        if (e.type !== 'death' || e.killerId !== me.id || e.soldierId === undefined || e.soldierId === me.id) continue;
-        const dist = Math.round(e.dist ?? 0);
-        const streak = me.streak ?? 0;
-        let reason = ''; let kind: 'ride' | 'duel' = 'duel';
-        if (dist >= 65) { reason = `LONGSHOT · ${dist}u`; kind = 'ride'; }
-        else if (streak >= 6) reason = `RAMPAGE ×${streak}`;
-        else if (streak >= 4) reason = `MULTI-KILL ×${streak}`;
-        else if (me.hp <= 25) reason = `CLUTCH — ${Math.max(0, Math.round(me.hp))} HP`;
-        if (reason && director.rewardKillCam(world, e.soldierId, `★ ${reason}`, kind)) break;
-      }
-    }
+    // (The one-time REWARD kill-cam — a cut when YOU dropped someone — was a
+    // misreading and is GONE by ruling (Robert 2026-07-23): it stalled a
+    // LIVING player mid-fight and could never work in multiplayer. The cam
+    // is a DEATH experience only; your own great kills stay in the kill
+    // confirm chip + the feed, which never steal the screen.)
     const { renderWorld, banner: bannerText } = director.update(world, me.id, dt);
     const replaying = renderWorld !== world;
     setBanner(bannerText);
@@ -1373,9 +1360,6 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     renderer.killcamFocusId = replaying && director.killcamActive ? director.killerId : -1;
     // the shot list (Robert): the renderer flies the round / pins the shot line
     renderer.killcamShotKind = replaying && director.killcamActive ? director.shotKind : null;
-    renderer.killcamLocalIsShooter = replaying && director.killcamActive ? director.localIsShooter : false;
-    // a REWARD cut wears gold — a confirmed kill reads as a reward, not a death
-    $('replay-banner').classList.toggle('reward', replaying && director.killcamActive && director.localIsShooter);
     // THE DEATH TREATMENT (Robert: "I don't know where the kill cam is… I
     // haven't seen it yet"): the cam fired all along, but it played UNDER the
     // full alive HUD in the same tactical view — it read as the game carrying
