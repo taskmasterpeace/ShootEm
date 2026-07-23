@@ -5417,7 +5417,15 @@ export class World {
         // §8.8 weather drags the drivetrain — dust chokes wheels, snow buries them
         * (def.hover || def.flies ? 1
           : moveMult(this.weather, def.strider ? 'soldier' : tracked ? 'tracks' : 'wheels'));
-      v.yaw += turn * def.turnRate * (handbrake ? 1.6 : 1) * dt * (throttle < 0 ? -1 : 1);
+      // #121 CARS DRIVE REAL: wheels steer by ROLLING — a car turns because
+      // its tires travel, so turn authority follows ground speed (floor 0.4
+      // keeps parking maneuvers alive). Tracks pivot in place ON PURPOSE
+      // (W5.5 law), hovers/boats/wings keep their own books.
+      const wheeled = !def.flies && !def.hover && !def.boat && !def.immobile && !tracked && !def.strider;
+      const rollAuth = wheeled
+        ? Math.max(0.4, Math.min(1, Math.abs(Math.cos(v.yaw) * v.vel.x + Math.sin(v.yaw) * v.vel.z) / (def.speed * 0.3)))
+        : 1;
+      v.yaw += turn * def.turnRate * rollAuth * (handbrake ? 1.6 : 1) * dt * (throttle < 0 ? -1 : 1);
       // V2 FIXED WING: a jet has a stall floor. Whatever the stick says, it
       // never flies slower than minAirspeed × top — and it can never reverse.
       // Let go and you keep going: attack runs become PASSES, and the pilot
@@ -5457,8 +5465,29 @@ export class World {
       const wing = stall > 0 ? Math.max(stall, Math.max(0, throttle)) : throttle;
       const targetSpeed = wing * def.speed * engineMult * depthMult * surfMult * this.vehicleSpeedMul * burner
         * (wing < 0 ? 0.5 : 1) * (handbrake ? 0.5 : 1); // W5.5: the brake drags
-      const accel = 18;
       const curSpeed = Math.cos(v.yaw) * v.vel.x + Math.sin(v.yaw) * v.vel.z;
+      // #121 CARS DRIVE REAL (Robert batch 3: "we want the cars to drive a
+      // little more realistic") — the floor's GRIP (the weight law's dial,
+      // materials.ts) runs the surface drivetrain:
+      //   · TRACTION: acceleration scales with grip — ice spins the wheels;
+      //     tracks feel half of it (a tank claws where a truck skates)
+      //   · BRAKING beats COASTING: throttle against motion BITES (27);
+      //     a human letting go ROLLS (6.5) — a truck coasts, it doesn't
+      //     anchor. Bots keep the firm 18 stop (the bot-competence law:
+      //     a waypoint driver must not orbit its own checkpoint).
+      //   · steering by rolling speed is above; grip-rate cornering is below.
+      // Flyers, hovers, boats and emplacements keep the old book entirely.
+      const surfaceHull = !def.flies && !def.hover && !def.boat && !def.immobile;
+      const gripK = surfaceHull
+        ? Math.max(0.3, Math.min(1.15, (materialForSurface(surf).grip ?? 12) / 13))
+        : 1;
+      const tractionK = surfaceHull ? (tracked || def.strider ? (gripK + 1) / 2 : gripK) : 1;
+      let accel = 18;
+      if (surfaceHull) {
+        if (Math.abs(targetSpeed) < 0.01) accel = driver?.kind === 'human' ? 6.5 : 18; // the coast
+        else if ((targetSpeed - curSpeed) * curSpeed < 0) accel = 27;                  // the brake
+        accel *= tractionK;
+      }
       const newSpeed = curSpeed + Math.max(-accel * dt, Math.min(accel * dt, targetSpeed - curSpeed));
       const fwdX = Math.cos(v.yaw), fwdZ = Math.sin(v.yaw);
       if (def.slip) {
@@ -5470,10 +5499,22 @@ export class World {
         // sliding off over ~1/slip seconds. A first cut lagged the WHOLE
         // velocity toward the nose, which read as drift in a unit test and
         // as a dead engine on the stick — 4% throttle authority.
+        // #121: the dial rides the floor — low grip loosens the tail (ice
+        // stretches the slide), high-grip plate tightens it.
         const latX = v.vel.x - fwdX * curSpeed;
         const latZ = v.vel.z - fwdZ * curSpeed;
         // W5.5: the handbrake breaks rear grip — sideways survives 3× longer
-        const keep = Math.exp(-(handbrake ? def.slip * 0.3 : def.slip) * dt); // frame-rate honest
+        const keep = Math.exp(-(handbrake ? def.slip * 0.3 : def.slip * gripK) * dt); // frame-rate honest
+        v.vel.x = fwdX * newSpeed + latX * keep;
+        v.vel.z = fwdZ * newSpeed + latZ * keep;
+      } else if (wheeled) {
+        // #121: rails are dead for WHEELS — even a slip-less van sheds its
+        // lateral velocity at the floor's grip rate (~70ms on firm dirt: it
+        // all but bites; a real slide on ice). Tracks below keep their
+        // deliberate rails — "a tank corners like a tank ON PURPOSE" (W5.5).
+        const latX = v.vel.x - fwdX * curSpeed;
+        const latZ = v.vel.z - fwdZ * curSpeed;
+        const keep = Math.exp(-14 * gripK * dt);
         v.vel.x = fwdX * newSpeed + latX * keep;
         v.vel.z = fwdZ * newSpeed + latZ * keep;
       } else {
