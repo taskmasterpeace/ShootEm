@@ -46,6 +46,13 @@ export interface Settings {
   quality: 'high' | 'low';
   /** #89: HUD widget opacity (the vitals/weapon blocks + status strip), 0.4..1 */
   hudOpacity: number;
+  /** THE HUD FITS THE SCREEN YOU HAVE. Robert: "the ui elements at the bottom
+   *  are too big… gun stuff on the right is too big… I need a way to resize and
+   *  change stuff, to get exactly what I want." Two independent scales, because
+   *  the vitals and the weapon block are different sizes of wrong on different
+   *  screens. 0.6 … 1.4, 1 = as designed. Edited live in the harness UI Lab. */
+  hudScaleVitals: number;
+  hudScaleWeapon: number;
   blood: BloodLevel;
   darkness: DarknessLevel;
   /** FEEL KNOBS (Robert's global speed control) — 1 = shipped feel. Live,
@@ -83,6 +90,17 @@ export interface Settings {
 
 const KEY = 'ww_settings';
 
+/**
+ * Push the HUD knobs onto the document as CSS vars. ONE place, so the game, the
+ * options panel and the harness UI Lab can never disagree about what the HUD
+ * currently looks like.
+ */
+export function applyHudVars(root: HTMLElement = document.documentElement): void {
+  root.style.setProperty('--hud-op', String(settings.hudOpacity));
+  root.style.setProperty('--hud-scale-vitals', String(settings.hudScaleVitals));
+  root.style.setProperty('--hud-scale-weapon', String(settings.hudScaleWeapon));
+}
+
 /** THE TUNING GENERATION. A saved profile beats a new default — which is
  *  correct for a preference and WRONG for a retune: Robert asked for 0.35 /
  *  0.80 while his own browser held 0.30 / 0.75 from an earlier session, so he
@@ -94,6 +112,7 @@ const SPEED_GEN = 1;
 
 export const settings: Settings = {
   masterVolume: 0.5, reducedMotion: false, blood: 'light', darkness: 'subtle', quality: 'high', hudOpacity: 1,
+  hudScaleVitals: 1, hudScaleWeapon: 1,
   // ROBERT'S TUNED DEFAULTS (playtest): slow rounds so you can READ the
   // battlefield, boots a touch under shipped pace to match. Vehicles get their
   // OWN knob because the other two knobs created a bug: at 0.35× rounds, a
@@ -123,6 +142,8 @@ export function loadSettings(): Settings {
     if (raw.quality === 'high' || raw.quality === 'low') settings.quality = raw.quality;
     else if (typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches) settings.quality = 'low';
     if (typeof raw.hudOpacity === 'number') settings.hudOpacity = Math.max(0.4, Math.min(1, raw.hudOpacity));
+    if (typeof raw.hudScaleVitals === 'number') settings.hudScaleVitals = Math.max(0.6, Math.min(1.4, raw.hudScaleVitals));
+    if (typeof raw.hudScaleWeapon === 'number') settings.hudScaleWeapon = Math.max(0.6, Math.min(1.4, raw.hudScaleWeapon));
     if (raw.blood === 'off' || raw.blood === 'light' || raw.blood === 'full') settings.blood = raw.blood;
     if (raw.darkness === 'off' || raw.darkness === 'subtle' || raw.darkness === 'full') settings.darkness = raw.darkness;
     if (typeof raw.reticle === 'string' && RETICLE_STYLES.includes(raw.reticle)) settings.reticle = raw.reticle;

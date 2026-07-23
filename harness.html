@@ -29,7 +29,17 @@
     /* the STYLE LAB tab is /style.html itself, in a frame — one source of
        truth, two doors (Robert: "part of our regular Unified Harness…
        have it pulled from the same place") */
-    #style-frame, #beams-frame, #instrument-frame { display: none; position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #14171b; }
+    #style-frame, #beams-frame, #instrument-frame, #uilab-frame { display: none; position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #14171b; }
+    /* the UI Lab frame sits UNDER the tab bar, not behind it — this frame is a
+       full page with its own top-anchored desk, unlike the 3D labs whose
+       content lives centre-screen */
+    body[data-mode="uilab"] #uilab-frame { display: block; top: 46px; height: calc(100% - 46px); }
+    body[data-mode="uilab"] #harness-canvas { display: none; }
+    body[data-mode="uilab"] #panel,
+    body[data-mode="uilab"] #matchup,
+    body[data-mode="uilab"] #readout,
+    body[data-mode="uilab"] .kbd { display: none; }
+    body[data-mode="uilab"] #topbar { left: 0; }
     body[data-mode="style"] #style-frame { display: block; }
     body[data-mode="style"] #harness-canvas { display: none; }
     body[data-mode="beams"] #beams-frame { display: block; }
@@ -332,6 +342,7 @@
   <iframe id="style-frame" title="Style Lab"></iframe>
   <iframe id="beams-frame" title="Beam Lab"></iframe>
   <iframe id="instrument-frame" title="Radar and Instrument Lab"></iframe>
+  <iframe id="uilab-frame" title="UI Lab"></iframe>
   <canvas id="lab-canvas"></canvas>
 
   <div id="topbar">
@@ -345,6 +356,7 @@
       <button class="tab" data-mode="matchup">⚔ Matchup</button>
       <button class="tab" data-mode="style">💊 Style Lab</button>
       <button class="tab" data-mode="beams">⚡ Beam Lab</button>
+      <button class="tab" data-mode="uilab">📐 UI Lab</button>
     </div>
     <a class="tool-link" href="/sound-review.html">🔊 Sound Lab</a>
     <a class="tool-link" href="/scar-harness.html">🩸 Scar Map</a>

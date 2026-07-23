@@ -1076,6 +1076,12 @@ function setMode(mode: string) {
     const frame = document.getElementById('instrument-frame') as HTMLIFrameElement | null;
     if (frame && !frame.src) frame.src = '/instruments.html';
   }
+  // THE UI LAB (/uilab.html) — the real HUD corners with the size knobs live.
+  // Same localStorage as the game, so what you dial here is what you play with.
+  if (mode === 'uilab') {
+    const frame = document.getElementById('uilab-frame') as HTMLIFrameElement | null;
+    if (frame && !frame.src) frame.src = '/uilab.html';
+  }
   matchupCtl?.setActive(mode === 'matchup');
   for (const t of Array.from(document.querySelectorAll<HTMLButtonElement>('.tab')))
     t.classList.toggle('active', t.dataset.mode === mode);

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>War World — UI Lab</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📐</text></svg>" />
+  <link rel="stylesheet" href="/fonts/fonts.css" />
+  <!-- the GAME's stylesheet. Not a copy of it — the same file the match uses,
+       so a block that looks right here looks right in the fight. -->
+  <link rel="stylesheet" href="/src/styles.css" />
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #0d0f0c; }
+    /* the battlefield stand-in: dark ground with a horizon, so the HUD is read
+       against something instead of against nothing */
+    #ground {
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(120% 80% at 50% 118%, oklch(0.30 0.03 96) 0%, oklch(0.17 0.02 92) 46%, oklch(0.11 0.012 92) 100%),
+        linear-gradient(180deg, oklch(0.24 0.03 232) 0%, oklch(0.15 0.02 210) 38%, transparent 38.4%);
+    }
+    #ground::after {
+      content: ''; position: absolute; inset: 38% 0 0;
+      background-image: linear-gradient(oklch(1 0 0 / 0.05) 1px, transparent 1px),
+                        linear-gradient(90deg, oklch(1 0 0 / 0.05) 1px, transparent 1px);
+      background-size: 64px 64px;
+      mask-image: linear-gradient(180deg, transparent, #000 60%);
+    }
+    /* THE HUD'S OWN BOX. In the game `#hud` is `position:absolute` inside the
+       full-bleed game shell; dropped into a bare page it anchors to nothing,
+       collapses to zero height, and throws both corners off the top of the
+       screen. Give it the viewport it expects. `--board-h` is the telemetry
+       desk's height, which this page does not have — so, zero. */
+    #hud-host { position: fixed; inset: 0; --board-h: 0px; }
+    /* the lab desk — centred, out of both corners it is measuring */
+    #desk {
+      position: fixed; top: 1rem; left: 50%; transform: translateX(-50%);
+      width: min(34rem, 92vw); max-height: calc(100vh - 2rem); overflow-y: auto;
+      background: oklch(0.15 0.014 92 / 0.94); border: 1px solid var(--border, #333b47);
+      border-radius: 0.625rem; padding: 0.9rem 1rem 1.1rem; z-index: 50;
+      backdrop-filter: blur(8px); box-shadow: 0 18px 48px oklch(0 0 0 / 0.5);
+      font-family: Inter, system-ui, sans-serif; color: var(--ink, #e8e3d8);
+    }
+    #desk h1 {
+      margin: 0 0 0.15rem; font-family: var(--font-stencil, Oswald, sans-serif);
+      font-size: 1.1rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent, #e8a33d);
+    }
+    .uilab-lead { margin: 0 0 0.8rem; font-size: 0.76rem; line-height: 1.5; color: var(--muted, #9a9384); }
+    .uilab-cands { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.9rem; }
+    .uilab-cand {
+      text-align: left; padding: 0.5rem 0.6rem; cursor: pointer; color: var(--ink, #e8e3d8);
+      background: oklch(0.20 0.016 92); border: 1px solid var(--border, #333b47);
+      border-radius: 0.625rem; transition: 0.2s; font: inherit;
+    }
+    .uilab-cand:hover { border-color: var(--accent, #e8a33d); box-shadow: 0 6px 18px oklch(0 0 0 / 0.4); }
+    .uilab-cand.on { border-color: var(--accent, #e8a33d); background: oklch(0.24 0.03 88); }
+    .uilab-cand b { display: block; font-family: var(--font-mono, monospace); font-size: 0.76rem; letter-spacing: 0.09em; color: var(--accent, #e8a33d); }
+    .uilab-cand span { display: block; margin-top: 0.2rem; font-size: 0.68rem; line-height: 1.4; color: var(--muted, #9a9384); }
+    .uilab-knob { display: grid; grid-template-columns: 11rem 1fr 3rem; align-items: center; gap: 0.6rem; margin-bottom: 0.55rem; }
+    .uilab-k { font-family: var(--font-mono, monospace); font-size: 0.72rem; letter-spacing: 0.07em; }
+    .uilab-k i { display: block; font-style: normal; font-family: Inter, system-ui, sans-serif; font-size: 0.64rem; color: var(--muted, #9a9384); letter-spacing: 0; }
+    .uilab-knob input[type=range] { width: 100%; accent-color: var(--accent, #e8a33d); }
+    .uilab-knob b { font-family: var(--font-mono, monospace); font-size: 0.78rem; color: var(--accent, #e8a33d); text-align: right; font-variant-numeric: tabular-nums; }
+    .uilab-worst { display: flex; gap: 0.5rem; align-items: flex-start; margin-top: 0.8rem; cursor: pointer; }
+    .uilab-worst input { margin-top: 0.15rem; accent-color: var(--accent, #e8a33d); }
+    .uilab-worst span { font-size: 0.68rem; line-height: 1.45; color: var(--muted, #9a9384); }
+    .uilab-row { display: flex; align-items: center; gap: 0.7rem; margin-top: 0.8rem; flex-wrap: wrap; }
+    .btn-wide {
+      padding: 0.45rem 0.8rem; cursor: pointer; font: inherit; font-size: 0.72rem; letter-spacing: 0.08em;
+      font-family: var(--font-mono, monospace); color: var(--ink, #e8e3d8);
+      background: oklch(0.20 0.016 92); border: 1px solid var(--border, #333b47); border-radius: 0.625rem; transition: 0.2s;
+    }
+    .btn-wide:hover { border-color: var(--accent, #e8a33d); }
+    .uilab-read { font-family: var(--font-mono, monospace); font-size: 0.7rem; color: var(--muted, #9a9384); font-variant-numeric: tabular-nums; }
+    #miss { padding: 0.6rem; font-size: 0.75rem; color: #e8b23a; }
+  </style>
+</head>
+<body>
+  <div id="ground"></div>
+  <!-- the real HUD is LIFTED OUT OF index.html at boot (see below) and dropped
+       here — one source of markup, so the lab can never show you a HUD the game
+       does not have -->
+  <div id="hud-host"></div>
+  <div id="desk">
+    <h1>UI Lab</h1>
+    <div id="lab"></div>
+  </div>
+  <script type="module" src="/src/client/uilab-boot.ts"></script>
+</body>
+</html>

@@ -75,7 +75,7 @@ import { PAINTBALL_FIELDS, buildTrackMap } from './sim/map';
 import { importTrack, type BuiltTrack } from './sim/tracks';
 import { PB_PERSONAS } from './sim/personas';
 import { GalleryDrill } from './client/gallerydrill';
-import { loadSettings, saveSettings, settings, type BloodLevel, type DarknessLevel, type ReticleStyle } from './client/settings';
+import { applyHudVars, loadSettings, saveSettings, settings, type BloodLevel, type DarknessLevel, type ReticleStyle } from './client/settings';
 import { darknessUniforms } from './client/darkness';
 import { k9HandlerForTeam } from './sim/k9-orders';
 import { SCIENCE_PRESETS, prepareSciencePreset, sciencePresetCardHTML } from './client/science-presets';
@@ -2334,6 +2334,8 @@ wireMenuTabs();
 
 // settings (§18/§10.3): volume + comfort, persisted, applied live
 loadSettings();
+// the HUD comes up at the size you left it — opacity AND the two scales
+applyHudVars();
 audio.setMasterVolume(settings.masterVolume);
 {
   const vol = $('set-volume') as HTMLInputElement;
@@ -2360,7 +2362,7 @@ audio.setMasterVolume(settings.masterVolume);
   // #89: HUD widget transparency — applies live via the CSS var
   const hop = $('set-hud-op') as HTMLInputElement;
   const hopVal = $('hud-op-val');
-  const applyHop = () => document.documentElement.style.setProperty('--hud-op', String(settings.hudOpacity));
+  const applyHop = () => applyHudVars();
   hop.value = String(Math.round(settings.hudOpacity * 100));
   hopVal.textContent = hop.value + '%';
   applyHop();

@@ -91,6 +91,9 @@ export default defineConfig({
         instruments: resolve(__dirname, 'instruments.html'),
         // #96 the UI GALLERY — Robert's decision sheet (/ui-gallery.html)
         uigallery: resolve(__dirname, 'ui-gallery.html'),
+        // THE UI LAB — the real HUD corners with the size knobs live, so the
+        // "too big" argument is settled by dragging, not by guessing (/uilab.html)
+        uilab: resolve(__dirname, 'uilab.html'),
       },
     },
   },
