@@ -1811,3 +1811,16 @@ kbd.key + kbd.key { margin-left: 0.15rem; }
   display: inline-block; background: #14120e; color: #ffd23a; border-radius: 6px;
   padding: 0 0.35rem; margin-right: 0.35rem; font-size: 0.8rem;
 }
+
+/* ── THE ONE CLOCK (#123) — the world's time, worn in the corner always ── */
+#world-clock {
+  position: fixed; top: 8px; left: 10px; z-index: 60;
+  display: flex; align-items: center; gap: 0.45rem;
+  font-family: ui-monospace, 'Courier New', monospace;
+  font-size: 0.72rem; letter-spacing: 0.14em; color: #d8d4c8;
+  background: oklch(0.14 0.01 80 / 0.78); border: 1px solid #3a382f;
+  padding: 0.22rem 0.7rem; pointer-events: none;
+}
+#wc-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: #e8a33d; box-shadow: 0 0 6px #e8a33d; }
+#world-clock.night #wc-dot { background: #7a95b8; box-shadow: 0 0 6px #7a95b8; }
+#world-clock.night { color: #aebdd0; }

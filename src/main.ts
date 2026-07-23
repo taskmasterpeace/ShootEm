@@ -9,6 +9,7 @@ import { mapSizeForPlayers } from './sim/fronts';
 import { WEATHER_MODS } from './sim/weather';
 import { loadOnboarding, mountOnboarding, onMatchEnd, paintballConfig } from './client/onboarding';
 import { buildVanessasMap, SHOP_ENTRANCE, spawnVanessa, updateShopInteract } from './client/vanessas-place';
+import { clockLabel, gameNow } from './client/worldclock';
 import { mountFrontend } from './client/frontend';
 import { GhostPlayer, GhostRecorder, ghostKey, loadGhost, saveGhost } from './client/ghost';
 import { factionTeam, loadIdentity, type PlayerIdentity } from './client/identity';
@@ -632,6 +633,17 @@ function saveFlight() {
   return `LAST FLIGHT — ${f.mode} · ${f.simTime}s sim · scores ${f.scores.join(':')} · saved ${f.at}\n${blackboxReport(f)}${f.vehicles ? `\n${vehicleTelemetryReport(f.vehicles)}` : ''}`;
 };
 
+// #123 THE ONE CLOCK — the corner chip ticks every few seconds, everywhere:
+// menu, match, forever. One formula, one truth (src/client/worldclock.ts).
+function paintWorldClock() {
+  const c = gameNow();
+  const el = $('world-clock');
+  $('wc-text').textContent = clockLabel(c);
+  el.classList.toggle('night', c.night);
+}
+paintWorldClock();
+setInterval(paintWorldClock, 5000);
+
 function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: Input, name: string, endGame: () => void) {
   const exercise = selectedMilitaryMissionId ? createMilitaryMissionLaunch(selectedMilitaryMissionId) : null;
   const campaignFrontId = exercise || selectedMode === 'science' ? null : activeFrontId;
@@ -650,6 +662,9 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     // A PLACE (#122) is hand-built ground with nobody in it but the keeper
     map: selectedMode === 'shop' ? buildVanessasMap() : undefined,
     botsPerTeam: selectedMode === 'shop' ? 0 : botsPerTeam,
+    // #123 THE ONE CLOCK: hand the sim the world's day-fraction at launch —
+    // the sky obeys the same clock the corner chip shows
+    clockPhase: gameNow().phase01,
     scienceMission: scienceLaunch?.spec,
     hordeRoster, // THE ROSTER LAW: iron never mixes with zombies unless asked
     // B1: banked morale opens the stable richer for YOUR side (capped in-world)

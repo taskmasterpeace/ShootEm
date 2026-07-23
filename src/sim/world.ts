@@ -353,6 +353,12 @@ export interface WorldOptions {
    *  per team, capped in the constructor so it never floods the economy */
   moraleBoost?: [number, number];
   matchMinutes?: number;
+  /** THE ONE CLOCK (#123): the global day-fraction (0..1, 0 = midnight) at
+   *  launch, computed by the CLIENT from UTC (src/client/worldclock.ts).
+   *  The sim never reads Date.now — this opt keeps replays pure. When set,
+   *  NIGHT IS TIME, not weather: the theme menus stop rolling 'night' and
+   *  the sky obeys the clock. Undefined = legacy behavior (tests, tools). */
+  clockPhase?: number;
   /** THE OUTBREAK: force the infection/reanimation layer on (or off) rather
    *  than letting the mode decide — for scenarios, tests, and the future
    *  condition-driven war-front outbreak (§2.1). */
@@ -496,6 +502,20 @@ export class World {
    *  clear; the first front arrives on its own clock. Replicated.
    *  (The paintball yard is exempt — nobody's first hour gets a whiteout.) */
   weather: WeatherState = { kind: 'clear', intensity: 0, until: 90 };
+  /** #123: launch day-fraction (see WorldOptions.clockPhase). One game day
+   *  advances every 7200 sim-seconds — the client's 2-real-hours ratio. */
+  clockPhase?: number;
+  /** The world's current day-fraction, 0 = midnight. 0.5 (noon) when no
+   *  clock was handed in — legacy worlds live at permanent midday. */
+  clockNow(): number {
+    if (this.clockPhase === undefined) return 0.5;
+    return (this.clockPhase + this.time / 7200) % 1;
+  }
+  /** The world agrees with the HUD chip: 21:00–06:00 is night. */
+  clockNight(): boolean {
+    const p = this.clockNow();
+    return p >= 21 / 24 || p < 6 / 24;
+  }
   /** §director: the match-level pacing band (neutral with no human on field) */
   director: DirectorState = newDirector();
   /** §influence: the shared per-team threat field (pay once, all bots read) */
@@ -579,6 +599,12 @@ export class World {
       }
     }
     if (opts.mode === 'paintball') this.weather.until = Infinity; // the yard stays sunny
+    // #123 THE ONE CLOCK: carry the launch phase; the sky obeys it from step 1
+    // (paintball keeps its standing sunny-yard exemption; shop rooms are indoors)
+    if (opts.clockPhase !== undefined && opts.mode !== 'paintball' && opts.mode !== 'shop') {
+      this.clockPhase = ((opts.clockPhase % 1) + 1) % 1;
+      if (this.clockNight()) this.weather = { kind: 'night', intensity: 0.85, until: Infinity };
+    }
     // THE OUTBREAK plays LIVE in the horde modes — where the dead already walk,
     // the fallen now rise with them (opts.outbreak forces it on elsewhere).
     // The war-front outbreak (condition-driven, §2.1) is a later slice.
@@ -2142,9 +2168,25 @@ export class World {
     stepDirector(this, this.director); // §director: drift the pacing band
     buildInfluence(this.influence, this.time, this.soldiers.values()); // §influence
 
+    // #123 NIGHT IS TIME, not weather: when a clock rides this world, dusk
+    // and dawn land exactly when the clock says — mid-match if the clock says
+    // so (a 15-minute match spans three game hours).
+    if (this.clockPhase !== undefined && !this.puppet) {
+      const night = this.clockNight();
+      if (night && this.weather.kind !== 'night') {
+        this.weather = { kind: 'night', intensity: 0.85, until: Infinity };
+        this.emit({ type: 'announce', text: 'NIGHTFALL', big: true });
+      } else if (!night && this.weather.kind === 'night') {
+        // dawn breaks clear; the theme menu resumes rolling shortly
+        this.weather = { kind: 'clear', intensity: 0, until: this.time + 30 + this.rng.next() * 60 };
+        this.emit({ type: 'announce', text: 'FIRST LIGHT', big: true });
+      }
+    }
     // §8.8 the sky rolls: weather fronts drift through on their own clock
     if (this.time >= this.weather.until && !this.puppet) {
-      const menu = THEME_WEATHER[this.map.theme];
+      // #123: a clocked world never ROLLS night — the clock owns the dark
+      const fullMenu = THEME_WEATHER[this.map.theme];
+      const menu = this.clockPhase === undefined ? fullMenu : fullMenu.filter((k) => k !== 'night');
       const kind = menu[this.rng.int(0, menu.length - 1)];
       this.weather = {
         kind,
