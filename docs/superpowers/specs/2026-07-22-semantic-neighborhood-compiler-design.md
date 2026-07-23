@@ -1,7 +1,7 @@
 # Semantic Neighborhood Compiler — Design Spec
 
-**Status:** approved by Robert on 2026-07-22 with the direction “yes, build and
-don’t stop until it’s ready and completed.”
+**Status:** neighborhood-first direction approved by Robert on 2026-07-22;
+written specification pending Robert’s review.
 
 ## 1. Goal
 
@@ -468,4 +468,3 @@ npm run build
 
 The nationwide location catalog and all-building interior expansion begin only
 after this three-location comparison is visibly and mechanically successful.
-
