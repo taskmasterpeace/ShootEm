@@ -126,13 +126,20 @@ export class GamepadUI {
   private raf = 0;
   private lastPoolSize = -1;
 
-  /** True while a match owns the pad — everything here stands down. */
+  /**
+   * True while a match owns the pad — everything here stands down.
+   *
+   * ORDER MATTERS AND IT BIT ONCE. The pause overlay must be checked BEFORE
+   * the HUD: during a pause the HUD is still visible, so a HUD-first test
+   * returns early and the navigator never wakes — you could open the pause
+   * screen with START and then not reach RESUME or ABANDON, which on a Deck
+   * means trapped in a match with no keyboard to escape with.
+   */
   private suspended(): boolean {
-    const hud = document.getElementById('hud');
-    if (hud && !hud.classList.contains('hidden')) return true;      // in a match
     const pause = document.getElementById('pause-overlay');
-    if (pause && !pause.classList.contains('hidden')) return false; // …unless paused
-    return false;
+    if (pause && !pause.classList.contains('hidden')) return false; // paused: we drive
+    const hud = document.getElementById('hud');
+    return !!hud && !hud.classList.contains('hidden');              // fighting: input.ts drives
   }
 
   start(): void {

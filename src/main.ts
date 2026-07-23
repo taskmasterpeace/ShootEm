@@ -1293,9 +1293,27 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     pauseEl.classList.toggle('hidden', !p);
     last = performance.now(); // no dt avalanche on resume
   };
+  // THE PAD CAN PAUSE AND QUIT. Without this a controller player is TRAPPED
+  // in a match forever — there is no keyboard on a Steam Deck. START toggles
+  // the pause overlay, which the pad navigator already treats as a live layer,
+  // so RESUME and ABANDON are reachable with the stick and A.
+  {
+    let padStartWas = false;
+    setInterval(() => {
+      if (!running) return;
+      const pads = navigator.getGamepads ? [...navigator.getGamepads()] : [];
+      const pad = pads.find((x) => x && x.mapping === 'standard') ?? pads.find((x) => !!x);
+      const startDown = !!pad?.buttons[9]?.pressed;
+      if (startDown && !padStartWas) setPaused(!paused);
+      padStartWas = startDown;
+    }, 60);
+  }
   $('pause-resume').onclick = () => setPaused(false);
   $('pause-abandon').onclick = () => {
-    if (confirm('Abandon this match and return to base? The round is forfeit.')) endGame();
+    // NO confirm() HERE: a native dialog cannot be dismissed with a pad, so
+    // it would strand a Deck player on a question they cannot answer. The
+    // button already says what it does and RESUME is right beside it.
+    endGame();
   };
   {
     const pv = $('pause-volume') as HTMLInputElement;
