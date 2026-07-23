@@ -105,20 +105,22 @@ describe('the manifest', () => {
     expect(new Set(m.map((x) => x.slug)).size).toBe(12);
   });
 
-  it('THE GENERATOR MIRRORS THE CATALOGUE — no drifted line voices wrong words', () => {
-    // the TTS tool carries a mirrored LINES map; every line it names must exist
-    // in the source catalogue at the same slot, or a clip says the wrong thing
+  it('ONE SOURCE OF TRUTH — the generator voices the same JSON the catalogue imports', () => {
+    // drift is now structurally impossible: both the runtime catalogue and the
+    // TTS tool read src/data/street-lines.json. Prove the tool reads it…
     const gen = readFileSync(new URL('../tools/gen-street-vo.mjs', import.meta.url), 'utf8');
-    const m = streetManifest();
-    // pull the first line of each (code,event) the generator declares and
-    // confirm the catalogue's slot-1 text matches
-    for (const code of [2, 6, 8, 10, 13, 14]) {
-      for (const event of ['gunfire', 'god', 'challenge'] as StreetEvent[]) {
-        const text = canonicalLine(code, event); // the slot _1 line the tool voices
-        expect(gen.includes(text),
-          `generator missing ${code}/${event}: "${text}"`).toBe(true);
+    expect(gen, 'generator no longer reads the shared line file').toMatch(/street-lines\.json/);
+    // …and that the shared file IS the catalogue (slot-1 line matches canonical)
+    const json = JSON.parse(
+      readFileSync(new URL('../src/data/street-lines.json', import.meta.url), 'utf8'),
+    ) as Record<number, Partial<Record<StreetEvent, string[]>>>;
+    const EVENTS: StreetEvent[] = ['idle', 'gunfire', 'flee', 'god', 'reckless', 'challenge', 'warn', 'engage', 'triumph'];
+    for (const code of CULTURE_CODES) {
+      if (!json[code]) continue; // codes with no lines (4/7) fall back — not voiced
+      for (const event of EVENTS) {
+        expect(json[code][event]?.length, `${code}/${event} missing in the JSON the generator voices`).toBeGreaterThan(0);
+        expect(json[code][event]![0], `${code}/${event} JSON drifted from catalogue`).toBe(canonicalLine(code, event));
       }
     }
-    void m;
   });
 });

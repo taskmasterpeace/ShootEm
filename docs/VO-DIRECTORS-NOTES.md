@@ -46,9 +46,9 @@ Clean: 160 · **Off-script: 0** · Missing: 0 · Errored: 0 · match threshold 0
 | `ann_firebrand_landed` | 1 | Firebrand, on the field! The ground will burn! |
 | `ann_firebrand_rampage` | 1 | Five kills. Firebrand is cooking. |
 | `ann_frostbite_down` | 1 | Frostbite is down. The thaw begins. |
-| `ann_frostbite_inbound` | 1 | Frostbite inbound. Dress for winter. Frostbite inbound. Dress for winter. |
+| `ann_frostbite_inbound` | 0.93 | Frostbite inbound! Dress for winner. |
 | `ann_frostbite_landed` | 1 | Frostbite deployed. The cold takes the field. |
-| `ann_frostbite_rampage` | 1 | Five kills. Frostbite is an ice age. Five kills. Frostbite is an ice age. |
+| `ann_frostbite_rampage` | 1 | Five kills. Frostbite is a nice age. |
 | `ann_gargoyle_down` | 1 | Gargoyle is down! Stone at last! |
 | `ann_gargoyle_inbound` | 1 | Gargoyle, inbound! Listen for the shriek. |
 | `ann_gargoyle_landed` | 1 | Gargoyle is airborne. The shriek is your warning. |
@@ -161,7 +161,7 @@ Clean: 160 · **Off-script: 0** · Missing: 0 · Errored: 0 · match threshold 0
 | `ann_voidwalker_inbound` | 1 | Voidwalker inbound. Check your shadows. |
 | `ann_voidwalker_landed` | 1 | Voidwalker on the field. He is already behind someone. |
 | `ann_voidwalker_rampage` | 1 | Five kills. Voidwalker is everywhere at once. |
-| `ann_voltstriker_down` | 1 | Volt Striker is down. The air goes quiet. |
+| `ann_voltstriker_down` | 1 | Volt Striker is down! The air goes quiet! |
 | `ann_voltstriker_inbound` | 1 | Volt Striker inbound Spread out |
 | `ann_voltstriker_landed` | 1 | Volt Striker on the field! Do not bunch up! |
 | `ann_voltstriker_rampage` | 1 | Five kills. Volt Striker is arcing. |

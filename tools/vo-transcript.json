@@ -264,8 +264,8 @@
     {
       "slot": "ann_frostbite_inbound",
       "scripted": "FROSTBITE INBOUND. [short pause] DRESS FOR WINTER.",
-      "heard": "Frostbite inbound. Dress for winter. Frostbite inbound. Dress for winter.",
-      "sim": 1,
+      "heard": "Frostbite inbound! Dress for winner.",
+      "sim": 0.93,
       "status": "ok"
     },
     {
@@ -278,7 +278,7 @@
     {
       "slot": "ann_frostbite_rampage",
       "scripted": "FIVE KILLS. FROSTBITE IS AN ICE AGE.",
-      "heard": "Five kills. Frostbite is an ice age. Five kills. Frostbite is an ice age.",
+      "heard": "Five kills. Frostbite is a nice age.",
       "sim": 1,
       "status": "ok"
     },
@@ -1069,7 +1069,7 @@
     {
       "slot": "ann_voltstriker_down",
       "scripted": "VOLT STRIKER IS DOWN. THE AIR GOES QUIET.",
-      "heard": "Volt Striker is down. The air goes quiet.",
+      "heard": "Volt Striker is down! The air goes quiet!",
       "sim": 1,
       "status": "ok"
     },

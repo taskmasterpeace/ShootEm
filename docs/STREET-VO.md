@@ -20,11 +20,30 @@ When you drive like that, it curses you.
 
 **THE VIGILANTE** — the pedestrian who does *not* run. The lore's seed
 (docs/THE-LORE.md): do bad things in a print and the street turns on you — the
-police come, but first a neighbour with a bat. The vigilante *challenges*,
-*warns*, and if pushed, *engages*. The barks exist and are reachable
-(`StreetVoice.vigilante()`); wiring them to a vigilante *entity* is the next
-step (there is no walking-pedestrian entity yet — the traffic layer models
-civilians as vehicles).
+police come, but first a neighbour with a bat.
+
+**Now wired, GTA2-style** (Robert: *"think gta2"*). The street keeps score.
+`src/client/streetheat.ts` is a **wanted level for the corner**: mayhem near
+civilians stokes a temper — firing your weapon on their street (small), nearly
+running someone down (medium), getting one of them killed (large) — and the
+temper cools when you behave. Crossing each line makes the nearest bystander
+say something worse:
+
+| Temper | The street |
+|---|---|
+| ≥ 0.50 | **CHALLENGE** — "That is enough." |
+| ≥ 0.85 | **WARN** — the last word before it turns physical |
+| ≥ 1.25 | **ENGAGE** — it swears it will fight |
+| you go down while hostile | **TRIUMPH** — it stands over you |
+
+The ladder relaxes as the temper falls, so a later spree re-escalates. It is a
+pure, unit-tested state machine (`tests/streetheat.test.ts`) and, like the whole
+street layer, **client-side and read-only** — it can never perturb the sim.
+
+*Still a voice, not a body:* there is no walking-pedestrian entity yet (the
+traffic layer models civilians as vehicles), so the vigilante shouts and the
+street turns hostile, but nobody physically swings yet. A vigilante **entity**
+is the next step — the lines are already voiced and waiting for it.
 
 ---
 
@@ -80,12 +99,20 @@ node tools/gen-street-vo.mjs --culture 12   # just South America
 node tools/gen-street-vo.mjs --list     # print the plan, generate nothing
 ```
 
-**Shipped so far: 18 clips across 6 cultures** (West Africa, East Asia, Central
-America/Caribbean, Eastern Europe, Jamaica, the Middle East), each a pedestrian
-panic, an awe line, and a vigilante challenge — enough to *hear* the difference.
-The other six cultures resolve to a text bark until their audio is generated
-(`--all`), because `audio.play()` boots silently on a missing slot: the street
-is atmosphere, never a hard dependency.
+**Shipped: the whole catalogue — 216 clips, 12 cultures × 9 events × 2 takes.**
+Every pedestrian reaction (idle · gunfire · flee · god · reckless) and the full
+vigilante ladder (challenge · warn · engage · triumph) is voiced in all twelve
+mouths, two takes apiece so a corner never loops one phrase.
+
+**One source of truth.** The lines live in `src/data/street-lines.json` — the
+same file the runtime catalogue (`streetvo.ts`) imports and the generator reads.
+A voiced clip can no longer drift from the words on screen, which is exactly how
+`triumph` and every second take went unvoiced before (the tool carried a stale
+hand-copied mirror). `tests/streetvo.test.ts` pins the arrangement.
+
+A slot with no take resolves to a text bark rather than silence-with-a-hole,
+because `audio.play()` boots silently on a missing file: the street is
+atmosphere, never a hard dependency.
 
 Verified with the whisper pass: West Africa's "Chai!" is heard as "Tch!" (clean
 pidgin), and Jamaica's "Jah know, wah kinda ting dat?" transcribes as "John, no,
@@ -98,5 +125,5 @@ landed, because whisper is normalising real Patois to standard English.
 
 | | |
 |---|---|
-| **Wired** | culture legend · full catalogue (12 cultures, both speakers) · the picker · enlisted-nation → culture code · the client updater that fires a pedestrian bark on civilian panic and an awe bark when a god walks · 18 sample clips |
-| **Next** | the remaining 6 cultures' audio (`--all`) · a walking-pedestrian entity (today civilians are vehicles) · a **vigilante entity** that steps out of the crowd when you commit violence near civilians — the challenge/warn/engage lines are ready and waiting for it |
+| **Wired** | culture legend · one-source-of-truth catalogue (`street-lines.json`) · the picker · enlisted-nation → culture code · **216 clips — every culture, every event, both takes** · **STREET HEAT**, the vigilante wanted-level (challenge→warn→engage→triumph) · the reactive updater: **idle** chatter on a calm corner, **gunfire** at the shot, **flee** as they run past you, **god** awe, and **reckless** when you drive at them |
+| **Next** | a **walking-pedestrian entity** (today civilians are vehicles, so the "pedestrian" is a car with a voice) · a **vigilante entity** that physically steps out of the crowd — the street already turns on you in *voice*, but nobody swings yet · a `wounded` cry (the one typed event with no lines written) · a HUD tell for the temper, so you can *see* the corner turning |

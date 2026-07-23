@@ -18,7 +18,7 @@
 // which is exactly the slot streetvo.ts resolves.
 // ═══════════════════════════════════════════════════════════════════════════
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildPrompt, generateClip } from './tts-core.mjs';
@@ -43,32 +43,23 @@ const CULTURE = {
   14: { slug: 'the_middle_east', region: 'the Middle East', tongues: 'Persian, Arabic and Hebrew', voice: 'Sadachbia', outlook: 'formal and proud, ornate even in anger' },
 };
 
-// ── the lines, mirrored from streetvo.ts (kept in lockstep by the test) ─────
-const LINES = {
-  1:  { gunfire: ['God protect us — inside, inside!'], flee: ['Yalla! This way!'], god: ['That is not a man. Look at it.'], reckless: ['Are you blind? People walk here!'], challenge: ['Enough. You will stop this now.'], warn: ['Last warning, stranger. Turn around.'], engage: ['You chose this!'], idle: ['Sit, sit — the shade is here.'] },
-  2:  { gunfire: ['Chai! Who is shooting? Run!'], flee: ['Comot for road! Comot!'], god: ['God abeg. What is that thing?'], reckless: ['You wan kill person? Oya reverse!'], challenge: ['You don do. Stop am now now.'], warn: ['I dey warn you well well. Go back.'], engage: ['Come then! Come!'], idle: ['Ah-ah, this heat today, eh.'] },
-  3:  { gunfire: ['Eish — that is shooting. Move.'], flee: ['Come, come, this side, quick.'], god: ['That, my friend, is a big problem.'], reckless: ['Hey wena! Watch where you drive!'], challenge: ['No. That is enough now.'], warn: ['I am asking you nicely. Once.'], engage: ['Alright then. Come.'], idle: ['Ja, the taxi is late again, hey.'] },
-  5:  { gunfire: ['Hai Ram! Firing, firing — run!'], flee: ['Chalo, chalo, this way, fast!'], god: ['Bhagwan. That is no ordinary man.'], reckless: ['Oye! Are you driving with eyes closed?'], challenge: ['Bas. Enough now. You stop.'], warn: ['I am warning you. Once only.'], engage: ['You have done too much!'], idle: ['Arre, the chai is finished already?'] },
-  6:  { gunfire: ['Guns — get inside, now!'], flee: ['This way, quickly, follow!'], god: ['That is not human. Do not look at it.'], reckless: ['Hey! Watch the road!'], challenge: ['Stop. That is enough.'], warn: ['I am telling you once. Leave.'], engage: ['Then come!'], idle: ['The line for noodles is too long today.'] },
-  8:  { gunfire: ['Dios mío — balas! Corre!'], flee: ['Vámonos, vámonos, this way!'], god: ['Madre de Dios. What IS that?'], reckless: ['Oye! You almost kill me, cabrón!'], challenge: ['Ya. That is enough, hombre.'], warn: ['Te lo digo una vez. Go.'], engage: ['For my people!'], idle: ['Oye, primo, you saw the game?'] },
-  9:  { gunfire: ['Mon dieu — gunfire. Inside!'], flee: ['Allez, this way, quickly!'], god: ['That is... that is not possible.'], reckless: ['Imbécile! Watch where you drive!'], challenge: ['No. This ends. Now.'], warn: ['I will say it once. Leave.'], engage: ['For all of them, then.'], idle: ['The trains, again, honestly.'] },
-  10: { gunfire: ['Shooting. Of course. Get down.'], flee: ['Idi, idi — this way!'], god: ['So. The monsters are real. Good.'], reckless: ['Blind, are you? Watch the road!'], challenge: ['Enough. You stop. Now.'], warn: ['I warn you one time. Go.'], engage: ['For all of them.'], idle: ['Cold today. Colder tomorrow.'] },
-  11: { gunfire: ['Strewth — that’s shots! Get down!'], flee: ['This way, come on, leg it!'], god: ['Yeah, nah, that’s not right at all.'], reckless: ['Oi! Watch it, ya galah!'], challenge: ['Right. That’s enough of that.'], warn: ['Fair warning. Rack off.'], engage: ['Righto then. Come on.'], idle: ['Bloody hot one today, mate.'] },
-  12: { gunfire: ['Meu Deus — tiros! Corre!'], flee: ['Vamos, vamos, por aqui!'], god: ['Nossa. What in God’s name is that?'], reckless: ['Ô meu, quase me mata! Devagar!'], challenge: ['Chega. That is enough.'], warn: ['Te aviso uma vez. Go.'], engage: ['Por todos, então!'], idle: ['Viste el partido? Increíble.'] },
-  13: { gunfire: ['Lawd — a shot dat! Move!'], flee: ['Come, come, dis way, quick!'], god: ['Jah know. Wah kinda ting dat?'], reckless: ['Ey! Yuh nearly mash me up!'], challenge: ['Nuh more a dat. Stop it now.'], warn: ['Mi a warn yuh one time. Gwaan.'], engage: ['Fi everybody yuh trouble!'], idle: ['Wah gwaan, di patty shop open yet?'] },
-  14: { gunfire: ['In the name of God — take cover!'], flee: ['This way, quickly, come!'], god: ['This is beyond men. Look at it.'], reckless: ['Have you no eyes? People walk here!'], challenge: ['That is far enough now. Turn back.'], warn: ['I warn you but once. Depart.'], engage: ['For every soul you wronged!'], idle: ['The tea has gone cold, as always.'] },
-};
+// ── the lines: read the SINGLE source of truth (src/data/street-lines.json),
+//    the very file the runtime catalogue (streetvo.ts) imports — so a voiced
+//    clip can never say different words than the game shows. No mirror, no drift.
+const LINES = JSON.parse(readFileSync(resolve(ROOT, 'src/data/street-lines.json'), 'utf8'));
 
-const PEDESTRIAN = ['idle', 'gunfire', 'flee', 'god', 'reckless'];
+const PEDESTRIAN = ['idle', 'gunfire', 'flee', 'god', 'reckless', 'wounded'];
 const SCENE = {
   idle:      'standing on a busy street, nothing wrong yet, half-bored',
   gunfire:   'gunfire erupts a block away, sudden fear, protecting others',
   flee:      'running from the fighting, breath short, pulling a friend along',
   god:       'a towering superhuman is walking down the street, awe and dread',
   reckless:  'a car nearly ran them down, indignant, shaken',
+  wounded:   'caught by the crossfire, hurt and shocked, calling out',
   challenge: 'a violent stranger will not stop, the vigilante steps forward, done being afraid',
   warn:      'the last word before it turns physical, steady, giving one chance',
   engage:    'swinging now, committed, afraid but doing it anyway',
+  triumph:   'the stranger is down at last, standing over them, breathless and defiant',
 };
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
