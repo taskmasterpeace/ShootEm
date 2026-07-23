@@ -358,8 +358,11 @@ describe('vehicles', () => {
     // DERIVED, not hardcoded — the motor pool grows (V2/V3 added the airfield
     // and the Lance) and a magic number just goes stale and gets bumped
     // without anyone checking whether the pads are real.
-    expect(w.vehicles.size).toBe(w.map.vehiclePads.length);
-    expect(w.vehicles.size, 'both teams field the same pool').toBeGreaterThanOrEqual(24);
+    // THE TRAFFIC (#94) parks CIVILIAN machines that no pad spawned, so the
+    // pad law counts war materiel — which is what it always meant.
+    const materiel = [...w.vehicles.values()].filter((v) => !VEHICLES[v.kind].civilian);
+    expect(materiel.length).toBe(w.map.vehiclePads.length);
+    expect(materiel.length, 'both teams field the same pool').toBeGreaterThanOrEqual(24);
     const s = w.addSoldier('D', 'infantry', 0, 'human');
     const v = [...w.vehicles.values()].find((x) => x.team === 0 && x.kind === 'buggy')!;
     s.pos = { ...v.pos };

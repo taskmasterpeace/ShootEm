@@ -349,6 +349,11 @@ export interface WorldOptions {
   map?: GameMap;
   /** Vehicle-scale theater source. Explicit maps and Operation maps win. */
   theaterId?: TheaterId;
+  /** THE TRAFFIC (#94): park civilian machines around the map. OPT-IN — the
+   *  game asks for it; a directly-constructed world (tests, benches, the
+   *  harness) stays clean, because a parked car is an obstacle and a
+   *  projectile that hits one never reaches its nominal range. */
+  traffic?: boolean;
   botsPerTeam?: number;
   difficulty?: Difficulty;
   /** B1: morale banked by underfunded victories opens the stable richer —
@@ -651,6 +656,14 @@ export class World {
       vehicle.operationObjectiveId = pad.operationObjectiveId;
       vehicle.operationPrize = pad.operationPrize;
     });
+    // ═══ THE TRAFFIC (#94's second half — Robert: "military vehicles make
+    // war; civilian vehicles make the world feel alive"). 48 civilian hulls
+    // shipped and NONE of them were ever in a match. They are now: parked
+    // along the open ground away from both bases, seeded from the map's own
+    // seed so the same city has the same cars every boot, team -1 so nobody
+    // owns them, and every one of them drives when you get in.
+    this.seedTraffic();
+
     if (scienceSpec && scienceLayout) {
       this.science = createScienceRuntime(scienceSpec, scienceLayout);
       populateScienceMission(this, scienceLayout);
@@ -1832,6 +1845,58 @@ export class World {
       if (sensorIndex >= 0 && source.systems.sensors > 0 && source.seats[sensorIndex + 1] >= 0 && distance <= 55) return true;
     }
     return false;
+  }
+
+  /**
+   * THE TRAFFIC (#94). Park civilian machines around the map: the street cars
+   * on open ground, the working trucks near structures, a boat on the water.
+   * Deterministic from the map seed — the same city keeps the same cars —
+   * and DELIBERATELY absent from the outbreak modes, where an intact street
+   * of parked cars would read as a town that never fell.
+   */
+  private seedTraffic(): void {
+    if (!this.opts.traffic) return;              // opt-in: the game asks, tests do not
+    if (isCoopMode(this.opts.mode)) return;      // the dead city parks nothing
+    if (this.opts.mode === 'race' || this.opts.mode === 'timetrial') return; // the circuit stays clear
+    if (this.opts.mode === 'school' || this.opts.mode === 'range') return;   // the course stays clear
+    const STREET: VehicleKind[] = ['sedan', 'taxi', 'suv', 'pickup', 'deliveryvan', 'policecruiser',
+      'sportscar', 'scooter', 'golfcart', 'bicycle', 'atv', 'foodtruck'];
+    const WORK: VehicleKind[] = ['movingtruck', 'towtruck', 'garbagetruck', 'firetruck',
+      'schoolbus', 'cementmixer', 'forklift', 'loader'];
+    const geo = this.map.geometry;
+    const halfW = halfWidth(geo) - 24;
+    const halfD = halfDepth(geo) - 24;
+    const baseA = this.map.basePos[0], baseB = this.map.basePos[1];
+    // a hash walk, not the live rng: seeding traffic must not shift a single
+    // draw of the match stream (the harness trap, paid for twice already)
+    let n = 0;
+    const roll = () => hash01(this.map.seed + ++n * 17.7);
+    const COUNT = 14;
+    // THE ID TRAP, paid for again: entity ids are a SHARED sequence, and bot
+    // roles key off `id % 4`. Minting 14 traffic ids from the main counter
+    // shifted every soldier spawned afterwards and quietly re-rolled the
+    // garrison's jobs (the compound's overwatch climb stopped happening).
+    // Traffic gets its own high range; the war's sequence is untouched.
+    const mainNext = this.nextId;
+    this.nextId = 900_000;
+    for (let i = 0; i < COUNT; i++) {
+      const x = (roll() * 2 - 1) * halfW;
+      const z = (roll() * 2 - 1) * halfD;
+      // never near a base — the compound, its gate and the ground the
+      // garrison uses to deploy stay CLEAR. (Parked hulls are obstacles: at
+      // 40u they were fouling the overwatch climb the compound test pins.)
+      if (Math.hypot(x - baseA.x, z - baseA.z) < 75) continue;
+      if (Math.hypot(x - baseB.x, z - baseB.z) < 75) continue;
+      if (isBlocked(this.map.grid, x, z, false, geo)) continue;
+      const near = this.map.houses.some((h) => Math.hypot(h.center.x - x, h.center.z - z) < 26);
+      const pool = near ? WORK : STREET;
+      const kind = pool[Math.floor(roll() * pool.length) % pool.length];
+      const v = this.spawnVehicle(kind, -1 as Team, { x, y: 0, z });
+      v.yaw = roll() * Math.PI * 2;
+      v.padTeam = -1 as Team;   // nobody's motor pool — anyone can take it
+      v.abandonedAt = 0;
+    }
+    this.nextId = mainNext; // hand the war its sequence back, untouched
   }
 
   /**
@@ -7344,8 +7409,10 @@ export class World {
         theaterId: this.map.theater?.id ?? 'classic', seed: this.map.seed,
         x: v.pos.x, z: v.pos.z, detail: weapon,
       });
-      // B1: a wreck goes on its owner team's bill at requisition value
-      this.warLedger[v.team].hulls += VEHICLES[v.kind].cost ?? 1;
+      // B1: a wreck goes on its owner team's bill at requisition value.
+      // THE TRAFFIC pays nothing: a civilian car belongs to nobody (team -1),
+      // so wrecking one bills no army — there is no ledger row to charge.
+      if (v.team === 0 || v.team === 1) this.warLedger[v.team].hulls += VEHICLES[v.kind].cost ?? 1;
       v.respawnAt = this.time + VEHICLE_RESPAWN;
       // DEATH-DATA / weapon-memory: credit the kill so a gun can stamp the
       // HULL TYPE it killed (Robert: "the type of vehicles they've taken out")

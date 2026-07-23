@@ -812,6 +812,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     // A PLACE (#122) is hand-built ground with nobody in it but the keeper
     map: selectedMode === 'shop' ? buildVanessasMap() : undefined,
     botsPerTeam: selectedMode === 'shop' ? 0 : botsPerTeam,
+    traffic: true, // #94: the world has civilian machines parked in it
     // #123 THE ONE CLOCK: hand the sim the world's day-fraction at launch —
     // the sky obeys the same clock the corner chip shows
     clockPhase: gameNow().phase01,

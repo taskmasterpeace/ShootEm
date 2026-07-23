@@ -9,7 +9,7 @@
 import { WEAPONS, weaponNoiseRadius } from '../data';
 import { T_CLIMB, T_COVER, isBlocked, losClear, tileAt } from '../map';
 import { tileToWorld } from '../map-geometry';
-import { isIron, type Soldier, type Team, type Vehicle } from '../types';
+import { isIron, type Soldier, type Team, type Vec3, type Vehicle } from '../types';
 import { type World } from '../world';
 import { pathStep } from './pathfinding';
 import { doorAhead } from '../bots';
@@ -196,6 +196,43 @@ export function stepZombie(w: World, s: Soldier, dt: number) {
         }
       }
     }
+  }
+
+  // ═══ THE DEAD BITE STRUCTURES (the tower-defence blocker) ═══
+  // The horde could only ever see `human` and `bot`, so every sentry turret a
+  // player built was INVISIBLE SCENERY — zeds walked straight past it and no
+  // defence you placed could ever be tested. A structure inside the reach of
+  // a zed with nothing better to do is now a target: they crowd it, tear it
+  // down, and a defended position becomes a thing you can actually lose.
+  let structure: { pos: Vec3; id: number } | null = null;
+  if (!best || bestD > 14) {
+    let sd = Infinity;
+    for (const t of w.turrets.values()) {
+      if (!t.alive || t.team === s.team) continue;
+      const d = Math.hypot(t.pos.x - s.pos.x, t.pos.z - s.pos.z);
+      if (d < sd && d < 26) { sd = d; structure = { pos: t.pos, id: t.id }; }
+    }
+  }
+  if (structure) {
+    const dx = structure.pos.x - s.pos.x, dz = structure.pos.z - s.pos.z;
+    const dl = Math.hypot(dx, dz) || 1;
+    s.yaw = Math.atan2(dz, dx);
+    if (dl > 2.2) {
+      const speed = s.kind === 'sprinter' ? 12 : 7;
+      s.vel.x = (dx / dl) * speed;
+      s.vel.z = (dz / dl) * speed;
+    } else {
+      // in reach: stop and tear
+      s.vel.x = 0; s.vel.z = 0;
+      if (w.time >= s.nextFireAt) {
+        const wd = WEAPONS[s.weapons[0]];
+        s.nextFireAt = w.time + 1 / wd.rof;
+        const t = w.turrets.get(structure.id);
+        if (t) w.damageTurret(t, wd.damage * (s.kind === 'brute' ? 4 : 1));
+      }
+    }
+    w.stepSoldierPhysics(s, dt);
+    return;
   }
 
   if (!best) return;
