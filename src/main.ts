@@ -2359,6 +2359,34 @@ mountFrontend({
     // says done; veterans (and skippers) never see it again
     mountOnboarding(onboardingHost);
   },
+  // BRIEF → BATTLEFIELD. The laptop's briefing room reaches the same two
+  // launch paths the deploy screen uses, so a brief is not a second way to
+  // configure a match — it is the same match, entered from the room where you
+  // read about it.
+  launchBrief(kind, id) {
+    if (running) return;
+    activeFrontId = null;
+    seedOverride = undefined;
+    if (kind === 'military') {
+      const mission = MILITARY_MISSIONS.find((m) => m.id === id);
+      if (!mission) return;
+      selectedMilitaryMissionId = mission.id;
+      selectedMode = mission.mode;
+      queuedScienceLaunch = null;
+    } else {
+      const preset = SCIENCE_PRESETS.find((s) => s.id === id);
+      if (!preset) return;
+      selectedMode = 'science';
+      selectedClass = preset.classId;
+      selectedTheme = preset.options.theme!;
+      scienceClones = 8;
+      primaryPick = '';
+      secondaryPick = '';
+      queuedScienceLaunch = prepareSciencePreset(preset);
+      selectedMilitaryMissionId = null;
+    }
+    void startGame();
+  },
   onIdentity: applyIdentity,
 });
 // a returning player already has an identity — seed the team before any deploy

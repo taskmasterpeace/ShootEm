@@ -265,3 +265,94 @@ describe('the headphones are a trade', () => {
     expect(HEADPHONE_WORLD_CUT).toBeLessThan(1); // never total deafness
   });
 });
+
+// ---------------------------------------------------------------------------
+// BRIEFINGS — the room the GONET list promised (2026-07-23, "improve the
+// laptop").
+//
+// The laws:
+//   1. A BRIEF REPORTS REAL MISSIONS. The counts are the rosters, not a mock's
+//      guess — the desk used to claim 18 military and 3 science against real
+//      totals of 7 and 5.
+//   2. THE BRIEF CHECKS YOUR PAPERS. Every hull a mission issues is measured
+//      against the licences you actually hold, before you deploy.
+//   3. IT NEVER LIES ABOUT THE GATE. Uncleared hulls do not bar the mission —
+//      the gate is on the WHEEL — so the verdict says you may still ride.
+// ---------------------------------------------------------------------------
+import {
+  allBriefs, briefById, briefsOfKind, missionCounts, readiness, uncleared,
+} from '../src/client/gonet/briefings';
+import { MILITARY_MISSIONS } from '../src/sim/military-missions';
+import { SCIENCE_PRESETS } from '../src/client/science-presets';
+
+describe('the briefing board', () => {
+  it('counts the REAL rosters, not the mock\'s numbers', () => {
+    const c = missionCounts();
+    expect(c.military).toBe(MILITARY_MISSIONS.length);
+    expect(c.science).toBe(SCIENCE_PRESETS.length);
+    // the desk used to claim 18 and 3 against these
+    expect(c.military).not.toBe(18);
+    expect(c.science).not.toBe(3);
+  });
+
+  it('briefs every mission that exists, of both kinds', () => {
+    const all = allBriefs([]);
+    expect(all).toHaveLength(MILITARY_MISSIONS.length + SCIENCE_PRESETS.length);
+    expect(briefsOfKind(all, 'military')).toHaveLength(MILITARY_MISSIONS.length);
+    expect(briefsOfKind(all, 'science')).toHaveLength(SCIENCE_PRESETS.length);
+  });
+
+  it('every brief names the ground, the pitch and a plan', () => {
+    for (const b of allBriefs([])) {
+      expect(b.title.length).toBeGreaterThan(0);
+      expect(b.theatre.length).toBeGreaterThan(0);
+      expect(b.tagline.length).toBeGreaterThan(10);
+      expect(b.phases.length).toBeGreaterThan(0);
+      for (const p of b.phases) expect(p.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('THE BRIEF CHECKS YOUR PAPERS against the hulls it issues', () => {
+    const withNothing = allBriefs([]);
+    const armoured = withNothing.find((b) => b.hulls.some((h) => h.licence === 'tank'));
+    expect(armoured, 'some operation issues a tracked hull').toBeTruthy();
+    // holding nothing, that hull is barred and names its school
+    const barred = armoured!.hulls.find((h) => h.licence === 'tank')!;
+    expect(barred.cleared).toBe(false);
+    expect(barred.school).toBe('Armour School');
+
+    // hold the whole chain and the same hull clears
+    const qualified = allBriefs(['basic_driver', 'heavy_truck', 'apc', 'tank']);
+    const same = briefById(qualified, armoured!.id)!;
+    expect(same.hulls.find((h) => h.licence === 'tank')!.cleared).toBe(true);
+  });
+
+  it('the verdict never claims the mission is barred — only the wheel is', () => {
+    const b = allBriefs([]).find((x) => x.hulls.length && uncleared(x).length)!;
+    const rd = readiness(b);
+    expect(rd.ok).toBe(false);
+    expect(rd.line).toMatch(/may ride/i);
+    expect(rd.line).toMatch(/somebody else drives/i);
+  });
+
+  it('a mission that issues nothing says so rather than warning about nothing', () => {
+    const walkIn = allBriefs([]).find((b) => !b.hulls.length)!;
+    expect(walkIn).toBeTruthy();
+    expect(readiness(walkIn).ok).toBe(true);
+    expect(readiness(walkIn).line).toMatch(/walk in/i);
+  });
+
+  it('a fully-papered soldier is cleared for everything on the board', () => {
+    const all = allBriefs([
+      'basic_driver', 'heavy_truck', 'apc', 'tank', 'hovercraft', 'boat',
+      'helicopter', 'fixed_wing', 'bomber', 'transport', 'drone_pilot', 'dropship',
+    ]);
+    for (const b of all) expect(uncleared(b)).toHaveLength(0);
+  });
+
+  it('science briefs carry the role the mission expects you in', () => {
+    for (const b of briefsOfKind(allBriefs([]), 'science')) {
+      expect(b.role && b.role.length).toBeTruthy();
+    }
+  });
+});

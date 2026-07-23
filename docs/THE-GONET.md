@@ -139,3 +139,50 @@ on release; a one-track field kit called `NIGHT PATROL` produced
 
 A live match must be driven in a visible Playwright tab; the Browser pane never
 boots a match (`__ww` never appears there).
+
+---
+
+## 7. BRIEFINGS, and a desk that stopped inventing numbers (2026-07-23)
+
+> Robert: *"improve the laptop."*
+
+**Every row on the desk is now derived.** The transcript's mock carried four
+invented lines and they had survived into the build: `Science 3 Missions`,
+`Military 18 Missions`, a factory with a tank ready, and a research prototype
+complete. The real rosters are **7 operations and 5 science missions**. A desk
+that reports the war has no business making numbers up.
+
+The mock's shape is kept where a real system could answer for it — the factory
+became **the garage** (what you have built), research became **training
+command** (the next certification open to you) — and rows the world genuinely
+cannot answer yet were dropped rather than faked. Added in their place: **the
+light** (the clock's phase word), **rank**, and **the promotion board's actual
+distance to the next rung**.
+
+**THE BRIEFING ROOM** is the room the canon list promised and the laptop never
+had. The missions were always real — they were reachable only through a modal
+on the deploy screen, and nothing ever told you what you were walking into.
+
+A brief names the ground, the objective chain, and the machines you are issued.
+Then it does the thing that turns a poster into preparation: **it checks your
+papers against those machines.**
+
+```
+ISSUED TO YOU
+  Mastodon 21   Ares Battle Tank           TANK — Armour School
+  Shrike 07     Shrike Attack Helicopter   HELICOPTER — Flight School
+
+  2 of 2 issued need paper you do not hold — Armour School · Flight School.
+  You may ride; somebody else drives.
+```
+
+That last line is the honest one: the gate is on the **wheel**, not the door
+(docs/TEETH.md §1), so a brief never claims a mission is barred to you.
+
+**DEPLOY ON THIS BRIEF** launches straight into it — the same two launch paths
+the deploy screen uses, so a brief is not a second way to configure a match. It
+is the same match, entered from the room where you read about it.
+
+**A laptop takes keys.** 1–6 walk the apps, ESC comes home to the desk. Bound
+once at module scope — `renderGonet` runs on every repaint of the front door, so
+binding there would stack a listener per paint.

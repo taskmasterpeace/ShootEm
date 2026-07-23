@@ -23,6 +23,8 @@ export interface FrontendHost {
   /** SINGLE PLAYER chosen — reveal the deploy screen. */
   /** door: SKIRMISH lands on the war categories, PAINTBALL on the yard. */
   enterMenu(door?: 'skirmish' | 'paintball'): void;
+  /** BRIEF -> BATTLEFIELD: launch a briefed operation or science mission. */
+  launchBrief(kind: 'military' | 'science', id: string): void;
   /** Identity established or changed — push the callsign into the deploy form + record. */
   onIdentity(id: PlayerIdentity): void;
 }
@@ -71,6 +73,10 @@ function renderMenu() {
   root.innerHTML = '';
   renderGonet(root, {
     deploy: (door) => { hideOverlay(); gonetSuspend(); host.enterMenu(door); },
+    // BRIEF → BATTLEFIELD, with no deploy screen in between. Reading the brief
+    // IS the preparation, so the button at the bottom of it should be the last
+    // thing you press.
+    launchBrief: (kind, id) => { hideOverlay(); host.launchBrief(kind, id); },
     options: renderOptions,
     reenlist: () => {
       const id = loadIdentity();

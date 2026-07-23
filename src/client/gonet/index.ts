@@ -20,7 +20,7 @@ import { loadLicences } from '../licences';
 import { COURSES } from '../../sim/courses';
 import { treasuryFor } from '../treasury';
 import { loadPress } from '../newspaper';
-import type { LicenceId } from '../../sim/licenses';
+import { LICENCES, type LicenceId } from '../../sim/licenses';
 import { buildInbox, markAllRead, markRead, unreadCount, type Message } from './mail';
 import {
   CHANNELS, buildSchedule, reelSeconds, reelsOn, shotAt, type ChannelId, type Reel,
@@ -31,14 +31,23 @@ import {
   TRACKS, tracksOf,
 } from './library';
 import { musicDeck } from './player';
+import {
+  allBriefs, briefById, briefsOfKind, missionCounts, readiness, uncleared, vehicleName,
+  type Brief, type BriefKind,
+} from './briefings';
+import { board } from '../service';
+import { loadFits } from '../garage-ui';
+import { phaseName } from '../worldclock';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 
-export type GonetApp = 'desk' | 'mail' | 'video' | 'music' | 'file';
+export type GonetApp = 'desk' | 'briefings' | 'mail' | 'video' | 'music' | 'file';
 
 export interface GonetHost {
   /** DEPLOY — leave the laptop for the war. */
   deploy(door: 'skirmish' | 'paintball'): void;
+  /** Straight into a briefed mission, skipping the deploy screen entirely. */
+  launchBrief(kind: BriefKind, id: string): void;
   /** OPTIONS lives in its own panel already. */
   options(): void;
   /** Re-enlist under a different flag. */
@@ -71,6 +80,29 @@ export function renderGonet(rootEl: HTMLElement, h: GonetHost): void {
 
 export function gonetOpen(a: GonetApp): void { app = a; paint(); }
 
+/**
+ * A LAPTOP TAKES KEYS. 1–6 walk the apps, ESC comes home to the desk. Bound
+ * once at module scope (renderGonet runs on every repaint of the front door,
+ * so binding there would stack listeners), and it stands down the moment the
+ * network is not on screen.
+ */
+const APP_KEYS: GonetApp[] = ['desk', 'briefings', 'mail', 'video', 'music', 'file'];
+if (typeof window !== 'undefined') {
+  window.addEventListener('keydown', (e) => {
+    if (!root || root.classList.contains('hidden') || !root.querySelector('.gn')) return;
+    const el = document.activeElement;
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return;
+    if (e.key === 'Escape') { if (app !== 'desk') { app = 'desk'; paint(); e.preventDefault(); } return; }
+    const n = Number(e.key);
+    if (Number.isInteger(n) && n >= 1 && n <= APP_KEYS.length) {
+      app = APP_KEYS[n - 1];
+      if (app === 'video') startVideoClock();
+      paint();
+      e.preventDefault();
+    }
+  });
+}
+
 function paint(): void {
   const id = loadIdentity();
   root.innerHTML = `<div class="gn">${chrome(id)}<div class="gn-body">${bodyFor(id)}</div>${corner()}</div>`;
@@ -84,8 +116,11 @@ function chrome(id: PlayerIdentity | null): string {
   const greet = hour < 5 ? 'STILL UP' : hour < 12 ? 'GOOD MORNING' : hour < 18 ? 'GOOD AFTERNOON' : 'GOOD EVENING';
   const nation = id ? nationOf(id) : undefined;
   const unread = unreadCount(inbox);
+  const counts = missionCounts();
+  const briefCount = counts.military + counts.science;
   const tabs: Array<[GonetApp, string, string]> = [
     ['desk', 'DESK', ''],
+    ['briefings', 'BRIEFINGS', String(briefCount)],
     ['mail', 'MAIL', unread ? String(unread) : ''],
     ['video', 'BROADCAST', ''],
     ['music', 'MUSIC', ''],
@@ -110,6 +145,7 @@ function chrome(id: PlayerIdentity | null): string {
 }
 
 function bodyFor(id: PlayerIdentity | null): string {
+  if (app === 'briefings') return briefingsApp();
   if (app === 'mail') return mailApp();
   if (app === 'video') return videoApp();
   if (app === 'music') return musicApp();
@@ -132,18 +168,31 @@ function desk(id: PlayerIdentity | null): string {
     ? (last.frontName ? `Battle of ${last.frontName} continues` : `Action at ${last.modeName}`)
     : 'The desk is quiet';
 
+  // EVERY ROW ON THIS BOARD IS DERIVED NOW. The transcript's mock carried four
+  // invented lines — "Science 3 Missions", "Military 18 Missions", a factory
+  // with a tank ready, a research prototype complete — and a desk that reports
+  // the war has no business making numbers up. The mission counts are the real
+  // rosters (7 and 5, not 18 and 3); the factory is your garage; research is
+  // training command; and the promotion board finally has a rank behind it.
+  const counts = missionCounts();
+  const b = board();
+  const fits = Object.keys(loadFits()).length;
+  const nextPaper = allLic.find((l) => !lic.held.includes(l));
+  const c = gameNow();
+
   const rows: Array<[string, string, string]> = [
     ['Front', frontState, frontState === 'LOSING' ? 'bad' : frontState === 'HOLDING' ? 'ok' : ''],
-    ['Science', '3 Missions Available', ''],
-    ['Military', '18 Missions Available', ''],
+    ['The light', phaseName(c), c.night ? '' : 'ok'],
+    ['Military', `${counts.military} operations briefed`, ''],
+    ['Science', `${counts.science} missions briefed`, ''],
     ['Personal Mail', unread ? `${unread} UNREAD` : 'Nothing new', unread ? 'hot' : ''],
+    ['Rank', b.rank.name, b.next ? '' : 'ok'],
+    ['Promotion Board', b.next ? `${Math.ceil(b.next.need)} service to ${b.next.rank.name}` : 'At the top', b.next ? 'hot' : 'ok'],
     ['Certifications', `${held} / ${allLic.length} held`, held === allLic.length ? 'ok' : ''],
+    ['Training', nextPaper ? `${LICENCES[nextPaper].name} is open` : 'Register closed', nextPaper ? '' : 'ok'],
+    ['The Garage', fits ? `${fits} machine${fits === 1 ? '' : 's'} built` : 'Nothing on the bench', fits ? 'ok' : ''],
     ['War Chest', chest ? chest.balance.toLocaleString() : '—', ''],
     ['Your Record', chest ? `${chest.wins}W · ${chest.losses}L` : '—', ''],
-    ['Your Squad', '2 Waiting', 'hot'],
-    ['Factory', 'Tank Ready', 'ok'],
-    ['Research', 'New Prototype Complete', 'ok'],
-    ['Promotion Board', 'Eligible', 'ok'],
     ['News', newsLine, ''],
   ];
 
@@ -158,6 +207,7 @@ function desk(id: PlayerIdentity | null): string {
         <div class="gn-grid">
           ${appTile('deploy-skirmish', '⚔', 'DEPLOY', 'Skirmish — war, missions, the outbreak.', true)}
           ${appTile('deploy-paintball', '❖', 'THE YARD', 'Paintball: hunters vs hunted, the pro shop.', false)}
+          ${appTile('briefings', '▣', 'BRIEFINGS', `${counts.military + counts.science} operations and missions — the ground, the plan, the manifest.`, false)}
           ${appTile('mail', '✉', 'MAIL', unread ? `${unread} unread` : 'Nothing new', false)}
           ${appTile('video', '▶', 'BROADCAST', 'War desk, home service, training films.', false)}
           ${appTile('music', '♫', 'MUSIC', 'Your library — and what the field plays.', false)}
@@ -174,6 +224,68 @@ function appTile(id: string, glyph: string, label: string, sub: string, primary:
     <b>${esc(label)}</b><span>${esc(sub)}</span>
     ${soon ? '<i class="gn-soon">COMING SOON</i>' : ''}
   </button>`;
+}
+
+// ── BRIEFINGS ─────────────────────────────────────────────────────────────
+// The missions were always real; they were reachable only through a modal on
+// the deploy screen, and nothing ever told you what you were walking into.
+// A brief names the ground, the objective chain and the machines you are
+// issued — and then CHECKS YOUR PAPERS against those machines, which is the
+// thing that turns a poster into preparation.
+let briefOpen: string | null = null;
+let briefKind: BriefKind = 'military';
+
+function briefingsApp(): string {
+  const all = allBriefs(loadLicences().held);
+  const list = briefsOfKind(all, briefKind);
+  const cur = (briefOpen ? briefById(all, briefOpen) : undefined) ?? list[0];
+  const rd = cur ? readiness(cur) : null;
+
+  const rows = list.map((b) => {
+    const bad = uncleared(b).length;
+    return `<button class="gn-brief${b.id === cur?.id ? ' on' : ''}" data-brief="${b.id}">
+      <span class="gn-bicon">${esc(b.icon)}</span>
+      <span class="gn-bmeta"><b>${esc(b.title)}</b><span>${esc(b.theatre)}</span></span>
+      ${bad ? `<span class="gn-bwarn">&#9888; ${bad}</span>` : ''}
+    </button>`;
+  }).join('');
+
+  const hulls = cur && cur.hulls.length
+    ? `<h4>ISSUED TO YOU</h4><div class="gn-bhulls">${cur.hulls.map((h) =>
+      `<div class="gn-bhull${h.cleared ? '' : ' barred'}">
+        <b>${esc(h.name)}</b>
+        <span>${esc(vehicleName(h.kind))}</span>
+        <i>${h.cleared ? 'CLEARED' : `${esc(h.licenceName.toUpperCase())} — ${esc(h.school)}`}</i>
+      </div>`).join('')}</div>`
+    : '';
+
+  const body = cur
+    ? `<div class="gn-bhead">
+        <b>${esc(cur.title)}</b>
+        <span>${esc(cur.theatre)}${cur.role ? ` · ${esc(cur.role)}` : ''}</span>
+      </div>
+      <p class="gn-btag">${esc(cur.tagline)}</p>
+      <div class="gn-btags">${cur.tags.map((x) => `<span>${esc(x)}</span>`).join('')}</div>
+      <h4>THE PLAN</h4>
+      <ol class="gn-bphases">${cur.phases.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>
+      ${hulls}
+      <div class="gn-bready ${rd?.ok ? 'ok' : 'warn'}">${esc(rd?.line ?? '')}</div>
+      <button class="gn-cta" data-launch="${cur.kind}:${cur.id}">DEPLOY ON THIS BRIEF &#9656;</button>`
+    : '<div class="gn-empty">Nothing briefed.</div>';
+
+  return `
+    <div class="gn-pane gn-briefs">
+      <section class="gn-blist">
+        <h3>THE BOARD
+          <span class="gn-listacts">
+            <button class="gn-mini${briefKind === 'military' ? ' on' : ''}" data-bkind="military">MILITARY</button>
+            <button class="gn-mini${briefKind === 'science' ? ' on' : ''}" data-bkind="science">SCIENCE</button>
+          </span>
+        </h3>
+        ${rows}
+      </section>
+      <section class="gn-bread">${body}</section>
+    </div>`;
 }
 
 // ── MAIL ───────────────────────────────────────────────────────────────────
@@ -404,6 +516,21 @@ function wire(): void {
       else if (t === 'deploy-paintball') host.deploy('paintball');
       else if (t === 'mp') { /* soon */ }
       else { app = t as GonetApp; if (app === 'video') startVideoClock(); paint(); }
+    };
+  });
+
+  // briefings
+  q<HTMLButtonElement>('[data-brief]').forEach((b) => {
+    b.onclick = () => { briefOpen = b.dataset.brief!; paint(); };
+  });
+  q<HTMLButtonElement>('[data-bkind]').forEach((b) => {
+    b.onclick = () => { briefKind = b.dataset.bkind as BriefKind; briefOpen = null; paint(); };
+  });
+  q<HTMLButtonElement>('[data-launch]').forEach((b) => {
+    b.onclick = () => {
+      const [kind, id] = b.dataset.launch!.split(':');
+      gonetSuspend();
+      host.launchBrief(kind as BriefKind, id);
     };
   });
 
