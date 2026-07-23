@@ -802,26 +802,92 @@ export function generatePaintballField(seed: number, theme: ThemeId = 'savanna')
   for (let tz = A0; tz <= A1; tz++)
     for (let tx = A0; tx <= A1; tx++) grid[tz * GRID + tx] = T_OPEN;
 
-  // mirrored cover: pairs of crates, short wall stubs, and a few CLIMB
-  // barricades — enough angles to teach peeking, never a maze
   const mid = (A0 + A1) / 2;
-  const stamps = theme === 'starship' ? 16 : 13;
-  for (let i = 0; i < stamps; i++) {
-    const tx = A0 + 2 + rng.int(0, (A1 - A0) / 2 - 3); // west half; east is the mirror
-    const tz = A0 + 2 + rng.int(0, A1 - A0 - 4);
-    const kind = rng.next() < 0.55 ? T_COVER : rng.next() < 0.5 ? T_WALL : T_CLIMB;
-    const len = kind === T_WALL ? rng.int(2, 3) : rng.int(1, 2);
-    const horiz = rng.next() < 0.5;
-    for (let k = 0; k < len; k++) {
-      const x = tx + (horiz ? k : 0), z = tz + (horiz ? 0 : k);
-      if (x <= A0 || x >= A1 || z <= A0 || z >= A1) continue;
-      grid[z * GRID + x] = kind;
-      const mx = A0 + A1 - x; // vertical-line mirror
-      grid[z * GRID + mx] = kind;
+  // THE MAZE YARDS (Robert: "more like a maze… we need hallways, the long
+  // corridors — think Pac-Man, but a little bit simpler. Maybe a maze on
+  // each side, then it opens up"): every yard is now two mirrored maze
+  // WINGS of long two-tile hallways feeding an open center plaza.
+  //
+  // Each wing runs three north-south lanes separated by wall columns; the
+  // doorways through each column are STAGGERED (per-seed phase), so crossing
+  // a wing is a zigzag — corridor fighting with an angle at every door.
+  // Reachability is guaranteed by construction: every lane is continuous
+  // N-S, every wall column carries multiple doors, and the plaza joins the
+  // wings. Water (stamped later) melts extra holes through the columns.
+  // THE YARDS ARE WILDLY DIFFERENT (Robert, COMPETITIVE-ARC §2b) — same maze
+  // grammar, three dialects, so records mean something PER FIELD:
+  //   savanna  → THE OPEN YARD (Kopje): two thin columns, generous doors —
+  //              long grass sightlines. Belt country: the only yard where a
+  //              40u splat is on the table.
+  //   starship → THE KNIFE FIGHT (Deck Nine): three columns, stingy doors —
+  //              the densest lattice. The Fan's home.
+  //   titan    → THE JUNKYARD (Grit Alley): three columns, standard doors,
+  //              and half again the plaza cover — grenade and angle play.
+  const WING_WALLS = theme === 'savanna'
+    ? [A0 + 5, A0 + 10]
+    : [A0 + 4, A0 + 7, A0 + 10]; // west wing; east is the mirror
+  const doorMod = theme === 'starship' ? 7 : theme === 'savanna' ? 5 : 6;
+  const doorPhase = WING_WALLS.map(() => rng.int(0, 5));
+  WING_WALLS.forEach((wx, k) => {
+    for (let tz = A0 + 1; tz <= A1 - 1; tz++) {
+      if ((tz - A0 + doorPhase[k] + k * 3) % doorMod < 2) continue; // the doorways
+      grid[tz * GRID + wx] = T_WALL;
+      grid[tz * GRID + (A0 + A1 - wx)] = T_WALL; // the east wing, mirrored
     }
+  });
+  // the plaza gets its bunkers — inflatable cover lives in the OPEN, the
+  // hallways stay clean for the long shots
+  const plazaStamps = theme === 'titan' ? 9 : 6;
+  for (let i = 0; i < plazaStamps; i++) {
+    const tx = mid - 3 + rng.int(0, 3); // west half of the plaza; east mirrors
+    const tz = A0 + 2 + rng.int(0, A1 - A0 - 4);
+    const kind = rng.next() < 0.6 ? T_COVER : T_CLIMB;
+    grid[tz * GRID + tx] = kind;
+    grid[tz * GRID + (A0 + A1 - tx)] = kind;
   }
   // the center stays honest: a clear lane through the middle for the duel
   for (let tz = mid - 1; tz <= mid + 1; tz++) grid[tz * GRID + mid] = T_OPEN;
+
+  const P = (tx: number, tz: number): Vec3 => ({ x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 });
+
+  // GROUND VARIETY (Robert: "we got all grass right now"): the yard reads
+  // PLAYED-ON — a worn dirt spine down the center lane and a few mirrored
+  // scuffed patches where boots have argued with the turf.
+  for (let tz = A0; tz <= A1; tz++) {
+    surface[tz * GRID + mid] = S_DIRT;
+    surface[tz * GRID + mid - 1] = S_DIRT;
+  }
+  for (let i = 0; i < 5; i++) {
+    const px = A0 + 3 + rng.int(0, (A1 - A0) / 2 - 4);
+    const pz = A0 + 3 + rng.int(0, A1 - A0 - 6);
+    const wear = rng.next() < 0.5 ? S_DIRT : S_GRIT;
+    for (let dz = 0; dz <= 1; dz++) {
+      for (let dx = 0; dx <= 1; dx++) {
+        surface[(pz + dz) * GRID + px + dx] = wear;
+        surface[(pz + dz) * GRID + (A0 + A1 - px - dx)] = wear;
+      }
+    }
+  }
+
+  // TREES ON THE KOPJE (Robert: "I don't know how paintballs look when they
+  // hit trees" — they burst on the trunk like anything else, and now you can
+  // see it): mirrored acacias for the savanna yard. The trunk claims its
+  // tile (T_WALL = honest collision), propCovered hands the box's visual to
+  // the tree mesh, so no invisible-wall drift is possible.
+  const props: PropSpec[] = [];
+  const propCovered: number[] = [];
+  if (theme === 'savanna') {
+    const spots: [number, number][] = [[A0 + 5, A0 + 5], [A0 + 9, A1 - 7], [mid - 3, A0 + 8]];
+    for (const [tx, tz] of spots) {
+      for (const x of [tx, A0 + A1 - tx]) {
+        const idx = tz * GRID + x;
+        if (grid[idx] !== T_OPEN) continue; // never overwrite a pool or a pad
+        grid[idx] = T_WALL;
+        propCovered.push(idx);
+        props.push({ type: 'tree', pos: P(x, tz), scale: 1.15 + ((x * 7 + tz * 13) % 5) * 0.08, rot: ((x * 31 + tz * 17) % 63) / 10 });
+      }
+    }
+  }
 
   // WATER (Robert: 'have water — should feel like a paintball field'): every
   // yard gets a shallow feature you splash through — wading is a choice
@@ -837,7 +903,6 @@ export function generatePaintballField(seed: number, theme: ThemeId = 'savanna')
   }
 
 
-  const P = (tx: number, tz: number): Vec3 => ({ x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 });
   // three tag points for the prey: center + two mirrored corners
   const controlPoints = [
     { name: 'A', pos: P(mid, mid) },
@@ -871,8 +936,8 @@ export function generatePaintballField(seed: number, theme: ThemeId = 'savanna')
     flagPos: [P(A0 + 2, mid), P(A1 - 2, mid)],
     hillPos: P(mid, mid),
     controlPoints,
-    vehiclePads: [], pickups: [], props: [], zombieSpawns: [],
-    houses: [], gates: [], pads, propCovered: [],
+    vehiclePads: [], pickups: [], props, zombieSpawns: [],
+    houses: [], gates: [], pads, propCovered,
   };
 }
 

@@ -238,6 +238,7 @@ export type WeaponFamily =
   | 'pistol' | 'rifle' | 'carbine' | 'smg' | 'shotgun' | 'slugger' | 'laser'
   | 'lmg' | 'hmg' | 'at_rocket' | 'ap_rocket' | 'mortar' | 'artillery'
   | 'scatter' | 'sonic' | 'flamethrower' | 'grenade' | 'special' | 'melee' | 'melee_weapon'
+  | 'marker' // paintball — yard-issue only, never in a class armory
   | 'lsw'; // signature arms — one god each, never issued, never dropped
 
 export interface ClassDef {
@@ -516,6 +517,12 @@ export interface Soldier {
   /** who last killed this soldier (-1 = nobody/self/environment) — the killcam
    *  frames the duel between victim and killer instead of just the corpse */
   lastKillerId: number;
+  /** paintball: this splat already drew its trash-talk bark (reset each round) */
+  pbSplatBarked?: boolean;
+  /** paintball: declared play style (personas) — overrides the id-hash deal */
+  pbStyle?: 'rusher' | 'flanker' | 'anchor';
+  /** paintball: next time this mouth may yell a proximity taunt */
+  pbTauntAt?: number;
   /** which storey this soldier stands on: 0 ground, 1 the grid2 layer (§8.4) */
   floor: number;
   /** brief stair debounce; direction records an intentional reversal. */
@@ -952,6 +959,9 @@ export interface Projectile {
   stuckVehicle?: number;
   stuckPos?: Vec3;
   stuckAt?: number;
+  /** PAINTBALL: this ball hit a bunker and DIDN'T bust — it skipped off and
+   *  is dead paint now: it never bounces again, never splats, never tags. */
+  paintDud?: boolean;
   /** remaining body/cover pass-throughs (init from WeaponDef.pierce at launch) */
   pierce?: number;
   /** remaining ricochets (init from WeaponDef.ricochet at launch) */
@@ -1116,6 +1126,8 @@ export interface SimEvent {
     | 'contamination'  // §8: a corpse pile curdled into a mutation-field nest
     | 'reanimated'     // THE OUTBREAK: an exposed corpse got back up (§6)
     | 'whistle'        // paintball referee: a round just started or ended
+    | 'spill'          // paintball: a fumbled pod dumped balls at the feet (pos = where)
+    | 'bark'           // paintball trash talk: text hangs OVER the speaker's head (soldierId = mouth)
     | 'encased'        // a soldier was frozen alive in the ice block (§21.6)
     | 'lsw_active'     // a piloted LSW fired its signature (text = ascendant id)
     | 'nade_bounce'    // a hand grenade kissed the ground — the tick before the bang

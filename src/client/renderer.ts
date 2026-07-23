@@ -17,7 +17,8 @@ import { settings } from './settings';
 import { buildLaser, buildRedDot, buildReticleShadow, buildStandingReticle, isStandingReticle, rangeState } from './reticle';
 import { darknessFloor, setDarknessFrame, sweepDarkness } from './darkness';
 import { Particles, FlashLights, Fireballs } from './effects';
-import { JOINT_NAMES, isUndead, poseSoldierJoints, CAST_SCHOOL, FLIGHT_POSES, RECOIL_SCALE, stepYawSpring, throwArmCurve, WEAPON_HOLDS, type GaitState, type CastSchool } from './animation';
+import { JOINT_NAMES, isUndead, poseSoldierJoints, CAST_SCHOOL, FLIGHT_POSES, RECOIL_SCALE, stepYawSpring, throwArmCurve, WEAPON_HOLDS, type GaitState, type CastSchool, type Joints } from './animation';
+import { updateHopper } from './hopper';
 import { chunkCount, drawChunks, drawGrade, drawNotches, drawNumber, makeRingMesh, RING_COLORS, ringChunkTexture, ringTier } from './ring';
 import { ICE_HOLD_DRAIN, LSWS, STRUGGLE_HP, type LswDef } from '../sim/lsw';
 import { hash01 } from '../sim/rng';
@@ -863,6 +864,56 @@ export class Renderer {
     this.blastRings.push({ mesh: ring, born: now, life: 0.5, r0: splashR * 0.35, r1: splashR, grow: true, peak: 0.7 });
   }
 
+  // ---- overhead barks: the yard's mouths ----------------------------------
+  /** speaker id → the floating line above their head */
+  private barks = new Map<number, { sprite: THREE.Sprite; until: number }>();
+
+  /** hang a line of trash talk over a soldier's head for a beat */
+  private spawnBark(soldierId: number, text: string, now: number) {
+    const old = this.barks.get(soldierId);
+    if (old) { this.scene.remove(old.sprite); old.sprite.material.map?.dispose(); old.sprite.material.dispose(); }
+    const cvs = document.createElement('canvas');
+    const ctx = cvs.getContext('2d')!;
+    const font = '600 26px "Share Tech Mono", monospace';
+    ctx.font = font;
+    const w = Math.min(460, Math.ceil(ctx.measureText(text).width) + 34);
+    cvs.width = w; cvs.height = 44;
+    ctx.font = font;
+    // the chip: ink with a paint-white line — tactical, readable at yard zoom
+    ctx.fillStyle = 'rgba(12,12,14,0.82)';
+    ctx.fillRect(0, 0, w, 44);
+    ctx.strokeStyle = 'rgba(242,244,246,0.85)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(1, 1, w - 2, 42);
+    ctx.fillStyle = '#f2f4f6';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, w / 2, 23, w - 20);
+    const tex = new THREE.CanvasTexture(cvs);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    sprite.scale.set(w / 92, 44 / 92, 1);
+    sprite.renderOrder = 5;
+    this.scene.add(sprite);
+    this.barks.set(soldierId, { sprite, until: now + 2.8 });
+  }
+
+  /** follow the speakers, fade the tails, sweep the expired */
+  private updateBarks(now: number) {
+    for (const [id, b] of this.barks) {
+      const mesh = this.soldierMeshes.get(id);
+      if (now >= b.until || !mesh || !mesh.visible) {
+        this.scene.remove(b.sprite);
+        b.sprite.material.map?.dispose();
+        b.sprite.material.dispose();
+        this.barks.delete(id);
+        continue;
+      }
+      b.sprite.position.set(mesh.position.x, mesh.position.y + 3.1, mesh.position.z);
+      b.sprite.material.opacity = Math.min(1, (b.until - now) / 0.5);
+    }
+  }
+
   /** Build one precipitation particle system for the given sky. */
   private buildPrecip(k: WeatherKind): { kind: WeatherKind; obj: THREE.Object3D; pos: Float32Array; n: number } {
     if (k === 'rain' || k === 'storm') {
@@ -900,6 +951,157 @@ export class Renderer {
     obj.frustumCulled = false;
     this.scene.add(obj);
     return { kind: k, obj, pos, n };
+  }
+
+  /** PAINTBALL FIELD WARDROBE. The generator's grid stays the law of
+   *  collision; this pass only re-clothes it so the yard reads as a REAL
+   *  paintball field: T_COVER tiles trade their theme crates for bright
+   *  vinyl inflatables (domes, cans, doritos), interior T_WALL tiles trade
+   *  masonry for full-height sup'air towers, and the whole arena is wrapped
+   *  in tournament netting on poles. Every shape sits exactly on the tile
+   *  that already blocks — no new footprint math, no invisible walls. */
+  private dressPaintballYard(world: World, coverTiles: [number, number][], wallTiles: [number, number][]) {
+    const geometry = world.map.geometry;
+    const { cols, rows } = geometry;
+    const grid = world.map.grid;
+    // the arena is wherever the generator carved play space out of the sealed
+    // rim — find its bounds instead of importing the generator's constants
+    let minX = cols, maxX = 0, minZ = rows, maxZ = 0;
+    for (let z = 0; z < rows; z++) {
+      for (let x = 0; x < cols; x++) {
+        if (grid[z * cols + x] !== T_WALL) {
+          if (x < minX) minX = x; if (x > maxX) maxX = x;
+          if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+        }
+      }
+    }
+    const hash = (i: number) => (((i * 2654435761) >>> 0) % 1000) / 1000;
+    // tournament vinyl: red, blue, gold, white — loud on purpose (and never purple)
+    const VINYL = [0xd83a2e, 0x2e9dff, 0xe8a33d, 0xf2f4f6];
+    const vinylMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0.05 });
+
+    // --- cover → inflatable bunkers (the generic crate boxes step aside) ---
+    if (this.coverInst) this.coverInst.visible = false;
+    const domes: number[] = [], cans: number[] = [], doritos: number[] = [];
+    for (const [x, z] of coverTiles) {
+      const idx = z * cols + x;
+      const r = hash(idx);
+      (r < 0.4 ? domes : r < 0.72 ? cans : doritos).push(idx);
+    }
+    const m4 = new THREE.Matrix4();
+    const col = new THREE.Color();
+    const place = (inst: THREE.InstancedMesh, idxs: number[], y: number) => {
+      idxs.forEach((idx, i) => {
+        const center = tileToWorld(geometry, idx % cols, Math.floor(idx / cols));
+        m4.makeRotationY(hash(idx + 7) * Math.PI * 2);
+        m4.setPosition(center.x, y, center.z);
+        inst.setMatrixAt(i, m4);
+        inst.setColorAt(i, col.setHex(VINYL[Math.floor(hash(idx + 13) * VINYL.length)]));
+      });
+      inst.castShadow = true;
+      if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+      this.scene.add(inst);
+    };
+    if (domes.length) {
+      const geo = new THREE.SphereGeometry(TILE * 0.52, 10, 6);
+      geo.scale(1, 0.72, 1);
+      place(new THREE.InstancedMesh(geo, vinylMat, domes.length), domes, 0.34);
+    }
+    if (cans.length) {
+      const geo = new THREE.CylinderGeometry(TILE * 0.4, TILE * 0.44, 1.5, 12);
+      place(new THREE.InstancedMesh(geo, vinylMat, cans.length), cans, 0.75);
+    }
+    if (doritos.length) {
+      // the dorito: paintball's iconic wedge — a 4-sided cone reads exactly
+      place(new THREE.InstancedMesh(new THREE.ConeGeometry(TILE * 0.52, 1.7, 4), vinylMat, doritos.length), doritos, 0.85);
+    }
+
+    // --- interior walls → padded vinyl maze walls (Robert's maze yards put
+    // ~100 wall tiles in play, so this is INSTANCED: one body mesh + one
+    // white top rail, two draw calls total, full 4u so the visual never lies
+    // about what blocks a ball) ---
+    const zero = new THREE.Matrix4().makeScale(0.0001, 0.0001, 0.0001);
+    const inner: number[] = [];
+    wallTiles.forEach(([x, z], i) => {
+      if (x <= minX || x >= maxX || z <= minZ || z >= maxZ) return; // the rim keeps its fence
+      // the masonry instance steps aside for the vinyl (matrix, not visibility —
+      // instancing has no per-instance hide)
+      this.wallInst?.setMatrixAt(i, zero);
+      inner.push(z * cols + x);
+    });
+    if (this.wallInst) this.wallInst.instanceMatrix.needsUpdate = true;
+    if (inner.length) {
+      const bodyInst = new THREE.InstancedMesh(
+        new THREE.BoxGeometry(TILE * 0.98, 3.8, TILE * 0.98), vinylMat, inner.length);
+      const railInst = new THREE.InstancedMesh(
+        new THREE.BoxGeometry(TILE * 1.06, 0.22, TILE * 1.06),
+        new THREE.MeshStandardMaterial({ color: 0xf2f4f6, roughness: 0.3 }), inner.length);
+      bodyInst.castShadow = bodyInst.receiveShadow = true;
+      railInst.castShadow = true;
+      // long RUNS read as one padded wall: color by wall-run, alternating —
+      // neighbors in the same column share a shade every few tiles
+      const WALLVINYL = [0xd83a2e, 0x2e9dff, 0xe8a33d];
+      inner.forEach((idx, i) => {
+        const x = idx % cols, z = Math.floor(idx / cols);
+        const center = tileToWorld(geometry, x, z);
+        m4.identity();
+        m4.setPosition(center.x, 1.9, center.z);
+        bodyInst.setMatrixAt(i, m4);
+        m4.setPosition(center.x, 3.9, center.z);
+        railInst.setMatrixAt(i, m4);
+        bodyInst.setColorAt(i, col.setHex(WALLVINYL[(x + (z >> 2)) % WALLVINYL.length]));
+      });
+      if (bodyInst.instanceColor) bodyInst.instanceColor.needsUpdate = true;
+      this.scene.add(bodyInst, railInst);
+    }
+
+    // --- the perimeter net: poles + mesh panels wrapping the arena — the
+    // thing every real field has and no war theme ever needed ---
+    const netCvs = document.createElement('canvas');
+    netCvs.width = netCvs.height = 32;
+    const nctx = netCvs.getContext('2d')!;
+    nctx.clearRect(0, 0, 32, 32);
+    nctx.strokeStyle = 'rgba(20,22,24,0.9)';
+    nctx.lineWidth = 1.6;
+    for (let i = 0; i <= 32; i += 8) {
+      nctx.beginPath(); nctx.moveTo(i, 0); nctx.lineTo(i, 32); nctx.stroke();
+      nctx.beginPath(); nctx.moveTo(0, i); nctx.lineTo(32, i); nctx.stroke();
+    }
+    const netTex = new THREE.CanvasTexture(netCvs);
+    netTex.wrapS = netTex.wrapT = THREE.RepeatWrapping;
+    const netMat = new THREE.MeshBasicMaterial({
+      map: netTex, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false,
+    });
+    const poleMat = new THREE.MeshStandardMaterial({ color: 0x22262a, roughness: 0.55, metalness: 0.4 });
+    const NET_H = 5;
+    const a = tileToWorld(geometry, minX, minZ);
+    const b = tileToWorld(geometry, maxX, maxZ);
+    const x0 = a.x - TILE * 0.5, x1 = b.x + TILE * 0.5;
+    const z0 = a.z - TILE * 0.5, z1 = b.z + TILE * 0.5;
+    const sides: [number, number, number, number][] = [
+      [x0, z0, x1, z0], [x0, z1, x1, z1], [x0, z0, x0, z1], [x1, z0, x1, z1],
+    ];
+    for (const [sx, sz, ex, ez] of sides) {
+      const len = Math.hypot(ex - sx, ez - sz);
+      const tex2 = netTex.clone();
+      tex2.needsUpdate = true;
+      tex2.repeat.set(len / 1.1, NET_H / 1.1);
+      const panel = new THREE.Mesh(new THREE.PlaneGeometry(len, NET_H), netMat.clone());
+      (panel.material as THREE.MeshBasicMaterial).map = tex2;
+      panel.position.set((sx + ex) / 2, NET_H / 2, (sz + ez) / 2);
+      panel.rotation.y = Math.abs(ex - sx) > Math.abs(ez - sz) ? 0 : Math.PI / 2;
+      panel.renderOrder = 1;
+      this.scene.add(panel);
+      // poles every ~4 tiles hold the net up — the field reads as BUILT
+      const n = Math.max(2, Math.round(len / (TILE * 4)));
+      for (let p = 0; p <= n; p++) {
+        const t = p / n;
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, NET_H, 6), poleMat);
+        pole.position.set(sx + (ex - sx) * t, NET_H / 2, sz + (ez - sz) * t);
+        pole.castShadow = true;
+        this.scene.add(pole);
+      }
+    }
   }
 
   buildStaticWorld(world: World) {
@@ -1273,6 +1475,14 @@ export class Renderer {
     this.scene.add(climbInst, climbLipInst);
     this.climbInst = climbInst;
     this.climbLipInst = climbLipInst;
+
+    // PAINTBALL YARD DRESSING (Robert's overhaul: "RELL looking fields…
+    // feel more real in every way"): the same collision grid, a different
+    // wardrobe — cover becomes inflatable bunkers, interior walls become
+    // sup'air towers, and the arena gets its perimeter netting. Sim untouched.
+    if (world.mode.id === 'paintball') {
+      this.dressPaintballYard(world, coverTiles, wallTiles);
+    }
 
     // §8.4 firing slits: two stacked boxes with a gap at 1.2–1.8 — the
     // geometry tells the truth, no textures needed. Defenders shoot out.
@@ -2446,6 +2656,17 @@ export class Renderer {
         k9Marker = undefined;
       }
       if (k9Marker) k9Marker.material.opacity = 0.78 + Math.sin(world.time * 4) * 0.16;
+      // THE LIVING HOPPER (paintball overhaul): a carried marker's clip is
+      // VISIBLE — the see-through shell drains ball by ball, and each shot
+      // drops one through the feedneck. Keyed off the weapon, not the mode:
+      // wherever a marker travels, its hopper stays honest.
+      if (wantWeapon.startsWith('marker_')) {
+        const gunJoint = (mesh.userData.joints as Joints | undefined)?.gun;
+        if (gunJoint) {
+          updateHopper(gunJoint, s, world.time, dt,
+            world.mode.id === 'paintball' ? paintColorFor(s.id, localId) : undefined);
+        }
+      }
       // UI P0 (docs/UI-MASTER.md §2): a DOWNED FRIENDLY is marked — a pulsing
       // amber ground ring under the body (enemies' downed stay unmarked: the
       // hover-ring already skips them deliberately), and while a revive
@@ -4003,6 +4224,7 @@ export class Renderer {
     this.particles.update(dt);
     this.flashes.update(world.time, dt);
     this.fireballs.update(dt);
+    this.updateBarks(world.time);
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -5390,6 +5612,24 @@ export class Renderer {
           }
           break;
         }
+        case 'bark':
+          // TRASH TALK, OVERHEAD (Robert: "I wanna see what they're saying —
+          // the words appear over their head"): one floating chip per mouth,
+          // replaced if they speak again before it fades.
+          if (e.soldierId !== undefined && e.text) this.spawnBark(e.soldierId, e.text, world.time);
+          break;
+        case 'spill':
+          if (e.pos) {
+            // a fumbled pod: INTACT balls bounce and roll at the feet — they
+            // don't burst (unbroken paint), so round beads with gravity and
+            // no goo decal. The waste is the message.
+            const spillPaint = paintColorFor(e.soldierId ?? -1, localId);
+            this.particles.emit({
+              pos: { x: e.pos.x, y: 0.9, z: e.pos.z }, count: 8, color: spillPaint,
+              speed: 2.5, life: 0.7, spread: 0.55, up: 1.6, gravity: 12, size: 0.09,
+            });
+          }
+          break;
         case 'hit':
           if (e.pos) {
             // paintballs burst in their shooter's shade — and the splat STAYS.
