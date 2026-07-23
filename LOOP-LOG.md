@@ -4,3 +4,4 @@
 2026-07-23 VEHICLES GOAL — the civilian roster shipped: 46 defs+hulls+codex wing (sedan→submersible), all guard suites green. Sky/water shipped earlier same session (05b77dc). Residential furnishing = next in queue.
 2026-07-23 TRIPLE GOAL — menu tree (SP doors + 6 shelves), THE SHAMBLER TIDE (new mode, 4 laws), GOVERNMENT plan (docs/GOVERNMENT.md, epic #129).
 2026-07-23 INTAKE GOAL — personnel intake shipped: psych desk (3 questions → recommendation), stamped file, PRINT AUTHORIZATION ceremony w/ canon wake line, deploy pre-select; full live walk proven.
+2026-07-23 COACH-UI GOAL — 2 six-judge panels + 13 fixes shipped (c7a82b6): glyph vocabulary replaces the emoji zoo, clock lane, sticky-commit padding, grid alignment, AA muted lift, 44px targets, steel scrollbars. Enemy-channel law escalated.
