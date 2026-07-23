@@ -210,8 +210,10 @@ function buildPapercraft(dress: FactionDress): THREE.Group {
     leg.add(knee);
     g.add(leg);
   };
-  mkLeg(0.14, 'L');
-  mkLeg(-0.14, 'R');
+  // a SHOOTER'S BASE, not parade rest (Robert, round 5: "feet a little bit
+  // further apart… a shooting stance")
+  mkLeg(0.19, 'L');
+  mkLeg(-0.19, 'R');
   return g;
 }
 
@@ -314,8 +316,20 @@ const crouching = () => pose === 'crouch' || pose === 'crouchwalk';
 // "when they're running they should hold their weapon different").
 interface HoldPose { armR: [number, number]; elbowR: number; armL: [number, number]; elbowL: number; local: [number, number, number]; localRotZ: number }
 const CARRY: { idle: HoldPose; run: HoldPose } = {
-  idle: { armR: [0, 0.35], elbowR: 1.1, armL: [0.62, 0.5], elbowL: 0.95, local: [0.1, -0.03, 0], localRotZ: -1.51 },
+  // idle eased off the chest (Robert, round 5: "it's going across the chest
+  // too much") — shoulder relaxes 0.35→0.22, the gun swings 13° more forward
+  idle: { armR: [0, 0.22], elbowR: 1.1, armL: [0.62, 0.5], elbowL: 0.95, local: [0.1, -0.03, 0], localRotZ: -1.28 },
   run:  { armR: [0, 0.12], elbowR: 0.7, armL: [0.55, 0.42], elbowL: 0.85, local: [0.131, -0.0576, 0], localRotZ: -1.32 },
+};
+
+// THE TWIST (Robert: "that left arm is a twist and bend a little bit… try a
+// couple variations, and then you choose the one that works"). Two auditioned
+// side by side (2026-07-22): gentle roll 0.55/+0.12 vs hard roll 0.95/−0.18.
+// THE HARD ROLL WON — compact low-ready, muzzle forward, the off-hand reads
+// purposeful instead of draped. Both pedestals wear it now.
+const TWIST_VARIANTS: Record<number, { forearmTwist: number; elbowBias: number }> = {
+  22: { forearmTwist: 0.95, elbowBias: -0.18 },
+  33: { forearmTwist: 0.95, elbowBias: -0.18 },
 };
 
 function applyCarry(p: Pedestal) {
@@ -339,7 +353,22 @@ function applyCarry(p: Pedestal) {
     p.flash.visible = flashT > 0;
     p.flash.rotation.x = (t * 53) % (Math.PI * 2); // a different petal every shot
   }
+  // THE SHOOTER'S STAGGER (Robert: "a shooting stance") — armed and planted,
+  // the lead foot steps toward the fight, the rear foot braces. The gait owns
+  // the legs the moment he moves; the crouch owns its own fold.
+  if (SPEED[pose] === 0 && !crouching()) {
+    const lL = p.joints.legL, lR = p.joints.legR;
+    if (lL) lL.rotation.z += 0.24;  // lead foot forward
+    if (lR) lR.rotation.z += -0.1;  // rear foot set back
+  }
   solveOffhand(p); // the off-hand PLANTS on the foregrip — the reach the tuned shoulder exists for
+  // the twist audition — composed AFTER the IK so the roll rides the solved arm
+  const tw = TWIST_VARIANTS[p.id];
+  const eL2 = p.joints.elbowL as THREE.Object3D | undefined;
+  if (tw && eL2) {
+    eL2.rotateY(tw.forearmTwist);
+    eL2.rotateX(tw.elbowBias);
+  }
 }
 
 // ---------------------------------------------------------------------------
