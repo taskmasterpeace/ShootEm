@@ -2044,8 +2044,14 @@ export class World {
   setFit(v: Vehicle, fit: Fit): Vehicle {
     v.fit = fit;
     v.fittedDef = fitted(v.kind, fit);
+    // KEEP THE CONDITION THE HULL WAS IN. This used to clamp hp to the new
+    // ceiling and never raise it, so bolting ARMOUR on (×1.35 max) left a
+    // factory-fresh machine sitting on the grid at 85/115 — the garage was
+    // handing you a pre-dented car and the race started with a quarter of your
+    // hull already gone. Carry the fraction: full stays full, half stays half.
+    const frac = v.maxHp > 0 ? v.hp / v.maxHp : 1;
     v.maxHp = v.fittedDef.hp;
-    v.hp = Math.min(v.hp, v.maxHp);
+    v.hp = Math.max(1, Math.min(v.maxHp, Math.round(v.maxHp * frac)));
     v.mines = fit.cargo.includes('mines') ? (CARGO.mines.count ?? 6) : 0;
     v.oil = fit.cargo.includes('oil') ? (CARGO.oil.count ?? 4) : 0;
     return v;

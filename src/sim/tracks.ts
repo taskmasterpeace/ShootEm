@@ -49,7 +49,14 @@ export interface BuiltTrack {
   version: 1;
 }
 
-export const DEFAULT_PIECE: TrackPiece = { kind: 'straight', width: 14, height: 0, surface: 'paved' };
+/** The narrowest road a CAR can still take a corner on. Measured, not guessed:
+ *  a full grid of cars/trucks/bikes strands below this and runs clean at or
+ *  above it (tests/track-build.test.ts drives all four classes). */
+export const RACEABLE_WIDTH = 20;
+
+// 14 used to be the default and it was a car-trap: the field piled into the
+// outside of every corner and three-quarters of the grid never finished a lap.
+export const DEFAULT_PIECE: TrackPiece = { kind: 'straight', width: 22, height: 0, surface: 'paved' };
 
 /** How far a piece carries the route, and how much it turns it. */
 export const PIECE_SHAPE: Record<PieceKind, { run: number; turn: number; rise: number }> = {
@@ -112,7 +119,7 @@ export function trackFits(track: BuiltTrack, halfExtent = 145): boolean {
   return walkTrack(track).every((n) => Math.abs(n.pos.x) < halfExtent && Math.abs(n.pos.z) < halfExtent);
 }
 
-export interface TrackProblem { kind: 'open' | 'offmap' | 'short' | 'nogrid'; detail: string }
+export interface TrackProblem { kind: 'open' | 'offmap' | 'short' | 'nogrid' | 'narrow'; detail: string }
 
 /** The editor's verdict line — what is wrong, in the creator's language. */
 export function validateTrack(track: BuiltTrack): TrackProblem[] {
@@ -121,6 +128,15 @@ export function validateTrack(track: BuiltTrack): TrackProblem[] {
   if (!trackFits(track)) out.push({ kind: 'offmap', detail: 'The route runs off the edge of the world.' });
   if (!trackCloses(track)) out.push({ kind: 'open', detail: 'The route never returns to the grid — a lap cannot be timed.' });
   if (!track.name.trim()) out.push({ kind: 'nogrid', detail: 'The track has no name.' });
+  // A road a car cannot corner on is not a circuit, it is a trap — and the
+  // creator cannot see it on the minimap, so the verdict has to say it.
+  const tight = track.pieces.filter((p) => p.width < RACEABLE_WIDTH).length;
+  if (tight) {
+    out.push({
+      kind: 'narrow',
+      detail: `${tight} piece${tight === 1 ? '' : 's'} narrower than ${RACEABLE_WIDTH} — boards will thread it, but cars and trucks will pile into the corners.`,
+    });
+  }
   return out;
 }
 

@@ -10,6 +10,7 @@ import { VEHICLES } from '../src/sim/data';
 import { CARGO, CHASSIS, DEFAULT_FIT, ENGINES, TIRES, accelRating, fitLegal, fitted } from '../src/sim/garage';
 import type { Fit } from '../src/sim/garage';
 import type { VehicleKind } from '../src/sim/types';
+import { World } from '../src/sim/world';
 
 const fit = (over: Partial<Fit> = {}): Fit => ({ ...DEFAULT_FIT, cargo: [], ...over });
 
@@ -98,6 +99,32 @@ describe('the garage — four slots, every fit a trade', () => {
     expect(fitLegal('strikejet', fit()), 'you do not fit slicks to a jet').toBe(false);
     expect(fitLegal('yacht', fit())).toBe(false);
     expect(fitLegal('sedan', fit({ cargo: ['mines', 'oil', 'armour'] })), 'three is too deep').toBe(false);
+  });
+
+  it('BOLTING ARMOUR ON DOES NOT DENT THE CAR — a fresh hull stays full', () => {
+    // setFit clamped hp to the new ceiling and never raised it, so armour
+    // (×1.35 max hp) put a factory-fresh musclecar on the grid at 85/115 —
+    // the garage was charging you a quarter of your hull for using it.
+    const w = new World({ seed: 1, mode: 'race', difficulty: 'veteran', botsPerTeam: 0,
+      matchMinutes: 15, theme: 'savanna', hordeRoster: 'zombies',
+      moraleBoost: [0, 0], lswPass: 3 } as never);
+    const v = w.spawnVehicle('musclecar', 0, { x: 0, y: 0, z: 0 });
+    expect(v.hp).toBe(v.maxHp); // fresh off the pad
+    w.setFit(v, fit({ cargo: ['armour'] }));
+    expect(v.maxHp, 'armour should raise the ceiling').toBeGreaterThan(VEHICLES.musclecar.hp);
+    expect(v.hp, 'a fitted hull arrived pre-damaged').toBe(v.maxHp);
+  });
+
+  it('a damaged hull keeps its damage across a re-fit (it is not a repair)', () => {
+    const w = new World({ seed: 1, mode: 'race', difficulty: 'veteran', botsPerTeam: 0,
+      matchMinutes: 15, theme: 'savanna', hordeRoster: 'zombies',
+      moraleBoost: [0, 0], lswPass: 3 } as never);
+    const v = w.spawnVehicle('musclecar', 0, { x: 0, y: 0, z: 0 });
+    v.hp = Math.round(v.maxHp / 2);
+    w.setFit(v, fit({ cargo: ['armour'] }));
+    const frac = v.hp / v.maxHp;
+    expect(frac).toBeGreaterThan(0.4);
+    expect(frac).toBeLessThan(0.6);
   });
 
   it('every part explains its trade in one line — the shop speaks', () => {

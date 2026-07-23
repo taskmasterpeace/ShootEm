@@ -756,6 +756,12 @@ async function startGame() {
   // anything constructed here would otherwise stack up match on match).
   if (!deskRef) { deskRef = new Board($('board')); deskRef.setOn(!document.body.classList.contains('touch')); }
   const desk = deskRef;
+  // …but THE BOARD is the WAR desk: hardest blow, longest kill, the killfeed.
+  // A circuit race has none of that, so it sat under the picture reading
+  // "no blows landed · nobody has fallen" and spending a fifth of the screen
+  // you want for the ROAD. Demolition keeps it — a derby is all damage.
+  desk.setOn(!document.body.classList.contains('touch')
+    && selectedMode !== 'race' && selectedMode !== 'timetrial');
   const input = new Input(canvas);
   const chat = new Chat(name);
   hud.show();

@@ -229,10 +229,17 @@ function paintTrackBuilder() {
     const problems = validateTrack(named);
     let shelfN = 0;
     try { shelfN = (JSON.parse(localStorage.getItem(SHELF_KEY) ?? '[]') as unknown[]).length; } catch { shelfN = 0; }
+    // a narrow road is a CAUTION, not a refusal — a board-only knife-fight
+    // circuit is a legitimate thing to build, it just is not a car track
+    const blocking = problems.filter((p) => p.kind !== 'narrow');
+    const cautions = problems.filter((p) => p.kind === 'narrow');
     verdict.innerHTML = `<b>${draft.pieces.length} PIECES</b> · ${shelfN} on the shelf<br>`
-      + (problems.length
-        ? problems.map((p) => `<span style="color:#e8a33d">▸ ${p.detail}</span>`).join('<br>')
-        : '<span style="color:#6fe06f">▸ DRIVABLE — the route closes, fits the world, and a lap can be timed.</span>');
+      + (blocking.length
+        ? blocking.map((p) => `<span style="color:#ff6b6b">▸ ${p.detail}</span>`).join('<br>')
+        : '<span style="color:#6fe06f">▸ DRIVABLE — the route closes, fits the world, and a lap can be timed.</span>')
+      + (cautions.length
+        ? `<br>${cautions.map((p) => `<span style="color:#e8a33d">▸ ${p.detail}</span>`).join('<br>')}`
+        : '');
   }
   drawTrackMap();
 }

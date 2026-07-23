@@ -67,6 +67,11 @@ export const WEAPON_TINTS: Record<string, number> = {
 
 // ---- ragdoll ----
 /** Joints the ragdoll goes limp on (all swing on local Z). */
+/** THE SPORTS. Nobody dies at the fair, on the circuit, or in the yard — these
+ *  modes never draw blood, however hard the contact is. */
+const isSportMode = (id: string): boolean =>
+  id === 'paintball' || id === 'race' || id === 'timetrial' || id === 'derby';
+
 const RAG_JOINTS = ['legL', 'legR', 'shinL', 'shinR', 'armL', 'armR', 'head', 'torso'] as const;
 // opt #31: the sun-shadow ortho half-size — tight because the box FOLLOWS the camera
 const SHADOW_BOX_S = 60;
@@ -4519,7 +4524,21 @@ export class Renderer {
       const inVehicle = local.vehicleId >= 0;
       let dist = (window as unknown as { __camDist?: number }).__camDist
         ?? this.camDist * (inVehicle ? 1.25 : 1) * (fpv ? 0.75 : 1);
-      const lead = dist * 0.32; // how far the view shifts toward your facing
+      let leadFactor = 0.32; // how far the view shifts toward your facing
+      // THE RACING CAMERA. The war camera sits back and square so you can read a
+      // firefight; on a circuit that same framing makes your machine a speck and
+      // hides the corner you are about to take. A race sits CLOSER and looks
+      // FURTHER down the road — and eases back as you wind it on, so speed is
+      // something you see and not just a number.
+      const racing = world.mode.id === 'race' || world.mode.id === 'timetrial';
+      if (racing && inVehicle && !duel && !fpv
+        && !(window as unknown as { __camDist?: number }).__camDist) {
+        const ride = world.vehicles.get(local.vehicleId);
+        const spd = ride ? Math.hypot(ride.vel.x, ride.vel.z) : 0;
+        dist = this.camDist * 0.78 + spd * 0.26;
+        leadFactor = 0.55;
+      }
+      const lead = dist * leadFactor;
       this.lookAhead.lerp(
         duel ? new THREE.Vector3(0, 0, 0) // duel view: no aim-lead, hold the pair
           : new THREE.Vector3(Math.cos(focusYaw) * lead, 0, Math.sin(focusYaw) * lead),
@@ -6047,7 +6066,12 @@ export class Renderer {
               // should see light blood splatter"). The sim tells us whether
               // the round met plate or flesh; the setting decides whether we
               // show it. Plate always sparks — that's information, not gore.
-              const gore = settings.blood !== 'off' && e.bare && world.mode.id !== 'paintball';
+              // A SPORT DOES NOT BLEED. Crash damage lands on the DRIVER, who
+              // wears no plate, so `bare` was true and every tap on the circuit
+              // painted the track with arterial red — a fender-bender leaving a
+              // murder scene. The derby says it plainly: nobody dies at the
+              // fair. Paintball was already exempt; the motor sports join it.
+              const gore = settings.blood !== 'off' && e.bare && !isSportMode(world.mode.id);
               if (gore) {
                 const full = settings.blood === 'full';
                 this.particles.emit({
@@ -6091,8 +6115,9 @@ export class Renderer {
               }
               break;
             }
-            // a death splashes only as hard as the setting allows (§18)
-            if (settings.blood !== 'off') {
+            // a death splashes only as hard as the setting allows (§18) — and
+            // never at the track or the yard, where nobody is supposed to die
+            if (settings.blood !== 'off' && !isSportMode(world.mode.id)) {
               const full = settings.blood === 'full';
               this.particles.emit({ pos: { ...e.pos, y: 1 }, count: full ? 22 : 12, color: 0xa03030, speed: 5, life: 0.6, spread: 0.5, up: 4 });
               this.spawnSplat(e.pos, 0x5e1010, full ? 0.85 : 0.5);

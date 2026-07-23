@@ -995,7 +995,10 @@ export function generateRaceTrack(seed: number, theme: ThemeId = 'savanna'): Gam
   const gridSlots: Vec3[] = [];
   for (let row = 0; row < 5; row++) {
     for (const lane of [-1, 1]) {
-      const th = -0.05 * (row + 1);            // staggered back behind the line
+      // 0.05 put same-lane rows under FOUR units apart on a ~30-tile radius —
+      // closer than a car is long, so the field spawned inside itself and the
+      // flag dropped on a shoving match instead of a race.
+      const th = -0.12 * (row + 1);            // staggered back behind the line
       const rr = Rx + lane * 2.0;              // inner / outer lane on the ribbon
       gridSlots.push(P(cx + rr * Math.cos(th), cz + Rz * Math.sin(th)));
     }
@@ -1076,13 +1079,41 @@ export function buildTrackMap(track: BuiltTrack, theme: ThemeId = 'savanna'): Ga
     }
   };
 
-  for (const n of walkTrack(track)) {
+  /** Open a round patch — used to knock the square off a corner. */
+  const stampDisc = (cx0: number, cz0: number, r: number, surf: number, lvl: number): void => {
+    const cx = tileX(cx0), cz = tileZ(cz0);
+    const rt = Math.max(1, Math.round(r / TILE));
+    for (let oz = -rt; oz <= rt; oz++) {
+      for (let ox = -rt; ox <= rt; ox++) {
+        if (ox * ox + oz * oz > (rt + 0.5) * (rt + 0.5)) continue;
+        const gx = cx + ox, gz = cz + oz;
+        if (gx < 1 || gx >= GRID - 1 || gz < 1 || gz >= GRID - 1) continue;
+        const gi = gz * GRID + gx;
+        grid[gi] = T_OPEN;
+        surface[gi] = surf;
+        height[gi] = lvl;
+      }
+    }
+  };
+
+  const nodes = walkTrack(track);
+  for (const n of nodes) {
     const shape = PIECE_SHAPE[n.piece.kind] ?? PIECE_SHAPE.straight;
     const ex = n.pos.x + Math.cos(n.yaw) * shape.run;
     const ez = n.pos.z + Math.sin(n.yaw) * shape.run;
     const graded = n.piece.kind === 'ramp_up' || n.piece.kind === 'ramp_down';
-    carve(n.pos.x, n.pos.z, ex, ez, n.piece.width / 2, SURF_FOR[n.piece.surface],
-      n.pos.y, n.pos.y + shape.rise * 4, graded);
+    const halfW = n.piece.width / 2;
+    const surf = SURF_FOR[n.piece.surface];
+    carve(n.pos.x, n.pos.z, ex, ez, halfW, surf, n.pos.y, n.pos.y + shape.rise * 4, graded);
+    // ROUND THE CORNER. The centre line is a polyline, so a curve piece is a
+    // straight run that then kinks — and a kink carves a SQUARE wall on the
+    // outside of the turn. A car arriving at speed drives into it and the race
+    // strands. Open a disc at the vertex so the corner is something you can
+    // actually swing through.
+    if (Math.abs(shape.turn) > 0.01) {
+      stampDisc(ex, ez, halfW * (1 + Math.min(1, Math.abs(shape.turn))),
+        surf, levelFor(n.pos.y + shape.rise * 4));
+    }
   }
 
   const checkpoints = checkpointsFor(track);
@@ -1102,20 +1133,57 @@ export function buildTrackMap(track: BuiltTrack, theme: ThemeId = 'savanna'): Ga
     }
     return { x: track.start.x, y: p.y, z: track.start.z };
   };
-  const fwd = { x: Math.cos(track.startYaw), z: Math.sin(track.startYaw) };
-  const side = { x: -Math.sin(track.startYaw), z: Math.cos(track.startYaw) };
+  // THE GRID GOES BACK DOWN THE ROAD, not backwards off `startYaw`.
+  //
+  // Laying it along −startYaw assumes the circuit ARRIVES at the line running
+  // the same way the first piece leaves it. On any track that closes through a
+  // corner it does not: the starter oval comes into the line heading −z while
+  // its first piece runs +x, so all ten slots landed in sealed ground, snapped
+  // onto the start point, and spawned the whole field in a 2×6 pile that shoved
+  // itself off the racing line. Four or five cars never completed a lap.
+  //
+  // So: walk the centre line BACKWARDS from the line and drop the rows on it.
+  // Whatever shape the circuit is, the grid lands on real road, correctly
+  // staggered, facing the way the cars are actually travelling.
+  const loop: Vec3[] = [...nodes.map((n) => ({ ...n.pos })), { ...track.start }];
+  const backFrom = (dist: number): { pos: Vec3; yaw: number } => {
+    let left = dist;
+    for (let i = loop.length - 1; i > 0; i--) {
+      const a = loop[i - 1], b = loop[i];
+      const seg = Math.hypot(b.x - a.x, b.z - a.z);
+      if (seg <= 1e-6) continue;
+      const yaw = Math.atan2(b.z - a.z, b.x - a.x);
+      if (left <= seg) {
+        const f = 1 - left / seg;
+        return { pos: { x: a.x + (b.x - a.x) * f, y: 0, z: a.z + (b.z - a.z) * f }, yaw };
+      }
+      left -= seg;
+    }
+    const a = loop[0], b = loop[1] ?? loop[0];
+    return { pos: { ...a }, yaw: Math.atan2(b.z - a.z, b.x - a.x) };
+  };
   const gridSlots: Vec3[] = [];
   for (let row = 0; row < 5; row++) {
+    // a clear car-length between rows (the procedural grid's 3.76u overlapped
+    // hulls) — but not so far back that the last row is laid into the previous
+    // corner, which strands the long hulls before the flag drops
+    const at = backFrom(7 + row * 6);
+    const side = { x: -Math.sin(at.yaw), z: Math.cos(at.yaw) };
     for (const lane of [-1, 1]) {
       gridSlots.push(snapToOpen({
-        x: track.start.x - fwd.x * (6 + row * 5) + side.x * lane * 3, y: 0,
-        z: track.start.z - fwd.z * (6 + row * 5) + side.z * lane * 3,
+        x: at.pos.x + side.x * lane * 3, y: 0,
+        z: at.pos.z + side.z * lane * 3,
       }));
     }
   }
 
   const avgW = track.pieces.reduce((a, p) => a + p.width, 0) / Math.max(1, track.pieces.length);
-  const raceTrack: RaceTrack = { checkpoints, width: avgW / 2, grid: gridSlots, startYaw: track.startYaw };
+  // the field faces the way it is TRAVELLING at the line (the approach), which
+  // is only the same as the first piece's heading when the start sits on a
+  // straight — face `startYaw` on the oval and the whole grid stares at a wall
+  const raceTrack: RaceTrack = {
+    checkpoints, width: avgW / 2, grid: gridSlots, startYaw: backFrom(2).yaw,
+  };
 
   // stable numeric seed from the track id (records/replays stay deterministic)
   let seed = 0;
