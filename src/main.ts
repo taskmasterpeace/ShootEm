@@ -29,6 +29,8 @@ import { allRecords, fileRun, raceClassOf } from './client/records';
 import { settleMatch, treasuryLine } from './client/treasury';
 import { renderServiceFile } from './client/service-file';
 import { currentRank, fileService } from './client/service';
+import { hometownSkills } from './client/hometown-bridge';
+import { DECK_MORALE, cartridgeById, loadDeck, saveDeck } from './client/gonet/cartridges';
 import { SKILL_IDS, skillLevel } from './sim/skills';
 import { BAND_LABEL, bandOf as moraleBandOf, moraleOf } from './sim/morale';
 import { budgetMultiplier } from './client/treasury';
@@ -914,6 +916,9 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     // is gated), your commission (the stable answers lieutenants), and what
     // your government funds (the opening manifest).
     papers: loadLicences().held,
+    // WHERE YOU ARE FROM, in the hands: the hometown archetype grants two
+    // secondary skills a head start on day one.
+    startingSkills: hometownSkills(),
     rank: currentRank().id,
     budget: loadIdentity()
       ? [budgetMultiplier(loadIdentity()!.faction), 1]
@@ -2386,6 +2391,27 @@ mountFrontend({
       selectedMilitaryMissionId = null;
     }
     void startGame();
+  },
+  // SPORTS: a discipline is a way into a mode the game already runs.
+  enterSport(mode) {
+    if (running) return;
+    activeFrontId = null;
+    selectedMilitaryMissionId = null;
+    queuedScienceLaunch = null;
+    selectedMode = mode;
+    void startGame();
+  },
+  // THE DECK: switching a cartridge on steadies you and teaches you nothing.
+  playCartridge(id) {
+    const d = loadDeck();
+    d.inSlot = id;
+    d.sessions++;
+    saveDeck(d);
+    const c = cartridgeById(id);
+    const nl = String.fromCharCode(10);
+    alert((c ? c.title : 'CARTRIDGE') + nl + nl + (c ? c.blurb : '') + nl + nl
+      + 'The Deck warms up. For twenty minutes you are not in a war.' + nl
+      + '(+' + DECK_MORALE + ' morale on your next deployment.)');
   },
   onIdentity: applyIdentity,
 });

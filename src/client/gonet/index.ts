@@ -36,18 +36,28 @@ import {
   type Brief, type BriefKind,
 } from './briefings';
 import { board } from '../service';
+import { SPORTS, fixtures, leagueLine, sportById, standings, type SportId } from './sports';
+import {
+  CARTRIDGES, DECK_MORALE, cartridgeById, deckLine, loadDeck, ownedCartridges, saveDeck,
+} from './cartridges';
+import { allRecords } from '../records';
+import { SKILLS } from '../../sim/skills';
 import { loadFits } from '../garage-ui';
 import { phaseName } from '../worldclock';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 
-export type GonetApp = 'desk' | 'briefings' | 'mail' | 'video' | 'music' | 'file';
+export type GonetApp = 'desk' | 'briefings' | 'sports' | 'mail' | 'video' | 'music' | 'deck' | 'file';
 
 export interface GonetHost {
   /** DEPLOY — leave the laptop for the war. */
   deploy(door: 'skirmish' | 'paintball'): void;
   /** Straight into a briefed mission, skipping the deploy screen entirely. */
   launchBrief(kind: BriefKind, id: string): void;
+  /** SPORTS: enter a discipline — the league is a way into the same modes. */
+  enterSport(mode: import('../../sim/types').ModeId): void;
+  /** THE DECK: switch on a cartridge. */
+  playCartridge(id: string): void;
   /** OPTIONS lives in its own panel already. */
   options(): void;
   /** Re-enlist under a different flag. */
@@ -86,7 +96,7 @@ export function gonetOpen(a: GonetApp): void { app = a; paint(); }
  * so binding there would stack listeners), and it stands down the moment the
  * network is not on screen.
  */
-const APP_KEYS: GonetApp[] = ['desk', 'briefings', 'mail', 'video', 'music', 'file'];
+const APP_KEYS: GonetApp[] = ['desk', 'briefings', 'sports', 'mail', 'video', 'music', 'deck', 'file'];
 if (typeof window !== 'undefined') {
   window.addEventListener('keydown', (e) => {
     if (!root || root.classList.contains('hidden') || !root.querySelector('.gn')) return;
@@ -121,9 +131,11 @@ function chrome(id: PlayerIdentity | null): string {
   const tabs: Array<[GonetApp, string, string]> = [
     ['desk', 'DESK', ''],
     ['briefings', 'BRIEFINGS', String(briefCount)],
+    ['sports', 'SPORTS', ''],
     ['mail', 'MAIL', unread ? String(unread) : ''],
     ['video', 'BROADCAST', ''],
     ['music', 'MUSIC', ''],
+    ['deck', 'THE DECK', ''],
     ['file', 'YOUR FILE', ''],
   ];
   return `
@@ -146,6 +158,8 @@ function chrome(id: PlayerIdentity | null): string {
 
 function bodyFor(id: PlayerIdentity | null): string {
   if (app === 'briefings') return briefingsApp();
+  if (app === 'sports') return sportsApp();
+  if (app === 'deck') return deckApp();
   if (app === 'mail') return mailApp();
   if (app === 'video') return videoApp();
   if (app === 'music') return musicApp();
@@ -224,6 +238,141 @@ function appTile(id: string, glyph: string, label: string, sub: string, primary:
     <b>${esc(label)}</b><span>${esc(sub)}</span>
     ${soon ? '<i class="gn-soon">COMING SOON</i>' : ''}
   </button>`;
+}
+
+// ── SPORTS ────────────────────────────────────────────────────────────────
+// Robert: *"we wanna have an actual driving game as a sport within the game…
+// this game is gonna have different sports that you get updated on, that you
+// can participate in."* So the circuit stops being a game mode and becomes an
+// institution: disciplines with rules, a fixture list the whole world agrees
+// on, standings read off the record board, and a way in.
+let sportOpen: SportId = 'circuit';
+
+function sportsApp(): string {
+  const day = gameNow().day;
+  const recs = allRecords();
+  const trackNames = [...new Set(recs.map((r) => r.trackId))];
+  const fixList = fixtures(day, trackNames);
+  const table = standings(recs);
+  const s = sportById(sportOpen) ?? SPORTS[0];
+
+  const disciplines = SPORTS.map((x) => `
+    <button class="gn-sport${x.id === s.id ? ' on' : ''}${x.live ? '' : ' soon'}" data-sport="${x.id}">
+      <b>${esc(x.name)}</b><span>${esc(x.strap)}</span>
+      ${x.live ? '' : '<i>PLANNED</i>'}
+    </button>`).join('');
+
+  const fixtureRows = fixList.map((f) => {
+    const sp = sportById(f.sport)!;
+    return `<div class="gn-fix">
+      <span class="gn-fwhen">${f.inDays === 0 ? 'TODAY' : `D+${f.inDays}`}</span>
+      <span class="gn-fname">${esc(sp.name)}</span>
+      <span class="gn-fven">${esc(f.venue)}</span>
+      <span class="gn-fcls">${esc(f.cls.toUpperCase())}</span>
+    </div>`;
+  }).join('');
+
+  const standingRows = table.length
+    ? table.slice(0, 8).map((x, i) => `<div class="gn-stand">
+        <span class="gn-spos">${String(i + 1).padStart(2, '0')}</span>
+        <span class="gn-sname">${esc(x.holder)}</span>
+        <span class="gn-srec">${x.records} board${x.records === 1 ? '' : 's'}</span>
+        <span class="gn-sbest">${x.best.toFixed(1)}s</span>
+      </div>`).join('')
+    : '<div class="gn-empty">No times filed. Every board is open.</div>';
+
+  return `
+    <div class="gn-pane gn-sports">
+      <section class="gn-slist">
+        <h3>DISCIPLINES</h3>
+        ${disciplines}
+        <h3 class="gn-sched">THIS WEEK</h3>
+        ${fixtureRows}
+      </section>
+      <section class="gn-sread">
+        <div class="gn-bhead">
+          <b>${esc(s.name)}</b>
+          <span>${s.classes.map((c) => c.toUpperCase()).join(' · ')} CLASS
+            ${s.live ? '' : ' · NOT YET RUNNING'}</span>
+        </div>
+        <p class="gn-btag">${esc(s.strap)}</p>
+        <h4>THE RULES</h4>
+        <ol class="gn-bphases">${s.rules.map((r) => `<li>${esc(r)}</li>`).join('')}</ol>
+        <h4>WHAT IT TRAINS <i>a sport is not idle time</i></h4>
+        <div class="gn-btags">${s.trains.map((t) => `<span>${esc(SKILLS[t].name.toUpperCase())}</span>`).join('')}</div>
+        <h4>THE STANDINGS</h4>
+        <div class="gn-stands">${standingRows}</div>
+        ${s.live
+          ? `<button class="gn-cta" data-sportgo="${s.id}">ENTER — ${esc(s.name)} &#9656;</button>`
+          : '<div class="gn-bready warn">This discipline is not running yet. The parts exist; the league does not.</div>'}
+        <button class="gn-mini gn-builder" data-act="builder">THE TRACK BUILDER &#9656;</button>
+      </section>
+    </div>`;
+}
+
+// ── THE DECK ──────────────────────────────────────────────────────────────
+// Robert: *"games that don't increase your skill… imagine little Atari-type
+// systems, a mock video game system, with different cartridges."*
+//
+// THE LAW: a sport makes you better at the war; a cartridge does not. This is
+// the only thing in the game with no instrumental value, which is exactly what
+// makes it rest — and why it pays MORALE and nothing else.
+function deckApp(): string {
+  const d = loadDeck();
+  const mine = ownedCartridges(d);
+  const slot = d.inSlot ? cartridgeById(d.inSlot) : mine[0];
+
+  const shelf = CARTRIDGES.map((c) => {
+    const held = !!d.owned[c.id];
+    const best = d.best[c.id];
+    return `<button class="gn-cart${slot?.id === c.id ? ' on' : ''}${held ? '' : ' locked'}"
+        data-cart="${c.id}" ${held ? '' : 'disabled'}
+        style="--ink:${c.label.ink};--base:${c.label.base}">
+      <span class="gn-cspine"></span>
+      <b>${esc(c.title)}</b>
+      <span class="gn-cmaker">${esc(c.maker)} · ${c.year}</span>
+      ${held
+        ? `<span class="gn-cbest">${best ? `${Math.round(best)} ${esc(c.scoreUnit)}` : 'NEVER PLAYED'}</span>`
+        : '<span class="gn-cbest locked">NOT IN YOUR LOCKER</span>'}
+      <span class="gn-crare">${esc(c.rarity.toUpperCase())}</span>
+    </button>`;
+  }).join('');
+
+  return `
+    <div class="gn-pane gn-deck">
+      <section class="gn-shelf-col">
+        <h3>THE FOOTLOCKER <i>${mine.length} of ${CARTRIDGES.length} cartridges</i></h3>
+        <div class="gn-carts">${shelf}</div>
+        <div class="gn-fieldnote">
+          <b>ISSUED, NOT EARNED</b>
+          <span>The ministry issues a Deck because a body that never stops being a
+          soldier stops being a good one. Cartridges are found in wrecks, traded
+          for doubles, and occasionally awarded by someone who does not think of
+          it as a decoration.</span>
+        </div>
+      </section>
+      <section class="gn-deckface">
+        <div class="gn-console" style="--ink:${slot?.label.ink ?? '#e8a33d'};--base:${slot?.label.base ?? '#12100c'}">
+          <div class="gn-screen2">
+            ${slot ? `
+              <div class="gn-ctitle">${esc(slot.title)}</div>
+              <div class="gn-cblurb">${esc(slot.blurb)}</div>
+              <div class="gn-cscore">${d.best[slot.id]
+                ? `BEST ${Math.round(d.best[slot.id])} ${esc(slot.scoreUnit)}`
+                : `NO SCORE · ${esc(slot.scoreUnit)}`}</div>
+            ` : '<div class="gn-cblurb">NO CARTRIDGE IN THE SLOT</div>'}
+          </div>
+          <div class="gn-dbrand">DECK · MINISTRY ISSUE</div>
+        </div>
+        <div class="gn-deckmeta">
+          <div class="gn-kv2"><span>SESSIONS</span><b>${d.sessions}</b></div>
+          <div class="gn-kv2"><span>PAYS</span><b>+${DECK_MORALE} MORALE</b></div>
+          <div class="gn-kv2"><span>TEACHES</span><b>NOTHING</b></div>
+        </div>
+        <p class="gn-decknote">${esc(deckLine(d))}</p>
+        ${slot ? `<button class="gn-cta" data-play2="${slot.id}">SWITCH IT ON &#9656;</button>` : ''}
+      </section>
+    </div>`;
 }
 
 // ── BRIEFINGS ─────────────────────────────────────────────────────────────
@@ -517,6 +666,27 @@ function wire(): void {
       else if (t === 'mp') { /* soon */ }
       else { app = t as GonetApp; if (app === 'video') startVideoClock(); paint(); }
     };
+  });
+
+  // sports
+  q<HTMLButtonElement>('[data-sport]').forEach((b) => {
+    b.onclick = () => { sportOpen = b.dataset.sport as SportId; paint(); };
+  });
+  q<HTMLButtonElement>('[data-sportgo]').forEach((b) => {
+    b.onclick = () => {
+      const s = sportById(b.dataset.sportgo as SportId);
+      if (!s) return;
+      gonetSuspend();
+      host.enterSport(s.mode);
+    };
+  });
+
+  // THE DECK — switching it on pays morale and teaches nothing, on purpose
+  q<HTMLButtonElement>('[data-cart]').forEach((b) => {
+    b.onclick = () => { const d = loadDeck(); d.inSlot = b.dataset.cart!; saveDeck(d); paint(); };
+  });
+  q<HTMLButtonElement>('[data-play2]').forEach((b) => {
+    b.onclick = () => { host.playCartridge(b.dataset.play2!); };
   });
 
   // briefings

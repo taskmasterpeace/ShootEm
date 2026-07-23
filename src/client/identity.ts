@@ -28,6 +28,9 @@ export interface PlayerIdentity {
    *  temperament the ministry stamped on the file. Absent on pre-intake
    *  records (they enlisted before the psych desk existed). */
   psych?: { answers: string[]; recommended: string; temperament: string };
+  /** Which city of the nation's list — resolves the hometown ARCHETYPE
+   *  (src/client/hometown.ts) and therefore the two skills you start with. */
+  cityIndex?: number;
   /** Which print of this account is walking (canon vocabulary: PRINT). */
   print?: number;
 }

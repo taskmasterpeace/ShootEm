@@ -13,6 +13,8 @@
 // ---------------------------------------------------------------------------
 import { NATIONS, type Nation } from '../data/nations';
 import { gonetSuspend, renderGonet } from './gonet/index';
+import { archetypeFor, band, cloningLine, doctrineLine, lswLine } from './hometown';
+import { SKILLS } from '../sim/skills';
 import {
   clearIdentity, factionDoctrine, factionLabel, loadIdentity, nationOf, recommendClass,
   saveIdentity, temperamentFor,
@@ -25,6 +27,10 @@ export interface FrontendHost {
   enterMenu(door?: 'skirmish' | 'paintball'): void;
   /** BRIEF -> BATTLEFIELD: launch a briefed operation or science mission. */
   launchBrief(kind: 'military' | 'science', id: string): void;
+  /** SPORTS: enter a discipline. */
+  enterSport(mode: import('../sim/types').ModeId): void;
+  /** THE DECK: switch on a cartridge. */
+  playCartridge(id: string): void;
   /** Identity established or changed — push the callsign into the deploy form + record. */
   onIdentity(id: PlayerIdentity): void;
 }
@@ -33,7 +39,7 @@ const $id = (id: string) => document.getElementById(id)!;
 const FACTION_HUE = { collective: '#3dbde8', united_front: '#e8a33d' } as const;
 
 let host: FrontendHost;
-let draft: { callsign: string; nationCode: number | null; hometown: string; psychAnswers: string[] };
+let draft: { callsign: string; nationCode: number | null; hometown: string; cityIndex: number; psychAnswers: string[] };
 
 /** Boot the front door. First run enlists; a returning player lands on the menu. */
 export function mountFrontend(h: FrontendHost): void {
@@ -45,7 +51,7 @@ export function mountFrontend(h: FrontendHost): void {
     host.onIdentity(existing);
     renderMenu();
   } else {
-    draft = { callsign: '', nationCode: null, hometown: '', psychAnswers: [] };
+    draft = { callsign: '', nationCode: null, hometown: '', cityIndex: 0, psychAnswers: [] };
     renderEnlist('callsign');
   }
 }
@@ -77,12 +83,16 @@ function renderMenu() {
     // IS the preparation, so the button at the bottom of it should be the last
     // thing you press.
     launchBrief: (kind, id) => { hideOverlay(); host.launchBrief(kind, id); },
+    // SPORTS: the league is a way INTO the same modes, not a second config screen.
+    enterSport: (mode) => { hideOverlay(); gonetSuspend(); host.enterSport(mode); },
+    // THE DECK pays morale and teaches nothing — that is the whole design.
+    playCartridge: (id) => host.playCartridge(id),
     options: renderOptions,
     reenlist: () => {
       const id = loadIdentity();
       if (!confirm('Re-enlisting rewrites your homeland and the faction the sheet assigns you. Your record is kept. Continue?')) return;
       clearIdentity();
-      draft = { callsign: id?.callsign ?? '', nationCode: null, hometown: '', psychAnswers: [] };
+      draft = { callsign: id?.callsign ?? '', nationCode: null, hometown: '', cityIndex: 0, psychAnswers: [] };
       renderEnlist('homeland');
     },
   });
@@ -142,7 +152,7 @@ function renderLegacyMenu() {
   reenlist.onclick = () => {
     if (!confirm('Re-enlisting rewrites your homeland and the faction the sheet assigns you. Your record is kept. Continue?')) return;
     clearIdentity();
-    draft = { callsign: id?.callsign ?? '', nationCode: null, hometown: '', psychAnswers: [] };
+    draft = { callsign: id?.callsign ?? '', nationCode: null, hometown: '', cityIndex: 0, psychAnswers: [] };
     renderEnlist('homeland');
   };
   foot.appendChild(reenlist);
@@ -311,12 +321,90 @@ function renderHomeland() {
     for (const n of list) {
       const b = document.createElement('button');
       b.className = 'enl-nation';
-      b.innerHTML = `<span class="enl-nflag">${n.flag}</span><span class="enl-nname">${escapeHtml(n.name)}</span><span class="enl-ndot" style="--fh:${FACTION_HUE[n.faction]}"></span>`;
-      b.onclick = () => { draft.nationCode = n.code; draft.hometown = ''; renderEnlist('psych'); };
+      // THE CARD CARRIES A FACT. A wall of 169 flags told you nothing about
+      // what you were choosing — the strongest of a nation's three doctrine
+      // stats is the one thing worth reading at grid scale.
+      const top = n.science >= n.military && n.science >= n.intel ? 'SCI'
+        : n.military >= n.intel ? 'MIL' : 'INT';
+      const topN = Math.max(n.military, n.intel, n.science);
+      b.innerHTML = `<span class="enl-nflag">${n.flag}</span>`
+        + `<span class="enl-nname">${escapeHtml(n.name)}</span>`
+        + `<span class="enl-ntop">${top} ${topN}</span>`
+        + `<span class="enl-ndot" style="--fh:${FACTION_HUE[n.faction]}"></span>`;
+      b.onclick = () => showDossier(n);
       grid.appendChild(b);
     }
     if (!list.length) grid.innerHTML = `<p class="ob-sub" style="opacity:.7">No nation matches “${escapeHtml(q)}”.</p>`;
   };
+
+  // ── THE DOSSIER: what you are actually choosing ──────────────────────────
+  // Robert: "when you look at a country, I want to see the relevant stats…
+  // right now it's hard to really tell what you're selecting."
+  //
+  // Every figure below already existed in the register and none of it was ever
+  // on screen. Choosing a flag is now choosing a KNOWN thing: what its army is
+  // made of, how it is governed, whether gods walk there, and — the most
+  // personal fact a country carries in a game about prints — whether your own
+  // existence is legal at home.
+  const panel = document.createElement('div');
+  panel.className = 'enl-dossier-live hidden';
+  wrap.appendChild(panel);
+
+  function showDossier(n: Nation) {
+    panel.classList.remove('hidden');
+    const hue = FACTION_HUE[n.faction];
+    panel.style.setProperty('--fh', hue);
+    const stat = (label: string, v: number, note = '') =>
+      `<div class="enl-stat"><span>${label}</span>`
+      + `<i><b style="width:${v}%"></b></i>`
+      + `<em>${v} · ${band(v)}</em>${note ? `<small>${escapeHtml(note)}</small>` : ''}</div>`;
+
+    panel.innerHTML = `
+      <div class="enl-dtop">
+        <span class="enl-dbigflag">${n.flag}</span>
+        <div>
+          <div class="enl-dtitle">${escapeHtml(n.name)}</div>
+          <div class="enl-dsub">${escapeHtml(n.government)} · ${escapeHtml(n.perception)}
+            · ${(n.population / 1e6).toFixed(1)}M people</div>
+          ${n.motto && n.motto !== 'None' ? `<div class="enl-dmot">“${escapeHtml(n.motto)}”</div>` : ''}
+        </div>
+        <span class="enl-dside" style="--fh:${hue}">${factionLabel(n.faction).toUpperCase()}</span>
+      </div>
+      <div class="enl-stats">
+        ${stat('MILITARY', n.military)}
+        ${stat('INTELLIGENCE', n.intel)}
+        ${stat('SCIENCE', n.science)}
+        ${stat('LSW ACTIVITY', n.lswActivity)}
+      </div>
+      <div class="enl-dlines">
+        <p><b>THE ARMY YOU JOIN</b>${escapeHtml(doctrineLine(n))}</p>
+        <p><b>THE STABLES</b>${escapeHtml(lswLine(n))}</p>
+        <p class="${n.cloning === 'Banned' ? 'warn' : ''}"><b>YOUR PRINT</b>${escapeHtml(cloningLine(n))}</p>
+      </div>
+      <h4 class="enl-cityhead">WHERE IN ${escapeHtml(n.name.toUpperCase())}?
+        <i>your hometown decides what you already know</i></h4>
+      <div class="enl-cities"></div>`;
+
+    const cities = panel.querySelector('.enl-cities')!;
+    n.cities.forEach((city, i) => {
+      const a = archetypeFor(n, i);
+      const b = document.createElement('button');
+      b.className = 'enl-city';
+      b.innerHTML = `<b>${escapeHtml(city)}</b>`
+        + `<span class="enl-carch">${escapeHtml(a.name)}</span>`
+        + `<span class="enl-cskills">${a.skills.map((s) => SKILLS[s].name.toUpperCase()).join(' · ')}</span>`
+        + `<span class="enl-craised">${escapeHtml(a.raisedOn)}</span>`;
+      b.onclick = () => {
+        draft.nationCode = n.code;
+        draft.hometown = city;
+        draft.cityIndex = i;
+        renderEnlist('psych');
+      };
+      cities.appendChild(b);
+    });
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   search.oninput = () => paint(search.value);
   paint('');
 
@@ -395,6 +483,9 @@ function renderReview() {
       created: Date.now(),
       psych: { answers: [...draft.psychAnswers], recommended, temperament: temperamentFor(recommended) },
       print: 1,
+      // WHERE you are from, kept — the hometown archetype hands you two
+      // skills on day one and the file has to remember which city said so.
+      cityIndex: draft.cityIndex,
     };
     saveIdentity(id);
     host.onIdentity(id);

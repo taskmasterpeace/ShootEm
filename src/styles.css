@@ -2699,3 +2699,172 @@ body:not(.in-match) #world-clock { left: auto; right: 0.9rem; }
   .gn-briefs { grid-template-columns: 1fr; }
   .gn-bread { border-left: 0; padding-left: 0; }
 }
+
+/* ===========================================================================
+   ENLISTMENT WITH WEIGHT — the country dossier and the hometown picker.
+
+   169 flags in a grid told you nothing about what you were choosing. Every
+   figure here already existed in the register; none of it was ever on screen.
+   =========================================================================== */
+
+/* the grid card now carries the nation's strongest doctrine stat */
+.enl-ntop {
+  font: 0.5rem var(--font-mono); letter-spacing: 0.08em; color: var(--muted);
+  margin-left: auto; padding-right: 0.4rem; flex: 0 0 auto;
+}
+
+.enl-dossier-live {
+  margin-top: 1rem; border: 1px solid var(--fh, var(--accent)); border-top-width: 2px;
+  background: oklch(0.15 0.016 74 / 0.9); padding: 1rem 1.1rem;
+  display: grid; gap: 0.85rem; text-align: left;
+}
+
+.enl-dtop { display: flex; align-items: flex-start; gap: 0.9rem; }
+.enl-dbigflag { font-size: 2.4rem; line-height: 1; flex: 0 0 auto; }
+.enl-dtitle { font-family: var(--font); font-size: 1.25rem; letter-spacing: 0.02em; }
+.enl-dsub { font: 0.62rem var(--font-mono); color: var(--muted); letter-spacing: 0.06em; }
+.enl-dmot { font-size: 0.72rem; color: oklch(0.8 0.03 78); font-style: italic; margin-top: 0.25rem; }
+.enl-dside { margin-left: auto; flex: 0 0 auto; color: var(--fh);
+  border: 1px solid currentColor; padding: 0.15rem 0.45rem;
+  font: 0.52rem var(--font-mono); letter-spacing: 0.14em; }
+
+/* THE DOCTRINE BARS — the four numbers that decide what your side fields */
+.enl-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.5rem 1rem; }
+.enl-stat { display: grid; grid-template-columns: 1fr auto; gap: 0.15rem 0.5rem; align-items: center; }
+.enl-stat span { font: 0.52rem var(--font); font-weight: 600; letter-spacing: 0.14em; color: var(--muted); }
+.enl-stat em { font-style: normal; font: 0.58rem var(--font-mono); color: var(--text); text-align: right; }
+.enl-stat i { grid-column: 1 / -1; display: block; height: 4px; background: oklch(0.26 0.018 74); }
+.enl-stat i b { display: block; height: 100%; background: var(--fh, var(--accent)); }
+.enl-stat small { grid-column: 1 / -1; font-size: 0.55rem; color: var(--muted); }
+
+.enl-dlines { display: grid; gap: 0.4rem; }
+.enl-dlines p { font-size: 0.74rem; line-height: 1.5; color: oklch(0.85 0.012 78);
+  border-left: 2px solid oklch(0.32 0.02 74); padding-left: 0.6rem; }
+.enl-dlines p b { display: block; font: 600 0.5rem var(--font); letter-spacing: 0.16em;
+  color: var(--muted); margin-bottom: 0.1rem; }
+/* a country that BANNED cloning is a genuinely different origin */
+.enl-dlines p.warn { border-left-color: var(--accent); }
+.enl-dlines p.warn b { color: var(--accent); }
+
+.enl-cityhead { font-family: var(--font); font-size: 0.6rem; font-weight: 600; letter-spacing: 0.16em;
+  color: var(--accent); display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
+.enl-cityhead i { font-style: normal; font-size: 0.55rem; color: var(--muted); letter-spacing: 0.06em; }
+
+.enl-cities { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 0.55rem; }
+.enl-city {
+  appearance: none; cursor: pointer; text-align: left;
+  background: oklch(0.18 0.016 74); border: 1px solid oklch(0.3 0.02 74);
+  border-left-width: 2px; padding: 0.6rem 0.7rem; color: var(--text);
+  display: grid; gap: 0.12rem; transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+.enl-city:hover { border-color: var(--fh, var(--accent)); background: oklch(0.22 0.03 74); transform: translateY(-2px); }
+.enl-city b { font-family: var(--font); font-size: 0.9rem; letter-spacing: 0.02em; }
+.enl-carch { font: 0.5rem var(--font-mono); letter-spacing: 0.12em; color: var(--fh, var(--accent)); }
+.enl-cskills { font: 0.55rem var(--font-mono); letter-spacing: 0.06em; color: var(--ok); }
+.enl-craised { font-size: 0.63rem; color: var(--muted); line-height: 1.4; margin-top: 0.15rem; }
+
+@media (max-width: 700px) {
+  .enl-dtop { flex-wrap: wrap; }
+  .enl-dside { margin-left: 0; }
+  .enl-cities { grid-template-columns: 1fr; }
+}
+
+/* ===========================================================================
+   SPORTS — the league. Disciplines, the week's fixtures, the standings.
+   =========================================================================== */
+.gn-sports { grid-template-columns: minmax(260px, 340px) 1fr; }
+.gn-sport {
+  appearance: none; width: 100%; text-align: left; cursor: pointer;
+  background: none; border: 0; border-left: 2px solid transparent;
+  border-bottom: 1px solid oklch(0.19 0.014 74); color: var(--text);
+  padding: 0.5rem 0.6rem; display: grid; gap: 0.1rem; position: relative;
+}
+.gn-sport:hover { background: oklch(0.19 0.02 74); }
+.gn-sport.on { background: oklch(0.21 0.03 74); border-left-color: var(--accent); }
+.gn-sport b { font-family: var(--font); font-size: 0.82rem; letter-spacing: 0.04em; }
+.gn-sport span { font-size: 0.62rem; color: var(--muted); line-height: 1.35; }
+.gn-sport.soon { opacity: 0.6; }
+.gn-sport i { position: absolute; top: 0.5rem; right: 0.6rem; font-style: normal;
+  font: 0.45rem var(--font-mono); letter-spacing: 0.12em; color: var(--muted);
+  border: 1px solid oklch(0.32 0.02 74); padding: 0.05rem 0.28rem; }
+.gn-sched { margin-top: 1rem; }
+
+.gn-fix { display: grid; grid-template-columns: auto 1fr auto auto; gap: 0.5rem;
+  font: 0.62rem var(--font-mono); padding: 0.28rem 0.6rem;
+  border-bottom: 1px solid oklch(0.18 0.014 74); align-items: center; }
+.gn-fwhen { color: var(--accent); }
+.gn-fname { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gn-fven, .gn-fcls { color: var(--muted); }
+
+.gn-sread { border-left: 1px solid oklch(0.24 0.018 74); padding-left: 1.2rem; }
+.gn-sread h4 { font-family: var(--font); font-size: 0.56rem; font-weight: 600; letter-spacing: 0.18em;
+  color: var(--accent); margin: 1.1rem 0 0.4rem; display: flex; gap: 0.5rem; align-items: baseline; }
+.gn-sread h4 i { font-style: normal; font-size: 0.5rem; color: var(--muted); letter-spacing: 0.06em; }
+.gn-stands { display: grid; gap: 0.1rem; }
+.gn-stand { display: grid; grid-template-columns: auto 1fr auto auto; gap: 0.6rem;
+  font: 0.68rem var(--font-mono); padding: 0.25rem 0; align-items: center;
+  border-bottom: 1px solid oklch(0.18 0.014 74); }
+.gn-spos { color: oklch(0.5 0.02 74); }
+.gn-sname { color: var(--text); }
+.gn-srec { color: var(--muted); }
+.gn-sbest { color: var(--accent); font-variant-numeric: tabular-nums; }
+.gn-builder { margin-top: 0.8rem; }
+
+/* ===========================================================================
+   THE DECK — the ministry-issue handheld and its cartridges.
+
+   It is deliberately the least tactical surface in the whole laptop: a plastic
+   toy in a war office. The label colours come from the cartridge itself.
+   =========================================================================== */
+.gn-deck { grid-template-columns: minmax(280px, 380px) 1fr; }
+.gn-carts { display: grid; gap: 0.4rem; }
+.gn-cart {
+  appearance: none; cursor: pointer; text-align: left; position: relative;
+  background: var(--base, oklch(0.17 0.016 74)); border: 1px solid oklch(0.3 0.02 74);
+  padding: 0.55rem 0.7rem 0.55rem 1.1rem; color: var(--text);
+  display: grid; gap: 0.08rem; transition: transform 0.15s, border-color 0.15s;
+}
+.gn-cart:hover:not(:disabled) { transform: translateX(3px); border-color: var(--ink); }
+.gn-cart.on { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.gn-cart.locked { opacity: 0.4; cursor: default; }
+/* the label stripe down the spine — a cartridge is an OBJECT */
+.gn-cspine { position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--ink); }
+.gn-cart b { font-family: var(--font); font-size: 0.86rem; letter-spacing: 0.03em; color: var(--ink); }
+.gn-cmaker { font: 0.55rem var(--font-mono); color: var(--muted); }
+.gn-cbest { font: 0.58rem var(--font-mono); color: var(--text); }
+.gn-cbest.locked { color: var(--muted); }
+.gn-crare { position: absolute; top: 0.5rem; right: 0.6rem;
+  font: 0.45rem var(--font-mono); letter-spacing: 0.1em; color: var(--muted); }
+
+.gn-deckface { display: grid; gap: 0.8rem; align-content: start;
+  border-left: 1px solid oklch(0.24 0.018 74); padding-left: 1.2rem; }
+/* the console itself: olive plastic, a stencil, and a small bad screen */
+.gn-console {
+  background: linear-gradient(170deg, oklch(0.3 0.03 110), oklch(0.22 0.025 110));
+  border: 1px solid oklch(0.38 0.03 110); border-radius: 8px;
+  padding: 1rem; display: grid; gap: 0.6rem; max-width: 30rem;
+  box-shadow: inset 0 1px 0 oklch(0.45 0.03 110), 0 10px 26px oklch(0 0 0 / 0.45);
+}
+.gn-screen2 {
+  background: var(--base, #12100c); border: 3px solid oklch(0.16 0.02 110);
+  border-radius: 3px; padding: 1rem 1.1rem; min-height: 8rem;
+  display: grid; align-content: center; gap: 0.4rem; position: relative; overflow: hidden;
+}
+.gn-screen2::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, transparent 0 2px, oklch(0 0 0 / 0.22) 2px 3px); }
+.gn-ctitle { font-family: var(--font-display); font-size: 1.6rem; line-height: 1;
+  color: var(--ink, #e8a33d); letter-spacing: 0.02em; }
+.gn-cblurb { font: 0.72rem var(--font-mono); color: var(--ink, #e8a33d); opacity: 0.8; line-height: 1.5; }
+.gn-cscore { font: 0.6rem var(--font-mono); letter-spacing: 0.14em; color: var(--ink, #e8a33d); opacity: 0.6; }
+.gn-dbrand { font: 0.5rem var(--font-mono); letter-spacing: 0.22em; color: oklch(0.55 0.03 110); text-align: right; }
+
+.gn-deckmeta { display: flex; flex-wrap: wrap; gap: 1.2rem; }
+.gn-kv2 { display: grid; gap: 0.1rem; }
+.gn-kv2 span { font: 600 0.5rem var(--font); letter-spacing: 0.16em; color: var(--muted); }
+.gn-kv2 b { font: 0.85rem var(--font-mono); color: var(--accent); font-weight: 400; }
+.gn-decknote { font: 0.68rem var(--font-mono); color: var(--muted); }
+
+@media (max-width: 900px) {
+  .gn-sports, .gn-deck { grid-template-columns: 1fr; }
+  .gn-sread, .gn-deckface { border-left: 0; padding-left: 0; }
+}

@@ -45,7 +45,7 @@ import {
   type AscendantId, type ClassId, type Gadget, type GadgetType, type Mine, type ModeId, type ModeState,
   type Pickup, type PlayerCmd, type Projectile, type SimEvent, type Soldier,
   type SoldierKind, type SystemId, type Team, type ThemeId, type Turret, type Vec3,
-  type Vehicle, type VehicleKind, type VehicleSystems, type WeaponId, type ZedKind, isIron, isBoard, type IronKind } from './types';
+  type Vehicle, type VehicleKind, type VehicleSystems, type WeaponId, type ZedKind, isIron, isBoard, type IronKind, type SkillId } from './types';
 import { stepMode, initMode } from './modes';
 import { generateFront } from './fronts';
 import { generateOperationMap } from './operation-map';
@@ -405,6 +405,12 @@ export interface WorldOptions {
   papers?: LicenceId[];
   /** The human's rank id (see ranks.ts) — the authority to call the stable. */
   rank?: number;
+  /**
+   * WHERE YOU ARE FROM, in the hands. The hometown archetype
+   * (src/client/hometown.ts) grants two secondary skills a head start, handed
+   * in here so the sim stays a pure function of its inputs.
+   */
+  startingSkills?: Partial<Record<SkillId, number>>;
   matchMinutes?: number;
   /** THE ONE CLOCK (#123): the global day-fraction (0..1, 0 = midnight) at
    *  launch, computed by the CLIENT from UTC (src/client/worldclock.ts).
@@ -1063,6 +1069,8 @@ export class World {
     if (kind === 'human') {
       if (this.opts.papers) s.papers = [...this.opts.papers];
       if (this.opts.rank !== undefined) s.rankId = this.opts.rank;
+      // the hometown, in the hands
+      if (this.opts.startingSkills) s.skill = { ...this.opts.startingSkills };
     }
     this.soldiers.set(s.id, s);
     this.soldierIndex.add(s); // queryable the tick it spawns (opt #38)
