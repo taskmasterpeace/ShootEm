@@ -159,6 +159,47 @@ export function buildGadget(type: string, team: Team): THREE.Group {
       g.add(halo);
       break;
     }
+    // LOW-CODE #2: THE CIRCUIT's droppables, made visible. A mine you cannot
+    // see is a bug report; an oil slick you cannot see is a mystery crash.
+    case 'race_mine': {
+      // a squat disc with a blinking eye — reads at speed, from above
+      const body = cyl(0.42, 0.5, 0.22, mat(0x2a2d26, { rough: 0.75, metal: 0.3 }), 10);
+      body.position.y = 0.11;
+      g.add(body);
+      const band = cyl(0.44, 0.44, 0.06, mat(0xc03030, { emissive: 0x801010 }), 10);
+      band.position.y = 0.2;
+      g.add(band);
+      const eye = new THREE.Mesh(
+        new THREE.SphereGeometry(0.11, 8, 6),
+        mat(0xff4030, { emissive: 0xff2010 }),
+      );
+      eye.name = 'pulse'; // the renderer already breathes anything called this
+      eye.position.y = 0.3;
+      g.add(eye);
+      break;
+    }
+    case 'oil_slick': {
+      // a flat black pool with a sheen — deliberately hard to see LATE, which
+      // is the point of oil, but obvious if you're reading the road
+      const pool = new THREE.Mesh(
+        new THREE.CircleGeometry(4.6, 20),
+        new THREE.MeshStandardMaterial({
+          color: 0x0a0c10, roughness: 0.08, metalness: 0.9,
+          transparent: true, opacity: 0.82, depthWrite: false,
+        }),
+      );
+      pool.rotation.x = -Math.PI / 2;
+      pool.position.y = 0.03;
+      g.add(pool);
+      const sheen = new THREE.Mesh(
+        new THREE.RingGeometry(2.4, 4.4, 24),
+        new THREE.MeshBasicMaterial({ color: 0x2a4a5a, transparent: true, opacity: 0.3, side: THREE.DoubleSide }),
+      );
+      sheen.rotation.x = -Math.PI / 2;
+      sheen.position.y = 0.05;
+      g.add(sheen);
+      break;
+    }
     case 'snap_trap': {
       // VENATRIX'S TRAP — jaws low in the grass, and THE GLINT: one bright
       // brass tooth that winks at anyone actually looking (the counter)

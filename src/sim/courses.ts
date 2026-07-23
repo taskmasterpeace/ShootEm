@@ -223,10 +223,33 @@ function layDrill(d: Drill, from: Vec3, index: number): { gates: CourseGate[]; n
 
 /** The whole course as an ordered gate list, laid from an origin. Pure and
  *  deterministic: the same course is the same course on every machine. */
-export function layCourse(course: Course, origin: Vec3 = { x: -140, y: 0, z: 0 }): CourseGate[] {
+export function layCourse(course: Course, origin: Vec3 = { x: -120, y: 0, z: -55 }): CourseGate[] {
   const gates: CourseGate[] = [];
   let cursor = { ...origin };
+  // THE SERPENTINE: drills run +X, but a four-drill course is ~330u of
+  // ground and the world is 300 wide — so when a drill would push past the
+  // fold line, the course TURNS BACK and runs the next one on a fresh lane.
+  // (A course that leaves the map is a course nobody can finish.)
+  const FOLD_X = 20; // the longest drill is ~124u — fold early enough that it still fits
+  const LANE = 58;
+  const LINK_STEP = 55; // no gap a driver has to guess their way across
   course.drills.forEach((d, i) => {
+    if (cursor.x > FOLD_X) {
+      // THE CONNECTING ROAD: a fold is a U-turn, and a U-turn the driver
+      // cannot see is just a gap. Lay link gates back down the new lane so
+      // the route stays continuous — they belong to the drill they lead TO.
+      const turn = { x: cursor.x, y: 0, z: cursor.z + LANE };
+      gates.push({ pos: { ...turn }, radius: GATE_R, drill: i });
+      const span = turn.x - origin.x;
+      const steps = Math.max(1, Math.ceil(span / LINK_STEP));
+      for (let k = 1; k <= steps; k++) {
+        gates.push({
+          pos: { x: turn.x - (span * k) / steps, y: 0, z: turn.z },
+          radius: GATE_R, drill: i,
+        });
+      }
+      cursor = { x: origin.x, y: 0, z: turn.z };
+    }
     const laid = layDrill(d, cursor, i);
     gates.push(...laid.gates);
     cursor = laid.next;

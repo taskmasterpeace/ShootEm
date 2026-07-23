@@ -25,6 +25,7 @@ import { CLASS_GLYPHS, MODE_GLYPHS, THEME_GLYPHS, cardGlyph } from './client/gly
 import { COURSES, courseFor, layCourse } from './sim/courses';
 import { VEHICLES } from './sim/data';
 import { awardLicence, canEnrol, loadLicences } from './client/licences';
+import { allRecords, fileRun } from './client/records';
 import { LICENCES, type LicenceId } from './sim/licenses';
 import { TouchControls, isTouchDevice } from './client/touch';
 import { currentSession, restoreSession, signOut, supabaseConfigured } from './client/auth';
@@ -97,6 +98,7 @@ let queuedScienceLaunch: ScienceLaunchState | null = null;
 /** THE SCHOOLS: which licence course the player enrolled on (school mode). */
 let enrolledCourse: LicenceId | null = null;
 let schoolAwarded = false; // one signature per run
+let runFiled = false;      // one record filing per race
 let matchMinutes = 15;
 /** THE ROSTER LAW (Robert): zombies fight alone unless the player opts in. */
 let hordeRoster: 'zombies' | 'iron' | 'both' = 'zombies';
@@ -452,6 +454,15 @@ function paintSchoolBoard(host: HTMLElement) {
     </div>`;
   }).join('');
   host.innerHTML = `<div class="sc-intro">THE SCHOOLS — a licence is a course you DRIVE. Every program teaches the machine, then signs your papers. Nobody washes out.</div><div class="sc-grid">${cards}</div>`;
+  // LOW-CODE #7: THE RECORD BOARD. The times were being kept and never
+  // shown — a record nobody can read is a number in a drawer.
+  const recs = allRecords();
+  const recHtml = recs.length ? recs.map((r) => `<div class="rec-row"><span class="rec-track">${r.trackId}</span><span class="rec-cls">${r.cls.toUpperCase()}</span><span class="rec-time">${r.lap > 0 ? r.lap.toFixed(1) + 's' : '—'}</span><span class="rec-holder">${r.holder}</span></div>`).join('')
+    : '<div class="rec-empty">No records yet. Every track is open — go and put your name on one.</div>';
+  const recWrap = document.createElement('div');
+  recWrap.id = 'records-board';
+  recWrap.innerHTML = '<div class="sc-intro">THE RECORD BOARD — best lap by machine class. A time with a name on it is a reason to come back.</div>' + recHtml;
+  host.appendChild(recWrap);
   host.querySelectorAll<HTMLButtonElement>('.sc-go').forEach((b) => {
     b.onclick = () => {
       enrolledCourse = b.dataset.lic as LicenceId;
@@ -1257,6 +1268,22 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     }
     // THE SCHOOL SIGNS THE PAPERS: a completed course awards its licence (and
     // the whole chain beneath it) to the ACCOUNT, plus your time to beat.
+    // LOW-CODE #9: FILE THE RUN. A race that ends without touching the record
+    // board is a race that did not count.
+    if (world.mode.over && isRace && !runFiled) {
+      runFiled = true;
+      const best = world.mode.raceBest ?? 0;
+      if (best > 0) {
+        const hull = selectedRaceBoard;
+        const trackId = (world.map.theater?.id ?? selectedTheme) + '-circuit';
+        const filed = fileRun({ trackId, hull, mass: VEHICLES[hull]?.mass, holder: name, lap: best });
+        if (filed.tookLap) {
+          hud.announce(filed.previous
+            ? 'TRACK RECORD — TAKEN FROM ' + filed.previous.holder.toUpperCase()
+            : 'TRACK RECORD SET', true, world.time);
+        }
+      }
+    }
     if (world.mode.over && world.mode.coursePassed && enrolledCourse && !schoolAwarded) {
       schoolAwarded = true;
       const secs = world.time;

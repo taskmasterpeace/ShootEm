@@ -862,8 +862,8 @@ export const MODE_INFO: Record<string, { name: string; desc: string; icon: strin
   science: { name: 'Science Mission', desc: 'Compact black-site operation. Burn finite clones, finish the job, and extract the program.', icon: '⌬' },
   range: { name: 'Proving Grounds', desc: 'Your own patch of the war: firing lanes, dummy targets, the qualification courses (§3.3).', icon: '🎯' },
   paintball: { name: 'Paintball — Hunters vs Hunted', desc: 'One prey, one pack. The prey tags three points or survives the clock; the pack paints them out. One splat and you sit down.', icon: '🎨' },
-  race: { name: 'Motor Trials — Grand Prix', desc: 'Hoverboard racing. Three laps of the circuit against a pack of AI racers — first past the flag wins. Pick your board: speed, balance, or grip.', icon: '🏁' },
-  timetrial: { name: 'Motor Trials — Time Trial', desc: 'Just you, the circuit, and the ghost of your best lap. Chase your own tail and shave the tenths.', icon: '⏱️' },
+  race: { name: 'Motor Trials — Grand Prix', desc: 'Three laps against a pack of AI racers — first past the flag wins. Boards, cars, pickups and bikes all take the grid; the record board keeps their books apart.', icon: '🏁' },
+  timetrial: { name: 'Motor Trials — Time Trial', desc: 'You, the circuit, and the ghost of your best lap. Beat the track record and your name goes on the board.', icon: '⏱️' },
   // A PLACE, not a match (#122) — reached from the paintball deploy card,
   // deliberately filtered OUT of the mode grid (buildMenu skips it)
   shop: { name: "Vanessa's Paintball", desc: 'The pro shop — walk the booths, talk to Vanessa, pick your marker.', icon: '🏪' },

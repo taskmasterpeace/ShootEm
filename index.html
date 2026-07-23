@@ -112,6 +112,10 @@
           <div id="ability-hint"></div>
           <!-- §16.2 the MELEE STANCE LINE: readiness at a glance — dim = not now -->
           <div id="stance-line" class="hidden"></div>
+          <!-- LOW-CODE #5/#6: THE DRIVING CARD — what you are actually in.
+               The RDS card, live: weight, the traction figure for the floor
+               under you RIGHT NOW, and the cargo you can still drop. -->
+          <div id="drive-card" class="hidden"></div>
         </div>
       </div>
       <div id="chat" class="hidden">
@@ -138,6 +142,8 @@
         <!-- CRAWL TO MEDIC: an arrow + range to the nearest friendly medic -->
         <span id="down-medic" class="hidden"></span>
       </div>
+      <!-- LOW-CODE #8: THE LESSON BOARD — the school teaches while you drive -->
+      <div id="lesson-board" class="hidden"></div>
       <div id="replay-banner" class="hidden"></div>
       <!-- THE AUTOPSY: a stencil/mono terminal card pinned over the frozen shot -->
       <div id="killcam-readout" class="hidden"></div>
@@ -267,11 +273,20 @@
               <div id="gauntlet-status" style="font-size:0.78rem;opacity:0.75;margin-top:0.3rem"></div>
             </div>
             <div class="setup-block" id="race-board-block" style="display:none">
-              <label>Your board</label>
+              <label>Your machine</label>
+              <!-- LOW-CODE #4: the grid takes CARS now (Robert: "faster cars, so
+                   we can have races"). Boards and cars race the same circuit; the
+                   record board keeps their books separate. -->
               <div id="race-board-select" class="pill-row">
-                <button class="pill" data-v="comet">🔴 Comet — speed</button>
-                <button class="pill selected" data-v="vector">🟠 Vector — balance</button>
-                <button class="pill" data-v="sprite">🔵 Sprite — grip</button>
+                <button class="pill" data-v="comet">Comet — board, speed</button>
+                <button class="pill selected" data-v="vector">Vector — board, balance</button>
+                <button class="pill" data-v="sprite">Sprite — board, grip</button>
+                <button class="pill" data-v="musclecar">Broadside V8 — car, top end</button>
+                <button class="pill" data-v="roadster">Meridian — car, corners</button>
+                <button class="pill" data-v="hotrod">Hot Rod — car, launch</button>
+                <button class="pill" data-v="rallytruck">Dust Devil — pickup, dirt</button>
+                <button class="pill" data-v="racetruck">Hammerhead — truck, armour</button>
+                <button class="pill" data-v="bike">Jackal — bike, nimble</button>
               </div>
             </div>
           </div>

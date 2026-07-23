@@ -23,6 +23,7 @@ import { Particles, FlashLights, Fireballs } from './effects';
 import { JOINT_NAMES, isUndead, poseSoldierJoints, CAST_SCHOOL, FLIGHT_POSES, RECOIL_SCALE, stepYawSpring, throwArmCurve, WEAPON_HOLDS, type GaitState, type CastSchool, type Joints } from './animation';
 import { updateHopper } from './hopper';
 import { chunkCount, drawChunks, drawGrade, drawNotches, drawNumber, makeRingMesh, RING_COLORS, ringChunkTexture, ringTier } from './ring';
+import { courseGates } from '../sim/modes';
 import { ICE_HOLD_DRAIN, LSWS, STRUGGLE_HP, type LswDef } from '../sim/lsw';
 import { hash01 } from '../sim/rng';
 import { collapseStyleFor, type CollapseStyle } from './deathpose';
@@ -346,6 +347,10 @@ export class Renderer {
   private encaseHint?: THREE.Sprite;
   private flagMeshes: THREE.Group[] = [];
   private cpRings: THREE.Mesh[] = [];
+  /** LOW-CODE #1: the driving school course, drawn — a gate you cannot see
+   *  is a gate nobody drives through. */
+  private courseRings: THREE.Mesh[] = [];
+  private coursePosts: THREE.Mesh[] = [];
   private hillRing: THREE.Mesh | null = null;
   private nameSprites = new Map<number, { sprite: THREE.Sprite; ctx: CanvasRenderingContext2D; tex: THREE.CanvasTexture; key: string }>();
   private localId = -1; // set each frame in update(); lets animateSoldier know which soldier is YOU
@@ -2123,6 +2128,26 @@ export class Renderer {
       // any mode with points gets world-space rings — conquest capture zones
       // AND paintball tag pads. An objective you can't SEE isn't an objective.
       for (const cp of m.points) this.cpRings.push(this.makeRing(cp.pos, cp.radius, 0xffffff, 0.35));
+    }
+    // LOW-CODE #1: THE SCHOOL'S GATES. The same law as the line above, and it
+    // was being broken by the newest mode in the game — a driving course you
+    // cannot SEE is a course nobody can drive. Every gate gets a ring plus a
+    // pair of posts, and update() lights the one you're driving at.
+    if (m.id === 'school') {
+      for (const g of courseGates(m)) {
+        const ring = this.makeRing(g.pos, g.radius, 0x9aa0a6, 0.3);
+        this.courseRings.push(ring);
+        for (const side of [1, -1]) {
+          const post = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.16, 0.16, 3.4, 6),
+            new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.7 }),
+          );
+          post.position.set(g.pos.x, 1.7, g.pos.z + side * g.radius);
+          post.castShadow = true;
+          this.scene.add(post);
+          this.coursePosts.push(post);
+        }
+      }
     }
     if (m.id === 'ctf') {
       for (const f of m.flags!) {
@@ -4344,6 +4369,26 @@ export class Renderer {
       }
       for (let i = visibleWaypoints.length; i < this.wpPillars.length; i++) {
         if (this.wpPillars[i]) this.wpPillars[i].visible = false;
+      }
+    }
+
+    // LOW-CODE #1 (live half): THE NEXT GATE. The one you're driving at burns
+    // amber and breathes; the ones behind you go quiet. A course reads as a
+    // ROUTE instead of a field of identical hoops.
+    if (world.mode.id === 'school' && this.courseRings.length) {
+      const next = world.mode.courseGate ?? 0;
+      const pulse = 0.55 + 0.25 * Math.sin(world.time * 4);
+      for (let i = 0; i < this.courseRings.length; i++) {
+        const mat = this.courseRings[i].material as THREE.MeshBasicMaterial;
+        const done = i < next;
+        const isNext = i === next;
+        mat.color.setHex(isNext ? 0xe8a33d : done ? 0x3a3d38 : 0x9aa0a6);
+        mat.opacity = isNext ? pulse : done ? 0.12 : 0.3;
+        for (const post of [this.coursePosts[i * 2], this.coursePosts[i * 2 + 1]]) {
+          if (!post) continue;
+          (post.material as THREE.MeshStandardMaterial).color.setHex(isNext ? 0xe8a33d : done ? 0x3a3d38 : 0x9aa0a6);
+          post.visible = !done; // the road behind you clears
+        }
       }
     }
 

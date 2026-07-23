@@ -4,7 +4,10 @@ import { fmtLap } from '../sim/modes';
 import { audio, earshotFor } from './audio';
 import { icon, type IconName } from './icons';
 import { rangeState } from './reticle';
-import { T_CLIMB, T_WALL, losClear, houseAt } from '../sim/map';
+import { T_CLIMB, T_WALL, losClear, houseAt, surfaceAt } from '../sim/map';
+import { materialForSurface } from '../sim/materials';
+import { courseGates } from '../sim/modes';
+import { courseFor } from '../sim/courses';
 import { LEGACY_GEOMETRY, halfDepth, halfWidth, worldDepth, worldWidth, type MapGeometry } from '../sim/map-geometry';
 import { isZed, type SimEvent, type Soldier, type Team, type Vec3, type VehicleKind } from '../sim/types';
 import { drawGrade, drawNumber, RING_COLORS } from './ring';
@@ -544,6 +547,50 @@ export class Hud {
     this.updateEquipStatus(s, world.time);
 
     // weapon / vehicle line
+    // LOW-CODE #8: THE LESSON BOARD. The school announced each drill once
+    // and let it scroll away — so the instruction vanished exactly when the
+    // new driver needed it. Now the lesson for the gate you are driving at
+    // STAYS on screen until you clear it. That is the whole program.
+    const lessonEl = $('lesson-board');
+    const schooling = world.mode.id === 'school' && !!world.mode.courseLicence;
+    if (schooling) {
+      const gates = courseGates(world.mode);
+      const gi = Math.min(world.mode.courseGate ?? 0, gates.length - 1);
+      const drill = courseFor(world.mode.courseLicence as never)?.drills[gates[gi]?.drill ?? 0];
+      if (drill) {
+        setHTML(lessonEl, '<div class="lb-name">' + drill.name + '</div>'
+          + '<div class="lb-text">' + drill.lesson + '</div>');
+      }
+    }
+    lessonEl.classList.toggle('hidden', !schooling);
+
+    const driveCard = $('drive-card');
+    const rig = s.vehicleId >= 0 ? world.vehicles.get(s.vehicleId) : undefined;
+    const driving = !!rig && rig.alive && rig.seats[0] === s.id;
+    driveCard.classList.toggle('hidden', !driving);
+    if (driving && rig) {
+      const vd = VEHICLES[rig.kind];
+      const oiled = (rig.oiledUntil ?? 0) > world.time;
+      const surf = surfaceAt(world.map.surface, rig.pos.x, rig.pos.z, world.map.geometry);
+      const smat = materialForSurface(surf);
+      const fam: 'ice' | 'dirt' | 'paved' = oiled || smat.slick ? 'ice'
+        : (smat.name === 'Metal' || smat.name === 'Stone') ? 'paved' : 'dirt';
+      const tr = vd.traction ? vd.traction[fam] : 1;
+      const air = rig.airborneAt !== undefined;
+      const cargo = [
+        (rig.mines ?? 0) > 0 ? 'MINES ' + rig.mines : '',
+        (rig.oil ?? 0) > 0 ? 'OIL ' + rig.oil : '',
+      ].filter(Boolean).join(' · ');
+      setHTML(driveCard,
+        '<span class="dc-name">' + vd.name + '</span>'
+        + '<span class="dc-row"><b>' + (vd.mass ?? 1.6).toFixed(1) + 't</b>'
+        + '<span class="dc-tr' + (oiled ? ' oiled' : tr < 0.8 ? ' poor' : tr > 1.15 ? ' good' : '') + '">'
+        + (oiled ? 'OIL' : fam.toUpperCase()) + ' ' + tr.toFixed(2) + '</span>'
+        + (air ? '<span class="dc-air">AIRBORNE</span>' : '')
+        + '</span>'
+        + (cargo ? '<span class="dc-cargo">' + cargo + ' — G DROPS</span>' : ''));
+    }
+
     const inVehicle = s.vehicleId >= 0;
     this.vehicleInstruments.classList.add('hidden');
     if (inVehicle) {
@@ -876,6 +923,11 @@ export class Hud {
       // nextFireAt — the grab lunge books nextFireAt too, world.ts §14);
       // GUARD dims with an empty tank (the meter IS the mechanic). Hidden
       // where melee isn't yours to use: vehicles, gods, the dead.
+      // LOW-CODE #5/#6: THE DRIVING CARD. Racing Destruction Set printed the
+      // card before the race; we print the live half of it while you drive —
+      // the weight you are carrying, the traction figure for the floor UNDER
+      // YOU right now (so ice reads as a number, not a surprise), and the
+      // cargo still in the boot. Hidden the moment you step out.
       const stanceEl = $('stance-line');
       const stanceOn = s.alive && s.vehicleId < 0 && s.ascendant === undefined;
       stanceEl.classList.toggle('hidden', !stanceOn);
