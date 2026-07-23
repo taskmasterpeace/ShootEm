@@ -7,20 +7,31 @@
 // ---------------------------------------------------------------------------
 import type { SimEvent } from '../sim/types';
 import type { World } from '../sim/world';
+import { loadOnboarding, saveOnboarding } from './onboarding';
 
 interface Dummy { id: number; hpFrac: number }
+
+/** The station runs ONCE per profile — lesson landed or clock expired, the
+ *  ring retires forever (Robert mistook the waiting dummies for a broken
+ *  squad; a teaching prop must never outstay its 30 seconds). */
+function retireForever() {
+  const st = loadOnboarding();
+  if (!st.ringDone) { st.ringDone = true; saveOnboarding(st); }
+}
 
 export class RingDrill {
   private dummies: Dummy[] = [];
   private sliverId = -1;
   private done = false;
   private started = false;
+  private beganAt = 0; // world.time when the ring stood up
 
   constructor(private say: (text: string, big: boolean) => void) {}
 
   begin(world: World, localId: number) {
     if (this.started) return;
     this.started = true;
+    this.beganAt = world.time;
     const me = world.soldiers.get(localId);
     if (!me) return;
     // a row across the spawn: full on the left, two-thirds middle, sliver right
@@ -44,6 +55,17 @@ export class RingDrill {
 
   update(world: World, localId: number, events?: SimEvent[]) {
     if (this.done || !this.started) return;
+    // THE CLOCK: 30 seconds of patience, then the ring folds QUIETLY and the
+    // yard gets its war back — ignored props must not haunt the round
+    if (world.time - this.beganAt > 30) {
+      this.done = true;
+      for (const d of this.dummies) {
+        const s = world.soldiers.get(d.id);
+        if (s) { s.hp = 0; s.alive = false; }
+      }
+      retireForever();
+      return;
+    }
     for (const e of events ?? []) {
       if (e.type !== 'hit' || e.soldierId === undefined || e.ownerId !== localId) continue;
       const hitDummy = this.dummies.find((d) => d.id === e.soldierId);
@@ -55,11 +77,13 @@ export class RingDrill {
       } else {
         this.say('The ring told you which one was weakest. Everyone sees the chunks — recon sees the grade, medics and optics see the truth.', true);
       }
-      // the yard resumes its war — the dummies fold
+      // the yard resumes its war — the dummies fold, and the ring RETIRES:
+      // the lesson is a one-time station, never a returning squadmate
       for (const d of this.dummies) {
         const s = world.soldiers.get(d.id);
         if (s && s.id !== e.soldierId) { s.hp = 0; s.alive = false; }
       }
+      retireForever();
       return;
     }
   }

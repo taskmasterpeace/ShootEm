@@ -45,6 +45,8 @@ export interface OnboardingState {
   warSeen?: boolean;
   /** chosen paint color name (PAINT_COLORS) — pure identity, splats in your shade */
   paint?: string;
+  /** READ THE RING taught its lesson (or got its 30 seconds) — never respawns */
+  ringDone?: boolean;
 }
 
 const KEY = 'ww_onboarding';

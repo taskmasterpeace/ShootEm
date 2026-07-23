@@ -724,8 +724,11 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     ? new RangeCourse(rangeOfficial, name, dossier, (t, big) => hud.announce(t, !!big, 0))
     : null;
   rangeOfficial = false; // one-shot flag — consumed by this deploy
-  // READ THE RING (§UI): the boot-camp station — three dummies, splat the weakest
-  const ringDrill = selectedMode === 'paintball' && !gauntletArmed && !galleryArmed
+  // READ THE RING (§UI): the boot-camp station — three dummies, splat the
+  // weakest. ONE station, ever (Robert, live: "my teammates in paintball
+  // don't do anything" — the ring dummies wear your colors and read as a
+  // broken squad if the lesson never lands; taught-or-timed-out, they retire)
+  const ringDrill = selectedMode === 'paintball' && !gauntletArmed && !galleryArmed && !loadOnboarding().ringDone
     ? new RingDrill((t, big) => hud.announce(t, !!big, 0))
     : null;
   // THE GALLERY (§6): the target range takes over the yard when armed
