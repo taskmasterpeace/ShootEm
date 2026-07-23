@@ -344,12 +344,26 @@ export interface Vec3 {
   z: number;
 }
 
-/** THE STATS (#127, META-LAYER canon): visceral, never a hidden aim-roll —
- *  DEX→reload speed, STR→melee damage + health, AGL→dash/roll recovery
- *  (the Spider-Man ruling). 1..10, 5 = today's exact numbers; the band is
- *  ±10% at the extremes so newbies stay competitive. GRIT was REJECTED.
- *  Absent stats = neutral (zeds, dogs, legacy tests pay nothing). */
-export interface SoldierStats { str: number; dex: number; agl: number }
+/** THE 8 MASTER STATS (docs/THREE-GAMES-ONE-WAR.md — Robert's canon roster,
+ *  re-affirmed 2026-07-23; supersedes the shipped visceral three, whose
+ *  hooks re-mapped: STR→POWER, DEX→WEAPON HANDLING, AGL→AGILITY).
+ *  1..10, 5 = today's exact numbers; the band is ±10% at the extremes so
+ *  newbies stay competitive. Never a hidden aim-roll — the bullet goes
+ *  where you point it. Absent stats = neutral (zeds, dogs, legacy tests
+ *  pay nothing). Sim hooks so far: power→melee+frame, handling→reload,
+ *  agility→dash recovery; piloting/engineering/leadership/science/charisma
+ *  are carried on every print for the meta-layer's levers (decay is LOCKED:
+ *  use it or lose it). */
+export interface SoldierStats {
+  power: number;       // melee damage · the frame (spawn hp) · later: carry/breach/throw
+  agility: number;     // dash/roll recovery · later: vault/climb/mount speed
+  handling: number;    // WEAPON HANDLING — reload · later: swap/ADS/recoil recovery
+  piloting: number;    // aircraft/hover feel (certs gate the seat; the stat is the touch)
+  engineering: number; // repairs, turrets, field construction
+  leadership: number;  // squad size, command radius, radio authority
+  science: number;     // hacking, artifacts, lab work
+  charisma: number;    // negotiation, recruitment, the black market
+}
 
 export type SoldierKind = 'human' | 'bot' | 'dog' | 'zombie' | 'spitter' | 'brute' | 'sprinter' | 'bomber' | 'stalker' | 'scientist' | 'scraprat' | 'junkhound' | 'weaver' | 'ravager';
 
@@ -381,7 +395,7 @@ export interface Soldier {
   name: string;
   team: Team;
   classId: ClassId;
-  /** #127: the visceral three. Absent = neutral 5s (no cost, no bonus). */
+  /** #127: the 8 master stats. Absent = neutral 5s (no cost, no bonus). */
   stats?: SoldierStats;
   pos: Vec3;
   vel: Vec3;

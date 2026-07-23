@@ -529,9 +529,9 @@ export class World {
   statQuick(v: number | undefined): number {
     return v === undefined ? 1 : 1 - (v - 5) * 0.02;
   }
-  /** DEX owns the hands: every reload in the game runs through here */
+  /** WEAPON HANDLING owns the hands: every reload runs through here */
   reloadTimeFor(s: Soldier, def: WeaponDef): number {
-    return def.reloadTime * this.statQuick(s.stats?.dex);
+    return def.reloadTime * this.statQuick(s.stats?.handling);
   }
   /** §director: the match-level pacing band (neutral with no human on field) */
   director: DirectorState = newDirector();
@@ -912,17 +912,23 @@ export class World {
       if (pool.length) primary = pool[this.rng.int(0, pool.length - 1)].id;
     }
     const sid = this.id();
-    // #127 THE STATS: bots roll their three from a seed-stable HASH — never
-    // the live rng (a draw here would shift every stream after it, the
-    // harness trap). Humans start neutral 5s until the meta-layer assigns
-    // real people. Zeds, dogs and beasts carry none and pay nothing.
+    // #127 THE 8 MASTER STATS: bots roll from a seed-stable HASH — never the
+    // live rng (a draw here would shift every stream after it, the harness
+    // trap). The first three keep their ORIGINAL hash constants so every
+    // bot's power/handling/agility numbers survive the canon rename
+    // (STR→POWER · DEX→HANDLING · AGL→AGILITY) byte-identical. Humans start
+    // neutral 5s until the meta-layer assigns real people. Zeds, dogs and
+    // beasts carry none and pay nothing.
+    const roll = (k: number) => 3 + Math.floor(hash01(this.opts.seed + sid * k) * 5);
     const stats = kind === 'bot'
       ? {
-          str: 3 + Math.floor(hash01(this.opts.seed + sid * 31.7) * 5),
-          dex: 3 + Math.floor(hash01(this.opts.seed + sid * 57.3) * 5),
-          agl: 3 + Math.floor(hash01(this.opts.seed + sid * 91.1) * 5),
+          power: roll(31.7), handling: roll(57.3), agility: roll(91.1),
+          piloting: roll(13.9), engineering: roll(47.7), leadership: roll(63.1),
+          science: roll(77.9), charisma: roll(103.3),
         }
-      : kind === 'human' ? { str: 5, dex: 5, agl: 5 } : undefined;
+      : kind === 'human'
+        ? { power: 5, agility: 5, handling: 5, piloting: 5, engineering: 5, leadership: 5, science: 5, charisma: 5 }
+        : undefined;
     const s: Soldier = {
       id: sid, kind, name, team, classId, stats,
       pos: { x: 0, y: 0, z: 0 }, vel: { x: 0, y: 0, z: 0 }, yaw: 0,
@@ -1660,7 +1666,7 @@ export class World {
     if (!scienceNoArmor) for (const id of s.equipment) plate += EQUIPMENT[id]?.hpBonus ?? 0;
     // #127: STR carries the frame — health derives from it around today's
     // average (canon: 'health derives from STR around today's average')
-    const hpMax = Math.round(c.hp * this.statMul(s.stats?.str));
+    const hpMax = Math.round(c.hp * this.statMul(s.stats?.power));
     s.hp = hpMax; s.maxHp = hpMax; s.armor = plate; s.maxArmor = plate; s.energy = 100;
     s.alive = true; s.cloaked = false; s.vehicleId = -1; s.seat = -1;
     s.carryingFlag = -1;
@@ -3034,7 +3040,7 @@ export class World {
       const cost = cmd.dash === 1 ? DASH_COST : cmd.dash === 4 ? SLIDE_COST : ROLL_COST;
       if (s.energy >= cost) {
         s.energy -= cost;
-        s.nextDashAt = this.time + DASH_CD * this.statQuick(s.stats?.agl); // #127 AGL recovers the verb
+        s.nextDashAt = this.time + DASH_CD * this.statQuick(s.stats?.agility); // #127 AGILITY recovers the verb
         const fx = Math.cos(s.yaw), fz = Math.sin(s.yaw);
         if (cmd.dash === 1) {
           s.pushX += fx * DASH_IMPULSE;
@@ -3072,7 +3078,7 @@ export class World {
       const len = Math.hypot(cmd.moveX, cmd.moveZ);
       if (len > 0.01) {
         s.energy -= LEAP_COST;
-        s.nextDashAt = this.time + DASH_CD * this.statQuick(s.stats?.agl); // #127 AGL recovers the verb
+        s.nextDashAt = this.time + DASH_CD * this.statQuick(s.stats?.agility); // #127 AGILITY recovers the verb
         const h = LEAP_H_MIN + (LEAP_H_MAX - LEAP_H_MIN) * Math.min(1, cmd.leap!);
         s.vel.x = (cmd.moveX / len) * h;
         s.vel.z = (cmd.moveZ / len) * h;
@@ -4249,7 +4255,7 @@ export class World {
     s.meleeChargeMul = undefined;
     if (!def || !s.alive) return; // attacker died mid-swing — no ghost claws
     // #127: STR lands in the fists — the visceral melee hook, spent once here
-    const strikeDmg = def.damage * chargeMul * this.statMul(s.stats?.str);
+    const strikeDmg = def.damage * chargeMul * this.statMul(s.stats?.power);
     // the lunge: thrown ~1.5u into the swing via the decaying push impulse. A
     // heavier blow drives the attacker further into it.
     s.pushX += Math.cos(s.meleeYaw) * MELEE_LUNGE * Math.min(1.4, chargeMul);

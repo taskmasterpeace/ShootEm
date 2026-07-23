@@ -266,11 +266,14 @@ export function setRankChip(insignia: string, name: string) {
   document.getElementById('rank-name')!.textContent = name.toUpperCase();
 }
 
-/** #127 THE STATS — the visceral three, worn beside the rank. Set from the
- *  match (the soldier owns them); the dossier path never sees a soldier. */
-export function setStatChips(stats?: { str: number; dex: number; agl: number }) {
+/** #127 THE 8 MASTER STATS — the combat-hooked trio worn beside the rank
+ *  (POWER · AGILITY · HANDLING carry the sim hooks today; the other five
+ *  are the meta-layer's levers and live on the dossier, not the chip). Set
+ *  from the match (the soldier owns them); the dossier path never sees a
+ *  soldier. */
+export function setStatChips(stats?: { power: number; agility: number; handling: number }) {
   const st = document.getElementById('rank-stats');
-  if (st) st.textContent = stats ? `STR ${stats.str} · DEX ${stats.dex} · AGL ${stats.agl}` : '';
+  if (st) st.textContent = stats ? `POW ${stats.power} · AGI ${stats.agility} · HND ${stats.handling}` : '';
   document.getElementById('rank-chip')?.classList.remove('hidden');
 }
 

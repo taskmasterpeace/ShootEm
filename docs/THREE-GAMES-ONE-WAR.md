@@ -51,3 +51,53 @@ Generated **newspaper** (exists — grows into the daily), **radio** with factio
 
 ## Still open (the next decision batch)
 Which civilian vehicles weaponize · vehicles captured/stored/named? · exact per-rank authorities · what friendships/rivalries DO mechanically · how much power is player-skill vs progression (his instinct: **responsibilities > numbers** — the strongest feeling is being trusted with the bomber, the platoon, the front) · what survives a print's death beyond the account layer · Secretary specifics (he's reading the pitches).
+
+---
+
+# APPENDIX — THE ROSTERS (transcribed 2026-07-23)
+*These lists previously existed only in the source transcript — #94 pointed here and found nothing. Now it finds this. Robert's words, structured.*
+
+## Secondary skills (level independently, THROUGH USE)
+Rifle · SMG · LMG · Sniper · Rocket · Knife · Pistol · Tank Driver · Tank Gunner · Helicopter · Jet · Boat · Engineer · Medic · Dog Handler · Drone Pilot · Radio Operator · Commander · Navigator · Mechanic · Explosives · Scout
+
+## Vehicle certifications (earned at training bases, never XP)
+Basic Driver · Heavy Truck · APC · Tank · Hovercraft · Boat · Helicopter · Fixed Wing · Bomber · Transport · Drone Pilot · Dropship
+
+## Civilian vehicles ("military vehicles make war; civilian vehicles make the world feel alive")
+**Ground:** Sedan · Pickup · SUV · Sports car · Taxi · School bus · Motorcycle · Scooter · ATV · Garbage truck · Tow truck · Ambulance · Fire truck · Fuel tanker · Moving truck · Food truck · Delivery van · Police cruiser · Construction loader · Forklift · Bulldozer · Cement mixer · Train · Subway · Golf cart · Hoverboard · Bicycle
+**Air:** Passenger jet · Private jet · Cargo aircraft · Bush plane · Crop duster · News helicopter · Medical helicopter · Police helicopter · Sky crane · Hot air balloon · Blimp · Ultralight · Paraglider · Hang glider · Parachute · Jetpack · Wingsuit
+**Water:** Fishing boat · Yacht · Speedboat · Ferry · Cargo ship · Patrol boat · Jet ski · Hovercraft · River barge · Submersible
+*(Still open: which weaponize · captured/stored/named?)*
+
+## The parachute (gameplay, not a fall mechanic)
+steer · flare · collapse canopy · cut parachute · land on rooftops · land in trees · get tangled · shoot while descending · be shot while descending · deploy too low and die
+
+## Hoverboard mastery ("Tony Hawk meets Halo")
+wall ride · power slide · grind rails · drift · bunny hop · boost jump · reverse · air brake · trick off ramps
+
+## Hidden story-stats (stories, not power)
+Combat Experience · Fear · Morale · Discipline · Fame · Infamy · Loyalty · Squad Trust · Vehicle Preference · Pilot Hours · Tank Hours · Kill Distance Record · Rescue Count · Friendly Fire Incidents · Scientist Extractions · Cities Liberated · Fronts Served · Decorations · Campaign Tours
+
+## The GONET home screen (the transcript's mock)
+```
+----------------------------------
+GOOD EVENING MAJOR SMITH
+----------------------------------
+WORLD STATUS
+  Front Delta            LOSING
+  Science                3 Missions Available
+  Military               18 Missions Available
+  Personal Mail          4
+  Friends Online         12
+  Nearby Players         3
+  Player From Virginia   ONLINE
+  Your Squad             2 Waiting
+  Factory                Tank Ready
+  Research               New Prototype Complete
+  Promotion Board        Eligible
+  News                   Battle of Richmond Continues
+----------------------------------
+```
+
+## The closing law (Robert's biggest-opportunity ruling)
+**Don't make the RPG stats the main progression.** Knowledge, certifications, rank, relationships, and reputation ARE the progression. Stats help — but the most powerful feeling is earned responsibility: being trusted to fly the bomber, command the platoon, lead the science op, turn a front.
