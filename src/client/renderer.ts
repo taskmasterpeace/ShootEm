@@ -605,7 +605,11 @@ export class Renderer {
     // opt #31: LOW caps DPR at 1.25 — a 4K iGPU laptop stops rendering 8.3M
     // multisampled pixels it can't afford (also half of #21's ask)
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, settings.quality === 'low' ? 1.25 : 2));
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    // THE PICTURE OWNS ITS OWN BOX (THE BOARD): the canvas is no longer the
+    // whole window — the desk sits under it — so the drawing buffer is sized
+    // from the CANVAS, and `false` keeps setSize from writing inline px that
+    // would fight the stylesheet for the element's size.
+    this.renderer.setSize(canvas.clientWidth || window.innerWidth, canvas.clientHeight || window.innerHeight, false);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.5, 400);
@@ -615,11 +619,34 @@ export class Renderer {
     this.flashes = new FlashLights(this.scene, settings.quality === 'low' ? 2 : 5); // opt #30: pool by tier, fixed at startup
     this.fireballs = new Fireballs(this.scene);
 
-    window.addEventListener('resize', () => {
-      this.camera.aspect = window.innerWidth / window.innerHeight;
+    // Refit from the CANVAS, not the window: toggling the desk changes the
+    // picture's height without a window resize ever firing, so the observer —
+    // not the event — is the real source. Both are wired; the event is just
+    // the cheap early one.
+    const fit = () => {
+      const w = canvas.clientWidth || window.innerWidth;
+      const h = canvas.clientHeight || window.innerHeight;
+      if (w <= 0 || h <= 0) return;
+      this.camera.aspect = w / h;
       this.camera.updateProjectionMatrix();
-      this.renderer.setSize(window.innerWidth, window.innerHeight);
-    });
+      this.renderer.setSize(w, h, false);
+    };
+    window.addEventListener('resize', fit);
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(fit).observe(canvas);
+  }
+
+  /** THE BOARD's window into the GPU side — the only reader of draw cost. */
+  stats(): { calls: number; tris: number; geometries: number; textures: number; w: number; h: number } {
+    const info = this.renderer.info;
+    const size = this.renderer.getSize(new THREE.Vector2());
+    return {
+      calls: info.render.calls,
+      tris: info.render.triangles,
+      geometries: info.memory.geometries,
+      textures: info.memory.textures,
+      w: Math.round(size.x),
+      h: Math.round(size.y),
+    };
   }
 
   /** §8.8 WEATHER render pass: cloud deck, atmosphere grading, precipitation

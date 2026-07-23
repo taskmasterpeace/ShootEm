@@ -156,8 +156,11 @@ export class Input {
     });
     window.addEventListener('blur', () => { this.keys.clear(); this.grenadeAiming = false; this.meleeDown = false; });
     canvas.addEventListener('mousemove', (e) => {
-      this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-      this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      // NDC against the CANVAS box — with THE BOARD up the picture is shorter
+      // than the window, and a window-relative ray would aim under the cursor
+      const r = canvas.getBoundingClientRect();
+      this.mouse.x = ((e.clientX - r.left) / (r.width || 1)) * 2 - 1;
+      this.mouse.y = -((e.clientY - r.top) / (r.height || 1)) * 2 + 1;
     });
     canvas.addEventListener('mousedown', (e) => {
       if (e.button === 0) this.mouse.down = true;

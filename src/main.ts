@@ -28,6 +28,7 @@ import { awardLicence, canEnrol, loadLicences } from './client/licences';
 import { allRecords, fileRun, raceClassOf } from './client/records';
 import { settleMatch, treasuryLine } from './client/treasury';
 import { renderServiceFile } from './client/service-file';
+import { Board } from './client/board';
 import {
   clearRoom, newRoom, renderThreatPanel, roomCensus, runPreset, shelfSpec,
   stepRoom, summon, type RoomState,
@@ -670,6 +671,17 @@ async function startGame() {
   const renderer = new Renderer(canvas);
   const dmgText = new DamageText();
   const hud = new Hud();
+  // THE BOARD — the desk under the picture. Raised by default on a real
+  // screen (that space is the whole point); a phone keeps its pixels.
+  const desk = new Board($('board'));
+  desk.setOn(!document.body.classList.contains('touch'));
+  window.addEventListener('keydown', (e) => {
+    if (e.code !== 'F9' || e.repeat) return;
+    const el = document.activeElement;
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return;
+    e.preventDefault();
+    desk.toggle();
+  });
   const input = new Input(canvas);
   const chat = new Chat(name);
   hud.show();
@@ -711,7 +723,7 @@ async function startGame() {
       await net.connect();
     } catch {
       hud.announce('Could not reach server — falling back to offline bots', true, 0);
-      startLocal(renderer, dmgText, hud, input, name, endGame);
+      startLocal(renderer, dmgText, hud, input, desk, name, endGame);
       return;
     }
     net.run(renderer, dmgText, hud, input, endGame);
@@ -720,7 +732,7 @@ async function startGame() {
   if (serverUrl && selectedMode === 'science') {
     hud.announce('Science missions run on the local operation host in v1', false, 0);
   }
-  startLocal(renderer, dmgText, hud, input, name, endGame);
+  startLocal(renderer, dmgText, hud, input, desk, name, endGame);
 }
 
 /** The front the player deployed to from the Scar (null = free play). */
@@ -811,7 +823,7 @@ function paintWorldClock() {
 paintWorldClock();
 setInterval(paintWorldClock, 5000);
 
-function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: Input, name: string, endGame: () => void) {
+function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: Input, desk: Board, name: string, endGame: () => void) {
   const exercise = selectedMilitaryMissionId ? createMilitaryMissionLaunch(selectedMilitaryMissionId) : null;
   const campaignFrontId = exercise || selectedMode === 'science' ? null : activeFrontId;
   const deployedOperation = campaignFrontId && campaign?.activeOperation?.plan.frontId === campaignFrontId
@@ -824,6 +836,9 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     ? (queuedScienceLaunch ?? prepareScienceMission(seed, null, scienceClones, { theme: selectedTheme }))
     : null;
   queuedScienceLaunch = null;
+  // THE BOARD opens a fresh book every match — the desk outlives the world it
+  // reports on, so without this the totals silently become lifetime figures.
+  desk.ledger.reset();
   const world = new World({
     seed, mode: exercise?.mode ?? selectedMode, difficulty, matchMinutes, theme: selectedTheme,
     // A PLACE (#122) is hand-built ground with nobody in it but the keeper
@@ -1182,11 +1197,12 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     mode === 'report'
       ? `${blackboxReport(world.blackbox)}\n${vehicleTelemetryReport(world.vehicleTelemetry)}\n${ammoReport(world)}` // §13: the ammo economy rides the report
       : { samples: world.blackbox.samples, incidents: world.blackbox.incidents, vehicles: vehicleTelemetrySnapshot(world.vehicleTelemetry) };
-  (window as unknown as Record<string, unknown>).__ww = { world, me, renderer, hud, input, audio, recorder: director.recorder, replay: director.player, director, crowd, blackbox, darkness: darknessUniforms }; // debug/testing handle (darkness: live cone uniforms — eval-side imports get FRESH module instances, this doesn't)
+  (window as unknown as Record<string, unknown>).__ww = { world, me, renderer, hud, input, audio, desk, recorder: director.recorder, replay: director.player, director, crowd, blackbox, darkness: darknessUniforms }; // debug/testing handle (darkness: live cone uniforms — eval-side imports get FRESH module instances, this doesn't)
 
   const FIXED = 1 / 60;
   let acc = 0;
   let last = performance.now();
+  let simMs = 0, drawMs = 0; // THE BOARD's engine readout, exponentially smoothed
   let overAt = 0;
   let lingerSkip = false;
   // ESC pause (local matches only — the sim is ours to stop): Resume /
@@ -1240,6 +1256,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
 
     // once highlights roll the live match is over and hidden — stop simming
     // it (no invisible battles burning CPU, no ghost VFX, no stray inputs)
+    const simT0 = performance.now();
     if (!director.highlightsRolling) {
       acc += dt;
       while (acc >= FIXED) {
@@ -1249,6 +1266,9 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
         world.step(FIXED, cmds);
       }
     }
+    // THE BOARD reads the cost of the two halves of a frame. Smoothed, or
+    // the figure is a blur nobody can read.
+    simMs += (performance.now() - simT0 - simMs) * 0.1;
     // THE GHOST: sample the local racer once racing has begun; on a lap change
     // bank the lap (keeping it if it's a new best), and show the phantom at the
     // current lap clock. Client-only — never touches the sim.
@@ -1289,6 +1309,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     }
     const events = world.takeEvents();
     hud.applyEvents(events, world, me.id, world.time); // killfeed stays live
+    desk.applyEvents(events, world); // and the book keeps its own account
     // the score follows the field: soldier → LSW → the monsters (music.ts)
     music.setVolume(settings.masterVolume);
     music.update(world, now);
@@ -1647,7 +1668,9 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     const wxMods = WEATHER_MODS[renderWorld.weather?.kind ?? 'clear'];
     input.weatherZoomCap = wxMods.zoomCap !== undefined && (renderWorld.weather?.intensity ?? 0) > 0.3
       ? wxMods.zoomCap : Infinity;
+    const drawT0 = performance.now();
     renderer.update(renderWorld, me.id, dt, hud.getWaypoints());
+    drawMs += (performance.now() - drawT0 - drawMs) * 0.1;
     dmgText.update(dt, renderer.camera); // project the floating numbers after the camera moves
     hud.update(world, me.id, input.scoreboardHeld, world.time);
     renderSciencePanel($('science-mission-panel'), world.science);
@@ -1686,6 +1709,9 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
       else if (now - overAt > (world.mode.id === 'paintball' ? 8000 : MATCH_LINGER_LOCAL_MS)
         || (now - overAt > 3000 && lingerSkip)) { endGame(); return; }
     }
+    // THE BOARD, last: every figure it shows is now this frame's truth
+    desk.frame(dt * 1000);
+    desk.render(world, me, renderer.stats(), { simMs, drawMs });
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

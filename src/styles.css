@@ -33,8 +33,25 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 
-#app { position: relative; width: 100%; height: 100%; }
-#game-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+/* THE BOARD reserves its band here and NOWHERE else: one variable, read by the
+   picture, the HUD and the damage layer, so the three can never disagree about
+   where the screen stops being the game. 0 until the desk is raised.
+   The clamp is the aspect decision (see src/client/board.ts): 22vh puts a
+   1920x1080 panel at a 2.28:1 picture — cinemascope — and never lets the desk
+   fall under 132px (unreadable) or climb past 280px (the game stops being the
+   point). */
+#app { position: relative; width: 100%; height: 100%; --board-h: 0px; }
+#app.board-on { --board-h: clamp(132px, 22vh, 280px); }
+/* The height is stated OUTRIGHT, never left to `auto`. A canvas with
+   width/height:auto lays out at its drawing-BUFFER size, and the renderer
+   sizes that buffer from the element — an infinite ratchet that inflated the
+   canvas to 26 million pixels the first time this was written with
+   left/right/top/bottom. calc() is the fixed point that loop never had. */
+#game-canvas {
+  position: absolute; left: 0; top: 0;
+  width: 100%; height: calc(100% - var(--board-h));
+  display: block; cursor: crosshair;
+}
 
 .hidden { display: none !important; }
 
@@ -343,7 +360,8 @@ html, body {
 .controls-hint { margin-top: 1.25rem; color: var(--muted); font-size: 0.75rem; font-family: var(--font-mono); letter-spacing: 0; line-height: 1.6; }
 
 /* ============ HUD ============ */
-#hud { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+/* the HUD stops where the picture stops — nothing overhangs the desk */
+#hud { position: absolute; left: 0; right: 0; top: 0; bottom: var(--board-h); z-index: 10; pointer-events: none; }
 
 #hud-top {
   position: absolute; top: 0.9rem; left: 50%; transform: translateX(-50%);
@@ -2195,3 +2213,95 @@ body:not(.in-match) #world-clock { left: auto; right: 0.9rem; }
 #stance-line .st-charge { height: 3px; width: 100%; background: oklch(0.3 0.02 78); margin-top: 0.15rem; }
 #stance-line .st-charge i { display: block; height: 100%; background: var(--accent); transition: width 0.06s linear; }
 #stance-line .st-verb.over .st-charge i { background: #ff5a4a; }
+
+/* ===========================================================================
+   THE BOARD — the desk under the TV.
+
+   Four columns of telemetry in a short wide band. The constraint that shapes
+   every number here is VERTICAL: ~238px on a 1080p panel, of which a column
+   title eats 16. Everything is mono, tabular, and sized to be read at a
+   glance from command height — no chrome, no cards, no wasted padding.
+   =========================================================================== */
+#board {
+  position: absolute; left: 0; right: 0; bottom: 0; height: var(--board-h);
+  z-index: 12; display: grid; gap: 0;
+  grid-template-columns: 1.25fr 1.6fr 0.92fr 1.15fr;
+  background: linear-gradient(180deg, oklch(0.13 0.014 74) 0%, oklch(0.105 0.012 74) 100%);
+  border-top: 2px solid var(--accent);
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  color: var(--text); overflow: hidden;
+  box-shadow: 0 -12px 28px oklch(0 0 0 / 0.45);
+}
+.bd-col { padding: 0.34rem 0.6rem; overflow: hidden; display: flex; flex-direction: column;
+  border-left: 1px solid oklch(0.26 0.016 74); min-width: 0; }
+.bd-col:first-child { border-left: 0; }
+.bd-col > h4 {
+  font-family: var(--font); font-size: 0.6rem; font-weight: 600; letter-spacing: 0.16em;
+  color: var(--accent); margin-bottom: 0.28rem; flex: 0 0 auto;
+  display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem;
+}
+.bd-col > h4 i { font-style: normal; color: var(--muted); font-size: 0.55rem; letter-spacing: 0.08em; }
+.bd-empty { color: var(--muted); font-size: 0.62rem; line-height: 1.5; padding-top: 0.4rem; }
+
+/* ── THE RECKONING: the superlatives, four across, two down ─────────────── */
+.bd-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.2rem 0.5rem; min-height: 0; }
+.bd-stat { min-width: 0; border-left: 2px solid oklch(0.3 0.02 74); padding-left: 0.4rem; }
+.bd-stat h5 { font-family: var(--font); font-size: 0.5rem; font-weight: 600; letter-spacing: 0.13em;
+  color: var(--muted); margin: 0; white-space: nowrap; }
+.bd-stat b { display: block; font-size: 0.95rem; line-height: 1.1; color: var(--accent); font-weight: 400; }
+.bd-stat .bd-who { display: block; font-size: 0.63rem; color: var(--text); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; }
+.bd-stat .bd-det { display: block; font-size: 0.55rem; color: var(--muted); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; }
+
+/* ── THE FIGHTERS: the account table ───────────────────────────────────── */
+.bd-rows { overflow: hidden; min-height: 0; }
+.bd-row { display: grid; grid-template-columns: minmax(0, 2.1fr) 0.6fr 1fr 1fr 0.85fr 0.85fr 0.8fr;
+  gap: 0.3rem; font-size: 0.66rem; line-height: 1.42; }
+.bd-row > span { text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bd-row .bd-name { text-align: left; }
+.bd-head { font-family: var(--font); font-size: 0.5rem; letter-spacing: 0.1em; color: var(--muted);
+  border-bottom: 1px solid oklch(0.26 0.016 74); padding-bottom: 0.12rem; margin-bottom: 0.14rem; }
+.bd-head [data-sort] { cursor: pointer; }
+.bd-head [data-sort]:hover { color: var(--text); }
+.bd-head [data-sort].up { color: var(--accent); }
+.bd-row.t0 .bd-name { color: var(--team0); }
+.bd-row.t1 .bd-name { color: var(--team1); }
+.bd-row.you { background: oklch(0.76 0.16 74 / 0.11); box-shadow: inset 2px 0 0 var(--accent); }
+.bd-row.you .bd-name { font-weight: 600; }
+
+/* ── THE ENGINE: label/value pairs with a health tell ──────────────────── */
+.bd-kv { display: flex; justify-content: space-between; gap: 0.4rem; font-size: 0.63rem; line-height: 1.5; }
+.bd-kv span { color: var(--muted); font-family: var(--font); font-size: 0.53rem; letter-spacing: 0.09em; }
+.bd-kv b { font-weight: 400; white-space: nowrap; }
+.bd-kv.ok b { color: var(--ok); }
+.bd-kv.warn b { color: var(--accent); }
+.bd-kv.bad b { color: var(--danger); }
+
+/* ── THE FEED: the rolling log ─────────────────────────────────────────── */
+.bd-feed-body { overflow: hidden; min-height: 0; }
+.bd-feed-line { display: flex; gap: 0.4rem; font-size: 0.62rem; line-height: 1.46; white-space: nowrap; }
+.bd-feed-line > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+.bd-feed-line .bd-t { color: oklch(0.5 0.02 74); flex: 0 0 auto; }
+.bd-feed-line.k-kill span:last-child { color: var(--text); }
+.bd-feed-line.k-record span:last-child { color: var(--accent); }
+.bd-feed-line.k-blow span:last-child { color: oklch(0.82 0.09 74); }
+.bd-feed-line.k-block span:last-child { color: var(--team1); }
+.bd-feed-line.k-down span:last-child { color: var(--danger); }
+
+/* ── NARROW: a tablet keeps two columns, a phone keeps the two that matter ─ */
+@media (max-width: 1100px) {
+  #board { grid-template-columns: 1.3fr 1fr; }
+  .bd-eng, .bd-feed { display: none; }
+  .bd-stats { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 700px) {
+  /* a landscape phone is ~312 CSS px tall: the 132px floor would have taken a
+     third of it and left a 3.25:1 slot to play in. The desk is opt-in on touch,
+     but even then the picture has to stay a picture. */
+  #app.board-on { --board-h: clamp(84px, 22vh, 132px); }
+  #board { grid-template-columns: 1fr; }
+  .bd-fight { display: none; }
+  .bd-stats { grid-template-columns: repeat(3, 1fr); }
+  .bd-stat b { font-size: 0.85rem; }
+}

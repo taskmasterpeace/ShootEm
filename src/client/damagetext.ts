@@ -52,7 +52,10 @@ export class DamageText {
   constructor() {
     const layer = document.createElement('div');
     layer.id = 'dmg-layer';
-    layer.style.cssText = 'position:absolute;inset:0;z-index:9;pointer-events:none;overflow:hidden;';
+    // stops at the top of THE BOARD — numbers float over the PICTURE, never
+    // over the desk (and the projection below measures this layer, so the two
+    // can never disagree about where the picture ends)
+    layer.style.cssText = 'position:absolute;left:0;right:0;top:0;bottom:var(--board-h,0px);z-index:9;pointer-events:none;overflow:hidden;';
     (document.getElementById('app') ?? document.body).appendChild(layer);
     this.layer = layer;
   }
@@ -105,7 +108,10 @@ export class DamageText {
   /** Advance + reproject every live number. Call once per frame with the camera. */
   update(dt: number, camera: THREE.Camera): void {
     this.clock += dt;
-    const w = window.innerWidth, h = window.innerHeight;
+    // measure the LAYER, not the window — the picture is shorter than the
+    // screen whenever the desk is up
+    const w = this.layer.clientWidth || window.innerWidth;
+    const h = this.layer.clientHeight || window.innerHeight;
     for (let i = this.floaters.length - 1; i >= 0; i--) {
       const f = this.floaters[i];
       const age = this.clock - f.born;

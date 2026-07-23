@@ -7169,11 +7169,11 @@ export class World {
       const absorbed = Math.min(victim.armor, dmg);
       victim.armor -= absorbed;
       dmg -= absorbed;
-      if (absorbed > 0) this.emit({ type: 'damage', pos: { x: victim.pos.x, y: victim.pos.y + 1.7, z: victim.pos.z }, amount: absorbed, armorHit: true, soldierId: victim.id, ownerId: attackerId });
+      if (absorbed > 0) this.emit({ type: 'damage', pos: { x: victim.pos.x, y: victim.pos.y + 1.7, z: victim.pos.z }, amount: absorbed, armorHit: true, soldierId: victim.id, ownerId: attackerId, weapon });
       if (dmg <= 0) return; // the plate held
     }
     victim.hp -= dmg;
-    if (dmg > 0) this.emit({ type: 'damage', pos: { x: victim.pos.x, y: victim.pos.y + 1.7, z: victim.pos.z }, amount: dmg, armorHit: false, soldierId: victim.id, ownerId: attackerId });
+    if (dmg > 0) this.emit({ type: 'damage', pos: { x: victim.pos.x, y: victim.pos.y + 1.7, z: victim.pos.z }, amount: dmg, armorHit: false, soldierId: victim.id, ownerId: attackerId, weapon });
     // UI-BIBLE §09 DAMAGE DIRECTION: the victim's client draws a red arc at
     // the ATTACKER's bearing. pos = where the shot came from, soldierId = who
     // got hurt (the addressee); the HUD filters to the local player.
