@@ -226,6 +226,91 @@ export function buildProp(type: string, scale: number): THREE.Object3D {
       g.add(c, band);
       return g;
     }
+    // ═══ THE FURNISHED INTERIOR (high-code #7) ═══
+    // Every one of these stands in the same cover cell a crate did: same
+    // footprint, same collision, same waist-high fight-behind-it height.
+    // Only the silhouette changes — which is the whole difference between a
+    // warehouse and somebody's house.
+    case 'bed': {
+      const g = new THREE.Group();
+      const frame = box(1.75, 0.42, 1.15, mat(0x5a4632, { rough: 0.9 }));
+      frame.position.y = 0.24;
+      const mattress = box(1.6, 0.28, 1.02, mat(0xa9a294, { rough: 0.95 }));
+      mattress.position.y = 0.58;
+      const pillow = box(0.42, 0.16, 0.85, mat(0xd6d0c2, { rough: 0.95 }));
+      pillow.position.set(-0.6, 0.78, 0);
+      const head = box(0.14, 0.85, 1.15, mat(0x4a3a28, { rough: 0.9 }));
+      head.position.set(-0.85, 0.5, 0);
+      g.add(frame, mattress, pillow, head);
+      return g;
+    }
+    case 'table': {
+      const g = new THREE.Group();
+      const top = box(1.65, 0.12, 1.15, mat(0x6b5638, { rough: 0.85 }));
+      top.position.y = 0.86;
+      g.add(top);
+      for (const [lx, lz] of [[0.7, 0.45], [-0.7, 0.45], [0.7, -0.45], [-0.7, -0.45]]) {
+        const leg = box(0.12, 0.86, 0.12, mat(0x4c3d28, { rough: 0.9 }));
+        leg.position.set(lx, 0.43, lz);
+        g.add(leg);
+      }
+      return g;
+    }
+    case 'desk': {
+      const g = new THREE.Group();
+      const top = box(1.7, 0.11, 0.95, mat(0x50442f, { rough: 0.85 }));
+      top.position.y = 0.82;
+      const drawers = box(0.62, 0.72, 0.88, mat(0x3f3527, { rough: 0.9 }));
+      drawers.position.set(0.5, 0.4, 0);
+      const handle = box(0.05, 0.05, 0.34, mat(0x8a8272, { metal: 0.6, rough: 0.4 }));
+      handle.position.set(0.82, 0.52, 0);
+      const legs = box(0.1, 0.8, 0.85, mat(0x3f3527, { rough: 0.9 }));
+      legs.position.set(-0.78, 0.4, 0);
+      g.add(top, drawers, handle, legs);
+      return g;
+    }
+    case 'shelf': {
+      const g = new THREE.Group();
+      const back = box(0.14, 1.5, 1.6, mat(0x4a3d2a, { rough: 0.9 }));
+      back.position.set(-0.5, 0.75, 0);
+      g.add(back);
+      for (let i = 0; i < 3; i++) {
+        const plank = box(0.65, 0.09, 1.55, mat(0x5c4c33, { rough: 0.88 }));
+        plank.position.set(-0.15, 0.42 + i * 0.5, 0);
+        g.add(plank);
+        // something ON the shelf — the room looks lived in at a glance
+        const item = box(0.24, 0.3, 0.24, mat(i % 2 ? 0x8a7a58 : 0x6d7a5c, { rough: 0.92 }));
+        item.position.set(-0.15, 0.62 + i * 0.5, (i % 2 ? 0.4 : -0.35));
+        g.add(item);
+      }
+      return g;
+    }
+    case 'counter': {
+      const g = new THREE.Group();
+      const body = box(1.7, 1.0, 0.85, mat(0x5f5445, { rough: 0.9 }));
+      body.position.y = 0.5;
+      const top = box(1.8, 0.1, 0.95, mat(0x8e8676, { rough: 0.55, metal: 0.25 }));
+      top.position.y = 1.03;
+      const kick = box(1.6, 0.12, 0.7, mat(0x38312a, { rough: 0.95 }));
+      kick.position.y = 0.06;
+      g.add(body, top, kick);
+      return g;
+    }
+    case 'cabinet': {
+      const g = new THREE.Group();
+      const body = box(0.85, 1.6, 1.5, mat(0x4e4335, { rough: 0.9 }));
+      body.position.y = 0.8;
+      g.add(body);
+      for (const dz of [-0.36, 0.36]) {
+        const door = box(0.06, 1.4, 0.66, mat(0x5f5343, { rough: 0.85 }));
+        door.position.set(0.44, 0.82, dz);
+        g.add(door);
+        const knob = box(0.07, 0.07, 0.07, mat(0x9a9080, { metal: 0.6, rough: 0.4 }));
+        knob.position.set(0.5, 0.82, dz + (dz > 0 ? -0.22 : 0.22));
+        g.add(knob);
+      }
+      return g;
+    }
     case 'bunker': {
       const g = new THREE.Group();
       const wall = box(3, 2.4, 5, mat(0x5c5c50, { rough: 0.95 }));

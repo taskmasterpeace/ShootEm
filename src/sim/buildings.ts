@@ -53,6 +53,27 @@ export interface BuildingDef {
   biomes?: ThemeId[];
 }
 
+/**
+ * THE FURNITURE TABLE (high-code #7). A room with a crate in it is a
+ * warehouse; a room with a bed in it is somebody's house. These are the
+ * things that stand in an interior cover cell — all the same size, all the
+ * same collision, all cover you can fight behind.
+ *
+ * Chosen by a HASH of the tile, never the rng: the map's draw sequence must
+ * not move (every floor plan, every spawn, every replay stays byte-identical)
+ * and the same house furnishes the same way on every machine.
+ */
+const FURNITURE = [
+  'bed', 'table', 'desk', 'shelf', 'counter', 'cabinet', 'crate', 'crate',
+] as const;
+
+export function furnitureFor(gx: number, gz: number): PropSpec['type'] {
+  // a cheap integer hash — deterministic, allocation-free, rng-free
+  let h = (gx * 73856093) ^ (gz * 19349663);
+  h = (h ^ (h >>> 13)) >>> 0;
+  return FURNITURE[h % FURNITURE.length] as PropSpec['type'];
+}
+
 const B = (id: string, name: string, kind: BuildingDef['kind'], rows: string[], biomes?: ThemeId[]): BuildingDef =>
   ({ id, name, kind, floors: 1, rows, ...(biomes ? { biomes } : {}) });
 
@@ -778,11 +799,22 @@ export function stampBuilding(ctx: StampCtx, def: BuildingDef, tx: number, tz: n
           ctx.grid[idx] = ch === 'h' ? T_THIN_DOOR_H : T_THIN_DOOR_V;
           if (!frontDoor || gz >= frontDoor.z) frontDoor = { x: gx, z: gz };
           break;
-        case 'C':
+        case 'C': {
+          // THE FURNISHED INTERIOR (high-code #7). Every room in the game had
+          // the same object in it — a crate — so a bedroom, an office and a
+          // workshop were the same box with different walls. The CELL is
+          // unchanged (T_COVER, same collision, same claim), only the thing
+          // standing in it varies: the type is picked by a HASH of the tile,
+          // never the rng, so the map's draw sequence is untouched and every
+          // house keeps the exact floor plan it had.
           ctx.grid[idx] = T_COVER;
           ctx.claims.push({ idx, t: T_COVER });
-          ctx.props.push({ type: 'crate', pos: toWorld(gx, gz), scale: 1, rot: ctx.rng.range(0, Math.PI) });
+          ctx.props.push({
+            type: furnitureFor(gx, gz),
+            pos: toWorld(gx, gz), scale: 1, rot: ctx.rng.range(0, Math.PI),
+          });
           break;
+        }
         case 'P':
           ctx.grid[idx] = T_OPEN;
           ctx.pickups.push({ type: seq++ % 2 === 0 ? 'medkit' : 'ammo', pos: toWorld(gx, gz) });

@@ -187,7 +187,11 @@ export interface PropSpec {
     // A1 the airfield: a building dedicated to an aircraft (Robert). Purely
     // visual — no grid stamps, so it can never trap a hull or break a path;
     // the jet parks under the canopy and flies out over everything anyway.
-    | 'hangar';
+    | 'hangar'
+    // THE FURNISHED INTERIOR (high-code #7): the things that stand in an
+    // interior cover cell. Same footprint and collision as the crate they
+    // replace — a bedroom, an office and a workshop stop being the same box.
+    | 'bed' | 'table' | 'desk' | 'shelf' | 'counter' | 'cabinet';
   pos: Vec3;
   scale: number;
   rot: number;

@@ -26,6 +26,7 @@ import { COURSES, courseFor, layCourse } from './sim/courses';
 import { VEHICLES } from './sim/data';
 import { awardLicence, canEnrol, loadLicences } from './client/licences';
 import { allRecords, fileRun, raceClassOf } from './client/records';
+import { settleMatch, treasuryLine } from './client/treasury';
 import { fitFor, renderGarage } from './client/garage-ui';
 import { LICENCES, type LicenceId } from './sim/licenses';
 import { TouchControls, isTouchDevice } from './client/touch';
@@ -100,6 +101,7 @@ let queuedScienceLaunch: ScienceLaunchState | null = null;
 let enrolledCourse: LicenceId | null = null;
 let schoolAwarded = false; // one signature per run
 let runFiled = false;      // one record filing per race
+let treasurySettled = false; // one settlement per match
 let matchMinutes = 15;
 /** THE ROSTER LAW (Robert): zombies fight alone unless the player opts in. */
 let hordeRoster: 'zombies' | 'iron' | 'both' = 'zombies';
@@ -1293,6 +1295,21 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     }
     // THE SCHOOL SIGNS THE PAPERS: a completed course awards its licence (and
     // the whole chain beneath it) to the ACCOUNT, plus your time to beat.
+    // THE TREASURY (G1, docs/GOVERNMENT.md): the money law made concrete —
+    // "you either gotta win or you gotta lose". A decisive result MOVES the
+    // war chest, and every hull your side wrecked comes off the top.
+    if (world.mode.over && !treasurySettled && !isRace) {
+      treasurySettled = true;
+      const id0 = loadIdentity();
+      if (id0) {
+        const w0 = world.mode.winner;
+        const result = w0 === -1 ? 'draw' : w0 === playerTeam ? 'win' : 'loss';
+        const row = settleMatch(id0.faction, { result, hullsLost: world.warLedger[playerTeam]?.hulls ?? 0 });
+        hud.careerHtml = (hud.careerHtml ?? '')
+          + '<p class="cp-row">' + treasuryLine(id0.faction) + '</p>';
+        void row;
+      }
+    }
     // LOW-CODE #9: FILE THE RUN. A race that ends without touching the record
     // board is a race that did not count.
     if (world.mode.over && isRace && !runFiled) {
