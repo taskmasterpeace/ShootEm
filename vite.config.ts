@@ -73,6 +73,9 @@ export default defineConfig({
         armory: resolve(__dirname, 'armory.html'),
         // the style lab — the capsule-soldier experiment (/style.html)
         style: resolve(__dirname, 'style.html'),
+        // THE BODY SHOP — Robert's body decision: current rig vs capsule
+        // with legs vs bare pod, same rig contract (/bodylab.html)
+        bodylab: resolve(__dirname, 'bodylab.html'),
         // the beam lab — continuous beams: hose / kamehameha / heat / flamer (/beams.html)
         beams: resolve(__dirname, 'beams.html'),
         // radar/minimap + PixelLab aircraft instrument state bench

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WAR WORLD — THE BODY SHOP</title>
+  <style>
+    :root {
+      --ink: #0d0f0c; --bone: #d8d4c8; --amber: #e8a33d; --dim: #8a867a;
+      --line: #3a382f;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; background: var(--ink); }
+    body { font-family: 'Courier New', ui-monospace, monospace; color: var(--bone); }
+    canvas { display: block; }
+    .hud { position: fixed; left: 0; right: 0; pointer-events: none; z-index: 5; }
+    #top { top: 0; padding: 14px 18px; display: flex; justify-content: space-between; align-items: baseline; }
+    #top h1 { font-size: 15px; letter-spacing: 0.22em; font-weight: 700; }
+    #top h1 b { color: var(--amber); }
+    #top .sub { font-size: 11px; color: var(--dim); letter-spacing: 0.12em; }
+    #legend { bottom: 64px; display: flex; justify-content: center; gap: 4vw; text-align: center; }
+    .card { border: 1px solid var(--line); border-top: 2px solid var(--amber); background: rgba(13,15,12,0.82); padding: 8px 14px; min-width: 200px; }
+    .card .tag { color: var(--amber); font-size: 11px; letter-spacing: 0.18em; }
+    .card .nm { font-size: 13px; letter-spacing: 0.08em; margin-top: 2px; }
+    .card .note { font-size: 10px; color: var(--dim); margin-top: 3px; letter-spacing: 0.05em; }
+    #bar { bottom: 0; display: flex; justify-content: center; gap: 8px; padding: 12px; pointer-events: auto; background: linear-gradient(transparent, rgba(13,15,12,0.9)); }
+    #bar button {
+      font: 700 11px 'Courier New', monospace; letter-spacing: 0.16em; cursor: pointer;
+      color: var(--bone); background: transparent; border: 1px solid var(--line);
+      padding: 8px 16px; text-transform: uppercase;
+    }
+    #bar button:hover { border-color: var(--amber); color: var(--amber); }
+    #bar button.on { background: var(--amber); color: var(--ink); border-color: var(--amber); }
+  </style>
+</head>
+<body>
+  <div class="hud" id="top">
+    <h1>[ THE <b>BODY SHOP</b> ]</h1>
+    <span class="sub">THE BODY DECISION, LIVE — SAME RIG CONTRACT, SAME WALK CYCLE, YOUR CALL &nbsp;·&nbsp; KEYS 1-5 SET THE POSE</span>
+  </div>
+  <div class="hud" id="legend">
+    <div class="card">
+      <div class="tag">A — IN SERVICE</div>
+      <div class="nm">THE CURRENT RIG</div>
+      <div class="note">what ships today · its "crouch" is a 0.5u dip, no fold</div>
+    </div>
+    <div class="card">
+      <div class="tag">B — THE CANDIDATE</div>
+      <div class="nm">CAPSULE, WITH LEGS</div>
+      <div class="note">the LSW toy grown up · sphere-capped joints · REALLY crouches</div>
+    </div>
+    <div class="card">
+      <div class="tag">C — THE PURIST</div>
+      <div class="nm">CAPSULE, BARE POD</div>
+      <div class="note">no legs, hover skirt · crouch can only SQUASH</div>
+    </div>
+  </div>
+  <div class="hud" id="bar">
+    <button data-pose="idle" class="on">1 · Idle</button>
+    <button data-pose="walk">2 · Walk</button>
+    <button data-pose="run">3 · Run</button>
+    <button data-pose="crouch">4 · Crouch</button>
+    <button data-pose="crouchwalk">5 · Crouch-walk</button>
+  </div>
+  <script type="module" src="/src/client/bodylab.ts"></script>
+</body>
+</html>
