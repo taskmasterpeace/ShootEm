@@ -28,7 +28,7 @@ export interface FrontendHost {
   /** BRIEF -> BATTLEFIELD: launch a briefed operation or science mission. */
   launchBrief(kind: 'military' | 'science', id: string): void;
   /** SPORTS: enter a discipline. */
-  enterSport(mode: import('../sim/types').ModeId): void;
+  enterSport(mode: import('../sim/types').ModeId, raceKind?: import('../sim/types').ModeState['raceKind']): void;
   /** THE DECK: switch on a cartridge. */
   playCartridge(id: string): void;
   /** Identity established or changed — push the callsign into the deploy form + record. */
@@ -84,7 +84,7 @@ function renderMenu() {
     // thing you press.
     launchBrief: (kind, id) => { hideOverlay(); host.launchBrief(kind, id); },
     // SPORTS: the league is a way INTO the same modes, not a second config screen.
-    enterSport: (mode) => { hideOverlay(); gonetSuspend(); host.enterSport(mode); },
+    enterSport: (mode, raceKind) => { hideOverlay(); gonetSuspend(); host.enterSport(mode, raceKind); },
     // THE DECK pays morale and teaches nothing — that is the whole design.
     playCartridge: (id) => host.playCartridge(id),
     options: renderOptions,

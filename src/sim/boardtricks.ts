@@ -43,6 +43,9 @@ export interface TrickState {
   chain: string[];
   /** true while a bail is playing out — controls are mush */
   bailedUntil: number;
+  /** FREESTYLE: everything LANDED since the last bail. Boost is spent and so
+   *  cannot be a score; this only ever grows, and a bail takes all of it. */
+  runScore: number;
   /** last frame's heading, so a spin is just steering held in the air */
   lastYaw?: number;
 }
@@ -51,6 +54,7 @@ export function newTrickState(): TrickState {
   return {
     boost: 0, combo: 0, multiplier: 1, spin: 0, airtime: 0,
     grindTime: 0, wallTime: 0, slideTime: 0, lastTrick: '', chain: [], bailedUntil: 0,
+    runScore: 0,
   };
 }
 
@@ -168,6 +172,7 @@ export function land(t: TrickState, alignment: number, now: number): Landing {
     t.bailedUntil = now + 0.9;
     t.lastTrick = 'BAILED';
     t.chain = [];
+    t.runScore = 0;   // FREESTYLE: the run dies with the landing
     resetRun(t);
     return { landed: false, banked: 0, boost: 0, name: 'BAILED', multiplier: 1 };
   }
@@ -177,6 +182,7 @@ export function land(t: TrickState, alignment: number, now: number): Landing {
   const banked = Math.round(had * t.multiplier * quality);
   const gained = Math.min(BOOST_MAX - t.boost, banked * BANK_RATE);
   t.boost = Math.min(BOOST_MAX, t.boost + gained);
+  t.runScore += banked;   // FREESTYLE: the run grows with every clean landing
   t.multiplier = Math.min(6, t.multiplier + 1);
   if (name) { t.lastTrick = name; t.chain.push(name); }
   resetRun(t);

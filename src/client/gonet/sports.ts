@@ -20,7 +20,7 @@
 //
 // Pure: no DOM. The laptop renders it; records.ts owns the times.
 // ═══════════════════════════════════════════════════════════════════════════
-import type { ModeId, SkillId } from '../../sim/types';
+import type { ModeId, ModeState, SkillId } from '../../sim/types';
 import { allRecords, type RaceClass, type TrackRecord } from '../records';
 
 export type SportId = 'circuit' | 'demolition' | 'gunrun' | 'timeattack' | 'freestyle';
@@ -34,6 +34,9 @@ export interface Sport {
   rules: string[];
   /** what mode it launches */
   mode: ModeId;
+  /** which DISCIPLINE of that mode. Circuit, the Gun Run and Freestyle all
+   *  launch `race`; this is what tells them apart once the world is built. */
+  raceKind?: ModeState['raceKind'];
   /** what competing in it actually trains — a sport is not idle time */
   trains: SkillId[];
   /** the class of machine it is run for */
@@ -43,12 +46,14 @@ export interface Sport {
 }
 
 /**
- * THE DISCIPLINES.
+ * THE DISCIPLINES — all five run.
  *
- * Circuit and Time Attack run today. Demolition, the Gun Run and Freestyle are
- * the shapes the existing parts already imply — droppables, hull damage
- * systems, and the board's trick economy — and the board says PLANNED rather
- * than pretending.
+ * Circuit and Time Attack were first. Demolition, THE GUN RUN and FREESTYLE
+ * were each the shape the existing parts already implied, and each is now
+ * wired to the part that implied it: the derby to hull-damage systems, the Gun
+ * Run to a fixed forward weapon on the nose, and Freestyle to the board's own
+ * trick economy. Circuit, the Gun Run and Freestyle all launch the `race` mode
+ * and are told apart by `raceKind`.
  */
 export const SPORTS: Sport[] = [
   {
@@ -60,7 +65,7 @@ export const SPORTS: Sport[] = [
       'Droppables permitted — mines and oil off the back.',
       'Every lap is filed to the board whether you finish or not.',
     ],
-    mode: 'race',
+    mode: 'race', raceKind: 'circuit',
     trains: ['tank_driver', 'mechanic'],
     classes: ['bike', 'car', 'truck', 'board'],
     live: true,
@@ -73,7 +78,7 @@ export const SPORTS: Sport[] = [
       'Your best lap runs beside you as a ghost.',
       'A new best is filed the moment it happens.',
     ],
-    mode: 'timetrial',
+    mode: 'timetrial', raceKind: 'trial',
     trains: ['tank_driver'],
     classes: ['bike', 'car', 'truck', 'board'],
     live: true,
@@ -99,10 +104,10 @@ export const SPORTS: Sport[] = [
       'Droppables off the back stay legal.',
       'Laps still count. Being fastest and being alive are different problems.',
     ],
-    mode: 'race',
+    mode: 'race', raceKind: 'gunrun',
     trains: ['tank_driver', 'tank_gunner'],
     classes: ['car', 'truck'],
-    live: false,
+    live: true,
   },
   {
     id: 'freestyle', name: 'FREESTYLE',
@@ -112,10 +117,10 @@ export const SPORTS: Sport[] = [
       'Combo banks on a clean landing and is gone on a bail.',
       'Best single run of the session takes it.',
     ],
-    mode: 'race',
+    mode: 'race', raceKind: 'freestyle',
     trains: ['navigator'],
     classes: ['board'],
-    live: false,
+    live: true,
   },
 ];
 

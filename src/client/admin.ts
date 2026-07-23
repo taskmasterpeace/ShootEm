@@ -126,7 +126,7 @@ function paintIdentity() {
 // and can a lap be timed on it?
 // ═══════════════════════════════════════════════════════════════════════════
 import {
-  DEFAULT_PIECE, PIECE_SHAPE, exportTrack, starterOval, validateTrack, walkTrack,
+  DEFAULT_PIECE, PIECE_SHAPE, camerasFor, exportTrack, starterOval, validateTrack, walkTrack,
   type BuiltTrack, type Pavement, type PieceKind, type TrackPiece,
 } from '../sim/tracks';
 
@@ -183,6 +183,16 @@ function drawTrackMap() {
       ctx.fillRect(ox + n.pos.x * S - 4, oz + n.pos.z * S - 4, 8, 8);
     }
   });
+  // THE CAMERAS — what the creator dropped, or the two the track gets anyway
+  const cams = camerasFor(draft);
+  ctx.fillStyle = draft.cameras?.length ? '#6fd0ff' : '#3f6f88';
+  cams.forEach((c, i) => {
+    ctx.beginPath();
+    ctx.arc(ox + c.x * S, oz + c.z * S, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.font = '9px monospace';
+    ctx.fillText(String(i + 1), ox + c.x * S + 6, oz + c.z * S + 3);
+  });
 }
 
 function paintTrackBuilder() {
@@ -197,6 +207,23 @@ function paintTrackBuilder() {
       box.appendChild(b);
     }
     (document.getElementById('tb-undo') as HTMLButtonElement).onclick = () => { draft.pieces.pop(); paintTrackBuilder(); };
+    // THE CAMERAS (Robert: "racing cameras at start and a random place… when
+    // building tracks we should be able to select this"). Drop one at the end
+    // of the route as you lay it, pulled off the racing line so the shot looks
+    // ACROSS the track. Leave none and the circuit still gets the two every
+    // track deserves — the start line and one out on the lap (camerasFor).
+    (document.getElementById('tb-cam') as HTMLButtonElement).onclick = () => {
+      const nodes = walkTrack(draft);
+      const last = nodes[nodes.length - 1];
+      const at = last
+        ? { x: last.pos.x - Math.sin(last.yaw) * 16, y: 0, z: last.pos.z + Math.cos(last.yaw) * 16 }
+        : { ...draft.start };
+      (draft.cameras ??= []).push(at);
+      paintTrackBuilder();
+    };
+    (document.getElementById('tb-camclear') as HTMLButtonElement).onclick = () => {
+      draft.cameras = []; paintTrackBuilder();
+    };
     (document.getElementById('tb-clear') as HTMLButtonElement).onclick = () => { draft.pieces = []; paintTrackBuilder(); };
     (document.getElementById('tb-oval') as HTMLButtonElement).onclick = () => {
       draft = starterOval(draft.author);
@@ -233,7 +260,9 @@ function paintTrackBuilder() {
     // circuit is a legitimate thing to build, it just is not a car track
     const blocking = problems.filter((p) => p.kind !== 'narrow');
     const cautions = problems.filter((p) => p.kind === 'narrow');
-    verdict.innerHTML = `<b>${draft.pieces.length} PIECES</b> · ${shelfN} on the shelf<br>`
+    const camN = camerasFor(named).length;
+    verdict.innerHTML = `<b>${draft.pieces.length} PIECES</b> · ${shelfN} on the shelf`
+      + ` · ${camN} camera${camN === 1 ? '' : 's'}${draft.cameras?.length ? '' : ' (auto)'}<br>`
       + (blocking.length
         ? blocking.map((p) => `<span style="color:#ff6b6b">▸ ${p.detail}</span>`).join('<br>')
         : '<span style="color:#6fe06f">▸ DRIVABLE — the route closes, fits the world, and a lap can be timed.</span>')

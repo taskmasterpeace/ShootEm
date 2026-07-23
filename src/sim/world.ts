@@ -420,6 +420,10 @@ export interface WorldOptions {
    */
   startingSkills?: Partial<Record<SkillId, number>>;
   matchMinutes?: number;
+  /** MOTOR SPORT: which discipline a `race` deploy actually is. The mode id is
+   *  still `race`; this says whether it is a plain circuit, THE GUN RUN (guns
+   *  live) or FREESTYLE (no finish line, scored on what you land). */
+  raceKind?: 'circuit' | 'trial' | 'gunrun' | 'freestyle';
   /** THE ONE CLOCK (#123): the global day-fraction (0..1, 0 = midnight) at
    *  launch, computed by the CLIENT from UTC (src/client/worldclock.ts).
    *  The sim never reads Date.now — this opt keeps replays pure. When set,
@@ -693,7 +697,7 @@ export class World {
     this.soldierIndex = new SoldierIndex(this.map.geometry);
     this.indoorTactics = createIndoorTacticalState(this.map) ?? undefined;
     this.gravity = THEMES[this.map.theme].gravity;
-    this.mode = initMode(opts.mode, this.map, opts.matchMinutes);
+    this.mode = initMode(opts.mode, this.map, opts.matchMinutes, opts.raceKind);
     if (opts.operation) {
       this.operation = createOperationRuntime(opts.operation);
       this.mode.timeLeft = Infinity;
@@ -5957,8 +5961,13 @@ export class World {
       turn = driverCmd.moveX;
       fire = driverCmd.fire;
       v.turretYaw = driverCmd.aimYaw;
-      // MOTOR TRIALS: the lights aren't out yet — hold the grid until GO
-      if ((this.mode.countdown ?? 0) > 0 && isBoard(v.kind)) { throttle = 0; turn = 0; }
+      // MOTOR TRIALS: the lights aren't out yet — hold the grid until GO.
+      // This used to hold BOARDS only, so in any car/truck/bike race the whole
+      // field simply drove off during the countdown. A start line nobody has to
+      // wait at is not a start line. (`racers` is not collected until the
+      // countdown ends, so the gate has to be the MODE, not the roster.)
+      const onTheGrid = this.mode.id === 'race' || this.mode.id === 'timetrial' || this.mode.id === 'derby';
+      if ((this.mode.countdown ?? 0) > 0 && onTheGrid) { throttle = 0; turn = 0; }
       // J1: an AIRBORNE pilot's E key is the dive, not the door — applyCmd
       // walks the bands; this exit only fires once the wheels are down.
       // (Two exit paths existed; ungated, this one threw the pilot out on the
@@ -6314,8 +6323,12 @@ export class World {
       if (driverCmd) v.turretYaw = driverCmd.aimYaw;
     }
 
-    // THE BOARD keeps its own physics and its own economy
-    if (v.kind === 'hoverboard') this.stepBoard(v, stunned ? undefined : driverCmd, dt);
+    // THE BOARD keeps its own physics and its own economy.
+    // This used to read `v.kind === 'hoverboard'`, which meant the three
+    // RACEBOARDS the sport actually offers — comet, vector, sprite — never got
+    // the hop, the boost or the trick economy at all. The whole verb set was
+    // switched off for the machines you race on. Every board gets it now.
+    if (isBoard(v.kind)) this.stepBoard(v, stunned ? undefined : driverCmd, dt);
 
     // ---- run over enemies (ground vehicles at speed) ----
     const speedNow = Math.hypot(v.vel.x, v.vel.z);

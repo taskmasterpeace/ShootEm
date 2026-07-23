@@ -58,7 +58,7 @@ export interface GonetHost {
   /** Straight into a briefed mission, skipping the deploy screen entirely. */
   launchBrief(kind: BriefKind, id: string): void;
   /** SPORTS: enter a discipline — the league is a way into the same modes. */
-  enterSport(mode: import('../../sim/types').ModeId): void;
+  enterSport(mode: import('../../sim/types').ModeId, raceKind?: import('../../sim/types').ModeState['raceKind']): void;
   /** THE DECK: switch on a cartridge. */
   playCartridge(id: string): void;
   /** OPTIONS lives in its own panel already. */
@@ -694,7 +694,7 @@ function wire(): void {
       const s = sportById(b.dataset.sportgo as SportId);
       if (!s) return;
       gonetSuspend();
-      host.enterSport(s.mode);
+      host.enterSport(s.mode, s.raceKind);
     };
   });
 

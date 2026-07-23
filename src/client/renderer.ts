@@ -285,6 +285,9 @@ export class Renderer {
   }
   /** wheel-zoom distance, fed by Input each frame */
   camDist = 30;
+  /** THE BROADCAST CAMERA: index into `raceTrack.cameras`, or -1 for the
+   *  normal chase view. Cycled with C during a race. */
+  raceCam = -1;
   /** true while a killcam/highlights puppet world is being rendered —
    *  mutes animation-marker audio, freezes the listener, hides live-time
    *  overlays, and switches entity cleanup from delete to hide (the live
@@ -4596,6 +4599,19 @@ export class Renderer {
       }
       this.camera.position.copy(this.camPos);
       this.camera.lookAt(target);
+      // ── THE BROADCAST CAMERA ────────────────────────────────────────────
+      // A trackside camera the race can cut to: the shot sits still on its
+      // post and TRACKS you, the way a circuit camera does, instead of riding
+      // your bumper. Cameras come off the track itself (the creator drops them
+      // in the builder; every circuit is guaranteed a start-line one and one
+      // out on the lap), so this is the same feature in a built track and the
+      // procedural oval. Overrides last so nothing above has to know about it.
+      const cams = world.map.raceTrack?.cameras;
+      if (this.raceCam >= 0 && cams?.length) {
+        const c = cams[this.raceCam % cams.length];
+        this.camera.position.set(c.x, 9.5, c.z);
+        this.camera.lookAt(focusPos.x, 1.2, focusPos.z);
+      }
       // RIDE polish: the streaking round, and a subtle speed-FOV punch — both
       // eased straight back to normal the instant the ride is not the shot.
       this.updateKillcamRound(roundPos);

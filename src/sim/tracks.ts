@@ -45,6 +45,11 @@ export interface BuiltTrack {
   start: Vec3;
   startYaw: number;
   pieces: TrackPiece[];
+  /** THE CAMERAS. Trackside points the broadcast cuts to. The creator drops
+   *  them while laying the route; a track with none gets the two every circuit
+   *  deserves (see `camerasFor`) — one on the START LINE and one out on the
+   *  circuit where something usually happens. */
+  cameras?: Vec3[];
   /** schema version, so a track file from today still loads later */
   version: 1;
 }
@@ -147,6 +152,34 @@ export function checkpointsFor(track: BuiltTrack): { pos: Vec3; radius: number }
   return walkTrack(track).map((n) => ({ pos: { ...n.pos }, radius: Math.max(10, n.piece.width * 0.9) }));
 }
 
+/**
+ * THE CAMERAS A CIRCUIT GETS.
+ *
+ * Robert: *"have racing cameras at start and a random place… when building
+ * tracks we should be able to select this."* So: whatever the creator authored
+ * comes first, and every track is guaranteed the two that matter — the START
+ * LINE, and one out on the circuit. The "random" one is picked by a hash of the
+ * track id, so it is arbitrary but STABLE: the same track always cuts to the
+ * same corner, which is what makes a circuit feel like a place.
+ *
+ * Cameras are pulled a little off the racing line so the shot looks across the
+ * track rather than down at the roof of the car.
+ */
+export function camerasFor(track: BuiltTrack): Vec3[] {
+  if (track.cameras?.length) return track.cameras.map((c) => ({ ...c }));
+  const nodes = walkTrack(track);
+  if (!nodes.length) return [{ ...track.start }];
+  const offset = (n: TrackNode, by: number): Vec3 => ({
+    x: n.pos.x - Math.sin(n.yaw) * by, y: 0, z: n.pos.z + Math.cos(n.yaw) * by,
+  });
+  let h = 0;
+  for (let i = 0; i < track.id.length; i++) h = (h * 31 + track.id.charCodeAt(i)) >>> 0;
+  // index 1.. so the "random" camera can never land back on the start line and
+  // give the circuit two cameras pointing at the same piece of tarmac
+  const far = nodes.length > 1 ? nodes[1 + (h % (nodes.length - 1))] : nodes[0];
+  return [offset(nodes[0], 16), offset(far, 16)];
+}
+
 /** A ready-made oval, so the editor opens on something drivable. */
 export function starterOval(author = 'THE CREATOR'): BuiltTrack {
   const P = (kind: PieceKind, over: Partial<TrackPiece> = {}): TrackPiece => ({ ...DEFAULT_PIECE, kind, ...over });
@@ -179,6 +212,10 @@ export function importTrack(json: string): BuiltTrack | null {
       start: { x: +t.start.x || 0, y: 0, z: +t.start.z || 0 },
       startYaw: +t.startYaw || 0,
       version: 1,
+      ...(Array.isArray(t.cameras) && t.cameras.length
+        ? { cameras: t.cameras.filter((c) => c && Number.isFinite(+c.x) && Number.isFinite(+c.z))
+            .map((c) => ({ x: +c.x, y: 0, z: +c.z })) }
+        : {}),
       pieces: t.pieces.filter((p) => !!PIECE_SHAPE[p?.kind]).map((p) => ({
         kind: p.kind,
         width: Math.max(6, Math.min(30, +p.width || DEFAULT_PIECE.width)),

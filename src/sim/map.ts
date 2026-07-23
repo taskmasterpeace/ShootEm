@@ -5,7 +5,7 @@ import { carveInterior } from './interior';
 import { fillRegions } from './chunks';
 import { THEMES } from './data';
 import type { ModeId, RaceTrack, Team, ThemeId, Vec3, VehicleKind } from './types';
-import { PIECE_SHAPE, checkpointsFor, walkTrack, type BuiltTrack, type Pavement } from './tracks';
+import { PIECE_SHAPE, camerasFor, checkpointsFor, walkTrack, type BuiltTrack, type Pavement } from './tracks';
 import type { OperationPhaseKind, OperationScale, OperationSiteId } from './operations';
 import type { TheaterMetadata } from './theater-types';
 import type { SemanticDistrict } from './geospatial/types';
@@ -1005,7 +1005,21 @@ export function generateRaceTrack(seed: number, theme: ThemeId = 'savanna'): Gam
   }
   const startYaw = Math.atan2(1, 0); // facing +z, the way the loop runs
 
-  const raceTrack: RaceTrack = { checkpoints, width: half * TILE, grid: gridSlots, startYaw };
+  // the procedural oval gets the same two cameras every circuit deserves: the
+  // start line, and one across the far side where the pack arrives together.
+  // Clamped inside the fence — a camera posted off the edge of the world sees
+  // the circuit from outside the map.
+  const inWorld = (p: Vec3): Vec3 => ({
+    x: Math.max(-WORLD / 2 + 8, Math.min(WORLD / 2 - 8, p.x)), y: 0,
+    z: Math.max(-WORLD / 2 + 8, Math.min(WORLD / 2 - 8, p.z)),
+  });
+  const raceTrack: RaceTrack = {
+    checkpoints, width: half * TILE, grid: gridSlots, startYaw,
+    cameras: [
+      inWorld(P(cx + (Rx + half + 3), cz)),
+      inWorld(P(cx + (Rx + half + 3) * Math.cos(Math.PI * 0.6), cz + (Rz + half + 3) * Math.sin(Math.PI * 0.6))),
+    ],
+  };
 
   // a couple of decorative barrier stubs in the infield so it doesn't read as a
   // flat disc (purely cosmetic; the ring is already sealed)
@@ -1104,7 +1118,20 @@ export function buildTrackMap(track: BuiltTrack, theme: ThemeId = 'savanna'): Ga
     const graded = n.piece.kind === 'ramp_up' || n.piece.kind === 'ramp_down';
     const halfW = n.piece.width / 2;
     const surf = SURF_FOR[n.piece.surface];
-    carve(n.pos.x, n.pos.z, ex, ez, halfW, surf, n.pos.y, n.pos.y + shape.rise * 4, graded);
+    if (n.piece.kind === 'jump') {
+      // THE JUMP IS A LIP, NOT A FLAT RUN. It used to carve like a straight, so
+      // the one piece in the box whose whole job is airtime did nothing at all.
+      // Build it in two halves: a GRADED climb to the lip, then the far side
+      // dropped back to the ground with NO ramp flag — so the lip is a step you
+      // fly off, not a slope you roll down. Landing is then the shock model's
+      // problem, which is exactly Robert's "land in a realistic way".
+      const lipX = n.pos.x + (ex - n.pos.x) * 0.55;
+      const lipZ = n.pos.z + (ez - n.pos.z) * 0.55;
+      carve(n.pos.x, n.pos.z, lipX, lipZ, halfW, surf, n.pos.y, n.pos.y + 4, true);
+      carve(lipX, lipZ, ex, ez, halfW, surf, n.pos.y, n.pos.y, false);
+    } else {
+      carve(n.pos.x, n.pos.z, ex, ez, halfW, surf, n.pos.y, n.pos.y + shape.rise * 4, graded);
+    }
     // ROUND THE CORNER. The centre line is a polyline, so a curve piece is a
     // straight run that then kinks — and a kink carves a SQUARE wall on the
     // outside of the turn. A car arriving at speed drives into it and the race
@@ -1183,6 +1210,7 @@ export function buildTrackMap(track: BuiltTrack, theme: ThemeId = 'savanna'): Ga
   // straight — face `startYaw` on the oval and the whole grid stares at a wall
   const raceTrack: RaceTrack = {
     checkpoints, width: avgW / 2, grid: gridSlots, startYaw: backFrom(2).yaw,
+    cameras: camerasFor(track),
   };
 
   // stable numeric seed from the track id (records/replays stay deterministic)
@@ -1208,7 +1236,11 @@ export function buildTrackMap(track: BuiltTrack, theme: ThemeId = 'savanna'): Ga
 export function generateMap(seed: number, mode: ModeId, theme: ThemeId = 'savanna'): GameMap {
   if (mode === 'safehouse') return generateNeighborhood(seed);
   if (mode === 'paintball') return generatePaintballField(seed, theme);
-  if (mode === 'race' || mode === 'timetrial') return generateRaceTrack(seed, theme);
+  // DERBY carves the same ring. It used to fall through to a battlefield map,
+  // which has no `raceTrack` and therefore NO START GRID — so a demolition
+  // deploy seated nobody, `stepDerby` counted zero live hulls and ended the
+  // match at ~4.6 s with no winner. An advertised discipline, dead on arrival.
+  if (mode === 'race' || mode === 'timetrial' || mode === 'derby') return generateRaceTrack(seed, theme);
   const rng = new Rng(seed);
   const grid = new Uint8Array(GRID * GRID);
   const grid2 = new Uint8Array(GRID * GRID); // the second storey — void by default

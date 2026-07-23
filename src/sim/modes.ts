@@ -9,7 +9,10 @@ import type { LicenceId } from './licenses';
 
 const MATCH_TIME = 15 * 60;
 
-export function initMode(id: ModeId, map: GameMap, minutes?: number): ModeState {
+export function initMode(
+  id: ModeId, map: GameMap, minutes?: number,
+  raceKind?: ModeState['raceKind'],
+): ModeState {
   const m: ModeState = {
     id, timeLeft: (minutes ?? 15) * 60 || MATCH_TIME, scores: [0, 0], target: 0, over: false, winner: -1,
   };
@@ -103,11 +106,19 @@ export function initMode(id: ModeId, map: GameMap, minutes?: number): ModeState 
       m.timeLeft = Infinity;
       m.target = 0;
       break;
-    case 'race':      // Grand Prix — first past the laps vs the pack
-      m.raceKind = 'circuit';
-      m.raceLaps = 3;
-      m.target = 3;
-      m.timeLeft = 8 * 60;  // a generous cap; the race really ends on the flag
+    case 'race':      // the motor-sport door: circuit, THE GUN RUN, or FREESTYLE
+      m.raceKind = raceKind && raceKind !== 'trial' ? raceKind : 'circuit';
+      if (m.raceKind === 'freestyle') {
+        // FREESTYLE has NO FINISH LINE. It is a timed session in the park and
+        // the only number that matters is the best run you landed.
+        m.raceLaps = 0;
+        m.target = 0;
+        m.timeLeft = 3 * 60;
+      } else {
+        m.raceLaps = 3;
+        m.target = 3;
+        m.timeLeft = 8 * 60;  // a generous cap; the race really ends on the flag
+      }
       m.countdown = 4.5;
       break;
     case 'derby':     // DESTRUCTION DERBY — the last machine running wins
@@ -392,8 +403,61 @@ function computePlaces(w: World, racers: RacerState[], track: RaceTrack): void {
   order.forEach((r, i) => { r.place = i + 1; });
 }
 
+/**
+ * FREESTYLE — the board park. No finish line, no laps: a timed session where
+ * the only number that matters is the best RUN you landed.
+ *
+ * A run is everything the board banked between two bails. The trick economy
+ * (boardtricks.ts) already does the hard part — combo, multiplier, the landing
+ * that banks or bails — so this reads the board's own state and remembers the
+ * high-water mark. Bail and the run resets to nothing; that is the nerve.
+ */
+function stepFreestyle(w: World, dt: number): void {
+  const m = w.mode;
+  if ((m.countdown ?? 0) > 0) {
+    const before = Math.ceil(m.countdown!);
+    m.countdown! -= dt;
+    const after = Math.ceil(Math.max(0, m.countdown!));
+    if (after !== before) w.emit({ type: 'announce', text: after > 0 ? String(after) : 'DROP IN!', big: true });
+    if (m.countdown! <= 0) { m.countdown = 0; m.racers = collectRacers(w); }
+    return;
+  }
+  if (!m.racers?.length) m.racers = collectRacers(w);
+  const racers = m.racers!;
+
+  for (const r of racers) {
+    const s = w.soldiers.get(r.id);
+    const v = s && s.vehicleId >= 0 ? w.vehicles.get(s.vehicleId) : undefined;
+    const tr = v?.trick;
+    if (!tr) continue;
+    // THE LIVE NUMBER is what you have landed PLUS what is still in the air —
+    // the combo is not yours until the board is flat again, and that gap is
+    // the whole tension of the mode.
+    r.run = Math.round(tr.runScore + tr.combo);
+    // …but only what you LANDED can take the session.
+    if (tr.runScore > (r.bestRun ?? 0)) r.bestRun = Math.round(tr.runScore);
+  }
+  // the board is ranked on the best run of the session
+  [...racers].sort((a, b) => (b.bestRun ?? 0) - (a.bestRun ?? 0))
+    .forEach((r, i) => { r.place = i + 1; });
+
+  if (m.timeLeft <= 0 && !m.over) {
+    const best = [...racers].sort((a, b) => (b.bestRun ?? 0) - (a.bestRun ?? 0))[0];
+    const champ = best ? w.soldiers.get(best.id) : undefined;
+    w.emit({
+      type: 'announce', big: true,
+      text: best?.bestRun
+        ? `${champ?.name ?? 'The winner'} TAKES THE SESSION — ${Math.round(best.bestRun)}`
+        : 'THE SESSION ENDS — NOTHING LANDED',
+    });
+    endMatch(w, champ?.team ?? 0);
+  }
+}
+
 function stepRace(w: World, dt: number): void {
   const m = w.mode;
+  // FREESTYLE has no circuit to read — it is scored on the board, not the line
+  if (m.raceKind === 'freestyle') { stepFreestyle(w, dt); return; }
   const track = w.map.raceTrack;
   if (!track) return;
 
@@ -439,7 +503,16 @@ function stepRace(w: World, dt: number): void {
 
   computePlaces(w, racers, track);
 
-  if (m.raceKind === 'circuit') {
+  if (m.raceKind === 'gunrun') {
+    // THE GUN RUN is a circuit with the guns live — the flag still decides it.
+    // "Being fastest and being alive are different problems."
+    const first = racers.find((r) => r.finished);
+    if (first) {
+      const champ = w.soldiers.get(first.id);
+      w.emit({ type: 'announce', text: `${champ?.name ?? 'The winner'} SURVIVES THE GUN RUN`, big: true });
+      endMatch(w, champ?.team ?? 0);
+    }
+  } else if (m.raceKind === 'circuit') {
     const first = racers.find((r) => r.finished);
     if (first) {
       const champ = w.soldiers.get(first.id);

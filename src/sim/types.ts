@@ -35,6 +35,10 @@ export interface RaceTrack {
   grid: Vec3[];
   /** which way the loop runs at the start line (unit heading, for grid facing). */
   startYaw: number;
+  /** TRACKSIDE CAMERAS — fixed points the broadcast can cut to. Camera 0 is
+   *  always the START LINE; the rest are placed round the circuit (authored in
+   *  the Track Builder, or derived for a procedural one). */
+  cameras?: Vec3[];
 }
 
 /** Per-racer progress, snapshot-serializable (lives on ModeState.racers). */
@@ -47,6 +51,11 @@ export interface RacerState {
   finished: boolean;       // crossed the final line
   finishTime: number;      // world.time at finish (0 = still racing)
   place: number;           // 1-based finishing/current position
+  /** FREESTYLE: the best single run this session — a run is everything you
+   *  banked between two bails, so it is nerve as much as skill. */
+  bestRun?: number;
+  /** FREESTYLE: what the current, still-unbailed run is worth. */
+  run?: number;
 }
 
 /** Battlefield environments — the war spans the solar system. */
@@ -1410,7 +1419,10 @@ export interface ModeState {
   intermission?: number;
   // race / timetrial
   /** 'circuit' = first past N laps vs the pack; 'trial' = beat your ghost. */
-  raceKind?: 'circuit' | 'trial';
+  /** Which motor-sport discipline this race is. `circuit` and `trial` are the
+   *  originals; `gunrun` is a circuit with the guns live; `freestyle` has no
+   *  finish line at all and is scored on what you land. */
+  raceKind?: 'circuit' | 'trial' | 'gunrun' | 'freestyle';
   /** total laps to win (target lap count). */
   /** THE SCHOOLS (courses.ts): which licence this course examines. */
   courseLicence?: string;

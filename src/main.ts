@@ -1,6 +1,6 @@
 import { CLASSES, EQUIPMENT, MODE_INFO, THEMES, WEAPONS } from './sim/data';
 import { CLASS_ARMORY, familyWeapons } from './sim/arsenal';
-import { isCoopMode, type ClassId, type ModeId, type PlayerCmd, type Team, type ThemeId, type VehicleKind, type WeaponDef, type WeaponFamily, type WeaponId } from './sim/types';
+import { isBoard, isCoopMode, type ClassId, type ModeId, type PlayerCmd, type Team, type ThemeId, type VehicleKind, type WeaponDef, type WeaponFamily, type WeaponId } from './sim/types';
 import { LSWS, lswAllowed, lswsForTeam } from './sim/lsw';
 import { World, type Difficulty, type Loadout } from './sim/world';
 import { ammoReport, blackboxReport, type BbIncident, type BbSample } from './sim/blackbox';
@@ -101,6 +101,10 @@ let gauntletArmed = false;
 let galleryArmed = false;
 /** MOTOR TRIALS: which raceboard the player takes to the grid (comet/vector/sprite). */
 let selectedRaceBoard: VehicleKind = 'vector';
+/** MOTOR TRIALS: which DISCIPLINE the next `race` deploy is (circuit / gunrun /
+ *  freestyle). Set by the SPORTS app; the deploy screen races a plain circuit. */
+let selectedRaceKind: import('./sim/types').ModeState['raceKind'];
+
 /** MOTOR TRIALS: which circuit — '' = the procedural oval, else a built-track id
  *  off the creator's shelf (the Track Builder in the Admin Room writes it). */
 let selectedTrackId = '';
@@ -716,14 +720,28 @@ function buildMenu() {
 // registered exactly once, at module scope, instead of once per match.
 let deskRef: Board | null = null;
 let cansRef: Headphones | null = null;
+// live refs so the global key handler can reach the match (the broadcast camera)
+let rendererRef: Renderer | null = null;
+let worldRef: World | null = null;
+let hudRef: Hud | null = null;
 
 window.addEventListener('keydown', (e) => {
   if (e.repeat) return;
-  if (e.code !== 'F9' && e.code !== 'KeyH') return;
+  if (e.code !== 'F9' && e.code !== 'KeyH' && e.code !== 'KeyC') return;
   const el = document.activeElement;
   if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return;
   e.preventDefault();
   if (e.code === 'F9') { deskRef?.toggle(); return; }
+  // C: THE BROADCAST CAMERA. Cycle the trackside cameras and back to the chase
+  // view — the shot sits on its post and tracks you, the way a circuit camera
+  // does. Only where there is a circuit to watch.
+  if (e.code === 'KeyC') {
+    const r = rendererRef; const cams = worldRef?.map.raceTrack?.cameras?.length ?? 0;
+    if (!r || !cams) return;
+    r.raceCam = r.raceCam + 1 >= cams ? -1 : r.raceCam + 1;
+    hudRef?.announce(r.raceCam < 0 ? 'CHASE CAM' : `CAMERA ${r.raceCam + 1}`, false, worldRef?.time ?? 0);
+    return;
+  }
   // H: the cans go on. Only in a match — there is a whole player in the
   // GONET for when you are not fighting.
   if (!cansRef) return;
@@ -953,6 +971,8 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   desk.ledger.reset();
   const world = new World({
     seed, mode: exercise?.mode ?? selectedMode, difficulty, matchMinutes, theme: selectedTheme,
+    // which motor-sport discipline this is — circuit unless SPORTS said otherwise
+    raceKind: selectedRaceKind,
     // A PLACE (#122) is hand-built ground with nobody in it but the keeper;
     // a race deploys onto the CHOSEN circuit — a track you laid in the builder,
     // or (undefined) the sim's procedural oval.
@@ -1190,17 +1210,31 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
       const myClass = raceClassOf(selectedRaceBoard, VEHICLES[selectedRaceBoard]?.mass);
       const RACE_BOARDS: VehicleKind[] = myClass === 'board' ? BOARDS
         : myClass === 'truck' ? TRUCKS : myClass === 'bike' ? BIKES : CARS;
+      // THE GUN RUN: "fixed forward armament — what is on the car is what you
+      // have." Race hulls are civilian and carry `weapon: ''`, so the gun is
+      // bolted on at the grid by overriding the FITTED def (the fire path reads
+      // `v.fittedDef ?? VEHICLES[kind]`). One gun, no turret, points where the
+      // nose points — you aim by driving.
+      const NOSE_GUN = 'bike_mg';
+      const boltGun = (v: ReturnType<typeof world.spawnVehicle>): void => {
+        if (selectedRaceKind !== 'gunrun') return;
+        v.fittedDef = { ...(v.fittedDef ?? VEHICLES[v.kind]), weapon: NOSE_GUN };
+      };
       const meBoard = world.spawnVehicle(selectedRaceBoard, me.team, track.grid[0]);
       // THE GARAGE IS REAL: whatever you bolted on rides onto the grid with
       // you — the tyres, the engine, the weight, and the cargo you can drop.
       world.setFit(meBoard, fitFor(selectedRaceBoard));
+      boltGun(meBoard);
       meBoard.yaw = track.startYaw;
       me.pos = { ...track.grid[0] };
       world.forceBoard(me, meBoard);
-      const field = selectedMode === 'timetrial' ? 0 : Math.min(track.grid.length - 1, 7);
+      // FREESTYLE is a solo session in the park — no pack to race against
+      const field = (selectedMode === 'timetrial' || selectedRaceKind === 'freestyle')
+        ? 0 : Math.min(track.grid.length - 1, 7);
       for (let i = 1; i <= field; i++) {
         const racer = world.addSoldier(wrap(n++), 'infantry', et, 'bot');
         const board = world.spawnVehicle(RACE_BOARDS[i % RACE_BOARDS.length], racer.team, track.grid[i]);
+        boltGun(board);
         board.yaw = track.startYaw;
         racer.pos = { ...track.grid[i] };
         world.forceBoard(racer, board);
@@ -1340,6 +1374,13 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     mode === 'report'
       ? `${blackboxReport(world.blackbox)}\n${vehicleTelemetryReport(world.vehicleTelemetry)}\n${ammoReport(world)}` // §13: the ammo economy rides the report
       : { samples: world.blackbox.samples, incidents: world.blackbox.incidents, vehicles: vehicleTelemetrySnapshot(world.vehicleTelemetry) };
+  // the global key handler lives outside startGame — hand it the live match so
+  // C can cut the broadcast camera
+  rendererRef = renderer; worldRef = world; hudRef = hud;
+  // THE GRID SHOT: a race opens on the start-line camera and cuts to the chase
+  // view when the flag drops — the way you'd cover it on television.
+  renderer.raceCam = (world.map.raceTrack?.cameras?.length && (world.mode.countdown ?? 0) > 0) ? 0 : -1;
+  let gridShotHeld = renderer.raceCam === 0;
   (window as unknown as Record<string, unknown>).__ww = { world, me, renderer, hud, input, audio, desk, cans, deck: musicDeck(), recorder: director.recorder, replay: director.player, director, crowd, blackbox, darkness: darknessUniforms }; // debug/testing handle (darkness: live cone uniforms — eval-side imports get FRESH module instances, this doesn't)
 
   const FIXED = 1 / 60;
@@ -1467,6 +1508,11 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
       const inc = world.blackbox.incidents[bbWarned++];
       const where = inc.nearBaseOf === null ? 'open field' : inc.nearBaseOf === me.team ? 'YOUR BASE' : 'enemy base';
       console.warn(`[blackbox] ${inc.kind.toUpperCase()} — team ${inc.team}, ${inc.members.length} bodies at (${inc.at.x}, ${inc.at.z}) [${where}] t=${inc.t}s — run __ww.blackbox('report') for the flight log`);
+    }
+    // the grid shot holds until the lights go out, then hands you the car
+    if (gridShotHeld && (world.mode.countdown ?? 0) <= 0) {
+      gridShotHeld = false;
+      if (renderer.raceCam === 0) renderer.raceCam = -1;
     }
     const events = world.takeEvents();
     hud.applyEvents(events, world, me.id, world.time); // killfeed stays live
@@ -2420,7 +2466,9 @@ audio.setMasterVolume(settings.masterVolume);
   window.addEventListener('gamepaddisconnected', refreshPadStatus);
   setInterval(refreshPadStatus, 1000);
 }
-$('deploy-btn').addEventListener('click', () => { activeFrontId = null; startGame(); });
+// the deploy screen races a PLAIN circuit — only SPORTS picks a discipline, so
+// clear it here or a Gun Run bleeds into the next ordinary race
+$('deploy-btn').addEventListener('click', () => { activeFrontId = null; selectedRaceKind = undefined; startGame(); });
 window.addEventListener('keydown', (e) => {
   // Enter deploys ONLY when the menu is the actual front surface — with the
   // onboarding overlay up, an Enter here once launched an invisible CTF
@@ -2498,13 +2546,21 @@ mountFrontend({
     }
     void startGame();
   },
-  // SPORTS: a discipline is a way into a mode the game already runs.
-  enterSport(mode) {
+  // SPORTS: a discipline is a way into a mode the game already runs — and for
+  // the three that share the `race` mode, the DISCIPLINE has to ride along or
+  // the Gun Run and Freestyle arrive as a plain circuit.
+  enterSport(mode, raceKind) {
     if (running) return;
     activeFrontId = null;
     selectedMilitaryMissionId = null;
     queuedScienceLaunch = null;
     selectedMode = mode;
+    selectedRaceKind = raceKind;
+    // THE MACHINE MATCHES THE DISCIPLINE. Freestyle is a board park and the Gun
+    // Run is a car race; arriving on the wrong class is nonsense, and the
+    // deploy screen's last pick has no idea which sport you just clicked.
+    if (raceKind === 'freestyle' && !isBoard(selectedRaceBoard)) selectedRaceBoard = 'vector';
+    if (raceKind === 'gunrun' && isBoard(selectedRaceBoard)) selectedRaceBoard = 'musclecar';
     void startGame();
   },
   // THE DECK: a session finished. The cartridge now RUNS — it plays in the
