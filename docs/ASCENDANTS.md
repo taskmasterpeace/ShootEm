@@ -57,10 +57,14 @@ rifleman ≈ 45 dps, a 4-man squad ≈ 180, a focused 12-man team ≈ 540.
 
 | Threat | Designation | HP | ≈ brutes | Who has to answer it | Materiel | Telegraph |
 |---|---|---|---|---|---|---|
-| **1** | **SKIRMISH** | 1200 | 3.75× | a squad of 4, ~6s of honest focus | 1 | 15s |
-| **2** | **STRONGPOINT** | 2600 | 8× | a squad + the right counter-pick, or a vehicle | 2 | 20s |
-| **3** | **SIEGE** | 5000 | 16× | the TEAM, with heavy weapons — the front stops | 4 | 30s |
-| **4** | **EXTINCTION** | 9000 | 28× | everyone, all-in, and you still might lose | 7 | 40s |
+| **1** | **SKIRMISH** | 800 | 2.5× | a squad of 4, ~6s of honest focus | 1 | 15s |
+| **2** | **STRONGPOINT** | 1600 | 5× | a squad + the right counter-pick, or a vehicle | 2 | 20s |
+| **3** | **SIEGE** | 3200 | 10× | the TEAM, with heavy weapons — the front stops | 4 | 30s |
+| **4** | **EXTINCTION** | 5800 | 18× | everyone, all-in, and you still might lose | 7 | 40s |
+
+> **These HP numbers are from `src/sim/lsw.ts` (the code is truth).** An
+> earlier version of this table printed higher figures; the balance was
+> retuned in code and the table above now matches `THREAT[]`.
 
 > **HP is MEASURED, not guessed** (Robert: "test to determine threat
 > level"). The measurement rig is `tests/threat-measure.test.ts` — every
