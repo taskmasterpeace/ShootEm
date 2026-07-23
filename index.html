@@ -2,9 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
   <title>War World: Earth</title>
   <link rel="icon" type="image/png" href="/art/emblem.png" />
+  <!-- THE TABLET DOOR: installable PWA, fullscreen, landscape -->
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#0d0f0c" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="WarWorld" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
   <link rel="preload" href="/fonts/oswald-600.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="/fonts/saira-stencil-one.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="/fonts/share-tech-mono.woff2" as="font" type="font/woff2" crossorigin />
@@ -133,6 +141,9 @@
       <div id="replay-banner" class="hidden"></div>
       <!-- THE AUTOPSY: a stencil/mono terminal card pinned over the frozen shot -->
       <div id="killcam-readout" class="hidden"></div>
+      <!-- TOUCH CONTROLS: twin virtual sticks + verb buttons. Mounted only on
+           coarse-pointer machines (main.ts); CSS shows it via body.touch. -->
+      <div id="touch-layer"></div>
       <div id="vehicle-hint" class="hidden"></div>
       <div id="announce"></div>
       <div id="vo-sub"></div>

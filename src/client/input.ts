@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CLASSES } from '../sim/data';
 import type { K9Command, PlayerCmd, Soldier } from '../sim/types';
 import { settings } from './settings';
+import type { TouchControls } from './touch';
 
 /** STATUS §1 / W1.3 — SPACE is a tap/hold: a quick TAP jumps, a HOLD ducks.
  *  The window a press must beat to count as a tap (else it's a duck). */
@@ -68,6 +69,9 @@ export class Input {
   weatherZoomCap = Infinity;
   /** true when a gamepad drove the last command — HUD may swap its prompts */
   gamepadActive = false;
+  /** the tablet's hand on the wheel — mounted by main.ts on coarse-pointer
+   *  machines; feeds the same PlayerCmd seams the gamepad does */
+  touch: TouchControls | null = null;
   /** gamepad aim direction persists between frames (stick returns to center) */
   private padAim = { yaw: 0, dist: 12, has: false };
   private prevPadButtons: boolean[] = [];
@@ -287,6 +291,13 @@ export class Input {
     // any mouse/keyboard input hands the wheel back to the desk
     if (cmd.moveX || cmd.moveZ || cmd.fire || this.mouse.down) this.gamepadActive = false;
     this.pollGamepad(local, cmd);
+    // touch rides last — on a tablet the thumbs are the final word; the pinch
+    // is the camera wheel
+    if (this.touch) {
+      if (this.touch.apply(cmd, local)) this.gamepadActive = false;
+      const pinch = this.touch.drainPinch();
+      if (pinch) { this.camDist += pinch; this.clampZoom(); }
+    }
     // §8.8: a closing sky can shrink an already-wide view
     this.clampZoom();
     return cmd;

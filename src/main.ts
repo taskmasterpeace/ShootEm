@@ -12,7 +12,7 @@ import { buildVanessasMap, SHOP_ENTRANCE, spawnVanessa, updateShopInteract } fro
 import { clockLabel, gameNow } from './client/worldclock';
 import { mountFrontend } from './client/frontend';
 import { GhostPlayer, GhostRecorder, ghostKey, loadGhost, saveGhost } from './client/ghost';
-import { factionTeam, loadIdentity, type PlayerIdentity } from './client/identity';
+import { clearIdentity, factionTeam, loadIdentity, type PlayerIdentity } from './client/identity';
 import { StableConsole, isCommissioned } from './client/stable';
 import { audio } from './client/audio';
 import { Chat } from './client/chat';
@@ -21,6 +21,8 @@ import { StaticOverlay } from './client/effects';
 import { Hud, renderOperationAfterAction, setRankChip, setStatChips } from './client/hud';
 import { initGodMode } from './client/godmode';
 import { Input } from './client/input';
+import { TouchControls, isTouchDevice } from './client/touch';
+import { currentSession, restoreSession, signOut, supabaseConfigured } from './client/auth';
 import { MusicDirector } from './client/music';
 import { Renderer } from './client/renderer';
 import { DamageText } from './client/damagetext';
@@ -521,6 +523,21 @@ async function startGame() {
   const input = new Input(canvas);
   const chat = new Chat(name);
   hud.show();
+  // THE TABLET (Robert's mobile goal): coarse pointer → the twin-stick touch
+  // layer mounts and body.touch lights the CSS. Same PlayerCmd seams as the
+  // gamepad — the sim never learns a finger exists.
+  if (isTouchDevice()) {
+    const touch = new TouchControls();
+    touch.mount($('touch-layer'));
+    input.touch = touch;
+    document.body.classList.add('touch');
+    // fullscreen wants a gesture — the first touch on the field is it
+    $('touch-layer').addEventListener('pointerdown', () => {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => { /* iOS: the PWA shell owns fullscreen */ });
+      }
+    }, { once: true });
+  }
   $('k9-sic').onclick = () => input.queueK9('sic');
   $('k9-stay').onclick = () => input.queueK9('stay');
   chat.show();
@@ -1960,6 +1977,44 @@ mountFrontend({
 });
 // a returning player already has an identity — seed the team before any deploy
 { const id0 = loadIdentity(); if (id0) playerTeam = factionTeam(id0.faction); }
+
+// ── THE PWA SHELL (Robert's tablet goal) ────────────────────────────────────
+// Production builds register the service worker (offline boot + install
+// prompt); the dev server stays raw so HMR never fights a cache.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => { /* http / private mode */ });
+}
+// touch-first machines get the CSS treatment even on the menus (bigger
+// targets, safe-area padding) before any match starts
+if (isTouchDevice()) document.body.classList.add('touch');
+
+// ── THE SERVICE RECORD (auth) — who this device says you are ───────────────
+// Local sessions are the offline truth; the Supabase door lights up when a
+// project + env vars exist (auth.ts). The strip lives under the main menu.
+{
+  const session = currentSession();
+  void restoreSession();
+  const menuInner = document.querySelector('.menu-inner');
+  if (menuInner) {
+    const strip = document.createElement('div');
+    strip.id = 'service-record';
+    const id0 = loadIdentity();
+    const who = id0 ? `${id0.callsign} · ${id0.faction === 'collective' ? 'THE COLLECTIVE' : 'THE UNITED FRONT'}` : 'UNREGISTERED';
+    const how = session.provider === 'supabase'
+      ? `NET ACCOUNT ${session.email ?? ''}`
+      : `DEVICE SESSION ${session.userId.slice(0, 8).toUpperCase()}`;
+    strip.innerHTML = `<span class="sr-label">SERVICE RECORD</span>`
+      + `<span class="sr-who">${who}</span><span class="sr-how">${how}</span>`
+      + (supabaseConfigured && session.provider !== 'supabase' ? `<button id="sr-signin" type="button">SIGN IN</button>` : '')
+      + `<button id="sr-signout" type="button" title="Sign out and muster a new soldier on next boot">SIGN OUT</button>`;
+    menuInner.appendChild(strip);
+    (strip.querySelector('#sr-signout') as HTMLButtonElement).onclick = () => {
+      signOut();
+      clearIdentity(); // the front door re-enlists on reload
+      window.location.reload();
+    };
+  }
+}
 // MID-COURSE RESUME: the yard advances by reloading the page between rounds —
 // if boot camp is genuinely IN PROGRESS (past the untouched default), remount
 // it immediately over the front menu so round 2 / the profile read greets the

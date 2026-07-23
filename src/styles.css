@@ -1824,3 +1824,91 @@ kbd.key + kbd.key { margin-left: 0.15rem; }
 #wc-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: #e8a33d; box-shadow: 0 0 6px #e8a33d; }
 #world-clock.night #wc-dot { background: #7a95b8; box-shadow: 0 0 6px #7a95b8; }
 #world-clock.night { color: #aebdd0; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE TABLET (Robert's mobile goal) — touch controls + coarse-pointer dress.
+   The layer exists in every DOM but only body.touch shows it; sticks are
+   DYNAMIC (born under the thumb, die on release), buttons are the same
+   one-shot verbs the keyboard queues. House palette, no purple, ever.
+   ═══════════════════════════════════════════════════════════════════════════ */
+#touch-layer { display: none; }
+body.touch #touch-layer {
+  display: block; position: absolute; inset: 0; z-index: 11;
+  touch-action: none; /* the layer owns every gesture — no browser scroll/zoom */
+}
+body.touch { overscroll-behavior: none; }
+body.touch #game-canvas { touch-action: none; }
+
+.tc-stick {
+  position: fixed; width: 128px; height: 128px; margin: -64px 0 0 -64px;
+  border: 2px solid oklch(0.45 0.03 80 / 0.7); border-radius: 50%;
+  background: oklch(0.16 0.01 80 / 0.35); pointer-events: none; z-index: 12;
+}
+.tc-stick .tc-knob {
+  position: absolute; left: 50%; top: 50%; width: 56px; height: 56px;
+  margin: -28px 0 0 -28px; border-radius: 50%;
+  background: oklch(0.55 0.06 80 / 0.55); border: 2px solid var(--accent);
+}
+.tc-stick.tc-aim.firing { border-color: var(--accent); box-shadow: 0 0 18px oklch(0.75 0.14 80 / 0.5); }
+.tc-stick.tc-aim.firing .tc-knob { background: oklch(0.68 0.15 60 / 0.75); }
+
+#tc-cluster {
+  position: absolute; right: max(1rem, env(safe-area-inset-right));
+  bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 19rem);
+  display: grid; grid-template-columns: repeat(2, 3.6rem); gap: 0.55rem;
+  z-index: 12;
+}
+/* the tablet re-seats the desk furniture so thumbs own the corners:
+   · the minimap moves to the TOP-LEFT (under the world clock)
+   · the weapon block keeps the bottom-right, the verb cluster rides above it
+   · the K9 bar floats ABOVE the touch layer so its buttons still tap */
+body.touch #minimap {
+  position: fixed; left: max(0.75rem, env(safe-area-inset-left)); top: 3.2rem;
+  width: min(200px, 26vh); height: min(200px, 26vh); z-index: 12;
+}
+body.touch #k9-controls { z-index: 13; }
+#tc-pause {
+  position: absolute; right: max(0.9rem, env(safe-area-inset-right));
+  top: max(0.9rem, env(safe-area-inset-top));
+  width: 2.9rem; height: 2.9rem; z-index: 12;
+}
+body.touch #hud-bottom-left { bottom: auto; top: 3.2rem; left: calc(max(0.75rem, env(safe-area-inset-left)) + min(200px, 26vh) + 0.8rem); transform: scale(0.7); transform-origin: top left; }
+.tc-btn {
+  width: 3.6rem; height: 3.6rem; border-radius: 50%;
+  border: 1px solid oklch(0.42 0.03 80 / 0.8);
+  background: oklch(0.16 0.012 80 / 0.55); color: var(--fg, #d8d4c8);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-family: var(--font-mono); pointer-events: auto; touch-action: none;
+  padding: 0; line-height: 1;
+}
+.tc-btn b { font-size: 1.05rem; font-weight: 700; }
+.tc-btn small { font-size: 0.5rem; letter-spacing: 0.12em; color: oklch(0.68 0.03 80); margin-top: 0.2rem; }
+.tc-btn.held { background: var(--accent); border-color: var(--accent); }
+.tc-btn.held b, .tc-btn.held small { color: #141210; }
+
+/* coarse-pointer dress: bigger targets, no keyboard sermons, safe areas */
+@media (pointer: coarse) {
+  .controls-hint { display: none; }
+  #menu .menu-inner button, #deploy-btn { min-height: 2.9rem; }
+  #hud-bottom-right { right: max(0.75rem, env(safe-area-inset-right)); }
+  #hud-bottom-left { left: max(0.75rem, env(safe-area-inset-left)); }
+  /* the K9 buttons were born touch-ready — just give them room */
+  #k9-controls button { min-height: 2.7rem; }
+}
+
+/* THE SERVICE RECORD strip — who this device says you are (auth.ts) */
+#service-record {
+  display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap;
+  margin-top: 1rem; padding: 0.55rem 0.9rem;
+  border: 1px solid var(--border); border-left: 3px solid var(--accent);
+  font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.08em;
+}
+#service-record .sr-label { color: var(--accent); font-weight: 700; letter-spacing: 0.16em; }
+#service-record .sr-who { color: oklch(0.9 0.02 80); text-transform: uppercase; }
+#service-record .sr-how { color: oklch(0.62 0.03 80); }
+#service-record button {
+  margin-left: auto; font: 700 0.66rem var(--font-mono); letter-spacing: 0.14em;
+  padding: 0.35rem 0.8rem; background: transparent; color: var(--fg, #d8d4c8);
+  border: 1px solid var(--border); cursor: pointer;
+}
+#service-record button:hover { border-color: var(--accent); color: var(--accent); }

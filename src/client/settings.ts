@@ -117,7 +117,11 @@ export function loadSettings(): Settings {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<Settings>;
     if (typeof raw.masterVolume === 'number') settings.masterVolume = Math.max(0, Math.min(1, raw.masterVolume));
     if (typeof raw.reducedMotion === 'boolean') settings.reducedMotion = raw.reducedMotion;
+    // THE TABLET DEFAULT (Robert: "optimize for everything"): a touch-first
+    // machine that never chose a tier starts on 'low' (DPR cap, shadows off,
+    // no AA — renderer.ts quality). A hand-picked tier always wins.
     if (raw.quality === 'high' || raw.quality === 'low') settings.quality = raw.quality;
+    else if (typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches) settings.quality = 'low';
     if (typeof raw.hudOpacity === 'number') settings.hudOpacity = Math.max(0.4, Math.min(1, raw.hudOpacity));
     if (raw.blood === 'off' || raw.blood === 'light' || raw.blood === 'full') settings.blood = raw.blood;
     if (raw.darkness === 'off' || raw.darkness === 'subtle' || raw.darkness === 'full') settings.darkness = raw.darkness;
