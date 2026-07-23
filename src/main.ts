@@ -430,6 +430,12 @@ function buildMenu() {
     audio.play('ui_click');
     paintGauntletBlock();
   };
+  // VANESSA'S PAINTBALL (Robert): the pro shop — walk the booths, pick the
+  // marker your next yard deploy carries (it writes the same onboarding store)
+  ($('vanessas-btn') as HTMLButtonElement).onclick = () => {
+    audio.play('ui_click');
+    location.href = '/vanessas.html';
+  };
 
   const quickDeploy = $('science-preset-cards');
   quickDeploy.innerHTML = SCIENCE_PRESETS.map(sciencePresetCardHTML).join('');

@@ -76,6 +76,9 @@ export default defineConfig({
         // THE BODY SHOP — Robert's body decision: current rig vs capsule
         // with legs vs bare pod, same rig contract (/bodylab.html)
         bodylab: resolve(__dirname, 'bodylab.html'),
+        // VANESSA'S PAINTBALL — the pro shop: walk the booths, pick the
+        // marker your next yard deploy carries (/vanessas.html)
+        vanessas: resolve(__dirname, 'vanessas.html'),
         // the beam lab — continuous beams: hose / kamehameha / heat / flamer (/beams.html)
         beams: resolve(__dirname, 'beams.html'),
         // radar/minimap + PixelLab aircraft instrument state bench
