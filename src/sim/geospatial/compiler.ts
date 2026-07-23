@@ -31,7 +31,15 @@ import { dominantRoadAngle, projectSlice, rasterLine, rasterPolygon } from './ge
 import { compileTerrain } from './terrain';
 import { buildStreetNetwork } from './street-network';
 import { deriveNeighborhood, type NeighborhoodLayout } from './neighborhood';
-import type { GeoBuilding, GeoSliceSource, ProjectedGeoBuilding, ProjectedGeoSlice } from './types';
+import { inferBuildingSemantics, profileFor } from './profiles';
+import type {
+  DistrictProfileId,
+  GeoBuilding,
+  GeoSliceSource,
+  ProjectedGeoBuilding,
+  ProjectedGeoSlice,
+  SemanticBuilding,
+} from './types';
 
 export const GEO_CLASS_EMPTY = 0;
 export const GEO_CLASS_ROAD = 1;
@@ -46,6 +54,7 @@ export interface CompileGeospatialOptions {
   rotation?: number;
   maxPlayableBuildings?: number;
   style?: GeospatialMapMeta['style'];
+  profile?: DistrictProfileId;
   controlPointNames?: [string, string, string];
 }
 
@@ -55,6 +64,7 @@ export interface CompiledGeospatialMap {
   overlay: GameplayOverlayChange[];
   projected: ProjectedGeoSlice;
   neighborhood: NeighborhoodLayout;
+  semanticBuildings: SemanticBuilding[];
   diagnostics: {
     sourceRoads: number;
     sourceBuildings: number;
@@ -441,6 +451,11 @@ export function compileGeospatialMap(
   if (!source.attribution.length) throw new Error('geospatial source attribution is required');
   const geometry = options.geometry ?? { cols: 300, rows: 300, tile: 3 };
   const rotation = options.rotation ?? dominantRoadAngle(source.roads, source.origin);
+  const profileId: DistrictProfileId = options.profile
+    ?? (options.style === 'lower-manhattan' || options.style === 'tarboro' || options.style === 'miami-gardens'
+      ? options.style
+      : 'miami-gardens');
+  const profile = profileFor(profileId);
   const projected = projectSlice(source, rotation);
   projected.geometry = { ...geometry };
   const def: TheaterDef = {
@@ -489,8 +504,24 @@ export function compileGeospatialMap(
     map.surface[index] = S_MUD;
   }
 
-  const streetNetwork = buildStreetNetwork(projected.roads.filter((road) => !road.tunnel), geometry);
+  const streetNetwork = buildStreetNetwork(
+    projected.roads.filter((road) => !road.tunnel),
+    geometry,
+    profile.roadWidths,
+  );
   const neighborhood = deriveNeighborhood(projected.buildings, streetNetwork, geometry);
+  const semanticInteriorLimit = Math.max(0, options.maxPlayableBuildings ?? 12);
+  const semanticBuildings = inferBuildingSemantics(
+    source.buildings,
+    projected.buildings,
+    neighborhood.placements,
+    {
+      profile: profileId,
+      nsiMatches: source.nsi?.matches,
+      minEmbedded: Math.min(6, semanticInteriorLimit),
+      maxEmbedded: semanticInteriorLimit,
+    },
+  );
   const roadCells = new Set(streetNetwork.carriagewayCells);
   for (const index of roadCells) {
     classification[index] = GEO_CLASS_ROAD;
@@ -620,6 +651,7 @@ export function compileGeospatialMap(
     overlay,
     projected,
     neighborhood,
+    semanticBuildings,
     diagnostics: {
       sourceRoads: source.roads.length,
       sourceBuildings: source.buildings.length,

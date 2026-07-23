@@ -211,8 +211,8 @@ export function auditBuildingRoadOverlap(
 - Create: `tests/geospatial-profiles.test.ts`
 - Modify: `src/sim/geospatial/compiler.ts`
 
-- [ ] Write failing table tests that distinguish representative Miami, Lower Manhattan, and Tarboro buildings from identical sparse source tags.
-- [ ] Encode explicit deterministic profiles:
+- [x] Write failing table tests that distinguish representative Miami, Lower Manhattan, and Tarboro buildings from identical sparse source tags.
+- [x] Encode explicit deterministic profiles:
 
 ```ts
 export interface DistrictProfile {
@@ -229,13 +229,13 @@ export interface DistrictProfile {
 }
 ```
 
-- [ ] Miami grammar: detached low-rise homes, deep setbacks, yards/driveways, palms.
-- [ ] Lower Manhattan grammar: attached street walls, shallow setbacks, podium/tower massing, dense sidewalks, flat roofs.
-- [ ] Tarboro grammar: detached historic homes with porches/pitched roofs plus Main Street storefronts and Town Common greenery.
-- [ ] Fuse use/floors/height/material/roof evidence in order of measured source confidence; record inferred fallback evidence rather than pretending it was sourced.
-- [ ] Assign `embedded` to 6–12 route-relevant suitable footprints, `instanced` to usable buildings without embedded layouts, and `sealed` only where geometry is too small/unsafe.
-- [ ] Run `npx vitest run tests/geospatial-profiles.test.ts`.
-- [ ] Commit: `feat: add regional neighborhood grammars`
+- [x] Miami grammar: detached low-rise homes, deep setbacks, yards/driveways, palms.
+- [x] Lower Manhattan grammar: attached street walls, shallow setbacks, podium/tower massing, dense sidewalks, flat roofs.
+- [x] Tarboro grammar: detached historic homes with porches/pitched roofs plus Main Street storefronts and Town Common greenery.
+- [x] Fuse use/floors/height/material/roof evidence in order of measured source confidence; record inferred fallback evidence rather than pretending it was sourced.
+- [x] Assign `embedded` to 6–12 route-relevant suitable footprints, `instanced` to usable buildings without embedded layouts, and `sealed` only where geometry is too small/unsafe.
+- [x] Run `npx vitest run tests/geospatial-profiles.test.ts`.
+- [x] Commit: `feat: add regional neighborhood grammars`
 
 ## Task 6: Integrate semantic compilation and structural diagnostics
 

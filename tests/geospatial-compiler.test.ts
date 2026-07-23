@@ -160,6 +160,9 @@ describe('geospatial map compiler', () => {
     expect(result.map.geospatial?.style).toBe('miami-gardens');
     expect(result.map.geospatial?.buildingHeight).toHaveLength(96 * 96);
     expect(result.map.geospatial?.decor.some((decor) => decor.kind === 'palm')).toBe(true);
+    expect(result.semanticBuildings).toHaveLength(result.neighborhood.placements.length);
+    expect(result.semanticBuildings.filter((building) => building.interiorPolicy === 'embedded')).toHaveLength(4);
+    expect(result.semanticBuildings.some((building) => building.facade === 'detached')).toBe(true);
     for (const base of result.map.basePos) {
       const x = Math.floor((base.x + geometry.cols * geometry.tile / 2) / geometry.tile);
       const z = Math.floor((base.z + geometry.rows * geometry.tile / 2) / geometry.tile);
