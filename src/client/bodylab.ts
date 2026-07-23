@@ -322,14 +322,15 @@ const CARRY: { idle: HoldPose; run: HoldPose } = {
   run:  { armR: [0, 0.12], elbowR: 0.7, armL: [0.55, 0.42], elbowL: 0.85, local: [0.131, -0.0576, 0], localRotZ: -1.32 },
 };
 
-// THE TWIST (Robert: "that left arm is a twist and bend a little bit… try a
-// couple variations, and then you choose the one that works"). Two auditioned
-// side by side (2026-07-22): gentle roll 0.55/+0.12 vs hard roll 0.95/−0.18.
-// THE HARD ROLL WON — compact low-ready, muzzle forward, the off-hand reads
-// purposeful instead of draped. Both pedestals wear it now.
+// THE TWIST (Robert: "that left arm is a twist and bend a little bit").
+// Round 6 (his top-down screenshot: "the arms are not right"): the hard-roll
+// audition was judged from a SIDE camera — from the game's overhead view the
+// elbowBias (rotateX) pulled the hand OFF the grip and the roll overshot.
+// Now: a modest pure twist about the forearm's own axis (hand stays planted),
+// zero off-grip bias — the elbow placement is the IK's job, scored inboard.
 const TWIST_VARIANTS: Record<number, { forearmTwist: number; elbowBias: number }> = {
-  22: { forearmTwist: 0.95, elbowBias: -0.18 },
-  33: { forearmTwist: 0.95, elbowBias: -0.18 },
+  22: { forearmTwist: 0.35, elbowBias: 0 },
+  33: { forearmTwist: 0.35, elbowBias: 0 },
 };
 
 function applyCarry(p: Pedestal) {
@@ -398,12 +399,16 @@ function solveOffhand(p: Pedestal) {
   _n.crossVectors(_dir, DOWN);
   if (_n.lengthSq() < 1e-4) _n.set(0, 0, 1);
   _n.normalize();
+  // TWO candidate elbows (±gamma). Robert's top-down read caught the old
+  // pick chicken-winging OUT into space — the game is played from above, so
+  // the elbow must fall DOWN and INBOARD (toward the body line), never wide.
   _u.copy(_dir).applyAxisAngle(_n, gamma);
   _e.copy(S).addScaledVector(_u, L_UPPER);
-  if (_e.y > S.y + _dir.y * L_UPPER) {            // elbow above the line reads broken — flip
-    _u.copy(_dir).applyAxisAngle(_n, -gamma);
-    _e.copy(S).addScaledVector(_u, L_UPPER);
-  }
+  const scoreA = -_e.y - Math.abs(_e.z) * 1.6;
+  _v.copy(_dir).applyAxisAngle(_n, -gamma);
+  const ex = S.x + _v.x * L_UPPER, ey = S.y + _v.y * L_UPPER, ez = S.z + _v.z * L_UPPER;
+  const scoreB = -ey - Math.abs(ez) * 1.6;
+  if (scoreB > scoreA) { _u.copy(_v); _e.set(ex, ey, ez); }
   aL.quaternion.setFromUnitVectors(DOWN, _u);
   _v.copy(_t).sub(_e).normalize();
   _qi.copy(aL.quaternion).invert();
@@ -484,6 +489,12 @@ addEventListener('keydown', (e) => {
   if (map[e.key]) setPose(map[e.key]);
   if (e.key === 'g' || e.key === 'G') armed = !armed;
   if ((e.key === 'f' || e.key === 'F') && !e.repeat) firing = true;
+  // THE GAME VIEW (round 6 lesson: poses lie from the wrong camera) — key 6
+  // parks the lab camera at the match's own overhead angle over pedestal B
+  if (e.key === '6') {
+    camera.position.set(0.5, 8.6, 4.8);
+    controls.target.set(0, 0.9, 0);
+  }
 });
 addEventListener('keyup', (e) => {
   if (e.key === 'f' || e.key === 'F') firing = false;
