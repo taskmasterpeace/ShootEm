@@ -1510,8 +1510,26 @@ export class Hud {
       }
       // friendly burrowed breachers read dimmed — the team knows, the enemy doesn't
       const dim = v.burrowed ? 'aa' : '';
-      if (v.team === local.team) dot(v.pos.x, v.pos.z, (v.team === 0 ? '#c8882d' : '#2d9dc8') + dim, 3.5);
-      else tri(v.pos.x, v.pos.z, (v.team === 0 ? '#c8882d' : '#2d9dc8') + dim, 4.2); // hostile = triangle
+      if (v.team === local.team) {
+        // #126 WHERE MY TRUCKS ARE (Robert): a friendly vehicle is never a
+        // plain dot again. SHAPE = domain (square ground · diamond air/sea),
+        // HOLLOW = empty and takeable, FILLED = crewed, RED = hull dying.
+        const vdef = VEHICLES[v.kind];
+        const crewed = v.seats.some((sid) => sid >= 0);
+        const dying = v.hp / v.maxHp < 0.35;
+        const col = (dying ? '#ff7050' : v.team === 0 ? '#c8882d' : '#2d9dc8') + dim;
+        const [px, py] = toMap(v.pos.x, v.pos.z);
+        const r = 4;
+        ctx.beginPath();
+        if (vdef?.flies || vdef?.boat || vdef?.submersible) {
+          ctx.moveTo(px, py - r); ctx.lineTo(px + r, py); ctx.lineTo(px, py + r); ctx.lineTo(px - r, py); // diamond
+        } else {
+          ctx.rect(px - r + 0.5, py - r + 0.5, r * 2 - 1, r * 2 - 1); // square
+        }
+        ctx.closePath();
+        if (crewed) { ctx.fillStyle = col; ctx.fill(); }
+        else { ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke(); }
+      } else tri(v.pos.x, v.pos.z, (v.team === 0 ? '#c8882d' : '#2d9dc8') + dim, 4.2); // hostile = triangle
     }
 
     // mine detector: enemy mines read as hollow red squares
