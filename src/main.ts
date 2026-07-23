@@ -25,7 +25,7 @@ import { CLASS_GLYPHS, MODE_GLYPHS, THEME_GLYPHS, cardGlyph } from './client/gly
 import { COURSES, courseFor, layCourse } from './sim/courses';
 import { VEHICLES } from './sim/data';
 import { awardLicence, canEnrol, loadLicences } from './client/licences';
-import { allRecords, fileRun } from './client/records';
+import { allRecords, fileRun, raceClassOf } from './client/records';
 import { fitFor, renderGarage } from './client/garage-ui';
 import { LICENCES, type LicenceId } from './sim/licenses';
 import { TouchControls, isTouchDevice } from './client/touch';
@@ -422,7 +422,7 @@ const MODE_CATEGORIES: { id: string; label: string; modes: ModeId[] }[] = [
   { id: 'military', label: 'Military Missions', modes: [] }, // the operations entry card
   { id: 'science', label: 'Science Missions', modes: ['science'] },
   { id: 'outbreak', label: 'Outbreak', modes: ['survival', 'horde', 'tide', 'safehouse'] },
-  { id: 'training', label: 'Training & Trials', modes: ['range', 'race', 'timetrial'] },
+  { id: 'training', label: 'Training & Trials', modes: ['range', 'race', 'timetrial', 'derby'] },
   { id: 'schools', label: 'The Schools', modes: [] }, // the certification programs
   { id: 'paintball', label: 'Paintball', modes: ['paintball'] },
 ];
@@ -847,7 +847,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   // Your enlisted faction is the side you deploy on — but only in the standard
   // team-vs-team war. Paintball (hunter/prey roles), co-op & science (PvE) and
   // the range keep the local player on team 0, where their rosters are pinned.
-  const isRace = selectedMode === 'race' || selectedMode === 'timetrial';
+  const isRace = selectedMode === 'race' || selectedMode === 'timetrial' || selectedMode === 'derby';
   const factionModes = !(selectedMode === 'paintball' || isCoopMode(selectedMode)
     || selectedMode === 'range' || selectedMode === 'science' || isRace
     || selectedMode === 'shop');
@@ -979,7 +979,16 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     // reads out, the time trial runs solo against the ghost.
     const track = world.map.raceTrack;
     if (track) {
-      const RACE_BOARDS: VehicleKind[] = ['comet', 'vector', 'sprite'];
+      // THE FIELD MATCHES YOU: a car race is a CAR race. The pack is drawn
+      // from the same class you picked (records keep separate books by
+      // class, so a grid of mixed machines would be a meaningless result).
+      const BOARDS: VehicleKind[] = ['comet', 'vector', 'sprite'];
+      const CARS: VehicleKind[] = ['musclecar', 'roadster', 'hotrod', 'sportscar', 'policecruiser'];
+      const TRUCKS: VehicleKind[] = ['rallytruck', 'racetruck', 'pickup', 'movingtruck'];
+      const BIKES: VehicleKind[] = ['bike', 'scooter', 'atv'];
+      const myClass = raceClassOf(selectedRaceBoard, VEHICLES[selectedRaceBoard]?.mass);
+      const RACE_BOARDS: VehicleKind[] = myClass === 'board' ? BOARDS
+        : myClass === 'truck' ? TRUCKS : myClass === 'bike' ? BIKES : CARS;
       const meBoard = world.spawnVehicle(selectedRaceBoard, me.team, track.grid[0]);
       // THE GARAGE IS REAL: whatever you bolted on rides onto the grid with
       // you — the tyres, the engine, the weight, and the cargo you can drop.
@@ -990,7 +999,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
       const field = selectedMode === 'timetrial' ? 0 : Math.min(track.grid.length - 1, 7);
       for (let i = 1; i <= field; i++) {
         const racer = world.addSoldier(wrap(n++), 'infantry', et, 'bot');
-        const board = world.spawnVehicle(RACE_BOARDS[i % 3], racer.team, track.grid[i]);
+        const board = world.spawnVehicle(RACE_BOARDS[i % RACE_BOARDS.length], racer.team, track.grid[i]);
         board.yaw = track.startYaw;
         racer.pos = { ...track.grid[i] };
         world.forceBoard(racer, board);

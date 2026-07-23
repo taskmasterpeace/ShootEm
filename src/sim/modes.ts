@@ -106,6 +106,12 @@ export function initMode(id: ModeId, map: GameMap, minutes?: number): ModeState 
       m.timeLeft = 8 * 60;  // a generous cap; the race really ends on the flag
       m.countdown = 4.5;
       break;
+    case 'derby':     // DESTRUCTION DERBY — the last machine running wins
+      m.raceKind = 'circuit';
+      m.target = 1;
+      m.timeLeft = 5 * 60;  // a cap so a stalemate cannot run forever
+      m.countdown = 4.5;
+      break;
     case 'timetrial': // Time Trial — you vs your ghost, no clock pressure
       m.raceKind = 'trial';
       m.raceLaps = 3;
@@ -120,8 +126,8 @@ export function initMode(id: ModeId, map: GameMap, minutes?: number): ModeState 
 export function stepMode(w: World, dt: number) {
   const m = w.mode;
   // race grid countdown runs BEFORE any clock — the lights aren't out yet
-  if ((m.id === 'race' || m.id === 'timetrial') && (m.countdown ?? 0) > 0) {
-    stepRace(w, dt);
+  if ((m.id === 'race' || m.id === 'timetrial' || m.id === 'derby') && (m.countdown ?? 0) > 0) {
+    stepDerbyCountdown(w, dt);
     return;
   }
   if (Number.isFinite(m.timeLeft)) {
@@ -153,6 +159,7 @@ export function stepMode(w: World, dt: number) {
     case 'science': stepScienceMission(w, dt); break;
     case 'paintball': stepPaintball(w, dt); break;
     case 'race': case 'timetrial': stepRace(w, dt); break;
+    case 'derby': stepDerby(w, dt); break;
     case 'school': stepSchool(w, dt); break;
     case 'range': break; // no clock, no whistle — just the work
     case 'shop': break;  // a place breathes on its own — stations, not scores
@@ -736,6 +743,44 @@ function rollIronKind(w: World, wave: number): IronKind {
  *  in a sea of shamblers a single runner is an event, not a pattern. */
 function rollZedKind(w: World, tide = false): ZedKind {
   return w.rng.next() < (tide ? 0.005 : 0.01) ? 'sprinter' : 'zombie';
+}
+
+// ---------- DESTRUCTION DERBY (docs/RACING.md) ----------
+
+/** The derby shares the grid countdown with the circuit. */
+function stepDerbyCountdown(w: World, dt: number) {
+  if (w.mode.id === 'derby') { w.mode.countdown = Math.max(0, (w.mode.countdown ?? 0) - dt); return; }
+  stepRace(w, dt);
+}
+
+/**
+ * DESTRUCTION DERBY — Racing Destruction Set's other half. No laps, no flag:
+ * the last machine still running wins. Every tool already exists — the
+ * crusher ram, the mines, the oil, the landings — so the mode is a RULE, not
+ * a system: count the hulls with a live driver, and when one is left, it is
+ * over. A wrecked driver walks away from the fire; nobody dies at the fair.
+ */
+function stepDerby(w: World, dt: number) {
+  const m = w.mode;
+  void dt;
+  const running: { team: number; id: number }[] = [];
+  for (const v of w.vehicles.values()) {
+    if (!v.alive) continue;
+    const driver = v.seats[0] >= 0 ? w.soldiers.get(v.seats[0]) : undefined;
+    if (driver?.alive) running.push({ team: v.team, id: v.id });
+  }
+  m.scores[0] = running.filter((r) => r.team === 0).length;
+  m.scores[1] = running.filter((r) => r.team === 1).length;
+  m.zombiesLeft = running.length; // the HUD reads this as "machines left"
+  if (running.length <= 1 && (m.countdown ?? 0) <= 0) {
+    const last = running[0];
+    endMatch(w, last ? (last.team as Team) : -1);
+    w.emit({
+      type: 'announce',
+      text: last ? 'LAST MACHINE RUNNING' : 'EVERY MACHINE WRECKED — NO WINNER',
+      big: true,
+    });
+  }
 }
 
 // ---------- THE SCHOOLS: the certification programs ----------

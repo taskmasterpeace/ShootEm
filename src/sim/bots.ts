@@ -841,8 +841,12 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     const vdef = VEHICLES[v.kind];
     const wdef = vdef.weapon ? WEAPONS[vdef.weapon] : undefined;
 
-    // MOTOR TRIALS: a bot on a raceboard drives the circuit, not the war
-    if ((w.mode.id === 'race' || w.mode.id === 'timetrial') && isBoard(v.kind)) {
+    // MOTOR TRIALS: a bot on the grid drives the CIRCUIT, not the war.
+    // (This was gated on isBoard, so the moment cars joined the grid every
+    //  AI driver reverted to fighting a war nobody was having — they sat on
+    //  the start line looking for targets. Any ground machine races.)
+    if ((w.mode.id === 'race' || w.mode.id === 'timetrial')
+        && !VEHICLES[v.kind].flies && !VEHICLES[v.kind].boat) {
       return raceDriverCmd(w, s, v, cmd);
     }
 

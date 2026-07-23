@@ -856,6 +856,7 @@ export const MODE_INFO: Record<string, { name: string; desc: string; icon: strin
   survival: { name: 'Zombie Survival', desc: 'Co-op vs escalating undead waves.', icon: '🧟' },
   horde: { name: 'Endless Horde', desc: 'No waves, no breaks — the dead never stop coming.', icon: '🩸' },
   tide: { name: 'The Shambler Tide', desc: 'The sea of the dead: a WALL of slow shamblers from the first minute. Runners are rumors. Mass is the menace.', icon: '🌊' },
+  derby: { name: 'Destruction Derby', desc: 'No laps, no flag — the last machine still running wins. Ram, mine, oil, survive. Bring armour or bring speed; you cannot bring both.', icon: '💥' },
   // THE SCHOOLS: reached from the enrolment board, not the mode grid
   school: { name: 'Driving School', desc: 'A certification course — the school teaches the machine, then signs your papers.', icon: '🎓' },
   safehouse: { name: 'Protect the Scientist', desc: 'The horde searches house to house. Hide him, defend him, survive to evac.', icon: '🧪' },
