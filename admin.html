@@ -71,6 +71,28 @@
       </div>
 
       <div class="panel">
+        <h2>THE TRACK BUILDER — CREATOR ONLY (#131)</h2>
+        <div class="note">Robert: "creating the track is just for me, the creator." Lay pieces from the box; each carries its own WIDTH, HEIGHT and PAVEMENT — and pavement is not decoration, the traction profile reads it. The verdict says whether the route closes, fits the world, and can be timed.</div>
+        <div class="row" style="margin-top:10px; gap:6px; flex-wrap:wrap" id="tb-box"></div>
+        <div class="row" style="margin-top:8px; gap:10px; flex-wrap:wrap">
+          <label>WIDTH <input id="tb-width" type="range" min="6" max="30" value="14"></label>
+          <label>HEIGHT <input id="tb-height" type="range" min="0" max="2" value="0"></label>
+          <label>PAVEMENT <select id="tb-surface"><option value="paved">Paved</option><option value="dirt">Dirt</option><option value="ice">Ice</option></select></label>
+        </div>
+        <div class="row" style="margin-top:8px; gap:6px; flex-wrap:wrap">
+          <button id="tb-undo">UNDO PIECE</button>
+          <button id="tb-clear">CLEAR</button>
+          <button id="tb-oval">LOAD STARTER OVAL</button>
+          <button id="tb-export">EXPORT JSON</button>
+          <button id="tb-save">SAVE TO SHELF</button>
+        </div>
+        <div class="row" style="margin-top:8px"><label style="flex:1">NAME <input id="tb-name" type="text" value="New Circuit" style="width:100%"></label></div>
+        <div id="tb-verdict" style="margin-top:10px; font-size:12px; line-height:1.7">—</div>
+        <canvas id="tb-map" width="420" height="300" style="margin-top:10px; border:1px solid #333; width:100%; max-width:420px"></canvas>
+        <textarea id="tb-json" class="hidden" style="width:100%; height:120px; margin-top:8px; font-family:monospace; font-size:11px"></textarea>
+      </div>
+
+      <div class="panel">
         <h2>👤 IDENTITY</h2>
         <div id="adm-identity" style="font-size:12px; line-height:1.7">—</div>
         <div class="note">Email / username management arrives with ACCOUNTS (#83). For now the enlistment card above is the identity.</div>
