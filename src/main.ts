@@ -1193,11 +1193,22 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     renderer.killcamLocalIsShooter = replaying && director.killcamActive ? director.localIsShooter : false;
     // a REWARD cut wears gold — a confirmed kill reads as a reward, not a death
     $('replay-banner').classList.toggle('reward', replaying && director.killcamActive && director.localIsShooter);
-    // THE AUTOPSY readout — a stencil/mono terminal card pinned over the freeze
+    // THE DEATH TREATMENT (Robert: "I don't know where the kill cam is… I
+    // haven't seen it yet"): the cam fired all along, but it played UNDER the
+    // full alive HUD in the same tactical view — it read as the game carrying
+    // on without you. While a cam rolls, the HUD steps back: letterbox bars,
+    // the live clusters gone, the banner grown into a title card (styles.css
+    // #hud.killcam). The reward cut wears the same frame in gold.
+    $('hud').classList.toggle('killcam', replaying && director.killcamActive);
+    // THE TERMINAL READOUT — a stencil/mono card pinned over the shot. The
+    // director preps it for every kind that earns it (autopsy · ride · wreck);
+    // gating on autopsy alone left most deaths with no read (the wiring gap).
     const kro = $('killcam-readout');
-    if (replaying && director.killcamActive && director.shotKind === 'autopsy' && director.readout) {
+    if (replaying && director.killcamActive && director.readout) {
       const r = director.readout;
-      kro.innerHTML = `<div class="kro-h">⌖ AUTOPSY</div>`
+      const kroTitle = director.shotKind === 'ride' ? '➤ THE ROUND'
+        : director.shotKind === 'wreck' ? '✸ THE WRECK' : '⌖ AUTOPSY';
+      kro.innerHTML = `<div class="kro-h">${kroTitle}</div>`
         + `<div class="kro-row"><span>SHOOTER</span><b>${r.shooter}</b></div>`
         + `<div class="kro-row"><span>WEAPON</span><b>${r.weapon}</b></div>`
         + `<div class="kro-row"><span>RANGE</span><b>${r.range}u</b></div>`

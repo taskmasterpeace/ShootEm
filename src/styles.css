@@ -1186,6 +1186,34 @@ html, body {
   text-transform: uppercase; font-size: 0.85rem;
   animation: replay-pulse 1.6s ease-in-out infinite;
 }
+
+/* ── THE DEATH TREATMENT (the kill cam finally ANNOUNCES itself) ──────────
+   The cam always fired; it just played under the full alive HUD in the same
+   tactical view, so it read as "the game kept going without me". While a cam
+   rolls (#hud.killcam, set by main.ts):
+     · letterbox bars close in — the frame says CINEMA, not gameplay
+     · the live clusters (vitals, minimap, weapon, K9) step OFF the stage —
+       a dead soldier has no ammo counter
+     · the banner grows into a real title card
+   The killfeed stays — it names the death the cam is showing. */
+#hud.killcam::before, #hud.killcam::after {
+  content: ''; position: absolute; left: 0; right: 0; height: 8.5vh;
+  background: oklch(0.06 0.005 80 / 0.94); z-index: 13; pointer-events: none;
+  animation: killcam-bars 0.28s ease-out;
+}
+#hud.killcam::before { top: 0; }
+#hud.killcam::after { bottom: 0; }
+@keyframes killcam-bars { from { height: 0; } }
+#hud.killcam #hud-bottom-left, #hud.killcam #hud-bottom-right,
+#hud.killcam #k9-controls, #hud.killcam #status-strip,
+#hud.killcam #vehicle-hint, #hud.killcam #down-banner {
+  display: none;
+}
+#hud.killcam #replay-banner {
+  top: auto; bottom: 10.5vh; font-size: 1.15rem; padding: 0.6rem 1.8rem;
+  border-left-width: 4px; border-right-width: 4px;
+  box-shadow: 0 0 32px oklch(0 0 0 / 0.6);
+}
 @keyframes replay-pulse { 50% { opacity: 0.55; } }
 
 /* THE REWARD CUT (Robert's shot #4): a confirmed kill wears GOLD and pops in —
