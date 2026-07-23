@@ -272,15 +272,15 @@ if (district.diagnostics.walkableIslands.length) throw new Error('inaccessible w
 - Modify carefully: `src/client/renderer.ts`
 - Create: `tests/geospatial-visuals.test.ts`
 
-- [ ] Write failing pure tests for palette/profile selection, true-height preservation, roof selection, facade module counts, and embedded-building exclusion from background shells.
-- [ ] Extend palette/style support to `lower-manhattan` and `tarboro`.
-- [ ] Add `buildSemanticDistrictVisuals(meta)` that creates footprint-aligned low-poly shells, roofs, doors, and instanced window/facade modules from `meta.district.buildings`.
-- [ ] Batch repeated facade/roof modules by profile/material/storey band; do not instantiate one raw four-meter cube per footprint cell.
-- [ ] Preserve tall Lower Manhattan heights; remove the existing two-storey visual cap in `backgroundWallStyle`.
-- [ ] Exclude embedded buildings from background shells so authored interiors and semantic exteriors never z-fight.
-- [ ] In `renderer.ts`, integrate the semantic group beside existing geospatial decor while leaving unrelated renderer edits intact.
-- [ ] Run `npx vitest run tests/geospatial-visuals.test.ts` and `npx tsc --noEmit`.
-- [ ] Commit: `feat: render semantic real city exteriors`
+- [x] Write failing pure tests for palette/profile selection, true-height preservation, roof selection, facade module counts, and embedded-building exclusion from background shells.
+- [x] Extend palette/style support to `lower-manhattan` and `tarboro`.
+- [x] Add `buildSemanticDistrictVisuals(meta)` that creates footprint-aligned low-poly shells, roofs, doors, and instanced window/facade modules from `meta.district.buildings`.
+- [x] Batch repeated facade/roof modules by profile/material/storey band; do not instantiate one raw four-meter cube per footprint cell.
+- [x] Preserve tall Lower Manhattan heights; remove the existing two-storey visual cap in `backgroundWallStyle`.
+- [x] Exclude embedded buildings from background shells so authored interiors and semantic exteriors never z-fight.
+- [x] In `renderer.ts`, integrate the semantic group beside existing geospatial decor while leaving unrelated renderer edits intact.
+- [x] Run `npx vitest run tests/geospatial-visuals.test.ts` and `npx tsc --noEmit`.
+- [x] Commit: `feat: render semantic real city exteriors`
 
 ## Task 8: Import the three real-city districts
 

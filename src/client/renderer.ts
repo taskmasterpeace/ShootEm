@@ -30,7 +30,14 @@ import { buildFlag, buildGadget, buildGate, buildPad, buildPickup, buildProp, bu
 import { k9MarkerKind } from './k9-controls';
 import { activeScienceWaypoints } from './science';
 import { ELEVATION_ALT, asElevationLevel } from '../sim/elevation';
-import { backgroundWallStyle, buildGeospatialDecor, geospatialGroundColor, paletteKeyForMap } from './geospatial-visuals';
+import {
+  backgroundWallStyle,
+  buildGeospatialDecor,
+  buildSemanticDistrictVisuals,
+  geospatialGroundColor,
+  paletteKeyForMap,
+  semanticShellCellSet,
+} from './geospatial-visuals';
 
 const TRACER_COLORS: Record<string, number> = {
   bullet: 0xffd890, shell: 0xffb060, rocket: 0xff8840, plasma: 0x60c8ff,
@@ -156,6 +163,20 @@ export const THEME_PALETTES: Record<string, ThemePalette> = {
     wall: 0xb8ad96, cover: 0x8d887b,
     open: (r) => { const g = 48 + r * 18; return `rgb(${g}, ${g + 3}, ${g + 4})`; },
     water: (r) => `rgb(${20 + r * 8}, ${72 + r * 15}, ${82 + r * 17})`,
+  },
+  'lower-manhattan': {
+    sky: 0x9cadb7, fog: 0x87959c, fogNear: 75, fogFar: 260,
+    sun: 0xffe3bd, sunIntensity: 1.48, hemiSky: 0xc5d1d6, hemiGround: 0x4b4b49,
+    wall: 0x82796d, cover: 0x666460,
+    open: (r) => { const g = 54 + r * 17; return `rgb(${g}, ${g + 1}, ${g})`; },
+    water: (r) => `rgb(${31 + r * 9}, ${68 + r * 14}, ${79 + r * 17})`,
+  },
+  tarboro: {
+    sky: 0xb4c7cf, fog: 0xa8b9b8, fogNear: 100, fogFar: 300,
+    sun: 0xffdfaa, sunIntensity: 1.58, hemiSky: 0xd4e0dd, hemiGround: 0x5d5a48,
+    wall: 0xb9a98d, cover: 0x817963,
+    open: (r) => { const g = 70 + r * 20; return `rgb(${g + 5}, ${g}, ${g - 8})`; },
+    water: (r) => `rgb(${35 + r * 8}, ${78 + r * 13}, ${88 + r * 15})`,
   },
 };
 
@@ -1362,6 +1383,7 @@ export class Renderer {
     // heard of (future T_SLIT etc.), which render as walls and warn instead
     // of becoming invisible collision. Guarded by tests/walls.test.ts.
     const covered = new Set(world.map.propCovered);
+    const semanticShellCells = semanticShellCellSet(world.map.geospatial, geometry);
     const wallTiles: [number, number][] = [];
     const coverTiles: [number, number][] = [];
     const grassTiles: [number, number][] = [];
@@ -1379,6 +1401,7 @@ export class Renderer {
       for (let x = 0; x < cols; x++) {
         const idx = z * cols + x;
         const t = world.map.grid[idx];
+        if (t === T_WALL && semanticShellCells.has(idx)) continue;
         if (t === T_OPEN || t === T_WATER || t === T_DEEP || t === T_LADDER
           || (t >= T_STAIRS_N && t <= T_STAIRS_W) || covered.has(idx)) continue;
         if (t === T_GRASS) {
@@ -1459,6 +1482,8 @@ export class Renderer {
     if (wallInst.instanceColor) wallInst.instanceColor.needsUpdate = true;
     this.scene.add(wallInst);
     this.wallInst = wallInst;
+    const semanticDistrict = buildSemanticDistrictVisuals(world.map.geospatial);
+    if (semanticDistrict) this.scene.add(semanticDistrict);
     const districtDecor = buildGeospatialDecor(world.map.geospatial);
     if (districtDecor) this.scene.add(districtDecor);
 
