@@ -314,6 +314,21 @@
 </head>
 <body data-mode="stage">
   <canvas id="harness-canvas"></canvas>
+  <!-- #125 THE MODELER'S QUAD — pane nameplates; the scissor render draws the views -->
+  <div id="quad-labels" style="display:none">
+    <span style="left:302px; top:52px">FRONT · +X</span>
+    <span style="left:calc(50% + 10px); top:52px">SIDE · +Z</span>
+    <span style="left:302px; top:calc(50% + 8px)">TOP</span>
+    <span style="left:calc(50% + 10px); top:calc(50% + 8px)">FREE</span>
+  </div>
+  <style>
+    #quad-labels span {
+      position: fixed; z-index: 5; pointer-events: none;
+      font: 600 10px ui-monospace, monospace; letter-spacing: 0.18em;
+      color: #e8a33d; background: rgba(10, 12, 15, 0.62);
+      border: 1px solid #3a382f; padding: 2px 9px;
+    }
+  </style>
   <iframe id="style-frame" title="Style Lab"></iframe>
   <iframe id="beams-frame" title="Beam Lab"></iframe>
   <iframe id="instrument-frame" title="Radar and Instrument Lab"></iframe>
@@ -441,6 +456,7 @@
         <label class="check"><input type="checkbox" id="opt-joints"> Joint markers (soldiers)</label>
         <label class="check"><input type="checkbox" id="opt-armvec"> Arm forward vectors (soldiers)</label>
         <label class="check"><input type="checkbox" id="opt-turntable"> Turntable spin</label>
+        <label class="check"><input type="checkbox" id="opt-quad"> Quad view — front / side / top / free (Q · [ ] zoom)</label>
       </div>
     </div>
 

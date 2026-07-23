@@ -60,6 +60,74 @@ controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.target.copy(MODEL_TARGET);
 
+// ─────────────────────────────────────────────────────────────────────────────
+// #125 THE MODELER'S QUAD — front / side / top / free, all at once (Robert:
+// "we gonna be doing all kind of modeling… four views, inside the harness").
+// Orthographic for the fixed three: silhouette truth, no perspective lies.
+// The free pane keeps the orbit camera. The Body Shop's key-6 lesson made law.
+// ─────────────────────────────────────────────────────────────────────────────
+let quadZoom = 1;
+const QUAD_DIST = 12;
+const orthoFront = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 60); // +X looking back — the face a body walks with
+const orthoSide = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 60);  // +Z profile
+const orthoTop = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 60);   // straight down — the game's truth
+orthoTop.up.set(0, 0, -1); // top view: +X screen-right, +Z screen-down (DCC law)
+
+function aimQuadCams() {
+  const t = MODEL_TARGET;
+  orthoFront.position.set(t.x + QUAD_DIST, t.y, t.z);
+  orthoFront.lookAt(t.x, t.y, t.z);
+  orthoSide.position.set(t.x, t.y, t.z + QUAD_DIST);
+  orthoSide.lookAt(t.x, t.y, t.z);
+  orthoTop.position.set(t.x, t.y + QUAD_DIST, t.z);
+  orthoTop.lookAt(t.x, t.y, t.z);
+}
+aimQuadCams();
+
+function frameOrtho(cam: THREE.OrthographicCamera, aspect: number) {
+  const halfH = 2.1 * quadZoom;
+  cam.top = halfH; cam.bottom = -halfH;
+  cam.left = -halfH * aspect; cam.right = halfH * aspect;
+  cam.updateProjectionMatrix();
+}
+
+const quadLabels = document.getElementById('quad-labels');
+function syncQuadLabels() {
+  if (quadLabels) quadLabels.style.display = opt.quad && stage.visible ? '' : 'none';
+}
+
+/** The 2×2 scissor render — a 2px seam of background between panes. */
+function renderQuad() {
+  const r = canvas.getBoundingClientRect();
+  const w = Math.max(1, r.width), h = Math.max(1, r.height);
+  const pw = Math.floor(w / 2), ph = Math.floor(h / 2);
+  const seam = 1;
+  const paneAspect = pw / ph;
+  for (const cam of [orthoFront, orthoSide, orthoTop]) frameOrtho(cam, paneAspect);
+  renderer.setScissorTest(true);
+  const panes: [number, number, THREE.Camera][] = [
+    [0, ph, orthoFront],        // top-left
+    [pw, ph, orthoSide],        // top-right
+    [0, 0, orthoTop],           // bottom-left
+    [pw, 0, camera],            // bottom-right — the free orbit
+  ];
+  for (const [px, py, cam] of panes) {
+    renderer.setViewport(px + seam, py + seam, pw - seam * 2, ph - seam * 2);
+    renderer.setScissor(px + seam, py + seam, pw - seam * 2, ph - seam * 2);
+    if (cam === camera) {
+      camera.aspect = paneAspect;
+      camera.updateProjectionMatrix();
+    }
+    renderer.render(scene, cam);
+  }
+  renderer.setScissorTest(false);
+  renderer.setViewport(0, 0, w, h);
+  renderer.setScissor(0, 0, w, h);
+  // restore the full-screen aspect for the single-view frames that follow
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+
 const hemi = new THREE.HemisphereLight(0xcfe0ee, 0x5a5648, 0.9);
 scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffe8c0, 1.7);
@@ -133,7 +201,7 @@ let dummy: THREE.Object3D | null = null;
 // ── options bound to the panel checkboxes ────────────────────────────────────
 const opt = {
   grid: true, axes: true, wire: false, bbox: false, joints: false, armvec: false,
-  turntable: false, anim: true, airborne: false, speed: 0,
+  turntable: false, anim: true, airborne: false, speed: 0, quad: false,
 };
 let team: Team = 0;
 let envMode = false;
@@ -803,6 +871,7 @@ bindCheck('opt-bbox', 'bbox', rebuildOverlays);
 bindCheck('opt-joints', 'joints', rebuildOverlays);
 bindCheck('opt-armvec', 'armvec', rebuildOverlays);
 bindCheck('opt-turntable', 'turntable');
+bindCheck('opt-quad', 'quad', syncQuadLabels);
 
 // animation
 bindCheck('opt-anim', 'anim', () => { if (!opt.anim) restoreRest(); });
@@ -937,6 +1006,15 @@ window.addEventListener('keydown', (e) => {
     if (envMode) { applyEnvCam(); }
     else { camera.fov = 50; camera.updateProjectionMatrix(); camera.position.copy(MODEL_CAM); controls.target.copy(MODEL_TARGET); }
   }
+  // #125 the quad: Q toggles, [ ] breathe the ortho frame in and out
+  if (e.key === 'q' || e.key === 'Q') {
+    opt.quad = !opt.quad;
+    const box = document.getElementById('opt-quad') as HTMLInputElement | null;
+    if (box) box.checked = opt.quad;
+    syncQuadLabels();
+  }
+  if (e.key === '[') quadZoom = Math.min(3, quadZoom * 1.15);
+  if (e.key === ']') quadZoom = Math.max(0.35, quadZoom / 1.15);
 });
 
 // size the renderer to the canvas's ACTUAL CSS box (differs by mode: full
@@ -1005,6 +1083,7 @@ function setMode(mode: string) {
   laneGroup.visible = arsenal;
   stage.visible = !arsenal;
   overlays.visible = !arsenal;
+  syncQuadLabels(); // the quad nameplates follow the stage
   grid.visible = opt.grid && !arsenal && !envMode;
   worldAxes.visible = opt.axes && !arsenal && !envMode;
   if (arsenal) {
@@ -1487,7 +1566,8 @@ function frame(now: number) {
   if (matchupCtl?.active) matchupCtl.tick(dt); // the street fight runs on the SAME clock the Time slider owns
 
   controls.update();
-  renderer.render(scene, camera);
+  if (opt.quad && stage.visible && !envMode) renderQuad();
+  else renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
 
