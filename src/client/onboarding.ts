@@ -118,6 +118,21 @@ export const PAINTBALL_MARKERS: { id: WeaponId; blurb: string }[] = [
   { id: 'marker_scatter', blurb: 'Seven balls, one press. Doorways win.' },
 ];
 
+/** coach-ui: the marker icon slot is a CHANNEL again — four distinct SVG
+ *  silhouettes in currentColor (steel at rest, amber when the card selects),
+ *  replacing the repeated palette emoji whose magenta blobs broke both the
+ *  no-purple law and the terminal voice. */
+const MARKER_GLYPHS: Record<string, string> = {
+  // spray burst — many small balls leaving fast
+  marker_blitz: '<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><circle cx="5" cy="12" r="2.2"/><circle cx="11" cy="8" r="1.6"/><circle cx="12" cy="16" r="1.6"/><circle cx="17" cy="6" r="1.3"/><circle cx="18" cy="12" r="1.3"/><circle cx="17" cy="18" r="1.3"/><circle cx="22" cy="9" r="1"/><circle cx="22" cy="15" r="1"/></svg>',
+  // one ball, dead center, ringed — the aimed shot
+  marker_pump: '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="7.5"/><path d="M12 1.5v3.2M12 19.3v3.2M1.5 12h3.2M19.3 12h3.2"/></svg>',
+  // the lobbed arc, ball at apex falling
+  marker_lobber: '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 19 Q8 4 19 7" stroke-dasharray="2.5 2.2"/><circle cx="19.5" cy="13" r="2.6" fill="currentColor" stroke="none"/><path d="M19.5 16.5v3" stroke-width="1.2"/></svg>',
+  // the fan — seven balls in a spread
+  marker_scatter: '<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><circle cx="4" cy="12" r="1.8"/><circle cx="12" cy="4.5" r="1.5"/><circle cx="13" cy="8.2" r="1.5"/><circle cx="14" cy="12" r="1.5"/><circle cx="13" cy="15.8" r="1.5"/><circle cx="12" cy="19.5" r="1.5"/><circle cx="20" cy="12" r="1.2"/><circle cx="19" cy="6" r="1.2"/><circle cx="19" cy="18" r="1.2"/></svg>',
+};
+
 /** The paint rack (Robert: pick your paintballs). No purple — house law.
  *  Everyone else draws by id hash from the rack minus your pick, so the yard
  *  ends up confetti and your shade stays yours. */
@@ -287,7 +302,11 @@ export function mountOnboarding(host: OnboardingHost): boolean {
     const markers = wrap.querySelector('#ob-markers')!;
     for (const mk of PAINTBALL_MARKERS) {
       const def = WEAPONS[mk.id];
-      const c = card(`<div class="ob-icon">${def.icon}</div><b>${def.name}</b><span>${mk.blurb}</span>`, st.marker === mk.id);
+      // coach-ui: four DISTINCT silhouettes (spray burst / one ball / lobbed
+      // arc / fan spread) — the icon slot differentiates again, and the
+      // emoji's off-palette paint blobs leave the terminal (4 judges)
+      const glyph = MARKER_GLYPHS[mk.id] ?? MARKER_GLYPHS.marker_blitz;
+      const c = card(`<div class="ob-icon">${glyph}</div><b>${def.name}</b><span>${mk.blurb}</span>`, st.marker === mk.id);
       c.onclick = () => { st.marker = mk.id; saveOnboarding(st); mountOnboarding(host); };
       markers.appendChild(c);
     }

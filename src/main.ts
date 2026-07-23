@@ -21,6 +21,7 @@ import { StaticOverlay } from './client/effects';
 import { Hud, renderOperationAfterAction, setRankChip, setStatChips } from './client/hud';
 import { initGodMode } from './client/godmode';
 import { Input } from './client/input';
+import { CLASS_GLYPHS, MODE_GLYPHS, THEME_GLYPHS, cardGlyph } from './client/glyphs';
 import { TouchControls, isTouchDevice } from './client/touch';
 import { currentSession, restoreSession, signOut, supabaseConfigured } from './client/auth';
 import { MusicDirector } from './client/music';
@@ -446,7 +447,7 @@ function buildMenu() {
     .forEach((id) => {
     const card = document.createElement('div');
     card.className = `select-card${id === selectedMode ? ' selected' : ''}`;
-    card.innerHTML = `<div class="icon">${MODE_INFO[id].icon}</div><div class="name">${MODE_INFO[id].name}</div><div class="desc">${MODE_INFO[id].desc}</div>`;
+    card.innerHTML = `<div class="icon">${cardGlyph(MODE_GLYPHS, id, MODE_INFO[id].icon)}</div><div class="name">${MODE_INFO[id].name}</div><div class="desc">${MODE_INFO[id].desc}</div>`;
     card.onclick = () => {
       selectedMode = id;
       activeFrontId = null;
@@ -523,7 +524,7 @@ function buildMenu() {
     const c = CLASSES[id];
     const card = document.createElement('div');
     card.className = `select-card${id === selectedClass ? ' selected' : ''}`;
-    card.innerHTML = `<div class="icon">${CLASS_ICONS[id]}</div><div class="name">${c.name}</div><div class="desc">${c.desc}</div>`;
+    card.innerHTML = `<div class="icon">${cardGlyph(CLASS_GLYPHS, id, CLASS_ICONS[id])}</div><div class="name">${c.name}</div><div class="desc">${c.desc}</div>`;
     card.onclick = () => {
       selectedClass = id;
       audio.play('ui_click');
@@ -541,7 +542,7 @@ function buildMenu() {
     const t = THEMES[id];
     const card = document.createElement('div');
     card.className = `select-card${id === selectedTheme ? ' selected' : ''}`;
-    card.innerHTML = `<div class="icon">${t.icon}</div><div class="name">${t.name}</div><div class="desc">${t.desc}${t.gravity < 22 ? ` Low-g: ${t.gravity} m/s².` : ''}</div>`;
+    card.innerHTML = `<div class="icon">${cardGlyph(THEME_GLYPHS, t.id, t.icon)}</div><div class="name">${t.name}</div><div class="desc">${t.desc}${t.gravity < 22 ? ` Low-g: ${t.gravity} m/s².` : ''}</div>`;
     card.onclick = () => {
       selectedTheme = id;
       audio.play('ui_click');
@@ -565,6 +566,9 @@ async function startGame() {
   const name = (($('player-name') as HTMLInputElement).value || 'Recruit').slice(0, 16);
   const serverUrl = (($('server-url') as HTMLInputElement).value || '').trim();
   $('menu').classList.add('hidden');
+  // the world clock docks left in a match, right on menu surfaces — it was
+  // parking itself on top of the codex tabs (coach-ui iteration 2)
+  document.body.classList.add('in-match');
 
   const canvas = $('game-canvas') as HTMLCanvasElement;
   const renderer = new Renderer(canvas);

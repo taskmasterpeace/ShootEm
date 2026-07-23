@@ -85,20 +85,26 @@ function renderMenu() {
   // in all its shapes — and PAINTBALL, the yard. The row toggles in place.
   const spDoors = document.createElement('div');
   spDoors.className = 'fm-subrow hidden';
-  buttons.appendChild(menuButton('▶', 'SINGLE PLAYER', 'Fight the war offline — skirmish or the paintball yard.', false, () => {
+  // coach-ui: the PRIMARY action outranks the utility row — SINGLE PLAYER
+  // wears the amber rail; OPTIONS drops to a quiet compact row
+  const spBtn = menuButton('▶', 'SINGLE PLAYER', 'Fight the war offline — skirmish or the paintball yard.', false, () => {
     spDoors.classList.toggle('hidden');
-  }));
+  });
+  spBtn.classList.add('fm-primary');
+  buttons.appendChild(spBtn);
   spDoors.appendChild(menuButton('⚔', 'SKIRMISH', 'War, military missions, science missions, the outbreak.', false, () => {
     hideOverlay();
     host.enterMenu('skirmish');
   }));
-  spDoors.appendChild(menuButton('🎨', 'PAINTBALL', 'The yard: hunters vs hunted, the Gauntlet, the pro shop.', false, () => {
+  spDoors.appendChild(menuButton('❖', 'PAINTBALL', 'The yard: hunters vs hunted, the Gauntlet, the pro shop.', false, () => {
     hideOverlay();
     host.enterMenu('paintball');
   }));
   buttons.appendChild(spDoors);
   buttons.appendChild(menuButton('⛨', 'MULTIPLAYER', 'Two real armies over one contested world.', true));
-  buttons.appendChild(menuButton('⚙', 'OPTIONS', 'Audio, comfort, blood, speeds, reticle, controls.', false, renderOptions));
+  const optBtn = menuButton('⚙', 'OPTIONS', 'Audio, comfort, blood, speeds, reticle, controls.', false, renderOptions);
+  optBtn.classList.add('fm-quiet');
+  buttons.appendChild(optBtn);
 
   const foot = document.createElement('div');
   foot.className = 'fm-foot';
