@@ -30,6 +30,7 @@ import type { GameplayOverlayChange } from './artifact';
 import { dominantRoadAngle, projectSlice, rasterLine, rasterPolygon } from './geometry';
 import { compileTerrain } from './terrain';
 import { buildStreetNetwork } from './street-network';
+import { deriveNeighborhood, type NeighborhoodLayout } from './neighborhood';
 import type { GeoBuilding, GeoSliceSource, ProjectedGeoBuilding, ProjectedGeoSlice } from './types';
 
 export const GEO_CLASS_EMPTY = 0;
@@ -53,6 +54,7 @@ export interface CompiledGeospatialMap {
   classification: Uint8Array;
   overlay: GameplayOverlayChange[];
   projected: ProjectedGeoSlice;
+  neighborhood: NeighborhoodLayout;
   diagnostics: {
     sourceRoads: number;
     sourceBuildings: number;
@@ -488,7 +490,8 @@ export function compileGeospatialMap(
   }
 
   const streetNetwork = buildStreetNetwork(projected.roads.filter((road) => !road.tunnel), geometry);
-  const roadCells = streetNetwork.carriagewayCells;
+  const neighborhood = deriveNeighborhood(projected.buildings, streetNetwork, geometry);
+  const roadCells = new Set(streetNetwork.carriagewayCells);
   for (const index of roadCells) {
     classification[index] = GEO_CLASS_ROAD;
     map.grid[index] = T_OPEN;
@@ -616,6 +619,7 @@ export function compileGeospatialMap(
     classification,
     overlay,
     projected,
+    neighborhood,
     diagnostics: {
       sourceRoads: source.roads.length,
       sourceBuildings: source.buildings.length,

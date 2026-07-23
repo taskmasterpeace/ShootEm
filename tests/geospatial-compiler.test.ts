@@ -127,6 +127,8 @@ describe('geospatial map compiler', () => {
     expect(first.diagnostics.streetConnectors).toBeGreaterThanOrEqual(5);
     expect(first.diagnostics.streetSegments).toBeGreaterThanOrEqual(4);
     expect(first.diagnostics.sidewalkCells).toBeGreaterThan(0);
+    expect(first.neighborhood.blocks.length).toBeGreaterThanOrEqual(2);
+    expect(first.neighborhood.placements.map((placement) => placement.buildingId)).toContain('way/factory');
 
     const toIndex = (position: { x: number; z: number }) => {
       const x = Math.floor((position.x + options.geometry.cols * options.geometry.tile / 2) / options.geometry.tile);

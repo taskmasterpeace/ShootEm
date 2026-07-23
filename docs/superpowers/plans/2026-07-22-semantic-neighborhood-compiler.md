@@ -179,12 +179,12 @@ export interface StreetNetwork {
 - Create: `tests/geospatial-neighborhood.test.ts`
 - Modify: `src/sim/geospatial/compiler.ts`
 
-- [ ] Write failing synthetic-grid tests for four differently sized blocks separated by connected streets, deterministic lot assignment, frontage orientation, driveway creation, and entrance-to-sidewalk reachability.
-- [ ] Compute blocks as bounded non-carriageway regions after sealing the map rim; discard the exterior region and record holes/degenerate regions in diagnostics.
-- [ ] Assign each retained footprint centroid to a block. Generate lots by deterministic multi-source growth from building footprints to block boundaries, preserving yards and avoiding overlaps.
-- [ ] Select frontage from the closest accessible road/sidewalk edge, then infer setback, yard depth, parking likelihood, and entrance position.
-- [ ] Connect entrances using a collision-aware shortest path. If no path exists, add a narrow walkway or driveway and audit it again.
-- [ ] Export pure audit helpers:
+- [x] Write failing synthetic-grid tests for four differently sized blocks separated by connected streets, deterministic lot assignment, frontage orientation, driveway creation, and entrance-to-sidewalk reachability.
+- [x] Compute blocks as bounded non-carriageway regions after sealing the map rim; discard the exterior region and record holes/degenerate regions in diagnostics.
+- [x] Assign each retained footprint centroid to a block. Generate lots by deterministic multi-source growth from building footprints to block boundaries, preserving yards and avoiding overlaps.
+- [x] Select frontage from the closest accessible road/sidewalk edge, then infer setback, yard depth, parking likelihood, and entrance position.
+- [x] Connect entrances using a collision-aware shortest path. If no path exists, add a narrow walkway or driveway and audit it again.
+- [x] Export pure audit helpers:
 
 ```ts
 export function auditEntranceConnectivity(
@@ -200,9 +200,9 @@ export function auditBuildingRoadOverlap(
 ): string[];
 ```
 
-- [ ] Assert the synthetic district has varied block/lot areas, zero unexplained road overlap, and every entrance connected.
-- [ ] Run `npx vitest run tests/geospatial-neighborhood.test.ts`.
-- [ ] Commit: `feat: derive connected blocks lots and entrances`
+- [x] Assert the synthetic district has varied block/lot areas, zero unexplained road overlap, and every entrance connected.
+- [x] Run `npx vitest run tests/geospatial-neighborhood.test.ts`.
+- [x] Commit: `feat: derive connected blocks lots and entrances`
 
 ## Task 5: Apply regional building and neighborhood grammars
 
