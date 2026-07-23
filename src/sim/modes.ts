@@ -4,6 +4,8 @@ import { isBoard, isZed, type ModeId, type ModeState, type RacerState, type Race
 import type { World } from './world';
 import { stepScienceMission } from './science-runtime';
 import { pbBark, pbProximityTaunts } from './paintball';
+import { courseFor, layCourse, type CourseGate } from './courses';
+import type { LicenceId } from './licenses';
 
 const MATCH_TIME = 15 * 60;
 
@@ -15,6 +17,13 @@ export function initMode(id: ModeId, map: GameMap, minutes?: number): ModeState 
     case 'range':
       // the Proving Grounds never end — you leave when you're done
       m.timeLeft = Infinity;
+      break;
+    case 'school':
+      // THE SCHOOLS: a course, a clock, and a pass mark. The candidate
+      // drives the gates in order; par is generous because this teaches.
+      m.timeLeft = Infinity;
+      m.courseGate = 0;
+      m.coursePassed = false;
       break;
     case 'shop':
       // A PLACE, not a match (#122, the amusement-park law): no clock, no
@@ -144,6 +153,7 @@ export function stepMode(w: World, dt: number) {
     case 'science': stepScienceMission(w, dt); break;
     case 'paintball': stepPaintball(w, dt); break;
     case 'race': case 'timetrial': stepRace(w, dt); break;
+    case 'school': stepSchool(w, dt); break;
     case 'range': break; // no clock, no whistle — just the work
     case 'shop': break;  // a place breathes on its own — stations, not scores
   }
@@ -726,6 +736,75 @@ function rollIronKind(w: World, wave: number): IronKind {
  *  in a sea of shamblers a single runner is an event, not a pattern. */
 function rollZedKind(w: World, tide = false): ZedKind {
   return w.rng.next() < (tide ? 0.005 : 0.01) ? 'sprinter' : 'zombie';
+}
+
+// ---------- THE SCHOOLS: the certification programs ----------
+
+/** The laid course, cached per match — the layout is pure, so one call does. */
+let schoolGates: CourseGate[] = [];
+let schoolFor: string | null = null;
+
+/** The gates of the course now being examined (the renderer draws these). */
+export function courseGates(m: ModeState): CourseGate[] {
+  const lic = m.courseLicence;
+  if (!lic) return [];
+  if (schoolFor !== lic) {
+    const c = courseFor(lic as LicenceId);
+    schoolGates = c ? layCourse(c) : [];
+    schoolFor = lic;
+  }
+  return schoolGates;
+}
+
+/**
+ * THE EXAMINER (Robert: "programs that help new players use any of the
+ * vehicles"). The candidate drives the course's gates IN ORDER — each gate
+ * belongs to a drill, and the drill's lesson is on the HUD while they
+ * approach it. Clear every gate and the school signs the papers; the clock
+ * only decides whether it was a pass or a pass with notes.
+ *
+ * Deliberately forgiving: no failure state, no wash-out. A course you can
+ * fail is a course a new player abandons. You finish, you qualify, and par
+ * is a thing to chase on the second run.
+ */
+function stepSchool(w: World, dt: number) {
+  const m = w.mode;
+  const gates = courseGates(m);
+  m.courseGates = gates.length;
+  if (!gates.length || m.coursePassed) return;
+  const idx = m.courseGate ?? 0;
+  if (idx >= gates.length) return;
+  const gate = gates[idx];
+  // the candidate is whoever is driving — on foot counts too (walk the course
+  // to learn it; the licence still needs the hull, and the hull is provided)
+  for (const s of w.humansAndBots()) {
+    if (!s.alive) continue;
+    const d = Math.hypot(s.pos.x - gate.pos.x, s.pos.z - gate.pos.z);
+    if (d > gate.radius) continue;
+    m.courseGate = idx + 1;
+    if (m.courseGate >= gates.length) {
+      m.coursePassed = true;
+      m.over = true;
+      m.winner = 0;
+      const par = m.coursePar ?? Infinity;
+      const clean = w.time <= par;
+      w.emit({
+        type: 'announce',
+        text: clean ? 'COURSE COMPLETE — QUALIFIED, INSIDE PAR' : 'COURSE COMPLETE — QUALIFIED',
+        big: true,
+      });
+    } else {
+      // the gate that just fell, and the one now in front
+      const nextDrill = gates[m.courseGate].drill;
+      if (nextDrill !== gate.drill) {
+        const c = courseFor(m.courseLicence as LicenceId);
+        const d2 = c?.drills[nextDrill];
+        if (d2) w.emit({ type: 'announce', text: `${d2.name.toUpperCase()} — ${d2.lesson}` });
+      }
+    }
+    break;
+  }
+  void dt;
 }
 
 // ---------- Endless Horde ----------

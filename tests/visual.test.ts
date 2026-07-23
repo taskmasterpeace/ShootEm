@@ -193,7 +193,7 @@ const VEHICLE_PARTS: Record<VehicleKind, string[]> = {
   scooter: [], atv: [], garbagetruck: [], towtruck: [], firetruck: [],
   fueltanker: [], movingtruck: [], foodtruck: [], deliveryvan: [],
   policecruiser: [], loader: [], forklift: [], bulldozer: [], cementmixer: [],
-  golfcart: [], bicycle: [], train: [], subway: [],
+  golfcart: [], bicycle: [], train: [], subway: [], musclecar: [], roadster: [], rallytruck: [], racetruck: [], hotrod: [],
   passengerjet: [], privatejet: [], cargoplane: [], bushplane: [], cropduster: [],
   newsheli: ['rotorL'], medheli: ['rotorL'], policeheli: ['rotorL'], skycrane: ['rotorL'],
   balloon: [], blimp: [], ultralight: [], paraglider: [], hangglider: [],

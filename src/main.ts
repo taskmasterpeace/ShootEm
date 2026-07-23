@@ -22,6 +22,10 @@ import { Hud, renderOperationAfterAction, setRankChip, setStatChips } from './cl
 import { initGodMode } from './client/godmode';
 import { Input } from './client/input';
 import { CLASS_GLYPHS, MODE_GLYPHS, THEME_GLYPHS, cardGlyph } from './client/glyphs';
+import { COURSES, courseFor, layCourse } from './sim/courses';
+import { VEHICLES } from './sim/data';
+import { awardLicence, canEnrol, loadLicences } from './client/licences';
+import { LICENCES, type LicenceId } from './sim/licenses';
 import { TouchControls, isTouchDevice } from './client/touch';
 import { currentSession, restoreSession, signOut, supabaseConfigured } from './client/auth';
 import { MusicDirector } from './client/music';
@@ -90,6 +94,9 @@ let playerTeam: Team = 0;
 let botsPerTeam = 12; // 32B: 12v12 target — bots fill every open position
 let scienceClones = 4;
 let queuedScienceLaunch: ScienceLaunchState | null = null;
+/** THE SCHOOLS: which licence course the player enrolled on (school mode). */
+let enrolledCourse: LicenceId | null = null;
+let schoolAwarded = false; // one signature per run
 let matchMinutes = 15;
 /** THE ROSTER LAW (Robert): zombies fight alone unless the player opts in. */
 let hordeRoster: 'zombies' | 'iron' | 'both' = 'zombies';
@@ -402,6 +409,7 @@ const MODE_CATEGORIES: { id: string; label: string; modes: ModeId[] }[] = [
   { id: 'science', label: 'Science Missions', modes: ['science'] },
   { id: 'outbreak', label: 'Outbreak', modes: ['survival', 'horde', 'tide', 'safehouse'] },
   { id: 'training', label: 'Training & Trials', modes: ['range', 'race', 'timetrial'] },
+  { id: 'schools', label: 'The Schools', modes: [] }, // the certification programs
   { id: 'paintball', label: 'Paintball', modes: ['paintball'] },
 ];
 let modeCategory = 'war';
@@ -414,6 +422,44 @@ function setMenuCategory(cat: string) {
     selectedMode = shelf.modes[0];
   }
   buildMenu();
+}
+
+/**
+ * THE ENROLMENT BOARD (Robert: "programs that help new players use any of
+ * the vehicles"). Every course on one wall: what it teaches, the hull it
+ * teaches on, the lessons inside it, your papers, and your best time. A
+ * locked course says WHY it is locked — the prerequisite, by name.
+ */
+function paintSchoolBoard(host: HTMLElement) {
+  const rec = loadLicences();
+  const cards = (Object.keys(COURSES) as LicenceId[]).map((id) => {
+    const c = COURSES[id]!;
+    const held = rec.held.includes(id);
+    const open = canEnrol(id);
+    const need = LICENCES[id].requires;
+    const best = rec.best[id];
+    const state = held ? '<span class="sc-held">CERTIFIED</span>'
+      : open ? '<span class="sc-open">OPEN</span>'
+      : `<span class="sc-locked">NEEDS ${LICENCES[need ?? 'none'].name.toUpperCase()}</span>`;
+    const lessons = c.drills.map((d) => `<li><b>${d.name}</b> — ${d.lesson}</li>`).join('');
+    return `<div class="sc-card${held ? ' certified' : ''}${open ? '' : ' locked'}" data-lic="${id}">
+      <div class="sc-head"><b>${c.name}</b>${state}</div>
+      <div class="sc-school">${LICENCES[id].school} · trains on the ${VEHICLES[c.hull]?.name ?? c.hull}</div>
+      <p class="sc-brief">${c.brief}</p>
+      <ul class="sc-lessons">${lessons}</ul>
+      <div class="sc-foot"><span>PAR ${c.par}s${best !== undefined ? ` · YOUR BEST ${Math.round(best)}s` : ''}</span>
+      <button class="sc-go" data-lic="${id}"${open ? '' : ' disabled'}>${held ? 'DRIVE IT AGAIN' : 'ENROL'} ▸</button></div>
+    </div>`;
+  }).join('');
+  host.innerHTML = `<div class="sc-intro">THE SCHOOLS — a licence is a course you DRIVE. Every program teaches the machine, then signs your papers. Nobody washes out.</div><div class="sc-grid">${cards}</div>`;
+  host.querySelectorAll<HTMLButtonElement>('.sc-go').forEach((b) => {
+    b.onclick = () => {
+      enrolledCourse = b.dataset.lic as LicenceId;
+      selectedMode = 'school';
+      audio.play('ui_click');
+      void startGame();
+    };
+  });
 }
 
 function buildMenu() {
@@ -438,12 +484,22 @@ function buildMenu() {
   modeRow.innerHTML = '';
   // MILITARY MISSIONS is an operations shelf, not a mode card — its entry
   // panel (military-missions-entry) is re-adopted by the row each rebuild
+  // THE SCHOOLS shelf paints its own board — every program, what it teaches,
+  // whether your papers let you enrol, and your best time on it
+  let schoolBoard = document.getElementById('school-board');
+  if (!schoolBoard) {
+    schoolBoard = document.createElement('div');
+    schoolBoard.id = 'school-board';
+    modeRow.parentElement!.insertBefore(schoolBoard, modeRow.nextSibling);
+  }
+  schoolBoard.style.display = shelf.id === 'schools' ? '' : 'none';
+  if (shelf.id === 'schools') paintSchoolBoard(schoolBoard);
   const milEntry = document.createElement('div');
   milEntry.id = 'military-missions-entry';
   milEntry.style.display = shelf.id === 'military' ? '' : 'none';
   modeRow.appendChild(milEntry);
   (Object.keys(MODE_INFO) as ModeId[])
-    .filter((id) => id !== 'shop' && shelf.modes.includes(id))
+    .filter((id) => id !== 'shop' && id !== 'school' && shelf.modes.includes(id))
     .forEach((id) => {
     const card = document.createElement('div');
     card.className = `select-card${id === selectedMode ? ' selected' : ''}`;
@@ -876,7 +932,24 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   // 32B: bots FILL to the team-size target (default 12v12; co-op 4-6).
   // Heavy bots carry MANPADS (49A) so the anti-air duel exists in bot wars.
   const botLoadout = (cls: ClassId) => (cls === 'heavy' ? { equipment: ['manpads'] } : undefined);
-  if (isRace) {
+  // THE SCHOOLS (Robert: "programs that help new players use any of the
+  // vehicles"): the course puts the candidate IN the hull at gate one, and
+  // the instructor briefs them before the wheels turn. No enemies, no
+  // clock pressure — a school you can fail is a school a new player quits.
+  if (selectedMode === 'school' && enrolledCourse) {
+    const course = courseFor(enrolledCourse);
+    if (course) {
+      world.mode.courseLicence = enrolledCourse;
+      world.mode.coursePar = course.par;
+      const gates = layCourse(course);
+      const start = gates[0] ? { x: gates[0].pos.x - 30, y: 0, z: gates[0].pos.z } : { x: -170, y: 0, z: 0 };
+      me.pos = { ...start };
+      const hull = world.spawnVehicle(course.hull, me.team, start);
+      hull.yaw = 0;
+      world.forceBoard(me, hull); // the school seats the candidate — no walk-up, no fumbling
+      world.emit({ type: 'announce', text: course.name.toUpperCase() + ' — ' + course.brief, big: true });
+    }
+  } else if (isRace) {
     // MOTOR TRIALS: put the player on pole on their chosen board; the circuit
     // fills the rest of the grid with AI racers on the far team so a winner
     // reads out, the time trial runs solo against the ghost.
@@ -1181,6 +1254,17 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
         saveFieldRecord(st);
         hud.announce(line, true, world.time);
       }
+    }
+    // THE SCHOOL SIGNS THE PAPERS: a completed course awards its licence (and
+    // the whole chain beneath it) to the ACCOUNT, plus your time to beat.
+    if (world.mode.over && world.mode.coursePassed && enrolledCourse && !schoolAwarded) {
+      schoolAwarded = true;
+      const secs = world.time;
+      awardLicence(enrolledCourse, secs);
+      const c = courseFor(enrolledCourse);
+      hud.careerHtml = `<h3>${c?.name.toUpperCase() ?? 'COURSE'} — CERTIFIED</h3>`
+        + `<p>Your papers are signed. The licence belongs to your ACCOUNT — it survives every print you will ever wear.</p>`
+        + `<p class="cp-row">TIME ${secs.toFixed(1)}s · PAR ${c?.par ?? 0}s${secs <= (c?.par ?? Infinity) ? ' · INSIDE PAR' : ''}</p>`;
     }
     if (world.mode.over && scienceLaunch && world.science) {
       const aftermath = finalizeScienceLaunch(scienceLaunch, world.science, campaign ?? undefined);

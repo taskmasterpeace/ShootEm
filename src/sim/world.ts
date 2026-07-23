@@ -5343,11 +5343,17 @@ export class World {
     const driverCmd = driver && driver.alive
       ? (cmds.get(driver.id) ?? (driver.kind === 'bot' ? stepBot(this, driver, dt) : undefined))
       : undefined;
-    // W5.5 THE HANDBRAKE: SPACE on a slip-equipped ground hull breaks rear
-    // grip — the tail steps out (lateral bleed slows 3×), the nose whips
-    // (turn ×1.6), the engine drags (×0.5). Human drivers only: a bot yanking
-    // it would look like a malfunction, not a maneuver.
-    const handbrake = !!driverCmd?.jump && !!def.slip && !def.flies && driver?.kind === 'human';
+    // W5.5 THE HANDBRAKE: SPACE breaks rear grip — the tail steps out
+    // (lateral bleed slows 3×), the nose whips (turn ×1.6), the engine drags
+    // (×0.5). Human drivers only: a bot yanking it would look like a
+    // malfunction, not a maneuver.
+    // (Robert: "we need cars to be able to have handbrakes" — the lever used
+    // to require a tuned `slip` dial, so a taxi, a van and every civilian
+    // runabout had no lever at all. EVERY wheeled ground hull has one now;
+    // tracks and rails still don't, because a tank has no handbrake.)
+    const wheeledHull = !def.flies && !def.hover && !def.boat && !def.immobile && !def.rails
+      && !def.strider && v.kind !== 'tank' && v.kind !== 'apc' && v.kind !== 'tunneler';
+    const handbrake = !!driverCmd?.jump && wheeledHull && driver?.kind === 'human';
     if (driverCmd && !stunned) {
       throttle = -driverCmd.moveZ; // W = forward
       turn = driverCmd.moveX;
@@ -5478,6 +5484,16 @@ export class World {
       //   · steering by rolling speed is above; grip-rate cornering is below.
       // Flyers, hovers, boats and emplacements keep the old book entirely.
       const surfaceHull = !def.flies && !def.hover && !def.boat && !def.immobile;
+      // THE WEIGHT (Robert: "give vehicles handling and weight"). HEFT is mass
+      // against a 1.6t saloon, on a gentle root curve and clamped — a loaded
+      // tanker is ponderous, a tank is a fact of nature, and neither becomes
+      // undrivable. It divides acceleration and braking (mass resists a change
+      // of motion, which is the whole of it) and it widens a corner below.
+      const heft = Math.max(0.8, Math.min(2.4, Math.pow((def.mass ?? 1.6) / 1.6, 0.34)));
+      // HANDLING is the hull's own contribution, independent of its weight —
+      // a sports car and a delivery van can weigh the same and corner nothing
+      // alike. It multiplies the grip the floor provides.
+      const handling = def.grip ?? 1;
       const gripK = surfaceHull
         ? Math.max(0.3, Math.min(1.15, (materialForSurface(surf).grip ?? 12) / 13))
         : 1;
@@ -5486,7 +5502,7 @@ export class World {
       if (surfaceHull) {
         if (Math.abs(targetSpeed) < 0.01) accel = driver?.kind === 'human' ? 6.5 : 18; // the coast
         else if ((targetSpeed - curSpeed) * curSpeed < 0) accel = 27;                  // the brake
-        accel *= tractionK;
+        accel *= tractionK / heft; // the heavy hull takes its time, both ways
       }
       const newSpeed = curSpeed + Math.max(-accel * dt, Math.min(accel * dt, targetSpeed - curSpeed));
       const fwdX = Math.cos(v.yaw), fwdZ = Math.sin(v.yaw);
@@ -5503,8 +5519,10 @@ export class World {
         // stretches the slide), high-grip plate tightens it.
         const latX = v.vel.x - fwdX * curSpeed;
         const latZ = v.vel.z - fwdZ * curSpeed;
-        // W5.5: the handbrake breaks rear grip — sideways survives 3× longer
-        const keep = Math.exp(-(handbrake ? def.slip * 0.3 : def.slip * gripK) * dt); // frame-rate honest
+        // W5.5: the handbrake breaks rear grip — sideways survives 3× longer.
+        // WEIGHT + HANDLING ride the same dial: a heavy hull washes wider
+        // (÷heft), a well-sorted chassis bites back (×handling).
+        const keep = Math.exp(-(handbrake ? def.slip * 0.3 : def.slip * gripK * handling / heft) * dt);
         v.vel.x = fwdX * newSpeed + latX * keep;
         v.vel.z = fwdZ * newSpeed + latZ * keep;
       } else if (wheeled) {
@@ -5514,7 +5532,9 @@ export class World {
         // deliberate rails — "a tank corners like a tank ON PURPOSE" (W5.5).
         const latX = v.vel.x - fwdX * curSpeed;
         const latZ = v.vel.z - fwdZ * curSpeed;
-        const keep = Math.exp(-14 * gripK * dt);
+        // …and the slip-less hulls read weight + handling the same way; the
+        // handbrake works here too now, so a van can be thrown sideways.
+        const keep = Math.exp(-(handbrake ? 4 : 14 * gripK * handling / heft) * dt);
         v.vel.x = fwdX * newSpeed + latX * keep;
         v.vel.z = fwdZ * newSpeed + latZ * keep;
       } else {

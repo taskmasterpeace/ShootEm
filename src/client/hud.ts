@@ -1145,6 +1145,17 @@ export class Hud {
                  <div class="obj-chip neutral">${m.zombiesLeft ?? 0} left</div>
                  <div class="obj-chip t1">☠ ${local.kills}</div>`;
         break;
+      case 'school': {
+        // the examiner s board: which gate, which drill, and the lesson
+        const gi = (m.courseGate ?? 0) + 1;
+        const gn = m.courseGates ?? 0;
+        const t2 = world.time;
+        const clock = Math.floor(t2 / 60) + ':' + String(Math.floor(t2 % 60)).padStart(2, '0');
+        chips = '<div class="obj-chip t0">GATE ' + Math.min(gi, gn) + ' / ' + gn + '</div>'
+          + '<div class="obj-chip neutral">' + clock + '</div>'
+          + '<div class="obj-chip t1">PAR ' + Math.round(m.coursePar ?? 0) + 's</div>';
+        break;
+      }
       case 'horde': case 'tide': {
         const t = world.time;
         const clock = `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;

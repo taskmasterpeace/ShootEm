@@ -1,6 +1,6 @@
 export type Team = 0 | 1; // 0 = United Front (amber), 1 = Collective (cyan). Survival: all players team 0.
 
-export type ModeId = 'tdm' | 'ctf' | 'koth' | 'conquest' | 'survival' | 'horde' | 'tide' | 'safehouse' | 'science' | 'range' | 'paintball' | 'race' | 'timetrial' | 'shop';
+export type ModeId = 'tdm' | 'ctf' | 'koth' | 'conquest' | 'survival' | 'horde' | 'tide' | 'safehouse' | 'science' | 'range' | 'paintball' | 'race' | 'timetrial' | 'school' | 'shop';
 
 /** One gate on the circuit — pass through its radius to bank progress. */
 export interface RaceCheckpoint {
@@ -84,6 +84,9 @@ export type VehicleKind =
   | 'fueltanker' | 'movingtruck' | 'foodtruck' | 'deliveryvan'
   | 'policecruiser' | 'loader' | 'forklift' | 'bulldozer' | 'cementmixer'
   | 'golfcart' | 'bicycle' | 'train' | 'subway'
+  // THE FAST LANE (Robert: "make sure we have some pickups and faster cars,
+  // so we can have races and such") — civilian hulls built to be raced
+  | 'musclecar' | 'roadster' | 'rallytruck' | 'racetruck' | 'hotrod'
   // AIR (parachute/jetpack/wingsuit are movement systems, not hulls;
   // train/subway wait for rails):
   | 'passengerjet' | 'privatejet' | 'cargoplane' | 'bushplane'
@@ -353,6 +356,17 @@ export interface VehicleDef {
    *  requisition menus, never bot-crewed; drivable when found (hotwire law
    *  still applies to the abandoned). Codex files them under their own wing. */
   civilian?: boolean;
+  /** MASS in tonnes (Robert: "give vehicles handling and weight"). Weight is
+   *  not decoration — it runs the drivetrain: a heavy hull builds speed
+   *  slower, needs longer to stop, and washes wider through a corner. The
+   *  reference is 1.6t (a saloon car) = neutral feel; the curve is gentle and
+   *  clamped so a tank is ponderous, never undrivable. Absent = 1.6. */
+  mass?: number;
+  /** HANDLING (0.6 … 1.4): how well this hull holds a line, independent of
+   *  its weight — a sports car and a delivery van can weigh the same and
+   *  corner nothing alike. Multiplies the surface grip the floor provides.
+   *  Absent = 1 (honest, unremarkable). */
+  grip?: number;
   /** RAIL-LOCKED (train, subway): runs a fixed route, never steers. The hull,
    *  its stats and its codex entry ship now; the TRACK GENERATOR that gives
    *  it a route is map work (#65) — until then it is world dressing that a
@@ -1304,6 +1318,16 @@ export interface ModeState {
   /** 'circuit' = first past N laps vs the pack; 'trial' = beat your ghost. */
   raceKind?: 'circuit' | 'trial';
   /** total laps to win (target lap count). */
+  /** THE SCHOOLS (courses.ts): which licence this course examines. */
+  courseLicence?: string;
+  /** the gate the candidate must drive through next (index into the laid course) */
+  courseGate?: number;
+  /** how many gates the whole course has — the HUD counts down */
+  courseGates?: number;
+  /** seconds to beat; passing under par signs the papers */
+  coursePar?: number;
+  /** set once the run ends: did the candidate qualify? */
+  coursePassed?: boolean;
   raceLaps?: number;
   /** pre-race grid countdown, seconds; >0 = lights not out yet. */
   countdown?: number;

@@ -1126,6 +1126,11 @@ const CIV_GROUND: Partial<Record<VehicleKind, CivGroundSpec>> = {
   cementmixer:  { len: 4.2, wid: 1.8, paint: 0xb8bcc0, accent: 0xd8a020, cab: 'front', tells: ['mixer'] },
   golfcart:     { len: 2.0, wid: 1.1, paint: 0xe8e8e0, cab: 'full', tells: ['canopy'] },
   bicycle:      { len: 1.4, wid: 0.35, paint: 0xb02020, cab: 'twowheel' },
+  musclecar:    { len: 3.2, wid: 1.45, paint: 0x1e2a4a, accent: 0xe8e0d0, cab: 'front' },
+  roadster:     { len: 2.7, wid: 1.3, paint: 0xb8bcc0, accent: 0x1e2126, cab: 'front' },
+  rallytruck:   { len: 3.2, wid: 1.6, paint: 0xd8a020, accent: 0x1e2126, cab: 'front', tells: ['bed'] },
+  racetruck:    { len: 4.0, wid: 1.8, paint: 0x2a3a4a, accent: 0xd87020, cab: 'front', tells: ['bed'] },
+  hotrod:       { len: 2.9, wid: 1.4, paint: 0x8a2020, accent: 0xe8c020, cab: 'front' },
   // the rail pair: long bodies, window runs, no steering
   train:        { len: 9.0, wid: 2.2, paint: 0x4a4a52, accent: 0xd8a020, cab: 'long' },
   subway:       { len: 6.6, wid: 2.0, paint: 0xb8bcc0, accent: 0x2a6ab0, cab: 'long' },
