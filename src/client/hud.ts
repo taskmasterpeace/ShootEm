@@ -1,4 +1,4 @@
-import { AMMO_INFO, CLASSES, EQUIPMENT, MODE_INFO, TEAM_NAMES, VEHICLES, WEAPONS, weaponProfile } from '../sim/data';
+import { AMMO_INFO, CLASSES, EQUIPMENT, MODE_INFO, pickupLabel, TEAM_NAMES, VEHICLES, WEAPONS, weaponProfile } from '../sim/data';
 import { LSWS, VO_LINES } from '../sim/lsw';
 import { fmtLap } from '../sim/modes';
 import { audio, earshotFor } from './audio';
@@ -9,7 +9,7 @@ import { materialForSurface } from '../sim/materials';
 import { courseGates } from '../sim/modes';
 import { courseFor } from '../sim/courses';
 import { LEGACY_GEOMETRY, halfDepth, halfWidth, worldDepth, worldWidth, type MapGeometry } from '../sim/map-geometry';
-import { isZed, type SimEvent, type Soldier, type Team, type Vec3, type VehicleKind } from '../sim/types';
+import { isZed, type Pickup, type SimEvent, type Soldier, type Team, type Vec3, type VehicleKind } from '../sim/types';
 import { drawGrade, drawNumber, RING_COLORS } from './ring';
 import { weaponPortrait } from './weaponcam';
 import { weaponBrand } from './models/weapons';
@@ -1125,10 +1125,17 @@ export class Hud {
       $('respawn-reselect-hint').classList.toggle('hidden', !rackOn);
     } else ro.classList.add('hidden');
 
+    // WHAT IS THAT THING AT YOUR FEET (Robert). The sim decides — pickupInReach
+    // only offers what would actually help you, and the E chain takes it before
+    // it opens a door or boards a car. So when this card is up, E means THIS,
+    // and the vehicle hint below must stand down or the HUD is lying.
+    const standingOn = s.alive && !inVehicle ? world.pickupInReach(s) : undefined;
+    const onPickup = this.paintPickup(standingOn, now);
+
     // context hint: vehicles, or the scientist escort in safehouse
     const hint = $('vehicle-hint');
     let showHint = false;
-    if (s.alive && !inVehicle) {
+    if (s.alive && !inVehicle && !onPickup) {
       for (const v of world.vehicles.values()) {
         if (!v.alive || v.team !== s.team || !v.seats.includes(-1)) continue;
         if (Math.hypot(v.pos.x - s.pos.x, v.pos.z - s.pos.z) < VEHICLES[v.kind].radius + 2.2) {
@@ -1846,6 +1853,50 @@ export class Hud {
     return g;
   }
 
+  /** the "you took it" card holds the screen until this time (0 = not showing) */
+  private tookUntil = 0;
+  private tookHTML = { name: '', note: '', img: '', glyph: '' };
+  /** the last portrait asked for — swapping the src every frame re-decodes */
+  private pkImgId = '';
+
+  /** a plain mark per pickup type, for the things that have no portrait */
+  private static readonly PK_GLYPH: Record<string, string> = {
+    medkit: '✚', ammo: '▤', energy: '⌁', orbital: '◎', flamer: '🜂', weapon: '',
+  };
+
+  /**
+   * Draw the pickup card. Returns true when it owns the screen — the caller
+   * uses that to stand the vehicle hint down.
+   *
+   * Two states in one element, on purpose: the OFFER ("E · MEDKIT") and the
+   * CONFIRMATION ("TAKEN · AC-Mk2 Autocannon → SLOT 3"). Robert asked to see
+   * the name *and* where it went; showing that in the same place he was just
+   * reading means his eye never has to move.
+   */
+  private paintPickup(pk: Pickup | undefined, now: number): boolean {
+    const el = $('pickup-prompt');
+    const took = now < this.tookUntil;
+    if (!pk && !took) { el.classList.add('hidden'); return false; }
+
+    const name = took ? this.tookHTML.name : pickupLabel(pk!);
+    const note = took ? this.tookHTML.note : 'PICK UP';
+    const img = took ? this.tookHTML.img : (pk!.type === 'weapon' && pk!.weaponId ? weaponPortrait(pk!.weaponId) : '');
+    const glyph = took ? this.tookHTML.glyph : (Hud.PK_GLYPH[pk!.type] ?? '');
+
+    $('pk-name').textContent = name;
+    $('pk-note').textContent = note;
+    $('pk-key').textContent = took ? '✓' : 'E';
+    el.classList.toggle('taken', took);
+    const imgEl = $('pk-img') as HTMLImageElement;
+    if (img) {
+      if (img !== this.pkImgId) { imgEl.src = img; this.pkImgId = img; }
+      imgEl.classList.remove('hidden');
+    } else imgEl.classList.add('hidden');
+    $('pk-glyph').textContent = img ? '' : glyph;
+    el.classList.remove('hidden');
+    return true;
+  }
+
   applyEvents(events: SimEvent[], world: World, localId: number, now: number) {
     if (world.time < this.lastSimTime) { this.prints = 1; this.gunLedger.clear(); this.flagCaps = []; } // new match
     this.lastSimTime = world.time;
@@ -1873,6 +1924,23 @@ export class Hud {
       void el.offsetWidth; // restart the fade animation
       el.classList.add('on');
     }
+    // YOU TOOK IT. The sim names what changed hands; the HUD says where it
+    // went — for a gun, the slot number you press to draw it, which is the
+    // whole point of showing it (Robert: "the name… that will be in the
+    // inventory or on the weapon wheel or inventory bar").
+    for (const e of events) {
+      if (e.type !== 'pickup' || e.soldierId !== localId) continue;
+      const me = world.soldiers.get(localId);
+      const slot = e.weapon && me ? me.weapons.indexOf(e.weapon) : -1;
+      this.tookHTML = {
+        name: e.text ?? 'TAKEN',
+        note: slot >= 0 ? `TAKEN · SLOT ${slot + 1}` : 'TAKEN',
+        img: e.weapon ? weaponPortrait(e.weapon) : '',
+        glyph: '✓',
+      };
+      this.tookUntil = now + 1.8;
+    }
+
     for (const e of events) {
       // THE GUN REMEMBERS — only MY kills, keyed by the weapon that made them
       if (e.type === 'death' && e.killerId === localId && e.weaponId) {

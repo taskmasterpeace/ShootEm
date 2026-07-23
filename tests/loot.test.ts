@@ -54,7 +54,10 @@ describe('LOOT — dropped weapons off the dead', () => {
     const pk = drops(w)[0];
     const p = w.addSoldier('P', 'infantry', 0, 'human');
     p.alive = true; p.pos = { x: pk.pos.x, y: 0, z: pk.pos.z };
+    // standing on it is NOT taking it any more — Robert: "press E for pickup"
     w.step(1 / 60, new Map([[p.id, cmd()]]));
+    expect(p.weapons.includes(CLASSES.heavy.primary), 'walking over leaves it lying').toBe(false);
+    w.step(1 / 60, new Map([[p.id, cmd({ use: true })]]));
     expect(p.weapons.includes(CLASSES.heavy.primary), 'the gun is his now').toBe(true);
     const i = p.weapons.indexOf(CLASSES.heavy.primary);
     expect(p.clip[i], 'and it came loaded').toBe(WEAPONS[CLASSES.heavy.primary].clip);
@@ -70,7 +73,7 @@ describe('LOOT — dropped weapons off the dead', () => {
     const p = w.addSoldier('P', 'heavy', 0, 'human'); // same kit
     p.alive = true; p.pos = { x: pk.pos.x, y: 0, z: pk.pos.z };
     p.clip[0] = 1; p.reserve[0] = 0; // ran dry
-    w.step(1 / 60, new Map([[p.id, cmd()]]));
+    w.step(1 / 60, new Map([[p.id, cmd({ use: true })]]));
     expect(p.clip[0], 'took the dead man\'s mags').toBe(WEAPONS[CLASSES.heavy.primary].clip);
     expect(p.weapons.length, 'no duplicate gun').toBe(2);
     expect(drops(w).length).toBe(0);

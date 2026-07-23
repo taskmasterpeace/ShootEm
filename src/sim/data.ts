@@ -233,6 +233,26 @@ export const LSW_ARMS: Record<WeaponId, WeaponDef> = {
 
 export const WEAPONS: Record<WeaponId, WeaponDef> = { ...buildArsenal(), ...CORE_WEAPONS, ...LSW_ARMS };
 
+/**
+ * WHAT IS THAT THING ON THE GROUND. Robert: *"it's hard to know what things are
+ * when you walk up to them to pick them up."*
+ *
+ * One name per pickup, read by BOTH the walk-up prompt and the "you took it"
+ * card — so the thing you were offered and the thing you got can never be
+ * described differently. A dropped gun answers with its own name.
+ */
+export function pickupLabel(pk: { type: string; weaponId?: WeaponId }): string {
+  if (pk.type === 'weapon' && pk.weaponId) return WEAPONS[pk.weaponId]?.name ?? 'WEAPON';
+  return PICKUP_LABELS[pk.type] ?? pk.type.toUpperCase();
+}
+const PICKUP_LABELS: Record<string, string> = {
+  medkit: 'MEDKIT',
+  ammo: 'AMMO CRATE',
+  energy: 'ENERGY CELL',
+  orbital: 'ORBITAL BEACON',
+  flamer: 'FLAMETHROWER',
+};
+
 /** OUTBREAK-SPEC §11.2 — the loaded round's tactical readout for the weapon
  *  HUD. `pen`/`noise`/`fire`/`corpse` are 0–3 legibility levels grounded in the
  *  actual ballistic behaviour (`world.ts`): AP's plate bite and light-cover

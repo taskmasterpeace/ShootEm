@@ -853,6 +853,41 @@ html, body {
   border-radius: var(--radius); padding: 0.45rem 1rem; font-weight: 600; font-size: 0.85rem;
 }
 
+/* THE PICKUP PROMPT — what is at your feet, and the key that takes it.
+   Sits a little above the vehicle hint's line because it OUTRANKS it: the E
+   chain in world.ts takes the pickup before it opens a door or boards a car,
+   so this card showing means E means THIS. Corner brackets, no radius — the
+   tactical-terminal vocabulary, same as the weapon plate. */
+#pickup-prompt {
+  position: absolute; left: 50%; bottom: 27%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.4rem 0.75rem; max-width: min(26rem, 74vw);
+  background: oklch(0.16 0.018 74 / 0.86); border: 1px solid var(--border);
+  backdrop-filter: blur(6px);
+}
+#pickup-prompt::before, #pickup-prompt::after {
+  content: ''; position: absolute; width: 8px; height: 8px; pointer-events: none;
+  border: 0 solid var(--accent);
+}
+#pickup-prompt::before { left: -1px; top: -1px; border-left-width: 1px; border-top-width: 1px; }
+#pickup-prompt::after { right: -1px; bottom: -1px; border-right-width: 1px; border-bottom-width: 1px; }
+#pickup-prompt.taken { border-color: var(--accent); }
+#pk-img { width: 3.4rem; height: 2rem; object-fit: contain; filter: drop-shadow(0 2px 4px oklch(0 0 0 / 0.6)); }
+#pk-glyph { font-size: 1.35rem; line-height: 1; }
+#pk-body { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+#pk-name {
+  font-family: var(--font-mono); font-size: 0.82rem; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--accent);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#pk-note { font-style: normal; font-size: 0.64rem; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; }
+#pk-key {
+  font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700;
+  padding: 0.12rem 0.42rem; color: var(--bg, #0d0f0c); background: var(--accent);
+  border: 1px solid var(--accent);
+}
+#pickup-prompt.taken #pk-key { color: var(--accent); background: transparent; }
+
 #announce {
   position: absolute; left: 50%; top: 26%; transform: translateX(-50%);
   font-size: 1.15rem; font-weight: 700; letter-spacing: 0.05em; text-align: center;

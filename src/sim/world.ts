@@ -1,4 +1,4 @@
-import { AMMO_INFO, CLASSES, DOG_NAMES, DOG_STATS, EQUIPMENT, IRON_STATS, SAM_SPEED_RATIO, STEALTH_VISUAL_RANGE, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
+import { AMMO_INFO, CLASSES, pickupLabel, DOG_NAMES, DOG_STATS, EQUIPMENT, IRON_STATS, SAM_SPEED_RATIO, STEALTH_VISUAL_RANGE, THEMES, VEHICLES, WEAPONS, ZOMBIE_STATS } from './data';
 import { CLASS_ARMORY, familyWeapons } from './arsenal';
 import {
   CLIMB_H, T_CLIMB, T_DEEP, SURF_SOLDIER, SURF_TRACKS,
@@ -3846,6 +3846,9 @@ export class World {
         // E on a warp beacon teleports to its twin
       } else if (this.tryFieldKit(s)) {
         // E with a mechanic kit repairs; with a hacking kit converts a sentry
+      } else if (this.tryPickup(s)) {
+        // E on the thing at your feet takes it — and only when it would help,
+        // so a medkit you don't need never eats the press meant for the door
       } else if (this.tryLadder(s)) {
         // E on a ladder climbs between storeys
       } else if (this.tryDoor(s)) {
@@ -8056,6 +8059,70 @@ export class World {
     }
   }
 
+  /** how close you must be for the thing on the ground to be yours to take */
+  static readonly PICKUP_REACH = 1.6;
+
+  /** can this soldier pick anything up at all — hands free, on his feet */
+  private canScoop(s: Soldier): boolean {
+    return s.alive && !s.downed && !isZed(s.kind) && s.kind !== 'dog' && s.vehicleId < 0;
+  }
+
+  /**
+   * THE THING AT YOUR FEET. Robert: *"it's hard to know what things are when
+   * you walk up to them to pick them up. We should press E for pickup and then
+   * we can see the name."*
+   *
+   * The HUD asks this every frame to name what you are standing on, and the E
+   * chain asks it to know what to hand over. It returns only pickups that
+   * would actually DO something — so a full-health soldier standing on a
+   * medkit gets no prompt and his E falls through to the door behind it.
+   */
+  pickupInReach(s: Soldier): Pickup | undefined {
+    if (!this.canScoop(s)) return undefined;
+    let best: Pickup | undefined;
+    let bestD = World.PICKUP_REACH;
+    for (const pk of this.pickups.values()) {
+      if (pk.respawnAt > 0) continue;
+      const d = Math.hypot(s.pos.x - pk.pos.x, s.pos.z - pk.pos.z);
+      if (d < bestD && this.pickupWouldHelp(pk, s)) { best = pk; bestD = d; }
+    }
+    return best;
+  }
+
+  /** would taking this change anything? (the prompt gate — see pickupInReach) */
+  private pickupWouldHelp(pk: Pickup, s: Soldier): boolean {
+    switch (pk.type) {
+      case 'medkit': return s.hp < s.maxHp;
+      case 'energy': return s.energy < 100 || s.grenades < 4;
+      case 'orbital': return true;
+      case 'ammo': return true;
+      case 'flamer': return true;
+      case 'weapon': {
+        if (!pk.weaponId || s.kind !== 'human' || s.ascendant !== undefined) return false;
+        const def = WEAPONS[pk.weaponId];
+        const have = s.weapons.indexOf(pk.weaponId);
+        if (have >= 0) {
+          return s.clip[have] < def.clip
+            || (Number.isFinite(def.reserve) && s.reserve[have] < def.reserve);
+        }
+        return s.weapons.length < 3;
+      }
+      default: return false;
+    }
+  }
+
+  /**
+   * E TOOK IT. Sits in the cmd.use chain between the field kit and the ladder:
+   * more specific than a door or a car, less specific than reviving a man.
+   * Because `pickupInReach` only offers things that would help, standing on a
+   * medkit you do not need never steals the keypress from the door.
+   */
+  tryPickup(s: Soldier): boolean {
+    const pk = this.pickupInReach(s);
+    if (!pk) return false;
+    return this.grantPickup(pk, s);
+  }
+
   stepPickups(_dt: number) {
     for (const pk of this.pickups.values()) {
       // battlefield hygiene: dropped guns evaporate — nobody wanted it enough
@@ -8069,73 +8136,87 @@ export class World {
       }
       for (const s of this.soldiers.values()) {
         // a downed soldier can't scoop up loot — and dogs have no pockets
-        if (!s.alive || s.downed || isZed(s.kind) || s.kind === 'dog' || s.vehicleId >= 0) continue;
-        if (Math.hypot(s.pos.x - pk.pos.x, s.pos.z - pk.pos.z) < 1.6) {
-          let used = false;
-          if (pk.type === 'medkit' && s.hp < s.maxHp) { s.hp = Math.min(s.maxHp, s.hp + 50); used = true; }
-          if (pk.type === 'energy' && s.energy < 100) { s.energy = 100; s.grenades = Math.min(s.grenades + 1, 4); used = true; }
-          if (pk.type === 'ammo') {
-            for (let i = 0; i < s.weapons.length; i++) {
-              const def = WEAPONS[s.weapons[i]];
-              if (Number.isFinite(def.reserve)) s.reserve[i] = def.reserve;
-            }
-            // a crate restocks the under-barrel too
-            const priAlt = WEAPONS[s.weapons[0]]?.alt;
-            if (priAlt && priAlt.ammo > 0) s.altAmmo = priAlt.ammo;
-            // §11.3: and the SPECIAL pools — a crate is a full resupply
-            if (s.ammoPools) {
-              for (const k of Object.keys(s.ammoPools) as (keyof NonNullable<typeof s.ammoPools>)[]) {
-                s.ammoPools[k] = AMMO_INFO[k]?.pool ?? s.ammoPools[k];
-              }
-            }
-            used = true;
-          }
-          if (pk.type === 'orbital') { s.orbitals++; used = true; }
-          if (pk.type === 'flamer') {
-            if (!s.weapons.includes('flamer')) {
-              s.weapons.push('flamer');
-              s.clip.push(WEAPONS.flamer.clip);
-              s.reserve.push(WEAPONS.flamer.reserve);
-            } else {
-              const i = s.weapons.indexOf('flamer');
-              s.clip[i] = WEAPONS.flamer.clip;
-              s.reserve[i] = WEAPONS.flamer.reserve;
-            }
-            used = true;
-          }
-          // LOOT: a dropped gun. HUMANS ONLY for now — a bot scavenging
-          // reserve mid-ring would lean on the threat-measure bands (bots
-          // still DROP, so the player's revenge loop works both ways later).
-          if (pk.type === 'weapon' && pk.weaponId && s.kind === 'human' && s.ascendant === undefined) {
-            const def = WEAPONS[pk.weaponId];
-            const have = s.weapons.indexOf(pk.weaponId);
-            if (have >= 0) {
-              // a matching gun is an AMMO run — take the dead man's mags
-              const below = s.clip[have] < def.clip
-                || (Number.isFinite(def.reserve) && s.reserve[have] < def.reserve);
-              if (below) {
-                s.clip[have] = def.clip;
-                if (Number.isFinite(def.reserve)) s.reserve[have] = def.reserve;
-                used = true;
-              }
-            } else if (s.weapons.length < 3) {
-              // the special slot takes it, loaded
-              s.weapons.push(pk.weaponId);
-              s.clip.push(def.clip);
-              s.reserve.push(def.reserve);
-              used = true;
-            }
-            // a different special already rides slot 3 → leave it lying there
-          }
-          if (used) {
-            if (pk.oneShot) this.pickups.delete(pk.id);
-            else pk.respawnAt = this.time + PICKUP_RESPAWN;
-            this.emit({ type: 'pickup', pos: pk.pos, soldierId: s.id });
-            break;
-          }
+        if (!this.canScoop(s)) continue;
+        // THE PLAYER TAKES THINGS ON PURPOSE (Robert's ask): a human reads the
+        // prompt and presses E — see tryPickup. Bots have no E key and no HUD
+        // to read, so the walk-over grant stays theirs.
+        if (s.kind === 'human') continue;
+        if (Math.hypot(s.pos.x - pk.pos.x, s.pos.z - pk.pos.z) < World.PICKUP_REACH) {
+          if (this.grantPickup(pk, s)) break;
         }
       }
     }
+  }
+
+  /** Hand the pickup over. Returns false when it would have been wasted. */
+  private grantPickup(pk: Pickup, s: Soldier): boolean {
+    let used = false;
+    if (pk.type === 'medkit' && s.hp < s.maxHp) { s.hp = Math.min(s.maxHp, s.hp + 50); used = true; }
+    if (pk.type === 'energy' && s.energy < 100) { s.energy = 100; s.grenades = Math.min(s.grenades + 1, 4); used = true; }
+    if (pk.type === 'ammo') {
+      for (let i = 0; i < s.weapons.length; i++) {
+        const def = WEAPONS[s.weapons[i]];
+        if (Number.isFinite(def.reserve)) s.reserve[i] = def.reserve;
+      }
+      // a crate restocks the under-barrel too
+      const priAlt = WEAPONS[s.weapons[0]]?.alt;
+      if (priAlt && priAlt.ammo > 0) s.altAmmo = priAlt.ammo;
+      // §11.3: and the SPECIAL pools — a crate is a full resupply
+      if (s.ammoPools) {
+        for (const k of Object.keys(s.ammoPools) as (keyof NonNullable<typeof s.ammoPools>)[]) {
+          s.ammoPools[k] = AMMO_INFO[k]?.pool ?? s.ammoPools[k];
+        }
+      }
+      used = true;
+    }
+    if (pk.type === 'orbital') { s.orbitals++; used = true; }
+    if (pk.type === 'flamer') {
+      if (!s.weapons.includes('flamer')) {
+        s.weapons.push('flamer');
+        s.clip.push(WEAPONS.flamer.clip);
+        s.reserve.push(WEAPONS.flamer.reserve);
+      } else {
+        const i = s.weapons.indexOf('flamer');
+        s.clip[i] = WEAPONS.flamer.clip;
+        s.reserve[i] = WEAPONS.flamer.reserve;
+      }
+      used = true;
+    }
+    // LOOT: a dropped gun. HUMANS ONLY for now — a bot scavenging
+    // reserve mid-ring would lean on the threat-measure bands (bots
+    // still DROP, so the player's revenge loop works both ways later).
+    if (pk.type === 'weapon' && pk.weaponId && s.kind === 'human' && s.ascendant === undefined) {
+      const def = WEAPONS[pk.weaponId];
+      const have = s.weapons.indexOf(pk.weaponId);
+      if (have >= 0) {
+        // a matching gun is an AMMO run — take the dead man's mags
+        const below = s.clip[have] < def.clip
+          || (Number.isFinite(def.reserve) && s.reserve[have] < def.reserve);
+        if (below) {
+          s.clip[have] = def.clip;
+          if (Number.isFinite(def.reserve)) s.reserve[have] = def.reserve;
+          used = true;
+        }
+      } else if (s.weapons.length < 3) {
+        // the special slot takes it, loaded
+        s.weapons.push(pk.weaponId);
+        s.clip.push(def.clip);
+        s.reserve.push(def.reserve);
+        used = true;
+      }
+      // a different special already rides slot 3 → leave it lying there
+    }
+    if (used) {
+      if (pk.oneShot) this.pickups.delete(pk.id);
+      else pk.respawnAt = this.time + PICKUP_RESPAWN;
+      // the event NAMES what was taken, so the HUD can show it back —
+      // `weapon` carries the id the plate draws its portrait from
+      this.emit({
+        type: 'pickup', pos: pk.pos, soldierId: s.id,
+        text: pickupLabel(pk), weapon: pk.type === 'weapon' ? pk.weaponId : undefined,
+      });
+    }
+    return used;
   }
 
   /** E near the scientist: he follows you; E again: he holds position where he stands. */

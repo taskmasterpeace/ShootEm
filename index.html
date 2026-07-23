@@ -176,6 +176,17 @@
       <!-- THE THREAT ROOM control panel — touch-first, works on any screen -->
       <div id="threat-panel" class="hidden"></div>
       <button id="tr-open" class="hidden" type="button">THE LAB</button>
+      <!-- WHAT IS THAT THING (Robert: "it's hard to know what things are when
+           you walk up to them… press E for pickup and then we can see the name
+           or you show up the image of it"). Names what is at your feet, shows
+           the gun's own portrait, and stays up a beat after E to confirm what
+           you took and which slot it went to. -->
+      <div id="pickup-prompt" class="hidden">
+        <img id="pk-img" alt="" draggable="false" class="hidden">
+        <span id="pk-glyph"></span>
+        <span id="pk-body"><b id="pk-name"></b><i id="pk-note"></i></span>
+        <kbd id="pk-key">E</kbd>
+      </div>
       <div id="vehicle-hint" class="hidden"></div>
       <div id="announce"></div>
       <div id="vo-sub"></div>

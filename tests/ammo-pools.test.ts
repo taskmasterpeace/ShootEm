@@ -81,7 +81,8 @@ describe('§11.3 — separate magazines by type', () => {
     for (const pk of w.pickups.values()) {
       if (pk.type === 'ammo') { pk.pos = { ...s.pos }; pk.respawnAt = 0; break; }
     }
-    w.step(1 / 60, new Map([[s.id, cmd()]]));
+    // the player takes a crate on purpose now (E), not by walking past it
+    w.step(1 / 60, new Map([[s.id, cmd({ use: true })]]));
     expect(s.ammoPools.ap).toBe(AMMO_INFO.ap.pool);
     expect(s.ammoPools.inc).toBe(AMMO_INFO.inc.pool);
   });
