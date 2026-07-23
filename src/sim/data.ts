@@ -600,6 +600,11 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
   cementmixer:  { kind: 'cementmixer', name: 'Rotary Cement Mixer', cost: 2, hp: 180, speed: 9, turnRate: 1.4, weapon: '', seats: 2, mobileSpawn: false, radius: 2.3, systemHp: 19, civilian: true },
   golfcart:     { kind: 'golfcart', name: 'Fairway Golf Cart', cost: 1, hp: 40, speed: 8, turnRate: 2.7, weapon: '', seats: 2, mobileSpawn: false, radius: 1.2, systemHp: 5, civilian: true },
   bicycle:      { kind: 'bicycle', name: 'Town Bicycle', cost: 1, hp: 20, speed: 7, turnRate: 3.2, weapon: '', seats: 1, mobileSpawn: false, radius: 0.8, systemHp: 3, civilian: true },
+  // RAIL-LOCKED: the two that never steer. Enormous, slow, and full of
+  // people — a moving wall the war has to route around. (The track generator
+  // is map work; the hulls and their numbers are real today.)
+  train:        { kind: 'train', name: 'Interurban Freight Train', cost: 4, hp: 600, speed: 14, turnRate: 0.2, weapon: '', seats: 9, mobileSpawn: false, radius: 4.8, systemHp: 62, civilian: true, rails: true },
+  subway:       { kind: 'subway', name: 'Metro Subway Car', cost: 3, hp: 320, speed: 16, turnRate: 0.2, weapon: '', seats: 9, mobileSpawn: false, radius: 3.4, systemHp: 33, civilian: true, rails: true },
   // ── air (helis spool; planes carry a stall floor — they make PASSES) ──
   passengerjet: { kind: 'passengerjet', name: 'Meridian Air 220 Passenger Jet', cost: 4, hp: 220, speed: 34, turnRate: 0.9, weapon: '', seats: 9, mobileSpawn: false, radius: 4.2, flies: true, liftoffTime: 4, minAirspeed: 0.5, bankAngle: 0.4, systemHp: 23, civilian: true },
   privatejet:   { kind: 'privatejet', name: 'Sovereign Private Jet', cost: 3, hp: 130, speed: 36, turnRate: 1.2, weapon: '', seats: 5, mobileSpawn: false, radius: 3.0, flies: true, liftoffTime: 3, minAirspeed: 0.5, bankAngle: 0.55, systemHp: 14, civilian: true },

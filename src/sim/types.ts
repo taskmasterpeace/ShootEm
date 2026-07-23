@@ -83,7 +83,7 @@ export type VehicleKind =
   | 'scooter' | 'atv' | 'garbagetruck' | 'towtruck' | 'firetruck'
   | 'fueltanker' | 'movingtruck' | 'foodtruck' | 'deliveryvan'
   | 'policecruiser' | 'loader' | 'forklift' | 'bulldozer' | 'cementmixer'
-  | 'golfcart' | 'bicycle'
+  | 'golfcart' | 'bicycle' | 'train' | 'subway'
   // AIR (parachute/jetpack/wingsuit are movement systems, not hulls;
   // train/subway wait for rails):
   | 'passengerjet' | 'privatejet' | 'cargoplane' | 'bushplane'
@@ -353,6 +353,11 @@ export interface VehicleDef {
    *  requisition menus, never bot-crewed; drivable when found (hotwire law
    *  still applies to the abandoned). Codex files them under their own wing. */
   civilian?: boolean;
+  /** RAIL-LOCKED (train, subway): runs a fixed route, never steers. The hull,
+   *  its stats and its codex entry ship now; the TRACK GENERATOR that gives
+   *  it a route is map work (#65) — until then it is world dressing that a
+   *  player can board and ride when a map lays rails. */
+  rails?: boolean;
 }
 
 /** Per-subsystem damage record: hp remaining for each SystemId. */

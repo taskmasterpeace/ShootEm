@@ -22,6 +22,7 @@ import { SYSTEM_IDS, type AscendantId, type ClassId, type SoldierKind, type Vehi
 import { buildSoldier, dressAsLsw } from './models/soldiers';
 import { buildVehicle } from './models/vehicles';
 import { ascendantCost, classCost, fmtCost, threatBounty, vehicleCost, weaponCost } from './codex-cost';
+import { LICENCES, licenceFor } from '../sim/licenses';
 
 // ── reference weapons for shots-to-kill, and the zombie the numbers answer to ─
 // Robert: "add the damage to kill a zombie for the weapons — a regular old
@@ -138,6 +139,8 @@ const VEHICLE_STATS: Stat[] = [
   { key: 'speed', label: 'Speed (u/s)', better: 1, sheet: true, fmt: n1 },
   { key: 'turnDeg', label: 'Turn (°/s)', better: 1, sheet: true, fmt: n0 },
   { key: 'seats', label: 'Seats', better: 0, sheet: true, fmt: n0 },
+  { key: 'licence', label: 'Licence', better: 0, sheet: true, fmt: txt },
+  { key: 'school', label: 'Earned at', better: 0, fmt: txt },
   { key: 'weaponName', label: 'Armament', better: 0, sheet: true, fmt: txt },
   { key: 'dps', label: 'Sustained DPS', better: 1, sheet: true, fmt: n0 },
   { key: 'range', label: 'Weapon reach (u)', better: 1, fmt: n0 },
@@ -246,6 +249,8 @@ function fleetRows(civilian: boolean): Row[] {
       turnDeg: (d.turnRate * 180) / Math.PI,
       seats: d.seats,
       weaponName: w ? w.name : 'Unarmed',
+      licence: LICENCES[licenceFor(kind)].name,
+      school: LICENCES[licenceFor(kind)].school,
       dps: w ? sustainedDps(w, vehicleDamagePerShot(w)) : 0,
       range: w ? w.range : 0,
       radius: d.radius,

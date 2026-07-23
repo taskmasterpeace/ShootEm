@@ -60,14 +60,18 @@ Which civilian vehicles weaponize · vehicles captured/stored/named? · exact pe
 ## Secondary skills (level independently, THROUGH USE)
 Rifle · SMG · LMG · Sniper · Rocket · Knife · Pistol · Tank Driver · Tank Gunner · Helicopter · Jet · Boat · Engineer · Medic · Dog Handler · Drone Pilot · Radio Operator · Commander · Navigator · Mechanic · Explosives · Scout
 
-## Vehicle certifications (earned at training bases, never XP)
+## Vehicle certifications (earned at training bases, never XP) — **BUILT** (src/sim/licenses.ts)
 Basic Driver · Heavy Truck · APC · Tank · Hovercraft · Boat · Helicopter · Fixed Wing · Bomber · Transport · Drone Pilot · Dropship
+
+The register is live: every hull in the fleet (military + civilian) names the licence it demands, each licence names its SCHOOL (Motor Pool · Armour School · Naval Yard · Flight School · Signals School), and the ladder is a **chain, not a level** — the bomber seat requires Fixed Wing first, the tank requires Basic Driver → Heavy Truck → APC. Holding the top paper alone clears nothing. The Codex shows LICENCE and EARNED AT on every vehicle card. Boards, bikes and scooters need no paperwork. The ACCOUNT owns licences, so they survive a print (the account/print split). What remains: the schools themselves as playable qualification courses (the Proving Grounds is the door) and the entry gate that refuses an unlicensed driver.
 
 ## Civilian vehicles ("military vehicles make war; civilian vehicles make the world feel alive")
 **Ground:** Sedan · Pickup · SUV · Sports car · Taxi · School bus · Motorcycle · Scooter · ATV · Garbage truck · Tow truck · Ambulance · Fire truck · Fuel tanker · Moving truck · Food truck · Delivery van · Police cruiser · Construction loader · Forklift · Bulldozer · Cement mixer · Train · Subway · Golf cart · Hoverboard · Bicycle
 **Air:** Passenger jet · Private jet · Cargo aircraft · Bush plane · Crop duster · News helicopter · Medical helicopter · Police helicopter · Sky crane · Hot air balloon · Blimp · Ultralight · Paraglider · Hang glider · Parachute · Jetpack · Wingsuit
 **Water:** Fishing boat · Yacht · Speedboat · Ferry · Cargo ship · Patrol boat · Jet ski · Hovercraft · River barge · Submersible
 *(Still open: which weaponize · captured/stored/named?)*
+
+**Roster status:** all 48 civilian hulls are BUILT — defs, models and Codex entries (ground incl. train + subway on rails, air, water). Parachute · Jetpack · Wingsuit are deliberately NOT hulls: they are movement systems (the jetpack already flies as the Jump Trooper ability; the parachute is its own build, #74).
 
 ## The parachute (gameplay, not a fall mechanic)
 steer · flare · collapse canopy · cut parachute · land on rooftops · land in trees · get tangled · shoot while descending · be shot while descending · deploy too low and die
