@@ -12,6 +12,7 @@
 // stays lean. Identity is biography (src/client/identity.ts) — never the sim.
 // ---------------------------------------------------------------------------
 import { NATIONS, type Nation } from '../data/nations';
+import { gonetSuspend, renderGonet } from './gonet/index';
 import {
   clearIdentity, factionDoctrine, factionLabel, loadIdentity, nationOf, recommendClass,
   saveIdentity, temperamentFor,
@@ -60,8 +61,29 @@ function shell(): HTMLDivElement {
 
 function hideOverlay() { $id('onboarding').classList.add('hidden'); }
 
-// ── MAIN MENU ────────────────────────────────────────────────────────────────
+// ── HOME IS A MACHINE YOU LOG INTO ──────────────────────────────────────────
+// THREE-GAMES-ONE-WAR §"The GONET laptop": *"the laptop is home; 'logging in'
+// replaces 'main menu'."* The old button stack is still below as
+// renderLegacyMenu — nothing calls it, but it documents what this replaced.
 function renderMenu() {
+  const root = $id('onboarding');
+  root.classList.remove('hidden');
+  root.innerHTML = '';
+  renderGonet(root, {
+    deploy: (door) => { hideOverlay(); gonetSuspend(); host.enterMenu(door); },
+    options: renderOptions,
+    reenlist: () => {
+      const id = loadIdentity();
+      if (!confirm('Re-enlisting rewrites your homeland and the faction the sheet assigns you. Your record is kept. Continue?')) return;
+      clearIdentity();
+      draft = { callsign: id?.callsign ?? '', nationCode: null, hometown: '', psychAnswers: [] };
+      renderEnlist('homeland');
+    },
+  });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function renderLegacyMenu() {
   const wrap = shell();
   const id = loadIdentity();
   const nation = id ? nationOf(id) : undefined;

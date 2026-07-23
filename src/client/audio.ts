@@ -415,7 +415,21 @@ export class AudioEngine {
   /** Settings screen: master volume, applied live and at init. */
   setMasterVolume(v: number) {
     this.masterVolume = Math.max(0, Math.min(1, v));
-    if (this.master) this.master.gain.value = this.masterVolume;
+    this.applyMaster();
+  }
+
+  // HEADPHONES ON THE FIELD: your own music comes forward, so the world goes
+  // back. That is the TRADE, not a side effect — you hear your library and you
+  // hear less of the men shooting at you. 0 = ears open, 1 = world gone.
+  private headphoneCut = 0;
+  setHeadphoneCut(cut: number) {
+    this.headphoneCut = Math.max(0, Math.min(1, cut));
+    this.applyMaster();
+  }
+  get headphonesOn(): boolean { return this.headphoneCut > 0; }
+
+  private applyMaster() {
+    if (this.master) this.master.gain.value = this.masterVolume * (1 - this.headphoneCut);
   }
   private lastPlayed = new Map<string, number>();
 
@@ -436,7 +450,7 @@ export class AudioEngine {
     }
     this.ctx = new AudioContext();
     this.master = this.ctx.createGain();
-    this.master.gain.value = this.masterVolume;
+    this.master.gain.value = this.masterVolume * (1 - this.headphoneCut); // headphones survive an init
     // THE MASTER BUS (sound-design pass): master → duck → compressor → out.
     // The compressor is the glue — a 12-source firefight used to hit the
     // DAC raw and clip into digital hash; now the bus leans instead of

@@ -29,6 +29,8 @@ import { allRecords, fileRun, raceClassOf } from './client/records';
 import { settleMatch, treasuryLine } from './client/treasury';
 import { renderServiceFile } from './client/service-file';
 import { Board } from './client/board';
+import { Headphones } from './client/gonet/headphones';
+import { musicDeck } from './client/gonet/player';
 import {
   clearRoom, newRoom, renderThreatPanel, roomCensus, runPreset, shelfSpec,
   stepRoom, summon, type RoomState,
@@ -653,6 +655,27 @@ function buildMenu() {
   buildEquipmentMenu();
 }
 
+// THE SESSION's two persistent surfaces. startGame() runs once per deploy,
+// so these are built on first use and reused — and the key handler below is
+// registered exactly once, at module scope, instead of once per match.
+let deskRef: Board | null = null;
+let cansRef: Headphones | null = null;
+
+window.addEventListener('keydown', (e) => {
+  if (e.repeat) return;
+  if (e.code !== 'F9' && e.code !== 'KeyH') return;
+  const el = document.activeElement;
+  if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return;
+  e.preventDefault();
+  if (e.code === 'F9') { deskRef?.toggle(); return; }
+  // H: the cans go on. Only in a match — there is a whole player in the
+  // GONET for when you are not fighting.
+  if (!cansRef) return;
+  const on = cansRef.toggle();
+  const chip = document.getElementById('cans-chip');
+  if (chip) chip.classList.toggle('hidden', !on);
+});
+
 async function startGame() {
   if (running) return;
   running = true;
@@ -673,15 +696,10 @@ async function startGame() {
   const hud = new Hud();
   // THE BOARD — the desk under the picture. Raised by default on a real
   // screen (that space is the whole point); a phone keeps its pixels.
-  const desk = new Board($('board'));
-  desk.setOn(!document.body.classList.contains('touch'));
-  window.addEventListener('keydown', (e) => {
-    if (e.code !== 'F9' || e.repeat) return;
-    const el = document.activeElement;
-    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return;
-    e.preventDefault();
-    desk.toggle();
-  });
+  // THE BOARD — built ONCE for the session (startGame runs per deploy, so
+  // anything constructed here would otherwise stack up match on match).
+  if (!deskRef) { deskRef = new Board($('board')); deskRef.setOn(!document.body.classList.contains('touch')); }
+  const desk = deskRef;
   const input = new Input(canvas);
   const chat = new Chat(name);
   hud.show();
@@ -971,6 +989,9 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   // THE SCORE (Robert's tracks): soldier combat → LSW inbound/walking → the
   // real monsters. The director reads the sim twice a second and crossfades.
   const music = new MusicDirector();
+  // HEADPHONES: the same deck the GONET corner drives, worn on the field.
+  cansRef = new Headphones(audio, music);
+  const cans = cansRef;
 
   // replays: the director runs the killcam + match-highlights state machine
   const director = new ReplayDirector(seed, world.mode.id, world.map.theme, world.map.theater?.id);
@@ -1197,7 +1218,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     mode === 'report'
       ? `${blackboxReport(world.blackbox)}\n${vehicleTelemetryReport(world.vehicleTelemetry)}\n${ammoReport(world)}` // §13: the ammo economy rides the report
       : { samples: world.blackbox.samples, incidents: world.blackbox.incidents, vehicles: vehicleTelemetrySnapshot(world.vehicleTelemetry) };
-  (window as unknown as Record<string, unknown>).__ww = { world, me, renderer, hud, input, audio, desk, recorder: director.recorder, replay: director.player, director, crowd, blackbox, darkness: darknessUniforms }; // debug/testing handle (darkness: live cone uniforms — eval-side imports get FRESH module instances, this doesn't)
+  (window as unknown as Record<string, unknown>).__ww = { world, me, renderer, hud, input, audio, desk, cans, deck: musicDeck(), recorder: director.recorder, replay: director.player, director, crowd, blackbox, darkness: darknessUniforms }; // debug/testing handle (darkness: live cone uniforms — eval-side imports get FRESH module instances, this doesn't)
 
   const FIXED = 1 / 60;
   let acc = 0;
@@ -1311,8 +1332,10 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     hud.applyEvents(events, world, me.id, world.time); // killfeed stays live
     desk.applyEvents(events, world); // and the book keeps its own account
     // the score follows the field: soldier → LSW → the monsters (music.ts)
+    // THE SCORE YIELDS: two soundtracks at once is noise, so while the
+    // headphones are on the war's own score stays out of the way.
     music.setVolume(settings.masterVolume);
-    music.update(world, now);
+    if (!cans.on) music.update(world, now);
     // §7: the moment YOU become the weapon (or hand the body back), say so —
     // the Q hint is the whole tutorial
     if (me.ascendant !== pilotBody) {
@@ -1708,6 +1731,13 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
       // after a beat skips the linger in every mode (the AAR is a look, not a jail)
       else if (now - overAt > (world.mode.id === 'paintball' ? 8000 : MATCH_LINGER_LOCAL_MS)
         || (now - overAt > 3000 && lingerSkip)) { endGame(); return; }
+    }
+    // THE CANS: name the track while they are on, and remind the player the
+    // world is quieter — the trade should never be invisible.
+    if (cans.on) {
+      const st = cans.state();
+      const chip = document.getElementById('cans-chip');
+      if (chip) chip.innerHTML = '<b>HEADPHONES</b><span>' + (st.nowPlaying || '—') + '</span><i>WORLD MUFFLED · H</i>';
     }
     // THE BOARD, last: every figure it shows is now this frame's truth
     desk.frame(dt * 1000);
