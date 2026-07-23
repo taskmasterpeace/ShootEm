@@ -1,6 +1,13 @@
 # STATUS — everything asked for, done vs not
 ### The honest ledger. Robert: "I need to find out what's not been completed. That's the most important thing." Last swept 2026-07-21 against the code + the two ground-truth audits this session.
 
+> **DOC KIND: STATUS · swept 2026-07-21 — NOT re-swept since.**
+> Real work landed after this sweep (the racing overhaul and its five bugs, the
+> track builder fix, built-track racing, 216 street-VO clips + street heat, a
+> playable Deck cartridge). Rows touching those areas are behind.
+> **For the current picture start at `FEATURES.md`**, then `MASTER-SYSTEMS.md`
+> (100%-coverage audit) and the per-feature dossiers it routes to.
+
 **Legend:** ✅ SHIPPED · 🔨 PARTIAL (substrate exists, the ask isn't finished) · ❌ NOT DONE · 📋 DESIGNED (a spec is written, no code yet) · 🎯 DECISION (a call only Robert makes)
 
 **Where it's tracked:** `BACKLOG` = a wave in `docs/MASTER-BACKLOG.md` · `#N` = GitHub issue · `PLAN` = a doc under `docs/superpowers/plans/`.

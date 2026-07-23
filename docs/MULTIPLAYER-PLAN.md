@@ -1,6 +1,13 @@
 # THE MULTIPLAYER MASTER PLAN — net play, deployment, and the living newspaper
 ### 2026-07-22. THE source-of-truth doc for going online (Robert: "we need net play… deploy this… read the news and see what other people have done"). Mirrored as the master ticket; a fresh AI should be able to execute from this document alone.
 
+> **DOC KIND: INTENT (a plan) — PARTLY OVERTAKEN BY THE CODE.**
+> Read this for the *shape of the ambition*, not for what is left to do. Much of
+> the staged road below is **already built and running**: there is an
+> authoritative Node server on a fixed-step accumulator with per-client interest
+> culling, and the input queue shipped. **For what actually exists today, read
+> `MULTIPLAYER.md`** — then come back here for where it is going.
+
 ## What we're building
 People play War World over the internet; **every day a human plays, the world writes about it** — the Courier digests real match data into a daily edition; the radio sings about it. Deployment target: a URL Robert can hand anyone.
 

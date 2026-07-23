@@ -1,6 +1,13 @@
 # THREE GAMES, ONE WAR — identity, stats, and the GONET
 ### Robert's 2026-07-22 creative session, captured as law-in-draft. Supersedes META-LAYER §A's 10-proficiency sketch. Decisions marked LOCKED are his words; the rest is the working shape.
 
+> **DOC KIND: INTENT (the canon laws) — this is what we are AIMING at.**
+> The LOCKED lines are design law and should be honoured. But this document
+> describes the *destination*, not the build: several systems it states as fact
+> are declared-only in code (notably 5 of the 8 master stats, stat decay, and
+> the visible-AI-commander law). **For what exists, read `FEATURES.md` →
+> `STATISTICS.md` / `MASTER-SYSTEMS.md`.** Aim with this; ship against those.
+
 ## The thesis
 Not one game — **three games sharing one persistent world**, and *everything exists to support the war*:
 1. **MILITARY** — combined arms, fronts, logistics. The expensive missions. Officers spend credits.

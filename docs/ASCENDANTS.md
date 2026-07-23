@@ -1,6 +1,14 @@
 # LIVING SUPER WEAPONS — the LSW roster
 ### SOURCE OF TRUTH. Supersedes DD §21.6 ("the Ascendants") and the old `LSW-ROSTER.md`.
 
+> **DOC KIND: INTENT + STATUS (mixed) · designations re-verified 2026-07-23.**
+> The 40-unit roster, the shared mechanics and the deployment rules are REAL and
+> match the code. **The threat-tier designations are not.** `src/sim/lsw.ts`
+> assigns `threat: 1` ×9, `threat: 2` ×22, `threat: 3` ×9 and **`threat: 4` to
+> nobody** — the EXTINCTION tier is fully defined (`lsw.ts:39`, 5800 HP, cost 7,
+> 40 s telegraph) and completely unused. Where this document names a T4 god,
+> read it as *intent*, not status. See `FEATURES.md` for the trust rule.
+
 > **The frame — Robert's law, and it overrides the older text everywhere:**
 > **There are no heroes and villains. There are two factions, and each fields
 > its own stable of Living Super Weapons.** Roster A belongs to **the United
