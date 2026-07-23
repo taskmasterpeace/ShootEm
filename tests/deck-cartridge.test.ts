@@ -31,10 +31,15 @@ describe('the cartridge runtime', () => {
     expect(GAMES.orbit_run).toBeTypeOf('function');
   });
 
-  it('is honest about cartridges with no runtime yet', () => {
-    // the other four are real objects you own and trade; they just do not run
-    expect(isPlayable('nightwatch')).toBe(false);
-    expect(isPlayable('deep_shaft')).toBe(false);
+  it('the whole shelf runs now — nothing on it is a display case', () => {
+    // This test used to assert the OPPOSITE: that nightwatch and deep_shaft
+    // had no runtime, because four of the five cartridges were beautifully
+    // dressed objects you could own, trade and never once play. They all run
+    // now (see tests/cartridge-runtimes.test.ts for what each one has to do).
+    // `isPlayable` stays because the shelf is meant to grow.
+    expect(isPlayable('nightwatch')).toBe(true);
+    expect(isPlayable('deep_shaft')).toBe(true);
+    expect(isPlayable('not_a_cartridge' as never)).toBe(false);
   });
 
   it('starts alive on a clean playfield and scores nothing', () => {

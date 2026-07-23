@@ -18,8 +18,39 @@ import { LICENCES, type LicenceId } from '../../sim/licenses';
 import { COURSES } from '../../sim/courses';
 import { loadLicences } from '../licences';
 import { factionLabel, type PlayerIdentity } from '../identity';
+import { fixtures, leagueLine, sportById, standings } from './sports';
 
-export type ChannelId = 'war' | 'home' | 'films';
+/**
+ * THE THREE THINGS ON A TELEVISION (Robert: *"we need Movies, Shows, News
+ * under video — but use what we already have"*).
+ *
+ * A genre is not a folder, it is a PROMISE about what the thing is:
+ *
+ *   NEWS    perishable. Dated, about this week, worthless next month.
+ *   SHOWS   returning. A strand with episodes that keeps coming back.
+ *   MOVIES  singular. One long thing about one big thing you did.
+ *
+ * Everything under all three is generated from what the game already knows —
+ * the press the newspaper filed, the board's times, the register of
+ * certifications, the league fixtures. Still no video file, and still on
+ * purpose: pre-rendered footage would show a war that never happened.
+ */
+export type VideoGenre = 'news' | 'shows' | 'movies';
+
+export interface Genre {
+  id: VideoGenre;
+  name: string;
+  strap: string;
+}
+
+export const GENRES: Genre[] = [
+  { id: 'news', name: 'NEWS', strap: 'Filed this week. True until it is not.' },
+  { id: 'shows', name: 'SHOWS', strap: 'Strands that keep coming back.' },
+  { id: 'movies', name: 'MOVIES', strap: 'One long look at one big thing.' },
+];
+
+/** the STRAND — a named slot inside a genre, the way a channel used to be */
+export type ChannelId = 'war' | 'home' | 'films' | 'circuit' | 'feature';
 
 export interface Shot {
   /** the big line, held on screen */
@@ -37,22 +68,32 @@ export interface Shot {
 export interface Reel {
   id: string;
   channel: ChannelId;
+  /** which of the three shelves it sits on */
+  genre: VideoGenre;
   title: string;
   dateline: string;
   shots: Shot[];
+  /** SHOWS carry an episode number — that is what makes a strand a strand */
+  episode?: number;
 }
 
 export interface Channel {
   id: ChannelId;
+  genre: VideoGenre;
   name: string;
   strap: string;
 }
 
 export const CHANNELS: Channel[] = [
-  { id: 'war', name: 'WAR DESK', strap: 'What the fronts did today' },
-  { id: 'home', name: 'HOME SERVICE', strap: 'Your file, your board, your town' },
-  { id: 'films', name: 'TRAINING FILMS', strap: 'How the machines want to be driven' },
+  { id: 'war', genre: 'news', name: 'WAR DESK', strap: 'What the fronts did today' },
+  { id: 'home', genre: 'news', name: 'HOME SERVICE', strap: 'Your file, your board, your town' },
+  { id: 'circuit', genre: 'shows', name: 'THE CIRCUIT', strap: 'The league, week by week' },
+  { id: 'films', genre: 'shows', name: 'TRAINING FILMS', strap: 'How the machines want to be driven' },
+  { id: 'feature', genre: 'movies', name: 'FEATURES', strap: 'The long cut of what you did' },
 ];
+
+export const channelsIn = (g: VideoGenre): Channel[] => CHANNELS.filter((c) => c.genre === g);
+export const reelsIn = (all: Reel[], g: VideoGenre): Reel[] => all.filter((r) => r.genre === g);
 
 export const reelSeconds = (r: Reel): number => r.shots.reduce((n, s) => n + s.hold, 0);
 
@@ -88,7 +129,7 @@ function raceReel(issue: PressIssue, i: number, now: number): Reel {
       slug: 'THE BOARD', hold: 3.4,
     });
   }
-  return { id: `race_${issue.at}_${i}`, channel: 'war', title: `${r.discipline}: ${r.winner}`, dateline: ago(issue.at, now), shots };
+  return { id: `race_${issue.at}_${i}`, channel: 'war', genre: 'news', title: `${r.discipline}: ${r.winner}`, dateline: ago(issue.at, now), shots };
 }
 
 /** One battle, cut as a news segment. */
@@ -145,7 +186,7 @@ function battleReel(issue: PressIssue, i: number, now: number): Reel {
   }
   return {
     id: `war_${issue.at}_${i}`,
-    channel: 'war',
+    channel: 'war', genre: 'news',
     title: where,
     dateline: ago(issue.at, now),
     shots,
@@ -166,7 +207,7 @@ export function buildSchedule(id: PlayerIdentity | null, now = Date.now()): Reel
   if (!press.length) {
     reels.push({
       id: 'war_quiet',
-      channel: 'war',
+      channel: 'war', genre: 'news',
       title: 'NO ACTION FILED',
       dateline: 'STANDING BULLETIN',
       shots: [
@@ -221,7 +262,7 @@ export function buildSchedule(id: PlayerIdentity | null, now = Date.now()): Reel
     slug: 'TRAINING COMMAND',
     hold: 3.4,
   });
-  reels.push({ id: 'home_file', channel: 'home', title: 'YOUR FILE', dateline: 'UPDATED CONTINUOUSLY', shots: homeShots });
+  reels.push({ id: 'home_file', channel: 'home', genre: 'news', title: 'YOUR FILE', dateline: 'UPDATED CONTINUOUSLY', shots: homeShots });
 
   // ── TRAINING FILMS: one per school, and they actually teach ──────────────
   const schools = [...new Set(all.map((l) => LICENCES[l].school))];
@@ -246,10 +287,123 @@ export function buildSchedule(id: PlayerIdentity | null, now = Date.now()): Reel
     }
     reels.push({
       id: `film_${school.replace(/\s+/g, '_').toLowerCase()}`,
-      channel: 'films',
+      channel: 'films', genre: 'shows',
       title: school.toUpperCase(),
       dateline: 'STANDING FILM',
       shots,
+    });
+  }
+
+  // ── SHOWS · THE CIRCUIT: the league, week by week ─────────────────────────
+  // A strand, not a bulletin: it returns on its own schedule whether or not you
+  // raced, the way a sports programme does. Built off the standings the board
+  // already keeps and the fixture list the league already computes.
+  const day = Math.floor(now / 7_200_000);      // the one clock's game-day
+  const tracks = [...new Set(recs.map((r) => r.trackId))];
+  const table = standings(recs);
+  const fx = fixtures(day, tracks);
+  const circuitShots: Shot[] = [
+    { headline: 'THE CIRCUIT', sub: leagueLine(day, tracks), slug: 'THIS WEEK', hold: 3.2 },
+  ];
+  if (table.length) {
+    const top = table[0];
+    circuitShots.push({
+      headline: `${top.holder.toUpperCase()} LEADS THE BOARD`,
+      sub: `${top.records} record${top.records === 1 ? '' : 's'} held · best at ${top.bestTrack}`,
+      figure: Number.isFinite(top.best) ? `${top.best.toFixed(1)}s` : undefined,
+      slug: 'STANDINGS', hold: 3.4,
+    });
+  } else {
+    circuitShots.push({
+      headline: 'NO ONE HOLDS ANYTHING YET',
+      sub: 'Every discipline is open and every record is unclaimed.',
+      slug: 'STANDINGS', hold: 3.4,
+    });
+  }
+  for (const f of fx.slice(0, 3)) {
+    const sp = sportById(f.sport);
+    circuitShots.push({
+      headline: (sp?.name ?? f.sport).toUpperCase(),
+      sub: `${f.venue} · ${f.cls.toUpperCase()} class — ${sp?.strap ?? ''}`,
+      figure: f.inDays === 0 ? 'TODAY' : `+${f.inDays}d`,
+      slug: 'FIXTURES', hold: 3.2,
+    });
+  }
+  reels.push({
+    id: 'show_circuit', channel: 'circuit', genre: 'shows',
+    title: 'THE CIRCUIT', dateline: `EPISODE ${day % 999}`, episode: day % 999,
+    shots: circuitShots,
+  });
+
+  // ── MOVIES · FEATURES: the long cut of one big thing ──────────────────────
+  // A movie is not a bulletin. It is singular, it is about ONE engagement, and
+  // it only exists if you actually had one worth an hour of anybody's evening —
+  // so the strand is cut from your *best* filed action rather than your latest,
+  // and it says so honestly when there is nothing to show.
+  const worthy = press
+    .filter((iss) => !iss.race)
+    .slice()
+    .sort((a, b) => (b.myKills + b.longestShot / 10 + (b.underdog ? 20 : 0) + b.medals.length * 8)
+      - (a.myKills + a.longestShot / 10 + (a.underdog ? 20 : 0) + a.medals.length * 8));
+
+  if (worthy.length) {
+    const f = worthy[0];
+    const where = f.frontName ? f.frontName.toUpperCase() : f.modeName.toUpperCase();
+    const featureShots: Shot[] = [
+      { headline: where, sub: 'A FEATURE PRESENTATION', slug: 'GONET PICTURES', hold: 3.6 },
+      {
+        headline: f.won ? 'THEY SAID THE LINE WOULD GIVE' : 'THE LINE GAVE',
+        sub: f.won ? 'It did not.' : 'What happened next is the film.',
+        slug: 'ACT ONE', hold: 3.6,
+      },
+      {
+        headline: 'THE FIELD',
+        sub: `${f.myKills} against ${f.theirKills}`,
+        figure: `${f.myKills}–${f.theirKills}`,
+        slug: 'ACT TWO', hold: 3.4,
+      },
+    ];
+    if (f.underdog) {
+      featureShots.push({
+        headline: 'THEY BROUGHT MORE OF EVERYTHING',
+        sub: `${f.theirCost.toLocaleString()} of machine against ${f.myCost.toLocaleString()}`,
+        figure: `${Math.round((f.theirCost / Math.max(1, f.myCost)) * 10) / 10}×`,
+        slug: 'ACT TWO', hold: 3.6,
+      });
+    }
+    if (f.longestShot > 0) {
+      featureShots.push({
+        headline: 'ONE SHOT, HELD',
+        sub: 'The range office filed it and nobody has challenged it since.',
+        figure: `${Math.round(f.longestShot)}m`,
+        slug: 'ACT THREE', hold: 3.4,
+      });
+    }
+    if (f.aceName && f.aceKills > 0) {
+      featureShots.push({
+        headline: f.aceName.toUpperCase(),
+        sub: `${f.aceKills} of them, and walked off the field`,
+        figure: `${f.aceKills}`,
+        slug: 'ACT THREE', hold: 3.4,
+      });
+    }
+    featureShots.push({
+      headline: f.medals.length ? f.medals[0].toUpperCase() : 'AND THEN IT WAS QUIET',
+      sub: f.medals.length ? 'Awarded in the field, entered on the file.' : 'The war went somewhere else, the way it does.',
+      slug: 'END TITLES', hold: 3.8,
+    });
+    reels.push({
+      id: `movie_${f.at}`, channel: 'feature', genre: 'movies',
+      title: where, dateline: 'FEATURE PRESENTATION', shots: featureShots,
+    });
+  } else {
+    reels.push({
+      id: 'movie_none', channel: 'feature', genre: 'movies',
+      title: 'NOTHING SHOOTING', dateline: 'THE LOT IS DARK',
+      shots: [
+        { headline: 'NOTHING SHOOTING', sub: 'A feature needs an engagement worth an evening of somebody\'s time.', slug: 'GONET PICTURES', hold: 3.6 },
+        { headline: 'GO AND DO SOMETHING', sub: 'This desk only cuts film out of what actually happened to you.', slug: 'GONET PICTURES', hold: 3.6 },
+      ],
     });
   }
 

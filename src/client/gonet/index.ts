@@ -23,7 +23,8 @@ import { loadPress } from '../newspaper';
 import { LICENCES, type LicenceId } from '../../sim/licenses';
 import { buildInbox, markAllRead, markRead, unreadCount, type Message } from './mail';
 import {
-  CHANNELS, buildSchedule, reelSeconds, reelsOn, shotAt, type ChannelId, type Reel,
+  GENRES, buildSchedule, channelsIn, reelSeconds, reelsOn, shotAt,
+  type ChannelId, type Reel, type VideoGenre,
 } from './broadcast';
 import {
   addToPlaylist, clockOf, createPlaylist, deletePlaylist, FIELD_ID, movePlaylistTrack,
@@ -76,6 +77,9 @@ let unsubDeck: (() => void) | null = null;
 let deckSession: DeckSession | null = null;
 
 // video transport state
+// VIDEO: the genre is the shelf, the channel is the strand on it. Selecting a
+// genre picks its first strand, so the app is never showing an empty room.
+let vGenre: VideoGenre = 'news';
 let vChannel: ChannelId = 'war';
 let vReels: Reel[] = [];
 let vIndex = 0;
@@ -504,14 +508,17 @@ function videoApp(): string {
   return `
     <div class="gn-pane gn-video">
       <section class="gn-chans">
-        <h3>CHANNELS</h3>
-        ${CHANNELS.map((c) => `<button class="gn-chan${c.id === vChannel ? ' on' : ''}" data-chan="${c.id}">
+        <div class="gn-genres">
+          ${GENRES.map((g) => `<button class="gn-genre${g.id === vGenre ? ' on' : ''}" data-genre="${g.id}">${esc(g.name)}</button>`).join('')}
+        </div>
+        <p class="gn-genre-strap">${esc(GENRES.find((g) => g.id === vGenre)?.strap ?? '')}</p>
+        ${channelsIn(vGenre).map((c) => `<button class="gn-chan${c.id === vChannel ? ' on' : ''}" data-chan="${c.id}">
           <b>${esc(c.name)}</b><span>${esc(c.strap)}</span>
         </button>`).join('')}
         <h3 class="gn-sched">SCHEDULE</h3>
         ${list.map((r, i) => `<button class="gn-reel${i === vIndex ? ' on' : ''}" data-reel="${i}">
           <span>${esc(r.title)}</span><i>${esc(r.dateline)}</i>
-        </button>`).join('') || '<div class="gn-empty">Nothing scheduled.</div>'}
+        </button>`).join('') || '<div class="gn-empty">Nothing scheduled on this strand.</div>'}
       </section>
       <section class="gn-screen-wrap">
         <div class="gn-screen${vPlaying ? ' live' : ''}">
@@ -763,6 +770,16 @@ function wire(): void {
   // video
   q<HTMLButtonElement>('[data-chan]').forEach((b) => {
     b.onclick = () => { vChannel = b.dataset.chan as ChannelId; vIndex = 0; vTime = 0; paint(); };
+  });
+  q<HTMLButtonElement>('[data-genre]').forEach((b) => {
+    b.onclick = () => {
+      vGenre = b.dataset.genre as VideoGenre;
+      // land on the genre's first strand — never leave the screen pointed at a
+      // channel that does not live on the shelf you just opened
+      vChannel = channelsIn(vGenre)[0]?.id ?? vChannel;
+      vIndex = 0; vTime = 0;
+      paint();
+    };
   });
   q<HTMLButtonElement>('[data-reel]').forEach((b) => {
     b.onclick = () => { vIndex = Number(b.dataset.reel); vTime = 0; vPlaying = true; startVideoClock(); paint(); };
