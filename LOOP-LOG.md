@@ -2,3 +2,4 @@
 2026-07-23 STATS HAND-OFF — 8 master stats replace STR/DEX/AGL in code (418440a, live-proven POW/AGI/HND chip + 8-stat bot rolls, hash continuity pinned); ROSTERS appendix transcribed (#94 fixed). Kill cam = death-only by ruling (2d0c9f9, live-proven both directions).
 2026-07-23 UNGATED GRIND — #121 cars-drive-real shipped (a4f8115): grip-scaled traction/brake-coast/rolling-steer/lateral-bleed, 5 new laws + 20 guardrails green.
 2026-07-23 VEHICLES GOAL — the civilian roster shipped: 46 defs+hulls+codex wing (sedan→submersible), all guard suites green. Sky/water shipped earlier same session (05b77dc). Residential furnishing = next in queue.
+2026-07-23 TRIPLE GOAL — menu tree (SP doors + 6 shelves), THE SHAMBLER TIDE (new mode, 4 laws), GOVERNMENT plan (docs/GOVERNMENT.md, epic #129).
