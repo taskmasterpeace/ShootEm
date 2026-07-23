@@ -67,7 +67,16 @@
           <button data-nudge="60">+1 GAME HOUR</button>
           <button id="adm-clock-clear">CLEAR — TRUE TIME</button>
         </div>
-        <div class="note">The scrub drags THIS client's whole clock — the corner chip, every launch, every sky. Launch a match after scrubbing to see the world at that hour. True time returns on CLEAR.</div>
+        <!-- THE CONTROL: hold the day where it stands, or run it fast. Both
+             reach the battlefield — a held clock holds the sky mid-match. -->
+        <div style="margin-top:10px">
+          <button id="adm-clock-hold">HOLD THE DAY</button>
+          <button data-rate="0.5">½× SLOW</button>
+          <button data-rate="1">1× NORMAL</button>
+          <button data-rate="4">4× FAST</button>
+          <button data-rate="12">12× RACING</button>
+        </div>
+        <div class="note">The scrub drags THIS client's whole clock — the corner chip, every launch, every sky. HOLD stops the day where it stands and the sky holds with it, mid-match included. RATE changes how fast the day runs without moving the world (the clock re-anchors, so nothing teleports). True time returns on CLEAR.</div>
       </div>
 
       <div class="panel">

@@ -407,6 +407,10 @@ export interface WorldOptions {
    *  NIGHT IS TIME, not weather: the theme menus stop rolling 'night' and
    *  the sky obeys the clock. Undefined = legacy behavior (tests, tools). */
   clockPhase?: number;
+  /** #123 THE CONTROL: how fast this match's day runs (1 = normal, 0 = held).
+   *  The client owns the knob (src/client/worldclock.ts); the sim is simply
+   *  told the answer, so replays stay pure. */
+  clockRate?: number;
   /** THE OUTBREAK: force the infection/reanimation layer on (or off) rather
    *  than letting the mode decide — for scenarios, tests, and the future
    *  condition-driven war-front outbreak (§2.1). */
@@ -553,12 +557,26 @@ export class World {
   /** #123: launch day-fraction (see WorldOptions.clockPhase). One game day
    *  advances every 7200 sim-seconds — the client's 2-real-hours ratio. */
   clockPhase?: number;
+  /**
+   * How fast this world's day runs. 1 = the client's 2-real-hours ratio;
+   * 0 stops the sky where it stands. Handed in at launch so the sim stays a
+   * pure function of its inputs — the CONTROL lives on the client
+   * (src/client/worldclock.ts), the CONSEQUENCE lives here.
+   */
+  get clockRate(): number { return this.opts.clockRate ?? 1; }
+  /** Total days advanced since launch — the chip adds this to the launch day. */
+  clockDayOffset(): number {
+    if (this.clockPhase === undefined) return 0;
+    return Math.floor(this.clockPhase + (this.time / 7200) * this.clockRate);
+  }
   /** The world's current day-fraction, 0 = midnight. 0.5 (noon) when no
    *  clock was handed in — legacy worlds live at permanent midday. */
   clockNow(): number {
     if (this.clockPhase === undefined) return 0.5;
-    return (this.clockPhase + this.time / 7200) % 1;
+    return (this.clockPhase + (this.time / 7200) * this.clockRate) % 1;
   }
+  /** Does this world carry a clock at all? The yard and the lab do not. */
+  hasClock(): boolean { return this.clockPhase !== undefined; }
   /** The world agrees with the HUD chip: 21:00–06:00 is night. */
   clockNight(): boolean {
     const p = this.clockNow();

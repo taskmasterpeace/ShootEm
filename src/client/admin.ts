@@ -6,7 +6,10 @@
 // (#83) arrive. First knob: THE CLOCK SCRUB — drag the one clock (#123) and
 // the whole client follows: chip, launches, skies.
 // ---------------------------------------------------------------------------
-import { GAME_DAY_MS, adminClockOffsetMs, clockLabel, gameNow, setAdminClockOffsetMs } from './worldclock';
+import {
+  GAME_DAY_MS, adminClockOffsetMs, clockLabel, freeze, gameNow, loadTimeControl, phaseName,
+  resetControl, saveTimeControl, setAdminClockOffsetMs, setRate, unfreeze,
+} from './worldclock';
 
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -40,9 +43,15 @@ function paintClock() {
   const c = gameNow();
   $('adm-clock').textContent = clockLabel(c) + (c.night ? '  ☾' : '  ☀');
   const off = adminClockOffsetMs();
-  $('adm-phase').textContent = off === 0
-    ? 'TRUE TIME'
-    : `SCRUBBED ${off > 0 ? '+' : ''}${(off / (GAME_DAY_MS / 24)).toFixed(1)} game hours`;
+  const tc = loadTimeControl();
+  const bits: string[] = [phaseName(c)];
+  if (tc.frozenElapsedMs !== null) bits.push('HELD');
+  else if (tc.rate !== 1) bits.push(tc.rate + '× DAY');
+  if (off !== 0) bits.push(`SCRUBBED ${off > 0 ? '+' : ''}${(off / (GAME_DAY_MS / 24)).toFixed(1)}h`);
+  if (off === 0 && tc.rate === 1 && tc.frozenElapsedMs === null) bits.push('TRUE TIME');
+  $('adm-phase').textContent = bits.join('  ·  ');
+  const hold = document.getElementById('adm-clock-hold');
+  if (hold) hold.textContent = tc.frozenElapsedMs !== null ? 'RELEASE THE DAY' : 'HOLD THE DAY';
 }
 setInterval(() => { if (inSession()) paintClock(); }, 2000);
 
@@ -66,7 +75,23 @@ for (const b of Array.from(document.querySelectorAll<HTMLButtonElement>('[data-n
     paintClock();
   };
 }
-$('adm-clock-clear').onclick = () => { setAdminClockOffsetMs(0); paintClock(); };
+// THE CONTROL (Robert: "a clock that we will control later"). HOLD stops the
+// day where it stands; RATE changes how fast it runs. Both reach the
+// battlefield — a match is handed the rate at launch, and a held clock hands
+// it 0, so the sky holds mid-match too.
+$('adm-clock-hold').onclick = () => {
+  const tc = loadTimeControl();
+  saveTimeControl(tc.frozenElapsedMs !== null ? unfreeze(tc) : freeze(tc));
+  paintClock();
+};
+for (const b of Array.from(document.querySelectorAll<HTMLButtonElement>('[data-rate]'))) {
+  b.onclick = () => {
+    // re-anchors first, so changing the speed never teleports the world
+    saveTimeControl(setRate(unfreeze(loadTimeControl()), Number(b.dataset.rate)));
+    paintClock();
+  };
+}
+$('adm-clock-clear').onclick = () => { saveTimeControl(resetControl()); paintClock(); };
 
 // ---- identity (read-only until #83) ----------------------------------------
 function paintIdentity() {

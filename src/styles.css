@@ -1829,6 +1829,22 @@ kbd.key + kbd.key { margin-left: 0.15rem; }
 #wc-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: #e8a33d; box-shadow: 0 0 6px #e8a33d; }
 #world-clock.night #wc-dot { background: #7a95b8; box-shadow: 0 0 6px #7a95b8; }
 #world-clock.night { color: #aebdd0; }
+/* the time of day in words — the thing you actually read at a glance */
+#wc-phase { font-size: 0.58rem; letter-spacing: 0.16em; opacity: 0.62; }
+/* ON THE FIELD the chip is reading the world you are standing in, not the
+   wall. The amber rail says so — a clock that means something different
+   should look different. */
+#world-clock.field { border-left: 2px solid #e8a33d; }
+#world-clock.night.field { border-left-color: #7a95b8; }
+/* A DRIVEN CLOCK NEVER LOOKS LIKE THE WORLD JUST TELLING YOU THE TIME. */
+#world-clock.held { border-color: #e8a33d; color: #f0c789; }
+#world-clock.held #wc-dot { animation: wc-hold 1.6s steps(2, end) infinite; }
+@keyframes wc-hold { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0.15; } }
+#world-clock.fast { border-color: #6fbf73; color: #cfe8d0; }
+#world-clock.fast #wc-dot { background: #6fbf73; box-shadow: 0 0 6px #6fbf73; }
+#world-clock.noclock { color: #8a877c; border-style: dashed; }
+#world-clock.noclock #wc-dot { background: #55524a; box-shadow: none; }
+@media (prefers-reduced-motion: reduce) { #world-clock.held #wc-dot { animation: none; } }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    THE TABLET (Robert's mobile goal) — touch controls + coarse-pointer dress.

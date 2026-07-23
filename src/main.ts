@@ -9,7 +9,7 @@ import { mapSizeForPlayers } from './sim/fronts';
 import { WEATHER_MODS } from './sim/weather';
 import { loadOnboarding, mountOnboarding, onMatchEnd, paintballConfig } from './client/onboarding';
 import { buildVanessasMap, SHOP_ENTRANCE, spawnVanessa, updateShopInteract } from './client/vanessas-place';
-import { clockLabel, gameNow } from './client/worldclock';
+import { clockForField, clockLabel, gameNow, loadTimeControl, phaseName } from './client/worldclock';
 import { mountFrontend } from './client/frontend';
 import { GhostPlayer, GhostRecorder, ghostKey, loadGhost, saveGhost } from './client/ghost';
 import { clearIdentity, factionTeam, loadIdentity, type PlayerIdentity } from './client/identity';
@@ -836,14 +836,46 @@ function saveFlight() {
 
 // #123 THE ONE CLOCK — the corner chip ticks every few seconds, everywhere:
 // menu, match, forever. One formula, one truth (src/client/worldclock.ts).
+/**
+ * THE CHIP READS THE WORLD YOU ARE STANDING IN.
+ *
+ * It used to read the wall clock always — including on the battlefield, which
+ * is the one place it could be wrong. A match runs its OWN day off world.time
+ * (that is what the sky obeys), a paused match freezes the sky and not the
+ * wall, and the yard/pro-shop/threat-room carry no clock at all. So: in a
+ * match, the field clock; outside one, the world clock; and a world with no
+ * clock says NO CLOCK rather than inventing an hour.
+ */
+let clockField: (() => { phase01: number; dayOffset: number } | null) | null = null;
+function setClockField(fn: (() => { phase01: number; dayOffset: number } | null) | null) {
+  clockField = fn;
+}
 function paintWorldClock() {
-  const c = gameNow();
+  const field = clockField?.() ?? null;
+  const c = clockForField(field);
   const el = $('world-clock');
-  $('wc-text').textContent = clockLabel(c);
+  const txt = $('wc-text');
+  if (field === null && clockField) {
+    // in a match that carries no clock — do not make one up
+    txt.textContent = 'NO CLOCK';
+    $('wc-phase').textContent = 'THE YARD KEEPS NO DAY';
+    el.classList.remove('night', 'field');
+    el.classList.add('noclock');
+    return;
+  }
+  el.classList.remove('noclock');
+  txt.textContent = clockLabel(c);
+  $('wc-phase').textContent = phaseName(c);
   el.classList.toggle('night', c.night);
+  el.classList.toggle('field', c.field);
+  // the control is visible when it is on — a driven clock should never look
+  // like the world simply telling you the time
+  const tc = loadTimeControl();
+  el.classList.toggle('held', tc.frozenElapsedMs !== null);
+  el.classList.toggle('fast', tc.frozenElapsedMs === null && tc.rate !== 1);
 }
 paintWorldClock();
-setInterval(paintWorldClock, 5000);
+setInterval(paintWorldClock, 1000);
 
 function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: Input, desk: Board, name: string, endGame: () => void) {
   const exercise = selectedMilitaryMissionId ? createMilitaryMissionLaunch(selectedMilitaryMissionId) : null;
@@ -870,6 +902,9 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     // #123 THE ONE CLOCK: hand the sim the world's day-fraction at launch —
     // the sky obeys the same clock the corner chip shows
     clockPhase: gameNow().phase01,
+    // #123 THE CONTROL: the match runs its day at whatever rate the clock is
+    // set to, so freezing or racing the world holds on the battlefield too.
+    clockRate: loadTimeControl().frozenElapsedMs !== null ? 0 : loadTimeControl().rate,
     scienceMission: scienceLaunch?.spec,
     hordeRoster, // THE ROSTER LAW: iron never mixes with zombies unless asked
     // B1: banked morale opens the stable richer for YOUR side (capped in-world)
@@ -1001,6 +1036,10 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
 
   // THE SCORE (Robert's tracks): soldier combat → LSW inbound/walking → the
   // real monsters. The director reads the sim twice a second and crossfades.
+  // THE CHIP NOW READS THIS WORLD. A match owns the time of day while it is
+  // running; a world with no clock (the yard, the shop, the lab) reports null
+  // and the chip says NO CLOCK instead of inventing an hour.
+  setClockField(() => (world.hasClock() ? { phase01: world.clockNow(), dayOffset: world.clockDayOffset() } : null));
   const music = new MusicDirector();
   // HEADPHONES: the same deck the GONET corner drives, worn on the field.
   cansRef = new Headphones(audio, music);
