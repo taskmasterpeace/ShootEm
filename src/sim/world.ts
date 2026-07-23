@@ -354,6 +354,55 @@ const LOOT_DESPAWN = 20;
 const LOOT_MAX = 12;
 const LOOT_EXCLUDED = new Set<string>(['ar606', 'unarmed']);
 
+// ═══════════════════════════════════════════════════════════════════════════
+// THE RACING DESTRUCTION SET
+//
+// Robert: *"what about the oil slick and other things like mines, and such —
+// think racing destruction set."*
+//
+// Five droppables, and the reason there are five is that each one takes away a
+// DIFFERENT thing. A set where every item is "damage, but more" is a list; a
+// set where the answers differ is a decision at the garage door:
+//
+//   MINES   take your life      — a bang, and the hull gets pitched
+//   OIL     takes your steering — the floor turns to ice under you
+//   SPIKES  take your pace      — no bang at all, just a car that won't run
+//   SMOKE   takes your eyes     — the corner you were about to take, gone
+//   DRUM    takes your paint    — fire that keeps charging while you sit in it
+//
+// One table so the drop verb, the HUD and the garage can never disagree about
+// what a thing is called or how long it lives.
+// ═══════════════════════════════════════════════════════════════════════════
+export type RaceDropId = 'mines' | 'oil' | 'spikes' | 'smoke' | 'firedrum';
+interface RaceDropSpec {
+  gadget: GadgetType;
+  /** seconds it survives on the tarmac */
+  life: number;
+  /** a beat before it can hurt anyone — so you can't kill yourself with it */
+  armDelay?: number;
+  /** the call when it leaves the car, and when X arms it */
+  out: string;
+  armed: string;
+}
+/** the cycle order — X walks this, skipping whatever you are not carrying */
+export const RACE_DROP_ORDER: RaceDropId[] = ['mines', 'oil', 'spikes', 'smoke', 'firedrum'];
+export const RACE_DROPS: Record<RaceDropId, RaceDropSpec> = {
+  mines:    { gadget: 'race_mine',   life: 45, armDelay: 1.2, out: 'MINE OUT',   armed: 'MINES ARMED' },
+  oil:      { gadget: 'oil_slick',   life: 18,                out: 'OIL DOWN',   armed: 'OIL ARMED' },
+  spikes:   { gadget: 'spike_strip', life: 30, armDelay: 0.8, out: 'SPIKES OUT', armed: 'SPIKES ARMED' },
+  smoke:    { gadget: 'smoke_field', life: 9,                 out: 'SMOKE OUT',  armed: 'SMOKE ARMED' },
+  firedrum: { gadget: 'fire_drum',   life: 16, armDelay: 0.8, out: 'DRUM OUT',   armed: 'DRUM ARMED' },
+};
+/** what this hull still has aboard, in cycle order */
+export const loadedDrops = (v: Vehicle): RaceDropId[] =>
+  RACE_DROP_ORDER.filter((d) => (v[d] ?? 0) > 0);
+/** which drop G would throw right now — the armed one, or the first aboard */
+export const armedDrop = (v: Vehicle): RaceDropId => {
+  const bag = loadedDrops(v);
+  const want = RACE_DROP_ORDER[v.dropIdx ?? -1];
+  return want && bag.includes(want) ? want : bag[0];
+};
+
 // ---- anti-air: MANPADS vs flyer ----
 const MANPADS_ROUNDS = 2;    // missiles per life
 const FLARES_PER_LIFE = 3;   // decoys per flyer life
@@ -2056,8 +2105,12 @@ export class World {
     const frac = v.maxHp > 0 ? v.hp / v.maxHp : 1;
     v.maxHp = v.fittedDef.hp;
     v.hp = Math.max(1, Math.min(v.maxHp, Math.round(v.maxHp * frac)));
-    v.mines = fit.cargo.includes('mines') ? (CARGO.mines.count ?? 6) : 0;
-    v.oil = fit.cargo.includes('oil') ? (CARGO.oil.count ?? 4) : 0;
+    // load the RDS bag from the cargo row — one line per droppable, so adding
+    // one to CARGO is the only edit a new drop needs here
+    for (const d of RACE_DROP_ORDER) {
+      v[d] = fit.cargo.includes(d) ? (CARGO[d]?.count ?? 0) : 0;
+    }
+    v.dropIdx = RACE_DROP_ORDER.indexOf(loadedDrops(v)[0]);
     return v;
   }
 
@@ -2931,6 +2984,34 @@ export class World {
           }
           break;
         }
+        case 'spike_strip': {
+          // NO BANG. The whole point of the strip is that it is the quiet
+          // answer: you keep your line, you keep your paint, and you cannot
+          // get the car to run. Oil punishes the corner; spikes punish the
+          // straight, so carrying both is a real choice.
+          if (this.time <= (g.armedAt ?? 0)) break;
+          for (const v of this.vehicles.values()) {
+            if (!v.alive || v.id === g.ownerVehicleId) continue;
+            if (Math.hypot(v.pos.x - g.pos.x, v.pos.z - g.pos.z) > VEHICLES[v.kind].radius + 1.4) continue;
+            v.spikedUntil = this.time + 4.5;
+            this.emit({ type: 'sparks', pos: { ...g.pos } });
+            g.hp = 0; // a strip is spent on the car that finds it
+            break;
+          }
+          break;
+        }
+        case 'fire_drum': {
+          // fire that FOLLOWS you: cheap per tick, expensive to sit in. The
+          // burn rides on the hull (burningUntil) so leaving the patch does
+          // not instantly save you — you carry it out with you.
+          if (this.time <= (g.armedAt ?? 0)) break;
+          for (const v of this.vehicles.values()) {
+            if (!v.alive || v.id === g.ownerVehicleId) continue;
+            if (Math.hypot(v.pos.x - g.pos.x, v.pos.z - g.pos.z) > 4.5) continue;
+            v.burningUntil = this.time + 3;
+          }
+          break;
+        }
         case 'drone': {
           if (g.crashing) {
             // link lost: the drone tumbles out of the sky and breaks on the dirt
@@ -3749,23 +3830,36 @@ export class World {
         }, 1, 3.5);
         this.emit({ type: 'beacon_planted', pos: { ...g.pos }, soldierId: s.id, text: 'FLARES!' });
       }
-      // ═══ THE CIRCUIT: G drops what you're carrying, out the back ═══
-      // (docs/RACING.md — RDS's cargo row made a verb: mines first, then oil.
-      // Everything drops BEHIND the hull, which is the whole tactic.)
+      // ═══ THE CIRCUIT: G drops what you're carrying, X picks which ═══
+      // (docs/RACING.md — RDS's cargo row made a verb. Everything drops BEHIND
+      // the hull, which is the whole tactic.) X cycles the armed drop exactly
+      // the way it cycles the grenade bag on foot — same key, same idea.
+      if (s.seat === 0 && !VEHICLES[v.kind].flies && loadedDrops(v).length > 1 && cmd.nadeCycle) {
+        const bag = loadedDrops(v);
+        const cur = bag.indexOf(armedDrop(v));
+        const next = bag[(cur + 1) % bag.length];
+        v.dropIdx = RACE_DROP_ORDER.indexOf(next);
+        this.emit({ type: 'beacon_planted', pos: { ...v.pos }, soldierId: s.id, text: RACE_DROPS[next].armed });
+      }
       if (cmd.grenade && s.seat === 0 && !VEHICLES[v.kind].flies
-          && ((v.mines ?? 0) > 0 || (v.oil ?? 0) > 0) && this.time >= s.nextGrenadeAt) {
+          && loadedDrops(v).length > 0 && this.time >= s.nextGrenadeAt) {
         s.nextGrenadeAt = this.time + 0.65;
         const behind = {
           x: v.pos.x - Math.cos(v.yaw) * (VEHICLES[v.kind].radius + 1.6),
           y: 0,
           z: v.pos.z - Math.sin(v.yaw) * (VEHICLES[v.kind].radius + 1.6),
         };
-        const dropMine = (v.mines ?? 0) > 0;
-        if (dropMine) v.mines = (v.mines ?? 0) - 1; else v.oil = (v.oil ?? 0) - 1;
-        const g = this.spawnGadget(dropMine ? 'race_mine' : 'oil_slick', v.team, s.id, behind, 20, dropMine ? 45 : 18);
+        const pick = armedDrop(v);
+        const spec = RACE_DROPS[pick];
+        v[pick] = (v[pick] ?? 0) - 1;
+        const g = this.spawnGadget(spec.gadget, v.team, s.id, behind, 20, spec.life);
         g.ownerVehicleId = v.id;
-        if (dropMine) g.armedAt = this.time + 1.2;
-        this.emit({ type: 'beacon_planted', pos: { ...g.pos }, soldierId: s.id, text: dropMine ? 'MINE OUT' : 'OIL DOWN' });
+        if (spec.armDelay) g.armedAt = this.time + spec.armDelay;
+        this.emit({ type: 'beacon_planted', pos: { ...g.pos }, soldierId: s.id, text: spec.out });
+        // the bag empties under you — fall to whatever is still aboard
+        if (loadedDrops(v).length > 0 && (v[pick] ?? 0) <= 0) {
+          v.dropIdx = RACE_DROP_ORDER.indexOf(loadedDrops(v)[0]);
+        }
       }
       // W5.4 DRIVE-BY (Robert: "personal weapon from a seat"): a PASSENGER
       // leans out — the trigger runs his OWN gun: clip, rof, reload, the
@@ -5936,6 +6030,12 @@ export class World {
     }
     this.stepRequisition(v, cmds, dt);
     if (!v.alive) return; // the write-off can strike a hull mid-step
+    // THE DRUM'S FIRE keeps charging. It rides on the HULL, not the patch, so
+    // driving out of the flames does not instantly save you — you carry it.
+    if ((v.burningUntil ?? 0) > this.time) {
+      this.damageVehicle(v, 22 * dt, -1, 'fire');
+      if (!v.alive) return;
+    }
     // THE GARAGE IS REAL: what is bolted to this hull rewrites its card —
     // tyres change the traction profile, the engine moves top speed, the
     // chassis and cargo change what it WEIGHS. Resolved once when the fit is
@@ -6088,8 +6188,12 @@ export class World {
         }
       }
       const wing = stall > 0 ? Math.max(stall, Math.max(0, throttle)) : throttle;
+      // SPIKES: a punctured tyre keeps its grip and loses its legs. Applied to
+      // the SPEED, never the traction, so it can never be mistaken for oil.
+      const spiked = (v.spikedUntil ?? 0) > this.time;
       const targetSpeed = wing * def.speed * engineMult * depthMult * surfMult * this.vehicleSpeedMul * burner
-        * (wing < 0 ? 0.5 : 1) * (handbrake ? 0.5 : 1); // W5.5: the brake drags
+        * (wing < 0 ? 0.5 : 1) * (handbrake ? 0.5 : 1) // W5.5: the brake drags
+        * (spiked ? 0.45 : 1);                          // THE CIRCUIT: flat tyre
       const curSpeed = Math.cos(v.yaw) * v.vel.x + Math.sin(v.yaw) * v.vel.z;
       // #121 CARS DRIVE REAL (Robert batch 3: "we want the cars to drive a
       // little more realistic") — the floor's GRIP (the weight law's dial,

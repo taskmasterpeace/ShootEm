@@ -2117,6 +2117,12 @@ body:not(.in-match) #world-clock { left: auto; right: 0.9rem; }
 #drive-card .dc-tr.oiled { color: #ff5a4a; font-weight: 700; }
 #drive-card .dc-air { color: #6fd8ff; font-weight: 700; letter-spacing: 0.14em; }
 #drive-card .dc-cargo { color: var(--accent); letter-spacing: 0.1em; }
+/* the ARMED drop — what G is about to throw. The rest of the bag reads as
+   inventory; this one reads as loaded. */
+#drive-card .dc-cargo .dc-armed {
+  color: var(--bg, #0d0f0c); background: var(--accent);
+  padding: 0 0.25rem; font-weight: 700;
+}
 
 /* #8 THE LESSON BOARD — the school's instruction, pinned while you drive at it */
 #lesson-board {

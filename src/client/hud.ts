@@ -15,7 +15,13 @@ import { weaponPortrait } from './weaponcam';
 import { weaponBrand } from './models/weapons';
 import { SegMeter } from './segmeter';
 import { classLinger, MAX_LINGER } from '../sim/perception';
+import { armedDrop, loadedDrops, type RaceDropId } from '../sim/world';
 import type { World } from '../sim/world';
+
+/** the RDS bag, in the driver's own shorthand */
+const DROP_LABEL: Record<RaceDropId, string> = {
+  mines: 'MINES', oil: 'OIL', spikes: 'SPIKES', smoke: 'SMOKE', firedrum: 'DRUM',
+};
 import { scienceObjectiveText } from '../sim/science-runtime';
 import { k9ControlState } from './k9-controls';
 import { activeScienceWaypoints } from './science';
@@ -586,10 +592,13 @@ export class Hud {
         : (smat.name === 'Metal' || smat.name === 'Stone') ? 'paved' : 'dirt';
       const tr = vd.traction ? vd.traction[fam] : 1;
       const air = rig.airborneAt !== undefined;
-      const cargo = [
-        (rig.mines ?? 0) > 0 ? 'MINES ' + rig.mines : '',
-        (rig.oil ?? 0) > 0 ? 'OIL ' + rig.oil : '',
-      ].filter(Boolean).join(' · ');
+      // THE RDS BAG: everything still aboard, the ARMED one lit. Without the
+      // lit one you cannot tell what G is about to throw, which is the only
+      // question the row exists to answer.
+      const armed = armedDrop(rig);
+      const cargo = loadedDrops(rig)
+        .map((d) => `<span class="${d === armed ? 'dc-armed' : ''}">${DROP_LABEL[d]} ${rig[d]}</span>`)
+        .join(' · ');
       setHTML(driveCard,
         '<span class="dc-name">' + vd.name + '</span>'
         + '<span class="dc-row"><b>' + (vd.mass ?? 1.6).toFixed(1) + 't</b>'
@@ -597,7 +606,8 @@ export class Hud {
         + (oiled ? 'OIL' : fam.toUpperCase()) + ' ' + tr.toFixed(2) + '</span>'
         + (air ? '<span class="dc-air">AIRBORNE</span>' : '')
         + '</span>'
-        + (cargo ? '<span class="dc-cargo">' + cargo + ' — G DROPS</span>' : ''));
+        + (cargo ? '<span class="dc-cargo">' + cargo
+          + (loadedDrops(rig).length > 1 ? ' — G DROPS · X CYCLES' : ' — G DROPS') + '</span>' : ''));
     }
 
     const inVehicle = s.vehicleId >= 0;

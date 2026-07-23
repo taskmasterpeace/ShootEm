@@ -20,7 +20,7 @@ import type { VehicleDef, VehicleKind } from './types';
 export type TireId = 'slicks' | 'allterrain' | 'knobblies' | 'studs';
 export type EngineId = 'stock' | 'sprint' | 'longratio';
 export type ChassisId = 'stripped' | 'standard' | 'reinforced';
-export type CargoId = 'mines' | 'oil' | 'armour' | 'crusher';
+export type CargoId = 'mines' | 'oil' | 'spikes' | 'smoke' | 'firedrum' | 'armour' | 'crusher';
 
 export interface Fit {
   tires: TireId;
@@ -82,6 +82,14 @@ export const CHASSIS: Record<ChassisId, Part & { hp: number }> = {
 export const CARGO: Record<CargoId, Part & { count?: number }> = {
   mines: { id: 'mines', name: 'Land Mines', mass: 0.18, blurb: 'Six, dropped behind you. They arm a beat late so you cannot kill yourself with them.', count: 6 },
   oil: { id: 'oil', name: 'Oil Gallons', mass: 0.22, blurb: 'Four slicks. Whatever crosses one drives on ice until it wears off.', count: 4 },
+  // THE REST OF THE SET (Robert: "the oil slick and other things like mines,
+  // and such — think racing destruction set"). Each one denies a DIFFERENT
+  // thing, which is the only reason carrying more than one is a decision:
+  // mines take your life, oil takes your steering, spikes take your pace,
+  // smoke takes your eyes, the drum takes your paint.
+  spikes: { id: 'spikes', name: 'Spike Strip', mass: 0.14, blurb: 'Five strips. No bang, no fireball — just a punctured tyre and a car that will not run.', count: 5 },
+  smoke: { id: 'smoke', name: 'Smoke Canisters', mass: 0.1, blurb: 'Four screens laid out the back. Whoever is drafting you loses the corner they were about to take.', count: 4 },
+  firedrum: { id: 'firedrum', name: 'Fire Drums', mass: 0.3, blurb: 'Three burning barrels. Cheap damage that keeps charging while they sit in it.', count: 3 },
   armour: { id: 'armour', name: 'Armour Plate', mass: 0.75, blurb: 'Soak the hits. Pay for it every time you ask the car to go or stop.' },
   crusher: { id: 'crusher', name: 'Crusher Ram', mass: 0.45, blurb: 'A wedge on the nose. Contact stops being an accident and becomes a plan.' },
 };

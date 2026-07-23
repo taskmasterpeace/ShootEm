@@ -968,9 +968,20 @@ export interface Vehicle {
   civilianDrive?: import('./traffic').CivilianDrive;
   /** THE CIRCUIT: oiled until this time — the floor lies and you slide. */
   oiledUntil?: number;
-  /** THE CIRCUIT: the RDS cargo row, loaded — what this hull can drop. */
+  /** THE CIRCUIT: tyres punctured until this time — you keep your line and
+   *  lose your pace. The spike strip's answer to oil's answer. */
+  spikedUntil?: number;
+  /** THE CIRCUIT: burning until this time — the drum's fire eats paint by
+   *  the second. Damage that follows you instead of a single bang. */
+  burningUntil?: number;
+  /** THE CIRCUIT: the RDS cargo row, loaded — what this hull can drop.
+   *  Counters per droppable; `dropIdx` is which one X has armed. */
   mines?: number;
   oil?: number;
+  spikes?: number;
+  smoke?: number;
+  firedrum?: number;
+  dropIdx?: number;
   id: number;
   kind: VehicleKind;
   team: Team; // team lock of spawn pad; -1 style neutrality not needed, vehicles usable by spawn team
@@ -1170,6 +1181,10 @@ export type GadgetType =
                    // cannot kill yourself with it (RDS's LAND MINES row)
   | 'oil_slick'    // THE CIRCUIT: a patch that turns the floor to ice for
                    // whoever crosses it — the materials law, weaponised
+  | 'spike_strip'  // THE CIRCUIT: punctures. You keep your line and lose your
+                   // pace — the opposite complaint to oil, on purpose
+  | 'fire_drum'    // THE CIRCUIT: a burning patch that eats paint by the
+                   // second — damage that follows instead of one bang
   | 'axe';         // M5 THE THROWN AXE — buried where it landed, waiting to be
                    // called back. It is a WEAPON on the ground, not a pickup:
                    // only its thrower can recall it, and it hurts on the way home.
