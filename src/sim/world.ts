@@ -6,7 +6,7 @@ import {
   T_METAL_DOOR, T_OPEN, T_RUBBLE, T_SLIT, T_THIN_WALL_H, T_THIN_WALL_HV,
   T_WALL, T_WATER, blocksShot, breakWindowTile, doorIsOpen,
   generateMap, isBlocked, isDoorTile, isWindowTile, losClear, losClearTerrain, nearestOpenTile,
-  surfaceAt, thinTileBlocks, tileAt, toggleDoorType, terrainLevelAt, SKY_LEVEL,
+  surfaceAt, thinTileBlocks, tileAt, toggleDoorType, terrainLevelAt, terrainTopAt, SKY_LEVEL,
   windowIsBroken, type GameMap,
 } from './map';
 import {
@@ -5493,9 +5493,18 @@ export class World {
       // HANDLING is the hull's own contribution, independent of its weight —
       // a sports car and a delivery van can weigh the same and corner nothing
       // alike. It multiplies the grip the floor provides.
-      const handling = def.grip ?? 1;
+      //
+      // THE TRACTION PROFILE (docs/RACING.md, Racing Destruction Set's best
+      // idea): grip is not one number but a PROFILE — ICE / DIRT / PAVED.
+      // The floor names its family, the card answers for it, and a slicks
+      // car that flies on tarmac is genuinely helpless in the wet.
+      const mat = materialForSurface(surf);
+      const family: 'ice' | 'dirt' | 'paved' = mat.slick ? 'ice'
+        : (mat.name === 'Metal' || mat.name === 'Stone') ? 'paved'
+        : 'dirt';
+      const handling = (def.grip ?? 1) * (def.traction ? def.traction[family] : 1);
       const gripK = surfaceHull
-        ? Math.max(0.3, Math.min(1.15, (materialForSurface(surf).grip ?? 12) / 13))
+        ? Math.max(0.3, Math.min(1.15, (mat.grip ?? 12) / 13))
         : 1;
       const tractionK = surfaceHull ? (tracked || def.strider ? (gripK + 1) / 2 : gripK) : 1;
       let accel = 18;
@@ -5644,6 +5653,51 @@ export class World {
         const clamped = clampWorld(this.map.geometry, v.pos, 3);
         v.pos.x = clamped.x;
         v.pos.z = clamped.z;
+      }
+
+      // ═══ THE JUMP AND THE LANDING (docs/RACING.md — Robert: "this thing
+      // got elevation, it got jumping… if we could have the motorcycles and
+      // the cars land in a realistic way, then I think we might have
+      // something special"). The map has real terrain steps. Drive off one
+      // fast and the hull LEAVES THE GROUND: gravity owns it, the wheels
+      // have no say (you commit at the lip), and the arrival is judged
+      // against the card's SHOCK STRENGTH.
+      //   force = mass × vertical speed. Under shock: clean, you drive away.
+      //   Over: the hull bounces, scrubs speed, and pays hull damage —
+      //   a heavy truck off a big ramp is a wreck; a bike is a stunt.
+      if (surfaceHull && !def.rails) {
+        const groundY = terrainTopAt(this.map.height, v.pos.x, v.pos.z, this.map.geometry);
+        const airborne = v.pos.y > groundY + 0.12;
+        if (airborne || v.vel.y > 0.01) {
+          v.vel.y = (v.vel.y ?? 0) - 22 * dt;      // the same gravity the war uses
+          v.pos.y += v.vel.y * dt;
+          v.airborneAt = v.airborneAt ?? this.time; // when the wheels left
+        }
+        if (v.pos.y <= groundY) {
+          const fell = v.vel.y ?? 0;
+          if (v.airborneAt !== undefined && fell < -3) {
+            // THE ARRIVAL — mass × speed against the shocks
+            const force = (def.mass ?? 1.6) * -fell;
+            const shock = def.shock ?? 4;
+            if (force > shock) {
+              const over = force / shock;
+              // the suspension bottoms out: bounce, scrub, and pay for it
+              v.vel.y = -fell * 0.22 * Math.min(1, over - 1);
+              v.vel.x *= Math.max(0.35, 1 - (over - 1) * 0.35);
+              v.vel.z *= Math.max(0.35, 1 - (over - 1) * 0.35);
+              this.damageVehicle(v, Math.min(120, (over - 1) * 26), -1, 'crash');
+              this.emit({ type: 'explosion', pos: { x: v.pos.x, y: groundY, z: v.pos.z }, radius: 1.2 });
+            } else {
+              v.vel.y = 0; // stuck the landing — the shocks ate it
+            }
+          } else {
+            v.vel.y = 0;
+          }
+          v.pos.y = groundY;
+          v.airborneAt = undefined;
+        }
+        // driving OFF a lip: the ground fell away faster than the hull can
+        else if (!airborne) v.pos.y = groundY;
       }
     } else {
       v.vel.x = 0; v.vel.z = 0;

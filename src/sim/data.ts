@@ -392,19 +392,21 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
   // momentum carries through a hard turn (~0.3-0.5s of slide), and SPACE is
   // the HANDBRAKE (rear grip breaks, the tail steps out). Tracks/striders
   // stay on rails: a tank corners like a tank ON PURPOSE.
-  buggy: { kind: 'buggy', name: 'Scout Buggy', cost: 1, hp: 95, speed: 19, turnRate: 2.6, weapon: 'buggy_mg', seats: 2, mobileSpawn: false, radius: 1.6, systemHp: 24, slip: 2.4, mass: 1.3, grip: 1.05 },
+  buggy: { kind: 'buggy', name: 'Scout Buggy', cost: 1, hp: 95, speed: 19, turnRate: 2.6, weapon: 'buggy_mg', seats: 2, mobileSpawn: false, radius: 1.6, systemHp: 24, slip: 2.4, mass: 1.3, grip: 1.05, traction: { ice: 0.7, dirt: 1.1, paved: 1.05 }, shock: 4 },
   // The Ares is a crewed weapons platform: driver/gunner + sensors + ECM +
   // comms stations, plus 4 passenger benches for when leg work is required.
   // Every subsystem has its own hit points — tanks break in many ways.
   tank: {
+    traction: { ice: 0.95, dirt: 1.3, paved: 1 }, shock: 40,
     mass: 62, grip: 0.9,
     kind: 'tank', name: 'Ares Battle Tank', cost: 4, hp: 650, speed: 11, turnRate: 1.5,
     weapon: 'tank_cannon', seats: 8, mobileSpawn: false, radius: 2.4,
     crew: ['sensors', 'ecm', 'comms'], systemHp: 60,
   },
-  apc: { kind: 'apc', name: 'Bastion APC', cost: 3, hp: 450, speed: 14, turnRate: 1.8, weapon: 'apc_mg', seats: 4, mobileSpawn: true, radius: 2.2, systemHp: 45, mass: 19, grip: 0.95 },
-  skiff: { kind: 'skiff', name: 'Wraith Skiff', cost: 1, hp: 90, speed: 22, turnRate: 3.2, weapon: 'skiff_plasma', seats: 1, mobileSpawn: false, radius: 1.4, hover: true, systemHp: 18, mass: 2.2, grip: 1 },
+  apc: { kind: 'apc', name: 'Bastion APC', cost: 3, hp: 450, speed: 14, turnRate: 1.8, weapon: 'apc_mg', seats: 4, mobileSpawn: true, radius: 2.2, systemHp: 45, mass: 19, grip: 0.95, traction: { ice: 0.9, dirt: 1.25, paved: 1 }, shock: 22 },
+  skiff: { kind: 'skiff', name: 'Wraith Skiff', cost: 1, hp: 90, speed: 22, turnRate: 3.2, weapon: 'skiff_plasma', seats: 1, mobileSpawn: false, radius: 1.4, hover: true, systemHp: 18, mass: 2.2, grip: 1, traction: { ice: 0.85, dirt: 1, paved: 1 }, shock: 3 },
   hoverboard: {
+    traction: { ice: 0.8, dirt: 0.95, paved: 1 }, shock: 1.4,
     mass: 0.12, grip: 1.1,
     kind: 'hoverboard', name: 'Halo Hoverboard', cost: 1, hp: 45, speed: 24, turnRate: 4.2,
     weapon: '', seats: 1, mobileSpawn: false, radius: 0.8, hover: true, systemHp: 10,
@@ -415,24 +417,28 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
   // ── THE RACEBOARDS — three points of a speed/handling triangle, tuned for
   // the Motor Trials. All hover, all unarmed; the trade is top-speed vs bite.
   comet: {
+    traction: { ice: 0.7, dirt: 0.9, paved: 1.05 }, shock: 1.2,
     mass: 0.1, grip: 0.95,
     kind: 'comet', name: 'Comet Raceboard', cost: 1, hp: 38, speed: 31, turnRate: 3.4,
     weapon: '', seats: 1, mobileSpawn: false, radius: 0.8, hover: true, systemHp: 10,
     slip: 3.4, // fastest flat-out, but it drifts wide — commit early or overshoot
   },
   vector: {
+    traction: { ice: 0.8, dirt: 0.95, paved: 1 }, shock: 1.4,
     mass: 0.11, grip: 1.05,
     kind: 'vector', name: 'Vector Raceboard', cost: 1, hp: 44, speed: 26, turnRate: 4.6,
     weapon: '', seats: 1, mobileSpawn: false, radius: 0.8, hover: true, systemHp: 10,
     slip: 2.4, // the all-rounder — no weakness, no standout
   },
   sprite: {
+    traction: { ice: 0.9, dirt: 1, paved: 1 }, shock: 1.6,
     mass: 0.12, grip: 1.2,
     kind: 'sprite', name: 'Sprite Raceboard', cost: 1, hp: 50, speed: 22, turnRate: 6.2,
     weapon: '', seats: 1, mobileSpawn: false, radius: 0.8, hover: true, systemHp: 10,
     slip: 1.5, // slowest top end but it BITES — threads the tight infield
   },
   bike: {
+    traction: { ice: 0.55, dirt: 1, paved: 1.15 }, shock: 1.6,
     mass: 0.35, grip: 1.15,
     kind: 'bike', name: 'Jackal Recon Bike', cost: 1, hp: 85, speed: 26, turnRate: 3.4,
     weapon: 'bike_mg', seats: 1, mobileSpawn: false, radius: 1.1, systemHp: 15,
@@ -488,6 +494,7 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
   // to the first tank that notices it, which is what keeps AA a POSITION the
   // ground war has to fight over instead of a free umbrella.
   aatrack: {
+    traction: { ice: 0.9, dirt: 1.2, paved: 1 }, shock: 12,
     mass: 14, grip: 1,
     kind: 'aatrack', name: 'Lance AA Track', cost: 2, hp: 130, speed: 13, turnRate: 1.9,
     weapon: 'aa_missile', seats: 2, mobileSpawn: false, radius: 1.9,
@@ -541,6 +548,7 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
     hover: true, flies: true, systemHp: 24, liftoffTime: 3,
   },
   transport: {
+    traction: { ice: 0.7, dirt: 0.95, paved: 1.05 }, shock: 14,
     mass: 13, grip: 0.9,
     kind: 'transport', name: 'Atlas Transport', cost: 3, hp: 520, speed: 12, turnRate: 1.6,
     weapon: 'transport_mg', seats: 9, mobileSpawn: true, radius: 2.6,
@@ -548,17 +556,20 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
     slip: 3.4, // W5.5: a loaded truck leans, briefly — grip wins fast
   },
   ambulance: {
+    traction: { ice: 0.7, dirt: 0.9, paved: 1.1 }, shock: 3.5,
     mass: 3.2, grip: 1,
     kind: 'ambulance', name: 'Mercy Field Ambulance', cost: 2, hp: 240, speed: 17, turnRate: 2.2,
     weapon: '', seats: 3, mobileSpawn: false, radius: 1.9,
     healRadius: 7, healRate: 9, systemHp: 32,
   },
   tunneler: {
+    traction: { ice: 1, dirt: 1.4, paved: 0.9 }, shock: 35,
     mass: 45, grip: 0.8,
     kind: 'tunneler', name: 'Mole Tunneling Machine', cost: 2, hp: 700, speed: 4.5, turnRate: 1.0,
     weapon: '', seats: 2, mobileSpawn: false, radius: 2.2, digs: true, systemHp: 70,
   },
   emplacement: {
+    traction: { ice: 1, dirt: 1, paved: 1 }, shock: 20,
     mass: 8, grip: 1,
     kind: 'emplacement', name: 'Bulwark Emplacement', cost: 1, hp: 380, speed: 0, turnRate: 0,
     weapon: 'emplacement_gun', seats: 1, mobileSpawn: false, radius: 1.6,
@@ -586,6 +597,7 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
   // Balance slot: hp between APC and tank, worst straight-line speed of the
   // armed ground pool, best heavy-class turn rate, anti-infantry gun.
   mech: {
+    traction: { ice: 1, dirt: 1.2, paved: 1 }, shock: 30,
     mass: 28, grip: 1,
     kind: 'mech', name: 'Goliath Assault Walker', cost: 3, hp: 480, speed: 9, turnRate: 2.4,
     weapon: 'mech_autocannon', seats: 2, mobileSpawn: false, radius: 1.9,
@@ -602,28 +614,28 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
   // round (33.3), air under the Vulture (40). The runabouts ride the W5.5
   // slip dial like every wheeled thing that corners.
   // ── ground ──
-  sedan:        { kind: 'sedan', name: 'Commuter Sedan', cost: 1, hp: 70, speed: 18, turnRate: 2.4, weapon: '', seats: 4, mobileSpawn: false, radius: 1.5, systemHp: 8, slip: 2.4, civilian: true, mass: 1.5, grip: 1 },
-  pickup:       { kind: 'pickup', name: 'Workhorse Pickup', cost: 1, hp: 90, speed: 16, turnRate: 2.2, weapon: '', seats: 3, mobileSpawn: false, radius: 1.6, systemHp: 10, slip: 2.2, civilian: true, mass: 2.1, grip: 0.95 },
-  suv:          { kind: 'suv', name: 'Range SUV', cost: 1, hp: 100, speed: 17, turnRate: 2.2, weapon: '', seats: 5, mobileSpawn: false, radius: 1.7, systemHp: 11, slip: 2.2, civilian: true, mass: 2.3, grip: 0.92 },
-  sportscar:    { kind: 'sportscar', name: 'Meridian Sports Car', cost: 2, hp: 60, speed: 26, turnRate: 2.9, weapon: '', seats: 2, mobileSpawn: false, radius: 1.5, systemHp: 7, slip: 3.2, civilian: true, mass: 1.35, grip: 1.3 },
-  taxi:         { kind: 'taxi', name: 'City Taxi', cost: 1, hp: 75, speed: 18, turnRate: 2.5, weapon: '', seats: 4, mobileSpawn: false, radius: 1.5, systemHp: 8, slip: 2.5, civilian: true, mass: 1.6, grip: 0.98 },
-  schoolbus:    { kind: 'schoolbus', name: 'District School Bus', cost: 2, hp: 160, speed: 11, turnRate: 1.5, weapon: '', seats: 9, mobileSpawn: false, radius: 2.4, systemHp: 17, civilian: true, mass: 11, grip: 0.75 },
-  scooter:      { kind: 'scooter', name: 'Street Scooter', cost: 1, hp: 30, speed: 13, turnRate: 3.0, weapon: '', seats: 1, mobileSpawn: false, radius: 0.9, systemHp: 4, slip: 2.0, civilian: true, mass: 0.14, grip: 1.1 },
-  atv:          { kind: 'atv', name: 'Trail ATV', cost: 1, hp: 55, speed: 15, turnRate: 2.8, weapon: '', seats: 2, mobileSpawn: false, radius: 1.2, systemHp: 6, slip: 2.1, civilian: true, mass: 0.42, grip: 1.1 },
-  garbagetruck: { kind: 'garbagetruck', name: 'Municipal Garbage Truck', cost: 2, hp: 200, speed: 9, turnRate: 1.4, weapon: '', seats: 2, mobileSpawn: false, radius: 2.3, systemHp: 21, civilian: true, mass: 14, grip: 0.7 },
-  towtruck:     { kind: 'towtruck', name: 'Roadside Tow Truck', cost: 1, hp: 130, speed: 13, turnRate: 1.8, weapon: '', seats: 2, mobileSpawn: false, radius: 1.9, systemHp: 14, civilian: true, mass: 5, grip: 0.85 },
-  firetruck:    { kind: 'firetruck', name: 'Ladder 9 Fire Truck', cost: 2, hp: 190, speed: 12, turnRate: 1.5, weapon: '', seats: 5, mobileSpawn: false, radius: 2.5, systemHp: 20, civilian: true, mass: 12, grip: 0.75 },
-  fueltanker:   { kind: 'fueltanker', name: 'Petrochem Fuel Tanker', cost: 2, hp: 110, speed: 11, turnRate: 1.3, weapon: '', seats: 2, mobileSpawn: false, radius: 2.5, systemHp: 12, civilian: true, mass: 15, grip: 0.68 },
-  movingtruck:  { kind: 'movingtruck', name: 'Two-Man Moving Truck', cost: 1, hp: 140, speed: 12, turnRate: 1.6, weapon: '', seats: 3, mobileSpawn: false, radius: 2.2, systemHp: 15, civilian: true, mass: 5.2, grip: 0.82 },
-  foodtruck:    { kind: 'foodtruck', name: 'Corner Food Truck', cost: 1, hp: 120, speed: 12, turnRate: 1.7, weapon: '', seats: 2, mobileSpawn: false, radius: 2.0, systemHp: 13, civilian: true, mass: 4.4, grip: 0.85 },
-  deliveryvan:  { kind: 'deliveryvan', name: 'Parcel Delivery Van', cost: 1, hp: 110, speed: 15, turnRate: 1.9, weapon: '', seats: 2, mobileSpawn: false, radius: 1.9, systemHp: 12, civilian: true, mass: 2.6, grip: 0.9 },
-  policecruiser:{ kind: 'policecruiser', name: 'Metro Police Cruiser', cost: 1, hp: 95, speed: 22, turnRate: 2.6, weapon: '', seats: 4, mobileSpawn: false, radius: 1.6, systemHp: 10, slip: 2.6, civilian: true, mass: 1.85, grip: 1.12 },
-  loader:       { kind: 'loader', name: 'Site Loader', cost: 1, hp: 170, speed: 7, turnRate: 1.6, weapon: '', seats: 1, mobileSpawn: false, radius: 1.9, systemHp: 18, civilian: true, mass: 10, grip: 0.8 },
-  forklift:     { kind: 'forklift', name: 'Yard Forklift', cost: 1, hp: 90, speed: 6, turnRate: 2.6, weapon: '', seats: 1, mobileSpawn: false, radius: 1.3, systemHp: 10, civilian: true, mass: 3, grip: 0.9 },
-  bulldozer:    { kind: 'bulldozer', name: 'Earthline Bulldozer', cost: 2, hp: 260, speed: 5, turnRate: 1.3, weapon: '', seats: 1, mobileSpawn: false, radius: 2.2, systemHp: 27, civilian: true, mass: 18, grip: 0.72 },
-  cementmixer:  { kind: 'cementmixer', name: 'Rotary Cement Mixer', cost: 2, hp: 180, speed: 9, turnRate: 1.4, weapon: '', seats: 2, mobileSpawn: false, radius: 2.3, systemHp: 19, civilian: true, mass: 14, grip: 0.7 },
-  golfcart:     { kind: 'golfcart', name: 'Fairway Golf Cart', cost: 1, hp: 40, speed: 8, turnRate: 2.7, weapon: '', seats: 2, mobileSpawn: false, radius: 1.2, systemHp: 5, civilian: true, mass: 0.5, grip: 1 },
-  bicycle:      { kind: 'bicycle', name: 'Town Bicycle', cost: 1, hp: 20, speed: 7, turnRate: 3.2, weapon: '', seats: 1, mobileSpawn: false, radius: 0.8, systemHp: 3, civilian: true, mass: 0.02, grip: 1.1 },
+  sedan:        { kind: 'sedan', name: 'Commuter Sedan', cost: 1, hp: 70, speed: 18, turnRate: 2.4, weapon: '', seats: 4, mobileSpawn: false, radius: 1.5, systemHp: 8, slip: 2.4, civilian: true, mass: 1.5, grip: 1, traction: { ice: 0.6, dirt: 0.85, paved: 1.1 }, shock: 2.4 },
+  pickup:       { kind: 'pickup', name: 'Workhorse Pickup', cost: 1, hp: 90, speed: 16, turnRate: 2.2, weapon: '', seats: 3, mobileSpawn: false, radius: 1.6, systemHp: 10, slip: 2.2, civilian: true, mass: 2.1, grip: 0.95, traction: { ice: 0.8, dirt: 1.15, paved: 1 }, shock: 5 },
+  suv:          { kind: 'suv', name: 'Range SUV', cost: 1, hp: 100, speed: 17, turnRate: 2.2, weapon: '', seats: 5, mobileSpawn: false, radius: 1.7, systemHp: 11, slip: 2.2, civilian: true, mass: 2.3, grip: 0.92, traction: { ice: 0.85, dirt: 1.1, paved: 1 }, shock: 4.5 },
+  sportscar:    { kind: 'sportscar', name: 'Meridian Sports Car', cost: 2, hp: 60, speed: 26, turnRate: 2.9, weapon: '', seats: 2, mobileSpawn: false, radius: 1.5, systemHp: 7, slip: 3.2, civilian: true, mass: 1.35, grip: 1.3, traction: { ice: 0.5, dirt: 0.75, paved: 1.35 }, shock: 2.2 },
+  taxi:         { kind: 'taxi', name: 'City Taxi', cost: 1, hp: 75, speed: 18, turnRate: 2.5, weapon: '', seats: 4, mobileSpawn: false, radius: 1.5, systemHp: 8, slip: 2.5, civilian: true, mass: 1.6, grip: 0.98, traction: { ice: 0.6, dirt: 0.85, paved: 1.1 }, shock: 2.4 },
+  schoolbus:    { kind: 'schoolbus', name: 'District School Bus', cost: 2, hp: 160, speed: 11, turnRate: 1.5, weapon: '', seats: 9, mobileSpawn: false, radius: 2.4, systemHp: 17, civilian: true, mass: 11, grip: 0.75, traction: { ice: 0.6, dirt: 0.8, paved: 1 }, shock: 8 },
+  scooter:      { kind: 'scooter', name: 'Street Scooter', cost: 1, hp: 30, speed: 13, turnRate: 3.0, weapon: '', seats: 1, mobileSpawn: false, radius: 0.9, systemHp: 4, slip: 2.0, civilian: true, mass: 0.14, grip: 1.1, traction: { ice: 0.5, dirt: 0.7, paved: 1.05 }, shock: 1 },
+  atv:          { kind: 'atv', name: 'Trail ATV', cost: 1, hp: 55, speed: 15, turnRate: 2.8, weapon: '', seats: 2, mobileSpawn: false, radius: 1.2, systemHp: 6, slip: 2.1, civilian: true, mass: 0.42, grip: 1.1, traction: { ice: 0.9, dirt: 1.3, paved: 0.85 }, shock: 4 },
+  garbagetruck: { kind: 'garbagetruck', name: 'Municipal Garbage Truck', cost: 2, hp: 200, speed: 9, turnRate: 1.4, weapon: '', seats: 2, mobileSpawn: false, radius: 2.3, systemHp: 21, civilian: true, mass: 14, grip: 0.7, traction: { ice: 0.65, dirt: 0.85, paved: 1 }, shock: 11 },
+  towtruck:     { kind: 'towtruck', name: 'Roadside Tow Truck', cost: 1, hp: 130, speed: 13, turnRate: 1.8, weapon: '', seats: 2, mobileSpawn: false, radius: 1.9, systemHp: 14, civilian: true, mass: 5, grip: 0.85, traction: { ice: 0.7, dirt: 0.95, paved: 1 }, shock: 5.5 },
+  firetruck:    { kind: 'firetruck', name: 'Ladder 9 Fire Truck', cost: 2, hp: 190, speed: 12, turnRate: 1.5, weapon: '', seats: 5, mobileSpawn: false, radius: 2.5, systemHp: 20, civilian: true, mass: 12, grip: 0.75, traction: { ice: 0.7, dirt: 0.9, paved: 1.05 }, shock: 10 },
+  fueltanker:   { kind: 'fueltanker', name: 'Petrochem Fuel Tanker', cost: 2, hp: 110, speed: 11, turnRate: 1.3, weapon: '', seats: 2, mobileSpawn: false, radius: 2.5, systemHp: 12, civilian: true, mass: 15, grip: 0.68, traction: { ice: 0.55, dirt: 0.75, paved: 1 }, shock: 10 },
+  movingtruck:  { kind: 'movingtruck', name: 'Two-Man Moving Truck', cost: 1, hp: 140, speed: 12, turnRate: 1.6, weapon: '', seats: 3, mobileSpawn: false, radius: 2.2, systemHp: 15, civilian: true, mass: 5.2, grip: 0.82, traction: { ice: 0.65, dirt: 0.85, paved: 1 }, shock: 5.5 },
+  foodtruck:    { kind: 'foodtruck', name: 'Corner Food Truck', cost: 1, hp: 120, speed: 12, turnRate: 1.7, weapon: '', seats: 2, mobileSpawn: false, radius: 2.0, systemHp: 13, civilian: true, mass: 4.4, grip: 0.85, traction: { ice: 0.65, dirt: 0.85, paved: 1 }, shock: 4 },
+  deliveryvan:  { kind: 'deliveryvan', name: 'Parcel Delivery Van', cost: 1, hp: 110, speed: 15, turnRate: 1.9, weapon: '', seats: 2, mobileSpawn: false, radius: 1.9, systemHp: 12, civilian: true, mass: 2.6, grip: 0.9, traction: { ice: 0.7, dirt: 0.9, paved: 1.05 }, shock: 3.5 },
+  policecruiser:{ kind: 'policecruiser', name: 'Metro Police Cruiser', cost: 1, hp: 95, speed: 22, turnRate: 2.6, weapon: '', seats: 4, mobileSpawn: false, radius: 1.6, systemHp: 10, slip: 2.6, civilian: true, mass: 1.85, grip: 1.12, traction: { ice: 0.65, dirt: 0.9, paved: 1.2 }, shock: 2.8 },
+  loader:       { kind: 'loader', name: 'Site Loader', cost: 1, hp: 170, speed: 7, turnRate: 1.6, weapon: '', seats: 1, mobileSpawn: false, radius: 1.9, systemHp: 18, civilian: true, mass: 10, grip: 0.8, traction: { ice: 0.85, dirt: 1.25, paved: 0.9 }, shock: 12 },
+  forklift:     { kind: 'forklift', name: 'Yard Forklift', cost: 1, hp: 90, speed: 6, turnRate: 2.6, weapon: '', seats: 1, mobileSpawn: false, radius: 1.3, systemHp: 10, civilian: true, mass: 3, grip: 0.9, traction: { ice: 0.7, dirt: 0.8, paved: 1.05 }, shock: 3 },
+  bulldozer:    { kind: 'bulldozer', name: 'Earthline Bulldozer', cost: 2, hp: 260, speed: 5, turnRate: 1.3, weapon: '', seats: 1, mobileSpawn: false, radius: 2.2, systemHp: 27, civilian: true, mass: 18, grip: 0.72, traction: { ice: 0.9, dirt: 1.3, paved: 0.9 }, shock: 16 },
+  cementmixer:  { kind: 'cementmixer', name: 'Rotary Cement Mixer', cost: 2, hp: 180, speed: 9, turnRate: 1.4, weapon: '', seats: 2, mobileSpawn: false, radius: 2.3, systemHp: 19, civilian: true, mass: 14, grip: 0.7, traction: { ice: 0.6, dirt: 0.8, paved: 1 }, shock: 11 },
+  golfcart:     { kind: 'golfcart', name: 'Fairway Golf Cart', cost: 1, hp: 40, speed: 8, turnRate: 2.7, weapon: '', seats: 2, mobileSpawn: false, radius: 1.2, systemHp: 5, civilian: true, mass: 0.5, grip: 1, traction: { ice: 0.6, dirt: 0.9, paved: 1 }, shock: 1.2 },
+  bicycle:      { kind: 'bicycle', name: 'Town Bicycle', cost: 1, hp: 20, speed: 7, turnRate: 3.2, weapon: '', seats: 1, mobileSpawn: false, radius: 0.8, systemHp: 3, civilian: true, mass: 0.02, grip: 1.1, traction: { ice: 0.45, dirt: 0.9, paved: 1 }, shock: 0.6 },
   // ── THE FAST LANE (Robert: "some pickups and faster cars, so we can have
   // races and such") — five civilian hulls built for a start line. They are
   // SIDEGRADES of each other, the arsenal's own law applied to cars: the
@@ -633,16 +645,16 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
   // floor), the race truck is a wall that hits 24, the hot rod is quickest
   // off the line and terrifying at speed. All under the ground ceiling
   // (33.3 — nothing outruns a bullet), all Basic Driver.
-  musclecar:  { kind: 'musclecar', name: 'Broadside V8 Muscle', cost: 2, hp: 85, speed: 31, turnRate: 2.5, weapon: '', seats: 2, mobileSpawn: false, radius: 1.6, systemHp: 9, slip: 3.6, mass: 1.9, grip: 0.95, civilian: true },
-  roadster:   { kind: 'roadster', name: 'Meridian Roadster', cost: 2, hp: 55, speed: 27, turnRate: 3.2, weapon: '', seats: 2, mobileSpawn: false, radius: 1.4, systemHp: 6, slip: 1.4, mass: 1.05, grip: 1.4, civilian: true },
-  rallytruck: { kind: 'rallytruck', name: 'Dust Devil Rally Pickup', cost: 2, hp: 120, speed: 26, turnRate: 2.9, weapon: '', seats: 2, mobileSpawn: false, radius: 1.7, systemHp: 13, slip: 2.6, mass: 2.0, grip: 1.25, civilian: true },
-  racetruck:  { kind: 'racetruck', name: 'Hammerhead Race Truck', cost: 2, hp: 210, speed: 24, turnRate: 2.0, weapon: '', seats: 2, mobileSpawn: false, radius: 2.1, systemHp: 22, slip: 3.0, mass: 5.5, grip: 0.85, civilian: true },
-  hotrod:     { kind: 'hotrod', name: 'Backlot Hot Rod', cost: 2, hp: 60, speed: 29, turnRate: 2.7, weapon: '', seats: 2, mobileSpawn: false, radius: 1.5, systemHp: 7, slip: 4.0, mass: 1.15, grip: 0.9, civilian: true },
+  musclecar:  { kind: 'musclecar', name: 'Broadside V8 Muscle', cost: 2, hp: 85, speed: 31, turnRate: 2.5, weapon: '', seats: 2, mobileSpawn: false, radius: 1.6, systemHp: 9, slip: 3.6, mass: 1.9, grip: 0.95, civilian: true, traction: { ice: 0.45, dirt: 0.7, paved: 1.35 }, shock: 3 },
+  roadster:   { kind: 'roadster', name: 'Meridian Roadster', cost: 2, hp: 55, speed: 27, turnRate: 3.2, weapon: '', seats: 2, mobileSpawn: false, radius: 1.4, systemHp: 6, slip: 1.4, mass: 1.05, grip: 1.4, civilian: true, traction: { ice: 0.5, dirt: 0.75, paved: 1.4 }, shock: 2.2 },
+  rallytruck: { kind: 'rallytruck', name: 'Dust Devil Rally Pickup', cost: 2, hp: 120, speed: 26, turnRate: 2.9, weapon: '', seats: 2, mobileSpawn: false, radius: 1.7, systemHp: 13, slip: 2.6, mass: 2.0, grip: 1.25, civilian: true, traction: { ice: 0.85, dirt: 1.35, paved: 0.95 }, shock: 7 },
+  racetruck:  { kind: 'racetruck', name: 'Hammerhead Race Truck', cost: 2, hp: 210, speed: 24, turnRate: 2.0, weapon: '', seats: 2, mobileSpawn: false, radius: 2.1, systemHp: 22, slip: 3.0, mass: 5.5, grip: 0.85, civilian: true, traction: { ice: 0.6, dirt: 1, paved: 1.05 }, shock: 9 },
+  hotrod:     { kind: 'hotrod', name: 'Backlot Hot Rod', cost: 2, hp: 60, speed: 29, turnRate: 2.7, weapon: '', seats: 2, mobileSpawn: false, radius: 1.5, systemHp: 7, slip: 4.0, mass: 1.15, grip: 0.9, civilian: true, traction: { ice: 0.4, dirt: 0.65, paved: 1.25 }, shock: 2 },
   // RAIL-LOCKED: the two that never steer. Enormous, slow, and full of
   // people — a moving wall the war has to route around. (The track generator
   // is map work; the hulls and their numbers are real today.)
-  train:        { kind: 'train', name: 'Interurban Freight Train', cost: 4, hp: 600, speed: 14, turnRate: 0.2, weapon: '', seats: 9, mobileSpawn: false, radius: 4.8, systemHp: 62, civilian: true, rails: true, mass: 80, grip: 0.5 },
-  subway:       { kind: 'subway', name: 'Metro Subway Car', cost: 3, hp: 320, speed: 16, turnRate: 0.2, weapon: '', seats: 9, mobileSpawn: false, radius: 3.4, systemHp: 33, civilian: true, rails: true, mass: 35, grip: 0.5 },
+  train:        { kind: 'train', name: 'Interurban Freight Train', cost: 4, hp: 600, speed: 14, turnRate: 0.2, weapon: '', seats: 9, mobileSpawn: false, radius: 4.8, systemHp: 62, civilian: true, rails: true, mass: 80, grip: 0.5, traction: { ice: 0.9, dirt: 0.9, paved: 1 }, shock: 30 },
+  subway:       { kind: 'subway', name: 'Metro Subway Car', cost: 3, hp: 320, speed: 16, turnRate: 0.2, weapon: '', seats: 9, mobileSpawn: false, radius: 3.4, systemHp: 33, civilian: true, rails: true, mass: 35, grip: 0.5, traction: { ice: 0.9, dirt: 0.9, paved: 1 }, shock: 20 },
   // ── air (helis spool; planes carry a stall floor — they make PASSES) ──
   passengerjet: { kind: 'passengerjet', name: 'Meridian Air 220 Passenger Jet', cost: 4, hp: 220, speed: 34, turnRate: 0.9, weapon: '', seats: 9, mobileSpawn: false, radius: 4.2, flies: true, liftoffTime: 4, minAirspeed: 0.5, bankAngle: 0.4, systemHp: 23, civilian: true, mass: 70, grip: 1 },
   privatejet:   { kind: 'privatejet', name: 'Sovereign Private Jet', cost: 3, hp: 130, speed: 36, turnRate: 1.2, weapon: '', seats: 5, mobileSpawn: false, radius: 3.0, flies: true, liftoffTime: 3, minAirspeed: 0.5, bankAngle: 0.55, systemHp: 14, civilian: true, mass: 9, grip: 1 },
@@ -666,7 +678,7 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
   cargoship:    { kind: 'cargoship', name: 'Longhaul Cargo Ship', cost: 4, hp: 380, speed: 6, turnRate: 0.6, weapon: '', seats: 5, mobileSpawn: false, radius: 5.0, boat: true, systemHp: 39, civilian: true, mass: 900, grip: 0.5 },
   patrolboat:   { kind: 'patrolboat', name: 'Harbor Patrol Boat', cost: 2, hp: 120, speed: 20, turnRate: 2.0, weapon: '', seats: 4, mobileSpawn: false, radius: 2.3, boat: true, systemHp: 13, civilian: true, mass: 8, grip: 1.05 },
   jetski:       { kind: 'jetski', name: 'Whitecap Jet Ski', cost: 1, hp: 35, speed: 26, turnRate: 3.0, weapon: '', seats: 1, mobileSpawn: false, radius: 1.0, boat: true, slip: 3.0, systemHp: 4, civilian: true, mass: 0.4, grip: 1.25 },
-  hovercraft:   { kind: 'hovercraft', name: 'Skirtline Hovercraft', cost: 2, hp: 130, speed: 16, turnRate: 1.6, weapon: '', seats: 5, mobileSpawn: false, radius: 2.6, hover: true, slip: 3.4, systemHp: 14, civilian: true, mass: 9, grip: 0.9 },
+  hovercraft:   { kind: 'hovercraft', name: 'Skirtline Hovercraft', cost: 2, hp: 130, speed: 16, turnRate: 1.6, weapon: '', seats: 5, mobileSpawn: false, radius: 2.6, hover: true, slip: 3.4, systemHp: 14, civilian: true, mass: 9, grip: 0.9, traction: { ice: 0.9, dirt: 1, paved: 1 }, shock: 5 },
   riverbarge:   { kind: 'riverbarge', name: 'Lowline River Barge', cost: 2, hp: 200, speed: 5, turnRate: 0.7, weapon: '', seats: 3, mobileSpawn: false, radius: 3.6, boat: true, systemHp: 21, civilian: true, mass: 180, grip: 0.55 },
   submersible:  { kind: 'submersible', name: 'Twilight Research Submersible', cost: 3, hp: 110, speed: 9, turnRate: 1.2, weapon: '', seats: 2, mobileSpawn: false, radius: 2.0, boat: true, submersible: true, systemHp: 12, civilian: true, mass: 12, grip: 0.9 },
 };

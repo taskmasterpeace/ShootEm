@@ -367,6 +367,18 @@ export interface VehicleDef {
    *  corner nothing alike. Multiplies the surface grip the floor provides.
    *  Absent = 1 (honest, unremarkable). */
   grip?: number;
+  /** THE TRACTION PROFILE (docs/RACING.md — Racing Destruction Set's best
+   *  idea): grip is not one number, it is a PROFILE. RDS printed ICE 5 /
+   *  DIRT 48 / PAVED 253 on the card and you knew the car before you drove
+   *  it. Ours are multipliers on the floor's own material grip: slicks are
+   *  a paved car that cannot leave the tarmac; knobblies are the reverse.
+   *  Absent = an even 1/1/1 — competent everywhere, exceptional nowhere. */
+  traction?: { ice: number; dirt: number; paved: number };
+  /** SHOCK STRENGTH (RDS's line, and the reason it matters here: the map has
+   *  real elevation). The vertical impact a landing can absorb before it
+   *  costs you — over it and the hull bounces, slides and takes damage.
+   *  Tonne-units of force; a motorcycle's is small but its mass is smaller. */
+  shock?: number;
   /** RAIL-LOCKED (train, subway): runs a fixed route, never steers. The hull,
    *  its stats and its codex entry ship now; the TRACK GENERATOR that gives
    *  it a route is map work (#65) — until then it is world dressing that a
@@ -876,6 +888,9 @@ export interface Soldier {
 }
 
 export interface Vehicle {
+  /** THE JUMP (docs/RACING.md): when the wheels left the ground, so the
+   *  landing can be judged against the card SHOCK STRENGTH. */
+  airborneAt?: number;
   id: number;
   kind: VehicleKind;
   team: Team; // team lock of spawn pad; -1 style neutrality not needed, vehicles usable by spawn team

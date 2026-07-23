@@ -127,6 +127,7 @@ interface Stat {
 
 const n0 = (v: unknown) => (typeof v === 'number' && isFinite(v) ? Math.round(v).toString() : '—');
 const n1 = (v: unknown) => (typeof v === 'number' && isFinite(v) ? v.toFixed(1) : '—');
+const n2 = (v: unknown) => (typeof v === 'number' && isFinite(v) ? v.toFixed(2) : '—');
 const txt = (v: unknown) => (v == null || v === '' ? '—' : String(v));
 const yn = (v: unknown) => (v ? '●' : '·');
 
@@ -139,6 +140,11 @@ const VEHICLE_STATS: Stat[] = [
   { key: 'speed', label: 'Speed (u/s)', better: 1, sheet: true, fmt: n1 },
   { key: 'turnDeg', label: 'Turn (°/s)', better: 1, sheet: true, fmt: n0 },
   { key: 'seats', label: 'Seats', better: 0, sheet: true, fmt: n0 },
+  { key: 'mass', label: 'Weight (t)', better: 0, sheet: true, fmt: n1 },
+  { key: 'tractionPaved', label: 'Traction · paved', better: 1, sheet: true, fmt: n2 },
+  { key: 'tractionDirt', label: 'Traction · dirt', better: 1, sheet: true, fmt: n2 },
+  { key: 'tractionIce', label: 'Traction · ice', better: 1, fmt: n2 },
+  { key: 'shock', label: 'Shock strength', better: 1, fmt: n0 },
   { key: 'licence', label: 'Licence', better: 0, sheet: true, fmt: txt },
   { key: 'school', label: 'Earned at', better: 0, fmt: txt },
   { key: 'weaponName', label: 'Armament', better: 0, sheet: true, fmt: txt },
@@ -249,6 +255,11 @@ function fleetRows(civilian: boolean): Row[] {
       turnDeg: (d.turnRate * 180) / Math.PI,
       seats: d.seats,
       weaponName: w ? w.name : 'Unarmed',
+      mass: d.mass ?? 1.6,
+      tractionPaved: d.traction?.paved ?? 1,
+      tractionDirt: d.traction?.dirt ?? 1,
+      tractionIce: d.traction?.ice ?? 1,
+      shock: d.shock ?? 0,
       licence: LICENCES[licenceFor(kind)].name,
       school: LICENCES[licenceFor(kind)].school,
       dps: w ? sustainedDps(w, vehicleDamagePerShot(w)) : 0,
