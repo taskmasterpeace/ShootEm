@@ -33,3 +33,4 @@ assets/*.zip
 
 *.code-workspace
 release/
+dist-deck/
