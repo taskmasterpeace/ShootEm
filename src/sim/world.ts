@@ -2645,6 +2645,37 @@ export class World {
           }
           break;
         }
+        // ═══ THE CIRCUIT's droppables (docs/RACING.md, RDS's cargo row) ═══
+        case 'race_mine': {
+          // it ARMS a beat after it lands — you cannot drop one onto your own
+          // rear bumper and kill yourself, which is the whole reason RDS's
+          // mines felt fair instead of stupid
+          const armed = this.time > (g.armedAt ?? (g.armedAt = this.time + 1.2));
+          if (!armed) break;
+          for (const v of this.vehicles.values()) {
+            if (!v.alive || v.id === g.ownerVehicleId) continue;
+            if (Math.hypot(v.pos.x - g.pos.x, v.pos.z - g.pos.z) > VEHICLES[v.kind].radius + 1.2) continue;
+            this.damageVehicle(v, 85, g.ownerId, 'gl');
+            // and it PITCHES the hull — a mine is a jump you did not plan
+            v.vel.y = Math.max(v.vel.y ?? 0, 7);
+            v.airborneAt = this.time;
+            this.emit({ type: 'explosion', pos: { ...g.pos }, radius: 3 });
+            g.hp = 0;
+            break;
+          }
+          break;
+        }
+        case 'oil_slick': {
+          // the floor lies: anything crossing drives on ICE until it clears.
+          // (The materials system already owns "what the ground does to you" —
+          // this borrows it for four seconds.)
+          for (const v of this.vehicles.values()) {
+            if (!v.alive || v.id === g.ownerVehicleId) continue;
+            if (Math.hypot(v.pos.x - g.pos.x, v.pos.z - g.pos.z) > 5) continue;
+            v.oiledUntil = this.time + 2.5;
+          }
+          break;
+        }
         case 'drone': {
           if (g.crashing) {
             // link lost: the drone tumbles out of the sky and breaks on the dirt
@@ -3462,6 +3493,24 @@ export class World {
           x: v.pos.x - Math.cos(v.yaw) * 3, y: 0, z: v.pos.z - Math.sin(v.yaw) * 3,
         }, 1, 3.5);
         this.emit({ type: 'beacon_planted', pos: { ...g.pos }, soldierId: s.id, text: 'FLARES!' });
+      }
+      // ═══ THE CIRCUIT: G drops what you're carrying, out the back ═══
+      // (docs/RACING.md — RDS's cargo row made a verb: mines first, then oil.
+      // Everything drops BEHIND the hull, which is the whole tactic.)
+      if (cmd.grenade && s.seat === 0 && !VEHICLES[v.kind].flies
+          && ((v.mines ?? 0) > 0 || (v.oil ?? 0) > 0) && this.time >= s.nextGrenadeAt) {
+        s.nextGrenadeAt = this.time + 0.65;
+        const behind = {
+          x: v.pos.x - Math.cos(v.yaw) * (VEHICLES[v.kind].radius + 1.6),
+          y: 0,
+          z: v.pos.z - Math.sin(v.yaw) * (VEHICLES[v.kind].radius + 1.6),
+        };
+        const dropMine = (v.mines ?? 0) > 0;
+        if (dropMine) v.mines = (v.mines ?? 0) - 1; else v.oil = (v.oil ?? 0) - 1;
+        const g = this.spawnGadget(dropMine ? 'race_mine' : 'oil_slick', v.team, s.id, behind, 20, dropMine ? 45 : 18);
+        g.ownerVehicleId = v.id;
+        if (dropMine) g.armedAt = this.time + 1.2;
+        this.emit({ type: 'beacon_planted', pos: { ...g.pos }, soldierId: s.id, text: dropMine ? 'MINE OUT' : 'OIL DOWN' });
       }
       // W5.4 DRIVE-BY (Robert: "personal weapon from a seat"): a PASSENGER
       // leans out — the trigger runs his OWN gun: clip, rof, reload, the
@@ -5498,7 +5547,10 @@ export class World {
       // idea): grip is not one number but a PROFILE — ICE / DIRT / PAVED.
       // The floor names its family, the card answers for it, and a slicks
       // car that flies on tarmac is genuinely helpless in the wet.
-      const mat = materialForSurface(surf);
+      // OIL (docs/RACING.md): a slick you drove through lies to the tyres —
+      // for a couple of seconds the floor IS ice, whatever it really is.
+      const oiled = (v.oiledUntil ?? 0) > this.time;
+      const mat = oiled ? MATERIALS.ice : materialForSurface(surf);
       const family: 'ice' | 'dirt' | 'paved' = mat.slick ? 'ice'
         : (mat.name === 'Metal' || mat.name === 'Stone') ? 'paved'
         : 'dirt';

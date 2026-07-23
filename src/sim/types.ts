@@ -891,6 +891,11 @@ export interface Vehicle {
   /** THE JUMP (docs/RACING.md): when the wheels left the ground, so the
    *  landing can be judged against the card SHOCK STRENGTH. */
   airborneAt?: number;
+  /** THE CIRCUIT: oiled until this time — the floor lies and you slide. */
+  oiledUntil?: number;
+  /** THE CIRCUIT: the RDS cargo row, loaded — what this hull can drop. */
+  mines?: number;
+  oil?: number;
   id: number;
   kind: VehicleKind;
   team: Team; // team lock of spawn pad; -1 style neutrality not needed, vehicles usable by spawn team
@@ -1086,12 +1091,20 @@ export type GadgetType =
   | 'snap_trap'    // Venatrix: springs THE ICE BLOCK on whoever steps in (spot the glint)
   | 'flare'        // burning IR decoy dropped by a flyer — seduces heat-seekers
   | 'time_bomb'    // a planted demolition charge on a telegraphed countdown — then it levels the room
+  | 'race_mine'    // THE CIRCUIT: dropped behind you, arms a beat late so you
+                   // cannot kill yourself with it (RDS's LAND MINES row)
+  | 'oil_slick'    // THE CIRCUIT: a patch that turns the floor to ice for
+                   // whoever crosses it — the materials law, weaponised
   | 'axe';         // M5 THE THROWN AXE — buried where it landed, waiting to be
                    // called back. It is a WEAPON on the ground, not a pickup:
                    // only its thrower can recall it, and it hurts on the way home.
 
 /** Deployed sci-fi tech: beacons, domes, drones, pods. */
 export interface Gadget {
+  /** THE CIRCUIT: when a dropped mine goes live (it arms a beat late). */
+  armedAt?: number;
+  /** THE CIRCUIT: the hull that dropped it — never triggers on its owner. */
+  ownerVehicleId?: number;
   id: number;
   type: GadgetType;
   team: Team;
