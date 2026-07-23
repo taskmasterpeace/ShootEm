@@ -4195,7 +4195,13 @@ export class Renderer {
       // eased straight back to normal the instant the ride is not the shot.
       this.updateKillcamRound(roundPos);
       if (this.baseFov === 0) this.baseFov = this.camera.fov;
-      const wantFov = roundPos ? this.baseFov + 9 : this.baseFov;
+      // #102 SPRINT BREATHING: the lens opens a touch at a full sprint — the
+      // last sliver of the feel pass, riding the exact lerp the killcam ride
+      // proved. Small enough to feel, not to notice. §18 comfort valve:
+      // reduced motion pins the lens still.
+      const sprintBreath = !settings.reducedMotion && !roundPos && local.alive && local.sprinting
+        && (local.vel.x * local.vel.x + local.vel.z * local.vel.z) > 4 ? 3.5 : 0;
+      const wantFov = roundPos ? this.baseFov + 9 : this.baseFov + sprintBreath;
       if (Math.abs(this.camera.fov - wantFov) > 0.03) {
         this.camera.fov += (wantFov - this.camera.fov) * Math.min(1, 6 * dt);
         this.camera.updateProjectionMatrix();
