@@ -1,1 +1,2 @@
 2026-07-23 MOBILE GOAL — THE TABLET shipped (e42e119): touch twin-sticks (live-fired, ammo 30→25), PWA fullscreen (SW activated on dist), service-record auth (local + Supabase-ready), quality auto-low on touch. 1 foreign geospatial red (parallel instance). Supabase project = Robert's call (#83).
+2026-07-23 STATS HAND-OFF — 8 master stats replace STR/DEX/AGL in code (418440a, live-proven POW/AGI/HND chip + 8-stat bot rolls, hash continuity pinned); ROSTERS appendix transcribed (#94 fixed). Kill cam = death-only by ruling (2d0c9f9, live-proven both directions).
