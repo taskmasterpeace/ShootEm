@@ -27,12 +27,18 @@ import { frontWalkable } from '../fronts';
 import { createTheaterBase } from '../theater-builder';
 import type { TheaterDef } from '../theater-types';
 import type { GameplayOverlayChange } from './artifact';
-import { dominantRoadAngle, projectSlice, rasterLine, rasterPolygon } from './geometry';
+import { projectSlice, rasterLine, rasterPolygon } from './geometry';
 import { compileTerrain } from './terrain';
-import { buildStreetNetwork } from './street-network';
-import { deriveNeighborhood, type NeighborhoodLayout } from './neighborhood';
+import { buildStreetNetwork, type StreetNetwork } from './street-network';
+import { isAbovegroundBuilding } from './sources';
+import {
+  auditBuildingRoadOverlap,
+  auditEntranceConnectivity,
+  deriveNeighborhood,
+  fitBuildingsToCarriageways,
+  type NeighborhoodLayout,
+} from './neighborhood';
 import { inferBuildingSemantics, profileFor } from './profiles';
-import { auditBuildingRoadOverlap, auditEntranceConnectivity } from './neighborhood';
 import type {
   DistrictProfileId,
   GeoBuilding,
@@ -41,6 +47,7 @@ import type {
   ProjectedGeoSlice,
   SemanticBuilding,
   SemanticDistrict,
+  SemanticRoad,
 } from './types';
 
 export const GEO_CLASS_EMPTY = 0;
@@ -78,6 +85,51 @@ export interface CompiledGeospatialMap {
     streetSegments: number;
     sidewalkCells: number;
   };
+}
+
+function semanticRoadsFromNetwork(
+  network: StreetNetwork,
+  projected: ProjectedGeoSlice,
+): SemanticRoad[] {
+  const sourceRoads = new Map(projected.roads.map((road) => [road.id, road]));
+  const grouped = new Map<string, SemanticRoad>();
+  for (const segment of network.segments) {
+    // Overpass ways can extend beyond the requested bbox. Runtime semantics
+    // describe only the compiled district; the source cache retains the full
+    // untrimmed geometry for provenance and future recompilation.
+    if (!segment.cells.length) continue;
+    let road = grouped.get(segment.roadId);
+    if (!road) {
+      const source = sourceRoads.get(segment.roadId);
+      road = {
+        id: `road:${segment.roadId}`,
+        sourceRoadId: segment.roadId,
+        roadClass: source?.roadClass ?? 'unclassified',
+        kind: segment.kind,
+        width: segment.width,
+        centerline: [],
+        connectorIds: [],
+        cells: [],
+      };
+      grouped.set(segment.roadId, road);
+    }
+    for (const point of segment.points) {
+      const previous = road.centerline[road.centerline.length - 1];
+      if (!previous || Math.hypot(previous.x - point.x, previous.z - point.z) > 1e-6) {
+        road.centerline.push({ ...point });
+      }
+    }
+    for (const connectorId of [segment.from, segment.to]) {
+      if (road.connectorIds[road.connectorIds.length - 1] !== connectorId) {
+        road.connectorIds.push(connectorId);
+      }
+    }
+    road.cells.push(...segment.cells);
+  }
+  for (const road of grouped.values()) {
+    road.cells = [...new Set(road.cells)].sort((a, b) => a - b);
+  }
+  return [...grouped.values()];
 }
 
 function pathWithin(component: readonly number[], start: number, target: number, geometry: MapGeometry): number[] {
@@ -517,14 +569,36 @@ export function compileGeospatialMap(
 ): CompiledGeospatialMap {
   if (!source.attribution.length) throw new Error('geospatial source attribution is required');
   const geometry = options.geometry ?? { cols: 300, rows: 300, tile: 3 };
-  const rotation = options.rotation ?? dominantRoadAngle(source.roads, source.origin);
+  // Preserve the requested geographic slice north-up. Rotating a fixed square
+  // to the dominant road axis clips its corners and silently drops edge blocks.
+  const rotation = options.rotation ?? 0;
   const profileId: DistrictProfileId = options.profile
     ?? (options.style === 'lower-manhattan' || options.style === 'tarboro' || options.style === 'miami-gardens'
       ? options.style
       : 'miami-gardens');
   const profile = profileFor(profileId);
+  const sourceBuildings = source.buildings.filter(isAbovegroundBuilding);
+  const sourceBuildingIds = new Set(sourceBuildings.map((building) => building.id));
   const projected = projectSlice(source, rotation);
+  projected.buildings = projected.buildings.filter((building) => sourceBuildingIds.has(building.id));
   projected.geometry = { ...geometry };
+  const originalProjectedBuildings = projected.buildings.map((building) => ({
+    ...building,
+    polygon: building.polygon.map((point) => ({ ...point })),
+  }));
+  const streetNetwork = buildStreetNetwork(
+    projected.roads.filter((road) => !road.tunnel),
+    geometry,
+    profile.roadWidths,
+  );
+  const footprintFit = fitBuildingsToCarriageways(
+    projected.buildings,
+    streetNetwork.carriagewayCells,
+    geometry,
+  );
+  projected.buildings = footprintFit.buildings;
+  const component = streetNetwork.vehicleComponents[0] ?? [];
+  const primaryAccessCells = new Set(component);
   const def: TheaterDef = {
     id: 'city',
     name: source.name,
@@ -538,7 +612,7 @@ export function compileGeospatialMap(
   map.surface.fill(S_GRIT);
   const classification = new Uint8Array(geometryLength(geometry));
   const overlay: GameplayOverlayChange[] = [];
-  const buildingHeight = backgroundBuildingHeight(source.buildings, projected.buildings, geometry);
+  const buildingHeight = backgroundBuildingHeight(sourceBuildings, projected.buildings, geometry);
 
   for (const feature of projected.land) {
     for (const index of rasterPolygon(feature.polygon, geometry)) {
@@ -571,15 +645,10 @@ export function compileGeospatialMap(
     map.surface[index] = S_MUD;
   }
 
-  const streetNetwork = buildStreetNetwork(
-    projected.roads.filter((road) => !road.tunnel),
-    geometry,
-    profile.roadWidths,
-  );
-  const neighborhood = deriveNeighborhood(projected.buildings, streetNetwork, geometry);
+  const neighborhood = deriveNeighborhood(projected.buildings, streetNetwork, geometry, primaryAccessCells);
   const semanticInteriorLimit = Math.max(0, options.maxPlayableBuildings ?? 12);
   const semanticBuildings = inferBuildingSemantics(
-    source.buildings,
+    sourceBuildings,
     projected.buildings,
     neighborhood.placements,
     {
@@ -589,6 +658,19 @@ export function compileGeospatialMap(
       maxEmbedded: semanticInteriorLimit,
     },
   );
+  const adjustmentById = new Map(footprintFit.adjustments.map((adjustment) => [adjustment.buildingId, adjustment]));
+  const originalById = new Map(originalProjectedBuildings.map((building) => [building.id, building]));
+  for (const building of semanticBuildings) {
+    const adjustment = adjustmentById.get(building.id);
+    const original = originalById.get(building.id);
+    if (!adjustment || !original) continue;
+    building.sourceFootprint = original.polygon.map((point) => ({ ...point }));
+    building.footprintAdjustment = {
+      scale: adjustment.scale,
+      shiftX: adjustment.shiftX,
+      shiftZ: adjustment.shiftZ,
+    };
+  }
   const roadCells = new Set(streetNetwork.carriagewayCells);
   for (const index of roadCells) {
     classification[index] = GEO_CLASS_ROAD;
@@ -604,7 +686,6 @@ export function compileGeospatialMap(
     }
   }
 
-  const component = streetNetwork.vehicleComponents[0] ?? [];
   if (component.length < Math.max(8, Math.floor(geometry.cols / 4))) {
     throw new Error(`geospatial source has no usable connected road component (${component.length} cells)`);
   }
@@ -623,7 +704,7 @@ export function compileGeospatialMap(
 
   const stampedBuildings = stampPlayableBuildings(
     map,
-    source.buildings,
+    sourceBuildings,
     projected.buildings,
     options.cityId,
     options.seed,
@@ -690,6 +771,12 @@ export function compileGeospatialMap(
       return length(b) - length(a) || a.id.localeCompare(b.id);
     })[0];
   const footRoutePoints = footSource?.points.map((point) => ({ x: point.x, y: 0, z: point.z })) ?? routePoints;
+  const airMargin = geometry.tile * 10;
+  const mapWidth = geometry.cols * geometry.tile;
+  const mapDepth = geometry.rows * geometry.tile;
+  const airRoutePoints = mapWidth >= mapDepth
+    ? [{ x: -mapWidth / 2 + airMargin, y: 0, z: 0 }, { x: mapWidth / 2 - airMargin, y: 0, z: 0 }]
+    : [{ x: 0, y: 0, z: -mapDepth / 2 + airMargin }, { x: 0, y: 0, z: mapDepth / 2 - airMargin }];
   map.theater = {
     id: 'city',
     name: source.name,
@@ -698,7 +785,7 @@ export function compileGeospatialMap(
       { id: 'geocity:street-spine', domain: 'ground', width: 18, points: routePoints },
       { id: 'geocity:service-route', domain: 'ground', width: 18, points: routePoints.map((point) => ({ ...point })) },
       { id: 'geocity:foot-flank', domain: 'foot', width: 6, points: footRoutePoints },
-      { id: 'geocity:air-corridor', domain: 'air', width: 90, points: [{ ...west }, { ...east }] },
+      { id: 'geocity:air-corridor', domain: 'air', width: 90, points: airRoutePoints },
     ],
     landingZones: [
       { id: 'geocity:west-lz', pos: { ...west }, radius: 15, slope: 0.08, side: 0 },
@@ -733,7 +820,7 @@ export function compileGeospatialMap(
     const cell = inBounds(geometry, tx, tz) ? tileIndex(geometry, tx, tz) : -1;
     return cell >= 0 && reachable[cell] ? [] : [buildingId];
   });
-  const removed = source.buildings
+  const removed = sourceBuildings
     .filter((building) => !semanticBuildings.some((semantic) => semantic.id === building.id))
     .map((building) => ({
       id: building.id,
@@ -741,23 +828,17 @@ export function compileGeospatialMap(
         ? 'no_block_or_access'
         : 'invalid_geometry',
     }));
-  const sourceBuildingCount = source.buildings.length;
+  removed.push(...source.buildings
+    .filter((building) => !sourceBuildingIds.has(building.id))
+    .map((building) => ({ id: building.id, reason: 'subsurface_structure' })));
+  const sourceBuildingCount = sourceBuildings.length;
   const district: SemanticDistrict = {
     schemaVersion: 2,
     id: source.id,
     name: source.name,
     profile: profileId,
     source,
-    roads: streetNetwork.segments.map((segment) => ({
-      id: segment.id,
-      sourceRoadId: segment.roadId,
-      roadClass: projected.roads.find((road) => road.id === segment.roadId)?.roadClass ?? 'unclassified',
-      kind: segment.kind,
-      width: segment.width,
-      centerline: segment.points.map((point) => ({ ...point })),
-      connectorIds: [segment.from, segment.to],
-      cells: [...segment.cells],
-    })),
+    roads: semanticRoadsFromNetwork(streetNetwork, projected),
     blocks: neighborhood.blocks,
     lots: neighborhood.lots,
     buildings: semanticBuildings,
@@ -771,14 +852,19 @@ export function compileGeospatialMap(
       unexplainedRoadOverlaps: auditBuildingRoadOverlap(semanticBuildings, streetNetwork.carriagewayCells, geometry),
       disconnectedEntrances: auditEntranceConnectivity(
         { buildings: semanticBuildings },
-        streetNetwork.pedestrianCells.size ? streetNetwork.pedestrianCells : streetNetwork.carriagewayCells,
+        primaryAccessCells,
         geometry,
       ),
       disconnectedEmbeddedInteriors,
       vehicleAnchorsConnected: routePath.includes(westBaseRoad) && routePath.includes(eastBaseRoad),
       walkableIslands: walkableIslands(map, westBaseRoad),
       removedBuildings: removed,
-      warnings: source.nsi?.warning ? [source.nsi.warning] : [],
+      warnings: [
+        ...(source.nsi?.warning ? [source.nsi.warning] : []),
+        ...(footprintFit.adjustments.length
+          ? [`${footprintFit.adjustments.length} footprint(s) inset from rasterized carriageways`]
+          : []),
+      ],
       embeddedInteriorCount: semanticBuildings.filter((building) => building.interiorPolicy === 'embedded').length,
       instancedInteriorCount: semanticBuildings.filter((building) => building.interiorPolicy === 'instanced').length,
       sealedBuildingCount: semanticBuildings.filter((building) => building.interiorPolicy === 'sealed').length,
@@ -812,9 +898,9 @@ export function compileGeospatialMap(
     district,
     diagnostics: {
       sourceRoads: source.roads.length,
-      sourceBuildings: source.buildings.length,
+      sourceBuildings: sourceBuildings.length,
       playableBuildings,
-      backgroundBuildings: Math.max(0, source.buildings.length - playableBuildings),
+      backgroundBuildings: Math.max(0, sourceBuildings.length - playableBuildings),
       roadCells: roadCells.size,
       streetConnectors: streetNetwork.connectors.length,
       streetSegments: streetNetwork.segments.length,

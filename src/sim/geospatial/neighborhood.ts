@@ -35,7 +35,82 @@ export interface NeighborhoodLayout {
   unassignedBuildingIds: string[];
 }
 
+export interface FootprintAdjustment {
+  buildingId: string;
+  scale: number;
+  shiftX: number;
+  shiftZ: number;
+}
+
+export interface FittedBuildings {
+  buildings: ProjectedGeoBuilding[];
+  adjustments: FootprintAdjustment[];
+}
+
 const CARDINALS = [[-1, 0], [1, 0], [0, -1], [0, 1]] as const;
+
+function overlapsCells(
+  polygon: readonly LocalPoint[],
+  blocked: ReadonlySet<number>,
+  geometry: MapGeometry,
+): boolean {
+  return [...rasterPolygon(polygon, geometry)].some((cell) => blocked.has(cell));
+}
+
+/**
+ * OSM centreline widths and footprint edges often disagree by one raster cell.
+ * Keep the source identity and shape language, but inset/translate the game
+ * shell just enough for the authoritative carriageway to remain clear.
+ */
+export function fitBuildingsToCarriageways(
+  buildings: readonly ProjectedGeoBuilding[],
+  carriagewayCells: ReadonlySet<number>,
+  geometry: MapGeometry,
+): FittedBuildings {
+  const adjustments: FootprintAdjustment[] = [];
+  const fitted = buildings.map((building) => {
+    if (!overlapsCells(building.polygon, carriagewayCells, geometry)) {
+      return { ...building, polygon: building.polygon.map((point) => ({ ...point })) };
+    }
+    const center = building.polygon.reduce((sum, point) => ({ x: sum.x + point.x, z: sum.z + point.z }), { x: 0, z: 0 });
+    center.x /= building.polygon.length;
+    center.z /= building.polygon.length;
+    const overlap = [...rasterPolygon(building.polygon, geometry)]
+      .filter((cell) => carriagewayCells.has(cell));
+    const overlapCenter = overlap.reduce((sum, cell) => {
+      const point = tileToWorld(geometry, cell % geometry.cols, Math.floor(cell / geometry.cols));
+      return { x: sum.x + point.x, z: sum.z + point.z };
+    }, { x: 0, z: 0 });
+    overlapCenter.x /= Math.max(1, overlap.length);
+    overlapCenter.z /= Math.max(1, overlap.length);
+    const awayLength = Math.hypot(center.x - overlapCenter.x, center.z - overlapCenter.z);
+    const away = awayLength > 1e-6
+      ? { x: (center.x - overlapCenter.x) / awayLength, z: (center.z - overlapCenter.z) / awayLength }
+      : { x: 0, z: 1 };
+    const directions = [away, { x: 0, z: 0 }, { x: 1, z: 0 }, { x: -1, z: 0 }, { x: 0, z: 1 }, { x: 0, z: -1 }];
+    for (const direction of directions) {
+      for (const shift of [0, geometry.tile, geometry.tile * 2, geometry.tile * 3]) {
+        for (let scale = 0.96; scale >= 0.48; scale -= 0.04) {
+          const polygon = building.polygon.map((point) => ({
+            x: center.x + (point.x - center.x) * scale + direction.x * shift,
+            z: center.z + (point.z - center.z) * scale + direction.z * shift,
+          }));
+          const cells = rasterPolygon(polygon, geometry);
+          if (!cells.size || [...cells].some((cell) => carriagewayCells.has(cell))) continue;
+          adjustments.push({
+            buildingId: building.id,
+            scale: Math.round(scale * 100) / 100,
+            shiftX: direction.x * shift,
+            shiftZ: direction.z * shift,
+          });
+          return { ...building, polygon };
+        }
+      }
+    }
+    return { ...building, polygon: building.polygon.map((point) => ({ ...point })) };
+  });
+  return { buildings: fitted, adjustments };
+}
 
 function boundsPolygon(cells: readonly number[], geometry: MapGeometry): LocalPoint[] {
   const xs = cells.map((cell) => cell % geometry.cols);
@@ -183,6 +258,30 @@ function entranceFor(
     position: { x: (inside.x + outside.x) / 2, z: (inside.z + outside.z) / 2 },
     facing: Math.atan2(outside.x - inside.x, outside.z - inside.z),
     pedestrianConnector: connector,
+    accessKind: 'walkway',
+  };
+}
+
+function sharedEntranceFor(
+  building: ProjectedGeoBuilding,
+  targets: ReadonlySet<number>,
+  geometry: MapGeometry,
+): SemanticEntrance | undefined {
+  if (!targets.size) return undefined;
+  const center = building.polygon.reduce((sum, point) => ({ x: sum.x + point.x, z: sum.z + point.z }), { x: 0, z: 0 });
+  center.x /= building.polygon.length;
+  center.z /= building.polygon.length;
+  const target = [...targets].map((cell) => {
+    const point = tileToWorld(geometry, cell % geometry.cols, Math.floor(cell / geometry.cols));
+    return { cell, point, distance: Math.hypot(point.x - center.x, point.z - center.z) };
+  }).sort((a, b) => a.distance - b.distance || a.cell - b.cell)[0];
+  return {
+    id: `entrance:${building.id}:shared`,
+    buildingId: building.id,
+    position: { x: target.point.x, z: target.point.z },
+    facing: Math.atan2(target.point.x - center.x, target.point.z - center.z),
+    pedestrianConnector: [target.cell],
+    accessKind: 'shared',
   };
 }
 
@@ -190,6 +289,7 @@ export function deriveNeighborhood(
   buildings: readonly ProjectedGeoBuilding[],
   network: StreetNetwork,
   geometry: MapGeometry,
+  accessTargets?: ReadonlySet<number>,
 ): NeighborhoodLayout {
   const { blocks, blockByCell } = deriveBlocks(network, geometry);
   const footprintById = new Map<string, Set<number>>();
@@ -199,9 +299,11 @@ export function deriveNeighborhood(
     footprintById.set(building.id, cells);
     for (const cell of cells) allBuildingCells.add(cell);
   }
-  const targets = network.pedestrianCells.size
-    ? network.pedestrianCells
-    : network.carriagewayCells;
+  const targets = accessTargets?.size
+    ? accessTargets
+    : network.pedestrianCells.size
+      ? network.pedestrianCells
+      : network.carriagewayCells;
   const field = accessField(allBuildingCells, targets, geometry);
   const assigned = new Map<string, number>();
   const unassignedBuildingIds: string[] = [];
@@ -272,7 +374,8 @@ export function deriveNeighborhood(
   for (const [buildingId, blockIndex] of [...assigned].sort((a, b) => a[0].localeCompare(b[0]))) {
     const building = byId.get(buildingId)!;
     const footprint = footprintById.get(buildingId)!;
-    const entrance = entranceFor(building, footprint, allBuildingCells, field, geometry);
+    const entrance = entranceFor(building, footprint, allBuildingCells, field, geometry)
+      ?? sharedEntranceFor(building, targets, geometry);
     const lot = lotByBuilding.get(buildingId);
     if (!entrance || !lot) {
       unassignedBuildingIds.push(buildingId);

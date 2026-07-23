@@ -69,6 +69,40 @@ export interface GeoMapArtifactV2 extends Omit<GeoMapArtifactV1, 'schemaVersion'
 
 export type GeoMapArtifact = GeoMapArtifactV1 | GeoMapArtifactV2;
 
+function compactRuntimeSource(source: GeoSliceSource): GeoSliceSource {
+  const compact: GeoSliceSource = {
+    ...structuredClone(source),
+    roads: [],
+    buildings: [],
+    water: [],
+    land: [],
+  };
+  if (source.entrances) compact.entrances = [];
+  if (source.nsi) compact.nsi = {
+    status: source.nsi.status,
+    matches: [],
+    ...(source.nsi.warning ? { warning: source.nsi.warning } : {}),
+  };
+  return compact;
+}
+
+function compactRuntimeDistrict(
+  district: SemanticDistrict,
+  source: GeoSliceSource,
+): SemanticDistrict {
+  const compact = structuredClone(district);
+  compact.source = source;
+  for (const road of compact.roads) road.cells = [];
+  for (const block of compact.blocks) block.cells = [];
+  for (const lot of compact.lots) lot.cells = [];
+  for (const building of compact.buildings) delete building.sourceFootprint;
+  // Classification, surface, and decoration layers carry these polygons at
+  // runtime. Their original vector geometry remains in the source cache.
+  compact.land = [];
+  compact.water = [];
+  return compact;
+}
+
 export function encodeByteRuns(bytes: Uint8Array): ByteRuns {
   const runs: number[] = [];
   for (let index = 0; index < bytes.length;) {
@@ -173,12 +207,15 @@ export function artifactFromMap(
     },
   };
   if (!district) return artifact;
+  const runtimeSource = compactRuntimeSource(options.source);
+  const runtimeDistrict = compactRuntimeDistrict(district, runtimeSource);
   return {
     ...artifact,
     schemaVersion: 2,
     geography: {
       ...artifact.geography,
-      district: structuredClone(district),
+      source: runtimeSource,
+      district: runtimeDistrict,
     },
   };
 }

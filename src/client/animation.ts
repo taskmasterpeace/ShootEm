@@ -184,8 +184,8 @@ export function throwArmCurve(k: number): number {
 
 /** FLIGHT STYLES (feel pass #5): each flier's air silhouette. */
 export const FLIGHT_POSES: Record<string, { pitch: number; armZ: number; armX: number; headZ: number }> = {
-  inferno: { pitch: -1.25, armZ: 2.7, armX: 0, headZ: 0.35 },     // SUPERMAN
-  stormcaller: { pitch: -0.7, armZ: -0.5, armX: 0, headZ: 0.2 },  // GOKU
+  inferno: { pitch: -1.25, armZ: 2.7, armX: 0, headZ: 0.35 },     // ARROW — one arm forward, body a line
+  stormcaller: { pitch: -0.7, armZ: -0.5, armX: 0, headZ: 0.2 },  // COMET — arms swept back
   gargoyle: { pitch: -0.9, armZ: -1.1, armX: 0.9, headZ: 0.15 },  // folded wings
   gargoyle_dive: { pitch: -1.4, armZ: -1.1, armX: 0.9, headZ: 0.15 }, // the shriek's dive
 };

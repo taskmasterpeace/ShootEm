@@ -181,6 +181,7 @@ export interface SemanticEntrance {
   facing: number;
   /** Tile indices forming the walkable route from the door to the pedestrian network. */
   pedestrianConnector: number[];
+  accessKind?: 'walkway' | 'driveway' | 'shared';
 }
 
 export type SemanticRoof = 'flat' | 'gable' | 'hip' | 'mansard' | 'mixed';
@@ -195,6 +196,9 @@ export type SemanticFacade =
 export interface SemanticBuilding {
   id: string;
   footprint: LocalPoint[];
+  /** Original projected source polygon when the game shell needed a road-edge fit. */
+  sourceFootprint?: LocalPoint[];
+  footprintAdjustment?: { scale: number; shiftX: number; shiftZ: number };
   blockId: string;
   lotId: string;
   use: AttributeEvidence<string>;

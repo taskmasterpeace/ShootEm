@@ -123,5 +123,12 @@ export function rasterPolygon(polygon: readonly LocalPoint[], geometry: MapGeome
       if (pointInPolygon(center, polygon)) cells.add(tileIndex(geometry, tx, tz));
     }
   }
+  if (!cells.size) {
+    const centroid = polygon.reduce((sum, point) => ({ x: sum.x + point.x, z: sum.z + point.z }), { x: 0, z: 0 });
+    centroid.x /= polygon.length;
+    centroid.z /= polygon.length;
+    const [tx, tz] = worldToTile(geometry, centroid.x, centroid.z);
+    if (inBounds(geometry, tx, tz)) cells.add(tileIndex(geometry, tx, tz));
+  }
   return cells;
 }

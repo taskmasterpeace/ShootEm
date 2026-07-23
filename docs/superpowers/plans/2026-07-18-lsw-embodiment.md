@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript deterministic sim (`src/sim/`), Three.js client (`src/client/`), Vitest. Gates: `npx tsc --noEmit && npx vitest run && npm run lint && npm run build`.
 
-**Context / sequencing:** This is layers 2 (movement) + 3 (attack animation) of LSW embodiment. Layer 1 (silhouette: tint/aura/size) already shipped (`dressAsLsw`, `LSW_TINT`). Layer 4 (projectile/VFX) is the separate projectile-effects plan (`docs/superpowers/plans/2026-07-18-projectile-effects.md`), mid-execution. **These two plans pair school-by-school** — a charge-beam (projectile Part C) and its cupped-hands wind-up (this plan's attackPose) should land together, or a Kamehameha fires from a rifleman's shoulder. Ship order by visible payoff: **Melee first** (hide the guns → instant "that's Titan"), **Beam second** (gauntlets + Eclipse's Kamehameha), then the rest. It's a solo repo now — the feel pass (SLAM/THRUST/CHANNEL) is already on `main` to extend; no other agent to flag.
+**Context / sequencing:** This is layers 2 (movement) + 3 (attack animation) of LSW embodiment. Layer 1 (silhouette: tint/aura/size) already shipped (`dressAsLsw`, `LSW_TINT`). Layer 4 (projectile/VFX) is the separate projectile-effects plan (`docs/superpowers/plans/2026-07-18-projectile-effects.md`), mid-execution. **These two plans pair school-by-school** — a charge-beam (projectile Part C) and its cupped-hands wind-up (this plan's attackPose) should land together, or a Wave Cannon fires from a rifleman's shoulder. Ship order by visible payoff: **Melee first** (hide the guns → instant "that's Titan"), **Beam second** (gauntlets + Eclipse's Wave Cannon), then the rest. It's a solo repo now — the feel pass (SLAM/THRUST/CHANNEL) is already on `main` to extend; no other agent to flag.
 
 ---
 
@@ -291,7 +291,7 @@ ragebeast rig:'blade', prop:'claws', attackPose:'SLAM'    leviathan rig:'fists',
 gargoyle  rig:'blade', prop:'talons', attackPose:'SLAM'   blitz rig:'blade', prop:'blade', attackPose:'SLAM'
 ```
 
-- [ ] **Step 2: BEAM SEVEN** (`rig:'gauntlet', attackPose:'CHANNEL'`): reactor, crimson, magnetar, pulse, frostbite, mirage, eclipse. (Eclipse's cupped-hands Kamehameha wind-up is the CHANNEL variant driven by its charge flag from the projectile plan.)
+- [ ] **Step 2: BEAM SEVEN** (`rig:'gauntlet', attackPose:'CHANNEL'`): reactor, crimson, magnetar, pulse, frostbite, mirage, eclipse. (Eclipse's cupped-hands Wave Cannon wind-up is the CHANNEL variant driven by its charge flag from the projectile plan.)
 
 - [ ] **Step 3: RAIL TWO** (`rig:'rifle', attackPose:'BRACE'`): sniperhawk, chronos.
 
@@ -324,7 +324,7 @@ git commit -m "lsw-embodiment: rig/prop/attackPose on all 40 LSWs — the guns a
 
 - [ ] **Step 1: Run the law suite.** `npx vitest run tests/threat-measure.test.ts` — pose timing (BRACE recoil, LOB wind-up) can shift TTK slightly.
 - [ ] **Step 2: For any unit that tips out of tier, adjust its pose duration or the leap/blink numbers** (not the tier) until it holds. Re-run after each change.
-- [ ] **Step 3: Full gate + live sweep.** `npx tsc --noEmit && npx vitest run && npm run lint && npm run build`, then the Combat Lab: Titan (fists, leap crater), Eclipse (Kamehameha), Sniperhawk (BRACE), Chronos (gold blink) — confirm none read as riflemen.
+- [ ] **Step 3: Full gate + live sweep.** `npx tsc --noEmit && npx vitest run && npm run lint && npm run build`, then the Combat Lab: Titan (fists, leap crater), Eclipse (Wave Cannon), Sniperhawk (BRACE), Chronos (gold blink) — confirm none read as riflemen.
 - [ ] **Step 4: Commit.**
 
 ```bash

@@ -1737,7 +1737,7 @@ economy, safehouse mode) — new fiction over existing iron, the house rule.
 
 ## 21.6 The Ascendants — twenty titan pitches (Robert's brief, 2026-07-16)
 
-*"What if a bunch of soldiers got killed by, like, a superman type character?"*
+*"What if a bunch of soldiers got killed by, like, a invulnerable flying character?"*
 — exactly. The Prototype Program (§6) has a black wing, and sometimes it
 walks. An **Ascendant** is a superhero-scale enemy EVENT: one per match at
 most, announced like weather, always killable, always counterable (every

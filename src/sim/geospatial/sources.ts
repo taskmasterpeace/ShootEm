@@ -30,8 +30,9 @@ interface OverpassResponse {
 }
 
 const OVERPASS_ENDPOINTS = [
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
 ] as const;
 const EPQS_ENDPOINT = 'https://epqs.nationalmap.gov/v1/json';
 const SOURCE_USER_AGENT = 'WarWorld-Geospatial-Importer/1.0';
@@ -54,6 +55,14 @@ const pointsOf = (element: OverpassElement): LonLat[] =>
 
 const featureId = (element: OverpassElement): string =>
   `${element.type ?? 'element'}/${String(element.id ?? 'unknown')}`;
+
+export function isAbovegroundBuilding(building: GeoBuilding): boolean {
+  const location = building.tags?.location?.toLowerCase();
+  const layer = finiteNumber(building.tags?.layer);
+  if (location === 'underground') return false;
+  if ((layer ?? 0) < 0 && (building.height ?? 0) <= 0) return false;
+  return true;
+}
 
 export function parseOverpass(payload: unknown): NormalizedOverpass {
   const response = payload as OverpassResponse;
@@ -99,7 +108,7 @@ export function parseOverpass(payload: unknown): NormalizedOverpass {
     }
 
     if (tags.building && points.length >= 3) {
-      normalized.buildings.push({
+      const building: GeoBuilding = {
         id,
         polygon: points,
         use: tags['building:use'] ?? tags.building,
@@ -110,7 +119,9 @@ export function parseOverpass(payload: unknown): NormalizedOverpass {
         address: [tags['addr:housenumber'], tags['addr:street']].filter(Boolean).join(' ') || undefined,
         name: tags.name,
         tags: { ...tags },
-      });
+      };
+      if (isAbovegroundBuilding(building)) normalized.buildings.push(building);
+      else normalized.skippedFeatures++;
       continue;
     }
 
@@ -156,14 +167,15 @@ export function parseEpqs(payload: unknown): number {
 
 export function buildOverpassQuery(
   bbox: [west: number, south: number, east: number, north: number],
+  detailed = true,
 ): string {
   const [west, south, east, north] = bbox;
   const bounds = `${south},${west},${north},${east}`;
   return `[out:json][timeout:60];(
 way["highway"](${bounds});
 way["building"](${bounds});
-relation["building"](${bounds});
-node["entrance"](${bounds});
+${detailed ? `relation["building"](${bounds});
+node["entrance"](${bounds});` : ''}
 way["natural"="water"](${bounds});
 way["waterway"="riverbank"](${bounds});
 way["landuse"~"^(reservoir|basin|forest|grass|meadow|recreation_ground|village_green)$"](${bounds});
@@ -172,16 +184,18 @@ way["natural"~"^(wood|grassland)$"](${bounds});
 );out geom;`;
 }
 
-export async function fetchOverpassSlice(
+async function requestOverpassSlice(
   bbox: [west: number, south: number, east: number, north: number],
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch,
+  detailed = true,
 ): Promise<NormalizedOverpass> {
-  const body = new URLSearchParams({ data: buildOverpassQuery(bbox) });
+  const body = new URLSearchParams({ data: buildOverpassQuery(bbox, detailed) });
   const failures: string[] = [];
   for (const endpoint of OVERPASS_ENDPOINTS) {
     try {
       const response = await fetcher(endpoint, {
         method: 'POST',
+        signal: AbortSignal.timeout(45_000),
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
           'User-Agent': SOURCE_USER_AGENT,
@@ -195,6 +209,51 @@ export async function fetchOverpassSlice(
     }
   }
   throw new Error(`Overpass request failed (${failures.join('; ')})`);
+}
+
+function mergeOverpass(parts: readonly NormalizedOverpass[]): NormalizedOverpass {
+  const unique = <T extends { id: string }>(items: readonly T[]): T[] =>
+    [...new Map(items.map((item) => [item.id, item])).values()]
+      .sort((a, b) => a.id.localeCompare(b.id));
+  return {
+    roads: unique(parts.flatMap((part) => part.roads)),
+    buildings: unique(parts.flatMap((part) => part.buildings)),
+    water: unique(parts.flatMap((part) => part.water)),
+    land: unique(parts.flatMap((part) => part.land)),
+    entrances: unique(parts.flatMap((part) => part.entrances)),
+    skippedFeatures: parts.reduce((sum, part) => sum + part.skippedFeatures, 0),
+  };
+}
+
+export async function fetchOverpassSlice(
+  bbox: [west: number, south: number, east: number, north: number],
+  fetcher: typeof fetch = fetch,
+): Promise<NormalizedOverpass> {
+  try {
+    return await requestOverpassSlice(bbox, fetcher);
+  } catch (wholeError) {
+    const [west, south, east, north] = bbox;
+    const middleLongitude = (west + east) / 2;
+    const middleLatitude = (south + north) / 2;
+    const tiles: Array<[number, number, number, number]> = [
+      [west, south, middleLongitude, middleLatitude],
+      [middleLongitude, south, east, middleLatitude],
+      [west, middleLatitude, middleLongitude, north],
+      [middleLongitude, middleLatitude, east, north],
+    ];
+    try {
+      const parts: NormalizedOverpass[] = [];
+      // Public instances explicitly ask clients not to burst expensive work.
+      // Sequential lean tiles avoid the rate-limit/504 pattern of one dense
+      // Lower Manhattan query while retaining all way geometry.
+      for (const tile of tiles) parts.push(await requestOverpassSlice(tile, fetcher, false));
+      return mergeOverpass(parts);
+    } catch (tileError) {
+      throw new Error(
+        `${wholeError instanceof Error ? wholeError.message : String(wholeError)}; tiled retry failed: ${tileError instanceof Error ? tileError.message : String(tileError)}`,
+      );
+    }
+  }
 }
 
 async function fetchElevationSample(

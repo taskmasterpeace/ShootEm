@@ -373,7 +373,7 @@ at the three-match review, or Lieutenant's 8000 points). The old blind
 V-quick-call retired.
 **Honest gap:**
 the TRUE FLIGHT trio stays AI-until-flight-feels-right (§13 Q1 stands —
-Superman/Goku is a movement model, not an overlay).
+the arrow and the comet is a movement model, not an overlay).
 
 ---
 
@@ -514,7 +514,7 @@ belongs after the T1s. Flagged, not silently reordered.)*
   login", and it needs no new tracking — the record already exists.
 - **D3 — LSWs are AI-first; the player gets the keys later.** Ship them as
   events with counterplay, build TRUE FLIGHT for the three fliers, and only
-  once flight genuinely feels like Superman/Goku does a human drive one — as
+  once flight genuinely feels like the arrow and the comet does a human drive one — as
   its own decision, on proven movement. **Do not** shape the entity around a
   playable case now.
   - **D3 UPDATE (2026-07-17, Robert: "we need to be able to play as LSWs in
@@ -524,7 +524,7 @@ belongs after the T1s. Flagged, not silently reordered.)*
     entity never bent for the pilot (the same body serves both), which is
     exactly why this took a day, not a rework. **The flight clause still
     stands** — the TRUE FLIGHT trio stays AI until the movement model earns
-    Superman/Goku.
+    the arrow and the comet.
 - **D4 — Iron Eaters are PROCEDURAL scrap-composition.** Compose bodies from
   the existing prop vocabulary (crate/wreck/silo/crane parts) on the
   eight-joint rig, seed-varied so no two beasts are alike — which is the

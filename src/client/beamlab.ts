@@ -1,13 +1,13 @@
 // ---------------------------------------------------------------------------
 // THE BEAM LAB (/beams.html) — Robert: "we still don't have that continuous
 // beam… like a water hose almost, but it's energy making sparks… the
-// flamethrower should be continuous… think Goku's Kamehameha… Superman's
+// flamethrower should be continuous… think a martial artist's Wave Cannon… a paragon's
 // heat vision. I need to see all of it inside of a harness."
 //
 // Four continuous weapons, all tracking the mouse on the ground:
 //   HOSE   — an energy stream with LAG: sweep the mouse and the beam whips
 //            behind it like water under pressure, sparking where it lands
-//   KAME   — the Kamehameha: a charge orb that gathers, then a thick
+//   WAVE   — the Wave Cannon: a charge orb that gathers, then a thick
 //            two-shell beam with a pulsing core and a blast point that
 //            scorches the ground
 //   HEAT   — heat vision: two thin instant lines from the EYES, converging,
@@ -21,7 +21,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
-type BeamMode = 'hose' | 'kame' | 'heat' | 'flamer';
+type BeamMode = 'hose' | 'wave' | 'heat' | 'flamer';
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x232a31); // dusk — beams own the frame
@@ -146,7 +146,7 @@ function spark(at: THREE.Vector3, color: number, speed = 4, up = 2.5) {
 
 // ---------------------------------------------------------------------------
 // SCORCH — the ground remembers where the beam has been (heat vision's trail,
-// the kamehameha's blast ring)
+// the wave cannon's blast ring)
 // ---------------------------------------------------------------------------
 const SCORCH = 40;
 const scorches: { m: THREE.Mesh; life: number; max: number }[] = [];
@@ -222,74 +222,74 @@ function hideHose() {
 }
 
 // ---------------------------------------------------------------------------
-// MODE: KAMEHAMEHA — charge, then the thick beam
+// MODE: WAVE CANNON — charge, then the thick beam
 // ---------------------------------------------------------------------------
-let kameT = 0; // seconds in mode; charge completes at CHARGE
-const KAME_CHARGE = 1.15;
-const kameTarget = new THREE.Vector3(8, 0.3, 0);
-const kameOrb = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
-scene.add(kameOrb);
-const kameCore = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0xf2fbff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
-const kameShell = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0x54a8ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+let waveT = 0; // seconds in mode; charge completes at CHARGE
+const WAVE_CHARGE = 1.15;
+const waveTarget = new THREE.Vector3(8, 0.3, 0);
+const waveOrb = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+scene.add(waveOrb);
+const waveCore = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0xf2fbff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+const waveShell = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0x54a8ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
 // beams keep the cylinder's native Y axis; a quaternion points it (the
 // lookAt+rotate dance shipped a beam pointing at the SKY — never again)
-const kameBeam = new THREE.Group();
-kameBeam.add(kameCore, kameShell);
-scene.add(kameBeam);
-const kameBlast = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xd8f0ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
-scene.add(kameBlast);
+const waveBeam = new THREE.Group();
+waveBeam.add(waveCore, waveShell);
+scene.add(waveBeam);
+const waveBlast = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xd8f0ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+scene.add(waveBlast);
 
-function stepKame(dt: number, muzzle: THREE.Vector3, t: number) {
-  kameT += dt;
-  const charging = kameT < KAME_CHARGE;
+function stepWave(dt: number, muzzle: THREE.Vector3, t: number) {
+  waveT += dt;
+  const charging = waveT < WAVE_CHARGE;
   if (charging) {
-    const k = kameT / KAME_CHARGE;
-    kameOrb.position.copy(muzzle).add(new THREE.Vector3(Math.cos(shooter.rotation.y) * 0.7, 0, Math.sin(-shooter.rotation.y) * 0.7));
-    kameOrb.scale.setScalar(0.1 + k * 0.5 + Math.sin(t * 30) * 0.03);
-    (kameOrb.material as THREE.MeshBasicMaterial).opacity = 0.35 + k * 0.5;
+    const k = waveT / WAVE_CHARGE;
+    waveOrb.position.copy(muzzle).add(new THREE.Vector3(Math.cos(shooter.rotation.y) * 0.7, 0, Math.sin(-shooter.rotation.y) * 0.7));
+    waveOrb.scale.setScalar(0.1 + k * 0.5 + Math.sin(t * 30) * 0.03);
+    (waveOrb.material as THREE.MeshBasicMaterial).opacity = 0.35 + k * 0.5;
     // energy gathers IN — sparks with reversed intent
     for (let i = 0; i < 2; i++) {
       const a = Math.random() * Math.PI * 2;
-      const from = kameOrb.position.clone().add(new THREE.Vector3(Math.cos(a) * 1.6, (Math.random() - 0.4) * 1.4, Math.sin(a) * 1.6));
+      const from = waveOrb.position.clone().add(new THREE.Vector3(Math.cos(a) * 1.6, (Math.random() - 0.4) * 1.4, Math.sin(a) * 1.6));
       const s = sparks[sparkCursor];
       sparkCursor = (sparkCursor + 1) % SPARKS;
       s.m.position.copy(from);
       (s.m.material as THREE.MeshBasicMaterial).color.setHex(0xbfe8ff);
-      s.vel.subVectors(kameOrb.position, from).multiplyScalar(3.2);
+      s.vel.subVectors(waveOrb.position, from).multiplyScalar(3.2);
       s.life = s.max = 0.3;
     }
-    (kameCore.material as THREE.MeshBasicMaterial).opacity = 0;
-    (kameShell.material as THREE.MeshBasicMaterial).opacity = 0;
-    (kameBlast.material as THREE.MeshBasicMaterial).opacity = 0;
+    (waveCore.material as THREE.MeshBasicMaterial).opacity = 0;
+    (waveShell.material as THREE.MeshBasicMaterial).opacity = 0;
+    (waveBlast.material as THREE.MeshBasicMaterial).opacity = 0;
     return;
   }
   // FIRING — a heavy beam that tracks the mouse SLOWLY (mass has opinions)
-  (kameOrb.material as THREE.MeshBasicMaterial).opacity = 0;
-  kameTarget.lerp(target, 1 - Math.exp(-dt * 2.2));
+  (waveOrb.material as THREE.MeshBasicMaterial).opacity = 0;
+  waveTarget.lerp(target, 1 - Math.exp(-dt * 2.2));
   const from = muzzle;
-  const dir = new THREE.Vector3().subVectors(kameTarget, from);
+  const dir = new THREE.Vector3().subVectors(waveTarget, from);
   const len = dir.length();
   dir.normalize();
-  const mid = new THREE.Vector3().addVectors(from, kameTarget).multiplyScalar(0.5);
-  kameBeam.position.copy(mid);
-  kameBeam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+  const mid = new THREE.Vector3().addVectors(from, waveTarget).multiplyScalar(0.5);
+  waveBeam.position.copy(mid);
+  waveBeam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
   const pulse = 1 + Math.sin(t * 26) * 0.08;
-  kameCore.scale.set(0.34 * pulse, len, 0.34 * pulse);
-  kameShell.scale.set(0.62 * pulse, len, 0.62 * pulse);
-  (kameCore.material as THREE.MeshBasicMaterial).opacity = 0.95;
-  (kameShell.material as THREE.MeshBasicMaterial).opacity = 0.4;
-  kameBlast.position.copy(kameTarget);
-  kameBlast.scale.setScalar(0.9 + Math.sin(t * 32) * 0.18);
-  (kameBlast.material as THREE.MeshBasicMaterial).opacity = 0.75;
-  for (let i = 0; i < 3; i++) spark(kameTarget, 0xbfe8ff, 7, 5);
-  scorch(new THREE.Vector3(kameTarget.x, 0, kameTarget.z), 2.2);
+  waveCore.scale.set(0.34 * pulse, len, 0.34 * pulse);
+  waveShell.scale.set(0.62 * pulse, len, 0.62 * pulse);
+  (waveCore.material as THREE.MeshBasicMaterial).opacity = 0.95;
+  (waveShell.material as THREE.MeshBasicMaterial).opacity = 0.4;
+  waveBlast.position.copy(waveTarget);
+  waveBlast.scale.setScalar(0.9 + Math.sin(t * 32) * 0.18);
+  (waveBlast.material as THREE.MeshBasicMaterial).opacity = 0.75;
+  for (let i = 0; i < 3; i++) spark(waveTarget, 0xbfe8ff, 7, 5);
+  scorch(new THREE.Vector3(waveTarget.x, 0, waveTarget.z), 2.2);
 }
-function hideKame() {
-  (kameOrb.material as THREE.MeshBasicMaterial).opacity = 0;
-  (kameCore.material as THREE.MeshBasicMaterial).opacity = 0;
-  (kameShell.material as THREE.MeshBasicMaterial).opacity = 0;
-  (kameBlast.material as THREE.MeshBasicMaterial).opacity = 0;
-  kameT = 0;
+function hideWave() {
+  (waveOrb.material as THREE.MeshBasicMaterial).opacity = 0;
+  (waveCore.material as THREE.MeshBasicMaterial).opacity = 0;
+  (waveShell.material as THREE.MeshBasicMaterial).opacity = 0;
+  (waveBlast.material as THREE.MeshBasicMaterial).opacity = 0;
+  waveT = 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -421,8 +421,8 @@ function hideFlamer() {
 let mode: BeamMode = 'hose';
 function setMode(m: BeamMode) {
   mode = m;
-  hideHose(); hideKame(); hideHeat(); hideFlamer();
-  kameTarget.copy(target); // the beam opens pointed where you point, not at a stale spot
+  hideHose(); hideWave(); hideHeat(); hideFlamer();
+  waveTarget.copy(target); // the beam opens pointed where you point, not at a stale spot
   for (const b of document.querySelectorAll('.mode')) b.classList.toggle('on', (b as HTMLElement).dataset.m === m);
 }
 for (const btn of document.querySelectorAll<HTMLElement>('.mode')) {
@@ -454,7 +454,7 @@ function loop() {
   );
 
   if (mode === 'hose') stepHose(dt, muzzle, t);
-  else if (mode === 'kame') stepKame(dt, muzzle, t);
+  else if (mode === 'wave') stepWave(dt, muzzle, t);
   else if (mode === 'heat') stepHeat(dt, t);
   else stepFlamer(dt, muzzle);
 
@@ -484,7 +484,7 @@ loop();
 interface BeamHandle {
   frames: () => number;
   mode: (m: BeamMode) => void;
-  /** deterministic capture: park the target and (for kame) skip the charge */
+  /** deterministic capture: park the target and (for wave) skip the charge */
   aim: (x: number, z: number) => void;
   skipCharge: () => void;
 }
@@ -492,7 +492,7 @@ interface BeamHandle {
   frames: () => frames,
   mode: setMode,
   aim: (x, z) => { target.set(x, 0.3, z); lastMouseMove = performance.now(); aimLocked = true; },
-  skipCharge: () => { kameT = KAME_CHARGE + 0.1; },
+  skipCharge: () => { waveT = WAVE_CHARGE + 0.1; },
 };
 
 addEventListener('resize', () => {

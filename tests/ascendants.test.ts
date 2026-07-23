@@ -1594,7 +1594,7 @@ describe('TRUE FLIGHT — the last shared mechanic', () => {
     const w = quiet();
     const h = w.addSoldier('H', 'infantry', 0, 'human');
     h.alive = true;
-    expect(w.ascendSoldier(h, 'inferno'), 'D3 ratified: AI until flight earns Superman/Goku').toBe(false);
+    expect(w.ascendSoldier(h, 'inferno'), 'D3 ratified: AI until flight earns the arrow and the comet').toBe(false);
     const b = w.addSoldier('B', 'infantry', 0, 'bot');
     b.alive = true;
     expect(w.ascendSoldier(b, 'inferno'), 'a bot may take the sky').toBe(true);

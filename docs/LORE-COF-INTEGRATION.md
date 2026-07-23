@@ -72,7 +72,7 @@ Source: `COF/bible/PREMISE.md`, `COF/bible/CANON_STATUS.md`.
 - **THE DEAD DRAFT (never use):** "6 alien races coming to extract Earth's
   oxygen" (`COF/canon/countries/COUNTRIES, SEASONS & AI.txt`) — explicitly
   abandoned per `PREMISE.md` §CANON vs ABANDONED. Also noise: Max/Jessica/
-  Tom, "Superman," the White Witch, Sarah Lee, Zachary Taylor, Lily.
+  Tom, "the Paragon," the White Witch, Sarah Lee, Zachary Taylor, Lily.
 
 ### 1.3 The timeline (8 seasons ≈ 10 years)
 Source: `COF/canon/COF_TIMELINE_CORRECTED.md` (creator session).

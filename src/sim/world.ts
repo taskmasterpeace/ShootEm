@@ -1317,7 +1317,7 @@ export class World {
     if (!lswAllowed(this.mode.id) || !s.alive || s.ascendant) return false;
     if (LSWS[id].faction !== s.team) return false; // your stable, your body
     // D3 (ratified): the TRUE-FLIGHT trio stays AI until the movement model
-    // earns Superman/Goku — no human hands on a flier yet.
+    // earns the arrow and the comet — no human hands on a flier yet.
     if (LSWS[id].flies && s.kind === 'human') return false;
     for (const o of this.soldiers.values()) if (o.alive && o.team === s.team && o.ascendant) return false;
     const def = LSWS[id];
