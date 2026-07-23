@@ -124,9 +124,11 @@ export function validateTrack(track: BuiltTrack): TrackProblem[] {
   return out;
 }
 
-/** The checkpoints a built track hands the race mode — one per piece. */
+/** The checkpoints a built track hands the race mode — one per piece. The
+ *  radius is the whole width plus a margin, so a car on the racing line always
+ *  clears the gate (a stingy gate is a lap that never banks). */
 export function checkpointsFor(track: BuiltTrack): { pos: Vec3; radius: number }[] {
-  return walkTrack(track).map((n) => ({ pos: { ...n.pos }, radius: Math.max(6, n.piece.width * 0.6) }));
+  return walkTrack(track).map((n) => ({ pos: { ...n.pos }, radius: Math.max(10, n.piece.width * 0.9) }));
 }
 
 /** A ready-made oval, so the editor opens on something drivable. */

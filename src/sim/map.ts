@@ -5,6 +5,7 @@ import { carveInterior } from './interior';
 import { fillRegions } from './chunks';
 import { THEMES } from './data';
 import type { ModeId, RaceTrack, Team, ThemeId, Vec3, VehicleKind } from './types';
+import { PIECE_SHAPE, checkpointsFor, walkTrack, type BuiltTrack, type Pavement } from './tracks';
 import type { OperationPhaseKind, OperationScale, OperationSiteId } from './operations';
 import type { TheaterMetadata } from './theater-types';
 import type { SemanticDistrict } from './geospatial/types';
@@ -1013,6 +1014,123 @@ export function generateRaceTrack(seed: number, theme: ThemeId = 'savanna'): Gam
     spawns: [gridSlots, gridSlots],
     flagPos: [checkpoints[0].pos, checkpoints[6].pos],
     hillPos: P(cx, cz),
+    controlPoints: checkpoints.map((c, i) => ({ name: `CP${i}`, pos: c.pos })),
+    vehiclePads: [], pickups: [], props: [], zombieSpawns: [],
+    houses: [], gates: [], pads: [], propCovered: [], raceTrack,
+  };
+}
+
+/** THE BUILT CIRCUIT — carve a creator's track (the Track Builder's parts box)
+ *  into a real, raceable GameMap. This is the missing bridge from `BuiltTrack`
+ *  (pure data) to a drivable ring: the route is carved as an open corridor
+ *  through a sealed field, each piece paved with its own surface, and the
+ *  checkpoints + start grid come off the same centre-line the editor drew. The
+ *  payoff: ramp pieces author real TERRAIN HEIGHT (with the graded-ramp flag),
+ *  so a built track is the FIRST generated map that isn't dead flat. Fully
+ *  deterministic from the track — same track, same map, on every machine, which
+ *  is what lets a lap RECORD set on a built track mean something. */
+export function buildTrackMap(track: BuiltTrack, theme: ThemeId = 'savanna'): GameMap {
+  const grid = new Uint8Array(GRID * GRID).fill(T_WALL); // sealed; carve the route
+  const grid2 = new Uint8Array(GRID * GRID);
+  const surface = new Uint8Array(GRID * GRID);
+  const height = new Uint8Array(GRID * GRID);
+  const ramp = new Uint8Array(GRID * GRID);
+  const baseSurf = theme === 'savanna' ? S_GRASS : theme === 'starship' ? S_PLATE
+    : theme === 'titan' ? S_GRIT : theme === 'europa' ? S_WET : theme === 'triton' ? S_ICE : S_DIRT;
+  surface.fill(baseSurf);
+
+  const SURF_FOR: Record<Pavement, number> = { paved: S_PLATE, dirt: S_DIRT, ice: S_ICE };
+  // world→tile (inverse of P below); the track is authored in world units.
+  const tileX = (x: number) => Math.round((x + WORLD / 2) / TILE - 0.5);
+  const tileZ = (z: number) => Math.round((z + WORLD / 2) / TILE - 0.5);
+  // TERRAIN_U = [0, 4, 16]: map an accumulated rise to a level the engine draws.
+  const levelFor = (y: number): number => (y <= 2 ? 0 : y <= 10 ? 1 : 2);
+  let elevated = false;
+
+  /** Stamp an open corridor A→B, `halfW` wide, paved `surf`, rising y0→y1.
+   *  `graded` marks the tiles drivable-between-levels (a ramp, not a cliff). */
+  const carve = (ax: number, az: number, bx: number, bz: number, halfW: number,
+    surf: number, y0: number, y1: number, graded: boolean) => {
+    const len = Math.hypot(bx - ax, bz - az) || 1;
+    const steps = Math.max(1, Math.ceil(len / (TILE * 0.5)));
+    const halfTiles = Math.max(1, Math.round(halfW / TILE));
+    const reach = (halfTiles + 0.5) * (halfTiles + 0.5);
+    for (let s = 0; s <= steps; s++) {
+      const t = s / steps;
+      const px = ax + (bx - ax) * t, pz = az + (bz - az) * t;
+      const lvl = levelFor(y0 + (y1 - y0) * t);
+      const cx = tileX(px), cz = tileZ(pz);
+      for (let oz = -halfTiles; oz <= halfTiles; oz++) {
+        for (let ox = -halfTiles; ox <= halfTiles; ox++) {
+          if (ox * ox + oz * oz > reach) continue; // round brush
+          const gx = cx + ox, gz = cz + oz;
+          if (gx < 1 || gx >= GRID - 1 || gz < 1 || gz >= GRID - 1) continue;
+          const gi = gz * GRID + gx;
+          grid[gi] = T_OPEN;
+          surface[gi] = surf;
+          height[gi] = lvl;
+          if (lvl > 0) elevated = true;
+          if (graded) ramp[gi] = 1;
+        }
+      }
+    }
+  };
+
+  for (const n of walkTrack(track)) {
+    const shape = PIECE_SHAPE[n.piece.kind] ?? PIECE_SHAPE.straight;
+    const ex = n.pos.x + Math.cos(n.yaw) * shape.run;
+    const ez = n.pos.z + Math.sin(n.yaw) * shape.run;
+    const graded = n.piece.kind === 'ramp_up' || n.piece.kind === 'ramp_down';
+    carve(n.pos.x, n.pos.z, ex, ez, n.piece.width / 2, SURF_FOR[n.piece.surface],
+      n.pos.y, n.pos.y + shape.rise * 4, graded);
+  }
+
+  const checkpoints = checkpointsFor(track);
+
+  // ── the start grid: behind the line, snapped onto carved corridor ──────────
+  const tileOpen = (x: number, z: number): boolean => {
+    const tx = tileX(x), tz = tileZ(z);
+    return tx >= 0 && tx < GRID && tz >= 0 && tz < GRID && grid[tz * GRID + tx] === T_OPEN;
+  };
+  const snapToOpen = (p: Vec3): Vec3 => {
+    if (tileOpen(p.x, p.z)) return p;
+    const dx = track.start.x - p.x, dz = track.start.z - p.z, d = Math.hypot(dx, dz) || 1;
+    const ux = dx / d, uz = dz / d;
+    for (let s = 1; s <= Math.ceil(d / TILE) + 2; s++) {
+      const q = { x: p.x + ux * s * TILE, y: p.y, z: p.z + uz * s * TILE };
+      if (tileOpen(q.x, q.z)) return q;
+    }
+    return { x: track.start.x, y: p.y, z: track.start.z };
+  };
+  const fwd = { x: Math.cos(track.startYaw), z: Math.sin(track.startYaw) };
+  const side = { x: -Math.sin(track.startYaw), z: Math.cos(track.startYaw) };
+  const gridSlots: Vec3[] = [];
+  for (let row = 0; row < 5; row++) {
+    for (const lane of [-1, 1]) {
+      gridSlots.push(snapToOpen({
+        x: track.start.x - fwd.x * (6 + row * 5) + side.x * lane * 3, y: 0,
+        z: track.start.z - fwd.z * (6 + row * 5) + side.z * lane * 3,
+      }));
+    }
+  }
+
+  const avgW = track.pieces.reduce((a, p) => a + p.width, 0) / Math.max(1, track.pieces.length);
+  const raceTrack: RaceTrack = { checkpoints, width: avgW / 2, grid: gridSlots, startYaw: track.startYaw };
+
+  // stable numeric seed from the track id (records/replays stay deterministic)
+  let seed = 0;
+  for (let i = 0; i < track.id.length; i++) seed = (seed * 31 + track.id.charCodeAt(i)) | 0;
+  const mid = checkpoints[Math.floor(checkpoints.length / 2)]?.pos ?? checkpoints[0].pos;
+
+  return {
+    seed: seed >>> 0, theme, geometry: { ...LEGACY_GEOMETRY }, grid, grid2, surface,
+    // only a track that USES ramps carries height — a flat circuit stays a flat
+    // map, byte-identical to every other generated ground (no behaviour change).
+    ...(elevated ? { height, ramp } : {}),
+    basePos: [checkpoints[0].pos, mid],
+    spawns: [gridSlots, gridSlots],
+    flagPos: [checkpoints[0].pos, mid],
+    hillPos: checkpoints[0].pos,
     controlPoints: checkpoints.map((c, i) => ({ name: `CP${i}`, pos: c.pos })),
     vehiclePads: [], pickups: [], props: [], zombieSpawns: [],
     houses: [], gates: [], pads: [], propCovered: [], raceTrack,

@@ -1,6 +1,6 @@
-import { TEAM_NAMES, WEAPONS } from './data';
+import { TEAM_NAMES, VEHICLES, WEAPONS } from './data';
 import { losClear, type GameMap } from './map';
-import { isBoard, isZed, type ModeId, type ModeState, type RacerState, type RaceTrack, type Team, type ZedKind, type IronKind } from './types';
+import { isZed, type ModeId, type ModeState, type RacerState, type RaceTrack, type Team, type ZedKind, type IronKind } from './types';
 import type { World } from './world';
 import { stepScienceMission } from './science-runtime';
 import { pbBark, pbProximityTaunts } from './paintball';
@@ -353,13 +353,21 @@ function localRacer(w: World, racers: RacerState[]): RacerState | undefined {
   return racers.find((r) => w.soldiers.get(r.id)?.kind === 'human');
 }
 
-/** Everyone currently on a board is a racer. Built lazily once the grid fills. */
+/** Everyone currently on a racing hull is a racer. Built lazily once the grid
+ *  fills. A racer is any soldier on a GROUND machine — boards, cars, trucks and
+ *  bikes all count (the grid only ever spawns racing hulls, so "grounded and
+ *  driven" is exactly the field). This used to filter boards ONLY, which
+ *  silently voided every car/truck/bike race — the grid and the bot drivers
+ *  were widened to all ground hulls, but the lap engine never was. */
 function collectRacers(w: World): RacerState[] {
   const racers: RacerState[] = [];
   for (const s of w.soldiers.values()) {
     if (s.vehicleId < 0) continue;
     const v = w.vehicles.get(s.vehicleId);
-    if (v && isBoard(v.kind)) {
+    if (!v) continue;
+    const def = VEHICLES[v.kind];
+    const grounded = !!def && !def.flies && !def.boat; // boards hover → still grounded
+    if (grounded) {
       racers.push({ id: s.id, next: 0, lap: 0, bestLap: 0, lapStart: w.time, finished: false, finishTime: 0, place: 0 });
     }
   }

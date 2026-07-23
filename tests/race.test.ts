@@ -77,6 +77,38 @@ describe('the race engine + AI', () => {
   });
 });
 
+// THE CAR-CLASS FIX: `collectRacers` used to count boards ONLY, so a car race
+// registered zero racers, banked no laps, and never ended — silently voiding
+// three of the four advertised race classes. Seat a grid of CARS and prove the
+// lap engine now sees them and banks laps.
+function fillGridCars(w: World, n: number) {
+  const track = w.map.raceTrack!;
+  const cars: VehicleKind[] = ['musclecar', 'roadster', 'hotrod'];
+  const me = w.addSoldier('You', 'infantry', 0, 'human');
+  const mb = w.spawnVehicle('musclecar', 0, track.grid[0]);
+  mb.yaw = track.startYaw; me.pos = { ...track.grid[0] }; w.forceBoard(me, mb);
+  for (let i = 1; i <= n; i++) {
+    const b = w.addSoldier('C' + i, 'infantry', 1, 'bot');
+    const v = w.spawnVehicle(cars[i % 3], 1, track.grid[i]);
+    v.yaw = track.startYaw; b.pos = { ...track.grid[i] }; w.forceBoard(b, v);
+  }
+}
+
+describe('a car race counts laps (the collectRacers fix)', () => {
+  it('registers the car grid as racers and banks laps', () => {
+    const w = raceWorld();
+    fillGridCars(w, 7);
+    const cmds = new Map();
+    for (let i = 0; i < 200 * 30 && !w.mode.over; i++) w.step(1 / 30, cmds);
+    const racers = w.mode.racers!;
+    // the car grid is a real field, not the empty set the old board-only filter produced
+    expect(racers.length).toBe(8);
+    // the AI cars actually banked laps — the lap engine now sees non-boards
+    const bots = racers.filter((r) => w.soldiers.get(r.id)?.kind === 'bot');
+    expect(Math.max(...bots.map((r) => r.lap))).toBeGreaterThanOrEqual(1);
+  });
+});
+
 describe('fmtLap', () => {
   it('reads as a lap time', () => {
     expect(fmtLap(23.4)).toBe('23.4s');
