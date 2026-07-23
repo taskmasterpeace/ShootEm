@@ -172,19 +172,27 @@ function isolatedFriendly(w: World, s: Soldier): Soldier | null {
   let best: Soldier | null = null, bd = Infinity;
   for (const f of w.soldiers.values()) {
     if (!f.alive || f.team !== s.team || f.id === s.id || f.kind === 'dog' || isZed(f.kind)) continue;
-    let mates = 0, foes = 0;
-    for (const o of w.soldiers.values()) {
-      if (!o.alive || o.id === f.id || o.id === s.id) continue; // the rescuer doesn't count as company
-      const d = Math.hypot(o.pos.x - f.pos.x, o.pos.z - f.pos.z);
-      if (o.team === f.team && d < 24) mates++;
-      else if (o.team !== f.team && d < 30) foes++;
-    }
-    if (mates > 0 || foes === 0) continue; // has company, or isn't in trouble
+    // #2 (S1, the hottest helper): the ANSWER RADIUS gates the inner scan —
+    // a victim this rescuer could never answer (or never prefer over one
+    // already found) pays nothing. Same victims, same winners: any f skipped
+    // here failed `d < bd && d < 70` in the old shape too.
     // §15/§4.3: the beacon pings THE SQUAD FIRST — a cut-off squadmate
     // counts as half the distance when the rescuer picks who to answer
     const squadmate = f.squadId !== undefined && f.squadId === s.squadId;
     const d = Math.hypot(f.pos.x - s.pos.x, f.pos.z - s.pos.z) * (squadmate ? 0.5 : 1);
-    if (d < bd && d < 70) { bd = d; best = f; }
+    if (d >= bd || d >= 70) continue;
+    // company check — the FIRST mate found disqualifies, so the common case
+    // (soldiers cluster with their team) exits in a handful of probes; only
+    // a genuinely cut-off man pays the full sweep, and he's the rare one.
+    let hasMate = false, hasFoe = false;
+    for (const o of w.soldiers.values()) {
+      if (!o.alive || o.id === f.id || o.id === s.id) continue; // the rescuer doesn't count as company
+      const od = Math.hypot(o.pos.x - f.pos.x, o.pos.z - f.pos.z);
+      if (o.team === f.team) { if (od < 24) { hasMate = true; break; } }
+      else if (od < 30) hasFoe = true;
+    }
+    if (hasMate || !hasFoe) continue; // has company, or isn't in trouble
+    bd = d; best = f;
   }
   return best;
 }
