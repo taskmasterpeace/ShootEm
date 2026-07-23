@@ -372,6 +372,19 @@ export class Renderer {
   private coverInst: THREE.InstancedMesh | null = null;
   private climbInst: THREE.InstancedMesh | null = null;      // §8.7 barricade bodies
   private climbLipInst: THREE.InstancedMesh | null = null;   // ...and their grab-lips
+  // THE SKY (Robert: "make the sky look better without a massive performance
+  // hit"): one dome, one 1×64 gradient painted from the SAME color every
+  // weather/night lerp already computes — zenith deepens, horizon lifts.
+  // Repaint is dirty-gated on the hex; steady skies upload nothing.
+  private skyDome: THREE.Mesh | null = null;
+  private skyTex: THREE.CanvasTexture | null = null;
+  private skyCtx: CanvasRenderingContext2D | null = null;
+  private lastSkyHex = -1;
+  // THE WATER: one alpha-masked sheet over every water tile — a drifting
+  // sparkle layer + a slow breathing opacity. One draw call, tiny textures.
+  private waterSheet: THREE.Mesh | null = null;
+  private waterMat: THREE.MeshBasicMaterial | null = null;
+  private waterTex: THREE.CanvasTexture | null = null;
   private wallInstanceByTile = new Map<number, number>();
   private coverInstanceByTile = new Map<number, number>();
   private climbInstanceByTile = new Map<number, number>();
@@ -670,6 +683,15 @@ export class Renderer {
     if (k === 'night') {
       (this.scene.background as THREE.Color).lerp(NIGHT_TINT, 0.55 * hard);
       fog.color.lerp(NIGHT_TINT, 0.55 * hard);
+    }
+    // the DOME drinks the same graded color — dirty-gated, so a settled sky
+    // repaints nothing; transitions repaint a 1×64 strip (nothing)
+    {
+      const bg = this.scene.background as THREE.Color;
+      const hex = bg.getHex();
+      if (hex !== this.lastSkyHex) { this.lastSkyHex = hex; this.paintSky(bg); }
+      // the water dims with the day — night water goes dark, not neon
+      if (this.waterMat) this.waterMat.color.setRGB(0.81 * skyMul + 0.1, 0.91 * skyMul + 0.06, 0.95 * skyMul + 0.05);
     }
 
     // light: night drops the war into blue-black; a storm flashes back
@@ -1235,6 +1257,103 @@ export class Renderer {
     }
   }
 
+  /** The dome exists once per renderer; maps only repaint it. BackSide sphere,
+   *  no fog, no depth — 1 draw call that replaces the flat background. */
+  private ensureSkyDome() {
+    if (this.skyDome) return;
+    const cvs = document.createElement('canvas');
+    cvs.width = 1; cvs.height = 64;
+    this.skyCtx = cvs.getContext('2d')!;
+    this.skyTex = new THREE.CanvasTexture(cvs);
+    this.skyTex.colorSpace = THREE.SRGBColorSpace;
+    this.skyTex.magFilter = THREE.LinearFilter;
+    const mat = new THREE.MeshBasicMaterial({
+      map: this.skyTex, side: THREE.BackSide, fog: false, depthWrite: false,
+    });
+    this.skyDome = new THREE.Mesh(new THREE.SphereGeometry(340, 24, 12), mat);
+    this.skyDome.renderOrder = -100;
+    this.skyDome.frustumCulled = false;
+    this.scene.add(this.skyDome);
+  }
+
+  /** Zenith deepens, horizon lifts — derived from the one weather-graded sky
+   *  color, so night/dust/storm flow through for free. */
+  private paintSky(c: THREE.Color) {
+    if (!this.skyCtx || !this.skyTex) return;
+    const css = (col: THREE.Color) => `rgb(${Math.round(col.r * 255)},${Math.round(col.g * 255)},${Math.round(col.b * 255)})`;
+    const zenith = c.clone().multiplyScalar(0.58);
+    zenith.b = Math.min(1, zenith.b * 1.18); // the top of the sky runs cooler
+    const horizon = c.clone().lerp(new THREE.Color(1, 1, 1), 0.22).multiplyScalar(1.06);
+    const g = this.skyCtx.createLinearGradient(0, 0, 0, 64);
+    g.addColorStop(0, css(zenith));      // texture top = dome top
+    g.addColorStop(0.62, css(c));
+    g.addColorStop(1, css(horizon));     // texture bottom = the horizon band
+    this.skyCtx.fillStyle = g;
+    this.skyCtx.fillRect(0, 0, 1, 64);
+    this.skyTex.needsUpdate = true;
+  }
+
+  /** One sheet over every water tile: alpha-masked plane + drifting sparkle.
+   *  No water on the map → no mesh at all. */
+  private buildWaterSheet(world: World, width: number, depth: number, cols: number, rows: number) {
+    if (this.waterSheet) {
+      this.scene.remove(this.waterSheet);
+      this.waterSheet.geometry.dispose();
+      this.waterMat?.map?.dispose();
+      this.waterMat?.alphaMap?.dispose();
+      this.waterMat?.dispose();
+      this.waterSheet = null; this.waterMat = null; this.waterTex = null;
+    }
+    let wet = 0;
+    const mask = document.createElement('canvas');
+    mask.width = cols; mask.height = rows;
+    const mctx = mask.getContext('2d')!;
+    mctx.fillStyle = '#000';
+    mctx.fillRect(0, 0, cols, rows);
+    for (let z = 0; z < rows; z++) {
+      for (let x = 0; x < cols; x++) {
+        const t = world.map.grid[z * cols + x];
+        if (t !== T_WATER && t !== T_DEEP) continue;
+        wet++;
+        mctx.fillStyle = t === T_DEEP ? '#fff' : '#d0d0d0';
+        mctx.fillRect(x, z, 1, 1);
+      }
+    }
+    if (!wet) return;
+    const alpha = new THREE.CanvasTexture(mask);
+    alpha.magFilter = THREE.NearestFilter; // crisp tile shores — the map's own idiom
+    alpha.minFilter = THREE.NearestFilter;
+    alpha.generateMipmaps = false;
+    // the sparkle: soft light streaks on transparent black, tiled and drifted
+    const sp = document.createElement('canvas');
+    sp.width = sp.height = 128;
+    const sctx = sp.getContext('2d')!;
+    let n = 48017; // seeded — the same lake shimmers the same way every boot
+    const rnd = () => { n = (n * 1664525 + 1013904223) >>> 0; return n / 4294967296; };
+    for (let i = 0; i < 150; i++) {
+      const x = rnd() * 128, y = rnd() * 128;
+      const len = 3 + rnd() * 9, a = 0.05 + rnd() * 0.16;
+      sctx.strokeStyle = `rgba(255,255,255,${a.toFixed(3)})`;
+      sctx.lineWidth = 0.7 + rnd() * 0.9;
+      sctx.beginPath();
+      sctx.moveTo(x, y);
+      sctx.lineTo(x + len, y + (rnd() - 0.5) * 2.2);
+      sctx.stroke();
+    }
+    this.waterTex = new THREE.CanvasTexture(sp);
+    this.waterTex.wrapS = this.waterTex.wrapT = THREE.RepeatWrapping;
+    this.waterTex.repeat.set(width / 26, depth / 26);
+    this.waterMat = new THREE.MeshBasicMaterial({
+      map: this.waterTex, alphaMap: alpha, transparent: true, opacity: 0.5,
+      depthWrite: false, color: 0xcfe8f2,
+    });
+    this.waterSheet = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), this.waterMat);
+    this.waterSheet.rotation.x = -Math.PI / 2;
+    this.waterSheet.position.y = 0.05;
+    this.waterSheet.renderOrder = 1;
+    this.scene.add(this.waterSheet);
+  }
+
   buildStaticWorld(world: World) {
     const pal = THEME_PALETTES[paletteKeyForMap(world.map)] ?? THEME_PALETTES.savanna;
     const geometry = world.map.geometry;
@@ -1249,6 +1368,9 @@ export class Renderer {
       fogNear: pal.fogNear, fogFar: pal.fogFar, sky: new THREE.Color(pal.sky),
       fogColor: new THREE.Color(pal.fog), hemi: 0.85, sun: pal.sunIntensity,
     };
+    // the sky stops being a flat color: gradient dome, painted from pal.sky
+    this.ensureSkyDome();
+    this.lastSkyHex = -1; // force the first repaint on every new map
 
     // lights
     const hemi = new THREE.HemisphereLight(pal.hemiSky, pal.hemiGround, 0.85);
@@ -1373,6 +1495,8 @@ export class Renderer {
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     this.scene.add(ground);
+    // the water stops being dead pixels: one masked shimmer sheet over it
+    this.buildWaterSheet(world, width, depth, cols, rows);
 
     // Walls as instanced boxes. The generator records EXACTLY which tiles a
     // prop's mesh stands in for (map.propCovered) — the renderer skips that
@@ -2488,6 +2612,13 @@ export class Renderer {
     const local = world.soldiers.get(localId);
     const localTeam = local?.team ?? 0;
     this.frameDt = dt;
+    // the dome rides the camera (a frame of lag is invisible at 340u) and the
+    // water DRIFTS — one texture offset + a slow breath, no shader, no cost
+    if (this.skyDome) this.skyDome.position.set(this.camera.position.x, 0, this.camera.position.z);
+    if (this.waterTex && this.waterMat) {
+      this.waterTex.offset.set(world.time * 0.011, world.time * 0.007);
+      this.waterMat.opacity = 0.44 + 0.1 * Math.sin(world.time * 0.6);
+    }
     this.updateMeleeRings(world, local);
     // the state-poll class barks: the match-open intro, each redeploy, the flag run
     this.classVo.tick(world, localId);
