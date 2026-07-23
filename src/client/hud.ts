@@ -266,6 +266,14 @@ export function setRankChip(insignia: string, name: string) {
   document.getElementById('rank-name')!.textContent = name.toUpperCase();
 }
 
+/** #127 THE STATS — the visceral three, worn beside the rank. Set from the
+ *  match (the soldier owns them); the dossier path never sees a soldier. */
+export function setStatChips(stats?: { str: number; dex: number; agl: number }) {
+  const st = document.getElementById('rank-stats');
+  if (st) st.textContent = stats ? `STR ${stats.str} · DEX ${stats.dex} · AGL ${stats.agl}` : '';
+  document.getElementById('rank-chip')?.classList.remove('hidden');
+}
+
 export class Hud {
   private killfeedEl = $('killfeed');
   private announceEl = $('announce');

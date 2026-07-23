@@ -516,6 +516,22 @@ export class World {
     const p = this.clockNow();
     return p >= 21 / 24 || p < 6 / 24;
   }
+
+  // ── THE STATS (#127, META-LAYER canon) — visceral, perf-safe ────────────
+  // Applied at EVENTS (reload start, melee resolve, spawn, dash) — never a
+  // per-tick tax. 5 is today's exact numbers; the band is ±10% at 1/10.
+  /** bigger is better: melee damage, health */
+  statMul(v: number | undefined): number {
+    return v === undefined ? 1 : 1 + (v - 5) * 0.02;
+  }
+  /** bigger is quicker: reload duration, dash recovery */
+  statQuick(v: number | undefined): number {
+    return v === undefined ? 1 : 1 - (v - 5) * 0.02;
+  }
+  /** DEX owns the hands: every reload in the game runs through here */
+  reloadTimeFor(s: Soldier, def: WeaponDef): number {
+    return def.reloadTime * this.statQuick(s.stats?.dex);
+  }
   /** §director: the match-level pacing band (neutral with no human on field) */
   director: DirectorState = newDirector();
   /** §influence: the shared per-team threat field (pay once, all bots read) */
@@ -892,8 +908,20 @@ export class World {
       const pool = familyWeapons(WEAPONS, fam);
       if (pool.length) primary = pool[this.rng.int(0, pool.length - 1)].id;
     }
+    const sid = this.id();
+    // #127 THE STATS: bots roll their three from a seed-stable HASH — never
+    // the live rng (a draw here would shift every stream after it, the
+    // harness trap). Humans start neutral 5s until the meta-layer assigns
+    // real people. Zeds, dogs and beasts carry none and pay nothing.
+    const stats = kind === 'bot'
+      ? {
+          str: 3 + Math.floor(hash01(this.opts.seed + sid * 31.7) * 5),
+          dex: 3 + Math.floor(hash01(this.opts.seed + sid * 57.3) * 5),
+          agl: 3 + Math.floor(hash01(this.opts.seed + sid * 91.1) * 5),
+        }
+      : kind === 'human' ? { str: 5, dex: 5, agl: 5 } : undefined;
     const s: Soldier = {
-      id: this.id(), kind, name, team, classId,
+      id: sid, kind, name, team, classId, stats,
       pos: { x: 0, y: 0, z: 0 }, vel: { x: 0, y: 0, z: 0 }, yaw: 0,
       hp: c.hp, maxHp: c.hp, energy: 100, alive: false, respawnAt: 0,
       weaponIdx: 0, weapons: [primary, secondary],
@@ -1627,7 +1655,10 @@ export class World {
     let plate = 0;
     const scienceNoArmor = this.mode.id === 'science' && this.science?.spec.armorPolicy === 'none';
     if (!scienceNoArmor) for (const id of s.equipment) plate += EQUIPMENT[id]?.hpBonus ?? 0;
-    s.hp = c.hp; s.maxHp = c.hp; s.armor = plate; s.maxArmor = plate; s.energy = 100;
+    // #127: STR carries the frame — health derives from it around today's
+    // average (canon: 'health derives from STR around today's average')
+    const hpMax = Math.round(c.hp * this.statMul(s.stats?.str));
+    s.hp = hpMax; s.maxHp = hpMax; s.armor = plate; s.maxArmor = plate; s.energy = 100;
     s.alive = true; s.cloaked = false; s.vehicleId = -1; s.seat = -1;
     s.carryingFlag = -1;
     s.weaponIdx = 0;
@@ -2982,7 +3013,7 @@ export class World {
       const cost = cmd.dash === 1 ? DASH_COST : cmd.dash === 4 ? SLIDE_COST : ROLL_COST;
       if (s.energy >= cost) {
         s.energy -= cost;
-        s.nextDashAt = this.time + DASH_CD;
+        s.nextDashAt = this.time + DASH_CD * this.statQuick(s.stats?.agl); // #127 AGL recovers the verb
         const fx = Math.cos(s.yaw), fz = Math.sin(s.yaw);
         if (cmd.dash === 1) {
           s.pushX += fx * DASH_IMPULSE;
@@ -3020,7 +3051,7 @@ export class World {
       const len = Math.hypot(cmd.moveX, cmd.moveZ);
       if (len > 0.01) {
         s.energy -= LEAP_COST;
-        s.nextDashAt = this.time + DASH_CD;
+        s.nextDashAt = this.time + DASH_CD * this.statQuick(s.stats?.agl); // #127 AGL recovers the verb
         const h = LEAP_H_MIN + (LEAP_H_MAX - LEAP_H_MIN) * Math.min(1, cmd.leap!);
         s.vel.x = (cmd.moveX / len) * h;
         s.vel.z = (cmd.moveZ / len) * h;
@@ -3421,7 +3452,7 @@ export class World {
         // no knife lunges and no wind-up charge rifles from a car seat
         if (ddef && ddef.range > 2.5 && !ddef.charge) {
           if (cmd.reload && s.clip[s.weaponIdx] < ddef.clip && this.reloadStock(s, ddef) > 0 && s.reloadUntil === 0) {
-            s.reloadUntil = this.time + ddef.reloadTime;
+            s.reloadUntil = this.time + this.reloadTimeFor(s, ddef);
             s.statReloads = (s.statReloads ?? 0) + 1;
             this.emit({ type: 'reload', pos: s.pos, soldierId: s.id });
           }
@@ -3431,7 +3462,7 @@ export class World {
               s.protectedUntil = 0; // hostile action ends spawn protection (55B)
               this.fireSoldierWeapon(s, dwid, ddef, cmd.aimDist);
             } else if (this.reloadStock(s, ddef) > 0) {
-              s.reloadUntil = this.time + ddef.reloadTime;
+              s.reloadUntil = this.time + this.reloadTimeFor(s, ddef);
               s.statReloads = (s.statReloads ?? 0) + 1; // §13: auto-reload on empty
               this.emit({ type: 'reload', pos: s.pos, soldierId: s.id });
             } else if (this.time >= (s.nextDryAt ?? 0)) {
@@ -3510,7 +3541,7 @@ export class World {
     // never bricked a shipped weapon; held-state senders (net clients,
     // bot brains, probes) would have hit it.
     if (cmd.reload && s.clip[s.weaponIdx] < def.clip && this.reloadStock(s, def) > 0 && s.reloadUntil === 0) {
-      s.reloadUntil = this.time + def.reloadTime;
+      s.reloadUntil = this.time + this.reloadTimeFor(s, def);
       s.statReloads = (s.statReloads ?? 0) + 1; // §13: manual reload
       this.emit({ type: 'reload', pos: s.pos, soldierId: s.id });
     }
@@ -4021,7 +4052,7 @@ export class World {
           this.fireSoldierWeapon(s, wid, def, cmd.aimDist);
         }
       } else if (this.reloadStock(s, def) > 0) {
-        s.reloadUntil = this.time + def.reloadTime;
+        s.reloadUntil = this.time + this.reloadTimeFor(s, def);
         s.statReloads = (s.statReloads ?? 0) + 1; // §13: auto-reload on empty
         this.emit({ type: 'reload', pos: s.pos, soldierId: s.id });
       } else if (this.time >= (s.nextDryAt ?? 0)) {
@@ -4196,7 +4227,8 @@ export class World {
     const chargeMul = s.meleeChargeMul ?? 1;
     s.meleeChargeMul = undefined;
     if (!def || !s.alive) return; // attacker died mid-swing — no ghost claws
-    const strikeDmg = def.damage * chargeMul;
+    // #127: STR lands in the fists — the visceral melee hook, spent once here
+    const strikeDmg = def.damage * chargeMul * this.statMul(s.stats?.str);
     // the lunge: thrown ~1.5u into the swing via the decaying push impulse. A
     // heavier blow drives the attacker further into it.
     s.pushX += Math.cos(s.meleeYaw) * MELEE_LUNGE * Math.min(1.4, chargeMul);

@@ -18,7 +18,7 @@ import { audio } from './client/audio';
 import { Chat } from './client/chat';
 import { pauseCodex, renderCodex } from './client/codex';
 import { StaticOverlay } from './client/effects';
-import { Hud, renderOperationAfterAction, setRankChip } from './client/hud';
+import { Hud, renderOperationAfterAction, setRankChip, setStatChips } from './client/hud';
 import { initGodMode } from './client/godmode';
 import { Input } from './client/input';
 import { MusicDirector } from './client/music';
@@ -703,6 +703,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
   const pt: Team = factionModes ? playerTeam : 0;
   const et: Team = (1 - pt) as Team;
   const me = world.addSoldier(name, selectedClass, pt, 'human', currentLoadout());
+  setStatChips(me.stats); // #127: your three, worn beside the rank all match
   applyScarMods(world, campaignFrontId); // §8.5: the front's wound shapes the field
   // THE PLACE (#122): you appear AT THE ENTRANCE (Robert's exact ask), facing
   // the shop; Vanessa keeps her counter; the war HUD steps back to place-size

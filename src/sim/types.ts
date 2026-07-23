@@ -344,6 +344,13 @@ export interface Vec3 {
   z: number;
 }
 
+/** THE STATS (#127, META-LAYER canon): visceral, never a hidden aim-roll —
+ *  DEX→reload speed, STR→melee damage + health, AGL→dash/roll recovery
+ *  (the Spider-Man ruling). 1..10, 5 = today's exact numbers; the band is
+ *  ±10% at the extremes so newbies stay competitive. GRIT was REJECTED.
+ *  Absent stats = neutral (zeds, dogs, legacy tests pay nothing). */
+export interface SoldierStats { str: number; dex: number; agl: number }
+
 export type SoldierKind = 'human' | 'bot' | 'dog' | 'zombie' | 'spitter' | 'brute' | 'sprinter' | 'bomber' | 'stalker' | 'scientist' | 'scraprat' | 'junkhound' | 'weaver' | 'ravager';
 
 export type ZedKind = 'zombie' | 'spitter' | 'brute' | 'sprinter' | 'bomber' | 'stalker';
@@ -374,6 +381,8 @@ export interface Soldier {
   name: string;
   team: Team;
   classId: ClassId;
+  /** #127: the visceral three. Absent = neutral 5s (no cost, no bonus). */
+  stats?: SoldierStats;
   pos: Vec3;
   vel: Vec3;
   yaw: number;        // facing/aim direction on ground plane
