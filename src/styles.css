@@ -2096,3 +2096,18 @@ body:not(.in-match) #world-clock { left: auto; right: 0.9rem; }
 .gc-line { display: grid; grid-template-columns: 8.5rem 1fr auto; gap: 0.5rem; align-items: baseline; font-family: var(--font-mono); font-size: 0.64rem; letter-spacing: 0.08em; color: var(--muted); padding: 0.14rem 0; }
 .gc-line b { color: oklch(0.92 0.02 78); font-weight: 400; font-variant-numeric: tabular-nums; }
 .gc-bar { color: var(--accent); letter-spacing: -0.05em; font-size: 0.6rem; }
+
+/* ═══ YOUR SERVICE FILE — everything the account earned, on one page ═══════ */
+#service-file { margin: 1rem 0; }
+.sf-head { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.16em; color: var(--accent); text-transform: uppercase; margin-bottom: 0.6rem; }
+.sf-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 0.7rem; }
+.sf-block { border: 1px solid var(--border); border-top: 2px solid var(--accent); background: oklch(0.14 0.012 78 / 0.85); padding: 0.7rem 0.85rem; }
+.sf-block h4 { font-family: var(--font-display); font-weight: 400; font-size: 0.95rem; letter-spacing: 0.1em; color: oklch(0.9 0.02 78); text-transform: uppercase; margin: 0 0 0.5rem; display: flex; justify-content: space-between; }
+.sf-block h4 i { font-style: normal; font-family: var(--font-mono); font-size: 0.66rem; color: var(--accent); }
+.sf-row { display: grid; grid-template-columns: 1fr auto auto; gap: 0.6rem; align-items: baseline; font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.05em; color: oklch(0.84 0.02 78); padding: 0.2rem 0; border-bottom: 1px solid oklch(0.24 0.012 78); }
+.sf-row:last-child { border-bottom: none; }
+.sf-yes { color: #141210; background: var(--accent); padding: 0.05rem 0.35rem; font-size: 0.6rem; letter-spacing: 0.12em; }
+.sf-open { color: var(--accent); font-size: 0.62rem; letter-spacing: 0.1em; }
+.sf-no { color: var(--muted); font-size: 0.62rem; letter-spacing: 0.06em; }
+.sf-fig { color: var(--accent); font-variant-numeric: tabular-nums; min-width: 3.2rem; text-align: right; }
+.sf-empty, .sf-note { font-family: var(--font-mono); font-size: 0.64rem; color: var(--muted); letter-spacing: 0.05em; padding-top: 0.35rem; line-height: 1.5; }

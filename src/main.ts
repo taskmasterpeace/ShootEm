@@ -27,6 +27,7 @@ import { VEHICLES } from './sim/data';
 import { awardLicence, canEnrol, loadLicences } from './client/licences';
 import { allRecords, fileRun, raceClassOf } from './client/records';
 import { settleMatch, treasuryLine } from './client/treasury';
+import { renderServiceFile } from './client/service-file';
 import { fitFor, renderGarage } from './client/garage-ui';
 import { LICENCES, type LicenceId } from './sim/licenses';
 import { TouchControls, isTouchDevice } from './client/touch';
@@ -470,6 +471,14 @@ function paintSchoolBoard(host: HTMLElement) {
   host.innerHTML = `<div class="sc-intro">THE SCHOOLS — a licence is a course you DRIVE. Every program teaches the machine, then signs your papers. Nobody washes out.</div><div class="sc-grid">${cards}</div>`;
   // LOW-CODE #7: THE RECORD BOARD. The times were being kept and never
   // shown — a record nobody can read is a number in a drawer.
+  // YOUR SERVICE FILE (high-code #10): four systems shipped storage this
+  // session and none had a page the player could read. A thing you earned
+  // and cannot look at is a thing you did not earn.
+  const fileWrap = document.createElement('div');
+  fileWrap.id = 'service-file';
+  renderServiceFile(fileWrap);
+  host.appendChild(fileWrap);
+
   const recs = allRecords();
   const recHtml = recs.length ? recs.map((r) => `<div class="rec-row"><span class="rec-track">${r.trackId}</span><span class="rec-cls">${r.cls.toUpperCase()}</span><span class="rec-time">${r.lap > 0 ? r.lap.toFixed(1) + 's' : '—'}</span><span class="rec-holder">${r.holder}</span></div>`).join('')
     : '<div class="rec-empty">No records yet. Every track is open — go and put your name on one.</div>';

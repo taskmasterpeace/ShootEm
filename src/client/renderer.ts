@@ -3499,6 +3499,50 @@ export class Renderer {
           mesh.userData.hadRoll = Math.abs(sm) > 0.002;
           mesh.rotation.x = sm;
         }
+
+        // ═══ THE JUMP DRESS (high-code #9, docs/RACING.md) ═══
+        // The landing physics shipped with no visual language at all: a car
+        // left the ground, flew, and arrived, and the only way to know was
+        // the HUD chip. Robert's ask was that machines "land in a realistic
+        // way" — so the BODY says it. Airborne, the nose PITCHES to follow
+        // the arc (up on the way out, down on the way in, exactly like a
+        // real jump). The moment the wheels touch, the hull SQUATS on its
+        // shocks and springs back — and how hard it squats is the same
+        // mass-against-shock sum the sim just judged.
+        const airborne = v.airborneAt !== undefined;
+        const prevAir = !!mesh.userData.wasAirborne;
+        const vy = v.vel.y ?? 0;
+        let pitch = (mesh.userData.pitch as number | undefined) ?? 0;
+        if (airborne) {
+          // nose follows the arc — clamped so a long fall never loops it
+          const want = Math.max(-0.5, Math.min(0.45, -vy * 0.05));
+          pitch += (want - pitch) * Math.min(1, dt * 5);
+        } else {
+          pitch += (0 - pitch) * Math.min(1, dt * 7);
+        }
+        if (prevAir && !airborne) {
+          // THE ARRIVAL: squat proportional to the impact the sim measured
+          const force = (vdef.mass ?? 1.6) * Math.abs(mesh.userData.lastVy as number ?? 0);
+          const over = force / (vdef.shock ?? 4);
+          mesh.userData.squat = Math.min(0.55, 0.12 + over * 0.16);
+        }
+        if (airborne) mesh.userData.lastVy = vy;
+        mesh.userData.wasAirborne = airborne;
+        const squat = (mesh.userData.squat as number | undefined) ?? 0;
+        if (squat > 0.002) {
+          mesh.userData.squat = squat * Math.max(0, 1 - dt * 6); // the spring back
+          mesh.scale.y = Math.max(0.55, 1 - squat);
+          mesh.scale.x = mesh.scale.z = 1 + squat * 0.25;       // it splays as it compresses
+        } else if (mesh.scale.y !== 1) {
+          mesh.scale.set(1, 1, 1);
+          mesh.userData.squat = 0;
+        }
+        if (Math.abs(pitch) > 0.002 || mesh.userData.hadPitch) {
+          mesh.rotation.order = 'YXZ';
+          mesh.rotation.z = pitch;
+          mesh.userData.pitch = pitch;
+          mesh.userData.hadPitch = Math.abs(pitch) > 0.002;
+        }
       }
       if (v.kind === 'mech') {
         // the walk cycle: hips scissor with ground speed, planted when still
