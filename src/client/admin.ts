@@ -108,7 +108,13 @@ function paintIdentity() {
   }
 }
 
-paintDoor();
+// NOTE: the room BOOTS AT THE BOTTOM OF THIS FILE, not here. paintDoor() paints
+// the track builder too, and the builder's own `const PIECE_LABEL` / `let draft`
+// live below — calling it up here hit the temporal dead zone, threw
+// "Cannot access 'PIECE_LABEL' before initialization" on the first piece button,
+// and aborted the rest of the module. The clock still worked (declared above),
+// so the room LOOKED fine while the builder was stone dead: no piece buttons, no
+// route on the canvas, no handlers. Boot last, after every declaration.
 
 // ═══════════════════════════════════════════════════════════════════════════
 // THE TRACK BUILDER (#131) — creator-only, behind this door by design.
@@ -230,3 +236,8 @@ function paintTrackBuilder() {
   }
   drawTrackMap();
 }
+
+// ── BOOT LAST ───────────────────────────────────────────────────────────────
+// Everything above is declared; only now is it safe to paint the room. (See the
+// note where this call used to live, at the top — it is why the builder was dead.)
+paintDoor();

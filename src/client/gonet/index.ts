@@ -306,6 +306,8 @@ function sportsApp(): string {
           ? `<button class="gn-cta" data-sportgo="${s.id}">ENTER — ${esc(s.name)} &#9656;</button>`
           : '<div class="gn-bready warn">This discipline is not running yet. The parts exist; the league does not.</div>'}
         <button class="gn-mini gn-builder" data-act="builder">THE TRACK BUILDER &#9656;</button>
+        <div class="gn-bready">Lay your own circuit in the creator's room, save it to the shelf,
+          then pick it as the CIRCUIT on the race deploy screen and drive it.</div>
       </section>
     </div>`;
 }
@@ -653,6 +655,11 @@ function wire(): void {
         if (deleteConfirm(b.dataset.id!)) { deletePlaylist(deck.lib, b.dataset.id!); musicList = 'all'; saveLibrary(deck.lib); paint(); }
       } else if (a === 'setfield') {
         setFieldPlaylist(deck.lib, b.dataset.id!); saveLibrary(deck.lib); paint();
+      } else if (a === 'builder') {
+        // THE TRACK BUILDER lives in the creator's room (admin.html). This
+        // button used to be DEAD — declared in the sports markup with no case
+        // here, so the one door to the builder did nothing. Open it for real.
+        window.open('/admin.html#track-builder', '_blank', 'noopener');
       }
     };
   });
