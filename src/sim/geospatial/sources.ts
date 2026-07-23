@@ -1,6 +1,7 @@
 import type {
   GeoBuilding,
   GeoElevationGrid,
+  GeoEntrance,
   GeoPolygonFeature,
   GeoRoad,
   LonLat,
@@ -11,6 +12,7 @@ export interface NormalizedOverpass {
   buildings: GeoBuilding[];
   water: GeoPolygonFeature[];
   land: GeoPolygonFeature[];
+  entrances: GeoEntrance[];
   skippedFeatures: number;
 }
 
@@ -19,6 +21,8 @@ interface OverpassElement {
   id?: number | string;
   tags?: Record<string, string>;
   geometry?: Array<{ lon?: number; lat?: number }>;
+  lon?: number;
+  lat?: number;
 }
 
 interface OverpassResponse {
@@ -53,16 +57,28 @@ const featureId = (element: OverpassElement): string =>
 
 export function parseOverpass(payload: unknown): NormalizedOverpass {
   const response = payload as OverpassResponse;
-  const normalized: NormalizedOverpass = { roads: [], buildings: [], water: [], land: [], skippedFeatures: 0 };
+  const normalized: NormalizedOverpass = {
+    roads: [], buildings: [], water: [], land: [], entrances: [], skippedFeatures: 0,
+  };
 
   for (const element of response.elements ?? []) {
-    if (element.type !== 'way') {
+    const tags = element.tags ?? {};
+    const id = featureId(element);
+    if (element.type === 'node' && tags.entrance
+      && Number.isFinite(element.lon) && Number.isFinite(element.lat)) {
+      normalized.entrances.push({
+        id,
+        point: { longitude: element.lon!, latitude: element.lat! },
+        kind: tags.entrance,
+        access: tags.access,
+      });
+      continue;
+    }
+    if (element.type !== 'way' && element.type !== 'relation') {
       normalized.skippedFeatures++;
       continue;
     }
-    const tags = element.tags ?? {};
     const points = pointsOf(element);
-    const id = featureId(element);
 
     if (tags.highway && points.length >= 2 && tags.area !== 'yes') {
       normalized.roads.push({
@@ -70,8 +86,14 @@ export function parseOverpass(payload: unknown): NormalizedOverpass {
         roadClass: tags.highway,
         points,
         width: finiteNumber(tags.width),
+        lanes: finiteNumber(tags.lanes),
+        surface: tags.surface,
+        sidewalk: tags.sidewalk,
+        service: tags.service,
+        access: tags.access,
         bridge: isTrueTag(tags.bridge),
         tunnel: isTrueTag(tags.tunnel),
+        tags: { ...tags },
       });
       continue;
     }
@@ -83,6 +105,11 @@ export function parseOverpass(payload: unknown): NormalizedOverpass {
         use: tags['building:use'] ?? tags.building,
         height: finiteNumber(tags.height),
         floors: finiteNumber(tags['building:levels']),
+        material: tags['building:material'],
+        roofShape: tags['roof:shape'],
+        address: [tags['addr:housenumber'], tags['addr:street']].filter(Boolean).join(' ') || undefined,
+        name: tags.name,
+        tags: { ...tags },
       });
       continue;
     }
@@ -135,6 +162,8 @@ export function buildOverpassQuery(
   return `[out:json][timeout:60];(
 way["highway"](${bounds});
 way["building"](${bounds});
+relation["building"](${bounds});
+node["entrance"](${bounds});
 way["natural"="water"](${bounds});
 way["waterway"="riverbank"](${bounds});
 way["landuse"~"^(reservoir|basin|forest|grass|meadow|recreation_ground|village_green)$"](${bounds});

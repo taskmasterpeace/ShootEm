@@ -98,9 +98,9 @@ export interface SemanticDistrict {
 - Modify: `tests/geospatial-sources.test.ts`
 - Create: `tests/geospatial-nsi.test.ts`
 
-- [ ] Add failing parser tests for road lanes/surface/sidewalk/service/access and building material/roof/address/name/entrance-related tags.
-- [ ] Add failing NSI tests covering valid records, missing values, occupancy mapping, stories, square footage, height, construction category, and deterministic spatial matching.
-- [ ] Extend normalized source records without discarding unknown source tags:
+- [x] Add failing parser tests for road lanes/surface/sidewalk/service/access and building material/roof/address/name/entrance-related tags.
+- [x] Add failing NSI tests covering valid records, missing values, occupancy mapping, stories, square footage, height, construction category, and deterministic spatial matching.
+- [x] Extend normalized source records without discarding unknown source tags:
 
 ```ts
 export interface GeoRoad {
@@ -129,11 +129,11 @@ export interface NsiBuildingRecord {
 }
 ```
 
-- [ ] Implement `parseNsiFeatures(payload)` and `matchNsiBuildings(buildings, records, origin, maxDistanceMeters)` with one-to-one nearest-centroid matching and stable ID tie-breaking.
-- [ ] Keep NSI optional: imports must succeed with explicit diagnostics when the source is unavailable.
-- [ ] Extend the Overpass query to request relevant entrance nodes and building relations/parts where practical; preserve a deterministic way-only fallback.
-- [ ] Run `npx vitest run tests/geospatial-sources.test.ts tests/geospatial-nsi.test.ts`.
-- [ ] Commit: `feat: enrich real city source semantics`
+- [x] Implement `parseNsiFeatures(payload)` and `matchNsiBuildings(buildings, records, origin, maxDistanceMeters)` with one-to-one nearest-centroid matching and stable ID tie-breaking.
+- [x] Keep NSI optional: imports must succeed with explicit diagnostics when the source is unavailable.
+- [x] Extend the Overpass query to request relevant entrance nodes and building relations/parts where practical; preserve a deterministic way-only fallback.
+- [x] Run `npx vitest run tests/geospatial-sources.test.ts tests/geospatial-nsi.test.ts`.
+- [x] Commit: `feat: enrich real city source semantics`
 
 ## Task 3: Build a connected street graph and complete street surfaces
 

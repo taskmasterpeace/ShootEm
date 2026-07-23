@@ -1,0 +1,29 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-77.53605, 35.89705] },
+      "properties": {
+        "fd_id": "nsi-100",
+        "occtype": "RES1-1SNB",
+        "num_story": 2,
+        "sqft": 1840,
+        "height": 7.4,
+        "bldgtype": "M"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-77.53560, 35.89730] },
+      "properties": {
+        "fd_id": "nsi-200",
+        "occtype": "COM4",
+        "num_story": "3",
+        "sqft": "6200",
+        "height": "11.5",
+        "bldgtype": "C"
+      }
+    }
+  ]
+}

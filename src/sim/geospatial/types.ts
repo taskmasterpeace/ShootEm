@@ -15,8 +15,14 @@ export interface GeoRoad {
   roadClass: string;
   points: LonLat[];
   width?: number;
+  lanes?: number;
+  surface?: string;
+  sidewalk?: string;
+  service?: string;
+  access?: string;
   bridge: boolean;
   tunnel: boolean;
+  tags?: Record<string, string>;
 }
 
 export type DistrictProfileId = 'miami-gardens' | 'lower-manhattan' | 'tarboro';
@@ -37,6 +43,41 @@ export interface GeoBuilding {
   height?: number;
   floors?: number;
   confidence?: number;
+  material?: string;
+  roofShape?: string;
+  address?: string;
+  name?: string;
+  tags?: Record<string, string>;
+}
+
+export interface GeoEntrance {
+  id: string;
+  point: LonLat;
+  kind?: string;
+  access?: string;
+}
+
+export interface NsiBuildingRecord {
+  id: string;
+  longitude: number;
+  latitude: number;
+  occupancy?: string;
+  stories?: number;
+  squareFeet?: number;
+  height?: number;
+  construction?: string;
+}
+
+export interface NsiBuildingMatch {
+  buildingId: string;
+  record: NsiBuildingRecord;
+  distanceMeters: number;
+}
+
+export interface NsiEnrichment {
+  status: 'matched' | 'unavailable';
+  matches: NsiBuildingMatch[];
+  warning?: string;
 }
 
 export interface GeoPolygonFeature {
@@ -68,9 +109,11 @@ export interface GeoSliceSource {
   origin: LonLat;
   roads: GeoRoad[];
   buildings: GeoBuilding[];
+  entrances?: GeoEntrance[];
   water: GeoPolygonFeature[];
   land: GeoPolygonFeature[];
   elevation: GeoElevationGrid;
+  nsi?: NsiEnrichment;
   attribution: GeoAttribution[];
   retrievedAt: string;
 }

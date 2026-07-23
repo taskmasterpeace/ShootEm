@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseEpqs, parseOverpass } from '../src/sim/geospatial/sources';
+import { buildOverpassQuery, parseEpqs, parseOverpass } from '../src/sim/geospatial/sources';
 import { parseImportArgs, stringifyArtifact } from '../scripts/import-geospatial-map';
 
 describe('geospatial source adapters', () => {
@@ -44,6 +44,15 @@ describe('geospatial source adapters', () => {
     ])).toThrow(/style|control/i);
   });
 
+  it('accepts explicit optional NSI enrichment', () => {
+    const parsed = parseImportArgs([
+      '--id', 'tarboro', '--name', 'Tarboro', '--bbox', '-77.54,35.89,-77.53,35.90',
+      '--city', 'tarboro', '--seed', '2', '--retrieved-at', '2026-07-22',
+      '--nsi', 'true', '--output', 'tarboro.json',
+    ]);
+    expect(parsed.nsi).toBe(true);
+  });
+
   it('keeps numeric artifact arrays compact inside readable JSON', () => {
     const json = stringifyArtifact({ name: 'fixture', values: [1, 2, 3], nested: { ok: true } });
     expect(json).toContain('"values": [1,2,3]');
@@ -55,8 +64,15 @@ describe('geospatial source adapters', () => {
     const result = parseOverpass({
       elements: [
         {
+          type: 'node', id: 99, lon: -122.4005, lat: 37.754,
+          tags: { entrance: 'main', access: 'yes' },
+        },
+        {
           type: 'way', id: 101,
-          tags: { highway: 'primary', lanes: '2', bridge: 'yes' },
+          tags: {
+            highway: 'primary', lanes: '2', bridge: 'yes', width: '8.5 m',
+            surface: 'asphalt', sidewalk: 'both', service: 'alley', access: 'destination',
+          },
           geometry: [
             { lon: -122.401, lat: 37.755 },
             { lon: -122.399, lat: 37.755 },
@@ -64,7 +80,11 @@ describe('geospatial source adapters', () => {
         },
         {
           type: 'way', id: 202,
-          tags: { building: 'industrial', 'building:levels': '3', height: '14.5 m' },
+          tags: {
+            building: 'industrial', 'building:levels': '3', height: '14.5 m',
+            'building:material': 'brick', 'roof:shape': 'sawtooth',
+            'addr:housenumber': '42', 'addr:street': 'Foundry Street', name: 'Forge Works',
+          },
           geometry: [
             { lon: -122.401, lat: 37.754 },
             { lon: -122.400, lat: 37.754 },
@@ -95,17 +115,30 @@ describe('geospatial source adapters', () => {
 
     expect(result.roads).toEqual([expect.objectContaining({
       id: 'way/101', roadClass: 'primary', bridge: true, tunnel: false,
+      lanes: 2, width: 8.5, surface: 'asphalt', sidewalk: 'both',
+      service: 'alley', access: 'destination',
     })]);
     expect(result.buildings).toEqual([expect.objectContaining({
       id: 'way/202', use: 'industrial', floors: 3, height: 14.5,
+      material: 'brick', roofShape: 'sawtooth', address: '42 Foundry Street', name: 'Forge Works',
     })]);
     expect(result.water).toEqual([expect.objectContaining({ id: 'way/303', kind: 'water' })]);
     expect(result.land).toEqual([expect.objectContaining({ id: 'way/404', kind: 'park' })]);
+    expect(result.entrances).toEqual([expect.objectContaining({
+      id: 'node/99', kind: 'main', access: 'yes',
+      point: { longitude: -122.4005, latitude: 37.754 },
+    })]);
   });
 
   it('parses a numeric USGS EPQS elevation', () => {
     expect(parseEpqs({ value: '65.498779297' })).toBeCloseTo(65.4988, 4);
     expect(parseEpqs({ value: 12.25 })).toBe(12.25);
+  });
+
+  it('requests building relations and entrance nodes for semantic compilation', () => {
+    const query = buildOverpassQuery([-77.54, 35.89, -77.53, 35.90]);
+    expect(query).toContain('relation["building"]');
+    expect(query).toContain('node["entrance"]');
   });
 
   it('rejects unavailable USGS EPQS samples', () => {

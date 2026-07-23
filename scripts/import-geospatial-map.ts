@@ -1,8 +1,9 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { artifactFromMap, type GeoMapArtifactV1 } from '../src/sim/geospatial/artifact';
+import { artifactFromMap, type GeoMapArtifact } from '../src/sim/geospatial/artifact';
 import { compileGeospatialMap } from '../src/sim/geospatial/compiler';
+import { fetchAndMatchNsi } from '../src/sim/geospatial/nsi';
 import { fetchElevationGrid, fetchOverpassSlice } from '../src/sim/geospatial/sources';
 import type { GeoSliceSource } from '../src/sim/geospatial/types';
 import { validateTheater } from '../src/sim/theater-builder';
@@ -17,6 +18,7 @@ export interface ImportArgs {
   output: string;
   style: 'default' | 'miami-gardens';
   controlPointNames: [string, string, string];
+  nsi: boolean;
 }
 
 const requiredArgs = ['id', 'name', 'bbox', 'city', 'seed', 'retrieved-at', 'output'] as const;
@@ -62,6 +64,8 @@ export function parseImportArgs(argv: readonly string[]): ImportArgs {
   if (controlPointParts.length !== 3 || controlPointParts.some((name) => !name)) {
     throw new Error('--control-points must contain exactly three non-empty names separated by |');
   }
+  const nsiValue = values.get('nsi') ?? 'false';
+  if (nsiValue !== 'true' && nsiValue !== 'false') throw new Error('--nsi must be true or false');
 
   return {
     id: values.get('id')!,
@@ -73,6 +77,7 @@ export function parseImportArgs(argv: readonly string[]): ImportArgs {
     output: values.get('output')!,
     style,
     controlPointNames: controlPointParts as [string, string, string],
+    nsi: nsiValue === 'true',
   };
 }
 
@@ -88,6 +93,13 @@ const USGS_ATTRIBUTION = {
   url: 'https://www.usgs.gov/3d-elevation-program',
   license: 'US public domain',
   licenseUrl: 'https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits',
+};
+
+const NSI_ATTRIBUTION = {
+  label: 'USACE National Structure Inventory',
+  url: 'https://www.hec.usace.army.mil/confluence/nsi/',
+  license: 'MIT',
+  licenseUrl: 'https://github.com/USACE-NSI/NSI/blob/master/LICENSE',
 };
 
 /** Keep the artifact reviewable without spending one indented line per RLE number. */
@@ -118,10 +130,11 @@ export async function importGeospatialMap(args: ImportArgs): Promise<void> {
   const output = resolve(args.output);
   let source: GeoSliceSource | undefined;
   try {
-    const existing = JSON.parse(await readFile(output, 'utf8')) as GeoMapArtifactV1;
+    const existing = JSON.parse(await readFile(output, 'utf8')) as GeoMapArtifact;
     const cached = existing.geography?.source;
     if (cached?.schemaVersion === 1 && cached.id === args.id && cached.retrievedAt === args.retrievedAt
-      && cached.bbox.every((value, index) => value === args.bbox[index])) {
+      && cached.bbox.every((value, index) => value === args.bbox[index])
+      && (!args.nsi || cached.nsi)) {
       source = cached;
     }
   } catch (error) {
@@ -139,6 +152,9 @@ export async function importGeospatialMap(args: ImportArgs): Promise<void> {
     // 13×13 is enough for the existing three semantic height bands while
     // keeping the public point service load bounded and reproducible.
     const elevation = await fetchElevationGrid(args.bbox, 13, 13);
+    const nsi = args.nsi ? await fetchAndMatchNsi(vectors.buildings, args.bbox) : undefined;
+    const attribution = [OSM_ATTRIBUTION, USGS_ATTRIBUTION];
+    if (nsi?.status === 'matched') attribution.push(NSI_ATTRIBUTION);
     source = {
       schemaVersion: 1,
       id: args.id,
@@ -150,10 +166,12 @@ export async function importGeospatialMap(args: ImportArgs): Promise<void> {
       },
       roads: vectors.roads,
       buildings: vectors.buildings,
+      entrances: vectors.entrances,
       water: vectors.water,
       land: vectors.land,
       elevation,
-      attribution: [OSM_ATTRIBUTION, USGS_ATTRIBUTION],
+      ...(nsi ? { nsi } : {}),
+      attribution,
       retrievedAt: args.retrievedAt,
     };
   }
@@ -191,6 +209,9 @@ export async function importGeospatialMap(args: ImportArgs): Promise<void> {
   const rampCount = compiled.map.ramp?.reduce((count, value) => count + (value === 1 ? 1 : 0), 0) ?? 0;
   console.log(`source (${sourceMode}): ${source.roads.length} roads, ${source.buildings.length} buildings, ${source.water.length} water, ${source.land.length} green`);
   console.log(`skipped features: ${skippedFeatures}`);
+  if (source.nsi) {
+    console.log(`NSI: ${source.nsi.status}; ${source.nsi.matches.length} matched buildings${source.nsi.warning ? `; ${source.nsi.warning}` : ''}`);
+  }
   console.log(`elevation: ${elevationMin.toFixed(1)}m..${elevationMax.toFixed(1)}m; bands ${bands.join('/')}; ${rampCount} ramp tiles`);
   console.log(`gameplay: ${compiled.diagnostics.playableBuildings} enterable buildings; ${compiled.overlay.length} overlay changes`);
   console.log(`validation issues: ${validation.issues.length}`);
