@@ -14,6 +14,7 @@
 // draws before the effect gate, `id % N` off-stream, per-agent time-gates.
 // ===========================================================================
 import { CLASSES, DOG_STATS, VEHICLES, WEAPONS } from './data';
+import { moraleOf } from './morale';
 import {
   T_CLIMB, T_COVER, T_DOOR, T_METAL,
   T_METAL_DOOR, T_OPEN, T_SLIT, T_WALL,
@@ -1321,7 +1322,12 @@ export function stepBot(w: World, s: Soldier, dt: number): PlayerCmd {
     // 1vX clutch. NOT a lone-wolf 1v1 (a mauled duelist still breaks contact) —
     // so it only fires when the team HAD more than one and is down to this one.
     // Only scan the roster when it matters (already low on HP).
-    const lowHp = s.hp < s.maxHp * doc.retreat;
+    // MORALE, the behavioural half (morale.ts). A SHAKEN man breaks contact
+    // sooner and an INSPIRED one holds longer — the same wound reads
+    // differently depending on how the fight has been going. This is the half
+    // that shows on screen: a losing side visibly starts to come apart.
+    const nerve = s.shaken ? 1.5 : moraleOf(s) >= 88 ? 0.7 : 1;
+    const lowHp = s.hp < s.maxHp * doc.retreat * nerve;
     let isLastOfSquad = false;
     if (lowHp) {
       let total = 0, alive = 0;

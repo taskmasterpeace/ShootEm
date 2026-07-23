@@ -28,6 +28,10 @@ import { awardLicence, canEnrol, loadLicences } from './client/licences';
 import { allRecords, fileRun, raceClassOf } from './client/records';
 import { settleMatch, treasuryLine } from './client/treasury';
 import { renderServiceFile } from './client/service-file';
+import { currentRank, fileService } from './client/service';
+import { SKILL_IDS, skillLevel } from './sim/skills';
+import { BAND_LABEL, bandOf as moraleBandOf, moraleOf } from './sim/morale';
+import { budgetMultiplier } from './client/treasury';
 import { Board } from './client/board';
 import { Headphones } from './client/gonet/headphones';
 import { musicDeck } from './client/gonet/player';
@@ -870,6 +874,15 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     hordeRoster, // THE ROSTER LAW: iron never mixes with zombies unless asked
     // B1: banked morale opens the stable richer for YOUR side (capped in-world)
     moraleBoost: [Math.min(3, dossier?.soldier.morale ?? 0), 0],
+    // THE ACCOUNT REACHES THE FIELD. Three things that used to be paperwork
+    // are now inputs the sim actually acts on: the papers you hold (the wheel
+    // is gated), your commission (the stable answers lieutenants), and what
+    // your government funds (the opening manifest).
+    papers: loadLicences().held,
+    rank: currentRank().id,
+    budget: loadIdentity()
+      ? [budgetMultiplier(loadIdentity()!.faction), 1]
+      : undefined,
     // §8.2+33C: a Scar deploy lands on AUTHORED ground, at the tier the
     // lobby's headcount earns — the size rides the id (front@size) so
     // world.ts stays the LSW dev's untouched file.
@@ -1393,6 +1406,10 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
         hud.careerHtml = (hud.careerHtml ?? '')
           + '<p class="cp-row">' + treasuryLine(id0.faction) + '</p>';
         void row;
+        // FILE THE SERVICE. The promotion board reads this — a match that
+        // never gets filed is a match that never counted toward a rank.
+        const bands = SKILL_IDS.reduce((n, id) => n + skillLevel(me.skill?.[id] ?? 0), 0);
+        fileService({ won: result === 'win', kills: me.kills ?? 0, skillBands: bands });
       }
     }
     // LOW-CODE #9: FILE THE RUN. A race that ends without touching the record
@@ -1738,6 +1755,33 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
       const st = cans.state();
       const chip = document.getElementById('cans-chip');
       if (chip) chip.innerHTML = '<b>HEADPHONES</b><span>' + (st.nowPlaying || '—') + '</span><i>WORLD MUFFLED · H</i>';
+    }
+    // MORALE + THE BOARD: two readouts that only appear when they have
+    // something to say. A chip that is always up is wallpaper.
+    {
+      const mChip = document.getElementById('morale-chip');
+      if (mChip) {
+        const m = moraleOf(me);
+        const band = moraleBandOf(m);
+        const show = me.alive && band !== 'steady';
+        mChip.classList.toggle('hidden', !show);
+        if (show) {
+          mChip.className = 'm-' + band;
+          mChip.innerHTML = '<b>' + BAND_LABEL[band] + '</b><i style="width:' + m.toFixed(0) + '%"></i>';
+        }
+      }
+      const bChip = document.getElementById('board-chip');
+      const ride = me.vehicleId >= 0 ? world.vehicles.get(me.vehicleId) : undefined;
+      const tr = ride && ride.kind === 'hoverboard' ? ride.trick : undefined;
+      if (bChip) {
+        bChip.classList.toggle('hidden', !tr);
+        if (tr) {
+          bChip.innerHTML = '<b>BOOST</b><span class="bc-bar"><i style="width:' + tr.boost.toFixed(0) + '%"></i></span>'
+            + (tr.multiplier > 1 ? '<em>×' + Math.floor(tr.multiplier) + '</em>' : '')
+            + (tr.combo > 0 ? '<u>' + Math.round(tr.combo) + '</u>' : '')
+            + (tr.lastTrick ? '<span class="bc-last">' + tr.lastTrick + '</span>' : '');
+        }
+      }
     }
     // THE BOARD, last: every figure it shows is now this frame's truth
     desk.frame(dt * 1000);

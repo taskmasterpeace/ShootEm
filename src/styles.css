@@ -2571,3 +2571,50 @@ body:not(.in-match) #world-clock { left: auto; right: 0.9rem; }
 #cans-chip span { font: 0.68rem var(--font-mono); color: var(--text);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #cans-chip i { font-style: normal; font: 0.5rem var(--font-mono); letter-spacing: 0.1em; color: var(--muted); }
+
+/* ===========================================================================
+   TEETH — the readouts for the five systems that used to be skin.
+   =========================================================================== */
+
+/* MORALE: only on screen when it has left STEADY. */
+#morale-chip {
+  position: absolute; left: 1.25rem; bottom: 14.5rem; z-index: 11;
+  display: grid; gap: 0.16rem; padding: 0.34rem 0.6rem; min-width: 8.5rem;
+  background: oklch(0.14 0.016 74 / 0.82); border-left: 2px solid currentColor;
+  opacity: var(--hud-op, 1); pointer-events: none;
+}
+#morale-chip b { font: 600 0.56rem var(--font); letter-spacing: 0.18em; color: currentColor; }
+#morale-chip i { display: block; height: 3px; background: currentColor; }
+#morale-chip.m-broken { color: var(--danger); }
+#morale-chip.m-shaken { color: oklch(0.74 0.14 45); }
+#morale-chip.m-high { color: var(--accent); }
+#morale-chip.m-inspired { color: var(--ok); }
+
+/* THE BOARD: boost, multiplier, live combo, and the last thing you landed. */
+#board-chip {
+  position: absolute; left: 50%; transform: translateX(-50%); bottom: 6.5rem; z-index: 11;
+  display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.75rem;
+  background: oklch(0.13 0.016 74 / 0.8); border-bottom: 2px solid var(--accent);
+  opacity: var(--hud-op, 1); pointer-events: none; font-family: var(--font-mono);
+}
+#board-chip b { font: 600 0.55rem var(--font); letter-spacing: 0.16em; color: var(--accent); }
+#board-chip .bc-bar { display: block; width: 8rem; height: 5px; background: oklch(0.28 0.02 74); }
+#board-chip .bc-bar i { display: block; height: 100%; background: var(--accent); transition: width 0.1s linear; }
+#board-chip em { font-style: normal; font-size: 0.95rem; color: var(--ok); font-weight: 700; }
+#board-chip u { text-decoration: none; font-size: 0.7rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+#board-chip .bc-last { font: 0.62rem var(--font-mono); letter-spacing: 0.1em; color: var(--text); }
+
+/* THE PROMOTION BOARD in the service file. */
+.sf-rank .sf-rankname {
+  font-family: var(--font-display); font-size: 1.5rem; line-height: 1.1;
+  color: var(--accent); letter-spacing: 0.02em;
+}
+.sf-rank .sf-grants { font-size: 0.72rem; color: var(--text); line-height: 1.5; margin-bottom: 0.5rem; }
+.sf-rankbar { height: 4px; background: oklch(0.26 0.018 74); margin: 0.35rem 0; }
+.sf-rankbar i { display: block; height: 100%; background: var(--accent); }
+.sf-next { border-left: 2px solid oklch(0.34 0.02 74); padding-left: 0.6rem; margin: 0.55rem 0; }
+.sf-next b { display: block; font: 600 0.55rem var(--font); letter-spacing: 0.14em; color: var(--muted); }
+.sf-next span { font-size: 0.7rem; color: var(--text); line-height: 1.45; }
+.sf-auth { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.55rem 0; }
+.sf-auth span { font: 0.5rem var(--font-mono); letter-spacing: 0.1em; padding: 0.14rem 0.4rem;
+  border: 1px solid currentColor; }

@@ -1,4 +1,21 @@
+import type { LicenceId } from './licenses';
+
 export type Team = 0 | 1; // 0 = United Front (amber), 1 = Collective (cyan). Survival: all players team 0.
+
+/**
+ * THE SECONDARY SKILLS — the canon roster (docs/THREE-GAMES-ONE-WAR.md
+ * §"Secondary skills"): *"level independently, THROUGH USE."*
+ *
+ * Not an XP bar. You get better at the rifle by carrying a rifle, and the
+ * effects stay small on purpose — Robert's closing law is that knowledge,
+ * certifications, rank and reputation are the progression, and stats only
+ * help. See src/sim/skills.ts for the bands and what each one actually does.
+ */
+export type SkillId =
+  | 'rifle' | 'smg' | 'lmg' | 'sniper' | 'rocket' | 'knife' | 'pistol'
+  | 'tank_driver' | 'tank_gunner' | 'helicopter' | 'jet' | 'boat'
+  | 'engineer' | 'medic' | 'dog_handler' | 'drone_pilot' | 'radio_operator'
+  | 'commander' | 'navigator' | 'mechanic' | 'explosives' | 'scout';
 
 export type ModeId = 'tdm' | 'ctf' | 'koth' | 'conquest' | 'survival' | 'horde' | 'tide' | 'safehouse' | 'science' | 'range' | 'paintball' | 'race' | 'timetrial' | 'derby' | 'school' | 'threat' | 'shop';
 
@@ -590,6 +607,34 @@ export interface Soldier {
   roomBlocker?: boolean;
   /** THE THREAT ROOM: this body PACES — the shooter's lead-practice target. */
   roomMover?: { origin: Vec3; speed: number; dir: number };
+  /**
+   * THE PAPERS this soldier actually holds (#94's gate). Handed in from the
+   * account at spawn, so the sim stays a pure function of its inputs.
+   *
+   * ABSENT MEANS ISSUED: a bot is trained by the army and drives anything.
+   * Only a body carrying an explicit list can be refused the wheel — which is
+   * exactly the human, whose file the client hands over.
+   */
+  papers?: LicenceId[];
+  /**
+   * SECONDARY SKILLS, levelled THROUGH USE (the canon roster). Keyed by skill,
+   * value is raw practice; `skillLevel()` reads the band. Stories, not power:
+   * the effects are small and the ceiling is low.
+   */
+  skill?: Partial<Record<SkillId, number>>;
+  /**
+   * MORALE, 0..100. What this soldier believes about how it is going. Falls
+   * when friends drop nearby, rises on kills and wins. Low morale shakes the
+   * hands; high morale steadies them.
+   */
+  morale?: number;
+  /**
+   * RANK (ranks.ts). What it buys in the sim is REACH: men inside
+   * `leadershipRadius(rankId)` hold their morale. Absent = one of the men.
+   */
+  rankId?: number;
+  /** derived each tick from morale — a shaken bot fights defensively */
+  shaken?: boolean;
   respawns?: boolean;
   dummyHome?: Vec3;
   /** who last killed this soldier (-1 = nobody/self/environment) — the killcam
@@ -899,6 +944,13 @@ export interface Vehicle {
   /** the fit, resolved ONCE — stepVehicle reads this, never recomputes. */
   fittedDef?: VehicleDef;
   airborneAt?: number;
+  /**
+   * THE BOARD's trick economy (hoverboard only): combo, boost, multiplier and
+   * the run's counters. Absent on every other hull — a tank does not grind.
+   */
+  trick?: import('./boardtricks').TrickState;
+  /** how long the rider has held the launch charge (boost jump) */
+  chargeHeld?: number;
   /** THE CIRCUIT: oiled until this time — the floor lies and you slide. */
   oiledUntil?: number;
   /** THE CIRCUIT: the RDS cargo row, loaded — what this hull can drop. */

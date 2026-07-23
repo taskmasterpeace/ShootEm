@@ -22,6 +22,16 @@ import {
   stairDirectionAt,
 } from './map-layers';
 import { MATERIALS, materialOf, materialForSurface, DRILL_BASE } from './materials';
+import { licenceHeld, LICENCES, licenceFor, type LicenceId } from './licenses';
+import { practise, skillEdge, skillForWeapon, practiceOf } from './skills';
+import {
+  MORALE_SHIFTS, bandOf, moraleOf, moraleSpread, settleMorale, shiftMorale, wantsCover,
+} from './morale';
+import { leadershipRadius, mayCallStable } from './ranks';
+import {
+  boostJump, coolChain, land, newTrickState, spendBoost, stepAir, stepGrind, stepSlide,
+  stepWallRide, BOOST_MAX, HOP_VELOCITY, AIR_BRAKE_DRAG,
+} from './boardtricks';
 import { CARGO, fitted, type Fit } from './garage';
 import { Rng, hash01 } from './rng';
 import {
@@ -106,6 +116,22 @@ export function ballisticFalloff(tracer: string | undefined, range: number, trav
  *  arena fights standing at 14-40u, so it never sees this (see the falloff
  *  balance trap). Airborne = off the ground floor and off the deck (a jump or
  *  jetpack, NOT a soldier standing on a second storey at y=4). */
+/**
+ * THE WHOLE HAND: stance, then what this soldier BELIEVES, then what they
+ * have actually practised. Three small factors that each answer a different
+ * question — am I braced, am I steady, do I know this weapon — and together
+ * they never swing the cone more than about half.
+ *
+ * Kept separate from aimSpreadMul so the stance law stays independently
+ * testable and the threat-measure arena keeps its x1 neutral baseline.
+ */
+export function handSpreadMul(s: Soldier, weapon: WeaponId): number {
+  const skill = skillForWeapon(weapon);
+  // a practised hand groups tighter: skillEdge returns >1, so it DIVIDES
+  const trained = skill ? 1 / skillEdge(practiceOf(s, skill), 1.4) : 1;
+  return aimSpreadMul(s) * moraleSpread(moraleOf(s)) * trained;
+}
+
 export function aimSpreadMul(s: Pick<Soldier, 'crouching' | 'sprinting' | 'floor' | 'pos'>): number {
   if ((s.floor ?? 0) === 0 && s.pos.y > 1.2) return 2.1; // airborne — the loosest
   if (s.crouching) return 0.7;                            // braced — the tightest
@@ -359,6 +385,21 @@ export interface WorldOptions {
   /** B1: morale banked by underfunded victories opens the stable richer —
    *  per team, capped in the constructor so it never floods the economy */
   moraleBoost?: [number, number];
+  /**
+   * THE WAR CHEST, made real. A faction's funding multiplier (see the client's
+   * budgetMultiplier) scaled into the OPENING MANIFEST. It used to describe
+   * itself in a mail and change nothing; now a broke army opens with fewer
+   * materiel and therefore fewer god-calls and requisitions. 1 = fully funded.
+   */
+  budget?: [number, number];
+  /**
+   * THE PAPERS the human player holds, handed over from the account. Given
+   * here, the sim can refuse them the wheel of a hull they never qualified on
+   * — and stay a pure function of its inputs while doing it.
+   */
+  papers?: LicenceId[];
+  /** The human's rank id (see ranks.ts) — the authority to call the stable. */
+  rank?: number;
   matchMinutes?: number;
   /** THE ONE CLOCK (#123): the global day-fraction (0..1, 0 = midnight) at
    *  launch, computed by the CLIENT from UTC (src/client/worldclock.ts).
@@ -641,6 +682,18 @@ export class World {
     if (opts.moraleBoost) {
       for (const t of [0, 1] as const) {
         this.materiel[t] = Math.min(14, this.materiel[t] + Math.min(3, Math.max(0, opts.moraleBoost[t])));
+      }
+    }
+    // THE WAR CHEST, MADE REAL. A faction's funding used to print a sentence
+    // about itself in a mail and change nothing whatsoever. Now it scales the
+    // OPENING MANIFEST: a broke army genuinely fields less — fewer
+    // requisitions, fewer god-calls — and a well-funded one opens its stable.
+    // Clamped at both ends: never starve a side out of the game (4), never let
+    // money alone win it (14).
+    if (opts.budget) {
+      for (const t of [0, 1] as const) {
+        const mult = Math.max(0.5, Math.min(1.4, opts.budget[t]));
+        this.materiel[t] = Math.max(4, Math.min(14, Math.round(this.materiel[t] * mult)));
       }
     }
     if (opts.operationBonuses) this.applyOperationBattleBonuses(opts.operationBonuses);
@@ -977,6 +1030,17 @@ export class World {
       }
       s.squadId = team * 100 + Math.floor(mates / 4);
     }
+    // THE ACCOUNT REACHES THE BODY. The papers you hold and the commission you
+    // earned belong to the ACCOUNT, so they are stamped onto the human print at
+    // the moment it is made — the sim never reads storage, it is handed
+    // everything at the door.
+    //
+    // Papers ABSENT means ISSUED, which is exactly right for a bot: the army
+    // trained it and it drives anything. Only the human can be refused.
+    if (kind === 'human') {
+      if (this.opts.papers) s.papers = [...this.opts.papers];
+      if (this.opts.rank !== undefined) s.rankId = this.opts.rank;
+    }
     this.soldiers.set(s.id, s);
     this.soldierIndex.add(s); // queryable the tick it spawns (opt #38)
     this.rosterCache = null;  // opt #8: the ONLY human/bot add site — drop the cache
@@ -1095,6 +1159,17 @@ export class World {
    */
   requestLsw(id: AscendantId, team: Team, callerId = -1): boolean {
     if (!lswAllowed(this.mode.id)) return false;
+    // EARNED RESPONSIBILITY (ranks.ts): the stable answers a COMMISSION.
+    // Spending the war's materiel on a god is the biggest call a player can
+    // make, and until now anyone could make it. A human caller needs the
+    // rank; the AI commander (callerId < 0) still calls for its side.
+    if (callerId >= 0) {
+      const caller = this.soldiers.get(callerId);
+      if (caller?.kind === 'human' && this.opts.rank !== undefined && !mayCallStable(this.opts.rank)) {
+        this.emit({ type: 'announce', soldierId: callerId, text: 'THE STABLE ANSWERS LIEUTENANTS — YOU ARE NOT COMMISSIONED' });
+        return false;
+      }
+    }
     // W3.4 PASS ESCALATION: the front's pass gates the stables. P1 = the
     // gods sleep; P2 = only the ENEMY stable (team 1, the Collective)
     // answers — the war escalates AT you before it escalates FOR you;
@@ -2287,6 +2362,28 @@ export class World {
     // M1: a LOUD LANDING rings for a beat — a leap arrival pings like gunfire
     for (const s of this.soldiers.values()) {
       if (s.alive && (s.loudUntil ?? 0) > this.time) this.pinged.add(s.id);
+    }
+
+    // MORALE, the slow half: a man alone loses his nerve, a man with rank
+    // near him keeps it, and a quiet minute puts everyone back toward the
+    // baseline. Leadership REACH is what rank actually buys (ranks.ts) — the
+    // authority a corporal has is that the men beside him steady.
+    for (const s of this.soldiers.values()) {
+      if (!s.alive || isZed(s.kind) || s.kind === 'dog' || s.ascendant !== undefined) continue;
+      let friends = 0;
+      let led = 0;
+      for (const o of this.soldiers.values()) {
+        if (!o.alive || o.id === s.id || o.team !== s.team || isZed(o.kind)) continue;
+        const d = Math.hypot(o.pos.x - s.pos.x, o.pos.z - s.pos.z);
+        if (d < 30) friends++;
+        const reach = leadershipRadius(o.rankId ?? 0);
+        if (reach > 0 && d < reach) led = Math.max(led, 1 - d / reach);
+      }
+      if (!friends) shiftMorale(s, MORALE_SHIFTS.alone * dt);
+      if (led > 0) shiftMorale(s, MORALE_SHIFTS.ledWell * led * dt);
+      settleMorale(s, dt);
+      // the behavioural half: a shaken bot wants cover, and says so to the AI
+      s.shaken = s.kind === 'bot' && wantsCover(moraleOf(s));
     }
     this.applyReconCountermeasures();
     this.updateLastSeen();
@@ -4469,7 +4566,7 @@ export class World {
     // leads). Core weapons carry no brand — nothing here moves for them.
     if (def.brand === 'kamenel') speed *= 1.15;
     // W1.1: stance + motion bend the cone (crouch braces, sprint/airborne spray)
-    const spread = (this.rng.next() - 0.5) * 2 * def.spread * aimSpreadMul(s)
+    const spread = (this.rng.next() - 0.5) * 2 * def.spread * handSpreadMul(s, def.id)
       * (def.brand === 'maklov' ? 0.75 : 1);
     const yaw = s.yaw + spread;
     // Arc launch: pick vy so the shell returns to the ground exactly when it
@@ -5280,6 +5377,18 @@ export class World {
     });
   }
 
+  /**
+   * May this soldier take the WHEEL of that hull?
+   *
+   * A body with no `papers` array is ISSUED — the army trained it, and every
+   * bot in the game falls through here untouched. Only the human, whose file
+   * the client hands over at spawn, can be told no.
+   */
+  mayDrive(s: Soldier, kind: VehicleKind): boolean {
+    if (!s.papers) return true;
+    return licenceHeld(s.papers, kind);
+  }
+
   tryEnterVehicle(s: Soldier) {
     // A GOD WALKS (Robert, on Firebrand: "He shouldn't be able to get in
     // vehicles"). A 1600 HP strongpoint riding a jeep is neither threat nor
@@ -5303,6 +5412,14 @@ export class World {
             }
           }
         }
+        // THE PAPERS (#94): licenceHeld() has existed since the register was
+        // written and NOTHING EVER CALLED IT. Now the wheel is a gate — but
+        // only the wheel. A soldier without the ticket may still climb in the
+        // back, which is both kinder and truer: you are not barred from the
+        // truck, you are barred from DRIVING the truck.
+        //
+        // Papers ABSENT means issued (every bot is trained by the army), so
+        // this can only ever refuse a body the client handed a file for.
         // W5.6 PER-HATCH ENTRY (diegetic): a human's seat follows the hatch
         // they walked to — the NOSE takes the wheel, the TAIL takes a bench
         // (the wheel only from the back if it's the last seat there is).
@@ -5313,6 +5430,23 @@ export class World {
           for (let i = 0; i < v.seats.length; i++) if (v.seats[i] < 0) free.push(i);
           const fwd = Math.cos(v.yaw) * (s.pos.x - v.pos.x) + Math.sin(v.yaw) * (s.pos.z - v.pos.z);
           seat = fwd >= 0 ? free[0] : (free.find((i) => i > 0) ?? free[0]);
+        }
+        // refuse the wheel, offer the bench
+        if (seat === 0 && !this.mayDrive(s, v.kind)) {
+          const bench = v.seats.findIndex((x, i) => i > 0 && x < 0);
+          const need = LICENCES[licenceFor(v.kind)];
+          if (bench < 0) {
+            this.emit({
+              type: 'announce', soldierId: s.id,
+              text: `${VEHICLES[v.kind].name.toUpperCase()} — NOT CERTIFIED · ${need.name.toUpperCase()} (${need.school})`,
+            });
+            return;
+          }
+          seat = bench;
+          this.emit({
+            type: 'announce', soldierId: s.id,
+            text: `NOT CERTIFIED TO DRIVE — RIDING · ${need.name.toUpperCase()} at ${need.school}`,
+          });
         }
         if (seat >= 0) {
           v.seats[seat] = s.id;
@@ -5443,6 +5577,140 @@ export class World {
     while (d < -Math.PI) d += 2 * Math.PI;
     const MAX = Math.PI / 3;
     return Math.abs(d) <= MAX ? aimYaw : v.yaw + Math.sign(d) * MAX;
+  }
+
+  /**
+   * THE BOARD — "Tony Hawk meets Halo" (boardtricks.ts holds the economy).
+   *
+   * Nine verbs were on the canon sheet and none of them were in the game.
+   * This is the loop that makes them real: airtime and spin and grinds and
+   * slides build a COMBO, the landing decides whether you keep it, and what
+   * you keep becomes BOOST. Spend boost to go faster and reach the lines you
+   * could not otherwise reach.
+   *
+   * The board is a `hover` hull, so it sits outside the wheeled landing
+   * physics entirely — it needs its own gravity, and gets it here.
+   */
+  private stepBoard(v: Vehicle, cmd: PlayerCmd | undefined, dt: number): void {
+    const tr = (v.trick ??= newTrickState());
+    const groundY = terrainTopAt(this.map.height, v.pos.x, v.pos.z, this.map.geometry);
+    const speed = Math.hypot(v.vel.x, v.vel.z);
+    const speed01 = Math.min(1, speed / 24);
+
+    // the nose against the line of travel — the number every landing is judged on
+    let yawDelta = v.yaw - (tr.lastYaw ?? v.yaw);
+    while (yawDelta > Math.PI) yawDelta -= 2 * Math.PI;
+    while (yawDelta < -Math.PI) yawDelta += 2 * Math.PI;
+    tr.lastYaw = v.yaw;
+
+    const airborne = v.pos.y > groundY + 0.14;
+
+    // ---- THE HOP and THE BOOST JUMP -------------------------------------
+    // Tapping jump hops (free, small, the door to everything). HOLDING it on
+    // the ground charges a boost jump, which costs boost and launches high.
+    if (!airborne && cmd?.jump) {
+      v.chargeHeld = (v.chargeHeld ?? 0) + dt;
+    } else if (!airborne && (v.chargeHeld ?? 0) > 0) {
+      const held = v.chargeHeld ?? 0;
+      v.chargeHeld = 0;
+      if (held >= 0.28) {
+        const up = boostJump(tr, Math.min(1, (held - 0.28) / 0.6));
+        if (up > 0) {
+          v.vel.y = up;
+          this.emit({ type: 'jetpack', pos: { ...v.pos }, vehicleId: v.id });
+        } else { v.vel.y = HOP_VELOCITY; }
+      } else {
+        v.vel.y = HOP_VELOCITY;
+      }
+    }
+
+    // ---- gravity, and the air --------------------------------------------
+    if (airborne || (v.vel.y ?? 0) > 0.01) {
+      v.vel.y = (v.vel.y ?? 0) - 22 * dt;
+      v.pos.y += v.vel.y * dt;
+      v.airborneAt = v.airborneAt ?? this.time;
+      stepAir(tr, dt, yawDelta);
+      // THE AIR BRAKE: crouch in the air kills drift so a bad line can still
+      // be saved — the verb that turns a wipeout into a landing.
+      if (cmd?.crouch) {
+        const k = Math.max(0, 1 - AIR_BRAKE_DRAG * dt);
+        v.vel.x *= k; v.vel.z *= k;
+      }
+      // WALL RIDE: airborne, fast, and a building within reach to the side.
+      const sx = v.pos.x + Math.cos(v.yaw + Math.PI / 2) * 1.3;
+      const sz = v.pos.z + Math.sin(v.yaw + Math.PI / 2) * 1.3;
+      const ox = v.pos.x + Math.cos(v.yaw - Math.PI / 2) * 1.3;
+      const oz = v.pos.z + Math.sin(v.yaw - Math.PI / 2) * 1.3;
+      if (speed > 9 && (this.buildingAt(sx, sz) || this.buildingAt(ox, oz))) {
+        stepWallRide(tr, dt);
+        v.vel.y = Math.max(v.vel.y, -1.4); // the wall holds you up while you ride it
+      }
+    }
+
+    // ---- THE LANDING: where the run is won or lost -----------------------
+    if (v.pos.y <= groundY) {
+      const wasAir = v.airborneAt !== undefined;
+      v.pos.y = groundY;
+      v.airborneAt = undefined;
+      if (wasAir) {
+        // alignment: how well the nose agrees with the direction of travel.
+        // Straight = 1, fully sideways = 0. Land facing your line.
+        let align = 1;
+        if (speed > 1.2) {
+          const travel = Math.atan2(v.vel.z, v.vel.x);
+          let off = v.yaw - travel;
+          while (off > Math.PI) off -= 2 * Math.PI;
+          while (off < -Math.PI) off += 2 * Math.PI;
+          align = Math.max(0, 1 - Math.abs(off) / (Math.PI / 2));
+        }
+        const result = land(tr, align, this.time);
+        v.vel.y = 0;
+        if (result.name && result.landed) {
+          this.emit({
+            type: 'announce', vehicleId: v.id, pos: { ...v.pos },
+            text: `${result.name} ×${result.multiplier} · +${Math.round(result.boost)} BOOST`,
+          });
+        } else if (!result.landed) {
+          // BAILED: you eat it. Speed is gone and the board is mush for a beat.
+          v.vel.x *= 0.25; v.vel.z *= 0.25;
+          this.emit({ type: 'announce', vehicleId: v.id, pos: { ...v.pos }, text: 'BAILED' });
+          this.emit({ type: 'corpse_slam', pos: { ...v.pos } });
+        }
+      } else {
+        v.vel.y = 0;
+        coolChain(tr, dt);
+      }
+    }
+
+    // ---- GROUND VERBS: the power slide, and the grind --------------------
+    if (!airborne) {
+      if (speed > 2) {
+        const travel = Math.atan2(v.vel.z, v.vel.x);
+        let slip = v.yaw - travel;
+        while (slip > Math.PI) slip -= 2 * Math.PI;
+        while (slip < -Math.PI) slip += 2 * Math.PI;
+        stepSlide(tr, dt, slip, speed01);
+      }
+      // GRIND: running the line of a wall at speed locks you to it and pays.
+      const gx = v.pos.x + Math.cos(v.yaw + Math.PI / 2) * 1.1;
+      const gz = v.pos.z + Math.sin(v.yaw + Math.PI / 2) * 1.1;
+      const hx = v.pos.x + Math.cos(v.yaw - Math.PI / 2) * 1.1;
+      const hz = v.pos.z + Math.sin(v.yaw - Math.PI / 2) * 1.1;
+      if (speed > 7 && (this.buildingAt(gx, gz) || this.buildingAt(hx, hz))) stepGrind(tr, dt);
+    }
+
+    // ---- SPENDING -------------------------------------------------------
+    // Fire on a weaponless board is the boost trigger — the one hull with no
+    // gun gets its trigger back for something better.
+    const boosting = !!cmd?.fire && tr.boost > 0 && this.time >= tr.bailedUntil;
+    const mul = spendBoost(tr, dt, boosting);
+    if (mul > 1) {
+      v.vel.x *= 1 + (mul - 1) * dt * 4;
+      v.vel.z *= 1 + (mul - 1) * dt * 4;
+      if (speed < 1) { v.vel.x += Math.cos(v.yaw) * 6 * dt; v.vel.z += Math.sin(v.yaw) * 6 * dt; }
+    }
+    // a bail leaves the board unresponsive for its window
+    if (this.time < tr.bailedUntil) { v.vel.x *= 0.94; v.vel.z *= 0.94; }
   }
 
   stepVehicle(v: Vehicle, cmds: Map<number, PlayerCmd>, dt: number) {
@@ -5844,6 +6112,9 @@ export class World {
       v.vel.x = 0; v.vel.z = 0;
       if (driverCmd) v.turretYaw = driverCmd.aimYaw;
     }
+
+    // THE BOARD keeps its own physics and its own economy
+    if (v.kind === 'hoverboard') this.stepBoard(v, stunned ? undefined : driverCmd, dt);
 
     // ---- run over enemies (ground vehicles at speed) ----
     const speedNow = Math.hypot(v.vel.x, v.vel.z);
@@ -7172,6 +7443,21 @@ export class World {
       if (absorbed > 0) this.emit({ type: 'damage', pos: { x: victim.pos.x, y: victim.pos.y + 1.7, z: victim.pos.z }, amount: absorbed, armorHit: true, soldierId: victim.id, ownerId: attackerId, weapon });
       if (dmg <= 0) return; // the plate held
     }
+    // PRACTICE (skills.ts): you get better at the rifle by LANDING rounds with
+    // a rifle. Half a point per application, against bands that run to 900 —
+    // so a skill is a campaign's worth of doing one thing, never an afternoon.
+    if (dmg > 0 && attackerId >= 0 && attackerId !== victim.id) {
+      const shooter = this.soldiers.get(attackerId);
+      const trains = skillForWeapon(weapon);
+      // SKILLS BELONG TO SOLDIERS. A god does not get better with practice —
+      // its threat IS its card, and the whole threat table is measured against
+      // that card. (Caught by tests/threat-measure: a practising Barrier
+      // sharpened its own aim, cut down the answering squad faster, and pushed
+      // its own time-to-kill out past the T1 band.) Zeds and dogs likewise.
+      const trainable = shooter && shooter.ascendant === undefined
+        && (shooter.kind === 'human' || shooter.kind === 'bot');
+      if (shooter && trainable && trains && shooter.team !== victim.team) practise(shooter, trains, 0.5);
+    }
     victim.hp -= dmg;
     if (dmg > 0) this.emit({ type: 'damage', pos: { x: victim.pos.x, y: victim.pos.y + 1.7, z: victim.pos.z }, amount: dmg, armorHit: false, soldierId: victim.id, ownerId: attackerId, weapon });
     // UI-BIBLE §09 DAMAGE DIRECTION: the victim's client draws a red arc at
@@ -7220,6 +7506,26 @@ export class World {
       victim.hp = 0;
       victim.alive = false;
       victim.deaths++;
+      // MORALE: a death is the loudest thing that happens to the men who see
+      // it. Friends nearby lose their nerve; the killer gains. This is the
+      // half of morale that makes a firefight feel like it is going badly
+      // BEFORE the scoreboard says so.
+      for (const w of this.soldiers.values()) {
+        if (!w.alive || w.id === victim.id || isZed(w.kind) || w.ascendant !== undefined) continue;
+        const d = Math.hypot(w.pos.x - victim.pos.x, w.pos.z - victim.pos.z);
+        if (d > 26) continue;
+        const near = 1 - d / 26;
+        if (w.team === victim.team) shiftMorale(w, MORALE_SHIFTS.friendDown * near);
+      }
+      const killer = attackerId >= 0 ? this.soldiers.get(attackerId) : undefined;
+      // A GOD HAS NO MORALE — its threat is its card, and the whole threat
+      // table is measured against that card. (tests/threat-measure caught a
+      // Barrier climbing to INSPIRED off the squad it was killing, tightening
+      // its own group and pushing its time-to-kill out past the T1 band.)
+      if (killer && killer.id !== victim.id && killer.team !== victim.team
+          && killer.ascendant === undefined) {
+        shiftMorale(killer, MORALE_SHIFTS.kill);
+      }
       victim.downed = false; // the middle state ends here — one death, counted once
       victim.downedUntil = 0;
       victim.reviveProgress = 0;
