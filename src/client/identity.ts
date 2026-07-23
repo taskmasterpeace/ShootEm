@@ -23,6 +23,42 @@ export interface PlayerIdentity {
   faction: NationFaction;
   /** When they enlisted (client clock — biography, not sim). */
   created: number;
+  /** PERSONNEL INTAKE (THREE-GAMES-ONE-WAR §Prints): the psychological
+   *  profile — three answers, a recommended first assignment, and the
+   *  temperament the ministry stamped on the file. Absent on pre-intake
+   *  records (they enlisted before the psych desk existed). */
+  psych?: { answers: string[]; recommended: string; temperament: string };
+  /** Which print of this account is walking (canon vocabulary: PRINT). */
+  print?: number;
+}
+
+// ── THE PSYCH DESK (intake phase 3) — three questions, one recommendation ──
+// Each answer is a CLASS LEAN. The recommendation is the majority lean;
+// ties break toward the FIRST answer given (your gut spoke first). Pure —
+// tests/intake.test.ts pins the mapping.
+export function recommendClass(answers: string[]): string {
+  const counts = new Map<string, number>();
+  for (const a of answers) counts.set(a, (counts.get(a) ?? 0) + 1);
+  let best = answers[0] ?? 'infantry', bestN = 0;
+  for (const a of answers) {
+    const n = counts.get(a)!;
+    if (n > bestN) { best = a; bestN = n; }
+  }
+  return best;
+}
+
+/** The word the ministry stamps beside the recommendation. */
+export function temperamentFor(recommended: string): string {
+  switch (recommended) {
+    case 'heavy': return 'UNMOVABLE';
+    case 'jump': return 'DARING';
+    case 'engineer': return 'TECHNICAL';
+    case 'medic': return 'STEADFAST';
+    case 'infiltrator': return 'QUIET';
+    case 'pathfinder': return 'RESTLESS';
+    case 'ghost': return 'WATCHFUL';
+    default: return 'STEADY'; // infantry — the line holds because they do
+  }
 }
 
 /** TEAM_NAMES order in src/sim/data.ts is [United Front, Collective]. */

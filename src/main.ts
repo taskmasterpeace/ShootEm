@@ -1982,6 +1982,11 @@ function applyIdentity(id: PlayerIdentity) {
   const nameInput = $('player-name') as HTMLInputElement;
   if (nameInput) nameInput.value = id.callsign;
   playerTeam = factionTeam(id.faction);
+  // PERSONNEL INTAKE: the psych desk's recommendation is the deploy screen's
+  // opening stance — the ministry suggested the post; the player can refuse
+  // it with one click, but the first sight of the war matches the file.
+  const rec = id.psych?.recommended as ClassId | undefined;
+  if (rec && CLASSES[rec] && selectedClass !== rec) { selectedClass = rec; buildMenu(); }
 }
 // §14 THE FIRST HOUR, re-hung (#48): the front-door commit orphaned the boot
 // camp — mountOnboarding lost its only caller and the paintball yard became

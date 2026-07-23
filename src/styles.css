@@ -1914,3 +1914,31 @@ body.touch #hud-bottom-left { bottom: auto; top: 3.2rem; left: calc(max(0.75rem,
 }
 #mode-cats button:hover { border-color: var(--accent); color: var(--accent); }
 #mode-cats button.on { background: var(--accent); color: #141210; border-color: var(--accent); font-weight: 700; }
+
+/* ── PERSONNEL INTAKE: the psych desk + the print bay ──────────────────── */
+.enl-psych { display: flex; flex-direction: column; gap: 0.6rem; max-width: 34rem; margin: 0 auto; }
+.psy-count { font: 700 0.66rem var(--font-mono); letter-spacing: 0.18em; color: var(--muted); }
+.psy-q { font-family: var(--font-display); font-size: 1.25rem; letter-spacing: 0.04em; margin-bottom: 0.4rem; }
+.psy-opt {
+  text-align: left; font: 500 0.85rem var(--font-mono); letter-spacing: 0.03em;
+  padding: 0.75rem 1rem; cursor: pointer; color: var(--fg, #d8d4c8);
+  background: oklch(0.17 0.012 80 / 0.7); border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+}
+.psy-opt:hover { border-color: var(--accent); border-left-color: var(--accent); color: var(--accent); }
+
+.print-bay { display: flex; gap: 1.1rem; max-width: 36rem; margin: 0 auto 0.8rem; align-items: stretch; }
+.print-vat {
+  width: 3.4rem; min-height: 13rem; position: relative; overflow: hidden;
+  border: 1px solid var(--accent); background: oklch(0.13 0.01 80 / 0.8);
+}
+.print-fill {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 0%;
+  background: linear-gradient(0deg, oklch(0.55 0.12 70 / 0.85), oklch(0.72 0.14 80 / 0.55));
+  transition: height 0.55s ease; box-shadow: 0 0 18px oklch(0.7 0.14 80 / 0.5);
+}
+.print-log { flex: 1; font: 500 0.78rem var(--font-mono); letter-spacing: 0.05em; color: oklch(0.85 0.02 80); display: flex; flex-direction: column; gap: 0.34rem; justify-content: flex-end; }
+.print-log div { animation: print-line 0.3s ease-out; }
+@keyframes print-line { from { opacity: 0; transform: translateX(-6px); } }
+.print-wake { font-family: var(--font-display); font-size: 1.5rem; letter-spacing: 0.04em; color: var(--accent); text-align: center; margin: 0.6rem 0 0.8rem; }
+.print-wake.hidden { display: none; }
