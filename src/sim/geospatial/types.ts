@@ -218,6 +218,12 @@ export interface DistrictDiagnostics {
   walkableIslands: number[][];
   removedBuildings: Array<{ id: string; reason: string }>;
   warnings: string[];
+  embeddedInteriorCount?: number;
+  instancedInteriorCount?: number;
+  sealedBuildingCount?: number;
+  heightBands?: Record<string, number>;
+  useCounts?: Record<string, number>;
+  renderBatchEstimate?: number;
 }
 
 export interface SemanticDistrict {

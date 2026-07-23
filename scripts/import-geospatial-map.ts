@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { artifactFromMap, type GeoMapArtifact } from '../src/sim/geospatial/artifact';
 import { compileGeospatialMap } from '../src/sim/geospatial/compiler';
 import { fetchAndMatchNsi } from '../src/sim/geospatial/nsi';
+import { districtHardIssues } from '../src/sim/geospatial/diagnostics';
 import { fetchElevationGrid, fetchOverpassSlice } from '../src/sim/geospatial/sources';
 import type { GeoSliceSource } from '../src/sim/geospatial/types';
 import { validateTheater } from '../src/sim/theater-builder';
@@ -109,7 +110,7 @@ export function stringifyArtifact(value: unknown): string {
   const markerPrefix = '__WARWORLD_NUMERIC_ARRAY_';
   const sectionPrefix = '__WARWORLD_COMPACT_SECTION_';
   const pretty = JSON.stringify(value, (key, candidate) => {
-    if ((key === 'source' || key === 'overlay') && candidate && typeof candidate === 'object') {
+    if ((key === 'source' || key === 'overlay' || key === 'district') && candidate && typeof candidate === 'object') {
       const marker = `${sectionPrefix}${compactSections.length}__`;
       compactSections.push(JSON.stringify(candidate));
       return marker;
@@ -182,14 +183,15 @@ export async function importGeospatialMap(args: ImportArgs): Promise<void> {
     geometry: { cols: 300, rows: 300, tile: 3 },
     style: args.style,
     controlPointNames: args.controlPointNames,
-    maxPlayableBuildings: 6,
+    maxPlayableBuildings: 12,
   });
   const bands = [0, 0, 0];
   for (const value of compiled.map.height ?? []) bands[value]++;
   if ((compiled.map.height ?? []).some((value) => value > 2)) {
     throw new Error(`terrain produced an invalid height band (${bands.join(', ')})`);
   }
-  if (compiled.diagnostics.playableBuildings < 1) throw new Error('no source parcel could host an enterable building');
+  const semanticIssues = districtHardIssues(compiled.district, 6);
+  if (semanticIssues.length) throw new Error(`semantic district validation failed: ${semanticIssues.join('; ')}`);
   const validation = validateTheater(compiled.map);
   if (!validation.ok) throw new Error(`compiled theater validation failed: ${validation.issues.join('; ')}`);
 
@@ -214,6 +216,7 @@ export async function importGeospatialMap(args: ImportArgs): Promise<void> {
   }
   console.log(`elevation: ${elevationMin.toFixed(1)}m..${elevationMax.toFixed(1)}m; bands ${bands.join('/')}; ${rampCount} ramp tiles`);
   console.log(`gameplay: ${compiled.diagnostics.playableBuildings} enterable buildings; ${compiled.overlay.length} overlay changes`);
+  console.log(`semantics: ${(compiled.district.diagnostics.footprintRetention * 100).toFixed(1)}% footprints; ${compiled.district.blocks.length} blocks; ${compiled.district.lots.length} lots; ${compiled.district.buildings.length} buildings`);
   console.log(`validation issues: ${validation.issues.length}`);
   console.log(`artifact: ${bytes} bytes -> ${output}`);
 }

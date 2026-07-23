@@ -246,12 +246,12 @@ export interface DistrictProfile {
 - Modify: `tests/geospatial-compiler.test.ts`
 - Create: `tests/geospatial-diagnostics.test.ts`
 
-- [ ] Write failing end-to-end fixture tests for the required acceptance metrics.
-- [ ] Change `compileGeospatialMap` to produce `district` and drive compilation in this order: project → street graph → terrain/water → blocks → lots → building semantics → entrances/access → embedded interiors → mission anchors → audits.
-- [ ] Preserve source footprints whenever they clear the confidence threshold. Mark a footprint removed only with a diagnostic reason.
-- [ ] Replace the hard six-interior default with profile-aware `minPlayableBuildings: 6` and `maxPlayableBuildings: 12`.
-- [ ] Add diagnostics for footprint retention, overlaps, entrances, mission reachability, vehicle anchors, walkable islands, source/type/height distributions, and render batches.
-- [ ] Make the importer fail before writing an artifact when any hard invariant fails:
+- [x] Write failing end-to-end fixture tests for the required acceptance metrics.
+- [x] Change `compileGeospatialMap` to produce `district` and drive compilation in this order: project → street graph → terrain/water → blocks → lots → building semantics → entrances/access → embedded interiors → mission anchors → audits.
+- [x] Preserve source footprints whenever they clear the confidence threshold. Mark a footprint removed only with a diagnostic reason.
+- [x] Replace the hard six-interior default with profile-aware `minPlayableBuildings: 6` and `maxPlayableBuildings: 12`.
+- [x] Add diagnostics for footprint retention, overlaps, entrances, mission reachability, vehicle anchors, walkable islands, source/type/height distributions, and render batches.
+- [x] Make the importer fail before writing an artifact when any hard invariant fails:
 
 ```ts
 if (district.diagnostics.footprintRetention < 0.95) throw new Error('footprint retention below 95%');
@@ -261,9 +261,9 @@ if (!district.diagnostics.vehicleAnchorsConnected) throw new Error('vehicle anch
 if (district.diagnostics.walkableIslands.length) throw new Error('inaccessible walkable island');
 ```
 
-- [ ] Print a concise semantic/audit report at import time and store it in the artifact.
-- [ ] Run `npx vitest run tests/geospatial-compiler.test.ts tests/geospatial-diagnostics.test.ts tests/geospatial-artifact.test.ts`.
-- [ ] Commit: `feat: compile audited semantic districts`
+- [x] Print a concise semantic/audit report at import time and store it in the artifact.
+- [x] Run `npx vitest run tests/geospatial-compiler.test.ts tests/geospatial-diagnostics.test.ts tests/geospatial-artifact.test.ts`.
+- [x] Commit: `feat: compile audited semantic districts`
 
 ## Task 7: Render full semantic building exteriors efficiently
 

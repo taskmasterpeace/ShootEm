@@ -32,6 +32,7 @@ import { compileTerrain } from './terrain';
 import { buildStreetNetwork } from './street-network';
 import { deriveNeighborhood, type NeighborhoodLayout } from './neighborhood';
 import { inferBuildingSemantics, profileFor } from './profiles';
+import { auditBuildingRoadOverlap, auditEntranceConnectivity } from './neighborhood';
 import type {
   DistrictProfileId,
   GeoBuilding,
@@ -39,6 +40,7 @@ import type {
   ProjectedGeoBuilding,
   ProjectedGeoSlice,
   SemanticBuilding,
+  SemanticDistrict,
 } from './types';
 
 export const GEO_CLASS_EMPTY = 0;
@@ -65,6 +67,7 @@ export interface CompiledGeospatialMap {
   projected: ProjectedGeoSlice;
   neighborhood: NeighborhoodLayout;
   semanticBuildings: SemanticBuilding[];
+  district: SemanticDistrict;
   diagnostics: {
     sourceRoads: number;
     sourceBuildings: number;
@@ -229,13 +232,16 @@ function stampPlayableBuildings(
   accessRoadCells: ReadonlySet<number>,
   overlay: GameplayOverlayChange[],
   limit: number,
-): number {
-  if (limit <= 0) return 0;
+  eligibleBuildingIds?: ReadonlySet<string>,
+): { count: number; buildingIds: string[] } {
+  if (limit <= 0) return { count: 0, buildingIds: [] };
   const candidates = projectedBuildings
     .map((building, index) => ({ building, source: sourceBuildings[index], bounds: boundsOf(building, map.geometry) }))
+    .filter((candidate) => !eligibleBuildingIds || eligibleBuildingIds.has(candidate.building.id))
     .sort((a, b) => b.bounds.area - a.bounds.area || a.building.id.localeCompare(b.building.id));
   const occupied: Array<{ minX: number; minZ: number; maxX: number; maxZ: number }> = [];
   let stamped = 0;
+  const buildingIds: string[] = [];
   for (let index = 0; index < candidates.length && stamped < limit; index++) {
     const candidate = candidates[index];
     const floors = Math.max(1, Math.min(3, Math.round(candidate.source.floors ?? ((candidate.source.height ?? 4) / 4)))) as 1 | 2 | 3;
@@ -321,8 +327,9 @@ function stampPlayableBuildings(
       }
     }
     stamped++;
+    buildingIds.push(candidate.building.id);
   }
-  return stamped;
+  return { count: stamped, buildingIds };
 }
 
 function backgroundBuildingHeight(
@@ -444,6 +451,66 @@ function sealUnreachablePockets(map: GameMap, start: number, overlay: GameplayOv
   }
 }
 
+function reachableWalkCells(map: GameMap, start: number): Uint8Array {
+  const seen = new Uint8Array(map.grid.length);
+  if (start < 0 || start >= map.grid.length || !frontWalkable(map.grid[start])) return seen;
+  const queue = [start];
+  seen[start] = 1;
+  for (let cursor = 0; cursor < queue.length; cursor++) {
+    const index = queue[cursor];
+    const x = index % map.geometry.cols;
+    const z = Math.floor(index / map.geometry.cols);
+    for (const [dx, dz] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) {
+      const nx = x + dx;
+      const nz = z + dz;
+      if (!inBounds(map.geometry, nx, nz)) continue;
+      const next = tileIndex(map.geometry, nx, nz);
+      if (!seen[next] && frontWalkable(map.grid[next])) {
+        seen[next] = 1;
+        queue.push(next);
+      }
+    }
+  }
+  return seen;
+}
+
+function walkableIslands(map: GameMap, start: number): number[][] {
+  const reachable = reachableWalkCells(map, start);
+  const remaining = new Set<number>();
+  for (let index = 0; index < map.grid.length; index++) {
+    if (frontWalkable(map.grid[index]) && !reachable[index]) remaining.add(index);
+  }
+  const islands: number[][] = [];
+  while (remaining.size) {
+    const seed = remaining.values().next().value as number;
+    remaining.delete(seed);
+    const island = [seed];
+    for (let cursor = 0; cursor < island.length; cursor++) {
+      const index = island[cursor];
+      const x = index % map.geometry.cols;
+      const z = Math.floor(index / map.geometry.cols);
+      for (const [dx, dz] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) {
+        const nx = x + dx;
+        const nz = z + dz;
+        if (!inBounds(map.geometry, nx, nz)) continue;
+        const next = tileIndex(map.geometry, nx, nz);
+        if (remaining.delete(next)) island.push(next);
+      }
+    }
+    islands.push(island.sort((a, b) => a - b));
+  }
+  return islands.sort((a, b) => b.length - a.length || a[0] - b[0]);
+}
+
+function countBy<T>(items: readonly T[], value: (item: T) => string): Record<string, number> {
+  const result: Record<string, number> = {};
+  for (const item of items) {
+    const key = value(item);
+    result[key] = (result[key] ?? 0) + 1;
+  }
+  return result;
+}
+
 export function compileGeospatialMap(
   source: GeoSliceSource,
   options: CompileGeospatialOptions,
@@ -554,7 +621,7 @@ export function compileGeospatialMap(
   // mistaken for a disconnected GIS sliver and sealed back into a facade.
   sealUnreachablePockets(map, westRoad, overlay);
 
-  const playableBuildings = stampPlayableBuildings(
+  const stampedBuildings = stampPlayableBuildings(
     map,
     source.buildings,
     projected.buildings,
@@ -563,8 +630,30 @@ export function compileGeospatialMap(
     roadCells,
     new Set(component),
     overlay,
-    Math.max(0, options.maxPlayableBuildings ?? 4),
+    Math.max(0, options.maxPlayableBuildings ?? 12),
+    new Set(semanticBuildings
+      .filter((building) => building.interiorPolicy !== 'sealed')
+      .map((building) => building.id)),
   );
+  const embeddedIds = new Set(stampedBuildings.buildingIds);
+  for (const building of semanticBuildings) {
+    if (embeddedIds.has(building.id)) building.interiorPolicy = 'embedded';
+    else if (building.interiorPolicy === 'embedded') building.interiorPolicy = 'instanced';
+  }
+  const playableBuildings = stampedBuildings.count;
+
+  // Entrance connectors are semantic walkways/driveways. The source-footprint
+  // solver already avoids every building, so opening these cells cannot tunnel
+  // through a neighbour or erase an authored interior.
+  for (const building of semanticBuildings) {
+    for (const entrance of building.entrances) {
+      for (const index of entrance.pedestrianConnector) {
+        if (map.grid[index] === T_WALL) overlay.push({ index, reason: 'entrance_connector' });
+        map.grid[index] = T_OPEN;
+        map.surface[index] = S_PLATE;
+      }
+    }
+  }
 
   // A parcel may touch a mapped centerline. The route contract wins: keep the
   // selected source component continuously driveable after interior stamping.
@@ -626,15 +715,6 @@ export function compileGeospatialMap(
     { kind: 'transportheli', team: 0, pos: { ...west } },
     { kind: 'transportheli', team: 1, pos: { ...east } },
   ];
-  map.geospatial = {
-    sourceId: source.id,
-    cityId: options.cityId,
-    style: options.style ?? 'default',
-    classification,
-    buildingHeight,
-    decor: buildDistrictDecor(map, classification, roadCells, options.seed, options.style ?? 'default'),
-  };
-
   for (let x = 0; x < geometry.cols; x++) {
     map.grid[tileIndex(geometry, x, 0)] = T_WALL;
     map.grid[tileIndex(geometry, x, geometry.rows - 1)] = T_WALL;
@@ -645,6 +725,83 @@ export function compileGeospatialMap(
   }
   map.propCovered = [...new Set(map.propCovered)];
 
+  const reachable = reachableWalkCells(map, westBaseRoad);
+  const disconnectedEmbeddedInteriors = stampedBuildings.buildingIds.flatMap((buildingId, index) => {
+    const house = map.houses[index];
+    if (!house) return [buildingId];
+    const [tx, tz] = worldToTile(geometry, house.door.x, house.door.z + geometry.tile);
+    const cell = inBounds(geometry, tx, tz) ? tileIndex(geometry, tx, tz) : -1;
+    return cell >= 0 && reachable[cell] ? [] : [buildingId];
+  });
+  const removed = source.buildings
+    .filter((building) => !semanticBuildings.some((semantic) => semantic.id === building.id))
+    .map((building) => ({
+      id: building.id,
+      reason: neighborhood.unassignedBuildingIds.includes(building.id)
+        ? 'no_block_or_access'
+        : 'invalid_geometry',
+    }));
+  const sourceBuildingCount = source.buildings.length;
+  const district: SemanticDistrict = {
+    schemaVersion: 2,
+    id: source.id,
+    name: source.name,
+    profile: profileId,
+    source,
+    roads: streetNetwork.segments.map((segment) => ({
+      id: segment.id,
+      sourceRoadId: segment.roadId,
+      roadClass: projected.roads.find((road) => road.id === segment.roadId)?.roadClass ?? 'unclassified',
+      kind: segment.kind,
+      width: segment.width,
+      centerline: segment.points.map((point) => ({ ...point })),
+      connectorIds: [segment.from, segment.to],
+      cells: [...segment.cells],
+    })),
+    blocks: neighborhood.blocks,
+    lots: neighborhood.lots,
+    buildings: semanticBuildings,
+    land: projected.land,
+    water: projected.water,
+    elevation: source.elevation,
+    diagnostics: {
+      sourceBuildingCount,
+      retainedBuildingCount: semanticBuildings.length,
+      footprintRetention: sourceBuildingCount ? semanticBuildings.length / sourceBuildingCount : 1,
+      unexplainedRoadOverlaps: auditBuildingRoadOverlap(semanticBuildings, streetNetwork.carriagewayCells, geometry),
+      disconnectedEntrances: auditEntranceConnectivity(
+        { buildings: semanticBuildings },
+        streetNetwork.pedestrianCells.size ? streetNetwork.pedestrianCells : streetNetwork.carriagewayCells,
+        geometry,
+      ),
+      disconnectedEmbeddedInteriors,
+      vehicleAnchorsConnected: routePath.includes(westBaseRoad) && routePath.includes(eastBaseRoad),
+      walkableIslands: walkableIslands(map, westBaseRoad),
+      removedBuildings: removed,
+      warnings: source.nsi?.warning ? [source.nsi.warning] : [],
+      embeddedInteriorCount: semanticBuildings.filter((building) => building.interiorPolicy === 'embedded').length,
+      instancedInteriorCount: semanticBuildings.filter((building) => building.interiorPolicy === 'instanced').length,
+      sealedBuildingCount: semanticBuildings.filter((building) => building.interiorPolicy === 'sealed').length,
+      heightBands: countBy(semanticBuildings, (building) => {
+        const floors = building.floors.value;
+        return floors <= 2 ? 'low-rise' : floors <= 7 ? 'mid-rise' : 'high-rise';
+      }),
+      useCounts: countBy(semanticBuildings, (building) => building.use.value),
+      renderBatchEstimate: new Set(semanticBuildings.map((building) =>
+        `${building.facade}:${building.roof}:${Math.min(20, building.floors.value)}`)).size,
+    },
+    attribution: source.attribution,
+  };
+  map.geospatial = {
+    sourceId: source.id,
+    cityId: options.cityId,
+    style: options.style ?? 'default',
+    classification,
+    buildingHeight,
+    decor: buildDistrictDecor(map, classification, roadCells, options.seed, options.style ?? 'default'),
+    district,
+  };
+
   return {
     map,
     classification,
@@ -652,6 +809,7 @@ export function compileGeospatialMap(
     projected,
     neighborhood,
     semanticBuildings,
+    district,
     diagnostics: {
       sourceRoads: source.roads.length,
       sourceBuildings: source.buildings.length,
