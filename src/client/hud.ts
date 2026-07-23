@@ -336,10 +336,19 @@ export class Hud {
     // frame. STRIKE and GRAPPLE mount the vocabulary's last two glyphs.
     const stance = document.getElementById('stance-line');
     if (stance) {
+      // THE MELEE READOUT, refined (Robert: "refine the melee GUI"). It was
+      // three dim words. Melee is a CONVERSATION — strike, guard, grab — so
+      // each verb wears its key, its state, and its own charge bar, right
+      // where the hands are.
+      const verb = (id: string, key: string, name: string, glyph: string) =>
+        `<span class="st-verb" id="stance-${id}">`
+        + `<span class="st-key">${glyph}${key}</span>`
+        + `<span class="st-name">${name}</span>`
+        + `<span class="st-charge"><i style="width:0%"></i></span></span>`;
       stance.innerHTML =
-        `<span class="stance-chip" id="stance-strike">${icon('strike')}F STRIKE</span>` +
-        `<span class="stance-chip" id="stance-guard">${icon('guard')}V GUARD</span>` +
-        `<span class="stance-chip" id="stance-grapple">${icon('grapple')}Z GRAPPLE</span>`;
+        verb('strike', 'F', 'STRIKE', icon('strike'))
+        + verb('guard', 'V', 'GUARD', icon('guard'))
+        + verb('grapple', 'Z', 'GRAB', icon('grapple'));
     }
     // M toggles the minimap between compact and the large tactical view
     window.addEventListener('keydown', (e) => {
@@ -933,9 +942,27 @@ export class Hud {
       stanceEl.classList.toggle('hidden', !stanceOn);
       if (stanceOn) {
         const meleeFree = s.meleeStrikeAt === 0 && world.time >= s.nextFireAt;
-        $('stance-strike').classList.toggle('dim', !meleeFree);
-        $('stance-guard').classList.toggle('dim', s.energy <= 0.5);
-        $('stance-grapple').classList.toggle('dim', !meleeFree);
+        // STRIKE: dim when the hands are busy, LIVE while winding up, and
+        // its bar IS the charge — red past the overcharge line so 'release
+        // now' is a colour, not a number you have to read.
+        const strikeEl = $('stance-strike');
+        const chg = s.meleeCharge ?? 0;
+        strikeEl.classList.toggle('dim', !meleeFree && chg <= 0.02);
+        strikeEl.classList.toggle('live', chg > 0.02);
+        strikeEl.classList.toggle('over', chg >= 1.3);
+        const strikeBar = strikeEl.querySelector<HTMLElement>('.st-charge i');
+        if (strikeBar) strikeBar.style.width = Math.min(100, (chg / 1.3) * 100) + '%';
+        // GUARD: the bar is the TANK — the meter is the mechanic.
+        const guardEl = $('stance-guard');
+        guardEl.classList.toggle('dim', s.energy <= 0.5);
+        guardEl.classList.toggle('live', !!s.guarding);
+        const guardBar = guardEl.querySelector<HTMLElement>('.st-charge i');
+        if (guardBar) guardBar.style.width = Math.max(0, Math.min(100, s.energy)) + '%';
+        const grabEl = $('stance-grapple');
+        grabEl.classList.toggle('dim', !meleeFree);
+        grabEl.classList.toggle('live', s.grabbedUntil !== undefined || s.chokingId !== undefined);
+        const grabBar = grabEl.querySelector<HTMLElement>('.st-charge i');
+        if (grabBar) grabBar.style.width = (s.chokeProgress ?? 0) * 100 + '%';
       }
 
       // THE SIGNATURE METER: fills back toward ready in the ONE grammar —

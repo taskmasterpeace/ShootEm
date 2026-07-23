@@ -25,6 +25,10 @@ export function initMode(id: ModeId, map: GameMap, minutes?: number): ModeState 
       m.courseGate = 0;
       m.coursePassed = false;
       break;
+    case 'threat':
+      // THE THREAT ROOM: no clock, no whistle, no referee — a laboratory
+      m.timeLeft = Infinity;
+      break;
     case 'shop':
       // A PLACE, not a match (#122, the amusement-park law): no clock, no
       // whistle, no referee — you walk out when you're done
@@ -161,6 +165,7 @@ export function stepMode(w: World, dt: number) {
     case 'race': case 'timetrial': stepRace(w, dt); break;
     case 'derby': stepDerby(w, dt); break;
     case 'school': stepSchool(w, dt); break;
+    case 'threat': break; // the lab runs on what YOU put in it
     case 'range': break; // no clock, no whistle — just the work
     case 'shop': break;  // a place breathes on its own — stations, not scores
   }

@@ -28,6 +28,10 @@ import { awardLicence, canEnrol, loadLicences } from './client/licences';
 import { allRecords, fileRun, raceClassOf } from './client/records';
 import { settleMatch, treasuryLine } from './client/treasury';
 import { renderServiceFile } from './client/service-file';
+import {
+  clearRoom, newRoom, renderThreatPanel, roomCensus, runPreset, shelfSpec,
+  stepRoom, summon, type RoomState,
+} from './client/threat-room';
 import { fitFor, renderGarage } from './client/garage-ui';
 import { LICENCES, type LicenceId } from './sim/licenses';
 import { TouchControls, isTouchDevice } from './client/touch';
@@ -103,6 +107,7 @@ let enrolledCourse: LicenceId | null = null;
 let schoolAwarded = false; // one signature per run
 let runFiled = false;      // one record filing per race
 let treasurySettled = false; // one settlement per match
+let room: RoomState | null = null; // THE THREAT ROOM's live inventory
 let matchMinutes = 15;
 /** THE ROSTER LAW (Robert): zombies fight alone unless the player opts in. */
 let hordeRoster: 'zombies' | 'iron' | 'both' = 'zombies';
@@ -426,6 +431,7 @@ const MODE_CATEGORIES: { id: string; label: string; modes: ModeId[] }[] = [
   { id: 'science', label: 'Science Missions', modes: ['science'] },
   { id: 'outbreak', label: 'Outbreak', modes: ['survival', 'horde', 'tide', 'safehouse'] },
   { id: 'training', label: 'Training & Trials', modes: ['range', 'race', 'timetrial', 'derby'] },
+  { id: 'lab', label: 'The Threat Room', modes: ['threat'] }, // the combat laboratory
   { id: 'schools', label: 'The Schools', modes: [] }, // the certification programs
   { id: 'paintball', label: 'Paintball', modes: ['paintball'] },
 ];
@@ -984,6 +990,32 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
       world.forceBoard(me, hull); // the school seats the candidate — no walk-up, no fumbling
       world.emit({ type: 'announce', text: course.name.toUpperCase() + ' — ' + course.brief, big: true });
     }
+  } else if (selectedMode === 'threat') {
+    // THE THREAT ROOM: you land in an empty, well-lit box. Everything that
+    // happens in here, you asked for — that is the whole idea of a lab.
+    room = newRoom();
+    me.pos = { x: 0, y: 0, z: 0 };
+    const panel = $('threat-panel');
+    const labBtn = $('tr-open');
+    labBtn.classList.remove('hidden');
+    labBtn.onclick = () => panel.classList.toggle('hidden');
+    panel.classList.remove('hidden');
+    renderThreatPanel(panel, {
+      runPreset: (id) => {
+        const preset = runPreset(world, room!, me, id);
+        if (preset) hud.announce(preset.name + " — " + preset.question, true, world.time);
+      },
+      summonById: (id) => {
+        const spec = shelfSpec(id);
+        if (spec) summon(world, room!, me, spec);
+      },
+      clear: () => { clearRoom(world, room!); hud.announce('ROOM CLEAR', false, world.time); },
+      heal: () => {
+        me.hp = me.maxHp; me.energy = 100; me.armor = me.maxArmor;
+        me.downed = false; me.viralLoad = 0;
+        hud.announce('PATCHED UP', false, world.time);
+      },
+    });
   } else if (isRace) {
     // MOTOR TRIALS: put the player on pole on their chosen board; the circuit
     // fills the rest of the grid with AI racers on the far team so a winner
@@ -1562,6 +1594,13 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     // LIVING player mid-fight and could never work in multiplayer. The cam
     // is a DEATH experience only; your own great kills stay in the kill
     // confirm chip + the feed, which never steal the screen.)
+    // THE THREAT ROOM keeps its blockers guarding and walks its movers
+    if (room) {
+      stepRoom(world, room, dt);
+      const c = roomCensus(world, room);
+      const cs = document.getElementById('tr-census');
+      if (cs) cs.textContent = c.alive + ' STANDING · ' + c.total + ' SUMMONED' + (c.vehicles ? ' · ' + c.vehicles + ' HULLS' : '');
+    }
     const { renderWorld, banner: bannerText } = director.update(world, me.id, dt);
     const replaying = renderWorld !== world;
     setBanner(bannerText);

@@ -650,6 +650,7 @@ export class World {
       this.map.vehiclePads.push({ kind: 'strikejet', team: 0, pos: { x: home.x + 3, y: 0, z: home.z - 3 } });
     }
     this.map.vehiclePads.forEach((pad, padId) => {
+      if (opts.mode === 'threat') return; // THE LAB IS CLEAN — you summon what is in it
       if (isCoopMode(opts.mode) && pad.kind !== 'ambulance' && pad.kind !== 'emplacement') return;
       const vehicle = this.spawnVehicle(pad.kind, pad.team, pad.pos, padId);
       vehicle.operationHullId = pad.operationHullId;
@@ -1859,6 +1860,7 @@ export class World {
     if (isCoopMode(this.opts.mode)) return;      // the dead city parks nothing
     if (this.opts.mode === 'race' || this.opts.mode === 'timetrial') return; // the circuit stays clear
     if (this.opts.mode === 'school' || this.opts.mode === 'range') return;   // the course stays clear
+    if (this.opts.mode === 'threat') return;     // the lab is clean
     const STREET: VehicleKind[] = ['sedan', 'taxi', 'suv', 'pickup', 'deliveryvan', 'policecruiser',
       'sportscar', 'scooter', 'golfcart', 'bicycle', 'atv', 'foodtruck'];
     const WORK: VehicleKind[] = ['movingtruck', 'towtruck', 'garbagetruck', 'firetruck',

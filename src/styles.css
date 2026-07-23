@@ -2111,3 +2111,87 @@ body:not(.in-match) #world-clock { left: auto; right: 0.9rem; }
 .sf-no { color: var(--muted); font-size: 0.62rem; letter-spacing: 0.06em; }
 .sf-fig { color: var(--accent); font-variant-numeric: tabular-nums; min-width: 3.2rem; text-align: right; }
 .sf-empty, .sf-note { font-family: var(--font-mono); font-size: 0.64rem; color: var(--muted); letter-spacing: 0.05em; padding-top: 0.35rem; line-height: 1.5; }
+
+/* ═══ THE THREAT ROOM — the combat laboratory's panel ═════════════════════
+   Touch-first and screen-agnostic: a full-height sheet on a phone, a side
+   rail on a tablet, a panel on a desktop. Every control is a real ≥44px
+   button because this is meant to be driven with a thumb mid-fight. */
+#threat-panel {
+  position: absolute; z-index: 16; display: flex; flex-direction: column;
+  background: oklch(0.12 0.012 78 / 0.96); border: 1px solid var(--border);
+  border-left: 3px solid var(--accent); pointer-events: auto;
+  top: 0; right: 0; bottom: 0; width: min(30rem, 46vw);
+}
+#threat-panel.hidden { display: none; }
+@media (max-width: 900px) {           /* phone / small tablet: a bottom sheet */
+  #threat-panel { top: auto; left: 0; right: 0; width: auto; height: 62vh; border-left: none; border-top: 3px solid var(--accent); }
+}
+.tr-head {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.1em;
+  position: sticky; top: 0; background: oklch(0.13 0.012 78 / 0.98); z-index: 2;
+}
+.tr-head b { font-family: var(--font-display); font-weight: 400; font-size: 1.05rem; letter-spacing: 0.1em; color: var(--accent); text-transform: uppercase; }
+.tr-head span { color: var(--muted); }
+.tr-act {
+  margin-left: auto; font: 700 0.62rem var(--font-mono); letter-spacing: 0.12em;
+  padding: 0.5rem 0.7rem; min-height: 2.75rem; cursor: pointer;
+  background: transparent; color: var(--accent); border: 1px solid var(--accent);
+}
+.tr-act:hover { background: var(--accent); color: #141210; }
+.tr-act + .tr-act { margin-left: 0; }
+.tr-body { overflow-y: auto; padding: 0.7rem 0.8rem 2rem; flex: 1; }
+.tr-body h4 { font-family: var(--font-mono); font-size: 0.64rem; letter-spacing: 0.16em; color: var(--muted); text-transform: uppercase; margin: 0.9rem 0 0.5rem; }
+.tr-group { margin-bottom: 0.7rem; }
+.tr-tag { font-family: var(--font-mono); font-size: 0.58rem; letter-spacing: 0.2em; color: var(--accent); text-transform: uppercase; margin-bottom: 0.3rem; }
+.tr-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 0.4rem; }
+.tr-card {
+  text-align: left; cursor: pointer; padding: 0.55rem 0.7rem; min-height: 3.4rem;
+  border: 1px solid var(--border); border-left: 3px solid var(--border);
+  background: oklch(0.16 0.012 78 / 0.8); color: inherit;
+  display: flex; flex-direction: column; gap: 0.18rem;
+}
+.tr-card:hover, .tr-card:active { border-color: var(--accent); border-left-color: var(--accent); }
+.tr-card b { font-family: var(--font-display); font-weight: 400; font-size: 0.92rem; letter-spacing: 0.06em; color: oklch(0.92 0.02 78); }
+.tr-card span { font-size: 0.68rem; line-height: 1.35; color: var(--muted); }
+.tr-shelf { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.tr-summon {
+  cursor: pointer; padding: 0.5rem 0.7rem; min-height: 2.75rem;
+  font: 500 0.7rem var(--font-mono); letter-spacing: 0.05em;
+  border: 1px solid var(--border); background: oklch(0.17 0.012 78 / 0.8); color: oklch(0.86 0.02 78);
+}
+.tr-summon:hover, .tr-summon:active { border-color: var(--accent); color: var(--accent); }
+
+/* the LAB button — reopen the panel without leaving the room */
+#tr-open {
+  position: absolute; top: max(0.9rem, env(safe-area-inset-top)); right: 5rem; z-index: 15;
+  font: 700 0.62rem var(--font-mono); letter-spacing: 0.14em; cursor: pointer;
+  padding: 0.55rem 0.8rem; min-height: 2.75rem;
+  background: oklch(0.14 0.012 78 / 0.9); color: var(--accent); border: 1px solid var(--accent);
+}
+#tr-open.hidden { display: none; }
+
+/* ═══ THE MELEE READOUT, refined (Robert: "refine the melee GUI") ═════════
+   The stance line was three dim words. Melee is a CONVERSATION — strike,
+   guard, grab — so each verb now carries its key, its state, and a charge
+   bar that fills where you can see it without leaving the fight. */
+#stance-line {
+  display: flex; gap: 0.4rem; align-items: stretch; justify-content: flex-end;
+  margin-top: 0.35rem; opacity: var(--hud-op, 1);
+}
+#stance-line .st-verb {
+  display: flex; flex-direction: column; align-items: center; gap: 0.1rem;
+  min-width: 3.6rem; padding: 0.28rem 0.4rem;
+  border: 1px solid oklch(0.36 0.02 78); border-bottom-width: 2px;
+  background: oklch(0.15 0.012 78 / 0.7);
+  font-family: var(--font-mono); letter-spacing: 0.1em;
+}
+#stance-line .st-verb .st-key { font-size: 0.72rem; font-weight: 700; color: var(--accent); }
+#stance-line .st-verb .st-name { font-size: 0.52rem; color: oklch(0.8 0.02 78); }
+#stance-line .st-verb.dim { opacity: 0.38; }
+#stance-line .st-verb.live { border-color: var(--accent); border-bottom-color: var(--accent); background: oklch(0.22 0.04 78 / 0.85); }
+#stance-line .st-verb.live .st-name { color: var(--accent); }
+#stance-line .st-charge { height: 3px; width: 100%; background: oklch(0.3 0.02 78); margin-top: 0.15rem; }
+#stance-line .st-charge i { display: block; height: 100%; background: var(--accent); transition: width 0.06s linear; }
+#stance-line .st-verb.over .st-charge i { background: #ff5a4a; }

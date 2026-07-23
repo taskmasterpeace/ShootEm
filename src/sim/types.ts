@@ -1,6 +1,6 @@
 export type Team = 0 | 1; // 0 = United Front (amber), 1 = Collective (cyan). Survival: all players team 0.
 
-export type ModeId = 'tdm' | 'ctf' | 'koth' | 'conquest' | 'survival' | 'horde' | 'tide' | 'safehouse' | 'science' | 'range' | 'paintball' | 'race' | 'timetrial' | 'derby' | 'school' | 'shop';
+export type ModeId = 'tdm' | 'ctf' | 'koth' | 'conquest' | 'survival' | 'horde' | 'tide' | 'safehouse' | 'science' | 'range' | 'paintball' | 'race' | 'timetrial' | 'derby' | 'school' | 'threat' | 'shop';
 
 /** One gate on the circuit — pass through its radius to bank progress. */
 export interface RaceCheckpoint {
@@ -586,6 +586,10 @@ export interface Soldier {
   /** a dummy that REGENERATES (Robert: "the dummies don't regenerate") — pops
    *  back up at `dummyHome` a few seconds after it drops, so a weapon-test
    *  range never runs out of targets. Non-respawning dummies stay down. */
+  /** THE THREAT ROOM: this body holds a guard forever — the melee exercise. */
+  roomBlocker?: boolean;
+  /** THE THREAT ROOM: this body PACES — the shooter's lead-practice target. */
+  roomMover?: { origin: Vec3; speed: number; dir: number };
   respawns?: boolean;
   dummyHome?: Vec3;
   /** who last killed this soldier (-1 = nobody/self/environment) — the killcam
