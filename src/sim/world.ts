@@ -28,6 +28,7 @@ import {
   type CivilianDrive,
 } from './traffic';
 import { licenceHeld, LICENCES, licenceFor, type LicenceId } from './licenses';
+import { crashDamage, resolveHulls, type Hull } from './hullcollide';
 import { practise, skillEdge, skillForWeapon, practiceOf } from './skills';
 import {
   MORALE_SHIFTS, bandOf, moraleOf, moraleSpread, settleMorale, shiftMorale, wantsCover,
@@ -2393,6 +2394,7 @@ export class World {
     }
 
     for (const v of this.vehicles.values()) this.stepVehicle(v, cmds, dt);
+    this.resolveHullContacts(dt);
     this.stepRadar();
     for (const t of this.turrets.values()) this.stepTurret(t, dt);
     this.stepProjectiles(dt);
@@ -5853,6 +5855,40 @@ export class World {
       d.panicUntil = this.time + PANIC_SECONDS;
       d.to = fleeTo(v.pos, at);
       d.until = this.time + LEG_SECONDS;
+    }
+  }
+
+  /**
+   * HULL TO HULL. Machines stop driving through each other — the thing a
+   * racing sport cannot do without, and a real improvement on a battlefield
+   * where a jeep used to pass through a tank.
+   *
+   * Ground and surface hulls only: aircraft own the sky by band and a boat
+   * and a tank are never in the same place. Deliberately NOT soldiers — that
+   * is the expensive one and the weakest payoff (Robert's call).
+   */
+  private resolveHullContacts(dt: number): void {
+    const hulls: Hull[] = [];
+    for (const v of this.vehicles.values()) {
+      if (!v.alive) continue;
+      const def = v.fittedDef ?? VEHICLES[v.kind];
+      if (def.flies || def.immobile || (v.band ?? 0) > 0 || v.burrowed || v.submerged) continue;
+      hulls.push({
+        id: v.id, pos: v.pos, vel: v.vel,
+        mass: def.mass ?? 1.6, radius: def.radius ?? 1.5,
+      });
+    }
+    if (hulls.length < 2) return;
+    for (const hit of resolveHulls(hulls, dt)) {
+      const dmg = crashDamage(hit.force);
+      this.emit({ type: 'corpse_slam', pos: { ...hit.at } });
+      if (dmg <= 0) continue;
+      const a = this.vehicles.get(hit.a);
+      const b = this.vehicles.get(hit.b);
+      // both pay — a crash has two victims and no attacker
+      if (a) this.damageVehicle(a, dmg, -1, 'crash');
+      if (b) this.damageVehicle(b, dmg, -1, 'crash');
+      this.emit({ type: 'explosion', pos: { ...hit.at }, radius: 1.1 });
     }
   }
 
