@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WAR WORLD — THE ADMIN ROOM</title>
+  <style>
+    :root { --ink:#0d0f0c; --bone:#d8d4c8; --amber:#e8a33d; --dim:#8a867a; --line:#3a382f; --red:#ff4040; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html,body { height:100%; background:var(--ink); }
+    body { font-family:'Courier New', ui-monospace, monospace; color:var(--bone); display:flex; align-items:center; justify-content:center; }
+    .room { width:min(680px, 94vw); }
+    h1 { font-size:16px; letter-spacing:0.24em; margin-bottom:2px; }
+    h1 b { color:var(--amber); }
+    .sub { font-size:11px; color:var(--dim); letter-spacing:0.12em; margin-bottom:18px; }
+    .panel { border:1px solid var(--line); border-top:2px solid var(--amber); background:rgba(13,15,12,0.85); padding:16px 18px; margin-bottom:14px; }
+    .panel h2 { font-size:11px; letter-spacing:0.22em; color:var(--amber); margin-bottom:10px; }
+    label { display:block; font-size:10px; color:var(--dim); letter-spacing:0.16em; margin:8px 0 3px; }
+    input { width:100%; background:#14120e; border:1px solid var(--line); color:var(--bone); font:inherit; padding:7px 10px; }
+    input:focus { outline:none; border-color:var(--amber); }
+    button, a.btn {
+      font:700 11px 'Courier New', monospace; letter-spacing:0.14em; cursor:pointer; text-transform:uppercase;
+      color:var(--bone); background:transparent; border:1px solid var(--line); padding:7px 14px; margin:4px 6px 0 0;
+      text-decoration:none; display:inline-block;
+    }
+    button:hover, a.btn:hover { border-color:var(--amber); color:var(--amber); }
+    button.primary { background:var(--amber); color:var(--ink); border-color:var(--amber); }
+    .err { color:var(--red); font-size:11px; margin-top:8px; display:none; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:baseline; }
+    .big { font-size:22px; letter-spacing:0.1em; }
+    .hidden { display:none !important; }
+    .note { font-size:10px; color:var(--dim); margin-top:8px; line-height:1.5; }
+  </style>
+</head>
+<body>
+  <div class="room">
+    <h1>[ THE <b>ADMIN ROOM</b> ]</h1>
+    <div class="sub">DEV KNOBS BEHIND A LOGIN — #90 · NO HARDENING BY RULING · ACCOUNTS COME WITH #83</div>
+
+    <!-- THE DOOR -->
+    <div class="panel" id="door">
+      <h2>WHO GOES THERE</h2>
+      <label>USERNAME</label>
+      <input id="adm-user" autocomplete="off" />
+      <label>PASSWORD</label>
+      <input id="adm-pass" type="password" />
+      <button class="primary" id="adm-enter" style="margin-top:12px">ENTER</button>
+      <div class="err" id="adm-err">The door does not know you.</div>
+    </div>
+
+    <!-- THE KNOBS -->
+    <div id="knobs" class="hidden">
+      <div class="panel">
+        <h2>⏱ THE ONE CLOCK — SCRUB (#123)</h2>
+        <div class="row">
+          <span class="big" id="adm-clock">D— · --:--</span>
+          <span id="adm-phase" style="color:var(--dim); font-size:11px"></span>
+        </div>
+        <div style="margin-top:10px">
+          <button data-jump="noon">JUMP TO NOON</button>
+          <button data-jump="dusk">DUSK (20:55)</button>
+          <button data-jump="midnight">MIDNIGHT</button>
+          <button data-jump="dawn">DAWN (05:55)</button>
+        </div>
+        <div>
+          <button data-nudge="-60">−1 GAME HOUR</button>
+          <button data-nudge="60">+1 GAME HOUR</button>
+          <button id="adm-clock-clear">CLEAR — TRUE TIME</button>
+        </div>
+        <div class="note">The scrub drags THIS client's whole clock — the corner chip, every launch, every sky. Launch a match after scrubbing to see the world at that hour. True time returns on CLEAR.</div>
+      </div>
+
+      <div class="panel">
+        <h2>👤 IDENTITY</h2>
+        <div id="adm-identity" style="font-size:12px; line-height:1.7">—</div>
+        <div class="note">Email / username management arrives with ACCOUNTS (#83). For now the enlistment card above is the identity.</div>
+      </div>
+
+      <div class="panel">
+        <h2>🛠 THE SURFACES</h2>
+        <a class="btn" href="/">THE GAME</a>
+        <a class="btn" href="/harness.html">HARNESS (Q = QUAD)</a>
+        <a class="btn" href="/bodylab.html">BODY SHOP</a>
+        <a class="btn" href="/vanessas.html">VANESSA'S (BROCHURE)</a>
+        <a class="btn" href="/warroom.html">WAR ROOM</a>
+        <a class="btn" href="/armory.html">ARMORY</a>
+      </div>
+
+      <div class="panel">
+        <h2>🚪 OUT</h2>
+        <button id="adm-logout">LOG OUT</button>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/src/client/admin.ts"></script>
+</body>
+</html>

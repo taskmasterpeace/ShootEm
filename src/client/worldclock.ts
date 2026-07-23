@@ -36,8 +36,23 @@ export function clockFromPhase(day: number, phase01: number): GameClock {
   return { day, h, m, phase01: p, night: h >= 21 || h < 6 };
 }
 
-/** The one answer, from any wall clock. */
-export function gameNow(realMs = Date.now()): GameClock {
+/** #90 THE ADMIN SCRUB: a stored offset (real ms) the admin room sets to
+ *  drag the whole client's clock — the chip, every launch, every sky.
+ *  Browser-only storage; node (tests) always reads 0. */
+const ADMIN_OFFSET_KEY = 'ww_admin_clock_offset';
+export function adminClockOffsetMs(): number {
+  if (typeof localStorage === 'undefined') return 0;
+  const v = Number(localStorage.getItem(ADMIN_OFFSET_KEY) ?? 0);
+  return Number.isFinite(v) ? v : 0;
+}
+export function setAdminClockOffsetMs(ms: number) {
+  if (typeof localStorage === 'undefined') return;
+  if (ms === 0) localStorage.removeItem(ADMIN_OFFSET_KEY);
+  else localStorage.setItem(ADMIN_OFFSET_KEY, String(Math.round(ms)));
+}
+
+/** The one answer, from any wall clock (plus the admin's thumb, if set). */
+export function gameNow(realMs = Date.now() + adminClockOffsetMs()): GameClock {
   const elapsed = Math.max(0, realMs - CLOCK_EPOCH_MS);
   const day = Math.floor(elapsed / GAME_DAY_MS);
   return clockFromPhase(day, (elapsed % GAME_DAY_MS) / GAME_DAY_MS);

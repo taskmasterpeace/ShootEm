@@ -79,6 +79,8 @@ export default defineConfig({
         // VANESSA'S PAINTBALL — the pro shop: walk the booths, pick the
         // marker your next yard deploy carries (/vanessas.html)
         vanessas: resolve(__dirname, 'vanessas.html'),
+        // THE ADMIN ROOM — dev knobs behind admin/Galactic (#90, /admin.html)
+        admin: resolve(__dirname, 'admin.html'),
         // the beam lab — continuous beams: hose / kamehameha / heat / flamer (/beams.html)
         beams: resolve(__dirname, 'beams.html'),
         // radar/minimap + PixelLab aircraft instrument state bench
