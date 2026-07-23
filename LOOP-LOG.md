@@ -1,0 +1,1 @@
+2026-07-23 MOBILE GOAL — THE TABLET shipped (e42e119): touch twin-sticks (live-fired, ammo 30→25), PWA fullscreen (SW activated on dist), service-record auth (local + Supabase-ready), quality auto-low on touch. 1 foreign geospatial red (parallel instance). Supabase project = Robert's call (#83).
