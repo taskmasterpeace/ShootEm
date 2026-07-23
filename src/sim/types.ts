@@ -75,7 +75,23 @@ export type VehicleKind =
   | 'emplacement'  // static emplacement gun — manned artillery, does not move (see BOARD_KINDS below)
   | 'mech'         // bipedal assault walker — strides over low cover, stomps
   | 'boat'         // river gunboat — water-locked, fast on the channel, MG
-  | 'submarine';   // Barracuda — deep-route hunter, sonar + torpedoes
+  | 'submarine'    // Barracuda — deep-route hunter, sonar + torpedoes
+  // ── THE CIVILIAN ROSTER (THREE-GAMES-ONE-WAR appendix — "military
+  // vehicles make war; civilian vehicles make the world feel alive").
+  // Unarmed, cheap, hotwireable world-traffic. GROUND:
+  | 'sedan' | 'pickup' | 'suv' | 'sportscar' | 'taxi' | 'schoolbus'
+  | 'scooter' | 'atv' | 'garbagetruck' | 'towtruck' | 'firetruck'
+  | 'fueltanker' | 'movingtruck' | 'foodtruck' | 'deliveryvan'
+  | 'policecruiser' | 'loader' | 'forklift' | 'bulldozer' | 'cementmixer'
+  | 'golfcart' | 'bicycle'
+  // AIR (parachute/jetpack/wingsuit are movement systems, not hulls;
+  // train/subway wait for rails):
+  | 'passengerjet' | 'privatejet' | 'cargoplane' | 'bushplane'
+  | 'cropduster' | 'newsheli' | 'medheli' | 'policeheli' | 'skycrane'
+  | 'balloon' | 'blimp' | 'ultralight' | 'paraglider' | 'hangglider'
+  // WATER:
+  | 'fishingboat' | 'yacht' | 'speedboat' | 'ferry' | 'cargoship'
+  | 'patrolboat' | 'jetski' | 'hovercraft' | 'riverbarge' | 'submersible';
 
 /** The hover-DECK family — the Halo plus the three raceboards. They share the
  *  surf-stance rider pose and the hover bob; the race mode picks among them. */
@@ -333,6 +349,10 @@ export interface VehicleDef {
   boat?: boolean;
   /** may toggle a separate surface/submerged naval depth state */
   submersible?: boolean;
+  /** THE CIVILIAN ROSTER: world traffic, not war materiel — never offered on
+   *  requisition menus, never bot-crewed; drivable when found (hotwire law
+   *  still applies to the abandoned). Codex files them under their own wing. */
+  civilian?: boolean;
 }
 
 /** Per-subsystem damage record: hp remaining for each SystemId. */

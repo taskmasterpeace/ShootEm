@@ -20,7 +20,7 @@ export type ReviewCategory = 'weapon' | 'vehicle' | 'class' | 'ascendant' | 'thr
 
 /** codex section id → phrase category */
 export const SECTION_CATEGORY: Record<string, ReviewCategory> = {
-  weapons: 'weapon', vehicles: 'vehicle', infantry: 'class', ascendants: 'ascendant', threats: 'threat',
+  weapons: 'weapon', vehicles: 'vehicle', civilian: 'vehicle', infantry: 'class', ascendants: 'ascendant', threats: 'threat',
 };
 
 export interface Reviewer {

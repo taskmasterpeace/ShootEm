@@ -228,9 +228,11 @@ const RAGDOLL_AT = 16;
 
 // ── building the rows ───────────────────────────────────────────────────────
 
-function vehicleRows(): Row[] {
+function vehicleRows(): Row[] { return fleetRows(false); }
+function civilianRows(): Row[] { return fleetRows(true); }
+function fleetRows(civilian: boolean): Row[] {
   const frag = vehicleDamagePerShot(WEAPONS[FRAG]);
-  return (Object.keys(VEHICLES) as VehicleKind[]).map((kind) => {
+  return (Object.keys(VEHICLES) as VehicleKind[]).filter((k) => !!VEHICLES[k].civilian === civilian).map((kind) => {
     const d = VEHICLES[kind];
     const w = d.weapon ? WEAPONS[d.weapon] : undefined;
     const row: Row = {
@@ -470,11 +472,14 @@ function bakeThumbs(kind: ModelKind, ids: string[]) {
 
 // ── the page ────────────────────────────────────────────────────────────────
 
-type SectionId = 'vehicles' | 'weapons' | 'infantry' | 'ascendants' | 'threats';
+type SectionId = 'vehicles' | 'civilian' | 'weapons' | 'infantry' | 'ascendants' | 'threats';
 interface Section { id: SectionId; label: string; stats: Stat[]; rows: () => Row[]; model?: ModelKind }
 
 const SECTIONS: Section[] = [
   { id: 'vehicles', label: 'Vehicles', stats: VEHICLE_STATS, rows: vehicleRows, model: 'vehicle' },
+  // THE CIVILIAN WING (THREE-GAMES-ONE-WAR): the world's traffic gets its own
+  // shelf — war materiel never shares a sort with a golf cart
+  { id: 'civilian', label: 'Civilian', stats: VEHICLE_STATS, rows: civilianRows, model: 'vehicle' },
   { id: 'weapons', label: 'Weapons', stats: WEAPON_STATS, rows: weaponRows },
   { id: 'infantry', label: 'Infantry', stats: CLASS_STATS, rows: classRows, model: 'class' },
   { id: 'ascendants', label: 'Ascendants', stats: ASCENDANT_STATS, rows: ascendantRows, model: 'ascendant' },

@@ -1,11 +1,14 @@
 // The motor pool: every hull from the buggy to the Goliath.
 import * as THREE from 'three';
-import { TEAM_COLORS } from '../../sim/data';
+import { TEAM_COLORS, VEHICLES } from '../../sim/data';
 import type { Team, VehicleKind } from '../../sim/types';
 import { box, cyl, mat } from './shared';
 import { buildRider } from './soldiers';
 
 export function buildVehicle(kind: VehicleKind, team: Team): THREE.Group {
+  // the civilian roster paints itself — a taxi is yellow on either side of
+  // the war (team still colors nothing; civilians carry no faction trim)
+  if (VEHICLES[kind]?.civilian) return buildCivilianVehicle(kind);
   const g = new THREE.Group();
   const teamCol = TEAM_COLORS[team];
   const body = mat(team === 0 ? 0x74602f : 0x2f6478, { rough: 0.55, metal: 0.35 });
@@ -1081,6 +1084,280 @@ export function buildVehicle(kind: VehicleKind, team: Team): THREE.Group {
     }
   }
   g.add(turret);
+  g.userData.wheels = wheels;
+  return g;
+}
+
+// ---------------------------------------------------------------------------
+// THE CIVILIAN MOTOR POOL (THREE-GAMES-ONE-WAR appendix): one grammar per
+// domain, a spec row per kind — the armory's family-builder idea on wheels.
+// Civilian paint (never faction trim, never purple), the same +X facing,
+// wheels in userData.wheels so the renderer rolls them, rotors named
+// 'rotorL' so the blur hook winds them. Every hull stays inside the
+// visual.test size law (0.45–3.2× radius) and far under the tri budget.
+// ---------------------------------------------------------------------------
+type CivTell = 'lightbar' | 'taxisign' | 'ladder' | 'tank' | 'boxback' | 'mixer'
+  | 'blade' | 'forks' | 'bed' | 'bins' | 'canopy' | 'boom' | 'dish';
+interface CivGroundSpec {
+  len: number; wid: number; paint: number; accent?: number;
+  cab: 'front' | 'full' | 'long' | 'none' | 'twowheel';
+  tells?: CivTell[];
+}
+const CIV_GROUND: Partial<Record<VehicleKind, CivGroundSpec>> = {
+  sedan:        { len: 2.9, wid: 1.3, paint: 0x9aa0a6, cab: 'front' },
+  pickup:       { len: 3.1, wid: 1.4, paint: 0x7a4a2a, cab: 'front', tells: ['bed'] },
+  suv:          { len: 3.1, wid: 1.5, paint: 0x3a4a3a, cab: 'full' },
+  sportscar:    { len: 2.8, wid: 1.3, paint: 0xc22b2b, cab: 'front' },
+  taxi:         { len: 2.9, wid: 1.3, paint: 0xe8c020, accent: 0x24241f, cab: 'front', tells: ['taxisign'] },
+  schoolbus:    { len: 4.6, wid: 1.7, paint: 0xe8a020, cab: 'long' },
+  scooter:      { len: 1.5, wid: 0.5, paint: 0x2a8a8a, cab: 'twowheel' },
+  atv:          { len: 1.9, wid: 1.1, paint: 0x4a6a2a, cab: 'none' },
+  garbagetruck: { len: 4.2, wid: 1.8, paint: 0x4a7a4a, cab: 'front', tells: ['bins'] },
+  towtruck:     { len: 3.6, wid: 1.5, paint: 0x8a6a2a, cab: 'front', tells: ['boom'] },
+  firetruck:    { len: 4.6, wid: 1.8, paint: 0xb02020, accent: 0xe8e0d0, cab: 'front', tells: ['ladder', 'lightbar'] },
+  fueltanker:   { len: 4.6, wid: 1.7, paint: 0xb8bcc0, accent: 0xb02020, cab: 'front', tells: ['tank'] },
+  movingtruck:  { len: 4.0, wid: 1.7, paint: 0xd8d0c0, cab: 'front', tells: ['boxback'] },
+  foodtruck:    { len: 3.6, wid: 1.7, paint: 0xd88a30, accent: 0xe8e0d0, cab: 'front', tells: ['boxback', 'canopy'] },
+  deliveryvan:  { len: 3.5, wid: 1.5, paint: 0x8a5a20, cab: 'full', tells: ['boxback'] },
+  policecruiser:{ len: 3.0, wid: 1.4, paint: 0x1e2126, accent: 0xe8e8e8, cab: 'front', tells: ['lightbar'] },
+  loader:       { len: 3.4, wid: 1.7, paint: 0xd8a020, cab: 'none', tells: ['blade'] },
+  forklift:     { len: 2.2, wid: 1.1, paint: 0xd8a020, cab: 'none', tells: ['forks'] },
+  bulldozer:    { len: 3.8, wid: 1.9, paint: 0xd8a020, cab: 'none', tells: ['blade'] },
+  cementmixer:  { len: 4.2, wid: 1.8, paint: 0xb8bcc0, accent: 0xd8a020, cab: 'front', tells: ['mixer'] },
+  golfcart:     { len: 2.0, wid: 1.1, paint: 0xe8e8e0, cab: 'full', tells: ['canopy'] },
+  bicycle:      { len: 1.4, wid: 0.35, paint: 0xb02020, cab: 'twowheel' },
+};
+
+interface CivAirSpec {
+  fuselage: number; paint: number; accent?: number;
+  wing?: 'high' | 'low' | 'none'; rotor?: boolean; envelope?: 'sphere' | 'cigar';
+  tells?: CivTell[];
+}
+const CIV_AIR: Partial<Record<VehicleKind, CivAirSpec>> = {
+  passengerjet: { fuselage: 7.6, paint: 0xe8ecf0, accent: 0x2a6ab0, wing: 'low' },
+  privatejet:   { fuselage: 5.2, paint: 0xf0f0ea, accent: 0xc8a030, wing: 'low' },
+  cargoplane:   { fuselage: 7.8, paint: 0x9aa0a0, wing: 'high' },
+  bushplane:    { fuselage: 4.2, paint: 0xc03030, accent: 0xe8e0d0, wing: 'high' },
+  cropduster:   { fuselage: 3.8, paint: 0xe8c020, wing: 'low' },
+  newsheli:     { fuselage: 3.8, paint: 0xe8ecf0, accent: 0x2a6ab0, rotor: true, tells: ['dish'] },
+  medheli:      { fuselage: 4.0, paint: 0xf0f0ea, accent: 0xb02020, rotor: true },
+  policeheli:   { fuselage: 3.8, paint: 0x1e2126, accent: 0xe8e8e8, rotor: true, tells: ['lightbar'] },
+  skycrane:     { fuselage: 6.4, paint: 0xd87020, rotor: true, tells: ['boom'] },
+  balloon:      { fuselage: 1.6, paint: 0xc03030, accent: 0xe8c020, envelope: 'sphere' },
+  blimp:        { fuselage: 8.6, paint: 0xb8bcc0, accent: 0x2a6ab0, envelope: 'cigar' },
+  ultralight:   { fuselage: 2.6, paint: 0xe8e0d0, accent: 0x2a8a8a, wing: 'high' },
+  paraglider:   { fuselage: 1.2, paint: 0x2a8a8a, wing: 'none' },
+  hangglider:   { fuselage: 1.4, paint: 0xc03030, wing: 'none' },
+};
+
+interface CivWaterSpec {
+  len: number; wid: number; paint: number; accent?: number;
+  deck: 'cabin' | 'flat' | 'yacht' | 'bridge' | 'open' | 'dome';
+  tells?: CivTell[];
+}
+const CIV_WATER: Partial<Record<VehicleKind, CivWaterSpec>> = {
+  fishingboat:  { len: 3.4, wid: 1.5, paint: 0x3a5a7a, accent: 0xe8e0d0, deck: 'cabin', tells: ['boom'] },
+  yacht:        { len: 5.6, wid: 2.0, paint: 0xf0f0ea, accent: 0x2a6ab0, deck: 'yacht' },
+  speedboat:    { len: 3.4, wid: 1.4, paint: 0xc03030, accent: 0xe8e0d0, deck: 'open' },
+  ferry:        { len: 6.6, wid: 2.8, paint: 0xe8ecf0, accent: 0x2a6ab0, deck: 'bridge' },
+  cargoship:    { len: 9.0, wid: 3.2, paint: 0x7a4a3a, accent: 0x9aa0a0, deck: 'bridge', tells: ['bins'] },
+  patrolboat:   { len: 4.0, wid: 1.7, paint: 0x2a3a4a, accent: 0xe8e8e8, deck: 'cabin', tells: ['lightbar'] },
+  jetski:       { len: 1.7, wid: 0.7, paint: 0xe8c020, deck: 'open' },
+  hovercraft:   { len: 4.4, wid: 2.4, paint: 0x9aa0a0, accent: 0xd87020, deck: 'cabin' },
+  riverbarge:   { len: 6.4, wid: 2.6, paint: 0x6a5a3a, deck: 'flat' },
+  submersible:  { len: 3.2, wid: 1.5, paint: 0xe8c020, accent: 0x2a3a4a, deck: 'dome' },
+};
+
+function buildCivilianVehicle(kind: VehicleKind): THREE.Group {
+  const g = new THREE.Group();
+  const wheels: THREE.Group[] = [];
+  const dark = mat(0x24241f, { rough: 0.55, metal: 0.35 });
+  const glass = mat(0x30404a, { rough: 0.25, metal: 0.55 });
+  const addWheel = (x: number, z: number, r: number, w: number) => {
+    const axle = new THREE.Group();
+    axle.position.set(x, r, z);
+    const tire = cyl(r, r, w, dark, 10);
+    tire.rotation.x = Math.PI / 2;
+    axle.add(tire);
+    g.add(axle);
+    wheels.push(axle);
+  };
+
+  const ground = CIV_GROUND[kind];
+  const air = CIV_AIR[kind];
+  const water = CIV_WATER[kind];
+  if (ground) {
+    const { len, wid, paint, accent, cab, tells = [] } = ground;
+    const body = mat(paint, { rough: 0.5, metal: 0.3 });
+    const trim = mat(accent ?? 0x55554a, { rough: 0.55, metal: 0.3 });
+    if (cab === 'twowheel') {
+      // scooter / bicycle: two wheels on the spine, a thin frame between
+      const frame = box(len * 0.72, 0.09, 0.09, body);
+      frame.position.y = 0.5;
+      g.add(frame);
+      const bars = box(0.08, 0.42, 0.42, dark);
+      bars.position.set(len * 0.36, 0.72, 0);
+      g.add(bars);
+      const seat = box(0.34, 0.08, 0.22, dark);
+      seat.position.set(-len * 0.2, 0.68, 0);
+      g.add(seat);
+      addWheel(len * 0.4, 0, 0.3, 0.1);
+      addWheel(-len * 0.4, 0, 0.3, 0.1);
+    } else {
+      const deckY = 0.62;
+      const chassis = box(len, 0.52, wid, body);
+      chassis.position.y = deckY;
+      g.add(chassis);
+      if (cab === 'front') {          // hood + rear cab (a car's step profile)
+        const cabin = box(len * 0.45, 0.42, wid * 0.86, kind === 'sportscar' ? glass : body);
+        cabin.position.set(-len * 0.08, deckY + 0.45, 0);
+        g.add(cabin);
+        const shield = box(0.06, 0.34, wid * 0.8, glass);
+        shield.position.set(len * 0.16, deckY + 0.42, 0);
+        shield.rotation.z = 0.35;
+        g.add(shield);
+      } else if (cab === 'full' || cab === 'long') { // van / bus: one tall body
+        const cabin = box(len * (cab === 'long' ? 0.94 : 0.8), 0.66, wid * 0.94, body);
+        cabin.position.set(0, deckY + 0.56, 0);
+        g.add(cabin);
+        for (let i = 0; i < (cab === 'long' ? 4 : 2); i++) {
+          const win = box(len * 0.16, 0.24, wid * 0.98, glass);
+          win.position.set(len * 0.3 - i * len * 0.22, deckY + 0.66, 0);
+          g.add(win);
+        }
+      } else {                        // plant machinery: open frame + roll cage
+        const cage = box(len * 0.32, 0.6, wid * 0.7, trim);
+        cage.position.set(-len * 0.1, deckY + 0.52, 0);
+        g.add(cage);
+      }
+      const wr = Math.max(0.26, wid * 0.22);
+      addWheel(len * 0.32, wid * 0.5, wr, 0.2);
+      addWheel(len * 0.32, -wid * 0.5, wr, 0.2);
+      addWheel(-len * 0.32, wid * 0.5, wr, 0.2);
+      addWheel(-len * 0.32, -wid * 0.5, wr, 0.2);
+      // the tells — one readable prop each, the silhouette's whole idea
+      for (const t of tells) {
+        if (t === 'taxisign') { const s = box(0.4, 0.18, 0.14, trim); s.position.set(-len * 0.08, deckY + 0.75, 0); g.add(s); }
+        if (t === 'lightbar') { const s = box(0.16, 0.12, wid * 0.7, mat(0xc03030, { emissive: 0x902020 })); s.position.set(-len * 0.08, deckY + 0.74, 0); g.add(s); }
+        if (t === 'bed') { const b = box(len * 0.4, 0.3, wid * 0.9, trim); b.position.set(-len * 0.28, deckY + 0.3, 0); g.add(b); }
+        if (t === 'boxback') { const b = box(len * 0.55, 0.95, wid, trim); b.position.set(-len * 0.2, deckY + 0.6, 0); g.add(b); }
+        if (t === 'bins') { const b = box(len * 0.5, 0.8, wid * 0.94, trim); b.position.set(-len * 0.22, deckY + 0.55, 0); g.add(b); }
+        if (t === 'tank') { const c = cyl(wid * 0.42, wid * 0.42, len * 0.55, trim, 12); c.rotation.z = Math.PI / 2; c.position.set(-len * 0.18, deckY + 0.5, 0); g.add(c); }
+        if (t === 'mixer') { const c = cyl(wid * 0.34, wid * 0.48, len * 0.42, trim, 10); c.rotation.z = Math.PI / 2 - 0.18; c.position.set(-len * 0.2, deckY + 0.62, 0); g.add(c); }
+        if (t === 'ladder') { const l = box(len * 0.6, 0.08, 0.4, trim); l.position.set(-len * 0.12, deckY + 0.66, 0); g.add(l); }
+        if (t === 'blade') { const b = box(0.16, 0.7, wid * 1.1, dark); b.position.set(len * 0.56, 0.5, 0); g.add(b); }
+        if (t === 'forks') { for (const side of [1, -1]) { const f = box(len * 0.45, 0.07, 0.12, dark); f.position.set(len * 0.6, 0.12, side * wid * 0.22); g.add(f); } }
+        if (t === 'boom') { const b = box(len * 0.42, 0.1, 0.1, trim); b.position.set(-len * 0.3, deckY + 0.72, 0); b.rotation.z = 0.5; g.add(b); }
+        if (t === 'canopy') { const c = box(len * 0.5, 0.05, wid * 1.15, trim); c.position.set(len * 0.05, deckY + 0.95, 0); g.add(c); }
+      }
+    }
+  } else if (air) {
+    const { fuselage, paint, accent, wing, rotor, envelope, tells = [] } = air;
+    const body = mat(paint, { rough: 0.45, metal: 0.35 });
+    const trim = mat(accent ?? 0x55554a, { rough: 0.5, metal: 0.3 });
+    if (envelope) {
+      // lighter-than-air: the bag IS the ship, a basket/gondola hangs low
+      const bag = envelope === 'sphere'
+        ? new THREE.Mesh(new THREE.SphereGeometry(fuselage, 14, 10), body)
+        : cyl(fuselage * 0.17, fuselage * 0.17, fuselage, body, 12);
+      if (envelope === 'cigar') { bag.rotation.z = Math.PI / 2; }
+      bag.position.y = envelope === 'sphere' ? fuselage + 1.4 : 2.2;
+      g.add(bag);
+      if (envelope === 'sphere') { const band = cyl(fuselage * 1.01, fuselage * 1.01, 0.5, trim, 14); band.position.y = fuselage + 1.4; g.add(band); }
+      const gondola = box(envelope === 'cigar' ? fuselage * 0.22 : 1.1, 0.6, 0.9, trim);
+      gondola.position.y = envelope === 'cigar' ? 1.2 : 0.5;
+      g.add(gondola);
+      if (envelope === 'cigar') { for (const side of [1, -1]) { const fin = box(1.2, 0.1, 1.0, trim); fin.position.set(-fuselage * 0.48, 2.2, side * 0.5); g.add(fin); } }
+    } else if (wing === 'none') {
+      // the gliders: a canopy arc + a hanging pilot frame
+      const canopy = cyl(0.16, 0.16, fuselage * 2.4, body, 8);
+      canopy.rotation.x = Math.PI / 2;
+      canopy.position.y = 1.9;
+      canopy.scale.y = 0.4;
+      g.add(canopy);
+      const frame = box(fuselage * 0.8, 0.08, 0.08, dark);
+      frame.position.y = 1.1;
+      g.add(frame);
+      for (const side of [1, -1]) {
+        const line = box(0.04, 0.9, 0.04, dark);
+        line.position.set(0, 1.5, side * fuselage * 0.7);
+        line.rotation.x = side * 0.5;
+        g.add(line);
+      }
+    } else {
+      const tube = cyl(fuselage * 0.09, fuselage * 0.11, fuselage, body, 10);
+      tube.rotation.z = Math.PI / 2;
+      tube.position.y = 1.1;
+      g.add(tube);
+      const nose = cyl(0.02, fuselage * 0.09, fuselage * 0.16, trim, 10);
+      nose.rotation.z = -Math.PI / 2;
+      nose.position.set(fuselage * 0.57, 1.1, 0);
+      g.add(nose);
+      const tail = box(fuselage * 0.14, fuselage * 0.13, 0.08, body);
+      tail.position.set(-fuselage * 0.46, 1.1 + fuselage * 0.07, 0);
+      g.add(tail);
+      if (rotor) {
+        const mast = cyl(0.07, 0.07, 0.4, dark, 8);
+        mast.position.set(0, 1.6, 0);
+        g.add(mast);
+        const rotorGrp = new THREE.Group();
+        rotorGrp.name = 'rotorL';
+        rotorGrp.position.set(0, 1.85, 0);
+        rotorGrp.add(box(fuselage * 0.95, 0.05, 0.16, dark), box(0.16, 0.05, fuselage * 0.95, dark));
+        g.add(rotorGrp);
+        const skids = box(fuselage * 0.5, 0.06, 0.1, dark);
+        for (const side of [1, -1]) { const s = skids.clone(); s.position.set(0, 0.25, side * 0.5); g.add(s); }
+      } else {
+        const wy = wing === 'high' ? 1.45 : 0.85;
+        const wings = box(fuselage * 0.24, 0.07, fuselage * 0.95, body);
+        wings.position.set(fuselage * 0.06, wy, 0);
+        g.add(wings);
+        const hstab = box(fuselage * 0.1, 0.05, fuselage * 0.3, body);
+        hstab.position.set(-fuselage * 0.44, 1.15, 0);
+        g.add(hstab);
+        const prop = cyl(0.05, 0.05, 0.5, dark, 6);
+        prop.rotation.x = Math.PI / 2;
+        prop.position.set(fuselage * 0.6, 1.1, 0);
+        g.add(prop);
+        addWheel(fuselage * 0.2, fuselage * 0.14, 0.16, 0.1);
+        addWheel(fuselage * 0.2, -fuselage * 0.14, 0.16, 0.1);
+      }
+      for (const t of tells) {
+        if (t === 'dish') { const d = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8), trim); d.position.set(fuselage * 0.3, 0.62, 0); g.add(d); }
+        if (t === 'lightbar') { const s = box(0.14, 0.1, 0.6, mat(0xc03030, { emissive: 0x902020 })); s.position.set(0, 1.72, 0); g.add(s); }
+        if (t === 'boom') { const b = box(fuselage * 0.7, 0.12, 0.12, trim); b.position.set(0, 0.55, 0); g.add(b); const hook = box(0.1, 0.4, 0.1, dark); hook.position.set(0, 0.25, 0); g.add(hook); }
+      }
+    }
+  } else if (water) {
+    const { len, wid, paint, accent, deck, tells = [] } = water;
+    const body = mat(paint, { rough: 0.55, metal: 0.25 });
+    const trim = mat(accent ?? 0xe8e0d0, { rough: 0.5, metal: 0.2 });
+    const hull = box(len, 0.6, wid, body);
+    hull.position.y = 0.5;
+    g.add(hull);
+    const bow = cyl(0.03, wid * 0.5, len * 0.18, body, 4);
+    bow.rotation.z = -Math.PI / 2;
+    bow.rotation.x = Math.PI / 4;
+    bow.position.set(len * 0.58, 0.5, 0);
+    g.add(bow);
+    if (deck === 'cabin') { const c = box(len * 0.3, 0.55, wid * 0.72, trim); c.position.set(-len * 0.08, 1.05, 0); g.add(c); }
+    if (deck === 'yacht') {
+      const lower = box(len * 0.55, 0.42, wid * 0.8, trim);
+      lower.position.set(-len * 0.05, 1.0, 0);
+      g.add(lower);
+      const upper = box(len * 0.3, 0.36, wid * 0.6, body);
+      upper.position.set(-len * 0.12, 1.4, 0);
+      g.add(upper);
+    }
+    if (deck === 'bridge') { const b = box(len * 0.16, 1.0, wid * 0.8, trim); b.position.set(-len * 0.36, 1.3, 0); g.add(b); }
+    if (deck === 'dome') { const d = new THREE.Mesh(new THREE.SphereGeometry(wid * 0.42, 12, 8), mat(0x30404a, { rough: 0.25, metal: 0.5 })); d.position.set(len * 0.1, 1.0, 0); g.add(d); }
+    if (deck === 'open') { const shield = box(0.06, 0.3, wid * 0.6, mat(0x30404a, { rough: 0.3, metal: 0.5 })); shield.position.set(len * 0.2, 0.95, 0); shield.rotation.z = 0.4; g.add(shield); }
+    for (const t of tells) {
+      if (t === 'boom') { const m = cyl(0.05, 0.05, 1.6, dark, 6); m.position.set(-len * 0.05, 1.6, 0); g.add(m); const arm = box(len * 0.3, 0.06, 0.06, dark); arm.position.set(-len * 0.18, 2.1, 0); arm.rotation.z = 0.45; g.add(arm); }
+      if (t === 'bins') { for (let i = 0; i < 3; i++) { const c = box(len * 0.18, 0.55, wid * 0.7, mat([0xb02020, 0x2a6ab0, 0x4a7a4a][i], { rough: 0.6 })); c.position.set(len * 0.28 - i * len * 0.22, 1.1, 0); g.add(c); } }
+      if (t === 'lightbar') { const s = box(0.14, 0.1, wid * 0.5, mat(0xc03030, { emissive: 0x902020 })); s.position.set(-len * 0.08, 1.68, 0); g.add(s); }
+    }
+  }
   g.userData.wheels = wheels;
   return g;
 }

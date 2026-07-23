@@ -567,6 +567,65 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
     weapon: 'mech_autocannon', seats: 2, mobileSpawn: false, radius: 1.9,
     strider: true, stomps: true, systemHp: 48,
   },
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // THE CIVILIAN ROSTER (THREE-GAMES-ONE-WAR appendix, Robert: "military
+  // vehicles make war; civilian vehicles make the world feel alive").
+  // World traffic, not war materiel: unarmed, soft, cheap on the ledger,
+  // never on requisition menus — but every one drives (the #121 ground-feel
+  // pass applies), every one hotwires, every one is in the Codex. Speeds
+  // respect the armour-ladder laws: ground/water under the slowest live
+  // round (33.3), air under the Vulture (40). The runabouts ride the W5.5
+  // slip dial like every wheeled thing that corners.
+  // ── ground ──
+  sedan:        { kind: 'sedan', name: 'Commuter Sedan', cost: 1, hp: 70, speed: 18, turnRate: 2.4, weapon: '', seats: 4, mobileSpawn: false, radius: 1.5, systemHp: 8, slip: 2.4, civilian: true },
+  pickup:       { kind: 'pickup', name: 'Workhorse Pickup', cost: 1, hp: 90, speed: 16, turnRate: 2.2, weapon: '', seats: 3, mobileSpawn: false, radius: 1.6, systemHp: 10, slip: 2.2, civilian: true },
+  suv:          { kind: 'suv', name: 'Range SUV', cost: 1, hp: 100, speed: 17, turnRate: 2.2, weapon: '', seats: 5, mobileSpawn: false, radius: 1.7, systemHp: 11, slip: 2.2, civilian: true },
+  sportscar:    { kind: 'sportscar', name: 'Meridian Sports Car', cost: 2, hp: 60, speed: 26, turnRate: 2.9, weapon: '', seats: 2, mobileSpawn: false, radius: 1.5, systemHp: 7, slip: 3.2, civilian: true },
+  taxi:         { kind: 'taxi', name: 'City Taxi', cost: 1, hp: 75, speed: 18, turnRate: 2.5, weapon: '', seats: 4, mobileSpawn: false, radius: 1.5, systemHp: 8, slip: 2.5, civilian: true },
+  schoolbus:    { kind: 'schoolbus', name: 'District School Bus', cost: 2, hp: 160, speed: 11, turnRate: 1.5, weapon: '', seats: 9, mobileSpawn: false, radius: 2.4, systemHp: 17, civilian: true },
+  scooter:      { kind: 'scooter', name: 'Street Scooter', cost: 1, hp: 30, speed: 13, turnRate: 3.0, weapon: '', seats: 1, mobileSpawn: false, radius: 0.9, systemHp: 4, slip: 2.0, civilian: true },
+  atv:          { kind: 'atv', name: 'Trail ATV', cost: 1, hp: 55, speed: 15, turnRate: 2.8, weapon: '', seats: 2, mobileSpawn: false, radius: 1.2, systemHp: 6, slip: 2.1, civilian: true },
+  garbagetruck: { kind: 'garbagetruck', name: 'Municipal Garbage Truck', cost: 2, hp: 200, speed: 9, turnRate: 1.4, weapon: '', seats: 2, mobileSpawn: false, radius: 2.3, systemHp: 21, civilian: true },
+  towtruck:     { kind: 'towtruck', name: 'Roadside Tow Truck', cost: 1, hp: 130, speed: 13, turnRate: 1.8, weapon: '', seats: 2, mobileSpawn: false, radius: 1.9, systemHp: 14, civilian: true },
+  firetruck:    { kind: 'firetruck', name: 'Ladder 9 Fire Truck', cost: 2, hp: 190, speed: 12, turnRate: 1.5, weapon: '', seats: 5, mobileSpawn: false, radius: 2.5, systemHp: 20, civilian: true },
+  fueltanker:   { kind: 'fueltanker', name: 'Petrochem Fuel Tanker', cost: 2, hp: 110, speed: 11, turnRate: 1.3, weapon: '', seats: 2, mobileSpawn: false, radius: 2.5, systemHp: 12, civilian: true },
+  movingtruck:  { kind: 'movingtruck', name: 'Two-Man Moving Truck', cost: 1, hp: 140, speed: 12, turnRate: 1.6, weapon: '', seats: 3, mobileSpawn: false, radius: 2.2, systemHp: 15, civilian: true },
+  foodtruck:    { kind: 'foodtruck', name: 'Corner Food Truck', cost: 1, hp: 120, speed: 12, turnRate: 1.7, weapon: '', seats: 2, mobileSpawn: false, radius: 2.0, systemHp: 13, civilian: true },
+  deliveryvan:  { kind: 'deliveryvan', name: 'Parcel Delivery Van', cost: 1, hp: 110, speed: 15, turnRate: 1.9, weapon: '', seats: 2, mobileSpawn: false, radius: 1.9, systemHp: 12, civilian: true },
+  policecruiser:{ kind: 'policecruiser', name: 'Metro Police Cruiser', cost: 1, hp: 95, speed: 22, turnRate: 2.6, weapon: '', seats: 4, mobileSpawn: false, radius: 1.6, systemHp: 10, slip: 2.6, civilian: true },
+  loader:       { kind: 'loader', name: 'Site Loader', cost: 1, hp: 170, speed: 7, turnRate: 1.6, weapon: '', seats: 1, mobileSpawn: false, radius: 1.9, systemHp: 18, civilian: true },
+  forklift:     { kind: 'forklift', name: 'Yard Forklift', cost: 1, hp: 90, speed: 6, turnRate: 2.6, weapon: '', seats: 1, mobileSpawn: false, radius: 1.3, systemHp: 10, civilian: true },
+  bulldozer:    { kind: 'bulldozer', name: 'Earthline Bulldozer', cost: 2, hp: 260, speed: 5, turnRate: 1.3, weapon: '', seats: 1, mobileSpawn: false, radius: 2.2, systemHp: 27, civilian: true },
+  cementmixer:  { kind: 'cementmixer', name: 'Rotary Cement Mixer', cost: 2, hp: 180, speed: 9, turnRate: 1.4, weapon: '', seats: 2, mobileSpawn: false, radius: 2.3, systemHp: 19, civilian: true },
+  golfcart:     { kind: 'golfcart', name: 'Fairway Golf Cart', cost: 1, hp: 40, speed: 8, turnRate: 2.7, weapon: '', seats: 2, mobileSpawn: false, radius: 1.2, systemHp: 5, civilian: true },
+  bicycle:      { kind: 'bicycle', name: 'Town Bicycle', cost: 1, hp: 20, speed: 7, turnRate: 3.2, weapon: '', seats: 1, mobileSpawn: false, radius: 0.8, systemHp: 3, civilian: true },
+  // ── air (helis spool; planes carry a stall floor — they make PASSES) ──
+  passengerjet: { kind: 'passengerjet', name: 'Meridian Air 220 Passenger Jet', cost: 4, hp: 220, speed: 34, turnRate: 0.9, weapon: '', seats: 9, mobileSpawn: false, radius: 4.2, flies: true, liftoffTime: 4, minAirspeed: 0.5, bankAngle: 0.4, systemHp: 23, civilian: true },
+  privatejet:   { kind: 'privatejet', name: 'Sovereign Private Jet', cost: 3, hp: 130, speed: 36, turnRate: 1.2, weapon: '', seats: 5, mobileSpawn: false, radius: 3.0, flies: true, liftoffTime: 3, minAirspeed: 0.5, bankAngle: 0.55, systemHp: 14, civilian: true },
+  cargoplane:   { kind: 'cargoplane', name: 'Atlas Air Cargo Plane', cost: 3, hp: 260, speed: 26, turnRate: 0.8, weapon: '', seats: 4, mobileSpawn: false, radius: 4.4, flies: true, liftoffTime: 4, minAirspeed: 0.45, bankAngle: 0.3, systemHp: 27, civilian: true },
+  bushplane:    { kind: 'bushplane', name: 'Backcountry Bush Plane', cost: 2, hp: 90, speed: 22, turnRate: 1.5, weapon: '', seats: 3, mobileSpawn: false, radius: 2.4, flies: true, liftoffTime: 2, minAirspeed: 0.35, bankAngle: 0.5, systemHp: 10, civilian: true },
+  cropduster:   { kind: 'cropduster', name: 'Lowfield Crop Duster', cost: 1, hp: 70, speed: 20, turnRate: 1.7, weapon: '', seats: 1, mobileSpawn: false, radius: 2.2, flies: true, liftoffTime: 2, minAirspeed: 0.35, bankAngle: 0.6, systemHp: 8, civilian: true },
+  newsheli:     { kind: 'newsheli', name: 'Channel 5 News Helicopter', cost: 2, hp: 100, speed: 20, turnRate: 2.2, weapon: '', seats: 3, mobileSpawn: false, radius: 2.2, flies: true, hover: true, liftoffTime: 3, systemHp: 11, civilian: true },
+  medheli:      { kind: 'medheli', name: 'Lifeline Medical Helicopter', cost: 2, hp: 120, speed: 21, turnRate: 2.1, weapon: '', seats: 4, mobileSpawn: false, radius: 2.3, flies: true, hover: true, liftoffTime: 3, healRadius: 6, healRate: 6, systemHp: 13, civilian: true },
+  policeheli:   { kind: 'policeheli', name: 'Metro Police Helicopter', cost: 2, hp: 110, speed: 23, turnRate: 2.3, weapon: '', seats: 3, mobileSpawn: false, radius: 2.2, flies: true, hover: true, liftoffTime: 3, systemHp: 12, civilian: true },
+  skycrane:     { kind: 'skycrane', name: 'Longbeam Sky Crane', cost: 3, hp: 210, speed: 14, turnRate: 1.4, weapon: '', seats: 2, mobileSpawn: false, radius: 3.6, flies: true, hover: true, liftoffTime: 4, systemHp: 22, civilian: true },
+  balloon:      { kind: 'balloon', name: 'Dawn Hot Air Balloon', cost: 1, hp: 45, speed: 4, turnRate: 1.0, weapon: '', seats: 3, mobileSpawn: false, radius: 2.6, flies: true, hover: true, liftoffTime: 5, systemHp: 5, civilian: true },
+  blimp:        { kind: 'blimp', name: 'Skyline Blimp', cost: 2, hp: 140, speed: 7, turnRate: 0.8, weapon: '', seats: 4, mobileSpawn: false, radius: 4.6, flies: true, hover: true, liftoffTime: 5, systemHp: 15, civilian: true },
+  ultralight:   { kind: 'ultralight', name: 'Featherframe Ultralight', cost: 1, hp: 35, speed: 14, turnRate: 1.9, weapon: '', seats: 1, mobileSpawn: false, radius: 1.8, flies: true, liftoffTime: 1, minAirspeed: 0.3, bankAngle: 0.5, systemHp: 4, civilian: true },
+  paraglider:   { kind: 'paraglider', name: 'Ridgeline Paraglider', cost: 1, hp: 20, speed: 9, turnRate: 2.0, weapon: '', seats: 1, mobileSpawn: false, radius: 1.5, flies: true, minAirspeed: 0.3, systemHp: 3, civilian: true },
+  hangglider:   { kind: 'hangglider', name: 'Thermal Hang Glider', cost: 1, hp: 20, speed: 11, turnRate: 1.8, weapon: '', seats: 1, mobileSpawn: false, radius: 1.9, flies: true, minAirspeed: 0.35, systemHp: 3, civilian: true },
+  // ── water ──
+  fishingboat:  { kind: 'fishingboat', name: 'Dockside Fishing Boat', cost: 1, hp: 90, speed: 10, turnRate: 1.6, weapon: '', seats: 3, mobileSpawn: false, radius: 2.0, boat: true, systemHp: 10, civilian: true },
+  yacht:        { kind: 'yacht', name: 'Harborline Yacht', cost: 3, hp: 150, speed: 12, turnRate: 1.3, weapon: '', seats: 6, mobileSpawn: false, radius: 3.2, boat: true, systemHp: 16, civilian: true },
+  speedboat:    { kind: 'speedboat', name: 'Cutwater Speedboat', cost: 2, hp: 70, speed: 24, turnRate: 2.4, weapon: '', seats: 3, mobileSpawn: false, radius: 2.0, boat: true, slip: 2.8, systemHp: 8, civilian: true },
+  ferry:        { kind: 'ferry', name: 'Crossing Ferry', cost: 2, hp: 240, speed: 8, turnRate: 0.9, weapon: '', seats: 9, mobileSpawn: false, radius: 3.8, boat: true, systemHp: 25, civilian: true },
+  cargoship:    { kind: 'cargoship', name: 'Longhaul Cargo Ship', cost: 4, hp: 380, speed: 6, turnRate: 0.6, weapon: '', seats: 5, mobileSpawn: false, radius: 5.0, boat: true, systemHp: 39, civilian: true },
+  patrolboat:   { kind: 'patrolboat', name: 'Harbor Patrol Boat', cost: 2, hp: 120, speed: 20, turnRate: 2.0, weapon: '', seats: 4, mobileSpawn: false, radius: 2.3, boat: true, systemHp: 13, civilian: true },
+  jetski:       { kind: 'jetski', name: 'Whitecap Jet Ski', cost: 1, hp: 35, speed: 26, turnRate: 3.0, weapon: '', seats: 1, mobileSpawn: false, radius: 1.0, boat: true, slip: 3.0, systemHp: 4, civilian: true },
+  hovercraft:   { kind: 'hovercraft', name: 'Skirtline Hovercraft', cost: 2, hp: 130, speed: 16, turnRate: 1.6, weapon: '', seats: 5, mobileSpawn: false, radius: 2.6, hover: true, slip: 3.4, systemHp: 14, civilian: true },
+  riverbarge:   { kind: 'riverbarge', name: 'Lowline River Barge', cost: 2, hp: 200, speed: 5, turnRate: 0.7, weapon: '', seats: 3, mobileSpawn: false, radius: 3.6, boat: true, systemHp: 21, civilian: true },
+  submersible:  { kind: 'submersible', name: 'Twilight Research Submersible', cost: 3, hp: 110, speed: 9, turnRate: 1.2, weapon: '', seats: 2, mobileSpawn: false, radius: 2.0, boat: true, submersible: true, systemHp: 12, civilian: true },
 };
 
 // ---------------------------------------------------------------------------

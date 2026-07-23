@@ -187,6 +187,18 @@ const VEHICLE_PARTS: Record<VehicleKind, string[]> = {
   airsuperiority: ['turret', 'gunRecoil', 'thrustL', 'thrustR'],          // Specter — diamond air-superiority fighter
   stealthbomber: ['turret', 'gunRecoil', 'thrustL', 'thrustR', 'bay'],    // Reaper — flying-wing stealth bomber
   gunheli: ['turret', 'gunRecoil', 'rotorL'],                             // Hydra — single-rotor rocket heli
+  // THE CIVILIAN ROSTER — unarmed world traffic (no turret, no recoil);
+  // rotorcraft still name their blades so the renderer's blur hook winds them
+  sedan: [], pickup: [], suv: [], sportscar: [], taxi: [], schoolbus: [],
+  scooter: [], atv: [], garbagetruck: [], towtruck: [], firetruck: [],
+  fueltanker: [], movingtruck: [], foodtruck: [], deliveryvan: [],
+  policecruiser: [], loader: [], forklift: [], bulldozer: [], cementmixer: [],
+  golfcart: [], bicycle: [],
+  passengerjet: [], privatejet: [], cargoplane: [], bushplane: [], cropduster: [],
+  newsheli: ['rotorL'], medheli: ['rotorL'], policeheli: ['rotorL'], skycrane: ['rotorL'],
+  balloon: [], blimp: [], ultralight: [], paraglider: [], hangglider: [],
+  fishingboat: [], yacht: [], speedboat: [], ferry: [], cargoship: [],
+  patrolboat: [], jetski: [], hovercraft: [], riverbarge: [], submersible: [],
 };
 
 describe('visual: vehicles', () => {
