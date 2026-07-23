@@ -7,3 +7,4 @@
 2026-07-23 COACH-UI GOAL — 2 six-judge panels + 13 fixes shipped (c7a82b6): glyph vocabulary replaces the emoji zoo, clock lane, sticky-commit padding, grid alignment, AA muted lift, 44px targets, steel scrollbars. Enemy-channel law escalated.
 2026-07-23 VEHICLES GOAL v2 — roster completed (48 civilian, +train/subway rails) + THE LICENCES built (12 certs, chain ladder, codex LICENCE/EARNED AT columns, 7 laws). 654cc75.
 2026-07-23 HIGH-CODE TEN — garage real, traffic, structures bite, race AI, derby, treasury, furniture, track builder (creator), jump dress, service file. ~2552 tests.
+2026-07-23 THE THREAT ROOM — combat lab shipped (260cbbd): mode 'threat', 20 question-presets, 20-entry summon shelf, blockers that hold guard, movers that pace, props to knock around; responsive panel (phone sheet / desktop rail); melee readout refined (charge/tank/choke bars). 10 laws.
