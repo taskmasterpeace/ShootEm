@@ -1498,6 +1498,25 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
             ? 'TRACK RECORD — TAKEN FROM ' + filed.previous.holder.toUpperCase()
             : 'TRACK RECORD SET', true, world.time);
         }
+        // TIE IT INTO THE NEWS (Robert): a race is a press event too. File an
+        // issue so the circuit lives in the same paper — and the same GONET
+        // BROADCAST — that the war does. Works single AND multiplayer: it reads
+        // only the local result, exactly like the battle filing beside it.
+        const disc = selectedMode === 'timetrial' ? 'TIME ATTACK'
+          : selectedMode === 'derby' ? 'DEMOLITION' : 'CIRCUIT RACING';
+        const grid = [...world.vehicles.values()].filter((v) => v.seats[0] >= 0).length;
+        fileIssue({
+          at: Date.now(), season: campaign?.season ?? 0,
+          won: filed.tookLap, modeName: disc,
+          aceName: name, aceKills: 0, longestShot: 0,
+          myCost: 0, theirCost: 0, underdog: false, myKills: 0, theirKills: 0,
+          medals: [],
+          race: {
+            discipline: disc, venue: trackId, cls: raceClassOf(hull, VEHICLES[hull]?.mass).toUpperCase(),
+            winner: name, lap: best, field: Math.max(1, grid),
+            recordTaken: filed.tookLap, previousHolder: filed.previous?.holder,
+          },
+        });
       }
     }
     if (world.mode.over && world.mode.coursePassed && enrolledCourse && !schoolAwarded) {

@@ -74,6 +74,23 @@ const ago = (at: number, now: number): string => {
   return h < 24 ? `${h} HR AGO` : `${Math.round(h / 24)} DAY${h >= 48 ? 'S' : ''} AGO`;
 };
 
+/** One race, cut as a sports segment — the circuit on the broadcast. */
+function raceReel(issue: PressIssue, i: number, now: number): Reel {
+  const r = issue.race!;
+  const shots: Shot[] = [
+    { headline: `${r.discipline} — ${r.cls} CLASS`, sub: `From the circuit at ${r.venue}.`, slug: 'SPORTS DESK', hold: 3.2 },
+    { headline: `${r.winner.toUpperCase()} TAKES IT`, sub: `${r.field} on the grid, one flag.`, figure: r.lap > 0 ? `${r.lap.toFixed(1)}s` : undefined, slug: 'THE FEATURE', hold: 3.4 },
+  ];
+  if (r.recordTaken) {
+    shots.push({
+      headline: 'A RECORD FALLS', figure: `${r.lap.toFixed(1)}s`,
+      sub: r.previousHolder ? `Taken from ${r.previousHolder}. It stands until it doesn't.` : 'The first mark on the board.',
+      slug: 'THE BOARD', hold: 3.4,
+    });
+  }
+  return { id: `race_${issue.at}_${i}`, channel: 'war', title: `${r.discipline}: ${r.winner}`, dateline: ago(issue.at, now), shots };
+}
+
 /** One battle, cut as a news segment. */
 function battleReel(issue: PressIssue, i: number, now: number): Reel {
   const shots: Shot[] = [];
@@ -145,7 +162,7 @@ export function buildSchedule(id: PlayerIdentity | null, now = Date.now()): Reel
   const side = id ? factionLabel(id.faction).toUpperCase() : 'THE FRONT';
 
   // ── WAR DESK: every battle the press filed, newest first ─────────────────
-  press.slice(0, 6).forEach((issue, i) => reels.push(battleReel(issue, i, now)));
+  press.slice(0, 6).forEach((issue, i) => reels.push(issue.race ? raceReel(issue, i, now) : battleReel(issue, i, now)));
   if (!press.length) {
     reels.push({
       id: 'war_quiet',

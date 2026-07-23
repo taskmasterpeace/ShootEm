@@ -21,6 +21,20 @@ export interface SciencePressData {
 // that prints it.
 // ---------------------------------------------------------------------------
 
+// THE SPORTS DESK (Robert: "improve racing… also tie it into the news").
+// A finished race files its own press story — the winner, the time, and
+// whether a record fell — so the circuit lives in the same paper the war does.
+export interface RacePressData {
+  discipline: string;    // 'CIRCUIT RACING', 'TIME ATTACK', 'DEMOLITION'
+  venue: string;         // the track id / circuit name
+  cls: string;           // 'CAR' | 'BIKE' | 'TRUCK' | 'BOARD'
+  winner: string;        // who took it
+  lap: number;           // best lap, seconds (0 = none set)
+  field: number;         // how many on the grid
+  recordTaken: boolean;  // a track record fell
+  previousHolder?: string; // whose record it was
+}
+
 export interface OperationPressFacts {
   codename: string;
   site: string;
@@ -55,6 +69,7 @@ export interface PressIssue {
   medals: string[];           // "🎖 name" strings, already formatted
   science?: SciencePressData;
   operation?: OperationPressFacts;
+  race?: RacePressData;
 }
 
 const KEY = 'ww_press';
@@ -90,6 +105,7 @@ export function fileIssue(issue: PressIssue) {
 const hash = (i: PressIssue) => Math.abs(Math.floor(i.at / 1000)) % 3;
 
 function mainHeadline(i: PressIssue): string {
+  if (i.race) return raceHeadline(i);
   if (i.science) return scienceHeadline(i);
   if (i.operation) {
     const code = i.operation.codename.toUpperCase();
@@ -111,6 +127,20 @@ function mainHeadline(i: PressIssue): string {
   return i.won
     ? ['THE FIELD IS OURS', 'VICTORY IN THE OPEN', 'THE LINE HELD'][hash(i)]
     : ['A HARD DAY AT THE FRONT', 'THE LINE BENDS', 'THEY TOOK THE FIELD'][hash(i)];
+}
+
+/** THE SPORTS PAGE headline — a race the way a paper would run it. */
+export function raceHeadline(issue: PressIssue): string {
+  const r = issue.race;
+  if (!r) return 'RACE RESULT';
+  const who = r.winner.toUpperCase();
+  const cls = r.cls.toUpperCase();
+  if (r.recordTaken) {
+    return r.previousHolder
+      ? [`${who} SHATTERS THE ${cls} RECORD`, `RECORD FALLS: ${who} TAKES IT FROM ${r.previousHolder.toUpperCase()}`, `${who} REWRITES THE ${cls} BOOK`][hash(issue)]
+      : [`${who} SETS THE ${cls} MARK`, `FIRST BLOOD: ${who} OWNS THE ${cls} RECORD`, `${who} STAMPS THE FIRST ${cls} TIME`][hash(issue)];
+  }
+  return [`${who} TAKES THE ${cls} FEATURE`, `${who} WINS AT ${r.venue.toUpperCase()}`, `${cls} HONOURS TO ${who}`][hash(issue)];
 }
 
 export function scienceHeadline(issue: PressIssue): string {
