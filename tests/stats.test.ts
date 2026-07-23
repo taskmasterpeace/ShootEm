@@ -6,6 +6,7 @@
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from 'vitest';
 import { WEAPONS } from '../src/sim/data';
+import { lswsForTeam } from '../src/sim/lsw';
 import { World } from '../src/sim/world';
 
 const world = () => new World({ seed: 21, mode: 'tdm' });
@@ -67,5 +68,48 @@ describe('the stats — the visceral three', () => {
     const z = w.addSoldier('Shambler', 'infantry', 1, 'zombie');
     expect(z.stats).toBeUndefined();
     expect(w.statMul(undefined)).toBe(1);
+  });
+});
+
+describe('the capture (#127) — the fallen god is a prize', () => {
+  it('an enemy at the carcass channels the DNA out in ~3 seconds', () => {
+    const w = new World({ seed: 31, mode: 'tdm' });
+    const god = w.addSoldier('Vessel', 'infantry', 1, 'human');
+    w.spawn(god);
+    const asc = lswsForTeam(1)[0]; // a god from the side's OWN stable
+    expect(w.ascendSoldier(god, asc)).toBe(true);
+    const harvester = w.addSoldier('Jackal', 'infantry', 0, 'human');
+    w.spawn(harvester);
+    // the god falls with the jackal standing over the body. Fresh spawns are
+    // untouchable (55B) — the test strips the shield; and some gods cheat
+    // death once (chronos rewinds), so the war hits until they stay down.
+    harvester.pos = { ...god.pos };
+    god.protectedUntil = 0;
+    for (let hit = 0; hit < 4 && god.alive; hit++) w.damageSoldier(god, 999999, harvester.id, 'rifle_kuchler_1');
+    expect(god.alive).toBe(false);
+    expect(w.godCarcasses.length).toBe(1);
+    let dna = false;
+    for (let i = 0; i < 4 * 30 && !dna; i++) {
+      harvester.pos = { ...w.godCarcasses[0]?.pos ?? harvester.pos };
+      w.step(1 / 30, new Map());
+      dna = w.takeEvents().some((e) => e.type === 'dna' && e.text === asc);
+    }
+    expect(dna).toBe(true);
+    expect(w.godCarcasses.length).toBe(0);
+  });
+
+  it('an unharvested carcass expires — the prize is not forever', () => {
+    const w = new World({ seed: 32, mode: 'tdm' });
+    const god = w.addSoldier('Vessel', 'infantry', 1, 'human');
+    w.spawn(god);
+    expect(w.ascendSoldier(god, lswsForTeam(1)[0])).toBe(true);
+    god.pos = { x: 60, y: 0, z: 60 }; // far from everyone
+    god.protectedUntil = 0; // strip the 55B spawn shield — this is an execution
+    for (let hit = 0; hit < 4 && god.alive; hit++) w.damageSoldier(god, 999999, -1, 'rifle_kuchler_1');
+    expect(god.alive).toBe(false);
+    expect(w.godCarcasses.length).toBe(1);
+    for (let i = 0; i < 31 * 30; i++) w.step(1 / 30, new Map());
+    expect(w.godCarcasses.length).toBe(0);
+    expect(w.takeEvents().some((e) => e.type === 'dna')).toBe(false);
   });
 });

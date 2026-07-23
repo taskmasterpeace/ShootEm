@@ -1084,6 +1084,17 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     ringDrill?.update(world, me.id, events);
     // the amusement-park verb (#122): walk up, read the prompt, press E
     if (world.mode.id === 'shop') updateShopInteract(world, me, endGame);
+    // #127 THE VAULT: banked god-blood persists on this client — the spend
+    // arrives with the meta-layer economy (#63); the vault fills today
+    for (const e of events) {
+      if (e.type === 'dna' && e.text) {
+        try {
+          const vault = JSON.parse(localStorage.getItem('ww_dna_vault') ?? '{}') as Record<string, number>;
+          vault[e.text] = (vault[e.text] ?? 0) + 1;
+          localStorage.setItem('ww_dna_vault', JSON.stringify(vault));
+        } catch { /* a full vault never crashes the war */ }
+      }
+    }
     galleryDrill?.update(world, me.id, events, dt);
     fieldTracker?.step(world, events, me.id);
     // the whistle settles the HONORS and the LADDER — exactly once (never on

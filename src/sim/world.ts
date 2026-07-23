@@ -136,6 +136,7 @@ const OUTBREAK_LEVELS = [
 // iteration; never held across ticks
 const PROJ_SCRATCH: Soldier[] = [];
 const MELEE_SCRATCH: Soldier[] = [];
+const DNA_SCRATCH: Soldier[] = []; // #127: the carcass-harvest proximity query
 const VEHICLE_RESPAWN = 22;
 // §8.1a requisition law — you signed the hull out; the manifest doesn't care that you died
 const HOTWIRE_ABANDON = 90;  // an enemy hull must sit crewless this long before it can be stolen
@@ -534,6 +535,8 @@ export class World {
   }
   /** §director: the match-level pacing band (neutral with no human on field) */
   director: DirectorState = newDirector();
+  /** #127 THE CAPTURE: fallen gods lying open — stand close, take the blood */
+  godCarcasses: { asc: AscendantId; pos: Vec3; team: Team; until: number; progress: number }[] = [];
   /** §influence: the shared per-team threat field (pay once, all bots read) */
   influence: InfluenceField = newInfluence();
   /** soldier ids currently hidden inside smoke fields */
@@ -2198,6 +2201,24 @@ export class World {
     this.updateLastSeen();
     stepDirector(this, this.director); // §director: drift the pacing band
     buildInfluence(this.influence, this.time, this.soldiers.values()); // §influence
+
+    // #127 open carcasses: the nearest living ENEMY of the fallen god's side
+    // channels the DNA by standing at the body (~3s). The prize expires.
+    for (let i = this.godCarcasses.length - 1; i >= 0; i--) {
+      const c = this.godCarcasses[i];
+      if (this.time > c.until) { this.godCarcasses.splice(i, 1); continue; }
+      let near: Soldier | undefined;
+      for (const s of this.soldierIndex.near((1 - c.team) as Team, c.pos.x, c.pos.z, 2.2, DNA_SCRATCH)) {
+        if (s.alive) { near = s; break; }
+      }
+      if (!near) continue;
+      c.progress += dt / 3;
+      if (c.progress >= 1) {
+        this.godCarcasses.splice(i, 1);
+        this.emit({ type: 'dna', pos: { ...c.pos }, text: c.asc, soldierId: near.id });
+        this.emit({ type: 'announce', text: `DNA EXTRACTED — ${LSWS[c.asc].name.toUpperCase()} SAMPLE BANKED`, big: true });
+      }
+    }
 
     // #123 NIGHT IS TIME, not weather: when a clock rides this world, dusk
     // and dawn land exactly when the clock says — mid-match if the clock says
@@ -7094,6 +7115,13 @@ export class World {
         timeAlive: victim.spawnedAt !== undefined ? Math.round((this.time - victim.spawnedAt) * 10) / 10 : undefined,
         ...(killerHull ? { killerVehicle: killerHull.kind } : {}),
       });
+      // #127 THE CAPTURE (Robert: 'capture enemy gods — get the DNA from
+      // them'): a fallen god doesn't vanish — its body lies OPEN for 30s.
+      // Stand at the carcass and the blood channels out (the step loop).
+      if (victim.ascendant !== undefined) {
+        this.godCarcasses.push({ asc: victim.ascendant, pos: { ...victim.pos }, team: victim.team, until: this.time + 30, progress: 0 });
+        this.emit({ type: 'announce', text: 'THE GOD FELL — ITS BLOOD IS OPEN', big: true });
+      }
     }
   }
 

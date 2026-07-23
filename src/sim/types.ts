@@ -1092,6 +1092,7 @@ export interface SimEvent {
     | 'point_captured' | 'wave_start' | 'vehicle_enter' | 'vehicle_exit'
     | 'vehicle_destroyed' | 'turret_built' | 'heal' | 'jetpack' | 'cloak'
     | 'announce' | 'match_over' | 'mine_planted'
+    | 'dna'            // #127: a fallen god's blood banked — text = ascendant id, soldierId = harvester
     | 'mine_wake'      // a spider mine woke and is skittering for a kill
     | 'warp' | 'blink' | 'emp' | 'orbital_strike' | 'gravlift'
     | 'grav_well'      // a singularity grenade opened a gravity well (the pull VFX)
