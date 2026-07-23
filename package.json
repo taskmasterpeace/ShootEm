@@ -13,9 +13,16 @@
     "test": "vitest run",
     "test:vehicle-scenarios": "tsx scripts/run-vehicle-scenarios.ts",
     "map:import:sf": "tsx scripts/import-geospatial-map.ts --id sf-potrero --name \"Potrero Hill / Dogpatch\" --bbox -122.4045,37.7520,-122.3943,37.7601 --city 69:san-francisco:cr7:896047 --seed 4207 --retrieved-at 2026-07-22 --output src/data/geospatial/san-francisco-potrero.json",
-    "map:import:33056": "tsx scripts/import-geospatial-map.ts --id miami-gardens-33056-civic-front --name \"Miami Gardens 33056 / Civic Front\" --bbox -80.24827,25.93991,-80.23929,25.94799 --city 69:miami:e08:2700000 --seed 33056 --retrieved-at 2026-07-22 --style miami-gardens --control-points \"183RD STREET|CIVIC CENTER|CAROL CITY EAST\" --output src/data/geospatial/miami-gardens-33056.json",
+    "map:import:33056": "tsx scripts/import-geospatial-map.ts --id miami-gardens-33056-civic-front --name \"Miami Gardens 33056 / Civic Front\" --bbox -80.24827,25.93991,-80.23929,25.94799 --city 69:miami:e08:2700000 --seed 33056 --retrieved-at 2026-07-22 --profile miami-gardens --nsi true --cache-dir src/data/geospatial/cache --control-points \"183RD STREET|CIVIC CENTER|CAROL CITY EAST\" --output src/data/geospatial/miami-gardens-33056.json",
+    "map:import:nyc": "tsx scripts/import-geospatial-map.ts --id lower-manhattan-civic-financial --name \"Lower Manhattan Civic / Financial District\" --bbox -74.01235,40.70695,-74.00165,40.71505 --city 69:new-york-city:eu6:8323340 --seed 212 --retrieved-at 2026-07-22 --profile lower-manhattan --nsi true --cache-dir src/data/geospatial/cache --control-points \"BATTERY APPROACH|CIVIC CENTER|FINANCIAL DISTRICT\" --output src/data/geospatial/lower-manhattan-civic-financial.json",
+    "map:import:tarboro": "tsx scripts/import-geospatial-map.ts --id tarboro-town-common-main-street --name \"Tarboro Town Common / Main Street\" --bbox -77.54080,35.89275,-77.53080,35.90085 --city 69:miami:e08:2700000 --seed 27886 --retrieved-at 2026-07-22 --profile tarboro --nsi true --cache-dir src/data/geospatial/cache --control-points \"MAIN STREET SOUTH|TOWN COMMON|MAIN STREET NORTH\" --output src/data/geospatial/tarboro-town-common-main-street.json",
     "lint": "eslint src tests",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "desktop": "npm run build && electron .",
+    "desktop:dev": "cross-env WARWORLD_DEV=1 electron .",
+    "dist:win": "npm run build && electron-builder --win --x64",
+    "dist:linux": "npm run build && electron-builder --linux --x64",
+    "dist:all": "npm run build && electron-builder --win --linux --x64"
   },
   "dependencies": {
     "three": "^0.170.0",
@@ -26,11 +33,74 @@
     "@types/node": "^22.0.0",
     "@types/three": "^0.170.0",
     "@types/ws": "^8.5.10",
+    "cross-env": "^10.1.0",
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
     "eslint": "^10.7.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
     "typescript-eslint": "^8.64.0",
     "vite": "^6.0.0",
     "vitest": "^2.1.0"
+  },
+  "main": "electron/main.cjs",
+  "build": {
+    "appId": "com.machinekinglabs.warworld",
+    "productName": "War World Earth",
+    "copyright": "Machine King Labs",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "artifactName": "WarWorldEarth-${version}-win-x64.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "War World Earth"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "Game",
+      "artifactName": "WarWorldEarth-${version}-linux-x86_64.${ext}",
+      "executableArgs": [
+        "--no-sandbox"
+      ]
+    },
+    "appImage": {
+      "license": null
+    }
   }
 }

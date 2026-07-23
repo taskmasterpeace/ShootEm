@@ -32,3 +32,4 @@ assets/glb/
 assets/*.zip
 
 *.code-workspace
+release/

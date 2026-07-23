@@ -38,6 +38,10 @@ function pruneWavPlugin() {
 const PORT = process.env.PORT ? Number(process.env.PORT) : undefined;
 
 export default defineConfig({
+  // THE DESKTOP BUILD (Steam Deck): Electron loads dist/ over file://, where an
+  // absolute /assets/… path resolves to the filesystem root and 404s. A relative
+  // base serves both — the dev server and the packaged game.
+  base: './',
   plugins: [pruneWavPlugin(), soundEditorPlugin()],
   // vitest: only the repo's own suite — agent worktrees under .claude/ carry
   // their own copies of the tests and must not pollute the gate counts

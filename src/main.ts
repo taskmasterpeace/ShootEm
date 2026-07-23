@@ -30,6 +30,7 @@ import { settleMatch, treasuryLine } from './client/treasury';
 import { renderServiceFile } from './client/service-file';
 import { currentRank, fileService } from './client/service';
 import { hometownSkills } from './client/hometown-bridge';
+import { mountGamepadUI } from './client/gamepad-ui';
 import { DECK_MORALE, cartridgeById, loadDeck, saveDeck } from './client/gonet/cartridges';
 import { SKILL_IDS, skillLevel } from './sim/skills';
 import { BAND_LABEL, bandOf as moraleBandOf, moraleOf } from './sim/morale';
@@ -2427,6 +2428,18 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 // touch-first machines get the CSS treatment even on the menus (bigger
 // targets, safe-area padding) before any match starts
 if (isTouchDevice()) document.body.classList.add('touch');
+
+// THE PAD DRIVES THE WHOLE GAME (Steam Deck). In-match input is input.ts's
+// job; this is every OTHER screen — enlistment, the GONET's apps, deploy,
+// the codex — so nothing we built is unreachable without a mouse.
+mountGamepadUI();
+// a packaged desktop build wears its own class: controller glyphs by default,
+// no install prompt, Deck-sized text
+const desktop = (window as unknown as { __desktop?: { isDeck?: boolean } }).__desktop;
+if (desktop) {
+  document.body.classList.add('desktop');
+  if (desktop.isDeck) document.body.classList.add('deck');
+}
 
 // ── THE SERVICE RECORD (auth) — who this device says you are ───────────────
 // Local sessions are the offline truth; the Supabase door lights up when a
