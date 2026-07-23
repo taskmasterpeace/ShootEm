@@ -45,3 +45,4 @@
 2026-07-22 IT-47: #84 built (the rack, switch-follow live-proven). 43 closed, 9 needs-robert.
 2026-07-22 IT-48: readiness report refreshed at 43-closed; board synced. Next: #87 red dot + laser day/night pass.
 2026-07-22 GOAL(codex reviews): SHIPPED — reviews.ts + codex SERVICE NET panel; 8 tests; live-proven (file->aggregate->top->cooldown). Print cards = the printed-soldier view seed (#83 opens full profiles).
+2026-07-23: THE BOARD shipped (a425220) — the desk under the TV. Aspect decided: cinemascope 2.28:1 picture, clamp(132px,22vh,280px) desk, one --board-h honoured by canvas/HUD/damage-layer. 8 named superlatives + fighter table + engine vitals + feed. Live run found 3 real bugs: canvas ratcheted to 26.8M px (width:auto lays out at drawing-buffer size the renderer sizes FROM it), BEST DEFENCE blank all match (no bot wears plate -> soak-per-life), ACC 0% (hit event lacks attacker -> connections). tsc 0, 2583 green, build clean. Docs: docs/THE-BOARD.md.
