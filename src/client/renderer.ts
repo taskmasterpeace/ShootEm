@@ -8,8 +8,9 @@ import { TORCH_MULT, classLinger, eyesSeePoint, perceivesNow, seenRecently, type
 import { paintColorFor } from './onboarding';
 import type { WeatherKind } from '../sim/weather';
 import type { SimEvent, Soldier, Team, Vec3, VehicleKind } from '../sim/types';
-import { isBoard } from '../sim/types';
+import { isBoard, isZed } from '../sim/types';
 import { HAND_FRAG_REACH, handSpreadMul, meleeWindupFor, type World } from '../sim/world';
+import { TheFallen } from './fallen';
 import { audio, type SoundName } from './audio';
 import { ClassVo } from './classvo';
 import { BIOME_AUDIO } from './soundscape';
@@ -201,6 +202,23 @@ const POSE_TO_SCHOOL: Record<NonNullable<LswDef['attackPose']>, CastSchool> = {
 // fight), sharing one set of geometry + one dead-tinted material, so forty of
 // them cost almost nothing.
 const CORPSE_REVEAL_DELAY = 3.7; // stay hidden until the dead-soldier mesh clears (RESPAWN_DELAY 4s)
+
+/** How many marks the ground can hold at once. One draw call either way, so
+ *  this is a memory budget (≈36 KB of typed arrays), not a draw budget. */
+const SPLAT_MAX = 1400;
+/** scratch for the decal writer — hoisted, per the R10 law (no per-frame allocs) */
+const SPLAT_M = new THREE.Matrix4();
+const SPLAT_V = new THREE.Vector3();
+const SPLAT_S = new THREE.Vector3();
+const SPLAT_Q = new THREE.Quaternion();
+const SPLAT_C = new THREE.Color();
+const SPLAT_UP = new THREE.Vector3(0, 1, 0);
+/** decals lie flat: the disc is authored in XY, so every one carries this */
+const SPLAT_FLAT = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
+/** Blood: seconds at full colour before it starts to go. */
+const BLOOD_WET = 25;
+/** …and how long the whole dry-down takes. Gone at BLOOD_WET + BLOOD_DRY. */
+const BLOOD_DRY = 85;
 const CORPSE_CRIT = 2;           // the final thrash window, matching sim CORPSE_CRITICAL_WINDOW
 /** STATUS §2 / death show (Robert: "corpses should linger 20-30s — a fought-on
  *  battlefield"). In NON-outbreak modes a fallen soldier's body stays where it
@@ -437,9 +455,38 @@ export class Renderer {
   private whizzed = new Set<number>();
   // PAINTBALL: splatter STAYS (Robert) — flat paint decals, whole-match life,
   // capped FIFO. One shared circle geometry; one cached material per shade.
-  private splats: THREE.Mesh[] = [];
-  private splatGeo?: THREE.CircleGeometry;
-  private splatMats = new Map<number, THREE.MeshBasicMaterial>();
+  // ═══ THE GROUND REMEMBERS — one draw call for every mark on it ═══════════
+  //
+  // Every splat used to be its own THREE.Mesh pushed into the scene: paint,
+  // blood, bullet pocks and kicked dirt all sharing a 900-entry FIFO. Nine
+  // hundred meshes is up to nine hundred draw calls and nine hundred transparent
+  // sorts, for decals that are all the same disc at the same angle — the single
+  // biggest structural waste in the renderer, and optimization ticket #34.
+  //
+  // One InstancedMesh, per-instance colour, ring-allocated. The whole ground
+  // record is ONE draw call now, and the cap could go up rather than down.
+  //
+  // BLOOD DRIES, PAINT DOES NOT. That distinction is deliberate and it is the
+  // bug Robert reported: a stain outlived the man who left it by an unbounded
+  // margin, because splats had no clock at all — a mark only disappeared when
+  // 900 newer ones shoved it out of the ring. The yard's paint keeps its own
+  // law ("the yard remembers every ball all match", §14); blood darkens as it
+  // dries and is gone inside a couple of minutes, like blood.
+  /** the sim clock, mirrored so the decal layer can age without threading
+   *  `world` through every spawn site */
+  private clock = 0;
+  private nextDryAt = 0;
+  /** the bodies the field keeps — 3 draw calls however many there are */
+  private fallen!: TheFallen;
+  private splatInst: THREE.InstancedMesh | null = null;
+  private splatAt = 0;                 // ring cursor
+  private splatCount = 0;              // how many slots have ever been used
+  private splatBorn = new Float32Array(SPLAT_MAX);
+  private splatLife = new Float32Array(SPLAT_MAX);   // Infinity = permanent (paint)
+  private splatRgb = new Float32Array(SPLAT_MAX * 3);
+  private splatScale = new Float32Array(SPLAT_MAX * 2);
+  private splatPos = new Float32Array(SPLAT_MAX * 3);
+  private splatSpin = new Float32Array(SPLAT_MAX);
   private nextLockToneAt = 0;                               // missile-lock warning throttle
   /** killcam duel framing: soldier id of the local player's killer (-1 = none).
    *  Set by the frame loops from the director; the camera frames victim+killer
@@ -624,6 +671,7 @@ export class Renderer {
     this.scene.fog = new THREE.Fog(0xb8c4cc, 90, 240);
     this.scene.background = new THREE.Color(0xa8bccc);
     this.particles = new Particles(this.scene);
+    this.fallen = new TheFallen(this.scene);
     this.flashes = new FlashLights(this.scene, settings.quality === 'low' ? 2 : 5); // opt #30: pool by tier, fixed at startup
     this.fireballs = new Fireballs(this.scene);
 
@@ -821,26 +869,96 @@ export class Renderer {
     }
   }
 
-  private spawnSplat(pos: { x: number; z: number }, colorHex: number, size: number) {
-    if (!this.splatGeo) this.splatGeo = new THREE.CircleGeometry(1, 10);
-    let mat = this.splatMats.get(colorHex);
-    if (!mat) {
-      mat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.82, depthWrite: false });
-      this.splatMats.set(colorHex, mat);
+  /**
+   * Lay one mark on the ground. `life` in seconds, or omitted for permanent.
+   *
+   * Ring-allocated into the single instanced decal mesh — the oldest slot is
+   * simply overwritten, which is the same eviction the old FIFO had without the
+   * scene-graph churn.
+   */
+  private spawnSplat(pos: { x: number; z: number }, colorHex: number, size: number, life = Infinity) {
+    if (!this.splatInst) {
+      const geo = new THREE.CircleGeometry(1, 10);
+      const mat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.82, depthWrite: false });
+      this.splatInst = new THREE.InstancedMesh(geo, mat, SPLAT_MAX);
+      this.splatInst.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      this.splatInst.count = 0;
+      this.splatInst.frustumCulled = false;   // decals are everywhere; the test costs more than it saves
+      this.scene.add(this.splatInst);
     }
-    const m = new THREE.Mesh(this.splatGeo, mat);
-    m.rotation.x = -Math.PI / 2;
-    m.rotation.z = Math.random() * Math.PI * 2;
-    m.scale.set(size * (0.7 + Math.random() * 0.6), size * (0.7 + Math.random() * 0.6), 1);
-    m.position.set(pos.x + (Math.random() - 0.5) * 0.3, 0.05 + this.splats.length * 0.0004, pos.z + (Math.random() - 0.5) * 0.3);
-    this.scene.add(m);
-    this.splats.push(m);
-    // Headroom: a gooey paint hit lands a blob plus satellites, so the yard
-    // fills this pool ~4x faster than it used to — and blood, bullet pocks and
-    // dirt all share it. Too small a cap and a firefight erases its own record.
-    if (this.splats.length > 900) {
-      const old = this.splats.shift()!;
-      this.scene.remove(old); // geometry+material are shared/cached — keep them
+    const i = this.splatAt;
+    this.splatAt = (this.splatAt + 1) % SPLAT_MAX;
+    this.splatCount = Math.min(SPLAT_MAX, this.splatCount + 1);
+    this.splatInst.count = this.splatCount;
+
+    this.splatBorn[i] = this.clock;
+    this.splatLife[i] = life;
+    this.splatSpin[i] = Math.random() * Math.PI * 2;
+    this.splatScale[i * 2] = size * (0.7 + Math.random() * 0.6);
+    this.splatScale[i * 2 + 1] = size * (0.7 + Math.random() * 0.6);
+    this.splatPos[i * 3] = pos.x + (Math.random() - 0.5) * 0.3;
+    // the tiny per-slot lift that stopped decals z-fighting each other
+    this.splatPos[i * 3 + 1] = 0.05 + i * 0.0004;
+    this.splatPos[i * 3 + 2] = pos.z + (Math.random() - 0.5) * 0.3;
+    this.splatRgb[i * 3] = ((colorHex >> 16) & 255) / 255;
+    this.splatRgb[i * 3 + 1] = ((colorHex >> 8) & 255) / 255;
+    this.splatRgb[i * 3 + 2] = (colorHex & 255) / 255;
+    this.writeSplat(i, 1);
+  }
+
+  /** Write one instance's matrix and colour. `k` 0..1 scales it away as it goes. */
+  private writeSplat(i: number, k: number): void {
+    const inst = this.splatInst;
+    if (!inst) return;
+    SPLAT_Q.setFromAxisAngle(SPLAT_UP, this.splatSpin[i]);
+    SPLAT_M.compose(
+      SPLAT_V.set(this.splatPos[i * 3], this.splatPos[i * 3 + 1], this.splatPos[i * 3 + 2]),
+      SPLAT_Q.multiply(SPLAT_FLAT),
+      SPLAT_S.set(this.splatScale[i * 2] * k, this.splatScale[i * 2 + 1] * k, 1),
+    );
+    inst.setMatrixAt(i, SPLAT_M);
+    inst.setColorAt(i, SPLAT_C.setRGB(this.splatRgb[i * 3], this.splatRgb[i * 3 + 1], this.splatRgb[i * 3 + 2]));
+  }
+
+  /**
+   * BLOOD DRIES. Walked once a second, not once a frame — a stain is not in a
+   * hurry, and 1400 slots × 60 Hz would be the very churn the instancing was
+   * meant to remove.
+   *
+   * It darkens first and shrinks last, which is what drying blood does: the
+   * colour goes to a dry brown-black long before the mark is gone, so the
+   * ground reads as "something happened here a while ago" rather than blinking
+   * out mid-firefight.
+   */
+  private dryTheGround(): void {
+    const inst = this.splatInst;
+    if (!inst || !this.splatCount) return;
+    let touched = false;
+    for (let i = 0; i < this.splatCount; i++) {
+      const life = this.splatLife[i];
+      if (!Number.isFinite(life)) continue;            // paint keeps its law
+      const age = this.clock - this.splatBorn[i];
+      if (age > life + BLOOD_DRY) {
+        if (this.splatScale[i * 2] !== 0) { this.splatScale[i * 2] = 0; this.writeSplat(i, 0); touched = true; }
+        continue;
+      }
+      if (age < life) continue;                        // still wet
+      const t = (age - life) / BLOOD_DRY;              // 0 → 1 across the dry-down
+      const dark = 1 - t * 0.72;                       // to a dry brown-black
+      SPLAT_Q.setFromAxisAngle(SPLAT_UP, this.splatSpin[i]);
+      SPLAT_M.compose(
+        SPLAT_V.set(this.splatPos[i * 3], this.splatPos[i * 3 + 1], this.splatPos[i * 3 + 2]),
+        SPLAT_Q.multiply(SPLAT_FLAT),
+        SPLAT_S.set(this.splatScale[i * 2] * (1 - t * 0.45), this.splatScale[i * 2 + 1] * (1 - t * 0.45), 1),
+      );
+      inst.setMatrixAt(i, SPLAT_M);
+      inst.setColorAt(i, SPLAT_C.setRGB(
+        this.splatRgb[i * 3] * dark, this.splatRgb[i * 3 + 1] * dark, this.splatRgb[i * 3 + 2] * dark));
+      touched = true;
+    }
+    if (touched) {
+      inst.instanceMatrix.needsUpdate = true;
+      if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
     }
   }
 
@@ -1478,8 +1596,11 @@ export class Renderer {
     // weather particles rebuild lazily against the new sky — and last match's
     // paint comes off the field (a fresh yard deserves fresh canvas)
     if (this.precip) { this.scene.remove(this.precip.obj); this.precip = undefined; }
-    for (const sp of this.splats) this.scene.remove(sp);
-    this.splats = [];
+    // last match's marks come off the field (a fresh yard deserves fresh canvas)
+    if (this.splatInst) { this.splatInst.count = 0; }
+    this.splatAt = 0;
+    this.splatCount = 0;
+    this.fallen.reset();
 
     // ground: canvas-painted texture from the tile grid
     const cvs = document.createElement('canvas');
@@ -2679,6 +2800,15 @@ export class Renderer {
 
   /** Sync all dynamic entities to the sim state, advance FX. */
   update(world: World, localId: number, dt: number, waypoints?: { x: number; z: number; until: number }[]) {
+    // THE GROUND AGES. Once a second, not once a frame — a stain is not in a
+    // hurry, and walking 1400 slots at 60 Hz would be exactly the churn the
+    // instancing was built to remove.
+    this.clock = world.time;
+    if (world.time >= this.nextDryAt) {
+      this.nextDryAt = world.time + 1;
+      this.dryTheGround();
+      this.fallen.update(world.time);
+    }
     this.localId = localId;
     const local = world.soldiers.get(localId);
     const localTeam = local?.team ?? 0;
@@ -6105,9 +6235,10 @@ export class Renderer {
                   pos: e.pos, count: full ? 10 : 5, color: 0x8e1f1f,
                   speed: full ? 5 : 3.5, life: 0.3, spread: 0.22, up: 1.6, gravity: 9, size: 0.13,
                 });
-                // the ground remembers — small, dark, and it fades with the
-                // rest of the field's paint (same capped FIFO decal pool)
-                this.spawnSplat(e.pos, 0x6b1414, (full ? 0.3 : 0.19) + Math.random() * 0.12);
+                // BLOOD DRIES. It used to share paint's law and simply never
+                // go — a hit from the first minute was still wet at the last,
+                // because the decal pool had no clock, only a 900-deep FIFO.
+                this.spawnSplat(e.pos, 0x6b1414, (full ? 0.3 : 0.19) + Math.random() * 0.12, BLOOD_WET);
               } else {
                 this.particles.emit({ pos: e.pos, count: 6, color: 0xffe0a0, speed: 5, life: 0.25, spread: 0.2, up: 2 });
               }
@@ -6128,6 +6259,18 @@ export class Renderer {
           break;
         case 'death':
           if (e.pos) {
+            // THE FIELD KEEPS ITS DEAD. A body used to last exactly 4 seconds —
+            // and then the same mesh stood back up as a living man — while the
+            // blood it left never went at all. This is the body half of that
+            // repair: it lies where it fell, turns to bone, and is finally
+            // taken by the ground. Not at the yard or the track: nobody dies
+            // there, and a paintball field full of skeletons is a joke.
+            if (!isSportMode(world.mode.id) && !world.puppet) {
+              const v = e.soldierId !== undefined ? world.soldiers.get(e.soldierId) : undefined;
+              if (!v || (!isZed(v.kind) && v.kind !== 'dog')) {
+                this.fallen.add(e.pos.x, e.pos.z, v?.yaw ?? 0, world.time);
+              }
+            }
             // a splatted paintballer goes down in the winner's color — the
             // biggest splat on the field marks where they sat down (no blood,
             // no death cry: it's PAINT — but the ragdoll still tumbles)
@@ -6147,7 +6290,7 @@ export class Renderer {
             if (settings.blood !== 'off' && !isSportMode(world.mode.id)) {
               const full = settings.blood === 'full';
               this.particles.emit({ pos: { ...e.pos, y: 1 }, count: full ? 22 : 12, color: 0xa03030, speed: 5, life: 0.6, spread: 0.5, up: 4 });
-              this.spawnSplat(e.pos, 0x5e1010, full ? 0.85 : 0.5);
+              this.spawnSplat(e.pos, 0x5e1010, full ? 0.85 : 0.5, BLOOD_WET * 2);  // a death pool takes longer to go
               // GORE / GIBS (STATUS §2, the death show): a VIOLENT death — an
               // explosive, or a heavy round that overkills — doesn't just splash,
               // it comes APART. Chunky flesh bits arc out and fall (high gravity,
@@ -6223,7 +6366,7 @@ export class Renderer {
             if (settings.blood !== 'off') {
               const full = settings.blood === 'full';
               this.particles.emit({ pos: { x: e.pos.x, y: 1.1, z: e.pos.z }, count: full ? 14 : 7, color: 0xa03030, speed: 4, life: 0.5, spread: 0.9, up: 1.6, gravity: 10, size: 0.14 });
-              this.spawnSplat(e.pos, 0x5e1010, full ? 0.7 : 0.42);
+              this.spawnSplat(e.pos, 0x5e1010, full ? 0.7 : 0.42, BLOOD_WET * 2);
             }
             audio.play('thump', { pos: e.pos });
           }

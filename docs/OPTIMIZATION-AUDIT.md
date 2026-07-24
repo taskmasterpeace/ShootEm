@@ -14,6 +14,27 @@ Ranked by payoff-per-effort. Quick wins first.
 
 **Prior:** #1 (audio Opus), #3 (input queue), #5 (objective cache 2-4 Hz), #38 (uniform spatial grid).
 
+**2026-07-23 — #34 (R4/E7) SPLATS → ONE InstancedMesh.** Measured in a live
+match: **600 decals cost 1 draw call and 1 scene object** (calls 1083 → 1084,
+scene children 336 → 337). Previously every splat was its own `THREE.Mesh` in
+the scene — up to 900 draw calls and 900 transparent sorts for discs that are
+all the same geometry at the same angle. Ticket estimated "≤10 draws for 900
+decals"; one instanced mesh with per-instance colour does it in **1**, and the
+cap went UP (900 → 1400) rather than down.
+
+The same pass fixed a design bug the ticket did not know about: the decal pool
+had **no clock**, only the FIFO, so blood never went away — a stain from the
+first minute was still wet in the last. Blood now dries (darkens over 85s from
+a 25s wet window) while the yard's PAINT keeps its own law (§14, "the yard
+remembers every ball all match"). See `tests/fallen.test.ts`.
+
+**2026-07-23 — THE FALLEN, built instanced from the start.** Bodies now persist
+and decay to bone (`src/client/fallen.ts`) instead of vanishing after 4s. A
+corpse is six parts, so a 48-body field drawn the obvious way would be **288
+draw calls** — the feature would have cost more than #34 saved. Three
+InstancedMeshes (torso · head · limbs) hold the whole field: measured at **12
+draw calls for 40 bodies** (including their shadow pass) against a naive 240.
+
 **This pass (2026-07-21)** — measured before/after on `tools/zombie-bench.ts` (horde) + the new `tools/combat-bench.ts` (12v12 conquest), min-of-4:
 - **#11 (S8) encased-body set** — `groundBlocked` no longer walks the roster hunting ice (O(S²)→short list). The headline: **N=240 horde −30%**, and it flattened the whole curve.
 - **#10 (S6) parked-hull drivetrain skip** — 32/34 hulls sit idle; they skip the drivetrain. **Vehicle-dominated −33%**, ~5% of a 12v12 step (a fixed ~0.02 ms/tick).
