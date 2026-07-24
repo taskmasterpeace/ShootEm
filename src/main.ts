@@ -1678,6 +1678,9 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
             discipline: disc, venue: venueName, cls: raceClassOf(hull, VEHICLES[hull]?.mass).toUpperCase(),
             winner: name, lap: best, field: Math.max(1, grid),
             recordTaken: filed.tookLap, previousHolder: filed.previous?.holder,
+            previousStoodDays: filed.previous
+              ? Math.max(0, Math.floor((Date.now() - filed.previous.at) / 86_400_000))
+              : undefined,
             // THE WHOLE SHEET goes to the desk, not just the man who won it
             circuit: (() => {
               const cps = world.map.raceTrack?.checkpoints;

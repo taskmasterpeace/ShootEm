@@ -204,6 +204,12 @@ export interface VenueRecord {
   cls: RaceClass;
   /** how many classes have a filed record at this venue */
   classesRun: number;
+  /** the story of the record: who it was taken from, and how long that stood */
+  takenFrom?: string;
+  /** the mark that was beaten, seconds */
+  beat?: number;
+  /** days the beaten mark had stood (0 = it fell the same day) */
+  stoodDays?: number;
 }
 
 /** A circuit id back into the name the desk shows. */
@@ -229,10 +235,28 @@ export function venueBoard(records: TrackRecord[] = allRecords()): VenueRecord[]
     cur.classesRun++;
     if (r.lap < cur.bestLap) {
       cur.bestLap = r.lap; cur.holder = r.holder; cur.hull = r.hull; cur.cls = r.cls;
+      cur.takenFrom = r.prevHolder;
+      cur.beat = r.prevLap;
+      cur.stoodDays = r.prevHolder && r.prevSetAt
+        ? Math.max(0, Math.floor((r.at - r.prevSetAt) / 86_400_000))
+        : undefined;
     }
     by.set(r.trackId, cur);
   }
   return [...by.values()].sort((a, b) => b.classesRun - a.classesRun || a.bestLap - b.bestLap);
+}
+
+/**
+ * THE STORY OF A RECORD, in the board's own voice. Null when a mark has no
+ * history yet — the first time anyone sets a circuit, there is nobody to have
+ * taken it from, and inventing a rival would be a lie.
+ */
+export function recordStory(v: VenueRecord): string | null {
+  if (!v.takenFrom) return null;
+  const margin = v.beat && v.beat > v.bestLap ? ` by ${(v.beat - v.bestLap).toFixed(1)}s` : '';
+  if (v.stoodDays === undefined) return `Taken from ${v.takenFrom}${margin}.`;
+  if (v.stoodDays <= 0) return `Taken from ${v.takenFrom}${margin} — it stood less than a day.`;
+  return `Taken from ${v.takenFrom}${margin} — a mark that had stood ${v.stoodDays} day${v.stoodDays === 1 ? '' : 's'}.`;
 }
 
 /** One line for the GONET desk: what the league is doing right now. */

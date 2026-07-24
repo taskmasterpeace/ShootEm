@@ -33,6 +33,9 @@ export interface RacePressData {
   field: number;         // how many on the grid
   recordTaken: boolean;  // a track record fell
   previousHolder?: string; // whose record it was
+  /** how many days that mark had stood — a long record falling is a bigger
+   *  story than a fresh one changing hands, and now the desk can tell */
+  previousStoodDays?: number;
   /** THE RESULT SHEET, best first. A race used to end the instant the leader
    *  crossed, so the paper only ever had a WINNER to report — the other seven
    *  entrants had no result to print. The field is classified at the flag now
@@ -144,6 +147,17 @@ export function raceHeadline(issue: PressIssue): string {
   const who = r.winner.toUpperCase();
   const cls = r.cls.toUpperCase();
   if (r.recordTaken) {
+    // A LONG RECORD FALLING IS THE BIGGER STORY. A mark nobody could touch for
+    // a fortnight going down is front-page; one that changed hands yesterday is
+    // just the league doing its job.
+    if (r.previousHolder && (r.previousStoodDays ?? 0) >= 7) {
+      const held = r.previousStoodDays!;
+      return [
+        `${who} ENDS A ${held}-DAY REIGN AT ${r.venue.toUpperCase()}`,
+        `THE ${cls} MARK FALLS AFTER ${held} DAYS — ${who} TAKES IT`,
+        `${r.previousHolder.toUpperCase()} HELD IT ${held} DAYS. ${who} HELD IT BETTER.`,
+      ][hash(issue)];
+    }
     return r.previousHolder
       ? [`${who} SHATTERS THE ${cls} RECORD`, `RECORD FALLS: ${who} TAKES IT FROM ${r.previousHolder.toUpperCase()}`, `${who} REWRITES THE ${cls} BOOK`][hash(issue)]
       : [`${who} SETS THE ${cls} MARK`, `FIRST BLOOD: ${who} OWNS THE ${cls} RECORD`, `${who} STAMPS THE FIRST ${cls} TIME`][hash(issue)];

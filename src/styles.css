@@ -3103,3 +3103,8 @@ body.pad-inmatch #pad-hints { display: none !important; }
 .gn-vcls { color: var(--muted); font-size: 0.6rem; letter-spacing: 0.08em; }
 .gn-vhold { color: var(--ink); }
 .gn-vlap { color: var(--accent); font-variant-numeric: tabular-nums; }
+/* the record's story — who it was taken from, and how long that mark stood */
+.gn-vstory {
+  padding: 0.1rem 0.4rem 0.3rem 0.4rem; background: oklch(0.17 0.014 74);
+  font-size: 0.62rem; line-height: 1.4; color: var(--muted); font-style: italic;
+}

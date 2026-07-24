@@ -26,6 +26,24 @@ export interface TrackRecord {
   hull: VehicleKind;
   /** when it was set (client clock — biography, not sim) */
   at: number;
+  /**
+   * THE RECORD REMEMBERS WHO IT BEAT.
+   *
+   * `fileRun` always knew the mark it was replacing — it returns `previous` —
+   * but it OVERWROTE the row, so the instant a record fell the old holder was
+   * gone forever. A board that only knows who holds it now has no history: it
+   * cannot say "taken from Reyes, a mark that had stood four days", which is
+   * most of what makes a record board feel like a sport rather than a
+   * high-score list.
+   *
+   * All three are optional, so every record filed before today loads clean and
+   * simply has no story yet.
+   */
+  prevHolder?: string;
+  /** the mark that was beaten, seconds */
+  prevLap?: number;
+  /** when THAT mark was set — so the board can say how long it stood */
+  prevSetAt?: number;
 }
 
 export const recordStorage = {
@@ -68,6 +86,11 @@ export function fileRun(input: {
   const tookLap = lap > 0 && (!prev || prev.lap <= 0 || lap < prev.lap);
   const tookRace = race > 0 && (!prev || prev.race <= 0 || race < prev.race);
   if (!tookLap && !tookRace) return { tookLap: false, tookRace: false, previous: prev };
+  // KEEP THE MARK YOU BEAT. Only when the LAP actually changed hands, and only
+  // when somebody else held it — beating your own time is improving a record,
+  // not taking one, and a board that said "taken from Doc" when Doc did it is
+  // a board that reads like a bug.
+  const stolen = tookLap && prev && prev.lap > 0 && prev.holder !== input.holder;
   all[key] = {
     trackId: input.trackId, cls,
     lap: tookLap ? lap : (prev?.lap ?? 0),
@@ -76,6 +99,10 @@ export function fileRun(input: {
     holder: input.holder,
     hull: input.hull,
     at: input.at ?? Date.now(),
+    ...(stolen
+      ? { prevHolder: prev!.holder, prevLap: prev!.lap, prevSetAt: prev!.at }
+      // improving your own mark keeps whatever story the row already had
+      : { prevHolder: prev?.prevHolder, prevLap: prev?.prevLap, prevSetAt: prev?.prevSetAt }),
   };
   recordStorage.set(JSON.stringify(all));
   return { tookLap, tookRace, previous: prev };

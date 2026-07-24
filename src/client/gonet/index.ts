@@ -39,7 +39,7 @@ import {
   type Brief, type BriefKind,
 } from './briefings';
 import { board } from '../service';
-import { SPORTS, fixtures, leagueLine, sportById, standings, venueBoard, type SportId } from './sports';
+import { SPORTS, fixtures, leagueLine, recordStory, sportById, standings, venueBoard, type SportId } from './sports';
 import {
   CARTRIDGES, DECK_MORALE, cartridgeById, deckLine, fileScore, loadDeck, ownedCartridges,
   owns, saveDeck,
@@ -307,12 +307,15 @@ function sportsApp(): string {
   // board and not just a champion. Format the lap as the discipline shows it.
   const book = venueBoard();
   const bookRows = book.length
-    ? book.slice(0, 8).map((v) => `<div class="gn-vrec">
+    ? book.slice(0, 8).map((v) => {
+      const story = recordStory(v);
+      return `<div class="gn-vrec">
         <span class="gn-vname">${esc(v.venue)}</span>
         <span class="gn-vcls">${esc(v.cls.toUpperCase())}</span>
         <span class="gn-vhold">${esc(v.holder)}</span>
         <span class="gn-vlap">${v.bestLap.toFixed(1)}s</span>
-      </div>`).join('')
+      </div>${story ? `<div class="gn-vstory">${esc(story)}</div>` : ''}`;
+    }).join('')
     : '<div class="gn-empty">No circuit has a record yet — go and set one.</div>';
 
   return `
