@@ -18,7 +18,7 @@ import { LICENCES, type LicenceId } from '../../sim/licenses';
 import { COURSES } from '../../sim/courses';
 import { loadLicences } from '../licences';
 import { factionLabel, type PlayerIdentity } from '../identity';
-import { fixtures, leagueLine, sportById, standings } from './sports';
+import { fixtures, leagueLine, seasonLine, seasonOf, sportById, standings, titleRace } from './sports';
 
 /**
  * THE THREE THINGS ON A TELEVISION (Robert: *"we need Movies, Shows, News
@@ -321,9 +321,29 @@ export function buildSchedule(id: PlayerIdentity | null, now = Date.now()): Reel
   const tracks = [...new Set(recs.map((r) => r.trackId))];
   const table = standings(recs);
   const fx = fixtures(day, tracks);
+  // THE SEASON LEADS THE SHOW. A strand that returns every week wants to say
+  // where the year stands, not just what is on tonight — and on the closing day
+  // it says so in the biggest voice it has.
+  const season = seasonOf(day);
   const circuitShots: Shot[] = [
+    {
+      headline: season.finalRound ? 'FINAL ROUND' : `SEASON ${season.number} · ROUND ${season.round}`,
+      sub: seasonLine(day, recs),
+      figure: season.finalRound ? undefined : `${season.left} LEFT`,
+      slug: 'THE SEASON', hold: 3.6,
+    },
     { headline: 'THE CIRCUIT', sub: leagueLine(day, tracks), slug: 'THIS WEEK', hold: 3.2 },
   ];
+  // …and who is actually winning it, which the all-time board cannot say
+  const race = titleRace(day, recs);
+  if (race.length) {
+    const lead = race[0];
+    circuitShots.push({
+      headline: season.finalRound ? `${lead.holder.toUpperCase()} TAKES SEASON ${season.number}` : `${lead.holder.toUpperCase()} LEADS THE TITLE`,
+      sub: `${lead.records} board${lead.records === 1 ? '' : 's'} this season${race[1] ? ` · ${race[1].holder} chasing on ${race[1].records}` : ''}`,
+      slug: 'THE TITLE RACE', hold: 3.4,
+    });
+  }
   if (table.length) {
     const top = table[0];
     circuitShots.push({

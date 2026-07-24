@@ -3110,3 +3110,8 @@ body.pad-inmatch #pad-hints { display: none !important; }
 }
 /* the machine is YOURS — the mark on the glass has your score on it now */
 .arc-best.held { color: var(--bg, #0d0f0c); background: var(--accent); padding: 0 0.3rem; font-weight: 700; }
+/* THE SEASON — where the title race stands, in the desk's own voice */
+.gn-season {
+  border-left: 2px solid var(--accent); padding: 0.35rem 0 0.35rem 0.7rem;
+  margin-bottom: 0.5rem; font-size: 0.7rem; line-height: 1.5; color: var(--ink);
+}

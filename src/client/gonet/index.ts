@@ -39,7 +39,7 @@ import {
   type Brief, type BriefKind,
 } from './briefings';
 import { board } from '../service';
-import { SPORTS, fixtures, leagueLine, recordStory, sportById, standings, venueBoard, type SportId } from './sports';
+import { SPORTS, fixtures, leagueLine, recordStory, seasonLine, sportById, standings, titleRace, venueBoard, type SportId } from './sports';
 import {
   CARTRIDGES, DECK_MORALE, cartridgeById, deckLine, fileScore, loadDeck, ownedCartridges,
   owns, saveDeck,
@@ -303,6 +303,18 @@ function sportsApp(): string {
       </div>`).join('')
     : '<div class="gn-empty">No times filed. Every board is open.</div>';
 
+  // THE TITLE RACE — this season's standings only, so a champion has to turn
+  // up again rather than coast on a mark set three seasons ago.
+  const title = titleRace(day);
+  const titleRows = title.length
+    ? title.slice(0, 6).map((x, i) => `<div class="gn-stand">
+        <span class="gn-spos">${String(i + 1).padStart(2, '0')}</span>
+        <span class="gn-sname">${esc(x.holder)}</span>
+        <span class="gn-srec">${x.records} board${x.records === 1 ? '' : 's'}</span>
+        <span class="gn-sbest">${x.best.toFixed(1)}s</span>
+      </div>`).join('')
+    : '<div class="gn-empty">No time filed this season. The title is anybody’s.</div>';
+
   // THE RECORD BOOK — a page per named circuit, so a season of venues has a
   // board and not just a champion. Format the lap as the discipline shows it.
   const book = venueBoard();
@@ -343,7 +355,10 @@ function sportsApp(): string {
           <span>${esc(CHARACTER_LABEL[venue.character])} · ${venue.length}u · ${venue.gates} gates · longest run ${venue.longestStraight}u</span>
           <p>${esc(venue.strap)}</p>
         </div>
-        <h4>THE STANDINGS <i>who holds the most</i></h4>
+        <h4>THE TITLE RACE <i>this season only</i></h4>
+        <div class="gn-season">${esc(seasonLine(day))}</div>
+        <div class="gn-stands">${titleRows}</div>
+        <h4>ALL TIME <i>who holds the most, ever</i></h4>
         <div class="gn-stands">${standingRows}</div>
         <h4>THE RECORD BOOK <i>a page per circuit</i></h4>
         <div class="gn-vbook">${bookRows}</div>

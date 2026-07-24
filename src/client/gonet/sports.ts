@@ -22,6 +22,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import type { ModeId, ModeState, SkillId } from '../../sim/types';
 import { allRecords, type RaceClass, type TrackRecord } from '../records';
+import { gameNow } from '../worldclock';
 
 export type SportId = 'circuit' | 'demolition' | 'gunrun' | 'timeattack' | 'freestyle';
 
@@ -126,6 +127,91 @@ export const SPORTS: Sport[] = [
 
 export const sportById = (id: SportId): Sport | undefined => SPORTS.find((s) => s.id === id);
 export const liveSports = (): Sport[] => SPORTS.filter((s) => s.live);
+
+// ── THE SEASON HAS A SHAPE ─────────────────────────────────────────────────
+//
+// The fixture list rolled forward forever: five races from today, cycling
+// sports and venues by day index, with no beginning, no end and nothing to
+// win. A league you cannot WIN is a queue — you turn up, you drive, the list
+// advances, and the fastest man alive is exactly as decorated as the slowest.
+//
+// A season is DERIVED from the game-day, the same trick the one clock uses, so
+// every client agrees about which round it is without a server and without a
+// store. It closes on a fixed day; on that day somebody has led it.
+
+/** how many game-days a season runs. 28 ≈ two and a half real days at 2h/day. */
+export const SEASON_DAYS = 28;
+
+export interface Season {
+  /** 1-based season number since the war began */
+  number: number;
+  /** 1-based round inside it */
+  round: number;
+  /** rounds in a season */
+  rounds: number;
+  /** rounds still to run, 0 on the closing day */
+  left: number;
+  /** the game-day this season opened on */
+  openedOn: number;
+  /** …and the day it closes */
+  closesOn: number;
+  /** true on the last day — the title is decided tonight */
+  finalRound: boolean;
+}
+
+/** Which season and round a game-day falls in. Pure; no store, no clock read. */
+export function seasonOf(day: number): Season {
+  const idx = Math.floor(day / SEASON_DAYS);
+  const round = (day % SEASON_DAYS) + 1;
+  return {
+    number: idx + 1,
+    round,
+    rounds: SEASON_DAYS,
+    left: SEASON_DAYS - round,
+    openedOn: idx * SEASON_DAYS,
+    closesOn: (idx + 1) * SEASON_DAYS - 1,
+    finalRound: round === SEASON_DAYS,
+  };
+}
+
+/**
+ * The game-day a record was filed on.
+ *
+ * MUST go through the same clock the rest of the app reads. A record carries a
+ * wall-clock stamp, but `gameNow()` applies the TIME CONTROL (offset, rate,
+ * freeze) — so dividing the raw stamp by a day length gives a different number
+ * from the one the sports desk is using, and the title race silently excludes
+ * every record ever filed. Caught live: the season header read "nobody has
+ * filed a time yet" with two fresh records sitting on the board.
+ */
+export const dayOfRecord = (at: number): number => gameNow(at).day;
+
+/**
+ * THE TITLE RACE — the standings for THIS season only.
+ *
+ * The all-time standings answer "who is the greatest"; this answers "who is
+ * winning right now", which is the question a season exists to ask. Only marks
+ * filed inside the season window count, so a champion has to turn up again.
+ */
+export function titleRace(day: number, records: TrackRecord[] = allRecords()): Standing[] {
+  const s = seasonOf(day);
+  return standings(records.filter((r) => {
+    const d = dayOfRecord(r.at);
+    return d >= s.openedOn && d <= s.closesOn;
+  }));
+}
+
+/** One line the desk reads out about where the season stands. */
+export function seasonLine(day: number, records: TrackRecord[] = allRecords()): string {
+  const s = seasonOf(day);
+  const lead = titleRace(day, records)[0];
+  const where = s.finalRound ? 'FINAL ROUND — the title is decided tonight.'
+    : s.left <= 3 ? `${s.left} round${s.left === 1 ? '' : 's'} left.`
+      : `${s.left} rounds still to run.`;
+  return lead
+    ? `SEASON ${s.number} · ROUND ${s.round} OF ${s.rounds} — ${lead.holder} leads on ${lead.records} board${lead.records === 1 ? '' : 's'}. ${where}`
+    : `SEASON ${s.number} · ROUND ${s.round} OF ${s.rounds} — nobody has filed a time yet. ${where}`;
+}
 
 // ── THE SEASON ─────────────────────────────────────────────────────────────
 
