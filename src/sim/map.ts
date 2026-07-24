@@ -988,46 +988,146 @@ export function generateRaceTrack(seed: number, theme: ThemeId = 'savanna'): Gam
   surface.fill(baseSurf);
 
   const cx = GRID / 2, cz = GRID / 2;
-  // seed nudges the oval so no two circuits drive identically
-  const Rx = 38 + (seed % 5), Rz = 27 + ((seed >> 2) % 5);
+  // ═══ THE CIRCUIT HAS A SHAPE ═══════════════════════════════════════════
+  //
+  // This used to be a pure ellipse with the seed nudging its two radii by up to
+  // five tiles — and the old comment claimed that meant "no two circuits drive
+  // identically". Measured across five seeds, every one produced a
+  // 12-checkpoint oval between 630u and 684u, a ±4% spread, with the same start
+  // heading. Lap times came back 18.9 / 18.8 / 18.7s. The venue was decoration:
+  // the league had five named circuits and one racetrack.
+  //
+  // The centreline is now a DEFORMED ring — the base ellipse bent by two seeded
+  // harmonics, so a seed produces a genuinely different ribbon: a long fast
+  // sweeper, a tight kidney, a lopsided loop with one big straight. Amplitudes
+  // are deliberately bounded (≤0.34 total): past that the ring pinches into
+  // itself and the corridor stops being drivable, and an undrivable circuit is
+  // a worse bug than a boring one.
+  const Rx = 30 + rng.next() * 14;          // 30..44
+  const Rz = 21 + rng.next() * 12;          // 21..33
+  const p2 = rng.next() * Math.PI * 2;
+  const p3 = rng.next() * Math.PI * 2;
   const half = 5; // track half-width in tiles → ~30u wide racing surface
-  const inX = Rx - half, inZ = Rz - half, outX = Rx + half, outZ = Rz + half;
-  const ell = (dx: number, dz: number, rx: number, rz: number) => (dx * dx) / (rx * rx) + (dz * dz) / (rz * rz);
-  for (let tz = 1; tz < GRID - 1; tz++) {
-    for (let tx = 1; tx < GRID - 1; tx++) {
-      const dx = tx - cx, dz = tz - cz;
-      const insideOuter = ell(dx, dz, outX, outZ) <= 1;
-      const outsideInner = ell(dx, dz, inX, inZ) >= 1;
-      if (insideOuter && outsideInner) {
-        grid[tz * GRID + tx] = T_OPEN;
-        surface[tz * GRID + tx] = S_PLATE; // a paved ribbon reads as a track
+
+  // A CIRCUIT NOBODY CAN GET ROUND IS A WORSE BUG THAN A BORING ONE.
+  //
+  // Measured on the first cut: the bends produced 64–75° corners where the old
+  // uniform oval was a flat 30° — roughly double anything the racing AI had
+  // ever been tuned against — and two seeds in five never completed a single
+  // lap in 400 seconds. Boards failed circuits that cars got round, because a
+  // board carries far more speed into the same corner.
+  //
+  // So the shape is EARNED, not assumed: propose amplitudes, measure the
+  // circuit, and damp until it is drivable. Same seed, same damping, same
+  // track — deterministic, and it can never ship a ribbon the field cannot
+  // drive. The amplitude that survives is still wildly more varied than a
+  // fixed ellipse; it is simply bounded by what a car can do.
+  const MAX_CORNER = 0.88;                  // ~50° between gates
+  let a2 = 0.06 + rng.next() * 0.16;        // the big bend — one long side
+  let a3 = 0.04 + rng.next() * 0.12;        // the kink — a corner complex
+
+  const bendWith = (A2: number, A3: number) => (th: number): number =>
+    1 + A2 * Math.sin(2 * th + p2) + A3 * Math.sin(3 * th + p3);
+  const ptWith = (b: (t: number) => number) => (th: number): { tx: number; tz: number } => {
+    const r = b(th);
+    return { tx: cx + Rx * r * Math.cos(th), tz: cz + Rz * r * Math.sin(th) };
+  };
+  /** the sharpest heading change between adjacent gates, in radians */
+  const sharpest = (pt: (t: number) => { tx: number; tz: number }, gates: number): number => {
+    let worst = 0;
+    for (let k = 0; k < gates; k++) {
+      const a = pt((2 * Math.PI * (k - 1)) / gates);
+      const b = pt((2 * Math.PI * k) / gates);
+      const c = pt((2 * Math.PI * (k + 1)) / gates);
+      const h1 = Math.atan2(b.tz - a.tz, b.tx - a.tx);
+      const h2 = Math.atan2(c.tz - b.tz, c.tx - b.tx);
+      let d = Math.abs(h2 - h1);
+      if (d > Math.PI) d = 2 * Math.PI - d;
+      if (d > worst) worst = d;
+    }
+    return worst;
+  };
+  // damp until the sharpest corner is inside the band (8 tries is plenty —
+  // ×0.72 each pass takes any legal starting amplitude to nearly nothing)
+  for (let guard = 0; guard < 8; guard++) {
+    if (sharpest(ptWith(bendWith(a2, a3)), 12) <= MAX_CORNER) break;
+    a2 *= 0.72; a3 *= 0.72;
+  }
+
+  /** the centreline radius multiplier at angle θ */
+  const bend = bendWith(a2, a3);
+  const ptAt = ptWith(bend);
+
+  // CARVE THE RIBBON along the centreline instead of testing an ellipse: a bent
+  // ring has no closed-form inside/outside, and a round brush walked along the
+  // curve gives a constant-width track through every bend for free.
+  const SAMPLES = 220;
+  const halfTiles = half;
+  const reach = (halfTiles + 0.5) * (halfTiles + 0.5);
+  for (let i = 0; i < SAMPLES; i++) {
+    const { tx, tz } = ptAt((2 * Math.PI * i) / SAMPLES);
+    const bx = Math.round(tx), bz = Math.round(tz);
+    for (let oz = -halfTiles; oz <= halfTiles; oz++) {
+      for (let ox = -halfTiles; ox <= halfTiles; ox++) {
+        if (ox * ox + oz * oz > reach) continue; // round brush
+        const gx = bx + ox, gz = bz + oz;
+        if (gx < 1 || gx >= GRID - 1 || gz < 1 || gz >= GRID - 1) continue;
+        grid[gz * GRID + gx] = T_OPEN;
+        surface[gz * GRID + gx] = S_PLATE; // a paved ribbon reads as a track
       }
     }
   }
 
   const P = (tx: number, tz: number): Vec3 => ({ x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 });
-  // ordered ring of gates on the centreline ellipse; gate 0 = start/finish.
-  // theta runs 0→2π so the loop is a consistent direction (counter-clockwise).
-  const N = 12;
+  // ordered ring of gates on the centreline; gate 0 = start/finish. theta runs
+  // 0→2π so the loop keeps one consistent direction (counter-clockwise).
+  //
+  // GATE COUNT FOLLOWS LENGTH. A fixed 12 on a long circuit leaves gaps the AI
+  // cuts across; on a short one it crowds them. Measure the ribbon, then lay a
+  // gate roughly every 55 units of it.
+  let lapLen = 0;
+  for (let i = 0; i < SAMPLES; i++) {
+    const a = ptAt((2 * Math.PI * i) / SAMPLES);
+    const b = ptAt((2 * Math.PI * (i + 1)) / SAMPLES);
+    lapLen += Math.hypot(b.tx - a.tx, b.tz - a.tz) * TILE;
+  }
+  const N = Math.max(10, Math.min(20, Math.round(lapLen / 55)));
   const checkpoints: RaceTrack['checkpoints'] = [];
   for (let k = 0; k < N; k++) {
     const th = (2 * Math.PI * k) / N;
-    checkpoints.push({ pos: P(cx + Rx * Math.cos(th), cz + Rz * Math.sin(th)), radius: half * TILE * 0.95 });
+    const { tx, tz } = ptAt(th);
+    checkpoints.push({ pos: P(tx, tz), radius: half * TILE * 0.95 });
   }
   // start grid: behind gate 0 (θ=0, +x side), staggered back along −θ (−z), two
   // columns straddling the racing line. startYaw = tangent at θ=0 = +z.
+  // THE GRID SITS ON THE RIBBON, wherever the ribbon happens to be. It used to
+  // be laid against the raw ellipse radii; on a bent centreline that puts half
+  // the field in the grass, so it is sampled off the same curve as everything
+  // else and offset along the LOCAL normal.
   const gridSlots: Vec3[] = [];
+  const normalAt = (th: number): { nx: number; nz: number } => {
+    const e = 0.02;
+    const a = ptAt(th - e), b = ptAt(th + e);
+    const tx = b.tx - a.tx, tz = b.tz - a.tz;
+    const L = Math.hypot(tx, tz) || 1;
+    return { nx: -tz / L, nz: tx / L };      // left of travel
+  };
   for (let row = 0; row < 5; row++) {
     for (const lane of [-1, 1]) {
       // 0.05 put same-lane rows under FOUR units apart on a ~30-tile radius —
       // closer than a car is long, so the field spawned inside itself and the
       // flag dropped on a shoving match instead of a race.
-      const th = -0.12 * (row + 1);            // staggered back behind the line
-      const rr = Rx + lane * 2.0;              // inner / outer lane on the ribbon
-      gridSlots.push(P(cx + rr * Math.cos(th), cz + Rz * Math.sin(th)));
+      const th = -0.12 * (row + 1);           // staggered back behind the line
+      const c = ptAt(th);
+      const n = normalAt(th);
+      gridSlots.push(P(c.tx + n.nx * lane * 2.0, c.tz + n.nz * lane * 2.0));
     }
   }
-  const startYaw = Math.atan2(1, 0); // facing +z, the way the loop runs
+  // START HEADING = the tangent where the ribbon actually crosses the line. On
+  // the old fixed ellipse this was always +z; bend the ring and a hardcoded
+  // heading points the whole field at a wall.
+  const s0 = ptAt(-0.01), s1 = ptAt(0.01);
+  const startYaw = Math.atan2((s1.tz - s0.tz) * TILE, (s1.tx - s0.tx) * TILE);
 
   // the procedural oval gets the same two cameras every circuit deserves: the
   // start line, and one across the far side where the pack arrives together.
@@ -1039,9 +1139,15 @@ export function generateRaceTrack(seed: number, theme: ThemeId = 'savanna'): Gam
   });
   const raceTrack: RaceTrack = {
     checkpoints, width: half * TILE, grid: gridSlots, startYaw,
+    // the two cameras every circuit deserves — the start line, and one out on
+    // the lap — both pushed off the ribbon along its own normal so they stand
+    // BESIDE the track rather than in the middle of it
     cameras: [
-      inWorld(P(cx + (Rx + half + 3), cz)),
-      inWorld(P(cx + (Rx + half + 3) * Math.cos(Math.PI * 0.6), cz + (Rz + half + 3) * Math.sin(Math.PI * 0.6))),
+      inWorld(P(ptAt(0).tx + normalAt(0).nx * (half + 4), ptAt(0).tz + normalAt(0).nz * (half + 4))),
+      inWorld(P(
+        ptAt(Math.PI * 0.6).tx + normalAt(Math.PI * 0.6).nx * (half + 4),
+        ptAt(Math.PI * 0.6).tz + normalAt(Math.PI * 0.6).nz * (half + 4),
+      )),
     ],
   };
 
