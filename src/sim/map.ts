@@ -1,4 +1,5 @@
 import { Rng } from './rng';
+import { circuitName, circuitProfile } from './tracks';
 import { generateHouse, placeBuildings, stampBuilding, type StampCtx } from './buildings';
 import { stampBaseCompound } from './base';
 import { carveInterior } from './interior';
@@ -1201,8 +1202,15 @@ export function generateRaceTrack(seed: number, theme: ThemeId = 'savanna'): Gam
     x: Math.max(-WORLD / 2 + 8, Math.min(WORLD / 2 - 8, p.x)), y: 0,
     z: Math.max(-WORLD / 2 + 8, Math.min(WORLD / 2 - 8, p.z)),
   });
+  // NAME THE VENUE off its own seed and its measured character — a place and a
+  // type, stable forever, and the type is the truth about the tarmac (see
+  // tracks.ts). The board keys records off `venueId`, so this is what finally
+  // stops two circuits sharing one record row under `savanna-circuit`.
+  const namedProfile = circuitProfile(checkpoints);
+  const named = circuitName(seed, namedProfile.character);
   const raceTrack: RaceTrack = {
     checkpoints, width: half * TILE, grid: gridSlots, startYaw,
+    venueName: named.name, venueId: named.id,
     // the two cameras every circuit deserves — the start line, and one out on
     // the lap — both pushed off the ribbon along its own normal so they stand
     // BESIDE the track rather than in the middle of it

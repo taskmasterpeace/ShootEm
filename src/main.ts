@@ -1641,7 +1641,14 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
       const best = world.mode.raceBest ?? 0;
       if (best > 0) {
         const hull = selectedRaceBoard;
-        const trackId = (world.map.theater?.id ?? selectedTheme) + '-circuit';
+        // THE VENUE OWNS THE RECORD. It used to be one row per THEME
+        // (`savanna-circuit`), so every savanna circuit — the sweeper, the
+        // knot, the long one — overwrote the same record. Key off the named
+        // venue instead; a built track carries its own name, a procedural one
+        // is named from its seed, and only the plain theme falls back.
+        const rt = world.map.raceTrack;
+        const trackId = rt?.venueId ?? (world.map.theater?.id ?? selectedTheme) + '-circuit';
+        const venueName = rt?.venueName ?? trackId;
         const filed = fileRun({ trackId, hull, mass: VEHICLES[hull]?.mass, holder: name, lap: best });
         if (filed.tookLap) {
           hud.announce(filed.previous
@@ -1662,7 +1669,7 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
           myCost: 0, theirCost: 0, underdog: false, myKills: 0, theirKills: 0,
           medals: [],
           race: {
-            discipline: disc, venue: trackId, cls: raceClassOf(hull, VEHICLES[hull]?.mass).toUpperCase(),
+            discipline: disc, venue: venueName, cls: raceClassOf(hull, VEHICLES[hull]?.mass).toUpperCase(),
             winner: name, lap: best, field: Math.max(1, grid),
             recordTaken: filed.tookLap, previousHolder: filed.previous?.holder,
             // THE WHOLE SHEET goes to the desk, not just the man who won it

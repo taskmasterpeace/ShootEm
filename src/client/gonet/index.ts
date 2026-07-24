@@ -21,7 +21,7 @@ import { COURSES } from '../../sim/courses';
 import { treasuryFor } from '../treasury';
 import { loadPress } from '../newspaper';
 import { LICENCES, type LicenceId } from '../../sim/licenses';
-import { CHARACTER_LABEL, circuitProfile } from '../../sim/tracks';
+import { CHARACTER_LABEL, circuitName, circuitProfile } from '../../sim/tracks';
 import { circuitRing } from '../../sim/map';
 import { buildInbox, markAllRead, markRead, unreadCount, type Message } from './mail';
 import {
@@ -282,6 +282,7 @@ function sportsApp(): string {
   // no world to do it — `circuitRing` is the same pure centreline the map
   // builder carves from, so the description and the tarmac can never disagree.
   const venue = circuitProfile(circuitRing(day).gates.map((g: { x: number; z: number }) => ({ pos: g })));
+  const venueName = circuitName(day, venue.character);
 
   const fixtureRows = fixList.map((f) => {
     const sp = sportById(f.sport)!;
@@ -321,10 +322,10 @@ function sportsApp(): string {
         <ol class="gn-bphases">${s.rules.map((r) => `<li>${esc(r)}</li>`).join('')}</ol>
         <h4>WHAT IT TRAINS <i>a sport is not idle time</i></h4>
         <div class="gn-btags">${s.trains.map((t) => `<span>${esc(SKILLS[t].name.toUpperCase())}</span>`).join('')}</div>
-        <h4>THE CIRCUIT <i>measured off the tarmac, never assigned</i></h4>
+        <h4>THIS WEEK'S CIRCUIT <i>measured off the tarmac, never assigned</i></h4>
         <div class="gn-venue">
-          <b>${esc(CHARACTER_LABEL[venue.character])}</b>
-          <span>${venue.length}u · ${venue.gates} gates · longest run ${venue.longestStraight}u</span>
+          <b>${esc(venueName.name)}</b>
+          <span>${esc(CHARACTER_LABEL[venue.character])} · ${venue.length}u · ${venue.gates} gates · longest run ${venue.longestStraight}u</span>
           <p>${esc(venue.strap)}</p>
         </div>
         <h4>THE STANDINGS</h4>

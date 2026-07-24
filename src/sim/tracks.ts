@@ -330,3 +330,69 @@ export const CHARACTER_LABEL: Record<CircuitCharacter, string> = {
   technical: 'TECHNICAL',
   balanced: 'MIXED',
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EVERY CIRCUIT HAS A NAME.
+//
+// The venues vary (last-but-one cycle) and describe themselves (last cycle) —
+// but they all still filed under one id, `savanna-circuit`. So the flowing 666u
+// sweeper and the technical 486u loop overwrote each other on the record board,
+// and the standings could not tell two racetracks apart. A record with no venue
+// is not a record; it is the last person to drive.
+//
+// The name is DERIVED from the seed, so it is stable (a circuit is the same
+// circuit and the same NAME every time it comes up) and needs no store. It is
+// built to sound like a real circuit — a PLACE and a TYPE — and the type half
+// is pulled from the same character measurement the desk already trusts, so the
+// name never lies about the tarmac: a circuit called "…SWEEP" really flows.
+//
+// Pure: a seed and a character in, a name and an id out.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** the place half — evocative, generic enough to never read as a real town */
+const CIRCUIT_PLACES = [
+  'REDLINE', 'DUSTBOWL', 'IRONWORKS', 'THE BASIN', 'HIGHSIDE', 'SALT FLATS',
+  'THE GANTRY', 'BLACKPAN', 'COPPERHEAD', 'THE CAULDRON', 'DEADMAN', 'THE SPUR',
+  'GRAVEL PIT', 'THE STACK', 'LONGACRE', 'THE KETTLE', 'RUSTMOUTH', 'THE ANVIL',
+  'HOLLOW RUN', 'THE MARROWS',
+] as const;
+
+/** the type half — reads off the circuit's measured character */
+const CIRCUIT_TYPES: Record<CircuitCharacter, readonly string[]> = {
+  sweeper: ['SWEEP', 'FLYER', 'CURVE', 'MILE'],
+  technical: ['TWIST', 'KNOT', 'MAZE', 'SNAKE'],
+  balanced: ['CIRCUIT', 'LOOP', 'RING', 'RUN'],
+};
+
+/** a small deterministic hash so the name is stable per seed, no rng draw */
+function nameHash(seed: number): number {
+  let h = (seed ^ 0x9e3779b9) >>> 0;
+  h = Math.imul(h ^ (h >>> 15), 0x85ebca6b) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35) >>> 0;
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
+export interface CircuitName {
+  /** the venue's proper name — "COPPERHEAD SWEEP" */
+  name: string;
+  /** the stable board key — "copperhead-sweep" (record rows hang off this) */
+  id: string;
+}
+
+/**
+ * Name a circuit from its seed and its measured character.
+ *
+ * The place is picked by the seed alone, so it never moves; the type is picked
+ * from the character band, so a sweeper is called a sweep and a hairpin knot is
+ * called a knot. Two halves, one hash offset apart, so "REDLINE SWEEP" and
+ * "REDLINE KNOT" are different venues that can share a place name the way real
+ * circuits share a town.
+ */
+export function circuitName(seed: number, character: CircuitCharacter): CircuitName {
+  const h = nameHash(seed);
+  const place = CIRCUIT_PLACES[h % CIRCUIT_PLACES.length];
+  const types = CIRCUIT_TYPES[character];
+  const type = types[(h >>> 8) % types.length];
+  const name = `${place} ${type}`;
+  return { name, id: name.toLowerCase().replace(/\s+/g, '-') };
+}

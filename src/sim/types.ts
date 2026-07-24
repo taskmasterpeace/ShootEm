@@ -39,6 +39,13 @@ export interface RaceTrack {
    *  always the START LINE; the rest are placed round the circuit (authored in
    *  the Track Builder, or derived for a procedural one). */
   cameras?: Vec3[];
+  /** THE VENUE'S NAME — "COPPERHEAD SWEEP", derived from the seed, stable, and
+   *  matched to the measured character so it never lies about the tarmac. The
+   *  board keys its records off `venueId`, so two different circuits stop
+   *  overwriting each other under one theme name. Absent on a hand-built track
+   *  until the builder names it. */
+  venueName?: string;
+  venueId?: string;
 }
 
 /** Per-racer progress, snapshot-serializable (lives on ModeState.racers). */
