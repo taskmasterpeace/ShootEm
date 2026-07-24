@@ -75,7 +75,7 @@ import { checkBelt, holderOf, loadTrophies, settleCup } from './client/trophies'
 import { PAINTBALL_FIELDS, buildTrackMap } from './sim/map';
 import { raceResults } from './sim/modes';
 import { CHARACTER_LABEL, circuitProfile } from './sim/tracks';
-import { arcadeIntelLine, arcadeIsOpen, openArcade } from './client/arcade';
+import { arcadeIntelLine, arcadeIsOpen, cabinetKey, openArcade } from './client/arcade';
 import { importTrack, type BuiltTrack } from './sim/tracks';
 import { PB_PERSONAS } from './sim/personas';
 import { GalleryDrill } from './client/gallerydrill';
@@ -1547,7 +1547,9 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     for (const ev of events) {
       if (ev.type === 'arcade' && ev.soldierId === me.id && ev.text) {
         const cab = world.map.arcades?.find((c) => c.cart === ev.text);
-        if (cab) openArcade(cab.cart, cab.name);
+        // the cabinet's KEY is its game and its place, so the mark standing on
+        // this machine belongs to THIS machine
+        if (cab) openArcade(cab.cart, cab.name, undefined, cabinetKey(cab.cart, cab.pos.x, cab.pos.z));
       }
     }
     hud.applyEvents(events, world, me.id, world.time); // killfeed stays live

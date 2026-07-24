@@ -3108,3 +3108,5 @@ body.pad-inmatch #pad-hints { display: none !important; }
   padding: 0.1rem 0.4rem 0.3rem 0.4rem; background: oklch(0.17 0.014 74);
   font-size: 0.62rem; line-height: 1.4; color: var(--muted); font-style: italic;
 }
+/* the machine is YOURS — the mark on the glass has your score on it now */
+.arc-best.held { color: var(--bg, #0d0f0c); background: var(--accent); padding: 0 0.3rem; font-weight: 700; }

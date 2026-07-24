@@ -67,6 +67,16 @@ export interface Cartridge {
   label: { ink: string; base: string };
   /** rarity drives how often it turns up in a wreck */
   rarity: 'common' | 'uncommon' | 'rare';
+  /**
+   * THE PAR — what a decent player reaches on this cartridge.
+   *
+   * Every game scores in its own currency at its own scale (NIGHTWATCH tops out
+   * at 8 hours; DEEP SHAFT runs past 160 metres), so a house record cannot be
+   * one number across the shelf. This is the honest figure each game's own
+   * runtime produces under real play, measured on the bench — the arcade
+   * cabinet jitters it per machine to set the mark you are chasing.
+   */
+  housePar: number;
 }
 
 /**
@@ -80,27 +90,27 @@ export const CARTRIDGES: Cartridge[] = [
   {
     id: 'orbit_run', title: 'ORBIT RUN', maker: 'Maklov Amusements', year: 2196,
     blurb: 'Thread the belt. Do not touch the rocks. The rocks are everywhere.',
-    scoreUnit: 'POINTS', label: { ink: '#e8a33d', base: '#1a1712' }, rarity: 'common',
+    scoreUnit: 'POINTS', label: { ink: '#e8a33d', base: '#1a1712' }, rarity: 'common', housePar: 12,
   },
   {
     id: 'deep_shaft', title: 'DEEP SHAFT', maker: 'Kuchler Home', year: 2201,
     blurb: 'Dig down. Something down there is digging up.',
-    scoreUnit: 'METRES', label: { ink: '#6fbf73', base: '#101512' }, rarity: 'common',
+    scoreUnit: 'METRES', label: { ink: '#6fbf73', base: '#101512' }, rarity: 'common', housePar: 220,
   },
   {
     id: 'harvest_88', title: 'HARVEST 88', maker: 'Green March Software', year: 2188,
     blurb: 'Four seasons a year. Bring the crop in before the frost.',
-    scoreUnit: 'TONNES', label: { ink: '#d6c37a', base: '#171509' }, rarity: 'uncommon',
+    scoreUnit: 'TONNES', label: { ink: '#d6c37a', base: '#171509' }, rarity: 'uncommon', housePar: 26,
   },
   {
     id: 'siege_tower', title: 'SIEGE TOWER', maker: 'Maklov Amusements', year: 2199,
     blurb: 'Stack it higher. It is going to fall. Stack it higher.',
-    scoreUnit: 'FLOORS', label: { ink: '#8fb8d8', base: '#0f1318' }, rarity: 'common',
+    scoreUnit: 'FLOORS', label: { ink: '#8fb8d8', base: '#0f1318' }, rarity: 'common', housePar: 18,
   },
   {
     id: 'nightwatch', title: 'NIGHTWATCH', maker: 'Odessa Grey Interactive', year: 2207,
     blurb: 'You have one torch and eight hours. Do not look behind you twice.',
-    scoreUnit: 'HOURS', label: { ink: '#c98b8b', base: '#150f0f' }, rarity: 'rare',
+    scoreUnit: 'HOURS', label: { ink: '#c98b8b', base: '#150f0f' }, rarity: 'rare', housePar: 6,
   },
 ];
 
