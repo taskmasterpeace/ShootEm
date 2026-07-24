@@ -39,7 +39,7 @@ import {
   type Brief, type BriefKind,
 } from './briefings';
 import { board } from '../service';
-import { SPORTS, fixtures, leagueLine, sportById, standings, type SportId } from './sports';
+import { SPORTS, fixtures, leagueLine, sportById, standings, venueBoard, type SportId } from './sports';
 import {
   CARTRIDGES, DECK_MORALE, cartridgeById, deckLine, fileScore, loadDeck, ownedCartridges,
   owns, saveDeck,
@@ -303,6 +303,18 @@ function sportsApp(): string {
       </div>`).join('')
     : '<div class="gn-empty">No times filed. Every board is open.</div>';
 
+  // THE RECORD BOOK — a page per named circuit, so a season of venues has a
+  // board and not just a champion. Format the lap as the discipline shows it.
+  const book = venueBoard();
+  const bookRows = book.length
+    ? book.slice(0, 8).map((v) => `<div class="gn-vrec">
+        <span class="gn-vname">${esc(v.venue)}</span>
+        <span class="gn-vcls">${esc(v.cls.toUpperCase())}</span>
+        <span class="gn-vhold">${esc(v.holder)}</span>
+        <span class="gn-vlap">${v.bestLap.toFixed(1)}s</span>
+      </div>`).join('')
+    : '<div class="gn-empty">No circuit has a record yet — go and set one.</div>';
+
   return `
     <div class="gn-pane gn-sports">
       <section class="gn-slist">
@@ -328,8 +340,10 @@ function sportsApp(): string {
           <span>${esc(CHARACTER_LABEL[venue.character])} · ${venue.length}u · ${venue.gates} gates · longest run ${venue.longestStraight}u</span>
           <p>${esc(venue.strap)}</p>
         </div>
-        <h4>THE STANDINGS</h4>
+        <h4>THE STANDINGS <i>who holds the most</i></h4>
         <div class="gn-stands">${standingRows}</div>
+        <h4>THE RECORD BOOK <i>a page per circuit</i></h4>
+        <div class="gn-vbook">${bookRows}</div>
         ${s.live
           ? `<button class="gn-cta" data-sportgo="${s.id}">ENTER — ${esc(s.name)} &#9656;</button>`
           : '<div class="gn-bready warn">This discipline is not running yet. The parts exist; the league does not.</div>'}

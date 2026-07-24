@@ -179,6 +179,62 @@ export function standings(records: TrackRecord[] = allRecords()): Standing[] {
   return [...by.values()].sort((a, b) => b.records - a.records || a.best - b.best);
 }
 
+// ── THE RECORD BOOK ─────────────────────────────────────────────────────────
+//
+// The standings above answer "who is the champion" — most records held, best
+// single lap anywhere. But three cycles of work went into making circuits real
+// PLACES: they vary, they describe themselves, they have names. A named season
+// wants the other view — the RECORD BOOK, a page per circuit, so you can ask
+// "who holds DEADMAN FLYER, and in what?" and the board has an answer.
+//
+// The venue's proper name is recovered from its id (records key off `venueId`
+// now): "deadman-flyer" → "DEADMAN FLYER". Lossless, because a circuit name is
+// all-caps words and its id is the same words lowercased and hyphenated — the
+// bare theme fallback ("savanna-circuit") reads back cleanly too.
+
+export interface VenueRecord {
+  /** the circuit's proper name, for the page header */
+  venue: string;
+  /** the board key it files under */
+  venueId: string;
+  /** the fastest LAP anyone has set here, and who holds it */
+  bestLap: number;
+  holder: string;
+  hull: string;
+  cls: RaceClass;
+  /** how many classes have a filed record at this venue */
+  classesRun: number;
+}
+
+/** A circuit id back into the name the desk shows. */
+export function venueNameOf(venueId: string): string {
+  return venueId.replace(/-/g, ' ').toUpperCase();
+}
+
+/**
+ * THE RECORD BOOK — one row per circuit, best lap and who holds it.
+ *
+ * Reads straight off the same board the standings do, so a lap filed anywhere
+ * shows up here the instant it lands. Sorted with the busiest circuits first —
+ * a venue people actually race is a venue with a story.
+ */
+export function venueBoard(records: TrackRecord[] = allRecords()): VenueRecord[] {
+  const by = new Map<string, VenueRecord>();
+  for (const r of records) {
+    if (r.lap <= 0) continue;
+    const cur = by.get(r.trackId) ?? {
+      venue: venueNameOf(r.trackId), venueId: r.trackId,
+      bestLap: Infinity, holder: '', hull: '', cls: r.cls, classesRun: 0,
+    };
+    cur.classesRun++;
+    if (r.lap < cur.bestLap) {
+      cur.bestLap = r.lap; cur.holder = r.holder; cur.hull = r.hull; cur.cls = r.cls;
+    }
+    by.set(r.trackId, cur);
+  }
+  return [...by.values()].sort((a, b) => b.classesRun - a.classesRun || a.bestLap - b.bestLap);
+}
+
 /** One line for the GONET desk: what the league is doing right now. */
 export function leagueLine(day: number, tracks: string[]): string {
   const f = fixtures(day, tracks)[0];

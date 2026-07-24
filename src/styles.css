@@ -3090,3 +3090,16 @@ body.pad-inmatch #pad-hints { display: none !important; }
 .gn-venue b { display: block; font-family: var(--font-mono); font-size: 0.74rem; letter-spacing: 0.12em; color: var(--accent); }
 .gn-venue span { display: block; font-family: var(--font-mono); font-size: 0.62rem; color: var(--muted); margin-top: 0.15rem; }
 .gn-venue p { margin: 0.35rem 0 0; font-size: 0.72rem; line-height: 1.5; }
+
+/* THE RECORD BOOK — a page per named circuit in the sports app. Same monospace
+   ledger voice as the standings; the venue name leads, the time closes. */
+.gn-vbook { display: flex; flex-direction: column; gap: 1px; }
+.gn-vrec {
+  display: grid; grid-template-columns: 1fr auto auto auto; gap: 0.6rem; align-items: baseline;
+  padding: 0.28rem 0.4rem; background: oklch(0.17 0.014 74);
+  font-family: var(--font-mono); font-size: 0.68rem;
+}
+.gn-vname { color: var(--accent); letter-spacing: 0.06em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gn-vcls { color: var(--muted); font-size: 0.6rem; letter-spacing: 0.08em; }
+.gn-vhold { color: var(--ink); }
+.gn-vlap { color: var(--accent); font-variant-numeric: tabular-nums; }
