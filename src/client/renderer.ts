@@ -11,6 +11,7 @@ import type { SimEvent, Soldier, Team, Vec3, VehicleKind } from '../sim/types';
 import { isBoard, isZed } from '../sim/types';
 import { HAND_FRAG_REACH, handSpreadMul, meleeWindupFor, type World } from '../sim/world';
 import { TheFallen } from './fallen';
+import { cartridgeById, type CartridgeId } from './gonet/cartridges';
 import { audio, type SoundName } from './audio';
 import { ClassVo } from './classvo';
 import { BIOME_AUDIO } from './soundscape';
@@ -242,6 +243,57 @@ function buildCorpseMesh(): THREE.Group {
   const mk = (x: number, z: number) => { const m = new THREE.Mesh(_corpseGeo!.limb, _corpseMat!); m.position.set(x, 0.1, z); return m; };
   g.add(torso, head, mk(0.32, 0.16), mk(-0.32, 0.16), mk(0.15, -0.5), mk(-0.15, -0.5));
   g.rotation.y = Math.random() * Math.PI * 2; // varied facing — this is presentation, not sim
+  return g;
+}
+
+/**
+ * ONE ARCADE CABINET. Robert: *"walk-up consoles in the world."*
+ *
+ * The silhouette does the work — a tall box, a lit marquee, a screen sunk under
+ * a hood, and an angled control deck at the waist. That shape reads as "arcade
+ * machine" from across a room at any angle, which is the entire job: you should
+ * know what it is before you can read a word on it.
+ *
+ * `ink` and `base` come from the cartridge bolted inside, so a machine wears
+ * its own game's colours. Geometry is shared and cached — a row of cabinets
+ * costs one set of boxes.
+ */
+let _cabGeo: { body: THREE.BoxGeometry; marquee: THREE.BoxGeometry; screen: THREE.BoxGeometry; deck: THREE.BoxGeometry; foot: THREE.BoxGeometry } | null = null;
+const _cabMats = new Map<number, THREE.MeshLambertMaterial>();
+
+export function buildArcadeCabinet(ink: number, base: number): THREE.Group {
+  if (!_cabGeo) {
+    _cabGeo = {
+      body: new THREE.BoxGeometry(0.82, 1.55, 0.66),
+      marquee: new THREE.BoxGeometry(0.86, 0.24, 0.2),
+      screen: new THREE.BoxGeometry(0.62, 0.46, 0.06),
+      deck: new THREE.BoxGeometry(0.82, 0.1, 0.34),
+      foot: new THREE.BoxGeometry(0.9, 0.12, 0.74),
+    };
+  }
+  const mat = (c: number) => {
+    let m = _cabMats.get(c);
+    if (!m) { m = new THREE.MeshLambertMaterial({ color: c }); _cabMats.set(c, m); }
+    return m;
+  };
+  const g = new THREE.Group();
+  const shell = new THREE.Mesh(_cabGeo.body, mat(base));
+  shell.position.y = 0.9;
+  shell.castShadow = true;
+  const foot = new THREE.Mesh(_cabGeo.foot, mat(0x14120f));
+  foot.position.y = 0.06;
+  // the marquee is the lit sign on top — the one part that glows in a dark room
+  const marquee = new THREE.Mesh(_cabGeo.marquee, new THREE.MeshBasicMaterial({ color: ink }));
+  marquee.position.set(0, 1.78, 0.06);
+  // the screen sits under a hood, tipped back the way a real cabinet does
+  const screen = new THREE.Mesh(_cabGeo.screen, mat(0x0a0c0a));
+  screen.position.set(0, 1.28, 0.33);
+  screen.rotation.x = -0.22;
+  // the control deck, in the cartridge's own ink so the row reads as a row
+  const deck = new THREE.Mesh(_cabGeo.deck, mat(ink));
+  deck.position.set(0, 0.98, 0.42);
+  deck.rotation.x = -0.34;
+  g.add(foot, shell, marquee, screen, deck);
   return g;
 }
 
@@ -2246,6 +2298,26 @@ export class Renderer {
       mesh.position.set(p.pos.x, 0, p.pos.z);
       mesh.rotation.y = p.rot;
       this.scene.add(mesh);
+    }
+
+    // THE ARCADE ROW. Cabinets have been usable since last cycle — walk up,
+    // press E, play — but there was nothing standing there to walk up TO, which
+    // is a strange kind of half-feature: the machine existed only as a radius on
+    // the floor. Each one now wears the LABEL OF THE GAME BOLTED INSIDE IT
+    // (cartridges.ts gives every cartridge its own ink and base), so the row
+    // reads as five different machines rather than five identical boxes — you
+    // learn which one is DEEP SHAFT by its green side art, the way you would in
+    // a real arcade.
+    for (const cab of world.map.arcades ?? []) {
+      const cart = cartridgeById(cab.cart as CartridgeId);
+      // the label is authored as CSS (it dresses the Deck's shelf too), so the
+      // cabinet reads the same two colours the cartridge already owns
+      const hex = (css: string | undefined, fallback: number) =>
+        css ? parseInt(css.replace('#', ''), 16) : fallback;
+      const g = buildArcadeCabinet(hex(cart?.label.ink, 0xe8a33d), hex(cart?.label.base, 0x1a1712));
+      g.position.set(cab.pos.x, 0, cab.pos.z);
+      g.rotation.y = cab.yaw;
+      this.scene.add(g);
     }
 
     // vehicle pads
