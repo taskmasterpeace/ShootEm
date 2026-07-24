@@ -44,6 +44,20 @@ const setHTML = (el: HTMLElement, html: string) => {
   el.innerHTML = html;
 };
 
+/** THE ARCADE GLYPH — a screen with a stand, drawn at a mapped point. Exported
+ *  so the minimap and its test share ONE definition and can never drift: a box
+ *  for the screen, a narrower box beneath it for the base. Deliberately not a
+ *  circle (allies/objectives) or a triangle (hostiles) — shape is the second
+ *  channel, and a cabinet is a place to GO. */
+export function drawArcadeGlyph(
+  ctx: { fillStyle: string | CanvasGradient | CanvasPattern; fillRect: (x: number, y: number, w: number, h: number) => void },
+  x: number, y: number,
+): void {
+  ctx.fillStyle = '#e8a33d';
+  ctx.fillRect(x - 2.4, y - 2.4, 4.8, 3.4);  // the screen
+  ctx.fillRect(x - 1.2, y + 1.2, 2.4, 1.2);  // the stand
+}
+
 export function minimapPoint(geometry: MapGeometry, size: number, pos: Vec3): [number, number] {
   return [
     ((pos.x + halfWidth(geometry)) / worldWidth(geometry)) * size,
@@ -1428,6 +1442,17 @@ export class Hud {
       for (const end of [gate.a, gate.b]) dot(end.x, end.z, '#66e8ff', 3);
     }
     for (const pad of world.map.pads) dot(pad.pos.x, pad.pos.z, '#30d0c0', 2.5);
+
+    // THE ARCADE ON THE MAP. Cabinets have been in the city for a cycle, but
+    // nothing pointed at them — you found one by walking into it. A little
+    // amber SCREEN glyph (a box with a base, not a dot) marks each one, so the
+    // machine reads as a place to GO rather than a hazard to avoid. Shape, not
+    // hue: it is deliberately not a circle, because everything else on this map
+    // that matters is a circle or a triangle.
+    for (const cab of world.map.arcades ?? []) {
+      const [x, y] = toMap(cab.pos.x, cab.pos.z);
+      drawArcadeGlyph(ctx, x, y);
+    }
 
     // deployed gadgets
     for (const g of world.gadgets.values()) {
