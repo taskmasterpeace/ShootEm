@@ -75,7 +75,7 @@ import { checkBelt, holderOf, loadTrophies, settleCup } from './client/trophies'
 import { PAINTBALL_FIELDS, buildTrackMap } from './sim/map';
 import { raceResults } from './sim/modes';
 import { CHARACTER_LABEL, circuitProfile } from './sim/tracks';
-import { arcadeIsOpen, openArcade } from './client/arcade';
+import { arcadeIntelLine, arcadeIsOpen, openArcade } from './client/arcade';
 import { importTrack, type BuiltTrack } from './sim/tracks';
 import { PB_PERSONAS } from './sim/personas';
 import { GalleryDrill } from './client/gallerydrill';
@@ -1353,6 +1353,12 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     const [a, b] = lswsForTeam(0 as Team);
     if (a) hud.announce(`OFFICER CHANNEL — V: CALL ${LSWS[a].name.toUpperCase()}${b ? ` · SHIFT+V: ${LSWS[b].name.toUpperCase()}` : ''}`, false, 0);
   }
+  // THE ARCADE IS IN THIS SECTOR. The map marks a cabinet, but you had to open
+  // the map to know it was there — a walk-up console you only find by opening a
+  // menu is not really walk-up. One intel line at deploy names the machines
+  // waiting in the city, so a player goes looking instead of stumbling in.
+  const arcadeLine = arcadeIntelLine(world.map.arcades ?? []);
+  if (arcadeLine) hud.announce(arcadeLine, false, 0);
   // CROWD DIAGNOSTIC (Robert: "put something in there so you can look at the
   // logs… they all bunch up"). Call `__ww.crowd()` in the console any time for
   // each team's spread — average nearest-neighbour and the tightest pair. A

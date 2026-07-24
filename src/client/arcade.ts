@@ -98,3 +98,24 @@ function escKey(e: KeyboardEvent): void {
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+
+/**
+ * THE DEPLOY INTEL LINE — "there is a machine in this city, go find it".
+ *
+ * The map marks each cabinet, but you had to open the map to know one was
+ * there, and a walk-up console you only find through a menu is not really
+ * walk-up. This is the one line the HUD announces at deploy so a player goes
+ * LOOKING. Pure — a list of cabinets in, one string (or null) out — so the
+ * formatting is testable and main.ts stays a caller.
+ *
+ * Distinct titles only (a city can have two ORBIT RUNs and it is still "an
+ * ORBIT RUN in the sector"), and it caps the list so a big arcade row reads
+ * "A, B +3" instead of running off the banner.
+ */
+export function arcadeIntelLine(cabs: ReadonlyArray<{ name: string }>): string | null {
+  if (!cabs.length) return null;
+  const titles = [...new Set(cabs.map((c) => c.name))];
+  const list = titles.length <= 2 ? titles.join(' & ')
+    : `${titles.slice(0, 2).join(', ')} +${titles.length - 2}`;
+  return `ARCADE IN THIS SECTOR — ${list} · walk up, press E`;
+}
