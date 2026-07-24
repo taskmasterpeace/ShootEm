@@ -35,7 +35,7 @@ import {
   T_OPEN, T_WALL, T_COVER, T_WATER, T_DEEP, T_DOOR, T_METAL, T_LADDER, T_CLIMB,
   T_STAIRS_N, T_STAIRS_W, T_GRASS, T_RUBBLE, isDoorTile,
   S_DIRT, S_GRASS, S_ICE, S_GRIT, S_PLATE, S_WET, S_MUD,
-  type GameMap, type PropSpec, type PickupSpawn, type VehiclePad, type House, type TileClaim,
+  type ArcadeCabinet, type GameMap, type PropSpec, type PickupSpawn, type VehiclePad, type House, type TileClaim,
 } from './map';
 import {
   BUILDINGS, stampBuilding, mirrorDef, generateHouse, generateDistrict,
@@ -231,6 +231,8 @@ interface FrontDraft {
   grid: Uint8Array; grid2: Uint8Array; surface: Uint8Array;
   props: PropSpec[]; claims: TileClaim[]; pickups: PickupSpawn[];
   houses: House[]; vehiclePads: VehiclePad[]; rng: Rng;
+  /** THE ARCADE ROW — cabinets the city put in its shops (see the lot loop) */
+  arcades: ArcadeCabinet[];
 }
 
 function draft(seed: number, fill: number, surf: number): FrontDraft {
@@ -238,7 +240,7 @@ function draft(seed: number, fill: number, surf: number): FrontDraft {
   const surface = new Uint8Array(GRID * GRID).fill(surf);
   return {
     grid, grid2: new Uint8Array(GRID * GRID), surface,
-    props: [], claims: [], pickups: [], houses: [], vehiclePads: [], rng: new Rng(seed),
+    props: [], claims: [], pickups: [], houses: [], vehiclePads: [], rng: new Rng(seed), arcades: [],
   };
 }
 
@@ -399,7 +401,7 @@ function bridgeDelta(seed: number, size: MapSize = 'large'): GameMap {
     flagPos: [tw(box.x0 + 10, midZ), tw(box.x1 - 9, midZ)],
     hillPos: tw(49, spanMid),
     controlPoints: cps,
-    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid, box),
+    vehiclePads: d.vehiclePads, pickups: d.pickups, props, arcades: d.arcades, zombieSpawns: zombieRing(grid, box),
     houses: d.houses, gates: [], pads: [], propCovered: settle(grid, claims),
   };
 }
@@ -535,7 +537,7 @@ function fortRaven(seed: number, size: MapSize = 'large'): GameMap {
       { name: 'THE KEEP', pos: tw(C, C) },
       { name: 'SOUTH SALLY', pos: tw(C, C + innerR) },
     ],
-    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid, box),
+    vehiclePads: d.vehiclePads, pickups: d.pickups, props, arcades: d.arcades, zombieSpawns: zombieRing(grid, box),
     houses: d.houses, gates: [], pads: [], propCovered: settle(grid, claims),
   };
 }
@@ -668,7 +670,7 @@ function easternPlains(seed: number, size: MapSize = 'large'): GameMap {
       { name: 'CROSSROADS', pos: tw(48, crossZ) },
       { name: 'SOUTH FARM', pos: tw(GRID - L.farms[0][1] - 5, GRID - L.farms[0][2] - 5) },
     ],
-    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid, box),
+    vehiclePads: d.vehiclePads, pickups: d.pickups, props, arcades: d.arcades, zombieSpawns: zombieRing(grid, box),
     houses: d.houses, gates: [], pads: [], propCovered: settle(grid, claims),
   };
 }
@@ -877,9 +879,46 @@ function theCity(seed: number, size: MapSize = 'large'): GameMap {
   // districts: every lot GROWN, every building ENTERABLE — doors, never
   // facades (the city's law). Lots keep clear of avenues, trunks, and the
   // base lanes; the street grid always reads.
+  // THE ARCADE IS WHERE PEOPLE ARE. Cabinets existed only in Vanessa's pro
+  // shop, so you could go a whole campaign without meeting one — a walk-up
+  // console you never walk up to is a feature nobody has. A city has shops, and
+  // shops in this war put a machine in the corner: roughly one shop in three
+  // gets one, seeded, so a given city is always the same city.
+  const ARCADE_CARTS = ['orbit_run', 'deep_shaft', 'harvest_88', 'siege_tower', 'nightwatch'] as const;
+  const ARCADE_NAMES = ['ORBIT RUN', 'DEEP SHAFT', 'HARVEST 88', 'SIEGE TOWER', 'NIGHTWATCH'] as const;
+
   for (const lot of L.lots) {
     const def = growLot(d.rng, lot);
     stampBuilding(ctx, def, lot.x, lot.z, lot.x + lot.z);
+    // A CITY HAS AN ARCADE. Rolling for every shop put one in roughly every
+    // other city (measured: 0.427 / 0.975 / 0.371 against a 0.34 gate), and a
+    // walk-up console you meet every other campaign is a feature nobody has.
+    // The FIRST shop always gets a machine; the rest are a coin toss, so a big
+    // city can have a row and a small one still has somewhere to play.
+    const wantsCabinet = lot.kind === 'shop' && (d.arcades.length === 0 || d.rng.next() < 0.4);
+    if (wantsCabinet) {
+      // just inside the shopfront, against the back wall — a machine stands
+      // where it is out of the doorway and you have to step in for it
+      // SCAN THE SHOP FOR A REAL SPOT. Guessing one tile put the machine in the
+      // shopfront WALL every time — the building is stamped with its walls on
+      // the lot boundary, so a cabinet at lot.z + 1 is inside the masonry and
+      // the placement silently never happened. Walk the interior and take the
+      // first tile a man could actually stand on.
+      let ax = -1, az = -1;
+      for (let oz = 1; oz < lot.h - 1 && az < 0; oz++) {
+        for (let ox = 1; ox < lot.w - 1; ox++) {
+          const tx = lot.x + ox, tz = lot.z + oz;
+          if (inb(tx) && inb(tz) && d.grid[idx(tx, tz)] === T_OPEN) { ax = tx; az = tz; break; }
+        }
+      }
+      if (ax >= 0) {
+        const pick = Math.floor(d.rng.next() * ARCADE_CARTS.length);
+        d.arcades.push({
+          pos: tw(ax, az), cart: ARCADE_CARTS[pick], name: ARCADE_NAMES[pick],
+          yaw: Math.PI,   // screen faces south, into the room
+        });
+      }
+    }
     if (lot.kind === 'ruin') {
       // the shelled block: rubble spills into the street
       for (let i = 0; i < 6; i++) {
@@ -955,7 +994,7 @@ function theCity(seed: number, size: MapSize = 'large'): GameMap {
       ? tw(Math.floor((L.plaza.x0 + L.plaza.x1) / 2), Math.floor((L.plaza.z0 + L.plaza.z1) / 2) + 2)
       : tw(50, 50),
     controlPoints: L.cps.map(([name, x, z]) => ({ name, pos: tw(x, z) })),
-    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid, box),
+    vehiclePads: d.vehiclePads, pickups: d.pickups, props, arcades: d.arcades, zombieSpawns: zombieRing(grid, box),
     houses: d.houses, gates: [], pads: [], propCovered: settle(grid, claims),
   };
 }
@@ -1136,7 +1175,7 @@ function highlandPass(seed: number, size: MapSize = 'large'): GameMap {
       { name: 'THE NARROWS', pos: tw(L.chokes[0][0] + 2, L.chokes[0][1] + 2) },
       { name: 'EAST ELBOW', pos: tw(L.road[3][0] + 2, Math.round((L.road[3][1] + L.road[3][3]) / 2)) },
     ],
-    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: mouths,
+    vehiclePads: d.vehiclePads, pickups: d.pickups, props, arcades: d.arcades, zombieSpawns: mouths,
     houses: d.houses, gates: [], pads: [], propCovered: settle(grid, claims),
   };
 }
@@ -1283,7 +1322,7 @@ function blacksite(seed: number, size: MapSize = 'large'): GameMap {
       { name: 'THE LABS', pos: tw(51, 50) },
       { name: 'LANDING PAD', pos: tw(...L.pad) },
     ],
-    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid, box),
+    vehiclePads: d.vehiclePads, pickups: d.pickups, props, arcades: d.arcades, zombieSpawns: zombieRing(grid, box),
     houses: d.houses, gates: [], pads: [], propCovered: settle(grid, claims),
   };
 }
@@ -1413,7 +1452,7 @@ function refinery(seed: number, size: MapSize = 'large'): GameMap {
       { name: 'CONTROL', pos: tw(49, 52) },
       { name: 'EAST FARM', pos: tw(GRID - L.tanks[0][0] - 6, GRID - L.tanks[0][1] - 10) },
     ],
-    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid, box),
+    vehiclePads: d.vehiclePads, pickups: d.pickups, props, arcades: d.arcades, zombieSpawns: zombieRing(grid, box),
     houses: d.houses, gates: [], pads: [], propCovered: settle(grid, claims),
   };
 }
@@ -1577,7 +1616,7 @@ function thePort(seed: number, size: MapSize = 'large'): GameMap {
       { name: 'THE SHIP', pos: tw(49, gz) },
       { name: 'EAST YARD', pos: tw(L.yards[1].x0 + 6, Math.floor((L.yards[1].rows[1] + L.yards[1].rows[2]) / 2)) },
     ],
-    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid, box),
+    vehiclePads: d.vehiclePads, pickups: d.pickups, props, arcades: d.arcades, zombieSpawns: zombieRing(grid, box),
     houses: d.houses, gates: [], pads: [], propCovered: settle(grid, claims),
   };
 }
@@ -1732,7 +1771,7 @@ function airbase(seed: number, size: MapSize = 'large'): GameMap {
       { name: 'THE RUNWAY', pos: tw(50, midRun) },
       { name: 'FUEL FARM', pos: tw(L.fuel[0][0], L.fuel[0][1]) },
     ],
-    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid, box),
+    vehiclePads: d.vehiclePads, pickups: d.pickups, props, arcades: d.arcades, zombieSpawns: zombieRing(grid, box),
     houses: d.houses, gates: [], pads: [], propCovered: settle(grid, claims),
   };
 }
@@ -1880,7 +1919,7 @@ function theMine(seed: number, size: MapSize = 'large'): GameMap {
       { name: 'THE PIT', pos: tw(C, C) },
       { name: 'SOUTH GALLERY', pos: tw(L.galleries[1][0] + 10, L.galleries[1][1] + 2) },
     ],
-    vehiclePads: d.vehiclePads, pickups: d.pickups, props, zombieSpawns: zombieRing(grid, box),
+    vehiclePads: d.vehiclePads, pickups: d.pickups, props, arcades: d.arcades, zombieSpawns: zombieRing(grid, box),
     houses: d.houses, gates: [], pads: [], propCovered: settle(grid, claims),
   };
 }
