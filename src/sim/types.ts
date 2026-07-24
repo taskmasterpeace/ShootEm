@@ -51,6 +51,16 @@ export interface RacerState {
   finished: boolean;       // crossed the final line
   finishTime: number;      // world.time at finish (0 = still racing)
   place: number;           // 1-based finishing/current position
+  /** THE FLAG FALLS ON EVERYONE. A race used to end the instant the leader
+   *  crossed, freezing the other seven entrants mid-lap with no result at all —
+   *  a sporting event where only the winner got a line. When the flag drops,
+   *  every runner still on track is CLASSIFIED where they stood: this is how
+   *  far behind the winner they were, in laps and in seconds. */
+  classified?: boolean;
+  /** laps down on the winner at the flag (0 = on the lead lap) */
+  lapsDown?: number;
+  /** seconds behind the winner, for anyone on the lead lap */
+  gap?: number;
   /** FREESTYLE: the best single run this session — a run is everything you
    *  banked between two bails, so it is nerve as much as skill. */
   bestRun?: number;

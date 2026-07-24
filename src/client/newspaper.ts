@@ -33,6 +33,11 @@ export interface RacePressData {
   field: number;         // how many on the grid
   recordTaken: boolean;  // a track record fell
   previousHolder?: string; // whose record it was
+  /** THE RESULT SHEET, best first. A race used to end the instant the leader
+   *  crossed, so the paper only ever had a WINNER to report — the other seven
+   *  entrants had no result to print. The field is classified at the flag now
+   *  (`classifyField`, modes.ts), so the desk can report a real result. */
+  podium?: Array<{ name: string; place: number; lapsDown: number; gap?: number }>;
 }
 
 export interface OperationPressFacts {
@@ -139,6 +144,19 @@ export function raceHeadline(issue: PressIssue): string {
     return r.previousHolder
       ? [`${who} SHATTERS THE ${cls} RECORD`, `RECORD FALLS: ${who} TAKES IT FROM ${r.previousHolder.toUpperCase()}`, `${who} REWRITES THE ${cls} BOOK`][hash(issue)]
       : [`${who} SETS THE ${cls} MARK`, `FIRST BLOOD: ${who} OWNS THE ${cls} RECORD`, `${who} STAMPS THE FIRST ${cls} TIME`][hash(issue)];
+  }
+  // A MARGIN IS A STORY. With the field classified at the flag the desk knows
+  // HOW he won, not just that he did — and a race decided by three tenths reads
+  // nothing like one where the runner-up was a lap down.
+  const second = r.podium?.find((p) => p.place === 2);
+  if (second) {
+    const up = second.name.toUpperCase();
+    if (second.lapsDown > 0) {
+      return [`${who} LAPS THE ${cls} FIELD`, `NO CONTEST: ${who} PUTS A LAP ON ${up}`, `${who} ALONE AT ${r.venue.toUpperCase()}`][hash(issue)];
+    }
+    if (second.gap !== undefined && second.gap < 1.5) {
+      return [`${who} EDGES ${up} BY ${second.gap.toFixed(1)}s`, `PHOTO FINISH: ${who} OVER ${up}`, `${second.gap.toFixed(1)} SECONDS DECIDE THE ${cls} FEATURE`][hash(issue)];
+    }
   }
   return [`${who} TAKES THE ${cls} FEATURE`, `${who} WINS AT ${r.venue.toUpperCase()}`, `${cls} HONOURS TO ${who}`][hash(issue)];
 }

@@ -73,6 +73,7 @@ import { RingDrill } from './client/ringdrill';
 import { FieldTracker, advanceGauntlet, loadFieldRecord, saveFieldRecord } from './client/fieldrecord';
 import { checkBelt, holderOf, loadTrophies, settleCup } from './client/trophies';
 import { PAINTBALL_FIELDS, buildTrackMap } from './sim/map';
+import { raceResults } from './sim/modes';
 import { importTrack, type BuiltTrack } from './sim/tracks';
 import { PB_PERSONAS } from './sim/personas';
 import { GalleryDrill } from './client/gallerydrill';
@@ -1648,6 +1649,11 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
             discipline: disc, venue: trackId, cls: raceClassOf(hull, VEHICLES[hull]?.mass).toUpperCase(),
             winner: name, lap: best, field: Math.max(1, grid),
             recordTaken: filed.tookLap, previousHolder: filed.previous?.holder,
+            // THE WHOLE SHEET goes to the desk, not just the man who won it
+            podium: raceResults(world.mode).slice(0, 3).map((r) => ({
+              name: world.soldiers.get(r.id)?.name ?? '—',
+              place: r.place, lapsDown: r.lapsDown, gap: r.gap,
+            })),
           },
         });
       }

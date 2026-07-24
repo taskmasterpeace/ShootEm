@@ -122,6 +122,15 @@ function raceReel(issue: PressIssue, i: number, now: number): Reel {
     { headline: `${r.discipline} — ${r.cls} CLASS`, sub: `From the circuit at ${r.venue}.`, slug: 'SPORTS DESK', hold: 3.2 },
     { headline: `${r.winner.toUpperCase()} TAKES IT`, sub: `${r.field} on the grid, one flag.`, figure: r.lap > 0 ? `${r.lap.toFixed(1)}s` : undefined, slug: 'THE FEATURE', hold: 3.4 },
   ];
+  // THE RESULT, not just the winner. The desk used to have one name and a
+  // field size; the field is classified at the flag now, so it can read a sheet.
+  if (r.podium?.length && r.podium.length > 1) {
+    shots.push({
+      headline: 'THE RESULT',
+      sub: r.podium.map((p) => `P${p.place} ${p.name}${p.lapsDown ? ` +${p.lapsDown}L` : p.gap !== undefined ? ` +${p.gap.toFixed(1)}s` : ''}`).join('  ·  '),
+      slug: 'CLASSIFIED', hold: 3.6,
+    });
+  }
   if (r.recordTaken) {
     shots.push({
       headline: 'A RECORD FALLS', figure: `${r.lap.toFixed(1)}s`,

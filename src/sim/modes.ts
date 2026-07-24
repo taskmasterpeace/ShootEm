@@ -509,6 +509,7 @@ function stepRace(w: World, dt: number): void {
     const first = racers.find((r) => r.finished);
     if (first) {
       const champ = w.soldiers.get(first.id);
+      classifyField(w, racers, track);   // the whole field gets a result, not just the winner
       w.emit({ type: 'announce', text: `${champ?.name ?? 'The winner'} SURVIVES THE GUN RUN`, big: true });
       endMatch(w, champ?.team ?? 0);
     }
@@ -516,6 +517,7 @@ function stepRace(w: World, dt: number): void {
     const first = racers.find((r) => r.finished);
     if (first) {
       const champ = w.soldiers.get(first.id);
+      classifyField(w, racers, track);   // the whole field gets a result, not just the winner
       w.emit({ type: 'announce', text: `${champ?.name ?? 'The winner'} TAKES THE CHECKERED FLAG`, big: true });
       endMatch(w, champ?.team ?? 0);
     }
@@ -526,6 +528,57 @@ function stepRace(w: World, dt: number): void {
       endMatch(w, w.soldiers.get(me.id)?.team ?? 0);
     }
   }
+}
+
+/**
+ * THE FLAG FALLS ON EVERYONE.
+ *
+ * A race used to end the instant the leader crossed the line: `endMatch` fired,
+ * the world froze, and the other seven entrants were left mid-lap with
+ * `finished: false`, no finish time and no result. Measured across three seeds
+ * and both classes, exactly ONE racer in a field of eight was ever classified.
+ * That is not a sport — a sport gives every entrant a line on the sheet.
+ *
+ * At the flag, everyone still running is CLASSIFIED where they stood, using the
+ * same track-position order the live standings already compute. Anyone on the
+ * lead lap gets a real gap in seconds (their pace over their own best lap
+ * across the ground they had left); anyone lapped is recorded as laps down,
+ * which is how a real result sheet says it.
+ */
+export function classifyField(w: World, racers: RacerState[], track: RaceTrack): void {
+  const winner = racers.find((r) => r.finished);
+  if (!winner) return;
+  const N = Math.max(1, track.checkpoints.length);
+  for (const r of racers) {
+    if (r.finished || r.classified) continue;
+    r.classified = true;
+    const lapsDown = Math.max(0, winner.lap - r.lap);
+    r.lapsDown = lapsDown;
+    if (lapsDown === 0) {
+      // on the lead lap: how long the ground they had left would have taken
+      // them at their OWN best pace. Their own pace, so a slow car is not
+      // flattered by the leader's speed.
+      const pace = r.bestLap > 0 ? r.bestLap : 30;
+      const left = Math.max(0, N - r.next) / N;
+      r.gap = Math.round(left * pace * 10) / 10;
+    } else {
+      r.gap = undefined;
+    }
+  }
+  // the sheet is the standings at the moment the flag dropped
+  computePlaces(w, racers, track);
+}
+
+/** The result sheet, best first — what the news and the board should report. */
+export function raceResults(m: ModeState): Array<{ id: number; place: number; lapsDown: number; gap?: number; bestLap: number; won: boolean }> {
+  const rs = m.racers ?? [];
+  return [...rs]
+    .filter((r) => r.finished || r.classified)
+    .sort((a, b) => a.place - b.place)
+    .map((r) => ({
+      id: r.id, place: r.place, lapsDown: r.lapsDown ?? 0,
+      gap: r.gap, bestLap: r.bestLap, won: r.finished && r.place === 1,
+    }));
 }
 
 function endMatch(w: World, winner: Team | -1) {
