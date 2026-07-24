@@ -74,6 +74,7 @@ import { FieldTracker, advanceGauntlet, loadFieldRecord, saveFieldRecord } from 
 import { checkBelt, holderOf, loadTrophies, settleCup } from './client/trophies';
 import { PAINTBALL_FIELDS, buildTrackMap } from './sim/map';
 import { raceResults } from './sim/modes';
+import { CHARACTER_LABEL, circuitProfile } from './sim/tracks';
 import { arcadeIsOpen, openArcade } from './client/arcade';
 import { importTrack, type BuiltTrack } from './sim/tracks';
 import { PB_PERSONAS } from './sim/personas';
@@ -1665,6 +1666,12 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
             winner: name, lap: best, field: Math.max(1, grid),
             recordTaken: filed.tookLap, previousHolder: filed.previous?.holder,
             // THE WHOLE SHEET goes to the desk, not just the man who won it
+            circuit: (() => {
+              const cps = world.map.raceTrack?.checkpoints;
+              if (!cps?.length) return undefined;
+              const pr = circuitProfile(cps);
+              return { character: pr.character, label: CHARACTER_LABEL[pr.character], length: pr.length, strap: pr.strap };
+            })(),
             podium: raceResults(world.mode).slice(0, 3).map((r) => ({
               name: world.soldiers.get(r.id)?.name ?? '—',
               place: r.place, lapsDown: r.lapsDown, gap: r.gap,

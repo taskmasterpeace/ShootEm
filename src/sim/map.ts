@@ -978,6 +978,70 @@ export function generatePaintballField(seed: number, theme: ThemeId = 'savanna')
  *  and the outer field are walled, so the loop IS the only way round. A ring of
  *  ordered checkpoints (gate 0 = start/finish) banks laps; a grid of start
  *  slots sits behind the line. Fully deterministic from the seed. */
+/**
+ * THE CENTRELINE OF A PROCEDURAL CIRCUIT, on its own.
+ *
+ * Split out so the LAPTOP can describe a venue without building a world for it:
+ * the sports desk wants to tell you what kind of circuit is on this week, and
+ * allocating three 10,000-tile grids to answer that would be absurd. Pure
+ * geometry — same seed, same ribbon, whether it is asked by the map builder or
+ * by a fixture list.
+ */
+export function circuitRing(seed: number): { gates: Vec3[]; startYaw: number; lapLen: number } {
+  const rng = new Rng(seed);
+  const cx = GRID / 2, cz = GRID / 2;
+  const Rx = 30 + rng.next() * 14;
+  const Rz = 21 + rng.next() * 12;
+  const p2 = rng.next() * Math.PI * 2;
+  const p3 = rng.next() * Math.PI * 2;
+  const MAX_CORNER = 0.88;
+  let a2 = 0.06 + rng.next() * 0.16;
+  let a3 = 0.04 + rng.next() * 0.12;
+
+  const bendWith = (A2: number, A3: number) => (th: number): number =>
+    1 + A2 * Math.sin(2 * th + p2) + A3 * Math.sin(3 * th + p3);
+  const ptWith = (b: (t: number) => number) => (th: number): { tx: number; tz: number } => {
+    const r = b(th);
+    return { tx: cx + Rx * r * Math.cos(th), tz: cz + Rz * r * Math.sin(th) };
+  };
+  const sharpest = (pt: (t: number) => { tx: number; tz: number }, gates: number): number => {
+    let worst = 0;
+    for (let k = 0; k < gates; k++) {
+      const a = pt((2 * Math.PI * (k - 1)) / gates);
+      const b = pt((2 * Math.PI * k) / gates);
+      const c = pt((2 * Math.PI * (k + 1)) / gates);
+      const h1 = Math.atan2(b.tz - a.tz, b.tx - a.tx);
+      const h2 = Math.atan2(c.tz - b.tz, c.tx - b.tx);
+      let d = Math.abs(h2 - h1);
+      if (d > Math.PI) d = 2 * Math.PI - d;
+      if (d > worst) worst = d;
+    }
+    return worst;
+  };
+  for (let guard = 0; guard < 8; guard++) {
+    if (sharpest(ptWith(bendWith(a2, a3)), 12) <= MAX_CORNER) break;
+    a2 *= 0.72; a3 *= 0.72;
+  }
+  const ptAt = ptWith(bendWith(a2, a3));
+
+  const SAMPLES = 220;
+  let lapLen = 0;
+  for (let i = 0; i < SAMPLES; i++) {
+    const a = ptAt((2 * Math.PI * i) / SAMPLES);
+    const b = ptAt((2 * Math.PI * (i + 1)) / SAMPLES);
+    lapLen += Math.hypot(b.tx - a.tx, b.tz - a.tz) * TILE;
+  }
+  const N = Math.max(10, Math.min(20, Math.round(lapLen / 55)));
+  const P = (tx: number, tz: number): Vec3 => ({ x: (tx + 0.5) * TILE - WORLD / 2, y: 0, z: (tz + 0.5) * TILE - WORLD / 2 });
+  const gates: Vec3[] = [];
+  for (let k = 0; k < N; k++) {
+    const { tx, tz } = ptAt((2 * Math.PI * k) / N);
+    gates.push(P(tx, tz));
+  }
+  const s0 = ptAt(-0.01), s1 = ptAt(0.01);
+  return { gates, startYaw: Math.atan2((s1.tz - s0.tz) * TILE, (s1.tx - s0.tx) * TILE), lapLen };
+}
+
 export function generateRaceTrack(seed: number, theme: ThemeId = 'savanna'): GameMap {
   const rng = new Rng(seed);
   const grid = new Uint8Array(GRID * GRID).fill(T_WALL); // sealed; carve the ring

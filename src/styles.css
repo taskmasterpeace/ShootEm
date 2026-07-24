@@ -3083,3 +3083,10 @@ body.pad-inmatch #pad-hints { display: none !important; }
   color: var(--muted); text-transform: uppercase;
 }
 .arc-hint b { color: var(--accent); }
+
+/* THE CIRCUIT panel in the sports app — what kind of racetrack is on this week.
+   Every figure is measured off the tarmac, so it can never flatter the venue. */
+.gn-venue { border-left: 2px solid var(--accent); padding: 0.4rem 0 0.4rem 0.7rem; margin-bottom: 0.6rem; }
+.gn-venue b { display: block; font-family: var(--font-mono); font-size: 0.74rem; letter-spacing: 0.12em; color: var(--accent); }
+.gn-venue span { display: block; font-family: var(--font-mono); font-size: 0.62rem; color: var(--muted); margin-top: 0.15rem; }
+.gn-venue p { margin: 0.35rem 0 0; font-size: 0.72rem; line-height: 1.5; }

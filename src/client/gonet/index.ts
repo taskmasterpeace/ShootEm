@@ -21,6 +21,8 @@ import { COURSES } from '../../sim/courses';
 import { treasuryFor } from '../treasury';
 import { loadPress } from '../newspaper';
 import { LICENCES, type LicenceId } from '../../sim/licenses';
+import { CHARACTER_LABEL, circuitProfile } from '../../sim/tracks';
+import { circuitRing } from '../../sim/map';
 import { buildInbox, markAllRead, markRead, unreadCount, type Message } from './mail';
 import {
   GENRES, buildSchedule, channelsIn, reelSeconds, reelsOn, shotAt,
@@ -276,6 +278,11 @@ function sportsApp(): string {
       ${x.live ? '' : '<i>PLANNED</i>'}
     </button>`).join('');
 
+  // THE CIRCUIT ON THIS WEEK, described off its own geometry. The desk builds
+  // no world to do it — `circuitRing` is the same pure centreline the map
+  // builder carves from, so the description and the tarmac can never disagree.
+  const venue = circuitProfile(circuitRing(day).gates.map((g: { x: number; z: number }) => ({ pos: g })));
+
   const fixtureRows = fixList.map((f) => {
     const sp = sportById(f.sport)!;
     return `<div class="gn-fix">
@@ -314,6 +321,12 @@ function sportsApp(): string {
         <ol class="gn-bphases">${s.rules.map((r) => `<li>${esc(r)}</li>`).join('')}</ol>
         <h4>WHAT IT TRAINS <i>a sport is not idle time</i></h4>
         <div class="gn-btags">${s.trains.map((t) => `<span>${esc(SKILLS[t].name.toUpperCase())}</span>`).join('')}</div>
+        <h4>THE CIRCUIT <i>measured off the tarmac, never assigned</i></h4>
+        <div class="gn-venue">
+          <b>${esc(CHARACTER_LABEL[venue.character])}</b>
+          <span>${venue.length}u · ${venue.gates} gates · longest run ${venue.longestStraight}u</span>
+          <p>${esc(venue.strap)}</p>
+        </div>
         <h4>THE STANDINGS</h4>
         <div class="gn-stands">${standingRows}</div>
         ${s.live

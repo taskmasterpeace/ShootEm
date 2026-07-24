@@ -225,3 +225,108 @@ export function importTrack(json: string): BuiltTrack | null {
     };
   } catch { return null; }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE CIRCUIT'S CHARACTER — what kind of racetrack this is.
+//
+// Last cycle gave the procedural circuit a real SHAPE (510–724u, 10–13 gates,
+// every one a different ribbon). But a venue that varies and cannot say how is
+// still not a place: the league had seven different racetracks and one
+// description. A sport talks about its circuits — the fast one, the twisty one,
+// the one with the long back straight — and that talk is most of what makes a
+// fixture list feel like a season instead of a queue.
+//
+// THE CHARACTER IS MEASURED, NEVER ASSIGNED. Every figure here is read off the
+// checkpoint ring itself, so a circuit cannot be described as a flowing sweeper
+// while actually being a knot of hairpins — the same law the reticle and the
+// service file were repaired under. Author a track in the builder or roll one
+// from a seed; either way the description is the truth about the tarmac.
+//
+// Pure: geometry in, words out. No rng, no clock, no DOM.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type CircuitCharacter = 'sweeper' | 'technical' | 'balanced';
+
+export interface CircuitProfile {
+  /** one lap of the centreline, world units */
+  length: number;
+  gates: number;
+  /** the longest run between two gates — the overtaking place */
+  longestStraight: number;
+  /** degrees of steering per unit of track: the whole fast/twisty axis */
+  turnPerUnit: number;
+  /** corners past ~40°, the ones you have to brake for */
+  hardCorners: number;
+  character: CircuitCharacter;
+  /** the one line the sports desk reads out */
+  strap: string;
+}
+
+/** measured on seven seeds: 0.54 (flowing) … 0.74 (twisty) */
+const SWEEPER_MAX = 0.60;
+const TECHNICAL_MIN = 0.66;
+
+/**
+ * Read a circuit off its own checkpoint ring.
+ *
+ * Works for procedural circuits and hand-built ones alike, because both end up
+ * as the same ordered loop of gates — which is exactly why the description can
+ * be trusted for a track somebody laid by hand in the builder.
+ */
+export function circuitProfile(cps: Array<{ pos: { x: number; z: number } }>): CircuitProfile {
+  const N = cps.length;
+  if (N < 3) {
+    return { length: 0, gates: N, longestStraight: 0, turnPerUnit: 0, hardCorners: 0,
+      character: 'balanced', strap: 'An unfinished circuit.' };
+  }
+  let length = 0;
+  let longestStraight = 0;
+  let sumTurn = 0;
+  let hardCorners = 0;
+  for (let i = 0; i < N; i++) {
+    const a = cps[i].pos;
+    const b = cps[(i + 1) % N].pos;
+    const c = cps[(i + 2) % N].pos;
+    const seg = Math.hypot(b.x - a.x, b.z - a.z);
+    length += seg;
+    if (seg > longestStraight) longestStraight = seg;
+    const h1 = Math.atan2(b.z - a.z, b.x - a.x);
+    const h2 = Math.atan2(c.z - b.z, c.x - b.x);
+    let d = Math.abs(h2 - h1);
+    if (d > Math.PI) d = 2 * Math.PI - d;
+    sumTurn += d;
+    if (d > 0.7) hardCorners++;          // ~40°: a corner you brake for
+  }
+  const turnPerUnit = length > 0 ? (sumTurn * 180) / Math.PI / length : 0;
+  const character: CircuitCharacter = turnPerUnit <= SWEEPER_MAX ? 'sweeper'
+    : turnPerUnit >= TECHNICAL_MIN ? 'technical' : 'balanced';
+
+  return {
+    length: Math.round(length),
+    gates: N,
+    longestStraight: Math.round(longestStraight),
+    turnPerUnit: Math.round(turnPerUnit * 100) / 100,
+    hardCorners,
+    character,
+    strap: strapFor(character, Math.round(length), Math.round(longestStraight), hardCorners),
+  };
+}
+
+/** The sports desk's own words for a circuit. */
+function strapFor(c: CircuitCharacter, length: number, straight: number, hard: number): string {
+  const long = length >= 640 ? 'A long ' : length <= 520 ? 'A short ' : 'A ';
+  if (c === 'sweeper') {
+    return `${long}flowing circuit — ${straight}u of open road to slipstream down, and only ${hard} corner${hard === 1 ? '' : 's'} worth braking for.`;
+  }
+  if (c === 'technical') {
+    return `${long}technical circuit — ${hard} corners you have to brake for, and nowhere much to make it back.`;
+  }
+  return `${long}circuit with a bit of everything — ${hard} real corner${hard === 1 ? '' : 's'} and ${straight}u to have a go down.`;
+}
+
+/** The short label a fixture list or a marquee uses. */
+export const CHARACTER_LABEL: Record<CircuitCharacter, string> = {
+  sweeper: 'FAST SWEEPER',
+  technical: 'TECHNICAL',
+  balanced: 'MIXED',
+};

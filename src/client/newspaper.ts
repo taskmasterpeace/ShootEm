@@ -38,6 +38,9 @@ export interface RacePressData {
    *  entrants had no result to print. The field is classified at the flag now
    *  (`classifyField`, modes.ts), so the desk can report a real result. */
   podium?: Array<{ name: string; place: number; lapsDown: number; gap?: number }>;
+  /** what KIND of circuit it was won on — measured off the tarmac, so the desk
+   *  can say "on the twistiest circuit in the book" and be telling the truth */
+  circuit?: { character: string; label: string; length: number; strap: string };
 }
 
 export interface OperationPressFacts {
@@ -157,6 +160,12 @@ export function raceHeadline(issue: PressIssue): string {
     if (second.gap !== undefined && second.gap < 1.5) {
       return [`${who} EDGES ${up} BY ${second.gap.toFixed(1)}s`, `PHOTO FINISH: ${who} OVER ${up}`, `${second.gap.toFixed(1)} SECONDS DECIDE THE ${cls} FEATURE`][hash(issue)];
     }
+  }
+  if (r.circuit?.character === 'technical') {
+    return [`${who} PICKS HIS WAY THROUGH ${r.venue.toUpperCase()}`, `NO ROOM TO BREATHE — ${who} TAKES IT`, `${who} MASTERS THE TWISTS`][hash(issue)];
+  }
+  if (r.circuit?.character === 'sweeper') {
+    return [`${who} FLIES AT ${r.venue.toUpperCase()}`, `FLAT OUT: ${who} TAKES THE ${cls} FEATURE`, `${who} WINS IT ON THE STRAIGHT`][hash(issue)];
   }
   return [`${who} TAKES THE ${cls} FEATURE`, `${who} WINS AT ${r.venue.toUpperCase()}`, `${cls} HONOURS TO ${who}`][hash(issue)];
 }

@@ -122,6 +122,16 @@ function raceReel(issue: PressIssue, i: number, now: number): Reel {
     { headline: `${r.discipline} — ${r.cls} CLASS`, sub: `From the circuit at ${r.venue}.`, slug: 'SPORTS DESK', hold: 3.2 },
     { headline: `${r.winner.toUpperCase()} TAKES IT`, sub: `${r.field} on the grid, one flag.`, figure: r.lap > 0 ? `${r.lap.toFixed(1)}s` : undefined, slug: 'THE FEATURE', hold: 3.4 },
   ];
+  // THE CIRCUIT ITSELF is a story now that a venue has a character: winning on
+  // a knot of hairpins is not the same result as winning on a flat-out sweeper.
+  if (r.circuit) {
+    shots.push({
+      headline: r.circuit.label,
+      sub: r.circuit.strap,
+      figure: `${r.circuit.length}u`,
+      slug: 'THE CIRCUIT', hold: 3.4,
+    });
+  }
   // THE RESULT, not just the winner. The desk used to have one name and a
   // field size; the field is classified at the flag now, so it can read a sheet.
   if (r.podium?.length && r.podium.length > 1) {
