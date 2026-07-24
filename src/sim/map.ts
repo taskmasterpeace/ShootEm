@@ -275,6 +275,17 @@ export interface GeospatialMapMeta {
   district?: SemanticDistrict;
 }
 
+/** One cabinet on somebody's floor. `cart` is the cartridge bolted inside it. */
+export interface ArcadeCabinet {
+  pos: Vec3;
+  /** which cartridge this machine runs — a cabinet plays ONE game, forever */
+  cart: string;
+  /** the machine's own name on the marquee */
+  name: string;
+  /** which way the screen faces, so you stand in front of it */
+  yaw: number;
+}
+
 export interface GameMap {
   seed: number;
   theme: ThemeId;
@@ -311,6 +322,19 @@ export interface GameMap {
   vehiclePads: VehiclePad[];
   pickups: PickupSpawn[];
   props: PropSpec[];
+  /**
+   * THE ARCADE — walk-up cabinets you can actually play.
+   *
+   * Robert: *"ARCADE GAMES = walk-up consoles in the world: you approach one, a
+   * UI pops up, and you're actually playing a video game."*
+   *
+   * The distinction from the Deck is WHERE, not what: the Deck is the handheld
+   * in your pack, a cabinet is a machine bolted to somebody's floor. Same five
+   * games, same runtime — but you have to go to it, and going to it is the
+   * point. Furniture, exactly like `pickups`: the map lays them, the E chain
+   * answers them, the client draws the screen.
+   */
+  arcades?: ArcadeCabinet[];
   zombieSpawns: Vec3[];
   /** safehouse mode: the neighborhood's searchable houses */
   houses: House[];

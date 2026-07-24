@@ -58,6 +58,14 @@ export function buildVanessasMap(): GameMap {
     flagPos: [{ ...door }, { ...back }],
     hillPos: { ...center },
     controlPoints: [], vehiclePads: [], pickups: [], props: [],
+    // THE ARCADE ROW along the shop's back wall — two cabinets you walk up to
+    // and play. A pro shop with a couple of machines in the corner is exactly
+    // where these belong: it is somewhere you already GO, and the walk is the
+    // whole difference between a cabinet and the handheld in your pack.
+    arcades: [
+      { pos: { x: tileToWorld(g, X0 + 2, Z0 + 1).x, y: 0, z: tileToWorld(g, X0 + 2, Z0 + 1).z }, cart: 'orbit_run', name: 'ORBIT RUN', yaw: 0 },
+      { pos: { x: tileToWorld(g, X0 + 4, Z0 + 1).x, y: 0, z: tileToWorld(g, X0 + 4, Z0 + 1).z }, cart: 'siege_tower', name: 'SIEGE TOWER', yaw: 0 },
+    ],
     zombieSpawns: [], houses: [], gates: [], pads: [], propCovered: [],
   };
 }

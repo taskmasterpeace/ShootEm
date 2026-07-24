@@ -7,7 +7,7 @@ import {
   T_WALL, T_WATER, blocksShot, breakWindowTile, doorIsOpen,
   generateMap, isBlocked, isDoorTile, isWindowTile, losClear, losClearTerrain, nearestOpenTile,
   surfaceAt, thinTileBlocks, tileAt, toggleDoorType, terrainLevelAt, terrainTopAt, SKY_LEVEL,
-  windowIsBroken, type GameMap,
+  windowIsBroken, type ArcadeCabinet, type GameMap,
 } from './map';
 import {
   actorCanUseVerticalTransition,
@@ -4066,6 +4066,9 @@ export class World {
         // E on a warp beacon teleports to its twin
       } else if (this.tryFieldKit(s)) {
         // E with a mechanic kit repairs; with a hacking kit converts a sentry
+      } else if (this.tryArcade(s)) {
+        // E at a cabinet switches it on — the machine outranks the floor,
+        // because you walked across a room to stand at it
       } else if (this.tryPickup(s)) {
         // E on the thing at your feet takes it — and only when it would help,
         // so a medkit you don't need never eats the press meant for the door
@@ -8435,6 +8438,39 @@ export class World {
         }
       }
     }
+  }
+
+  /** how close you stand to work a cabinet */
+  static readonly ARCADE_REACH = 2.4;
+
+  /**
+   * THE CABINET ANSWERS. Robert: *"you approach one, a UI pops up, and you're
+   * actually playing a video game."*
+   *
+   * The sim's whole job here is the handshake: it knows where the machines are
+   * and who is standing at one, and it says so. The GAME itself is client-side
+   * and always was — a cartridge is a canvas and a score (cartridge-games.ts),
+   * it consumes no rng and takes no tick, so a man playing an arcade machine
+   * can never perturb the war going on outside the room.
+   */
+  arcadeInReach(s: Soldier): ArcadeCabinet | undefined {
+    const cabs = this.map.arcades;
+    if (!cabs?.length || !s.alive || s.downed || s.vehicleId >= 0) return undefined;
+    let best: ArcadeCabinet | undefined;
+    let bestD = World.ARCADE_REACH;
+    for (const c of cabs) {
+      const d = Math.hypot(s.pos.x - c.pos.x, s.pos.z - c.pos.z);
+      if (d < bestD) { best = c; bestD = d; }
+    }
+    return best;
+  }
+
+  tryArcade(s: Soldier): boolean {
+    if (s.kind !== 'human') return false;      // a bot has nothing to play it on
+    const cab = this.arcadeInReach(s);
+    if (!cab) return false;
+    this.emit({ type: 'arcade', soldierId: s.id, pos: { ...cab.pos }, text: cab.cart });
+    return true;
   }
 
   /** Hand the pickup over. Returns false when it would have been wasted. */

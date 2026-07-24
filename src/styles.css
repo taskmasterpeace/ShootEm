@@ -3038,3 +3038,48 @@ body.pad-inmatch #pad-hints { display: none !important; }
 }
 #pad-hints span { display: inline-flex; align-items: center; }
 @media (max-width: 700px) { #pad-hints { font-size: 0.6rem; gap: 0.7rem; } }
+
+/* ═══ THE ARCADE CABINET — a machine bolted to somebody's floor ═══════════
+   Robert: "walk-up consoles in the world: you approach one, a UI pops up, and
+   you're actually playing a video game." It deliberately does NOT look like the
+   GONET laptop: a laptop is yours, a cabinet belongs to the room. Heavy shell,
+   a lit marquee, and the war still visible around the edges — you are standing
+   in a shop playing a machine, not in a menu. */
+#arcade {
+  position: fixed; inset: 0; z-index: 300;
+  display: flex; align-items: center; justify-content: center;
+  background: oklch(0 0 0 / 0.62);
+  backdrop-filter: blur(3px);
+}
+.arc-cab {
+  width: min(46rem, 92vw);
+  background: oklch(0.19 0.02 74);
+  border: 1px solid var(--accent);
+  box-shadow: 0 24px 70px oklch(0 0 0 / 0.7), inset 0 0 0 6px oklch(0.13 0.014 74);
+  padding: 0.9rem;
+}
+.arc-marquee {
+  font-family: var(--font-stencil, Oswald, sans-serif);
+  font-size: 1.5rem; letter-spacing: 0.16em; text-align: center;
+  text-transform: uppercase; color: var(--bg, #0d0f0c);
+  background: var(--accent); padding: 0.35rem 0.5rem;
+  box-shadow: 0 0 26px oklch(0.78 0.16 78 / 0.5);
+}
+.arc-screen {
+  margin: 0.9rem 0 0.6rem; padding: 0.9rem;
+  background: oklch(0.09 0.008 74); border: 1px solid var(--border);
+  display: flex; justify-content: center;
+}
+.arc-screen .gn-screen2 { width: min(38rem, 84vw); }
+.arc-foot {
+  display: flex; justify-content: space-between; gap: 1rem;
+  font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.08em;
+  color: var(--muted); text-transform: uppercase;
+}
+.arc-best { color: var(--accent); }
+.arc-hint {
+  margin-top: 0.6rem; text-align: center;
+  font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.1em;
+  color: var(--muted); text-transform: uppercase;
+}
+.arc-hint b { color: var(--accent); }

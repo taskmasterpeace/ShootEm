@@ -1140,8 +1140,12 @@ export class Hud {
     // only offers what would actually help you, and the E chain takes it before
     // it opens a door or boards a car. So when this card is up, E means THIS,
     // and the vehicle hint below must stand down or the HUD is lying.
-    const standingOn = s.alive && !inVehicle ? world.pickupInReach(s) : undefined;
-    const onPickup = this.paintPickup(standingOn, now);
+    // THE CABINET CALLS FIRST. The E chain answers a machine before it answers
+    // the floor, so the prompt has to agree — you walked across a room to stand
+    // at this thing, and a medkit by your boot must not steal the keypress.
+    const cab = s.alive && !inVehicle ? world.arcadeInReach(s) : undefined;
+    const standingOn = !cab && s.alive && !inVehicle ? world.pickupInReach(s) : undefined;
+    const onPickup = this.paintArcade(cab) || this.paintPickup(standingOn, now);
 
     // context hint: vehicles, or the scientist escort in safehouse
     const hint = $('vehicle-hint');
@@ -1904,6 +1908,21 @@ export class Hud {
       imgEl.classList.remove('hidden');
     } else imgEl.classList.add('hidden');
     $('pk-glyph').textContent = img ? '' : glyph;
+    el.classList.remove('hidden');
+    return true;
+  }
+
+  /** The walk-up card for a cabinet. Reuses the pickup prompt's element — it is
+   *  the same question in the same place: "what is this, and what does E do?" */
+  private paintArcade(cab: { name: string; cart: string } | undefined): boolean {
+    const el = $('pickup-prompt');
+    if (!cab) return false;
+    $('pk-name').textContent = cab.name;
+    $('pk-note').textContent = 'ARCADE · PLAY';
+    $('pk-key').textContent = 'E';
+    el.classList.remove('taken');
+    ($('pk-img') as HTMLImageElement).classList.add('hidden');
+    $('pk-glyph').textContent = '▚';
     el.classList.remove('hidden');
     return true;
   }

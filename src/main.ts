@@ -74,6 +74,7 @@ import { FieldTracker, advanceGauntlet, loadFieldRecord, saveFieldRecord } from 
 import { checkBelt, holderOf, loadTrophies, settleCup } from './client/trophies';
 import { PAINTBALL_FIELDS, buildTrackMap } from './sim/map';
 import { raceResults } from './sim/modes';
+import { arcadeIsOpen, openArcade } from './client/arcade';
 import { importTrack, type BuiltTrack } from './sim/tracks';
 import { PB_PERSONAS } from './sim/personas';
 import { GalleryDrill } from './client/gallerydrill';
@@ -1477,7 +1478,12 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
       while (acc >= FIXED) {
         acc -= FIXED;
         cmds.clear();
-        if (me.alive || me.vehicleId >= 0) cmds.set(me.id, input.buildCmd(me, renderer.camera));
+        // AT A CABINET YOUR HANDS ARE ON THE CABINET. The world keeps running
+        // around you — this is not a pause — but your soldier stands there
+        // playing, so the D-pad drives the machine and not the man.
+        if ((me.alive || me.vehicleId >= 0) && !arcadeIsOpen()) {
+          cmds.set(me.id, input.buildCmd(me, renderer.camera));
+        }
         world.step(FIXED, cmds);
       }
     }
@@ -1528,6 +1534,15 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
       if (renderer.raceCam === 0) renderer.raceCam = -1;
     }
     const events = world.takeEvents();
+    // THE CABINET OPENS. The sim only says "this man switched that machine on";
+    // the screen itself is client-side, like every cartridge — no rng, no tick,
+    // so a soldier playing an arcade game cannot perturb the war outside.
+    for (const ev of events) {
+      if (ev.type === 'arcade' && ev.soldierId === me.id && ev.text) {
+        const cab = world.map.arcades?.find((c) => c.cart === ev.text);
+        if (cab) openArcade(cab.cart, cab.name);
+      }
+    }
     hud.applyEvents(events, world, me.id, world.time); // killfeed stays live
     desk.applyEvents(events, world); // and the book keeps its own account
     // the score follows the field: soldier → LSW → the monsters (music.ts)
