@@ -30,6 +30,7 @@ import { settleMatch, treasuryLine } from './client/treasury';
 import { renderServiceFile } from './client/service-file';
 import { currentRank, fileService } from './client/service';
 import { hometownSkills, playerCultureCode } from './client/hometown-bridge';
+import { bankDeploy, careerBands, careerSkills, careerStats, deployDeltaHtml, publishCareer } from './client/career';
 import { mountGamepadUI } from './client/gamepad-ui';
 import { StreetVoice } from './client/streetvoice';
 import { DECK_MORALE, cartridgeById, loadDeck, saveDeck } from './client/gonet/cartridges';
@@ -966,6 +967,10 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     ? (queuedScienceLaunch ?? prepareScienceMission(seed, null, scienceClones, { theme: selectedTheme }))
     : null;
   queuedScienceLaunch = null;
+  // THE SHEET WE HAND THE SIM, kept so the whistle can tell what this deploy
+  // actually taught: "used it" means you gained ground ON this number, not that
+  // the hometown floor happened to put a value there.
+  const deploySeed = careerSkills(dossier, hometownSkills());
   // THE BOARD opens a fresh book every match — the desk outlives the world it
   // reports on, so without this the totals silently become lifetime figures.
   desk.ledger.reset();
@@ -997,8 +1002,15 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
     // your government funds (the opening manifest).
     papers: loadLicences().held,
     // WHERE YOU ARE FROM, in the hands: the hometown archetype grants two
-    // secondary skills a head start on day one.
-    startingSkills: hometownSkills(),
+    // secondary skills a head start on day one — and THE CAREER on top of it,
+    // so a trade you have actually put deploys into arrives at the strength you
+    // left it. Before the ledger existed this was the hometown alone, every
+    // single deploy, and the practice earned in a match was dropped on the floor
+    // at the whistle.
+    startingSkills: deploySeed,
+    // THE 8, from the ledger. The sim's own default for a human is a flat 5,
+    // which is exactly 1.000 at every hook.
+    startingStats: careerStats(dossier),
     // THE STREET SOUNDS LIKE HOME (Robert: "different cities sound like the
     // culture code"): the enlisted nation decides the local voice.
     cultureCode: playerCultureCode(),
@@ -1583,10 +1595,26 @@ function startLocal(renderer: Renderer, dmgText: DamageText, hud: Hud, input: In
         hud.careerHtml = (hud.careerHtml ?? '')
           + '<p class="cp-row">' + treasuryLine(id0.faction) + '</p>';
         void row;
+        // BANK THE DEPLOY. This is the moment the sheet used to be dropped on
+        // the floor: `me.skill` was read for a band COUNT and then the World
+        // went away with every trade in it.
+        if (dossier) {
+          const delta = bankDeploy(dossier, me.skill, deploySeed);
+          publishCareer(dossier);
+          void saveDossier(dossier);
+          hud.careerHtml = (hud.careerHtml ?? '') + deployDeltaHtml(delta);
+        }
         // FILE THE SERVICE. The promotion board reads this — a match that
         // never gets filed is a match that never counted toward a rank.
-        const bands = SKILL_IDS.reduce((n, id) => n + skillLevel(me.skill?.[id] ?? 0), 0);
-        fileService({ won: result === 'win', kills: me.kills ?? 0, skillBands: bands });
+        //
+        // THE BANDS ARE A SNAPSHOT, NEVER A SUM. This used to pass the count
+        // recomputed from a soldier who always restarted at his hometown's 30,
+        // into a tally that ADDED it — so a per-match figure accumulated as if
+        // it were an increment and rank (8 points a band) inflated by your whole
+        // band total on every deploy, forever, whether or not you learned
+        // anything. The career now owns the number and the tally is told what
+        // it IS, not what to add.
+        fileService({ won: result === 'win', kills: me.kills ?? 0, careerBands: careerBands(dossier) });
       }
     }
     // LOW-CODE #9: FILE THE RUN. A race that ends without touching the record
@@ -2115,7 +2143,7 @@ function wireMenuTabs() {
 
 void loadDossier((($('player-name') as HTMLInputElement)?.value || 'Recruit').slice(0, 16))
   .then((d) => {
-    dossier = d; renderBarracks(); void saveDossier(d);
+    dossier = d; publishCareer(d); renderBarracks(); void saveDossier(d);
     // W3.9: the rank rides the in-match vitals from the moment the record loads
     const r = rankFor(d.soldier.rankPoints);
     setRankChip(rankInsignia(r.index), r.name);

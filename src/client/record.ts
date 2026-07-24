@@ -1,4 +1,4 @@
-import type { ClassId, ModeId, SimEvent, Team, VehicleKind } from '../sim/types';
+import type { ClassId, ModeId, SimEvent, SkillId, SoldierStats, Team, VehicleKind } from '../sim/types';
 import type { World } from '../sim/world';
 import type { SettlementReceipt } from './campaign';
 import { manifestCost, type OperationHull, type OperationManifest, type OperationPlan } from '../sim/operations';
@@ -43,8 +43,32 @@ export interface OperationCareerRecord {
   aces: string[];
 }
 
+/**
+ * THE CAREER LEDGER — the sheet that survives the whistle.
+ *
+ * Until this existed, practice was thrown away at the end of every match:
+ * `world.ts` copies `startingSkills` at spawn and nothing ever wrote it back,
+ * so a soldier re-earned every trade from his hometown's 30 on every deploy and
+ * "use it or lose it" had no *it*. The reticle told the truth about a number
+ * that was about to be deleted.
+ *
+ * `practice` moves both ways. `peak` only ever goes up — it is the HIGH-WATER
+ * MARK, and it is what stops rust from revoking a badge. Because `skillLevel`
+ * is a STEP function over BANDS, a raw slide from 210 to 195 does not shave a
+ * percent off Skilled; it takes Skilled away. So rust may spend everything you
+ * banked inside a band and never the band itself.
+ */
+export interface TradeLedger {
+  /** raw practice — rises with use, bitten by rust */
+  practice: number;
+  /** the most you ever had. Never falls. The floor rust cannot cross. */
+  peak: number;
+  /** deploys since this trade was last used — the rust clock, in deploys */
+  idle: number;
+}
+
 export interface Dossier {
-  v: 2;
+  v: 3;
   soldier: { callsign: string; created: number; rankPoints: number;
     /** B1: underfunded victories bank morale — the officer's proof his side
      *  fights above its budget. Spent as opening materiel on later deploys. */
@@ -54,6 +78,13 @@ export interface Dossier {
     matches: number; wins: number; kills: number; deaths: number; score: number;
     perClass: Partial<Record<ClassId, ClassRecord>>;
     perWeapon: Record<string, WeaponRecord>;
+    /** THE TRADES, kept across deploys. See TradeLedger. */
+    trades: Partial<Record<SkillId, TradeLedger>>;
+    /** THE 8, kept across deploys. The player used to be hardcoded to flat 5s
+     *  in the sim (`world.ts`), which made statMul/statQuick return EXACTLY
+     *  1.000 at every hook — eight named stats that multiplied by one. They
+     *  live here now and enter the sim through WorldOptions like papers do. */
+    stats: SoldierStats;
   };
   /** §3.1 personal armory — weapons with service history (carried into battle) */
   armory: string[];
@@ -63,6 +94,14 @@ export interface Dossier {
   operations: OperationCareerRecord;
 }
 
+/** THE 8, at the neutral middle. 5 is the baseline the whole game was tuned
+ *  around — statMul(5) is exactly 1 — so a fresh career starts owing nothing
+ *  and being owed nothing. */
+export const FRESH_STATS = (): SoldierStats => ({
+  power: 5, agility: 5, handling: 5, piloting: 5,
+  engineering: 5, leadership: 5, science: 5, charisma: 5,
+});
+
 const freshOperationCareer = (): OperationCareerRecord => ({
   operationIds: [], sorties: 0, wins: 0, cleanSheets: 0, objectivesCompleted: 0,
   materielCommitted: 0, hullsLost: 0, fiscalEfficiency: 0, certificationPoints: 0,
@@ -71,10 +110,13 @@ const freshOperationCareer = (): OperationCareerRecord => ({
 
 export function freshDossier(callsign: string): Dossier {
   return {
-    v: 2,
+    v: 3,
     soldier: { callsign, created: Date.now(), rankPoints: 0 },
     tours: [{ faction: 0, season: 1, startedAt: Date.now() }],
-    lifetime: { matches: 0, wins: 0, kills: 0, deaths: 0, score: 0, perClass: {}, perWeapon: {} },
+    lifetime: {
+      matches: 0, wins: 0, kills: 0, deaths: 0, score: 0, perClass: {}, perWeapon: {},
+      trades: {}, stats: FRESH_STATS(),
+    },
     armory: [],
     quals: {},
     medals: [],
@@ -86,20 +128,24 @@ export function freshDossier(callsign: string): Dossier {
 /** Upgrade old local careers in place conceptually, while returning a repaired copy. */
 export function migrateDossier(raw: unknown, callsign: string): Dossier {
   const source = raw && typeof raw === 'object' ? raw as Record<string, unknown> & { v?: number } : null;
-  if (!source || (source.v !== 1 && source.v !== 2)) return freshDossier(callsign);
+  if (!source || (source.v !== 1 && source.v !== 2 && source.v !== 3)) return freshDossier(callsign);
   const base = freshDossier(callsign);
-  const legacy = source as unknown as Omit<Partial<Dossier>, 'v'> & { v?: 1 | 2; operations?: Partial<OperationCareerRecord> };
+  const legacy = source as unknown as Omit<Partial<Dossier>, 'v'> & { v?: 1 | 2 | 3; operations?: Partial<OperationCareerRecord> };
   const operations = legacy.operations;
   return {
     ...base,
     ...legacy,
-    v: 2,
+    v: 3,
     soldier: { ...base.soldier, ...(legacy.soldier ?? {}), callsign: callsign || legacy.soldier?.callsign || base.soldier.callsign },
     lifetime: {
       ...base.lifetime,
       ...(legacy.lifetime ?? {}),
       perClass: { ...base.lifetime.perClass, ...(legacy.lifetime?.perClass ?? {}) },
       perWeapon: { ...base.lifetime.perWeapon, ...(legacy.lifetime?.perWeapon ?? {}) },
+      // a v1/v2 career carries no sheet — it starts one, and keeps everything
+      // else it earned. Nobody loses a rank to a schema bump.
+      trades: { ...(legacy.lifetime?.trades ?? {}) },
+      stats: { ...FRESH_STATS(), ...(legacy.lifetime?.stats ?? {}) },
     },
     tours: Array.isArray(legacy.tours) ? legacy.tours : base.tours,
     armory: Array.isArray(legacy.armory) ? legacy.armory : [],

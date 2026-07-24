@@ -204,6 +204,51 @@ export function practise(s: Soldier, id: SkillId, amount = 1): number {
 /** Read a soldier's practice at one skill. */
 export const practiceOf = (s: Soldier, id: SkillId): number => s.skill?.[id] ?? 0;
 
+/**
+ * WHO IS ALLOWED TO GET BETTER — and therefore who is allowed to get worse.
+ *
+ * The god exemption already existed inline at the damage site, with a comment
+ * recording what it cost to learn: a practising Barrier sharpened its own aim,
+ * cut the answering squad down faster, and pushed itself out of its own measured
+ * threat band. There must be exactly ONE copy of that rule. Two copies of an
+ * exemption is how the threat table breaks quietly six months from now.
+ *
+ * Read it LIVE, never cached at spawn: a reprint clears `ascendant`, so the
+ * same body can be a god one life and a soldier the next.
+ */
+export const isTrainable = (s: Soldier): boolean =>
+  s.ascendant === undefined && (s.kind === 'human' || s.kind === 'bot');
+
+/**
+ * RUST — one deploy's worth of forgetting, for a trade you did not touch.
+ *
+ * THE UNIT IS THE DEPLOY, not the calendar, and that is a deliberate refusal.
+ * A game-day is two real hours, so twelve pass in a day and a week away would
+ * be eighty-four days of rot — a player would come back to a stranger. Worse,
+ * the clock is player-writable: the time-control store can freeze or race the
+ * world, so a calendar rule would let anyone make a career immortal or erase
+ * one with a scrub. Counting deploys makes being offline free by construction
+ * and makes the rule unscrubbable.
+ *
+ * THE BADGE IS SAFE. `skillLevel` is a STEP over BANDS, so a raw slide from 210
+ * to 195 does not shave a percent off Skilled — it revokes it. Rust may spend
+ * everything banked INSIDE a band and never the band itself, so what you lose
+ * is momentum and what you keep is what you proved.
+ *
+ * Pure, per this file's law: no rng, no clock, no DOM.
+ */
+export function rust(practice: number, peak: number, idleDeploys: number): number {
+  if (idleDeploys < RUST_GRACE) return practice;
+  const floor = BANDS[skillLevel(peak)];         // the badge you proved
+  const bite = RUST_BITE * (idleDeploys - RUST_GRACE + 1);
+  return Math.max(floor, practice - bite);
+}
+
+/** deploys you may ignore a trade before it starts to go */
+export const RUST_GRACE = 3;
+/** raw practice lost per deploy once it starts, growing while you keep ignoring it */
+export const RUST_BITE = 6;
+
 /** Everything this soldier has actually put time into, best first. */
 export function skillSheet(s: Soldier): Array<{ id: SkillId; practice: number; level: number }> {
   return SKILL_IDS

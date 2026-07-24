@@ -9,7 +9,7 @@ import { materialForSurface } from '../sim/materials';
 import { courseGates } from '../sim/modes';
 import { courseFor } from '../sim/courses';
 import { LEGACY_GEOMETRY, halfDepth, halfWidth, worldDepth, worldWidth, type MapGeometry } from '../sim/map-geometry';
-import { isZed, type Pickup, type SimEvent, type Soldier, type Team, type Vec3, type VehicleKind } from '../sim/types';
+import { isZed, type Pickup, type SimEvent, type SkillId, type Soldier, type Team, type Vec3, type VehicleKind } from '../sim/types';
 import { drawGrade, drawNumber, RING_COLORS } from './ring';
 import { weaponPortrait } from './weaponcam';
 import { weaponBrand } from './models/weapons';
@@ -17,6 +17,7 @@ import { SegMeter } from './segmeter';
 import { classLinger, MAX_LINGER } from '../sim/perception';
 import { armedDrop, loadedDrops, type RaceDropId } from '../sim/world';
 import type { World } from '../sim/world';
+import { BAND_LABEL, SKILL_LABEL } from './career';
 
 /** the RDS bag, in the driver's own shorthand */
 const DROP_LABEL: Record<RaceDropId, string> = {
@@ -2006,6 +2007,22 @@ export class Hud {
         void el.offsetWidth; // restart the animation
         el.classList.add('show');
         audio.play('hitmarker', { volume: 0.5, rate: 0.7 }); // a lower, heavier tick than the hit ✕
+      }
+      // THE BAND CROSSING. The only progression in this game you can watch
+      // happen in your own crosshair: the reticle is sized from handSpreadMul,
+      // so the circle CONTRACTS on the same frame these words appear. Rides the
+      // kill-confirm slot under the reticle — five of these per trade in a whole
+      // career, so it can afford to be a moment instead of a number stream.
+      if (e.type === 'skill_band' && e.soldierId === localId && e.text) {
+        const el = $('kill-confirm');
+        const trade = SKILL_LABEL[e.text as SkillId] ?? String(e.text).toUpperCase();
+        const band = BAND_LABEL[e.amount ?? 0] ?? '';
+        el.textContent = `⌁ ${trade} — ${band}`;
+        el.classList.toggle('best', (e.amount ?? 0) >= 5);   // MASTER burns gold
+        el.classList.remove('show');
+        void el.offsetWidth; // restart the animation
+        el.classList.add('show');
+        audio.play('hitmarker', { volume: 0.55, rate: 0.5 }); // lower still than a kill
       }
       if (e.type === 'flag_captured') { // the capture timeline for the after-action story
         const name = (e.text ?? '').split(' captured')[0] || TEAM_NAMES[(e.team ?? 0) as Team];

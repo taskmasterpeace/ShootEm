@@ -1340,6 +1340,7 @@ export interface SimEvent {
     | 'bomb_away'      // V4: the bay opened
     | 'nuke_armed'     // V4: the warhead is live and everyone can hear it
     | 'damage'         // a number worth showing floated off a victim (see amount/armorHit)
+    | 'skill_band'     // a trade crossed a band — text = SkillId, amount = the new level
     | 'vo'             // a spoken line: text = sound slot; pos = positional speech, absent = announcer net
     | 'operation_phase' | 'operation_progress' | 'operation_complete';
   pos?: Vec3;

@@ -29,7 +29,7 @@ import {
 } from './traffic';
 import { licenceHeld, LICENCES, licenceFor, type LicenceId } from './licenses';
 import { crashDamage, resolveHulls, type Hull } from './hullcollide';
-import { practise, skillEdge, skillForWeapon, practiceOf } from './skills';
+import { isTrainable, practise, skillEdge, skillForWeapon, skillLevel, practiceOf } from './skills';
 import {
   MORALE_SHIFTS, bandOf, moraleOf, moraleSpread, settleMorale, shiftMorale, wantsCover,
 } from './morale';
@@ -46,7 +46,7 @@ import {
   type AscendantId, type ClassId, type Gadget, type GadgetType, type Mine, type ModeId, type ModeState,
   type Pickup, type PlayerCmd, type Projectile, type SimEvent, type Soldier,
   type SoldierKind, type SystemId, type Team, type ThemeId, type Turret, type Vec3,
-  type Vehicle, type VehicleDef, type VehicleKind, type VehicleSystems, type WeaponId, type ZedKind, isIron, isBoard, type IronKind, type SkillId } from './types';
+  type Vehicle, type VehicleDef, type VehicleKind, type VehicleSystems, type WeaponId, type ZedKind, isIron, isBoard, type IronKind, type SkillId, type SoldierStats } from './types';
 import { stepMode, initMode } from './modes';
 import { generateFront } from './fronts';
 import { generateOperationMap } from './operation-map';
@@ -468,6 +468,12 @@ export interface WorldOptions {
    * in here so the sim stays a pure function of its inputs.
    */
   startingSkills?: Partial<Record<SkillId, number>>;
+  /** THE 8, from the career ledger. Humans were hardcoded to a flat 5 here,
+   *  which made every statMul/statQuick hook return EXACTLY 1.000 for the
+   *  person playing — eight named stats that multiplied by one. They arrive as
+   *  an OPTION, like `papers` and `rank`, so stats can only ever move BETWEEN
+   *  matches and the tick loop stays a pure function of its inputs. */
+  startingStats?: Partial<SoldierStats>;
   matchMinutes?: number;
   /** MOTOR SPORT: which discipline a `race` deploy actually is. The mode id is
    *  still `race`; this says whether it is a plain circuit, THE GUN RUN (guns
@@ -704,15 +710,39 @@ export class World {
     }
     return base * skillEdge(best, 1.2);
   }
+  /**
+   * PRACTISE, AND SAY SO WHEN IT MATTERS.
+   *
+   * Every trade in the game was levelling in total silence: `practise()` is
+   * pure and emits nothing, and the SimEvent union had no member for it, so the
+   * client was structurally deaf to the one thing that was actually improving.
+   *
+   * A crossing is knowable for free — `practise` already returns the new total,
+   * so it is one comparison. It is announced ONLY on a crossing, which there
+   * are five of per trade in a whole career, so the moment can afford to be
+   * ceremonial instead of becoming a stream of numbers nobody reads.
+   *
+   * The emit lives HERE and not in skills.ts: that file's purity (no rng, no
+   * clock, no DOM, no events) is the reason it is testable.
+   */
+  practiseAt(s: Soldier, id: SkillId, amount: number): void {
+    if (!isTrainable(s)) return;
+    const before = skillLevel(practiceOf(s, id));
+    const after = skillLevel(practise(s, id, amount));
+    if (after > before) {
+      this.emit({ type: 'skill_band', soldierId: s.id, text: id, amount: after, pos: { ...s.pos } });
+    }
+  }
+
   /** Time at the controls, banked into the trade that seat belongs to. Ticked
    *  by stepVehicle once a second of real movement — never while parked. */
   practiseSeat(driver: Soldier, def: VehicleDef, dt: number): void {
     driver.seatPractice = (driver.seatPractice ?? 0) + dt;
     if (driver.seatPractice < 1) return;
     driver.seatPractice = 0;
-    if (def.flies || def.hover) practise(driver, def.flies && !def.hover ? 'jet' : 'helicopter', 1);
-    else if (def.boat) practise(driver, 'boat', 1);
-    else practise(driver, 'tank_driver', 1);
+    if (def.flies || def.hover) this.practiseAt(driver, def.flies && !def.hover ? 'jet' : 'helicopter', 1);
+    else if (def.boat) this.practiseAt(driver, 'boat', 1);
+    else this.practiseAt(driver, 'tank_driver', 1);
   }
   /** A mounted gun's spread multiplier — the seat's trade, practised. Stance
    *  is meaningless in a turret, so this is skill alone (cf. handSpreadMul). */
@@ -1191,6 +1221,8 @@ export class World {
       if (this.opts.rank !== undefined) s.rankId = this.opts.rank;
       // the hometown, in the hands
       if (this.opts.startingSkills) s.skill = { ...this.opts.startingSkills };
+      // the career's eight, over the neutral 5s
+      if (this.opts.startingStats && s.stats) s.stats = { ...s.stats, ...this.opts.startingStats };
     }
     this.soldiers.set(s.id, s);
     this.soldierIndex.add(s); // queryable the tick it spawns (opt #38)
@@ -2575,7 +2607,7 @@ export class World {
         // commander was spendable (the reach above) but unearnable until now
         if (ledBy) {
           ledBy.cmdPractice = (ledBy.cmdPractice ?? 0) + dt;
-          if (ledBy.cmdPractice >= 5) { ledBy.cmdPractice = 0; practise(ledBy, 'commander', 1); }
+          if (ledBy.cmdPractice >= 5) { ledBy.cmdPractice = 0; this.practiseAt(ledBy, 'commander', 1); }
         }
       }
       // HOT FOOD IS A TACTICAL ASSET. The food truck is the other honest
@@ -2808,7 +2840,7 @@ export class World {
               const d = Math.hypot(e.pos.x - s.pos.x, e.pos.z - s.pos.z);
               if (d < bestD) { bestD = d; best = e; }
             }
-            if (best) practise(best, 'scout', 1);
+            if (best) this.practiseAt(best, 'scout', 1);
           }
         }
       }
@@ -3126,7 +3158,7 @@ export class World {
             // link alive further out, which is the only thing an FPV pilot
             // actually gets better at — and stick time is how he gets it.
             owner.dronePractice = (owner.dronePractice ?? 0) + dt;
-            if (owner.dronePractice >= 2) { owner.dronePractice = 0; practise(owner, 'drone_pilot', 1); }
+            if (owner.dronePractice >= 2) { owner.dronePractice = 0; this.practiseAt(owner, 'drone_pilot', 1); }
             const d = Math.hypot(g.pos.x - owner.pos.x, g.pos.z - owner.pos.z);
             const leash = DRONE_RANGE * skillEdge(practiceOf(owner, 'drone_pilot'), 1.5);
             g.signal = Math.max(0, Math.min(1, 1 - d / leash));
@@ -4095,7 +4127,7 @@ export class World {
       s.energy = Math.max(0, s.energy - SPRINT_DRAIN * dt / skillEdge(practiceOf(s, 'navigator'), 1.5));
       // …and ground covered at pace is how it is learned
       s.navPractice = (s.navPractice ?? 0) + dt;
-      if (s.navPractice >= 4) { s.navPractice = 0; practise(s, 'navigator', 1); }
+      if (s.navPractice >= 4) { s.navPractice = 0; this.practiseAt(s, 'navigator', 1); }
     }
     if (s.rageMul) speed *= s.rageMul; // Ragebeast: the wound makes him fast
     for (const eid of s.equipment) {
@@ -4819,7 +4851,7 @@ export class World {
         if (handler) {
           bite = skillEdge(practiceOf(handler, 'dog_handler'), 1.5);
           handler.dogPractice = (handler.dogPractice ?? 0) + 1;
-          if (handler.dogPractice >= 3) { handler.dogPractice = 0; practise(handler, 'dog_handler', 1); }
+          if (handler.dogPractice >= 3) { handler.dogPractice = 0; this.practiseAt(handler, 'dog_handler', 1); }
         }
       }
       this.emit({ type: 'hit', pos: { ...victim.pos, y: 1 }, weapon: def.id, soldierId: s.id });
@@ -5398,7 +5430,7 @@ export class World {
           for (const id of SYSTEM_IDS) if (v.systems[id] < v.systems[weakest]) weakest = id;
           v.systems[weakest] = Math.min(VEHICLES[v.kind].systemHp ?? 60, v.systems[weakest] + 60 * this.repairMul(s));
           s.nextRepairAt = this.time + 10 * this.statQuick(s.stats?.engineering, 2);
-          practise(s, 'mechanic', 4); // the trade is earned on the hulls you fix
+          this.practiseAt(s, 'mechanic', 4); // the trade is earned on the hulls you fix
           this.emit({ type: 'heal', pos: v.pos });
           this.emit({ type: 'announce', text: `${s.name} patched the ${VEHICLES[v.kind].name}` });
           return true;
@@ -5409,7 +5441,7 @@ export class World {
         if (Math.hypot(t.pos.x - s.pos.x, t.pos.z - s.pos.z) < 3) {
           t.hp = Math.min(t.maxHp, t.hp + 120 * this.repairMul(s));
           s.nextRepairAt = this.time + 10 * this.statQuick(s.stats?.engineering, 2);
-          practise(s, 'engineer', 4);
+          this.practiseAt(s, 'engineer', 4);
           this.emit({ type: 'heal', pos: t.pos });
           return true;
         }
@@ -5614,7 +5646,7 @@ export class World {
       best.reviveProgress += dt * skillEdge(practiceOf(s, 'medic'), 1.5);
       if (best.reviveProgress >= REVIVE_CHANNEL) {
         this.reviveSoldier(best, s);
-        practise(s, 'medic', 6);
+        this.practiseAt(s, 'medic', 6);
       }
     }
     return true;
@@ -7927,9 +7959,11 @@ export class World {
       // that card. (Caught by tests/threat-measure: a practising Barrier
       // sharpened its own aim, cut down the answering squad faster, and pushed
       // its own time-to-kill out past the T1 band.) Zeds and dogs likewise.
-      const trainable = shooter && shooter.ascendant === undefined
-        && (shooter.kind === 'human' || shooter.kind === 'bot');
-      if (shooter && trainable && trains && shooter.team !== victim.team) practise(shooter, trains, 0.5);
+      //
+      // The rule now lives in ONE place — `isTrainable` in skills.ts — because
+      // practice and RUST both have to obey it, and two copies of an exemption
+      // is how the threat table breaks quietly six months from now.
+      if (shooter && trains && shooter.team !== victim.team) this.practiseAt(shooter, trains, 0.5);
     }
     victim.hp -= dmg;
     if (dmg > 0) this.emit({ type: 'damage', pos: { x: victim.pos.x, y: victim.pos.y + 1.7, z: victim.pos.z }, amount: dmg, armorHit: false, soldierId: victim.id, ownerId: attackerId, weapon });

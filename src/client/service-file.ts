@@ -12,6 +12,10 @@
 // owns it.
 // ---------------------------------------------------------------------------
 import { LICENCES, licenceChain, type LicenceId } from '../sim/licenses';
+import { RUST_GRACE, SKILL_IDS, bandProgress, skillEdge, skillLevel } from '../sim/skills';
+import type { SkillId } from '../sim/types';
+import { BAND_LABEL, SKILL_LABEL, careerStats, currentCareer } from './career';
+import type { Dossier, TradeLedger } from './record';
 import { COURSES } from '../sim/courses';
 import { VEHICLES } from '../sim/data';
 import { loadLicences } from './licences';
@@ -65,6 +69,86 @@ function chestHtml(): string {
     + `<div class="sf-row"><span>Record</span><span class="sf-fig">${t.wins}W · ${t.losses}L</span></div>`
     + `<div class="sf-row"><span>Your government funds</span><span class="sf-no">${band}</span></div>`
     + `<div class="sf-note">${esc(t.lastReason)}</div></div>`;
+}
+
+/**
+ * YOUR TRADES — the block this file was missing.
+ *
+ * The service file paints PAPERS, THE BOARD, THE CHEST, THE GARAGE and the
+ * PROMOTION BOARD, and the promotion board has always PRICED skill bands at 8
+ * service points each — while there was nowhere in the entire product to see
+ * WHICH bands you held. This file's own stated law is that a thing you earned
+ * and cannot look at is a thing you did not earn.
+ *
+ * It prints the multiplier the BULLET uses (`skillEdge`), called directly
+ * rather than re-derived, so the sheet can never quietly disagree with the
+ * fight — the same repair the reticle needed.
+ */
+function tradesHtml(d: Dossier | null): string {
+  const trades = d?.lifetime.trades ?? {};
+  const held = SKILL_IDS
+    .map((id) => ({ id, t: trades[id] }))
+    .filter((r): r is { id: SkillId; t: TradeLedger } => !!r.t && r.t.practice > 0)
+    .sort((a, b) => b.t.practice - a.t.practice);
+
+  if (!held.length) {
+    return '<div class="sf-block"><h4>YOUR TRADES</h4>'
+      + '<div class="sf-note">Nothing on the sheet yet. A trade is earned by doing the '
+      + 'job — landing rounds with a family, hours in a seat, men put back on their feet.</div></div>';
+  }
+
+  const rows = held.map(({ id, t }) => {
+    const lvl = skillLevel(t.practice);
+    const edge = skillEdge(t.practice, 1.4);
+    const tighter = Math.round((1 - 1 / edge) * 100);
+    const rusting = t.idle >= RUST_GRACE;
+    const lapsed = skillLevel(t.peak) > lvl;
+    const note = lapsed ? `LAPSED FROM ${BAND_LABEL[skillLevel(t.peak)]}`
+      : rusting ? `RUSTING · ${t.idle} DEPLOYS IDLE`
+      : tighter > 0 ? `GROUPS ${tighter}% TIGHTER` : '';
+    return `<div class="sf-row"><span>${esc(SKILL_LABEL[id])}</span>`
+      + `<span class="${rusting || lapsed ? 'sf-no' : 'sf-yes'}">${BAND_LABEL[lvl]}</span></div>`
+      + `<div class="sf-rankbar"><i style="width:${Math.round(bandProgress(t.practice) * 100)}%"></i></div>`
+      + (note ? `<div class="sf-note">${esc(note)}</div>` : '');
+  }).join('');
+
+  const rusty = held.filter((r) => r.t.idle >= RUST_GRACE).length;
+  return `<div class="sf-block"><h4>YOUR TRADES</h4>${rows}`
+    + `<div class="sf-note">${held.length} trade${held.length === 1 ? '' : 's'} on the sheet`
+    + (rusty ? ` · ${rusty} going rusty — a band you proved is never taken back, only the ground above it.` : '')
+    + '</div></div>';
+}
+
+/**
+ * THE EIGHT, DRAWN — with what each one actually buys printed beside it.
+ *
+ * Eight named stats that only ever existed as a comma-separated debug string
+ * on the vitals chip (three of them) and nowhere at all (the other five). A bar
+ * with its consequence next to it is a character sheet; a list of numbers is a
+ * spreadsheet.
+ */
+function statsHtml(d: Dossier | null): string {
+  const st = careerStats(d);
+  const pct = (v: number) => `${v >= 0 ? '+' : ''}${Math.round(v * 100)}%`;
+  const rows: Array<[keyof typeof st, string, string]> = [
+    ['power', 'POWER', `frame and melee ${pct(st.power ? (st.power - 5) * 0.02 : 0)}`],
+    ['agility', 'AGILITY', `dash recovery ${pct(-(st.agility - 5) * 0.02)}`],
+    ['handling', 'WEAPON HANDLING', `reload ${pct(-(st.handling - 5) * 0.02)}`],
+    ['piloting', 'PILOTING', `airframe authority ${pct((st.piloting - 5) * 0.06)}`],
+    ['engineering', 'ENGINEERING', `a patch is worth ${pct((st.engineering - 5) * 0.04)}`],
+    ['leadership', 'LEADERSHIP', `command reach ${pct((st.leadership - 5) * 0.06)}`],
+    ['science', 'SCIENCE', `hack recovery ${pct(-(st.science - 5) * 0.04)}`],
+    ['charisma', 'CHARISMA', `talking them out of it ${pct((st.charisma - 5) * 0.04)}`],
+  ];
+  return '<div class="sf-block"><h4>THE EIGHT</h4>'
+    + rows.map(([k, name, effect]) => {
+      const v = st[k] as number;
+      return `<div class="sf-row"><span>${name}</span><span class="sf-fig">${v}</span></div>`
+        + `<div class="sf-rankbar"><i style="width:${Math.round((v / 10) * 100)}%"></i></div>`
+        + `<div class="sf-note">${esc(effect)}</div>`;
+    }).join('')
+    + '<div class="sf-note">5 is the baseline the whole game was tuned around — '
+    + 'at 5 a stat costs nothing and buys nothing. Stats help; they do not decide.</div></div>';
 }
 
 function garageHtml(): string {
@@ -124,7 +208,8 @@ function boardHtml(): string {
 /** Paint the whole file into a host element. */
 export function renderServiceFile(host: HTMLElement): void {
   const id = loadIdentity();
+  const dossier = currentCareer();
   const who = id ? `${esc(id.callsign)} · ${id.faction === 'collective' ? 'THE COLLECTIVE' : 'THE UNITED FRONT'}` : 'UNREGISTERED';
   host.innerHTML = `<div class="sf-head">SERVICE FILE — ${who}</div>`
-    + `<div class="sf-grid">${boardHtml()}${papersHtml()}${chestHtml()}${recordsHtml()}${garageHtml()}</div>`;
+    + `<div class="sf-grid">${boardHtml()}${tradesHtml(dossier)}${statsHtml(dossier)}${papersHtml()}${chestHtml()}${recordsHtml()}${garageHtml()}</div>`;
 }

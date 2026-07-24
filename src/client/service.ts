@@ -43,13 +43,24 @@ function saveTally(t: Tally): void {
   try { localStorage.setItem(KEY, JSON.stringify(t)); } catch { /* private mode */ }
 }
 
-/** File one match into the record. Called once when a match ends. */
-export function fileService(input: { won: boolean; kills: number; medals?: number; skillBands?: number }): void {
+/**
+ * File one match into the record. Called once when a match ends.
+ *
+ * `careerBands` is a SNAPSHOT of the bands the career currently holds, and it
+ * REPLACES the stored figure. It used to be a per-match count that was ADDED —
+ * recomputed every deploy from a soldier who always restarted at his hometown's
+ * 30 — so a snapshot accumulated as though it were an increment and rank (8
+ * service points a band) inflated by your whole band total on every single
+ * deploy, forever, whether or not you had learned a thing. Matches and kills
+ * are genuinely incremental and still add; bands are a state of being and are
+ * now assigned.
+ */
+export function fileService(input: { won: boolean; kills: number; medals?: number; careerBands?: number }): void {
   const t = loadTally();
   t.matches += 1;
   t.kills += Math.max(0, Math.round(input.kills));
   t.medals += Math.max(0, input.medals ?? 0);
-  t.skillBands += Math.max(0, input.skillBands ?? 0);
+  if (input.careerBands !== undefined) t.skillBands = Math.max(0, Math.round(input.careerBands));
   saveTally(t);
 }
 

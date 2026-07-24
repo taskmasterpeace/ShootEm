@@ -31,9 +31,15 @@ describe('Operation service record', () => {
     old.lifetime.kills = 19;
     delete old.operations;
     const migrated = migrateDossier(old, 'Reyes');
-    expect(migrated.v).toBe(2);
+    expect(migrated.v).toBe(3);
     expect(migrated.lifetime.kills).toBe(19);
     expect(migrated.operations.sorties).toBe(0);
+    // v3 added THE CAREER LEDGER — a career from before it existed starts an
+    // empty sheet at the neutral 5s and keeps every single thing it earned.
+    // Nobody loses a rank, a medal or a kill to a schema bump.
+    expect(migrated.lifetime.trades).toEqual({});
+    expect(migrated.lifetime.stats.power).toBe(5);
+    expect(migrated.lifetime.stats.charisma).toBe(5);
   });
 
   it('attributes destroyed target kinds to the named committed hull in the event stream', () => {

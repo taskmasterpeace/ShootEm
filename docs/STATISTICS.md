@@ -23,10 +23,27 @@ of the audit — "we have it" and "the code uses it" are different sentences.
 A stat can be WIRED for one thing and mean nothing for another — those are
 listed twice with the honest tag each time.
 
-**The one-line honest summary up front (re-audited 2026-07-23):** all **8 master
-stats and all 22 skills now reach the simulation.** They did not when this file
-was first written — the audit below is kept in full, because how a stat was dead
-is more useful than a claim that it is alive.
+**The one-line honest summary up front (re-audited twice on 2026-07-23):** all
+**8 master stats and all 22 skills reach the simulation, and the sheet now
+survives the whistle.**
+
+The second audit is the one that mattered, and it corrects the first. "Wired"
+turned out not to mean "reaching the player":
+
+> **THE PLAYER HAD NO STATS.** `world.ts` hardcoded every human to a flat 5,
+> and `statMul(5)` / `statQuick(5)` are **exactly 1.000 at every strength** —
+> so all nine stat hooks multiplied by one for the person actually playing.
+> Measured: player `{hp, melee, reload, dash, repair, hack, hotwire, lead,
+> pilot}` = 1.000 × 9. A bot's, on the same bench, ranged 0.92–1.08. Eight
+> named stats that could only ever move for somebody else.
+>
+> **THE PLAYER HAD NO MEMORY.** `s.skill` was copied from the hometown grant at
+> spawn and never written back. Twenty-five save stores existed and **not one
+> held a skill**. Every trade was re-earned from 30 each deploy and deleted at
+> the whistle — so the reticle, correctly, was telling the truth about a number
+> that was about to be thrown away.
+
+Both are closed. See §2.7 THE CAREER.
 
 **THE AUDIT IS A TEST NOW.** `tests/stat-wiring.test.ts` (18) asks every skill
 the only two questions that matter — *can it be EARNED?* and *does being better
@@ -274,6 +291,86 @@ hand-authoring. **● WIRED** — handed to the sim as `startingSkills`
 Note: only Garrison (Rifle+Scout — Rifle wired), Mining (Explosives wired),
 Farm (Rifle wired) hand you a skill that currently *does* anything. The rest
 seed inert skills.
+
+### 2.4b THE CAREER — the sheet between deployments (`src/client/career.ts`) — ● WIRED
+
+*Added 2026-07-23. This is the section the whole document was missing.*
+
+Everything above describes a system that worked and then forgot. The ledger is
+what makes it a career instead of a twelve-minute rehearsal.
+
+**Where it lives.** `Dossier` (IndexedDB, `ww_dossier`) bumped **v2 → v3** with
+a migration that keeps every kill, medal and rank a v1/v2 career already had.
+Two new fields under `lifetime`:
+
+| Field | What it is |
+|---|---|
+| `trades: Partial<Record<SkillId, TradeLedger>>` | per-trade `{ practice, peak, idle }` |
+| `stats: SoldierStats` | the eight, kept across deploys (fresh = the neutral 5s) |
+
+**The way in.** `careerSkills()` merges the ledger **over** the hometown grant
+and `careerStats()` reads the eight; both arrive at the sim through
+`WorldOptions` — the same door `papers`, `rank` and `clockPhase` already come
+through. So a stat can only ever move **between** matches, the tick loop stays
+a pure function of its inputs, and none of this can desync multiplayer: the
+sheet is not in `snapshot.ts` at all.
+
+**The way out.** `bankDeploy()` runs once at the whistle, at the exact line
+where `me.skill` used to be read for a band count and then dropped.
+
+#### The three laws
+
+**1 · THE BADGE IS SAFE.** `skillLevel` is a STEP over `BANDS = [0, 25, 80, 200,
+450, 900]`, so a raw slide from 210 to 195 does not shave a percent off Skilled
+— it *revokes* it. `peak` is monotonic and `rust()` clamps to `BANDS[level(peak)]`.
+Measured: drilled to 700 (deep Expert), then ignored for 60 deploys → rests at
+**exactly 450** and stops. Still Expert, forever. You lose the momentum you
+banked inside a band; you never lose what you proved.
+
+**2 · THE UNIT IS THE DEPLOY, NOT THE CALENDAR.** A game-day is two real hours,
+so twelve pass per real day — a week away would be 84 days of rot. Worse, the
+clock is **player-writable** (`ww_time_control`): a calendar rule would let
+anyone embalm a career by freezing the world or erase one with the admin scrub.
+Counting deploys makes being offline free *by construction* and makes the rule
+unscrubbable.
+
+**3 · THE BIRTHRIGHT IS A FLOOR, NOT A REPUTATION.** "Used it" means you gained
+ground on the number **the sim was handed**, not on what the career held.
+Measured the other way first and it sawtoothed: `careerSkills` floors every
+trade at the hometown grant, so a trade rusted below 30 came back at 30, read as
+used, cleared its idle counter and rusted again — forever oscillating just under
+its birthright.
+
+`RUST_GRACE = 3` deploys · `RUST_BITE = 6` raw, growing while you keep ignoring it.
+
+#### The feedback, at last
+
+| Beat | Where | What it does |
+|---|---|---|
+| **The band crossing** | `skill_band` SimEvent → `#kill-confirm` | `⌁ RIFLE — SKILLED` under the reticle. **Exactly 5 per trade in a whole career**, so it can afford to be a moment. The reticle is sized from `handSpreadMul`, so the circle *contracts on the same frame the words appear* — the only progression in the game you can watch happen in your own crosshair. |
+| **YOUR TRADES** | `service-file.ts` | The block this file never had, despite the promotion board pricing skill bands at 8 service points each. Prints `skillEdge` — the multiplier the **bullet** uses — called directly, so the sheet can never disagree with the fight. Flags `RUSTING · n DEPLOYS IDLE` and `LAPSED FROM EXPERT`. |
+| **THE EIGHT** | `service-file.ts` | All eight drawn, each with what it *actually buys* beside it (`command reach +24%`, `reload −6%`). Three of them used to be a debug string on the vitals chip; five appeared nowhere in the product. |
+| **What this deployment taught you** | `hud.careerHtml` (after-action) | The delta, with rust printed in the same breath — decay you **watch** is a scoreboard; decay you discover later is theft. |
+
+#### One defect closed on the way
+
+`fileService` did `t.skillBands += bandsThisMatch`, where the count was
+recomputed each deploy from a soldier who always restarted at his hometown's 30.
+A per-match snapshot was being **added as though it were an increment**, so rank
+(8 service points a band) inflated by your whole band total on **every single
+deploy, forever**, whether or not you had learned anything. `careerBands()` now
+reads the total from the career and the tally is *assigned*, not accumulated.
+
+#### One predicate, not two
+
+`isTrainable(s)` — `ascendant === undefined && (human || bot)` — is now exported
+from `skills.ts` and used by both practice and rust. It was previously inlined
+at the damage site with a comment recording what it cost to learn (a practising
+Barrier sharpened its own aim and pushed itself out of its own measured threat
+band). Two copies of an exemption is how the threat table breaks quietly six
+months from now. Read live, never cached: a reprint clears `ascendant`.
+
+Guarded by `tests/career.test.ts` (24).
 
 ### 2.5 Morale (`src/sim/morale.ts`) — ● WIRED
 
@@ -840,7 +937,7 @@ versus what the code does.
 | # | Stat / system | Where it's declared | Why it's a gap |
 |---|---|---|---|
 | ~~1~~ | ~~5 of the 8 master stats~~ | — | **CLOSED 2026-07-23.** All 8 read by the sim; see §2.1. Guarded by `tests/stat-wiring.test.ts`. |
-| **2** | **Master-stat DECAY ("use it or lose it")** | LOCKED in canon + `types.ts` comment | ○ UNBUILT — no decay code exists. Stats are set once at spawn, never move. The entire "generalist cap" balancing mechanism is prose. |
+| ~~2~~ | ~~Master-stat DECAY~~ | — | **CLOSED 2026-07-23** for the SKILL sheet: `rust()` ticks per deploy with a high-water floor (§2.4b). The eight master stats now persist and can be moved between matches through `WorldOptions.startingStats`, but nothing yet *awards* or *decays* them — that is the meta-layer's job and is the honest remaining gap. |
 | ~~3~~ | ~~14 of 22 secondary skills~~ | — | **CLOSED 2026-07-23.** All 22 are both earnable and spendable; see the table in §2.4. The related defect — `skillForWeapon` reaching only 61 of 316 weapons — is closed with it. |
 | **4** | **Per-hull CARGO CAPACITY** (Robert's pickup idea) | design intent only | ○ UNBUILT — no `cargoSpace` field. Every road hull shares the same flat 2-slot garage. The pickup's only edge over the tank today is mass/HP, not capacity. Needs a `VehicleDef.cargoSpace` number + a carried-load model. |
 | **5** | **The EXTINCTION threat tier (T4)** | `lsw.ts:38` — 5800 HP, cost 7, 40s telegraph | Fully specified, **zero roster units use it.** The top of the god ladder is empty (roster is 9× T1, 22× T2, 9× T3). |
@@ -885,14 +982,22 @@ Counting distinct stats/fields audited above:
 | **◐ DECLARED ONLY** | **~5** | crusher ram · `rails` route · `civilian` sim-flag · nation military/intel/science/lswActivity *for combat* |
 | **○ UNBUILT** | **~7 systems** | master-stat decay · per-hull cargo capacity · EXTINCTION T4 roster · full command/doctrine-vote layer · nation combat doctrine · the ~14 hidden story-stats · rail track generator |
 
-**Headline (2026-07-23 re-audit): 8 of 8 master stats wired · 22 of 22 skills
-wired, each both earnable and spendable · 267 of 316 weapons now train a trade
-(was 61) · the reticle reports the true cone · the entire vehicle drivetrain
-wired · 4 flags declared-but-inert · 7 named META systems unbuilt.**
+**Headline (2026-07-23, second re-audit): 8 of 8 master stats wired AND
+reaching the player · 22 of 22 skills wired, each both earnable and spendable ·
+the sheet SURVIVES the whistle (Dossier v3) · rust ticks per deploy and can
+never revoke a proved band · 267 of 316 weapons train a trade (was 61) · the
+reticle reports the true cone · a rank-inflation defect closed · 4 flags
+declared-but-inert · 7 named META systems unbuilt.**
 
-**The audit is executable.** `tests/stat-wiring.test.ts` re-proves the two
-questions — earnable? spendable? — on every run, so this file cannot quietly
-become fiction again.
+**The audit is executable.** `tests/stat-wiring.test.ts` (18) re-proves the two
+questions — earnable? spendable? — and `tests/career.test.ts` (24) proves the
+three laws of the ledger, so this file cannot quietly become fiction again.
+
+**What is still honestly missing**, and it is now a short list: nothing *awards*
+a master stat (they persist and can move, but no system moves them yet); the
+`silhouette` idea — a derived character the world calls you by — is unbuilt; and
+the meta-layer levers (nation doctrine in combat, cargo capacity, the command
+vote, the ~14 story-stats) remain named-but-empty.
 
 *Written from the source at the cited lines. When a number here disagrees with a
 `docs/*.md`, trust this file — it was read out of the code.*
